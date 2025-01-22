@@ -1294,7 +1294,7 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(
     const unsigned int shmemsize =
         BwdTransSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1, nm0,
                                                              nm1);
-    const auto blocksize = GetSYCLBlockSize<Implementation>(nq0 * nq1);
+    const auto blocksize = GetSYCLBlockSize<Implementation>(nmTot);
     const auto gridsize  = GetSYCLGridSize<Implementation>(nelmt);
 
     Q.submit([&](sycl::handler &cgh) {
@@ -1342,7 +1342,7 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
     const unsigned int shmemsize =
         BwdTransSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1, nq2, nm0,
                                                              nm1, nm2);
-    const auto blocksize = GetSYCLBlockSize<Implementation>(nm0 * nm1 * nm2);
+    const auto blocksize = GetSYCLBlockSize<Implementation>(nmTot);
     const auto gridsize  = GetSYCLGridSize<Implementation>(nelmt);
 
     Q.submit([&](sycl::handler &cgh) {

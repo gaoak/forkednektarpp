@@ -55,7 +55,7 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorIProductWRTDerivBase<TData>(expansionList)
     {
-        size_t dimension = this->m_expansionList->GetShapeDimension();
+        unsigned int dimension = this->m_expansionList->GetShapeDimension();
 
         // Initialise jacobian.
         auto locblocks =
@@ -70,13 +70,13 @@ public:
             dimension, LibUtilities::NullBasisKey);
 
         // Loop over the elements of expansionList.
-        size_t nTotElmts = this->m_expansionList->GetNumElmts();
-        for (size_t e = 0; e < nTotElmts; ++e)
+        unsigned int nTotElmts = this->m_expansionList->GetNumElmts();
+        for (unsigned int e = 0; e < nTotElmts; ++e)
         {
             const auto expPtr = this->m_expansionList->GetExp(e);
 
             // Fetch basiskeys of current element.
-            for (size_t d = 0; d < dimension; d++)
+            for (unsigned int d = 0; d < dimension; d++)
             {
                 basisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
             }
@@ -84,16 +84,16 @@ public:
             // Copy data to m_mat, if necessary.
             if (m_mat.find(basisKeys) == m_mat.end())
             {
-                size_t nqTot = expPtr->GetTotPoints();
-                size_t nmTot = expPtr->GetNcoeffs();
+                unsigned int nqTot = expPtr->GetTotPoints();
+                unsigned int nmTot = expPtr->GetNcoeffs();
                 Array<OneD, NekDouble> tmp(nqTot), t;
                 // Get IProductWRTDerivBase matrix.
                 auto &matPtr = m_mat[basisKeys];
-                for (size_t d = 0; d < dimension; ++d)
+                for (unsigned int d = 0; d < dimension; ++d)
                 {
                     matPtr.push_back(Array<OneD, TData>(nqTot * nmTot));
                     Array<OneD, NekDouble> temp(nqTot * nmTot);
-                    for (size_t i = 0; i < nqTot; ++i)
+                    for (unsigned int i = 0; i < nqTot; ++i)
                     {
                         Vmath::Zero(nqTot, tmp, 1);
                         tmp[i] = 1.0;
@@ -101,9 +101,9 @@ public:
                             d, tmp, t = temp + i * nmTot);
                     }
                     // copy temp to matPtr
-                    for (size_t i = 0; i < nqTot; ++i)
+                    for (unsigned int i = 0; i < nqTot; ++i)
                     {
-                        for (size_t j = 0; j < nmTot; ++j)
+                        for (unsigned int j = 0; j < nmTot; ++j)
                         {
                             matPtr[d][j + i * nmTot] = temp[j + i * nmTot];
                         }
@@ -116,7 +116,7 @@ public:
     void apply(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Coeff> &out) override
     {
-        size_t dimension = this->m_expansionList->GetShapeDimension();
+        unsigned int dimension = this->m_expansionList->GetShapeDimension();
 
         m_nComps = out.GetNumComponents();
         ASSERTL1(m_nComps == in.GetNumComponents() /
@@ -128,7 +128,7 @@ public:
             dimension, LibUtilities::NullBasisKey);
 
         // Initialize index.
-        size_t exp_idx = 0;
+        unsigned int exp_idx = 0;
 
         // Loop over the blocks.
         for (m_blk = 0; m_blk < out.GetBlocks().size(); ++m_blk)
@@ -225,61 +225,45 @@ public:
             // Calculate dx/dxi in[0] + dy/dxi in[1] + dz/dxi in[2].
             if (deformed)
             {
-                for (size_t d = 0; d < dimension; ++d)
+                for (unsigned int d = 0; d < dimension; d++)
                 {
-                    Vmath::Vmul(nElmts * nqTot, dfPtr + d, ndf, inptr, 1,
-                                wspptr + d * nElmts * nqTot, 1);
-                    for (size_t i = 1; i < nCoord; ++i)
-                    {
-                        Vmath::Vvtvp(nElmts * nqTot, dfPtr + d + i * dimension,
-                                     ndf, inptr + i * inblock.size(), 1,
-                                     wspptr + d * nElmts * nqTot, 1,
-                                     wspptr + d * nElmts * nqTot, 1);
-                    }
-                }
-            }
-            else
-            {
-                for (size_t e = 0; e < nElmts; ++e)
-                {
-                    for (size_t d = 0; d < dimension; ++d)
-                    {
-                        Vmath::Smul(nqTot, dfPtr[ndf * e + d],
-                                    inptr + e * nqTot, 1,
-                                    wspptr + d * nElmts * nqTot + e * nqTot, 1);
-                        for (size_t i = 1; i < nCoord; ++i)
-                        {
-                            Vmath::Svtvp(
-                                nqTot, dfPtr[ndf * e + d + i * dimension],
-                                inptr + i * inblock.size() + e * nqTot, 1,
-                                wspptr + d * nElmts * nqTot + e * nqTot, 1,
-                                wspptr + d * nElmts * nqTot + e * nqTot, 1);
-                        }
-                    }
-                }
-            }
+                    TData *ptr = wspptr + d * nElmts * nqTot;
 
-            // Multiply by jacobian.
-            if (deformed)
-            {
-                for (size_t d = 0; d < dimension; ++d)
-                {
-                    Vmath::Vmul(nElmts * nqTot, jacPtr, 1,
-                                wspptr + d * nElmts * nqTot, 1,
-                                wspptr + d * nElmts * nqTot, 1);
+                    Nektar::parallel_for<ExecSpace>(
+                        0, nElmts * nqTot, [&](const unsigned int i) {
+                            ptr[i] = dfPtr[ndf * i + d] * inptr[i];
+                            for (unsigned int k = 1; k < nCoord; ++k)
+                            {
+                                ptr[i] += dfPtr[ndf * i + k * dimension + d] *
+                                          inptr[i + k * inblock.size()];
+                            }
+                        });
                 }
             }
             else
             {
-                for (size_t e = 0; e < nElmts; ++e)
-                {
-                    for (size_t d = 0; d < dimension; ++d)
-                    {
-                        Vmath::Smul(nqTot, jacPtr[e],
-                                    wspptr + d * nElmts * nqTot + e * nqTot, 1,
-                                    wspptr + d * nElmts * nqTot + e * nqTot, 1);
-                    }
-                }
+                Nektar::parallel_for<ExecSpace>(
+                    0, nElmts, [&](const unsigned int e) {
+                        for (unsigned int d = 0; d < dimension; d++)
+                        {
+                            TData *ptr = wspptr + d * nElmts * nqTot;
+                            for (unsigned int i = 0; i < nqTot; i++)
+                            {
+                                ptr[nqTot * e + i] =
+                                    dfPtr[ndf * e + d] * inptr[nqTot * e + i];
+                            }
+                            for (unsigned int k = 1; k < nCoord; ++k)
+                            {
+                                for (unsigned int i = 0; i < nqTot; i++)
+                                {
+                                    ptr[nqTot * e + i] +=
+                                        dfPtr[ndf * e + k * dimension + d] *
+                                        inptr[nqTot * e + i +
+                                              k * inblock.size()];
+                                }
+                            }
+                        }
+                    });
             }
 
             // Fetch matrix.
@@ -291,13 +275,41 @@ public:
             }
             const auto &matPtr = m_mat[basisKeys];
 
-            // Perform matrix-matrix multiply.
-            for (size_t d = 0; d < dimension; d++)
+            // Multiply by jacobian.
+            if (deformed)
             {
+                for (unsigned int d = 0; d < dimension; d++)
+                {
+                    TData *ptr = wspptr + d * nElmts * nqTot;
+                    Nektar::parallel_for<ExecSpace>(
+                        0, nElmts * nqTot,
+                        [&](const unsigned int i) { ptr[i] *= jacPtr[i]; });
+                }
+            }
+            else
+            {
+                Nektar::parallel_for<ExecSpace>(
+                    0, nElmts, [&](const unsigned int e) {
+                        for (unsigned int d = 0; d < dimension; d++)
+                        {
+                            TData *ptr = wspptr + d * nElmts * nqTot;
+                            for (unsigned int i = 0; i < nqTot; i++)
+                            {
+                                ptr[nqTot * e + i] *= jacPtr[e];
+                            }
+                        }
+                    });
+            }
+
+            // Perform matrix-matrix multiply.
+            for (unsigned int d = 0; d < dimension; d++)
+            {
+                TData *ptr = wspptr + d * nElmts * nqTot;
+
                 TData alpha = (d != 0 || this->m_append);
                 Blas::Gemm('N', 'N', nmTot, nElmts, nqTot, 1.0,
-                           matPtr[d].data(), nmTot, wspptr + d * nElmts * nqTot,
-                           nqTot, alpha, outptr, nmTot);
+                           matPtr[d].data(), nmTot, ptr, nqTot, alpha, outptr,
+                           nmTot);
             }
 
             inptr += nCoord * inblock.size();
@@ -311,7 +323,7 @@ public:
 
 private:
     unsigned int m_blk;
-    size_t m_nComps;
+    unsigned int m_nComps;
 
     LocalRegions::ExpansionSharedPtr m_expPtr;
 

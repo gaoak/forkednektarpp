@@ -118,29 +118,33 @@ public:
     {
         size_t wspsize = 0;
 
-        if (shapeType == LibUtilities::Quad)
+        if (shapeType == LibUtilities::Seg)
         {
-            wspsize = nq1 * nElmts;
+            wspsize = nq0 * nElmts;
+        }
+        else if (shapeType == LibUtilities::Quad)
+        {
+            wspsize = (3 * nq0 * nq1 + nq1) * nElmts;
         }
         else if (shapeType == LibUtilities::Tri)
         {
-            wspsize = nq1 * nElmts;
+            wspsize = (3 * nq0 * nq1 + nq1) * nElmts;
         }
         else if (shapeType == LibUtilities::Hex)
         {
-            wspsize = (nq2 * nq1 + nq2) * nElmts;
+            wspsize = (4 * nq0 * nq1 * nq2 + nq2 * nq1 + nq2) * nElmts;
         }
         else if (shapeType == LibUtilities::Tet)
         {
-            wspsize = (nq2 * nq1 + nq2 + nm2) * nElmts;
+            wspsize = (4 * nq0 * nq1 * nq2 + nq2 * nq1 + nq2 + nm2) * nElmts;
         }
         else if (shapeType == LibUtilities::Prism)
         {
-            wspsize = (nq2 * nq1 + nq2 + nm1) * nElmts;
+            wspsize = (4 * nq0 * nq1 * nq2 + nq2 * nq1 + nq2 + nm1) * nElmts;
         }
         else if (shapeType == LibUtilities::Pyr)
         {
-            wspsize = (nq2 * nq1 + nq2) * nElmts;
+            wspsize = (4 * nq0 * nq1 * nq2 + nq2 * nq1 + nq2) * nElmts;
         }
 
         return wspsize;
@@ -242,7 +246,6 @@ private:
     std::vector<MemoryRegion<TData>> m_jac;
     std::vector<MemoryRegion<TData>> m_df;
     std::vector<MemoryRegion<TData>> m_wsp;
-    std::vector<MemoryRegion<TData>> m_tmp;
 
     std::map<std::vector<LibUtilities::BasisKey>, MemoryRegion<unsigned int>>
         m_index0;
@@ -276,10 +279,6 @@ private:
     void Operator1D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        constexpr bool device_only = true;
-        constexpr bool Scale       = false;
-        constexpr bool Append      = true;
-
         // Shape size.
         const auto nm0 = m_expPtr->GetBasisNumModes(0);
         const auto nq0 = m_expPtr->GetNumPoints(0);
@@ -309,14 +308,18 @@ private:
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
         // Set workspace.
-        if (m_tmp.size() <= m_blk)
+        if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
         {
-            m_tmp.push_back(MemoryRegion<TData>::template Create<MemSpace>(
-                nCoord * inblock.size(), ExecSpace::alignment, device_only));
+            if (m_wsp.size() <= m_blk)
+            {
+                m_wsp.push_back(
+                    SetWorkspace(SHAPE_TYPE, nElmtsPad, nq0, 0, 0, nm0, 0, 0));
+            }
         }
 
-        // Get workspace pointer.
-        TData *tmpptr = m_tmp[m_blk].template GetPtr<MemSpace, WriteOnly>();
+        auto wspptr = std::is_same_v<Implementation, Operators::SumFac>
+                          ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
+                          : nullptr;
 
         // Loop over components.
         for (unsigned int nc = 0; nc < m_nComps; ++nc)
@@ -333,10 +336,8 @@ private:
             }
 
             IProductWRTDerivBase1DKernel<ExecSpace, Implementation, DEFORMED>(
-                nCoord, nq0, nElmtsPad, dfptr, inptr, tmpptr);
-            IProductWRTBase1DKernel<ExecSpace, Implementation, Scale, Append,
-                                    DEFORMED>(nm0, nq0, nElmtsPad, DB0, W0,
-                                              jacptr, tmpptr, outptr);
+                nCoord, nm0, nq0, nElmtsPad, DB0, W0, dfptr, jacptr, inptr,
+                outptr, wspptr);
 
             inptr += nCoord * inblock.size();
             outptr += outblock.size();
@@ -353,10 +354,6 @@ private:
     void Operator1D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        constexpr bool device_only = true;
-        constexpr bool Scale       = false;
-        constexpr bool Append      = true;
-
         const auto nCoord = m_expPtr->GetCoordim();
 
         // Get Basis and weight data.
@@ -382,14 +379,18 @@ private:
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
         // Set workspace.
-        if (m_tmp.size() <= m_blk)
+        if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
         {
-            m_tmp.push_back(MemoryRegion<TData>::template Create<MemSpace>(
-                nCoord * inblock.size(), ExecSpace::alignment, device_only));
+            if (m_wsp.size() <= m_blk)
+            {
+                m_wsp.push_back(
+                    SetWorkspace(SHAPE_TYPE, nElmtsPad, nq0, 0, 0, nm0, 0, 0));
+            }
         }
 
-        // Get workspace pointer.
-        TData *tmpptr = m_tmp[m_blk].template GetPtr<MemSpace, WriteOnly>();
+        auto wspptr = std::is_same_v<Implementation, Operators::SumFac>
+                          ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
+                          : nullptr;
 
         // Loop over components.
         for (unsigned int nc = 0; nc < m_nComps; ++nc)
@@ -406,11 +407,10 @@ private:
             }
 
             IProductWRTDerivBase1DKernel<ExecSpace, Implementation, DEFORMED,
-                                         nq0>(nCoord, nElmtsPad, dfptr, inptr,
-                                              tmpptr);
-            IProductWRTBase1DKernel<ExecSpace, Implementation, Scale, Append,
-                                    DEFORMED, nm0, nq0>(nElmtsPad, DB0, W0,
-                                                        jacptr, tmpptr, outptr);
+                                         nm0, nq0>(nCoord, nElmtsPad, DB0, W0,
+                                                   dfptr, jacptr, inptr, outptr,
+                                                   wspptr);
+
             inptr += nCoord * inblock.size();
             outptr += outblock.size();
         }
@@ -426,8 +426,6 @@ private:
                     BlockAccessor<TData> &outblock)
     {
         constexpr bool device_only = true;
-        constexpr bool Scale       = false;
-        constexpr bool Append      = true;
 
         // Shape size.
         const auto nm0 = m_expPtr->GetBasisNumModes(0);
@@ -435,8 +433,6 @@ private:
 
         const auto nq0 = m_expPtr->GetNumPoints(0);
         const auto nq1 = m_expPtr->GetNumPoints(1);
-
-        const auto nqTot = nq0 * nq1;
 
         const auto nCoord = m_expPtr->GetCoordim();
 
@@ -452,10 +448,10 @@ private:
             m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto B1 =
             m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto DB0 =
-            m_dbasisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto DB1 =
-            m_dbasisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto D0 =
+            m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto D1 =
+            m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
         auto W0 =
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto W1 =
@@ -514,17 +510,9 @@ private:
             }
         }
 
-        if (m_tmp.size() <= m_blk)
-        {
-            m_tmp.push_back(MemoryRegion<TData>::template Create<MemSpace>(
-                nCoord * inblock.size(), ExecSpace::alignment, device_only));
-        }
-
-        // Get workspace pointer.
-        auto wspptr   = std::is_same_v<Implementation, Operators::SumFac>
-                            ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
-                            : nullptr;
-        TData *tmpptr = m_tmp[m_blk].template GetPtr<MemSpace, WriteOnly>();
+        auto wspptr = std::is_same_v<Implementation, Operators::SumFac>
+                          ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
+                          : nullptr;
 
         // Loop over components.
         for (unsigned int nc = 0; nc < m_nComps; ++nc)
@@ -545,15 +533,9 @@ private:
 
             IProductWRTDerivBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                          DEFORMED>(
-                nCoord, nq0, nq1, nElmtsPad, Z0, Z1, dfptr, inptr, tmpptr);
-            IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                    Scale, Append, DEFORMED>(
-                nm0, nm1, nq0, nq1, nElmtsPad, isModified, index0, DB0, B1, W0,
-                W1, jacptr, tmpptr, outptr, wspptr);
-            IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                    Scale, Append, DEFORMED>(
-                nm0, nm1, nq0, nq1, nElmtsPad, isModified, index0, B0, DB1, W0,
-                W1, jacptr, tmpptr + nElmtsPad * nqTot, outptr, wspptr);
+                nCoord, nm0, nm1, nq0, nq1, nElmtsPad, isModified, index0, B0,
+                B1, D0, D1, W0, W1, Z0, Z1, dfptr, jacptr, inptr, outptr,
+                wspptr);
 
             inptr += nCoord * inblock.size();
             outptr += outblock.size();
@@ -572,11 +554,8 @@ private:
                     BlockAccessor<TData> &outblock)
     {
         constexpr bool device_only = true;
-        constexpr bool Scale       = false;
-        constexpr bool Append      = true;
 
         // Shape size.
-        const auto nqTot  = nq0 * nq1;
         const auto nCoord = m_expPtr->GetCoordim();
 
         // Flag for collapsed coordinate correction.
@@ -591,10 +570,10 @@ private:
             m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto B1 =
             m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto DB0 =
-            m_dbasisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto DB1 =
-            m_dbasisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto D0 =
+            m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto D1 =
+            m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
         auto W0 =
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto W1 =
@@ -653,17 +632,10 @@ private:
             }
         }
 
-        if (m_tmp.size() <= m_blk)
-        {
-            m_tmp.push_back(MemoryRegion<TData>::template Create<MemSpace>(
-                nCoord * inblock.size(), ExecSpace::alignment, device_only));
-        }
-
         // Get workspace pointer.
-        auto wspptr   = std::is_same_v<Implementation, Operators::SumFac>
-                            ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
-                            : nullptr;
-        TData *tmpptr = m_tmp[m_blk].template GetPtr<MemSpace, WriteOnly>();
+        auto wspptr = std::is_same_v<Implementation, Operators::SumFac>
+                          ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
+                          : nullptr;
 
         // Loop over components.
         for (unsigned int nc = 0; nc < m_nComps; ++nc)
@@ -683,18 +655,10 @@ private:
             }
 
             IProductWRTDerivBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                         DEFORMED, nq0, nq1>(
-                nCoord, nElmtsPad, Z0, Z1, dfptr, inptr, tmpptr);
-            IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                    Scale, Append, DEFORMED, nm0, nm1, nq0,
-                                    nq1>(nElmtsPad, isModified, index0, DB0, B1,
-                                         W0, W1, jacptr, tmpptr, outptr,
-                                         wspptr);
-            IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                    Scale, Append, DEFORMED, nm0, nm1, nq0,
-                                    nq1>(
-                nElmtsPad, isModified, index0, B0, DB1, W0, W1, jacptr,
-                tmpptr + nElmtsPad * nqTot, outptr, wspptr);
+                                         DEFORMED, nm0, nm1, nq0, nq1>(
+                nCoord, nElmtsPad, isModified, index0, B0, B1, D0, D1, W0, W1,
+                Z0, Z1, dfptr, jacptr, inptr, outptr, wspptr);
+
             inptr += nCoord * inblock.size();
             outptr += outblock.size();
         }
@@ -710,8 +674,6 @@ private:
                     BlockAccessor<TData> &outblock)
     {
         constexpr bool device_only = true;
-        constexpr bool Scale       = false;
-        constexpr bool Append      = true;
 
         // Shape size.
         const auto nm0 = m_expPtr->GetBasisNumModes(0);
@@ -722,7 +684,6 @@ private:
         const auto nq1 = m_expPtr->GetNumPoints(1);
         const auto nq2 = m_expPtr->GetNumPoints(2);
 
-        const auto nqTot = nq0 * nq1 * nq2;
         const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
 
@@ -743,18 +704,18 @@ private:
             m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
         auto B2 =
             m_basisMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-        auto DB0 =
-            m_dbasisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto DB1 =
-            m_dbasisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto DB2 =
-            m_dbasisMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
         auto W0 =
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto W1 =
             m_weightMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
         auto W2 =
             m_weightMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+        auto D0 =
+            m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto D1 =
+            m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto D2 =
+            m_derivativeMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
         auto Z0 = m_zeroMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto Z1 = m_zeroMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
         auto Z2 = m_zeroMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
@@ -907,17 +868,10 @@ private:
             }
         }
 
-        if (m_tmp.size() <= m_blk)
-        {
-            m_tmp.push_back(MemoryRegion<TData>::template Create<MemSpace>(
-                nCoord * inblock.size(), ExecSpace::alignment, device_only));
-        }
-
         // Get workspace pointer.
-        auto wspptr   = std::is_same_v<Implementation, Operators::SumFac>
-                            ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
-                            : nullptr;
-        TData *tmpptr = m_tmp[m_blk].template GetPtr<MemSpace, WriteOnly>();
+        auto wspptr = std::is_same_v<Implementation, Operators::SumFac>
+                          ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
+                          : nullptr;
 
         // Loop over components.
         for (unsigned int nc = 0; nc < m_nComps; ++nc)
@@ -941,22 +895,9 @@ private:
 
             IProductWRTDerivBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                          DEFORMED>(
-                nq0, nq1, nq2, nElmtsPad, Z0, Z1, Z2, dfptr, inptr, tmpptr);
-            IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                    Scale, Append, DEFORMED>(
                 nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, isModified, index0,
-                index1, index2, DB0, B1, B2, W0, W1, W2, jacptr, tmpptr, outptr,
-                wspptr);
-            IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                    Scale, Append, DEFORMED>(
-                nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, isModified, index0,
-                index1, index2, B0, DB1, B2, W0, W1, W2, jacptr,
-                tmpptr + nElmtsPad * nqTot, outptr, wspptr);
-            IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                    Scale, Append, DEFORMED>(
-                nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, isModified, index0,
-                index1, index2, B0, B1, DB2, W0, W1, W2, jacptr,
-                tmpptr + 2 * nElmtsPad * nqTot, outptr, wspptr);
+                index1, index2, B0, B1, B2, D0, D1, D2, W0, W1, W2, Z0, Z1, Z2,
+                dfptr, jacptr, inptr, outptr, wspptr);
 
             inptr += nCoord * inblock.size();
             outptr += outblock.size();
@@ -975,11 +916,8 @@ private:
                     BlockAccessor<TData> &outblock)
     {
         constexpr bool device_only = true;
-        constexpr bool Scale       = false;
-        constexpr bool Append      = true;
 
         // Shape size.
-        const auto nqTot = nq0 * nq1 * nq2;
         const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
 
@@ -1000,12 +938,12 @@ private:
             m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
         auto B2 =
             m_basisMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-        auto DB0 =
-            m_dbasisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto DB1 =
-            m_dbasisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto DB2 =
-            m_dbasisMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+        auto D0 =
+            m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto D1 =
+            m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto D2 =
+            m_derivativeMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
         auto W0 =
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto W1 =
@@ -1164,17 +1102,10 @@ private:
             }
         }
 
-        if (m_tmp.size() <= m_blk)
-        {
-            m_tmp.push_back(MemoryRegion<TData>::template Create<MemSpace>(
-                nCoord * inblock.size(), ExecSpace::alignment, device_only));
-        }
-
         // Get workspace pointer.
-        auto wspptr   = std::is_same_v<Implementation, Operators::SumFac>
-                            ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
-                            : nullptr;
-        TData *tmpptr = m_tmp[m_blk].template GetPtr<MemSpace, WriteOnly>();
+        auto wspptr = std::is_same_v<Implementation, Operators::SumFac>
+                          ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
+                          : nullptr;
 
         // Loop over components.
         for (unsigned int nc = 0; nc < m_nComps; ++nc)
@@ -1195,24 +1126,13 @@ private:
                     outblock.GetInterleaveWidth(), nElmtsPad,
                     outblock.GetNumData(), outptr);
             }
+
             IProductWRTDerivBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                         DEFORMED, nq0, nq1, nq2>(
-                nElmtsPad, Z0, Z1, Z2, dfptr, inptr, tmpptr);
-            IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                    Scale, Append, DEFORMED, nm0, nm1, nm2, nq0,
-                                    nq1, nq2>(
-                nElmtsPad, isModified, index0, index1, index2, DB0, B1, B2, W0,
-                W1, W2, jacptr, tmpptr, outptr, wspptr);
-            IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                    Scale, Append, DEFORMED, nm0, nm1, nm2, nq0,
-                                    nq1, nq2>(
-                nElmtsPad, isModified, index0, index1, index2, B0, DB1, B2, W0,
-                W1, W2, jacptr, tmpptr + nElmtsPad * nqTot, outptr, wspptr);
-            IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                    Scale, Append, DEFORMED, nm0, nm1, nm2, nq0,
-                                    nq1, nq2>(
-                nElmtsPad, isModified, index0, index1, index2, B0, B1, DB2, W0,
-                W1, W2, jacptr, tmpptr + 2 * nElmtsPad * nqTot, outptr, wspptr);
+                                         DEFORMED, nm0, nm1, nm2, nq0, nq1,
+                                         nq2>(
+                nElmtsPad, isModified, index0, index1, index2, B0, B1, B2, D0,
+                D1, D2, W0, W1, W2, Z0, Z1, Z2, dfptr, jacptr, inptr, outptr,
+                wspptr);
             inptr += nCoord * inblock.size();
             outptr += outblock.size();
         }

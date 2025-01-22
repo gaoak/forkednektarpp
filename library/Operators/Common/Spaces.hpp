@@ -161,7 +161,11 @@ struct SYCL
     using memory_space = NektarSpaces::DeviceSpace;
 #if defined(SYCL_ENABLE_CUDA)
     static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+#if defined(NEKTAR_DEBUG)
+    static constexpr unsigned int defaultBlockSize = 128u;
+#else
     static constexpr unsigned int defaultBlockSize = 256u;
+#endif
     static constexpr unsigned int maximumBlockSize = 1024u;
 #else
     static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;

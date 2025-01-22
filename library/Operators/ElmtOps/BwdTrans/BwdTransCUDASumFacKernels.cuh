@@ -1358,7 +1358,7 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(
     const unsigned int shmemsize =
         sizeof(TData) * BwdTransSharedMemorySize<SHAPE_TYPE, Implementation>(
                             nq0, nq1, nm0, nm1);
-    const unsigned int blocksize = GetCUDABlockSize<Implementation>(nq0 * nq1);
+    const unsigned int blocksize = GetCUDABlockSize<Implementation>(nmTot);
     const unsigned int gridsize  = GetCUDAGridSize<Implementation>(nelmt);
 
     BwdTrans2DKernelLauncher<SHAPE_TYPE, Implementation>
