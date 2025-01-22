@@ -48,7 +48,7 @@ using ScratchMemoryView =
 template <bool DEFORMED, typename TData>
 KOKKOS_INLINE_FUNCTION static void PhysDeriv1DSumFacKernel(
     const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
-    const unsigned int nelmt, const TData *KOKKOS_RESTRICT D0,
+    const unsigned int outsize, const TData *KOKKOS_RESTRICT D0,
     const TData *KOKKOS_RESTRICT df, const TData *KOKKOS_RESTRICT in,
     TData *KOKKOS_RESTRICT out)
 {
@@ -70,17 +70,17 @@ KOKKOS_INLINE_FUNCTION static void PhysDeriv1DSumFacKernel(
         // Multiply by derivative factors.
         for (unsigned int d = 0u; d < ncoord; d++)
         {
-            out[d * nelmt * nq0 + index] = d0 * df[d * warpsize + dfindex];
+            out[d * outsize * nq0 + index] = d0 * df[d * warpsize + dfindex];
         }
     }
 }
 
 template <bool DEFORMED, typename TData>
 KOKKOS_INLINE_FUNCTION static void PhysDeriv1DSumFacQPKernel(
-    const unsigned int ncoord, const unsigned int nq0, const unsigned int nelmt,
-    const TData *KOKKOS_RESTRICT D0, const TData *KOKKOS_RESTRICT df,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
-    const team_handle &team)
+    const unsigned int ncoord, const unsigned int nq0,
+    const unsigned int outsize, const TData *KOKKOS_RESTRICT D0,
+    const TData *KOKKOS_RESTRICT df, const TData *KOKKOS_RESTRICT in,
+    TData *KOKKOS_RESTRICT out, const team_handle &team)
 {
     unsigned int dfsize = 1u;
     if constexpr (DEFORMED)
@@ -102,7 +102,7 @@ KOKKOS_INLINE_FUNCTION static void PhysDeriv1DSumFacQPKernel(
             // Multiply by derivative factors.
             for (unsigned int d = 0u; d < ncoord; d++)
             {
-                out[d * nelmt * nq0 + i] = d0 * df[d * dfsize + dfindex];
+                out[d * outsize * nq0 + i] = d0 * df[d * dfsize + dfindex];
             }
         });
 }
@@ -110,7 +110,7 @@ KOKKOS_INLINE_FUNCTION static void PhysDeriv1DSumFacQPKernel(
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 KOKKOS_INLINE_FUNCTION static void PhysDeriv2DSumFacKernel(
     const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
-    const unsigned int nq1, const unsigned int nelmt,
+    const unsigned int nq1, const unsigned int outsize,
     const TData *KOKKOS_RESTRICT D0, const TData *KOKKOS_RESTRICT D1,
     [[maybe_unused]] const TData *KOKKOS_RESTRICT xfrm0,
     [[maybe_unused]] const TData *KOKKOS_RESTRICT xfrm1,
@@ -155,7 +155,7 @@ KOKKOS_INLINE_FUNCTION static void PhysDeriv2DSumFacKernel(
             // Multiply by derivative factors.
             for (unsigned int d = 0u; d < ncoord; d++)
             {
-                out[d * nelmt * nqTot + index] =
+                out[d * outsize * nqTot + index] =
                     d0 * df[(2u * d) * warpsize + dfindex] +
                     d1 * df[(2u * d + 1u) * warpsize + dfindex];
             }
@@ -164,9 +164,42 @@ KOKKOS_INLINE_FUNCTION static void PhysDeriv2DSumFacKernel(
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
+KOKKOS_INLINE_FUNCTION static void SumDerivTensor2DKernel(
+    const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
+    const TData *KOKKOS_RESTRICT D0, const TData *KOKKOS_RESTRICT D1,
+    const TData *KOKKOS_RESTRICT in0, const TData *KOKKOS_RESTRICT in1,
+    TData *KOKKOS_RESTRICT out)
+{
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+
+    for (unsigned int j = 0u, cnt_ji = 0u; j < nq1; ++j)
+    {
+        for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
+        {
+            // Compute tensorial derivative.
+            // Direction 0
+            TData d0 = 0.0;
+            for (unsigned int q = 0u; q < nq0; ++q)
+            {
+                d0 += D0[i * nq0 + q] * in0[warpsize * (nq0 * j + q) + ilane];
+            }
+
+            // Direction 1
+            TData d1 = 0.0;
+            for (unsigned int q = 0u; q < nq1; ++q)
+            {
+                d1 += D1[j * nq1 + q] * in1[warpsize * (nq0 * q + i) + ilane];
+            }
+
+            out[warpsize * cnt_ji + ilane] = d0 + d1;
+        }
+    }
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 KOKKOS_INLINE_FUNCTION static void PhysDeriv2DSumFacQPKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nelmt, const TData *KOKKOS_RESTRICT D0,
+    const unsigned int outsize, const TData *KOKKOS_RESTRICT D0,
     const TData *KOKKOS_RESTRICT D1, const TData *KOKKOS_RESTRICT Z0,
     const TData *KOKKOS_RESTRICT Z1, const TData *KOKKOS_RESTRICT df,
     const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
@@ -212,7 +245,7 @@ KOKKOS_INLINE_FUNCTION static void PhysDeriv2DSumFacQPKernel(
                              // Multiply by derivative factors.
                              for (unsigned int d = 0u; d < ncoord; d++)
                              {
-                                 out[d * nelmt * nqTot + idx] =
+                                 out[d * outsize * nqTot + idx] =
                                      d0 * df[(2u * d) * dfsize + dfindex] +
                                      d1 * df[(2u * d + 1u) * dfsize + dfindex];
                              }
@@ -222,9 +255,44 @@ KOKKOS_INLINE_FUNCTION static void PhysDeriv2DSumFacQPKernel(
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
+KOKKOS_INLINE_FUNCTION static void SumDerivTensor2DQPKernel(
+    const unsigned int nq0, const unsigned int nq1,
+    const TData *KOKKOS_RESTRICT D0, const TData *KOKKOS_RESTRICT D1,
+    const TData *KOKKOS_RESTRICT in0, const TData *KOKKOS_RESTRICT in1,
+    TData *KOKKOS_RESTRICT out, const team_handle &team)
+{
+    const unsigned int nqTot = nq0 * nq1;
+
+    Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nqTot),
+                         [&](const unsigned int &idx) {
+                             const unsigned int i = idx % nq0;
+                             const unsigned int j = idx / nq0;
+
+                             // Compute tensorial derivative.
+                             // Direction 0
+                             TData d0 = 0.0;
+                             for (unsigned int q = 0u; q < nq0; ++q)
+                             {
+                                 d0 += D0[i * nq0 + q] * in0[nq0 * j + q];
+                             }
+
+                             // Direction 1
+                             TData d1 = 0.0;
+                             for (unsigned int q = 0u; q < nq1; ++q)
+                             {
+                                 d1 += D1[j * nq1 + q] * in1[nq0 * q + i];
+                             }
+
+                             out[idx] = d0 + d1;
+                         });
+
+    team.team_barrier();
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 KOKKOS_INLINE_FUNCTION static void PhysDeriv3DSumFacKernel(
     const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt,
+    const unsigned int nq2, const unsigned int outsize,
     const TData *KOKKOS_RESTRICT D0, const TData *KOKKOS_RESTRICT D1,
     const TData *KOKKOS_RESTRICT D2,
     [[maybe_unused]] const TData *KOKKOS_RESTRICT xfrm_eta0,
@@ -302,7 +370,7 @@ KOKKOS_INLINE_FUNCTION static void PhysDeriv3DSumFacKernel(
                 // Multiply by derivative factors.
                 for (unsigned int d = 0u; d < ncoord; d++)
                 {
-                    out[d * nelmt * nqTot + index] =
+                    out[d * outsize * nqTot + index] =
                         d0 * df[(3u * d) * warpsize + dfindex] +
                         d1 * df[(3u * d + 1u) * warpsize + dfindex] +
                         d2 * df[(3u * d + 2u) * warpsize + dfindex];
@@ -313,9 +381,56 @@ KOKKOS_INLINE_FUNCTION static void PhysDeriv3DSumFacKernel(
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
+KOKKOS_INLINE_FUNCTION static void SumDerivTensor3DKernel(
+    const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nq2, const TData *KOKKOS_RESTRICT D0,
+    const TData *KOKKOS_RESTRICT D1, const TData *KOKKOS_RESTRICT D2,
+    const TData *KOKKOS_RESTRICT in0, const TData *KOKKOS_RESTRICT in1,
+    const TData *KOKKOS_RESTRICT in2, TData *KOKKOS_RESTRICT out)
+{
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+
+    for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; k++)
+    {
+        for (unsigned int j = 0u; j < nq1; j++)
+        {
+            for (unsigned int i = 0u; i < nq0; i++, cnt_kji++)
+            {
+                // Compute tensorial derivative.
+                // Direction 0
+                TData d0 = 0.0;
+                for (unsigned int q = 0u; q < nq0; ++q)
+                {
+                    d0 += D0[i * nq0 + q] *
+                          in0[warpsize * (nq0 * nq1 * k + nq0 * j + q) + ilane];
+                }
+
+                // Direction 1
+                TData d1 = 0.0;
+                for (unsigned int q = 0u; q < nq1; ++q)
+                {
+                    d1 += D1[j * nq1 + q] *
+                          in1[warpsize * (nq0 * nq1 * k + nq0 * q + i) + ilane];
+                }
+
+                // Direction 2
+                TData d2 = 0.0;
+                for (unsigned int q = 0u; q < nq2; ++q)
+                {
+                    d2 += D2[k * nq2 + q] *
+                          in2[warpsize * (nq0 * nq1 * q + nq0 * j + i) + ilane];
+                }
+
+                out[warpsize * cnt_kji + ilane] = d0 + d1 + d2;
+            }
+        }
+    }
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 KOKKOS_INLINE_FUNCTION static void PhysDeriv3DSumFacQPKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const unsigned int nelmt, const TData *KOKKOS_RESTRICT D0,
+    const unsigned int outsize, const TData *KOKKOS_RESTRICT D0,
     const TData *KOKKOS_RESTRICT D1, const TData *KOKKOS_RESTRICT D2,
     const TData *KOKKOS_RESTRICT Z0, const TData *KOKKOS_RESTRICT Z1,
     const TData *KOKKOS_RESTRICT Z2, const TData *KOKKOS_RESTRICT df,
@@ -396,11 +511,55 @@ KOKKOS_INLINE_FUNCTION static void PhysDeriv3DSumFacQPKernel(
             // Multiply by derivative factors.
             for (unsigned int d = 0u; d < ncoord; d++)
             {
-                out[d * nelmt * nqTot + idx] =
+                out[d * outsize * nqTot + idx] =
                     d0 * df[(3u * d) * dfsize + dfindex] +
                     d1 * df[(3u * d + 1u) * dfsize + dfindex] +
                     d2 * df[(3u * d + 2u) * dfsize + dfindex];
             }
+        });
+
+    team.team_barrier();
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
+KOKKOS_INLINE_FUNCTION static void SumDerivTensor3DQPKernel(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const TData *KOKKOS_RESTRICT D0, const TData *KOKKOS_RESTRICT D1,
+    const TData *KOKKOS_RESTRICT D2, const TData *KOKKOS_RESTRICT in0,
+    const TData *KOKKOS_RESTRICT in1, const TData *KOKKOS_RESTRICT in2,
+    TData *KOKKOS_RESTRICT out, const team_handle &team)
+{
+    const unsigned int nqTot = nq0 * nq1 * nq2;
+
+    Kokkos::parallel_for(
+        Kokkos::TeamThreadRange(team, nqTot), [&](const unsigned int &idx) {
+            const unsigned int i = idx % nq0;
+            const unsigned int j = (idx / nq0) % nq1;
+            const unsigned int k = idx / (nq0 * nq1);
+
+            // Compute tensorial derivative.
+            // Direction 0
+            TData d0 = 0.0;
+            for (unsigned int q = 0u; q < nq0; ++q)
+            {
+                d0 += D0[i * nq0 + q] * in0[nq0 * nq1 * k + nq0 * j + q];
+            }
+
+            // Direction 1
+            TData d1 = 0.0;
+            for (unsigned int q = 0u; q < nq1; ++q)
+            {
+                d1 += D1[j * nq1 + q] * in1[nq0 * nq1 * k + nq0 * q + i];
+            }
+
+            // Direction 2
+            TData d2 = 0.0;
+            for (unsigned int q = 0u; q < nq2; ++q)
+            {
+                d2 += D2[k * nq2 + q] * in2[nq0 * nq1 * q + nq0 * j + i];
+            }
+
+            out[idx] = d0 + d1 + d2;
         });
 
     team.team_barrier();

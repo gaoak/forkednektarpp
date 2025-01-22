@@ -722,7 +722,7 @@ NEK_FORCE_INLINE static void Mass2DKernel(
     const unsigned int shmemsize =
         sizeof(TData) *
         MassSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1, nm0, nm1);
-    const unsigned int blocksize = GetCUDABlockSize<Implementation>(nq0 * nq1);
+    const unsigned int blocksize = GetCUDABlockSize<Implementation>(nmTot);
     const unsigned int gridsize  = GetCUDAGridSize<Implementation>(nelmt);
 
     Mass2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>
@@ -745,7 +745,7 @@ NEK_FORCE_INLINE static void Mass2DKernel(
     const unsigned int shmemsize =
         sizeof(TData) *
         MassSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1, nm0, nm1);
-    const unsigned int blocksize = GetCUDABlockSize<Implementation>(nq0 * nq1);
+    const unsigned int blocksize = GetCUDABlockSize<Implementation>(nmTot);
     const unsigned int gridsize  = GetCUDAGridSize<Implementation>(nelmt);
 
     Mass2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED, nm0, nm1, nmTot,

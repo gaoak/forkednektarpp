@@ -422,10 +422,10 @@ NEK_FORCE_INLINE static void SumDerivTensor3DKernel(
     // Direction 2
     if (Deriv2)
     {
-        int cnt_ih = 0;
+        int cnt_hi = 0;
         for (int h = 0; h < nq1; ++h)
         {
-            for (int i = 0; i < nq0; ++i, ++cnt_ih)
+            for (int i = 0; i < nq0; ++i, ++cnt_hi)
             {
                 for (int j = 0; j < nq2; ++j)
                 {
@@ -433,13 +433,13 @@ NEK_FORCE_INLINE static void SumDerivTensor3DKernel(
                     for (int k = 0; k < nq2; ++k)
                     {
                         simd_type v1 =
-                            simd_type(in2[k * nq0 * nq1 + cnt_ih]); // Load 1x
+                            simd_type(in2[k * nq0 * nq1 + cnt_hi]); // Load 1x
                         simd_type v2 = D2[j * nq2 + k];             // Load 1x
 
                         simd_type jac_val;
                         if constexpr (DEFORMED)
                         {
-                            jac_val = jac[k * nq0 * nq1 + cnt_ih];
+                            jac_val = jac[k * nq0 * nq1 + cnt_hi];
                         }
                         else
                         {
@@ -455,10 +455,10 @@ NEK_FORCE_INLINE static void SumDerivTensor3DKernel(
                     // out[j * nq0 * nq1 + i] += prod_sum; // Store 1x
                     simd_type temp;
                     temp.load(out +
-                              (j * nq0 * nq1 + cnt_ih) * simd_type::width);
+                              (j * nq0 * nq1 + cnt_hi) * simd_type::width);
                     temp += prod_sum;
                     temp.store(out +
-                               (j * nq0 * nq1 + cnt_ih) * simd_type::width);
+                               (j * nq0 * nq1 + cnt_hi) * simd_type::width);
                 }
             }
         }

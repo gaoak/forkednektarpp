@@ -81,6 +81,38 @@ NEK_FORCE_INLINE static void IProductWRTBaseSegSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
+NEK_FORCE_INLINE static void IProductWRTBaseSegSumFacKernel(
+    const unsigned int ilane, const unsigned int nm0, const unsigned int nq0,
+    const TData *__restrict basis0, const TData *__restrict in,
+    TData *__restrict out, const TData scale)
+{
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+
+    for (unsigned int p = 0u; p < nm0; ++p)
+    {
+        TData sum = 0.0;
+        for (unsigned int i = 0u; i < nq0; ++i)
+        {
+            sum += in[warpsize * i + ilane] * basis0[p * nq0 + i];
+        }
+
+        if constexpr (SCALE)
+        {
+            sum *= scale;
+        }
+
+        if constexpr (APPEND)
+        {
+            out[warpsize * p + ilane] += sum;
+        }
+        else
+        {
+            out[warpsize * p + ilane] = sum;
+        }
+    }
+}
+
+template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void IProductWRTBaseSegSumFacQPKernel(
     const unsigned int nm0, const unsigned int nq0,
     const TData *__restrict basis0, const TData *__restrict in,
@@ -150,6 +182,53 @@ NEK_FORCE_INLINE static void IProductWRTBaseQuadSumFacKernel(
             for (unsigned int j = 0u; j < nq1; ++j)
             {
                 sum += wsp[warpsize * j + ilane] * basis1[q * nq1 + j] * w1[j];
+            }
+
+            if constexpr (SCALE)
+            {
+                sum *= scale;
+            }
+
+            if constexpr (APPEND)
+            {
+                out[warpsize * (nm0 * q + p) + ilane] += sum;
+            }
+            else
+            {
+                out[warpsize * (nm0 * q + p) + ilane] = sum;
+            }
+        }
+    }
+}
+
+template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
+NEK_FORCE_INLINE static void IProductWRTBaseQuadSumFacKernel(
+    const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
+    const unsigned int nq0, const unsigned int nq1,
+    const TData *__restrict basis0, const TData *__restrict basis1,
+    const TData *__restrict in, TData *__restrict out, TData *__restrict wsp,
+    const TData scale)
+{
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+
+    for (unsigned int p = 0u; p < nm0; ++p)
+    {
+        for (unsigned int j = 0u, cnt_ji = 0u; j < nq1; ++j)
+        {
+            TData sum = 0.0;
+            for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
+            {
+                sum += in[warpsize * cnt_ji + ilane] * basis0[p * nq0 + i];
+            }
+            wsp[warpsize * j + ilane] = sum;
+        }
+
+        for (unsigned int q = 0u; q < nm1; ++q)
+        {
+            TData sum = 0.0;
+            for (unsigned int j = 0u; j < nq1; ++j)
+            {
+                sum += wsp[warpsize * j + ilane] * basis1[q * nq1 + j];
             }
 
             if constexpr (SCALE)
@@ -319,6 +398,78 @@ NEK_FORCE_INLINE static void IProductWRTBaseTriSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
+NEK_FORCE_INLINE static void IProductWRTBaseTriSumFacKernel(
+    const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
+    const unsigned int nq0, const unsigned int nq1, const bool isModified,
+    const TData *__restrict basis0, const TData *__restrict basis1,
+    const TData *__restrict in, TData *__restrict out, TData *__restrict wsp,
+    const TData scale)
+{
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+
+    for (unsigned int p = 0u, mode_pq = 0u; p < nm0; ++p)
+    {
+        for (unsigned int j = 0u, cnt_ji = 0u; j < nq1; ++j)
+        {
+            TData sum = 0.0;
+            for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
+            {
+                sum += in[warpsize * cnt_ji + ilane] * basis0[p * nq0 + i];
+            }
+            wsp[warpsize * j + ilane] = sum;
+        }
+
+        for (unsigned int q = 0u; q < nm1 - p; ++q, ++mode_pq)
+        {
+            TData sum = 0.0;
+            for (unsigned int j = 0u; j < nq1; ++j)
+            {
+                sum += wsp[warpsize * j + ilane] * basis1[mode_pq * nq1 + j];
+            }
+
+            if constexpr (SCALE)
+            {
+                sum *= scale;
+            }
+
+            if constexpr (APPEND)
+            {
+                out[warpsize * mode_pq + ilane] += sum;
+            }
+            else
+            {
+                out[warpsize * mode_pq + ilane] = sum;
+            }
+        }
+    }
+
+    // Correction for singular vertex in collpased coordinates.
+    // Basically we add phi_1 * phi_01 * (weighting, etc) to mode 00
+    // With contributions from every quadrature point
+    if (isModified)
+    {
+        TData iprod_01 = 0.0;
+        for (unsigned int j = 0u, cnt_ji = 0u; j < nq1; ++j)
+        {
+            for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
+            {
+                TData prod = in[warpsize * cnt_ji + ilane] * basis1[nq1 + j];
+                iprod_01 += prod * basis0[nq0 + i];
+            }
+        }
+
+        if constexpr (SCALE)
+        {
+            out[warpsize + ilane] += iprod_01 * scale;
+        }
+        else
+        {
+            out[warpsize + ilane] += iprod_01;
+        }
+    }
+}
+
+template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void IProductWRTBaseTriSumFacQPKernel(
     const unsigned int nm0, [[maybe_unused]] const unsigned int nm1,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -467,6 +618,74 @@ NEK_FORCE_INLINE static void IProductWRTBaseHexSumFacKernel(
                 {
                     sum += wsp1[warpsize * k + ilane] * basis2[r * nq2 + k] *
                            w2[k];
+                }
+
+                if constexpr (SCALE)
+                {
+                    sum *= scale;
+                }
+
+                if constexpr (APPEND)
+                {
+                    out[warpsize * cnt_rqp + ilane] += sum;
+                }
+                else
+                {
+                    out[warpsize * cnt_rqp + ilane] = sum;
+                }
+            }
+        }
+    }
+}
+
+template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
+NEK_FORCE_INLINE static void IProductWRTBaseHexSumFacKernel(
+    const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
+    const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nq2, const TData *__restrict basis0,
+    const TData *__restrict basis1, const TData *__restrict basis2,
+    const TData *__restrict in, TData *__restrict out, TData *__restrict wsp0,
+    TData *__restrict wsp1, const TData scale)
+{
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+
+    for (unsigned int p = 0u; p < nm0; ++p)
+    {
+        for (unsigned int k = 0u, cnt_kj = 0u, cnt_kji = 0u; k < nq2; ++k)
+        {
+            for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
+            {
+                TData sum_kj = 0.0;
+                for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
+                {
+                    sum_kj +=
+                        in[warpsize * cnt_kji + ilane] * basis0[p * nq0 + i];
+                }
+                wsp0[warpsize * cnt_kj + ilane] = sum_kj;
+            }
+        }
+
+        for (unsigned int q = 0u; q < nm1; ++q)
+        {
+            for (unsigned int k = 0u, cnt_kj = 0u; k < nq2; ++k)
+            {
+                TData sum_k = 0.0;
+                for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
+                {
+                    sum_k +=
+                        wsp0[warpsize * cnt_kj + ilane] * basis1[q * nq1 + j];
+                }
+                wsp1[warpsize * k + ilane] = sum_k;
+            }
+
+            for (unsigned int r = 0u; r < nm2; ++r)
+            {
+                const unsigned int cnt_rqp = nm0 * nm1 * r + nm0 * q + p;
+
+                TData sum = 0.0;
+                for (unsigned int k = 0u; k < nq2; ++k)
+                {
+                    sum += wsp1[warpsize * k + ilane] * basis2[r * nq2 + k];
                 }
 
                 if constexpr (SCALE)
@@ -725,6 +944,138 @@ NEK_FORCE_INLINE static void IProductWRTBaseTetSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
+NEK_FORCE_INLINE static void IProductWRTBaseTetSumFacKernel(
+    const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
+    const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nq2, const bool isModified,
+    const TData *__restrict basis0, const TData *__restrict basis1,
+    const TData *__restrict basis2, const TData *__restrict in,
+    TData *__restrict out, TData *__restrict wsp0, TData *__restrict wsp1,
+    TData *__restrict prod, const TData scale)
+{
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+
+    for (unsigned int p = 0u, mode_pq = 0u, mode2 = 0u, mode_pqr = 0u; p < nm0;
+         ++p)
+    {
+        for (unsigned int k = 0u, cnt_kj = 0u, cnt_kji = 0u; k < nq2; ++k)
+        {
+            for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
+            {
+                TData sum_kj = 0.0;
+                for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
+                {
+                    sum_kj +=
+                        in[warpsize * cnt_kji + ilane] * basis0[p * nq0 + i];
+                }
+                wsp0[warpsize * cnt_kj + ilane] = sum_kj;
+            }
+        }
+
+        for (unsigned int q = 0u; q < nm1 - p; ++q, ++mode_pq)
+        {
+            for (unsigned int k = 0u, cnt_kj = 0u; k < nq2; ++k)
+            {
+                TData sum_k = 0.0;
+                for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
+                {
+                    sum_k += wsp0[warpsize * cnt_kj + ilane] *
+                             basis1[mode_pq * nq1 + j];
+                }
+                wsp1[warpsize * k + ilane] = sum_k;
+            }
+
+            for (unsigned int r = 0u; r < nm2 - p - q; ++r, ++mode2, ++mode_pqr)
+            {
+                TData tmp = 0.0;
+                for (unsigned int k = 0u; k < nq2; ++k)
+                {
+                    tmp += wsp1[warpsize * k + ilane] * basis2[mode2 * nq2 + k];
+                }
+
+                if constexpr (SCALE)
+                {
+                    tmp *= scale;
+                }
+
+                if constexpr (APPEND)
+                {
+                    out[warpsize * mode_pqr + ilane] += tmp;
+                }
+                else
+                {
+                    out[warpsize * mode_pqr + ilane] = tmp;
+                }
+            }
+        }
+
+        // increment mode in case order1!=order2
+        for (int q = nm1 - p; q < nm2 - p; ++q)
+        {
+            mode2 += nm2 - p - q;
+        }
+    }
+
+    // Add correction for collapsed coordinate.
+    if (isModified)
+    {
+        for (unsigned int r = 0u; r < nm2; ++r)
+        {
+            prod[warpsize * r + ilane] = 0.0;
+        }
+
+        for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
+        {
+            for (unsigned int j = 0u; j < nq1; ++j)
+            {
+                for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
+                {
+                    const unsigned int index = warpsize * cnt_kji + ilane;
+
+                    // top vertex
+                    TData tmp = basis0[i] * basis1[nq1 + j];
+                    tmp += basis0[nq0 + i] * basis1[j];
+                    tmp += basis0[nq0 + i] * basis1[nq1 + j];
+                    tmp *= basis2[nq2 + k];
+                    tmp *= in[index];
+                    prod[warpsize * (nm2 - 1) + ilane] += tmp;
+
+                    // bottom vertex
+                    prod[ilane] += basis0[nq0 + i] * basis1[nq1 + j] *
+                                   basis2[k] * in[index];
+
+                    // singular edge
+                    for (unsigned int r = 1u; r < nm2 - 1u; ++r)
+                    {
+                        prod[warpsize * r + ilane] +=
+                            basis2[(r + 1) * nq2 + k] * basis1[nq1 + j] *
+                            basis0[nq0 + i] * in[index];
+                    }
+                }
+            }
+        }
+
+        if constexpr (SCALE)
+        {
+            out[warpsize + ilane] += prod[warpsize * (nm2 - 1) + ilane] * scale;
+            for (unsigned int r = 0u; r < nm2 - 1u; ++r)
+            {
+                out[warpsize * (nm2 + r) + ilane] +=
+                    prod[warpsize * r + ilane] * scale;
+            }
+        }
+        else
+        {
+            out[warpsize + ilane] += prod[warpsize * (nm2 - 1) + ilane];
+            for (unsigned int r = 0u; r < nm2 - 1u; ++r)
+            {
+                out[warpsize * (nm2 + r) + ilane] += prod[warpsize * r + ilane];
+            }
+        }
+    }
+}
+
+template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void IProductWRTBaseTetSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -944,12 +1295,6 @@ NEK_FORCE_INLINE static void IProductWRTBaseTetSumFacQPKernel(
     item_ct1.barrier(sycl::access::fence_space::local_space);
 }
 
-/**
-NOTE: The total declared local variable size exceeds 128 bytes. This may cause
-high register pressure with a sub-group size of 32 depending on hardware.
-Leaving it for now but will have to profile later and make appropriate changes
-if necessary.
-*/
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void IProductWRTBasePrismSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
@@ -1058,6 +1403,116 @@ NEK_FORCE_INLINE static void IProductWRTBasePrismSumFacKernel(
                         prod *= jac[warpsize * cnt_kji + ilane];
                     }
 
+                    for (unsigned int q = 0u; q < nm1; ++q)
+                    {
+                        wsp2[warpsize * q + ilane] +=
+                            prod * basis1[q * nq1 + j];
+                    }
+                }
+            }
+        }
+
+        for (unsigned int q = 0u; q < nm1; ++q)
+        {
+            if constexpr (SCALE)
+            {
+                out[warpsize * (nm2 * q + 1u) + ilane] +=
+                    wsp2[warpsize * q + ilane] * scale;
+            }
+            else
+            {
+                out[warpsize * (nm2 * q + 1u) + ilane] +=
+                    wsp2[warpsize * q + ilane];
+            }
+        }
+    }
+}
+
+template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
+NEK_FORCE_INLINE static void IProductWRTBasePrismSumFacKernel(
+    const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
+    const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nq2, const bool isModified,
+    const TData *__restrict basis0, const TData *__restrict basis1,
+    const TData *__restrict basis2, const TData *__restrict in,
+    TData *__restrict out, TData *__restrict wsp0, TData *__restrict wsp1,
+    TData *__restrict wsp2, const TData scale)
+{
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+
+    for (unsigned int p = 0u, mode_pqr = 0u; p < nm0; ++p)
+    {
+        for (unsigned int k = 0u, cnt_kj = 0u, cnt_kji = 0u; k < nq2; ++k)
+        {
+            for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
+            {
+                TData sum_kj = 0.0;
+                for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
+                {
+                    sum_kj +=
+                        in[warpsize * cnt_kji + ilane] * basis0[p * nq0 + i];
+                }
+                wsp0[warpsize * cnt_kj + ilane] = sum_kj;
+            }
+        }
+
+        for (unsigned int q = 0u; q < nm1; ++q)
+        {
+            for (unsigned int k = 0u, cnt_kj = 0u; k < nq2; ++k)
+            {
+                TData sum_k = 0.0;
+                for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
+                {
+                    sum_k +=
+                        wsp0[warpsize * cnt_kj + ilane] * basis1[q * nq1 + j];
+                }
+                wsp1[warpsize * k + ilane] = sum_k;
+            }
+
+            for (int r = 0u; r < nm2 - p; ++r, ++mode_pqr)
+            {
+                unsigned int mode_pr = (2u * nm2 - p + 1u) * p / 2u;
+
+                TData sum_k = 0.0;
+                for (unsigned int k = 0u; k < nq2; ++k)
+                {
+                    sum_k += wsp1[warpsize * k + ilane] *
+                             basis2[(mode_pr + r) * nq2 + k];
+                }
+
+                if constexpr (SCALE)
+                {
+                    sum_k *= scale;
+                }
+
+                if constexpr (APPEND)
+                {
+                    out[warpsize * mode_pqr + ilane] += sum_k;
+                }
+                else
+                {
+                    out[warpsize * mode_pqr + ilane] = sum_k;
+                }
+            }
+        }
+    }
+
+    // Add correction for collapsed coordinate.
+    if (isModified)
+    {
+        for (unsigned int q = 0u; q < nm1; ++q)
+        {
+            wsp2[warpsize * q + ilane] = 0.0;
+        }
+
+        for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
+        {
+            for (unsigned int j = 0u; j < nq1; ++j)
+            {
+                for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
+                {
+                    TData prod = basis2[nq2 + k] * basis0[nq0 + i] *
+                                 in[warpsize * cnt_kji + ilane];
                     for (unsigned int q = 0u; q < nm1; ++q)
                     {
                         wsp2[warpsize * q + ilane] +=
@@ -1410,6 +1865,150 @@ NEK_FORCE_INLINE static void IProductWRTBasePyrSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
+NEK_FORCE_INLINE static void IProductWRTBasePyrSumFacKernel(
+    const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
+    const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nq2, const bool isModified,
+    const TData *__restrict basis0, const TData *__restrict basis1,
+    const TData *__restrict basis2, const TData *__restrict in,
+    TData *__restrict out, TData *__restrict wsp0, TData *__restrict wsp1,
+    const TData scale)
+{
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+
+    for (unsigned int p = 0u, mode2 = 0u, mode_pqr = 0u; p < nm0; ++p)
+    {
+        for (unsigned int k = 0u, cnt_kj = 0u, cnt_kji = 0u; k < nq2; ++k)
+        {
+            for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
+            {
+                TData sum_kj = 0.0;
+                for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
+                {
+                    sum_kj +=
+                        in[warpsize * cnt_kji + ilane] * basis0[p * nq0 + i];
+                }
+                wsp0[warpsize * cnt_kj + ilane] = sum_kj;
+            }
+        }
+
+        for (unsigned int q = 0u; q < p; ++q)
+        {
+            for (unsigned int k = 0u, cnt_kj = 0u; k < nq2; ++k)
+            {
+                TData sum_k = 0.0;
+                for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
+                {
+                    sum_k +=
+                        wsp0[warpsize * cnt_kj + ilane] * basis1[q * nq1 + j];
+                }
+                wsp1[warpsize * k + ilane] = sum_k;
+            }
+
+            for (unsigned int r = 0u; r < nm2 - p; ++r, ++mode2, ++mode_pqr)
+            {
+                TData sum_k = 0.0;
+                for (unsigned int k = 0u; k < nq2; ++k)
+                {
+                    sum_k +=
+                        wsp1[warpsize * k + ilane] * basis2[mode2 * nq2 + k];
+                }
+
+                if constexpr (SCALE)
+                {
+                    sum_k *= scale;
+                }
+
+                if constexpr (APPEND)
+                {
+                    out[warpsize * mode_pqr + ilane] += sum_k;
+                }
+                else
+                {
+                    out[warpsize * mode_pqr + ilane] = sum_k;
+                }
+            }
+        }
+
+        for (unsigned int q = p; q < nm1; ++q)
+        {
+            for (unsigned int k = 0u, cnt_kj = 0u; k < nq2; ++k)
+            {
+                TData sum_k = 0.0;
+                for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
+                {
+                    sum_k +=
+                        wsp0[warpsize * cnt_kj + ilane] * basis1[q * nq1 + j];
+                }
+                wsp1[warpsize * k + ilane] = sum_k;
+            }
+
+            for (unsigned int r = 0u; r < nm2 - q; ++r, ++mode2, ++mode_pqr)
+            {
+                TData sum_k = 0.0;
+                for (unsigned int k = 0u; k < nq2; ++k)
+                {
+                    sum_k +=
+                        wsp1[warpsize * k + ilane] * basis2[mode2 * nq2 + k];
+                }
+
+                if constexpr (SCALE)
+                {
+                    sum_k *= scale;
+                }
+
+                if constexpr (APPEND)
+                {
+                    out[warpsize * mode_pqr + ilane] += sum_k;
+                }
+                else
+                {
+                    out[warpsize * mode_pqr + ilane] = sum_k;
+                }
+            }
+        }
+
+        // increment mode in case order1!=order2
+        for (int q = nm1; q < nm2; ++q)
+        {
+            mode2 += nm2 - q;
+        }
+    }
+
+    // Add correction for collapsed coordinate.
+    if (isModified)
+    {
+        TData prod = 0.0;
+        for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
+        {
+            for (unsigned int j = 0u; j < nq1; ++j)
+            {
+                for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
+                {
+                    // top vertex
+                    TData tmp = basis0[i] * basis1[nq1 + j];
+                    tmp += basis0[nq0 + i] * basis1[j];
+                    tmp += basis0[nq0 + i] * basis1[nq1 + j];
+                    tmp *= basis2[nq2 + k];
+                    tmp *= in[warpsize * cnt_kji + ilane];
+                    prod += tmp;
+                }
+            }
+        }
+
+        // add to existing entry
+        if constexpr (SCALE)
+        {
+            out[warpsize + ilane] += prod * scale;
+        }
+        else
+        {
+            out[warpsize + ilane] += prod;
+        }
+    }
+}
+
+template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void IProductWRTBasePyrSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -1647,29 +2246,21 @@ NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
     else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
         unsigned int nmode0, nmode1;
-        TData *s_wsp0, *s_wsp1;
-        TData *s_basis0, *s_basis1;
-
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
             nmode0 = nm0;
             nmode1 = nm1;
-
-            s_wsp0   = (TData *)shmemptr;
-            s_wsp1   = s_wsp0 + nqTot;
-            s_basis0 = s_wsp1 + nm0 * nq1;
-            s_basis1 = s_basis0 + nm0 * nq0;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
             nmode0 = nm0;
             nmode1 = nmTot;
-
-            s_wsp0   = (TData *)shmemptr;
-            s_wsp1   = s_wsp0 + nqTot;
-            s_basis0 = s_wsp1 + nm0 * nq1;
-            s_basis1 = s_basis0 + nm0 * nq0;
         }
+
+        TData *s_wsp0   = (TData *)shmemptr;
+        TData *s_wsp1   = s_wsp0 + nqTot;
+        TData *s_basis0 = s_wsp1 + nm0 * nq1;
+        TData *s_basis1 = s_basis0 + nm0 * nq0;
 
         // Copy to shared memory.
         for (unsigned int idx = item_ct1.get_local_id(2); idx < nmode0 * nq0;
@@ -1813,62 +2404,42 @@ NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
     }
     else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
-        unsigned int nmode0, nmode1, nmode2;
-        TData *s_wsp0, *s_wsp1, *s_wsp2;
-        TData *s_basis0, *s_basis1, *s_basis2;
-
+        unsigned int nm01, nmode0, nmode1, nmode2;
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
+            nm01   = nm0 * nm1;
             nmode0 = nm0;
             nmode1 = nm1;
             nmode2 = nm2;
-
-            s_wsp0   = (TData *)shmemptr;
-            s_wsp1   = s_wsp0 + nqTot;
-            s_wsp2   = s_wsp1 + nm0 * nq1 * nq2;
-            s_basis0 = s_wsp2 + nm0 * nm1 * nq2;
-            s_basis1 = s_basis0 + nm0 * nq0;
-            s_basis2 = s_basis1 + nm1 * nq1;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
         {
+            nm01   = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
             nmode0 = nm0;
-            nmode1 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+            nmode1 = nm01;
             nmode2 = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-
-            s_wsp0   = (TData *)shmemptr;
-            s_wsp1   = s_wsp0 + nqTot;
-            s_wsp2   = s_wsp1 + nm0 * nq1 * nq2;
-            s_basis0 = s_wsp2 + nmode1 * nq2;
-            s_basis1 = s_basis0 + nm0 * nq0;
-            s_basis2 = s_basis1 + nmode1 * nq1;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
         {
+            nm01   = nm0 * nm1;
             nmode0 = nm0;
             nmode1 = nm1;
             nmode2 = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
-
-            s_wsp0   = (TData *)shmemptr;
-            s_wsp1   = s_wsp0 + nqTot;
-            s_wsp2   = s_wsp1 + nm0 * nq1 * nq2;
-            s_basis0 = s_wsp2 + nm0 * nm1 * nq2;
-            s_basis1 = s_basis0 + nm0 * nq0;
-            s_basis2 = s_basis1 + nm1 * nq1;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
+            nm01   = nm0 * nm1;
             nmode0 = nm0;
             nmode1 = nm1;
             nmode2 = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-
-            s_wsp0   = (TData *)shmemptr;
-            s_wsp1   = s_wsp0 + nqTot;
-            s_wsp2   = s_wsp1 + nm0 * nq1 * nq2;
-            s_basis0 = s_wsp2 + nm0 * nm1 * nq2;
-            s_basis1 = s_basis0 + nm0 * nq0;
-            s_basis2 = s_basis1 + nm1 * nq1;
         }
+
+        TData *s_wsp0   = (TData *)shmemptr;
+        TData *s_wsp1   = s_wsp0 + nqTot;
+        TData *s_wsp2   = s_wsp1 + nm0 * nq1 * nq2;
+        TData *s_basis0 = s_wsp2 + nm01 * nq2;
+        TData *s_basis1 = s_basis0 + nmode0 * nq0;
+        TData *s_basis2 = s_basis1 + nmode1 * nq1;
 
         // Copy to shared memory.
         for (unsigned int idx = item_ct1.get_local_id(2); idx < nmode0 * nq0;
@@ -2015,7 +2586,7 @@ NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
     const unsigned int shmemsize =
         IProductWRTBaseSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1,
                                                                     nm0, nm1);
-    const auto blocksize = GetSYCLBlockSize<Implementation>(nq0 * nq1);
+    const auto blocksize = GetSYCLBlockSize<Implementation>(nmTot);
     const auto gridsize  = GetSYCLGridSize<Implementation>(nelmt);
 
     Q.submit([&](sycl::handler &cgh) {
@@ -2074,7 +2645,7 @@ NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
     const unsigned int shmemsize =
         IProductWRTBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
             nq0, nq1, nq2, nm0, nm1, nm2);
-    const auto blocksize = GetSYCLBlockSize<Implementation>(nm0 * nm1 * nm2);
+    const auto blocksize = GetSYCLBlockSize<Implementation>(nmTot);
     const auto gridsize  = GetSYCLGridSize<Implementation>(nelmt);
 
     Q.submit([&](sycl::handler &cgh) {

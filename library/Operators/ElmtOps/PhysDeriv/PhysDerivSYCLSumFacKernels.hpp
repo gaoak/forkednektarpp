@@ -44,7 +44,7 @@ namespace Nektar::Operators::detail
 template <bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv1DSumFacKernel(
     const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
-    const unsigned int nelmt, const TData *__restrict D0,
+    const unsigned int outsize, const TData *__restrict D0,
     const TData *__restrict df, const TData *__restrict in,
     TData *__restrict out)
 {
@@ -66,17 +66,17 @@ NEK_FORCE_INLINE static void PhysDeriv1DSumFacKernel(
         // Multiply by derivative factors.
         for (unsigned int d = 0u; d < ncoord; d++)
         {
-            out[d * nelmt * nq0 + index] = d0 * df[d * warpsize + dfindex];
+            out[d * outsize * nq0 + index] = d0 * df[d * warpsize + dfindex];
         }
     }
 }
 
 template <bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv1DSumFacQPKernel(
-    const unsigned int ncoord, const unsigned int nq0, const unsigned int nelmt,
-    const TData *__restrict D0, const TData *__restrict df,
-    const TData *__restrict in, TData *__restrict out,
-    const sycl::nd_item<3> &item_ct1)
+    const unsigned int ncoord, const unsigned int nq0,
+    const unsigned int outsize, const TData *__restrict D0,
+    const TData *__restrict df, const TData *__restrict in,
+    TData *__restrict out, const sycl::nd_item<3> &item_ct1)
 {
     unsigned int dfsize = 1u;
     if constexpr (DEFORMED)
@@ -99,7 +99,7 @@ NEK_FORCE_INLINE static void PhysDeriv1DSumFacQPKernel(
         // Multiply by derivative factors.
         for (unsigned int d = 0u; d < ncoord; d++)
         {
-            out[d * nelmt * nq0 + i] = d0 * df[d * dfsize + dfindex];
+            out[d * outsize * nq0 + i] = d0 * df[d * dfsize + dfindex];
         }
     }
 }
@@ -107,7 +107,7 @@ NEK_FORCE_INLINE static void PhysDeriv1DSumFacQPKernel(
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv2DSumFacKernel(
     const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
-    const unsigned int nq1, const unsigned int nelmt,
+    const unsigned int nq1, const unsigned int outsize,
     const TData *__restrict D0, const TData *__restrict D1,
     [[maybe_unused]] const TData *__restrict xfrm0,
     [[maybe_unused]] const TData *__restrict xfrm1, const TData *__restrict df,
@@ -151,7 +151,7 @@ NEK_FORCE_INLINE static void PhysDeriv2DSumFacKernel(
             // Multiply by derivative factors.
             for (unsigned int d = 0u; d < ncoord; d++)
             {
-                out[d * nelmt * nqTot + index] =
+                out[d * outsize * nqTot + index] =
                     d0 * df[(2u * d) * warpsize + dfindex] +
                     d1 * df[(2u * d + 1u) * warpsize + dfindex];
             }
@@ -160,9 +160,42 @@ NEK_FORCE_INLINE static void PhysDeriv2DSumFacKernel(
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
+NEK_FORCE_INLINE static void SumDerivTensor2DKernel(
+    const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
+    const TData *__restrict D0, const TData *__restrict D1,
+    const TData *__restrict in0, const TData *__restrict in1,
+    TData *__restrict out)
+{
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+
+    for (unsigned int j = 0u, cnt_ji = 0u; j < nq1; ++j)
+    {
+        for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
+        {
+            // Compute tensorial derivative.
+            // Direction 0
+            TData d0 = 0.0;
+            for (unsigned int q = 0u; q < nq0; ++q)
+            {
+                d0 += D0[i * nq0 + q] * in0[warpsize * (nq0 * j + q) + ilane];
+            }
+
+            // Direction 1
+            TData d1 = 0.0;
+            for (unsigned int q = 0u; q < nq1; ++q)
+            {
+                d1 += D1[j * nq1 + q] * in1[warpsize * (nq0 * q + i) + ilane];
+            }
+
+            out[warpsize * cnt_ji + ilane] = d0 + d1;
+        }
+    }
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv2DSumFacQPKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nelmt, const TData *__restrict D0,
+    const unsigned int outsize, const TData *__restrict D0,
     const TData *__restrict D1, const TData *__restrict Z0,
     const TData *__restrict Z1, const TData *__restrict df,
     const TData *__restrict in, TData *__restrict out,
@@ -209,7 +242,7 @@ NEK_FORCE_INLINE static void PhysDeriv2DSumFacQPKernel(
         // Multiply by derivative factors.
         for (unsigned int d = 0u; d < ncoord; d++)
         {
-            out[d * nelmt * nqTot + idx] =
+            out[d * outsize * nqTot + idx] =
                 d0 * df[(2u * d) * dfsize + dfindex] +
                 d1 * df[(2u * d + 1u) * dfsize + dfindex];
         }
@@ -219,9 +252,45 @@ NEK_FORCE_INLINE static void PhysDeriv2DSumFacQPKernel(
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
+NEK_FORCE_INLINE static void SumDerivTensor2DQPKernel(
+    const unsigned int nq0, const unsigned int nq1, const TData *__restrict D0,
+    const TData *__restrict D1, const TData *__restrict in0,
+    const TData *__restrict in1, TData *__restrict out,
+    const sycl::nd_item<3> &item_ct1)
+{
+    const unsigned int nqTot = nq0 * nq1;
+
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
+         idx += item_ct1.get_local_range(2))
+    {
+        const unsigned int i = idx % nq0;
+        const unsigned int j = idx / nq0;
+
+        // Compute tensorial derivative.
+        // Direction 0
+        TData d0 = 0.0;
+        for (unsigned int q = 0u; q < nq0; ++q)
+        {
+            d0 += D0[i * nq0 + q] * in0[nq0 * j + q];
+        }
+
+        // Direction 1
+        TData d1 = 0.0;
+        for (unsigned int q = 0u; q < nq1; ++q)
+        {
+            d1 += D1[j * nq1 + q] * in1[nq0 * q + i];
+        }
+
+        out[idx] = d0 + d1;
+    }
+
+    item_ct1.barrier(sycl::access::fence_space::local_space);
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv3DSumFacKernel(
     const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt,
+    const unsigned int nq2, const unsigned int outsize,
     const TData *__restrict D0, const TData *__restrict D1,
     const TData *__restrict D2,
     [[maybe_unused]] const TData *__restrict xfrm_eta0,
@@ -299,7 +368,7 @@ NEK_FORCE_INLINE static void PhysDeriv3DSumFacKernel(
                 // Multiply by derivative factors.
                 for (unsigned int d = 0u; d < ncoord; d++)
                 {
-                    out[d * nelmt * nqTot + index] =
+                    out[d * outsize * nqTot + index] =
                         d0 * df[(3u * d) * warpsize + dfindex] +
                         d1 * df[(3u * d + 1u) * warpsize + dfindex] +
                         d2 * df[(3u * d + 2u) * warpsize + dfindex];
@@ -310,9 +379,56 @@ NEK_FORCE_INLINE static void PhysDeriv3DSumFacKernel(
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
+NEK_FORCE_INLINE static void SumDerivTensor3DKernel(
+    const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nq2, const TData *__restrict D0,
+    const TData *__restrict D1, const TData *__restrict D2,
+    const TData *__restrict in0, const TData *__restrict in1,
+    const TData *__restrict in2, TData *__restrict out)
+{
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+
+    for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; k++)
+    {
+        for (unsigned int j = 0u; j < nq1; j++)
+        {
+            for (unsigned int i = 0u; i < nq0; i++, cnt_kji++)
+            {
+                // Compute tensorial derivative.
+                // Direction 0
+                TData d0 = 0.0;
+                for (unsigned int q = 0u; q < nq0; ++q)
+                {
+                    d0 += D0[i * nq0 + q] *
+                          in0[warpsize * (nq0 * nq1 * k + nq0 * j + q) + ilane];
+                }
+
+                // Direction 1
+                TData d1 = 0.0;
+                for (unsigned int q = 0u; q < nq1; ++q)
+                {
+                    d1 += D1[j * nq1 + q] *
+                          in1[warpsize * (nq0 * nq1 * k + nq0 * q + i) + ilane];
+                }
+
+                // Direction 2
+                TData d2 = 0.0;
+                for (unsigned int q = 0u; q < nq2; ++q)
+                {
+                    d2 += D2[k * nq2 + q] *
+                          in2[warpsize * (nq0 * nq1 * q + nq0 * j + i) + ilane];
+                }
+
+                out[warpsize * cnt_kji + ilane] = d0 + d1 + d2;
+            }
+        }
+    }
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv3DSumFacQPKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const unsigned int nelmt, const TData *__restrict D0,
+    const unsigned int outsize, const TData *__restrict D0,
     const TData *__restrict D1, const TData *__restrict D2,
     const TData *__restrict Z0, const TData *__restrict Z1,
     const TData *__restrict Z2, const TData *__restrict df,
@@ -394,11 +510,56 @@ NEK_FORCE_INLINE static void PhysDeriv3DSumFacQPKernel(
         // Multiply by derivative factors.
         for (unsigned int d = 0u; d < ncoord; d++)
         {
-            out[d * nelmt * nqTot + idx] =
+            out[d * outsize * nqTot + idx] =
                 d0 * df[(3u * d) * dfsize + dfindex] +
                 d1 * df[(3u * d + 1u) * dfsize + dfindex] +
                 d2 * df[(3u * d + 2u) * dfsize + dfindex];
         }
+    }
+
+    item_ct1.barrier(sycl::access::fence_space::local_space);
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
+NEK_FORCE_INLINE static void SumDerivTensor3DQPKernel(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const TData *__restrict D0, const TData *__restrict D1,
+    const TData *__restrict D2, const TData *__restrict in0,
+    const TData *__restrict in1, const TData *__restrict in2,
+    TData *__restrict out, const sycl::nd_item<3> &item_ct1)
+{
+    const unsigned int nqTot = nq0 * nq1 * nq2;
+
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
+         idx += item_ct1.get_local_range(2))
+    {
+        const unsigned int i = idx % nq0;
+        const unsigned int j = (idx / nq0) % nq1;
+        const unsigned int k = idx / (nq0 * nq1);
+
+        // Compute tensorial derivative.
+        // Direction 0
+        TData d0 = 0.0;
+        for (unsigned int q = 0u; q < nq0; ++q)
+        {
+            d0 += D0[i * nq0 + q] * in0[nq0 * nq1 * k + nq0 * j + q];
+        }
+
+        // Direction 1
+        TData d1 = 0.0;
+        for (unsigned int q = 0u; q < nq1; ++q)
+        {
+            d1 += D1[j * nq1 + q] * in1[nq0 * nq1 * k + nq0 * q + i];
+        }
+
+        // Direction 2
+        TData d2 = 0.0;
+        for (unsigned int q = 0u; q < nq2; ++q)
+        {
+            d2 += D2[k * nq2 + q] * in2[nq0 * nq1 * q + nq0 * j + i];
+        }
+
+        out[idx] = d0 + d1 + d2;
     }
 
     item_ct1.barrier(sycl::access::fence_space::local_space);

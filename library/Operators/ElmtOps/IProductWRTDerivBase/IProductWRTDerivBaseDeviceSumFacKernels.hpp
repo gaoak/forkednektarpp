@@ -42,9 +42,25 @@ namespace Nektar::Operators::detail
 {
 
 // Helper function
+template <typename Implementation>
+inline unsigned int IProductWRTDerivBaseSharedMemorySize(
+    const unsigned int nq0, [[maybe_unused]] const unsigned int nm0)
+{
+    if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+    {
+        return 0;
+    }
+    else
+    {
+        return nq0;
+    }
+}
+
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation>
 inline unsigned int IProductWRTDerivBaseSharedMemorySize(const unsigned int nq0,
-                                                         const unsigned int nq1)
+                                                         const unsigned int nq1,
+                                                         const unsigned int nm0,
+                                                         const unsigned int nm1)
 {
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
@@ -59,14 +75,23 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(const unsigned int nq0,
     }
     else
     {
-        return 0;
+        if constexpr (SHAPE_TYPE == LibUtilities::Quad)
+        {
+            return nm0 * nq0 + nm1 * nq1 + 3 * nq0 * nq1 + nm0 * nq1;
+        }
+        else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
+        {
+            const unsigned int nmTot =
+                LibUtilities::StdTriData::getNumberOfCoefficients(nm0, nm1);
+            return nm0 * nq0 + nmTot * nq1 + 3 * nq0 * nq1 + nm0 * nq1;
+        }
     }
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation>
-inline unsigned int IProductWRTDerivBaseSharedMemorySize(const unsigned int nq0,
-                                                         const unsigned int nq1,
-                                                         const unsigned int nq2)
+inline unsigned int IProductWRTDerivBaseSharedMemorySize(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2)
 {
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
@@ -89,13 +114,44 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(const unsigned int nq0,
     }
     else
     {
-        return 0;
+        if constexpr (SHAPE_TYPE == LibUtilities::Hex)
+        {
+            return nm0 * nq0 + nm1 * nq1 + nm2 * nq2 + 4 * nq0 * nq1 * nq2 +
+                   nm0 * nq1 * nq2 + nm0 * nm1 * nq2;
+        }
+        else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
+        {
+            const unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(
+                SHAPE_TYPE, nm0, nm1, nm2);
+            const unsigned int nmode2 =
+                nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+            const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+            return nm0 * nq0 + nm01 * nq1 + nmode2 * nq2 + 4 * nq0 * nq1 * nq2 +
+                   nm0 * nq1 * nq2 + nm01 * nq2;
+        }
+        else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
+        {
+            const unsigned int nm02 = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
+            return nm0 * nq0 + nm1 * nq1 + nm02 * nq2 + 4 * nq0 * nq1 * nq2 +
+                   nm0 * nq1 * nq2 + nm0 * nm1 * nq2;
+        }
+        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+        {
+            const unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(
+                SHAPE_TYPE, nm0, nm1, nm2);
+            const unsigned int nmode2 =
+                nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+            return nm0 * nq0 + nm1 * nq1 + nmode2 * nq2 + 4 * nq0 * nq1 * nq2 +
+                   nm0 * nq1 * nq2 + nm0 * nm1 * nq2;
+        }
     }
 }
 
 } // namespace Nektar::Operators::detail
 
 #include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseDeviceSumFacKernels.hpp"
+#include "Operators/ElmtOps/PhysDeriv/PhysDerivDeviceSumFacKernels.hpp"
+
 #include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseCUDASumFacKernels.cuh"
 #include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseKokkosSumFacKernels.hpp"
 #include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseSYCLSumFacKernels.hpp"

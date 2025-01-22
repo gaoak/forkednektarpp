@@ -1262,9 +1262,8 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(
                                                              nm1);
     const unsigned int shmemsize =
         ScratchMemoryView<TData>::shmem_size(nshared);
-    const unsigned int blocksize =
-        GetKokkosBlockSize<Implementation>(nq0 * nq1);
-    const unsigned int gridsize = GetKokkosGridSize<Implementation>(nelmt);
+    const unsigned int blocksize = GetKokkosBlockSize<Implementation>(nmTot);
+    const unsigned int gridsize  = GetKokkosGridSize<Implementation>(nelmt);
 
     Kokkos::parallel_for(
         Kokkos::TeamPolicy<>(gridsize, blocksize)
@@ -1308,9 +1307,8 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
                                                              nm1, nm2);
     const unsigned int shmemsize =
         ScratchMemoryView<TData>::shmem_size(nshared);
-    const unsigned int blocksize =
-        GetKokkosBlockSize<Implementation>(nm0 * nm1 * nm2);
-    const unsigned int gridsize = GetKokkosGridSize<Implementation>(nelmt);
+    const unsigned int blocksize = GetKokkosBlockSize<Implementation>(nmTot);
+    const unsigned int gridsize  = GetKokkosGridSize<Implementation>(nelmt);
 
     Kokkos::parallel_for(
         Kokkos::TeamPolicy<>(gridsize, blocksize)

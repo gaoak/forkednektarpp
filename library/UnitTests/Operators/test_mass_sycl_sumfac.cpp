@@ -78,9 +78,9 @@ TEST_MASS(mass_sycl_sumfac_hex_sem, HexSEM, 1.0E-12)
 
 TEST_MASS(mass_sycl_sumfac_hex_varp, HexVarP, 1.0E-12)
 
-// TEST_MASS(mass_sycl_sumfac_prism, Prism, 1.0E-12)
+TEST_MASS(mass_sycl_sumfac_prism, Prism, 1.0E-12)
 
-// TEST_MASS(mass_sycl_sumfac_prism_varp, PrismVarP, 1.0E-12)
+TEST_MASS(mass_sycl_sumfac_prism_varp, PrismVarP, 1.0E-12)
 
 TEST_MASS(mass_sycl_sumfac_pyr, Pyr, 1.0E-12)
 
@@ -90,8 +90,8 @@ TEST_MASS(mass_sycl_sumfac_tet, Tet, 1.0E-12)
 
 TEST_MASS(mass_sycl_sumfac_tet_varp, TetVarP, 1.0E-12)
 
-// TEST_MASS(mass_sycl_sumfac_cube_prism_hex, CubePrismHex, 1.0E-12)
+TEST_MASS(mass_sycl_sumfac_cube_prism_hex, CubePrismHex, 1.0E-12)
 
-// TEST_MASS(mass_sycl_sumfac_cube_all_elements, CubeAllElements, 1.0E-12)
+TEST_MASS(mass_sycl_sumfac_cube_all_elements, CubeAllElements, 1.0E-12)
 
 BOOST_AUTO_TEST_SUITE_END()
