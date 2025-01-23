@@ -440,18 +440,18 @@ NEK_FORCE_INLINE void IProductWRTDerivBase1DKernel(
             const TData *jacptr =
                 DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
             const TData *inptr = in + nq0 * warpsize * iwarp;
-            TData *wspptr      = wsp + nq0 * warpsize * iwarp;
+            TData *deriv       = wsp + nq0 * warpsize * iwarp;
             TData *outptr      = out + nm0 * warpsize * iwarp;
             StdAlignDerivBase1DSumFacKernel<DEFORMED>(
-                ilane, ncoord, nq0, nelmt, w0, dfptr, jacptr, inptr, wspptr);
+                ilane, ncoord, nq0, nelmt, w0, dfptr, jacptr, inptr, deriv);
             IProductWRTBaseSegSumFacKernel<false, true, DEFORMED>(
-                ilane, nm0, nq0, dbasis0, wspptr, outptr, (TData)1.0);
+                ilane, nm0, nq0, dbasis0, deriv, outptr, (TData)1.0);
             e += item_ct1.get_global_range(2);
         }
     }
     else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
-        TData *s_wsp0 = shmemptr;
+        TData *deriv = shmemptr;
 
         unsigned int e = item_ct1.get_group(2);
         while (e < nelmt)
@@ -462,9 +462,9 @@ NEK_FORCE_INLINE void IProductWRTDerivBase1DKernel(
             TData *outptr       = out + nm0 * e;
 
             StdAlignDerivBase1DSumFacQPKernel<DEFORMED>(
-                ncoord, nq0, nelmt, w0, dfptr, jacptr, inptr, s_wsp0, item_ct1);
+                ncoord, nq0, nelmt, w0, dfptr, jacptr, inptr, deriv, item_ct1);
             IProductWRTBaseSegSumFacQPKernel<false, true, DEFORMED>(
-                nm0, nq0, dbasis0, s_wsp0, outptr, (TData)1.0, item_ct1);
+                nm0, nq0, dbasis0, deriv, outptr, (TData)1.0, item_ct1);
 
             e += item_ct1.get_group_range(2);
         }
@@ -537,28 +537,28 @@ NEK_FORCE_INLINE void IProductWRTDerivBase2DKernel(
                 DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
             const TData *inptr = in + nqTot * warpsize * iwarp;
             TData *outptr      = out + nmTot * warpsize * iwarp;
-            TData *wsp0a       = wsp + nqTot * warpsize * iwarp;
-            TData *wsp0b       = wsp + nelmt * nqTot + nqTot * warpsize * iwarp;
-            TData *wsp1 = wsp + 2 * nqTot * nelmt + nqTot * warpsize * iwarp;
+            TData *deriv0      = wsp + nqTot * warpsize * iwarp;
+            TData *deriv1      = wsp + nelmt * nqTot + nqTot * warpsize * iwarp;
+            TData *deriv = wsp + 2 * nqTot * nelmt + nqTot * warpsize * iwarp;
 
             StdAlignDerivBase2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
                 ilane, ncoord, nq0, nq1, nelmt, w0, w1, s_f0, s_f1, dfptr,
-                jacptr, inptr, wsp0a, wsp0b);
+                jacptr, inptr, deriv0, deriv1);
             SumDerivTensor2DKernel<SHAPE_TYPE, DEFORMED>(
-                ilane, nq0, nq1, D0, D1, wsp0a, wsp0b, wsp1);
+                ilane, nq0, nq1, D0, D1, deriv0, deriv1, deriv);
             if constexpr (SHAPE_TYPE == LibUtilities::Quad)
             {
-                TData *wsp2 = wsp + 3 * nqTot * nelmt + nq1 * warpsize * iwarp;
+                TData *wsp0 = wsp + 3 * nqTot * nelmt + nq1 * warpsize * iwarp;
                 IProductWRTBaseQuadSumFacKernel<false, true, DEFORMED>(
-                    ilane, nm0, nm1, nq0, nq1, basis0, basis1, wsp1, outptr,
-                    wsp2, (TData)1.0);
+                    ilane, nm0, nm1, nq0, nq1, basis0, basis1, deriv, outptr,
+                    wsp0, (TData)1.0);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
             {
-                TData *wsp2 = wsp + 3 * nqTot * nelmt + nq1 * warpsize * iwarp;
+                TData *wsp0 = wsp + 3 * nqTot * nelmt + nq1 * warpsize * iwarp;
                 IProductWRTBaseTriSumFacKernel<false, true, DEFORMED>(
-                    ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1, wsp1,
-                    outptr, wsp2, (TData)1.0);
+                    ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1,
+                    deriv, outptr, wsp0, (TData)1.0);
             }
             e += item_ct1.get_global_range(2);
         }
@@ -577,11 +577,11 @@ NEK_FORCE_INLINE void IProductWRTDerivBase2DKernel(
             nmode1 = nmTot;
         }
 
-        TData *s_wsp0a  = shmemptr;
-        TData *s_wsp0b  = s_wsp0a + nqTot;
-        TData *s_wsp1   = s_wsp0b + nqTot;
-        TData *s_wsp2   = s_wsp1 + nqTot;
-        TData *s_basis0 = s_wsp2 + nm0 * nq1;
+        TData *deriv0   = shmemptr;
+        TData *deriv1   = deriv0 + nqTot;
+        TData *deriv    = deriv1 + nqTot;
+        TData *s_wsp0   = deriv + nqTot;
+        TData *s_basis0 = s_wsp0 + nm0 * nq1;
         TData *s_basis1 = s_basis0 + nm0 * nq0;
 
         // Copy to shared memory.
@@ -607,20 +607,20 @@ NEK_FORCE_INLINE void IProductWRTDerivBase2DKernel(
 
             StdAlignDerivBase2DSumFacQPKernel<SHAPE_TYPE, DEFORMED>(
                 ncoord, nq0, nq1, nelmt, w0, w1, Z0, Z1, dfptr, jacptr, inptr,
-                s_wsp0a, s_wsp0b, item_ct1);
+                deriv0, deriv1, item_ct1);
             SumDerivTensor2DQPKernel<SHAPE_TYPE, DEFORMED>(
-                nq0, nq1, D0, D1, s_wsp0a, s_wsp0b, s_wsp1, item_ct1);
+                nq0, nq1, D0, D1, deriv0, deriv1, deriv, item_ct1);
             if constexpr (SHAPE_TYPE == LibUtilities::Quad)
             {
                 IProductWRTBaseQuadSumFacQPKernel<false, true, DEFORMED>(
-                    nm0, nm1, nmTot, nq0, nq1, nqTot, s_basis0, s_basis1,
-                    s_wsp1, outptr, s_wsp2, (TData)1.0, item_ct1);
+                    nm0, nm1, nmTot, nq0, nq1, nqTot, s_basis0, s_basis1, deriv,
+                    outptr, s_wsp0, (TData)1.0, item_ct1);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
             {
                 IProductWRTBaseTriSumFacQPKernel<false, true, DEFORMED>(
                     nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0,
-                    s_basis0, s_basis1, s_wsp1, outptr, s_wsp2, (TData)1.0,
+                    s_basis0, s_basis1, deriv, outptr, s_wsp0, (TData)1.0,
                     item_ct1);
             }
 
@@ -753,63 +753,66 @@ NEK_FORCE_INLINE void IProductWRTDerivBase3DKernel(
                 DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
             const TData *inptr = in + nqTot * warpsize * iwarp;
             TData *outptr      = out + nmTot * warpsize * iwarp;
-            TData *wsp0a       = wsp + nqTot * warpsize * iwarp;
-            TData *wsp0b       = wsp + nelmt * nqTot + nqTot * warpsize * iwarp;
-            TData *wsp0c = wsp + 2 * nelmt * nqTot + nqTot * warpsize * iwarp;
-            TData *wsp1  = wsp + 3 * nelmt * nqTot + nqTot * warpsize * iwarp;
+            TData *deriv0      = wsp + nqTot * warpsize * iwarp;
+            TData *deriv1      = wsp + nelmt * nqTot + nqTot * warpsize * iwarp;
+            TData *deriv2 = wsp + 2 * nelmt * nqTot + nqTot * warpsize * iwarp;
+            TData *deriv  = wsp + 3 * nelmt * nqTot + nqTot * warpsize * iwarp;
 
             StdAlignDerivBase3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
                 ilane, nq0, nq1, nq2, nelmt, w0, w1, w2, s_f0, s_f1, s_f2, s_f3,
-                dfptr, jacptr, inptr, wsp0a, wsp0b, wsp0c);
-            SumDerivTensor3DKernel<SHAPE_TYPE, DEFORMED>(
-                ilane, nq0, nq1, nq2, D0, D1, D2, wsp0a, wsp0b, wsp0c, wsp1);
+                dfptr, jacptr, inptr, deriv0, deriv1, deriv2);
+            SumDerivTensor3DKernel<SHAPE_TYPE, DEFORMED>(ilane, nq0, nq1, nq2,
+                                                         D0, D1, D2, deriv0,
+                                                         deriv1, deriv2, deriv);
             if constexpr (SHAPE_TYPE == LibUtilities::Hex)
             {
-                TData *wsp2 =
+                TData *wsp0 =
                     wsp + 4 * nqTot * nelmt + nq1 * nq2 * warpsize * iwarp;
-                TData *wsp3 = wsp + (4 * nqTot + nq1 * nq2) * nelmt +
+                TData *wsp1 = wsp + (4 * nqTot + nq1 * nq2) * nelmt +
                               nq2 * warpsize * iwarp;
 
                 IProductWRTBaseHexSumFacKernel<false, true, DEFORMED>(
                     ilane, nm0, nm1, nm2, nq0, nq1, nq2, basis0, basis1, basis2,
-                    wsp1, outptr, wsp2, wsp3, (TData)1.0);
+                    deriv, outptr, wsp0, wsp1, (TData)1.0);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
             {
-                TData *wsp2 =
+                TData *wsp0 =
                     wsp + 4 * nqTot * nelmt + nq1 * nq2 * warpsize * iwarp;
-                TData *wsp3 = wsp + (4 * nqTot + nq1 * nq2) * nelmt +
+                TData *wsp1 = wsp + (4 * nqTot + nq1 * nq2) * nelmt +
                               nq2 * warpsize * iwarp;
                 TData *prod = wsp + (4 * nqTot + nq1 * nq2 + nq2) * nelmt +
                               nm2 * warpsize * iwarp;
 
                 IProductWRTBaseTetSumFacKernel<false, true, DEFORMED>(
                     ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
-                    basis1, basis2, wsp1, outptr, wsp2, wsp3, prod, (TData)1.0);
+                    basis1, basis2, deriv, outptr, wsp0, wsp1, prod,
+                    (TData)1.0);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
             {
-                TData *wsp2 =
+                TData *wsp0 =
                     wsp + 4 * nqTot * nelmt + nq1 * nq2 * warpsize * iwarp;
-                TData *wsp3 = wsp + (4 * nqTot + nq1 * nq2) * nelmt +
+                TData *wsp1 = wsp + (4 * nqTot + nq1 * nq2) * nelmt +
                               nq2 * warpsize * iwarp;
-                TData *wsp4 = wsp + (4 * nqTot + nq1 * nq2 + nq2) * nelmt +
+                TData *wsp2 = wsp + (4 * nqTot + nq1 * nq2 + nq2) * nelmt +
                               nm1 * warpsize * iwarp;
 
                 IProductWRTBasePrismSumFacKernel<false, true, DEFORMED>(
                     ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
-                    basis1, basis2, wsp1, outptr, wsp2, wsp3, wsp4, (TData)1.0);
+                    basis1, basis2, deriv, outptr, wsp0, wsp1, wsp2,
+                    (TData)1.0);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
             {
-                TData *wsp2 =
+                TData *wsp0 =
                     wsp + 4 * nqTot * nelmt + nq1 * nq2 * warpsize * iwarp;
-                TData *wsp3 = wsp + (4 * nqTot + nq1 * nq2) * nelmt +
+                TData *wsp1 = wsp + (4 * nqTot + nq1 * nq2) * nelmt +
                               nq2 * warpsize * iwarp;
 
                 IProductWRTBasePyrSumFacKernel<false, true, DEFORMED>(
                     ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
-                    basis1, basis2, wsp1, outptr, wsp2, wsp3, (TData)1.0);
+                    basis1, basis2, deriv, outptr, wsp0, wsp1, (TData)1.0);
             }
             e += item_ct1.get_global_range(2);
         }
@@ -846,13 +849,13 @@ NEK_FORCE_INLINE void IProductWRTDerivBase3DKernel(
             nmode2 = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
         }
 
-        TData *s_wsp0a  = shmemptr;
-        TData *s_wsp0b  = s_wsp0a + nqTot;
-        TData *s_wsp0c  = s_wsp0b + nqTot;
-        TData *s_wsp1   = s_wsp0c + nqTot;
-        TData *s_wsp2   = s_wsp1 + nqTot;
-        TData *s_wsp3   = s_wsp2 + nm0 * nq1 * nq2;
-        TData *s_basis0 = s_wsp3 + nm01 * nq2;
+        TData *deriv0   = shmemptr;
+        TData *deriv1   = deriv0 + nqTot;
+        TData *deriv2   = deriv1 + nqTot;
+        TData *deriv    = deriv2 + nqTot;
+        TData *s_wsp0   = deriv + nqTot;
+        TData *s_wsp1   = s_wsp0 + nm0 * nq1 * nq2;
+        TData *s_basis0 = s_wsp1 + nm01 * nq2;
         TData *s_basis1 = s_basis0 + nmode0 * nq0;
         TData *s_basis2 = s_basis1 + nmode1 * nq1;
 
@@ -885,37 +888,37 @@ NEK_FORCE_INLINE void IProductWRTDerivBase3DKernel(
 
             StdAlignDerivBase3DSumFacQPKernel<SHAPE_TYPE, DEFORMED>(
                 nq0, nq1, nq2, nelmt, w0, w1, w2, Z0, Z1, Z2, dfptr, jacptr,
-                inptr, s_wsp0a, s_wsp0b, s_wsp0c, item_ct1);
+                inptr, deriv0, deriv1, deriv2, item_ct1);
             SumDerivTensor3DQPKernel<SHAPE_TYPE, DEFORMED>(
-                nq0, nq1, nq2, D0, D1, D2, s_wsp0a, s_wsp0b, s_wsp0c, s_wsp1,
+                nq0, nq1, nq2, D0, D1, D2, deriv0, deriv1, deriv2, deriv,
                 item_ct1);
             if constexpr (SHAPE_TYPE == LibUtilities::Hex)
             {
                 IProductWRTBaseHexSumFacQPKernel<false, true, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, s_basis0,
-                    s_basis1, s_basis2, s_wsp1, outptr, s_wsp2, s_wsp3,
+                    s_basis1, s_basis2, deriv, outptr, s_wsp0, s_wsp1,
                     (TData)1.0, item_ct1);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
             {
                 IProductWRTBaseTetSumFacQPKernel<false, true, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
-                    index0, index1, index2, s_basis0, s_basis1, s_basis2,
-                    s_wsp1, outptr, s_wsp2, s_wsp3, (TData)1.0, item_ct1);
+                    index0, index1, index2, s_basis0, s_basis1, s_basis2, deriv,
+                    outptr, s_wsp0, s_wsp1, (TData)1.0, item_ct1);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
             {
                 IProductWRTBasePrismSumFacQPKernel<false, true, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
-                    index0, index1, index2, s_basis0, s_basis1, s_basis2,
-                    s_wsp1, outptr, s_wsp2, s_wsp3, (TData)1.0, item_ct1);
+                    index0, index1, index2, s_basis0, s_basis1, s_basis2, deriv,
+                    outptr, s_wsp0, s_wsp1, (TData)1.0, item_ct1);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
             {
                 IProductWRTBasePyrSumFacQPKernel<false, true, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
-                    index0, index1, s_basis0, s_basis1, s_basis2, s_wsp1,
-                    outptr, s_wsp2, s_wsp3, (TData)1.0, item_ct1);
+                    index0, index1, s_basis0, s_basis1, s_basis2, deriv, outptr,
+                    s_wsp0, s_wsp1, (TData)1.0, item_ct1);
             }
 
             e += item_ct1.get_group_range(2);

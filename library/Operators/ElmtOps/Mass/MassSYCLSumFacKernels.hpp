@@ -78,7 +78,7 @@ NEK_FORCE_INLINE static void Mass1DKernel(
     }
     else
     {
-        TData *s_wsp0 = (TData *)shmemptr;
+        TData *bwd = shmemptr;
 
         unsigned int e = item_ct1.get_group(2);
         while (e < nelmt)
@@ -86,26 +86,25 @@ NEK_FORCE_INLINE static void Mass1DKernel(
             const TData *jacptr = jac + jacsize * e;
             const TData *inptr  = in + nm0 * e;
             TData *outptr       = out + nm0 * e;
-            BwdTransSegSumFacQPKernel(nm0, nq0, basis0, inptr, s_wsp0,
-                                      item_ct1);
+            BwdTransSegSumFacQPKernel(nm0, nq0, basis0, inptr, bwd, item_ct1);
 
             for (unsigned int i = item_ct1.get_local_id(2); i < nq0;
                  i += item_ct1.get_local_range(2))
             {
                 if constexpr (DEFORMED)
                 {
-                    s_wsp0[i] *= jacptr[i] * w0[i];
+                    bwd[i] *= jacptr[i] * w0[i];
                 }
                 else
                 {
-                    s_wsp0[i] *= jacptr[0] * w0[i];
+                    bwd[i] *= jacptr[0] * w0[i];
                 }
             }
 
             item_ct1.barrier(sycl::access::fence_space::local_space);
 
             IProductWRTBaseSegSumFacQPKernel<false, false, DEFORMED>(
-                nm0, nq0, basis0, s_wsp0, outptr, (TData)1.0, item_ct1);
+                nm0, nq0, basis0, bwd, outptr, (TData)1.0, item_ct1);
             e += item_ct1.get_group_range(2);
         }
     }
@@ -145,58 +144,50 @@ NEK_FORCE_INLINE static void Mass2DKernel(
                 DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
             const TData *inptr = in + nmTot * warpsize * iwarp;
             TData *outptr      = out + nmTot * warpsize * iwarp;
+            TData *bwd         = wsp + nqTot * warpsize * iwarp;
             if constexpr (SHAPE_TYPE == LibUtilities::Quad)
             {
-                TData *wsp0 = wsp + nqTot * warpsize * iwarp;
-                TData *wsp1 = wsp + nqTot * nelmt + nq1 * warpsize * iwarp;
+                TData *wsp0 = wsp + nqTot * nelmt + nq1 * warpsize * iwarp;
                 BwdTransQuadSumFacKernel(ilane, nm0, nm1, nq0, nq1, basis0,
-                                         basis1, inptr, wsp0, wsp1);
+                                         basis1, inptr, bwd, wsp0);
                 IProductWRTBaseQuadSumFacKernel<false, false, DEFORMED>(
                     ilane, nm0, nm1, nq0, nq1, basis0, basis1, w0, w1, jacptr,
-                    wsp0, outptr, wsp1, (TData)1.0);
+                    bwd, outptr, wsp0, (TData)1.0);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
             {
-                TData *wsp0 = wsp + nqTot * warpsize * iwarp;
-                TData *wsp1 =
+                TData *wsp0 =
                     wsp + nqTot * nelmt + std::max(nq1, nm0) * warpsize * iwarp;
                 BwdTransTriSumFacKernel(ilane, nm0, nm1, nq0, nq1, isModified,
-                                        basis0, basis1, inptr, wsp0, wsp1);
+                                        basis0, basis1, inptr, bwd, wsp0);
                 IProductWRTBaseTriSumFacKernel<false, false, DEFORMED>(
                     ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1, w0,
-                    w1, jacptr, wsp0, outptr, wsp1, (TData)1.0);
+                    w1, jacptr, bwd, outptr, wsp0, (TData)1.0);
             }
             e += item_ct1.get_global_range(2);
         }
     }
     else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
-        unsigned int nmode0, nmode1;
-        TData *s_wsp0, *s_wsp1, *s_wsp2;
-        TData *s_basis0, *s_basis1;
-
+        unsigned int offset, nmode0, nmode1;
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
+            offset = std::max(nm0 * nq1, nm1 * nq0);
             nmode0 = nm0;
             nmode1 = nm1;
-
-            s_wsp0   = (TData *)shmemptr;
-            s_wsp1   = s_wsp0 + nmTot;
-            s_wsp2   = s_wsp1 + nqTot;
-            s_basis0 = s_wsp2 + std::max(nm0 * nq1, nm1 * nq0);
-            s_basis1 = s_basis0 + nm0 * nq0;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
+            offset = nm0 * nq1;
             nmode0 = nm0;
             nmode1 = nmTot;
-
-            s_wsp0   = (TData *)shmemptr;
-            s_wsp1   = s_wsp0 + nmTot;
-            s_wsp2   = s_wsp1 + nqTot;
-            s_basis0 = s_wsp2 + nm0 * nq1;
-            s_basis1 = s_basis0 + nm0 * nq0;
         }
+
+        TData *tmp      = shmemptr;
+        TData *bwd      = tmp + nmTot;
+        TData *s_wsp0   = bwd + nqTot;
+        TData *s_basis0 = s_wsp0 + offset;
+        TData *s_basis1 = s_basis0 + nm0 * nq0;
 
         // Copy to shared memory.
         for (unsigned int idx = item_ct1.get_local_id(2); idx < nmode0 * nq0;
@@ -222,7 +213,7 @@ NEK_FORCE_INLINE static void Mass2DKernel(
             for (unsigned int idx = item_ct1.get_local_id(2); idx < nmTot;
                  idx += item_ct1.get_local_range(2))
             {
-                s_wsp0[idx] = inptr[idx];
+                tmp[idx] = inptr[idx];
             }
 
             item_ct1.barrier(sycl::access::fence_space::local_space);
@@ -230,14 +221,14 @@ NEK_FORCE_INLINE static void Mass2DKernel(
             if constexpr (SHAPE_TYPE == LibUtilities::Quad)
             {
                 BwdTransQuadSumFacQPKernel(nm0, nm1, nq0, nq1, nqTot, s_basis0,
-                                           s_basis1, s_wsp0, s_wsp1, s_wsp2,
+                                           s_basis1, tmp, bwd, s_wsp0,
                                            item_ct1);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
             {
                 BwdTransTriSumFacQPKernel(nm0, nm1, nq0, nq1, nqTot, isModified,
-                                          s_basis0, s_basis1, s_wsp0, s_wsp1,
-                                          s_wsp2, item_ct1);
+                                          s_basis0, s_basis1, tmp, bwd, s_wsp0,
+                                          item_ct1);
             }
 
             for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
@@ -247,11 +238,11 @@ NEK_FORCE_INLINE static void Mass2DKernel(
                 const unsigned int j = idx / nq0;
                 if constexpr (DEFORMED)
                 {
-                    s_wsp1[idx] *= jacptr[idx] * w0[i] * w1[j];
+                    bwd[idx] *= jacptr[idx] * w0[i] * w1[j];
                 }
                 else
                 {
-                    s_wsp1[idx] *= jacptr[0] * w0[i] * w1[j];
+                    bwd[idx] *= jacptr[0] * w0[i] * w1[j];
                 }
             }
 
@@ -260,14 +251,14 @@ NEK_FORCE_INLINE static void Mass2DKernel(
             if constexpr (SHAPE_TYPE == LibUtilities::Quad)
             {
                 IProductWRTBaseQuadSumFacQPKernel<false, false, DEFORMED>(
-                    nm0, nm1, nmTot, nq0, nq1, nqTot, s_basis0, s_basis1,
-                    s_wsp1, outptr, s_wsp2, (TData)1.0, item_ct1);
+                    nm0, nm1, nmTot, nq0, nq1, nqTot, s_basis0, s_basis1, bwd,
+                    outptr, s_wsp0, (TData)1.0, item_ct1);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
             {
                 IProductWRTBaseTriSumFacQPKernel<false, false, DEFORMED>(
                     nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0,
-                    s_basis0, s_basis1, s_wsp1, outptr, s_wsp2, (TData)1.0,
+                    s_basis0, s_basis1, bwd, outptr, s_wsp0, (TData)1.0,
                     item_ct1);
             }
 
@@ -317,46 +308,46 @@ NEK_FORCE_INLINE static void Mass3DKernel(
             TData *outptr      = out + nmTot * warpsize * iwarp;
             if constexpr (SHAPE_TYPE == LibUtilities::Hex)
             {
-                TData *wsp0 = wsp + nqTot * warpsize * iwarp;
-                TData *wsp1 =
+                TData *bwd = wsp + nqTot * warpsize * iwarp;
+                TData *wsp0 =
                     wsp + nqTot * nelmt + nq1 * nq2 * warpsize * iwarp;
-                TData *wsp2 =
+                TData *wsp1 =
                     wsp + (nqTot + nq2 * nq1) * nelmt + nq2 * warpsize * iwarp;
 
                 BwdTransHexSumFacKernel(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
-                                        basis0, basis1, basis2, inptr, wsp0,
-                                        wsp1, wsp2);
+                                        basis0, basis1, basis2, inptr, bwd,
+                                        wsp0, wsp1);
                 IProductWRTBaseHexSumFacKernel<false, false, DEFORMED>(
                     ilane, nm0, nm1, nm2, nq0, nq1, nq2, basis0, basis1, basis2,
-                    w0, w1, w2, jacptr, wsp0, outptr, wsp1, wsp2, (TData)1.0);
+                    w0, w1, w2, jacptr, bwd, outptr, wsp0, wsp1, (TData)1.0);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
             {
-                TData *wsp0 = wsp + nqTot * warpsize * iwarp;
-                TData *wsp1 =
+                TData *bwd = wsp + nqTot * warpsize * iwarp;
+                TData *wsp0 =
                     wsp + nqTot * nelmt + nq1 * nq2 * warpsize * iwarp;
-                TData *wsp2 =
+                TData *wsp1 =
                     wsp + (nqTot + nq2 * nq1) * nelmt + nq2 * warpsize * iwarp;
                 TData *prod = wsp + (nqTot + nq1 * nq2 + nq2) * nelmt +
                               nm2 * warpsize * iwarp;
 
                 BwdTransTetSumFacKernel(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
                                         isModified, basis0, basis1, basis2,
-                                        inptr, wsp0, wsp1, wsp2);
+                                        inptr, bwd, wsp0, wsp1);
                 IProductWRTBaseTetSumFacKernel<false, false, DEFORMED>(
                     ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
-                    basis1, basis2, w0, w1, w2, jacptr, wsp0, outptr, wsp1,
-                    wsp2, prod, (TData)1.0);
+                    basis1, basis2, w0, w1, w2, jacptr, bwd, outptr, wsp0, wsp1,
+                    prod, (TData)1.0);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
             {
-                TData *wsp0 = wsp + nqTot * warpsize * iwarp;
-                TData *wsp1 = wsp + nqTot * nelmt +
+                TData *bwd  = wsp + nqTot * warpsize * iwarp;
+                TData *wsp0 = wsp + nqTot * nelmt +
                               std::max(nq1 * nq2, nm0 * nm1) * warpsize * iwarp;
-                TData *wsp2 = wsp +
+                TData *wsp1 = wsp +
                               (nqTot + std::max(nq2 * nq1, nm0 * nm1)) * nelmt +
                               std::max(nq2, nm0) * warpsize * iwarp;
-                TData *wsp3 = wsp +
+                TData *wsp2 = wsp +
                               (nqTot + std::max(nq1 * nq2, nm0 * nm1) +
                                std::max(nq2, nm0)) *
                                   nelmt +
@@ -364,94 +355,75 @@ NEK_FORCE_INLINE static void Mass3DKernel(
 
                 BwdTransPrismSumFacKernel(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
                                           isModified, basis0, basis1, basis2,
-                                          inptr, wsp0, wsp1, wsp2);
+                                          inptr, bwd, wsp0, wsp1);
                 IProductWRTBasePrismSumFacKernel<false, false, DEFORMED>(
                     ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
-                    basis1, basis2, w0, w1, w2, jacptr, wsp0, outptr, wsp1,
-                    wsp2, wsp3, (TData)1.0);
+                    basis1, basis2, w0, w1, w2, jacptr, bwd, outptr, wsp0, wsp1,
+                    wsp2, (TData)1.0);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
             {
-                TData *wsp0 = wsp + nqTot * warpsize * iwarp;
-                TData *wsp1 = wsp + nqTot * nelmt +
+                TData *bwd  = wsp + nqTot * warpsize * iwarp;
+                TData *wsp0 = wsp + nqTot * nelmt +
                               std::max(nq1 * nq2, nm0 * nm1) * warpsize * iwarp;
-                TData *wsp2 = wsp +
+                TData *wsp1 = wsp +
                               (nqTot + std::max(nq1 * nq2, nm0 * nm1)) * nelmt +
                               std::max(nq2, nm0) * warpsize * iwarp;
 
                 BwdTransPyrSumFacKernel(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
                                         isModified, basis0, basis1, basis2,
-                                        inptr, wsp0, wsp1, wsp2);
+                                        inptr, bwd, wsp0, wsp1);
                 IProductWRTBasePyrSumFacKernel<false, false, DEFORMED>(
                     ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
-                    basis1, basis2, w0, w1, w2, jacptr, wsp0, outptr, wsp1,
-                    wsp2, (TData)1.0);
+                    basis1, basis2, w0, w1, w2, jacptr, bwd, outptr, wsp0, wsp1,
+                    (TData)1.0);
             }
             e += item_ct1.get_global_range(2);
         }
     }
     else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
-        unsigned int nmode0, nmode1, nmode2;
-        TData *s_wsp0, *s_wsp1, *s_wsp2, *s_wsp3;
-        TData *s_basis0, *s_basis1, *s_basis2;
-
+        unsigned int offset0, offset1, nmode0, nmode1, nmode2;
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
-            nmode0 = nm0;
-            nmode1 = nm1;
-            nmode2 = nm2;
-
-            s_wsp0   = (TData *)shmemptr;
-            s_wsp1   = s_wsp0 + nmTot;
-            s_wsp2   = s_wsp1 + nqTot;
-            s_wsp3   = s_wsp2 + std::max(nq0 * nm1 * nm2, nm0 * nq1 * nq2);
-            s_basis0 = s_wsp3 + std::max(nq1 * nq0 * nm2, nm0 * nm1 * nq2);
-            s_basis1 = s_basis0 + nmode0 * nq0;
-            s_basis2 = s_basis1 + nmode1 * nq1;
+            offset0 = std::max(nq0 * nm1 * nm2, nm0 * nq1 * nq2);
+            offset1 = std::max(nq1 * nq0 * nm2, nm0 * nm1 * nq2);
+            nmode0  = nm0;
+            nmode1  = nm1;
+            nmode2  = nm2;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
         {
-            nmode0 = nm0;
-            nmode1 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-            nmode2 = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-
-            s_wsp0   = (TData *)shmemptr;
-            s_wsp1   = s_wsp0 + nmTot;
-            s_wsp2   = s_wsp1 + nqTot;
-            s_wsp3   = s_wsp2 + nmode1 * nq2;
-            s_basis0 = s_wsp3 + nm0 * nq1 * nq2;
-            s_basis1 = s_basis0 + nmode0 * nq0;
-            s_basis2 = s_basis1 + nmode1 * nq1;
+            offset0 = (2u * nm1 - nm0 + 1u) * nm0 / 2u * nq2;
+            offset1 = nm0 * nq1 * nq2;
+            nmode0  = nm0;
+            nmode1  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+            nmode2  = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
         {
-            nmode0 = nm0;
-            nmode1 = nm1;
-            nmode2 = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
-
-            s_wsp0   = (TData *)shmemptr;
-            s_wsp1   = s_wsp0 + nmTot;
-            s_wsp2   = s_wsp1 + nqTot;
-            s_wsp3   = s_wsp2 + nm0 * nm1 * nq2;
-            s_basis0 = s_wsp3 + nm0 * nq1 * nq2;
-            s_basis1 = s_basis0 + nmode0 * nq0;
-            s_basis2 = s_basis1 + nmode1 * nq1;
+            offset0 = nm0 * nm1 * nq2;
+            offset1 = nm0 * nq1 * nq2;
+            nmode0  = nm0;
+            nmode1  = nm1;
+            nmode2  = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
-            nmode0 = nm0;
-            nmode1 = nm1;
-            nmode2 = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-
-            s_wsp0   = (TData *)shmemptr;
-            s_wsp1   = s_wsp0 + nmTot;
-            s_wsp2   = s_wsp1 + nqTot;
-            s_wsp3   = s_wsp2 + nm0 * nm1 * nq2;
-            s_basis0 = s_wsp3 + nm0 * nq1 * nq2;
-            s_basis1 = s_basis0 + nmode0 * nq0;
-            s_basis2 = s_basis1 + nmode1 * nq1;
+            offset0 = nm0 * nm1 * nq2;
+            offset1 = nm0 * nq1 * nq2;
+            nmode0  = nm0;
+            nmode1  = nm1;
+            nmode2  = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
         }
+
+        TData *tmp      = shmemptr;
+        TData *bwd      = tmp + nmTot;
+        TData *s_wsp0   = bwd + nqTot;
+        TData *s_wsp1   = s_wsp0 + offset0;
+        TData *s_basis0 = s_wsp1 + offset1;
+        TData *s_basis1 = s_basis0 + nmode0 * nq0;
+        TData *s_basis2 = s_basis1 + nmode1 * nq1;
 
         // Copy to shared memory.
         for (unsigned int idx = item_ct1.get_local_id(2); idx < nmode0 * nq0;
@@ -483,7 +455,7 @@ NEK_FORCE_INLINE static void Mass3DKernel(
             for (unsigned int idx = item_ct1.get_local_id(2); idx < nmTot;
                  idx += item_ct1.get_local_range(2))
             {
-                s_wsp0[idx] = inptr[idx];
+                tmp[idx] = inptr[idx];
             }
 
             item_ct1.barrier(sycl::access::fence_space::local_space);
@@ -491,29 +463,27 @@ NEK_FORCE_INLINE static void Mass3DKernel(
             if constexpr (SHAPE_TYPE == LibUtilities::Hex)
             {
                 BwdTransHexSumFacQPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
-                                          s_basis0, s_basis1, s_basis2, s_wsp0,
-                                          s_wsp1, s_wsp2, s_wsp3, item_ct1);
+                                          s_basis0, s_basis1, s_basis2, tmp,
+                                          bwd, s_wsp0, s_wsp1, item_ct1);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
             {
                 BwdTransTetSumFacQPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
                                           isModified, index0, index3, s_basis0,
-                                          s_basis1, s_basis2, s_wsp0, s_wsp1,
-                                          s_wsp2, s_wsp3, item_ct1);
+                                          s_basis1, s_basis2, tmp, bwd, s_wsp0,
+                                          s_wsp1, item_ct1);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
             {
-                BwdTransPrismSumFacQPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
-                                            isModified, s_basis0, s_basis1,
-                                            s_basis2, s_wsp0, s_wsp1, s_wsp2,
-                                            s_wsp3, item_ct1);
+                BwdTransPrismSumFacQPKernel(
+                    nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, s_basis0,
+                    s_basis1, s_basis2, tmp, bwd, s_wsp0, s_wsp1, item_ct1);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
             {
-                BwdTransPyrSumFacQPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
-                                          isModified, s_basis0, s_basis1,
-                                          s_basis2, s_wsp0, s_wsp1, s_wsp2,
-                                          s_wsp3, item_ct1);
+                BwdTransPyrSumFacQPKernel(
+                    nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, s_basis0,
+                    s_basis1, s_basis2, tmp, bwd, s_wsp0, s_wsp1, item_ct1);
             }
 
             // Copy to shared memory.
@@ -525,11 +495,11 @@ NEK_FORCE_INLINE static void Mass3DKernel(
                 const unsigned int k = idx / (nq0 * nq1);
                 if constexpr (DEFORMED)
                 {
-                    s_wsp1[idx] *= jacptr[idx] * w0[i] * w1[j] * w2[k];
+                    bwd[idx] *= jacptr[idx] * w0[i] * w1[j] * w2[k];
                 }
                 else
                 {
-                    s_wsp1[idx] *= jacptr[0] * w0[i] * w1[j] * w2[k];
+                    bwd[idx] *= jacptr[0] * w0[i] * w1[j] * w2[k];
                 }
             }
 
@@ -539,29 +509,29 @@ NEK_FORCE_INLINE static void Mass3DKernel(
             {
                 IProductWRTBaseHexSumFacQPKernel<false, false, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, s_basis0,
-                    s_basis1, s_basis2, s_wsp1, outptr, s_wsp2, s_wsp3,
-                    (TData)1.0, item_ct1);
+                    s_basis1, s_basis2, bwd, outptr, s_wsp0, s_wsp1, (TData)1.0,
+                    item_ct1);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
             {
                 IProductWRTBaseTetSumFacQPKernel<false, false, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
-                    index0, index1, index2, s_basis0, s_basis1, s_basis2,
-                    s_wsp1, outptr, s_wsp3, s_wsp2, (TData)1.0, item_ct1);
+                    index0, index1, index2, s_basis0, s_basis1, s_basis2, bwd,
+                    outptr, s_wsp1, s_wsp0, (TData)1.0, item_ct1);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
             {
                 IProductWRTBasePrismSumFacQPKernel<false, false, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
-                    index0, index1, index2, s_basis0, s_basis1, s_basis2,
-                    s_wsp1, outptr, s_wsp3, s_wsp2, (TData)1.0, item_ct1);
+                    index0, index1, index2, s_basis0, s_basis1, s_basis2, bwd,
+                    outptr, s_wsp1, s_wsp0, (TData)1.0, item_ct1);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
             {
                 IProductWRTBasePyrSumFacQPKernel<false, false, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
-                    index0, index1, s_basis0, s_basis1, s_basis2, s_wsp1,
-                    outptr, s_wsp3, s_wsp2, (TData)1.0, item_ct1);
+                    index0, index1, s_basis0, s_basis1, s_basis2, bwd, outptr,
+                    s_wsp1, s_wsp0, (TData)1.0, item_ct1);
             }
 
             e += item_ct1.get_group_range(2);
