@@ -60,13 +60,15 @@ public:
         m_df = SetDerivativeFactor<MemSpace, TData>(
             expansionList, locblocks, ExecSpace::alignment, transpose);
 
-        // Initialize the points.
-        m_zeroMap =
-            GetBasisData<MemSpace, NekDouble, TData>(expansionList, eZeros);
-
         // Initialize the derivative matrix.
         m_derivativeMap = GetBasisData<MemSpace, NekDouble, TData>(
             expansionList, eDerivative);
+
+        // Initialize the geometric factors.
+        m_Fac0 = GetBasisData<MemSpace, NekDouble, TData>(
+            expansionList, eHalfMultOnePlusZero, ExecSpace::alignment);
+        m_Fac1 = GetBasisData<MemSpace, NekDouble, TData>(
+            expansionList, eTwoOverOneMinusZero, ExecSpace::alignment);
     }
 
     void apply(Field<TData, FieldState::Phys> &in,
@@ -168,8 +170,9 @@ private:
 
     LocalRegions::ExpansionSharedPtr m_expPtr;
 
-    BasisDataMap<TData> m_zeroMap;
     BasisDataMap<TData> m_derivativeMap;
+    BasisDataMap<TData> m_Fac0;
+    BasisDataMap<TData> m_Fac1;
     std::vector<MemoryRegion<TData>> m_df;
     static constexpr size_t m_implInterleaveWidth =
         std::is_same_v<Implementation, Operators::SumFac>
@@ -302,8 +305,8 @@ private:
             m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto D1 =
             m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto Z0 = m_zeroMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto Z1 = m_zeroMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto f0 = m_Fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto f1 = m_Fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch deriv factors data.
         auto dfPtr = m_df[m_blk].template GetPtr<MemSpace, ReadOnly>();
@@ -326,7 +329,7 @@ private:
 
             // Calculate derivative.
             PhysDeriv2DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
-                nCoord, nq0, nq1, nElmtsPad, D0, D1, Z0, Z1, dfPtr, inptr,
+                nCoord, nq0, nq1, nElmtsPad, D0, D1, f0, f1, dfPtr, inptr,
                 outptr);
 
             inptr += inblock.size();
@@ -352,8 +355,8 @@ private:
             m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto D1 =
             m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto Z0 = m_zeroMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto Z1 = m_zeroMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto f0 = m_Fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto f1 = m_Fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch deriv factors data.
         auto dfPtr = m_df[m_blk].template GetPtr<MemSpace, ReadOnly>();
@@ -376,7 +379,7 @@ private:
 
             // Calculate derivative.
             PhysDeriv2DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED,
-                              nCoord, nq0, nq1>(nElmtsPad, D0, D1, Z0, Z1,
+                              nCoord, nq0, nq1>(nElmtsPad, D0, D1, f0, f1,
                                                 dfPtr, inptr, outptr);
 
             inptr += inblock.size();
@@ -409,9 +412,10 @@ private:
             m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
         auto D2 =
             m_derivativeMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-        auto Z0 = m_zeroMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto Z1 = m_zeroMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto Z2 = m_zeroMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+        auto f0  = m_Fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto f1  = m_Fac0[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto f1m = m_Fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto f2  = m_Fac1[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch deriv factors data.
         auto dfPtr = m_df[m_blk].template GetPtr<MemSpace, ReadOnly>();
@@ -434,8 +438,8 @@ private:
 
             // Calculate derivative.
             PhysDeriv3DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
-                nq0, nq1, nq2, nElmtsPad, D0, D1, D2, Z0, Z1, Z2, dfPtr, inptr,
-                outptr);
+                nq0, nq1, nq2, nElmtsPad, D0, D1, D2, f0, f1, f1m, f2, dfPtr,
+                inptr, outptr);
 
             inptr += inblock.size();
             outptr += 3 * outblock.size();
@@ -463,9 +467,10 @@ private:
             m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
         auto D2 =
             m_derivativeMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-        auto Z0 = m_zeroMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto Z1 = m_zeroMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto Z2 = m_zeroMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+        auto f0  = m_Fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto f1  = m_Fac0[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto f1m = m_Fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto f2  = m_Fac1[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch deriv factors data.
         auto dfPtr = m_df[m_blk].template GetPtr<MemSpace, ReadOnly>();
@@ -488,8 +493,8 @@ private:
 
             // Calculate derivative.
             PhysDeriv3DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED,
-                              nq0, nq1, nq2>(nElmtsPad, D0, D1, D2, Z0, Z1, Z2,
-                                             dfPtr, inptr, outptr);
+                              nq0, nq1, nq2>(nElmtsPad, D0, D1, D2, f0, f1, f1m,
+                                             f2, dfPtr, inptr, outptr);
             inptr += inblock.size();
             outptr += 3 * outblock.size();
         }

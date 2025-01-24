@@ -54,7 +54,7 @@ inline constexpr unsigned int PhysDerivSharedMemorySize(const unsigned int nq0,
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
-            return nq0 * nq1;
+            return nq0 + nq1;
         }
     }
     else

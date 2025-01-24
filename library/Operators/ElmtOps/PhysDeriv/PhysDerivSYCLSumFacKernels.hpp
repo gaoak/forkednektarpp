@@ -109,8 +109,8 @@ NEK_FORCE_INLINE static void PhysDeriv2DSumFacKernel(
     const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
     const unsigned int nq1, const unsigned int outsize,
     const TData *__restrict D0, const TData *__restrict D1,
-    [[maybe_unused]] const TData *__restrict xfrm0,
-    [[maybe_unused]] const TData *__restrict xfrm1, const TData *__restrict df,
+    [[maybe_unused]] const TData *__restrict f0,
+    [[maybe_unused]] const TData *__restrict f1, const TData *__restrict df,
     const TData *__restrict in, TData *__restrict out)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
@@ -144,8 +144,8 @@ NEK_FORCE_INLINE static void PhysDeriv2DSumFacKernel(
             // Moving from standard to collapsed coordinates.
             if constexpr (SHAPE_TYPE == LibUtilities::Tri)
             {
-                d0 *= xfrm0[j];
-                d1 += d0 * xfrm1[i];
+                d0 *= f1[j];
+                d1 += d0 * f0[i];
             }
 
             // Multiply by derivative factors.
@@ -196,8 +196,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv2DSumFacQPKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
     const unsigned int outsize, const TData *__restrict D0,
-    const TData *__restrict D1, const TData *__restrict Z0,
-    const TData *__restrict Z1, const TData *__restrict df,
+    const TData *__restrict D1, const TData *__restrict f0,
+    const TData *__restrict f1, const TData *__restrict df,
     const TData *__restrict in, TData *__restrict out,
     const sycl::nd_item<3> &item_ct1)
 {
@@ -233,10 +233,8 @@ NEK_FORCE_INLINE static void PhysDeriv2DSumFacQPKernel(
         // Moving from standard to collapsed coordinates.
         if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
-            TData xfrm0 = 2.0 / (1.0 - Z1[j]);
-            TData xfrm1 = 0.5 * (1.0 + Z0[i]);
-            d0 *= xfrm0;
-            d1 += d0 * xfrm1;
+            d0 *= f1[j];
+            d1 += d0 * f0[i];
         }
 
         // Multiply by derivative factors.
@@ -292,13 +290,11 @@ NEK_FORCE_INLINE static void PhysDeriv3DSumFacKernel(
     const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int outsize,
     const TData *__restrict D0, const TData *__restrict D1,
-    const TData *__restrict D2,
-    [[maybe_unused]] const TData *__restrict xfrm_eta0,
-    [[maybe_unused]] const TData *__restrict xfrm_eta1,
-    [[maybe_unused]] const TData *__restrict xfrm_eta1m,
-    [[maybe_unused]] const TData *__restrict xfrm_eta2,
-    const TData *__restrict df, const TData *__restrict in,
-    TData *__restrict out)
+    const TData *__restrict D2, [[maybe_unused]] const TData *__restrict f0,
+    [[maybe_unused]] const TData *__restrict f1,
+    [[maybe_unused]] const TData *__restrict f1m,
+    [[maybe_unused]] const TData *__restrict f2, const TData *__restrict df,
+    const TData *__restrict in, TData *__restrict out)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -345,24 +341,23 @@ NEK_FORCE_INLINE static void PhysDeriv3DSumFacKernel(
                 // Moving from standard to collapsed coordinates.
                 if constexpr (SHAPE_TYPE == LibUtilities::Tet)
                 {
-                    TData xfrm = xfrm_eta1m[j] * xfrm_eta2[k];
-                    TData tmp0 = xfrm * d0;
-                    TData tmp1 = xfrm_eta0[i] * tmp0;
-                    TData tmp2 = xfrm_eta2[k] * d1;
+                    TData tmp0 = f1m[j] * f2[k] * d0;
+                    TData tmp1 = f0[i] * tmp0;
+                    TData tmp2 = f2[k] * d1;
                     d0         = tmp0;
                     d1         = tmp1 + tmp2;
-                    d2 += tmp1 + xfrm_eta1[j] * tmp2;
+                    d2 += tmp1 + f1[j] * tmp2;
                 }
                 else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
                 {
-                    d0 *= xfrm_eta2[k];
-                    d2 += xfrm_eta0[i] * d0;
+                    d0 *= f2[k];
+                    d2 += f0[i] * d0;
                 }
                 else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
                 {
-                    d0 *= xfrm_eta2[k];
-                    d1 *= xfrm_eta2[k];
-                    d2 += xfrm_eta0[i] * d0 + xfrm_eta1[j] * d1;
+                    d0 *= f2[k];
+                    d1 *= f2[k];
+                    d2 += f0[i] * d0 + f1[j] * d1;
                 }
 
                 // Multiply by derivative factors.
@@ -430,10 +425,10 @@ NEK_FORCE_INLINE static void PhysDeriv3DSumFacQPKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int outsize, const TData *__restrict D0,
     const TData *__restrict D1, const TData *__restrict D2,
-    const TData *__restrict Z0, const TData *__restrict Z1,
-    const TData *__restrict Z2, const TData *__restrict df,
-    const TData *__restrict in, TData *__restrict out,
-    const sycl::nd_item<3> &item_ct1)
+    const TData *__restrict f0, const TData *__restrict f1,
+    const TData *__restrict f1m, const TData *__restrict f2,
+    const TData *__restrict df, const TData *__restrict in,
+    TData *__restrict out, const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int ncoord = 3u;
 
@@ -477,34 +472,23 @@ NEK_FORCE_INLINE static void PhysDeriv3DSumFacQPKernel(
         // Moving from standard to collapsed coordinates.
         if constexpr (SHAPE_TYPE == LibUtilities::Tet)
         {
-            TData xfrm_eta0  = 0.5 * (1.0 + Z0[i]);
-            TData xfrm_eta1  = 0.5 * (1.0 + Z1[j]);
-            TData xfrm_eta1m = 2.0 / (1.0 - Z1[j]);
-            TData xfrm_eta2  = 2.0 / (1.0 - Z2[k]);
-
-            TData xfrm = xfrm_eta1m * xfrm_eta2;
-            TData tmp0 = xfrm * d0;
-            TData tmp1 = xfrm_eta0 * tmp0;
-            TData tmp2 = xfrm_eta2 * d1;
+            TData tmp0 = f1m[j] * f2[k] * d0;
+            TData tmp1 = f0[i] * tmp0;
+            TData tmp2 = f2[k] * d1;
             d0         = tmp0;
             d1         = tmp1 + tmp2;
-            d2 += tmp1 + xfrm_eta1 * tmp2;
+            d2 += tmp1 + f1[j] * tmp2;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
         {
-            TData xfrm_eta0 = 0.5 * (1.0 + Z0[i]);
-            TData xfrm_eta2 = 2.0 / (1.0 - Z2[k]);
-            d0 *= xfrm_eta2;
-            d2 += xfrm_eta0 * d0;
+            d0 *= f2[k];
+            d2 += f0[i] * d0;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
-            TData xfrm_eta0 = 0.5 * (1.0 + Z0[i]);
-            TData xfrm_eta1 = 0.5 * (1.0 + Z1[j]);
-            TData xfrm_eta2 = 2.0 / (1.0 - Z2[k]);
-            d0 *= xfrm_eta2;
-            d1 *= xfrm_eta2;
-            d2 += xfrm_eta0 * d0 + xfrm_eta1 * d1;
+            d0 *= f2[k];
+            d1 *= f2[k];
+            d2 += f0[i] * d0 + f1[j] * d1;
         }
 
         // Multiply by derivative factors.
@@ -625,8 +609,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_FORCE_INLINE void PhysDeriv2DKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nelmt, const TData *__restrict D0,
-    const TData *__restrict D1, const TData *__restrict Z0,
-    const TData *__restrict Z1, const TData *__restrict df,
+    const TData *__restrict D1, const TData *__restrict f0,
+    const TData *__restrict f1, const TData *__restrict df,
     const TData *__restrict in, TData *__restrict out,
     TData *__restrict shmemptr, const sycl::nd_item<3> &item_ct1)
 {
@@ -643,25 +627,25 @@ NEK_FORCE_INLINE void PhysDeriv2DKernel(
         constexpr unsigned int warpsize =
             NektarSpaces::vector_width<TData>::value;
 
-        TData *s_xfrm0 = nullptr;
-        TData *s_xfrm1 = nullptr;
+        TData *s_f0 = nullptr;
+        TData *s_f1 = nullptr;
 
         // Precompute geometric factors.
         if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
-            s_xfrm0 = shmemptr;
-            s_xfrm1 = s_xfrm0 + nq1;
-
-            for (unsigned int idx = item_ct1.get_local_id(2); idx < nq1;
-                 idx += item_ct1.get_local_range(2))
-            {
-                s_xfrm0[idx] = 2.0 / (1.0 - Z1[idx]);
-            }
+            s_f0 = shmemptr;
+            s_f1 = s_f0 + nq0;
 
             for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0;
                  idx += item_ct1.get_local_range(2))
             {
-                s_xfrm1[idx] = 0.5 * (1.0 + Z0[idx]);
+                s_f0[idx] = f0[idx];
+            }
+
+            for (unsigned int idx = item_ct1.get_local_id(2); idx < nq1;
+                 idx += item_ct1.get_local_range(2))
+            {
+                s_f1[idx] = f1[idx];
             }
 
             item_ct1.barrier(sycl::access::fence_space::local_space);
@@ -679,7 +663,7 @@ NEK_FORCE_INLINE void PhysDeriv2DKernel(
             const TData *inptr = in + offset;
             TData *outptr      = out + offset;
             PhysDeriv2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
-                ilane, ncoord, nq0, nq1, nelmt, D0, D1, s_xfrm0, s_xfrm1, dfptr,
+                ilane, ncoord, nq0, nq1, nelmt, D0, D1, s_f0, s_f1, dfptr,
                 inptr, outptr);
             e += item_ct1.get_global_range(2);
         }
@@ -696,7 +680,7 @@ NEK_FORCE_INLINE void PhysDeriv2DKernel(
             const TData *inptr = in + offset;
             TData *outptr      = out + offset;
             PhysDeriv2DSumFacQPKernel<SHAPE_TYPE, DEFORMED>(
-                ncoord, nq0, nq1, nelmt, D0, D1, Z0, Z1, dfptr, inptr, outptr,
+                ncoord, nq0, nq1, nelmt, D0, D1, f0, f1, dfptr, inptr, outptr,
                 item_ct1);
             e += item_ct1.get_group_range(2);
         }
@@ -710,10 +694,11 @@ NEK_FORCE_INLINE void PhysDeriv3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nelmt, const TData *__restrict D0,
     const TData *__restrict D1, const TData *__restrict D2,
-    const TData *__restrict Z0, const TData *__restrict Z1,
-    const TData *__restrict Z2, const TData *__restrict df,
-    const TData *__restrict in, TData *__restrict out,
-    TData *__restrict shmemptr, const sycl::nd_item<3> &item_ct1)
+    const TData *__restrict f0, const TData *__restrict f1,
+    const TData *__restrict f1m, const TData *__restrict f2,
+    const TData *__restrict df, const TData *__restrict in,
+    TData *__restrict out, TData *__restrict shmemptr,
+    const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int ndf = 9u;
     const unsigned int nqTot   = nq0 * nq1 * nq2;
@@ -728,86 +713,81 @@ NEK_FORCE_INLINE void PhysDeriv3DKernel(
         constexpr unsigned int warpsize =
             NektarSpaces::vector_width<TData>::value;
 
-        TData *s_xfrm_eta0  = nullptr;
-        TData *s_xfrm_eta1  = nullptr;
-        TData *s_xfrm_eta1m = nullptr;
-        TData *s_xfrm_eta2  = nullptr;
+        TData *s_f0  = nullptr;
+        TData *s_f1  = nullptr;
+        TData *s_f1m = nullptr;
+        TData *s_f2  = nullptr;
 
         // Precompute geometric factors.
         if constexpr (SHAPE_TYPE == LibUtilities::Tet)
         {
-            s_xfrm_eta0  = shmemptr;
-            s_xfrm_eta1  = s_xfrm_eta0 + nq0;
-            s_xfrm_eta1m = s_xfrm_eta1 + nq1;
-            s_xfrm_eta2  = s_xfrm_eta1m + nq1;
+            s_f0  = shmemptr;
+            s_f1  = s_f0 + nq0;
+            s_f1m = s_f1 + nq1;
+            s_f2  = s_f1m + nq1;
 
             for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0;
                  idx += item_ct1.get_local_range(2))
             {
-                s_xfrm_eta0[idx] = 0.5 * (1.0 + Z0[idx]);
+                s_f0[idx] = f0[idx];
             }
 
             for (unsigned int idx = item_ct1.get_local_id(2); idx < nq1;
                  idx += item_ct1.get_local_range(2))
             {
-                s_xfrm_eta1[idx] = 0.5 * (1.0 + Z1[idx]);
-            }
-
-            for (unsigned int idx = item_ct1.get_local_id(2); idx < nq1;
-                 idx += item_ct1.get_local_range(2))
-            {
-                s_xfrm_eta1m[idx] = 2.0 / (1.0 - Z1[idx]);
+                s_f1[idx]  = f1[idx];
+                s_f1m[idx] = f1m[idx];
             }
 
             for (unsigned int idx = item_ct1.get_local_id(2); idx < nq2;
                  idx += item_ct1.get_local_range(2))
             {
-                s_xfrm_eta2[idx] = 2.0 / (1.0 - Z2[idx]);
+                s_f2[idx] = f2[idx];
             }
 
             item_ct1.barrier(sycl::access::fence_space::local_space);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
         {
-            s_xfrm_eta0 = shmemptr;
-            s_xfrm_eta2 = s_xfrm_eta0 + nq0;
+            s_f0 = shmemptr;
+            s_f2 = s_f0 + nq0;
 
             for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0;
                  idx += item_ct1.get_local_range(2))
             {
-                s_xfrm_eta0[idx] = 0.5 * (1.0 + Z0[idx]);
+                s_f0[idx] = f0[idx];
             }
 
             for (unsigned int idx = item_ct1.get_local_id(2); idx < nq2;
                  idx += item_ct1.get_local_range(2))
             {
-                s_xfrm_eta2[idx] = 2.0 / (1.0 - Z2[idx]);
+                s_f2[idx] = f2[idx];
             }
 
             item_ct1.barrier(sycl::access::fence_space::local_space);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
-            s_xfrm_eta0 = shmemptr;
-            s_xfrm_eta1 = s_xfrm_eta0 + nq0;
-            s_xfrm_eta2 = s_xfrm_eta1 + nq1;
+            s_f0 = shmemptr;
+            s_f1 = s_f0 + nq0;
+            s_f2 = s_f1 + nq1;
 
             for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0;
                  idx += item_ct1.get_local_range(2))
             {
-                s_xfrm_eta0[idx] = 0.5 * (1.0 + Z0[idx]);
+                s_f0[idx] = f0[idx];
             }
 
             for (unsigned int idx = item_ct1.get_local_id(2); idx < nq1;
                  idx += item_ct1.get_local_range(2))
             {
-                s_xfrm_eta1[idx] = 0.5 * (1.0 + Z1[idx]);
+                s_f1[idx] = f1[idx];
             }
 
             for (unsigned int idx = item_ct1.get_local_id(2); idx < nq2;
                  idx += item_ct1.get_local_range(2))
             {
-                s_xfrm_eta2[idx] = 2.0 / (1.0 - Z2[idx]);
+                s_f2[idx] = f2[idx];
             }
 
             item_ct1.barrier(sycl::access::fence_space::local_space);
@@ -825,8 +805,8 @@ NEK_FORCE_INLINE void PhysDeriv3DKernel(
             const TData *inptr = in + offset;
             TData *outptr      = out + offset;
             PhysDeriv3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
-                ilane, nq0, nq1, nq2, nelmt, D0, D1, D2, s_xfrm_eta0,
-                s_xfrm_eta1, s_xfrm_eta1m, s_xfrm_eta2, dfptr, inptr, outptr);
+                ilane, nq0, nq1, nq2, nelmt, D0, D1, D2, s_f0, s_f1, s_f1m,
+                s_f2, dfptr, inptr, outptr);
             e += item_ct1.get_global_range(2);
         }
     }
@@ -842,7 +822,7 @@ NEK_FORCE_INLINE void PhysDeriv3DKernel(
             const TData *inptr = in + offset;
             TData *outptr      = out + offset;
             PhysDeriv3DSumFacQPKernel<SHAPE_TYPE, DEFORMED>(
-                nq0, nq1, nq2, nelmt, D0, D1, D2, Z0, Z1, Z2, dfptr, inptr,
+                nq0, nq1, nq2, nelmt, D0, D1, D2, f0, f1, f1m, f2, dfptr, inptr,
                 outptr, item_ct1);
             e += item_ct1.get_group_range(2);
         }
@@ -890,8 +870,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           typename Implementation, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv2DKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nelmt, const TData *D0, const TData *D1, const TData *Z0,
-    const TData *Z1, const TData *df, const TData *in, TData *out)
+    const unsigned int nelmt, const TData *D0, const TData *D1, const TData *f0,
+    const TData *f1, const TData *df, const TData *in, TData *out)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
 
@@ -910,7 +890,7 @@ NEK_FORCE_INLINE static void PhysDeriv2DKernel(
                          .get();
 #pragma forceinline
                  PhysDeriv2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
-                     ncoord, nq0, nq1, nelmt, D0, D1, Z0, Z1, df, in, out,
+                     ncoord, nq0, nq1, nelmt, D0, D1, f0, f1, df, in, out,
                      shmemptr, item);
              });
      }).wait();
@@ -922,12 +902,12 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           unsigned int nq0, unsigned int nq1, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv2DKernel(const unsigned int nelmt,
                                                const TData *D0, const TData *D1,
-                                               const TData *Z0, const TData *Z1,
+                                               const TData *f0, const TData *f1,
                                                const TData *df, const TData *in,
                                                TData *out)
 {
     PhysDeriv2DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
-        ncoord, nq0, nq1, nelmt, D0, D1, Z0, Z1, df, in, out);
+        ncoord, nq0, nq1, nelmt, D0, D1, f0, f1, df, in, out);
 }
 
 // Non-size based version.
@@ -936,8 +916,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
 NEK_FORCE_INLINE static void PhysDeriv3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nelmt, const TData *D0, const TData *D1, const TData *D2,
-    const TData *Z0, const TData *Z1, const TData *Z2, const TData *df,
-    const TData *in, TData *out)
+    const TData *f0, const TData *f1, const TData *f1m, const TData *f2,
+    const TData *df, const TData *in, TData *out)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
 
@@ -956,8 +936,8 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel(
                          .get();
 #pragma forceinline
                  PhysDeriv3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
-                     nq0, nq1, nq2, nelmt, D0, D1, D2, Z0, Z1, Z2, df, in, out,
-                     shmemptr, item);
+                     nq0, nq1, nq2, nelmt, D0, D1, D2, f0, f1, f1m, f2, df, in,
+                     out, shmemptr, item);
              });
      }).wait();
 }
@@ -966,15 +946,13 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel(
 template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           typename Implementation, bool DEFORMED, unsigned int nq0,
           unsigned int nq1, unsigned int nq2, typename TData>
-NEK_FORCE_INLINE static void PhysDeriv3DKernel(const unsigned int nelmt,
-                                               const TData *D0, const TData *D1,
-                                               const TData *D2, const TData *Z0,
-                                               const TData *Z1, const TData *Z2,
-                                               const TData *df, const TData *in,
-                                               TData *out)
+NEK_FORCE_INLINE static void PhysDeriv3DKernel(
+    const unsigned int nelmt, const TData *D0, const TData *D1, const TData *D2,
+    const TData *f0, const TData *f1, const TData *f1m, const TData *f2,
+    const TData *df, const TData *in, TData *out)
 {
     PhysDeriv3DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
-        nq0, nq1, nq2, nelmt, D0, D1, D2, Z0, Z1, Z2, df, in, out);
+        nq0, nq1, nq2, nelmt, D0, D1, D2, f0, f1, f1m, f2, df, in, out);
 }
 
 } // namespace Nektar::Operators::detail

@@ -155,7 +155,7 @@ __device__ __forceinline__ void StdAlignDerivBase2DSumFacKernel(
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
             {
-                out0[index] = (sum1 + sum2 * f1[i]) * f0[j] * tmpQ;
+                out0[index] = (sum1 + sum2 * f0[i]) * f1[j] * tmpQ;
                 out1[index] = sum2 * tmpQ;
             }
         }
@@ -166,8 +166,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 __device__ __forceinline__ void StdAlignDerivBase2DSumFacQPKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
     const unsigned int insize, const TData *__restrict__ w0,
-    const TData *__restrict__ w1, const TData *__restrict__ Z0,
-    const TData *__restrict__ Z1, const TData *__restrict__ df,
+    const TData *__restrict__ w1, const TData *__restrict__ f0,
+    const TData *__restrict__ f1, const TData *__restrict__ df,
     const TData *__restrict__ jac, const TData *__restrict__ in,
     TData *__restrict__ out0, TData *__restrict__ out1)
 {
@@ -178,19 +178,11 @@ __device__ __forceinline__ void StdAlignDerivBase2DSumFacQPKernel(
         dfsize *= nqTot;
     }
 
-    TData f0, f1;
-
     for (unsigned int idx = threadIdx.x; idx < nq0 * nq1; idx += blockDim.x)
     {
         const unsigned int i       = idx % nq0;
         const unsigned int j       = idx / nq0;
         const unsigned int dfindex = DEFORMED ? idx : 0;
-
-        if constexpr (SHAPE_TYPE == LibUtilities::Tri)
-        {
-            f0 = 2.0 / (1.0 - Z1[j]);
-            f1 = 0.5 * (1.0 + Z0[i]);
-        }
 
         TData sum1 = 0.0, sum2 = 0.0;
         for (unsigned int d = 0u; d < ncoord; ++d)
@@ -218,7 +210,7 @@ __device__ __forceinline__ void StdAlignDerivBase2DSumFacQPKernel(
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
-            out0[idx] = (sum1 + sum2 * f1) * f0 * tmpQ;
+            out0[idx] = (sum1 + sum2 * f0[i]) * f1[j] * tmpQ;
             out1[idx] = sum2 * tmpQ;
         }
     }
@@ -233,8 +225,8 @@ __device__ __forceinline__ void StdAlignDerivBase3DSumFacKernel(
     const TData *__restrict__ w0, const TData *__restrict__ w1,
     const TData *__restrict__ w2, [[maybe_unused]] const TData *__restrict__ f0,
     [[maybe_unused]] const TData *__restrict__ f1,
-    [[maybe_unused]] const TData *__restrict__ f2,
-    [[maybe_unused]] const TData *__restrict__ f3, const TData *__restrict__ df,
+    [[maybe_unused]] const TData *__restrict__ f1m,
+    [[maybe_unused]] const TData *__restrict__ f2, const TData *__restrict__ df,
     const TData *__restrict__ jac, const TData *__restrict__ in,
     TData *__restrict__ out0, TData *__restrict__ out1,
     TData *__restrict__ out2)
@@ -283,21 +275,22 @@ __device__ __forceinline__ void StdAlignDerivBase3DSumFacKernel(
                 }
                 else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
                 {
-                    out0[index] =
-                        (sum1 + (sum2 + sum3) * f1[i]) * f0[j] * f2[k] * tmpQ;
-                    out1[index] = (sum2 + sum3 * f3[j]) * f2[k] * tmpQ;
+                    TData tmp   = f2[k] * tmpQ;
+                    out0[index] = (sum1 + (sum2 + sum3) * f0[i]) * f1m[j] * tmp;
+                    out1[index] = (sum2 + sum3 * f1[j]) * tmp;
                     out2[index] = sum3 * tmpQ;
                 }
                 else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
                 {
-                    out0[index] = (sum1 + sum3 * f1[i]) * f2[k] * tmpQ;
+                    out0[index] = (sum1 + sum3 * f0[i]) * f2[k] * tmpQ;
                     out1[index] = sum2 * tmpQ;
                     out2[index] = sum3 * tmpQ;
                 }
                 else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
                 {
-                    out0[index] = (sum1 + sum3 * f1[i]) * f2[k] * tmpQ;
-                    out1[index] = (sum2 + sum3 * f3[j]) * f2[k] * tmpQ;
+                    TData tmp   = f2[k] * tmpQ;
+                    out0[index] = (sum1 + sum3 * f0[i]) * tmp;
+                    out1[index] = (sum2 + sum3 * f1[j]) * tmp;
                     out2[index] = sum3 * tmpQ;
                 }
             }
@@ -310,11 +303,11 @@ __device__ __forceinline__ void StdAlignDerivBase3DSumFacQPKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int insize, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ w2,
-    const TData *__restrict__ Z0, const TData *__restrict__ Z1,
-    const TData *__restrict__ Z2, const TData *__restrict__ df,
-    const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out0, TData *__restrict__ out1,
-    TData *__restrict__ out2)
+    const TData *__restrict__ f0, const TData *__restrict__ f1,
+    const TData *__restrict__ f1m, const TData *__restrict__ f2,
+    const TData *__restrict__ df, const TData *__restrict__ jac,
+    const TData *__restrict__ in, TData *__restrict__ out0,
+    TData *__restrict__ out1, TData *__restrict__ out2)
 {
     constexpr unsigned int ncoord = 3u;
 
@@ -325,8 +318,6 @@ __device__ __forceinline__ void StdAlignDerivBase3DSumFacQPKernel(
         dfsize *= nqTot;
     }
 
-    TData f0, f1, f2, f3;
-
     for (unsigned int idx = threadIdx.x; idx < nq0 * nq1 * nq2;
          idx += blockDim.x)
     {
@@ -334,25 +325,6 @@ __device__ __forceinline__ void StdAlignDerivBase3DSumFacQPKernel(
         const unsigned int j       = (idx / nq0) % nq1;
         const unsigned int k       = idx / (nq0 * nq1);
         const unsigned int dfindex = DEFORMED ? idx : 0;
-
-        if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
-                      SHAPE_TYPE == LibUtilities::Prism ||
-                      SHAPE_TYPE == LibUtilities::Pyr)
-        {
-            f1 = 0.5 * (1.0 + Z0[i]);
-            f2 = 2.0 / (1.0 - Z2[k]);
-        }
-
-        if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
-                      SHAPE_TYPE == LibUtilities::Pyr)
-        {
-            f3 = 0.5 * (1.0 + Z1[j]);
-        }
-
-        if constexpr (SHAPE_TYPE == LibUtilities::Tet)
-        {
-            f0 = 2.0 / (1.0 - Z1[j]);
-        }
 
         TData sum1 = 0.0, sum2 = 0.0, sum3 = 0.0;
         for (unsigned int d = 0u; d < ncoord; ++d)
@@ -381,20 +353,22 @@ __device__ __forceinline__ void StdAlignDerivBase3DSumFacQPKernel(
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
         {
-            out0[idx] = (sum1 + (sum2 + sum3) * f1) * f0 * f2 * tmpQ;
-            out1[idx] = (sum2 + sum3 * f3) * f2 * tmpQ;
+            TData tmp = f2[k] * tmpQ;
+            out0[idx] = (sum1 + (sum2 + sum3) * f0[i]) * f1m[j] * tmp;
+            out1[idx] = (sum2 + sum3 * f1[j]) * tmp;
             out2[idx] = sum3 * tmpQ;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
         {
-            out0[idx] = (sum1 + sum3 * f1) * f2 * tmpQ;
+            out0[idx] = (sum1 + sum3 * f0[i]) * f2[k] * tmpQ;
             out1[idx] = sum2 * tmpQ;
             out2[idx] = sum3 * tmpQ;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
-            out0[idx] = (sum1 + sum3 * f1) * f2 * tmpQ;
-            out1[idx] = (sum2 + sum3 * f3) * f2 * tmpQ;
+            TData tmp = f2[k] * tmpQ;
+            out0[idx] = (sum1 + sum3 * f0[i]) * tmp;
+            out1[idx] = (sum2 + sum3 * f1[j]) * tmp;
             out2[idx] = sum3 * tmpQ;
         }
     }
@@ -505,7 +479,7 @@ __device__ __forceinline__ void IProductWRTDerivBase2DKernel(
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ D0, const TData *__restrict__ D1,
     const TData *__restrict__ w0, const TData *__restrict__ w1,
-    const TData *__restrict__ Z0, const TData *__restrict__ Z1,
+    const TData *__restrict__ f0, const TData *__restrict__ f1,
     const TData *__restrict__ df, const TData *__restrict__ jac,
     const TData *__restrict__ in, TData *__restrict__ out,
     [[maybe_unused]] TData *__restrict__ wsp)
@@ -536,16 +510,16 @@ __device__ __forceinline__ void IProductWRTDerivBase2DKernel(
         if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
             s_f0 = (TData *)shmemptr;
-            s_f1 = s_f0 + nq1;
-
-            for (unsigned int idx = idx0; idx < nq1; idx += stride)
-            {
-                s_f0[idx] = 2.0 / (1.0 - Z1[idx]);
-            }
+            s_f1 = s_f0 + nq0;
 
             for (unsigned int idx = idx0; idx < nq0; idx += stride)
             {
-                s_f1[idx] = 0.5 * (1.0 + Z0[idx]);
+                s_f0[idx] = f0[idx];
+            }
+
+            for (unsigned int idx = idx0; idx < nq1; idx += stride)
+            {
+                s_f1[idx] = f1[idx];
             }
 
             __syncthreads();
@@ -632,7 +606,7 @@ __device__ __forceinline__ void IProductWRTDerivBase2DKernel(
             TData *outptr       = out + nmTot * e;
 
             StdAlignDerivBase2DSumFacQPKernel<SHAPE_TYPE, DEFORMED>(
-                ncoord, nq0, nq1, nelmt, w0, w1, Z0, Z1, dfptr, jacptr, inptr,
+                ncoord, nq0, nq1, nelmt, w0, w1, f0, f1, dfptr, jacptr, inptr,
                 deriv0, deriv1);
             SumDerivTensor2DQPKernel<SHAPE_TYPE, DEFORMED>(
                 nq0, nq1, D0, D1, deriv0, deriv1, deriv);
@@ -664,14 +638,14 @@ __global__ void IProductWRTDerivBase2DKernelLauncher(
     const unsigned int *__restrict__ index0, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ D0,
     const TData *__restrict__ D1, const TData *__restrict__ w0,
-    const TData *__restrict__ w1, const TData *__restrict__ Z0,
-    const TData *__restrict__ Z1, const TData *__restrict__ df,
+    const TData *__restrict__ w1, const TData *__restrict__ f0,
+    const TData *__restrict__ f1, const TData *__restrict__ df,
     const TData *__restrict__ jac, const TData *__restrict__ in,
     TData *__restrict__ out, TData *__restrict__ wsp)
 {
     IProductWRTDerivBase2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
         ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0,
-        basis1, D0, D1, w0, w1, Z0, Z1, df, jac, in, out, wsp);
+        basis1, D0, D1, w0, w1, f0, f1, df, jac, in, out, wsp);
 }
 
 // Size based template version.
@@ -683,14 +657,14 @@ __global__ void IProductWRTDerivBase2DKernelLauncher(
     const unsigned int *__restrict__ index0, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ D0,
     const TData *__restrict__ D1, const TData *__restrict__ w0,
-    const TData *__restrict__ w1, const TData *__restrict__ Z0,
-    const TData *__restrict__ Z1, const TData *__restrict__ df,
+    const TData *__restrict__ w1, const TData *__restrict__ f0,
+    const TData *__restrict__ f1, const TData *__restrict__ df,
     const TData *__restrict__ jac, const TData *__restrict__ in,
     TData *__restrict__ out, TData *__restrict__ wsp)
 {
     IProductWRTDerivBase2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
         ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0,
-        basis1, D0, D1, w0, w1, Z0, Z1, df, jac, in, out, wsp);
+        basis1, D0, D1, w0, w1, f0, f1, df, jac, in, out, wsp);
 }
 
 // General Launcher
@@ -707,11 +681,11 @@ __device__ __forceinline__ void IProductWRTDerivBase3DKernel(
     const TData *__restrict__ basis2, const TData *__restrict__ D0,
     const TData *__restrict__ D1, const TData *__restrict__ D2,
     const TData *__restrict__ w0, const TData *__restrict__ w1,
-    const TData *__restrict__ w2, const TData *__restrict__ Z0,
-    const TData *__restrict__ Z1, const TData *__restrict__ Z2,
-    const TData *__restrict__ df, const TData *__restrict__ jac,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    [[maybe_unused]] TData *__restrict__ wsp)
+    const TData *__restrict__ w2, const TData *__restrict__ f0,
+    const TData *__restrict__ f1, const TData *__restrict__ f1m,
+    const TData *__restrict__ f2, const TData *__restrict__ df,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ wsp)
 {
     constexpr unsigned int ndf = 9u;
     const unsigned int nqTot   = nq0 * nq1 * nq2;
@@ -730,79 +704,75 @@ __device__ __forceinline__ void IProductWRTDerivBase3DKernel(
 
         extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
-        TData *s_f0 = nullptr;
-        TData *s_f1 = nullptr;
-        TData *s_f2 = nullptr;
-        TData *s_f3 = nullptr;
+        TData *s_f0  = nullptr;
+        TData *s_f1  = nullptr;
+        TData *s_f1m = nullptr;
+        TData *s_f2  = nullptr;
 
         // Pre-compute factor.
         const unsigned int idx0   = threadIdx.x;
         const unsigned int stride = blockDim.x;
         if constexpr (SHAPE_TYPE == LibUtilities::Tet)
         {
-            s_f0 = (TData *)shmemptr;
-            s_f1 = s_f0 + nq1;
-            s_f2 = s_f1 + nq0;
-            s_f3 = s_f2 + nq2;
-
-            for (unsigned int idx = idx0; idx < nq1; idx += stride)
-            {
-                s_f0[idx] = 2.0 / (1.0 - Z1[idx]);
-            }
+            s_f0  = (TData *)shmemptr;
+            s_f1  = s_f0 + nq0;
+            s_f1m = s_f1 + nq1;
+            s_f2  = s_f1m + nq1;
 
             for (unsigned int idx = idx0; idx < nq0; idx += stride)
             {
-                s_f1[idx] = 0.5 * (1.0 + Z0[idx]);
+                s_f0[idx] = f0[idx];
+            }
+
+            for (unsigned int idx = idx0; idx < nq1; idx += stride)
+            {
+                s_f1[idx]  = f1[idx];
+                s_f1m[idx] = f1m[idx];
             }
 
             for (unsigned int idx = idx0; idx < nq2; idx += stride)
             {
-                s_f2[idx] = 2.0 / (1.0 - Z2[idx]);
-            }
-
-            for (unsigned int idx = idx0; idx < nq1; idx += stride)
-            {
-                s_f3[idx] = 0.5 * (1.0 + Z1[idx]);
+                s_f2[idx] = f2[idx];
             }
 
             __syncthreads();
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
         {
-            s_f1 = (TData *)shmemptr;
-            s_f2 = s_f1 + nq0;
+            s_f0 = (TData *)shmemptr;
+            s_f2 = s_f0 + nq0;
 
             for (unsigned int idx = idx0; idx < nq0; idx += stride)
             {
-                s_f1[idx] = 0.5 * (1.0 + Z0[idx]);
+                s_f0[idx] = f0[idx];
             }
 
             for (unsigned int idx = idx0; idx < nq2; idx += stride)
             {
-                s_f2[idx] = 2.0 / (1.0 - Z2[idx]);
+                s_f2[idx] = f2[idx];
             }
 
             __syncthreads();
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
-            s_f1 = (TData *)shmemptr;
-            s_f2 = s_f1 + nq0;
-            s_f3 = s_f2 + nq2;
+            s_f0 = (TData *)shmemptr;
+            s_f1 = s_f0 + nq0;
+            s_f2 = s_f1 + nq1;
 
             for (unsigned int idx = idx0; idx < nq0; idx += stride)
             {
-                s_f1[idx] = 0.5 * (1.0 + Z0[idx]);
-            }
-
-            for (unsigned int idx = idx0; idx < nq2; idx += stride)
-            {
-                s_f2[idx] = 2.0 / (1.0 - Z2[idx]);
+                s_f0[idx] = f0[idx];
             }
 
             for (unsigned int idx = idx0; idx < nq1; idx += stride)
             {
-                s_f3[idx] = 0.5 * (1.0 + Z1[idx]);
+                s_f1[idx] = f1[idx];
+            }
+
+            for (unsigned int idx = idx0; idx < nq2; idx += stride)
+            {
+                s_f2[idx] = f2[idx];
             }
 
             __syncthreads();
@@ -824,8 +794,8 @@ __device__ __forceinline__ void IProductWRTDerivBase3DKernel(
             TData *deriv  = wsp + 3 * nelmt * nqTot + nqTot * warpsize * iwarp;
 
             StdAlignDerivBase3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
-                ilane, nq0, nq1, nq2, nelmt, w0, w1, w2, s_f0, s_f1, s_f2, s_f3,
-                dfptr, jacptr, inptr, deriv0, deriv1, deriv2);
+                ilane, nq0, nq1, nq2, nelmt, w0, w1, w2, s_f0, s_f1, s_f1m,
+                s_f2, dfptr, jacptr, inptr, deriv0, deriv1, deriv2);
             SumDerivTensor3DKernel<SHAPE_TYPE, DEFORMED>(ilane, nq0, nq1, nq2,
                                                          D0, D1, D2, deriv0,
                                                          deriv1, deriv2, deriv);
@@ -954,8 +924,8 @@ __device__ __forceinline__ void IProductWRTDerivBase3DKernel(
             TData *outptr       = out + nmTot * e;
 
             StdAlignDerivBase3DSumFacQPKernel<SHAPE_TYPE, DEFORMED>(
-                nq0, nq1, nq2, nelmt, w0, w1, w2, Z0, Z1, Z2, dfptr, jacptr,
-                inptr, deriv0, deriv1, deriv2);
+                nq0, nq1, nq2, nelmt, w0, w1, w2, f0, f1, f1m, f2, dfptr,
+                jacptr, inptr, deriv0, deriv1, deriv2);
             SumDerivTensor3DQPKernel<SHAPE_TYPE, DEFORMED>(
                 nq0, nq1, nq2, D0, D1, D2, deriv0, deriv1, deriv2, deriv);
             if constexpr (SHAPE_TYPE == LibUtilities::Hex)
@@ -1006,15 +976,16 @@ __global__ void IProductWRTDerivBase3DKernelLauncher(
     const TData *__restrict__ D0, const TData *__restrict__ D1,
     const TData *__restrict__ D2, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ w2,
-    const TData *__restrict__ Z0, const TData *__restrict__ Z1,
-    const TData *__restrict__ Z2, const TData *__restrict__ df,
-    const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ wsp)
+    const TData *__restrict__ f0, const TData *__restrict__ f1,
+    const TData *__restrict__ f1m, const TData *__restrict__ f2,
+    const TData *__restrict__ df, const TData *__restrict__ jac,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp)
 {
     IProductWRTDerivBase3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
-        index2, basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, Z0, Z1, Z2, df,
-        jac, in, out, wsp);
+        index2, basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2,
+        df, jac, in, out, wsp);
 }
 
 // Size based template version.
@@ -1031,15 +1002,16 @@ __global__ void IProductWRTDerivBase3DKernelLauncher(
     const TData *__restrict__ D0, const TData *__restrict__ D1,
     const TData *__restrict__ D2, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ w2,
-    const TData *__restrict__ Z0, const TData *__restrict__ Z1,
-    const TData *__restrict__ Z2, const TData *__restrict__ df,
-    const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ wsp)
+    const TData *__restrict__ f0, const TData *__restrict__ f1,
+    const TData *__restrict__ f1m, const TData *__restrict__ f2,
+    const TData *__restrict__ df, const TData *__restrict__ jac,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp)
 {
     IProductWRTDerivBase3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
-        index2, basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, Z0, Z1, Z2, df,
-        jac, in, out, wsp);
+        index2, basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2,
+        df, jac, in, out, wsp);
 }
 
 // Kernel launchers
@@ -1089,7 +1061,7 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const bool isModified, const unsigned int *index0, const TData *basis0,
     const TData *basis1, const TData *D0, const TData *D1, const TData *w0,
-    const TData *w1, const TData *Z0, const TData *Z1, const TData *df,
+    const TData *w1, const TData *f0, const TData *f1, const TData *df,
     const TData *jac, const TData *in, TData *out, TData *wsp)
 {
     const unsigned int nmTot =
@@ -1104,7 +1076,7 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
     IProductWRTDerivBase2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>
         <<<gridsize, blocksize, shmemsize>>>(
             ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0,
-            basis0, basis1, D0, D1, w0, w1, Z0, Z1, df, jac, in, out, wsp);
+            basis0, basis1, D0, D1, w0, w1, f0, f1, df, jac, in, out, wsp);
 }
 
 // Size based template version.
@@ -1115,7 +1087,7 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
     const unsigned int ncoord, const unsigned int nelmt, const bool isModified,
     const unsigned int *index0, const TData *basis0, const TData *basis1,
     const TData *D0, const TData *D1, const TData *w0, const TData *w1,
-    const TData *Z0, const TData *Z1, const TData *df, const TData *jac,
+    const TData *f0, const TData *f1, const TData *df, const TData *jac,
     const TData *in, TData *out, TData *wsp)
 {
     const unsigned int nmTot =
@@ -1130,8 +1102,8 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
     IProductWRTDerivBase2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED,
                                          nm0, nm1, nmTot, nq0, nq1>
         <<<gridsize, blocksize, shmemsize>>>(ncoord, nelmt, isModified, index0,
-                                             basis0, basis1, D0, D1, w0, w1, Z0,
-                                             Z1, df, jac, in, out, wsp);
+                                             basis0, basis1, D0, D1, w0, w1, f0,
+                                             f1, df, jac, in, out, wsp);
 }
 
 // Non-size based version.
@@ -1144,8 +1116,8 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
     const unsigned int *index1, const unsigned int *index2, const TData *basis0,
     const TData *basis1, const TData *basis2, const TData *D0, const TData *D1,
     const TData *D2, const TData *w0, const TData *w1, const TData *w2,
-    const TData *Z0, const TData *Z1, const TData *Z2, const TData *df,
-    const TData *jac, const TData *in, TData *out, TData *wsp)
+    const TData *f0, const TData *f1, const TData *f1m, const TData *f2,
+    const TData *df, const TData *jac, const TData *in, TData *out, TData *wsp)
 {
     const unsigned int nmTot =
         LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
@@ -1159,8 +1131,8 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
     IProductWRTDerivBase3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>
         <<<gridsize, blocksize, shmemsize>>>(
             nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0,
-            index1, index2, basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, Z0,
-            Z1, Z2, df, jac, in, out, wsp);
+            index1, index2, basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, f0,
+            f1, f1m, f2, df, jac, in, out, wsp);
 }
 
 // Size based template version.
@@ -1173,8 +1145,8 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
     const unsigned int *index1, const unsigned int *index2, const TData *basis0,
     const TData *basis1, const TData *basis2, const TData *D0, const TData *D1,
     const TData *D2, const TData *w0, const TData *w1, const TData *w2,
-    const TData *Z0, const TData *Z1, const TData *Z2, const TData *df,
-    const TData *jac, const TData *in, TData *out, TData *wsp)
+    const TData *f0, const TData *f1, const TData *f1m, const TData *f2,
+    const TData *df, const TData *jac, const TData *in, TData *out, TData *wsp)
 {
     const unsigned int nmTot =
         LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
@@ -1189,7 +1161,7 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
                                          nm0, nm1, nm2, nmTot, nq0, nq1, nq2>
         <<<gridsize, blocksize, shmemsize>>>(
             nelmt, isModified, index0, index1, index2, basis0, basis1, basis2,
-            D0, D1, D2, w0, w1, w2, Z0, Z1, Z2, df, jac, in, out, wsp);
+            D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2, df, jac, in, out, wsp);
 }
 
 } // namespace Nektar::Operators::detail

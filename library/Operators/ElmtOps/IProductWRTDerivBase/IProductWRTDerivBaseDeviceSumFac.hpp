@@ -73,8 +73,12 @@ public:
             GetBasisData<MemSpace, NekDouble, TData>(expansionList, eWeights);
         m_derivativeMap = GetBasisData<MemSpace, NekDouble, TData>(
             expansionList, eDerivative);
-        m_zeroMap =
-            GetBasisData<MemSpace, NekDouble, TData>(expansionList, eZeros);
+
+        // Initialize the geometric factors.
+        m_Fac0 = GetBasisData<MemSpace, NekDouble, TData>(
+            expansionList, eHalfMultOnePlusZero, ExecSpace::alignment);
+        m_Fac1 = GetBasisData<MemSpace, NekDouble, TData>(
+            expansionList, eTwoOverOneMinusZero, ExecSpace::alignment);
     }
 
     void apply(Field<TData, FieldState::Phys> &in,
@@ -241,7 +245,8 @@ private:
     BasisDataMap<TData> m_dbasisMap;
     BasisDataMap<TData> m_weightMap;
     BasisDataMap<TData> m_derivativeMap;
-    BasisDataMap<TData> m_zeroMap;
+    BasisDataMap<TData> m_Fac0;
+    BasisDataMap<TData> m_Fac1;
 
     std::vector<MemoryRegion<TData>> m_jac;
     std::vector<MemoryRegion<TData>> m_df;
@@ -456,8 +461,8 @@ private:
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto W1 =
             m_weightMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto Z0 = m_zeroMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto Z1 = m_zeroMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto f0 = m_Fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto f1 = m_Fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch Jacobian and deriv factors.
         auto jacptr = m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>();
@@ -534,7 +539,7 @@ private:
             IProductWRTDerivBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                          DEFORMED>(
                 nCoord, nm0, nm1, nq0, nq1, nElmtsPad, isModified, index0, B0,
-                B1, D0, D1, W0, W1, Z0, Z1, dfptr, jacptr, inptr, outptr,
+                B1, D0, D1, W0, W1, f0, f1, dfptr, jacptr, inptr, outptr,
                 wspptr);
 
             inptr += nCoord * inblock.size();
@@ -578,8 +583,8 @@ private:
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto W1 =
             m_weightMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto Z0 = m_zeroMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto Z1 = m_zeroMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto f0 = m_Fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto f1 = m_Fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch Jacobian and deriv factors.
         auto jacptr = m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>();
@@ -657,7 +662,7 @@ private:
             IProductWRTDerivBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                          DEFORMED, nm0, nm1, nq0, nq1>(
                 nCoord, nElmtsPad, isModified, index0, B0, B1, D0, D1, W0, W1,
-                Z0, Z1, dfptr, jacptr, inptr, outptr, wspptr);
+                f0, f1, dfptr, jacptr, inptr, outptr, wspptr);
 
             inptr += nCoord * inblock.size();
             outptr += outblock.size();
@@ -716,9 +721,10 @@ private:
             m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
         auto D2 =
             m_derivativeMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-        auto Z0 = m_zeroMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto Z1 = m_zeroMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto Z2 = m_zeroMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+        auto f0  = m_Fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto f1  = m_Fac0[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto f1m = m_Fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto f2  = m_Fac1[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch Jacobian and deriv factors.
         auto jacptr = m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>();
@@ -896,8 +902,8 @@ private:
             IProductWRTDerivBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                          DEFORMED>(
                 nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, isModified, index0,
-                index1, index2, B0, B1, B2, D0, D1, D2, W0, W1, W2, Z0, Z1, Z2,
-                dfptr, jacptr, inptr, outptr, wspptr);
+                index1, index2, B0, B1, B2, D0, D1, D2, W0, W1, W2, f0, f1, f1m,
+                f2, dfptr, jacptr, inptr, outptr, wspptr);
 
             inptr += nCoord * inblock.size();
             outptr += outblock.size();
@@ -950,9 +956,10 @@ private:
             m_weightMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
         auto W2 =
             m_weightMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-        auto Z0 = m_zeroMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto Z1 = m_zeroMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto Z2 = m_zeroMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+        auto f0  = m_Fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto f1  = m_Fac0[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto f1m = m_Fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto f2  = m_Fac1[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch Jacobian and deriv factors.
         auto jacptr = m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>();
@@ -1131,8 +1138,8 @@ private:
                                          DEFORMED, nm0, nm1, nm2, nq0, nq1,
                                          nq2>(
                 nElmtsPad, isModified, index0, index1, index2, B0, B1, B2, D0,
-                D1, D2, W0, W1, W2, Z0, Z1, Z2, dfptr, jacptr, inptr, outptr,
-                wspptr);
+                D1, D2, W0, W1, W2, f0, f1, f1m, f2, dfptr, jacptr, inptr,
+                outptr, wspptr);
             inptr += nCoord * inblock.size();
             outptr += outblock.size();
         }
