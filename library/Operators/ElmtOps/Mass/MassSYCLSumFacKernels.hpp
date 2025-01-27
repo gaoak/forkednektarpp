@@ -306,14 +306,13 @@ NEK_FORCE_INLINE static void Mass3DKernel(
                 DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
             const TData *inptr = in + nmTot * warpsize * iwarp;
             TData *outptr      = out + nmTot * warpsize * iwarp;
+            TData *bwd         = wsp + nqTot * warpsize * iwarp;
             if constexpr (SHAPE_TYPE == LibUtilities::Hex)
             {
-                TData *bwd = wsp + nqTot * warpsize * iwarp;
                 TData *wsp0 =
                     wsp + nqTot * nelmt + nq1 * nq2 * warpsize * iwarp;
                 TData *wsp1 =
-                    wsp + (nqTot + nq2 * nq1) * nelmt + nq2 * warpsize * iwarp;
-
+                    wsp + (nqTot + nq1 * nq2) * nelmt + nq2 * warpsize * iwarp;
                 BwdTransHexSumFacKernel(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
                                         basis0, basis1, basis2, inptr, bwd,
                                         wsp0, wsp1);
@@ -323,36 +322,33 @@ NEK_FORCE_INLINE static void Mass3DKernel(
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
             {
-                TData *bwd = wsp + nqTot * warpsize * iwarp;
                 TData *wsp0 =
                     wsp + nqTot * nelmt + nq1 * nq2 * warpsize * iwarp;
-                TData *wsp1 =
-                    wsp + (nqTot + nq2 * nq1) * nelmt + nq2 * warpsize * iwarp;
-                TData *prod = wsp + (nqTot + nq1 * nq2 + nq2) * nelmt +
+                TData *wsp1 = wsp + (nqTot + nq1 * nq2) * nelmt +
+                              std::max(nq2, nm0) * warpsize * iwarp;
+                TData *wsp2 = wsp +
+                              (nqTot + nq1 * nq2 + std::max(nq2, nm0)) * nelmt +
                               nm2 * warpsize * iwarp;
-
                 BwdTransTetSumFacKernel(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
                                         isModified, basis0, basis1, basis2,
                                         inptr, bwd, wsp0, wsp1);
                 IProductWRTBaseTetSumFacKernel<false, false, DEFORMED>(
                     ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
                     basis1, basis2, w0, w1, w2, jacptr, bwd, outptr, wsp0, wsp1,
-                    prod, (TData)1.0);
+                    wsp2, (TData)1.0);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
             {
-                TData *bwd  = wsp + nqTot * warpsize * iwarp;
                 TData *wsp0 = wsp + nqTot * nelmt +
                               std::max(nq1 * nq2, nm0 * nm1) * warpsize * iwarp;
                 TData *wsp1 = wsp +
-                              (nqTot + std::max(nq2 * nq1, nm0 * nm1)) * nelmt +
+                              (nqTot + std::max(nq1 * nq2, nm0 * nm1)) * nelmt +
                               std::max(nq2, nm0) * warpsize * iwarp;
                 TData *wsp2 = wsp +
                               (nqTot + std::max(nq1 * nq2, nm0 * nm1) +
                                std::max(nq2, nm0)) *
                                   nelmt +
                               nm1 * warpsize * iwarp;
-
                 BwdTransPrismSumFacKernel(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
                                           isModified, basis0, basis1, basis2,
                                           inptr, bwd, wsp0, wsp1);
@@ -363,13 +359,11 @@ NEK_FORCE_INLINE static void Mass3DKernel(
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
             {
-                TData *bwd  = wsp + nqTot * warpsize * iwarp;
                 TData *wsp0 = wsp + nqTot * nelmt +
                               std::max(nq1 * nq2, nm0 * nm1) * warpsize * iwarp;
                 TData *wsp1 = wsp +
                               (nqTot + std::max(nq1 * nq2, nm0 * nm1)) * nelmt +
                               std::max(nq2, nm0) * warpsize * iwarp;
-
                 BwdTransPyrSumFacKernel(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
                                         isModified, basis0, basis1, basis2,
                                         inptr, bwd, wsp0, wsp1);
@@ -387,7 +381,7 @@ NEK_FORCE_INLINE static void Mass3DKernel(
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
             offset0 = std::max(nq0 * nm1 * nm2, nm0 * nq1 * nq2);
-            offset1 = std::max(nq1 * nq0 * nm2, nm0 * nm1 * nq2);
+            offset1 = std::max(nq0 * nq1 * nm2, nm0 * nm1 * nq2);
             nmode0  = nm0;
             nmode1  = nm1;
             nmode2  = nm2;

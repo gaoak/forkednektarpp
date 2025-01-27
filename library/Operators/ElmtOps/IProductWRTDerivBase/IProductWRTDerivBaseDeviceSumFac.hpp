@@ -75,9 +75,9 @@ public:
             expansionList, eDerivative);
 
         // Initialize the geometric factors.
-        m_Fac0 = GetBasisData<MemSpace, NekDouble, TData>(
+        m_fac0 = GetBasisData<MemSpace, NekDouble, TData>(
             expansionList, eHalfMultOnePlusZero, ExecSpace::alignment);
-        m_Fac1 = GetBasisData<MemSpace, NekDouble, TData>(
+        m_fac1 = GetBasisData<MemSpace, NekDouble, TData>(
             expansionList, eTwoOverOneMinusZero, ExecSpace::alignment);
     }
 
@@ -136,19 +136,19 @@ public:
         }
         else if (shapeType == LibUtilities::Hex)
         {
-            wspsize = (4 * nq0 * nq1 * nq2 + nq2 * nq1 + nq2) * nElmts;
+            wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2) * nElmts;
         }
         else if (shapeType == LibUtilities::Tet)
         {
-            wspsize = (4 * nq0 * nq1 * nq2 + nq2 * nq1 + nq2 + nm2) * nElmts;
+            wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2 + nm2) * nElmts;
         }
         else if (shapeType == LibUtilities::Prism)
         {
-            wspsize = (4 * nq0 * nq1 * nq2 + nq2 * nq1 + nq2 + nm1) * nElmts;
+            wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2 + nm1) * nElmts;
         }
         else if (shapeType == LibUtilities::Pyr)
         {
-            wspsize = (4 * nq0 * nq1 * nq2 + nq2 * nq1 + nq2) * nElmts;
+            wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2) * nElmts;
         }
 
         return wspsize;
@@ -245,8 +245,8 @@ private:
     BasisDataMap<TData> m_dbasisMap;
     BasisDataMap<TData> m_weightMap;
     BasisDataMap<TData> m_derivativeMap;
-    BasisDataMap<TData> m_Fac0;
-    BasisDataMap<TData> m_Fac1;
+    BasisDataMap<TData> m_fac0;
+    BasisDataMap<TData> m_fac1;
 
     std::vector<MemoryRegion<TData>> m_jac;
     std::vector<MemoryRegion<TData>> m_df;
@@ -461,8 +461,8 @@ private:
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto W1 =
             m_weightMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto f0 = m_Fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto f1 = m_Fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto f0 = m_fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto f1 = m_fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch Jacobian and deriv factors.
         auto jacptr = m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>();
@@ -583,8 +583,8 @@ private:
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto W1 =
             m_weightMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto f0 = m_Fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto f1 = m_Fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto f0 = m_fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto f1 = m_fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch Jacobian and deriv factors.
         auto jacptr = m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>();
@@ -721,10 +721,10 @@ private:
             m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
         auto D2 =
             m_derivativeMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-        auto f0  = m_Fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto f1  = m_Fac0[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto f1m = m_Fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto f2  = m_Fac1[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+        auto f0  = m_fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto f1  = m_fac0[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto f1m = m_fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto f2  = m_fac1[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch Jacobian and deriv factors.
         auto jacptr = m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>();
@@ -956,10 +956,10 @@ private:
             m_weightMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
         auto W2 =
             m_weightMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-        auto f0  = m_Fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto f1  = m_Fac0[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto f1m = m_Fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto f2  = m_Fac1[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+        auto f0  = m_fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto f1  = m_fac0[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto f1m = m_fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto f2  = m_fac1[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch Jacobian and deriv factors.
         auto jacptr = m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>();
@@ -1059,12 +1059,6 @@ private:
             {
                 std::vector<unsigned int> index0(nmTot);
                 std::vector<unsigned int> index1(nmTot);
-                m_index0[basisKeys] =
-                    MemoryRegion<unsigned int>::template FromVector<MemSpace>(
-                        index0, ExecSpace::alignment, device_only);
-                m_index1[basisKeys] =
-                    MemoryRegion<unsigned int>::template FromVector<MemSpace>(
-                        index1, ExecSpace::alignment, device_only);
                 for (unsigned int p = 0, mode_pqr = 0; p < nm0; p++)
                 {
                     for (unsigned int q = 0u; q < nm1; q++)

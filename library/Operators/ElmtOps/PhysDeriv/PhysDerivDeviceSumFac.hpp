@@ -65,9 +65,9 @@ public:
             expansionList, eDerivative);
 
         // Initialize the geometric factors.
-        m_Fac0 = GetBasisData<MemSpace, NekDouble, TData>(
+        m_fac0 = GetBasisData<MemSpace, NekDouble, TData>(
             expansionList, eHalfMultOnePlusZero, ExecSpace::alignment);
-        m_Fac1 = GetBasisData<MemSpace, NekDouble, TData>(
+        m_fac1 = GetBasisData<MemSpace, NekDouble, TData>(
             expansionList, eTwoOverOneMinusZero, ExecSpace::alignment);
     }
 
@@ -171,8 +171,8 @@ private:
     LocalRegions::ExpansionSharedPtr m_expPtr;
 
     BasisDataMap<TData> m_derivativeMap;
-    BasisDataMap<TData> m_Fac0;
-    BasisDataMap<TData> m_Fac1;
+    BasisDataMap<TData> m_fac0;
+    BasisDataMap<TData> m_fac1;
     std::vector<MemoryRegion<TData>> m_df;
     static constexpr size_t m_implInterleaveWidth =
         std::is_same_v<Implementation, Operators::SumFac>
@@ -305,8 +305,8 @@ private:
             m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto D1 =
             m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto f0 = m_Fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto f1 = m_Fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto f0 = m_fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto f1 = m_fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch deriv factors data.
         auto dfPtr = m_df[m_blk].template GetPtr<MemSpace, ReadOnly>();
@@ -355,8 +355,8 @@ private:
             m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto D1 =
             m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto f0 = m_Fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto f1 = m_Fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto f0 = m_fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto f1 = m_fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch deriv factors data.
         auto dfPtr = m_df[m_blk].template GetPtr<MemSpace, ReadOnly>();
@@ -412,10 +412,10 @@ private:
             m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
         auto D2 =
             m_derivativeMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-        auto f0  = m_Fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto f1  = m_Fac0[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto f1m = m_Fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto f2  = m_Fac1[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+        auto f0  = m_fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto f1  = m_fac0[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto f1m = m_fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto f2  = m_fac1[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch deriv factors data.
         auto dfPtr = m_df[m_blk].template GetPtr<MemSpace, ReadOnly>();
@@ -467,10 +467,10 @@ private:
             m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
         auto D2 =
             m_derivativeMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-        auto f0  = m_Fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto f1  = m_Fac0[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto f1m = m_Fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto f2  = m_Fac1[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+        auto f0  = m_fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto f1  = m_fac0[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto f1m = m_fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto f2  = m_fac1[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch deriv factors data.
         auto dfPtr = m_df[m_blk].template GetPtr<MemSpace, ReadOnly>();
