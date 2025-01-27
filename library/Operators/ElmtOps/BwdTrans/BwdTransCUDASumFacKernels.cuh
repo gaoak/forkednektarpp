@@ -257,7 +257,7 @@ __device__ __forceinline__ void BwdTransHexSumFacKernel(
     const unsigned int nq2, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ basis2,
     const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp1, TData *__restrict__ wsp2)
+    TData *__restrict__ wsp0, TData *__restrict__ wsp1)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -273,7 +273,7 @@ __device__ __forceinline__ void BwdTransHexSumFacKernel(
                 {
                     tmp += in[warpsize * cnt_rqp + ilane] * basis0[p * nq0 + i];
                 }
-                wsp1[warpsize * cnt_rq + ilane] = tmp;
+                wsp0[warpsize * cnt_rq + ilane] = tmp;
             }
         }
 
@@ -286,9 +286,9 @@ __device__ __forceinline__ void BwdTransHexSumFacKernel(
                 for (unsigned int q = 0u; q < nm1; ++q, ++cnt_rq)
                 {
                     tmp +=
-                        wsp1[warpsize * cnt_rq + ilane] * basis1[q * nq1 + j];
+                        wsp0[warpsize * cnt_rq + ilane] * basis1[q * nq1 + j];
                 }
-                wsp2[warpsize * r + ilane] = tmp;
+                wsp1[warpsize * r + ilane] = tmp;
             }
 
             // direction 2
@@ -297,7 +297,7 @@ __device__ __forceinline__ void BwdTransHexSumFacKernel(
                 TData tmp = 0.0;
                 for (unsigned int r = 0u; r < nm2; ++r)
                 {
-                    tmp += wsp2[warpsize * r + ilane] * basis2[r * nq2 + k];
+                    tmp += wsp1[warpsize * r + ilane] * basis2[r * nq2 + k];
                 }
                 out[warpsize * (k * nq1 * nq0 + j * nq0 + i) + ilane] = tmp;
             }
@@ -312,7 +312,7 @@ __device__ __forceinline__ void BwdTransHexSumFacQPKernel(
     const unsigned int nqTot, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ basis2,
     const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp1, TData *__restrict__ wsp2)
+    TData *__restrict__ wsp0, TData *__restrict__ wsp1)
 {
     // direction 0
     for (unsigned int idx = threadIdx.x; idx < nq0 * nm1 * nm2;
@@ -328,7 +328,7 @@ __device__ __forceinline__ void BwdTransHexSumFacQPKernel(
         {
             tmp += in[cnt_rqp] * basis0[p * nq0 + i];
         }
-        wsp1[idx] = tmp;
+        wsp0[idx] = tmp;
     }
 
     __syncthreads();
@@ -345,9 +345,9 @@ __device__ __forceinline__ void BwdTransHexSumFacQPKernel(
         TData tmp = 0.0;
         for (unsigned int q = 0u; q < nm1; ++q, ++cnt_irq)
         {
-            tmp += wsp1[cnt_irq] * basis1[q * nq1 + j];
+            tmp += wsp0[cnt_irq] * basis1[q * nq1 + j];
         }
-        wsp2[idx] = tmp;
+        wsp1[idx] = tmp;
     }
 
     __syncthreads();
@@ -363,7 +363,7 @@ __device__ __forceinline__ void BwdTransHexSumFacQPKernel(
         TData tmp = 0.0;
         for (unsigned int r = 0u; r < nm2; ++r, ++cnt_jir)
         {
-            tmp += wsp2[cnt_jir] * basis2[r * nq2 + k];
+            tmp += wsp1[cnt_jir] * basis2[r * nq2 + k];
         }
         out[idx] = tmp;
     }
@@ -466,7 +466,7 @@ __device__ __forceinline__ void BwdTransTetSumFacQPKernel(
     const unsigned int *__restrict__ qindex, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ basis2,
     const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp1, TData *__restrict__ wsp2)
+    TData *__restrict__ wsp0, TData *__restrict__ wsp1)
 {
     const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
 
@@ -490,7 +490,7 @@ __device__ __forceinline__ void BwdTransTetSumFacQPKernel(
         {
             tmp += in[mode_pqr] * basis2[k + nq2 * mode2];
         }
-        wsp1[idx] = tmp;
+        wsp0[idx] = tmp;
     }
 
     __syncthreads();
@@ -508,9 +508,9 @@ __device__ __forceinline__ void BwdTransTetSumFacQPKernel(
         TData tmp = 0.0;
         for (unsigned int q = 0u; q < nm1 - p; ++q, ++cnt_kpq, ++mode_pq)
         {
-            tmp += wsp1[cnt_kpq] * basis1[mode_pq * nq1 + j];
+            tmp += wsp0[cnt_kpq] * basis1[mode_pq * nq1 + j];
         }
-        wsp2[idx] = tmp;
+        wsp1[idx] = tmp;
     }
 
     __syncthreads();
@@ -546,7 +546,7 @@ __device__ __forceinline__ void BwdTransTetSumFacQPKernel(
 
         for (unsigned int p = 0u; p < nm0; ++p, ++mode_kjp)
         {
-            tmp += wsp2[mode_kjp] * basis0[p * nq0 + i];
+            tmp += wsp1[mode_kjp] * basis0[p * nq0 + i];
         }
 
         out[idx] = tmp;
@@ -632,7 +632,7 @@ __device__ __forceinline__ void BwdTransPrismSumFacQPKernel(
     const unsigned int nqTot, const bool isModified,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ basis2, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ wsp1, TData *__restrict__ wsp2)
+    TData *__restrict__ out, TData *__restrict__ wsp0, TData *__restrict__ wsp1)
 {
     // direction 2
     for (unsigned int idx = threadIdx.x; idx < nm0 * nm1 * nq2;
@@ -649,7 +649,7 @@ __device__ __forceinline__ void BwdTransPrismSumFacQPKernel(
         {
             tmp += in[mode_pqr] * basis2[mode_pr * nq2 + k];
         }
-        wsp1[idx] = tmp;
+        wsp0[idx] = tmp;
     }
 
     __syncthreads();
@@ -666,9 +666,9 @@ __device__ __forceinline__ void BwdTransPrismSumFacQPKernel(
         TData tmp = 0.0;
         for (unsigned int q = 0u; q < nm1; ++q, ++mode_kpq)
         {
-            tmp += wsp1[mode_kpq] * basis1[q * nq1 + j];
+            tmp += wsp0[mode_kpq] * basis1[q * nq1 + j];
         }
-        wsp2[idx] = tmp;
+        wsp1[idx] = tmp;
     }
 
     __syncthreads();
@@ -694,7 +694,7 @@ __device__ __forceinline__ void BwdTransPrismSumFacQPKernel(
 
         for (unsigned int p = 0u; p < nm0; ++p, ++mode_kjp)
         {
-            tmp += wsp2[mode_kjp] * basis0[p * nq0 + i];
+            tmp += wsp1[mode_kjp] * basis0[p * nq0 + i];
         }
 
         out[idx] = tmp;
@@ -714,17 +714,17 @@ __device__ __forceinline__ void BwdTransPyrSumFacKernel(
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
-    for (int k = 0u, cnt_kji = 0u; k < nq2; ++k)
+    for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
     {
         // direction 2
-        for (unsigned int p = 0u, mode2 = 0u, mode_pqr = 0u, mode_pq = 0u;
+        for (unsigned int p = 0u, mode_pq = 0u, mode2 = 0u, mode_pqr = 0u;
              p < nm0; ++p)
         {
             for (unsigned int q = 0u; q < nm1; ++q, ++mode_pq)
             {
                 TData tmp = 0.0;
-                for (unsigned int r = 0u; r < nm2 - max(p, q);
-                     ++r, ++mode_pqr, ++mode2)
+                for (unsigned int r = 0u; r < nm2 - std::max(p, q);
+                     ++r, ++mode2, ++mode_pqr)
                 {
                     tmp += in[warpsize * mode_pqr + ilane] *
                            basis2[mode2 * nq2 + k];
@@ -785,7 +785,7 @@ __device__ __forceinline__ void BwdTransPyrSumFacQPKernel(
     const unsigned int nqTot, const bool isModified,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ basis2, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ wsp1, TData *__restrict__ wsp2)
+    TData *__restrict__ out, TData *__restrict__ wsp0, TData *__restrict__ wsp1)
 {
     // direction 2
     for (unsigned int idx = threadIdx.x; idx < nm0 * nm1 * nq2;
@@ -810,7 +810,7 @@ __device__ __forceinline__ void BwdTransPyrSumFacQPKernel(
             {
                 tmp += in[mode_pqr] * basis2[mode2 * nq2 + k];
             }
-            wsp1[idx] = tmp;
+            wsp0[idx] = tmp;
         }
         else
         {
@@ -823,7 +823,7 @@ __device__ __forceinline__ void BwdTransPyrSumFacQPKernel(
             {
                 tmp += in[mode_pqr] * basis2[mode2 * nq2 + k];
             }
-            wsp1[idx] = tmp;
+            wsp0[idx] = tmp;
         }
     }
 
@@ -841,9 +841,9 @@ __device__ __forceinline__ void BwdTransPyrSumFacQPKernel(
         TData tmp = 0.0;
         for (unsigned int q = 0u; q < nm1; ++q, ++mode_kpq)
         {
-            tmp += wsp1[mode_kpq] * basis1[q * nq1 + j];
+            tmp += wsp0[mode_kpq] * basis1[q * nq1 + j];
         }
-        wsp2[idx] = tmp;
+        wsp1[idx] = tmp;
     }
 
     __syncthreads();
@@ -869,7 +869,7 @@ __device__ __forceinline__ void BwdTransPyrSumFacQPKernel(
 
         for (unsigned int p = 0u; p < nm0; ++p, ++mode_kjp)
         {
-            tmp += wsp2[mode_kjp] * basis0[p * nq0 + i];
+            tmp += wsp1[mode_kjp] * basis0[p * nq0 + i];
         }
 
         out[idx] = tmp;
@@ -980,30 +980,24 @@ __device__ __forceinline__ void BwdTrans2DKernel(
     {
         extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
-        unsigned int nmode0, nmode1;
-        TData *s_wsp0, *s_wsp1;
-        TData *s_basis0, *s_basis1;
-
+        unsigned int offset, nmode0, nmode1;
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
+            offset = nm1 * nq0;
             nmode0 = nm0;
             nmode1 = nm1;
-
-            s_wsp0   = (TData *)shmemptr;
-            s_wsp1   = s_wsp0 + nmTot;
-            s_basis0 = s_wsp1 + nm1 * nq0;
-            s_basis1 = s_basis0 + nm0 * nq0;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
+            offset = nm0 * nq1;
             nmode0 = nm0;
             nmode1 = nmTot;
-
-            s_wsp0   = (TData *)shmemptr;
-            s_wsp1   = s_wsp0 + nmTot;
-            s_basis0 = s_wsp1 + nm0 * nq1;
-            s_basis1 = s_basis0 + nm0 * nq0;
         }
+
+        TData *s_wsp0   = (TData *)shmemptr;
+        TData *s_wsp1   = s_wsp0 + nmTot;
+        TData *s_basis0 = s_wsp1 + offset;
+        TData *s_basis1 = s_basis0 + nm0 * nq0;
 
         // Copy to shared memory.
         for (unsigned int idx = threadIdx.x; idx < nmode0 * nq0;
@@ -1086,7 +1080,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TData>
 __device__ __forceinline__ void BwdTrans3DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
-    const unsigned nmTot, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const bool isModified,
     [[maybe_unused]] const unsigned int *index0,
     [[maybe_unused]] const unsigned int *index1,
@@ -1110,42 +1104,38 @@ __device__ __forceinline__ void BwdTrans3DKernel(
             TData *outptr            = out + nqTot * warpsize * iwarp;
             if constexpr (SHAPE_TYPE == LibUtilities::Hex)
             {
-                TData *wsp1 = wsp + nm1 * nm2 * warpsize * iwarp;
-                TData *wsp2 =
+                TData *wsp0 = wsp + nm1 * nm2 * warpsize * iwarp;
+                TData *wsp1 =
                     wsp + (nm1 * nm2) * nelmt + nm2 * warpsize * iwarp;
-
                 BwdTransHexSumFacKernel(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
                                         basis0, basis1, basis2, inptr, outptr,
-                                        wsp1, wsp2);
+                                        wsp0, wsp1);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
             {
                 const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
 
-                TData *fpq = wsp + nm01 * warpsize * iwarp;
-                TData *fp  = wsp + nm01 * nelmt + nm0 * warpsize * iwarp;
-
+                TData *wsp0 = wsp + nm01 * warpsize * iwarp;
+                TData *wsp1 = wsp + nm01 * nelmt + nm0 * warpsize * iwarp;
                 BwdTransTetSumFacKernel(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
                                         isModified, basis0, basis1, basis2,
-                                        inptr, outptr, fpq, fp);
+                                        inptr, outptr, wsp0, wsp1);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
             {
-                TData *fpq = wsp + nm0 * nm1 * warpsize * iwarp;
-                TData *fp  = wsp + nm0 * nm1 * nelmt + nm0 * warpsize * iwarp;
-
+                TData *wsp0 = wsp + nm0 * nm1 * warpsize * iwarp;
+                TData *wsp1 = wsp + nm0 * nm1 * nelmt + nm0 * warpsize * iwarp;
                 BwdTransPrismSumFacKernel(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
                                           isModified, basis0, basis1, basis2,
-                                          inptr, outptr, fpq, fp);
+                                          inptr, outptr, wsp0, wsp1);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
             {
-                TData *fpq = wsp + nm0 * nm1 * warpsize * iwarp;
-                TData *fp  = wsp + nm0 * nm1 * nelmt + nm0 * warpsize * iwarp;
-
+                TData *wsp0 = wsp + nm0 * nm1 * warpsize * iwarp;
+                TData *wsp1 = wsp + nm0 * nm1 * nelmt + nm0 * warpsize * iwarp;
                 BwdTransPyrSumFacKernel(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
                                         isModified, basis0, basis1, basis2,
-                                        inptr, outptr, fpq, fp);
+                                        inptr, outptr, wsp0, wsp1);
             }
             e += blockDim.x * gridDim.x;
         }
@@ -1154,62 +1144,46 @@ __device__ __forceinline__ void BwdTrans3DKernel(
     {
         extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
-        unsigned int nmode0, nmode1, nmode2;
-        TData *s_wsp0, *s_wsp1, *s_wsp2;
-        TData *s_basis0, *s_basis1, *s_basis2;
-
+        unsigned int offset0, offset1, nmode0, nmode1, nmode2;
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
-            nmode0 = nm0;
-            nmode1 = nm1;
-            nmode2 = nm2;
-
-            s_wsp0   = (TData *)shmemptr;
-            s_wsp1   = s_wsp0 + nmTot;
-            s_wsp2   = s_wsp1 + nq0 * nm1 * nm2;
-            s_basis0 = s_wsp2 + nq1 * nq0 * nm2;
-            s_basis1 = s_basis0 + nmode0 * nq0;
-            s_basis2 = s_basis1 + nmode1 * nq1;
+            offset0 = nq0 * nm1 * nm2;
+            offset1 = nq0 * nq1 * nm2;
+            nmode0  = nm0;
+            nmode1  = nm1;
+            nmode2  = nm2;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
         {
-            nmode0 = nm0;
-            nmode1 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-            nmode2 = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-
-            s_wsp0   = (TData *)shmemptr;
-            s_wsp1   = s_wsp0 + nmTot;
-            s_wsp2   = s_wsp1 + nmode1 * nq2;
-            s_basis0 = s_wsp2 + nq2 * nq1 * nm0;
-            s_basis1 = s_basis0 + nmode0 * nq0;
-            s_basis2 = s_basis1 + nmode1 * nq1;
+            offset0 = (2u * nm1 - nm0 + 1u) * nm0 / 2u * nq2;
+            offset1 = nm0 * nq1 * nq2;
+            nmode0  = nm0;
+            nmode1  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+            nmode2  = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
         {
-            nmode0 = nm0;
-            nmode1 = nm1;
-            nmode2 = (2u * nm2 - nm1 + 1u) * nm1 / 2u;
-
-            s_wsp0   = (TData *)shmemptr;
-            s_wsp1   = s_wsp0 + nmTot;
-            s_wsp2   = s_wsp1 + nm0 * nm1 * nq2;
-            s_basis0 = s_wsp2 + nq2 * nq1 * nm0;
-            s_basis1 = s_basis0 + nmode0 * nq0;
-            s_basis2 = s_basis1 + nmode1 * nq1;
+            offset0 = nm0 * nm1 * nq2;
+            offset1 = nm0 * nq1 * nq2;
+            nmode0  = nm0;
+            nmode1  = nm1;
+            nmode2  = (2u * nm2 - nm1 + 1u) * nm1 / 2u;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
-            nmode0 = nm0;
-            nmode1 = nm1;
-            nmode2 = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-
-            s_wsp0   = (TData *)shmemptr;
-            s_wsp1   = s_wsp0 + nmTot;
-            s_wsp2   = s_wsp1 + nm0 * nm1 * nq2;
-            s_basis0 = s_wsp2 + nq2 * nq1 * nm0;
-            s_basis1 = s_basis0 + nmode0 * nq0;
-            s_basis2 = s_basis1 + nmode1 * nq1;
+            offset0 = nm0 * nm1 * nq2;
+            offset1 = nm0 * nq1 * nq2;
+            nmode0  = nm0;
+            nmode1  = nm1;
+            nmode2  = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
         }
+
+        TData *s_wsp0   = (TData *)shmemptr;
+        TData *s_wsp1   = s_wsp0 + nmTot;
+        TData *s_wsp2   = s_wsp1 + offset0;
+        TData *s_basis0 = s_wsp2 + offset1;
+        TData *s_basis1 = s_basis0 + nmode0 * nq0;
+        TData *s_basis2 = s_basis1 + nmode1 * nq1;
 
         // Copy to shared memory.
         for (unsigned int idx = threadIdx.x; idx < nmode0 * nq0;

@@ -69,7 +69,8 @@ inline unsigned int MassSharedMemorySize(const unsigned int nq0,
 
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
-            return nm0 * nq0 + nm1 * nq1 + nmTot + nq0 * nq1 + nm0 * nq1;
+            return nm0 * nq0 + nm1 * nq1 + nmTot + nq0 * nq1 +
+                   std::max(nq0 * nm1, nm0 * nq1);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
@@ -96,7 +97,7 @@ inline unsigned int MassSharedMemorySize(
         {
             return nm0 * nq0 + nm1 * nq1 + nm2 * nq2 + nmTot + nq0 * nq1 * nq2 +
                    std::max(nq0 * nm1 * nm2, nm0 * nq1 * nq2) +
-                   std::max(nq1 * nq0 * nm2, nm0 * nm1 * nq2);
+                   std::max(nq0 * nq1 * nm2, nm0 * nm1 * nq2);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
         {

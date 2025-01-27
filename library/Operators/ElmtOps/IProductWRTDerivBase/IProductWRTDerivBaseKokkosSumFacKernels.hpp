@@ -512,14 +512,14 @@ KOKKOS_INLINE_FUNCTION void IProductWRTDerivBase2DKernel(
             const TData *inptr = in + nqTot * warpsize * iwarp;
             TData *outptr      = out + nmTot * warpsize * iwarp;
             TData *deriv0      = wsp + nqTot * warpsize * iwarp;
-            TData *deriv1      = wsp + nelmt * nqTot + nqTot * warpsize * iwarp;
+            TData *deriv1      = wsp + nqTot * nelmt + nqTot * warpsize * iwarp;
             TData *deriv = wsp + 2 * nqTot * nelmt + nqTot * warpsize * iwarp;
 
             StdAlignDerivBase2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
                 ilane, ncoord, nq0, nq1, nelmt, w0, w1, s_f0, s_f1, dfptr,
                 jacptr, inptr, deriv0, deriv1);
-            SumDerivTensor2DKernel<SHAPE_TYPE, DEFORMED>(
-                ilane, nq0, nq1, D0, D1, deriv0, deriv1, deriv);
+            SumDerivTensor2DKernel<false, DEFORMED>(ilane, nq0, nq1, D0, D1,
+                                                    deriv0, deriv1, deriv);
             if constexpr (SHAPE_TYPE == LibUtilities::Quad)
             {
                 TData *wsp0 = wsp + 3 * nqTot * nelmt + nq1 * warpsize * iwarp;
@@ -539,14 +539,16 @@ KOKKOS_INLINE_FUNCTION void IProductWRTDerivBase2DKernel(
     }
     else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
-        unsigned int nmode0, nmode1;
+        unsigned int offset, nmode0, nmode1;
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
+            offset = nm0 * nq1;
             nmode0 = nm0;
             nmode1 = nm1;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
+            offset = nm0 * nq1;
             nmode0 = nm0;
             nmode1 = nmTot;
         }
@@ -555,7 +557,7 @@ KOKKOS_INLINE_FUNCTION void IProductWRTDerivBase2DKernel(
         TData *deriv1   = deriv0 + nqTot;
         TData *deriv    = deriv1 + nqTot;
         TData *s_wsp0   = deriv + nqTot;
-        TData *s_basis0 = s_wsp0 + nm0 * nq1;
+        TData *s_basis0 = s_wsp0 + offset;
         TData *s_basis1 = s_basis0 + nm0 * nq0;
 
         // Copy to shared memory.
@@ -577,8 +579,8 @@ KOKKOS_INLINE_FUNCTION void IProductWRTDerivBase2DKernel(
         StdAlignDerivBase2DSumFacQPKernel<SHAPE_TYPE, DEFORMED>(
             ncoord, nq0, nq1, nelmt, w0, w1, f0, f1, dfptr, jacptr, inptr,
             deriv0, deriv1, team);
-        SumDerivTensor2DQPKernel<SHAPE_TYPE, DEFORMED>(nq0, nq1, D0, D1, deriv0,
-                                                       deriv1, deriv, team);
+        SumDerivTensor2DQPKernel<false, DEFORMED>(nq0, nq1, D0, D1, deriv0,
+                                                  deriv1, deriv, team);
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
             IProductWRTBaseQuadSumFacQPKernel<false, true, DEFORMED>(
@@ -707,23 +709,22 @@ KOKKOS_INLINE_FUNCTION void IProductWRTDerivBase3DKernel(
             const TData *inptr = in + nqTot * warpsize * iwarp;
             TData *outptr      = out + nmTot * warpsize * iwarp;
             TData *deriv0      = wsp + nqTot * warpsize * iwarp;
-            TData *deriv1      = wsp + nelmt * nqTot + nqTot * warpsize * iwarp;
-            TData *deriv2 = wsp + 2 * nelmt * nqTot + nqTot * warpsize * iwarp;
-            TData *deriv  = wsp + 3 * nelmt * nqTot + nqTot * warpsize * iwarp;
+            TData *deriv1      = wsp + nqTot * nelmt + nqTot * warpsize * iwarp;
+            TData *deriv2 = wsp + 2 * nqTot * nelmt + nqTot * warpsize * iwarp;
+            TData *deriv  = wsp + 3 * nqTot * nelmt + nqTot * warpsize * iwarp;
 
             StdAlignDerivBase3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
                 ilane, nq0, nq1, nq2, nelmt, w0, w1, w2, s_f0, s_f1, s_f1m,
                 s_f2, dfptr, jacptr, inptr, deriv0, deriv1, deriv2);
-            SumDerivTensor3DKernel<SHAPE_TYPE, DEFORMED>(ilane, nq0, nq1, nq2,
-                                                         D0, D1, D2, deriv0,
-                                                         deriv1, deriv2, deriv);
+            SumDerivTensor3DKernel<false, DEFORMED>(ilane, nq0, nq1, nq2, D0,
+                                                    D1, D2, deriv0, deriv1,
+                                                    deriv2, deriv);
             if constexpr (SHAPE_TYPE == LibUtilities::Hex)
             {
                 TData *wsp0 =
                     wsp + 4 * nqTot * nelmt + nq1 * nq2 * warpsize * iwarp;
                 TData *wsp1 = wsp + (4 * nqTot + nq1 * nq2) * nelmt +
                               nq2 * warpsize * iwarp;
-
                 IProductWRTBaseHexSumFacKernel<false, true, DEFORMED>(
                     ilane, nm0, nm1, nm2, nq0, nq1, nq2, basis0, basis1, basis2,
                     deriv, outptr, wsp0, wsp1, (TData)1.0);
@@ -736,7 +737,6 @@ KOKKOS_INLINE_FUNCTION void IProductWRTDerivBase3DKernel(
                               nq2 * warpsize * iwarp;
                 TData *prod = wsp + (4 * nqTot + nq1 * nq2 + nq2) * nelmt +
                               nm2 * warpsize * iwarp;
-
                 IProductWRTBaseTetSumFacKernel<false, true, DEFORMED>(
                     ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
                     basis1, basis2, deriv, outptr, wsp0, wsp1, prod,
@@ -750,7 +750,6 @@ KOKKOS_INLINE_FUNCTION void IProductWRTDerivBase3DKernel(
                               nq2 * warpsize * iwarp;
                 TData *wsp2 = wsp + (4 * nqTot + nq1 * nq2 + nq2) * nelmt +
                               nm1 * warpsize * iwarp;
-
                 IProductWRTBasePrismSumFacKernel<false, true, DEFORMED>(
                     ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
                     basis1, basis2, deriv, outptr, wsp0, wsp1, wsp2,
@@ -762,7 +761,6 @@ KOKKOS_INLINE_FUNCTION void IProductWRTDerivBase3DKernel(
                     wsp + 4 * nqTot * nelmt + nq1 * nq2 * warpsize * iwarp;
                 TData *wsp1 = wsp + (4 * nqTot + nq1 * nq2) * nelmt +
                               nq2 * warpsize * iwarp;
-
                 IProductWRTBasePyrSumFacKernel<false, true, DEFORMED>(
                     ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
                     basis1, basis2, deriv, outptr, wsp0, wsp1, (TData)1.0);
@@ -772,34 +770,38 @@ KOKKOS_INLINE_FUNCTION void IProductWRTDerivBase3DKernel(
     }
     else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
-        unsigned int nm01, nmode0, nmode1, nmode2;
+        unsigned int offset0, offset1, nmode0, nmode1, nmode2;
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
-            nm01   = nm0 * nm1;
-            nmode0 = nm0;
-            nmode1 = nm1;
-            nmode2 = nm2;
+            offset0 = nm0 * nq1 * nq2;
+            offset1 = nm0 * nm1 * nq2;
+            nmode0  = nm0;
+            nmode1  = nm1;
+            nmode2  = nm2;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
         {
-            nm01   = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-            nmode0 = nm0;
-            nmode1 = nm01;
-            nmode2 = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+            offset0 = nm0 * nq1 * nq2;
+            offset1 = (2u * nm1 - nm0 + 1u) * nm0 / 2u * nq2;
+            nmode0  = nm0;
+            nmode1  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+            nmode2  = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
         {
-            nm01   = nm0 * nm1;
-            nmode0 = nm0;
-            nmode1 = nm1;
-            nmode2 = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
+            offset0 = nm0 * nq1 * nq2;
+            offset1 = nm0 * nm1 * nq2;
+            nmode0  = nm0;
+            nmode1  = nm1;
+            nmode2  = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
-            nm01   = nm0 * nm1;
-            nmode0 = nm0;
-            nmode1 = nm1;
-            nmode2 = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+            offset0 = nm0 * nq1 * nq2;
+            offset1 = nm0 * nm1 * nq2;
+            nmode0  = nm0;
+            nmode1  = nm1;
+            nmode2  = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
         }
 
         TData *deriv0   = shmemptr;
@@ -807,8 +809,8 @@ KOKKOS_INLINE_FUNCTION void IProductWRTDerivBase3DKernel(
         TData *deriv2   = deriv1 + nqTot;
         TData *deriv    = deriv2 + nqTot;
         TData *s_wsp0   = deriv + nqTot;
-        TData *s_wsp1   = s_wsp0 + nm0 * nq1 * nq2;
-        TData *s_basis0 = s_wsp1 + nm01 * nq2;
+        TData *s_wsp1   = s_wsp0 + offset0;
+        TData *s_basis0 = s_wsp1 + offset1;
         TData *s_basis1 = s_basis0 + nmode0 * nq0;
         TData *s_basis2 = s_basis1 + nmode1 * nq1;
 
@@ -835,7 +837,7 @@ KOKKOS_INLINE_FUNCTION void IProductWRTDerivBase3DKernel(
         StdAlignDerivBase3DSumFacQPKernel<SHAPE_TYPE, DEFORMED>(
             nq0, nq1, nq2, nelmt, w0, w1, w2, f0, f1, f1m, f2, dfptr, jacptr,
             inptr, deriv0, deriv1, deriv2, team);
-        SumDerivTensor3DQPKernel<SHAPE_TYPE, DEFORMED>(
+        SumDerivTensor3DQPKernel<false, DEFORMED>(
             nq0, nq1, nq2, D0, D1, D2, deriv0, deriv1, deriv2, deriv, team);
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {

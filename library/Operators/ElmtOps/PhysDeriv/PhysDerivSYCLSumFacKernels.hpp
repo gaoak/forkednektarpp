@@ -71,6 +71,35 @@ NEK_FORCE_INLINE static void PhysDeriv1DSumFacKernel(
     }
 }
 
+template <bool APPEND, bool DEFORMED, typename TData>
+NEK_FORCE_INLINE void SumDerivTensor1DKernel(const unsigned int ilane,
+                                             const unsigned int nq0,
+                                             const TData *__restrict D0,
+                                             const TData *__restrict in0,
+                                             TData *__restrict out)
+{
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+
+    for (unsigned int i = 0u; i < nq0; ++i)
+    {
+        // Compute tensorial derivative.
+        TData d0 = 0.0;
+        for (unsigned int q = 0u; q < nq0; ++q)
+        {
+            d0 += D0[i * nq0 + q] * in0[warpsize * q + ilane];
+        }
+
+        if constexpr (APPEND)
+        {
+            out[warpsize * i + ilane] += d0;
+        }
+        else
+        {
+            out[warpsize * i + ilane] = d0;
+        }
+    }
+}
+
 template <bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv1DSumFacQPKernel(
     const unsigned int ncoord, const unsigned int nq0,
@@ -102,6 +131,39 @@ NEK_FORCE_INLINE static void PhysDeriv1DSumFacQPKernel(
             out[d * outsize * nq0 + i] = d0 * df[d * dfsize + dfindex];
         }
     }
+
+    item_ct1.barrier(sycl::access::fence_space::local_space);
+}
+
+template <bool APPEND, bool DEFORMED, typename TData>
+NEK_FORCE_INLINE void SumDerivTensor1DQPKernel(const unsigned int nq0,
+                                               const TData *__restrict D0,
+                                               const TData *__restrict in0,
+                                               TData *__restrict out,
+                                               const sycl::nd_item<3> &item_ct1)
+{
+    for (unsigned int i = item_ct1.get_local_id(2); i < nq0;
+         i += item_ct1.get_local_range(2))
+    {
+        // Compute tensorial derivative.
+        // Direction 0
+        TData d0 = 0.0;
+        for (unsigned int q = 0u; q < nq0; ++q)
+        {
+            d0 += D0[i * nq0 + q] * in0[q];
+        }
+
+        if constexpr (APPEND)
+        {
+            out[i] += d0;
+        }
+        else
+        {
+            out[i] = d0;
+        }
+    }
+
+    item_ct1.barrier(sycl::access::fence_space::local_space);
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
@@ -159,7 +221,7 @@ NEK_FORCE_INLINE static void PhysDeriv2DSumFacKernel(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
+template <bool APPEND, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void SumDerivTensor2DKernel(
     const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
     const TData *__restrict D0, const TData *__restrict D1,
@@ -187,7 +249,14 @@ NEK_FORCE_INLINE static void SumDerivTensor2DKernel(
                 d1 += D1[j * nq1 + q] * in1[warpsize * (nq0 * q + i) + ilane];
             }
 
-            out[warpsize * cnt_ji + ilane] = d0 + d1;
+            if constexpr (APPEND)
+            {
+                out[warpsize * cnt_ji + ilane] += d0 + d1;
+            }
+            else
+            {
+                out[warpsize * cnt_ji + ilane] = d0 + d1;
+            }
         }
     }
 }
@@ -249,7 +318,7 @@ NEK_FORCE_INLINE static void PhysDeriv2DSumFacQPKernel(
     item_ct1.barrier(sycl::access::fence_space::local_space);
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
+template <bool APPEND, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void SumDerivTensor2DQPKernel(
     const unsigned int nq0, const unsigned int nq1, const TData *__restrict D0,
     const TData *__restrict D1, const TData *__restrict in0,
@@ -279,7 +348,14 @@ NEK_FORCE_INLINE static void SumDerivTensor2DQPKernel(
             d1 += D1[j * nq1 + q] * in1[nq0 * q + i];
         }
 
-        out[idx] = d0 + d1;
+        if constexpr (APPEND)
+        {
+            out[idx] += d0 + d1;
+        }
+        else
+        {
+            out[idx] = d0 + d1;
+        }
     }
 
     item_ct1.barrier(sycl::access::fence_space::local_space);
@@ -373,7 +449,7 @@ NEK_FORCE_INLINE static void PhysDeriv3DSumFacKernel(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
+template <bool APPEND, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void SumDerivTensor3DKernel(
     const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const TData *__restrict D0,
@@ -414,7 +490,14 @@ NEK_FORCE_INLINE static void SumDerivTensor3DKernel(
                           in2[warpsize * (nq0 * nq1 * q + nq0 * j + i) + ilane];
                 }
 
-                out[warpsize * cnt_kji + ilane] = d0 + d1 + d2;
+                if constexpr (APPEND)
+                {
+                    out[warpsize * cnt_kji + ilane] += d0 + d1 + d2;
+                }
+                else
+                {
+                    out[warpsize * cnt_kji + ilane] = d0 + d1 + d2;
+                }
             }
         }
     }
@@ -504,7 +587,7 @@ NEK_FORCE_INLINE static void PhysDeriv3DSumFacQPKernel(
     item_ct1.barrier(sycl::access::fence_space::local_space);
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
+template <bool APPEND, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void SumDerivTensor3DQPKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const TData *__restrict D0, const TData *__restrict D1,
@@ -543,7 +626,14 @@ NEK_FORCE_INLINE static void SumDerivTensor3DQPKernel(
             d2 += D2[k * nq2 + q] * in2[nq0 * nq1 * q + nq0 * j + i];
         }
 
-        out[idx] = d0 + d1 + d2;
+        if constexpr (APPEND)
+        {
+            out[idx] += d0 + d1 + d2;
+        }
+        else
+        {
+            out[idx] = d0 + d1 + d2;
+        }
     }
 
     item_ct1.barrier(sycl::access::fence_space::local_space);

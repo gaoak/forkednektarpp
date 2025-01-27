@@ -111,19 +111,19 @@ public:
         }
         else if (shapeType == LibUtilities::Hex)
         {
-            wspsize = (nq2 * nq1 + nq2) * nElmts;
+            wspsize = (nq1 * nq2 + nq2) * nElmts;
         }
         else if (shapeType == LibUtilities::Tet)
         {
-            wspsize = (nq2 * nq1 + nq2 + nm2) * nElmts;
+            wspsize = (nq1 * nq2 + nq2 + nm2) * nElmts;
         }
         else if (shapeType == LibUtilities::Prism)
         {
-            wspsize = (nq2 * nq1 + nq2 + nm1) * nElmts;
+            wspsize = (nq1 * nq2 + nq2 + nm1) * nElmts;
         }
         else if (shapeType == LibUtilities::Pyr)
         {
-            wspsize = (nq2 * nq1 + nq2) * nElmts;
+            wspsize = (nq1 * nq2 + nq2) * nElmts;
         }
 
         return wspsize;
@@ -982,12 +982,6 @@ private:
             {
                 std::vector<unsigned int> index0(nmTot);
                 std::vector<unsigned int> index1(nmTot);
-                m_index0[basisKeys] =
-                    MemoryRegion<unsigned int>::template FromVector<MemSpace>(
-                        index0, ExecSpace::alignment, device_only);
-                m_index1[basisKeys] =
-                    MemoryRegion<unsigned int>::template FromVector<MemSpace>(
-                        index1, ExecSpace::alignment, device_only);
                 for (unsigned int p = 0, mode_pqr = 0; p < nm0; p++)
                 {
                     for (unsigned int q = 0u; q < nm1; q++)
