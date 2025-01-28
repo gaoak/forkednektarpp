@@ -48,9 +48,9 @@ using ScratchMemoryView =
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 KOKKOS_INLINE_FUNCTION static void IProductWRTBaseSegSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nq0,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT w0,
-    const TData *KOKKOS_RESTRICT jac, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, const TData scale)
+    const TData *__restrict__ basis0, const TData *__restrict__ w0,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, const TData scale)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -89,8 +89,8 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBaseSegSumFacKernel(
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 KOKKOS_INLINE_FUNCTION static void IProductWRTBaseSegSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nq0,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, const TData scale)
+    const TData *__restrict__ basis0, const TData *__restrict__ in,
+    TData *__restrict__ out, const TData scale)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -121,8 +121,8 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBaseSegSumFacKernel(
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 KOKKOS_INLINE_FUNCTION static void IProductWRTBaseSegSumFacQPKernel(
     const unsigned int nm0, const unsigned int nq0,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, const TData scale, const team_handle &team)
+    const TData *__restrict__ basis0, const TData *__restrict__ in,
+    TData *__restrict__ out, const TData scale, const team_handle &team)
 {
     Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nm0),
                          [&](const unsigned int &p) {
@@ -154,10 +154,10 @@ template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 KOKKOS_INLINE_FUNCTION static void IProductWRTBaseQuadSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nq0, const unsigned int nq1,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT w0, const TData *KOKKOS_RESTRICT w1,
-    const TData *KOKKOS_RESTRICT jac, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, TData *KOKKOS_RESTRICT wsp, const TData scale)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ w0, const TData *__restrict__ w1,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ wsp, const TData scale)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -210,9 +210,9 @@ template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 KOKKOS_INLINE_FUNCTION static void IProductWRTBaseQuadSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nq0, const unsigned int nq1,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
-    TData *KOKKOS_RESTRICT wsp, const TData scale)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp, const TData scale)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -257,10 +257,10 @@ template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 KOKKOS_INLINE_FUNCTION static void IProductWRTBaseQuadSumFacQPKernel(
     const unsigned int nm0, [[maybe_unused]] const unsigned int nm1,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    [[maybe_unused]] const unsigned int nqTot,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
-    TData *KOKKOS_RESTRICT wsp, const TData scale, const team_handle &team)
+    [[maybe_unused]] const unsigned int nqTot, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ wsp, const TData scale,
+    const team_handle &team)
 {
     Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nm0 * nq1),
                          [&](const unsigned int &idx) {
@@ -312,10 +312,10 @@ template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 KOKKOS_INLINE_FUNCTION static void IProductWRTBaseTriSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nq0, const unsigned int nq1, const bool isModified,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT w0, const TData *KOKKOS_RESTRICT w1,
-    const TData *KOKKOS_RESTRICT jac, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, TData *KOKKOS_RESTRICT wsp, const TData scale)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ w0, const TData *__restrict__ w1,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ wsp, const TData scale)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -404,9 +404,9 @@ template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 KOKKOS_INLINE_FUNCTION static void IProductWRTBaseTriSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nq0, const unsigned int nq1, const bool isModified,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
-    TData *KOKKOS_RESTRICT wsp, const TData scale)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp, const TData scale)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -477,10 +477,10 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBaseTriSumFacQPKernel(
     const unsigned int nm0, [[maybe_unused]] const unsigned int nm1,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nqTot, const bool isModified,
-    const unsigned int *KOKKOS_RESTRICT pindex,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
-    TData *KOKKOS_RESTRICT wsp, const TData scale, const team_handle &team)
+    const unsigned int *__restrict__ pindex, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ wsp, const TData scale,
+    const team_handle &team)
 {
     Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nm0 * nq1),
                          [&](const unsigned int &idx) {
@@ -555,12 +555,12 @@ template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 KOKKOS_INLINE_FUNCTION static void IProductWRTBaseHexSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const TData *KOKKOS_RESTRICT basis0,
-    const TData *KOKKOS_RESTRICT basis1, const TData *KOKKOS_RESTRICT basis2,
-    const TData *KOKKOS_RESTRICT w0, const TData *KOKKOS_RESTRICT w1,
-    const TData *KOKKOS_RESTRICT w2, const TData *KOKKOS_RESTRICT jac,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
-    TData *KOKKOS_RESTRICT wsp0, TData *KOKKOS_RESTRICT wsp1, const TData scale)
+    const unsigned int nq2, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ basis2,
+    const TData *__restrict__ w0, const TData *__restrict__ w1,
+    const TData *__restrict__ w2, const TData *__restrict__ jac,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp0, TData *__restrict__ wsp1, const TData scale)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -635,10 +635,10 @@ template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 KOKKOS_INLINE_FUNCTION static void IProductWRTBaseHexSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const TData *KOKKOS_RESTRICT basis0,
-    const TData *KOKKOS_RESTRICT basis1, const TData *KOKKOS_RESTRICT basis2,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
-    TData *KOKKOS_RESTRICT wsp0, TData *KOKKOS_RESTRICT wsp1, const TData scale)
+    const unsigned int nq2, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ basis2,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp0, TData *__restrict__ wsp1, const TData scale)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -704,11 +704,11 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBaseHexSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1,
     [[maybe_unused]] const unsigned int nm2, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    [[maybe_unused]] const unsigned int nqTot,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT basis2, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, TData *KOKKOS_RESTRICT wsp0,
-    TData *KOKKOS_RESTRICT wsp1, const TData scale, const team_handle &team)
+    [[maybe_unused]] const unsigned int nqTot, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ basis2,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp0, TData *__restrict__ wsp1, const TData scale,
+    const team_handle &team)
 {
     Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nm0 * nq1 * nq2),
                          [&](const unsigned int &idx) {
@@ -780,12 +780,12 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBaseTetSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT basis2, const TData *KOKKOS_RESTRICT w0,
-    const TData *KOKKOS_RESTRICT w1, const TData *KOKKOS_RESTRICT w2,
-    const TData *KOKKOS_RESTRICT jac, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, TData *KOKKOS_RESTRICT wsp0,
-    TData *KOKKOS_RESTRICT wsp1, TData *KOKKOS_RESTRICT prod, const TData scale)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ w2,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ wsp0, TData *__restrict__ wsp1,
+    TData *__restrict__ prod, const TData scale)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -939,10 +939,10 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBaseTetSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT basis2, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, TData *KOKKOS_RESTRICT wsp0,
-    TData *KOKKOS_RESTRICT wsp1, TData *KOKKOS_RESTRICT prod, const TData scale)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ wsp0, TData *__restrict__ wsp1,
+    TData *__restrict__ prod, const TData scale)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -1071,13 +1071,13 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBaseTetSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nqTot, const bool isModified,
-    const unsigned int *KOKKOS_RESTRICT pindex1,
-    const unsigned int *KOKKOS_RESTRICT pindex2,
-    const unsigned int *KOKKOS_RESTRICT qindex2,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT basis2, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, TData *KOKKOS_RESTRICT wsp0,
-    TData *KOKKOS_RESTRICT wsp1, const TData scale, const team_handle &team)
+    const unsigned int *__restrict__ pindex1,
+    const unsigned int *__restrict__ pindex2,
+    const unsigned int *__restrict__ qindex2, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ basis2,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp0, TData *__restrict__ wsp1, const TData scale,
+    const team_handle &team)
 {
     const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
 
@@ -1217,12 +1217,12 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBasePrismSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT basis2, const TData *KOKKOS_RESTRICT w0,
-    const TData *KOKKOS_RESTRICT w1, const TData *KOKKOS_RESTRICT w2,
-    const TData *KOKKOS_RESTRICT jac, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, TData *KOKKOS_RESTRICT wsp0,
-    TData *KOKKOS_RESTRICT wsp1, TData *KOKKOS_RESTRICT wsp2, const TData scale)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ w2,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ wsp0, TData *__restrict__ wsp1,
+    TData *__restrict__ wsp2, const TData scale)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -1350,10 +1350,10 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBasePrismSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT basis2, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, TData *KOKKOS_RESTRICT wsp0,
-    TData *KOKKOS_RESTRICT wsp1, TData *KOKKOS_RESTRICT wsp2, const TData scale)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ wsp0, TData *__restrict__ wsp1,
+    TData *__restrict__ wsp2, const TData scale)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -1460,13 +1460,13 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBasePrismSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nqTot, const bool isModified,
-    const unsigned int *KOKKOS_RESTRICT pindex,
-    const unsigned int *KOKKOS_RESTRICT qindex,
-    const unsigned int *KOKKOS_RESTRICT rindex,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT basis2, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, TData *KOKKOS_RESTRICT wsp0,
-    TData *KOKKOS_RESTRICT wsp1, const TData scale, const team_handle &team)
+    const unsigned int *__restrict__ pindex,
+    const unsigned int *__restrict__ qindex,
+    const unsigned int *__restrict__ rindex, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ basis2,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp0, TData *__restrict__ wsp1, const TData scale,
+    const team_handle &team)
 {
     Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nm0 * nq1 * nq2),
                          [&](const unsigned int &idx) {
@@ -1568,12 +1568,12 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBasePyrSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT basis2, const TData *KOKKOS_RESTRICT w0,
-    const TData *KOKKOS_RESTRICT w1, const TData *KOKKOS_RESTRICT w2,
-    const TData *KOKKOS_RESTRICT jac, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, TData *KOKKOS_RESTRICT wsp0,
-    TData *KOKKOS_RESTRICT wsp1, const TData scale)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ w2,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ wsp0, TData *__restrict__ wsp1,
+    const TData scale)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -1737,10 +1737,10 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBasePyrSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT basis2, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, TData *KOKKOS_RESTRICT wsp0,
-    TData *KOKKOS_RESTRICT wsp1, const TData scale)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ wsp0, TData *__restrict__ wsp1,
+    const TData scale)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -1881,12 +1881,12 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBasePyrSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nqTot, const bool isModified,
-    const unsigned int *KOKKOS_RESTRICT pindex,
-    const unsigned int *KOKKOS_RESTRICT qindex,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT basis2, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, TData *KOKKOS_RESTRICT wsp0,
-    TData *KOKKOS_RESTRICT wsp1, const TData scale, const team_handle &team)
+    const unsigned int *__restrict__ pindex,
+    const unsigned int *__restrict__ qindex, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ basis2,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp0, TData *__restrict__ wsp1, const TData scale,
+    const team_handle &team)
 {
     Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nm0 * nq1 * nq2),
                          [&](const unsigned int &idx) {
@@ -1987,10 +1987,10 @@ template <typename Implementation, bool SCALE, bool APPEND, bool DEFORMED,
           typename TData>
 KOKKOS_INLINE_FUNCTION static void IProductWRTBase1DKernel(
     const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT w0,
-    const TData *KOKKOS_RESTRICT jac, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, const TData scale,
-    [[maybe_unused]] TData *KOKKOS_RESTRICT shmemptr, const team_handle &team)
+    const TData *__restrict__ basis0, const TData *__restrict__ w0,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, const TData scale,
+    [[maybe_unused]] TData *__restrict__ shmemptr, const team_handle &team)
 {
     unsigned int jacsize = 1u;
     if constexpr (DEFORMED)
@@ -2053,11 +2053,11 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBase2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const bool isModified, [[maybe_unused]] const unsigned int *index0,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT w0, const TData *KOKKOS_RESTRICT w1,
-    const TData *KOKKOS_RESTRICT jac, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, [[maybe_unused]] TData *KOKKOS_RESTRICT wsp,
-    const TData scale, [[maybe_unused]] TData *KOKKOS_RESTRICT shmemptr,
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ w0, const TData *__restrict__ w1,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ wsp,
+    const TData scale, [[maybe_unused]] TData *__restrict__ shmemptr,
     const team_handle &team)
 {
     const unsigned int nqTot = nq0 * nq1;
@@ -2175,12 +2175,12 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBase3DKernel(
     [[maybe_unused]] const unsigned int *index0,
     [[maybe_unused]] const unsigned int *index1,
     [[maybe_unused]] const unsigned int *index2,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT basis2, const TData *KOKKOS_RESTRICT w0,
-    const TData *KOKKOS_RESTRICT w1, const TData *KOKKOS_RESTRICT w2,
-    const TData *KOKKOS_RESTRICT jac, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, [[maybe_unused]] TData *KOKKOS_RESTRICT wsp,
-    const TData scale, [[maybe_unused]] TData *KOKKOS_RESTRICT shmemptr,
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ w2,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ wsp,
+    const TData scale, [[maybe_unused]] TData *__restrict__ shmemptr,
     const team_handle &team)
 {
     const unsigned int nqTot = nq0 * nq1 * nq2;

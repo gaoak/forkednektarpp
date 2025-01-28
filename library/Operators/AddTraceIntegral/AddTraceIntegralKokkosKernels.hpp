@@ -43,10 +43,10 @@ namespace Nektar::Operators::detail
 
 template <typename TData>
 KOKKOS_INLINE_FUNCTION static void AddTraceIntegralKernel(
-    const int *KOKKOS_RESTRICT traceCoeffsToElmtMapPtr,
-    const int *KOKKOS_RESTRICT traceCoeffsToElmtSignPtr,
-    const int *KOKKOS_RESTRICT traceCoeffsToElmtTracePtr,
-    const TData *KOKKOS_RESTRICT tracePtr, TData *KOKKOS_RESTRICT outptr,
+    const int *__restrict__ traceCoeffsToElmtMapPtr,
+    const int *__restrict__ traceCoeffsToElmtSignPtr,
+    const int *__restrict__ traceCoeffsToElmtTracePtr,
+    const TData *__restrict__ tracePtr, TData *__restrict__ outptr,
     const unsigned int idx)
 {
     TData *const ptr = outptr + traceCoeffsToElmtMapPtr[idx];

@@ -49,10 +49,9 @@ namespace Nektar::Operators::detail
 
 template <bool negflag, typename TData>
 KOKKOS_INLINE_FUNCTION static void RobBndCond1DKernel(
-    const unsigned int *KOKKOS_RESTRICT offsetPtr,
-    const TData *KOKKOS_RESTRICT matPtr,
-    const unsigned int *KOKKOS_RESTRICT mapPtr,
-    const TData *KOKKOS_RESTRICT incoeffPtr, TData *KOKKOS_RESTRICT coeffPtr,
+    const unsigned int *__restrict__ offsetPtr,
+    const TData *__restrict__ matPtr, const unsigned int *__restrict__ mapPtr,
+    const TData *__restrict__ incoeffPtr, TData *__restrict__ coeffPtr,
     const unsigned int i)
 {
 
@@ -75,14 +74,13 @@ KOKKOS_INLINE_FUNCTION static void RobBndCond1DKernel(
 
 template <bool negflag, typename TData>
 KOKKOS_INLINE_FUNCTION static void RobBndCond2DKernel(
-    const unsigned int *KOKKOS_RESTRICT ncoeffPtr,
-    const unsigned int *KOKKOS_RESTRICT offsetPtr,
-    const unsigned int *KOKKOS_RESTRICT matOffsetPtr,
-    const unsigned int *KOKKOS_RESTRICT mapOffsetPtr,
-    const TData *KOKKOS_RESTRICT matPtr,
-    const unsigned int *KOKKOS_RESTRICT mapPtr,
-    const int *KOKKOS_RESTRICT signPtr, const TData *KOKKOS_RESTRICT incoeffPtr,
-    TData *KOKKOS_RESTRICT coeffPtr, TData *KOKKOS_RESTRICT shmemptr,
+    const unsigned int *__restrict__ ncoeffPtr,
+    const unsigned int *__restrict__ offsetPtr,
+    const unsigned int *__restrict__ matOffsetPtr,
+    const unsigned int *__restrict__ mapOffsetPtr,
+    const TData *__restrict__ matPtr, const unsigned int *__restrict__ mapPtr,
+    const int *__restrict__ signPtr, const TData *__restrict__ incoeffPtr,
+    TData *__restrict__ coeffPtr, TData *__restrict__ shmemptr,
     const team_handle &team)
 {
     TData *vEdgeCoeffs = shmemptr;
