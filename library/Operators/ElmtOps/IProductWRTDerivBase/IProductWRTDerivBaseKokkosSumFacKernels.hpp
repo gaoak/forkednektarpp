@@ -48,9 +48,9 @@ using ScratchMemoryView =
 template <bool DEFORMED, typename TData>
 KOKKOS_INLINE_FUNCTION static void StdAlignDerivBase1DSumFacKernel(
     const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
-    const unsigned int insize, const TData *KOKKOS_RESTRICT w0,
-    const TData *KOKKOS_RESTRICT df, const TData *KOKKOS_RESTRICT jac,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out)
+    const unsigned int insize, const TData *__restrict__ w0,
+    const TData *__restrict__ df, const TData *__restrict__ jac,
+    const TData *__restrict__ in, TData *__restrict__ out)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -80,9 +80,9 @@ KOKKOS_INLINE_FUNCTION static void StdAlignDerivBase1DSumFacKernel(
 template <bool DEFORMED, typename TData>
 KOKKOS_INLINE_FUNCTION static void StdAlignDerivBase1DSumFacQPKernel(
     const unsigned int ncoord, const unsigned int nq0,
-    const unsigned int insize, const TData *KOKKOS_RESTRICT w0,
-    const TData *KOKKOS_RESTRICT df, const TData *KOKKOS_RESTRICT jac,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
+    const unsigned int insize, const TData *__restrict__ w0,
+    const TData *__restrict__ df, const TData *__restrict__ jac,
+    const TData *__restrict__ in, TData *__restrict__ out,
     const team_handle &team)
 {
     unsigned int dfsize = 1u;
@@ -118,12 +118,11 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 KOKKOS_INLINE_FUNCTION static void StdAlignDerivBase2DSumFacKernel(
     const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
     const unsigned int nq1, const unsigned int insize,
-    const TData *KOKKOS_RESTRICT w0, const TData *KOKKOS_RESTRICT w1,
-    [[maybe_unused]] const TData *KOKKOS_RESTRICT f0,
-    [[maybe_unused]] const TData *KOKKOS_RESTRICT f1,
-    const TData *KOKKOS_RESTRICT df, const TData *KOKKOS_RESTRICT jac,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out0,
-    TData *KOKKOS_RESTRICT out1)
+    const TData *__restrict__ w0, const TData *__restrict__ w1,
+    [[maybe_unused]] const TData *__restrict__ f0,
+    [[maybe_unused]] const TData *__restrict__ f1, const TData *__restrict__ df,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out0, TData *__restrict__ out1)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -173,12 +172,11 @@ KOKKOS_INLINE_FUNCTION static void StdAlignDerivBase2DSumFacKernel(
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 KOKKOS_INLINE_FUNCTION static void StdAlignDerivBase2DSumFacQPKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int insize, const TData *KOKKOS_RESTRICT w0,
-    const TData *KOKKOS_RESTRICT w1, const TData *KOKKOS_RESTRICT f0,
-    const TData *KOKKOS_RESTRICT f1, const TData *KOKKOS_RESTRICT df,
-    const TData *KOKKOS_RESTRICT jac, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out0, TData *KOKKOS_RESTRICT out1,
-    const team_handle &team)
+    const unsigned int insize, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ f0,
+    const TData *__restrict__ f1, const TData *__restrict__ df,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out0, TData *__restrict__ out1, const team_handle &team)
 {
     const unsigned int nqTot = nq0 * nq1;
     unsigned int dfsize      = 1u;
@@ -231,15 +229,14 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 KOKKOS_INLINE_FUNCTION static void StdAlignDerivBase3DSumFacKernel(
     const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int insize,
-    const TData *KOKKOS_RESTRICT w0, const TData *KOKKOS_RESTRICT w1,
-    const TData *KOKKOS_RESTRICT w2,
-    [[maybe_unused]] const TData *KOKKOS_RESTRICT f0,
-    [[maybe_unused]] const TData *KOKKOS_RESTRICT f1,
-    [[maybe_unused]] const TData *KOKKOS_RESTRICT f1m,
-    [[maybe_unused]] const TData *KOKKOS_RESTRICT f2,
-    const TData *KOKKOS_RESTRICT df, const TData *KOKKOS_RESTRICT jac,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out0,
-    TData *KOKKOS_RESTRICT out1, TData *KOKKOS_RESTRICT out2)
+    const TData *__restrict__ w0, const TData *__restrict__ w1,
+    const TData *__restrict__ w2, [[maybe_unused]] const TData *__restrict__ f0,
+    [[maybe_unused]] const TData *__restrict__ f1,
+    [[maybe_unused]] const TData *__restrict__ f1m,
+    [[maybe_unused]] const TData *__restrict__ f2, const TData *__restrict__ df,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out0, TData *__restrict__ out1,
+    TData *__restrict__ out2)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -311,14 +308,13 @@ KOKKOS_INLINE_FUNCTION static void StdAlignDerivBase3DSumFacKernel(
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 KOKKOS_INLINE_FUNCTION static void StdAlignDerivBase3DSumFacQPKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const unsigned int insize, const TData *KOKKOS_RESTRICT w0,
-    const TData *KOKKOS_RESTRICT w1, const TData *KOKKOS_RESTRICT w2,
-    const TData *KOKKOS_RESTRICT f0, const TData *KOKKOS_RESTRICT f1,
-    const TData *KOKKOS_RESTRICT f1m, const TData *KOKKOS_RESTRICT f2,
-    const TData *KOKKOS_RESTRICT df, const TData *KOKKOS_RESTRICT jac,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out0,
-    TData *KOKKOS_RESTRICT out1, TData *KOKKOS_RESTRICT out2,
-    const team_handle &team)
+    const unsigned int insize, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ w2,
+    const TData *__restrict__ f0, const TData *__restrict__ f1,
+    const TData *__restrict__ f1m, const TData *__restrict__ f2,
+    const TData *__restrict__ df, const TData *__restrict__ jac,
+    const TData *__restrict__ in, TData *__restrict__ out0,
+    TData *__restrict__ out1, TData *__restrict__ out2, const team_handle &team)
 {
     constexpr unsigned int ncoord = 3u;
 
@@ -391,11 +387,11 @@ KOKKOS_INLINE_FUNCTION static void StdAlignDerivBase3DSumFacQPKernel(
 template <typename Implementation, bool DEFORMED, typename TData>
 KOKKOS_INLINE_FUNCTION void IProductWRTDerivBase1DKernel(
     const unsigned int ncoord, const unsigned int nm0, const unsigned int nq0,
-    const unsigned int nelmt, const TData *KOKKOS_RESTRICT dbasis0,
-    const TData *KOKKOS_RESTRICT w0, const TData *KOKKOS_RESTRICT df,
-    const TData *KOKKOS_RESTRICT jac, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, TData *KOKKOS_RESTRICT wsp,
-    TData *KOKKOS_RESTRICT shmemptr, const team_handle &team)
+    const unsigned int nelmt, const TData *__restrict__ dbasis0,
+    const TData *__restrict__ w0, const TData *__restrict__ df,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ wsp,
+    TData *__restrict__ shmemptr, const team_handle &team)
 {
     const unsigned int ndf = ncoord;
     unsigned int dfsize    = 1u;
@@ -455,15 +451,15 @@ KOKKOS_INLINE_FUNCTION void IProductWRTDerivBase2DKernel(
     const unsigned int ncoord, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nelmt, const bool isModified,
-    [[maybe_unused]] const unsigned int *KOKKOS_RESTRICT index0,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT D0, const TData *KOKKOS_RESTRICT D1,
-    const TData *KOKKOS_RESTRICT w0, const TData *KOKKOS_RESTRICT w1,
-    const TData *KOKKOS_RESTRICT f0, const TData *KOKKOS_RESTRICT f1,
-    const TData *KOKKOS_RESTRICT df, const TData *KOKKOS_RESTRICT jac,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
-    [[maybe_unused]] TData *KOKKOS_RESTRICT wsp,
-    TData *KOKKOS_RESTRICT shmemptr, const team_handle &team)
+    [[maybe_unused]] const unsigned int *__restrict__ index0,
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ D0, const TData *__restrict__ D1,
+    const TData *__restrict__ w0, const TData *__restrict__ w1,
+    const TData *__restrict__ f0, const TData *__restrict__ f1,
+    const TData *__restrict__ df, const TData *__restrict__ jac,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    [[maybe_unused]] TData *__restrict__ wsp, TData *__restrict__ shmemptr,
+    const team_handle &team)
 {
     const unsigned int ndf   = 2 * ncoord;
     const unsigned int nqTot = nq0 * nq1;
@@ -603,19 +599,19 @@ KOKKOS_INLINE_FUNCTION void IProductWRTDerivBase3DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const bool isModified,
-    [[maybe_unused]] const unsigned int *KOKKOS_RESTRICT index0,
-    [[maybe_unused]] const unsigned int *KOKKOS_RESTRICT index1,
-    [[maybe_unused]] const unsigned int *KOKKOS_RESTRICT index2,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT basis2, const TData *KOKKOS_RESTRICT D0,
-    const TData *KOKKOS_RESTRICT D1, const TData *KOKKOS_RESTRICT D2,
-    const TData *KOKKOS_RESTRICT w0, const TData *KOKKOS_RESTRICT w1,
-    const TData *KOKKOS_RESTRICT w2, const TData *KOKKOS_RESTRICT f0,
-    const TData *KOKKOS_RESTRICT f1, const TData *KOKKOS_RESTRICT f1m,
-    const TData *KOKKOS_RESTRICT f2, const TData *KOKKOS_RESTRICT df,
-    const TData *KOKKOS_RESTRICT jac, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, [[maybe_unused]] TData *KOKKOS_RESTRICT wsp,
-    TData *KOKKOS_RESTRICT shmemptr, const team_handle &team)
+    [[maybe_unused]] const unsigned int *__restrict__ index0,
+    [[maybe_unused]] const unsigned int *__restrict__ index1,
+    [[maybe_unused]] const unsigned int *__restrict__ index2,
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ D0,
+    const TData *__restrict__ D1, const TData *__restrict__ D2,
+    const TData *__restrict__ w0, const TData *__restrict__ w1,
+    const TData *__restrict__ w2, const TData *__restrict__ f0,
+    const TData *__restrict__ f1, const TData *__restrict__ f1m,
+    const TData *__restrict__ f2, const TData *__restrict__ df,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ wsp,
+    TData *__restrict__ shmemptr, const team_handle &team)
 {
     constexpr unsigned int ndf = 9u;
     const unsigned int nqTot   = nq0 * nq1 * nq2;

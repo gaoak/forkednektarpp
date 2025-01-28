@@ -48,9 +48,9 @@ using ScratchMemoryView =
 template <bool DEFORMED, typename TData>
 KOKKOS_INLINE_FUNCTION static void PhysDeriv1DSumFacKernel(
     const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
-    const unsigned int outsize, const TData *KOKKOS_RESTRICT D0,
-    const TData *KOKKOS_RESTRICT df, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out)
+    const unsigned int outsize, const TData *__restrict__ D0,
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -78,8 +78,8 @@ KOKKOS_INLINE_FUNCTION static void PhysDeriv1DSumFacKernel(
 template <bool APPEND, bool DEFORMED, typename TData>
 KOKKOS_INLINE_FUNCTION void SumDerivTensor1DKernel(
     const unsigned int ilane, const unsigned int nq0,
-    const TData *KOKKOS_RESTRICT D0, const TData *KOKKOS_RESTRICT in0,
-    TData *KOKKOS_RESTRICT out)
+    const TData *__restrict__ D0, const TData *__restrict__ in0,
+    TData *__restrict__ out)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -106,9 +106,9 @@ KOKKOS_INLINE_FUNCTION void SumDerivTensor1DKernel(
 template <bool DEFORMED, typename TData>
 KOKKOS_INLINE_FUNCTION static void PhysDeriv1DSumFacQPKernel(
     const unsigned int ncoord, const unsigned int nq0,
-    const unsigned int outsize, const TData *KOKKOS_RESTRICT D0,
-    const TData *KOKKOS_RESTRICT df, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, const team_handle &team)
+    const unsigned int outsize, const TData *__restrict__ D0,
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out, const team_handle &team)
 {
     unsigned int dfsize = 1u;
     if constexpr (DEFORMED)
@@ -137,8 +137,8 @@ KOKKOS_INLINE_FUNCTION static void PhysDeriv1DSumFacQPKernel(
 
 template <bool APPEND, bool DEFORMED, typename TData>
 KOKKOS_INLINE_FUNCTION void SumDerivTensor1DQPKernel(
-    const unsigned int nq0, const TData *KOKKOS_RESTRICT D0,
-    const TData *KOKKOS_RESTRICT in0, TData *KOKKOS_RESTRICT out,
+    const unsigned int nq0, const TData *__restrict__ D0,
+    const TData *__restrict__ in0, TData *__restrict__ out,
     const team_handle &team)
 {
     Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nq0),
@@ -168,11 +168,10 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 KOKKOS_INLINE_FUNCTION static void PhysDeriv2DSumFacKernel(
     const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
     const unsigned int nq1, const unsigned int outsize,
-    const TData *KOKKOS_RESTRICT D0, const TData *KOKKOS_RESTRICT D1,
-    [[maybe_unused]] const TData *KOKKOS_RESTRICT f0,
-    [[maybe_unused]] const TData *KOKKOS_RESTRICT f1,
-    const TData *KOKKOS_RESTRICT df, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out)
+    const TData *__restrict__ D0, const TData *__restrict__ D1,
+    [[maybe_unused]] const TData *__restrict__ f0,
+    [[maybe_unused]] const TData *__restrict__ f1, const TData *__restrict__ df,
+    const TData *__restrict__ in, TData *__restrict__ out)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -223,9 +222,9 @@ KOKKOS_INLINE_FUNCTION static void PhysDeriv2DSumFacKernel(
 template <bool APPEND, bool DEFORMED, typename TData>
 KOKKOS_INLINE_FUNCTION static void SumDerivTensor2DKernel(
     const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
-    const TData *KOKKOS_RESTRICT D0, const TData *KOKKOS_RESTRICT D1,
-    const TData *KOKKOS_RESTRICT in0, const TData *KOKKOS_RESTRICT in1,
-    TData *KOKKOS_RESTRICT out)
+    const TData *__restrict__ D0, const TData *__restrict__ D1,
+    const TData *__restrict__ in0, const TData *__restrict__ in1,
+    TData *__restrict__ out)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -263,10 +262,10 @@ KOKKOS_INLINE_FUNCTION static void SumDerivTensor2DKernel(
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 KOKKOS_INLINE_FUNCTION static void PhysDeriv2DSumFacQPKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int outsize, const TData *KOKKOS_RESTRICT D0,
-    const TData *KOKKOS_RESTRICT D1, const TData *KOKKOS_RESTRICT f0,
-    const TData *KOKKOS_RESTRICT f1, const TData *KOKKOS_RESTRICT df,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
+    const unsigned int outsize, const TData *__restrict__ D0,
+    const TData *__restrict__ D1, const TData *__restrict__ f0,
+    const TData *__restrict__ f1, const TData *__restrict__ df,
+    const TData *__restrict__ in, TData *__restrict__ out,
     const team_handle &team)
 {
     const unsigned int nqTot = nq0 * nq1;
@@ -319,9 +318,9 @@ KOKKOS_INLINE_FUNCTION static void PhysDeriv2DSumFacQPKernel(
 template <bool APPEND, bool DEFORMED, typename TData>
 KOKKOS_INLINE_FUNCTION static void SumDerivTensor2DQPKernel(
     const unsigned int nq0, const unsigned int nq1,
-    const TData *KOKKOS_RESTRICT D0, const TData *KOKKOS_RESTRICT D1,
-    const TData *KOKKOS_RESTRICT in0, const TData *KOKKOS_RESTRICT in1,
-    TData *KOKKOS_RESTRICT out, const team_handle &team)
+    const TData *__restrict__ D0, const TData *__restrict__ D1,
+    const TData *__restrict__ in0, const TData *__restrict__ in1,
+    TData *__restrict__ out, const team_handle &team)
 {
     const unsigned int nqTot = nq0 * nq1;
 
@@ -362,14 +361,12 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 KOKKOS_INLINE_FUNCTION static void PhysDeriv3DSumFacKernel(
     const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int outsize,
-    const TData *KOKKOS_RESTRICT D0, const TData *KOKKOS_RESTRICT D1,
-    const TData *KOKKOS_RESTRICT D2,
-    [[maybe_unused]] const TData *KOKKOS_RESTRICT f0,
-    [[maybe_unused]] const TData *KOKKOS_RESTRICT f1,
-    [[maybe_unused]] const TData *KOKKOS_RESTRICT f1m,
-    [[maybe_unused]] const TData *KOKKOS_RESTRICT f2,
-    const TData *KOKKOS_RESTRICT df, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out)
+    const TData *__restrict__ D0, const TData *__restrict__ D1,
+    const TData *__restrict__ D2, [[maybe_unused]] const TData *__restrict__ f0,
+    [[maybe_unused]] const TData *__restrict__ f1,
+    [[maybe_unused]] const TData *__restrict__ f1m,
+    [[maybe_unused]] const TData *__restrict__ f2, const TData *__restrict__ df,
+    const TData *__restrict__ in, TData *__restrict__ out)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -451,10 +448,10 @@ KOKKOS_INLINE_FUNCTION static void PhysDeriv3DSumFacKernel(
 template <bool APPEND, bool DEFORMED, typename TData>
 KOKKOS_INLINE_FUNCTION static void SumDerivTensor3DKernel(
     const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const TData *KOKKOS_RESTRICT D0,
-    const TData *KOKKOS_RESTRICT D1, const TData *KOKKOS_RESTRICT D2,
-    const TData *KOKKOS_RESTRICT in0, const TData *KOKKOS_RESTRICT in1,
-    const TData *KOKKOS_RESTRICT in2, TData *KOKKOS_RESTRICT out)
+    const unsigned int nq2, const TData *__restrict__ D0,
+    const TData *__restrict__ D1, const TData *__restrict__ D2,
+    const TData *__restrict__ in0, const TData *__restrict__ in1,
+    const TData *__restrict__ in2, TData *__restrict__ out)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -505,12 +502,12 @@ KOKKOS_INLINE_FUNCTION static void SumDerivTensor3DKernel(
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 KOKKOS_INLINE_FUNCTION static void PhysDeriv3DSumFacQPKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const unsigned int outsize, const TData *KOKKOS_RESTRICT D0,
-    const TData *KOKKOS_RESTRICT D1, const TData *KOKKOS_RESTRICT D2,
-    const TData *KOKKOS_RESTRICT f0, const TData *KOKKOS_RESTRICT f1,
-    const TData *KOKKOS_RESTRICT f1m, const TData *KOKKOS_RESTRICT f2,
-    const TData *KOKKOS_RESTRICT df, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, const team_handle &team)
+    const unsigned int outsize, const TData *__restrict__ D0,
+    const TData *__restrict__ D1, const TData *__restrict__ D2,
+    const TData *__restrict__ f0, const TData *__restrict__ f1,
+    const TData *__restrict__ f1m, const TData *__restrict__ f2,
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out, const team_handle &team)
 {
     constexpr unsigned int ncoord = 3u;
 
@@ -588,10 +585,10 @@ KOKKOS_INLINE_FUNCTION static void PhysDeriv3DSumFacQPKernel(
 template <bool APPEND, bool DEFORMED, typename TData>
 KOKKOS_INLINE_FUNCTION static void SumDerivTensor3DQPKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const TData *KOKKOS_RESTRICT D0, const TData *KOKKOS_RESTRICT D1,
-    const TData *KOKKOS_RESTRICT D2, const TData *KOKKOS_RESTRICT in0,
-    const TData *KOKKOS_RESTRICT in1, const TData *KOKKOS_RESTRICT in2,
-    TData *KOKKOS_RESTRICT out, const team_handle &team)
+    const TData *__restrict__ D0, const TData *__restrict__ D1,
+    const TData *__restrict__ D2, const TData *__restrict__ in0,
+    const TData *__restrict__ in1, const TData *__restrict__ in2,
+    TData *__restrict__ out, const team_handle &team)
 {
     const unsigned int nqTot = nq0 * nq1 * nq2;
 
@@ -640,8 +637,8 @@ KOKKOS_INLINE_FUNCTION static void SumDerivTensor3DQPKernel(
 template <typename Implementation, bool DEFORMED, typename TData>
 KOKKOS_INLINE_FUNCTION void PhysDeriv1DKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nelmt,
-    const TData *KOKKOS_RESTRICT D0, const TData *KOKKOS_RESTRICT df,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
+    const TData *__restrict__ D0, const TData *__restrict__ df,
+    const TData *__restrict__ in, TData *__restrict__ out,
     const team_handle &team)
 {
     const unsigned int ndf = ncoord;
@@ -693,11 +690,11 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TData>
 KOKKOS_INLINE_FUNCTION void PhysDeriv2DKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nelmt, const TData *KOKKOS_RESTRICT D0,
-    const TData *KOKKOS_RESTRICT D1, const TData *KOKKOS_RESTRICT f0,
-    const TData *KOKKOS_RESTRICT f1, const TData *KOKKOS_RESTRICT df,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
-    TData *KOKKOS_RESTRICT shmemptr, const team_handle &team)
+    const unsigned int nelmt, const TData *__restrict__ D0,
+    const TData *__restrict__ D1, const TData *__restrict__ f0,
+    const TData *__restrict__ f1, const TData *__restrict__ df,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ shmemptr, const team_handle &team)
 {
     const unsigned int ndf   = 2 * ncoord;
     const unsigned int nqTot = nq0 * nq1;
@@ -771,12 +768,12 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TData>
 KOKKOS_INLINE_FUNCTION void PhysDeriv3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const unsigned int nelmt, const TData *KOKKOS_RESTRICT D0,
-    const TData *KOKKOS_RESTRICT D1, const TData *KOKKOS_RESTRICT D2,
-    const TData *KOKKOS_RESTRICT f0, const TData *KOKKOS_RESTRICT f1,
-    const TData *KOKKOS_RESTRICT f1m, const TData *KOKKOS_RESTRICT f2,
-    const TData *KOKKOS_RESTRICT df, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, TData *KOKKOS_RESTRICT shmemptr,
+    const unsigned int nelmt, const TData *__restrict__ D0,
+    const TData *__restrict__ D1, const TData *__restrict__ D2,
+    const TData *__restrict__ f0, const TData *__restrict__ f1,
+    const TData *__restrict__ f1m, const TData *__restrict__ f2,
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ shmemptr,
     const team_handle &team)
 {
     constexpr unsigned int ndf = 9u;

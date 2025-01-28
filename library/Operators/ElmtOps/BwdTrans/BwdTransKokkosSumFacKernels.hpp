@@ -48,8 +48,8 @@ using ScratchMemoryView =
 template <typename TData>
 KOKKOS_INLINE_FUNCTION static void BwdTransSegSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nq0,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out)
+    const TData *__restrict__ basis0, const TData *__restrict__ in,
+    TData *__restrict__ out)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -67,8 +67,8 @@ KOKKOS_INLINE_FUNCTION static void BwdTransSegSumFacKernel(
 template <typename TData>
 KOKKOS_INLINE_FUNCTION static void BwdTransSegSumFacQPKernel(
     const unsigned int nm0, const unsigned int nq0,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, const team_handle &team)
+    const TData *__restrict__ basis0, const TData *__restrict__ in,
+    TData *__restrict__ out, const team_handle &team)
 {
     Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nq0),
                          [&](const unsigned int &i) {
@@ -87,9 +87,9 @@ template <typename TData>
 KOKKOS_INLINE_FUNCTION static void BwdTransQuadSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nq0, const unsigned int nq1,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
-    TData *KOKKOS_RESTRICT wsp)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -123,9 +123,9 @@ template <typename TData>
 KOKKOS_INLINE_FUNCTION static void BwdTransQuadSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nqTot,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
-    TData *KOKKOS_RESTRICT wsp, const team_handle &team)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp, const team_handle &team)
 {
     // direction 0
     Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nq0 * nm1),
@@ -166,9 +166,9 @@ template <typename TData>
 KOKKOS_INLINE_FUNCTION static void BwdTransTriSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nq0, const unsigned int nq1, const bool isModified,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
-    TData *KOKKOS_RESTRICT wsp)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -210,9 +210,9 @@ template <typename TData>
 KOKKOS_INLINE_FUNCTION static void BwdTransTriSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nqTot, const bool isModified,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
-    TData *KOKKOS_RESTRICT wsp, const team_handle &team)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp, const team_handle &team)
 {
     // direction 1
     Kokkos::parallel_for(
@@ -260,10 +260,10 @@ template <typename TData>
 KOKKOS_INLINE_FUNCTION static void BwdTransHexSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const TData *KOKKOS_RESTRICT basis0,
-    const TData *KOKKOS_RESTRICT basis1, const TData *KOKKOS_RESTRICT basis2,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
-    TData *KOKKOS_RESTRICT wsp0, TData *KOKKOS_RESTRICT wsp1)
+    const unsigned int nq2, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ basis2,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp0, TData *__restrict__ wsp1)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -315,11 +315,10 @@ template <typename TData>
 KOKKOS_INLINE_FUNCTION static void BwdTransHexSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const unsigned int nqTot, const TData *KOKKOS_RESTRICT basis0,
-    const TData *KOKKOS_RESTRICT basis1, const TData *KOKKOS_RESTRICT basis2,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
-    TData *KOKKOS_RESTRICT wsp0, TData *KOKKOS_RESTRICT wsp1,
-    const team_handle &team)
+    const unsigned int nqTot, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ basis2,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp0, TData *__restrict__ wsp1, const team_handle &team)
 {
     // direction 0
     Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nq0 * nm1 * nm2),
@@ -381,10 +380,9 @@ KOKKOS_INLINE_FUNCTION static void BwdTransTetSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT basis2, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, TData *KOKKOS_RESTRICT fpq,
-    TData *KOKKOS_RESTRICT fp)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ fpq, TData *__restrict__ fp)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -468,12 +466,11 @@ KOKKOS_INLINE_FUNCTION static void BwdTransTetSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nqTot, const bool isModified,
-    const unsigned int *KOKKOS_RESTRICT pindex,
-    const unsigned int *KOKKOS_RESTRICT qindex,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT basis2, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, TData *KOKKOS_RESTRICT wsp0,
-    TData *KOKKOS_RESTRICT wsp1, const team_handle &team)
+    const unsigned int *__restrict__ pindex,
+    const unsigned int *__restrict__ qindex, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ basis2,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp0, TData *__restrict__ wsp1, const team_handle &team)
 {
     const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
 
@@ -568,10 +565,9 @@ KOKKOS_INLINE_FUNCTION static void BwdTransPrismSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT basis2, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, TData *KOKKOS_RESTRICT fpq,
-    TData *KOKKOS_RESTRICT fp)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ fpq, TData *__restrict__ fp)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -639,10 +635,10 @@ KOKKOS_INLINE_FUNCTION static void BwdTransPrismSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nqTot, const bool isModified,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT basis2, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, TData *KOKKOS_RESTRICT wsp0,
-    TData *KOKKOS_RESTRICT wsp1, const team_handle &team)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ wsp0, TData *__restrict__ wsp1,
+    const team_handle &team)
 {
     // direction 2
     Kokkos::parallel_for(
@@ -717,10 +713,9 @@ KOKKOS_INLINE_FUNCTION static void BwdTransPyrSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT basis2, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, TData *KOKKOS_RESTRICT fpq,
-    TData *KOKKOS_RESTRICT fp)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ fpq, TData *__restrict__ fp)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -793,10 +788,10 @@ KOKKOS_INLINE_FUNCTION static void BwdTransPyrSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nqTot, const bool isModified,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT basis2, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, TData *KOKKOS_RESTRICT wsp0,
-    TData *KOKKOS_RESTRICT wsp1, const team_handle &team)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ wsp0, TData *__restrict__ wsp1,
+    const team_handle &team)
 {
     // direction 2
     Kokkos::parallel_for(
@@ -891,9 +886,9 @@ KOKKOS_INLINE_FUNCTION static void BwdTransPyrSumFacQPKernel(
 template <typename Implementation, typename TData>
 KOKKOS_INLINE_FUNCTION static void BwdTrans1DKernel(
     const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out,
-    [[maybe_unused]] TData *KOKKOS_RESTRICT shmemptr, const team_handle &team)
+    const TData *__restrict__ basis0, const TData *__restrict__ in,
+    TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ shmemptr,
+    const team_handle &team)
 {
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
@@ -927,10 +922,10 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 KOKKOS_INLINE_FUNCTION static void BwdTrans2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
-    const bool isModified, const TData *KOKKOS_RESTRICT basis0,
-    const TData *KOKKOS_RESTRICT basis1, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, [[maybe_unused]] TData *KOKKOS_RESTRICT wsp,
-    [[maybe_unused]] TData *KOKKOS_RESTRICT shmemptr, const team_handle &team)
+    const bool isModified, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ in,
+    TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ wsp,
+    [[maybe_unused]] TData *__restrict__ shmemptr, const team_handle &team)
 {
     const unsigned int nqTot = nq0 * nq1;
 
@@ -1026,10 +1021,10 @@ KOKKOS_INLINE_FUNCTION static void BwdTrans3DKernel(
     const unsigned int nq2, const unsigned int nelmt, const bool isModified,
     [[maybe_unused]] const unsigned int *index0,
     [[maybe_unused]] const unsigned int *index1,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT basis2, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, [[maybe_unused]] TData *KOKKOS_RESTRICT wsp,
-    [[maybe_unused]] TData *KOKKOS_RESTRICT shmemptr, const team_handle &team)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ in,
+    TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ wsp,
+    [[maybe_unused]] TData *__restrict__ shmemptr, const team_handle &team)
 {
     const unsigned int nqTot = nq0 * nq1 * nq2;
 

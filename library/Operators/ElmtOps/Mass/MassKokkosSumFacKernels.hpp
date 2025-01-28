@@ -48,10 +48,10 @@ using ScratchMemoryView =
 template <typename Implementation, bool DEFORMED, typename TData>
 KOKKOS_INLINE_FUNCTION static void Mass1DKernel(
     const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT w0,
-    const TData *KOKKOS_RESTRICT jac, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, TData *KOKKOS_RESTRICT wsp,
-    [[maybe_unused]] TData *KOKKOS_RESTRICT shmemptr, const team_handle &team)
+    const TData *__restrict__ basis0, const TData *__restrict__ w0,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ wsp,
+    [[maybe_unused]] TData *__restrict__ shmemptr, const team_handle &team)
 {
     unsigned int jacsize = 1u;
     if constexpr (DEFORMED)
@@ -118,11 +118,11 @@ KOKKOS_INLINE_FUNCTION static void Mass2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const bool isModified, [[maybe_unused]] const unsigned int *index0,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT w0, const TData *KOKKOS_RESTRICT w1,
-    const TData *KOKKOS_RESTRICT jac, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, [[maybe_unused]] TData *KOKKOS_RESTRICT wsp,
-    [[maybe_unused]] TData *KOKKOS_RESTRICT shmemptr, const team_handle &team)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ w0, const TData *__restrict__ w1,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ wsp,
+    [[maybe_unused]] TData *__restrict__ shmemptr, const team_handle &team)
 {
     const unsigned int nqTot = nq0 * nq1;
     unsigned int jacsize     = 1u;
@@ -266,12 +266,12 @@ KOKKOS_INLINE_FUNCTION static void Mass3DKernel(
     [[maybe_unused]] const unsigned int *index1,
     [[maybe_unused]] const unsigned int *index2,
     [[maybe_unused]] const unsigned int *index3,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT basis2, const TData *KOKKOS_RESTRICT w0,
-    const TData *KOKKOS_RESTRICT w1, const TData *KOKKOS_RESTRICT w2,
-    const TData *KOKKOS_RESTRICT jac, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, [[maybe_unused]] TData *KOKKOS_RESTRICT wsp,
-    [[maybe_unused]] TData *KOKKOS_RESTRICT shmemptr, const team_handle &team)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ w2,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ wsp,
+    [[maybe_unused]] TData *__restrict__ shmemptr, const team_handle &team)
 {
     const unsigned int nqTot = nq0 * nq1 * nq2;
     unsigned int jacsize     = 1u;
