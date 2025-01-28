@@ -118,7 +118,10 @@ __device__ __forceinline__ void IProductWRTBaseSegSumFacQPKernel(
     const TData *__restrict__ basis0, const TData *__restrict__ in,
     TData *__restrict__ out, const TData scale)
 {
-    for (unsigned int p = threadIdx.x; p < nm0; p += blockDim.x)
+    const unsigned int idx0   = threadIdx.x;
+    const unsigned int stride = blockDim.x;
+
+    for (unsigned int p = idx0; p < nm0; p += stride)
     {
         TData sum = 0.0;
         for (unsigned int i = 0u; i < nq0; ++i)
@@ -255,7 +258,10 @@ __device__ __forceinline__ void IProductWRTBaseQuadSumFacQPKernel(
     const TData *__restrict__ basis1, const TData *__restrict__ in,
     TData *__restrict__ out, TData *__restrict__ wsp, const TData scale)
 {
-    for (unsigned int idx = threadIdx.x; idx < nm0 * nq1; idx += blockDim.x)
+    const unsigned int idx0   = threadIdx.x;
+    const unsigned int stride = blockDim.x;
+
+    for (unsigned int idx = idx0; idx < nm0 * nq1; idx += stride)
     {
         const unsigned int j = idx % nq1;
         const unsigned int p = idx / nq1;
@@ -271,7 +277,7 @@ __device__ __forceinline__ void IProductWRTBaseQuadSumFacQPKernel(
 
     __syncthreads();
 
-    for (unsigned int idx = threadIdx.x; idx < nmTot; idx += blockDim.x)
+    for (unsigned int idx = idx0; idx < nmTot; idx += stride)
     {
         const unsigned int p = idx % nm0;
         const unsigned int q = idx / nm0;
@@ -474,7 +480,10 @@ __device__ __forceinline__ void IProductWRTBaseTriSumFacQPKernel(
     const TData *__restrict__ basis1, const TData *__restrict__ in,
     TData *__restrict__ out, TData *__restrict__ wsp, const TData scale)
 {
-    for (unsigned int idx = threadIdx.x; idx < nm0 * nq1; idx += blockDim.x)
+    const unsigned int idx0   = threadIdx.x;
+    const unsigned int stride = blockDim.x;
+
+    for (unsigned int idx = idx0; idx < nm0 * nq1; idx += stride)
     {
         const unsigned int j = idx % nq1;
         const unsigned int p = idx / nq1;
@@ -490,7 +499,7 @@ __device__ __forceinline__ void IProductWRTBaseTriSumFacQPKernel(
 
     __syncthreads();
 
-    for (unsigned int idx = threadIdx.x; idx < nmTot; idx += blockDim.x)
+    for (unsigned int idx = idx0; idx < nmTot; idx += stride)
     {
         const unsigned int p = pindex[idx];
         unsigned int cnt_pj  = nq1 * p;
@@ -528,7 +537,7 @@ __device__ __forceinline__ void IProductWRTBaseTriSumFacQPKernel(
 
         TData prod = 0.0;
 
-        for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
+        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
         {
             const unsigned int i = idx % nq0;
             const unsigned int j = idx / nq0;
@@ -714,8 +723,10 @@ __device__ __forceinline__ void IProductWRTBaseHexSumFacQPKernel(
     const TData *__restrict__ in, TData *__restrict__ out,
     TData *__restrict__ wsp0, TData *__restrict__ wsp1, const TData scale)
 {
-    for (unsigned int idx = threadIdx.x; idx < nm0 * nq1 * nq2;
-         idx += blockDim.x)
+    const unsigned int idx0   = threadIdx.x;
+    const unsigned int stride = blockDim.x;
+
+    for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
     {
         const unsigned int j = idx % nq1;
         const unsigned int k = (idx / nq1) % nq2;
@@ -732,8 +743,7 @@ __device__ __forceinline__ void IProductWRTBaseHexSumFacQPKernel(
 
     __syncthreads();
 
-    for (unsigned int idx = threadIdx.x; idx < nm0 * nm1 * nq2;
-         idx += blockDim.x)
+    for (unsigned int idx = idx0; idx < nm0 * nm1 * nq2; idx += stride)
     {
         const unsigned int k = idx % nq2;
         const unsigned int q = (idx / nq2) % nm1;
@@ -750,7 +760,7 @@ __device__ __forceinline__ void IProductWRTBaseHexSumFacQPKernel(
 
     __syncthreads();
 
-    for (unsigned int idx = threadIdx.x; idx < nmTot; idx += blockDim.x)
+    for (unsigned int idx = idx0; idx < nmTot; idx += stride)
     {
         const unsigned int p = idx % nm0;
         const unsigned int q = (idx / nm0) % nm1;
@@ -1086,8 +1096,10 @@ __device__ __forceinline__ void IProductWRTBaseTetSumFacQPKernel(
 {
     const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
 
-    for (unsigned int idx = threadIdx.x; idx < nm0 * nq1 * nq2;
-         idx += blockDim.x)
+    const unsigned int idx0   = threadIdx.x;
+    const unsigned int stride = blockDim.x;
+
+    for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
     {
         const unsigned int j = idx % nq1;
         const unsigned int k = (idx / nq1) % nq2;
@@ -1104,7 +1116,7 @@ __device__ __forceinline__ void IProductWRTBaseTetSumFacQPKernel(
 
     __syncthreads();
 
-    for (unsigned int idx = threadIdx.x; idx < nm01 * nq2; idx += blockDim.x)
+    for (unsigned int idx = idx0; idx < nm01 * nq2; idx += stride)
     {
         const unsigned int mode_pq = idx / nq2;
         const unsigned int p       = pindex1[mode_pq];
@@ -1121,7 +1133,7 @@ __device__ __forceinline__ void IProductWRTBaseTetSumFacQPKernel(
 
     __syncthreads();
 
-    for (unsigned int idx = threadIdx.x; idx < nmTot; idx += blockDim.x)
+    for (unsigned int idx = idx0; idx < nmTot; idx += stride)
     {
         const unsigned int p       = pindex2[idx];
         const unsigned int q       = qindex2[idx];
@@ -1162,7 +1174,7 @@ __device__ __forceinline__ void IProductWRTBaseTetSumFacQPKernel(
         if (nm2 <= NM2_MAX)
         {
             TData prod[NM2_MAX] = {0.0};
-            for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
+            for (unsigned int idx = idx0; idx < nqTot; idx += stride)
             {
                 const unsigned int i = idx % nq0;
                 const unsigned int j = (idx / nq0) % nq1;
@@ -1221,7 +1233,7 @@ __device__ __forceinline__ void IProductWRTBaseTetSumFacQPKernel(
             TData prod0 = 0.0;
             TData prod1 = 0.0;
 
-            for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
+            for (unsigned int idx = idx0; idx < nqTot; idx += stride)
             {
                 const unsigned int i = idx % nq0;
                 const unsigned int j = (idx / nq0) % nq1;
@@ -1270,8 +1282,7 @@ __device__ __forceinline__ void IProductWRTBaseTetSumFacQPKernel(
             {
                 TData prod = 0.0;
 
-                for (unsigned int idx = threadIdx.x; idx < nqTot;
-                     idx += blockDim.x)
+                for (unsigned int idx = idx0; idx < nqTot; idx += stride)
                 {
                     const unsigned int i = idx % nq0;
                     const unsigned int j = (idx / nq0) % nq1;
@@ -1559,8 +1570,10 @@ __device__ __forceinline__ void IProductWRTBasePrismSumFacQPKernel(
     const TData *__restrict__ in, TData *__restrict__ out,
     TData *__restrict__ wsp0, TData *__restrict__ wsp1, const TData scale)
 {
-    for (unsigned int idx = threadIdx.x; idx < nm0 * nq1 * nq2;
-         idx += blockDim.x)
+    const unsigned int idx0   = threadIdx.x;
+    const unsigned int stride = blockDim.x;
+
+    for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
     {
         const unsigned int j = idx % nq1;
         const unsigned int k = (idx / nq1) % nq2;
@@ -1577,8 +1590,7 @@ __device__ __forceinline__ void IProductWRTBasePrismSumFacQPKernel(
 
     __syncthreads();
 
-    for (unsigned int idx = threadIdx.x; idx < nm0 * nm1 * nq2;
-         idx += blockDim.x)
+    for (unsigned int idx = idx0; idx < nm0 * nm1 * nq2; idx += stride)
     {
         const unsigned int k = idx % nq2;
         const unsigned int q = (idx / nq2) % nm1;
@@ -1595,7 +1607,7 @@ __device__ __forceinline__ void IProductWRTBasePrismSumFacQPKernel(
 
     __syncthreads();
 
-    for (unsigned int idx = threadIdx.x; idx < nmTot; idx += blockDim.x)
+    for (unsigned int idx = idx0; idx < nmTot; idx += stride)
     {
         const unsigned int p       = pindex[idx];
         const unsigned int q       = qindex[idx];
@@ -1637,7 +1649,7 @@ __device__ __forceinline__ void IProductWRTBasePrismSumFacQPKernel(
         {
             TData prod[NM1_MAX] = {0.0};
 
-            for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
+            for (unsigned int idx = idx0; idx < nqTot; idx += stride)
             {
                 const unsigned int i = idx % nq0;
                 const unsigned int j = (idx / nq0) % nq1;
@@ -1676,8 +1688,7 @@ __device__ __forceinline__ void IProductWRTBasePrismSumFacQPKernel(
             {
                 TData prod = 0.0;
 
-                for (unsigned int idx = threadIdx.x; idx < nqTot;
-                     idx += blockDim.x)
+                for (unsigned int idx = idx0; idx < nqTot; idx += stride)
                 {
                     const unsigned int i = idx % nq0;
                     const unsigned int j = (idx / nq0) % nq1;
@@ -2034,9 +2045,10 @@ __device__ __forceinline__ void IProductWRTBasePyrSumFacQPKernel(
     const TData *__restrict__ in, TData *__restrict__ out,
     TData *__restrict__ wsp0, TData *__restrict__ wsp1, const TData scale)
 {
+    const unsigned int idx0   = threadIdx.x;
+    const unsigned int stride = blockDim.x;
 
-    for (unsigned int idx = threadIdx.x; idx < nm0 * nq1 * nq2;
-         idx += blockDim.x)
+    for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
     {
         const unsigned int j = idx % nq1;
         const unsigned int k = (idx / nq1) % nq2;
@@ -2053,8 +2065,7 @@ __device__ __forceinline__ void IProductWRTBasePyrSumFacQPKernel(
 
     __syncthreads();
 
-    for (unsigned int idx = threadIdx.x; idx < nm0 * nm1 * nq2;
-         idx += blockDim.x)
+    for (unsigned int idx = idx0; idx < nm0 * nm1 * nq2; idx += stride)
     {
         const unsigned int k = idx % nq2;
         const unsigned int q = (idx / nq2) % nm1;
@@ -2071,7 +2082,7 @@ __device__ __forceinline__ void IProductWRTBasePyrSumFacQPKernel(
 
     __syncthreads();
 
-    for (unsigned int idx = threadIdx.x; idx < nmTot; idx += blockDim.x)
+    for (unsigned int idx = idx0; idx < nmTot; idx += stride)
     {
         const unsigned int p = pindex[idx];
         const unsigned int q = qindex[idx];
@@ -2109,7 +2120,7 @@ __device__ __forceinline__ void IProductWRTBasePyrSumFacQPKernel(
 
         TData prod = 0.0;
 
-        for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
+        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
         {
             const unsigned int i = idx % nq0;
             const unsigned int j = (idx / nq0) % nq1;
@@ -2184,6 +2195,9 @@ __device__ __forceinline__ void IProductWRTBase1DKernel(
 
         TData *s_wsp0 = (TData *)shmemptr;
 
+        const unsigned int idx0   = threadIdx.x;
+        const unsigned int stride = blockDim.x;
+
         unsigned int e = blockIdx.x;
         while (e < nelmt)
         {
@@ -2191,7 +2205,7 @@ __device__ __forceinline__ void IProductWRTBase1DKernel(
             const TData *inptr  = in + nq0 * e;
             TData *outptr       = out + nm0 * e;
 
-            for (unsigned int i = threadIdx.x; i < nq0; i += blockDim.x)
+            for (unsigned int i = idx0; i < nq0; i += stride)
             {
                 if constexpr (DEFORMED)
                 {
@@ -2313,14 +2327,15 @@ __device__ __forceinline__ void IProductWRTBase2DKernel(
         TData *s_basis1 = s_basis0 + nm0 * nq0;
 
         // Copy to shared memory.
-        for (unsigned int idx = threadIdx.x; idx < nmode0 * nq0;
-             idx += blockDim.x)
+        const unsigned int idx0   = threadIdx.x;
+        const unsigned int stride = blockDim.x;
+
+        for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
         {
             s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nmode1 * nq1;
-             idx += blockDim.x)
+        for (unsigned int idx = idx0; idx < nmode1 * nq1; idx += stride)
         {
             s_basis1[idx] = basis1[idx];
         }
@@ -2332,7 +2347,7 @@ __device__ __forceinline__ void IProductWRTBase2DKernel(
             const TData *inptr  = in + nqTot * e;
             TData *outptr       = out + nmTot * e;
 
-            for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
+            for (unsigned int idx = idx0; idx < nqTot; idx += stride)
             {
                 const unsigned int i = idx % nq0;
                 const unsigned int j = idx / nq0;
@@ -2529,20 +2544,20 @@ __device__ __forceinline__ void IProductWRTBase3DKernel(
         TData *s_basis2 = s_basis1 + nmode1 * nq1;
 
         // Copy to shared memory.
-        for (unsigned int idx = threadIdx.x; idx < nmode0 * nq0;
-             idx += blockDim.x)
+        const unsigned int idx0   = threadIdx.x;
+        const unsigned int stride = blockDim.x;
+
+        for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
         {
             s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nmode1 * nq1;
-             idx += blockDim.x)
+        for (unsigned int idx = idx0; idx < nmode1 * nq1; idx += stride)
         {
             s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nmode2 * nq2;
-             idx += blockDim.x)
+        for (unsigned int idx = idx0; idx < nmode2 * nq2; idx += stride)
         {
             s_basis2[idx] = basis2[idx];
         }
@@ -2555,7 +2570,7 @@ __device__ __forceinline__ void IProductWRTBase3DKernel(
             TData *outptr       = out + nmTot * e;
 
             // Copy to shared memory.
-            for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
+            for (unsigned int idx = idx0; idx < nqTot; idx += stride)
             {
                 const unsigned int i = idx % nq0;
                 const unsigned int j = (idx / nq0) % nq1;

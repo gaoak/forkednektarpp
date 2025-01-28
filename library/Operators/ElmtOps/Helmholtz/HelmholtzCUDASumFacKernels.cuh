@@ -185,7 +185,10 @@ __device__ __forceinline__ void ApplyMetric1DSumFacQPKernel(
         }
     }
 
-    for (unsigned int i = threadIdx.x; i < nq0; i += blockDim.x)
+    const unsigned int idx0   = threadIdx.x;
+    const unsigned int stride = blockDim.x;
+
+    for (unsigned int i = idx0; i < nq0; i += stride)
     {
         const unsigned int dfindex = DEFORMED ? i : 0;
 
@@ -411,30 +414,38 @@ __device__ __forceinline__ void ApplyMetric2DSumFacQPKernel(
         dfsize *= nqTot;
     }
 
+    const unsigned int idx0   = threadIdx.x;
+    const unsigned int stride = blockDim.x;
+
     if constexpr (!DEFORMED)
     {
         if (diffCoeff)
         {
-            unsigned int idx = threadIdx.x;
-            if (ncoord == 2 && idx < 4u)
+            if (ncoord == 2)
             {
-                metric[idx] =
-                    diffCoeff[(idx / 2u) * 2u] * df[idx % 2u] +
-                    diffCoeff[(idx / 2u) * 2u + 1u] * df[idx % 2u + 2u];
+                for (unsigned int idx = idx0; idx < 4u; idx += stride)
+                {
+                    metric[idx] =
+                        diffCoeff[(idx / 2u) * 2u] * df[idx % 2u] +
+                        diffCoeff[(idx / 2u) * 2u + 1u] * df[idx % 2u + 2u];
+                }
             }
-            else if (ncoord == 3 && idx < 6u)
+            else if (ncoord == 3)
             {
-                metric[idx] =
-                    diffCoeff[(idx / 3u) * 3u] * df[idx % 2u] +
-                    diffCoeff[(idx / 3u) * 3u + 1u] * df[idx % 2u + 2u] +
-                    diffCoeff[(idx / 3u) * 3u + 2u] * df[idx % 2u + 4u];
+                for (unsigned int idx = idx0; idx < 6u; idx += stride)
+                {
+                    metric[idx] =
+                        diffCoeff[(idx / 3u) * 3u] * df[idx % 2u] +
+                        diffCoeff[(idx / 3u) * 3u + 1u] * df[idx % 2u + 2u] +
+                        diffCoeff[(idx / 3u) * 3u + 2u] * df[idx % 2u + 4u];
+                }
             }
 
             __syncthreads();
         }
     }
 
-    for (unsigned int idx = threadIdx.x; idx < nq0 * nq1; idx += blockDim.x)
+    for (unsigned int idx = idx0; idx < nq0 * nq1; idx += stride)
     {
         const unsigned int i       = idx % nq0;
         const unsigned int j       = idx / nq0;
@@ -707,12 +718,14 @@ __device__ __forceinline__ void ApplyMetric3DSumFacQPKernel(
         dfsize *= nqTot;
     }
 
+    const unsigned int idx0   = threadIdx.x;
+    const unsigned int stride = blockDim.x;
+
     if constexpr (!DEFORMED)
     {
         if (diffCoeff)
         {
-            unsigned int idx = threadIdx.x;
-            if (idx < 9u)
+            for (unsigned int idx = idx0; idx < 9u; idx += stride)
             {
                 metric[idx] =
                     diffCoeff[(idx / 3u) * 3u] * df[idx % 3u] +
@@ -724,8 +737,7 @@ __device__ __forceinline__ void ApplyMetric3DSumFacQPKernel(
         }
     }
 
-    for (unsigned int idx = threadIdx.x; idx < nq0 * nq1 * nq2;
-         idx += blockDim.x)
+    for (unsigned int idx = idx0; idx < nq0 * nq1 * nq2; idx += stride)
     {
         const unsigned int i       = idx % nq0;
         const unsigned int j       = (idx / nq0) % nq1;
@@ -977,6 +989,7 @@ __device__ __forceinline__ void Helmholtz2DKernel(
         // Pre-compute factor.
         const unsigned int idx0   = threadIdx.x;
         const unsigned int stride = blockDim.x;
+
         if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
             s_f0 = (TData *)shmemptr;
@@ -1080,14 +1093,15 @@ __device__ __forceinline__ void Helmholtz2DKernel(
         TData *s_basis1 = s_basis0 + nm0 * nq0;
 
         // Copy to shared memory.
-        for (unsigned int idx = threadIdx.x; idx < nmode0 * nq0;
-             idx += blockDim.x)
+        const unsigned int idx0   = threadIdx.x;
+        const unsigned int stride = blockDim.x;
+
+        for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
         {
             s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nmode1 * nq1;
-             idx += blockDim.x)
+        for (unsigned int idx = idx0; idx < nmode1 * nq1; idx += stride)
         {
             s_basis1[idx] = basis1[idx];
         }
@@ -1101,7 +1115,7 @@ __device__ __forceinline__ void Helmholtz2DKernel(
             TData *outptr       = out + nmTot * e;
 
             // Copy to shared memory.
-            for (unsigned int idx = threadIdx.x; idx < nmTot; idx += blockDim.x)
+            for (unsigned int idx = idx0; idx < nmTot; idx += stride)
             {
                 tmp[idx] = inptr[idx];
             }
@@ -1480,20 +1494,20 @@ __device__ __forceinline__ void Helmholtz3DKernel(
         TData *s_basis2 = s_basis1 + nmode1 * nq1;
 
         // Copy to shared memory.
-        for (unsigned int idx = threadIdx.x; idx < nmode0 * nq0;
-             idx += blockDim.x)
+        const unsigned int idx0   = threadIdx.x;
+        const unsigned int stride = blockDim.x;
+
+        for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
         {
             s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nmode1 * nq1;
-             idx += blockDim.x)
+        for (unsigned int idx = idx0; idx < nmode1 * nq1; idx += stride)
         {
             s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nmode2 * nq2;
-             idx += blockDim.x)
+        for (unsigned int idx = idx0; idx < nmode2 * nq2; idx += stride)
         {
             s_basis2[idx] = basis2[idx];
         }
@@ -1507,7 +1521,7 @@ __device__ __forceinline__ void Helmholtz3DKernel(
             TData *outptr       = out + nmTot * e;
 
             // Copy to shared memory.
-            for (unsigned int idx = threadIdx.x; idx < nmTot; idx += blockDim.x)
+            for (unsigned int idx = idx0; idx < nmTot; idx += stride)
             {
                 tmp[idx] = inptr[idx];
             }

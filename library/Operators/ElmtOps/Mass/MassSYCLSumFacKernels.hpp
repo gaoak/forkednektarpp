@@ -42,10 +42,10 @@ namespace Nektar::Operators::detail
 template <typename Implementation, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void Mass1DKernel(
     const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
-    const TData *__restrict basis0, const TData *__restrict w0,
-    const TData *__restrict jac, const TData *__restrict in,
-    TData *__restrict out, TData *__restrict wsp,
-    [[maybe_unused]] TData *__restrict shmemptr,
+    const TData *__restrict__ basis0, const TData *__restrict__ w0,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ wsp,
+    [[maybe_unused]] TData *__restrict__ shmemptr,
     const sycl::nd_item<3> &item_ct1)
 {
     unsigned int jacsize = 1u;
@@ -80,6 +80,9 @@ NEK_FORCE_INLINE static void Mass1DKernel(
     {
         TData *bwd = shmemptr;
 
+        const unsigned int idx0   = item_ct1.get_local_id(2);
+        const unsigned int stride = item_ct1.get_local_range(2);
+
         unsigned int e = item_ct1.get_group(2);
         while (e < nelmt)
         {
@@ -88,8 +91,7 @@ NEK_FORCE_INLINE static void Mass1DKernel(
             TData *outptr       = out + nm0 * e;
             BwdTransSegSumFacQPKernel(nm0, nq0, basis0, inptr, bwd, item_ct1);
 
-            for (unsigned int i = item_ct1.get_local_id(2); i < nq0;
-                 i += item_ct1.get_local_range(2))
+            for (unsigned int i = idx0; i < nq0; i += stride)
             {
                 if constexpr (DEFORMED)
                 {
@@ -116,11 +118,11 @@ NEK_FORCE_INLINE static void Mass2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const bool isModified, [[maybe_unused]] const unsigned int *index0,
-    const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict w0, const TData *__restrict w1,
-    const TData *__restrict jac, const TData *__restrict in,
-    TData *__restrict out, [[maybe_unused]] TData *__restrict wsp,
-    [[maybe_unused]] TData *__restrict shmemptr,
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ w0, const TData *__restrict__ w1,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ wsp,
+    [[maybe_unused]] TData *__restrict__ shmemptr,
     const sycl::nd_item<3> &item_ct1)
 {
     const unsigned int nqTot = nq0 * nq1;
@@ -190,14 +192,15 @@ NEK_FORCE_INLINE static void Mass2DKernel(
         TData *s_basis1 = s_basis0 + nm0 * nq0;
 
         // Copy to shared memory.
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmode0 * nq0;
-             idx += item_ct1.get_local_range(2))
+        const unsigned int idx0   = item_ct1.get_local_id(2);
+        const unsigned int stride = item_ct1.get_local_range(2);
+
+        for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
         {
             s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmode1 * nq1;
-             idx += item_ct1.get_local_range(2))
+        for (unsigned int idx = idx0; idx < nmode1 * nq1; idx += stride)
         {
             s_basis1[idx] = basis1[idx];
         }
@@ -210,8 +213,7 @@ NEK_FORCE_INLINE static void Mass2DKernel(
             TData *outptr       = out + nmTot * e;
 
             // Copy to shared memory.
-            for (unsigned int idx = item_ct1.get_local_id(2); idx < nmTot;
-                 idx += item_ct1.get_local_range(2))
+            for (unsigned int idx = idx0; idx < nmTot; idx += stride)
             {
                 tmp[idx] = inptr[idx];
             }
@@ -231,8 +233,7 @@ NEK_FORCE_INLINE static void Mass2DKernel(
                                           item_ct1);
             }
 
-            for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
-                 idx += item_ct1.get_local_range(2))
+            for (unsigned int idx = idx0; idx < nqTot; idx += stride)
             {
                 const unsigned int i = idx % nq0;
                 const unsigned int j = idx / nq0;
@@ -276,13 +277,13 @@ NEK_FORCE_INLINE static void Mass3DKernel(
     [[maybe_unused]] const unsigned int *index0,
     [[maybe_unused]] const unsigned int *index1,
     [[maybe_unused]] const unsigned int *index2,
-    [[maybe_unused]] const unsigned int *index3, const TData *__restrict basis0,
-    const TData *__restrict basis1, const TData *__restrict basis2,
-    const TData *__restrict w0, const TData *__restrict w1,
-    const TData *__restrict w2, const TData *__restrict jac,
-    const TData *__restrict in, TData *__restrict out,
-    [[maybe_unused]] TData *__restrict wsp,
-    [[maybe_unused]] TData *__restrict shmemptr,
+    [[maybe_unused]] const unsigned int *index3,
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ w2,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ wsp,
+    [[maybe_unused]] TData *__restrict__ shmemptr,
     const sycl::nd_item<3> &item_ct1)
 {
     const unsigned int nqTot = nq0 * nq1 * nq2;
@@ -420,20 +421,20 @@ NEK_FORCE_INLINE static void Mass3DKernel(
         TData *s_basis2 = s_basis1 + nmode1 * nq1;
 
         // Copy to shared memory.
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmode0 * nq0;
-             idx += item_ct1.get_local_range(2))
+        const unsigned int idx0   = item_ct1.get_local_id(2);
+        const unsigned int stride = item_ct1.get_local_range(2);
+
+        for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
         {
             s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmode1 * nq1;
-             idx += item_ct1.get_local_range(2))
+        for (unsigned int idx = idx0; idx < nmode1 * nq1; idx += stride)
         {
             s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmode2 * nq2;
-             idx += item_ct1.get_local_range(2))
+        for (unsigned int idx = idx0; idx < nmode2 * nq2; idx += stride)
         {
             s_basis2[idx] = basis2[idx];
         }
@@ -446,8 +447,7 @@ NEK_FORCE_INLINE static void Mass3DKernel(
             TData *outptr       = out + nmTot * e;
 
             // Copy to shared memory.
-            for (unsigned int idx = item_ct1.get_local_id(2); idx < nmTot;
-                 idx += item_ct1.get_local_range(2))
+            for (unsigned int idx = idx0; idx < nmTot; idx += stride)
             {
                 tmp[idx] = inptr[idx];
             }

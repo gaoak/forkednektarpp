@@ -110,7 +110,10 @@ __device__ __forceinline__ void PhysDeriv1DSumFacQPKernel(
         dfsize *= nq0;
     }
 
-    for (unsigned int i = threadIdx.x; i < nq0; i += blockDim.x)
+    const unsigned int idx0   = threadIdx.x;
+    const unsigned int stride = blockDim.x;
+
+    for (unsigned int i = idx0; i < nq0; i += stride)
     {
         const unsigned int dfindex = DEFORMED ? i : 0;
 
@@ -127,6 +130,8 @@ __device__ __forceinline__ void PhysDeriv1DSumFacQPKernel(
             out[d * outsize * nq0 + i] = d0 * df[d * dfsize + dfindex];
         }
     }
+
+    __syncthreads();
 }
 
 template <bool APPEND, bool DEFORMED, typename TData>
@@ -134,7 +139,10 @@ __device__ __forceinline__ void SumDerivTensor1DQPKernel(
     const unsigned int nq0, const TData *__restrict__ D0,
     const TData *__restrict__ in0, TData *__restrict__ out)
 {
-    for (unsigned int i = threadIdx.x; i < nq0; i += blockDim.x)
+    const unsigned int idx0   = threadIdx.x;
+    const unsigned int stride = blockDim.x;
+
+    for (unsigned int i = idx0; i < nq0; i += stride)
     {
         // Compute tensorial derivative.
         // Direction 0
@@ -267,7 +275,10 @@ __device__ __forceinline__ void PhysDeriv2DSumFacQPKernel(
         dfsize *= nqTot;
     }
 
-    for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
+    const unsigned int idx0   = threadIdx.x;
+    const unsigned int stride = blockDim.x;
+
+    for (unsigned int idx = idx0; idx < nqTot; idx += stride)
     {
         const unsigned int i       = idx % nq0;
         const unsigned int j       = idx / nq0;
@@ -316,7 +327,10 @@ __device__ __forceinline__ void SumDerivTensor2DQPKernel(
 {
     const unsigned int nqTot = nq0 * nq1;
 
-    for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
+    const unsigned int idx0   = threadIdx.x;
+    const unsigned int stride = blockDim.x;
+
+    for (unsigned int idx = idx0; idx < nqTot; idx += stride)
     {
         const unsigned int i = idx % nq0;
         const unsigned int j = idx / nq0;
@@ -510,7 +524,10 @@ __device__ __forceinline__ void PhysDeriv3DSumFacQPKernel(
         dfsize *= nqTot;
     }
 
-    for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
+    const unsigned int idx0   = threadIdx.x;
+    const unsigned int stride = blockDim.x;
+
+    for (unsigned int idx = idx0; idx < nqTot; idx += stride)
     {
         const unsigned int i       = idx % nq0;
         const unsigned int j       = (idx / nq0) % nq1;
@@ -584,7 +601,10 @@ __device__ __forceinline__ void SumDerivTensor3DQPKernel(
 {
     const unsigned int nqTot = nq0 * nq1 * nq2;
 
-    for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
+    const unsigned int idx0   = threadIdx.x;
+    const unsigned int stride = blockDim.x;
+
+    for (unsigned int idx = idx0; idx < nqTot; idx += stride)
     {
         const unsigned int i = idx % nq0;
         const unsigned int j = (idx / nq0) % nq1;
@@ -673,7 +693,7 @@ __device__ __forceinline__ void PhysDeriv1DKernel(
             TData *outptr      = out + offset;
             PhysDeriv1DSumFacQPKernel<DEFORMED>(ncoord, nq0, nelmt, D0, dfptr,
                                                 inptr, outptr);
-            e += gridDim.x;
+            e += blockDim.x;
         }
     }
 }
@@ -731,17 +751,20 @@ __device__ __forceinline__ void PhysDeriv2DKernel(
         TData *s_f1 = nullptr;
 
         // Precompute geometric factors.
+        const unsigned int idx0   = threadIdx.x;
+        const unsigned int stride = blockDim.x;
+
         if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
             s_f0 = (TData *)shmemptr;
             s_f1 = s_f0 + nq0;
 
-            for (unsigned int idx = threadIdx.x; idx < nq0; idx += blockDim.x)
+            for (unsigned int idx = idx0; idx < nq0; idx += stride)
             {
                 s_f0[idx] = f0[idx];
             }
 
-            for (unsigned int idx = threadIdx.x; idx < nq1; idx += blockDim.x)
+            for (unsigned int idx = idx0; idx < nq1; idx += stride)
             {
                 s_f1[idx] = f1[idx];
             }
@@ -845,6 +868,9 @@ __device__ __forceinline__ void PhysDeriv3DKernel(
         TData *s_f2  = nullptr;
 
         // Precompute geometric factors.
+        const unsigned int idx0   = threadIdx.x;
+        const unsigned int stride = blockDim.x;
+
         if constexpr (SHAPE_TYPE == LibUtilities::Tet)
         {
             s_f0  = (TData *)shmemptr;
@@ -852,18 +878,18 @@ __device__ __forceinline__ void PhysDeriv3DKernel(
             s_f1m = s_f1 + nq1;
             s_f2  = s_f1m + nq1;
 
-            for (unsigned int idx = threadIdx.x; idx < nq0; idx += blockDim.x)
+            for (unsigned int idx = idx0; idx < nq0; idx += stride)
             {
                 s_f0[idx] = f0[idx];
             }
 
-            for (unsigned int idx = threadIdx.x; idx < nq1; idx += blockDim.x)
+            for (unsigned int idx = idx0; idx < nq1; idx += stride)
             {
                 s_f1[idx]  = f1[idx];
                 s_f1m[idx] = f1m[idx];
             }
 
-            for (unsigned int idx = threadIdx.x; idx < nq2; idx += blockDim.x)
+            for (unsigned int idx = idx0; idx < nq2; idx += stride)
             {
                 s_f2[idx] = f2[idx];
             }
@@ -875,12 +901,12 @@ __device__ __forceinline__ void PhysDeriv3DKernel(
             s_f0 = (TData *)shmemptr;
             s_f2 = s_f0 + nq0;
 
-            for (unsigned int idx = threadIdx.x; idx < nq0; idx += blockDim.x)
+            for (unsigned int idx = idx0; idx < nq0; idx += stride)
             {
                 s_f0[idx] = f0[idx];
             }
 
-            for (unsigned int idx = threadIdx.x; idx < nq2; idx += blockDim.x)
+            for (unsigned int idx = idx0; idx < nq2; idx += stride)
             {
                 s_f2[idx] = f2[idx];
             }
@@ -893,17 +919,17 @@ __device__ __forceinline__ void PhysDeriv3DKernel(
             s_f1 = s_f0 + nq0;
             s_f2 = s_f1 + nq1;
 
-            for (unsigned int idx = threadIdx.x; idx < nq0; idx += blockDim.x)
+            for (unsigned int idx = idx0; idx < nq0; idx += stride)
             {
                 s_f0[idx] = f0[idx];
             }
 
-            for (unsigned int idx = threadIdx.x; idx < nq1; idx += blockDim.x)
+            for (unsigned int idx = idx0; idx < nq1; idx += stride)
             {
                 s_f1[idx] = f1[idx];
             }
 
-            for (unsigned int idx = threadIdx.x; idx < nq2; idx += blockDim.x)
+            for (unsigned int idx = idx0; idx < nq2; idx += stride)
             {
                 s_f2[idx] = f2[idx];
             }

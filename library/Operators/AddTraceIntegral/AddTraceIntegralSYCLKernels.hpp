@@ -41,6 +41,28 @@
 namespace Nektar::Operators::detail
 {
 
+template <typename TData>
+NEK_FORCE_INLINE static void AddTraceIntegralKernel(
+    const unsigned int nsize, const int *__restrict__ traceCoeffsToElmtMapPtr,
+    const int *__restrict__ traceCoeffsToElmtSignPtr,
+    const int *__restrict__ traceCoeffsToElmtTracePtr,
+    const TData *__restrict__ tracePtr, TData *__restrict__ outptr,
+    const sycl::nd_item<1> &item_ct1)
+{
+    const unsigned int idx0   = item_ct1.get_global_id(0);
+    const unsigned int stride = item_ct1.get_global_range(0);
+
+    for (unsigned int idx = idx0; idx < nsize; idx += stride)
+    {
+        TData *const ptr = outptr + traceCoeffsToElmtMapPtr[idx];
+        const TData val  = traceCoeffsToElmtSignPtr[idx] *
+                          tracePtr[traceCoeffsToElmtTracePtr[idx]];
+        Nektar::atomic_add<NektarSpaces::SYCL, NektarSpaces::GlobalScope>(ptr,
+                                                                          val);
+    }
+}
+
+// Launchers
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
                                void>::type
@@ -57,18 +79,11 @@ AddTraceIntegralKernel(const unsigned int nsize,
     Q.submit([=](sycl::handler &cgh) {
          cgh.parallel_for(
              sycl::nd_range<1>(gridSize * blockSize, blockSize),
-             [=](sycl::nd_item<1> indx) {
-                 unsigned int i = indx.get_global_id(0);
-
-                 while (i < nsize)
-                 {
-                     TData *const ptr = outptr + traceCoeffsToElmtMapPtr[i];
-                     const TData val  = traceCoeffsToElmtSignPtr[i] *
-                                       tracePtr[traceCoeffsToElmtTracePtr[i]];
-                     Nektar::atomic_add<ExecSpace, NektarSpaces::GlobalScope>(
-                         ptr, val);
-                     i += indx.get_global_range(0);
-                 }
+             [=](sycl::nd_item<1> item_ct1) {
+#pragma forceinline
+                 AddTraceIntegralKernel<TData>(
+                     nsize, traceCoeffsToElmtMapPtr, traceCoeffsToElmtSignPtr,
+                     traceCoeffsToElmtTracePtr, tracePtr, outptr, item_ct1);
              });
      }).wait();
 }
@@ -77,8 +92,10 @@ AddTraceIntegralKernel(const unsigned int nsize,
 template <typename ExecSpace>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
                                void>::type
-ReOrderMapKernel(const unsigned int nsize, int *traceCoeffsToElmtMapPtr,
-                 int *traceCoeffsToElmtSignPtr, int *traceCoeffsToElmtTracePtr)
+ReOrderMapKernel([[maybe_unused]] const unsigned int nsize,
+                 [[maybe_unused]] int *traceCoeffsToElmtMapPtr,
+                 [[maybe_unused]] int *traceCoeffsToElmtSignPtr,
+                 [[maybe_unused]] int *traceCoeffsToElmtTracePtr)
 {
 }
 

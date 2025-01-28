@@ -44,8 +44,8 @@ namespace Nektar::Operators::detail
 template <typename TData>
 NEK_FORCE_INLINE static void BwdTransSegSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nq0,
-    const TData *__restrict basis0, const TData *__restrict in,
-    TData *__restrict out)
+    const TData *__restrict__ basis0, const TData *__restrict__ in,
+    TData *__restrict__ out)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -63,11 +63,13 @@ NEK_FORCE_INLINE static void BwdTransSegSumFacKernel(
 template <typename TData>
 NEK_FORCE_INLINE static void BwdTransSegSumFacQPKernel(
     const unsigned int nm0, const unsigned int nq0,
-    const TData *__restrict basis0, const TData *__restrict in,
-    TData *__restrict out, const sycl::nd_item<3> &item_ct1)
+    const TData *__restrict__ basis0, const TData *__restrict__ in,
+    TData *__restrict__ out, const sycl::nd_item<3> &item_ct1)
 {
-    for (unsigned int i = item_ct1.get_local_id(2); i < nq0;
-         i += item_ct1.get_local_range(2))
+    const unsigned int idx0   = item_ct1.get_local_id(2);
+    const unsigned int stride = item_ct1.get_local_range(2);
+
+    for (unsigned int i = idx0; i < nq0; i += stride)
     {
         TData tmp = 0.0;
         for (unsigned int p = 0u; p < nm0; p++)
@@ -84,8 +86,9 @@ template <typename TData>
 NEK_FORCE_INLINE static void BwdTransQuadSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nq0, const unsigned int nq1,
-    const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict in, TData *__restrict out, TData *__restrict wsp)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -119,13 +122,15 @@ template <typename TData>
 NEK_FORCE_INLINE static void BwdTransQuadSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nqTot,
-    const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict in, TData *__restrict out, TData *__restrict wsp,
-    const sycl::nd_item<3> &item_ct1)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp, const sycl::nd_item<3> &item_ct1)
 {
+    const unsigned int idx0   = item_ct1.get_local_id(2);
+    const unsigned int stride = item_ct1.get_local_range(2);
+
     // direction 0
-    for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0 * nm1;
-         idx += item_ct1.get_local_range(2))
+    for (unsigned int idx = idx0; idx < nq0 * nm1; idx += stride)
     {
         const unsigned int q = idx % nm1;
         const unsigned int i = idx / nm1;
@@ -142,8 +147,7 @@ NEK_FORCE_INLINE static void BwdTransQuadSumFacQPKernel(
     item_ct1.barrier(sycl::access::fence_space::local_space);
 
     // direction 1
-    for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
-         idx += item_ct1.get_local_range(2))
+    for (unsigned int idx = idx0; idx < nqTot; idx += stride)
     {
         const unsigned int i = idx % nq0;
         const unsigned int j = idx / nq0;
@@ -164,8 +168,9 @@ template <typename TData>
 NEK_FORCE_INLINE static void BwdTransTriSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nq0, const unsigned int nq1, const bool isModified,
-    const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict in, TData *__restrict out, TData *__restrict wsp)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -207,13 +212,15 @@ template <typename TData>
 NEK_FORCE_INLINE static void BwdTransTriSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nqTot, const bool isModified,
-    const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict in, TData *__restrict out, TData *__restrict wsp,
-    const sycl::nd_item<3> &item_ct1)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp, const sycl::nd_item<3> &item_ct1)
 {
+    const unsigned int idx0   = item_ct1.get_local_id(2);
+    const unsigned int stride = item_ct1.get_local_range(2);
+
     // direction 1
-    for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq1;
-         idx += item_ct1.get_local_range(2))
+    for (unsigned int idx = idx0; idx < nm0 * nq1; idx += stride)
     {
         const unsigned int p = idx % nm0;
         const unsigned int j = idx / nm0;
@@ -230,8 +237,7 @@ NEK_FORCE_INLINE static void BwdTransTriSumFacQPKernel(
     item_ct1.barrier(sycl::access::fence_space::local_space);
 
     // direction 0
-    for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
-         idx += item_ct1.get_local_range(2))
+    for (unsigned int idx = idx0; idx < nqTot; idx += stride)
     {
         const unsigned int i = idx % nq0;
         const unsigned int j = idx / nq0;
@@ -259,10 +265,10 @@ template <typename TData>
 NEK_FORCE_INLINE static void BwdTransHexSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const TData *__restrict basis0,
-    const TData *__restrict basis1, const TData *__restrict basis2,
-    const TData *__restrict in, TData *__restrict out, TData *__restrict wsp0,
-    TData *__restrict wsp1)
+    const unsigned int nq2, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ basis2,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp0, TData *__restrict__ wsp1)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -314,14 +320,17 @@ template <typename TData>
 NEK_FORCE_INLINE static void BwdTransHexSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const unsigned int nqTot, const TData *__restrict basis0,
-    const TData *__restrict basis1, const TData *__restrict basis2,
-    const TData *__restrict in, TData *__restrict out, TData *__restrict wsp0,
-    TData *__restrict wsp1, const sycl::nd_item<3> &item_ct1)
+    const unsigned int nqTot, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ basis2,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp0, TData *__restrict__ wsp1,
+    const sycl::nd_item<3> &item_ct1)
 {
+    const unsigned int idx0   = item_ct1.get_local_id(2);
+    const unsigned int stride = item_ct1.get_local_range(2);
+
     // direction 0
-    for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0 * nm1 * nm2;
-         idx += item_ct1.get_local_range(2))
+    for (unsigned int idx = idx0; idx < nq0 * nm1 * nm2; idx += stride)
     {
         const unsigned int q = idx % nm1;
         const unsigned int r = (idx / nm1) % nm2;
@@ -339,8 +348,7 @@ NEK_FORCE_INLINE static void BwdTransHexSumFacQPKernel(
     item_ct1.barrier(sycl::access::fence_space::local_space);
 
     // direction 1
-    for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0 * nq1 * nm2;
-         idx += item_ct1.get_local_range(2))
+    for (unsigned int idx = idx0; idx < nq0 * nq1 * nm2; idx += stride)
     {
         const unsigned int r = idx % nm2;
         const unsigned int i = (idx / nm2) % nq0;
@@ -358,8 +366,7 @@ NEK_FORCE_INLINE static void BwdTransHexSumFacQPKernel(
     item_ct1.barrier(sycl::access::fence_space::local_space);
 
     // direction 2
-    for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
-         idx += item_ct1.get_local_range(2))
+    for (unsigned int idx = idx0; idx < nqTot; idx += stride)
     {
         const unsigned int i = idx % nq0;
         const unsigned int j = (idx / nq0) % nq1;
@@ -382,9 +389,9 @@ NEK_FORCE_INLINE static void BwdTransTetSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
-    const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict basis2, const TData *__restrict in,
-    TData *__restrict out, TData *__restrict fpq, TData *__restrict fp)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ fpq, TData *__restrict__ fp)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -468,17 +475,20 @@ NEK_FORCE_INLINE static void BwdTransTetSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nqTot, const bool isModified,
-    const unsigned int *__restrict pindex,
-    const unsigned int *__restrict qindex, const TData *__restrict basis0,
-    const TData *__restrict basis1, const TData *__restrict basis2,
-    const TData *__restrict in, TData *__restrict out, TData *__restrict wsp0,
-    TData *__restrict wsp1, const sycl::nd_item<3> &item_ct1)
+    const unsigned int *__restrict__ pindex,
+    const unsigned int *__restrict__ qindex, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ basis2,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp0, TData *__restrict__ wsp1,
+    const sycl::nd_item<3> &item_ct1)
 {
     const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
 
+    const unsigned int idx0   = item_ct1.get_local_id(2);
+    const unsigned int stride = item_ct1.get_local_range(2);
+
     // direction 2
-    for (unsigned int idx = item_ct1.get_local_id(2); idx < nm01 * nq2;
-         idx += item_ct1.get_local_range(2))
+    for (unsigned int idx = idx0; idx < nm01 * nq2; idx += stride)
     {
         const unsigned int k = idx / nm01;
         const unsigned int p = pindex[idx % nm01];
@@ -503,8 +513,7 @@ NEK_FORCE_INLINE static void BwdTransTetSumFacQPKernel(
     item_ct1.barrier(sycl::access::fence_space::local_space);
 
     // direction 1
-    for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq1 * nq2;
-         idx += item_ct1.get_local_range(2))
+    for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
     {
         const unsigned int p = idx % nm0;
         const unsigned int j = (idx / nm0) % nq1;
@@ -523,8 +532,7 @@ NEK_FORCE_INLINE static void BwdTransTetSumFacQPKernel(
     item_ct1.barrier(sycl::access::fence_space::local_space);
 
     // direction 0
-    for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
-         idx += item_ct1.get_local_range(2))
+    for (unsigned int idx = idx0; idx < nqTot; idx += stride)
     {
         const unsigned int i  = idx % nq0;
         const unsigned int j  = (idx / nq0) % nq1;
@@ -568,9 +576,9 @@ NEK_FORCE_INLINE static void BwdTransPrismSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
-    const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict basis2, const TData *__restrict in,
-    TData *__restrict out, TData *__restrict fpq, TData *__restrict fp)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ fpq, TData *__restrict__ fp)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -638,14 +646,16 @@ NEK_FORCE_INLINE static void BwdTransPrismSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nqTot, const bool isModified,
-    const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict basis2, const TData *__restrict in,
-    TData *__restrict out, TData *__restrict wsp0, TData *__restrict wsp1,
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ wsp0, TData *__restrict__ wsp1,
     const sycl::nd_item<3> &item_ct1)
 {
+    const unsigned int idx0   = item_ct1.get_local_id(2);
+    const unsigned int stride = item_ct1.get_local_range(2);
+
     // direction 2
-    for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nm1 * nq2;
-         idx += item_ct1.get_local_range(2))
+    for (unsigned int idx = idx0; idx < nm0 * nm1 * nq2; idx += stride)
     {
         const unsigned int q  = idx % nm1;
         const unsigned int p  = (idx / nm1) % nm0;
@@ -664,8 +674,7 @@ NEK_FORCE_INLINE static void BwdTransPrismSumFacQPKernel(
     item_ct1.barrier(sycl::access::fence_space::local_space);
 
     // direction 1
-    for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq1 * nq2;
-         idx += item_ct1.get_local_range(2))
+    for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
     {
         const unsigned int p  = idx % nm0;
         const unsigned int j  = (idx / nm0) % nq1;
@@ -683,8 +692,7 @@ NEK_FORCE_INLINE static void BwdTransPrismSumFacQPKernel(
     item_ct1.barrier(sycl::access::fence_space::local_space);
 
     // direction 0
-    for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
-         idx += item_ct1.get_local_range(2))
+    for (unsigned int idx = idx0; idx < nqTot; idx += stride)
     {
         const unsigned int i  = idx % nq0;
         const unsigned int j  = (idx / nq0) % nq1;
@@ -718,9 +726,9 @@ NEK_FORCE_INLINE static void BwdTransPyrSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
-    const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict basis2, const TData *__restrict in,
-    TData *__restrict out, TData *__restrict fpq, TData *__restrict fp)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ fpq, TData *__restrict__ fp)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -793,14 +801,16 @@ NEK_FORCE_INLINE static void BwdTransPyrSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nqTot, const bool isModified,
-    const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict basis2, const TData *__restrict in,
-    TData *__restrict out, TData *__restrict wsp0, TData *__restrict wsp1,
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ wsp0, TData *__restrict__ wsp1,
     const sycl::nd_item<3> &item_ct1)
 {
+    const unsigned int idx0   = item_ct1.get_local_id(2);
+    const unsigned int stride = item_ct1.get_local_range(2);
+
     // direction 2
-    for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nm1 * nq2;
-         idx += item_ct1.get_local_range(2))
+    for (unsigned int idx = idx0; idx < nm0 * nm1 * nq2; idx += stride)
     {
         const unsigned int q = idx % nm1;
         const unsigned int p = (idx / nm1) % nm0;
@@ -841,8 +851,7 @@ NEK_FORCE_INLINE static void BwdTransPyrSumFacQPKernel(
     item_ct1.barrier(sycl::access::fence_space::local_space);
 
     // direction 1
-    for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq1 * nq2;
-         idx += item_ct1.get_local_range(2))
+    for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
     {
         const unsigned int p  = idx % nm0;
         const unsigned int j  = (idx / nm0) % nq1;
@@ -860,8 +869,7 @@ NEK_FORCE_INLINE static void BwdTransPyrSumFacQPKernel(
     item_ct1.barrier(sycl::access::fence_space::local_space);
 
     // direction 0
-    for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
-         idx += item_ct1.get_local_range(2))
+    for (unsigned int idx = idx0; idx < nqTot; idx += stride)
     {
         const unsigned int i  = idx % nq0;
         const unsigned int j  = (idx / nq0) % nq1;
@@ -893,8 +901,8 @@ NEK_FORCE_INLINE static void BwdTransPyrSumFacQPKernel(
 template <typename Implementation, typename TData>
 NEK_FORCE_INLINE static void BwdTrans1DKernel(
     const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
-    const TData *__restrict basis0, const TData *__restrict in,
-    TData *__restrict out, [[maybe_unused]] TData *__restrict shmemptr,
+    const TData *__restrict__ basis0, const TData *__restrict__ in,
+    TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ shmemptr,
     const sycl::nd_item<3> &item_ct1)
 {
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
@@ -932,10 +940,10 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_FORCE_INLINE static void BwdTrans2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
-    const bool isModified, const TData *__restrict basis0,
-    const TData *__restrict basis1, const TData *__restrict in,
-    TData *__restrict out, [[maybe_unused]] TData *__restrict wsp,
-    [[maybe_unused]] TData *__restrict shmemptr,
+    const bool isModified, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ in,
+    TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ wsp,
+    [[maybe_unused]] TData *__restrict__ shmemptr,
     const sycl::nd_item<3> &item_ct1)
 {
     const unsigned int nqTot = nq0 * nq1;
@@ -989,14 +997,15 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(
         TData *s_basis1 = s_basis0 + nm0 * nq0;
 
         // Copy to shared memory.
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmode0 * nq0;
-             idx += item_ct1.get_local_range(2))
+        const unsigned int idx0   = item_ct1.get_local_id(2);
+        const unsigned int stride = item_ct1.get_local_range(2);
+
+        for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
         {
             s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmode1 * nq1;
-             idx += item_ct1.get_local_range(2))
+        for (unsigned int idx = idx0; idx < nmode1 * nq1; idx += stride)
         {
             s_basis1[idx] = basis1[idx];
         }
@@ -1008,8 +1017,7 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(
             TData *outptr      = out + nqTot * e;
 
             // Copy to shared memory.
-            for (unsigned int idx = item_ct1.get_local_id(2); idx < nmTot;
-                 idx += item_ct1.get_local_range(2))
+            for (unsigned int idx = idx0; idx < nmTot; idx += stride)
             {
                 s_wsp0[idx] = inptr[idx];
             }
@@ -1040,12 +1048,12 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const bool isModified,
-    [[maybe_unused]] const unsigned int *__restrict index0,
-    [[maybe_unused]] const unsigned int *__restrict index1,
-    const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict basis2, const TData *__restrict in,
-    TData *__restrict out, [[maybe_unused]] TData *__restrict wsp,
-    [[maybe_unused]] TData *__restrict shmemptr,
+    [[maybe_unused]] const unsigned int *__restrict__ index0,
+    [[maybe_unused]] const unsigned int *__restrict__ index1,
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ in,
+    TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ wsp,
+    [[maybe_unused]] TData *__restrict__ shmemptr,
     const sycl::nd_item<3> &item_ct1)
 {
     const unsigned int nqTot = nq0 * nq1 * nq2;
@@ -1144,20 +1152,20 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
         TData *s_basis2 = s_basis1 + nmode1 * nq1;
 
         // Copy to shared memory.
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmode0 * nq0;
-             idx += item_ct1.get_local_range(2))
+        const unsigned int idx0   = item_ct1.get_local_id(2);
+        const unsigned int stride = item_ct1.get_local_range(2);
+
+        for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
         {
             s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmode1 * nq1;
-             idx += item_ct1.get_local_range(2))
+        for (unsigned int idx = idx0; idx < nmode1 * nq1; idx += stride)
         {
             s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmode2 * nq2;
-             idx += item_ct1.get_local_range(2))
+        for (unsigned int idx = idx0; idx < nmode2 * nq2; idx += stride)
         {
             s_basis2[idx] = basis2[idx];
         }
@@ -1169,8 +1177,7 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
             TData *outptr      = out + nqTot * e;
 
             // Copy to shared memory.
-            for (unsigned int idx = item_ct1.get_local_id(2); idx < nmTot;
-                 idx += item_ct1.get_local_range(2))
+            for (unsigned int idx = idx0; idx < nmTot; idx += stride)
             {
                 s_wsp0[idx] = inptr[idx];
             }

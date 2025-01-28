@@ -36,10 +36,97 @@
 
 #if defined(NEKTAR_ENABLE_KOKKOS)
 
-#include "Operators/Common/Spaces.hpp"
+#include "Operators/LoopExecution/LoopExecution.hpp"
+
+using team_handle = Kokkos::TeamPolicy<>::member_type;
+template <typename TData>
+using ScratchMemoryView =
+    Kokkos::View<TData *, Kokkos::DefaultExecutionSpace::scratch_memory_space,
+                 Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
 
 namespace Nektar::Operators::detail
 {
+
+template <bool negflag, typename TData>
+KOKKOS_INLINE_FUNCTION static void RobBndCond1DKernel(
+    const unsigned int *KOKKOS_RESTRICT offsetPtr,
+    const TData *KOKKOS_RESTRICT matPtr,
+    const unsigned int *KOKKOS_RESTRICT mapPtr,
+    const TData *KOKKOS_RESTRICT incoeffPtr, TData *KOKKOS_RESTRICT coeffPtr,
+    const unsigned int i)
+{
+
+    const unsigned int offset = offsetPtr[i];
+    const unsigned int map    = mapPtr[i];
+
+    TData *const ptr = coeffPtr + offset + map;
+    const TData val  = matPtr[i] * incoeffPtr[offset + map];
+    if constexpr (negflag)
+    {
+        Nektar::atomic_sub<NektarSpaces::KOKKOS, NektarSpaces::GlobalScope>(
+            ptr, val);
+    }
+    else
+    {
+        Nektar::atomic_add<NektarSpaces::KOKKOS, NektarSpaces::GlobalScope>(
+            ptr, val);
+    }
+}
+
+template <bool negflag, typename TData>
+KOKKOS_INLINE_FUNCTION static void RobBndCond2DKernel(
+    const unsigned int *KOKKOS_RESTRICT ncoeffPtr,
+    const unsigned int *KOKKOS_RESTRICT offsetPtr,
+    const unsigned int *KOKKOS_RESTRICT matOffsetPtr,
+    const unsigned int *KOKKOS_RESTRICT mapOffsetPtr,
+    const TData *KOKKOS_RESTRICT matPtr,
+    const unsigned int *KOKKOS_RESTRICT mapPtr,
+    const int *KOKKOS_RESTRICT signPtr, const TData *KOKKOS_RESTRICT incoeffPtr,
+    TData *KOKKOS_RESTRICT coeffPtr, TData *KOKKOS_RESTRICT shmemptr,
+    const team_handle &team)
+{
+    TData *vEdgeCoeffs = shmemptr;
+
+    const unsigned int j         = team.league_rank();
+    const unsigned int ncoeff    = ncoeffPtr[j];
+    const unsigned int offset    = offsetPtr[j];
+    const unsigned int matOffset = matOffsetPtr[j];
+    const unsigned int mapOffset = mapOffsetPtr[j];
+
+    Kokkos::parallel_for(
+        Kokkos::TeamThreadRange(team, ncoeff), [&](const unsigned int i) {
+            const unsigned int index = mapOffset + i;
+            vEdgeCoeffs[i] =
+                incoeffPtr[offset + mapPtr[index]] * signPtr[index];
+        });
+
+    team.team_barrier();
+
+    Kokkos::parallel_for(
+        Kokkos::TeamThreadRange(team, ncoeff), [&](const unsigned int i) {
+            TData tmp = 0.0;
+            for (unsigned int k = 0; k < ncoeff; k++)
+            {
+                tmp += matPtr[matOffset + ncoeff * k + i] * vEdgeCoeffs[k];
+            }
+
+            const unsigned int index = mapOffset + i;
+            TData *const ptr         = coeffPtr + offset + mapPtr[index];
+            const TData val          = tmp * signPtr[index];
+            if constexpr (negflag)
+            {
+                Nektar::atomic_sub<NektarSpaces::KOKKOS,
+                                   NektarSpaces::GlobalScope>(ptr, val);
+            }
+            else
+            {
+                Nektar::atomic_add<NektarSpaces::KOKKOS,
+                                   NektarSpaces::GlobalScope>(ptr, val);
+            }
+        });
+
+    team.team_barrier();
+}
 
 template <typename ExecSpace, bool negflag, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
@@ -53,18 +140,8 @@ RobBndCond1DKernel(const unsigned int nsize, const unsigned int *offsetPtr,
     Kokkos::parallel_for(
         Kokkos::RangePolicy<>(0u, nsize, Kokkos::ChunkSize(blockSize)),
         KOKKOS_LAMBDA(const unsigned int i) {
-            const unsigned int offset = offsetPtr[i];
-            const unsigned int map    = mapPtr[i];
-            if (negflag)
-            {
-                Kokkos::atomic_sub(coeffPtr + offset + map,
-                                   matPtr[i] * incoeffPtr[offset + map]);
-            }
-            else
-            {
-                Kokkos::atomic_add(coeffPtr + offset + map,
-                                   matPtr[i] * incoeffPtr[offset + map]);
-            }
+            RobBndCond1DKernel<negflag>(offsetPtr, matPtr, mapPtr, incoeffPtr,
+                                        coeffPtr, i);
         });
 }
 
@@ -78,60 +155,21 @@ RobBndCond2DKernel(const unsigned int nmaxcoeff, const unsigned int nsize,
                    const unsigned int *mapPtr, const int *signPtr,
                    const TData *incoeffPtr, TData *coeffPtr)
 {
+    constexpr unsigned int slevel = 0u;
+    const unsigned int shmemsize =
+        ScratchMemoryView<TData>::shmem_size(nmaxcoeff);
+
     const unsigned int blockSize = NektarSpaces::vector_width<TData>::value;
 
-    typedef Kokkos::TeamPolicy<>::member_type team_handle;
-    const unsigned int shmem_size = Kokkos::View<
-        TData *, Kokkos::DefaultExecutionSpace::scratch_memory_space,
-        Kokkos::MemoryTraits<Kokkos::Unmanaged>>::shmem_size(nmaxcoeff);
     Kokkos::parallel_for(
         Kokkos::TeamPolicy<>(nsize, blockSize)
-            .set_scratch_size(0, Kokkos::PerTeam(shmem_size)),
+            .set_scratch_size(slevel, Kokkos::PerTeam(shmemsize)),
         KOKKOS_LAMBDA(const team_handle &team) {
-            Kokkos::View<TData *,
-                         Kokkos::DefaultExecutionSpace::scratch_memory_space,
-                         Kokkos::MemoryTraits<Kokkos::Unmanaged>>
-                vEdgeCoeffs(team.team_scratch(0), nmaxcoeff);
-            const unsigned int j         = team.league_rank();
-            const unsigned int ncoeff    = ncoeffPtr[j];
-            const unsigned int offset    = offsetPtr[j];
-            const unsigned int matOffset = matOffsetPtr[j];
-            const unsigned int mapOffset = mapOffsetPtr[j];
-
-            Kokkos::parallel_for(Kokkos::TeamThreadRange(team, ncoeff),
-                                 [&](const unsigned int i) {
-                                     const unsigned int index = mapOffset + i;
-                                     vEdgeCoeffs(i) =
-                                         incoeffPtr[offset + mapPtr[index]] *
-                                         signPtr[index];
-                                 });
-
-            team.team_barrier();
-
-            Kokkos::parallel_for(
-                Kokkos::TeamThreadRange(team, ncoeff),
-                [&](const unsigned int i) {
-                    TData tmp = 0.0;
-                    for (unsigned int k = 0; k < ncoeff; k++)
-                    {
-                        tmp +=
-                            matPtr[matOffset + ncoeff * k + i] * vEdgeCoeffs(k);
-                    }
-
-                    const unsigned int index = mapOffset + i;
-                    if (negflag)
-                    {
-                        Kokkos::atomic_sub(coeffPtr + offset + mapPtr[index],
-                                           tmp * signPtr[index]);
-                    }
-                    else
-                    {
-                        Kokkos::atomic_add(coeffPtr + offset + mapPtr[index],
-                                           tmp * signPtr[index]);
-                    }
-                });
-
-            team.team_barrier();
+            ScratchMemoryView<TData> shmem(team.team_scratch(slevel),
+                                           nmaxcoeff);
+            RobBndCond2DKernel<negflag>(
+                ncoeffPtr, offsetPtr, matOffsetPtr, mapOffsetPtr, matPtr,
+                mapPtr, signPtr, incoeffPtr, coeffPtr, shmem.data(), team);
         });
 }
 

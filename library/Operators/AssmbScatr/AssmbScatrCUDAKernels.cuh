@@ -48,8 +48,8 @@ __global__ void AssembleKernel(const unsigned int nsize,
                                const TData *__restrict__ inptr,
                                TData *__restrict__ outptr)
 {
-    unsigned int i      = blockDim.x * blockIdx.x + threadIdx.x;
-    unsigned int stride = blockDim.x * gridDim.x;
+    unsigned int i            = blockDim.x * blockIdx.x + threadIdx.x;
+    const unsigned int stride = blockDim.x * gridDim.x;
 
     while (i < nsize)
     {
@@ -66,8 +66,8 @@ __global__ void AssembleKernel(const unsigned int nsize,
                                const TData *__restrict__ inptr,
                                TData *__restrict__ outptr)
 {
-    unsigned int i      = blockDim.x * blockIdx.x + threadIdx.x;
-    unsigned int stride = blockDim.x * gridDim.x;
+    unsigned int i            = blockDim.x * blockIdx.x + threadIdx.x;
+    const unsigned int stride = blockDim.x * gridDim.x;
 
     while (i < nsize)
     {
@@ -83,8 +83,8 @@ __global__ void AssembleKernel(const unsigned int nsize,
                                const TData *__restrict__ inptr,
                                TData *__restrict__ outptr)
 {
-    unsigned int i      = blockDim.x * blockIdx.x + threadIdx.x;
-    unsigned int stride = blockDim.x * gridDim.x;
+    unsigned int i            = blockDim.x * blockIdx.x + threadIdx.x;
+    const unsigned int stride = blockDim.x * gridDim.x;
 
     while (i < nsize)
     {
@@ -101,8 +101,8 @@ __global__ void GlobalToLocalKernel(const unsigned int nsize,
                                     const TData *__restrict__ inptr,
                                     TData *__restrict__ outptr)
 {
-    unsigned int i      = blockDim.x * blockIdx.x + threadIdx.x;
-    unsigned int stride = blockDim.x * gridDim.x;
+    unsigned int i            = blockDim.x * blockIdx.x + threadIdx.x;
+    const unsigned int stride = blockDim.x * gridDim.x;
 
     while (i < nsize)
     {
@@ -118,8 +118,8 @@ __global__ void GlobalToLocalKernel(const unsigned int nsize,
                                     const TData *__restrict__ inptr,
                                     TData *__restrict__ outptr)
 {
-    unsigned int i      = blockDim.x * blockIdx.x + threadIdx.x;
-    unsigned int stride = blockDim.x * gridDim.x;
+    unsigned int i            = blockDim.x * blockIdx.x + threadIdx.x;
+    const unsigned int stride = blockDim.x * gridDim.x;
 
     while (i < nsize)
     {
@@ -134,8 +134,8 @@ __global__ void GlobalToLocalKernel(const unsigned int nsize,
                                     const TData *__restrict__ inptr,
                                     TData *__restrict__ outptr)
 {
-    unsigned int i      = blockDim.x * blockIdx.x + threadIdx.x;
-    unsigned int stride = blockDim.x * gridDim.x;
+    unsigned int i            = blockDim.x * blockIdx.x + threadIdx.x;
+    const unsigned int stride = blockDim.x * gridDim.x;
 
     while (i < nsize)
     {

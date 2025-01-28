@@ -364,7 +364,7 @@ KOKKOS_INLINE_FUNCTION static void Mass3DKernel(
             e += team.team_size() * team.league_size();
         }
     }
-    else
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
         unsigned int offset0, offset1, nmode0, nmode1, nmode2;
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)

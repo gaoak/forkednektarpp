@@ -84,7 +84,10 @@ __device__ __forceinline__ void StdAlignDerivBase1DSumFacQPKernel(
         dfsize *= nq0;
     }
 
-    for (unsigned int i = threadIdx.x; i < nq0; i += blockDim.x)
+    const unsigned int idx0   = threadIdx.x;
+    const unsigned int stride = blockDim.x;
+
+    for (unsigned int i = idx0; i < nq0; i += stride)
     {
         const unsigned int dfindex = DEFORMED ? i : 0;
 
@@ -178,7 +181,10 @@ __device__ __forceinline__ void StdAlignDerivBase2DSumFacQPKernel(
         dfsize *= nqTot;
     }
 
-    for (unsigned int idx = threadIdx.x; idx < nq0 * nq1; idx += blockDim.x)
+    const unsigned int idx0   = threadIdx.x;
+    const unsigned int stride = blockDim.x;
+
+    for (unsigned int idx = idx0; idx < nq0 * nq1; idx += stride)
     {
         const unsigned int i       = idx % nq0;
         const unsigned int j       = idx / nq0;
@@ -318,8 +324,10 @@ __device__ __forceinline__ void StdAlignDerivBase3DSumFacQPKernel(
         dfsize *= nqTot;
     }
 
-    for (unsigned int idx = threadIdx.x; idx < nq0 * nq1 * nq2;
-         idx += blockDim.x)
+    const unsigned int idx0   = threadIdx.x;
+    const unsigned int stride = blockDim.x;
+
+    for (unsigned int idx = idx0; idx < nq0 * nq1 * nq2; idx += stride)
     {
         const unsigned int i       = idx % nq0;
         const unsigned int j       = (idx / nq0) % nq1;
@@ -417,7 +425,7 @@ __device__ __forceinline__ void IProductWRTDerivBase1DKernel(
             e += blockDim.x * gridDim.x;
         }
     }
-    else
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
         extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
@@ -505,12 +513,13 @@ __device__ __forceinline__ void IProductWRTDerivBase2DKernel(
         TData *s_f1 = nullptr;
 
         // Pre-compute factor.
-        const unsigned int idx0   = threadIdx.x;
-        const unsigned int stride = blockDim.x;
         if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
             s_f0 = (TData *)shmemptr;
             s_f1 = s_f0 + nq0;
+
+            const unsigned int idx0   = threadIdx.x;
+            const unsigned int stride = blockDim.x;
 
             for (unsigned int idx = idx0; idx < nq0; idx += stride)
             {
@@ -587,14 +596,15 @@ __device__ __forceinline__ void IProductWRTDerivBase2DKernel(
         TData *s_basis1 = s_basis0 + nm0 * nq0;
 
         // Copy to shared memory.
-        for (unsigned int idx = threadIdx.x; idx < nmode0 * nq0;
-             idx += blockDim.x)
+        const unsigned int idx0   = threadIdx.x;
+        const unsigned int stride = blockDim.x;
+
+        for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
         {
             s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nmode1 * nq1;
-             idx += blockDim.x)
+        for (unsigned int idx = idx0; idx < nmode1 * nq1; idx += stride)
         {
             s_basis1[idx] = basis1[idx];
         }
@@ -899,20 +909,20 @@ __device__ __forceinline__ void IProductWRTDerivBase3DKernel(
         TData *s_basis2 = s_basis1 + nmode1 * nq1;
 
         // Copy to shared memory.
-        for (unsigned int idx = threadIdx.x; idx < nmode0 * nq0;
-             idx += blockDim.x)
+        const unsigned int idx0   = threadIdx.x;
+        const unsigned int stride = blockDim.x;
+
+        for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
         {
             s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nmode1 * nq1;
-             idx += blockDim.x)
+        for (unsigned int idx = idx0; idx < nmode1 * nq1; idx += stride)
         {
             s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nmode2 * nq2;
-             idx += blockDim.x)
+        for (unsigned int idx = idx0; idx < nmode2 * nq2; idx += stride)
         {
             s_basis2[idx] = basis2[idx];
         }

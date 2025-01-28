@@ -44,9 +44,9 @@ namespace Nektar::Operators::detail
 template <bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv1DSumFacKernel(
     const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
-    const unsigned int outsize, const TData *__restrict D0,
-    const TData *__restrict df, const TData *__restrict in,
-    TData *__restrict out)
+    const unsigned int outsize, const TData *__restrict__ D0,
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -74,9 +74,9 @@ NEK_FORCE_INLINE static void PhysDeriv1DSumFacKernel(
 template <bool APPEND, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE void SumDerivTensor1DKernel(const unsigned int ilane,
                                              const unsigned int nq0,
-                                             const TData *__restrict D0,
-                                             const TData *__restrict in0,
-                                             TData *__restrict out)
+                                             const TData *__restrict__ D0,
+                                             const TData *__restrict__ in0,
+                                             TData *__restrict__ out)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -103,9 +103,9 @@ NEK_FORCE_INLINE void SumDerivTensor1DKernel(const unsigned int ilane,
 template <bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv1DSumFacQPKernel(
     const unsigned int ncoord, const unsigned int nq0,
-    const unsigned int outsize, const TData *__restrict D0,
-    const TData *__restrict df, const TData *__restrict in,
-    TData *__restrict out, const sycl::nd_item<3> &item_ct1)
+    const unsigned int outsize, const TData *__restrict__ D0,
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out, const sycl::nd_item<3> &item_ct1)
 {
     unsigned int dfsize = 1u;
     if constexpr (DEFORMED)
@@ -113,8 +113,10 @@ NEK_FORCE_INLINE static void PhysDeriv1DSumFacQPKernel(
         dfsize *= nq0;
     }
 
-    for (unsigned int i = item_ct1.get_local_id(2); i < nq0;
-         i += item_ct1.get_local_range(2))
+    const unsigned int idx0   = item_ct1.get_local_id(2);
+    const unsigned int stride = item_ct1.get_local_range(2);
+
+    for (unsigned int i = idx0; i < nq0; i += stride)
     {
         const unsigned int dfindex = DEFORMED ? i : 0;
 
@@ -137,13 +139,15 @@ NEK_FORCE_INLINE static void PhysDeriv1DSumFacQPKernel(
 
 template <bool APPEND, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE void SumDerivTensor1DQPKernel(const unsigned int nq0,
-                                               const TData *__restrict D0,
-                                               const TData *__restrict in0,
-                                               TData *__restrict out,
+                                               const TData *__restrict__ D0,
+                                               const TData *__restrict__ in0,
+                                               TData *__restrict__ out,
                                                const sycl::nd_item<3> &item_ct1)
 {
-    for (unsigned int i = item_ct1.get_local_id(2); i < nq0;
-         i += item_ct1.get_local_range(2))
+    const unsigned int idx0   = item_ct1.get_local_id(2);
+    const unsigned int stride = item_ct1.get_local_range(2);
+
+    for (unsigned int i = idx0; i < nq0; i += stride)
     {
         // Compute tensorial derivative.
         // Direction 0
@@ -170,10 +174,10 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv2DSumFacKernel(
     const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
     const unsigned int nq1, const unsigned int outsize,
-    const TData *__restrict D0, const TData *__restrict D1,
-    [[maybe_unused]] const TData *__restrict f0,
-    [[maybe_unused]] const TData *__restrict f1, const TData *__restrict df,
-    const TData *__restrict in, TData *__restrict out)
+    const TData *__restrict__ D0, const TData *__restrict__ D1,
+    [[maybe_unused]] const TData *__restrict__ f0,
+    [[maybe_unused]] const TData *__restrict__ f1, const TData *__restrict__ df,
+    const TData *__restrict__ in, TData *__restrict__ out)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -224,9 +228,9 @@ NEK_FORCE_INLINE static void PhysDeriv2DSumFacKernel(
 template <bool APPEND, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void SumDerivTensor2DKernel(
     const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
-    const TData *__restrict D0, const TData *__restrict D1,
-    const TData *__restrict in0, const TData *__restrict in1,
-    TData *__restrict out)
+    const TData *__restrict__ D0, const TData *__restrict__ D1,
+    const TData *__restrict__ in0, const TData *__restrict__ in1,
+    TData *__restrict__ out)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -264,10 +268,10 @@ NEK_FORCE_INLINE static void SumDerivTensor2DKernel(
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv2DSumFacQPKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int outsize, const TData *__restrict D0,
-    const TData *__restrict D1, const TData *__restrict f0,
-    const TData *__restrict f1, const TData *__restrict df,
-    const TData *__restrict in, TData *__restrict out,
+    const unsigned int outsize, const TData *__restrict__ D0,
+    const TData *__restrict__ D1, const TData *__restrict__ f0,
+    const TData *__restrict__ f1, const TData *__restrict__ df,
+    const TData *__restrict__ in, TData *__restrict__ out,
     const sycl::nd_item<3> &item_ct1)
 {
     const unsigned int nqTot = nq0 * nq1;
@@ -277,8 +281,10 @@ NEK_FORCE_INLINE static void PhysDeriv2DSumFacQPKernel(
         dfsize *= nqTot;
     }
 
-    for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
-         idx += item_ct1.get_local_range(2))
+    const unsigned int idx0   = item_ct1.get_local_id(2);
+    const unsigned int stride = item_ct1.get_local_range(2);
+
+    for (unsigned int idx = idx0; idx < nqTot; idx += stride)
     {
         const unsigned int i       = idx % nq0;
         const unsigned int j       = idx / nq0;
@@ -320,15 +326,17 @@ NEK_FORCE_INLINE static void PhysDeriv2DSumFacQPKernel(
 
 template <bool APPEND, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void SumDerivTensor2DQPKernel(
-    const unsigned int nq0, const unsigned int nq1, const TData *__restrict D0,
-    const TData *__restrict D1, const TData *__restrict in0,
-    const TData *__restrict in1, TData *__restrict out,
-    const sycl::nd_item<3> &item_ct1)
+    const unsigned int nq0, const unsigned int nq1,
+    const TData *__restrict__ D0, const TData *__restrict__ D1,
+    const TData *__restrict__ in0, const TData *__restrict__ in1,
+    TData *__restrict__ out, const sycl::nd_item<3> &item_ct1)
 {
     const unsigned int nqTot = nq0 * nq1;
 
-    for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
-         idx += item_ct1.get_local_range(2))
+    const unsigned int idx0   = item_ct1.get_local_id(2);
+    const unsigned int stride = item_ct1.get_local_range(2);
+
+    for (unsigned int idx = idx0; idx < nqTot; idx += stride)
     {
         const unsigned int i = idx % nq0;
         const unsigned int j = idx / nq0;
@@ -365,12 +373,12 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv3DSumFacKernel(
     const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int outsize,
-    const TData *__restrict D0, const TData *__restrict D1,
-    const TData *__restrict D2, [[maybe_unused]] const TData *__restrict f0,
-    [[maybe_unused]] const TData *__restrict f1,
-    [[maybe_unused]] const TData *__restrict f1m,
-    [[maybe_unused]] const TData *__restrict f2, const TData *__restrict df,
-    const TData *__restrict in, TData *__restrict out)
+    const TData *__restrict__ D0, const TData *__restrict__ D1,
+    const TData *__restrict__ D2, [[maybe_unused]] const TData *__restrict__ f0,
+    [[maybe_unused]] const TData *__restrict__ f1,
+    [[maybe_unused]] const TData *__restrict__ f1m,
+    [[maybe_unused]] const TData *__restrict__ f2, const TData *__restrict__ df,
+    const TData *__restrict__ in, TData *__restrict__ out)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -452,10 +460,10 @@ NEK_FORCE_INLINE static void PhysDeriv3DSumFacKernel(
 template <bool APPEND, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void SumDerivTensor3DKernel(
     const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const TData *__restrict D0,
-    const TData *__restrict D1, const TData *__restrict D2,
-    const TData *__restrict in0, const TData *__restrict in1,
-    const TData *__restrict in2, TData *__restrict out)
+    const unsigned int nq2, const TData *__restrict__ D0,
+    const TData *__restrict__ D1, const TData *__restrict__ D2,
+    const TData *__restrict__ in0, const TData *__restrict__ in1,
+    const TData *__restrict__ in2, TData *__restrict__ out)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -506,12 +514,12 @@ NEK_FORCE_INLINE static void SumDerivTensor3DKernel(
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv3DSumFacQPKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const unsigned int outsize, const TData *__restrict D0,
-    const TData *__restrict D1, const TData *__restrict D2,
-    const TData *__restrict f0, const TData *__restrict f1,
-    const TData *__restrict f1m, const TData *__restrict f2,
-    const TData *__restrict df, const TData *__restrict in,
-    TData *__restrict out, const sycl::nd_item<3> &item_ct1)
+    const unsigned int outsize, const TData *__restrict__ D0,
+    const TData *__restrict__ D1, const TData *__restrict__ D2,
+    const TData *__restrict__ f0, const TData *__restrict__ f1,
+    const TData *__restrict__ f1m, const TData *__restrict__ f2,
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out, const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int ncoord = 3u;
 
@@ -522,8 +530,10 @@ NEK_FORCE_INLINE static void PhysDeriv3DSumFacQPKernel(
         dfsize *= nqTot;
     }
 
-    for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
-         idx += item_ct1.get_local_range(2))
+    const unsigned int idx0   = item_ct1.get_local_id(2);
+    const unsigned int stride = item_ct1.get_local_range(2);
+
+    for (unsigned int idx = idx0; idx < nqTot; idx += stride)
     {
         const unsigned int i       = idx % nq0;
         const unsigned int j       = (idx / nq0) % nq1;
@@ -590,15 +600,17 @@ NEK_FORCE_INLINE static void PhysDeriv3DSumFacQPKernel(
 template <bool APPEND, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void SumDerivTensor3DQPKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const TData *__restrict D0, const TData *__restrict D1,
-    const TData *__restrict D2, const TData *__restrict in0,
-    const TData *__restrict in1, const TData *__restrict in2,
-    TData *__restrict out, const sycl::nd_item<3> &item_ct1)
+    const TData *__restrict__ D0, const TData *__restrict__ D1,
+    const TData *__restrict__ D2, const TData *__restrict__ in0,
+    const TData *__restrict__ in1, const TData *__restrict__ in2,
+    TData *__restrict__ out, const sycl::nd_item<3> &item_ct1)
 {
     const unsigned int nqTot = nq0 * nq1 * nq2;
 
-    for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
-         idx += item_ct1.get_local_range(2))
+    const unsigned int idx0   = item_ct1.get_local_id(2);
+    const unsigned int stride = item_ct1.get_local_range(2);
+
+    for (unsigned int idx = idx0; idx < nqTot; idx += stride)
     {
         const unsigned int i = idx % nq0;
         const unsigned int j = (idx / nq0) % nq1;
@@ -643,8 +655,8 @@ NEK_FORCE_INLINE static void SumDerivTensor3DQPKernel(
 template <typename Implementation, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE void PhysDeriv1DKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nelmt,
-    const TData *__restrict D0, const TData *__restrict df,
-    const TData *__restrict in, TData *__restrict out,
+    const TData *__restrict__ D0, const TData *__restrict__ df,
+    const TData *__restrict__ in, TData *__restrict__ out,
     const sycl::nd_item<3> &item_ct1)
 {
     const unsigned int ndf = ncoord;
@@ -698,11 +710,11 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TData>
 NEK_FORCE_INLINE void PhysDeriv2DKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nelmt, const TData *__restrict D0,
-    const TData *__restrict D1, const TData *__restrict f0,
-    const TData *__restrict f1, const TData *__restrict df,
-    const TData *__restrict in, TData *__restrict out,
-    TData *__restrict shmemptr, const sycl::nd_item<3> &item_ct1)
+    const unsigned int nelmt, const TData *__restrict__ D0,
+    const TData *__restrict__ D1, const TData *__restrict__ f0,
+    const TData *__restrict__ f1, const TData *__restrict__ df,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ shmemptr, const sycl::nd_item<3> &item_ct1)
 {
     const unsigned int ndf   = 2 * ncoord;
     const unsigned int nqTot = nq0 * nq1;
@@ -721,19 +733,20 @@ NEK_FORCE_INLINE void PhysDeriv2DKernel(
         TData *s_f1 = nullptr;
 
         // Precompute geometric factors.
+        const unsigned int idx0   = item_ct1.get_local_id(2);
+        const unsigned int stride = item_ct1.get_local_range(2);
+
         if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
             s_f0 = shmemptr;
             s_f1 = s_f0 + nq0;
 
-            for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0;
-                 idx += item_ct1.get_local_range(2))
+            for (unsigned int idx = idx0; idx < nq0; idx += stride)
             {
                 s_f0[idx] = f0[idx];
             }
 
-            for (unsigned int idx = item_ct1.get_local_id(2); idx < nq1;
-                 idx += item_ct1.get_local_range(2))
+            for (unsigned int idx = idx0; idx < nq1; idx += stride)
             {
                 s_f1[idx] = f1[idx];
             }
@@ -782,12 +795,12 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TData>
 NEK_FORCE_INLINE void PhysDeriv3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const unsigned int nelmt, const TData *__restrict D0,
-    const TData *__restrict D1, const TData *__restrict D2,
-    const TData *__restrict f0, const TData *__restrict f1,
-    const TData *__restrict f1m, const TData *__restrict f2,
-    const TData *__restrict df, const TData *__restrict in,
-    TData *__restrict out, TData *__restrict shmemptr,
+    const unsigned int nelmt, const TData *__restrict__ D0,
+    const TData *__restrict__ D1, const TData *__restrict__ D2,
+    const TData *__restrict__ f0, const TData *__restrict__ f1,
+    const TData *__restrict__ f1m, const TData *__restrict__ f2,
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ shmemptr,
     const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int ndf = 9u;
@@ -809,6 +822,9 @@ NEK_FORCE_INLINE void PhysDeriv3DKernel(
         TData *s_f2  = nullptr;
 
         // Precompute geometric factors.
+        const unsigned int idx0   = item_ct1.get_local_id(2);
+        const unsigned int stride = item_ct1.get_local_range(2);
+
         if constexpr (SHAPE_TYPE == LibUtilities::Tet)
         {
             s_f0  = shmemptr;
@@ -816,21 +832,18 @@ NEK_FORCE_INLINE void PhysDeriv3DKernel(
             s_f1m = s_f1 + nq1;
             s_f2  = s_f1m + nq1;
 
-            for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0;
-                 idx += item_ct1.get_local_range(2))
+            for (unsigned int idx = idx0; idx < nq0; idx += stride)
             {
                 s_f0[idx] = f0[idx];
             }
 
-            for (unsigned int idx = item_ct1.get_local_id(2); idx < nq1;
-                 idx += item_ct1.get_local_range(2))
+            for (unsigned int idx = idx0; idx < nq1; idx += stride)
             {
                 s_f1[idx]  = f1[idx];
                 s_f1m[idx] = f1m[idx];
             }
 
-            for (unsigned int idx = item_ct1.get_local_id(2); idx < nq2;
-                 idx += item_ct1.get_local_range(2))
+            for (unsigned int idx = idx0; idx < nq2; idx += stride)
             {
                 s_f2[idx] = f2[idx];
             }
@@ -842,14 +855,12 @@ NEK_FORCE_INLINE void PhysDeriv3DKernel(
             s_f0 = shmemptr;
             s_f2 = s_f0 + nq0;
 
-            for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0;
-                 idx += item_ct1.get_local_range(2))
+            for (unsigned int idx = idx0; idx < nq0; idx += stride)
             {
                 s_f0[idx] = f0[idx];
             }
 
-            for (unsigned int idx = item_ct1.get_local_id(2); idx < nq2;
-                 idx += item_ct1.get_local_range(2))
+            for (unsigned int idx = idx0; idx < nq2; idx += stride)
             {
                 s_f2[idx] = f2[idx];
             }
@@ -862,20 +873,17 @@ NEK_FORCE_INLINE void PhysDeriv3DKernel(
             s_f1 = s_f0 + nq0;
             s_f2 = s_f1 + nq1;
 
-            for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0;
-                 idx += item_ct1.get_local_range(2))
+            for (unsigned int idx = idx0; idx < nq0; idx += stride)
             {
                 s_f0[idx] = f0[idx];
             }
 
-            for (unsigned int idx = item_ct1.get_local_id(2); idx < nq1;
-                 idx += item_ct1.get_local_range(2))
+            for (unsigned int idx = idx0; idx < nq1; idx += stride)
             {
                 s_f1[idx] = f1[idx];
             }
 
-            for (unsigned int idx = item_ct1.get_local_id(2); idx < nq2;
-                 idx += item_ct1.get_local_range(2))
+            for (unsigned int idx = idx0; idx < nq2; idx += stride)
             {
                 s_f2[idx] = f2[idx];
             }
