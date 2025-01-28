@@ -854,7 +854,7 @@ KOKKOS_INLINE_FUNCTION void Helmholtz1DKernel(
     const TData *KOKKOS_RESTRICT df, const TData *KOKKOS_RESTRICT jac,
     const TData *KOKKOS_RESTRICT coeff, const TData *KOKKOS_RESTRICT in,
     TData *KOKKOS_RESTRICT out, TData *KOKKOS_RESTRICT wsp, const TData lambda,
-    TData *__restrict shmemptr, const team_handle &team)
+    TData *__restrict__ shmemptr, const team_handle &team)
 {
     const unsigned int ndf = ncoord;
     unsigned int dfsize    = 1u;

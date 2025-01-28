@@ -41,6 +41,22 @@
 namespace Nektar::Operators::detail
 {
 
+template <typename TData>
+KOKKOS_INLINE_FUNCTION static void AddTraceIntegralKernel(
+    const int *KOKKOS_RESTRICT traceCoeffsToElmtMapPtr,
+    const int *KOKKOS_RESTRICT traceCoeffsToElmtSignPtr,
+    const int *KOKKOS_RESTRICT traceCoeffsToElmtTracePtr,
+    const TData *KOKKOS_RESTRICT tracePtr, TData *KOKKOS_RESTRICT outptr,
+    const unsigned int idx)
+{
+    TData *const ptr = outptr + traceCoeffsToElmtMapPtr[idx];
+    const TData val  = traceCoeffsToElmtSignPtr[idx] *
+                      tracePtr[traceCoeffsToElmtTracePtr[idx]];
+    Nektar::atomic_add<NektarSpaces::KOKKOS, NektarSpaces::GlobalScope>(ptr,
+                                                                        val);
+}
+
+// Launchers
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
                                void>::type
@@ -55,9 +71,9 @@ AddTraceIntegralKernel(const unsigned int nsize,
     Kokkos::parallel_for(
         Kokkos::RangePolicy<>(0u, nsize, Kokkos::ChunkSize(blockSize)),
         KOKKOS_LAMBDA(const unsigned int i) {
-            Kokkos::atomic_add(outptr + traceCoeffsToElmtMapPtr[i],
-                               traceCoeffsToElmtSignPtr[i] *
-                                   tracePtr[traceCoeffsToElmtTracePtr[i]]);
+            AddTraceIntegralKernel<TData>(
+                traceCoeffsToElmtMapPtr, traceCoeffsToElmtSignPtr,
+                traceCoeffsToElmtTracePtr, tracePtr, outptr, i);
         });
 }
 

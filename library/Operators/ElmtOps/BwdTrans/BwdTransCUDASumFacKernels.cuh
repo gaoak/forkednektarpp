@@ -64,7 +64,10 @@ __device__ __forceinline__ void BwdTransSegSumFacQPKernel(
     const TData *__restrict__ basis0, const TData *__restrict__ in,
     TData *__restrict__ out)
 {
-    for (unsigned int i = threadIdx.x; i < nq0; i += blockDim.x)
+    const unsigned int idx0   = threadIdx.x;
+    const unsigned int stride = blockDim.x;
+
+    for (unsigned int i = idx0; i < nq0; i += stride)
     {
         TData tmp = 0.0;
         for (unsigned int p = 0u; p < nm0; p++)
@@ -121,8 +124,11 @@ __device__ __forceinline__ void BwdTransQuadSumFacQPKernel(
     const TData *__restrict__ in, TData *__restrict__ out,
     TData *__restrict__ wsp)
 {
+    const unsigned int idx0   = threadIdx.x;
+    const unsigned int stride = blockDim.x;
+
     // direction 0
-    for (unsigned int idx = threadIdx.x; idx < nq0 * nm1; idx += blockDim.x)
+    for (unsigned int idx = idx0; idx < nq0 * nm1; idx += stride)
     {
         const unsigned int q = idx % nm1;
         const unsigned int i = idx / nm1;
@@ -139,7 +145,7 @@ __device__ __forceinline__ void BwdTransQuadSumFacQPKernel(
     __syncthreads();
 
     // direction 1
-    for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
+    for (unsigned int idx = idx0; idx < nqTot; idx += stride)
     {
         const unsigned int i = idx % nq0;
         const unsigned int j = idx / nq0;
@@ -208,8 +214,11 @@ __device__ __forceinline__ void BwdTransTriSumFacQPKernel(
     const TData *__restrict__ in, TData *__restrict__ out,
     TData *__restrict__ wsp)
 {
+    const unsigned int idx0   = threadIdx.x;
+    const unsigned int stride = blockDim.x;
+
     // direction 1
-    for (unsigned int idx = threadIdx.x; idx < nm0 * nq1; idx += blockDim.x)
+    for (unsigned int idx = idx0; idx < nm0 * nq1; idx += stride)
     {
         const unsigned int p = idx % nm0;
         const unsigned int j = idx / nm0;
@@ -226,7 +235,7 @@ __device__ __forceinline__ void BwdTransTriSumFacQPKernel(
     __syncthreads();
 
     // direction 0
-    for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
+    for (unsigned int idx = idx0; idx < nqTot; idx += stride)
     {
         const unsigned int i = idx % nq0;
         const unsigned int j = idx / nq0;
@@ -314,9 +323,11 @@ __device__ __forceinline__ void BwdTransHexSumFacQPKernel(
     const TData *__restrict__ in, TData *__restrict__ out,
     TData *__restrict__ wsp0, TData *__restrict__ wsp1)
 {
+    const unsigned int idx0   = threadIdx.x;
+    const unsigned int stride = blockDim.x;
+
     // direction 0
-    for (unsigned int idx = threadIdx.x; idx < nq0 * nm1 * nm2;
-         idx += blockDim.x)
+    for (unsigned int idx = idx0; idx < nq0 * nm1 * nm2; idx += stride)
     {
         const unsigned int q = idx % nm1;
         const unsigned int r = (idx / nm1) % nm2;
@@ -334,8 +345,7 @@ __device__ __forceinline__ void BwdTransHexSumFacQPKernel(
     __syncthreads();
 
     // direction 1
-    for (unsigned int idx = threadIdx.x; idx < nq0 * nq1 * nm2;
-         idx += blockDim.x)
+    for (unsigned int idx = idx0; idx < nq0 * nq1 * nm2; idx += stride)
     {
         const unsigned int r = idx % nm2;
         const unsigned int i = (idx / nm2) % nq0;
@@ -353,7 +363,7 @@ __device__ __forceinline__ void BwdTransHexSumFacQPKernel(
     __syncthreads();
 
     // direction 2
-    for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
+    for (unsigned int idx = idx0; idx < nqTot; idx += stride)
     {
         const unsigned int i = idx % nq0;
         const unsigned int j = (idx / nq0) % nq1;
@@ -470,8 +480,11 @@ __device__ __forceinline__ void BwdTransTetSumFacQPKernel(
 {
     const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
 
+    const unsigned int idx0   = threadIdx.x;
+    const unsigned int stride = blockDim.x;
+
     // direction 2
-    for (unsigned int idx = threadIdx.x; idx < nm01 * nq2; idx += blockDim.x)
+    for (unsigned int idx = idx0; idx < nm01 * nq2; idx += stride)
     {
         const unsigned int k = idx / nm01;
         const unsigned int p = pindex[idx % nm01];
@@ -496,8 +509,7 @@ __device__ __forceinline__ void BwdTransTetSumFacQPKernel(
     __syncthreads();
 
     // direction 1
-    for (unsigned int idx = threadIdx.x; idx < nm0 * nq1 * nq2;
-         idx += blockDim.x)
+    for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
     {
         const unsigned int p = idx % nm0;
         const unsigned int j = (idx / nm0) % nq1;
@@ -516,7 +528,7 @@ __device__ __forceinline__ void BwdTransTetSumFacQPKernel(
     __syncthreads();
 
     // direction 0
-    for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
+    for (unsigned int idx = idx0; idx < nqTot; idx += stride)
     {
         const unsigned int i  = idx % nq0;
         const unsigned int j  = (idx / nq0) % nq1;
@@ -634,9 +646,11 @@ __device__ __forceinline__ void BwdTransPrismSumFacQPKernel(
     const TData *__restrict__ basis2, const TData *__restrict__ in,
     TData *__restrict__ out, TData *__restrict__ wsp0, TData *__restrict__ wsp1)
 {
+    const unsigned int idx0   = threadIdx.x;
+    const unsigned int stride = blockDim.x;
+
     // direction 2
-    for (unsigned int idx = threadIdx.x; idx < nm0 * nm1 * nq2;
-         idx += blockDim.x)
+    for (unsigned int idx = idx0; idx < nm0 * nm1 * nq2; idx += stride)
     {
         const unsigned int q  = idx % nm1;
         const unsigned int p  = (idx / nm1) % nm0;
@@ -655,8 +669,7 @@ __device__ __forceinline__ void BwdTransPrismSumFacQPKernel(
     __syncthreads();
 
     // direction 1
-    for (unsigned int idx = threadIdx.x; idx < nm0 * nq1 * nq2;
-         idx += blockDim.x)
+    for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
     {
         const unsigned int p  = idx % nm0;
         const unsigned int j  = (idx / nm0) % nq1;
@@ -674,7 +687,7 @@ __device__ __forceinline__ void BwdTransPrismSumFacQPKernel(
     __syncthreads();
 
     // direction 0
-    for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
+    for (unsigned int idx = idx0; idx < nqTot; idx += stride)
     {
         const unsigned int i  = idx % nq0;
         const unsigned int j  = (idx / nq0) % nq1;
@@ -787,9 +800,11 @@ __device__ __forceinline__ void BwdTransPyrSumFacQPKernel(
     const TData *__restrict__ basis2, const TData *__restrict__ in,
     TData *__restrict__ out, TData *__restrict__ wsp0, TData *__restrict__ wsp1)
 {
+    const unsigned int idx0   = threadIdx.x;
+    const unsigned int stride = blockDim.x;
+
     // direction 2
-    for (unsigned int idx = threadIdx.x; idx < nm0 * nm1 * nq2;
-         idx += blockDim.x)
+    for (unsigned int idx = idx0; idx < nm0 * nm1 * nq2; idx += stride)
     {
         const unsigned int q = idx % nm1;
         const unsigned int p = (idx / nm1) % nm0;
@@ -830,8 +845,7 @@ __device__ __forceinline__ void BwdTransPyrSumFacQPKernel(
     __syncthreads();
 
     // direction 1
-    for (unsigned int idx = threadIdx.x; idx < nm0 * nq1 * nq2;
-         idx += blockDim.x)
+    for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
     {
         const unsigned int p  = idx % nm0;
         const unsigned int j  = (idx / nm0) % nq1;
@@ -849,7 +863,7 @@ __device__ __forceinline__ void BwdTransPyrSumFacQPKernel(
     __syncthreads();
 
     // direction 0
-    for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
+    for (unsigned int idx = idx0; idx < nqTot; idx += stride)
     {
         const unsigned int i  = idx % nq0;
         const unsigned int j  = (idx / nq0) % nq1;
@@ -901,7 +915,7 @@ __device__ __forceinline__ void BwdTrans1DKernel(
             e += blockDim.x * gridDim.x;
         }
     }
-    else
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
         unsigned int e = blockIdx.x;
         while (e < nelmt)
@@ -941,7 +955,7 @@ __global__ void BwdTrans1DKernelLauncher(const unsigned int nelmt,
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TData>
 __device__ __forceinline__ void BwdTrans2DKernel(
-    const unsigned int nm0, const unsigned int nm1, const unsigned nmTot,
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const bool isModified, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ in,
@@ -1000,14 +1014,15 @@ __device__ __forceinline__ void BwdTrans2DKernel(
         TData *s_basis1 = s_basis0 + nm0 * nq0;
 
         // Copy to shared memory.
-        for (unsigned int idx = threadIdx.x; idx < nmode0 * nq0;
-             idx += blockDim.x)
+        const unsigned int idx0   = threadIdx.x;
+        const unsigned int stride = blockDim.x;
+
+        for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
         {
             s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nmode1 * nq1;
-             idx += blockDim.x)
+        for (unsigned int idx = idx0; idx < nmode1 * nq1; idx += stride)
         {
             s_basis1[idx] = basis1[idx];
         }
@@ -1019,7 +1034,7 @@ __device__ __forceinline__ void BwdTrans2DKernel(
             TData *outptr      = out + nqTot * e;
 
             // Copy to shared memory.
-            for (unsigned int idx = threadIdx.x; idx < nmTot; idx += blockDim.x)
+            for (unsigned int idx = idx0; idx < nmTot; idx += stride)
             {
                 s_wsp0[idx] = inptr[idx];
             }
@@ -1140,7 +1155,7 @@ __device__ __forceinline__ void BwdTrans3DKernel(
             e += blockDim.x * gridDim.x;
         }
     }
-    else
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
         extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
@@ -1186,20 +1201,20 @@ __device__ __forceinline__ void BwdTrans3DKernel(
         TData *s_basis2 = s_basis1 + nmode1 * nq1;
 
         // Copy to shared memory.
-        for (unsigned int idx = threadIdx.x; idx < nmode0 * nq0;
-             idx += blockDim.x)
+        const unsigned int idx0   = threadIdx.x;
+        const unsigned int stride = blockDim.x;
+
+        for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
         {
             s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nmode1 * nq1;
-             idx += blockDim.x)
+        for (unsigned int idx = idx0; idx < nmode1 * nq1; idx += stride)
         {
             s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nmode2 * nq2;
-             idx += blockDim.x)
+        for (unsigned int idx = idx0; idx < nmode2 * nq2; idx += stride)
         {
             s_basis2[idx] = basis2[idx];
         }
@@ -1211,7 +1226,7 @@ __device__ __forceinline__ void BwdTrans3DKernel(
             TData *outptr      = out + nqTot * e;
 
             // Copy to shared memory.
-            for (unsigned int idx = threadIdx.x; idx < nmTot; idx += blockDim.x)
+            for (unsigned int idx = idx0; idx < nmTot; idx += stride)
             {
                 s_wsp0[idx] = inptr[idx];
             }

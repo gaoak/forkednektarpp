@@ -81,6 +81,9 @@ __device__ __forceinline__ void Mass1DKernel(
 
         TData *bwd = (TData *)shmemptr;
 
+        const unsigned int idx0   = threadIdx.x;
+        const unsigned int stride = blockDim.x;
+
         unsigned int e = blockIdx.x;
         while (e < nelmt)
         {
@@ -89,7 +92,7 @@ __device__ __forceinline__ void Mass1DKernel(
             TData *outptr       = out + nm0 * e;
             BwdTransSegSumFacQPKernel(nm0, nq0, basis0, inptr, bwd);
 
-            for (unsigned int i = threadIdx.x; i < nq0; i += blockDim.x)
+            for (unsigned int i = idx0; i < nq0; i += stride)
             {
                 if constexpr (DEFORMED)
                 {
@@ -219,14 +222,15 @@ __device__ __forceinline__ void Mass2DKernel(
         TData *s_basis1 = s_basis0 + nm0 * nq0;
 
         // Copy to shared memory.
-        for (unsigned int idx = threadIdx.x; idx < nmode0 * nq0;
-             idx += blockDim.x)
+        const unsigned int idx0   = threadIdx.x;
+        const unsigned int stride = blockDim.x;
+
+        for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
         {
             s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nmode1 * nq1;
-             idx += blockDim.x)
+        for (unsigned int idx = idx0; idx < nmode1 * nq1; idx += stride)
         {
             s_basis1[idx] = basis1[idx];
         }
@@ -239,7 +243,7 @@ __device__ __forceinline__ void Mass2DKernel(
             TData *outptr       = out + nmTot * e;
 
             // Copy to shared memory.
-            for (unsigned int idx = threadIdx.x; idx < nmTot; idx += blockDim.x)
+            for (unsigned int idx = idx0; idx < nmTot; idx += stride)
             {
                 tmp[idx] = inptr[idx];
             }
@@ -257,7 +261,7 @@ __device__ __forceinline__ void Mass2DKernel(
                                           s_basis0, s_basis1, tmp, bwd, s_wsp0);
             }
 
-            for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
+            for (unsigned int idx = idx0; idx < nqTot; idx += stride)
             {
                 const unsigned int i = idx % nq0;
                 const unsigned int j = idx / nq0;
@@ -432,7 +436,7 @@ __device__ __forceinline__ void Mass3DKernel(
             e += blockDim.x * gridDim.x;
         }
     }
-    else
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
         extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
@@ -479,20 +483,20 @@ __device__ __forceinline__ void Mass3DKernel(
         TData *s_basis2 = s_basis1 + nmode1 * nq1;
 
         // Copy to shared memory.
-        for (unsigned int idx = threadIdx.x; idx < nmode0 * nq0;
-             idx += blockDim.x)
+        const unsigned int idx0   = threadIdx.x;
+        const unsigned int stride = blockDim.x;
+
+        for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
         {
             s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nmode1 * nq1;
-             idx += blockDim.x)
+        for (unsigned int idx = idx0; idx < nmode1 * nq1; idx += stride)
         {
             s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nmode2 * nq2;
-             idx += blockDim.x)
+        for (unsigned int idx = idx0; idx < nmode2 * nq2; idx += stride)
         {
             s_basis2[idx] = basis2[idx];
         }
@@ -505,7 +509,7 @@ __device__ __forceinline__ void Mass3DKernel(
             TData *outptr       = out + nmTot * e;
 
             // Copy to shared memory.
-            for (unsigned int idx = threadIdx.x; idx < nmTot; idx += blockDim.x)
+            for (unsigned int idx = idx0; idx < nmTot; idx += stride)
             {
                 tmp[idx] = inptr[idx];
             }

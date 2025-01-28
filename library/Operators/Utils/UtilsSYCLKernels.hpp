@@ -41,6 +41,96 @@
 namespace Nektar
 {
 
+template <typename TData>
+NEK_FORCE_INLINE static void interleaveKernel(const unsigned int VectorWidth,
+                                              const unsigned int npts,
+                                              TData *buffer, TData *inout,
+                                              const sycl::nd_item<1> item_ct1)
+{
+    const unsigned int metaBlock = item_ct1.get_group(0);
+    const unsigned int offset    = npts * VectorWidth * metaBlock;
+
+    const unsigned int idx0   = item_ct1.get_local_id(0);
+    const unsigned int stride = item_ct1.get_local_range(0);
+
+    for (unsigned int idx = idx0; idx < npts * VectorWidth; idx += stride)
+    {
+        buffer[offset + idx] = inout[offset + idx];
+    }
+
+    item_ct1.barrier(sycl::access::fence_space::local_space);
+
+    for (unsigned int idx = idx0; idx < npts * VectorWidth; idx += stride)
+    {
+        unsigned int vecElem = idx % VectorWidth;
+        unsigned int iElem   = idx / VectorWidth;
+        inout[offset + idx]  = buffer[offset + vecElem * npts + iElem];
+    }
+}
+
+template <typename TData>
+NEK_FORCE_INLINE static void deInterleaveKernel(const unsigned int VectorWidth,
+                                                const unsigned int npts,
+                                                TData *buffer, TData *inout,
+                                                const sycl::nd_item<1> item_ct1)
+{
+    const unsigned int metaBlock = item_ct1.get_group(0);
+    const unsigned int offset    = npts * VectorWidth * metaBlock;
+
+    const unsigned int idx0   = item_ct1.get_local_id(0);
+    const unsigned int stride = item_ct1.get_local_range(0);
+
+    for (unsigned int idx = idx0; idx < npts * VectorWidth; idx += stride)
+    {
+        buffer[offset + idx] = inout[offset + idx];
+    }
+
+    item_ct1.barrier(sycl::access::fence_space::local_space);
+
+    for (unsigned int idx = idx0; idx < npts * VectorWidth; idx += stride)
+    {
+        unsigned int vecElem = idx / npts;
+        unsigned int iElem   = idx % npts;
+        inout[offset + idx]  = buffer[offset + iElem * VectorWidth + vecElem];
+    }
+}
+
+template <typename TData>
+NEK_FORCE_INLINE static void BuildInterleaveMapKernel(
+    const unsigned int npts, const unsigned int newVecWidth,
+    const unsigned int offset, TData *deInterleaveMapPtr,
+    TData *interleaveMapPtr, TData *buffer, const sycl::nd_item<1> item_ct1)
+{
+    const unsigned int metaBlock   = item_ct1.get_group(0);
+    const unsigned int groupOffset = npts * newVecWidth * metaBlock;
+
+    const unsigned int idx0   = item_ct1.get_local_id(0);
+    const unsigned int stride = item_ct1.get_local_range(0);
+
+    for (unsigned int idx = idx0; idx < npts * newVecWidth; idx += stride)
+    {
+        buffer[groupOffset + idx] = offset + groupOffset + idx;
+    }
+
+    item_ct1.barrier(sycl::access::fence_space::local_space);
+
+    for (unsigned int idx = idx0; idx < npts * newVecWidth; idx += stride)
+    {
+        unsigned int vecElem = idx % newVecWidth;
+        unsigned int iElem   = idx / newVecWidth;
+        deInterleaveMapPtr[groupOffset + idx] =
+            buffer[groupOffset + vecElem * npts + iElem];
+    }
+
+    item_ct1.barrier(sycl::access::fence_space::local_space);
+
+    for (unsigned int idx = idx0; idx < npts * newVecWidth; idx += stride)
+    {
+        interleaveMapPtr[deInterleaveMapPtr[groupOffset + idx]] =
+            offset + groupOffset + idx;
+    }
+}
+
 template <size_t VectorWidth, typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
                                void>::type
@@ -56,29 +146,11 @@ interleave(const unsigned int numMetaBlocks, const unsigned int npts,
         VectorWidth * numMetaBlocks * npts, SYCLQueue::GetInstance());
 
     Q.submit([=](sycl::handler &cgh) {
-        cgh.parallel_for(
-            sycl::nd_range<1>(gridSize * blockSize, blockSize),
-            [=](sycl::nd_item<1> indx) {
-                const unsigned int metaBlock = indx.get_group(0);
-                const unsigned int offset    = npts * VectorWidth * metaBlock;
-
-                for (unsigned int idx = indx.get_local_id(0);
-                     idx < npts * VectorWidth; idx += indx.get_local_range(0))
-                {
-                    buffer[offset + idx] = inout[offset + idx];
-                }
-
-                indx.barrier(sycl::access::fence_space::local_space);
-
-                for (unsigned int idx = indx.get_local_id(0);
-                     idx < npts * VectorWidth; idx += indx.get_local_range(0))
-                {
-                    unsigned int vecElem = idx % VectorWidth;
-                    unsigned int iElem   = idx / VectorWidth;
-                    inout[offset + idx] =
-                        buffer[offset + vecElem * npts + iElem];
-                }
-            });
+        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
+                         [=](sycl::nd_item<1> item_ct1) {
+                             interleaveKernel(VectorWidth, npts, buffer, inout,
+                                              item_ct1);
+                         });
     });
 
     sycl::free(buffer, SYCLQueue::GetInstance());
@@ -99,29 +171,11 @@ deInterleave(const unsigned int VectorWidth, const unsigned int numMetaBlocks,
         VectorWidth * numMetaBlocks * npts, SYCLQueue::GetInstance());
 
     Q.submit([=](sycl::handler &cgh) {
-        cgh.parallel_for(
-            sycl::nd_range<1>(gridSize * blockSize, blockSize),
-            [=](sycl::nd_item<1> indx) {
-                const unsigned int metaBlock = indx.get_group(0);
-                const unsigned int offset    = npts * VectorWidth * metaBlock;
-
-                for (unsigned int idx = indx.get_local_id(0);
-                     idx < npts * VectorWidth; idx += indx.get_local_range(0))
-                {
-                    buffer[offset + idx] = inout[offset + idx];
-                }
-
-                indx.barrier(sycl::access::fence_space::local_space);
-
-                for (unsigned int idx = indx.get_local_id(0);
-                     idx < npts * VectorWidth; idx += indx.get_local_range(0))
-                {
-                    unsigned int vecElem = idx / npts;
-                    unsigned int iElem   = idx % npts;
-                    inout[offset + idx] =
-                        buffer[offset + iElem * VectorWidth + vecElem];
-                }
-            });
+        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
+                         [=](sycl::nd_item<1> item_ct1) {
+                             deInterleaveKernel(VectorWidth, npts, buffer,
+                                                inout, item_ct1);
+                         });
     });
 
     sycl::free(buffer, SYCLQueue::GetInstance());
@@ -143,42 +197,12 @@ BuildInterleaveMap(const unsigned int numMetaBlocks, const unsigned int npts,
                                            SYCLQueue::GetInstance());
 
     Q.submit([=](sycl::handler &cgh) {
-        cgh.parallel_for(
-            sycl::nd_range<1>(gridSize * blockSize, blockSize),
-            [=](sycl::nd_item<1> indx) {
-                const unsigned int metaBlock   = indx.get_group(0);
-                const unsigned int groupOffset = npts * newVecWidth * metaBlock;
-
-                for (unsigned int idx = indx.get_local_id(0);
-                     idx < npts * newVecWidth; idx += indx.get_local_range(0))
-                {
-                    for (unsigned int vecElem = 0; vecElem < newVecWidth;
-                         ++vecElem)
-                    {
-                        buffer[groupOffset + idx] = offset + groupOffset + idx;
-                    }
-                }
-
-                indx.barrier(sycl::access::fence_space::local_space);
-
-                for (unsigned int idx = indx.get_local_id(0);
-                     idx < npts * newVecWidth; idx += indx.get_local_range(0))
-                {
-                    unsigned int vecElem = idx % newVecWidth;
-                    unsigned int iElem   = idx / newVecWidth;
-                    deInterleaveMapPtr[groupOffset + idx] =
-                        buffer[groupOffset + vecElem * npts + iElem];
-                }
-
-                indx.barrier(sycl::access::fence_space::local_space);
-
-                for (unsigned int idx = indx.get_local_id(0);
-                     idx < npts * newVecWidth; idx += indx.get_local_range(0))
-                {
-                    interleaveMapPtr[deInterleaveMapPtr[groupOffset + idx]] =
-                        offset + groupOffset + idx;
-                }
-            });
+        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
+                         [=](sycl::nd_item<1> item_ct1) {
+                             BuildInterleaveMapKernel(
+                                 npts, newVecWidth, offset, deInterleaveMapPtr,
+                                 interleaveMapPtr, buffer, item_ct1);
+                         });
     });
 }
 

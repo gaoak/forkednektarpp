@@ -48,16 +48,16 @@ __global__ void AddTraceIntegralKernel(
     const int *__restrict__ traceCoeffsToElmtTracePtr,
     const TData *__restrict__ tracePtr, TData *__restrict__ outptr)
 {
-    unsigned int i      = blockDim.x * blockIdx.x + threadIdx.x;
-    unsigned int stride = blockDim.x * gridDim.x;
+    const unsigned int idx0   = blockDim.x * blockIdx.x + threadIdx.x;
+    const unsigned int stride = blockDim.x * gridDim.x;
 
-    while (i < nsize)
+    for (unsigned int idx = idx0; idx < nsize; idx += stride)
     {
-        atomic_add<NektarSpaces::CUDA, NektarSpaces::GlobalScope>(
-            outptr + traceCoeffsToElmtMapPtr[i],
-            traceCoeffsToElmtSignPtr[i] *
-                tracePtr[traceCoeffsToElmtTracePtr[i]]);
-        i += stride;
+        TData *const ptr = outptr + traceCoeffsToElmtMapPtr[idx];
+        const TData val  = traceCoeffsToElmtSignPtr[idx] *
+                          tracePtr[traceCoeffsToElmtTracePtr[idx]];
+        Nektar::atomic_add<NektarSpaces::CUDA, NektarSpaces::GlobalScope>(ptr,
+                                                                          val);
     }
 }
 
@@ -83,8 +83,10 @@ AddTraceIntegralKernel(const unsigned int nsize,
 template <typename ExecSpace>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
                                void>::type
-ReOrderMapKernel(const unsigned int nsize, int *traceCoeffsToElmtMapPtr,
-                 int *traceCoeffsToElmtSignPtr, int *traceCoeffsToElmtTracePtr)
+ReOrderMapKernel([[maybe_unused]] const unsigned int nsize,
+                 [[maybe_unused]] int *traceCoeffsToElmtMapPtr,
+                 [[maybe_unused]] int *traceCoeffsToElmtSignPtr,
+                 [[maybe_unused]] int *traceCoeffsToElmtTracePtr)
 {
 }
 

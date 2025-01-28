@@ -45,10 +45,10 @@ namespace Nektar::Operators::detail
 template <bool DEFORMED, typename TData>
 NEK_FORCE_INLINE void ApplyMetric1DSumFacKernel(
     const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
-    const unsigned int insize, const TData *__restrict w0,
-    const TData *__restrict df, const TData *__restrict jac,
-    const TData *__restrict diffCoeff, const TData *__restrict in,
-    TData *__restrict bwd, TData *out, const TData lambda)
+    const unsigned int insize, const TData *__restrict__ w0,
+    const TData *__restrict__ df, const TData *__restrict__ jac,
+    const TData *__restrict__ diffCoeff, const TData *__restrict__ in,
+    TData *__restrict__ bwd, TData *out, const TData lambda)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -149,10 +149,10 @@ NEK_FORCE_INLINE void ApplyMetric1DSumFacKernel(
 template <bool DEFORMED, typename TData>
 NEK_FORCE_INLINE void ApplyMetric1DSumFacQPKernel(
     const unsigned int ncoord, const unsigned int nq0,
-    const unsigned int insize, const TData *__restrict w0,
-    const TData *__restrict df, const TData *__restrict jac,
-    const TData *__restrict diffCoeff, const TData *__restrict in,
-    TData *__restrict bwd, TData *out, const TData lambda,
+    const unsigned int insize, const TData *__restrict__ w0,
+    const TData *__restrict__ df, const TData *__restrict__ jac,
+    const TData *__restrict__ diffCoeff, const TData *__restrict__ in,
+    TData *__restrict__ bwd, TData *out, const TData lambda,
     const sycl::nd_item<3> &item_ct1)
 {
     unsigned int dfsize = 1u;
@@ -187,8 +187,10 @@ NEK_FORCE_INLINE void ApplyMetric1DSumFacQPKernel(
         }
     }
 
-    for (unsigned int i = item_ct1.get_local_id(2); i < nq0;
-         i += item_ct1.get_local_range(2))
+    const unsigned int idx0   = item_ct1.get_local_id(2);
+    const unsigned int stride = item_ct1.get_local_range(2);
+
+    for (unsigned int i = idx0; i < nq0; i += stride)
     {
         const unsigned int dfindex = DEFORMED ? i : 0;
 
@@ -254,12 +256,12 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE void ApplyMetric2DSumFacKernel(
     const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
     const unsigned int nq1, const unsigned int insize,
-    const TData *__restrict w0, const TData *__restrict w1,
-    [[maybe_unused]] const TData *__restrict f0,
-    [[maybe_unused]] const TData *__restrict f1, const TData *__restrict df,
-    const TData *__restrict jac, const TData *__restrict diffCoeff,
-    const TData *__restrict in, TData *__restrict bwd, TData *__restrict out0,
-    TData *__restrict out1, const TData lambda)
+    const TData *__restrict__ w0, const TData *__restrict__ w1,
+    [[maybe_unused]] const TData *__restrict__ f0,
+    [[maybe_unused]] const TData *__restrict__ f1, const TData *__restrict__ df,
+    const TData *__restrict__ jac, const TData *__restrict__ diffCoeff,
+    const TData *__restrict__ in, TData *__restrict__ bwd,
+    TData *__restrict__ out0, TData *__restrict__ out1, const TData lambda)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -400,12 +402,13 @@ NEK_FORCE_INLINE void ApplyMetric2DSumFacKernel(
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE void ApplyMetric2DSumFacQPKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int insize, const TData *__restrict w0,
-    const TData *__restrict w1, const TData *__restrict f0,
-    const TData *__restrict f1, const TData *__restrict df,
-    const TData *__restrict jac, const TData *__restrict diffCoeff,
-    const TData *__restrict in, TData *__restrict bwd, TData *out0, TData *out1,
-    TData *metric, const TData lambda, const sycl::nd_item<3> &item_ct1)
+    const unsigned int insize, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ f0,
+    const TData *__restrict__ f1, const TData *__restrict__ df,
+    const TData *__restrict__ jac, const TData *__restrict__ diffCoeff,
+    const TData *__restrict__ in, TData *__restrict__ bwd, TData *out0,
+    TData *out1, TData *metric, const TData lambda,
+    const sycl::nd_item<3> &item_ct1)
 {
     const unsigned int nqTot = nq0 * nq1;
     unsigned int dfsize      = 1u;
@@ -414,14 +417,16 @@ NEK_FORCE_INLINE void ApplyMetric2DSumFacQPKernel(
         dfsize *= nqTot;
     }
 
+    const unsigned int idx0   = item_ct1.get_local_id(2);
+    const unsigned int stride = item_ct1.get_local_range(2);
+
     if constexpr (!DEFORMED)
     {
         if (diffCoeff)
         {
             if (ncoord == 2)
             {
-                for (unsigned int idx = item_ct1.get_local_id(2); idx < 4u;
-                     idx += item_ct1.get_local_range(2))
+                for (unsigned int idx = idx0; idx < 4u; idx += stride)
                 {
                     metric[idx] =
                         diffCoeff[(idx / 2u) * 2u] * df[idx % 2u] +
@@ -430,8 +435,7 @@ NEK_FORCE_INLINE void ApplyMetric2DSumFacQPKernel(
             }
             else if (ncoord == 3)
             {
-                for (unsigned int idx = item_ct1.get_local_id(2); idx < 6u;
-                     idx += item_ct1.get_local_range(2))
+                for (unsigned int idx = idx0; idx < 6u; idx += stride)
                 {
                     metric[idx] =
                         diffCoeff[(idx / 3u) * 3u] * df[idx % 2u] +
@@ -444,8 +448,7 @@ NEK_FORCE_INLINE void ApplyMetric2DSumFacQPKernel(
         }
     }
 
-    for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0 * nq1;
-         idx += item_ct1.get_local_range(2))
+    for (unsigned int idx = idx0; idx < nq0 * nq1; idx += stride)
     {
         const unsigned int i       = idx % nq0;
         const unsigned int j       = idx / nq0;
@@ -539,14 +542,15 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE void ApplyMetric3DSumFacKernel(
     const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int insize,
-    const TData *__restrict w0, const TData *__restrict w1,
-    const TData *__restrict w2, [[maybe_unused]] const TData *__restrict f0,
-    [[maybe_unused]] const TData *__restrict f1,
-    [[maybe_unused]] const TData *__restrict f1m,
-    [[maybe_unused]] const TData *__restrict f2, const TData *__restrict df,
-    const TData *__restrict jac, const TData *__restrict diffCoeff,
-    const TData *__restrict in, TData *__restrict bwd, TData *__restrict out0,
-    TData *__restrict out1, TData *__restrict out2, const TData lambda)
+    const TData *__restrict__ w0, const TData *__restrict__ w1,
+    const TData *__restrict__ w2, [[maybe_unused]] const TData *__restrict__ f0,
+    [[maybe_unused]] const TData *__restrict__ f1,
+    [[maybe_unused]] const TData *__restrict__ f1m,
+    [[maybe_unused]] const TData *__restrict__ f2, const TData *__restrict__ df,
+    const TData *__restrict__ jac, const TData *__restrict__ diffCoeff,
+    const TData *__restrict__ in, TData *__restrict__ bwd,
+    TData *__restrict__ out0, TData *__restrict__ out1,
+    TData *__restrict__ out2, const TData lambda)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -699,14 +703,14 @@ NEK_FORCE_INLINE void ApplyMetric3DSumFacKernel(
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE void ApplyMetric3DSumFacQPKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const unsigned int insize, const TData *__restrict w0,
-    const TData *__restrict w1, const TData *__restrict w2,
-    const TData *__restrict f0, const TData *__restrict f1,
-    const TData *__restrict f1m, const TData *__restrict f2,
-    const TData *__restrict df, const TData *__restrict jac,
-    const TData *__restrict diffCoeff, const TData *__restrict in,
-    TData *__restrict bwd, TData *out0, TData *out1, TData *out2, TData *metric,
-    const TData lambda, const sycl::nd_item<3> &item_ct1)
+    const unsigned int insize, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ w2,
+    const TData *__restrict__ f0, const TData *__restrict__ f1,
+    const TData *__restrict__ f1m, const TData *__restrict__ f2,
+    const TData *__restrict__ df, const TData *__restrict__ jac,
+    const TData *__restrict__ diffCoeff, const TData *__restrict__ in,
+    TData *__restrict__ bwd, TData *out0, TData *out1, TData *out2,
+    TData *metric, const TData lambda, const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int ncoord = 3u;
 
@@ -717,12 +721,14 @@ NEK_FORCE_INLINE void ApplyMetric3DSumFacQPKernel(
         dfsize *= nqTot;
     }
 
+    const unsigned int idx0   = item_ct1.get_local_id(2);
+    const unsigned int stride = item_ct1.get_local_range(2);
+
     if constexpr (!DEFORMED)
     {
         if (diffCoeff)
         {
-            for (unsigned int idx = item_ct1.get_local_id(2); idx < 9u;
-                 idx += item_ct1.get_local_range(2))
+            for (unsigned int idx = idx0; idx < 9u; idx += stride)
             {
                 metric[idx] =
                     diffCoeff[(idx / 3u) * 3u] * df[idx % 3u] +
@@ -734,8 +740,7 @@ NEK_FORCE_INLINE void ApplyMetric3DSumFacQPKernel(
         }
     }
 
-    for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0 * nq1 * nq2;
-         idx += item_ct1.get_local_range(2))
+    for (unsigned int idx = idx0; idx < nq0 * nq1 * nq2; idx += stride)
     {
         const unsigned int i       = idx % nq0;
         const unsigned int j       = (idx / nq0) % nq1;
@@ -842,12 +847,12 @@ NEK_FORCE_INLINE void ApplyMetric3DSumFacQPKernel(
 template <typename Implementation, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE void Helmholtz1DKernel(
     const unsigned int ncoord, const unsigned int nm0, const unsigned int nq0,
-    const unsigned int nelmt, const TData *__restrict basis0,
-    const TData *__restrict D0, const TData *__restrict w0,
-    const TData *__restrict df, const TData *__restrict jac,
-    const TData *__restrict coeff, const TData *__restrict in,
-    TData *__restrict out, TData *__restrict wsp, const TData lambda,
-    TData *__restrict shmemptr, const sycl::nd_item<3> &item_ct1)
+    const unsigned int nelmt, const TData *__restrict__ basis0,
+    const TData *__restrict__ D0, const TData *__restrict__ w0,
+    const TData *__restrict__ df, const TData *__restrict__ jac,
+    const TData *__restrict__ coeff, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ wsp, const TData lambda,
+    TData *__restrict__ shmemptr, const sycl::nd_item<3> &item_ct1)
 {
     const unsigned int ndf = ncoord;
     unsigned int dfsize    = 1u;
@@ -923,15 +928,15 @@ NEK_FORCE_INLINE void Helmholtz2DKernel(
     const unsigned int ncoord, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nelmt, const bool isModified,
-    [[maybe_unused]] const unsigned int *__restrict index0,
-    const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict D0, const TData *__restrict D1,
-    const TData *__restrict w0, const TData *__restrict w1,
-    const TData *__restrict f0, const TData *__restrict f1,
-    const TData *__restrict df, const TData *__restrict jac,
-    const TData *__restrict coeff, const TData *__restrict in,
-    TData *__restrict out, [[maybe_unused]] TData *__restrict wsp,
-    const TData lambda, TData *__restrict shmemptr,
+    [[maybe_unused]] const unsigned int *__restrict__ index0,
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ D0, const TData *__restrict__ D1,
+    const TData *__restrict__ w0, const TData *__restrict__ w1,
+    const TData *__restrict__ f0, const TData *__restrict__ f1,
+    const TData *__restrict__ df, const TData *__restrict__ jac,
+    const TData *__restrict__ coeff, const TData *__restrict__ in,
+    TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ wsp,
+    const TData lambda, TData *__restrict__ shmemptr,
     const sycl::nd_item<3> &item_ct1)
 {
     const unsigned int ndf   = 2 * ncoord;
@@ -955,6 +960,7 @@ NEK_FORCE_INLINE void Helmholtz2DKernel(
         // Pre-compute factor.
         const unsigned int idx0   = item_ct1.get_local_id(2);
         const unsigned int stride = item_ct1.get_local_range(2);
+
         if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
             s_f0 = shmemptr;
@@ -1056,14 +1062,15 @@ NEK_FORCE_INLINE void Helmholtz2DKernel(
         TData *s_basis1 = s_basis0 + nm0 * nq0;
 
         // Copy to shared memory.
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmode0 * nq0;
-             idx += item_ct1.get_local_range(2))
+        const unsigned int idx0   = item_ct1.get_local_id(2);
+        const unsigned int stride = item_ct1.get_local_range(2);
+
+        for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
         {
             s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmode1 * nq1;
-             idx += item_ct1.get_local_range(2))
+        for (unsigned int idx = idx0; idx < nmode1 * nq1; idx += stride)
         {
             s_basis1[idx] = basis1[idx];
         }
@@ -1077,8 +1084,7 @@ NEK_FORCE_INLINE void Helmholtz2DKernel(
             TData *outptr       = out + nmTot * e;
 
             // Copy to shared memory.
-            for (unsigned int idx = item_ct1.get_local_id(2); idx < nmTot;
-                 idx += item_ct1.get_local_range(2))
+            for (unsigned int idx = idx0; idx < nmTot; idx += stride)
             {
                 tmp[idx] = inptr[idx];
             }
@@ -1142,21 +1148,21 @@ NEK_FORCE_INLINE void Helmholtz3DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const bool isModified,
-    [[maybe_unused]] const unsigned int *__restrict index0,
-    [[maybe_unused]] const unsigned int *__restrict index1,
-    [[maybe_unused]] const unsigned int *__restrict index2,
-    [[maybe_unused]] const unsigned int *__restrict index3,
-    const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict basis2, const TData *__restrict D0,
-    const TData *__restrict D1, const TData *__restrict D2,
-    const TData *__restrict w0, const TData *__restrict w1,
-    const TData *__restrict w2, const TData *__restrict f0,
-    const TData *__restrict f1, const TData *__restrict f1m,
-    const TData *__restrict f2, const TData *__restrict df,
-    const TData *__restrict jac, const TData *__restrict coeff,
-    const TData *__restrict in, TData *__restrict out,
-    [[maybe_unused]] TData *__restrict wsp, const TData lambda,
-    TData *__restrict shmemptr, const sycl::nd_item<3> &item_ct1)
+    [[maybe_unused]] const unsigned int *__restrict__ index0,
+    [[maybe_unused]] const unsigned int *__restrict__ index1,
+    [[maybe_unused]] const unsigned int *__restrict__ index2,
+    [[maybe_unused]] const unsigned int *__restrict__ index3,
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ D0,
+    const TData *__restrict__ D1, const TData *__restrict__ D2,
+    const TData *__restrict__ w0, const TData *__restrict__ w1,
+    const TData *__restrict__ w2, const TData *__restrict__ f0,
+    const TData *__restrict__ f1, const TData *__restrict__ f1m,
+    const TData *__restrict__ f2, const TData *__restrict__ df,
+    const TData *__restrict__ jac, const TData *__restrict__ coeff,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    [[maybe_unused]] TData *__restrict__ wsp, const TData lambda,
+    TData *__restrict__ shmemptr, const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int ndf = 9u;
     const unsigned int nqTot   = nq0 * nq1 * nq2;
@@ -1417,20 +1423,20 @@ NEK_FORCE_INLINE void Helmholtz3DKernel(
         TData *s_basis2 = s_basis1 + nmode1 * nq1;
 
         // Copy to shared memory.
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmode0 * nq0;
-             idx += item_ct1.get_local_range(2))
+        const unsigned int idx0   = item_ct1.get_local_id(2);
+        const unsigned int stride = item_ct1.get_local_range(2);
+
+        for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
         {
             s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmode1 * nq1;
-             idx += item_ct1.get_local_range(2))
+        for (unsigned int idx = idx0; idx < nmode1 * nq1; idx += stride)
         {
             s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmode2 * nq2;
-             idx += item_ct1.get_local_range(2))
+        for (unsigned int idx = idx0; idx < nmode2 * nq2; idx += stride)
         {
             s_basis2[idx] = basis2[idx];
         }
@@ -1444,8 +1450,7 @@ NEK_FORCE_INLINE void Helmholtz3DKernel(
             TData *outptr       = out + nmTot * e;
 
             // Copy to shared memory.
-            for (unsigned int idx = item_ct1.get_local_id(2); idx < nmTot;
-                 idx += item_ct1.get_local_range(2))
+            for (unsigned int idx = idx0; idx < nmTot; idx += stride)
             {
                 tmp[idx] = inptr[idx];
             }

@@ -49,25 +49,26 @@ __global__ void RobBndCond1DKernel(const unsigned int nsize,
                                    const TData *__restrict__ incoeffPtr,
                                    TData *__restrict__ coeffPtr)
 {
-    unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int idx0   = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int stride = blockDim.x * gridDim.x;
 
-    while (i < nsize)
+    for (unsigned int i = idx0; i < nsize; i += stride)
     {
         const unsigned int offset = offsetPtr[i];
         const unsigned int map    = mapPtr[i];
 
+        TData *const ptr = coeffPtr + offset + map;
+        const TData val  = matPtr[i] * incoeffPtr[offset + map];
         if constexpr (negflag)
         {
-            atomic_sub<NektarSpaces::CUDA, NektarSpaces::GlobalScope>(
-                coeffPtr + offset + map, matPtr[i] * incoeffPtr[offset + map]);
+            Nektar::atomic_sub<NektarSpaces::CUDA, NektarSpaces::GlobalScope>(
+                ptr, val);
         }
         else
         {
-            atomic_add<NektarSpaces::CUDA, NektarSpaces::GlobalScope>(
-                coeffPtr + offset + map, matPtr[i] * incoeffPtr[offset + map]);
+            Nektar::atomic_add<NektarSpaces::CUDA, NektarSpaces::GlobalScope>(
+                ptr, val);
         }
-
-        i += blockDim.x * gridDim.x;
     }
 }
 
@@ -81,9 +82,10 @@ __global__ void RobBndCond2DKernel(
     const int *__restrict__ signPtr, const TData *__restrict__ incoeffPtr,
     TData *__restrict__ coeffPtr)
 {
-    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
-    TData *vEdgeCoeffs = (TData *)shared;
-    unsigned int j     = blockIdx.x;
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
+    TData *vEdgeCoeffs = (TData *)shmemptr;
+
+    unsigned int j = blockIdx.x;
 
     while (j < nsize)
     {
@@ -92,7 +94,10 @@ __global__ void RobBndCond2DKernel(
         const unsigned int matOffset = matOffsetPtr[j];
         const unsigned int mapOffset = mapOffsetPtr[j];
 
-        for (unsigned int i = threadIdx.x; i < ncoeff; i += blockDim.x)
+        unsigned int idx0   = threadIdx.x;
+        unsigned int stride = blockDim.x;
+
+        for (unsigned int i = idx0; i < ncoeff; i += stride)
         {
             const unsigned int index = mapOffset + i;
             vEdgeCoeffs[i] =
@@ -101,7 +106,7 @@ __global__ void RobBndCond2DKernel(
 
         __syncthreads();
 
-        for (unsigned int i = threadIdx.x; i < ncoeff; i += blockDim.x)
+        for (unsigned int i = idx0; i < ncoeff; i += stride)
         {
             TData tmp = 0.0;
             for (unsigned int k = 0; k < ncoeff; k++)
@@ -110,15 +115,17 @@ __global__ void RobBndCond2DKernel(
             }
 
             const unsigned int index = mapOffset + i;
+            TData *const ptr         = coeffPtr + offset + mapPtr[index];
+            const TData val          = tmp * signPtr[index];
             if constexpr (negflag)
             {
-                atomic_sub<NektarSpaces::CUDA, NektarSpaces::GlobalScope>(
-                    coeffPtr + offset + mapPtr[index], tmp * signPtr[index]);
+                Nektar::atomic_sub<NektarSpaces::CUDA,
+                                   NektarSpaces::GlobalScope>(ptr, val);
             }
             else
             {
-                atomic_add<NektarSpaces::CUDA, NektarSpaces::GlobalScope>(
-                    coeffPtr + offset + mapPtr[index], tmp * signPtr[index]);
+                Nektar::atomic_add<NektarSpaces::CUDA,
+                                   NektarSpaces::GlobalScope>(ptr, val);
             }
         }
 

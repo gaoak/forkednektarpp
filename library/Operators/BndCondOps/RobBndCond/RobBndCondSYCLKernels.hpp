@@ -37,10 +37,102 @@
 #if defined(NEKTAR_ENABLE_SYCL)
 
 #include "Operators/LoopExecution/LoopExecution.hpp"
-#include "Operators/Utils/SYCLQueue.hpp"
 
 namespace Nektar::Operators::detail
 {
+
+template <bool negflag, typename TData>
+NEK_FORCE_INLINE static void RobBndCond1DKernel(
+    const unsigned int nsize, const unsigned int *__restrict__ offsetPtr,
+    const TData *__restrict__ matPtr, const unsigned int *__restrict__ mapPtr,
+    const TData *__restrict__ incoeffPtr, TData *__restrict__ coeffPtr,
+    const sycl::nd_item<1> &item_ct1)
+{
+    unsigned int idx0   = item_ct1.get_global_id(0);
+    unsigned int stride = item_ct1.get_global_range(0);
+
+    for (unsigned int i = idx0; i < nsize; i += stride)
+    {
+        const unsigned int offset = offsetPtr[i];
+        const unsigned int map    = mapPtr[i];
+
+        TData *const ptr = coeffPtr + offset + map;
+        const TData val  = matPtr[i] * incoeffPtr[offset + map];
+        if constexpr (negflag)
+        {
+            Nektar::atomic_sub<NektarSpaces::SYCL, NektarSpaces::GlobalScope>(
+                ptr, val);
+        }
+        else
+        {
+            Nektar::atomic_add<NektarSpaces::SYCL, NektarSpaces::GlobalScope>(
+                ptr, val);
+        }
+    }
+}
+
+template <bool negflag, typename TData>
+NEK_FORCE_INLINE static void RobBndCond2DKernel(
+    const unsigned int nsize, const unsigned int *__restrict__ ncoeffPtr,
+    const unsigned int *__restrict__ offsetPtr,
+    const unsigned int *__restrict__ matOffsetPtr,
+    const unsigned int *__restrict__ mapOffsetPtr,
+    const TData *__restrict__ matPtr, const unsigned int *__restrict__ mapPtr,
+    const int *__restrict__ signPtr, const TData *__restrict__ incoeffPtr,
+    TData *__restrict__ coeffPtr, TData *__restrict__ shmemptr,
+    const sycl::nd_item<1> &item_ct1)
+{
+    TData *vEdgeCoeffs = shmemptr;
+
+    unsigned int j = item_ct1.get_group(0);
+
+    while (j < nsize)
+    {
+        const unsigned int ncoeff    = ncoeffPtr[j];
+        const unsigned int offset    = offsetPtr[j];
+        const unsigned int matOffset = matOffsetPtr[j];
+        const unsigned int mapOffset = mapOffsetPtr[j];
+
+        unsigned int idx0   = item_ct1.get_local_id(0);
+        unsigned int stride = item_ct1.get_local_range(0);
+
+        for (unsigned int i = idx0; i < ncoeff; i += stride)
+        {
+            const unsigned int index = mapOffset + i;
+            vEdgeCoeffs[i] =
+                incoeffPtr[offset + mapPtr[index]] * signPtr[index];
+        }
+
+        item_ct1.barrier(sycl::access::fence_space::local_space);
+
+        for (unsigned int i = idx0; i < ncoeff; i += stride)
+        {
+            TData tmp = 0.0;
+            for (unsigned int k = 0; k < ncoeff; k++)
+            {
+                tmp += matPtr[matOffset + ncoeff * k + i] * vEdgeCoeffs[k];
+            }
+
+            const unsigned int index = mapOffset + i;
+            TData *const ptr         = coeffPtr + offset + mapPtr[index];
+            const TData val          = tmp * signPtr[index];
+            if constexpr (negflag)
+            {
+                Nektar::atomic_sub<NektarSpaces::SYCL,
+                                   NektarSpaces::GlobalScope>(ptr, val);
+            }
+            else
+            {
+                Nektar::atomic_add<NektarSpaces::SYCL,
+                                   NektarSpaces::GlobalScope>(ptr, val);
+            }
+        }
+
+        item_ct1.barrier(sycl::access::fence_space::local_space);
+
+        j += item_ct1.get_group_range(0);
+    }
+}
 
 template <typename ExecSpace, bool negflag, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
@@ -54,34 +146,13 @@ RobBndCond1DKernel(const unsigned int nsize, const unsigned int *offsetPtr,
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         cgh.parallel_for(
-             sycl::nd_range<1>(gridSize * blockSize, blockSize),
-             [=](sycl::nd_item<1> indx) {
-                 unsigned int i = indx.get_global_id(0);
-
-                 while (i < nsize)
-                 {
-                     const unsigned int offset = offsetPtr[i];
-                     const unsigned int map    = mapPtr[i];
-
-                     TData *const ptr = coeffPtr + offset + map;
-                     const TData val  = matPtr[i] * incoeffPtr[offset + map];
-                     if constexpr (negflag)
-                     {
-                         Nektar::atomic_sub<ExecSpace,
-                                            NektarSpaces::GlobalScope>(ptr,
-                                                                       val);
-                     }
-                     else
-                     {
-                         Nektar::atomic_add<ExecSpace,
-                                            NektarSpaces::GlobalScope>(ptr,
-                                                                       val);
-                     }
-
-                     i += indx.get_global_range(0);
-                 }
-             });
+         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
+                          [=](sycl::nd_item<1> item_ct1) {
+#pragma forceinline
+                              RobBndCond1DKernel<negflag>(
+                                  nsize, offsetPtr, matPtr, mapPtr, incoeffPtr,
+                                  coeffPtr, item_ct1);
+                          });
      }).wait();
 }
 
@@ -100,66 +171,18 @@ RobBndCond2DKernel(const unsigned int nmaxcoeff, const unsigned int nsize,
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         sycl::local_accessor<TData, 1> vEdgeCoeffs(sycl::range<1>(nmaxcoeff),
-                                                    cgh);
+         sycl::local_accessor<TData, 1> shmem(sycl::range<1>(nmaxcoeff), cgh);
          cgh.parallel_for(
              sycl::nd_range<1>(gridSize * blockSize, blockSize),
-             [=](sycl::nd_item<1> indx) {
-                 unsigned int j = indx.get_group(0);
-                 TData *vEdgeCoeffsPtr =
-                     vEdgeCoeffs
-                         .template get_multi_ptr<sycl::access::decorated::no>()
+             [=](sycl::nd_item<1> item_ct1) {
+                 TData *shmemptr =
+                     shmem.template get_multi_ptr<sycl::access::decorated::no>()
                          .get();
-
-                 while (j < nsize)
-                 {
-                     const unsigned int ncoeff    = ncoeffPtr[j];
-                     const unsigned int offset    = offsetPtr[j];
-                     const unsigned int matOffset = matOffsetPtr[j];
-                     const unsigned int mapOffset = mapOffsetPtr[j];
-
-                     for (unsigned int i = indx.get_local_id(0); i < ncoeff;
-                          i += indx.get_local_range(0))
-                     {
-                         const unsigned int index = mapOffset + i;
-                         vEdgeCoeffsPtr[i] =
-                             incoeffPtr[offset + mapPtr[index]] *
-                             signPtr[index];
-                     }
-
-                     indx.barrier(sycl::access::fence_space::local_space);
-
-                     for (unsigned int i = indx.get_local_id(0); i < ncoeff;
-                          i += indx.get_local_range(0))
-                     {
-                         TData tmp = 0.0;
-                         for (unsigned int k = 0; k < ncoeff; k++)
-                         {
-                             tmp += matPtr[matOffset + ncoeff * k + i] *
-                                    vEdgeCoeffsPtr[k];
-                         }
-
-                         const unsigned int index = mapOffset + i;
-                         TData *const ptr = coeffPtr + offset + mapPtr[index];
-                         const TData val  = tmp * signPtr[index];
-                         if constexpr (negflag)
-                         {
-                             Nektar::atomic_sub<ExecSpace,
-                                                NektarSpaces::GlobalScope>(ptr,
-                                                                           val);
-                         }
-                         else
-                         {
-                             Nektar::atomic_add<ExecSpace,
-                                                NektarSpaces::GlobalScope>(ptr,
-                                                                           val);
-                         }
-                     }
-
-                     indx.barrier(sycl::access::fence_space::local_space);
-
-                     j += indx.get_group_range(0);
-                 }
+#pragma forceinline
+                 RobBndCond2DKernel<negflag>(nsize, ncoeffPtr, offsetPtr,
+                                             matOffsetPtr, mapOffsetPtr, matPtr,
+                                             mapPtr, signPtr, incoeffPtr,
+                                             coeffPtr, shmemptr, item_ct1);
              });
      }).wait();
 }
