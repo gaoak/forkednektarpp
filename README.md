@@ -78,8 +78,10 @@ A minimalist compilation command example is shown below for each available backe
              -DCMAKE_CUDA_ARCHITECTURES=86 
 
 Note:
+- For H100, please use `-DCMAKE_CUDA_ARCHITECTURES=90` 
 - For A40, please use `-DCMAKE_CUDA_ARCHITECTURES=86`
 - For A100, please use `-DCMAKE_CUDA_ARCHITECTURES=80` 
+- For V100, please use `-DCMAKE_CUDA_ARCHITECTURES=70` 
 
 ### SYCL (Default)
     cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
