@@ -51,6 +51,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseSegSumFacKernel(
     for (unsigned int p = 0u; p < nm0; ++p)
     {
         TData sum = 0.0;
+#pragma unroll
         for (unsigned int i = 0u; i < nq0; ++i)
         {
             const unsigned int index = warpsize * i + ilane;
@@ -91,6 +92,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseSegSumFacKernel(
     for (unsigned int p = 0u; p < nm0; ++p)
     {
         TData sum = 0.0;
+#pragma unroll
         for (unsigned int i = 0u; i < nq0; ++i)
         {
             sum += in[warpsize * i + ilane] * basis0[p * nq0 + i];
@@ -125,6 +127,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseSegSumFacQPKernel(
     for (unsigned int p = idx0; p < nm0; p += stride)
     {
         TData sum = 0.0;
+#pragma unroll
         for (unsigned int i = 0u; i < nq0; ++i)
         {
             sum += in[i] * basis0[p * nq0 + i];
@@ -164,6 +167,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacKernel(
         for (unsigned int j = 0u, cnt_ji = 0u; j < nq1; ++j)
         {
             TData sum = 0.0;
+#pragma unroll
             for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
             {
                 const unsigned int index = warpsize * cnt_ji + ilane;
@@ -182,6 +186,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacKernel(
         for (unsigned int q = 0u; q < nm1; ++q)
         {
             TData sum = 0.0;
+#pragma unroll
             for (unsigned int j = 0u; j < nq1; ++j)
             {
                 sum += wsp[warpsize * j + ilane] * basis1[q * nq1 + j] * w1[j];
@@ -219,6 +224,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacKernel(
         for (unsigned int j = 0u, cnt_ji = 0u; j < nq1; ++j)
         {
             TData sum = 0.0;
+#pragma unroll
             for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
             {
                 sum += in[warpsize * cnt_ji + ilane] * basis0[p * nq0 + i];
@@ -229,6 +235,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacKernel(
         for (unsigned int q = 0u; q < nm1; ++q)
         {
             TData sum = 0.0;
+#pragma unroll
             for (unsigned int j = 0u; j < nq1; ++j)
             {
                 sum += wsp[warpsize * j + ilane] * basis1[q * nq1 + j];
@@ -270,6 +277,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacQPKernel(
         unsigned int cnt_ji  = nq0 * j;
 
         TData sum = 0.0;
+#pragma unroll
         for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
         {
             sum += in[cnt_ji] * basis0[p * nq0 + i];
@@ -286,6 +294,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacQPKernel(
         unsigned int cnt_pj  = nq1 * p;
 
         TData sum = 0.0;
+#pragma unroll
         for (unsigned int j = 0u; j < nq1; ++j, ++cnt_pj)
         {
             sum += wsp[cnt_pj] * basis1[q * nq1 + j];
@@ -325,6 +334,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacKernel(
         for (unsigned int j = 0u, cnt_ji = 0u; j < nq1; ++j)
         {
             TData sum = 0.0;
+#pragma unroll
             for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
             {
                 const unsigned int index = warpsize * cnt_ji + ilane;
@@ -343,6 +353,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacKernel(
         for (unsigned int q = 0u; q < nm1 - p; ++q, ++mode_pq)
         {
             TData sum = 0.0;
+#pragma unroll
             for (unsigned int j = 0u; j < nq1; ++j)
             {
                 sum += wsp[warpsize * j + ilane] * basis1[mode_pq * nq1 + j] *
@@ -379,6 +390,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacKernel(
                 tmp *= jac[0];
             }
 
+#pragma unroll
             for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
             {
                 TData prod = in[warpsize * cnt_ji + ilane] * tmp * w0[i];
@@ -416,6 +428,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacKernel(
         for (unsigned int j = 0u, cnt_ji = 0u; j < nq1; ++j)
         {
             TData sum = 0.0;
+#pragma unroll
             for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
             {
                 sum += in[warpsize * cnt_ji + ilane] * basis0[p * nq0 + i];
@@ -426,6 +439,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacKernel(
         for (unsigned int q = 0u; q < nm1 - p; ++q, ++mode_pq)
         {
             TData sum = 0.0;
+#pragma unroll
             for (unsigned int j = 0u; j < nq1; ++j)
             {
                 sum += wsp[warpsize * j + ilane] * basis1[mode_pq * nq1 + j];
@@ -455,6 +469,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacKernel(
         TData iprod_01 = 0.0;
         for (unsigned int j = 0u, cnt_ji = 0u; j < nq1; ++j)
         {
+#pragma unroll
             for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
             {
                 TData prod = in[warpsize * cnt_ji + ilane] * basis1[nq1 + j];
@@ -493,6 +508,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacQPKernel(
         unsigned int cnt_ji  = nq0 * j;
 
         TData sum = 0.0;
+#pragma unroll
         for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
         {
             sum += in[cnt_ji] * basis0[p * nq0 + i];
@@ -508,6 +524,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacQPKernel(
         unsigned int cnt_pj  = nq1 * p;
 
         TData sum = 0.0;
+#pragma unroll
         for (unsigned int j = 0u; j < nq1; ++j, ++cnt_pj)
         {
             sum += wsp[cnt_pj] * basis1[idx * nq1 + j];
@@ -582,6 +599,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacKernel(
             for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
             {
                 TData sum_kj = 0.0;
+#pragma unroll
                 for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
                 {
                     const unsigned int index = warpsize * cnt_kji + ilane;
@@ -605,6 +623,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacKernel(
             for (unsigned int k = 0u, cnt_kj = 0u; k < nq2; ++k)
             {
                 TData sum_k = 0.0;
+#pragma unroll
                 for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
                 {
                     sum_k += wsp0[warpsize * cnt_kj + ilane] *
@@ -618,6 +637,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacKernel(
                 const unsigned int cnt_rqp = nm0 * nm1 * r + nm0 * q + p;
 
                 TData sum = 0.0;
+#pragma unroll
                 for (unsigned int k = 0u; k < nq2; ++k)
                 {
                     sum += wsp1[warpsize * k + ilane] * basis2[r * nq2 + k] *
@@ -660,6 +680,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacKernel(
             for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
             {
                 TData sum_kj = 0.0;
+#pragma unroll
                 for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
                 {
                     sum_kj +=
@@ -674,6 +695,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacKernel(
             for (unsigned int k = 0u, cnt_kj = 0u; k < nq2; ++k)
             {
                 TData sum_k = 0.0;
+#pragma unroll
                 for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
                 {
                     sum_k +=
@@ -687,6 +709,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacKernel(
                 const unsigned int cnt_rqp = nm0 * nm1 * r + nm0 * q + p;
 
                 TData sum = 0.0;
+#pragma unroll
                 for (unsigned int k = 0u; k < nq2; ++k)
                 {
                     sum += wsp1[warpsize * k + ilane] * basis2[r * nq2 + k];
@@ -732,6 +755,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacQPKernel(
         unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j;
 
         TData sum_kj = 0.0;
+#pragma unroll
         for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
         {
             sum_kj += in[cnt_kji] * basis0[i + nq0 * p];
@@ -749,6 +773,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacQPKernel(
         unsigned int cnt_pkj = nq2 * nq1 * p + nq1 * k;
 
         TData sum_k = 0.0;
+#pragma unroll
         for (unsigned int j = 0u; j < nq1; ++j, ++cnt_pkj)
         {
             sum_k += wsp0[cnt_pkj] * basis1[q * nq1 + j];
@@ -766,6 +791,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacQPKernel(
         unsigned int cnt_pqk = nm1 * nq2 * p + nq2 * q;
 
         TData sum = 0.0;
+#pragma unroll
         for (unsigned int k = 0u; k < nq2; ++k, ++cnt_pqk)
         {
             sum += wsp1[cnt_pqk] * basis2[r * nq2 + k];
@@ -811,6 +837,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacKernel(
             for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
             {
                 TData sum_kj = 0.0;
+#pragma unroll
                 for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
                 {
                     const unsigned int index = warpsize * cnt_kji + ilane;
@@ -834,6 +861,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacKernel(
             for (unsigned int k = 0u, cnt_kj = 0u; k < nq2; ++k)
             {
                 TData sum_k = 0.0;
+#pragma unroll
                 for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
                 {
                     sum_k += wsp0[warpsize * cnt_kj + ilane] *
@@ -845,6 +873,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacKernel(
             for (unsigned int r = 0u; r < nm2 - p - q; ++r, ++mode2, ++mode_pqr)
             {
                 TData tmp = 0.0;
+#pragma unroll
                 for (unsigned int k = 0u; k < nq2; ++k)
                 {
                     tmp += wsp1[warpsize * k + ilane] *
@@ -868,6 +897,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacKernel(
         }
 
         // increment mode in case order1!=order2
+#pragma unroll
         for (int q = nm1 - p; q < nm2 - p; ++q)
         {
             mode2 += nm2 - p - q;
@@ -877,6 +907,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacKernel(
     // Add correction for collapsed coordinate.
     if (isModified)
     {
+#pragma unroll
         for (unsigned int r = 0u; r < nm2; ++r)
         {
             prod[warpsize * r + ilane] = 0.0;
@@ -918,6 +949,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacKernel(
                     prod[ilane] += tmp;
 
                     // singular edge
+#pragma unroll
                     for (unsigned int r = 1u; r < nm2 - 1u; ++r)
                     {
                         tmp = basis2[(r + 1) * nq2 + k] * basis1[nq1 + j] *
@@ -931,6 +963,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacKernel(
         if constexpr (SCALE)
         {
             out[warpsize + ilane] += prod[warpsize * (nm2 - 1) + ilane] * scale;
+#pragma unroll
             for (unsigned int r = 0u; r < nm2 - 1u; ++r)
             {
                 out[warpsize * (nm2 + r) + ilane] +=
@@ -940,6 +973,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacKernel(
         else
         {
             out[warpsize + ilane] += prod[warpsize * (nm2 - 1) + ilane];
+#pragma unroll
             for (unsigned int r = 0u; r < nm2 - 1u; ++r)
             {
                 out[warpsize * (nm2 + r) + ilane] += prod[warpsize * r + ilane];
@@ -968,6 +1002,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacKernel(
             for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
             {
                 TData sum_kj = 0.0;
+#pragma unroll
                 for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
                 {
                     sum_kj +=
@@ -982,6 +1017,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacKernel(
             for (unsigned int k = 0u, cnt_kj = 0u; k < nq2; ++k)
             {
                 TData sum_k = 0.0;
+#pragma unroll
                 for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
                 {
                     sum_k += wsp0[warpsize * cnt_kj + ilane] *
@@ -993,6 +1029,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacKernel(
             for (unsigned int r = 0u; r < nm2 - p - q; ++r, ++mode2, ++mode_pqr)
             {
                 TData tmp = 0.0;
+#pragma unroll
                 for (unsigned int k = 0u; k < nq2; ++k)
                 {
                     tmp += wsp1[warpsize * k + ilane] * basis2[mode2 * nq2 + k];
@@ -1015,6 +1052,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacKernel(
         }
 
         // increment mode in case order1!=order2
+#pragma unroll
         for (int q = nm1 - p; q < nm2 - p; ++q)
         {
             mode2 += nm2 - p - q;
@@ -1050,6 +1088,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacKernel(
                                    basis2[k] * in[index];
 
                     // singular edge
+#pragma unroll
                     for (unsigned int r = 1u; r < nm2 - 1u; ++r)
                     {
                         prod[warpsize * r + ilane] +=
@@ -1063,6 +1102,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacKernel(
         if constexpr (SCALE)
         {
             out[warpsize + ilane] += prod[warpsize * (nm2 - 1) + ilane] * scale;
+#pragma unroll
             for (unsigned int r = 0u; r < nm2 - 1u; ++r)
             {
                 out[warpsize * (nm2 + r) + ilane] +=
@@ -1072,6 +1112,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacKernel(
         else
         {
             out[warpsize + ilane] += prod[warpsize * (nm2 - 1) + ilane];
+#pragma unroll
             for (unsigned int r = 0u; r < nm2 - 1u; ++r)
             {
                 out[warpsize * (nm2 + r) + ilane] += prod[warpsize * r + ilane];
@@ -1106,6 +1147,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacQPKernel(
         unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j;
 
         TData sum_kj = 0.0;
+#pragma unroll
         for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
         {
             sum_kj += in[cnt_kji] * basis0[i + nq0 * p];
@@ -1123,6 +1165,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacQPKernel(
         unsigned int cnt_pkj       = nq1 * nq2 * p + nq1 * k;
 
         TData sum_k = 0.0;
+#pragma unroll
         for (unsigned int j = 0u; j < nq1; ++j, ++cnt_pkj)
         {
             sum_k += basis1[mode_pq * nq1 + j] * wsp0[cnt_pkj];
@@ -1141,6 +1184,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacQPKernel(
             idx + ((nm2 > nm1) ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u : 0u);
 
         TData tmp = 0.0;
+#pragma unroll
         for (unsigned int k = 0u; k < nq2; ++k)
         {
             tmp += wsp1[mode_pq * nq2 + k] * basis2[mode2 * nq2 + k];
@@ -1185,6 +1229,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacQPKernel(
 
                 // singular edge
                 tmp = basis1[nq1 + j] * basis0[nq0 + i] * in[idx];
+#pragma unroll
                 for (unsigned int r = 1u; r < nm2 - 1u; ++r)
                 {
                     prod[r] += basis2[(r + 1u) * nq2 + k] * tmp;
@@ -1194,6 +1239,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacQPKernel(
                 prod[0] += basis2[k] * tmp;
             }
 
+#pragma unroll
             for (unsigned int r = 0u; r < nm2; ++r)
             {
                 prod[r] = sycl::reduce_over_group(item_ct1.get_sub_group(),
@@ -1319,6 +1365,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacKernel(
             for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
             {
                 TData sum_kj = 0.0;
+#pragma unroll
                 for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
                 {
                     const unsigned int index = warpsize * cnt_kji + ilane;
@@ -1342,6 +1389,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacKernel(
             for (unsigned int k = 0u, cnt_kj = 0u; k < nq2; ++k)
             {
                 TData sum_k = 0.0;
+#pragma unroll
                 for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
                 {
                     sum_k += wsp0[warpsize * cnt_kj + ilane] *
@@ -1355,6 +1403,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacKernel(
                 unsigned int mode_pr = (2u * nm2 - p + 1u) * p / 2u;
 
                 TData sum_k = 0.0;
+#pragma unroll
                 for (unsigned int k = 0u; k < nq2; ++k)
                 {
                     sum_k += wsp1[warpsize * k + ilane] *
@@ -1406,6 +1455,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacKernel(
                         prod *= jac[warpsize * cnt_kji + ilane];
                     }
 
+#pragma unroll
                     for (unsigned int q = 0u; q < nm1; ++q)
                     {
                         wsp2[warpsize * q + ilane] +=
@@ -1415,6 +1465,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacKernel(
             }
         }
 
+#pragma unroll
         for (unsigned int q = 0u; q < nm1; ++q)
         {
             if constexpr (SCALE)
@@ -1450,6 +1501,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacKernel(
             for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
             {
                 TData sum_kj = 0.0;
+#pragma unroll
                 for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
                 {
                     sum_kj +=
@@ -1464,6 +1516,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacKernel(
             for (unsigned int k = 0u, cnt_kj = 0u; k < nq2; ++k)
             {
                 TData sum_k = 0.0;
+#pragma unroll
                 for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
                 {
                     sum_k +=
@@ -1477,6 +1530,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacKernel(
                 unsigned int mode_pr = (2u * nm2 - p + 1u) * p / 2u;
 
                 TData sum_k = 0.0;
+#pragma unroll
                 for (unsigned int k = 0u; k < nq2; ++k)
                 {
                     sum_k += wsp1[warpsize * k + ilane] *
@@ -1503,6 +1557,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacKernel(
     // Add correction for collapsed coordinate.
     if (isModified)
     {
+#pragma unroll
         for (unsigned int q = 0u; q < nm1; ++q)
         {
             wsp2[warpsize * q + ilane] = 0.0;
@@ -1516,6 +1571,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacKernel(
                 {
                     TData prod = basis2[nq2 + k] * basis0[nq0 + i] *
                                  in[warpsize * cnt_kji + ilane];
+#pragma unroll
                     for (unsigned int q = 0u; q < nm1; ++q)
                     {
                         wsp2[warpsize * q + ilane] +=
@@ -1525,6 +1581,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacKernel(
             }
         }
 
+#pragma unroll
         for (unsigned int q = 0u; q < nm1; ++q)
         {
             if constexpr (SCALE)
@@ -1565,6 +1622,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacQPKernel(
         unsigned int cnt_kji = nq1 * nq0 * k + nq0 * j;
 
         TData sum_kj = 0.0;
+#pragma unroll
         for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
         {
             sum_kj += in[cnt_kji] * basis0[nq0 * p + i];
@@ -1582,6 +1640,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacQPKernel(
         unsigned int cnt_pkj = nq1 * nq2 * p + nq1 * k;
 
         TData sum_k = 0.0;
+#pragma unroll
         for (unsigned int j = 0u; j < nq1; ++j, ++cnt_pkj)
         {
             sum_k += basis1[q * nq1 + j] * wsp0[cnt_pkj];
@@ -1600,6 +1659,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacQPKernel(
         unsigned int cnt_pqk       = nm1 * nq2 * p + nq2 * q;
 
         TData sum_k = 0.0;
+#pragma unroll
         for (unsigned int k = 0u; k < nq2; ++k, ++cnt_pqk)
         {
             sum_k += basis2[mode_pr * nq2 + k] * wsp1[cnt_pqk];
@@ -1637,12 +1697,14 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacQPKernel(
                 const unsigned int k = idx / (nq0 * nq1);
 
                 TData tmp = in[idx] * basis2[nq2 + k] * basis0[nq0 + i];
+#pragma unroll
                 for (unsigned int q = 0u; q < nm1; ++q)
                 {
                     prod[q] += tmp * basis1[q * nq1 + j];
                 }
             }
 
+#pragma unroll
             for (unsigned int q = 0u; q < nm1; ++q)
             {
                 prod[q] = sycl::reduce_over_group(item_ct1.get_sub_group(),
@@ -1717,6 +1779,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacKernel(
             for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
             {
                 TData sum_kj = 0.0;
+#pragma unroll
                 for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
                 {
                     const unsigned int index = warpsize * cnt_kji + ilane;
@@ -1740,6 +1803,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacKernel(
             for (unsigned int k = 0u, cnt_kj = 0u; k < nq2; ++k)
             {
                 TData sum_k = 0.0;
+#pragma unroll
                 for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
                 {
                     sum_k += wsp0[warpsize * cnt_kj + ilane] *
@@ -1751,6 +1815,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacKernel(
             for (unsigned int r = 0u; r < nm2 - p; ++r, ++mode2, ++mode_pqr)
             {
                 TData sum_k = 0.0;
+#pragma unroll
                 for (unsigned int k = 0u; k < nq2; ++k)
                 {
                     sum_k += wsp1[warpsize * k + ilane] *
@@ -1778,6 +1843,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacKernel(
             for (unsigned int k = 0u, cnt_kj = 0u; k < nq2; ++k)
             {
                 TData sum_k = 0.0;
+#pragma unroll
                 for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
                 {
                     sum_k += wsp0[warpsize * cnt_kj + ilane] *
@@ -1789,6 +1855,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacKernel(
             for (unsigned int r = 0u; r < nm2 - q; ++r, ++mode2, ++mode_pqr)
             {
                 TData sum_k = 0.0;
+#pragma unroll
                 for (unsigned int k = 0u; k < nq2; ++k)
                 {
                     sum_k += wsp1[warpsize * k + ilane] *
@@ -1812,6 +1879,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacKernel(
         }
 
         // increment mode in case order1!=order2
+#pragma unroll
         for (int q = nm1; q < nm2; ++q)
         {
             mode2 += nm2 - q;
@@ -1833,6 +1901,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacKernel(
             for (unsigned int j = 0u; j < nq1; ++j)
             {
                 TData tmpQ1 = tmpQ2 * w1[j];
+#pragma unroll
                 for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
                 {
                     // Store jac * quadrature weight
@@ -1884,6 +1953,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacKernel(
             for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
             {
                 TData sum_kj = 0.0;
+#pragma unroll
                 for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
                 {
                     sum_kj +=
@@ -1898,6 +1968,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacKernel(
             for (unsigned int k = 0u, cnt_kj = 0u; k < nq2; ++k)
             {
                 TData sum_k = 0.0;
+#pragma unroll
                 for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
                 {
                     sum_k +=
@@ -1909,6 +1980,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacKernel(
             for (unsigned int r = 0u; r < nm2 - p; ++r, ++mode2, ++mode_pqr)
             {
                 TData sum_k = 0.0;
+#pragma unroll
                 for (unsigned int k = 0u; k < nq2; ++k)
                 {
                     sum_k +=
@@ -1936,6 +2008,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacKernel(
             for (unsigned int k = 0u, cnt_kj = 0u; k < nq2; ++k)
             {
                 TData sum_k = 0.0;
+#pragma unroll
                 for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
                 {
                     sum_k +=
@@ -1947,6 +2020,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacKernel(
             for (unsigned int r = 0u; r < nm2 - q; ++r, ++mode2, ++mode_pqr)
             {
                 TData sum_k = 0.0;
+#pragma unroll
                 for (unsigned int k = 0u; k < nq2; ++k)
                 {
                     sum_k +=
@@ -1970,6 +2044,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacKernel(
         }
 
         // increment mode in case order1!=order2
+#pragma unroll
         for (int q = nm1; q < nm2; ++q)
         {
             mode2 += nm2 - q;
@@ -1984,6 +2059,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacKernel(
         {
             for (unsigned int j = 0u; j < nq1; ++j)
             {
+#pragma unroll
                 for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
                 {
                     // top vertex
@@ -2032,6 +2108,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacQPKernel(
         unsigned int cnt_kji = k * nq1 * nq0 + j * nq0;
 
         TData sum_kj = 0.0;
+#pragma unroll
         for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
         {
             sum_kj += in[cnt_kji] * basis0[nq0 * p + i];
@@ -2049,6 +2126,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacQPKernel(
         unsigned int cnt_pkj = nq1 * nq2 * p + k * nq1;
 
         TData sum_k = 0.0;
+#pragma unroll
         for (unsigned int j = 0u; j < nq1; ++j, ++cnt_pkj)
         {
             sum_k += basis1[q * nq1 + j] * wsp0[cnt_pkj];
@@ -2067,6 +2145,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacQPKernel(
         unsigned int cnt_pqk = nm1 * nq2 * p + nq2 * q;
 
         TData sum_k = 0.0;
+#pragma unroll
         for (unsigned int k = 0u; k < nq2; ++k, ++cnt_pqk)
         {
             sum_k += basis2[mode2 * nq2 + k] * wsp1[cnt_pqk];

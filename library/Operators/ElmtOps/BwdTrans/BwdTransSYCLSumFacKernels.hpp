@@ -52,6 +52,7 @@ NEK_DEVICE_INLINE static void BwdTransSegSumFacKernel(
     for (unsigned int i = 0u; i < nq0; ++i)
     {
         TData tmp = 0.0;
+#pragma unroll
         for (unsigned int p = 0u; p < nm0; ++p)
         {
             tmp += in[warpsize * p + ilane] * basis0[p * nq0 + i];
@@ -72,6 +73,7 @@ NEK_DEVICE_INLINE static void BwdTransSegSumFacQPKernel(
     for (unsigned int i = idx0; i < nq0; i += stride)
     {
         TData tmp = 0.0;
+#pragma unroll
         for (unsigned int p = 0u; p < nm0; p++)
         {
             tmp += in[p] * basis0[p * nq0 + i];
@@ -98,6 +100,7 @@ NEK_DEVICE_INLINE static void BwdTransQuadSumFacKernel(
         for (unsigned int q = 0u, cnt_qp = 0u; q < nm1; ++q)
         {
             TData tmp = 0.0;
+#pragma unroll
             for (unsigned int p = 0u; p < nm0; ++p, ++cnt_qp)
             {
                 tmp += in[warpsize * cnt_qp + ilane] * basis0[p * nq0 + i];
@@ -109,6 +112,7 @@ NEK_DEVICE_INLINE static void BwdTransQuadSumFacKernel(
         for (unsigned int j = 0u; j < nq1; ++j)
         {
             TData tmp = 0.0;
+#pragma unroll
             for (unsigned int q = 0u; q < nm1; ++q)
             {
                 tmp += wsp[warpsize * q + ilane] * basis1[q * nq1 + j];
@@ -137,6 +141,7 @@ NEK_DEVICE_INLINE static void BwdTransQuadSumFacQPKernel(
         unsigned int cnt_qp  = nm0 * q;
 
         TData tmp = 0.0;
+#pragma unroll
         for (unsigned int p = 0u; p < nm0; ++p, ++cnt_qp)
         {
             tmp += in[cnt_qp] * basis0[p * nq0 + i];
@@ -154,6 +159,7 @@ NEK_DEVICE_INLINE static void BwdTransQuadSumFacQPKernel(
         unsigned int cnt_iq  = nm1 * i;
 
         TData tmp = 0.0;
+#pragma unroll
         for (unsigned int q = 0u; q < nm1; ++q, ++cnt_iq)
         {
             tmp += wsp[cnt_iq] * basis1[q * nq1 + j];
@@ -180,6 +186,7 @@ NEK_DEVICE_INLINE static void BwdTransTriSumFacKernel(
         for (unsigned int p = 0u, mode_pq = 0u; p < nm0; ++p)
         {
             TData tmp = 0.0;
+#pragma unroll
             for (unsigned int q = 0u; q < (nm1 - p); ++q, ++mode_pq)
             {
                 tmp +=
@@ -198,6 +205,7 @@ NEK_DEVICE_INLINE static void BwdTransTriSumFacKernel(
                 tmp += in[warpsize + ilane] * basis0[nq0 + i] * basis1[nq1 + j];
             }
 
+#pragma unroll
             for (unsigned int p = 0u; p < nm0; ++p)
             {
                 tmp += wsp[warpsize * p + ilane] * basis0[p * nq0 + i];
@@ -227,6 +235,7 @@ NEK_DEVICE_INLINE static void BwdTransTriSumFacQPKernel(
         unsigned int mode_pq = (2u * nm1 - p + 1u) * p / 2u;
 
         TData tmp = 0.0;
+#pragma unroll
         for (unsigned int q = 0u; q < nm1 - p; ++q, ++mode_pq)
         {
             tmp += in[mode_pq] * basis1[mode_pq * nq1 + j];
@@ -250,6 +259,7 @@ NEK_DEVICE_INLINE static void BwdTransTriSumFacQPKernel(
             tmp += in[1] * basis0[nq0 + i] * basis1[nq1 + j];
         }
 
+#pragma unroll
         for (unsigned int p = 0u; p < nm0; ++p, ++cnt_jp)
         {
             tmp += wsp[cnt_jp] * basis0[p * nq0 + i];
@@ -280,6 +290,7 @@ NEK_DEVICE_INLINE static void BwdTransHexSumFacKernel(
             for (unsigned int q = 0u; q < nm1; ++q, ++cnt_rq)
             {
                 TData tmp = 0.0;
+#pragma unroll
                 for (unsigned int p = 0u; p < nm0; ++p, ++cnt_rqp)
                 {
                     tmp += in[warpsize * cnt_rqp + ilane] * basis0[p * nq0 + i];
@@ -294,6 +305,7 @@ NEK_DEVICE_INLINE static void BwdTransHexSumFacKernel(
             for (unsigned int r = 0u, cnt_rq = 0u; r < nm2; ++r)
             {
                 TData tmp = 0.0;
+#pragma unroll
                 for (unsigned int q = 0u; q < nm1; ++q, ++cnt_rq)
                 {
                     tmp +=
@@ -306,6 +318,7 @@ NEK_DEVICE_INLINE static void BwdTransHexSumFacKernel(
             for (unsigned int k = 0u; k < nq2; ++k)
             {
                 TData tmp = 0.0;
+#pragma unroll
                 for (unsigned int r = 0u; r < nm2; ++r)
                 {
                     tmp += wsp1[warpsize * r + ilane] * basis2[r * nq2 + k];
@@ -338,6 +351,7 @@ NEK_DEVICE_INLINE static void BwdTransHexSumFacQPKernel(
         unsigned int cnt_rqp = nm1 * nm0 * r + nm0 * q;
 
         TData tmp = 0.0;
+#pragma unroll
         for (unsigned int p = 0u; p < nm0; ++p, ++cnt_rqp)
         {
             tmp += in[cnt_rqp] * basis0[p * nq0 + i];
@@ -356,6 +370,7 @@ NEK_DEVICE_INLINE static void BwdTransHexSumFacQPKernel(
         unsigned int cnt_irq = nm1 * nm2 * i + nm1 * r;
 
         TData tmp = 0.0;
+#pragma unroll
         for (unsigned int q = 0u; q < nm1; ++q, ++cnt_irq)
         {
             tmp += wsp0[cnt_irq] * basis1[q * nq1 + j];
@@ -374,6 +389,7 @@ NEK_DEVICE_INLINE static void BwdTransHexSumFacQPKernel(
         unsigned int cnt_jir = nq0 * nm2 * j + nm2 * i;
 
         TData tmp = 0.0;
+#pragma unroll
         for (unsigned int r = 0u; r < nm2; ++r, ++cnt_jir)
         {
             tmp += wsp1[cnt_jir] * basis2[r * nq2 + k];
@@ -404,6 +420,7 @@ NEK_DEVICE_INLINE static void BwdTransTetSumFacKernel(
             for (unsigned int q = 0u; q < nm1 - p; ++q, ++mode_pq)
             {
                 TData tmp = 0.0;
+#pragma unroll
                 for (unsigned int r = 0u; r < nm2 - p - q;
                      ++r, ++mode2, ++mode_pqr)
                 {
@@ -413,7 +430,8 @@ NEK_DEVICE_INLINE static void BwdTransTetSumFacKernel(
                 fpq[warpsize * mode_pq + ilane] = tmp;
             }
 
-            // increment mode in case order1!=order2
+            // increment mode in case nm2>nm1
+#pragma unroll
             for (unsigned int q = nm1 - p; q < nm2 - p; ++q)
             {
                 mode2 += nm2 - p - q;
@@ -426,6 +444,7 @@ NEK_DEVICE_INLINE static void BwdTransTetSumFacKernel(
             for (unsigned int p = 0u, mode_pq = 0u; p < nm0; ++p)
             {
                 TData tmp = 0.0;
+#pragma unroll
                 for (unsigned int q = 0u; q < nm1 - p; ++q, ++mode_pq)
                 {
                     tmp += fpq[warpsize * mode_pq + ilane] *
@@ -451,6 +470,7 @@ NEK_DEVICE_INLINE static void BwdTransTetSumFacKernel(
                     TData tmp1 = basis2[k] * in[warpsize * nm2 + ilane];
 
                     // singular edge
+#pragma unroll
                     for (unsigned int r = 1u; r < nm2 - 1u; ++r)
                     {
                         tmp1 += basis2[(r + 1u) * nq2 + k] *
@@ -459,6 +479,7 @@ NEK_DEVICE_INLINE static void BwdTransTetSumFacKernel(
                     tmp += basis1[nq1 + j] * basis0[nq0 + i] * tmp1;
                 }
 
+#pragma unroll
                 for (unsigned int p = 0u; p < nm0; ++p)
                 {
                     tmp += fp[warpsize * p + ilane] * basis0[p * nq0 + i];
@@ -503,6 +524,7 @@ NEK_DEVICE_INLINE static void BwdTransTetSumFacQPKernel(
             ((nm2 > nm1) ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u : 0u);
 
         TData tmp = 0.0;
+#pragma unroll
         for (unsigned int r = 0u; r < nm2 - p - q; ++r, ++mode2, ++mode_pqr)
         {
             tmp += in[mode_pqr] * basis2[k + nq2 * mode2];
@@ -522,6 +544,7 @@ NEK_DEVICE_INLINE static void BwdTransTetSumFacQPKernel(
         unsigned int cnt_kpq = nm01 * k + mode_pq;
 
         TData tmp = 0.0;
+#pragma unroll
         for (unsigned int q = 0u; q < nm1 - p; ++q, ++cnt_kpq, ++mode_pq)
         {
             tmp += wsp0[cnt_kpq] * basis1[mode_pq * nq1 + j];
@@ -553,6 +576,7 @@ NEK_DEVICE_INLINE static void BwdTransTetSumFacQPKernel(
             TData tmp1 = basis2[k] * in[nm2];
 
             // singular edge
+#pragma unroll
             for (unsigned int r = 1u; r < nm2 - 1u; ++r)
             {
                 tmp1 += basis2[(r + 1u) * nq2 + k] * in[nm2 + r];
@@ -560,6 +584,7 @@ NEK_DEVICE_INLINE static void BwdTransTetSumFacQPKernel(
             tmp += basis1[nq1 + j] * basis0[nq0 + i] * tmp1;
         }
 
+#pragma unroll
         for (unsigned int p = 0u; p < nm0; ++p, ++mode_kjp)
         {
             tmp += wsp1[mode_kjp] * basis0[p * nq0 + i];
@@ -591,6 +616,7 @@ NEK_DEVICE_INLINE static void BwdTransPrismSumFacKernel(
             for (unsigned int q = 0u; q < nm1; ++q, ++mode_pq)
             {
                 TData tmp = 0.0;
+#pragma unroll
                 for (unsigned int r = 0u; r < nm2 - p; ++r, ++mode_pqr)
                 {
                     tmp += in[warpsize * mode_pqr + ilane] *
@@ -607,6 +633,7 @@ NEK_DEVICE_INLINE static void BwdTransPrismSumFacKernel(
             for (unsigned int p = 0u, mode_pq = 0u; p < nm0; ++p)
             {
                 TData tmp = 0.0;
+#pragma unroll
                 for (unsigned int q = 0u; q < nm1; ++q, ++mode_pq)
                 {
                     tmp +=
@@ -622,6 +649,7 @@ NEK_DEVICE_INLINE static void BwdTransPrismSumFacKernel(
 
                 if (isModified)
                 {
+#pragma unroll
                     for (unsigned int q = 0u; q < nm1; ++q)
                     {
                         tmp += basis1[q * nq1 + j] *
@@ -630,6 +658,7 @@ NEK_DEVICE_INLINE static void BwdTransPrismSumFacKernel(
                     tmp *= basis2[nq2 + k] * basis0[nq0 + i];
                 }
 
+#pragma unroll
                 for (unsigned int p = 0u; p < nm0; ++p)
                 {
                     tmp += fp[warpsize * p + ilane] * basis0[p * nq0 + i];
@@ -664,6 +693,7 @@ NEK_DEVICE_INLINE static void BwdTransPrismSumFacQPKernel(
         unsigned int mode_pqr = mode_pr * nm1 + (nm2 - p) * q;
 
         TData tmp = 0.0;
+#pragma unroll
         for (unsigned int r = 0u; r < nm2 - p; ++r, ++mode_pqr, ++mode_pr)
         {
             tmp += in[mode_pqr] * basis2[mode_pr * nq2 + k];
@@ -682,6 +712,7 @@ NEK_DEVICE_INLINE static void BwdTransPrismSumFacQPKernel(
         unsigned int mode_kpq = nm0 * nm1 * k + nm1 * p;
 
         TData tmp = 0.0;
+#pragma unroll
         for (unsigned int q = 0u; q < nm1; ++q, ++mode_kpq)
         {
             tmp += wsp0[mode_kpq] * basis1[q * nq1 + j];
@@ -703,6 +734,7 @@ NEK_DEVICE_INLINE static void BwdTransPrismSumFacQPKernel(
 
         if (isModified)
         {
+#pragma unroll
             for (unsigned int q = 0u; q < nm1; ++q)
             {
                 tmp += in[q * nm2 + 1u] * basis1[q * nq1 + j];
@@ -710,6 +742,7 @@ NEK_DEVICE_INLINE static void BwdTransPrismSumFacQPKernel(
             tmp *= basis2[nq2 + k] * basis0[nq0 + i];
         }
 
+#pragma unroll
         for (unsigned int p = 0u; p < nm0; ++p, ++mode_kjp)
         {
             tmp += wsp1[mode_kjp] * basis0[p * nq0 + i];
@@ -741,6 +774,7 @@ NEK_DEVICE_INLINE static void BwdTransPyrSumFacKernel(
             for (unsigned int q = 0u; q < nm1; ++q, ++mode_pq)
             {
                 TData tmp = 0.0;
+#pragma unroll
                 for (unsigned int r = 0u; r < nm2 - std::max(p, q);
                      ++r, ++mode2, ++mode_pqr)
                 {
@@ -751,6 +785,7 @@ NEK_DEVICE_INLINE static void BwdTransPyrSumFacKernel(
             }
 
             // increment mode in case nm2>nm1
+#pragma unroll
             for (unsigned int q = nm1; q < nm2; ++q)
             {
                 mode2 += nm2 - q;
@@ -763,6 +798,7 @@ NEK_DEVICE_INLINE static void BwdTransPyrSumFacKernel(
             for (unsigned int p = 0u, mode_pq = 0u; p < nm0; ++p)
             {
                 TData tmp = 0.0;
+#pragma unroll
                 for (unsigned int q = 0u; q < nm1; ++q, ++mode_pq)
                 {
                     tmp +=
@@ -785,6 +821,7 @@ NEK_DEVICE_INLINE static void BwdTransPyrSumFacKernel(
                     tmp *= basis2[nq2 + k] * in[warpsize + ilane];
                 }
 
+#pragma unroll
                 for (unsigned int p = 0u; p < nm0; ++p)
                 {
                     tmp += fp[warpsize * p + ilane] * basis0[p * nq0 + i];
@@ -827,6 +864,7 @@ NEK_DEVICE_INLINE static void BwdTransPyrSumFacQPKernel(
             mode_pqr += q * (nm2 - p);
             mode2 += mode_pqr;
             TData tmp = 0.0;
+#pragma unroll
             for (unsigned int r = 0u; r < nm2 - p; ++r, ++mode2, ++mode_pqr)
             {
                 tmp += in[mode_pqr] * basis2[mode2 * nq2 + k];
@@ -840,6 +878,7 @@ NEK_DEVICE_INLINE static void BwdTransPyrSumFacQPKernel(
             mode2 += mode_pqr;
 
             TData tmp = 0.0;
+#pragma unroll
             for (unsigned int r = 0u; r < nm2 - q; ++r, ++mode2, ++mode_pqr)
             {
                 tmp += in[mode_pqr] * basis2[mode2 * nq2 + k];
@@ -859,6 +898,7 @@ NEK_DEVICE_INLINE static void BwdTransPyrSumFacQPKernel(
         unsigned int mode_kpq = nm0 * nm1 * k + nm1 * p;
 
         TData tmp = 0.0;
+#pragma unroll
         for (unsigned int q = 0u; q < nm1; ++q, ++mode_kpq)
         {
             tmp += wsp0[mode_kpq] * basis1[q * nq1 + j];
@@ -887,6 +927,7 @@ NEK_DEVICE_INLINE static void BwdTransPyrSumFacQPKernel(
             tmp *= basis2[nq2 + k] * in[1];
         }
 
+#pragma unroll
         for (unsigned int p = 0u; p < nm0; ++p, ++mode_kjp)
         {
             tmp += wsp1[mode_kjp] * basis0[p * nq0 + i];
