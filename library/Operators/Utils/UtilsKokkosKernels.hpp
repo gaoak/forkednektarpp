@@ -44,9 +44,10 @@ namespace Nektar
 {
 
 template <typename TData>
-KOKKOS_INLINE_FUNCTION static void interleaveKernel(
-    const unsigned int VectorWidth, const unsigned int npts, TData *buffer,
-    TData *inout, const team_handle &team)
+NEK_DEVICE_INLINE static void interleaveKernel(const unsigned int VectorWidth,
+                                               const unsigned int npts,
+                                               TData *buffer, TData *inout,
+                                               const team_handle &team)
 {
     const unsigned int metaBlock = team.league_rank();
     const unsigned int offset    = npts * VectorWidth * metaBlock;
@@ -68,9 +69,10 @@ KOKKOS_INLINE_FUNCTION static void interleaveKernel(
 }
 
 template <typename TData>
-KOKKOS_INLINE_FUNCTION static void deInterleaveKernel(
-    const unsigned int VectorWidth, const unsigned int npts, TData *buffer,
-    TData *inout, const team_handle &team)
+NEK_DEVICE_INLINE static void deInterleaveKernel(const unsigned int VectorWidth,
+                                                 const unsigned int npts,
+                                                 TData *buffer, TData *inout,
+                                                 const team_handle &team)
 {
     const unsigned int metaBlock = team.league_rank();
     const unsigned int offset    = npts * VectorWidth * metaBlock;
@@ -92,7 +94,7 @@ KOKKOS_INLINE_FUNCTION static void deInterleaveKernel(
 }
 
 template <typename TData>
-KOKKOS_INLINE_FUNCTION static void BuildInterleaveMapKernel(
+NEK_DEVICE_INLINE static void BuildInterleaveMapKernel(
     const unsigned int npts, const unsigned int newVecWidth,
     const unsigned int offset, TData *deInterleaveMapPtr,
     TData *interleaveMapPtr, TData *buffer, const team_handle &team)

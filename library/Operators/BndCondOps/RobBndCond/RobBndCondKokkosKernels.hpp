@@ -48,7 +48,7 @@ namespace Nektar::Operators::detail
 {
 
 template <bool negflag, typename TData>
-KOKKOS_INLINE_FUNCTION static void RobBndCond1DKernel(
+NEK_DEVICE_INLINE static void RobBndCond1DKernel(
     const unsigned int *__restrict__ offsetPtr,
     const TData *__restrict__ matPtr, const unsigned int *__restrict__ mapPtr,
     const TData *__restrict__ incoeffPtr, TData *__restrict__ coeffPtr,
@@ -73,7 +73,7 @@ KOKKOS_INLINE_FUNCTION static void RobBndCond1DKernel(
 }
 
 template <bool negflag, typename TData>
-KOKKOS_INLINE_FUNCTION static void RobBndCond2DKernel(
+NEK_DEVICE_INLINE static void RobBndCond2DKernel(
     const unsigned int *__restrict__ ncoeffPtr,
     const unsigned int *__restrict__ offsetPtr,
     const unsigned int *__restrict__ matOffsetPtr,

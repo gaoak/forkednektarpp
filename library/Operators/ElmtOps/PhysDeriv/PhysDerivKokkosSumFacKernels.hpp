@@ -46,7 +46,7 @@ using ScratchMemoryView =
                  Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
 
 template <bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION static void PhysDeriv1DSumFacKernel(
+NEK_DEVICE_INLINE static void PhysDeriv1DSumFacKernel(
     const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
     const unsigned int outsize, const TData *__restrict__ D0,
     const TData *__restrict__ df, const TData *__restrict__ in,
@@ -76,7 +76,7 @@ KOKKOS_INLINE_FUNCTION static void PhysDeriv1DSumFacKernel(
 }
 
 template <bool APPEND, bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION void SumDerivTensor1DKernel(
+NEK_DEVICE_INLINE static void SumDerivTensor1DKernel(
     const unsigned int ilane, const unsigned int nq0,
     const TData *__restrict__ D0, const TData *__restrict__ in0,
     TData *__restrict__ out)
@@ -104,7 +104,7 @@ KOKKOS_INLINE_FUNCTION void SumDerivTensor1DKernel(
 }
 
 template <bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION static void PhysDeriv1DSumFacQPKernel(
+NEK_DEVICE_INLINE static void PhysDeriv1DSumFacQPKernel(
     const unsigned int ncoord, const unsigned int nq0,
     const unsigned int outsize, const TData *__restrict__ D0,
     const TData *__restrict__ df, const TData *__restrict__ in,
@@ -136,7 +136,7 @@ KOKKOS_INLINE_FUNCTION static void PhysDeriv1DSumFacQPKernel(
 }
 
 template <bool APPEND, bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION void SumDerivTensor1DQPKernel(
+NEK_DEVICE_INLINE static void SumDerivTensor1DQPKernel(
     const unsigned int nq0, const TData *__restrict__ D0,
     const TData *__restrict__ in0, TData *__restrict__ out,
     const team_handle &team)
@@ -165,7 +165,7 @@ KOKKOS_INLINE_FUNCTION void SumDerivTensor1DQPKernel(
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION static void PhysDeriv2DSumFacKernel(
+NEK_DEVICE_INLINE static void PhysDeriv2DSumFacKernel(
     const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
     const unsigned int nq1, const unsigned int outsize,
     const TData *__restrict__ D0, const TData *__restrict__ D1,
@@ -220,7 +220,7 @@ KOKKOS_INLINE_FUNCTION static void PhysDeriv2DSumFacKernel(
 }
 
 template <bool APPEND, bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION static void SumDerivTensor2DKernel(
+NEK_DEVICE_INLINE static void SumDerivTensor2DKernel(
     const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
     const TData *__restrict__ D0, const TData *__restrict__ D1,
     const TData *__restrict__ in0, const TData *__restrict__ in1,
@@ -260,7 +260,7 @@ KOKKOS_INLINE_FUNCTION static void SumDerivTensor2DKernel(
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION static void PhysDeriv2DSumFacQPKernel(
+NEK_DEVICE_INLINE static void PhysDeriv2DSumFacQPKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
     const unsigned int outsize, const TData *__restrict__ D0,
     const TData *__restrict__ D1, const TData *__restrict__ f0,
@@ -316,7 +316,7 @@ KOKKOS_INLINE_FUNCTION static void PhysDeriv2DSumFacQPKernel(
 }
 
 template <bool APPEND, bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION static void SumDerivTensor2DQPKernel(
+NEK_DEVICE_INLINE static void SumDerivTensor2DQPKernel(
     const unsigned int nq0, const unsigned int nq1,
     const TData *__restrict__ D0, const TData *__restrict__ D1,
     const TData *__restrict__ in0, const TData *__restrict__ in1,
@@ -358,7 +358,7 @@ KOKKOS_INLINE_FUNCTION static void SumDerivTensor2DQPKernel(
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION static void PhysDeriv3DSumFacKernel(
+NEK_DEVICE_INLINE static void PhysDeriv3DSumFacKernel(
     const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int outsize,
     const TData *__restrict__ D0, const TData *__restrict__ D1,
@@ -446,7 +446,7 @@ KOKKOS_INLINE_FUNCTION static void PhysDeriv3DSumFacKernel(
 }
 
 template <bool APPEND, bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION static void SumDerivTensor3DKernel(
+NEK_DEVICE_INLINE static void SumDerivTensor3DKernel(
     const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const TData *__restrict__ D0,
     const TData *__restrict__ D1, const TData *__restrict__ D2,
@@ -500,7 +500,7 @@ KOKKOS_INLINE_FUNCTION static void SumDerivTensor3DKernel(
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION static void PhysDeriv3DSumFacQPKernel(
+NEK_DEVICE_INLINE static void PhysDeriv3DSumFacQPKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int outsize, const TData *__restrict__ D0,
     const TData *__restrict__ D1, const TData *__restrict__ D2,
@@ -583,7 +583,7 @@ KOKKOS_INLINE_FUNCTION static void PhysDeriv3DSumFacQPKernel(
 }
 
 template <bool APPEND, bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION static void SumDerivTensor3DQPKernel(
+NEK_DEVICE_INLINE static void SumDerivTensor3DQPKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const TData *__restrict__ D0, const TData *__restrict__ D1,
     const TData *__restrict__ D2, const TData *__restrict__ in0,
@@ -635,7 +635,7 @@ KOKKOS_INLINE_FUNCTION static void SumDerivTensor3DQPKernel(
 
 // General Launcher
 template <typename Implementation, bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION void PhysDeriv1DKernel(
+NEK_DEVICE_INLINE static void PhysDeriv1DKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nelmt,
     const TData *__restrict__ D0, const TData *__restrict__ df,
     const TData *__restrict__ in, TData *__restrict__ out,
@@ -688,7 +688,7 @@ KOKKOS_INLINE_FUNCTION void PhysDeriv1DKernel(
 // General Launcher
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION void PhysDeriv2DKernel(
+NEK_DEVICE_INLINE static void PhysDeriv2DKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nelmt, const TData *__restrict__ D0,
     const TData *__restrict__ D1, const TData *__restrict__ f0,
@@ -766,7 +766,7 @@ KOKKOS_INLINE_FUNCTION void PhysDeriv2DKernel(
 // General Launcher
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION void PhysDeriv3DKernel(
+NEK_DEVICE_INLINE static void PhysDeriv3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nelmt, const TData *__restrict__ D0,
     const TData *__restrict__ D1, const TData *__restrict__ D2,

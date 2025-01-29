@@ -40,7 +40,7 @@ namespace Nektar
 {
 
 template <typename ExecSpace, typename Scope, typename TData>
-KOKKOS_INLINE_FUNCTION
+NEK_DEVICE_INLINE
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
                             void>::type
     atomic_add(TData *const dest, const TData val)
@@ -49,7 +49,7 @@ KOKKOS_INLINE_FUNCTION
 }
 
 template <typename ExecSpace, typename Scope, typename TData>
-KOKKOS_INLINE_FUNCTION
+NEK_DEVICE_INLINE
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
                             void>::type
     atomic_sub(TData *const dest, const TData val)
@@ -58,7 +58,7 @@ KOKKOS_INLINE_FUNCTION
 }
 
 template <typename ExecSpace, typename Scope, typename TData>
-KOKKOS_INLINE_FUNCTION
+NEK_DEVICE_INLINE
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
                             void>::type
     atomic_max(TData *const dest, const TData val)
@@ -67,7 +67,7 @@ KOKKOS_INLINE_FUNCTION
 }
 
 template <typename ExecSpace, typename Scope, typename TData>
-KOKKOS_INLINE_FUNCTION
+NEK_DEVICE_INLINE
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
                             void>::type
     atomic_min(TData *const dest, const TData val)
@@ -90,8 +90,8 @@ parallel_for(const int begin, const int end, const Functor &functor)
 template <typename ExecSpace, typename Reduction, typename Functor>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
                                void>::type
-parallel_reduce(const int begin, const int end, const Functor &functor,
-                typename Reduction::value_type &red)
+parallel_reduce(const unsigned int begin, const unsigned int end,
+                const Functor &functor, typename Reduction::value_type &red)
 {
     const unsigned int blockSize = NektarSpaces::KOKKOS::defaultBlockSize;
 

@@ -45,9 +45,10 @@ static unsigned int syclBufferSize = 0u;
 static void *syclBuffer            = nullptr;
 
 template <typename ExecSpace, typename Scope, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
-                               void>::type
-atomic_add(TData *const dest, const TData val)
+NEK_DEVICE_INLINE
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                            void>::type
+    atomic_add(TData *const dest, const TData val)
 {
     if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
     {
@@ -66,9 +67,10 @@ atomic_add(TData *const dest, const TData val)
 }
 
 template <typename ExecSpace, typename Scope, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
-                               void>::type
-atomic_sub(TData *const dest, const TData val)
+NEK_DEVICE_INLINE
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                            void>::type
+    atomic_sub(TData *const dest, const TData val)
 {
     if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
     {
@@ -87,9 +89,10 @@ atomic_sub(TData *const dest, const TData val)
 }
 
 template <typename ExecSpace, typename Scope, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
-                               void>::type
-atomic_max(TData *const dest, const TData val)
+NEK_DEVICE_INLINE
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                            void>::type
+    atomic_max(TData *const dest, const TData val)
 {
     if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
     {
@@ -108,9 +111,10 @@ atomic_max(TData *const dest, const TData val)
 }
 
 template <typename ExecSpace, typename Scope, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
-                               void>::type
-atomic_min(TData *const dest, const TData val)
+NEK_DEVICE_INLINE
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                            void>::type
+    atomic_min(TData *const dest, const TData val)
 {
     if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
     {

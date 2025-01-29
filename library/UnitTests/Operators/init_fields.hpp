@@ -34,7 +34,6 @@
 
 #pragma once
 
-#include <LibUtilities/BasicUtils/NekInline.hpp>
 #include <MultiRegions/ContField.h>
 #include <MultiRegions/DisContField.h>
 #include <MultiRegions/ExpList.h>

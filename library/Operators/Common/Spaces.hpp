@@ -34,6 +34,7 @@
 
 #pragma once
 
+#include <LibUtilities/BasicUtils/NekInline.hpp>
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 
 #include <type_traits>
@@ -214,12 +215,16 @@ struct KOKKOS
 #if (defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP)) &&             \
     defined(DEVICE_COMPILE_ONLY)
 #define NEKTAR_LAMBDA [=] __device__
+#define NEK_DEVICE_INLINE __device__ __forceinline__
 #elif defined(NEKTAR_ENABLE_SYCL)
 #define NEKTAR_LAMBDA [=]
+#define NEK_DEVICE_INLINE NEK_FORCE_INLINE
 #elif defined(NEKTAR_ENABLE_KOKKOS) && defined(DEVICE_COMPILE_ONLY)
 #define NEKTAR_LAMBDA KOKKOS_LAMBDA
+#define NEK_DEVICE_INLINE KOKKOS_INLINE_FUNCTION
 #else
 #define NEKTAR_LAMBDA [&]
+#define NEK_DEVICE_INLINE NEK_FORCE_INLINE
 #endif
 
 // Memory scope for atomic.

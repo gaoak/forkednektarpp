@@ -41,7 +41,7 @@ namespace Nektar::Operators::detail
 
 // General Launcher
 template <typename Implementation, bool DEFORMED, typename TData>
-__device__ __forceinline__ void Mass1DKernel(
+NEK_DEVICE_INLINE static void Mass1DKernel(
     const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ w0,
     const TData *__restrict__ jac, const TData *__restrict__ in,
@@ -143,7 +143,7 @@ __global__ void Mass1DKernelLauncher(const unsigned int nelmt,
 // General Launcher
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TData>
-__device__ __forceinline__ void Mass2DKernel(
+NEK_DEVICE_INLINE static void Mass2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const bool isModified,
@@ -332,7 +332,7 @@ __global__ void Mass2DKernelLauncher(
 // General Launcher
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TData>
-__device__ __forceinline__ void Mass3DKernel(
+NEK_DEVICE_INLINE static void Mass3DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const bool isModified,

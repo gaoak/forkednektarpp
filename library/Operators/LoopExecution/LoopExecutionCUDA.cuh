@@ -48,7 +48,7 @@ static void *cudaBuffer            = nullptr;
 
 namespace cg = cooperative_groups;
 
-__device__ __forceinline__ float atomicMax(float *address, float val)
+NEK_DEVICE_INLINE float atomicMax(float *address, float val)
 {
     int ret = __float_as_int(*address);
     while (val > __int_as_float(ret))
@@ -60,7 +60,7 @@ __device__ __forceinline__ float atomicMax(float *address, float val)
     return __int_as_float(ret);
 }
 
-__device__ __forceinline__ float atomicMax_block(float *address, float val)
+NEK_DEVICE_INLINE float atomicMax_block(float *address, float val)
 {
     int ret = __float_as_int(*address);
     while (val > __int_as_float(ret))
@@ -73,7 +73,7 @@ __device__ __forceinline__ float atomicMax_block(float *address, float val)
     return __int_as_float(ret);
 }
 
-__device__ __forceinline__ double atomicMax(double *address, double val)
+NEK_DEVICE_INLINE double atomicMax(double *address, double val)
 {
     unsigned long long ret = __double_as_longlong(*address);
     while (val > __longlong_as_double(ret))
@@ -86,7 +86,7 @@ __device__ __forceinline__ double atomicMax(double *address, double val)
     return __longlong_as_double(ret);
 }
 
-__device__ __forceinline__ double atomicMax_block(double *address, double val)
+NEK_DEVICE_INLINE double atomicMax_block(double *address, double val)
 {
     unsigned long long ret = __double_as_longlong(*address);
     while (val > __longlong_as_double(ret))
@@ -99,7 +99,7 @@ __device__ __forceinline__ double atomicMax_block(double *address, double val)
     return __longlong_as_double(ret);
 }
 
-__device__ __forceinline__ float atomicMin(float *address, float val)
+NEK_DEVICE_INLINE float atomicMin(float *address, float val)
 {
     int ret = __float_as_int(*address);
     while (val < __int_as_float(ret))
@@ -111,7 +111,7 @@ __device__ __forceinline__ float atomicMin(float *address, float val)
     return __int_as_float(ret);
 }
 
-__device__ __forceinline__ float atomicMin_block(float *address, float val)
+NEK_DEVICE_INLINE float atomicMin_block(float *address, float val)
 {
     int ret = __float_as_int(*address);
     while (val < __int_as_float(ret))
@@ -124,7 +124,7 @@ __device__ __forceinline__ float atomicMin_block(float *address, float val)
     return __int_as_float(ret);
 }
 
-__device__ __forceinline__ double atomicMin(double *address, double val)
+NEK_DEVICE_INLINE double atomicMin(double *address, double val)
 {
     unsigned long long ret = __double_as_longlong(*address);
     while (val < __longlong_as_double(ret))
@@ -137,7 +137,7 @@ __device__ __forceinline__ double atomicMin(double *address, double val)
     return __longlong_as_double(ret);
 }
 
-__device__ __forceinline__ double atomicMin_block(double *address, double val)
+NEK_DEVICE_INLINE double atomicMin_block(double *address, double val)
 {
     unsigned long long ret = __double_as_longlong(*address);
     while (val < __longlong_as_double(ret))
@@ -151,7 +151,7 @@ __device__ __forceinline__ double atomicMin_block(double *address, double val)
 }
 
 template <typename ExecSpace, typename Scope, typename TData>
-__device__ __forceinline__
+NEK_DEVICE_INLINE
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
                             void>::type
     atomic_add(TData *const dest, const TData val)
@@ -167,7 +167,7 @@ __device__ __forceinline__
 }
 
 template <typename ExecSpace, typename Scope, typename TData>
-__device__ __forceinline__
+NEK_DEVICE_INLINE
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
                             void>::type
     atomic_sub(TData *const dest, const TData val)
@@ -183,7 +183,7 @@ __device__ __forceinline__
 }
 
 template <typename ExecSpace, typename Scope, typename TData>
-__device__ __forceinline__
+NEK_DEVICE_INLINE
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
                             void>::type
     atomic_max(TData *const dest, const TData val)
@@ -199,7 +199,7 @@ __device__ __forceinline__
 }
 
 template <typename ExecSpace, typename Scope, typename TData>
-__device__ __forceinline__
+NEK_DEVICE_INLINE
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
                             void>::type
     atomic_min(TData *const dest, const TData val)

@@ -42,7 +42,7 @@ namespace Nektar::Operators::detail
 {
 
 template <bool DEFORMED, typename TData>
-__device__ __forceinline__ void ApplyMetric1DSumFacKernel(
+NEK_DEVICE_INLINE static void ApplyMetric1DSumFacKernel(
     const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
     const unsigned int insize, const TData *__restrict__ w0,
     const TData *__restrict__ df, const TData *__restrict__ jac,
@@ -146,7 +146,7 @@ __device__ __forceinline__ void ApplyMetric1DSumFacKernel(
 }
 
 template <bool DEFORMED, typename TData>
-__device__ __forceinline__ void ApplyMetric1DSumFacQPKernel(
+NEK_DEVICE_INLINE static void ApplyMetric1DSumFacQPKernel(
     const unsigned int ncoord, const unsigned int nq0,
     const unsigned int insize, const TData *__restrict__ w0,
     const TData *__restrict__ df, const TData *__restrict__ jac,
@@ -251,7 +251,7 @@ __device__ __forceinline__ void ApplyMetric1DSumFacQPKernel(
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
-__device__ __forceinline__ void ApplyMetric2DSumFacKernel(
+NEK_DEVICE_INLINE static void ApplyMetric2DSumFacKernel(
     const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
     const unsigned int nq1, const unsigned int insize,
     const TData *__restrict__ w0, const TData *__restrict__ w1,
@@ -398,7 +398,7 @@ __device__ __forceinline__ void ApplyMetric2DSumFacKernel(
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
-__device__ __forceinline__ void ApplyMetric2DSumFacQPKernel(
+NEK_DEVICE_INLINE static void ApplyMetric2DSumFacQPKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
     const unsigned int insize, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ f0,
@@ -536,7 +536,7 @@ __device__ __forceinline__ void ApplyMetric2DSumFacQPKernel(
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
-__device__ __forceinline__ void ApplyMetric3DSumFacKernel(
+NEK_DEVICE_INLINE static void ApplyMetric3DSumFacKernel(
     const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int insize,
     const TData *__restrict__ w0, const TData *__restrict__ w1,
@@ -698,7 +698,7 @@ __device__ __forceinline__ void ApplyMetric3DSumFacKernel(
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
-__device__ __forceinline__ void ApplyMetric3DSumFacQPKernel(
+NEK_DEVICE_INLINE static void ApplyMetric3DSumFacQPKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int insize, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ w2,
@@ -842,7 +842,7 @@ __device__ __forceinline__ void ApplyMetric3DSumFacQPKernel(
 
 // General Launcher
 template <typename Implementation, bool DEFORMED, typename TData>
-__device__ __forceinline__ void Helmholtz1DKernel(
+NEK_DEVICE_INLINE static void Helmholtz1DKernel(
     const unsigned int ncoord, const unsigned int nm0, const unsigned int nq0,
     const unsigned int nelmt, const TData *__restrict__ basis0,
     const TData *__restrict__ D0, const TData *__restrict__ w0,
@@ -952,7 +952,7 @@ __global__ void Helmholtz1DKernelLauncher(
 // General Launcher
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TData>
-__device__ __forceinline__ void Helmholtz2DKernel(
+NEK_DEVICE_INLINE static void Helmholtz2DKernel(
     const unsigned int ncoord, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nelmt, const bool isModified,
@@ -1212,7 +1212,7 @@ __global__ void Helmholtz2DKernelLauncher(
 // General Launcher
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TData>
-__device__ __forceinline__ void Helmholtz3DKernel(
+NEK_DEVICE_INLINE static void Helmholtz3DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const bool isModified,

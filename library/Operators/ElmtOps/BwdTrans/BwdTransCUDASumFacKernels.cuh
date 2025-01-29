@@ -40,7 +40,7 @@ namespace Nektar::Operators::detail
 {
 
 template <typename TData>
-__device__ __forceinline__ void BwdTransSegSumFacKernel(
+NEK_DEVICE_INLINE static void BwdTransSegSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nq0,
     const TData *__restrict__ basis0, const TData *__restrict__ in,
     TData *__restrict__ out)
@@ -59,7 +59,7 @@ __device__ __forceinline__ void BwdTransSegSumFacKernel(
 }
 
 template <typename TData>
-__device__ __forceinline__ void BwdTransSegSumFacQPKernel(
+NEK_DEVICE_INLINE static void BwdTransSegSumFacQPKernel(
     const unsigned int nm0, const unsigned int nq0,
     const TData *__restrict__ basis0, const TData *__restrict__ in,
     TData *__restrict__ out)
@@ -81,7 +81,7 @@ __device__ __forceinline__ void BwdTransSegSumFacQPKernel(
 }
 
 template <typename TData>
-__device__ __forceinline__ void BwdTransQuadSumFacKernel(
+NEK_DEVICE_INLINE static void BwdTransQuadSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nq0, const unsigned int nq1,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
@@ -117,7 +117,7 @@ __device__ __forceinline__ void BwdTransQuadSumFacKernel(
 }
 
 template <typename TData>
-__device__ __forceinline__ void BwdTransQuadSumFacQPKernel(
+NEK_DEVICE_INLINE static void BwdTransQuadSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nqTot,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
@@ -163,7 +163,7 @@ __device__ __forceinline__ void BwdTransQuadSumFacQPKernel(
 }
 
 template <typename TData>
-__device__ __forceinline__ void BwdTransTriSumFacKernel(
+NEK_DEVICE_INLINE static void BwdTransTriSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nq0, const unsigned int nq1, const bool isModified,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
@@ -207,7 +207,7 @@ __device__ __forceinline__ void BwdTransTriSumFacKernel(
 }
 
 template <typename TData>
-__device__ __forceinline__ void BwdTransTriSumFacQPKernel(
+NEK_DEVICE_INLINE static void BwdTransTriSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nqTot, const bool isModified,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
@@ -260,7 +260,7 @@ __device__ __forceinline__ void BwdTransTriSumFacQPKernel(
 }
 
 template <typename TData>
-__device__ __forceinline__ void BwdTransHexSumFacKernel(
+NEK_DEVICE_INLINE static void BwdTransHexSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const TData *__restrict__ basis0,
@@ -315,7 +315,7 @@ __device__ __forceinline__ void BwdTransHexSumFacKernel(
 }
 
 template <typename TData>
-__device__ __forceinline__ void BwdTransHexSumFacQPKernel(
+NEK_DEVICE_INLINE static void BwdTransHexSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nqTot, const TData *__restrict__ basis0,
@@ -382,7 +382,7 @@ __device__ __forceinline__ void BwdTransHexSumFacQPKernel(
 }
 
 template <typename TData>
-__device__ __forceinline__ void BwdTransTetSumFacKernel(
+NEK_DEVICE_INLINE static void BwdTransTetSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
@@ -468,7 +468,7 @@ __device__ __forceinline__ void BwdTransTetSumFacKernel(
 }
 
 template <typename TData>
-__device__ __forceinline__ void BwdTransTetSumFacQPKernel(
+NEK_DEVICE_INLINE static void BwdTransTetSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nqTot, const bool isModified,
@@ -568,7 +568,7 @@ __device__ __forceinline__ void BwdTransTetSumFacQPKernel(
 }
 
 template <typename TData>
-__device__ __forceinline__ void BwdTransPrismSumFacKernel(
+NEK_DEVICE_INLINE static void BwdTransPrismSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
@@ -638,7 +638,7 @@ __device__ __forceinline__ void BwdTransPrismSumFacKernel(
 }
 
 template <typename TData>
-__device__ __forceinline__ void BwdTransPrismSumFacQPKernel(
+NEK_DEVICE_INLINE static void BwdTransPrismSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nqTot, const bool isModified,
@@ -717,7 +717,7 @@ __device__ __forceinline__ void BwdTransPrismSumFacQPKernel(
 }
 
 template <typename TData>
-__device__ __forceinline__ void BwdTransPyrSumFacKernel(
+NEK_DEVICE_INLINE static void BwdTransPyrSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
@@ -792,7 +792,7 @@ __device__ __forceinline__ void BwdTransPyrSumFacKernel(
 }
 
 template <typename TData>
-__device__ __forceinline__ void BwdTransPyrSumFacQPKernel(
+NEK_DEVICE_INLINE static void BwdTransPyrSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nqTot, const bool isModified,
@@ -894,10 +894,12 @@ __device__ __forceinline__ void BwdTransPyrSumFacQPKernel(
 
 // General Launcher
 template <typename Implementation, typename TData>
-__device__ __forceinline__ void BwdTrans1DKernel(
-    const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
-    const TData *__restrict__ basis0, const TData *__restrict__ in,
-    TData *__restrict__ out)
+NEK_DEVICE_INLINE static void BwdTrans1DKernel(const unsigned int nm0,
+                                               const unsigned int nq0,
+                                               const unsigned int nelmt,
+                                               const TData *__restrict__ basis0,
+                                               const TData *__restrict__ in,
+                                               TData *__restrict__ out)
 {
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
@@ -954,7 +956,7 @@ __global__ void BwdTrans1DKernelLauncher(const unsigned int nelmt,
 // General Launcher
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TData>
-__device__ __forceinline__ void BwdTrans2DKernel(
+NEK_DEVICE_INLINE static void BwdTrans2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const bool isModified, const TData *__restrict__ basis0,
@@ -1093,7 +1095,7 @@ __global__ void BwdTrans2DKernelLauncher(const unsigned int nelmt,
 // General Launcher
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TData>
-__device__ __forceinline__ void BwdTrans3DKernel(
+NEK_DEVICE_INLINE static void BwdTrans3DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const bool isModified,

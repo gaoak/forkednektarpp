@@ -42,10 +42,10 @@ namespace Nektar
 {
 
 template <typename TData>
-NEK_FORCE_INLINE static void interleaveKernel(const unsigned int VectorWidth,
-                                              const unsigned int npts,
-                                              TData *buffer, TData *inout,
-                                              const sycl::nd_item<1> item_ct1)
+NEK_DEVICE_INLINE static void interleaveKernel(const unsigned int VectorWidth,
+                                               const unsigned int npts,
+                                               TData *buffer, TData *inout,
+                                               const sycl::nd_item<1> item_ct1)
 {
     const unsigned int metaBlock = item_ct1.get_group(0);
     const unsigned int offset    = npts * VectorWidth * metaBlock;
@@ -69,10 +69,9 @@ NEK_FORCE_INLINE static void interleaveKernel(const unsigned int VectorWidth,
 }
 
 template <typename TData>
-NEK_FORCE_INLINE static void deInterleaveKernel(const unsigned int VectorWidth,
-                                                const unsigned int npts,
-                                                TData *buffer, TData *inout,
-                                                const sycl::nd_item<1> item_ct1)
+NEK_DEVICE_INLINE static void deInterleaveKernel(
+    const unsigned int VectorWidth, const unsigned int npts, TData *buffer,
+    TData *inout, const sycl::nd_item<1> item_ct1)
 {
     const unsigned int metaBlock = item_ct1.get_group(0);
     const unsigned int offset    = npts * VectorWidth * metaBlock;
@@ -96,7 +95,7 @@ NEK_FORCE_INLINE static void deInterleaveKernel(const unsigned int VectorWidth,
 }
 
 template <typename TData>
-NEK_FORCE_INLINE static void BuildInterleaveMapKernel(
+NEK_DEVICE_INLINE static void BuildInterleaveMapKernel(
     const unsigned int npts, const unsigned int newVecWidth,
     const unsigned int offset, TData *deInterleaveMapPtr,
     TData *interleaveMapPtr, TData *buffer, const sycl::nd_item<1> item_ct1)
