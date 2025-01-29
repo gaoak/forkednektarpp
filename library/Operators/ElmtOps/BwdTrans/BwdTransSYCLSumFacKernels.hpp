@@ -42,26 +42,6 @@ namespace Nektar::Operators::detail
 {
 
 template <typename TData>
-NEK_DEVICE_INLINE static void BwdTransSegSumFacKernel(
-    const unsigned int ilane, const unsigned int nm0, const unsigned int nq0,
-    const TData *__restrict__ basis0, const TData *__restrict__ in,
-    TData *__restrict__ out)
-{
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
-
-    for (unsigned int i = 0u; i < nq0; ++i)
-    {
-        TData tmp = 0.0;
-#pragma unroll
-        for (unsigned int p = 0u; p < nm0; ++p)
-        {
-            tmp += in[warpsize * p + ilane] * basis0[p * nq0 + i];
-        }
-        out[warpsize * i + ilane] = tmp;
-    }
-}
-
-template <typename TData>
 NEK_DEVICE_INLINE static void BwdTransSegSumFacQPKernel(
     const unsigned int nm0, const unsigned int nq0,
     const TData *__restrict__ basis0, const TData *__restrict__ in,
@@ -82,44 +62,6 @@ NEK_DEVICE_INLINE static void BwdTransSegSumFacQPKernel(
     }
 
     item_ct1.barrier(sycl::access::fence_space::local_space);
-}
-
-template <typename TData>
-NEK_DEVICE_INLINE static void BwdTransQuadSumFacKernel(
-    const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
-    const unsigned int nq0, const unsigned int nq1,
-    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp)
-{
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
-
-    for (unsigned int i = 0u; i < nq0; ++i)
-    {
-        // direction 0
-        for (unsigned int q = 0u, cnt_qp = 0u; q < nm1; ++q)
-        {
-            TData tmp = 0.0;
-#pragma unroll
-            for (unsigned int p = 0u; p < nm0; ++p, ++cnt_qp)
-            {
-                tmp += in[warpsize * cnt_qp + ilane] * basis0[p * nq0 + i];
-            }
-            wsp[warpsize * q + ilane] = tmp;
-        }
-
-        // direction 1
-        for (unsigned int j = 0u; j < nq1; ++j)
-        {
-            TData tmp = 0.0;
-#pragma unroll
-            for (unsigned int q = 0u; q < nm1; ++q)
-            {
-                tmp += wsp[warpsize * q + ilane] * basis1[q * nq1 + j];
-            }
-            out[warpsize * (nq0 * j + i) + ilane] = tmp;
-        }
-    }
 }
 
 template <typename TData>
@@ -168,52 +110,6 @@ NEK_DEVICE_INLINE static void BwdTransQuadSumFacQPKernel(
     }
 
     item_ct1.barrier(sycl::access::fence_space::local_space);
-}
-
-template <typename TData>
-NEK_DEVICE_INLINE static void BwdTransTriSumFacKernel(
-    const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
-    const unsigned int nq0, const unsigned int nq1, const bool isModified,
-    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp)
-{
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
-
-    for (unsigned int j = 0u, cnt_ji = 0u; j < nq1; ++j)
-    {
-        // direction 1
-        for (unsigned int p = 0u, mode_pq = 0u; p < nm0; ++p)
-        {
-            TData tmp = 0.0;
-#pragma unroll
-            for (unsigned int q = 0u; q < (nm1 - p); ++q, ++mode_pq)
-            {
-                tmp +=
-                    in[warpsize * mode_pq + ilane] * basis1[mode_pq * nq1 + j];
-            }
-            wsp[warpsize * p + ilane] = tmp;
-        }
-
-        // direction 0
-        for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
-        {
-            TData tmp = 0.0;
-
-            if (isModified)
-            {
-                tmp += in[warpsize + ilane] * basis0[nq0 + i] * basis1[nq1 + j];
-            }
-
-#pragma unroll
-            for (unsigned int p = 0u; p < nm0; ++p)
-            {
-                tmp += wsp[warpsize * p + ilane] * basis0[p * nq0 + i];
-            }
-
-            out[warpsize * cnt_ji + ilane] = tmp;
-        }
-    }
 }
 
 template <typename TData>
@@ -269,64 +165,6 @@ NEK_DEVICE_INLINE static void BwdTransTriSumFacQPKernel(
     }
 
     item_ct1.barrier(sycl::access::fence_space::local_space);
-}
-
-template <typename TData>
-NEK_DEVICE_INLINE static void BwdTransHexSumFacKernel(
-    const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
-    const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const TData *__restrict__ basis0,
-    const TData *__restrict__ basis1, const TData *__restrict__ basis2,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp0, TData *__restrict__ wsp1)
-{
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
-
-    for (unsigned int i = 0u; i < nq0; ++i)
-    {
-        // direction 0
-        for (unsigned int r = 0u, cnt_rqp = 0u, cnt_rq = 0u; r < nm2; ++r)
-        {
-            for (unsigned int q = 0u; q < nm1; ++q, ++cnt_rq)
-            {
-                TData tmp = 0.0;
-#pragma unroll
-                for (unsigned int p = 0u; p < nm0; ++p, ++cnt_rqp)
-                {
-                    tmp += in[warpsize * cnt_rqp + ilane] * basis0[p * nq0 + i];
-                }
-                wsp0[warpsize * cnt_rq + ilane] = tmp;
-            }
-        }
-
-        // direction 1
-        for (unsigned int j = 0u; j < nq1; ++j)
-        {
-            for (unsigned int r = 0u, cnt_rq = 0u; r < nm2; ++r)
-            {
-                TData tmp = 0.0;
-#pragma unroll
-                for (unsigned int q = 0u; q < nm1; ++q, ++cnt_rq)
-                {
-                    tmp +=
-                        wsp0[warpsize * cnt_rq + ilane] * basis1[q * nq1 + j];
-                }
-                wsp1[warpsize * r + ilane] = tmp;
-            }
-
-            // direction 2
-            for (unsigned int k = 0u; k < nq2; ++k)
-            {
-                TData tmp = 0.0;
-#pragma unroll
-                for (unsigned int r = 0u; r < nm2; ++r)
-                {
-                    tmp += wsp1[warpsize * r + ilane] * basis2[r * nq2 + k];
-                }
-                out[warpsize * (k * nq1 * nq0 + j * nq0 + i) + ilane] = tmp;
-            }
-        }
-    }
 }
 
 template <typename TData>
@@ -398,97 +236,6 @@ NEK_DEVICE_INLINE static void BwdTransHexSumFacQPKernel(
     }
 
     item_ct1.barrier(sycl::access::fence_space::local_space);
-}
-
-template <typename TData>
-NEK_DEVICE_INLINE static void BwdTransTetSumFacKernel(
-    const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
-    const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const bool isModified,
-    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-    const TData *__restrict__ basis2, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ fpq, TData *__restrict__ fp)
-{
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
-
-    for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
-    {
-        // direction 2
-        for (unsigned int p = 0u, mode_pq = 0u, mode2 = 0u, mode_pqr = 0u;
-             p < nm0; ++p)
-        {
-            for (unsigned int q = 0u; q < nm1 - p; ++q, ++mode_pq)
-            {
-                TData tmp = 0.0;
-#pragma unroll
-                for (unsigned int r = 0u; r < nm2 - p - q;
-                     ++r, ++mode2, ++mode_pqr)
-                {
-                    tmp += in[warpsize * mode_pqr + ilane] *
-                           basis2[nq2 * mode2 + k];
-                }
-                fpq[warpsize * mode_pq + ilane] = tmp;
-            }
-
-            // increment mode in case nm2>nm1
-#pragma unroll
-            for (unsigned int q = nm1 - p; q < nm2 - p; ++q)
-            {
-                mode2 += nm2 - p - q;
-            }
-        }
-
-        // direction 1
-        for (unsigned int j = 0u; j < nq1; ++j)
-        {
-            for (unsigned int p = 0u, mode_pq = 0u; p < nm0; ++p)
-            {
-                TData tmp = 0.0;
-#pragma unroll
-                for (unsigned int q = 0u; q < nm1 - p; ++q, ++mode_pq)
-                {
-                    tmp += fpq[warpsize * mode_pq + ilane] *
-                           basis1[mode_pq * nq1 + j];
-                }
-                fp[warpsize * p + ilane] = tmp;
-            }
-
-            // direction 0
-            for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
-            {
-                TData tmp = 0.0;
-
-                if (isModified)
-                {
-                    // top vertex
-                    tmp += basis0[i] * basis1[nq1 + j];
-                    tmp += basis0[nq0 + i] * basis1[j];
-                    tmp += basis0[nq0 + i] * basis1[nq1 + j];
-                    tmp *= basis2[nq2 + k] * in[warpsize + ilane];
-
-                    // bottom vertex
-                    TData tmp1 = basis2[k] * in[warpsize * nm2 + ilane];
-
-                    // singular edge
-#pragma unroll
-                    for (unsigned int r = 1u; r < nm2 - 1u; ++r)
-                    {
-                        tmp1 += basis2[(r + 1u) * nq2 + k] *
-                                in[warpsize * (nm2 + r) + ilane];
-                    }
-                    tmp += basis1[nq1 + j] * basis0[nq0 + i] * tmp1;
-                }
-
-#pragma unroll
-                for (unsigned int p = 0u; p < nm0; ++p)
-                {
-                    tmp += fp[warpsize * p + ilane] * basis0[p * nq0 + i];
-                }
-
-                out[warpsize * cnt_kji + ilane] = tmp;
-            }
-        }
-    }
 }
 
 template <typename TData>
@@ -597,80 +344,6 @@ NEK_DEVICE_INLINE static void BwdTransTetSumFacQPKernel(
 }
 
 template <typename TData>
-NEK_DEVICE_INLINE static void BwdTransPrismSumFacKernel(
-    const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
-    const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const bool isModified,
-    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-    const TData *__restrict__ basis2, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ fpq, TData *__restrict__ fp)
-{
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
-
-    for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
-    {
-        // direction 2
-        for (unsigned int p = 0u, mode_pr = 0u, mode_pq = 0u, mode_pqr = 0u;
-             p < nm0; ++p)
-        {
-            for (unsigned int q = 0u; q < nm1; ++q, ++mode_pq)
-            {
-                TData tmp = 0.0;
-#pragma unroll
-                for (unsigned int r = 0u; r < nm2 - p; ++r, ++mode_pqr)
-                {
-                    tmp += in[warpsize * mode_pqr + ilane] *
-                           basis2[(mode_pr + r) * nq2 + k];
-                }
-                fpq[warpsize * mode_pq + ilane] = tmp;
-            }
-            mode_pr += nm2 - p;
-        }
-
-        // direction 1
-        for (unsigned int j = 0u; j < nq1; ++j)
-        {
-            for (unsigned int p = 0u, mode_pq = 0u; p < nm0; ++p)
-            {
-                TData tmp = 0.0;
-#pragma unroll
-                for (unsigned int q = 0u; q < nm1; ++q, ++mode_pq)
-                {
-                    tmp +=
-                        fpq[warpsize * mode_pq + ilane] * basis1[q * nq1 + j];
-                }
-                fp[warpsize * p + ilane] = tmp;
-            }
-
-            // direction 0
-            for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
-            {
-                TData tmp = 0.0;
-
-                if (isModified)
-                {
-#pragma unroll
-                    for (unsigned int q = 0u; q < nm1; ++q)
-                    {
-                        tmp += basis1[q * nq1 + j] *
-                               in[warpsize * (nm2 * q + 1u) + ilane];
-                    }
-                    tmp *= basis2[nq2 + k] * basis0[nq0 + i];
-                }
-
-#pragma unroll
-                for (unsigned int p = 0u; p < nm0; ++p)
-                {
-                    tmp += fp[warpsize * p + ilane] * basis0[p * nq0 + i];
-                }
-
-                out[warpsize * cnt_kji + ilane] = tmp;
-            }
-        }
-    }
-}
-
-template <typename TData>
 NEK_DEVICE_INLINE static void BwdTransPrismSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
@@ -752,85 +425,6 @@ NEK_DEVICE_INLINE static void BwdTransPrismSumFacQPKernel(
     }
 
     item_ct1.barrier(sycl::access::fence_space::local_space);
-}
-
-template <typename TData>
-NEK_DEVICE_INLINE static void BwdTransPyrSumFacKernel(
-    const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
-    const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const bool isModified,
-    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-    const TData *__restrict__ basis2, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ fpq, TData *__restrict__ fp)
-{
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
-
-    for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
-    {
-        // direction 2
-        for (unsigned int p = 0u, mode_pq = 0u, mode2 = 0u, mode_pqr = 0u;
-             p < nm0; ++p)
-        {
-            for (unsigned int q = 0u; q < nm1; ++q, ++mode_pq)
-            {
-                TData tmp = 0.0;
-#pragma unroll
-                for (unsigned int r = 0u; r < nm2 - std::max(p, q);
-                     ++r, ++mode2, ++mode_pqr)
-                {
-                    tmp += in[warpsize * mode_pqr + ilane] *
-                           basis2[mode2 * nq2 + k];
-                }
-                fpq[warpsize * mode_pq + ilane] = tmp;
-            }
-
-            // increment mode in case nm2>nm1
-#pragma unroll
-            for (unsigned int q = nm1; q < nm2; ++q)
-            {
-                mode2 += nm2 - q;
-            }
-        }
-
-        // direction 1
-        for (unsigned int j = 0u; j < nq1; ++j)
-        {
-            for (unsigned int p = 0u, mode_pq = 0u; p < nm0; ++p)
-            {
-                TData tmp = 0.0;
-#pragma unroll
-                for (unsigned int q = 0u; q < nm1; ++q, ++mode_pq)
-                {
-                    tmp +=
-                        fpq[warpsize * mode_pq + ilane] * basis1[q * nq1 + j];
-                }
-                fp[warpsize * p + ilane] = tmp;
-            }
-
-            // direction 0
-            for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
-            {
-                TData tmp = 0.0;
-
-                if (isModified)
-                {
-                    // top vertex
-                    tmp += basis0[i] * basis1[nq1 + j];
-                    tmp += basis0[nq0 + i] * basis1[j];
-                    tmp += basis0[nq0 + i] * basis1[nq1 + j];
-                    tmp *= basis2[nq2 + k] * in[warpsize + ilane];
-                }
-
-#pragma unroll
-                for (unsigned int p = 0u; p < nm0; ++p)
-                {
-                    tmp += fp[warpsize * p + ilane] * basis0[p * nq0 + i];
-                }
-
-                out[warpsize * cnt_kji + ilane] = tmp;
-            }
-        }
-    }
 }
 
 template <typename TData>
