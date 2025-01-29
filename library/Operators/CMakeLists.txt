@@ -347,6 +347,7 @@ ENDMACRO()
 # Common header file.
 SET(OPERATORS_HEADERS
     Common/Operator.hpp
+    Utils/deviceBlas.hpp 
     )
 
 # Common source file.
@@ -377,6 +378,7 @@ IF(NEKTAR_ENABLE_CUDA)
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
        Utils/CUBLASHandle.cu
+       Utils/cuBlas.cu
     )
 
     SET(OPERATORS_DEPENDS
@@ -389,7 +391,6 @@ IF(NEKTAR_ENABLE_SYCL)
     SET(OPERATORS_HEADERS
       ${OPERATORS_HEADERS}
       Utils/SYCLQueue.hpp
-      Utils/OneMKL.hpp 
     )
 
     SET(OPERATORS_SOURCES

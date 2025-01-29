@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: MultiplyByElmtInvMassSYCLGeneric.hpp
+// File: deviceBlas.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,11 +28,33 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Implementation of the elemental inverse mass operator for the
-// standard matrix approach.
+// Description:
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
 
-#include "MultiplyByElmtInvMassDeviceGeneric.hpp"
+#include <string>
+#if defined(NEKTAR_ENABLE_CUDA)
+#include "Operators/Utils/CUBLASHandle.cuh"
+#elif defined(NEKTAR_ENABLE_SYCL)
+#include "Operators/Utils/SYCLQueue.hpp"
+#endif
+
+template <typename deviceHandle, typename TData>
+void deviceGemm(deviceHandle handle, std::string transposeA,
+                std::string transposeB, const unsigned int M,
+                const unsigned int N, const unsigned int K, const TData alpha,
+                const TData *a, const unsigned int lda, const TData *b,
+                const unsigned int ldb, const TData beta, TData *c,
+                const unsigned int ldc);
+
+template <typename deviceHandle, typename TData>
+void deviceGemmStridedBatched(
+    deviceHandle handle, std::string transposeA, std::string transposeB,
+    const unsigned int M, const unsigned int N, const unsigned int K,
+    const TData alpha, const TData *a, const unsigned int lda,
+    const unsigned int strideA, const TData *b, const unsigned int ldb,
+    const unsigned int strideB, const TData beta, TData *c,
+    const unsigned int ldc, const unsigned int strideC,
+    const unsigned int batchSize);
