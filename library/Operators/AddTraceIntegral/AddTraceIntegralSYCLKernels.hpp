@@ -42,7 +42,7 @@ namespace Nektar::Operators::detail
 {
 
 template <typename TData>
-NEK_FORCE_INLINE static void AddTraceIntegralKernel(
+NEK_DEVICE_INLINE static void AddTraceIntegralKernel(
     const unsigned int nsize, const int *__restrict__ traceCoeffsToElmtMapPtr,
     const int *__restrict__ traceCoeffsToElmtSignPtr,
     const int *__restrict__ traceCoeffsToElmtTracePtr,

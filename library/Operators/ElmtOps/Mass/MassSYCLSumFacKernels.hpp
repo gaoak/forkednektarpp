@@ -40,7 +40,7 @@ namespace Nektar::Operators::detail
 {
 
 template <typename Implementation, bool DEFORMED, typename TData>
-NEK_FORCE_INLINE static void Mass1DKernel(
+NEK_DEVICE_INLINE static void Mass1DKernel(
     const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ w0,
     const TData *__restrict__ jac, const TData *__restrict__ in,
@@ -114,10 +114,11 @@ NEK_FORCE_INLINE static void Mass1DKernel(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TData>
-NEK_FORCE_INLINE static void Mass2DKernel(
+NEK_DEVICE_INLINE static void Mass2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
-    const bool isModified, [[maybe_unused]] const unsigned int *index0,
+    const bool isModified,
+    [[maybe_unused]] const unsigned int *__restrict__ index0,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ w0, const TData *__restrict__ w1,
     const TData *__restrict__ jac, const TData *__restrict__ in,
@@ -270,14 +271,14 @@ NEK_FORCE_INLINE static void Mass2DKernel(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TData>
-NEK_FORCE_INLINE static void Mass3DKernel(
+NEK_DEVICE_INLINE static void Mass3DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const bool isModified,
-    [[maybe_unused]] const unsigned int *index0,
-    [[maybe_unused]] const unsigned int *index1,
-    [[maybe_unused]] const unsigned int *index2,
-    [[maybe_unused]] const unsigned int *index3,
+    [[maybe_unused]] const unsigned int *__restrict__ index0,
+    [[maybe_unused]] const unsigned int *__restrict__ index1,
+    [[maybe_unused]] const unsigned int *__restrict__ index2,
+    [[maybe_unused]] const unsigned int *__restrict__ index3,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ basis2, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ w2,

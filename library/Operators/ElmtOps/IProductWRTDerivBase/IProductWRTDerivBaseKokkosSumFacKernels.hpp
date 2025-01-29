@@ -46,7 +46,7 @@ using ScratchMemoryView =
                  Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
 
 template <bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION static void StdAlignDerivBase1DSumFacKernel(
+NEK_DEVICE_INLINE static void StdAlignDerivBase1DSumFacKernel(
     const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
     const unsigned int insize, const TData *__restrict__ w0,
     const TData *__restrict__ df, const TData *__restrict__ jac,
@@ -78,7 +78,7 @@ KOKKOS_INLINE_FUNCTION static void StdAlignDerivBase1DSumFacKernel(
 }
 
 template <bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION static void StdAlignDerivBase1DSumFacQPKernel(
+NEK_DEVICE_INLINE static void StdAlignDerivBase1DSumFacQPKernel(
     const unsigned int ncoord, const unsigned int nq0,
     const unsigned int insize, const TData *__restrict__ w0,
     const TData *__restrict__ df, const TData *__restrict__ jac,
@@ -115,7 +115,7 @@ KOKKOS_INLINE_FUNCTION static void StdAlignDerivBase1DSumFacQPKernel(
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION static void StdAlignDerivBase2DSumFacKernel(
+NEK_DEVICE_INLINE static void StdAlignDerivBase2DSumFacKernel(
     const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
     const unsigned int nq1, const unsigned int insize,
     const TData *__restrict__ w0, const TData *__restrict__ w1,
@@ -170,7 +170,7 @@ KOKKOS_INLINE_FUNCTION static void StdAlignDerivBase2DSumFacKernel(
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION static void StdAlignDerivBase2DSumFacQPKernel(
+NEK_DEVICE_INLINE static void StdAlignDerivBase2DSumFacQPKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
     const unsigned int insize, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ f0,
@@ -226,7 +226,7 @@ KOKKOS_INLINE_FUNCTION static void StdAlignDerivBase2DSumFacQPKernel(
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION static void StdAlignDerivBase3DSumFacKernel(
+NEK_DEVICE_INLINE static void StdAlignDerivBase3DSumFacKernel(
     const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int insize,
     const TData *__restrict__ w0, const TData *__restrict__ w1,
@@ -306,7 +306,7 @@ KOKKOS_INLINE_FUNCTION static void StdAlignDerivBase3DSumFacKernel(
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION static void StdAlignDerivBase3DSumFacQPKernel(
+NEK_DEVICE_INLINE static void StdAlignDerivBase3DSumFacQPKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int insize, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ w2,
@@ -385,7 +385,7 @@ KOKKOS_INLINE_FUNCTION static void StdAlignDerivBase3DSumFacQPKernel(
 
 // General Launcher
 template <typename Implementation, bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION void IProductWRTDerivBase1DKernel(
+NEK_DEVICE_INLINE static void IProductWRTDerivBase1DKernel(
     const unsigned int ncoord, const unsigned int nm0, const unsigned int nq0,
     const unsigned int nelmt, const TData *__restrict__ dbasis0,
     const TData *__restrict__ w0, const TData *__restrict__ df,
@@ -447,7 +447,7 @@ KOKKOS_INLINE_FUNCTION void IProductWRTDerivBase1DKernel(
 // General Launcher
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION void IProductWRTDerivBase2DKernel(
+NEK_DEVICE_INLINE static void IProductWRTDerivBase2DKernel(
     const unsigned int ncoord, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nelmt, const bool isModified,
@@ -595,7 +595,7 @@ KOKKOS_INLINE_FUNCTION void IProductWRTDerivBase2DKernel(
 // General Launcher
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION void IProductWRTDerivBase3DKernel(
+NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const bool isModified,

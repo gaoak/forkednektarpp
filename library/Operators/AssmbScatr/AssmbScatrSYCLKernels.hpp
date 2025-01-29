@@ -42,12 +42,12 @@ namespace Nektar::Operators::detail
 {
 
 template <typename TData>
-NEK_FORCE_INLINE static void AssembleKernel(const unsigned int nsize,
-                                            const int *__restrict__ assmbPtr,
-                                            const TData *__restrict__ signPtr,
-                                            const TData *__restrict__ inptr,
-                                            TData *__restrict__ outptr,
-                                            const sycl::nd_item<1> item_ct1)
+NEK_DEVICE_INLINE static void AssembleKernel(const unsigned int nsize,
+                                             const int *__restrict__ assmbPtr,
+                                             const TData *__restrict__ signPtr,
+                                             const TData *__restrict__ inptr,
+                                             TData *__restrict__ outptr,
+                                             const sycl::nd_item<1> item_ct1)
 {
     unsigned int i            = item_ct1.get_global_id(0);
     const unsigned int stride = item_ct1.get_global_range(0);
@@ -61,12 +61,12 @@ NEK_FORCE_INLINE static void AssembleKernel(const unsigned int nsize,
 }
 
 template <typename TData>
-NEK_FORCE_INLINE static void AssembleKernel(const unsigned int nsize,
-                                            const int *__restrict__ assmbPtr,
-                                            const TData sign,
-                                            const TData *__restrict__ inptr,
-                                            TData *__restrict__ outptr,
-                                            const sycl::nd_item<1> item_ct1)
+NEK_DEVICE_INLINE static void AssembleKernel(const unsigned int nsize,
+                                             const int *__restrict__ assmbPtr,
+                                             const TData sign,
+                                             const TData *__restrict__ inptr,
+                                             TData *__restrict__ outptr,
+                                             const sycl::nd_item<1> item_ct1)
 {
     unsigned int i            = item_ct1.get_global_id(0);
     const unsigned int stride = item_ct1.get_global_range(0);
@@ -80,11 +80,11 @@ NEK_FORCE_INLINE static void AssembleKernel(const unsigned int nsize,
 }
 
 template <typename TData>
-NEK_FORCE_INLINE static void AssembleKernel(const unsigned int nsize,
-                                            const int *__restrict__ assmbPtr,
-                                            const TData *__restrict__ inptr,
-                                            TData *__restrict__ outptr,
-                                            const sycl::nd_item<1> item_ct1)
+NEK_DEVICE_INLINE static void AssembleKernel(const unsigned int nsize,
+                                             const int *__restrict__ assmbPtr,
+                                             const TData *__restrict__ inptr,
+                                             TData *__restrict__ outptr,
+                                             const sycl::nd_item<1> item_ct1)
 {
     unsigned int i            = item_ct1.get_global_id(0);
     const unsigned int stride = item_ct1.get_global_range(0);
@@ -98,7 +98,7 @@ NEK_FORCE_INLINE static void AssembleKernel(const unsigned int nsize,
 }
 
 template <typename TData>
-NEK_FORCE_INLINE static void GlobalToLocalKernel(
+NEK_DEVICE_INLINE static void GlobalToLocalKernel(
     const unsigned int nsize, const int *__restrict__ assmbPtr,
     const TData *__restrict__ signPtr, const TData *__restrict__ inptr,
     TData *__restrict__ outptr, const sycl::nd_item<1> item_ct1)
@@ -114,7 +114,7 @@ NEK_FORCE_INLINE static void GlobalToLocalKernel(
 }
 
 template <typename TData>
-NEK_FORCE_INLINE static void GlobalToLocalKernel(
+NEK_DEVICE_INLINE static void GlobalToLocalKernel(
     const unsigned int nsize, const int *__restrict__ assmbPtr,
     const TData sign, const TData *__restrict__ inptr,
     TData *__restrict__ outptr, const sycl::nd_item<1> item_ct1)
@@ -130,7 +130,7 @@ NEK_FORCE_INLINE static void GlobalToLocalKernel(
 }
 
 template <typename TData>
-NEK_FORCE_INLINE static void GlobalToLocalKernel(
+NEK_DEVICE_INLINE static void GlobalToLocalKernel(
     const unsigned int nsize, const int *__restrict__ assmbPtr,
     const TData *__restrict__ inptr, TData *__restrict__ outptr,
     const sycl::nd_item<1> item_ct1)

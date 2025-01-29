@@ -40,7 +40,7 @@ namespace Nektar::Operators::detail
 {
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-__device__ __forceinline__ void IProductWRTBaseSegSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseSegSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nq0,
     const TData *__restrict__ basis0, const TData *__restrict__ w0,
     const TData *__restrict__ jac, const TData *__restrict__ in,
@@ -81,7 +81,7 @@ __device__ __forceinline__ void IProductWRTBaseSegSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-__device__ __forceinline__ void IProductWRTBaseSegSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseSegSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nq0,
     const TData *__restrict__ basis0, const TData *__restrict__ in,
     TData *__restrict__ out, const TData scale)
@@ -113,7 +113,7 @@ __device__ __forceinline__ void IProductWRTBaseSegSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-__device__ __forceinline__ void IProductWRTBaseSegSumFacQPKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseSegSumFacQPKernel(
     const unsigned int nm0, const unsigned int nq0,
     const TData *__restrict__ basis0, const TData *__restrict__ in,
     TData *__restrict__ out, const TData scale)
@@ -148,7 +148,7 @@ __device__ __forceinline__ void IProductWRTBaseSegSumFacQPKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-__device__ __forceinline__ void IProductWRTBaseQuadSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nq0, const unsigned int nq1,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
@@ -204,7 +204,7 @@ __device__ __forceinline__ void IProductWRTBaseQuadSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-__device__ __forceinline__ void IProductWRTBaseQuadSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nq0, const unsigned int nq1,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
@@ -251,7 +251,7 @@ __device__ __forceinline__ void IProductWRTBaseQuadSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-__device__ __forceinline__ void IProductWRTBaseQuadSumFacQPKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacQPKernel(
     const unsigned int nm0, [[maybe_unused]] const unsigned int nm1,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     [[maybe_unused]] const unsigned int nqTot, const TData *__restrict__ basis0,
@@ -308,7 +308,7 @@ __device__ __forceinline__ void IProductWRTBaseQuadSumFacQPKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-__device__ __forceinline__ void IProductWRTBaseTriSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nq0, const unsigned int nq1, const bool isModified,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
@@ -400,7 +400,7 @@ __device__ __forceinline__ void IProductWRTBaseTriSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-__device__ __forceinline__ void IProductWRTBaseTriSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nq0, const unsigned int nq1, const bool isModified,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
@@ -472,7 +472,7 @@ __device__ __forceinline__ void IProductWRTBaseTriSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-__device__ __forceinline__ void IProductWRTBaseTriSumFacQPKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacQPKernel(
     const unsigned int nm0, [[maybe_unused]] const unsigned int nm1,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nqTot, const bool isModified,
@@ -566,7 +566,7 @@ __device__ __forceinline__ void IProductWRTBaseTriSumFacQPKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-__device__ __forceinline__ void IProductWRTBaseHexSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const TData *__restrict__ basis0,
@@ -646,7 +646,7 @@ __device__ __forceinline__ void IProductWRTBaseHexSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-__device__ __forceinline__ void IProductWRTBaseHexSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const TData *__restrict__ basis0,
@@ -714,7 +714,7 @@ __device__ __forceinline__ void IProductWRTBaseHexSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-__device__ __forceinline__ void IProductWRTBaseHexSumFacQPKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1,
     [[maybe_unused]] const unsigned int nm2, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
@@ -792,7 +792,7 @@ __device__ __forceinline__ void IProductWRTBaseHexSumFacQPKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-__device__ __forceinline__ void IProductWRTBaseTetSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
@@ -951,7 +951,7 @@ __device__ __forceinline__ void IProductWRTBaseTetSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-__device__ __forceinline__ void IProductWRTBaseTetSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
@@ -1083,7 +1083,7 @@ __device__ __forceinline__ void IProductWRTBaseTetSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-__device__ __forceinline__ void IProductWRTBaseTetSumFacQPKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nqTot, const bool isModified,
@@ -1316,7 +1316,7 @@ __device__ __forceinline__ void IProductWRTBaseTetSumFacQPKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-__device__ __forceinline__ void IProductWRTBasePrismSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
@@ -1449,7 +1449,7 @@ __device__ __forceinline__ void IProductWRTBasePrismSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-__device__ __forceinline__ void IProductWRTBasePrismSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
@@ -1559,7 +1559,7 @@ __device__ __forceinline__ void IProductWRTBasePrismSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-__device__ __forceinline__ void IProductWRTBasePrismSumFacQPKernel(
+NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nqTot, const bool isModified,
@@ -1722,7 +1722,7 @@ __device__ __forceinline__ void IProductWRTBasePrismSumFacQPKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-__device__ __forceinline__ void IProductWRTBasePyrSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
@@ -1891,7 +1891,7 @@ __device__ __forceinline__ void IProductWRTBasePyrSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-__device__ __forceinline__ void IProductWRTBasePyrSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
@@ -2035,7 +2035,7 @@ __device__ __forceinline__ void IProductWRTBasePyrSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-__device__ __forceinline__ void IProductWRTBasePyrSumFacQPKernel(
+NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nqTot, const bool isModified,
@@ -2158,7 +2158,7 @@ __device__ __forceinline__ void IProductWRTBasePyrSumFacQPKernel(
 // General Launcher
 template <typename Implementation, bool SCALE, bool APPEND, bool DEFORMED,
           typename TData>
-__device__ __forceinline__ void IProductWRTBase1DKernel(
+NEK_DEVICE_INLINE static void IProductWRTBase1DKernel(
     const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ w0,
     const TData *__restrict__ jac, const TData *__restrict__ in,
@@ -2254,7 +2254,7 @@ __global__ void IProductWRTBase1DKernelLauncher(
 // General Launcher
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-__device__ __forceinline__ void IProductWRTBase2DKernel(
+NEK_DEVICE_INLINE static void IProductWRTBase2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const bool isModified,
@@ -2421,7 +2421,7 @@ __global__ void IProductWRTBase2DKernelLauncher(
 // General Launcher
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-__device__ __forceinline__ void IProductWRTBase3DKernel(
+NEK_DEVICE_INLINE static void IProductWRTBase3DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const bool isModified,

@@ -46,7 +46,7 @@ using ScratchMemoryView =
                  Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION static void IProductWRTBaseSegSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseSegSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nq0,
     const TData *__restrict__ basis0, const TData *__restrict__ w0,
     const TData *__restrict__ jac, const TData *__restrict__ in,
@@ -87,7 +87,7 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBaseSegSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION static void IProductWRTBaseSegSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseSegSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nq0,
     const TData *__restrict__ basis0, const TData *__restrict__ in,
     TData *__restrict__ out, const TData scale)
@@ -119,7 +119,7 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBaseSegSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION static void IProductWRTBaseSegSumFacQPKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseSegSumFacQPKernel(
     const unsigned int nm0, const unsigned int nq0,
     const TData *__restrict__ basis0, const TData *__restrict__ in,
     TData *__restrict__ out, const TData scale, const team_handle &team)
@@ -151,7 +151,7 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBaseSegSumFacQPKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION static void IProductWRTBaseQuadSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nq0, const unsigned int nq1,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
@@ -207,7 +207,7 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBaseQuadSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION static void IProductWRTBaseQuadSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nq0, const unsigned int nq1,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
@@ -254,7 +254,7 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBaseQuadSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION static void IProductWRTBaseQuadSumFacQPKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacQPKernel(
     const unsigned int nm0, [[maybe_unused]] const unsigned int nm1,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     [[maybe_unused]] const unsigned int nqTot, const TData *__restrict__ basis0,
@@ -309,7 +309,7 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBaseQuadSumFacQPKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION static void IProductWRTBaseTriSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nq0, const unsigned int nq1, const bool isModified,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
@@ -401,7 +401,7 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBaseTriSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION static void IProductWRTBaseTriSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nq0, const unsigned int nq1, const bool isModified,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
@@ -473,7 +473,7 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBaseTriSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION static void IProductWRTBaseTriSumFacQPKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacQPKernel(
     const unsigned int nm0, [[maybe_unused]] const unsigned int nm1,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nqTot, const bool isModified,
@@ -552,7 +552,7 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBaseTriSumFacQPKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION static void IProductWRTBaseHexSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const TData *__restrict__ basis0,
@@ -632,7 +632,7 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBaseHexSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION static void IProductWRTBaseHexSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const TData *__restrict__ basis0,
@@ -700,7 +700,7 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBaseHexSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION static void IProductWRTBaseHexSumFacQPKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1,
     [[maybe_unused]] const unsigned int nm2, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
@@ -776,7 +776,7 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBaseHexSumFacQPKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION static void IProductWRTBaseTetSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
@@ -935,7 +935,7 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBaseTetSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION static void IProductWRTBaseTetSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
@@ -1067,7 +1067,7 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBaseTetSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION static void IProductWRTBaseTetSumFacQPKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nqTot, const bool isModified,
@@ -1213,7 +1213,7 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBaseTetSumFacQPKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION static void IProductWRTBasePrismSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
@@ -1346,7 +1346,7 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBasePrismSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION static void IProductWRTBasePrismSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
@@ -1456,7 +1456,7 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBasePrismSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION static void IProductWRTBasePrismSumFacQPKernel(
+NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nqTot, const bool isModified,
@@ -1564,7 +1564,7 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBasePrismSumFacQPKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION static void IProductWRTBasePyrSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
@@ -1733,7 +1733,7 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBasePyrSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION static void IProductWRTBasePyrSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
@@ -1877,7 +1877,7 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBasePyrSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION static void IProductWRTBasePyrSumFacQPKernel(
+NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nqTot, const bool isModified,
@@ -1985,7 +1985,7 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBasePyrSumFacQPKernel(
 
 template <typename Implementation, bool SCALE, bool APPEND, bool DEFORMED,
           typename TData>
-KOKKOS_INLINE_FUNCTION static void IProductWRTBase1DKernel(
+NEK_DEVICE_INLINE static void IProductWRTBase1DKernel(
     const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ w0,
     const TData *__restrict__ jac, const TData *__restrict__ in,
@@ -2049,7 +2049,7 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBase1DKernel(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION static void IProductWRTBase2DKernel(
+NEK_DEVICE_INLINE static void IProductWRTBase2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const bool isModified, [[maybe_unused]] const unsigned int *index0,
@@ -2168,13 +2168,13 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBase2DKernel(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-KOKKOS_INLINE_FUNCTION static void IProductWRTBase3DKernel(
+NEK_DEVICE_INLINE static void IProductWRTBase3DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const bool isModified,
-    [[maybe_unused]] const unsigned int *index0,
-    [[maybe_unused]] const unsigned int *index1,
-    [[maybe_unused]] const unsigned int *index2,
+    [[maybe_unused]] const unsigned int *__restrict__ index0,
+    [[maybe_unused]] const unsigned int *__restrict__ index1,
+    [[maybe_unused]] const unsigned int *__restrict__ index2,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ basis2, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ w2,

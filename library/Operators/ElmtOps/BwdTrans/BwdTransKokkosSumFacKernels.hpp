@@ -46,7 +46,7 @@ using ScratchMemoryView =
                  Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
 
 template <typename TData>
-KOKKOS_INLINE_FUNCTION static void BwdTransSegSumFacKernel(
+NEK_DEVICE_INLINE static void BwdTransSegSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nq0,
     const TData *__restrict__ basis0, const TData *__restrict__ in,
     TData *__restrict__ out)
@@ -65,7 +65,7 @@ KOKKOS_INLINE_FUNCTION static void BwdTransSegSumFacKernel(
 }
 
 template <typename TData>
-KOKKOS_INLINE_FUNCTION static void BwdTransSegSumFacQPKernel(
+NEK_DEVICE_INLINE static void BwdTransSegSumFacQPKernel(
     const unsigned int nm0, const unsigned int nq0,
     const TData *__restrict__ basis0, const TData *__restrict__ in,
     TData *__restrict__ out, const team_handle &team)
@@ -84,7 +84,7 @@ KOKKOS_INLINE_FUNCTION static void BwdTransSegSumFacQPKernel(
 }
 
 template <typename TData>
-KOKKOS_INLINE_FUNCTION static void BwdTransQuadSumFacKernel(
+NEK_DEVICE_INLINE static void BwdTransQuadSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nq0, const unsigned int nq1,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
@@ -120,7 +120,7 @@ KOKKOS_INLINE_FUNCTION static void BwdTransQuadSumFacKernel(
 }
 
 template <typename TData>
-KOKKOS_INLINE_FUNCTION static void BwdTransQuadSumFacQPKernel(
+NEK_DEVICE_INLINE static void BwdTransQuadSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nqTot,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
@@ -163,7 +163,7 @@ KOKKOS_INLINE_FUNCTION static void BwdTransQuadSumFacQPKernel(
 }
 
 template <typename TData>
-KOKKOS_INLINE_FUNCTION static void BwdTransTriSumFacKernel(
+NEK_DEVICE_INLINE static void BwdTransTriSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nq0, const unsigned int nq1, const bool isModified,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
@@ -207,7 +207,7 @@ KOKKOS_INLINE_FUNCTION static void BwdTransTriSumFacKernel(
 }
 
 template <typename TData>
-KOKKOS_INLINE_FUNCTION static void BwdTransTriSumFacQPKernel(
+NEK_DEVICE_INLINE static void BwdTransTriSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nqTot, const bool isModified,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
@@ -257,7 +257,7 @@ KOKKOS_INLINE_FUNCTION static void BwdTransTriSumFacQPKernel(
 }
 
 template <typename TData>
-KOKKOS_INLINE_FUNCTION static void BwdTransHexSumFacKernel(
+NEK_DEVICE_INLINE static void BwdTransHexSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const TData *__restrict__ basis0,
@@ -312,7 +312,7 @@ KOKKOS_INLINE_FUNCTION static void BwdTransHexSumFacKernel(
 }
 
 template <typename TData>
-KOKKOS_INLINE_FUNCTION static void BwdTransHexSumFacQPKernel(
+NEK_DEVICE_INLINE static void BwdTransHexSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nqTot, const TData *__restrict__ basis0,
@@ -376,7 +376,7 @@ KOKKOS_INLINE_FUNCTION static void BwdTransHexSumFacQPKernel(
 }
 
 template <typename TData>
-KOKKOS_INLINE_FUNCTION static void BwdTransTetSumFacKernel(
+NEK_DEVICE_INLINE static void BwdTransTetSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
@@ -462,7 +462,7 @@ KOKKOS_INLINE_FUNCTION static void BwdTransTetSumFacKernel(
 }
 
 template <typename TData>
-KOKKOS_INLINE_FUNCTION static void BwdTransTetSumFacQPKernel(
+NEK_DEVICE_INLINE static void BwdTransTetSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nqTot, const bool isModified,
@@ -561,7 +561,7 @@ KOKKOS_INLINE_FUNCTION static void BwdTransTetSumFacQPKernel(
 }
 
 template <typename TData>
-KOKKOS_INLINE_FUNCTION static void BwdTransPrismSumFacKernel(
+NEK_DEVICE_INLINE static void BwdTransPrismSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
@@ -631,7 +631,7 @@ KOKKOS_INLINE_FUNCTION static void BwdTransPrismSumFacKernel(
 }
 
 template <typename TData>
-KOKKOS_INLINE_FUNCTION static void BwdTransPrismSumFacQPKernel(
+NEK_DEVICE_INLINE static void BwdTransPrismSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nqTot, const bool isModified,
@@ -709,7 +709,7 @@ KOKKOS_INLINE_FUNCTION static void BwdTransPrismSumFacQPKernel(
 }
 
 template <typename TData>
-KOKKOS_INLINE_FUNCTION static void BwdTransPyrSumFacKernel(
+NEK_DEVICE_INLINE static void BwdTransPyrSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
@@ -784,7 +784,7 @@ KOKKOS_INLINE_FUNCTION static void BwdTransPyrSumFacKernel(
 }
 
 template <typename TData>
-KOKKOS_INLINE_FUNCTION static void BwdTransPyrSumFacQPKernel(
+NEK_DEVICE_INLINE static void BwdTransPyrSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nqTot, const bool isModified,
@@ -884,7 +884,7 @@ KOKKOS_INLINE_FUNCTION static void BwdTransPyrSumFacQPKernel(
 }
 
 template <typename Implementation, typename TData>
-KOKKOS_INLINE_FUNCTION static void BwdTrans1DKernel(
+NEK_DEVICE_INLINE static void BwdTrans1DKernel(
     const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ in,
     TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ shmemptr,
@@ -919,7 +919,7 @@ KOKKOS_INLINE_FUNCTION static void BwdTrans1DKernel(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TData>
-KOKKOS_INLINE_FUNCTION static void BwdTrans2DKernel(
+NEK_DEVICE_INLINE static void BwdTrans2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const bool isModified, const TData *__restrict__ basis0,
@@ -1015,12 +1015,12 @@ KOKKOS_INLINE_FUNCTION static void BwdTrans2DKernel(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TData>
-KOKKOS_INLINE_FUNCTION static void BwdTrans3DKernel(
+NEK_DEVICE_INLINE static void BwdTrans3DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const bool isModified,
-    [[maybe_unused]] const unsigned int *index0,
-    [[maybe_unused]] const unsigned int *index1,
+    [[maybe_unused]] const unsigned int *__restrict__ index0,
+    [[maybe_unused]] const unsigned int *__restrict__ index1,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ basis2, const TData *__restrict__ in,
     TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ wsp,
