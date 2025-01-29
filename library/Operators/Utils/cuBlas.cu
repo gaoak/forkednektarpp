@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: OneMKL.cpp
+// File: cuBlas.cu
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -33,12 +33,9 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "Operators/Utils/deviceBlas.hpp"
-#include "oneapi/mkl.hpp"
-
-using namespace oneapi::mkl;
 
 template <typename deviceHandle, typename TData>
-void deviceGemm(deviceHandle queue, std::string transposeA,
+void deviceGemm(deviceHandle handle, std::string transposeA,
                 std::string transposeB, const unsigned int M,
                 const unsigned int N, const unsigned int K, const TData alpha,
                 const TData *a, const unsigned int lda, const TData *b,
@@ -49,69 +46,53 @@ void deviceGemm(deviceHandle queue, std::string transposeA,
     {
         if (transposeA == "N" && transposeB == "N")
         {
-            blas::column_major::gemm(queue, oneapi::mkl::transpose::N,
-                                     oneapi::mkl::transpose::N, M, N, K, alpha,
-                                     a, lda, b, ldb, beta, c, ldc)
-                .wait();
+            cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, M, N, K, &alpha, a,
+                        lda, b, ldb, &beta, c, ldc);
         }
         else if (transposeA == "T" && transposeB == "N")
         {
-            blas::column_major::gemm(queue, oneapi::mkl::transpose::T,
-                                     oneapi::mkl::transpose::N, M, N, K, alpha,
-                                     a, lda, b, ldb, beta, c, ldc)
-                .wait();
+            cublasSgemm(handle, CUBLAS_OP_T, CUBLAS_OP_N, M, N, K, &alpha, a,
+                        lda, b, ldb, &beta, c, ldc);
         }
         else if (transposeA == "N" && transposeB == "T")
         {
-            blas::column_major::gemm(queue, oneapi::mkl::transpose::N,
-                                     oneapi::mkl::transpose::T, M, N, K, alpha,
-                                     a, lda, b, ldb, beta, c, ldc)
-                .wait();
+            cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, M, N, K, &alpha, a,
+                        lda, b, ldb, &beta, c, ldc);
         }
         else if (transposeA == "T" && transposeB == "T")
         {
-            blas::column_major::gemm(queue, oneapi::mkl::transpose::T,
-                                     oneapi::mkl::transpose::T, M, N, K, alpha,
-                                     a, lda, b, ldb, beta, c, ldc)
-                .wait();
+            cublasSgemm(handle, CUBLAS_OP_T, CUBLAS_OP_T, M, N, K, &alpha, a,
+                        lda, b, ldb, &beta, c, ldc);
         }
     }
     else if constexpr (std::is_same_v<TData, double>)
     {
         if (transposeA == "N" && transposeB == "N")
         {
-            blas::column_major::gemm(queue, oneapi::mkl::transpose::N,
-                                     oneapi::mkl::transpose::N, M, N, K, alpha,
-                                     a, lda, b, ldb, beta, c, ldc)
-                .wait();
+            cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, M, N, K, &alpha, a,
+                        lda, b, ldb, &beta, c, ldc);
         }
         else if (transposeA == "T" && transposeB == "N")
         {
-            blas::column_major::gemm(queue, oneapi::mkl::transpose::T,
-                                     oneapi::mkl::transpose::N, M, N, K, alpha,
-                                     a, lda, b, ldb, beta, c, ldc)
-                .wait();
+            cublasDgemm(handle, CUBLAS_OP_T, CUBLAS_OP_N, M, N, K, &alpha, a,
+                        lda, b, ldb, &beta, c, ldc);
         }
         else if (transposeA == "N" && transposeB == "T")
         {
-            blas::column_major::gemm(queue, oneapi::mkl::transpose::N,
-                                     oneapi::mkl::transpose::T, M, N, K, alpha,
-                                     a, lda, b, ldb, beta, c, ldc)
-                .wait();
+            cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, M, N, K, &alpha, a,
+                        lda, b, ldb, &beta, c, ldc);
         }
         else if (transposeA == "T" && transposeB == "T")
         {
-            blas::column_major::gemm(queue, oneapi::mkl::transpose::T,
-                                     oneapi::mkl::transpose::T, M, N, K, alpha,
-                                     a, lda, b, ldb, beta, c, ldc)
-                .wait();
+            cublasDgemm(handle, CUBLAS_OP_T, CUBLAS_OP_T, M, N, K, &alpha, a,
+                        lda, b, ldb, &beta, c, ldc);
         }
     }
 }
 
 template <typename deviceHandle, typename TData>
 void deviceGemmStridedBatched(
-    deviceHandle queue, std::string transposeA, std::string transposeB,
+    deviceHandle handle, std::string transposeA, std::string transposeB,
     const unsigned int M, const unsigned int N, const unsigned int K,
     const TData alpha, const TData *a, const unsigned int lda,
     const unsigned int strideA, const TData *b, const unsigned int ldb,
@@ -123,97 +104,80 @@ void deviceGemmStridedBatched(
     {
         if (transposeA == "N" && transposeB == "N")
         {
-            blas::column_major::gemm_batch(
-                queue, oneapi::mkl::transpose::N, oneapi::mkl::transpose::N, M,
-                N, K, alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc,
-                strideC, batchSize)
-                .wait();
+            cublasSgemmStridedBatched(handle, CUBLAS_OP_N, CUBLAS_OP_N, M, N, K,
+                                      &alpha, a, lda, strideA, b, ldb, strideB,
+                                      &beta, c, ldc, strideC, batchSize);
         }
         else if (transposeA == "T" && transposeB == "N")
         {
-            blas::column_major::gemm_batch(
-                queue, oneapi::mkl::transpose::T, oneapi::mkl::transpose::N, M,
-                N, K, alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc,
-                strideC, batchSize)
-                .wait();
+            cublasSgemmStridedBatched(handle, CUBLAS_OP_T, CUBLAS_OP_N, M, N, K,
+                                      &alpha, a, lda, strideA, b, ldb, strideB,
+                                      &beta, c, ldc, strideC, batchSize);
         }
         else if (transposeA == "N" && transposeB == "T")
         {
-            blas::column_major::gemm_batch(
-                queue, oneapi::mkl::transpose::N, oneapi::mkl::transpose::T, M,
-                N, K, alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc,
-                strideC, batchSize)
-                .wait();
+            cublasSgemmStridedBatched(handle, CUBLAS_OP_N, CUBLAS_OP_T, M, N, K,
+                                      &alpha, a, lda, strideA, b, ldb, strideB,
+                                      &beta, c, ldc, strideC, batchSize);
         }
         else if (transposeA == "T" && transposeB == "T")
         {
-            blas::column_major::gemm_batch(
-                queue, oneapi::mkl::transpose::T, oneapi::mkl::transpose::T, M,
-                N, K, alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc,
-                strideC, batchSize)
-                .wait();
+            cublasSgemmStridedBatched(handle, CUBLAS_OP_T, CUBLAS_OP_T, M, N, K,
+                                      &alpha, a, lda, strideA, b, ldb, strideB,
+                                      &beta, c, ldc, strideC, batchSize);
         }
     }
     else if constexpr (std::is_same_v<TData, double>)
     {
         if (transposeA == "N" && transposeB == "N")
         {
-            blas::column_major::gemm_batch(
-                queue, oneapi::mkl::transpose::N, oneapi::mkl::transpose::N, M,
-                N, K, alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc,
-                strideC, batchSize)
-                .wait();
+            cublasDgemmStridedBatched(handle, CUBLAS_OP_N, CUBLAS_OP_N, M, N, K,
+                                      &alpha, a, lda, strideA, b, ldb, strideB,
+                                      &beta, c, ldc, strideC, batchSize);
         }
         else if (transposeA == "T" && transposeB == "N")
         {
-            blas::column_major::gemm_batch(
-                queue, oneapi::mkl::transpose::T, oneapi::mkl::transpose::N, M,
-                N, K, alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc,
-                strideC, batchSize)
-                .wait();
+            cublasDgemmStridedBatched(handle, CUBLAS_OP_T, CUBLAS_OP_N, M, N, K,
+                                      &alpha, a, lda, strideA, b, ldb, strideB,
+                                      &beta, c, ldc, strideC, batchSize);
         }
         else if (transposeA == "N" && transposeB == "T")
         {
-            blas::column_major::gemm_batch(
-                queue, oneapi::mkl::transpose::N, oneapi::mkl::transpose::T, M,
-                N, K, alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc,
-                strideC, batchSize)
-                .wait();
+            cublasDgemmStridedBatched(handle, CUBLAS_OP_N, CUBLAS_OP_T, M, N, K,
+                                      &alpha, a, lda, strideA, b, ldb, strideB,
+                                      &beta, c, ldc, strideC, batchSize);
         }
         else if (transposeA == "T" && transposeB == "T")
         {
-            blas::column_major::gemm_batch(
-                queue, oneapi::mkl::transpose::T, oneapi::mkl::transpose::T, M,
-                N, K, alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc,
-                strideC, batchSize)
-                .wait();
+            cublasDgemmStridedBatched(handle, CUBLAS_OP_T, CUBLAS_OP_T, M, N, K,
+                                      &alpha, a, lda, strideA, b, ldb, strideB,
+                                      &beta, c, ldc, strideC, batchSize);
         }
     }
 }
 
-template void deviceGemm<sycl::queue, float>(
-    sycl::queue queue, std::string transposeA, std::string transposeB,
+template void deviceGemm<cublasHandle_t, float>(
+    cublasHandle_t handle, std::string transposeA, std::string transposeB,
     const unsigned int M, const unsigned int N, const unsigned int K,
     const float alpha, const float *a, const unsigned int lda, const float *b,
     const unsigned int ldb, const float beta, float *c, const unsigned int ldc);
-
-template void deviceGemm<sycl::queue, double>(
-    sycl::queue queue, std::string transposeA, std::string transposeB,
+template void deviceGemm<cublasHandle_t, double>(
+    cublasHandle_t handle, std::string transposeA, std::string transposeB,
     const unsigned int M, const unsigned int N, const unsigned int K,
     const double alpha, const double *a, const unsigned int lda,
     const double *b, const unsigned int ldb, const double beta, double *c,
     const unsigned int ldc);
 
-template void deviceGemmStridedBatched<sycl::queue, float>(
-    sycl::queue queue, std::string transposeA, std::string transposeB,
+template void deviceGemmStridedBatched<cublasHandle_t, float>(
+    cublasHandle_t handle, std::string transposeA, std::string transposeB,
     const unsigned int M, const unsigned int N, const unsigned int K,
     const float alpha, const float *a, const unsigned int lda,
     const unsigned int strideA, const float *b, const unsigned int ldb,
     const unsigned int strideB, const float beta, float *c,
     const unsigned int ldc, const unsigned int strideC,
     const unsigned int batchSize);
-template void deviceGemmStridedBatched<sycl::queue, double>(
-    sycl::queue queue, std::string transposeA, std::string transposeB,
+template void deviceGemmStridedBatched<cublasHandle_t, double>(
+    cublasHandle_t handle, std::string transposeA, std::string transposeB,
     const unsigned int M, const unsigned int N, const unsigned int K,
     const double alpha, const double *a, const unsigned int lda,
     const unsigned int strideA, const double *b, const unsigned int ldb,
