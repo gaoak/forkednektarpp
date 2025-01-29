@@ -103,6 +103,8 @@ MACRO(SET_COMMON_PROPERTIES name)
         TARGET_COMPILE_OPTIONS(${name} PRIVATE -Wno-sign-compare)
         # Temporarily disable warnings about narrowing of data types
         TARGET_COMPILE_OPTIONS(${name} PRIVATE -Wno-narrowing -Wno-conversion)
+        # Disable warnings about unknown pragama
+        TARGET_COMPILE_OPTIONS(${name} PRIVATE -Wno-unknown-pragmas)
 
         # Disable dignostic about partially overloaded virtual functions
         IF (CMAKE_CXX_COMPILER_ID STREQUAL "Intel")

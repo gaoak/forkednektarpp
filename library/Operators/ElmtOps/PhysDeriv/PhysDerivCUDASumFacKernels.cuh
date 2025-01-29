@@ -56,6 +56,7 @@ NEK_DEVICE_INLINE static void PhysDeriv1DSumFacKernel(
 
         // Compute tensorial derivative.
         TData d0 = 0.0;
+#pragma unroll
         for (unsigned int q = 0u; q < nq0; ++q)
         {
             d0 += D0[q * nq0 + i] * in[warpsize * q + ilane];
@@ -81,6 +82,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor1DKernel(
     {
         // Compute tensorial derivative.
         TData d0 = 0.0;
+#pragma unroll
         for (unsigned int q = 0u; q < nq0; ++q)
         {
             d0 += D0[i * nq0 + q] * in0[warpsize * q + ilane];
@@ -119,6 +121,7 @@ NEK_DEVICE_INLINE static void PhysDeriv1DSumFacQPKernel(
 
         // Compute tensorial derivative.
         TData d0 = 0.0;
+#pragma unroll
         for (unsigned int q = 0u; q < nq0; ++q)
         {
             d0 += D0[q * nq0 + i] * in[q];
@@ -147,6 +150,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor1DQPKernel(
         // Compute tensorial derivative.
         // Direction 0
         TData d0 = 0.0;
+#pragma unroll
         for (unsigned int q = 0u; q < nq0; ++q)
         {
             d0 += D0[i * nq0 + q] * in0[q];
@@ -190,6 +194,7 @@ NEK_DEVICE_INLINE static void PhysDeriv2DSumFacKernel(
             // Compute tensorial derivative.
             // Direction 0
             TData d0 = 0.0;
+#pragma unroll
             for (unsigned int q = 0u; q < nq0; ++q)
             {
                 d0 += D0[q * nq0 + i] * in[warpsize * (nq0 * j + q) + ilane];
@@ -197,6 +202,7 @@ NEK_DEVICE_INLINE static void PhysDeriv2DSumFacKernel(
 
             // Direction 1
             TData d1 = 0.0;
+#pragma unroll
             for (unsigned int q = 0u; q < nq1; ++q)
             {
                 d1 += D1[q * nq1 + j] * in[warpsize * (nq0 * q + i) + ilane];
@@ -236,6 +242,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor2DKernel(
             // Compute tensorial derivative.
             // Direction 0
             TData d0 = 0.0;
+#pragma unroll
             for (unsigned int q = 0u; q < nq0; ++q)
             {
                 d0 += D0[i * nq0 + q] * in0[warpsize * (nq0 * j + q) + ilane];
@@ -243,6 +250,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor2DKernel(
 
             // Direction 1
             TData d1 = 0.0;
+#pragma unroll
             for (unsigned int q = 0u; q < nq1; ++q)
             {
                 d1 += D1[j * nq1 + q] * in1[warpsize * (nq0 * q + i) + ilane];
@@ -287,6 +295,7 @@ NEK_DEVICE_INLINE static void PhysDeriv2DSumFacQPKernel(
         // Compute tensorial derivative.
         // Direction 0
         TData d0 = 0.0;
+#pragma unroll
         for (unsigned int q = 0u; q < nq0; ++q)
         {
             d0 += D0[q * nq0 + i] * in[nq0 * j + q];
@@ -294,6 +303,7 @@ NEK_DEVICE_INLINE static void PhysDeriv2DSumFacQPKernel(
 
         // Direction 1
         TData d1 = 0.0;
+#pragma unroll
         for (unsigned int q = 0u; q < nq1; ++q)
         {
             d1 += D1[q * nq1 + j] * in[nq0 * q + i];
@@ -338,6 +348,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor2DQPKernel(
         // Compute tensorial derivative.
         // Direction 0
         TData d0 = 0.0;
+#pragma unroll
         for (unsigned int q = 0u; q < nq0; ++q)
         {
             d0 += D0[i * nq0 + q] * in0[nq0 * j + q];
@@ -345,6 +356,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor2DQPKernel(
 
         // Direction 1
         TData d1 = 0.0;
+#pragma unroll
         for (unsigned int q = 0u; q < nq1; ++q)
         {
             d1 += D1[j * nq1 + q] * in1[nq0 * q + i];
@@ -394,6 +406,7 @@ NEK_DEVICE_INLINE static void PhysDeriv3DSumFacKernel(
                 // Compute tensorial derivative.
                 // Direction 0
                 TData d0 = 0.0;
+#pragma unroll
                 for (unsigned int q = 0u; q < nq0; ++q)
                 {
                     d0 += D0[q * nq0 + i] *
@@ -402,6 +415,7 @@ NEK_DEVICE_INLINE static void PhysDeriv3DSumFacKernel(
 
                 // Direction 1
                 TData d1 = 0.0;
+#pragma unroll
                 for (unsigned int q = 0u; q < nq1; ++q)
                 {
                     d1 += D1[q * nq1 + j] *
@@ -410,6 +424,7 @@ NEK_DEVICE_INLINE static void PhysDeriv3DSumFacKernel(
 
                 // Direction 2
                 TData d2 = 0.0;
+#pragma unroll
                 for (unsigned int q = 0u; q < nq2; ++q)
                 {
                     d2 += D2[q * nq2 + k] *
@@ -470,6 +485,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor3DKernel(
                 // Compute tensorial derivative.
                 // Direction 0
                 TData d0 = 0.0;
+#pragma unroll
                 for (unsigned int q = 0u; q < nq0; ++q)
                 {
                     d0 += D0[i * nq0 + q] *
@@ -478,6 +494,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor3DKernel(
 
                 // Direction 1
                 TData d1 = 0.0;
+#pragma unroll
                 for (unsigned int q = 0u; q < nq1; ++q)
                 {
                     d1 += D1[j * nq1 + q] *
@@ -486,6 +503,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor3DKernel(
 
                 // Direction 2
                 TData d2 = 0.0;
+#pragma unroll
                 for (unsigned int q = 0u; q < nq2; ++q)
                 {
                     d2 += D2[k * nq2 + q] *
@@ -537,6 +555,7 @@ NEK_DEVICE_INLINE static void PhysDeriv3DSumFacQPKernel(
         // Compute tensorial derivative.
         // Direction 0
         TData d0 = 0.0;
+#pragma unroll
         for (unsigned int q = 0u; q < nq0; ++q)
         {
             d0 += D0[q * nq0 + i] * in[nq0 * nq1 * k + nq0 * j + q];
@@ -544,6 +563,7 @@ NEK_DEVICE_INLINE static void PhysDeriv3DSumFacQPKernel(
 
         // Direction 1
         TData d1 = 0.0;
+#pragma unroll
         for (unsigned int q = 0u; q < nq1; ++q)
         {
             d1 += D1[q * nq1 + j] * in[nq0 * nq1 * k + nq0 * q + i];
@@ -551,6 +571,7 @@ NEK_DEVICE_INLINE static void PhysDeriv3DSumFacQPKernel(
 
         // Direction 2
         TData d2 = 0.0;
+#pragma unroll
         for (unsigned int q = 0u; q < nq2; ++q)
         {
             d2 += D2[q * nq2 + k] * in[nq0 * nq1 * q + nq0 * j + i];
@@ -613,6 +634,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor3DQPKernel(
         // Compute tensorial derivative.
         // Direction 0
         TData d0 = 0.0;
+#pragma unroll
         for (unsigned int q = 0u; q < nq0; ++q)
         {
             d0 += D0[i * nq0 + q] * in0[nq0 * nq1 * k + nq0 * j + q];
@@ -620,6 +642,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor3DQPKernel(
 
         // Direction 1
         TData d1 = 0.0;
+#pragma unroll
         for (unsigned int q = 0u; q < nq1; ++q)
         {
             d1 += D1[j * nq1 + q] * in1[nq0 * nq1 * k + nq0 * q + i];
@@ -627,6 +650,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor3DQPKernel(
 
         // Direction 2
         TData d2 = 0.0;
+#pragma unroll
         for (unsigned int q = 0u; q < nq2; ++q)
         {
             d2 += D2[k * nq2 + q] * in2[nq0 * nq1 * q + nq0 * j + i];
