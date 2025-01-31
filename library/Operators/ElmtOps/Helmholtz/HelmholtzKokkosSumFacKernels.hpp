@@ -36,8 +36,6 @@
 
 #if defined(NEKTAR_ENABLE_KOKKOS)
 
-#include "Operators/Common/Spaces.hpp"
-
 namespace Nektar::Operators::detail
 {
 

@@ -36,37 +36,8 @@
 
 #if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
 
-#include "Operators/Common/Spaces.hpp"
-
 namespace Nektar
 {
-
-template <typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void interleaveKernel(const unsigned int VectorWidth,
-                                               const unsigned int npts,
-                                               TData *buffer, TData *inout,
-                                               const TthreadBlock &threadBlock)
-{
-    const unsigned int metaBlock = getBlockIdx(threadBlock);
-    const unsigned int offset    = npts * VectorWidth * metaBlock;
-
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
-
-    for (unsigned int idx = idx0; idx < npts * VectorWidth; idx += stride)
-    {
-        buffer[offset + idx] = inout[offset + idx];
-    }
-
-    localBarrier(threadBlock);
-
-    for (unsigned int idx = idx0; idx < npts * VectorWidth; idx += stride)
-    {
-        unsigned int vecElem = idx % VectorWidth;
-        unsigned int iElem   = idx / VectorWidth;
-        inout[offset + idx]  = buffer[offset + vecElem * npts + iElem];
-    }
-}
 
 template <typename TData>
 __global__ void interleaveKernel(const unsigned int VectorWidth,
@@ -76,74 +47,12 @@ __global__ void interleaveKernel(const unsigned int VectorWidth,
     interleaveKernel(VectorWidth, npts, buffer, inout, cudaBlock1D());
 }
 
-template <typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void deInterleaveKernel(
-    const unsigned int VectorWidth, const unsigned int npts, TData *buffer,
-    TData *inout, const TthreadBlock &threadBlock)
-{
-    const unsigned int metaBlock = getBlockIdx(threadBlock);
-    const unsigned int offset    = npts * VectorWidth * metaBlock;
-
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
-
-    for (unsigned int idx = idx0; idx < npts * VectorWidth; idx += stride)
-    {
-        buffer[offset + idx] = inout[offset + idx];
-    }
-
-    localBarrier(threadBlock);
-
-    for (unsigned int idx = idx0; idx < npts * VectorWidth; idx += stride)
-    {
-        unsigned int vecElem = idx / npts;
-        unsigned int iElem   = idx % npts;
-        inout[offset + idx]  = buffer[offset + iElem * VectorWidth + vecElem];
-    }
-}
-
 template <typename TData>
 __global__ void deInterleaveKernel(const unsigned int VectorWidth,
                                    const unsigned int npts, TData *buffer,
                                    TData *inout)
 {
     deInterleaveKernel(VectorWidth, npts, buffer, inout, cudaBlock1D());
-}
-
-template <typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void BuildInterleaveMapKernel(
-    const unsigned int npts, const unsigned int newVecWidth,
-    const unsigned int offset, TData *deInterleaveMapPtr,
-    TData *interleaveMapPtr, TData *buffer, const TthreadBlock &threadBlock)
-{
-    const unsigned int metaBlock   = getBlockIdx(threadBlock);
-    const unsigned int groupOffset = npts * newVecWidth * metaBlock;
-
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
-
-    for (unsigned int idx = idx0; idx < npts * newVecWidth; idx += stride)
-    {
-        buffer[groupOffset + idx] = offset + groupOffset + idx;
-    }
-
-    localBarrier(threadBlock);
-
-    for (unsigned int idx = idx0; idx < npts * newVecWidth; idx += stride)
-    {
-        unsigned int vecElem = idx % newVecWidth;
-        unsigned int iElem   = idx / newVecWidth;
-        deInterleaveMapPtr[groupOffset + idx] =
-            buffer[groupOffset + vecElem * npts + iElem];
-    }
-
-    localBarrier(threadBlock);
-
-    for (unsigned int idx = idx0; idx < npts * newVecWidth; idx += stride)
-    {
-        interleaveMapPtr[deInterleaveMapPtr[groupOffset + idx]] =
-            offset + groupOffset + idx;
-    }
 }
 
 template <typename TData>

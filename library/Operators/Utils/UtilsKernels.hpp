@@ -35,10 +35,8 @@
 #pragma once
 
 #include "Operators/LoopExecution/LoopExecution.hpp"
-#include "UtilsCUDAKernels.cuh"
-#include "UtilsKokkosKernels.hpp"
-#include "UtilsSYCLKernels.hpp"
-#include "UtilsSerialAVXKernels.hpp"
+#include "Operators/Utils/UtilsDeviceKernels.hpp"
+#include "Operators/Utils/UtilsSerialAVXKernels.hpp"
 
 /**
  * @brief Reshapes the storage to a prescribed vector width.

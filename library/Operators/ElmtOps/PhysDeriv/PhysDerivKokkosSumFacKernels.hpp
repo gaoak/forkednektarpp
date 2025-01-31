@@ -45,35 +45,6 @@ using ScratchMemoryView =
     Kokkos::View<TData *, Kokkos::DefaultExecutionSpace::scratch_memory_space,
                  Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
 
-template <bool APPEND, bool DEFORMED, typename TData>
-NEK_DEVICE_INLINE static void SumDerivTensor1DKernel(
-    const unsigned int ilane, const unsigned int nq0,
-    const TData *__restrict__ D0, const TData *__restrict__ in0,
-    TData *__restrict__ out)
-{
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
-
-    for (unsigned int i = 0u; i < nq0; ++i)
-    {
-        // Compute tensorial derivative.
-        TData d0 = 0.0;
-#pragma unroll
-        for (unsigned int q = 0u; q < nq0; ++q)
-        {
-            d0 += D0[i * nq0 + q] * in0[warpsize * q + ilane];
-        }
-
-        if constexpr (APPEND)
-        {
-            out[warpsize * i + ilane] += d0;
-        }
-        else
-        {
-            out[warpsize * i + ilane] = d0;
-        }
-    }
-}
-
 template <bool DEFORMED, typename TData>
 NEK_DEVICE_INLINE static void PhysDeriv1DSumFacQPKernel(
     const unsigned int ncoord, const unsigned int nq0,
@@ -135,48 +106,6 @@ NEK_DEVICE_INLINE static void SumDerivTensor1DQPKernel(
                          });
 
     team.team_barrier();
-}
-
-template <bool APPEND, bool DEFORMED, typename TData>
-NEK_DEVICE_INLINE static void SumDerivTensor2DKernel(
-    const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
-    const TData *__restrict__ D0, const TData *__restrict__ D1,
-    const TData *__restrict__ in0, const TData *__restrict__ in1,
-    TData *__restrict__ out)
-{
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
-
-    for (unsigned int j = 0u, cnt_ji = 0u; j < nq1; ++j)
-    {
-        for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
-        {
-            // Compute tensorial derivative.
-            // Direction 0
-            TData d0 = 0.0;
-#pragma unroll
-            for (unsigned int q = 0u; q < nq0; ++q)
-            {
-                d0 += D0[i * nq0 + q] * in0[warpsize * (nq0 * j + q) + ilane];
-            }
-
-            // Direction 1
-            TData d1 = 0.0;
-#pragma unroll
-            for (unsigned int q = 0u; q < nq1; ++q)
-            {
-                d1 += D1[j * nq1 + q] * in1[warpsize * (nq0 * q + i) + ilane];
-            }
-
-            if constexpr (APPEND)
-            {
-                out[warpsize * cnt_ji + ilane] += d0 + d1;
-            }
-            else
-            {
-                out[warpsize * cnt_ji + ilane] = d0 + d1;
-            }
-        }
-    }
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
@@ -279,63 +208,6 @@ NEK_DEVICE_INLINE static void SumDerivTensor2DQPKernel(
                          });
 
     team.team_barrier();
-}
-
-template <bool APPEND, bool DEFORMED, typename TData>
-NEK_DEVICE_INLINE static void SumDerivTensor3DKernel(
-    const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const TData *__restrict__ D0,
-    const TData *__restrict__ D1, const TData *__restrict__ D2,
-    const TData *__restrict__ in0, const TData *__restrict__ in1,
-    const TData *__restrict__ in2, TData *__restrict__ out)
-{
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
-
-    for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; k++)
-    {
-        for (unsigned int j = 0u; j < nq1; j++)
-        {
-            for (unsigned int i = 0u; i < nq0; i++, cnt_kji++)
-            {
-                // Compute tensorial derivative.
-                // Direction 0
-                TData d0 = 0.0;
-#pragma unroll
-                for (unsigned int q = 0u; q < nq0; ++q)
-                {
-                    d0 += D0[i * nq0 + q] *
-                          in0[warpsize * (nq0 * nq1 * k + nq0 * j + q) + ilane];
-                }
-
-                // Direction 1
-                TData d1 = 0.0;
-#pragma unroll
-                for (unsigned int q = 0u; q < nq1; ++q)
-                {
-                    d1 += D1[j * nq1 + q] *
-                          in1[warpsize * (nq0 * nq1 * k + nq0 * q + i) + ilane];
-                }
-
-                // Direction 2
-                TData d2 = 0.0;
-#pragma unroll
-                for (unsigned int q = 0u; q < nq2; ++q)
-                {
-                    d2 += D2[k * nq2 + q] *
-                          in2[warpsize * (nq0 * nq1 * q + nq0 * j + i) + ilane];
-                }
-
-                if constexpr (APPEND)
-                {
-                    out[warpsize * cnt_kji + ilane] += d0 + d1 + d2;
-                }
-                else
-                {
-                    out[warpsize * cnt_kji + ilane] = d0 + d1 + d2;
-                }
-            }
-        }
-    }
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
