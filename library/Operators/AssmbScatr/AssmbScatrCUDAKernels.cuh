@@ -53,8 +53,8 @@ __global__ void AssembleKernel(const unsigned int nsize,
 
     while (i < nsize)
     {
-        atomic_add<NektarSpaces::CUDA, NektarSpaces::GlobalScope>(
-            outptr + assmbPtr[i], signPtr[i] * inptr[i]);
+        atomic_add<NektarSpaces::GlobalScope>(outptr + assmbPtr[i],
+                                              signPtr[i] * inptr[i]);
         i += stride;
     }
 }
@@ -71,8 +71,8 @@ __global__ void AssembleKernel(const unsigned int nsize,
 
     while (i < nsize)
     {
-        atomic_add<NektarSpaces::CUDA, NektarSpaces::GlobalScope>(
-            outptr + assmbPtr[i], sign * inptr[i]);
+        atomic_add<NektarSpaces::GlobalScope>(outptr + assmbPtr[i],
+                                              sign * inptr[i]);
         i += stride;
     }
 }
@@ -88,8 +88,7 @@ __global__ void AssembleKernel(const unsigned int nsize,
 
     while (i < nsize)
     {
-        atomic_add<NektarSpaces::CUDA, NektarSpaces::GlobalScope>(
-            outptr + assmbPtr[i], inptr[i]);
+        atomic_add<NektarSpaces::GlobalScope>(outptr + assmbPtr[i], inptr[i]);
         i += stride;
     }
 }

@@ -57,8 +57,7 @@ NEK_DEVICE_INLINE static void AddTraceIntegralKernel(
         TData *const ptr = outptr + traceCoeffsToElmtMapPtr[idx];
         const TData val  = traceCoeffsToElmtSignPtr[idx] *
                           tracePtr[traceCoeffsToElmtTracePtr[idx]];
-        Nektar::atomic_add<NektarSpaces::SYCL, NektarSpaces::GlobalScope>(ptr,
-                                                                          val);
+        Nektar::atomic_add<NektarSpaces::GlobalScope>(ptr, val);
     }
 }
 

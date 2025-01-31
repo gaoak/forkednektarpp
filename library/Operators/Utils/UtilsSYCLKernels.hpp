@@ -41,24 +41,24 @@
 namespace Nektar
 {
 
-template <typename TData>
+template <typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void interleaveKernel(const unsigned int VectorWidth,
                                                const unsigned int npts,
                                                TData *buffer, TData *inout,
-                                               const sycl::nd_item<1> item_ct1)
+                                               const TthreadBlock &threadBlock)
 {
-    const unsigned int metaBlock = item_ct1.get_group(0);
+    const unsigned int metaBlock = getBlockIdx(threadBlock);
     const unsigned int offset    = npts * VectorWidth * metaBlock;
 
-    const unsigned int idx0   = item_ct1.get_local_id(0);
-    const unsigned int stride = item_ct1.get_local_range(0);
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
 
     for (unsigned int idx = idx0; idx < npts * VectorWidth; idx += stride)
     {
         buffer[offset + idx] = inout[offset + idx];
     }
 
-    localBarrier<NektarSpaces::SYCL>(item_ct1);
+    localBarrier(threadBlock);
 
     for (unsigned int idx = idx0; idx < npts * VectorWidth; idx += stride)
     {
@@ -68,23 +68,23 @@ NEK_DEVICE_INLINE static void interleaveKernel(const unsigned int VectorWidth,
     }
 }
 
-template <typename TData>
+template <typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void deInterleaveKernel(
     const unsigned int VectorWidth, const unsigned int npts, TData *buffer,
-    TData *inout, const sycl::nd_item<1> item_ct1)
+    TData *inout, const TthreadBlock &threadBlock)
 {
-    const unsigned int metaBlock = item_ct1.get_group(0);
+    const unsigned int metaBlock = getBlockIdx(threadBlock);
     const unsigned int offset    = npts * VectorWidth * metaBlock;
 
-    const unsigned int idx0   = item_ct1.get_local_id(0);
-    const unsigned int stride = item_ct1.get_local_range(0);
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
 
     for (unsigned int idx = idx0; idx < npts * VectorWidth; idx += stride)
     {
         buffer[offset + idx] = inout[offset + idx];
     }
 
-    localBarrier<NektarSpaces::SYCL>(item_ct1);
+    localBarrier(threadBlock);
 
     for (unsigned int idx = idx0; idx < npts * VectorWidth; idx += stride)
     {
@@ -94,24 +94,24 @@ NEK_DEVICE_INLINE static void deInterleaveKernel(
     }
 }
 
-template <typename TData>
+template <typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void BuildInterleaveMapKernel(
     const unsigned int npts, const unsigned int newVecWidth,
     const unsigned int offset, TData *deInterleaveMapPtr,
-    TData *interleaveMapPtr, TData *buffer, const sycl::nd_item<1> item_ct1)
+    TData *interleaveMapPtr, TData *buffer, const TthreadBlock &threadBlock)
 {
-    const unsigned int metaBlock   = item_ct1.get_group(0);
+    const unsigned int metaBlock   = getBlockIdx(threadBlock);
     const unsigned int groupOffset = npts * newVecWidth * metaBlock;
 
-    const unsigned int idx0   = item_ct1.get_local_id(0);
-    const unsigned int stride = item_ct1.get_local_range(0);
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
 
     for (unsigned int idx = idx0; idx < npts * newVecWidth; idx += stride)
     {
         buffer[groupOffset + idx] = offset + groupOffset + idx;
     }
 
-    localBarrier<NektarSpaces::SYCL>(item_ct1);
+    localBarrier(threadBlock);
 
     for (unsigned int idx = idx0; idx < npts * newVecWidth; idx += stride)
     {
@@ -121,7 +121,7 @@ NEK_DEVICE_INLINE static void BuildInterleaveMapKernel(
             buffer[groupOffset + vecElem * npts + iElem];
     }
 
-    localBarrier<NektarSpaces::SYCL>(item_ct1);
+    localBarrier(threadBlock);
 
     for (unsigned int idx = idx0; idx < npts * newVecWidth; idx += stride)
     {

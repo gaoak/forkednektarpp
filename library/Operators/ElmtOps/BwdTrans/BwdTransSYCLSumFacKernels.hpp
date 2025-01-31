@@ -36,19 +36,17 @@
 
 #if defined(NEKTAR_ENABLE_SYCL)
 
-#include "Operators/Utils/SYCLQueue.hpp"
-
 namespace Nektar::Operators::detail
 {
 
-template <typename TData>
+template <typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void BwdTransSegSumFacQPKernel(
     const unsigned int nm0, const unsigned int nq0,
     const TData *__restrict__ basis0, const TData *__restrict__ in,
-    TData *__restrict__ out, const sycl::nd_item<3> &item_ct1)
+    TData *__restrict__ out, const TthreadBlock &threadBlock)
 {
-    const unsigned int idx0   = item_ct1.get_local_id(2);
-    const unsigned int stride = item_ct1.get_local_range(2);
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
 
     for (unsigned int i = idx0; i < nq0; i += stride)
     {
@@ -61,19 +59,19 @@ NEK_DEVICE_INLINE static void BwdTransSegSumFacQPKernel(
         out[i] = tmp;
     }
 
-    localBarrier<NektarSpaces::SYCL>(item_ct1);
+    localBarrier(threadBlock);
 }
 
-template <typename TData>
+template <typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void BwdTransQuadSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nqTot,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp, const sycl::nd_item<3> &item_ct1)
+    TData *__restrict__ wsp, const TthreadBlock &threadBlock)
 {
-    const unsigned int idx0   = item_ct1.get_local_id(2);
-    const unsigned int stride = item_ct1.get_local_range(2);
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
 
     // direction 0
     for (unsigned int idx = idx0; idx < nq0 * nm1; idx += stride)
@@ -91,7 +89,7 @@ NEK_DEVICE_INLINE static void BwdTransQuadSumFacQPKernel(
         wsp[idx] = tmp;
     }
 
-    localBarrier<NektarSpaces::SYCL>(item_ct1);
+    localBarrier(threadBlock);
 
     // direction 1
     for (unsigned int idx = idx0; idx < nqTot; idx += stride)
@@ -109,19 +107,19 @@ NEK_DEVICE_INLINE static void BwdTransQuadSumFacQPKernel(
         out[idx] = tmp;
     }
 
-    localBarrier<NektarSpaces::SYCL>(item_ct1);
+    localBarrier(threadBlock);
 }
 
-template <typename TData>
+template <typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void BwdTransTriSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nqTot, const bool isModified,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp, const sycl::nd_item<3> &item_ct1)
+    TData *__restrict__ wsp, const TthreadBlock &threadBlock)
 {
-    const unsigned int idx0   = item_ct1.get_local_id(2);
-    const unsigned int stride = item_ct1.get_local_range(2);
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
 
     // direction 1
     for (unsigned int idx = idx0; idx < nm0 * nq1; idx += stride)
@@ -139,7 +137,7 @@ NEK_DEVICE_INLINE static void BwdTransTriSumFacQPKernel(
         wsp[idx] = tmp;
     }
 
-    localBarrier<NektarSpaces::SYCL>(item_ct1);
+    localBarrier(threadBlock);
 
     // direction 0
     for (unsigned int idx = idx0; idx < nqTot; idx += stride)
@@ -164,10 +162,10 @@ NEK_DEVICE_INLINE static void BwdTransTriSumFacQPKernel(
         out[idx] = tmp;
     }
 
-    localBarrier<NektarSpaces::SYCL>(item_ct1);
+    localBarrier(threadBlock);
 }
 
-template <typename TData>
+template <typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void BwdTransHexSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
@@ -175,10 +173,10 @@ NEK_DEVICE_INLINE static void BwdTransHexSumFacQPKernel(
     const TData *__restrict__ basis1, const TData *__restrict__ basis2,
     const TData *__restrict__ in, TData *__restrict__ out,
     TData *__restrict__ wsp0, TData *__restrict__ wsp1,
-    const sycl::nd_item<3> &item_ct1)
+    const TthreadBlock &threadBlock)
 {
-    const unsigned int idx0   = item_ct1.get_local_id(2);
-    const unsigned int stride = item_ct1.get_local_range(2);
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
 
     // direction 0
     for (unsigned int idx = idx0; idx < nq0 * nm1 * nm2; idx += stride)
@@ -197,7 +195,7 @@ NEK_DEVICE_INLINE static void BwdTransHexSumFacQPKernel(
         wsp0[idx] = tmp;
     }
 
-    localBarrier<NektarSpaces::SYCL>(item_ct1);
+    localBarrier(threadBlock);
 
     // direction 1
     for (unsigned int idx = idx0; idx < nq0 * nq1 * nm2; idx += stride)
@@ -216,7 +214,7 @@ NEK_DEVICE_INLINE static void BwdTransHexSumFacQPKernel(
         wsp1[idx] = tmp;
     }
 
-    localBarrier<NektarSpaces::SYCL>(item_ct1);
+    localBarrier(threadBlock);
 
     // direction 2
     for (unsigned int idx = idx0; idx < nqTot; idx += stride)
@@ -235,10 +233,10 @@ NEK_DEVICE_INLINE static void BwdTransHexSumFacQPKernel(
         out[idx] = tmp;
     }
 
-    localBarrier<NektarSpaces::SYCL>(item_ct1);
+    localBarrier(threadBlock);
 }
 
-template <typename TData>
+template <typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void BwdTransTetSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
@@ -248,12 +246,12 @@ NEK_DEVICE_INLINE static void BwdTransTetSumFacQPKernel(
     const TData *__restrict__ basis1, const TData *__restrict__ basis2,
     const TData *__restrict__ in, TData *__restrict__ out,
     TData *__restrict__ wsp0, TData *__restrict__ wsp1,
-    const sycl::nd_item<3> &item_ct1)
+    const TthreadBlock &threadBlock)
 {
     const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
 
-    const unsigned int idx0   = item_ct1.get_local_id(2);
-    const unsigned int stride = item_ct1.get_local_range(2);
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
 
     // direction 2
     for (unsigned int idx = idx0; idx < nm01 * nq2; idx += stride)
@@ -279,7 +277,7 @@ NEK_DEVICE_INLINE static void BwdTransTetSumFacQPKernel(
         wsp0[idx] = tmp;
     }
 
-    localBarrier<NektarSpaces::SYCL>(item_ct1);
+    localBarrier(threadBlock);
 
     // direction 1
     for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
@@ -299,7 +297,7 @@ NEK_DEVICE_INLINE static void BwdTransTetSumFacQPKernel(
         wsp1[idx] = tmp;
     }
 
-    localBarrier<NektarSpaces::SYCL>(item_ct1);
+    localBarrier(threadBlock);
 
     // direction 0
     for (unsigned int idx = idx0; idx < nqTot; idx += stride)
@@ -340,10 +338,10 @@ NEK_DEVICE_INLINE static void BwdTransTetSumFacQPKernel(
         out[idx] = tmp;
     }
 
-    localBarrier<NektarSpaces::SYCL>(item_ct1);
+    localBarrier(threadBlock);
 }
 
-template <typename TData>
+template <typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void BwdTransPrismSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
@@ -351,10 +349,10 @@ NEK_DEVICE_INLINE static void BwdTransPrismSumFacQPKernel(
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ basis2, const TData *__restrict__ in,
     TData *__restrict__ out, TData *__restrict__ wsp0, TData *__restrict__ wsp1,
-    const sycl::nd_item<3> &item_ct1)
+    const TthreadBlock &threadBlock)
 {
-    const unsigned int idx0   = item_ct1.get_local_id(2);
-    const unsigned int stride = item_ct1.get_local_range(2);
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
 
     // direction 2
     for (unsigned int idx = idx0; idx < nm0 * nm1 * nq2; idx += stride)
@@ -374,7 +372,7 @@ NEK_DEVICE_INLINE static void BwdTransPrismSumFacQPKernel(
         wsp0[idx] = tmp;
     }
 
-    localBarrier<NektarSpaces::SYCL>(item_ct1);
+    localBarrier(threadBlock);
 
     // direction 1
     for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
@@ -393,7 +391,7 @@ NEK_DEVICE_INLINE static void BwdTransPrismSumFacQPKernel(
         wsp1[idx] = tmp;
     }
 
-    localBarrier<NektarSpaces::SYCL>(item_ct1);
+    localBarrier(threadBlock);
 
     // direction 0
     for (unsigned int idx = idx0; idx < nqTot; idx += stride)
@@ -424,10 +422,10 @@ NEK_DEVICE_INLINE static void BwdTransPrismSumFacQPKernel(
         out[idx] = tmp;
     }
 
-    localBarrier<NektarSpaces::SYCL>(item_ct1);
+    localBarrier(threadBlock);
 }
 
-template <typename TData>
+template <typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void BwdTransPyrSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
@@ -435,10 +433,10 @@ NEK_DEVICE_INLINE static void BwdTransPyrSumFacQPKernel(
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ basis2, const TData *__restrict__ in,
     TData *__restrict__ out, TData *__restrict__ wsp0, TData *__restrict__ wsp1,
-    const sycl::nd_item<3> &item_ct1)
+    const TthreadBlock &threadBlock)
 {
-    const unsigned int idx0   = item_ct1.get_local_id(2);
-    const unsigned int stride = item_ct1.get_local_range(2);
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
 
     // direction 2
     for (unsigned int idx = idx0; idx < nm0 * nm1 * nq2; idx += stride)
@@ -481,7 +479,7 @@ NEK_DEVICE_INLINE static void BwdTransPyrSumFacQPKernel(
         }
     }
 
-    localBarrier<NektarSpaces::SYCL>(item_ct1);
+    localBarrier(threadBlock);
 
     // direction 1
     for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
@@ -500,7 +498,7 @@ NEK_DEVICE_INLINE static void BwdTransPyrSumFacQPKernel(
         wsp1[idx] = tmp;
     }
 
-    localBarrier<NektarSpaces::SYCL>(item_ct1);
+    localBarrier(threadBlock);
 
     // direction 0
     for (unsigned int idx = idx0; idx < nqTot; idx += stride)
@@ -530,22 +528,22 @@ NEK_DEVICE_INLINE static void BwdTransPyrSumFacQPKernel(
         out[idx] = tmp;
     }
 
-    localBarrier<NektarSpaces::SYCL>(item_ct1);
+    localBarrier(threadBlock);
 }
 
-template <typename Implementation, typename TData>
+template <typename Implementation, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void BwdTrans1DKernel(
     const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ in,
     TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ shmemptr,
-    const sycl::nd_item<3> &item_ct1)
+    const TthreadBlock &threadBlock)
 {
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
         constexpr unsigned int warpsize =
             NektarSpaces::vector_width<TData>::value;
 
-        unsigned int e = item_ct1.get_global_id(2);
+        unsigned int e = getGlobalIdx(threadBlock);
         while (e < nelmt)
         {
             const unsigned int ilane = e % warpsize;
@@ -553,25 +551,25 @@ NEK_DEVICE_INLINE static void BwdTrans1DKernel(
             const TData *inptr       = in + nm0 * warpsize * iwarp;
             TData *outptr            = out + nq0 * warpsize * iwarp;
             BwdTransSegSumFacKernel(ilane, nm0, nq0, basis0, inptr, outptr);
-            e += item_ct1.get_global_range(2);
+            e += getGlobalRange(threadBlock);
         }
     }
     else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
-        unsigned int e = item_ct1.get_group(2);
+        unsigned int e = getBlockIdx(threadBlock);
         while (e < nelmt)
         {
             const TData *inptr = in + nm0 * e;
             TData *outptr      = out + nq0 * e;
             BwdTransSegSumFacQPKernel(nm0, nq0, basis0, inptr, outptr,
-                                      item_ct1);
-            e += item_ct1.get_group_range(2);
+                                      threadBlock);
+            e += getBlockRange(threadBlock);
         }
     }
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          typename TData>
+          typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void BwdTrans2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
@@ -579,7 +577,7 @@ NEK_DEVICE_INLINE static void BwdTrans2DKernel(
     const TData *__restrict__ basis1, const TData *__restrict__ in,
     TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ wsp,
     [[maybe_unused]] TData *__restrict__ shmemptr,
-    const sycl::nd_item<3> &item_ct1)
+    const TthreadBlock &threadBlock)
 {
     const unsigned int nqTot = nq0 * nq1;
 
@@ -588,7 +586,7 @@ NEK_DEVICE_INLINE static void BwdTrans2DKernel(
         constexpr unsigned int warpsize =
             NektarSpaces::vector_width<TData>::value;
 
-        unsigned int e = item_ct1.get_global_id(2);
+        unsigned int e = getGlobalIdx(threadBlock);
         while (e < nelmt)
         {
             const unsigned int ilane = e % warpsize;
@@ -607,7 +605,7 @@ NEK_DEVICE_INLINE static void BwdTrans2DKernel(
                 BwdTransTriSumFacKernel(ilane, nm0, nm1, nq0, nq1, isModified,
                                         basis0, basis1, inptr, outptr, wspptr);
             }
-            e += item_ct1.get_global_range(2);
+            e += getGlobalRange(threadBlock);
         }
     }
     else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
@@ -632,8 +630,8 @@ NEK_DEVICE_INLINE static void BwdTrans2DKernel(
         TData *s_basis1 = s_basis0 + nm0 * nq0;
 
         // Copy to shared memory.
-        const unsigned int idx0   = item_ct1.get_local_id(2);
-        const unsigned int stride = item_ct1.get_local_range(2);
+        const unsigned int idx0   = getLocalIdx(threadBlock);
+        const unsigned int stride = getLocalRange(threadBlock);
 
         for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
         {
@@ -645,7 +643,7 @@ NEK_DEVICE_INLINE static void BwdTrans2DKernel(
             s_basis1[idx] = basis1[idx];
         }
 
-        unsigned int e = item_ct1.get_group(2);
+        unsigned int e = getBlockIdx(threadBlock);
         while (e < nelmt)
         {
             const TData *inptr = in + nmTot * e;
@@ -657,28 +655,28 @@ NEK_DEVICE_INLINE static void BwdTrans2DKernel(
                 s_wsp0[idx] = inptr[idx];
             }
 
-            localBarrier<NektarSpaces::SYCL>(item_ct1);
+            localBarrier(threadBlock);
 
             if constexpr (SHAPE_TYPE == LibUtilities::Quad)
             {
                 BwdTransQuadSumFacQPKernel(nm0, nm1, nq0, nq1, nqTot, s_basis0,
                                            s_basis1, s_wsp0, outptr, s_wsp1,
-                                           item_ct1);
+                                           threadBlock);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
             {
                 BwdTransTriSumFacQPKernel(nm0, nm1, nq0, nq1, nqTot, isModified,
                                           s_basis0, s_basis1, s_wsp0, outptr,
-                                          s_wsp1, item_ct1);
+                                          s_wsp1, threadBlock);
             }
 
-            e += item_ct1.get_group_range(2);
+            e += getBlockRange(threadBlock);
         }
     }
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          typename TData>
+          typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void BwdTrans3DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -689,7 +687,7 @@ NEK_DEVICE_INLINE static void BwdTrans3DKernel(
     const TData *__restrict__ basis2, const TData *__restrict__ in,
     TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ wsp,
     [[maybe_unused]] TData *__restrict__ shmemptr,
-    const sycl::nd_item<3> &item_ct1)
+    const TthreadBlock &threadBlock)
 {
     const unsigned int nqTot = nq0 * nq1 * nq2;
 
@@ -698,7 +696,7 @@ NEK_DEVICE_INLINE static void BwdTrans3DKernel(
         constexpr unsigned int warpsize =
             NektarSpaces::vector_width<TData>::value;
 
-        unsigned int e = item_ct1.get_global_id(2);
+        unsigned int e = getGlobalIdx(threadBlock);
         while (e < nelmt)
         {
             const unsigned int ilane = e % warpsize;
@@ -740,7 +738,7 @@ NEK_DEVICE_INLINE static void BwdTrans3DKernel(
                                         isModified, basis0, basis1, basis2,
                                         inptr, outptr, wsp0, wsp1);
             }
-            e += item_ct1.get_global_range(2);
+            e += getGlobalRange(threadBlock);
         }
     }
     else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
@@ -787,8 +785,8 @@ NEK_DEVICE_INLINE static void BwdTrans3DKernel(
         TData *s_basis2 = s_basis1 + nmode1 * nq1;
 
         // Copy to shared memory.
-        const unsigned int idx0   = item_ct1.get_local_id(2);
-        const unsigned int stride = item_ct1.get_local_range(2);
+        const unsigned int idx0   = getLocalIdx(threadBlock);
+        const unsigned int stride = getLocalRange(threadBlock);
 
         for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
         {
@@ -805,7 +803,7 @@ NEK_DEVICE_INLINE static void BwdTrans3DKernel(
             s_basis2[idx] = basis2[idx];
         }
 
-        unsigned int e = item_ct1.get_group(2);
+        unsigned int e = getBlockIdx(threadBlock);
         while (e < nelmt)
         {
             const TData *inptr = in + nmTot * e;
@@ -817,37 +815,37 @@ NEK_DEVICE_INLINE static void BwdTrans3DKernel(
                 s_wsp0[idx] = inptr[idx];
             }
 
-            localBarrier<NektarSpaces::SYCL>(item_ct1);
+            localBarrier(threadBlock);
 
             if constexpr (SHAPE_TYPE == LibUtilities::Hex)
             {
                 BwdTransHexSumFacQPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
                                           s_basis0, s_basis1, s_basis2, s_wsp0,
-                                          outptr, s_wsp1, s_wsp2, item_ct1);
+                                          outptr, s_wsp1, s_wsp2, threadBlock);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
             {
                 BwdTransTetSumFacQPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
                                           isModified, index0, index1, s_basis0,
                                           s_basis1, s_basis2, s_wsp0, outptr,
-                                          s_wsp1, s_wsp2, item_ct1);
+                                          s_wsp1, s_wsp2, threadBlock);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
             {
                 BwdTransPrismSumFacQPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
                                             isModified, s_basis0, s_basis1,
                                             s_basis2, s_wsp0, outptr, s_wsp1,
-                                            s_wsp2, item_ct1);
+                                            s_wsp2, threadBlock);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
             {
                 BwdTransPyrSumFacQPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
                                           isModified, s_basis0, s_basis1,
                                           s_basis2, s_wsp0, outptr, s_wsp1,
-                                          s_wsp2, item_ct1);
+                                          s_wsp2, threadBlock);
             }
 
-            e += item_ct1.get_group_range(2);
+            e += getBlockRange(threadBlock);
         }
     }
 }
@@ -865,14 +863,14 @@ NEK_FORCE_INLINE static void BwdTrans1DKernel(const unsigned int nm0,
 
     const unsigned int shmemsize =
         BwdTransSharedMemorySize<Implementation>(nq0, nm0);
-    const auto blocksize = GetSYCLBlockSize<Implementation>(nq0);
-    const auto gridsize  = GetSYCLGridSize<Implementation>(nelmt);
+    const unsigned int blocksize = GetSYCLBlockSize<Implementation>(nq0);
+    const unsigned int gridsize  = GetSYCLGridSize<Implementation>(nelmt);
 
     Q.submit([=](sycl::handler &cgh) {
          sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
          cgh.parallel_for(
-             sycl::nd_range<3>(gridsize * blocksize, blocksize),
-             [=](sycl::nd_item<3> item) {
+             sycl::nd_range<1>(gridsize * blocksize, blocksize),
+             [=](sycl::nd_item<1> item) {
                  TData *shmemptr =
                      shmem.template get_multi_ptr<sycl::access::decorated::no>()
                          .get();
@@ -910,14 +908,14 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(
     const unsigned int shmemsize =
         BwdTransSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1, nm0,
                                                              nm1);
-    const auto blocksize = GetSYCLBlockSize<Implementation>(nmTot);
-    const auto gridsize  = GetSYCLGridSize<Implementation>(nelmt);
+    const unsigned int blocksize = GetSYCLBlockSize<Implementation>(nmTot);
+    const unsigned int gridsize  = GetSYCLGridSize<Implementation>(nelmt);
 
     Q.submit([&](sycl::handler &cgh) {
          sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
          cgh.parallel_for(
-             sycl::nd_range<3>(gridsize * blocksize, blocksize),
-             [=](sycl::nd_item<3> item) {
+             sycl::nd_range<1>(gridsize * blocksize, blocksize),
+             [=](sycl::nd_item<1> item) {
                  TData *shmemptr =
                      shmem.template get_multi_ptr<sycl::access::decorated::no>()
                          .get();
@@ -958,14 +956,14 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
     const unsigned int shmemsize =
         BwdTransSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1, nq2, nm0,
                                                              nm1, nm2);
-    const auto blocksize = GetSYCLBlockSize<Implementation>(nmTot);
-    const auto gridsize  = GetSYCLGridSize<Implementation>(nelmt);
+    const unsigned int blocksize = GetSYCLBlockSize<Implementation>(nmTot);
+    const unsigned int gridsize  = GetSYCLGridSize<Implementation>(nelmt);
 
     Q.submit([&](sycl::handler &cgh) {
          sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
          cgh.parallel_for(
-             sycl::nd_range<3>(gridsize * blocksize, blocksize),
-             [=](sycl::nd_item<3> item) {
+             sycl::nd_range<1>(gridsize * blocksize, blocksize),
+             [=](sycl::nd_item<1> item) {
                  TData *shmemptr =
                      shmem.template get_multi_ptr<sycl::access::decorated::no>()
                          .get();

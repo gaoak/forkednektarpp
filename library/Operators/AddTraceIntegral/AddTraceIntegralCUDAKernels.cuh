@@ -56,8 +56,7 @@ __global__ void AddTraceIntegralKernel(
         TData *const ptr = outptr + traceCoeffsToElmtMapPtr[idx];
         const TData val  = traceCoeffsToElmtSignPtr[idx] *
                           tracePtr[traceCoeffsToElmtTracePtr[idx]];
-        Nektar::atomic_add<NektarSpaces::CUDA, NektarSpaces::GlobalScope>(ptr,
-                                                                          val);
+        Nektar::atomic_add<NektarSpaces::GlobalScope>(ptr, val);
     }
 }
 

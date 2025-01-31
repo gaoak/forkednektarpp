@@ -36,8 +36,6 @@
 
 #if defined(NEKTAR_ENABLE_SYCL)
 
-#include "Operators/Utils/SYCLQueue.hpp"
-
 namespace Nektar
 {
 
@@ -50,20 +48,7 @@ NEK_DEVICE_INLINE
                             void>::type
     atomic_add(TData *const dest, const TData val)
 {
-    if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
-    {
-        sycl::atomic_ref<TData, sycl::memory_order::relaxed,
-                         sycl::memory_scope::device,
-                         sycl::access::address_space::global_space>(*dest)
-            .fetch_add(val);
-    }
-    else if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
-    {
-        sycl::atomic_ref<TData, sycl::memory_order::relaxed,
-                         sycl::memory_scope_work_group,
-                         sycl::access::address_space::local_space>(*dest)
-            .fetch_add(val);
-    }
+    Nektar::atomic_add<Scope>(dest, val);
 }
 
 template <typename ExecSpace, typename Scope, typename TData>
@@ -72,20 +57,7 @@ NEK_DEVICE_INLINE
                             void>::type
     atomic_sub(TData *const dest, const TData val)
 {
-    if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
-    {
-        sycl::atomic_ref<TData, sycl::memory_order::relaxed,
-                         sycl::memory_scope::device,
-                         sycl::access::address_space::global_space>(*dest)
-            .fetch_sub(val);
-    }
-    else if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
-    {
-        sycl::atomic_ref<TData, sycl::memory_order::relaxed,
-                         sycl::memory_scope_work_group,
-                         sycl::access::address_space::local_space>(*dest)
-            .fetch_sub(val);
-    }
+    Nektar::atomic_sub<Scope>(dest, val);
 }
 
 template <typename ExecSpace, typename Scope, typename TData>
@@ -94,20 +66,7 @@ NEK_DEVICE_INLINE
                             void>::type
     atomic_max(TData *const dest, const TData val)
 {
-    if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
-    {
-        sycl::atomic_ref<TData, sycl::memory_order::relaxed,
-                         sycl::memory_scope::device,
-                         sycl::access::address_space::global_space>(*dest)
-            .fetch_max(val);
-    }
-    else if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
-    {
-        sycl::atomic_ref<TData, sycl::memory_order::relaxed,
-                         sycl::memory_scope_work_group,
-                         sycl::access::address_space::local_space>(*dest)
-            .fetch_max(val);
-    }
+    Nektar::atomic_max<Scope>(dest, val);
 }
 
 template <typename ExecSpace, typename Scope, typename TData>
@@ -116,58 +75,7 @@ NEK_DEVICE_INLINE
                             void>::type
     atomic_min(TData *const dest, const TData val)
 {
-    if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
-    {
-        sycl::atomic_ref<TData, sycl::memory_order::relaxed,
-                         sycl::memory_scope::device,
-                         sycl::access::address_space::global_space>(*dest)
-            .fetch_min(val);
-    }
-    else if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
-    {
-        sycl::atomic_ref<TData, sycl::memory_order::relaxed,
-                         sycl::memory_scope_work_group,
-                         sycl::access::address_space::local_space>(*dest)
-            .fetch_min(val);
-    }
-}
-
-template <typename ExecSpace, typename TItem, typename TData>
-NEK_DEVICE_INLINE
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
-                            TData>::type
-    warpReduceSum(TData red, const TItem &item)
-{
-    return sycl::reduce_over_group(item.get_sub_group(), red, sycl::plus<>());
-}
-
-template <typename ExecSpace, typename TItem, typename TData>
-NEK_DEVICE_INLINE
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
-                            TData>::type
-    warpReduceMax(TData red, const TItem &item)
-{
-    return sycl::reduce_over_group(item.get_sub_group(), red,
-                                   sycl::maximum<>());
-}
-
-template <typename ExecSpace, typename TItem, typename TData>
-NEK_DEVICE_INLINE
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
-                            TData>::type
-    warpReduceMin(TData red, const TItem &item)
-{
-    return sycl::reduce_over_group(item.get_sub_group(), red,
-                                   sycl::minimum<>());
-}
-
-template <typename ExecSpace, typename TItem>
-NEK_DEVICE_INLINE
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
-                            void>::type
-    localBarrier(const TItem &item)
-{
-    item.barrier(sycl::access::fence_space::local_space);
+    Nektar::atomic_min<Scope>(dest, val);
 }
 
 template <typename ExecSpace, typename Functor>

@@ -39,14 +39,15 @@
 namespace Nektar::Operators::detail
 {
 
-template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
+template <bool SCALE, bool APPEND, bool DEFORMED, typename TthreadBlock,
+          typename TData>
 NEK_DEVICE_INLINE static void IProductWRTBaseSegSumFacQPKernel(
     const unsigned int nm0, const unsigned int nq0,
     const TData *__restrict__ basis0, const TData *__restrict__ in,
-    TData *__restrict__ out, const TData scale, const CUDAblock &cuda_block)
+    TData *__restrict__ out, const TData scale, const TthreadBlock &threadBlock)
 {
-    const unsigned int idx0   = threadIdx.x;
-    const unsigned int stride = blockDim.x;
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
 
     for (unsigned int p = idx0; p < nm0; p += stride)
     {
@@ -72,20 +73,21 @@ NEK_DEVICE_INLINE static void IProductWRTBaseSegSumFacQPKernel(
         }
     }
 
-    localBarrier<NektarSpaces::CUDA>(cuda_block);
+    localBarrier(threadBlock);
 }
 
-template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
+template <bool SCALE, bool APPEND, bool DEFORMED, typename TthreadBlock,
+          typename TData>
 NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacQPKernel(
     const unsigned int nm0, [[maybe_unused]] const unsigned int nm1,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     [[maybe_unused]] const unsigned int nqTot, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ in,
     TData *__restrict__ out, TData *__restrict__ wsp, const TData scale,
-    const CUDAblock &cuda_block)
+    const TthreadBlock &threadBlock)
 {
-    const unsigned int idx0   = threadIdx.x;
-    const unsigned int stride = blockDim.x;
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
 
     for (unsigned int idx = idx0; idx < nm0 * nq1; idx += stride)
     {
@@ -102,7 +104,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacQPKernel(
         wsp[idx] = sum;
     }
 
-    localBarrier<NektarSpaces::CUDA>(cuda_block);
+    localBarrier(threadBlock);
 
     for (unsigned int idx = idx0; idx < nmTot; idx += stride)
     {
@@ -132,10 +134,11 @@ NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacQPKernel(
         }
     }
 
-    localBarrier<NektarSpaces::CUDA>(cuda_block);
+    localBarrier(threadBlock);
 }
 
-template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
+template <bool SCALE, bool APPEND, bool DEFORMED, typename TthreadBlock,
+          typename TData>
 NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacQPKernel(
     const unsigned int nm0, [[maybe_unused]] const unsigned int nm1,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -143,10 +146,10 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacQPKernel(
     const unsigned int *__restrict__ pindex, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ in,
     TData *__restrict__ out, TData *__restrict__ wsp, const TData scale,
-    const CUDAblock &cuda_block)
+    const TthreadBlock &threadBlock)
 {
-    const unsigned int idx0   = threadIdx.x;
-    const unsigned int stride = blockDim.x;
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
 
     for (unsigned int idx = idx0; idx < nm0 * nq1; idx += stride)
     {
@@ -163,7 +166,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacQPKernel(
         wsp[idx] = sum;
     }
 
-    localBarrier<NektarSpaces::CUDA>(cuda_block);
+    localBarrier(threadBlock);
 
     for (unsigned int idx = idx0; idx < nmTot; idx += stride)
     {
@@ -197,10 +200,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacQPKernel(
     // With contributions from every quadrature point
     if (isModified)
     {
-        localBarrier<NektarSpaces::CUDA>(cuda_block);
-
-        constexpr unsigned int warpsize =
-            NektarSpaces::vector_width<TData>::value;
+        localBarrier(threadBlock);
 
         TData prod = 0.0;
 
@@ -211,24 +211,24 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacQPKernel(
             prod += basis0[nq0 + i] * basis1[nq1 + j] * in[idx];
         }
 
-        prod = warpReduceSum<NektarSpaces::CUDA>(prod, cuda_block);
+        prod = warpReduceSum(prod, threadBlock);
 
-        if (threadIdx.x % warpsize == 0)
+        if (getLaneIdx(threadBlock) == 0)
         {
             if constexpr (SCALE)
             {
                 prod *= scale;
             }
 
-            atomic_add<NektarSpaces::CUDA, NektarSpaces::GlobalScope>(out + 1u,
-                                                                      prod);
+            atomic_add<NektarSpaces::GlobalScope>(out + 1u, prod);
         }
     }
 
-    localBarrier<NektarSpaces::CUDA>(cuda_block);
+    localBarrier(threadBlock);
 }
 
-template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
+template <bool SCALE, bool APPEND, bool DEFORMED, typename TthreadBlock,
+          typename TData>
 NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1,
     [[maybe_unused]] const unsigned int nm2, const unsigned int nmTot,
@@ -237,10 +237,10 @@ NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacQPKernel(
     const TData *__restrict__ basis1, const TData *__restrict__ basis2,
     const TData *__restrict__ in, TData *__restrict__ out,
     TData *__restrict__ wsp0, TData *__restrict__ wsp1, const TData scale,
-    const CUDAblock &cuda_block)
+    const TthreadBlock &threadBlock)
 {
-    const unsigned int idx0   = threadIdx.x;
-    const unsigned int stride = blockDim.x;
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
 
     for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
     {
@@ -258,7 +258,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacQPKernel(
         wsp0[idx] = sum_kj;
     }
 
-    localBarrier<NektarSpaces::CUDA>(cuda_block);
+    localBarrier(threadBlock);
 
     for (unsigned int idx = idx0; idx < nm0 * nm1 * nq2; idx += stride)
     {
@@ -276,7 +276,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacQPKernel(
         wsp1[idx] = sum_k;
     }
 
-    localBarrier<NektarSpaces::CUDA>(cuda_block);
+    localBarrier(threadBlock);
 
     for (unsigned int idx = idx0; idx < nmTot; idx += stride)
     {
@@ -307,10 +307,11 @@ NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacQPKernel(
         }
     }
 
-    localBarrier<NektarSpaces::CUDA>(cuda_block);
+    localBarrier(threadBlock);
 }
 
-template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
+template <bool SCALE, bool APPEND, bool DEFORMED, typename TthreadBlock,
+          typename TData>
 NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -321,12 +322,12 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacQPKernel(
     const TData *__restrict__ basis1, const TData *__restrict__ basis2,
     const TData *__restrict__ in, TData *__restrict__ out,
     TData *__restrict__ wsp0, TData *__restrict__ wsp1, const TData scale,
-    const CUDAblock &cuda_block)
+    const TthreadBlock &threadBlock)
 {
     const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
 
-    const unsigned int idx0   = threadIdx.x;
-    const unsigned int stride = blockDim.x;
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
 
     for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
     {
@@ -344,7 +345,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacQPKernel(
         wsp0[idx] = sum_kj;
     }
 
-    localBarrier<NektarSpaces::CUDA>(cuda_block);
+    localBarrier(threadBlock);
 
     for (unsigned int idx = idx0; idx < nm01 * nq2; idx += stride)
     {
@@ -362,7 +363,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacQPKernel(
         wsp1[idx] = sum_k;
     }
 
-    localBarrier<NektarSpaces::CUDA>(cuda_block);
+    localBarrier(threadBlock);
 
     for (unsigned int idx = idx0; idx < nmTot; idx += stride)
     {
@@ -397,12 +398,9 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacQPKernel(
     // Add correction for collapsed coordinate.
     if (isModified)
     {
-        localBarrier<NektarSpaces::CUDA>(cuda_block);
+        localBarrier(threadBlock);
 
         constexpr unsigned int NM2_MAX = 8;
-        constexpr unsigned int warpsize =
-            NektarSpaces::vector_width<TData>::value;
-
         if (nm2 <= NM2_MAX)
         {
             TData prod[NM2_MAX] = {0.0};
@@ -434,10 +432,9 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacQPKernel(
 #pragma unroll
             for (unsigned int r = 0u; r < nm2; ++r)
             {
-                prod[r] =
-                    warpReduceSum<NektarSpaces::CUDA>(prod[r], cuda_block);
+                prod[r] = warpReduceSum(prod[r], threadBlock);
 
-                if (threadIdx.x % warpsize == 0)
+                if (getLaneIdx(threadBlock) == 0)
                 {
                     if constexpr (SCALE)
                     {
@@ -446,14 +443,12 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacQPKernel(
 
                     if (r == nm2 - 1u)
                     {
-                        atomic_add<NektarSpaces::CUDA,
-                                   NektarSpaces::GlobalScope>(out + 1u,
+                        atomic_add<NektarSpaces::GlobalScope>(out + 1u,
                                                               prod[nm2 - 1u]);
                     }
                     else
                     {
-                        atomic_add<NektarSpaces::CUDA,
-                                   NektarSpaces::GlobalScope>(out + nm2 + r,
+                        atomic_add<NektarSpaces::GlobalScope>(out + nm2 + r,
                                                               prod[r]);
                     }
                 }
@@ -482,10 +477,10 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacQPKernel(
                     basis0[nq0 + i] * basis1[nq1 + j] * basis2[k] * in[idx];
             }
 
-            prod0 = warpReduceSum<NektarSpaces::CUDA>(prod0, cuda_block);
-            prod1 = warpReduceSum<NektarSpaces::CUDA>(prod1, cuda_block);
+            prod0 = warpReduceSum(prod0, threadBlock);
+            prod1 = warpReduceSum(prod1, threadBlock);
 
-            if (threadIdx.x % warpsize == 0)
+            if (getLaneIdx(threadBlock) == 0)
             {
                 if constexpr (SCALE)
                 {
@@ -493,10 +488,8 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacQPKernel(
                     prod1 *= scale;
                 }
 
-                atomic_add<NektarSpaces::CUDA, NektarSpaces::GlobalScope>(
-                    out + 1u, prod0);
-                atomic_add<NektarSpaces::CUDA, NektarSpaces::GlobalScope>(
-                    out + nm2, prod1);
+                atomic_add<NektarSpaces::GlobalScope>(out + 1u, prod0);
+                atomic_add<NektarSpaces::GlobalScope>(out + nm2, prod1);
             }
 
             // singular edge
@@ -514,26 +507,26 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacQPKernel(
                             basis0[nq0 + i] * in[idx];
                 }
 
-                prod = warpReduceSum<NektarSpaces::CUDA>(prod, cuda_block);
+                prod = warpReduceSum(prod, threadBlock);
 
-                if (threadIdx.x % warpsize == 0)
+                if (getLaneIdx(threadBlock) == 0)
                 {
                     if constexpr (SCALE)
                     {
                         prod *= scale;
                     }
 
-                    atomic_add<NektarSpaces::CUDA, NektarSpaces::GlobalScope>(
-                        out + nm2 + r, prod);
+                    atomic_add<NektarSpaces::GlobalScope>(out + nm2 + r, prod);
                 }
             }
         }
     }
 
-    localBarrier<NektarSpaces::CUDA>(cuda_block);
+    localBarrier(threadBlock);
 }
 
-template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
+template <bool SCALE, bool APPEND, bool DEFORMED, typename TthreadBlock,
+          typename TData>
 NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -544,10 +537,10 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacQPKernel(
     const TData *__restrict__ basis1, const TData *__restrict__ basis2,
     const TData *__restrict__ in, TData *__restrict__ out,
     TData *__restrict__ wsp0, TData *__restrict__ wsp1, const TData scale,
-    const CUDAblock &cuda_block)
+    const TthreadBlock &threadBlock)
 {
-    const unsigned int idx0   = threadIdx.x;
-    const unsigned int stride = blockDim.x;
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
 
     for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
     {
@@ -565,7 +558,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacQPKernel(
         wsp0[idx] = sum_kj;
     }
 
-    localBarrier<NektarSpaces::CUDA>(cuda_block);
+    localBarrier(threadBlock);
 
     for (unsigned int idx = idx0; idx < nm0 * nm1 * nq2; idx += stride)
     {
@@ -583,7 +576,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacQPKernel(
         wsp1[idx] = sum_k;
     }
 
-    localBarrier<NektarSpaces::CUDA>(cuda_block);
+    localBarrier(threadBlock);
 
     for (unsigned int idx = idx0; idx < nmTot; idx += stride)
     {
@@ -618,12 +611,9 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacQPKernel(
     // Add correction for collapsed coordinate.
     if (isModified)
     {
-        localBarrier<NektarSpaces::CUDA>(cuda_block);
+        localBarrier(threadBlock);
 
         constexpr unsigned int NM1_MAX = 8;
-        constexpr unsigned int warpsize =
-            NektarSpaces::vector_width<TData>::value;
-
         if (nm1 <= NM1_MAX)
         {
             TData prod[NM1_MAX] = {0.0};
@@ -645,18 +635,17 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacQPKernel(
 #pragma unroll
             for (unsigned int q = 0u; q < nm1; ++q)
             {
-                prod[q] =
-                    warpReduceSum<NektarSpaces::CUDA>(prod[q], cuda_block);
+                prod[q] = warpReduceSum(prod[q], threadBlock);
 
-                if (threadIdx.x % warpsize == 0)
+                if (getLaneIdx(threadBlock) == 0)
                 {
                     if constexpr (SCALE)
                     {
                         prod[q] *= scale;
                     }
 
-                    atomic_add<NektarSpaces::CUDA, NektarSpaces::GlobalScope>(
-                        out + nm2 * q + 1u, prod[q]);
+                    atomic_add<NektarSpaces::GlobalScope>(out + nm2 * q + 1u,
+                                                          prod[q]);
                 }
             }
         }
@@ -676,26 +665,27 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacQPKernel(
                             basis0[nq0 + i];
                 }
 
-                prod = warpReduceSum<NektarSpaces::CUDA>(prod, cuda_block);
+                prod = warpReduceSum(prod, threadBlock);
 
-                if (threadIdx.x % warpsize == 0)
+                if (getLaneIdx(threadBlock) == 0)
                 {
                     if constexpr (SCALE)
                     {
                         prod *= scale;
                     }
 
-                    atomic_add<NektarSpaces::CUDA, NektarSpaces::GlobalScope>(
-                        out + nm2 * q + 1u, prod);
+                    atomic_add<NektarSpaces::GlobalScope>(out + nm2 * q + 1u,
+                                                          prod);
                 }
             }
         }
     }
 
-    localBarrier<NektarSpaces::CUDA>(cuda_block);
+    localBarrier(threadBlock);
 }
 
-template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
+template <bool SCALE, bool APPEND, bool DEFORMED, typename TthreadBlock,
+          typename TData>
 NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -705,10 +695,10 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacQPKernel(
     const TData *__restrict__ basis1, const TData *__restrict__ basis2,
     const TData *__restrict__ in, TData *__restrict__ out,
     TData *__restrict__ wsp0, TData *__restrict__ wsp1, const TData scale,
-    const CUDAblock &cuda_block)
+    const TthreadBlock &threadBlock)
 {
-    const unsigned int idx0   = threadIdx.x;
-    const unsigned int stride = blockDim.x;
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
 
     for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
     {
@@ -726,7 +716,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacQPKernel(
         wsp0[idx] = sum_kj;
     }
 
-    localBarrier<NektarSpaces::CUDA>(cuda_block);
+    localBarrier(threadBlock);
 
     for (unsigned int idx = idx0; idx < nm0 * nm1 * nq2; idx += stride)
     {
@@ -744,7 +734,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacQPKernel(
         wsp1[idx] = sum_k;
     }
 
-    localBarrier<NektarSpaces::CUDA>(cuda_block);
+    localBarrier(threadBlock);
 
     for (unsigned int idx = idx0; idx < nmTot; idx += stride)
     {
@@ -778,10 +768,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacQPKernel(
     // Add correction for collapsed coordinate.
     if (isModified)
     {
-        localBarrier<NektarSpaces::CUDA>(cuda_block);
-
-        constexpr unsigned int warpsize =
-            NektarSpaces::vector_width<TData>::value;
+        localBarrier(threadBlock);
 
         TData prod = 0.0;
 
@@ -799,32 +786,32 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacQPKernel(
             prod += in[idx] * tmp;
         }
 
-        prod = warpReduceSum<NektarSpaces::CUDA>(prod, cuda_block);
+        prod = warpReduceSum(prod, threadBlock);
 
-        if (threadIdx.x % warpsize == 0)
+        if (getLaneIdx(threadBlock) == 0)
         {
             if constexpr (SCALE)
             {
                 prod *= scale;
             }
 
-            atomic_add<NektarSpaces::CUDA, NektarSpaces::GlobalScope>(out + 1,
-                                                                      prod);
+            atomic_add<NektarSpaces::GlobalScope>(out + 1, prod);
         }
     }
 
-    localBarrier<NektarSpaces::CUDA>(cuda_block);
+    localBarrier(threadBlock);
 }
 
 // General Launcher
 template <typename Implementation, bool SCALE, bool APPEND, bool DEFORMED,
-          typename TData>
+          typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void IProductWRTBase1DKernel(
     const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ w0,
     const TData *__restrict__ jac, const TData *__restrict__ in,
     TData *__restrict__ out, const TData scale,
-    [[maybe_unused]] TData *__restrict__ shmemptr, const CUDAblock &cuda_block)
+    [[maybe_unused]] TData *__restrict__ shmemptr,
+    const TthreadBlock &threadBlock)
 {
     unsigned int jacsize = 1u;
     if constexpr (DEFORMED)
@@ -837,7 +824,7 @@ NEK_DEVICE_INLINE static void IProductWRTBase1DKernel(
         constexpr unsigned int warpsize =
             NektarSpaces::vector_width<TData>::value;
 
-        unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
+        unsigned int e = getGlobalIdx(threadBlock);
         while (e < nelmt)
         {
             const unsigned int ilane = e % warpsize;
@@ -848,17 +835,17 @@ NEK_DEVICE_INLINE static void IProductWRTBase1DKernel(
             TData *outptr      = out + nm0 * warpsize * iwarp;
             IProductWRTBaseSegSumFacKernel<SCALE, APPEND, DEFORMED>(
                 ilane, nm0, nq0, basis0, w0, jacptr, inptr, outptr, scale);
-            e += blockDim.x * gridDim.x;
+            e += getGlobalRange(threadBlock);
         }
     }
     else
     {
         TData *s_wsp0 = (TData *)shmemptr;
 
-        const unsigned int idx0   = threadIdx.x;
-        const unsigned int stride = blockDim.x;
+        const unsigned int idx0   = getLocalIdx(threadBlock);
+        const unsigned int stride = getLocalRange(threadBlock);
 
-        unsigned int e = blockIdx.x;
+        unsigned int e = getBlockIdx(threadBlock);
         while (e < nelmt)
         {
             const TData *jacptr = jac + jacsize * e;
@@ -877,11 +864,11 @@ NEK_DEVICE_INLINE static void IProductWRTBase1DKernel(
                 }
             }
 
-            localBarrier<NektarSpaces::CUDA>(cuda_block);
+            localBarrier(threadBlock);
 
             IProductWRTBaseSegSumFacQPKernel<SCALE, APPEND, DEFORMED>(
-                nm0, nq0, basis0, s_wsp0, outptr, scale, cuda_block);
-            e += gridDim.x;
+                nm0, nq0, basis0, s_wsp0, outptr, scale, threadBlock);
+            e += getBlockRange(threadBlock);
         }
     }
 }
@@ -897,11 +884,9 @@ __global__ void IProductWRTBase1DKernelLauncher(
 {
     extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
-    const CUDAblock cuda_block;
-
     IProductWRTBase1DKernel<Implementation, SCALE, APPEND, DEFORMED>(
         nm0, nq0, nelmt, basis0, w0, jac, in, out, scale, (TData *)shmemptr,
-        cuda_block);
+        cudaBlock1D());
 }
 
 // Size based template version.
@@ -914,16 +899,15 @@ __global__ void IProductWRTBase1DKernelLauncher(
 {
     extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
-    const CUDAblock cuda_block;
-
     IProductWRTBase1DKernel<Implementation, SCALE, APPEND, DEFORMED>(
         nm0, nq0, nelmt, basis0, w0, jac, in, out, scale, (TData *)shmemptr,
-        cuda_block);
+        cudaBlock1D());
 }
 
 // General Launcher
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool SCALE, bool APPEND, bool DEFORMED, typename TData>
+          bool SCALE, bool APPEND, bool DEFORMED, typename TthreadBlock,
+          typename TData>
 NEK_DEVICE_INLINE static void IProductWRTBase2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
@@ -934,7 +918,7 @@ NEK_DEVICE_INLINE static void IProductWRTBase2DKernel(
     const TData *__restrict__ jac, const TData *__restrict__ in,
     TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ wsp,
     const TData scale, [[maybe_unused]] TData *__restrict__ shmemptr,
-    const CUDAblock &cuda_block)
+    const TthreadBlock &threadBlock)
 {
     const unsigned int nqTot = nq0 * nq1;
     unsigned int jacsize     = 1u;
@@ -948,7 +932,7 @@ NEK_DEVICE_INLINE static void IProductWRTBase2DKernel(
         constexpr unsigned int warpsize =
             NektarSpaces::vector_width<TData>::value;
 
-        unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
+        unsigned int e = getGlobalIdx(threadBlock);
         while (e < nelmt)
         {
             const unsigned int ilane = e % warpsize;
@@ -971,7 +955,7 @@ NEK_DEVICE_INLINE static void IProductWRTBase2DKernel(
                     ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1, w0,
                     w1, jacptr, inptr, outptr, wspptr, scale);
             }
-            e += blockDim.x * gridDim.x;
+            e += getGlobalRange(threadBlock);
         }
     }
     else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
@@ -996,8 +980,8 @@ NEK_DEVICE_INLINE static void IProductWRTBase2DKernel(
         TData *s_basis1 = s_basis0 + nm0 * nq0;
 
         // Copy to shared memory.
-        const unsigned int idx0   = threadIdx.x;
-        const unsigned int stride = blockDim.x;
+        const unsigned int idx0   = getLocalIdx(threadBlock);
+        const unsigned int stride = getLocalRange(threadBlock);
 
         for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
         {
@@ -1009,7 +993,7 @@ NEK_DEVICE_INLINE static void IProductWRTBase2DKernel(
             s_basis1[idx] = basis1[idx];
         }
 
-        unsigned int e = blockIdx.x;
+        unsigned int e = getBlockIdx(threadBlock);
         while (e < nelmt)
         {
             const TData *jacptr = jac + jacsize * e;
@@ -1030,23 +1014,23 @@ NEK_DEVICE_INLINE static void IProductWRTBase2DKernel(
                 }
             }
 
-            localBarrier<NektarSpaces::CUDA>(cuda_block);
+            localBarrier(threadBlock);
 
             if constexpr (SHAPE_TYPE == LibUtilities::Quad)
             {
                 IProductWRTBaseQuadSumFacQPKernel<SCALE, APPEND, DEFORMED>(
                     nm0, nm1, nmTot, nq0, nq1, nqTot, s_basis0, s_basis1,
-                    s_wsp0, outptr, s_wsp1, scale, cuda_block);
+                    s_wsp0, outptr, s_wsp1, scale, threadBlock);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
             {
                 IProductWRTBaseTriSumFacQPKernel<SCALE, APPEND, DEFORMED>(
                     nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0,
                     s_basis0, s_basis1, s_wsp0, outptr, s_wsp1, scale,
-                    cuda_block);
+                    threadBlock);
             }
 
-            e += gridDim.x;
+            e += getBlockRange(threadBlock);
         }
     }
 }
@@ -1065,12 +1049,10 @@ __global__ void IProductWRTBase2DKernelLauncher(
 {
     extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
-    const CUDAblock cuda_block;
-
     IProductWRTBase2DKernel<SHAPE_TYPE, Implementation, SCALE, APPEND,
                             DEFORMED>(
         nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0, basis1,
-        w0, w1, jac, in, out, wsp, scale, (TData *)shmemptr, cuda_block);
+        w0, w1, jac, in, out, wsp, scale, (TData *)shmemptr, cudaBlock1D());
 }
 
 // Size based template version.
@@ -1088,17 +1070,16 @@ __global__ void IProductWRTBase2DKernelLauncher(
 {
     extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
-    const CUDAblock cuda_block;
-
     IProductWRTBase2DKernel<SHAPE_TYPE, Implementation, SCALE, APPEND,
                             DEFORMED>(
         nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0, basis1,
-        w0, w1, jac, in, out, wsp, scale, (TData *)shmemptr, cuda_block);
+        w0, w1, jac, in, out, wsp, scale, (TData *)shmemptr, cudaBlock1D());
 }
 
 // General Launcher
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool SCALE, bool APPEND, bool DEFORMED, typename TData>
+          bool SCALE, bool APPEND, bool DEFORMED, typename TthreadBlock,
+          typename TData>
 NEK_DEVICE_INLINE static void IProductWRTBase3DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -1112,7 +1093,7 @@ NEK_DEVICE_INLINE static void IProductWRTBase3DKernel(
     const TData *__restrict__ jac, const TData *__restrict__ in,
     TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ wsp,
     const TData scale, [[maybe_unused]] TData *__restrict__ shmemptr,
-    const CUDAblock &cuda_block)
+    const TthreadBlock &threadBlock)
 {
     const unsigned int nqTot = nq0 * nq1 * nq2;
     unsigned int jacsize     = 1u;
@@ -1126,7 +1107,7 @@ NEK_DEVICE_INLINE static void IProductWRTBase3DKernel(
         constexpr unsigned int warpsize =
             NektarSpaces::vector_width<TData>::value;
 
-        unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
+        unsigned int e = getGlobalIdx(threadBlock);
         while (e < nelmt)
         {
             const unsigned int ilane = e % warpsize;
@@ -1174,7 +1155,7 @@ NEK_DEVICE_INLINE static void IProductWRTBase3DKernel(
                     basis1, basis2, w0, w1, w2, jacptr, inptr, outptr, wsp0,
                     wsp1, scale);
             }
-            e += blockDim.x * gridDim.x;
+            e += getGlobalRange(threadBlock);
         }
     }
     else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
@@ -1221,8 +1202,8 @@ NEK_DEVICE_INLINE static void IProductWRTBase3DKernel(
         TData *s_basis2 = s_basis1 + nmode1 * nq1;
 
         // Copy to shared memory.
-        const unsigned int idx0   = threadIdx.x;
-        const unsigned int stride = blockDim.x;
+        const unsigned int idx0   = getLocalIdx(threadBlock);
+        const unsigned int stride = getLocalRange(threadBlock);
 
         for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
         {
@@ -1239,7 +1220,7 @@ NEK_DEVICE_INLINE static void IProductWRTBase3DKernel(
             s_basis2[idx] = basis2[idx];
         }
 
-        unsigned int e = blockIdx.x;
+        unsigned int e = getBlockIdx(threadBlock);
         while (e < nelmt)
         {
             const TData *jacptr = jac + jacsize * e;
@@ -1264,38 +1245,38 @@ NEK_DEVICE_INLINE static void IProductWRTBase3DKernel(
                 }
             }
 
-            localBarrier<NektarSpaces::CUDA>(cuda_block);
+            localBarrier(threadBlock);
 
             if constexpr (SHAPE_TYPE == LibUtilities::Hex)
             {
                 IProductWRTBaseHexSumFacQPKernel<SCALE, APPEND, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, s_basis0,
                     s_basis1, s_basis2, s_wsp0, outptr, s_wsp1, s_wsp2, scale,
-                    cuda_block);
+                    threadBlock);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
             {
                 IProductWRTBaseTetSumFacQPKernel<SCALE, APPEND, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
                     index0, index1, index2, s_basis0, s_basis1, s_basis2,
-                    s_wsp0, outptr, s_wsp1, s_wsp2, scale, cuda_block);
+                    s_wsp0, outptr, s_wsp1, s_wsp2, scale, threadBlock);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
             {
                 IProductWRTBasePrismSumFacQPKernel<SCALE, APPEND, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
                     index0, index1, index2, s_basis0, s_basis1, s_basis2,
-                    s_wsp0, outptr, s_wsp1, s_wsp2, scale, cuda_block);
+                    s_wsp0, outptr, s_wsp1, s_wsp2, scale, threadBlock);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
             {
                 IProductWRTBasePyrSumFacQPKernel<SCALE, APPEND, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
                     index0, index1, s_basis0, s_basis1, s_basis2, s_wsp0,
-                    outptr, s_wsp1, s_wsp2, scale, cuda_block);
+                    outptr, s_wsp1, s_wsp2, scale, threadBlock);
             }
 
-            e += gridDim.x;
+            e += getBlockRange(threadBlock);
         }
     }
 }
@@ -1318,13 +1299,11 @@ __global__ void IProductWRTBase3DKernelLauncher(
 {
     extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
-    const CUDAblock cuda_block;
-
     IProductWRTBase3DKernel<SHAPE_TYPE, Implementation, SCALE, APPEND,
                             DEFORMED>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
         index2, basis0, basis1, basis2, w0, w1, w2, jac, in, out, wsp, scale,
-        (TData *)shmemptr, cuda_block);
+        (TData *)shmemptr, cudaBlock1D());
 }
 
 // Size based template version.
@@ -1345,13 +1324,11 @@ __global__ void IProductWRTBase3DKernelLauncher(
 {
     extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
-    const CUDAblock cuda_block;
-
     IProductWRTBase3DKernel<SHAPE_TYPE, Implementation, SCALE, APPEND,
                             DEFORMED>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
         index2, basis0, basis1, basis2, w0, w1, w2, jac, in, out, wsp, scale,
-        (TData *)shmemptr, cuda_block);
+        (TData *)shmemptr, cudaBlock1D());
 }
 
 // Kernel launchers
