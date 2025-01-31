@@ -39,13 +39,8 @@
 
 #include "Operators/BndCondOps/OperatorRobBndCond.hpp"
 
-#include "Operators/BndCondOps/RobBndCond/RobBndCondCUDAKernels.cuh"
-#include "Operators/BndCondOps/RobBndCond/RobBndCondKokkosKernels.hpp"
-#include "Operators/BndCondOps/RobBndCond/RobBndCondSYCLKernels.hpp"
+#include "Operators/BndCondOps/RobBndCond/RobBndCondDeviceKernels.hpp"
 #include "Operators/BndCondOps/RobBndCond/RobBndCondSerialAVXKernels.hpp"
-
-using namespace Nektar;
-using namespace Nektar::MultiRegions;
 
 namespace Nektar::Operators::detail
 {

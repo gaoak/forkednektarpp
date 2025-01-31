@@ -36,8 +36,6 @@
 
 #if defined(NEKTAR_ENABLE_KOKKOS)
 
-#include "Operators/Common/Spaces.hpp"
-
 using team_handle = Kokkos::TeamPolicy<>::member_type;
 
 namespace Nektar
