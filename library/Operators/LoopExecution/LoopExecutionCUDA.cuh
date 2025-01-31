@@ -48,6 +48,10 @@ static void *cudaBuffer            = nullptr;
 
 namespace cg = cooperative_groups;
 
+class CUDAblock
+{
+};
+
 NEK_DEVICE_INLINE float atomicMax(float *address, float val)
 {
     int ret = __float_as_int(*address);
@@ -212,6 +216,57 @@ NEK_DEVICE_INLINE
     {
         atomicMin_block(dest, val);
     }
+}
+
+template <typename ExecSpace, typename TItem, typename TData>
+NEK_DEVICE_INLINE
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                            TData>::type
+    warpReduceSum(TData red, [[maybe_unused]] const TItem &item)
+{
+    red += __shfl_down_sync(0xffffffff, red, 16);
+    red += __shfl_down_sync(0xffffffff, red, 8);
+    red += __shfl_down_sync(0xffffffff, red, 4);
+    red += __shfl_down_sync(0xffffffff, red, 2);
+    red += __shfl_down_sync(0xffffffff, red, 1);
+    return red;
+}
+
+template <typename ExecSpace, typename TItem, typename TData>
+NEK_DEVICE_INLINE
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                            TData>::type
+    warpReduceMax(TData red, [[maybe_unused]] const TItem &item)
+{
+    red = std::max(red, __shfl_down_sync(0xffffffff, red, 16));
+    red = std::max(red, __shfl_down_sync(0xffffffff, red, 8));
+    red = std::max(red, __shfl_down_sync(0xffffffff, red, 4));
+    red = std::max(red, __shfl_down_sync(0xffffffff, red, 2));
+    red = std::max(red, __shfl_down_sync(0xffffffff, red, 1));
+    return red;
+}
+
+template <typename ExecSpace, typename TItem, typename TData>
+NEK_DEVICE_INLINE
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                            TData>::type
+    warpReduceMin(TData red, [[maybe_unused]] const TItem &item)
+{
+    red = std::min(red, __shfl_down_sync(0xffffffff, red, 16));
+    red = std::min(red, __shfl_down_sync(0xffffffff, red, 8));
+    red = std::min(red, __shfl_down_sync(0xffffffff, red, 4));
+    red = std::min(red, __shfl_down_sync(0xffffffff, red, 2));
+    red = std::min(red, __shfl_down_sync(0xffffffff, red, 1));
+    return red;
+}
+
+template <typename ExecSpace, typename TItem>
+NEK_DEVICE_INLINE
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                            void>::type
+    localBarrier([[maybe_unused]] const TItem &item)
+{
+    __syncthreads();
 }
 
 template <typename Functor>

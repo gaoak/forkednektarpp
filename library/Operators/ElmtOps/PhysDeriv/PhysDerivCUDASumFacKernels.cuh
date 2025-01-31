@@ -73,7 +73,7 @@ NEK_DEVICE_INLINE static void PhysDeriv1DSumFacQPKernel(
     const unsigned int ncoord, const unsigned int nq0,
     const unsigned int outsize, const TData *__restrict__ D0,
     const TData *__restrict__ df, const TData *__restrict__ in,
-    TData *__restrict__ out)
+    TData *__restrict__ out, const CUDAblock &cuda_block)
 {
     unsigned int dfsize = 1u;
     if constexpr (DEFORMED)
@@ -103,13 +103,14 @@ NEK_DEVICE_INLINE static void PhysDeriv1DSumFacQPKernel(
         }
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 }
 
 template <bool APPEND, bool DEFORMED, typename TData>
 NEK_DEVICE_INLINE static void SumDerivTensor1DQPKernel(
     const unsigned int nq0, const TData *__restrict__ D0,
-    const TData *__restrict__ in0, TData *__restrict__ out)
+    const TData *__restrict__ in0, TData *__restrict__ out,
+    const CUDAblock &cuda_block)
 {
     const unsigned int idx0   = threadIdx.x;
     const unsigned int stride = blockDim.x;
@@ -135,7 +136,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor1DQPKernel(
         }
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 }
 
 template <bool APPEND, bool DEFORMED, typename TData>
@@ -186,7 +187,8 @@ NEK_DEVICE_INLINE static void PhysDeriv2DSumFacQPKernel(
     const unsigned int outsize, const TData *__restrict__ D0,
     const TData *__restrict__ D1, const TData *__restrict__ f0,
     const TData *__restrict__ f1, const TData *__restrict__ df,
-    const TData *__restrict__ in, TData *__restrict__ out)
+    const TData *__restrict__ in, TData *__restrict__ out,
+    const CUDAblock &cuda_block)
 {
     const unsigned int nqTot = nq0 * nq1;
     unsigned int dfsize      = 1u;
@@ -237,7 +239,7 @@ NEK_DEVICE_INLINE static void PhysDeriv2DSumFacQPKernel(
         }
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 }
 
 template <bool APPEND, bool DEFORMED, typename TData>
@@ -245,7 +247,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor2DQPKernel(
     const unsigned int nq0, const unsigned int nq1,
     const TData *__restrict__ D0, const TData *__restrict__ D1,
     const TData *__restrict__ in0, const TData *__restrict__ in1,
-    TData *__restrict__ out)
+    TData *__restrict__ out, const CUDAblock &cuda_block)
 {
     const unsigned int nqTot = nq0 * nq1;
 
@@ -284,7 +286,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor2DQPKernel(
         }
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 }
 
 template <bool APPEND, bool DEFORMED, typename TData>
@@ -352,7 +354,7 @@ NEK_DEVICE_INLINE static void PhysDeriv3DSumFacQPKernel(
     const TData *__restrict__ f0, const TData *__restrict__ f1,
     const TData *__restrict__ f1m, const TData *__restrict__ f2,
     const TData *__restrict__ df, const TData *__restrict__ in,
-    TData *__restrict__ out)
+    TData *__restrict__ out, const CUDAblock &cuda_block)
 {
     constexpr unsigned int ncoord = 3u;
 
@@ -430,7 +432,7 @@ NEK_DEVICE_INLINE static void PhysDeriv3DSumFacQPKernel(
         }
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 }
 
 template <bool APPEND, bool DEFORMED, typename TData>
@@ -439,7 +441,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor3DQPKernel(
     const TData *__restrict__ D0, const TData *__restrict__ D1,
     const TData *__restrict__ D2, const TData *__restrict__ in0,
     const TData *__restrict__ in1, const TData *__restrict__ in2,
-    TData *__restrict__ out)
+    TData *__restrict__ out, const CUDAblock &cuda_block)
 {
     const unsigned int nqTot = nq0 * nq1 * nq2;
 
@@ -487,7 +489,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor3DQPKernel(
         }
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 }
 
 // General Launcher
@@ -495,7 +497,8 @@ template <typename Implementation, bool DEFORMED, typename TData>
 NEK_DEVICE_INLINE static void PhysDeriv1DKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nelmt,
     const TData *__restrict__ D0, const TData *__restrict__ df,
-    const TData *__restrict__ in, TData *__restrict__ out)
+    const TData *__restrict__ in, TData *__restrict__ out,
+    const CUDAblock &cuda_block)
 {
     const unsigned int ndf = ncoord;
     unsigned int dfsize    = 1u;
@@ -537,7 +540,7 @@ NEK_DEVICE_INLINE static void PhysDeriv1DKernel(
             const TData *inptr = in + offset;
             TData *outptr      = out + offset;
             PhysDeriv1DSumFacQPKernel<DEFORMED>(ncoord, nq0, nelmt, D0, dfptr,
-                                                inptr, outptr);
+                                                inptr, outptr, cuda_block);
             e += blockDim.x;
         }
     }
@@ -550,8 +553,10 @@ __global__ void PhysDeriv1DKernelLauncher(
     const TData *__restrict__ D0, const TData *__restrict__ df,
     const TData *__restrict__ in, TData *__restrict__ out)
 {
+    const CUDAblock cuda_block;
+
     PhysDeriv1DKernel<Implementation, DEFORMED>(ncoord, nq0, nelmt, D0, df, in,
-                                                out);
+                                                out, cuda_block);
 }
 
 // Size based template version.
@@ -563,8 +568,10 @@ __global__ void PhysDeriv1DKernelLauncher(const unsigned int nelmt,
                                           const TData *__restrict__ in,
                                           TData *__restrict__ out)
 {
+    const CUDAblock cuda_block;
+
     PhysDeriv1DKernel<Implementation, DEFORMED>(ncoord, nq0, nelmt, D0, df, in,
-                                                out);
+                                                out, cuda_block);
 }
 
 // General Launcher
@@ -575,7 +582,8 @@ NEK_DEVICE_INLINE static void PhysDeriv2DKernel(
     const unsigned int nelmt, const TData *__restrict__ D0,
     const TData *__restrict__ D1, const TData *__restrict__ f0,
     const TData *__restrict__ f1, const TData *__restrict__ df,
-    const TData *__restrict__ in, TData *__restrict__ out)
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ shmemptr, const CUDAblock &cuda_block)
 {
     const unsigned int ndf   = 2 * ncoord;
     const unsigned int nqTot = nq0 * nq1;
@@ -590,8 +598,6 @@ NEK_DEVICE_INLINE static void PhysDeriv2DKernel(
         constexpr unsigned int warpsize =
             NektarSpaces::vector_width<TData>::value;
 
-        extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
-
         TData *s_f0 = nullptr;
         TData *s_f1 = nullptr;
 
@@ -601,7 +607,7 @@ NEK_DEVICE_INLINE static void PhysDeriv2DKernel(
 
         if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
-            s_f0 = (TData *)shmemptr;
+            s_f0 = shmemptr;
             s_f1 = s_f0 + nq0;
 
             for (unsigned int idx = idx0; idx < nq0; idx += stride)
@@ -614,7 +620,7 @@ NEK_DEVICE_INLINE static void PhysDeriv2DKernel(
                 s_f1[idx] = f1[idx];
             }
 
-            __syncthreads();
+            localBarrier<NektarSpaces::CUDA>(cuda_block);
         }
 
         unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
@@ -646,7 +652,8 @@ NEK_DEVICE_INLINE static void PhysDeriv2DKernel(
             const TData *inptr = in + offset;
             TData *outptr      = out + offset;
             PhysDeriv2DSumFacQPKernel<SHAPE_TYPE, DEFORMED>(
-                ncoord, nq0, nq1, nelmt, D0, D1, f0, f1, dfptr, inptr, outptr);
+                ncoord, nq0, nq1, nelmt, D0, D1, f0, f1, dfptr, inptr, outptr,
+                cuda_block);
             e += gridDim.x;
         }
     }
@@ -662,8 +669,13 @@ __global__ void PhysDeriv2DKernelLauncher(
     const TData *__restrict__ f1, const TData *__restrict__ df,
     const TData *__restrict__ in, TData *__restrict__ out)
 {
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
+
+    const CUDAblock cuda_block;
+
     PhysDeriv2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
-        ncoord, nq0, nq1, nelmt, D0, D1, f0, f1, df, in, out);
+        ncoord, nq0, nq1, nelmt, D0, D1, f0, f1, df, in, out, (TData *)shmemptr,
+        cuda_block);
 }
 
 // Size based template version.
@@ -676,8 +688,13 @@ __global__ void PhysDeriv2DKernelLauncher(
     const TData *__restrict__ f1, const TData *__restrict__ df,
     const TData *__restrict__ in, TData *__restrict__ out)
 {
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
+
+    const CUDAblock cuda_block;
+
     PhysDeriv2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
-        ncoord, nq0, nq1, nelmt, D0, D1, f0, f1, df, in, out);
+        ncoord, nq0, nq1, nelmt, D0, D1, f0, f1, df, in, out, (TData *)shmemptr,
+        cuda_block);
 }
 
 // General Launcher
@@ -690,7 +707,8 @@ NEK_DEVICE_INLINE static void PhysDeriv3DKernel(
     const TData *__restrict__ f0, const TData *__restrict__ f1,
     const TData *__restrict__ f1m, const TData *__restrict__ f2,
     const TData *__restrict__ df, const TData *__restrict__ in,
-    TData *__restrict__ out)
+    TData *__restrict__ out, TData *__restrict__ shmemptr,
+    const CUDAblock &cuda_block)
 {
     constexpr unsigned int ndf = 9u;
     const unsigned int nqTot   = nq0 * nq1 * nq2;
@@ -705,8 +723,6 @@ NEK_DEVICE_INLINE static void PhysDeriv3DKernel(
         constexpr unsigned int warpsize =
             NektarSpaces::vector_width<TData>::value;
 
-        extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
-
         TData *s_f0  = nullptr;
         TData *s_f1  = nullptr;
         TData *s_f1m = nullptr;
@@ -718,7 +734,7 @@ NEK_DEVICE_INLINE static void PhysDeriv3DKernel(
 
         if constexpr (SHAPE_TYPE == LibUtilities::Tet)
         {
-            s_f0  = (TData *)shmemptr;
+            s_f0  = shmemptr;
             s_f1  = s_f0 + nq0;
             s_f1m = s_f1 + nq1;
             s_f2  = s_f1m + nq1;
@@ -739,11 +755,11 @@ NEK_DEVICE_INLINE static void PhysDeriv3DKernel(
                 s_f2[idx] = f2[idx];
             }
 
-            __syncthreads();
+            localBarrier<NektarSpaces::CUDA>(cuda_block);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
         {
-            s_f0 = (TData *)shmemptr;
+            s_f0 = shmemptr;
             s_f2 = s_f0 + nq0;
 
             for (unsigned int idx = idx0; idx < nq0; idx += stride)
@@ -756,11 +772,11 @@ NEK_DEVICE_INLINE static void PhysDeriv3DKernel(
                 s_f2[idx] = f2[idx];
             }
 
-            __syncthreads();
+            localBarrier<NektarSpaces::CUDA>(cuda_block);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
-            s_f0 = (TData *)shmemptr;
+            s_f0 = shmemptr;
             s_f1 = s_f0 + nq0;
             s_f2 = s_f1 + nq1;
 
@@ -779,7 +795,7 @@ NEK_DEVICE_INLINE static void PhysDeriv3DKernel(
                 s_f2[idx] = f2[idx];
             }
 
-            __syncthreads();
+            localBarrier<NektarSpaces::CUDA>(cuda_block);
         }
 
         unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
@@ -812,7 +828,7 @@ NEK_DEVICE_INLINE static void PhysDeriv3DKernel(
             TData *outptr      = out + offset;
             PhysDeriv3DSumFacQPKernel<SHAPE_TYPE, DEFORMED>(
                 nq0, nq1, nq2, nelmt, D0, D1, D2, f0, f1, f1m, f2, dfptr, inptr,
-                outptr);
+                outptr, cuda_block);
             e += gridDim.x;
         }
     }
@@ -830,8 +846,13 @@ __global__ void PhysDeriv3DKernelLauncher(
     const TData *__restrict__ df, const TData *__restrict__ in,
     TData *__restrict__ out)
 {
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
+
+    const CUDAblock cuda_block;
+
     PhysDeriv3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
-        nq0, nq1, nq2, nelmt, D0, D1, D2, f0, f1, f1m, f2, df, in, out);
+        nq0, nq1, nq2, nelmt, D0, D1, D2, f0, f1, f1m, f2, df, in, out,
+        (TData *)shmemptr, cuda_block);
 }
 
 // Size based template version.
@@ -846,8 +867,13 @@ __global__ void PhysDeriv3DKernelLauncher(
     const TData *__restrict__ df, const TData *__restrict__ in,
     TData *__restrict__ out)
 {
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
+
+    const CUDAblock cuda_block;
+
     PhysDeriv3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
-        nq0, nq1, nq2, nelmt, D0, D1, D2, f0, f1, f1m, f2, df, in, out);
+        nq0, nq1, nq2, nelmt, D0, D1, D2, f0, f1, f1m, f2, df, in, out,
+        (TData *)shmemptr, cuda_block);
 }
 
 // Launchers

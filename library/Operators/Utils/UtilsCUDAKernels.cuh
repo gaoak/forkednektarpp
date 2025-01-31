@@ -57,7 +57,7 @@ __global__ void interleaveKernel(const unsigned int VectorWidth,
         buffer[offset + idx] = inout[offset + idx];
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(CUDAblock());
 
     for (unsigned int idx = idx0; idx < npts * VectorWidth; idx += stride)
     {
@@ -83,7 +83,7 @@ __global__ void deInterleaveKernel(const unsigned int VectorWidth,
         buffer[offset + idx] = inout[offset + idx];
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(CUDAblock());
 
     for (unsigned int idx = idx0; idx < npts * VectorWidth; idx += stride)
     {
@@ -111,7 +111,7 @@ __global__ void BuildInterleaveMapKernel(const unsigned int npts,
         buffer[groupOffset + idx] = offset + groupOffset + idx;
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(CUDAblock());
 
     for (unsigned int idx = idx0; idx < npts * newVecWidth; idx += stride)
     {
@@ -121,7 +121,7 @@ __global__ void BuildInterleaveMapKernel(const unsigned int npts,
             buffer[groupOffset + vecElem * npts + iElem];
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(CUDAblock());
 
     for (unsigned int idx = idx0; idx < npts * newVecWidth; idx += stride)
     {

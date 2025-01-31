@@ -61,7 +61,7 @@ NEK_DEVICE_INLINE static void BwdTransSegSumFacQPKernel(
         out[i] = tmp;
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 }
 
 template <typename TData>
@@ -91,7 +91,7 @@ NEK_DEVICE_INLINE static void BwdTransQuadSumFacQPKernel(
         wsp[idx] = tmp;
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 
     // direction 1
     for (unsigned int idx = idx0; idx < nqTot; idx += stride)
@@ -109,7 +109,7 @@ NEK_DEVICE_INLINE static void BwdTransQuadSumFacQPKernel(
         out[idx] = tmp;
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 }
 
 template <typename TData>
@@ -139,7 +139,7 @@ NEK_DEVICE_INLINE static void BwdTransTriSumFacQPKernel(
         wsp[idx] = tmp;
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 
     // direction 0
     for (unsigned int idx = idx0; idx < nqTot; idx += stride)
@@ -164,7 +164,7 @@ NEK_DEVICE_INLINE static void BwdTransTriSumFacQPKernel(
         out[idx] = tmp;
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 }
 
 template <typename TData>
@@ -197,7 +197,7 @@ NEK_DEVICE_INLINE static void BwdTransHexSumFacQPKernel(
         wsp0[idx] = tmp;
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 
     // direction 1
     for (unsigned int idx = idx0; idx < nq0 * nq1 * nm2; idx += stride)
@@ -216,7 +216,7 @@ NEK_DEVICE_INLINE static void BwdTransHexSumFacQPKernel(
         wsp1[idx] = tmp;
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 
     // direction 2
     for (unsigned int idx = idx0; idx < nqTot; idx += stride)
@@ -235,7 +235,7 @@ NEK_DEVICE_INLINE static void BwdTransHexSumFacQPKernel(
         out[idx] = tmp;
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 }
 
 template <typename TData>
@@ -279,7 +279,7 @@ NEK_DEVICE_INLINE static void BwdTransTetSumFacQPKernel(
         wsp0[idx] = tmp;
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 
     // direction 1
     for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
@@ -299,7 +299,7 @@ NEK_DEVICE_INLINE static void BwdTransTetSumFacQPKernel(
         wsp1[idx] = tmp;
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 
     // direction 0
     for (unsigned int idx = idx0; idx < nqTot; idx += stride)
@@ -340,7 +340,7 @@ NEK_DEVICE_INLINE static void BwdTransTetSumFacQPKernel(
         out[idx] = tmp;
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 }
 
 template <typename TData>
@@ -374,7 +374,7 @@ NEK_DEVICE_INLINE static void BwdTransPrismSumFacQPKernel(
         wsp0[idx] = tmp;
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 
     // direction 1
     for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
@@ -393,7 +393,7 @@ NEK_DEVICE_INLINE static void BwdTransPrismSumFacQPKernel(
         wsp1[idx] = tmp;
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 
     // direction 0
     for (unsigned int idx = idx0; idx < nqTot; idx += stride)
@@ -424,7 +424,7 @@ NEK_DEVICE_INLINE static void BwdTransPrismSumFacQPKernel(
         out[idx] = tmp;
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 }
 
 template <typename TData>
@@ -481,7 +481,7 @@ NEK_DEVICE_INLINE static void BwdTransPyrSumFacQPKernel(
         }
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 
     // direction 1
     for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
@@ -500,7 +500,7 @@ NEK_DEVICE_INLINE static void BwdTransPyrSumFacQPKernel(
         wsp1[idx] = tmp;
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 
     // direction 0
     for (unsigned int idx = idx0; idx < nqTot; idx += stride)
@@ -530,7 +530,7 @@ NEK_DEVICE_INLINE static void BwdTransPyrSumFacQPKernel(
         out[idx] = tmp;
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 }
 
 template <typename Implementation, typename TData>
@@ -626,7 +626,7 @@ NEK_DEVICE_INLINE static void BwdTrans2DKernel(
             nmode1 = nmTot;
         }
 
-        TData *s_wsp0   = (TData *)shmemptr;
+        TData *s_wsp0   = shmemptr;
         TData *s_wsp1   = s_wsp0 + nmTot;
         TData *s_basis0 = s_wsp1 + offset;
         TData *s_basis1 = s_basis0 + nm0 * nq0;
@@ -657,7 +657,7 @@ NEK_DEVICE_INLINE static void BwdTrans2DKernel(
                 s_wsp0[idx] = inptr[idx];
             }
 
-            item_ct1.barrier(sycl::access::fence_space::local_space);
+            localBarrier<NektarSpaces::SYCL>(item_ct1);
 
             if constexpr (SHAPE_TYPE == LibUtilities::Quad)
             {
@@ -779,7 +779,7 @@ NEK_DEVICE_INLINE static void BwdTrans3DKernel(
             nmode2  = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
         }
 
-        TData *s_wsp0   = (TData *)shmemptr;
+        TData *s_wsp0   = shmemptr;
         TData *s_wsp1   = s_wsp0 + nmTot;
         TData *s_wsp2   = s_wsp1 + offset0;
         TData *s_basis0 = s_wsp2 + offset1;
@@ -817,7 +817,7 @@ NEK_DEVICE_INLINE static void BwdTrans3DKernel(
                 s_wsp0[idx] = inptr[idx];
             }
 
-            item_ct1.barrier(sycl::access::fence_space::local_space);
+            localBarrier<NektarSpaces::SYCL>(item_ct1);
 
             if constexpr (SHAPE_TYPE == LibUtilities::Hex)
             {

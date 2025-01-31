@@ -73,7 +73,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseSegSumFacQPKernel(
         }
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
@@ -103,7 +103,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacQPKernel(
         wsp[idx] = sum;
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 
     for (unsigned int idx = idx0; idx < nmTot; idx += stride)
     {
@@ -133,7 +133,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacQPKernel(
         }
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
@@ -164,7 +164,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacQPKernel(
         wsp[idx] = sum;
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 
     for (unsigned int idx = idx0; idx < nmTot; idx += stride)
     {
@@ -198,7 +198,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacQPKernel(
     // With contributions from every quadrature point
     if (isModified)
     {
-        item_ct1.barrier(sycl::access::fence_space::local_space);
+        localBarrier<NektarSpaces::SYCL>(item_ct1);
 
         TData prod = 0.0;
 
@@ -209,8 +209,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacQPKernel(
             prod += basis0[nq0 + i] * basis1[nq1 + j] * in[idx];
         }
 
-        prod = sycl::reduce_over_group(item_ct1.get_sub_group(), prod,
-                                       sycl::plus<>());
+        prod = warpReduceSum<NektarSpaces::SYCL>(prod, item_ct1);
 
         if (item_ct1.get_sub_group().get_local_id() == 0)
         {
@@ -224,7 +223,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacQPKernel(
         }
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
@@ -257,7 +256,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacQPKernel(
         wsp0[idx] = sum_kj;
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 
     for (unsigned int idx = idx0; idx < nm0 * nm1 * nq2; idx += stride)
     {
@@ -275,7 +274,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacQPKernel(
         wsp1[idx] = sum_k;
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 
     for (unsigned int idx = idx0; idx < nmTot; idx += stride)
     {
@@ -306,7 +305,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacQPKernel(
         }
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
@@ -343,7 +342,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacQPKernel(
         wsp0[idx] = sum_kj;
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 
     for (unsigned int idx = idx0; idx < nm01 * nq2; idx += stride)
     {
@@ -361,7 +360,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacQPKernel(
         wsp1[idx] = sum_k;
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 
     for (unsigned int idx = idx0; idx < nmTot; idx += stride)
     {
@@ -396,7 +395,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacQPKernel(
     // Add correction for collapsed coordinate.
     if (isModified)
     {
-        item_ct1.barrier(sycl::access::fence_space::local_space);
+        localBarrier<NektarSpaces::SYCL>(item_ct1);
 
         constexpr unsigned int NM2_MAX = 8;
         if (nm2 <= NM2_MAX)
@@ -430,8 +429,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacQPKernel(
 #pragma unroll
             for (unsigned int r = 0u; r < nm2; ++r)
             {
-                prod[r] = sycl::reduce_over_group(item_ct1.get_sub_group(),
-                                                  prod[r], sycl::plus<>());
+                prod[r] = warpReduceSum<NektarSpaces::SYCL>(prod[r], item_ct1);
 
                 if (item_ct1.get_sub_group().get_local_id() == 0)
                 {
@@ -478,10 +476,8 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacQPKernel(
                     basis0[nq0 + i] * basis1[nq1 + j] * basis2[k] * in[idx];
             }
 
-            prod0 = sycl::reduce_over_group(item_ct1.get_sub_group(), prod0,
-                                            sycl::plus<>());
-            prod1 = sycl::reduce_over_group(item_ct1.get_sub_group(), prod1,
-                                            sycl::plus<>());
+            prod0 = warpReduceSum<NektarSpaces::SYCL>(prod0, item_ct1);
+            prod1 = warpReduceSum<NektarSpaces::SYCL>(prod1, item_ct1);
 
             if (item_ct1.get_sub_group().get_local_id() == 0)
             {
@@ -512,8 +508,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacQPKernel(
                             basis0[nq0 + i] * in[idx];
                 }
 
-                prod = sycl::reduce_over_group(item_ct1.get_sub_group(), prod,
-                                               sycl::plus<>());
+                prod = warpReduceSum<NektarSpaces::SYCL>(prod, item_ct1);
 
                 if (item_ct1.get_sub_group().get_local_id() == 0)
                 {
@@ -529,7 +524,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacQPKernel(
         }
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
@@ -564,7 +559,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacQPKernel(
         wsp0[idx] = sum_kj;
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 
     for (unsigned int idx = idx0; idx < nm0 * nm1 * nq2; idx += stride)
     {
@@ -582,7 +577,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacQPKernel(
         wsp1[idx] = sum_k;
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 
     for (unsigned int idx = idx0; idx < nmTot; idx += stride)
     {
@@ -617,7 +612,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacQPKernel(
     // Add correction for collapsed coordinate.
     if (isModified)
     {
-        item_ct1.barrier(sycl::access::fence_space::local_space);
+        localBarrier<NektarSpaces::SYCL>(item_ct1);
 
         constexpr unsigned int NM1_MAX = 8;
         if (nm1 <= NM1_MAX)
@@ -641,8 +636,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacQPKernel(
 #pragma unroll
             for (unsigned int q = 0u; q < nm1; ++q)
             {
-                prod[q] = sycl::reduce_over_group(item_ct1.get_sub_group(),
-                                                  prod[q], sycl::plus<>());
+                prod[q] = warpReduceSum<NektarSpaces::SYCL>(prod[q], item_ct1);
 
                 if (item_ct1.get_sub_group().get_local_id() == 0)
                 {
@@ -672,8 +666,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacQPKernel(
                             basis0[nq0 + i];
                 }
 
-                prod = sycl::reduce_over_group(item_ct1.get_sub_group(), prod,
-                                               sycl::plus<>());
+                prod = warpReduceSum<NektarSpaces::SYCL>(prod, item_ct1);
 
                 if (item_ct1.get_sub_group().get_local_id() == 0)
                 {
@@ -689,7 +682,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacQPKernel(
         }
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
@@ -723,7 +716,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacQPKernel(
         wsp0[idx] = sum_kj;
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 
     for (unsigned int idx = idx0; idx < nm0 * nm1 * nq2; idx += stride)
     {
@@ -741,7 +734,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacQPKernel(
         wsp1[idx] = sum_k;
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 
     for (unsigned int idx = idx0; idx < nmTot; idx += stride)
     {
@@ -775,7 +768,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacQPKernel(
     // Add correction for collapsed coordinate.
     if (isModified)
     {
-        item_ct1.barrier(sycl::access::fence_space::local_space);
+        localBarrier<NektarSpaces::SYCL>(item_ct1);
 
         TData prod = 0.0;
 
@@ -793,8 +786,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacQPKernel(
             prod += in[idx] * tmp;
         }
 
-        prod = sycl::reduce_over_group(item_ct1.get_sub_group(), prod,
-                                       sycl::plus<>());
+        prod = warpReduceSum<NektarSpaces::SYCL>(prod, item_ct1);
 
         if (item_ct1.get_sub_group().get_local_id() == 0)
         {
@@ -808,7 +800,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacQPKernel(
         }
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 }
 
 template <typename Implementation, bool SCALE, bool APPEND, bool DEFORMED,
@@ -872,7 +864,7 @@ NEK_DEVICE_INLINE static void IProductWRTBase1DKernel(
                 }
             }
 
-            item_ct1.barrier(sycl::access::fence_space::local_space);
+            localBarrier<NektarSpaces::SYCL>(item_ct1);
 
             IProductWRTBaseSegSumFacQPKernel<SCALE, APPEND, DEFORMED>(
                 nm0, nq0, basis0, s_wsp0, outptr, scale, item_ct1);
@@ -886,7 +878,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_INLINE static void IProductWRTBase2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
-    const bool isModified, [[maybe_unused]] const unsigned int *index0,
+    const bool isModified,
+    [[maybe_unused]] const unsigned int *__restrict__ index0,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ w0, const TData *__restrict__ w1,
     const TData *__restrict__ jac, const TData *__restrict__ in,
@@ -988,7 +981,7 @@ NEK_DEVICE_INLINE static void IProductWRTBase2DKernel(
                 }
             }
 
-            item_ct1.barrier(sycl::access::fence_space::local_space);
+            localBarrier<NektarSpaces::SYCL>(item_ct1);
 
             if constexpr (SHAPE_TYPE == LibUtilities::Quad)
             {
@@ -1176,7 +1169,7 @@ NEK_DEVICE_INLINE static void IProductWRTBase3DKernel(
                 }
             }
 
-            item_ct1.barrier(sycl::access::fence_space::local_space);
+            localBarrier<NektarSpaces::SYCL>(item_ct1);
 
             if constexpr (SHAPE_TYPE == LibUtilities::Hex)
             {

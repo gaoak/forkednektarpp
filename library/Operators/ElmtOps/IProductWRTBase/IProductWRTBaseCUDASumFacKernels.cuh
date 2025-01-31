@@ -43,7 +43,7 @@ template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 NEK_DEVICE_INLINE static void IProductWRTBaseSegSumFacQPKernel(
     const unsigned int nm0, const unsigned int nq0,
     const TData *__restrict__ basis0, const TData *__restrict__ in,
-    TData *__restrict__ out, const TData scale)
+    TData *__restrict__ out, const TData scale, const CUDAblock &cuda_block)
 {
     const unsigned int idx0   = threadIdx.x;
     const unsigned int stride = blockDim.x;
@@ -72,7 +72,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseSegSumFacQPKernel(
         }
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
@@ -81,7 +81,8 @@ NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacQPKernel(
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     [[maybe_unused]] const unsigned int nqTot, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ wsp, const TData scale)
+    TData *__restrict__ out, TData *__restrict__ wsp, const TData scale,
+    const CUDAblock &cuda_block)
 {
     const unsigned int idx0   = threadIdx.x;
     const unsigned int stride = blockDim.x;
@@ -101,7 +102,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacQPKernel(
         wsp[idx] = sum;
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 
     for (unsigned int idx = idx0; idx < nmTot; idx += stride)
     {
@@ -131,7 +132,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacQPKernel(
         }
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
@@ -141,7 +142,8 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacQPKernel(
     const unsigned int nqTot, const bool isModified,
     const unsigned int *__restrict__ pindex, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ wsp, const TData scale)
+    TData *__restrict__ out, TData *__restrict__ wsp, const TData scale,
+    const CUDAblock &cuda_block)
 {
     const unsigned int idx0   = threadIdx.x;
     const unsigned int stride = blockDim.x;
@@ -161,7 +163,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacQPKernel(
         wsp[idx] = sum;
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 
     for (unsigned int idx = idx0; idx < nmTot; idx += stride)
     {
@@ -195,7 +197,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacQPKernel(
     // With contributions from every quadrature point
     if (isModified)
     {
-        __syncthreads();
+        localBarrier<NektarSpaces::CUDA>(cuda_block);
 
         constexpr unsigned int warpsize =
             NektarSpaces::vector_width<TData>::value;
@@ -209,11 +211,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacQPKernel(
             prod += basis0[nq0 + i] * basis1[nq1 + j] * in[idx];
         }
 
-        prod += __shfl_down_sync(0xffffffff, prod, 16);
-        prod += __shfl_down_sync(0xffffffff, prod, 8);
-        prod += __shfl_down_sync(0xffffffff, prod, 4);
-        prod += __shfl_down_sync(0xffffffff, prod, 2);
-        prod += __shfl_down_sync(0xffffffff, prod, 1);
+        prod = warpReduceSum<NektarSpaces::CUDA>(prod, cuda_block);
 
         if (threadIdx.x % warpsize == 0)
         {
@@ -227,7 +225,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacQPKernel(
         }
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
@@ -238,7 +236,8 @@ NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacQPKernel(
     [[maybe_unused]] const unsigned int nqTot, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ basis2,
     const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp0, TData *__restrict__ wsp1, const TData scale)
+    TData *__restrict__ wsp0, TData *__restrict__ wsp1, const TData scale,
+    const CUDAblock &cuda_block)
 {
     const unsigned int idx0   = threadIdx.x;
     const unsigned int stride = blockDim.x;
@@ -259,7 +258,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacQPKernel(
         wsp0[idx] = sum_kj;
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 
     for (unsigned int idx = idx0; idx < nm0 * nm1 * nq2; idx += stride)
     {
@@ -277,7 +276,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacQPKernel(
         wsp1[idx] = sum_k;
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 
     for (unsigned int idx = idx0; idx < nmTot; idx += stride)
     {
@@ -308,7 +307,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacQPKernel(
         }
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
@@ -321,7 +320,8 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacQPKernel(
     const unsigned int *__restrict__ qindex2, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ basis2,
     const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp0, TData *__restrict__ wsp1, const TData scale)
+    TData *__restrict__ wsp0, TData *__restrict__ wsp1, const TData scale,
+    const CUDAblock &cuda_block)
 {
     const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
 
@@ -344,7 +344,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacQPKernel(
         wsp0[idx] = sum_kj;
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 
     for (unsigned int idx = idx0; idx < nm01 * nq2; idx += stride)
     {
@@ -362,7 +362,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacQPKernel(
         wsp1[idx] = sum_k;
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 
     for (unsigned int idx = idx0; idx < nmTot; idx += stride)
     {
@@ -397,7 +397,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacQPKernel(
     // Add correction for collapsed coordinate.
     if (isModified)
     {
-        __syncthreads();
+        localBarrier<NektarSpaces::CUDA>(cuda_block);
 
         constexpr unsigned int NM2_MAX = 8;
         constexpr unsigned int warpsize =
@@ -434,11 +434,8 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacQPKernel(
 #pragma unroll
             for (unsigned int r = 0u; r < nm2; ++r)
             {
-                prod[r] += __shfl_down_sync(0xffffffff, prod[r], 16);
-                prod[r] += __shfl_down_sync(0xffffffff, prod[r], 8);
-                prod[r] += __shfl_down_sync(0xffffffff, prod[r], 4);
-                prod[r] += __shfl_down_sync(0xffffffff, prod[r], 2);
-                prod[r] += __shfl_down_sync(0xffffffff, prod[r], 1);
+                prod[r] =
+                    warpReduceSum<NektarSpaces::CUDA>(prod[r], cuda_block);
 
                 if (threadIdx.x % warpsize == 0)
                 {
@@ -485,17 +482,8 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacQPKernel(
                     basis0[nq0 + i] * basis1[nq1 + j] * basis2[k] * in[idx];
             }
 
-            prod0 += __shfl_down_sync(0xffffffff, prod0, 16);
-            prod0 += __shfl_down_sync(0xffffffff, prod0, 8);
-            prod0 += __shfl_down_sync(0xffffffff, prod0, 4);
-            prod0 += __shfl_down_sync(0xffffffff, prod0, 2);
-            prod0 += __shfl_down_sync(0xffffffff, prod0, 1);
-
-            prod1 += __shfl_down_sync(0xffffffff, prod1, 16);
-            prod1 += __shfl_down_sync(0xffffffff, prod1, 8);
-            prod1 += __shfl_down_sync(0xffffffff, prod1, 4);
-            prod1 += __shfl_down_sync(0xffffffff, prod1, 2);
-            prod1 += __shfl_down_sync(0xffffffff, prod1, 1);
+            prod0 = warpReduceSum<NektarSpaces::CUDA>(prod0, cuda_block);
+            prod1 = warpReduceSum<NektarSpaces::CUDA>(prod1, cuda_block);
 
             if (threadIdx.x % warpsize == 0)
             {
@@ -526,11 +514,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacQPKernel(
                             basis0[nq0 + i] * in[idx];
                 }
 
-                prod += __shfl_down_sync(0xffffffff, prod, 16);
-                prod += __shfl_down_sync(0xffffffff, prod, 8);
-                prod += __shfl_down_sync(0xffffffff, prod, 4);
-                prod += __shfl_down_sync(0xffffffff, prod, 2);
-                prod += __shfl_down_sync(0xffffffff, prod, 1);
+                prod = warpReduceSum<NektarSpaces::CUDA>(prod, cuda_block);
 
                 if (threadIdx.x % warpsize == 0)
                 {
@@ -546,7 +530,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacQPKernel(
         }
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
@@ -559,7 +543,8 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacQPKernel(
     const unsigned int *__restrict__ rindex, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ basis2,
     const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp0, TData *__restrict__ wsp1, const TData scale)
+    TData *__restrict__ wsp0, TData *__restrict__ wsp1, const TData scale,
+    const CUDAblock &cuda_block)
 {
     const unsigned int idx0   = threadIdx.x;
     const unsigned int stride = blockDim.x;
@@ -580,7 +565,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacQPKernel(
         wsp0[idx] = sum_kj;
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 
     for (unsigned int idx = idx0; idx < nm0 * nm1 * nq2; idx += stride)
     {
@@ -598,7 +583,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacQPKernel(
         wsp1[idx] = sum_k;
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 
     for (unsigned int idx = idx0; idx < nmTot; idx += stride)
     {
@@ -633,7 +618,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacQPKernel(
     // Add correction for collapsed coordinate.
     if (isModified)
     {
-        __syncthreads();
+        localBarrier<NektarSpaces::CUDA>(cuda_block);
 
         constexpr unsigned int NM1_MAX = 8;
         constexpr unsigned int warpsize =
@@ -660,11 +645,8 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacQPKernel(
 #pragma unroll
             for (unsigned int q = 0u; q < nm1; ++q)
             {
-                prod[q] += __shfl_down_sync(0xffffffff, prod[q], 16);
-                prod[q] += __shfl_down_sync(0xffffffff, prod[q], 8);
-                prod[q] += __shfl_down_sync(0xffffffff, prod[q], 4);
-                prod[q] += __shfl_down_sync(0xffffffff, prod[q], 2);
-                prod[q] += __shfl_down_sync(0xffffffff, prod[q], 1);
+                prod[q] =
+                    warpReduceSum<NektarSpaces::CUDA>(prod[q], cuda_block);
 
                 if (threadIdx.x % warpsize == 0)
                 {
@@ -694,11 +676,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacQPKernel(
                             basis0[nq0 + i];
                 }
 
-                prod += __shfl_down_sync(0xffffffff, prod, 16);
-                prod += __shfl_down_sync(0xffffffff, prod, 8);
-                prod += __shfl_down_sync(0xffffffff, prod, 4);
-                prod += __shfl_down_sync(0xffffffff, prod, 2);
-                prod += __shfl_down_sync(0xffffffff, prod, 1);
+                prod = warpReduceSum<NektarSpaces::CUDA>(prod, cuda_block);
 
                 if (threadIdx.x % warpsize == 0)
                 {
@@ -714,7 +692,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacQPKernel(
         }
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
@@ -726,7 +704,8 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacQPKernel(
     const unsigned int *__restrict__ qindex, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ basis2,
     const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp0, TData *__restrict__ wsp1, const TData scale)
+    TData *__restrict__ wsp0, TData *__restrict__ wsp1, const TData scale,
+    const CUDAblock &cuda_block)
 {
     const unsigned int idx0   = threadIdx.x;
     const unsigned int stride = blockDim.x;
@@ -747,7 +726,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacQPKernel(
         wsp0[idx] = sum_kj;
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 
     for (unsigned int idx = idx0; idx < nm0 * nm1 * nq2; idx += stride)
     {
@@ -765,7 +744,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacQPKernel(
         wsp1[idx] = sum_k;
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 
     for (unsigned int idx = idx0; idx < nmTot; idx += stride)
     {
@@ -799,7 +778,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacQPKernel(
     // Add correction for collapsed coordinate.
     if (isModified)
     {
-        __syncthreads();
+        localBarrier<NektarSpaces::CUDA>(cuda_block);
 
         constexpr unsigned int warpsize =
             NektarSpaces::vector_width<TData>::value;
@@ -820,11 +799,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacQPKernel(
             prod += in[idx] * tmp;
         }
 
-        prod += __shfl_down_sync(0xffffffff, prod, 16);
-        prod += __shfl_down_sync(0xffffffff, prod, 8);
-        prod += __shfl_down_sync(0xffffffff, prod, 4);
-        prod += __shfl_down_sync(0xffffffff, prod, 2);
-        prod += __shfl_down_sync(0xffffffff, prod, 1);
+        prod = warpReduceSum<NektarSpaces::CUDA>(prod, cuda_block);
 
         if (threadIdx.x % warpsize == 0)
         {
@@ -838,7 +813,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacQPKernel(
         }
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 }
 
 // General Launcher
@@ -848,7 +823,8 @@ NEK_DEVICE_INLINE static void IProductWRTBase1DKernel(
     const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ w0,
     const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, const TData scale)
+    TData *__restrict__ out, const TData scale,
+    [[maybe_unused]] TData *__restrict__ shmemptr, const CUDAblock &cuda_block)
 {
     unsigned int jacsize = 1u;
     if constexpr (DEFORMED)
@@ -877,8 +853,6 @@ NEK_DEVICE_INLINE static void IProductWRTBase1DKernel(
     }
     else
     {
-        extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
-
         TData *s_wsp0 = (TData *)shmemptr;
 
         const unsigned int idx0   = threadIdx.x;
@@ -903,10 +877,10 @@ NEK_DEVICE_INLINE static void IProductWRTBase1DKernel(
                 }
             }
 
-            __syncthreads();
+            localBarrier<NektarSpaces::CUDA>(cuda_block);
 
             IProductWRTBaseSegSumFacQPKernel<SCALE, APPEND, DEFORMED>(
-                nm0, nq0, basis0, s_wsp0, outptr, scale);
+                nm0, nq0, basis0, s_wsp0, outptr, scale, cuda_block);
             e += gridDim.x;
         }
     }
@@ -921,8 +895,13 @@ __global__ void IProductWRTBase1DKernelLauncher(
     const TData *__restrict__ jac, const TData *__restrict__ in,
     TData *__restrict__ out, const TData scale)
 {
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
+
+    const CUDAblock cuda_block;
+
     IProductWRTBase1DKernel<Implementation, SCALE, APPEND, DEFORMED>(
-        nm0, nq0, nelmt, basis0, w0, jac, in, out, scale);
+        nm0, nq0, nelmt, basis0, w0, jac, in, out, scale, (TData *)shmemptr,
+        cuda_block);
 }
 
 // Size based template version.
@@ -933,8 +912,13 @@ __global__ void IProductWRTBase1DKernelLauncher(
     const TData *__restrict__ w0, const TData *__restrict__ jac,
     const TData *__restrict__ in, TData *__restrict__ out, const TData scale)
 {
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
+
+    const CUDAblock cuda_block;
+
     IProductWRTBase1DKernel<Implementation, SCALE, APPEND, DEFORMED>(
-        nm0, nq0, nelmt, basis0, w0, jac, in, out, scale);
+        nm0, nq0, nelmt, basis0, w0, jac, in, out, scale, (TData *)shmemptr,
+        cuda_block);
 }
 
 // General Launcher
@@ -949,7 +933,8 @@ NEK_DEVICE_INLINE static void IProductWRTBase2DKernel(
     const TData *__restrict__ w0, const TData *__restrict__ w1,
     const TData *__restrict__ jac, const TData *__restrict__ in,
     TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ wsp,
-    const TData scale)
+    const TData scale, [[maybe_unused]] TData *__restrict__ shmemptr,
+    const CUDAblock &cuda_block)
 {
     const unsigned int nqTot = nq0 * nq1;
     unsigned int jacsize     = 1u;
@@ -991,8 +976,6 @@ NEK_DEVICE_INLINE static void IProductWRTBase2DKernel(
     }
     else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
-        extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
-
         unsigned int offset, nmode0, nmode1;
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
@@ -1047,19 +1030,20 @@ NEK_DEVICE_INLINE static void IProductWRTBase2DKernel(
                 }
             }
 
-            __syncthreads();
+            localBarrier<NektarSpaces::CUDA>(cuda_block);
 
             if constexpr (SHAPE_TYPE == LibUtilities::Quad)
             {
                 IProductWRTBaseQuadSumFacQPKernel<SCALE, APPEND, DEFORMED>(
                     nm0, nm1, nmTot, nq0, nq1, nqTot, s_basis0, s_basis1,
-                    s_wsp0, outptr, s_wsp1, scale);
+                    s_wsp0, outptr, s_wsp1, scale, cuda_block);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
             {
                 IProductWRTBaseTriSumFacQPKernel<SCALE, APPEND, DEFORMED>(
                     nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0,
-                    s_basis0, s_basis1, s_wsp0, outptr, s_wsp1, scale);
+                    s_basis0, s_basis1, s_wsp0, outptr, s_wsp1, scale,
+                    cuda_block);
             }
 
             e += gridDim.x;
@@ -1079,10 +1063,14 @@ __global__ void IProductWRTBase2DKernelLauncher(
     const TData *__restrict__ jac, const TData *__restrict__ in,
     TData *__restrict__ out, TData *__restrict__ wsp, const TData scale)
 {
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
+
+    const CUDAblock cuda_block;
+
     IProductWRTBase2DKernel<SHAPE_TYPE, Implementation, SCALE, APPEND,
-                            DEFORMED>(nm0, nm1, nmTot, nq0, nq1, nelmt,
-                                      isModified, index0, basis0, basis1, w0,
-                                      w1, jac, in, out, wsp, scale);
+                            DEFORMED>(
+        nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0, basis1,
+        w0, w1, jac, in, out, wsp, scale, (TData *)shmemptr, cuda_block);
 }
 
 // Size based template version.
@@ -1098,10 +1086,14 @@ __global__ void IProductWRTBase2DKernelLauncher(
     const TData *__restrict__ in, TData *__restrict__ out,
     TData *__restrict__ wsp, const TData scale)
 {
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
+
+    const CUDAblock cuda_block;
+
     IProductWRTBase2DKernel<SHAPE_TYPE, Implementation, SCALE, APPEND,
-                            DEFORMED>(nm0, nm1, nmTot, nq0, nq1, nelmt,
-                                      isModified, index0, basis0, basis1, w0,
-                                      w1, jac, in, out, wsp, scale);
+                            DEFORMED>(
+        nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0, basis1,
+        w0, w1, jac, in, out, wsp, scale, (TData *)shmemptr, cuda_block);
 }
 
 // General Launcher
@@ -1119,7 +1111,8 @@ NEK_DEVICE_INLINE static void IProductWRTBase3DKernel(
     const TData *__restrict__ w1, const TData *__restrict__ w2,
     const TData *__restrict__ jac, const TData *__restrict__ in,
     TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ wsp,
-    const TData scale)
+    const TData scale, [[maybe_unused]] TData *__restrict__ shmemptr,
+    const CUDAblock &cuda_block)
 {
     const unsigned int nqTot = nq0 * nq1 * nq2;
     unsigned int jacsize     = 1u;
@@ -1184,10 +1177,8 @@ NEK_DEVICE_INLINE static void IProductWRTBase3DKernel(
             e += blockDim.x * gridDim.x;
         }
     }
-    else
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
-        extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
-
         unsigned int offset0, offset1, nmode0, nmode1, nmode2;
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
@@ -1273,34 +1264,35 @@ NEK_DEVICE_INLINE static void IProductWRTBase3DKernel(
                 }
             }
 
-            __syncthreads();
+            localBarrier<NektarSpaces::CUDA>(cuda_block);
 
             if constexpr (SHAPE_TYPE == LibUtilities::Hex)
             {
                 IProductWRTBaseHexSumFacQPKernel<SCALE, APPEND, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, s_basis0,
-                    s_basis1, s_basis2, s_wsp0, outptr, s_wsp1, s_wsp2, scale);
+                    s_basis1, s_basis2, s_wsp0, outptr, s_wsp1, s_wsp2, scale,
+                    cuda_block);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
             {
                 IProductWRTBaseTetSumFacQPKernel<SCALE, APPEND, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
                     index0, index1, index2, s_basis0, s_basis1, s_basis2,
-                    s_wsp0, outptr, s_wsp1, s_wsp2, scale);
+                    s_wsp0, outptr, s_wsp1, s_wsp2, scale, cuda_block);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
             {
                 IProductWRTBasePrismSumFacQPKernel<SCALE, APPEND, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
                     index0, index1, index2, s_basis0, s_basis1, s_basis2,
-                    s_wsp0, outptr, s_wsp1, s_wsp2, scale);
+                    s_wsp0, outptr, s_wsp1, s_wsp2, scale, cuda_block);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
             {
                 IProductWRTBasePyrSumFacQPKernel<SCALE, APPEND, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
                     index0, index1, s_basis0, s_basis1, s_basis2, s_wsp0,
-                    outptr, s_wsp1, s_wsp2, scale);
+                    outptr, s_wsp1, s_wsp2, scale, cuda_block);
             }
 
             e += gridDim.x;
@@ -1324,10 +1316,15 @@ __global__ void IProductWRTBase3DKernelLauncher(
     const TData *__restrict__ in, TData *__restrict__ out,
     TData *__restrict__ wsp, const TData scale)
 {
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
+
+    const CUDAblock cuda_block;
+
     IProductWRTBase3DKernel<SHAPE_TYPE, Implementation, SCALE, APPEND,
                             DEFORMED>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
-        index2, basis0, basis1, basis2, w0, w1, w2, jac, in, out, wsp, scale);
+        index2, basis0, basis1, basis2, w0, w1, w2, jac, in, out, wsp, scale,
+        (TData *)shmemptr, cuda_block);
 }
 
 // Size based template version.
@@ -1346,10 +1343,15 @@ __global__ void IProductWRTBase3DKernelLauncher(
     const TData *__restrict__ in, TData *__restrict__ out,
     TData *__restrict__ wsp, const TData scale)
 {
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
+
+    const CUDAblock cuda_block;
+
     IProductWRTBase3DKernel<SHAPE_TYPE, Implementation, SCALE, APPEND,
                             DEFORMED>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
-        index2, basis0, basis1, basis2, w0, w1, w2, jac, in, out, wsp, scale);
+        index2, basis0, basis1, basis2, w0, w1, w2, jac, in, out, wsp, scale,
+        (TData *)shmemptr, cuda_block);
 }
 
 // Kernel launchers

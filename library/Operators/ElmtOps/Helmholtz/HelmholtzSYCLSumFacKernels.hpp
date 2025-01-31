@@ -145,7 +145,7 @@ NEK_DEVICE_INLINE static void ApplyMetric1DSumFacQPKernel(
         }
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
@@ -193,7 +193,7 @@ NEK_DEVICE_INLINE static void ApplyMetric2DSumFacQPKernel(
                 }
             }
 
-            item_ct1.barrier(sycl::access::fence_space::local_space);
+            localBarrier<NektarSpaces::SYCL>(item_ct1);
         }
     }
 
@@ -284,7 +284,7 @@ NEK_DEVICE_INLINE static void ApplyMetric2DSumFacQPKernel(
         }
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
@@ -323,7 +323,7 @@ NEK_DEVICE_INLINE static void ApplyMetric3DSumFacQPKernel(
                     diffCoeff[(idx / 3u) * 3u + 2u] * df[idx % 3u + 6u];
             }
 
-            item_ct1.barrier(sycl::access::fence_space::local_space);
+            localBarrier<NektarSpaces::SYCL>(item_ct1);
         }
     }
 
@@ -427,7 +427,7 @@ NEK_DEVICE_INLINE static void ApplyMetric3DSumFacQPKernel(
         }
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 }
 
 // General Launcher
@@ -563,7 +563,7 @@ NEK_DEVICE_INLINE static void Helmholtz2DKernel(
                 s_f1[idx] = f1[idx];
             }
 
-            item_ct1.barrier(sycl::access::fence_space::local_space);
+            localBarrier<NektarSpaces::SYCL>(item_ct1);
         }
 
         unsigned int e = item_ct1.get_global_id(2);
@@ -676,7 +676,7 @@ NEK_DEVICE_INLINE static void Helmholtz2DKernel(
                 tmp[idx] = inptr[idx];
             }
 
-            item_ct1.barrier(sycl::access::fence_space::local_space);
+            localBarrier<NektarSpaces::SYCL>(item_ct1);
 
             if constexpr (SHAPE_TYPE == LibUtilities::Quad)
             {
@@ -797,7 +797,7 @@ NEK_DEVICE_INLINE static void Helmholtz3DKernel(
                 s_f2[idx] = f2[idx];
             }
 
-            item_ct1.barrier(sycl::access::fence_space::local_space);
+            localBarrier<NektarSpaces::SYCL>(item_ct1);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
         {
@@ -814,7 +814,7 @@ NEK_DEVICE_INLINE static void Helmholtz3DKernel(
                 s_f2[idx] = f2[idx];
             }
 
-            item_ct1.barrier(sycl::access::fence_space::local_space);
+            localBarrier<NektarSpaces::SYCL>(item_ct1);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
@@ -837,7 +837,7 @@ NEK_DEVICE_INLINE static void Helmholtz3DKernel(
                 s_f2[idx] = f2[idx];
             }
 
-            item_ct1.barrier(sycl::access::fence_space::local_space);
+            localBarrier<NektarSpaces::SYCL>(item_ct1);
         }
 
         unsigned int e = item_ct1.get_global_id(2);
@@ -1042,7 +1042,7 @@ NEK_DEVICE_INLINE static void Helmholtz3DKernel(
                 tmp[idx] = inptr[idx];
             }
 
-            item_ct1.barrier(sycl::access::fence_space::local_space);
+            localBarrier<NektarSpaces::SYCL>(item_ct1);
 
             if constexpr (SHAPE_TYPE == LibUtilities::Hex)
             {

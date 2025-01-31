@@ -104,7 +104,7 @@ __global__ void RobBndCond2DKernel(
                 incoeffPtr[offset + mapPtr[index]] * signPtr[index];
         }
 
-        __syncthreads();
+        Nektar::localBarrier<NektarSpaces::CUDA>(CUDAblock());
 
         for (unsigned int i = idx0; i < ncoeff; i += stride)
         {
@@ -129,7 +129,7 @@ __global__ void RobBndCond2DKernel(
             }
         }
 
-        __syncthreads();
+        Nektar::localBarrier<NektarSpaces::CUDA>(CUDAblock());
 
         j += gridDim.x;
     }

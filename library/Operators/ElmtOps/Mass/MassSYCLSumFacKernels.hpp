@@ -103,7 +103,7 @@ NEK_DEVICE_INLINE static void Mass1DKernel(
                 }
             }
 
-            item_ct1.barrier(sycl::access::fence_space::local_space);
+            localBarrier<NektarSpaces::SYCL>(item_ct1);
 
             IProductWRTBaseSegSumFacQPKernel<false, false, DEFORMED>(
                 nm0, nq0, basis0, bwd, outptr, (TData)1.0, item_ct1);
@@ -219,7 +219,7 @@ NEK_DEVICE_INLINE static void Mass2DKernel(
                 tmp[idx] = inptr[idx];
             }
 
-            item_ct1.barrier(sycl::access::fence_space::local_space);
+            localBarrier<NektarSpaces::SYCL>(item_ct1);
 
             if constexpr (SHAPE_TYPE == LibUtilities::Quad)
             {
@@ -248,7 +248,7 @@ NEK_DEVICE_INLINE static void Mass2DKernel(
                 }
             }
 
-            item_ct1.barrier(sycl::access::fence_space::local_space);
+            localBarrier<NektarSpaces::SYCL>(item_ct1);
 
             if constexpr (SHAPE_TYPE == LibUtilities::Quad)
             {
@@ -453,7 +453,7 @@ NEK_DEVICE_INLINE static void Mass3DKernel(
                 tmp[idx] = inptr[idx];
             }
 
-            item_ct1.barrier(sycl::access::fence_space::local_space);
+            localBarrier<NektarSpaces::SYCL>(item_ct1);
 
             if constexpr (SHAPE_TYPE == LibUtilities::Hex)
             {
@@ -498,7 +498,7 @@ NEK_DEVICE_INLINE static void Mass3DKernel(
                 }
             }
 
-            item_ct1.barrier(sycl::access::fence_space::local_space);
+            localBarrier<NektarSpaces::SYCL>(item_ct1);
 
             if constexpr (SHAPE_TYPE == LibUtilities::Hex)
             {

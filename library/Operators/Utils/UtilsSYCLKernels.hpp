@@ -58,7 +58,7 @@ NEK_DEVICE_INLINE static void interleaveKernel(const unsigned int VectorWidth,
         buffer[offset + idx] = inout[offset + idx];
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 
     for (unsigned int idx = idx0; idx < npts * VectorWidth; idx += stride)
     {
@@ -84,7 +84,7 @@ NEK_DEVICE_INLINE static void deInterleaveKernel(
         buffer[offset + idx] = inout[offset + idx];
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 
     for (unsigned int idx = idx0; idx < npts * VectorWidth; idx += stride)
     {
@@ -111,7 +111,7 @@ NEK_DEVICE_INLINE static void BuildInterleaveMapKernel(
         buffer[groupOffset + idx] = offset + groupOffset + idx;
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 
     for (unsigned int idx = idx0; idx < npts * newVecWidth; idx += stride)
     {
@@ -121,7 +121,7 @@ NEK_DEVICE_INLINE static void BuildInterleaveMapKernel(
             buffer[groupOffset + vecElem * npts + iElem];
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 
     for (unsigned int idx = idx0; idx < npts * newVecWidth; idx += stride)
     {
