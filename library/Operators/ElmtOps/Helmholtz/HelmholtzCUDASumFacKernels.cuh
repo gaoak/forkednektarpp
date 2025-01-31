@@ -47,7 +47,8 @@ NEK_DEVICE_INLINE static void ApplyMetric1DSumFacQPKernel(
     const unsigned int insize, const TData *__restrict__ w0,
     const TData *__restrict__ df, const TData *__restrict__ jac,
     const TData *__restrict__ diffCoeff, const TData *__restrict__ in,
-    TData *__restrict__ bwd, TData *out, const TData lambda)
+    TData *__restrict__ bwd, TData *out, const TData lambda,
+    const CUDAblock &cuda_block)
 {
     unsigned int dfsize = 1u;
     if constexpr (DEFORMED)
@@ -143,7 +144,7 @@ NEK_DEVICE_INLINE static void ApplyMetric1DSumFacQPKernel(
         }
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
@@ -154,7 +155,7 @@ NEK_DEVICE_INLINE static void ApplyMetric2DSumFacQPKernel(
     const TData *__restrict__ f1, const TData *__restrict__ df,
     const TData *__restrict__ jac, const TData *__restrict__ diffCoeff,
     const TData *__restrict__ in, TData *__restrict__ bwd, TData *out0,
-    TData *out1, TData *metric, const TData lambda)
+    TData *out1, TData *metric, const TData lambda, const CUDAblock &cuda_block)
 {
     const unsigned int nqTot = nq0 * nq1;
     unsigned int dfsize      = 1u;
@@ -190,7 +191,7 @@ NEK_DEVICE_INLINE static void ApplyMetric2DSumFacQPKernel(
                 }
             }
 
-            __syncthreads();
+            localBarrier<NektarSpaces::CUDA>(cuda_block);
         }
     }
 
@@ -281,7 +282,7 @@ NEK_DEVICE_INLINE static void ApplyMetric2DSumFacQPKernel(
         }
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
@@ -294,7 +295,7 @@ NEK_DEVICE_INLINE static void ApplyMetric3DSumFacQPKernel(
     const TData *__restrict__ df, const TData *__restrict__ jac,
     const TData *__restrict__ diffCoeff, const TData *__restrict__ in,
     TData *__restrict__ bwd, TData *out0, TData *out1, TData *out2,
-    TData *metric, const TData lambda)
+    TData *metric, const TData lambda, const CUDAblock &cuda_block)
 {
     constexpr unsigned int ncoord = 3u;
 
@@ -320,7 +321,7 @@ NEK_DEVICE_INLINE static void ApplyMetric3DSumFacQPKernel(
                     diffCoeff[(idx / 3u) * 3u + 2u] * df[idx % 3u + 6u];
             }
 
-            __syncthreads();
+            localBarrier<NektarSpaces::CUDA>(cuda_block);
         }
     }
 
@@ -424,7 +425,7 @@ NEK_DEVICE_INLINE static void ApplyMetric3DSumFacQPKernel(
         }
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 }
 
 // General Launcher
@@ -435,7 +436,8 @@ NEK_DEVICE_INLINE static void Helmholtz1DKernel(
     const TData *__restrict__ D0, const TData *__restrict__ w0,
     const TData *__restrict__ df, const TData *__restrict__ jac,
     const TData *__restrict__ coeff, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ wsp, const TData lambda)
+    TData *__restrict__ out, TData *__restrict__ wsp, const TData lambda,
+    TData *__restrict__ shmemptr, const CUDAblock &cuda_block)
 {
     const unsigned int ndf = ncoord;
     unsigned int dfsize    = 1u;
@@ -477,9 +479,7 @@ NEK_DEVICE_INLINE static void Helmholtz1DKernel(
     }
     else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
-        extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
-
-        TData *bwd   = (TData *)shmemptr;
+        TData *bwd   = shmemptr;
         TData *deriv = bwd + nq0;
 
         unsigned int e = blockIdx.x;
@@ -490,15 +490,16 @@ NEK_DEVICE_INLINE static void Helmholtz1DKernel(
             const TData *inptr  = in + nm0 * e;
             TData *outptr       = out + nm0 * e;
 
-            BwdTransSegSumFacQPKernel(nm0, nq0, basis0, inptr, bwd);
+            BwdTransSegSumFacQPKernel(nm0, nq0, basis0, inptr, bwd, cuda_block);
             PhysDeriv1DSumFacQPKernel<DEFORMED>(ncoord, nq0, 1, D0, dfptr, bwd,
-                                                deriv);
+                                                deriv, cuda_block);
             ApplyMetric1DSumFacQPKernel<DEFORMED>(ncoord, nq0, 1, w0, dfptr,
                                                   jacptr, coeff, deriv, bwd,
-                                                  deriv, lambda);
-            SumDerivTensor1DQPKernel<true, DEFORMED>(nq0, D0, deriv, bwd);
+                                                  deriv, lambda, cuda_block);
+            SumDerivTensor1DQPKernel<true, DEFORMED>(nq0, D0, deriv, bwd,
+                                                     cuda_block);
             IProductWRTBaseSegSumFacQPKernel<false, false, DEFORMED>(
-                nm0, nq0, basis0, bwd, outptr, (TData)1.0);
+                nm0, nq0, basis0, bwd, outptr, (TData)1.0, cuda_block);
 
             e += gridDim.x;
         }
@@ -515,9 +516,13 @@ __global__ void Helmholtz1DKernelLauncher(
     const TData *__restrict__ coeff, const TData *__restrict__ in,
     TData *__restrict__ out, TData *__restrict__ wsp, const TData lambda)
 {
-    Helmholtz1DKernel<Implementation, DEFORMED>(ncoord, nm0, nq0, nelmt, basis0,
-                                                D0, w0, df, jac, coeff, in, out,
-                                                wsp, lambda);
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
+
+    const CUDAblock cuda_block;
+
+    Helmholtz1DKernel<Implementation, DEFORMED>(
+        ncoord, nm0, nq0, nelmt, basis0, D0, w0, df, jac, coeff, in, out, wsp,
+        lambda, (TData *)shmemptr, cuda_block);
 }
 
 // Size based template version.
@@ -531,9 +536,13 @@ __global__ void Helmholtz1DKernelLauncher(
     const TData *__restrict__ in, TData *__restrict__ out,
     TData *__restrict__ wsp, const TData lambda)
 {
-    Helmholtz1DKernel<Implementation, DEFORMED>(ncoord, nm0, nq0, nelmt, basis0,
-                                                D0, w0, df, jac, coeff, in, out,
-                                                wsp, lambda);
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
+
+    const CUDAblock cuda_block;
+
+    Helmholtz1DKernel<Implementation, DEFORMED>(
+        ncoord, nm0, nq0, nelmt, basis0, D0, w0, df, jac, coeff, in, out, wsp,
+        lambda, (TData *)shmemptr, cuda_block);
 }
 
 // General Launcher
@@ -551,7 +560,8 @@ NEK_DEVICE_INLINE static void Helmholtz2DKernel(
     const TData *__restrict__ df, const TData *__restrict__ jac,
     const TData *__restrict__ coeff, const TData *__restrict__ in,
     TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ wsp,
-    const TData lambda)
+    const TData lambda, TData *__restrict__ shmemptr,
+    const CUDAblock &cuda_block)
 {
     const unsigned int ndf   = 2 * ncoord;
     const unsigned int nqTot = nq0 * nq1;
@@ -568,8 +578,6 @@ NEK_DEVICE_INLINE static void Helmholtz2DKernel(
         constexpr unsigned int warpsize =
             NektarSpaces::vector_width<TData>::value;
 
-        extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
-
         TData *s_f0 = nullptr;
         TData *s_f1 = nullptr;
 
@@ -579,7 +587,7 @@ NEK_DEVICE_INLINE static void Helmholtz2DKernel(
 
         if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
-            s_f0 = (TData *)shmemptr;
+            s_f0 = shmemptr;
             s_f1 = s_f0 + nq1;
 
             for (unsigned int idx = idx0; idx < nq0; idx += stride)
@@ -592,7 +600,7 @@ NEK_DEVICE_INLINE static void Helmholtz2DKernel(
                 s_f1[idx] = f1[idx];
             }
 
-            __syncthreads();
+            localBarrier<NektarSpaces::CUDA>(cuda_block);
         }
 
         unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
@@ -653,8 +661,6 @@ NEK_DEVICE_INLINE static void Helmholtz2DKernel(
     }
     else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
-        extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
-
         unsigned int offset, nmode0, nmode1;
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
@@ -669,7 +675,7 @@ NEK_DEVICE_INLINE static void Helmholtz2DKernel(
             nmode1 = nmTot;
         }
 
-        TData *metric   = (TData *)shmemptr;
+        TData *metric   = shmemptr;
         TData *bwd      = metric + 6;
         TData *deriv    = bwd + nqTot;
         TData *tmp      = deriv;
@@ -707,47 +713,51 @@ NEK_DEVICE_INLINE static void Helmholtz2DKernel(
                 tmp[idx] = inptr[idx];
             }
 
-            __syncthreads();
+            localBarrier<NektarSpaces::CUDA>(cuda_block);
 
             if constexpr (SHAPE_TYPE == LibUtilities::Quad)
             {
                 BwdTransQuadSumFacQPKernel(nm0, nm1, nq0, nq1, nqTot, s_basis0,
-                                           s_basis1, tmp, bwd, s_wsp0);
+                                           s_basis1, tmp, bwd, s_wsp0,
+                                           cuda_block);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
             {
                 BwdTransTriSumFacQPKernel(nm0, nm1, nq0, nq1, nqTot, isModified,
-                                          s_basis0, s_basis1, tmp, bwd, s_wsp0);
+                                          s_basis0, s_basis1, tmp, bwd, s_wsp0,
+                                          cuda_block);
             }
 
             PhysDeriv2DSumFacQPKernel<SHAPE_TYPE, DEFORMED>(
-                ncoord, nq0, nq1, 1, D0, D1, f0, f1, dfptr, bwd, deriv);
+                ncoord, nq0, nq1, 1, D0, D1, f0, f1, dfptr, bwd, deriv,
+                cuda_block);
             if constexpr (DEFORMED)
             {
                 TData dmetric[6];
                 ApplyMetric2DSumFacQPKernel<SHAPE_TYPE, DEFORMED>(
                     ncoord, nq0, nq1, 1, w0, w1, f0, f1, dfptr, jacptr, coeff,
-                    deriv, bwd, deriv0, deriv1, dmetric, lambda);
+                    deriv, bwd, deriv0, deriv1, dmetric, lambda, cuda_block);
             }
             else
             {
                 ApplyMetric2DSumFacQPKernel<SHAPE_TYPE, DEFORMED>(
                     ncoord, nq0, nq1, 1, w0, w1, f0, f1, dfptr, jacptr, coeff,
-                    deriv, bwd, deriv0, deriv1, metric, lambda);
+                    deriv, bwd, deriv0, deriv1, metric, lambda, cuda_block);
             }
             SumDerivTensor2DQPKernel<true, DEFORMED>(nq0, nq1, D0, D1, deriv0,
-                                                     deriv1, bwd);
+                                                     deriv1, bwd, cuda_block);
             if constexpr (SHAPE_TYPE == LibUtilities::Quad)
             {
                 IProductWRTBaseQuadSumFacQPKernel<false, false, DEFORMED>(
                     nm0, nm1, nmTot, nq0, nq1, nqTot, s_basis0, s_basis1, bwd,
-                    outptr, s_wsp0, (TData)1.0);
+                    outptr, s_wsp0, (TData)1.0, cuda_block);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
             {
                 IProductWRTBaseTriSumFacQPKernel<false, false, DEFORMED>(
                     nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0,
-                    s_basis0, s_basis1, bwd, outptr, s_wsp0, (TData)1.0);
+                    s_basis0, s_basis1, bwd, outptr, s_wsp0, (TData)1.0,
+                    cuda_block);
             }
 
             e += gridDim.x;
@@ -771,9 +781,14 @@ __global__ void Helmholtz2DKernelLauncher(
     const TData *__restrict__ in, TData *__restrict__ out,
     TData *__restrict__ wsp, const TData lambda)
 {
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
+
+    const CUDAblock cuda_block;
+
     Helmholtz2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
         ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0,
-        basis1, D0, D1, w0, w1, f0, f1, df, jac, coeff, in, out, wsp, lambda);
+        basis1, D0, D1, w0, w1, f0, f1, df, jac, coeff, in, out, wsp, lambda,
+        (TData *)shmemptr, cuda_block);
 }
 
 // Size based template version.
@@ -791,9 +806,14 @@ __global__ void Helmholtz2DKernelLauncher(
     const TData *__restrict__ in, TData *__restrict__ out,
     TData *__restrict__ wsp, const TData lambda)
 {
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
+
+    const CUDAblock cuda_block;
+
     Helmholtz2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
         ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0,
-        basis1, D0, D1, w0, w1, f0, f1, df, jac, coeff, in, out, wsp, lambda);
+        basis1, D0, D1, w0, w1, f0, f1, df, jac, coeff, in, out, wsp, lambda,
+        (TData *)shmemptr, cuda_block);
 }
 
 // General Launcher
@@ -816,7 +836,8 @@ NEK_DEVICE_INLINE static void Helmholtz3DKernel(
     const TData *__restrict__ f2, const TData *__restrict__ df,
     const TData *__restrict__ jac, const TData *__restrict__ coeff,
     const TData *__restrict__ in, TData *__restrict__ out,
-    [[maybe_unused]] TData *__restrict__ wsp, const TData lambda)
+    [[maybe_unused]] TData *__restrict__ wsp, const TData lambda,
+    TData *__restrict__ shmemptr, const CUDAblock &cuda_block)
 {
     constexpr unsigned int ndf = 9u;
     const unsigned int nqTot   = nq0 * nq1 * nq2;
@@ -833,8 +854,6 @@ NEK_DEVICE_INLINE static void Helmholtz3DKernel(
         constexpr unsigned int warpsize =
             NektarSpaces::vector_width<TData>::value;
 
-        extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
-
         TData *s_f0  = nullptr;
         TData *s_f1  = nullptr;
         TData *s_f1m = nullptr;
@@ -845,7 +864,7 @@ NEK_DEVICE_INLINE static void Helmholtz3DKernel(
         const unsigned int stride = blockDim.x;
         if constexpr (SHAPE_TYPE == LibUtilities::Tet)
         {
-            s_f0  = (TData *)shmemptr;
+            s_f0  = shmemptr;
             s_f1  = s_f0 + nq0;
             s_f1m = s_f1 + nq1;
             s_f2  = s_f1m + nq1;
@@ -866,11 +885,11 @@ NEK_DEVICE_INLINE static void Helmholtz3DKernel(
                 s_f2[idx] = f2[idx];
             }
 
-            __syncthreads();
+            localBarrier<NektarSpaces::CUDA>(cuda_block);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
         {
-            s_f0 = (TData *)shmemptr;
+            s_f0 = shmemptr;
             s_f2 = s_f0 + nq0;
 
             for (unsigned int idx = idx0; idx < nq0; idx += stride)
@@ -883,11 +902,11 @@ NEK_DEVICE_INLINE static void Helmholtz3DKernel(
                 s_f2[idx] = f2[idx];
             }
 
-            __syncthreads();
+            localBarrier<NektarSpaces::CUDA>(cuda_block);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
-            s_f0 = (TData *)shmemptr;
+            s_f0 = shmemptr;
             s_f1 = s_f0 + nq0;
             s_f2 = s_f1 + nq1;
 
@@ -906,7 +925,7 @@ NEK_DEVICE_INLINE static void Helmholtz3DKernel(
                 s_f2[idx] = f2[idx];
             }
 
-            __syncthreads();
+            localBarrier<NektarSpaces::CUDA>(cuda_block);
         }
 
         unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
@@ -1031,8 +1050,6 @@ NEK_DEVICE_INLINE static void Helmholtz3DKernel(
     }
     else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
-        extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
-
         unsigned int offset0, offset1, nmode0, nmode1, nmode2;
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
@@ -1067,7 +1084,7 @@ NEK_DEVICE_INLINE static void Helmholtz3DKernel(
             nmode2  = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
         }
 
-        TData *metric   = (TData *)shmemptr;
+        TData *metric   = shmemptr;
         TData *bwd      = metric + 9;
         TData *deriv    = bwd + nqTot;
         TData *tmp      = deriv;
@@ -1113,80 +1130,81 @@ NEK_DEVICE_INLINE static void Helmholtz3DKernel(
                 tmp[idx] = inptr[idx];
             }
 
-            __syncthreads();
+            localBarrier<NektarSpaces::CUDA>(cuda_block);
 
             if constexpr (SHAPE_TYPE == LibUtilities::Hex)
             {
                 BwdTransHexSumFacQPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
                                           s_basis0, s_basis1, s_basis2, tmp,
-                                          bwd, s_wsp0, s_wsp1);
+                                          bwd, s_wsp0, s_wsp1, cuda_block);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
             {
                 BwdTransTetSumFacQPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
                                           isModified, index0, index3, s_basis0,
                                           s_basis1, s_basis2, tmp, bwd, s_wsp0,
-                                          s_wsp1);
+                                          s_wsp1, cuda_block);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
             {
-                BwdTransPrismSumFacQPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
-                                            isModified, s_basis0, s_basis1,
-                                            s_basis2, tmp, bwd, s_wsp0, s_wsp1);
+                BwdTransPrismSumFacQPKernel(
+                    nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, s_basis0,
+                    s_basis1, s_basis2, tmp, bwd, s_wsp0, s_wsp1, cuda_block);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
             {
-                BwdTransPyrSumFacQPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
-                                          isModified, s_basis0, s_basis1,
-                                          s_basis2, tmp, bwd, s_wsp0, s_wsp1);
+                BwdTransPyrSumFacQPKernel(
+                    nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, s_basis0,
+                    s_basis1, s_basis2, tmp, bwd, s_wsp0, s_wsp1, cuda_block);
             }
             PhysDeriv3DSumFacQPKernel<SHAPE_TYPE, DEFORMED>(
                 nq0, nq1, nq2, 1, D0, D1, D2, f0, f1, f1m, f2, dfptr, bwd,
-                deriv);
+                deriv, cuda_block);
             if constexpr (DEFORMED)
             {
                 TData dmetric[9];
                 ApplyMetric3DSumFacQPKernel<SHAPE_TYPE, DEFORMED>(
                     nq0, nq1, nq2, 1, w0, w1, w2, f0, f1, f1m, f2, dfptr,
                     jacptr, coeff, deriv, bwd, deriv0, deriv1, deriv2, dmetric,
-                    lambda);
+                    lambda, cuda_block);
             }
             else
             {
                 ApplyMetric3DSumFacQPKernel<SHAPE_TYPE, DEFORMED>(
                     nq0, nq1, nq2, 1, w0, w1, w2, f0, f1, f1m, f2, dfptr,
                     jacptr, coeff, deriv, bwd, deriv0, deriv1, deriv2, metric,
-                    lambda);
+                    lambda, cuda_block);
             }
-            SumDerivTensor3DQPKernel<true, DEFORMED>(
-                nq0, nq1, nq2, D0, D1, D2, deriv0, deriv1, deriv2, bwd);
+            SumDerivTensor3DQPKernel<true, DEFORMED>(nq0, nq1, nq2, D0, D1, D2,
+                                                     deriv0, deriv1, deriv2,
+                                                     bwd, cuda_block);
             if constexpr (SHAPE_TYPE == LibUtilities::Hex)
             {
                 IProductWRTBaseHexSumFacQPKernel<false, false, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, s_basis0,
-                    s_basis1, s_basis2, bwd, outptr, s_wsp0, s_wsp1,
-                    (TData)1.0);
+                    s_basis1, s_basis2, bwd, outptr, s_wsp0, s_wsp1, (TData)1.0,
+                    cuda_block);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
             {
                 IProductWRTBaseTetSumFacQPKernel<false, false, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
                     index0, index1, index2, s_basis0, s_basis1, s_basis2, bwd,
-                    outptr, s_wsp1, s_wsp0, (TData)1.0);
+                    outptr, s_wsp1, s_wsp0, (TData)1.0, cuda_block);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
             {
                 IProductWRTBasePrismSumFacQPKernel<false, false, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
                     index0, index1, index2, s_basis0, s_basis1, s_basis2, bwd,
-                    outptr, s_wsp1, s_wsp0, (TData)1.0);
+                    outptr, s_wsp1, s_wsp0, (TData)1.0, cuda_block);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
             {
                 IProductWRTBasePyrSumFacQPKernel<false, false, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
                     index0, index1, s_basis0, s_basis1, s_basis2, bwd, outptr,
-                    s_wsp1, s_wsp0, (TData)1.0);
+                    s_wsp1, s_wsp0, (TData)1.0, cuda_block);
             }
 
             e += gridDim.x;
@@ -1215,10 +1233,15 @@ __global__ void Helmholtz3DKernelLauncher(
     const TData *__restrict__ coeff, const TData *__restrict__ in,
     TData *__restrict__ out, TData *__restrict__ wsp, const TData lambda)
 {
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
+
+    const CUDAblock cuda_block;
+
     Helmholtz3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
         index2, index3, basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, f0, f1,
-        f1m, f2, df, jac, coeff, in, out, wsp, lambda);
+        f1m, f2, df, jac, coeff, in, out, wsp, lambda, (TData *)shmemptr,
+        cuda_block);
 }
 
 // Size based template version.
@@ -1242,10 +1265,15 @@ __global__ void Helmholtz3DKernelLauncher(
     const TData *__restrict__ coeff, const TData *__restrict__ in,
     TData *__restrict__ out, TData *__restrict__ wsp, const TData lambda)
 {
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
+
+    const CUDAblock cuda_block;
+
     Helmholtz3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
         index2, index3, basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, f0, f1,
-        f1m, f2, df, jac, coeff, in, out, wsp, lambda);
+        f1m, f2, df, jac, coeff, in, out, wsp, lambda, (TData *)shmemptr,
+        cuda_block);
 }
 
 // Kernel launchers

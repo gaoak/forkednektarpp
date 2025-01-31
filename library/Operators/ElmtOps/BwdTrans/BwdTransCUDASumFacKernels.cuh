@@ -43,7 +43,7 @@ template <typename TData>
 NEK_DEVICE_INLINE static void BwdTransSegSumFacQPKernel(
     const unsigned int nm0, const unsigned int nq0,
     const TData *__restrict__ basis0, const TData *__restrict__ in,
-    TData *__restrict__ out)
+    TData *__restrict__ out, const CUDAblock &cuda_block)
 {
     const unsigned int idx0   = threadIdx.x;
     const unsigned int stride = blockDim.x;
@@ -59,7 +59,7 @@ NEK_DEVICE_INLINE static void BwdTransSegSumFacQPKernel(
         out[i] = tmp;
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 }
 
 template <typename TData>
@@ -68,7 +68,7 @@ NEK_DEVICE_INLINE static void BwdTransQuadSumFacQPKernel(
     const unsigned int nq1, const unsigned int nqTot,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp)
+    TData *__restrict__ wsp, const CUDAblock &cuda_block)
 {
     const unsigned int idx0   = threadIdx.x;
     const unsigned int stride = blockDim.x;
@@ -89,7 +89,7 @@ NEK_DEVICE_INLINE static void BwdTransQuadSumFacQPKernel(
         wsp[idx] = tmp;
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 
     // direction 1
     for (unsigned int idx = idx0; idx < nqTot; idx += stride)
@@ -107,7 +107,7 @@ NEK_DEVICE_INLINE static void BwdTransQuadSumFacQPKernel(
         out[idx] = tmp;
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 }
 
 template <typename TData>
@@ -116,7 +116,7 @@ NEK_DEVICE_INLINE static void BwdTransTriSumFacQPKernel(
     const unsigned int nq1, const unsigned int nqTot, const bool isModified,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp)
+    TData *__restrict__ wsp, const CUDAblock &cuda_block)
 {
     const unsigned int idx0   = threadIdx.x;
     const unsigned int stride = blockDim.x;
@@ -137,7 +137,7 @@ NEK_DEVICE_INLINE static void BwdTransTriSumFacQPKernel(
         wsp[idx] = tmp;
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 
     // direction 0
     for (unsigned int idx = idx0; idx < nqTot; idx += stride)
@@ -162,7 +162,7 @@ NEK_DEVICE_INLINE static void BwdTransTriSumFacQPKernel(
         out[idx] = tmp;
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 }
 
 template <typename TData>
@@ -172,7 +172,8 @@ NEK_DEVICE_INLINE static void BwdTransHexSumFacQPKernel(
     const unsigned int nqTot, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ basis2,
     const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp0, TData *__restrict__ wsp1)
+    TData *__restrict__ wsp0, TData *__restrict__ wsp1,
+    const CUDAblock &cuda_block)
 {
     const unsigned int idx0   = threadIdx.x;
     const unsigned int stride = blockDim.x;
@@ -194,7 +195,7 @@ NEK_DEVICE_INLINE static void BwdTransHexSumFacQPKernel(
         wsp0[idx] = tmp;
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 
     // direction 1
     for (unsigned int idx = idx0; idx < nq0 * nq1 * nm2; idx += stride)
@@ -213,7 +214,7 @@ NEK_DEVICE_INLINE static void BwdTransHexSumFacQPKernel(
         wsp1[idx] = tmp;
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 
     // direction 2
     for (unsigned int idx = idx0; idx < nqTot; idx += stride)
@@ -232,7 +233,7 @@ NEK_DEVICE_INLINE static void BwdTransHexSumFacQPKernel(
         out[idx] = tmp;
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 }
 
 template <typename TData>
@@ -244,7 +245,8 @@ NEK_DEVICE_INLINE static void BwdTransTetSumFacQPKernel(
     const unsigned int *__restrict__ qindex, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ basis2,
     const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp0, TData *__restrict__ wsp1)
+    TData *__restrict__ wsp0, TData *__restrict__ wsp1,
+    const CUDAblock &cuda_block)
 {
     const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
 
@@ -275,7 +277,7 @@ NEK_DEVICE_INLINE static void BwdTransTetSumFacQPKernel(
         wsp0[idx] = tmp;
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 
     // direction 1
     for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
@@ -295,7 +297,7 @@ NEK_DEVICE_INLINE static void BwdTransTetSumFacQPKernel(
         wsp1[idx] = tmp;
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 
     // direction 0
     for (unsigned int idx = idx0; idx < nqTot; idx += stride)
@@ -336,7 +338,7 @@ NEK_DEVICE_INLINE static void BwdTransTetSumFacQPKernel(
         out[idx] = tmp;
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 }
 
 template <typename TData>
@@ -346,7 +348,8 @@ NEK_DEVICE_INLINE static void BwdTransPrismSumFacQPKernel(
     const unsigned int nqTot, const bool isModified,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ basis2, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ wsp0, TData *__restrict__ wsp1)
+    TData *__restrict__ out, TData *__restrict__ wsp0, TData *__restrict__ wsp1,
+    const CUDAblock &cuda_block)
 {
     const unsigned int idx0   = threadIdx.x;
     const unsigned int stride = blockDim.x;
@@ -369,7 +372,7 @@ NEK_DEVICE_INLINE static void BwdTransPrismSumFacQPKernel(
         wsp0[idx] = tmp;
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 
     // direction 1
     for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
@@ -388,7 +391,7 @@ NEK_DEVICE_INLINE static void BwdTransPrismSumFacQPKernel(
         wsp1[idx] = tmp;
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 
     // direction 0
     for (unsigned int idx = idx0; idx < nqTot; idx += stride)
@@ -419,7 +422,7 @@ NEK_DEVICE_INLINE static void BwdTransPrismSumFacQPKernel(
         out[idx] = tmp;
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 }
 
 template <typename TData>
@@ -429,7 +432,8 @@ NEK_DEVICE_INLINE static void BwdTransPyrSumFacQPKernel(
     const unsigned int nqTot, const bool isModified,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ basis2, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ wsp0, TData *__restrict__ wsp1)
+    TData *__restrict__ out, TData *__restrict__ wsp0, TData *__restrict__ wsp1,
+    const CUDAblock &cuda_block)
 {
     const unsigned int idx0   = threadIdx.x;
     const unsigned int stride = blockDim.x;
@@ -475,7 +479,7 @@ NEK_DEVICE_INLINE static void BwdTransPyrSumFacQPKernel(
         }
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 
     // direction 1
     for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
@@ -494,7 +498,7 @@ NEK_DEVICE_INLINE static void BwdTransPyrSumFacQPKernel(
         wsp1[idx] = tmp;
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 
     // direction 0
     for (unsigned int idx = idx0; idx < nqTot; idx += stride)
@@ -524,17 +528,16 @@ NEK_DEVICE_INLINE static void BwdTransPyrSumFacQPKernel(
         out[idx] = tmp;
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 }
 
 // General Launcher
 template <typename Implementation, typename TData>
-NEK_DEVICE_INLINE static void BwdTrans1DKernel(const unsigned int nm0,
-                                               const unsigned int nq0,
-                                               const unsigned int nelmt,
-                                               const TData *__restrict__ basis0,
-                                               const TData *__restrict__ in,
-                                               TData *__restrict__ out)
+NEK_DEVICE_INLINE static void BwdTrans1DKernel(
+    const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
+    const TData *__restrict__ basis0, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ shmemptr,
+    const CUDAblock &cuda_block)
 {
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
@@ -559,7 +562,8 @@ NEK_DEVICE_INLINE static void BwdTrans1DKernel(const unsigned int nm0,
         {
             const TData *inptr = in + nm0 * e;
             TData *outptr      = out + nq0 * e;
-            BwdTransSegSumFacQPKernel(nm0, nq0, basis0, inptr, outptr);
+            BwdTransSegSumFacQPKernel(nm0, nq0, basis0, inptr, outptr,
+                                      cuda_block);
             e += gridDim.x;
         }
     }
@@ -574,7 +578,12 @@ __global__ void BwdTrans1DKernelLauncher(const unsigned int nm0,
                                          const TData *__restrict__ in,
                                          TData *__restrict__ out)
 {
-    BwdTrans1DKernel<Implementation>(nm0, nq0, nelmt, basis0, in, out);
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
+
+    const CUDAblock cuda_block;
+
+    BwdTrans1DKernel<Implementation>(nm0, nq0, nelmt, basis0, in, out,
+                                     (TData *)shmemptr, cuda_block);
 }
 
 // Size based template version.
@@ -585,7 +594,12 @@ __global__ void BwdTrans1DKernelLauncher(const unsigned int nelmt,
                                          const TData *__restrict__ in,
                                          TData *__restrict__ out)
 {
-    BwdTrans1DKernel<Implementation>(nm0, nq0, nelmt, basis0, in, out);
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
+
+    const CUDAblock cuda_block;
+
+    BwdTrans1DKernel<Implementation>(nm0, nq0, nelmt, basis0, in, out,
+                                     (TData *)shmemptr, cuda_block);
 }
 
 // General Launcher
@@ -596,7 +610,8 @@ NEK_DEVICE_INLINE static void BwdTrans2DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const bool isModified, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ in,
-    TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ wsp)
+    TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ wsp,
+    [[maybe_unused]] TData *__restrict__ shmemptr, const CUDAblock &cuda_block)
 {
     const unsigned int nqTot = nq0 * nq1;
 
@@ -629,8 +644,6 @@ NEK_DEVICE_INLINE static void BwdTrans2DKernel(
     }
     else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
-        extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
-
         unsigned int offset, nmode0, nmode1;
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
@@ -645,7 +658,7 @@ NEK_DEVICE_INLINE static void BwdTrans2DKernel(
             nmode1 = nmTot;
         }
 
-        TData *s_wsp0   = (TData *)shmemptr;
+        TData *s_wsp0   = shmemptr;
         TData *s_wsp1   = s_wsp0 + nmTot;
         TData *s_basis0 = s_wsp1 + offset;
         TData *s_basis1 = s_basis0 + nm0 * nq0;
@@ -676,18 +689,19 @@ NEK_DEVICE_INLINE static void BwdTrans2DKernel(
                 s_wsp0[idx] = inptr[idx];
             }
 
-            __syncthreads();
+            localBarrier<NektarSpaces::CUDA>(cuda_block);
 
             if constexpr (SHAPE_TYPE == LibUtilities::Quad)
             {
                 BwdTransQuadSumFacQPKernel(nm0, nm1, nq0, nq1, nqTot, s_basis0,
-                                           s_basis1, s_wsp0, outptr, s_wsp1);
+                                           s_basis1, s_wsp0, outptr, s_wsp1,
+                                           cuda_block);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
             {
                 BwdTransTriSumFacQPKernel(nm0, nm1, nq0, nq1, nqTot, isModified,
                                           s_basis0, s_basis1, s_wsp0, outptr,
-                                          s_wsp1);
+                                          s_wsp1, cuda_block);
             }
 
             e += gridDim.x;
@@ -705,9 +719,13 @@ __global__ void BwdTrans2DKernelLauncher(
     const TData *__restrict__ basis1, const TData *__restrict__ in,
     TData *__restrict__ out, TData *__restrict__ wsp)
 {
-    BwdTrans2DKernel<SHAPE_TYPE, Implementation>(nm0, nm1, nmTot, nq0, nq1,
-                                                 nelmt, isModified, basis0,
-                                                 basis1, in, out, wsp);
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
+
+    const CUDAblock cuda_block;
+
+    BwdTrans2DKernel<SHAPE_TYPE, Implementation>(
+        nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, basis0, basis1, in, out,
+        wsp, (TData *)shmemptr, cuda_block);
 }
 
 // Size based template version.
@@ -722,9 +740,13 @@ __global__ void BwdTrans2DKernelLauncher(const unsigned int nelmt,
                                          TData *__restrict__ out,
                                          TData *__restrict__ wsp)
 {
-    BwdTrans2DKernel<SHAPE_TYPE, Implementation>(nm0, nm1, nmTot, nq0, nq1,
-                                                 nelmt, isModified, basis0,
-                                                 basis1, in, out, wsp);
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
+
+    const CUDAblock cuda_block;
+
+    BwdTrans2DKernel<SHAPE_TYPE, Implementation>(
+        nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, basis0, basis1, in, out,
+        wsp, (TData *)shmemptr, cuda_block);
 }
 
 // General Launcher
@@ -738,7 +760,8 @@ NEK_DEVICE_INLINE static void BwdTrans3DKernel(
     [[maybe_unused]] const unsigned int *__restrict__ index1,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ basis2, const TData *__restrict__ in,
-    TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ wsp)
+    TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ wsp,
+    [[maybe_unused]] TData *__restrict__ shmemptr, const CUDAblock &cuda_block)
 {
     const unsigned int nqTot = nq0 * nq1 * nq2;
 
@@ -794,8 +817,6 @@ NEK_DEVICE_INLINE static void BwdTrans3DKernel(
     }
     else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
-        extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
-
         unsigned int offset0, offset1, nmode0, nmode1, nmode2;
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
@@ -830,7 +851,7 @@ NEK_DEVICE_INLINE static void BwdTrans3DKernel(
             nmode2  = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
         }
 
-        TData *s_wsp0   = (TData *)shmemptr;
+        TData *s_wsp0   = shmemptr;
         TData *s_wsp1   = s_wsp0 + nmTot;
         TData *s_wsp2   = s_wsp1 + offset0;
         TData *s_basis0 = s_wsp2 + offset1;
@@ -868,32 +889,34 @@ NEK_DEVICE_INLINE static void BwdTrans3DKernel(
                 s_wsp0[idx] = inptr[idx];
             }
 
-            __syncthreads();
+            localBarrier<NektarSpaces::CUDA>(cuda_block);
 
             if constexpr (SHAPE_TYPE == LibUtilities::Hex)
             {
                 BwdTransHexSumFacQPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
                                           s_basis0, s_basis1, s_basis2, s_wsp0,
-                                          outptr, s_wsp1, s_wsp2);
+                                          outptr, s_wsp1, s_wsp2, cuda_block);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
             {
                 BwdTransTetSumFacQPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
                                           isModified, index0, index1, s_basis0,
                                           s_basis1, s_basis2, s_wsp0, outptr,
-                                          s_wsp1, s_wsp2);
+                                          s_wsp1, s_wsp2, cuda_block);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
             {
-                BwdTransPrismSumFacQPKernel(
-                    nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, s_basis0,
-                    s_basis1, s_basis2, s_wsp0, outptr, s_wsp1, s_wsp2);
+                BwdTransPrismSumFacQPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
+                                            isModified, s_basis0, s_basis1,
+                                            s_basis2, s_wsp0, outptr, s_wsp1,
+                                            s_wsp2, cuda_block);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
             {
-                BwdTransPyrSumFacQPKernel(
-                    nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, s_basis0,
-                    s_basis1, s_basis2, s_wsp0, outptr, s_wsp1, s_wsp2);
+                BwdTransPyrSumFacQPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
+                                          isModified, s_basis0, s_basis1,
+                                          s_basis2, s_wsp0, outptr, s_wsp1,
+                                          s_wsp2, cuda_block);
             }
 
             e += gridDim.x;
@@ -913,9 +936,13 @@ __global__ void BwdTrans3DKernelLauncher(
     const TData *__restrict__ basis2, const TData *__restrict__ in,
     TData *__restrict__ out, TData *__restrict__ wsp)
 {
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
+
+    const CUDAblock cuda_block;
+
     BwdTrans3DKernel<SHAPE_TYPE, Implementation>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
-        basis0, basis1, basis2, in, out, wsp);
+        basis0, basis1, basis2, in, out, wsp, (TData *)shmemptr, cuda_block);
 }
 
 // Size based template version.
@@ -930,9 +957,13 @@ __global__ void BwdTrans3DKernelLauncher(
     const TData *__restrict__ in, TData *__restrict__ out,
     TData *__restrict__ wsp)
 {
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
+
+    const CUDAblock cuda_block;
+
     BwdTrans3DKernel<SHAPE_TYPE, Implementation>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
-        basis0, basis1, basis2, in, out, wsp);
+        basis0, basis1, basis2, in, out, wsp, (TData *)shmemptr, cuda_block);
 }
 
 // Kernel launchers

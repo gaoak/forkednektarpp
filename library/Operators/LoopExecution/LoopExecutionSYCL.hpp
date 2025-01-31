@@ -132,6 +132,44 @@ NEK_DEVICE_INLINE
     }
 }
 
+template <typename ExecSpace, typename TItem, typename TData>
+NEK_DEVICE_INLINE
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                            TData>::type
+    warpReduceSum(TData red, const TItem &item)
+{
+    return sycl::reduce_over_group(item.get_sub_group(), red, sycl::plus<>());
+}
+
+template <typename ExecSpace, typename TItem, typename TData>
+NEK_DEVICE_INLINE
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                            TData>::type
+    warpReduceMax(TData red, const TItem &item)
+{
+    return sycl::reduce_over_group(item.get_sub_group(), red,
+                                   sycl::maximum<>());
+}
+
+template <typename ExecSpace, typename TItem, typename TData>
+NEK_DEVICE_INLINE
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                            TData>::type
+    warpReduceMin(TData red, const TItem &item)
+{
+    return sycl::reduce_over_group(item.get_sub_group(), red,
+                                   sycl::minimum<>());
+}
+
+template <typename ExecSpace, typename TItem>
+NEK_DEVICE_INLINE
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                            void>::type
+    localBarrier(const TItem &item)
+{
+    item.barrier(sycl::access::fence_space::local_space);
+}
+
 template <typename ExecSpace, typename Functor>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
                                void>::type

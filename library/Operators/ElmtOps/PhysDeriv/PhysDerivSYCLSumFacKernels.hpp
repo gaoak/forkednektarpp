@@ -105,7 +105,7 @@ NEK_DEVICE_INLINE static void PhysDeriv1DSumFacQPKernel(
         }
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 }
 
 template <bool APPEND, bool DEFORMED, typename TData>
@@ -138,7 +138,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor1DQPKernel(
         }
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 }
 
 template <bool APPEND, bool DEFORMED, typename TData>
@@ -241,7 +241,7 @@ NEK_DEVICE_INLINE static void PhysDeriv2DSumFacQPKernel(
         }
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 }
 
 template <bool APPEND, bool DEFORMED, typename TData>
@@ -288,7 +288,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor2DQPKernel(
         }
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 }
 
 template <bool APPEND, bool DEFORMED, typename TData>
@@ -434,7 +434,7 @@ NEK_DEVICE_INLINE static void PhysDeriv3DSumFacQPKernel(
         }
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 }
 
 template <bool APPEND, bool DEFORMED, typename TData>
@@ -491,7 +491,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor3DQPKernel(
         }
     }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+    localBarrier<NektarSpaces::SYCL>(item_ct1);
 }
 
 // General Launcher
@@ -594,7 +594,7 @@ NEK_DEVICE_INLINE static void PhysDeriv2DKernel(
                 s_f1[idx] = f1[idx];
             }
 
-            item_ct1.barrier(sycl::access::fence_space::local_space);
+            localBarrier<NektarSpaces::SYCL>(item_ct1);
         }
 
         unsigned int e = item_ct1.get_global_id(2);
@@ -691,7 +691,7 @@ NEK_DEVICE_INLINE static void PhysDeriv3DKernel(
                 s_f2[idx] = f2[idx];
             }
 
-            item_ct1.barrier(sycl::access::fence_space::local_space);
+            localBarrier<NektarSpaces::SYCL>(item_ct1);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
         {
@@ -708,7 +708,7 @@ NEK_DEVICE_INLINE static void PhysDeriv3DKernel(
                 s_f2[idx] = f2[idx];
             }
 
-            item_ct1.barrier(sycl::access::fence_space::local_space);
+            localBarrier<NektarSpaces::SYCL>(item_ct1);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
@@ -731,7 +731,7 @@ NEK_DEVICE_INLINE static void PhysDeriv3DKernel(
                 s_f2[idx] = f2[idx];
             }
 
-            item_ct1.barrier(sycl::access::fence_space::local_space);
+            localBarrier<NektarSpaces::SYCL>(item_ct1);
         }
 
         unsigned int e = item_ct1.get_global_id(2);

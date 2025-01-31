@@ -103,7 +103,7 @@ NEK_DEVICE_INLINE static void RobBndCond2DKernel(
                 incoeffPtr[offset + mapPtr[index]] * signPtr[index];
         }
 
-        item_ct1.barrier(sycl::access::fence_space::local_space);
+        Nektar::localBarrier<NektarSpaces::SYCL>(item_ct1);
 
         for (unsigned int i = idx0; i < ncoeff; i += stride)
         {
@@ -128,7 +128,7 @@ NEK_DEVICE_INLINE static void RobBndCond2DKernel(
             }
         }
 
-        item_ct1.barrier(sycl::access::fence_space::local_space);
+        Nektar::localBarrier<NektarSpaces::SYCL>(item_ct1);
 
         j += item_ct1.get_group_range(0);
     }

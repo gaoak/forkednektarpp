@@ -44,7 +44,8 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase1DSumFacQPKernel(
     const unsigned int ncoord, const unsigned int nq0,
     const unsigned int insize, const TData *__restrict__ w0,
     const TData *__restrict__ df, const TData *__restrict__ jac,
-    const TData *__restrict__ in, TData *__restrict__ out)
+    const TData *__restrict__ in, TData *__restrict__ out,
+    const CUDAblock &cuda_block)
 {
     unsigned int dfsize = 1u;
     if constexpr (DEFORMED)
@@ -75,7 +76,7 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase1DSumFacQPKernel(
         }
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
@@ -85,7 +86,8 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase2DSumFacQPKernel(
     const TData *__restrict__ w1, const TData *__restrict__ f0,
     const TData *__restrict__ f1, const TData *__restrict__ df,
     const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out0, TData *__restrict__ out1)
+    TData *__restrict__ out0, TData *__restrict__ out1,
+    const CUDAblock &cuda_block)
 {
     const unsigned int nqTot = nq0 * nq1;
     unsigned int dfsize      = 1u;
@@ -134,7 +136,7 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase2DSumFacQPKernel(
         }
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
@@ -146,7 +148,8 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase3DSumFacQPKernel(
     const TData *__restrict__ f1m, const TData *__restrict__ f2,
     const TData *__restrict__ df, const TData *__restrict__ jac,
     const TData *__restrict__ in, TData *__restrict__ out0,
-    TData *__restrict__ out1, TData *__restrict__ out2)
+    TData *__restrict__ out1, TData *__restrict__ out2,
+    const CUDAblock &cuda_block)
 {
     constexpr unsigned int ncoord = 3u;
 
@@ -214,7 +217,7 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase3DSumFacQPKernel(
         }
     }
 
-    __syncthreads();
+    localBarrier<NektarSpaces::CUDA>(cuda_block);
 }
 
 // General Launcher
@@ -224,7 +227,8 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase1DKernel(
     const unsigned int nelmt, const TData *__restrict__ dbasis0,
     const TData *__restrict__ w0, const TData *__restrict__ df,
     const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ wsp)
+    TData *__restrict__ out, TData *__restrict__ wsp,
+    TData *__restrict__ shmemptr, const CUDAblock &cuda_block)
 {
     const unsigned int ndf = ncoord;
     unsigned int dfsize    = 1u;
@@ -260,9 +264,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase1DKernel(
     }
     else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
-        extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
-
-        TData *deriv = (TData *)shmemptr;
+        TData *deriv = shmemptr;
 
         unsigned int e = blockIdx.x;
         while (e < nelmt)
@@ -272,10 +274,11 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase1DKernel(
             const TData *inptr  = in + nq0 * e;
             TData *outptr       = out + nm0 * e;
 
-            StdAlignDerivBase1DSumFacQPKernel<DEFORMED>(
-                ncoord, nq0, nelmt, w0, dfptr, jacptr, inptr, deriv);
+            StdAlignDerivBase1DSumFacQPKernel<DEFORMED>(ncoord, nq0, nelmt, w0,
+                                                        dfptr, jacptr, inptr,
+                                                        deriv, cuda_block);
             IProductWRTBaseSegSumFacQPKernel<false, true, DEFORMED>(
-                nm0, nq0, dbasis0, deriv, outptr, (TData)1.0);
+                nm0, nq0, dbasis0, deriv, outptr, (TData)1.0, cuda_block);
 
             e += gridDim.x;
         }
@@ -291,8 +294,13 @@ __global__ void IProductWRTDerivBase1DKernelLauncher(
     const TData *__restrict__ jac, const TData *__restrict__ in,
     TData *__restrict__ out, TData *__restrict__ wsp)
 {
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
+
+    const CUDAblock cuda_block;
+
     IProductWRTDerivBase1DKernel<Implementation, DEFORMED>(
-        ncoord, nm0, nq0, nelmt, dbasis0, w0, df, jac, in, out, wsp);
+        ncoord, nm0, nq0, nelmt, dbasis0, w0, df, jac, in, out, wsp,
+        (TData *)shmemptr, cuda_block);
 }
 
 // Size based template version.
@@ -305,8 +313,13 @@ __global__ void IProductWRTDerivBase1DKernelLauncher(
     const TData *__restrict__ in, TData *__restrict__ out,
     TData *__restrict__ wsp)
 {
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
+
+    const CUDAblock cuda_block;
+
     IProductWRTDerivBase1DKernel<Implementation, DEFORMED>(
-        ncoord, nm0, nq0, nelmt, dbasis0, w0, df, jac, in, out, wsp);
+        ncoord, nm0, nq0, nelmt, dbasis0, w0, df, jac, in, out, wsp,
+        (TData *)shmemptr, cuda_block);
 }
 
 // General Launcher
@@ -323,7 +336,8 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase2DKernel(
     const TData *__restrict__ f0, const TData *__restrict__ f1,
     const TData *__restrict__ df, const TData *__restrict__ jac,
     const TData *__restrict__ in, TData *__restrict__ out,
-    [[maybe_unused]] TData *__restrict__ wsp)
+    [[maybe_unused]] TData *__restrict__ wsp, TData *__restrict__ shmemptr,
+    const CUDAblock &cuda_block)
 {
     const unsigned int ndf   = 2 * ncoord;
     const unsigned int nqTot = nq0 * nq1;
@@ -340,15 +354,13 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase2DKernel(
         constexpr unsigned int warpsize =
             NektarSpaces::vector_width<TData>::value;
 
-        extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
-
         TData *s_f0 = nullptr;
         TData *s_f1 = nullptr;
 
         // Pre-compute factor.
         if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
-            s_f0 = (TData *)shmemptr;
+            s_f0 = shmemptr;
             s_f1 = s_f0 + nq0;
 
             const unsigned int idx0   = threadIdx.x;
@@ -364,7 +376,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase2DKernel(
                 s_f1[idx] = f1[idx];
             }
 
-            __syncthreads();
+            localBarrier<NektarSpaces::CUDA>(cuda_block);
         }
 
         unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
@@ -405,8 +417,6 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase2DKernel(
     }
     else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
-        extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
-
         unsigned int offset, nmode0, nmode1;
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
@@ -421,7 +431,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase2DKernel(
             nmode1 = nmTot;
         }
 
-        TData *deriv0   = (TData *)shmemptr;
+        TData *deriv0   = shmemptr;
         TData *deriv1   = deriv0 + nqTot;
         TData *deriv    = deriv1 + nqTot;
         TData *s_wsp0   = deriv + nqTot;
@@ -452,20 +462,21 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase2DKernel(
 
             StdAlignDerivBase2DSumFacQPKernel<SHAPE_TYPE, DEFORMED>(
                 ncoord, nq0, nq1, nelmt, w0, w1, f0, f1, dfptr, jacptr, inptr,
-                deriv0, deriv1);
-            SumDerivTensor2DQPKernel<false, DEFORMED>(nq0, nq1, D0, D1, deriv0,
-                                                      deriv1, deriv);
+                deriv0, deriv1, cuda_block);
+            SumDerivTensor2DQPKernel<false, DEFORMED>(
+                nq0, nq1, D0, D1, deriv0, deriv1, deriv, cuda_block);
             if constexpr (SHAPE_TYPE == LibUtilities::Quad)
             {
                 IProductWRTBaseQuadSumFacQPKernel<false, true, DEFORMED>(
                     nm0, nm1, nmTot, nq0, nq1, nqTot, s_basis0, s_basis1, deriv,
-                    outptr, s_wsp0, (TData)1.0);
+                    outptr, s_wsp0, (TData)1.0, cuda_block);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
             {
                 IProductWRTBaseTriSumFacQPKernel<false, true, DEFORMED>(
                     nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0,
-                    s_basis0, s_basis1, deriv, outptr, s_wsp0, (TData)1.0);
+                    s_basis0, s_basis1, deriv, outptr, s_wsp0, (TData)1.0,
+                    cuda_block);
             }
 
             e += gridDim.x;
@@ -488,9 +499,14 @@ __global__ void IProductWRTDerivBase2DKernelLauncher(
     const TData *__restrict__ jac, const TData *__restrict__ in,
     TData *__restrict__ out, TData *__restrict__ wsp)
 {
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
+
+    const CUDAblock cuda_block;
+
     IProductWRTDerivBase2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
         ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0,
-        basis1, D0, D1, w0, w1, f0, f1, df, jac, in, out, wsp);
+        basis1, D0, D1, w0, w1, f0, f1, df, jac, in, out, wsp,
+        (TData *)shmemptr, cuda_block);
 }
 
 // Size based template version.
@@ -507,9 +523,14 @@ __global__ void IProductWRTDerivBase2DKernelLauncher(
     const TData *__restrict__ jac, const TData *__restrict__ in,
     TData *__restrict__ out, TData *__restrict__ wsp)
 {
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
+
+    const CUDAblock cuda_block;
+
     IProductWRTDerivBase2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
         ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0,
-        basis1, D0, D1, w0, w1, f0, f1, df, jac, in, out, wsp);
+        basis1, D0, D1, w0, w1, f0, f1, df, jac, in, out, wsp,
+        (TData *)shmemptr, cuda_block);
 }
 
 // General Launcher
@@ -530,7 +551,8 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
     const TData *__restrict__ f1, const TData *__restrict__ f1m,
     const TData *__restrict__ f2, const TData *__restrict__ df,
     const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ wsp)
+    TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ wsp,
+    TData *__restrict__ shmemptr, const CUDAblock &cuda_block)
 {
     constexpr unsigned int ndf = 9u;
     const unsigned int nqTot   = nq0 * nq1 * nq2;
@@ -547,8 +569,6 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
         constexpr unsigned int warpsize =
             NektarSpaces::vector_width<TData>::value;
 
-        extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
-
         TData *s_f0  = nullptr;
         TData *s_f1  = nullptr;
         TData *s_f1m = nullptr;
@@ -559,7 +579,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
         const unsigned int stride = blockDim.x;
         if constexpr (SHAPE_TYPE == LibUtilities::Tet)
         {
-            s_f0  = (TData *)shmemptr;
+            s_f0  = shmemptr;
             s_f1  = s_f0 + nq0;
             s_f1m = s_f1 + nq1;
             s_f2  = s_f1m + nq1;
@@ -580,11 +600,11 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
                 s_f2[idx] = f2[idx];
             }
 
-            __syncthreads();
+            localBarrier<NektarSpaces::CUDA>(cuda_block);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
         {
-            s_f0 = (TData *)shmemptr;
+            s_f0 = shmemptr;
             s_f2 = s_f0 + nq0;
 
             for (unsigned int idx = idx0; idx < nq0; idx += stride)
@@ -597,11 +617,11 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
                 s_f2[idx] = f2[idx];
             }
 
-            __syncthreads();
+            localBarrier<NektarSpaces::CUDA>(cuda_block);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
-            s_f0 = (TData *)shmemptr;
+            s_f0 = shmemptr;
             s_f1 = s_f0 + nq0;
             s_f2 = s_f1 + nq1;
 
@@ -620,7 +640,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
                 s_f2[idx] = f2[idx];
             }
 
-            __syncthreads();
+            localBarrier<NektarSpaces::CUDA>(cuda_block);
         }
 
         unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
@@ -693,10 +713,8 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
             e += blockDim.x * gridDim.x;
         }
     }
-    else
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
-        extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
-
         unsigned int offset0, offset1, nmode0, nmode1, nmode2;
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
@@ -731,7 +749,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
             nmode2  = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
         }
 
-        TData *deriv0   = (TData *)shmemptr;
+        TData *deriv0   = shmemptr;
         TData *deriv1   = deriv0 + nqTot;
         TData *deriv2   = deriv1 + nqTot;
         TData *deriv    = deriv2 + nqTot;
@@ -770,36 +788,37 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
 
             StdAlignDerivBase3DSumFacQPKernel<SHAPE_TYPE, DEFORMED>(
                 nq0, nq1, nq2, nelmt, w0, w1, w2, f0, f1, f1m, f2, dfptr,
-                jacptr, inptr, deriv0, deriv1, deriv2);
-            SumDerivTensor3DQPKernel<false, DEFORMED>(
-                nq0, nq1, nq2, D0, D1, D2, deriv0, deriv1, deriv2, deriv);
+                jacptr, inptr, deriv0, deriv1, deriv2, cuda_block);
+            SumDerivTensor3DQPKernel<false, DEFORMED>(nq0, nq1, nq2, D0, D1, D2,
+                                                      deriv0, deriv1, deriv2,
+                                                      deriv, cuda_block);
             if constexpr (SHAPE_TYPE == LibUtilities::Hex)
             {
                 IProductWRTBaseHexSumFacQPKernel<false, true, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, s_basis0,
                     s_basis1, s_basis2, deriv, outptr, s_wsp0, s_wsp1,
-                    (TData)1.0);
+                    (TData)1.0, cuda_block);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
             {
                 IProductWRTBaseTetSumFacQPKernel<false, true, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
                     index0, index1, index2, s_basis0, s_basis1, s_basis2, deriv,
-                    outptr, s_wsp0, s_wsp1, (TData)1.0);
+                    outptr, s_wsp0, s_wsp1, (TData)1.0, cuda_block);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
             {
                 IProductWRTBasePrismSumFacQPKernel<false, true, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
                     index0, index1, index2, s_basis0, s_basis1, s_basis2, deriv,
-                    outptr, s_wsp0, s_wsp1, (TData)1.0);
+                    outptr, s_wsp0, s_wsp1, (TData)1.0, cuda_block);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
             {
                 IProductWRTBasePyrSumFacQPKernel<false, true, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
                     index0, index1, s_basis0, s_basis1, s_basis2, deriv, outptr,
-                    s_wsp0, s_wsp1, (TData)1.0);
+                    s_wsp0, s_wsp1, (TData)1.0, cuda_block);
             }
 
             e += gridDim.x;
@@ -827,10 +846,14 @@ __global__ void IProductWRTDerivBase3DKernelLauncher(
     const TData *__restrict__ in, TData *__restrict__ out,
     TData *__restrict__ wsp)
 {
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
+
+    const CUDAblock cuda_block;
+
     IProductWRTDerivBase3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
         index2, basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2,
-        df, jac, in, out, wsp);
+        df, jac, in, out, wsp, (TData *)shmemptr, cuda_block);
 }
 
 // Size based template version.
@@ -853,10 +876,14 @@ __global__ void IProductWRTDerivBase3DKernelLauncher(
     const TData *__restrict__ in, TData *__restrict__ out,
     TData *__restrict__ wsp)
 {
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
+
+    const CUDAblock cuda_block;
+
     IProductWRTDerivBase3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
         index2, basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2,
-        df, jac, in, out, wsp);
+        df, jac, in, out, wsp, (TData *)shmemptr, cuda_block);
 }
 
 // Kernel launchers
