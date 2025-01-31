@@ -60,10 +60,7 @@ public:
 
 } // namespace Nektar
 
-#include "Operators/LoopExecution/LoopExecutionSerialAVX.hpp"
-
 #include "Operators/LoopExecution/LoopExecutionCUDA.cuh"
-
-#include "Operators/LoopExecution/LoopExecutionSYCL.hpp"
-
 #include "Operators/LoopExecution/LoopExecutionKokkos.hpp"
+#include "Operators/LoopExecution/LoopExecutionSYCL.hpp"
+#include "Operators/LoopExecution/LoopExecutionSerialAVX.hpp"

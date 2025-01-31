@@ -41,15 +41,15 @@
 namespace Nektar::Operators::detail
 {
 
-template <bool negflag, typename TData>
+template <bool negflag, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void RobBndCond1DKernel(
     const unsigned int nsize, const unsigned int *__restrict__ offsetPtr,
     const TData *__restrict__ matPtr, const unsigned int *__restrict__ mapPtr,
     const TData *__restrict__ incoeffPtr, TData *__restrict__ coeffPtr,
-    const sycl::nd_item<1> &item_ct1)
+    const TthreadBlock &threadBlock)
 {
-    unsigned int idx0   = item_ct1.get_global_id(0);
-    unsigned int stride = item_ct1.get_global_range(0);
+    unsigned int idx0   = getGlobalIdx(threadBlock);
+    unsigned int stride = getGlobalRange(threadBlock);
 
     for (unsigned int i = idx0; i < nsize; i += stride)
     {
@@ -60,18 +60,16 @@ NEK_DEVICE_INLINE static void RobBndCond1DKernel(
         const TData val  = matPtr[i] * incoeffPtr[offset + map];
         if constexpr (negflag)
         {
-            Nektar::atomic_sub<NektarSpaces::SYCL, NektarSpaces::GlobalScope>(
-                ptr, val);
+            Nektar::atomic_sub<NektarSpaces::GlobalScope>(ptr, val);
         }
         else
         {
-            Nektar::atomic_add<NektarSpaces::SYCL, NektarSpaces::GlobalScope>(
-                ptr, val);
+            Nektar::atomic_add<NektarSpaces::GlobalScope>(ptr, val);
         }
     }
 }
 
-template <bool negflag, typename TData>
+template <bool negflag, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void RobBndCond2DKernel(
     const unsigned int nsize, const unsigned int *__restrict__ ncoeffPtr,
     const unsigned int *__restrict__ offsetPtr,
@@ -80,11 +78,11 @@ NEK_DEVICE_INLINE static void RobBndCond2DKernel(
     const TData *__restrict__ matPtr, const unsigned int *__restrict__ mapPtr,
     const int *__restrict__ signPtr, const TData *__restrict__ incoeffPtr,
     TData *__restrict__ coeffPtr, TData *__restrict__ shmemptr,
-    const sycl::nd_item<1> &item_ct1)
+    const TthreadBlock &threadBlock)
 {
     TData *vEdgeCoeffs = shmemptr;
 
-    unsigned int j = item_ct1.get_group(0);
+    unsigned int j = getBlockIdx(threadBlock);
 
     while (j < nsize)
     {
@@ -93,8 +91,8 @@ NEK_DEVICE_INLINE static void RobBndCond2DKernel(
         const unsigned int matOffset = matOffsetPtr[j];
         const unsigned int mapOffset = mapOffsetPtr[j];
 
-        unsigned int idx0   = item_ct1.get_local_id(0);
-        unsigned int stride = item_ct1.get_local_range(0);
+        unsigned int idx0   = getLocalIdx(threadBlock);
+        unsigned int stride = getLocalRange(threadBlock);
 
         for (unsigned int i = idx0; i < ncoeff; i += stride)
         {
@@ -103,7 +101,7 @@ NEK_DEVICE_INLINE static void RobBndCond2DKernel(
                 incoeffPtr[offset + mapPtr[index]] * signPtr[index];
         }
 
-        Nektar::localBarrier<NektarSpaces::SYCL>(item_ct1);
+        Nektar::localBarrier(threadBlock);
 
         for (unsigned int i = idx0; i < ncoeff; i += stride)
         {
@@ -118,19 +116,17 @@ NEK_DEVICE_INLINE static void RobBndCond2DKernel(
             const TData val          = tmp * signPtr[index];
             if constexpr (negflag)
             {
-                Nektar::atomic_sub<NektarSpaces::SYCL,
-                                   NektarSpaces::GlobalScope>(ptr, val);
+                Nektar::atomic_sub<NektarSpaces::GlobalScope>(ptr, val);
             }
             else
             {
-                Nektar::atomic_add<NektarSpaces::SYCL,
-                                   NektarSpaces::GlobalScope>(ptr, val);
+                Nektar::atomic_add<NektarSpaces::GlobalScope>(ptr, val);
             }
         }
 
-        Nektar::localBarrier<NektarSpaces::SYCL>(item_ct1);
+        Nektar::localBarrier(threadBlock);
 
-        j += item_ct1.get_group_range(0);
+        j += getBlockRange(threadBlock);
     }
 }
 

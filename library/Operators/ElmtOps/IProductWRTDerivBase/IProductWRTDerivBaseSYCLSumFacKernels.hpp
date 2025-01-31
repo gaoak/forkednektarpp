@@ -36,18 +36,16 @@
 
 #if defined(NEKTAR_ENABLE_SYCL)
 
-#include "Operators/Common/Spaces.hpp"
-
 namespace Nektar::Operators::detail
 {
 
-template <bool DEFORMED, typename TData>
+template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void StdAlignDerivBase1DSumFacQPKernel(
     const unsigned int ncoord, const unsigned int nq0,
     const unsigned int insize, const TData *__restrict__ w0,
     const TData *__restrict__ df, const TData *__restrict__ jac,
     const TData *__restrict__ in, TData *__restrict__ out,
-    const sycl::nd_item<3> &item_ct1)
+    const TthreadBlock &threadBlock)
 {
     unsigned int dfsize = 1u;
     if constexpr (DEFORMED)
@@ -55,8 +53,8 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase1DSumFacQPKernel(
         dfsize *= nq0;
     }
 
-    const unsigned int idx0   = item_ct1.get_local_id(2);
-    const unsigned int stride = item_ct1.get_local_range(2);
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
 
     for (unsigned int i = idx0; i < nq0; i += stride)
     {
@@ -78,10 +76,11 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase1DSumFacQPKernel(
         }
     }
 
-    localBarrier<NektarSpaces::SYCL>(item_ct1);
+    localBarrier(threadBlock);
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+          typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void StdAlignDerivBase2DSumFacQPKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
     const unsigned int insize, const TData *__restrict__ w0,
@@ -89,7 +88,7 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase2DSumFacQPKernel(
     const TData *__restrict__ f1, const TData *__restrict__ df,
     const TData *__restrict__ jac, const TData *__restrict__ in,
     TData *__restrict__ out0, TData *__restrict__ out1,
-    const sycl::nd_item<3> &item_ct1)
+    const TthreadBlock &threadBlock)
 {
     const unsigned int nqTot = nq0 * nq1;
     unsigned int dfsize      = 1u;
@@ -98,8 +97,8 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase2DSumFacQPKernel(
         dfsize *= nqTot;
     }
 
-    const unsigned int idx0   = item_ct1.get_local_id(2);
-    const unsigned int stride = item_ct1.get_local_range(2);
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
 
     for (unsigned int idx = idx0; idx < nq0 * nq1; idx += stride)
     {
@@ -138,10 +137,11 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase2DSumFacQPKernel(
         }
     }
 
-    localBarrier<NektarSpaces::SYCL>(item_ct1);
+    localBarrier(threadBlock);
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+          typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void StdAlignDerivBase3DSumFacQPKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int insize, const TData *__restrict__ w0,
@@ -151,7 +151,7 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase3DSumFacQPKernel(
     const TData *__restrict__ df, const TData *__restrict__ jac,
     const TData *__restrict__ in, TData *__restrict__ out0,
     TData *__restrict__ out1, TData *__restrict__ out2,
-    const sycl::nd_item<3> &item_ct1)
+    const TthreadBlock &threadBlock)
 {
     constexpr unsigned int ncoord = 3u;
 
@@ -162,8 +162,8 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase3DSumFacQPKernel(
         dfsize *= nqTot;
     }
 
-    const unsigned int idx0   = item_ct1.get_local_id(2);
-    const unsigned int stride = item_ct1.get_local_range(2);
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
 
     for (unsigned int idx = idx0; idx < nq0 * nq1 * nq2; idx += stride)
     {
@@ -219,18 +219,19 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase3DSumFacQPKernel(
         }
     }
 
-    localBarrier<NektarSpaces::SYCL>(item_ct1);
+    localBarrier(threadBlock);
 }
 
 // General Launcher
-template <typename Implementation, bool DEFORMED, typename TData>
+template <typename Implementation, bool DEFORMED, typename TthreadBlock,
+          typename TData>
 NEK_DEVICE_INLINE static void IProductWRTDerivBase1DKernel(
     const unsigned int ncoord, const unsigned int nm0, const unsigned int nq0,
     const unsigned int nelmt, const TData *__restrict__ dbasis0,
     const TData *__restrict__ w0, const TData *__restrict__ df,
     const TData *__restrict__ jac, const TData *__restrict__ in,
     TData *__restrict__ out, TData *__restrict__ wsp,
-    TData *__restrict__ shmemptr, const sycl::nd_item<3> &item_ct1)
+    TData *__restrict__ shmemptr, const TthreadBlock &threadBlock)
 {
     const unsigned int ndf = ncoord;
     unsigned int dfsize    = 1u;
@@ -246,7 +247,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase1DKernel(
         constexpr unsigned int warpsize =
             NektarSpaces::vector_width<TData>::value;
 
-        unsigned int e = item_ct1.get_global_id(2);
+        unsigned int e = getGlobalIdx(threadBlock);
         while (e < nelmt)
         {
             const unsigned int ilane = e % warpsize;
@@ -261,14 +262,14 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase1DKernel(
                 ilane, ncoord, nq0, nelmt, w0, dfptr, jacptr, inptr, deriv);
             IProductWRTBaseSegSumFacKernel<false, true, DEFORMED>(
                 ilane, nm0, nq0, dbasis0, deriv, outptr, (TData)1.0);
-            e += item_ct1.get_global_range(2);
+            e += getGlobalRange(threadBlock);
         }
     }
     else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
         TData *deriv = shmemptr;
 
-        unsigned int e = item_ct1.get_group(2);
+        unsigned int e = getBlockIdx(threadBlock);
         while (e < nelmt)
         {
             const TData *dfptr  = df + ndf * dfsize * e;
@@ -276,19 +277,20 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase1DKernel(
             const TData *inptr  = in + nq0 * e;
             TData *outptr       = out + nm0 * e;
 
-            StdAlignDerivBase1DSumFacQPKernel<DEFORMED>(
-                ncoord, nq0, nelmt, w0, dfptr, jacptr, inptr, deriv, item_ct1);
+            StdAlignDerivBase1DSumFacQPKernel<DEFORMED>(ncoord, nq0, nelmt, w0,
+                                                        dfptr, jacptr, inptr,
+                                                        deriv, threadBlock);
             IProductWRTBaseSegSumFacQPKernel<false, true, DEFORMED>(
-                nm0, nq0, dbasis0, deriv, outptr, (TData)1.0, item_ct1);
+                nm0, nq0, dbasis0, deriv, outptr, (TData)1.0, threadBlock);
 
-            e += item_ct1.get_group_range(2);
+            e += getBlockRange(threadBlock);
         }
     }
 }
 
 // General Launcher
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, typename TData>
+          bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void IProductWRTDerivBase2DKernel(
     const unsigned int ncoord, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -301,7 +303,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase2DKernel(
     const TData *__restrict__ df, const TData *__restrict__ jac,
     const TData *__restrict__ in, TData *__restrict__ out,
     [[maybe_unused]] TData *__restrict__ wsp, TData *__restrict__ shmemptr,
-    const sycl::nd_item<3> &item_ct1)
+    const TthreadBlock &threadBlock)
 {
     const unsigned int ndf   = 2 * ncoord;
     const unsigned int nqTot = nq0 * nq1;
@@ -327,8 +329,8 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase2DKernel(
             s_f0 = shmemptr;
             s_f1 = s_f0 + nq0;
 
-            const unsigned int idx0   = item_ct1.get_local_id(2);
-            const unsigned int stride = item_ct1.get_local_range(2);
+            const unsigned int idx0   = getLocalIdx(threadBlock);
+            const unsigned int stride = getLocalRange(threadBlock);
 
             for (unsigned int idx = idx0; idx < nq0; idx += stride)
             {
@@ -340,10 +342,10 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase2DKernel(
                 s_f1[idx] = f1[idx];
             }
 
-            localBarrier<NektarSpaces::SYCL>(item_ct1);
+            localBarrier(threadBlock);
         }
 
-        unsigned int e = item_ct1.get_global_id(2);
+        unsigned int e = getGlobalIdx(threadBlock);
         while (e < nelmt)
         {
             const unsigned int ilane = e % warpsize;
@@ -376,7 +378,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase2DKernel(
                     ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1,
                     deriv, outptr, wsp0, (TData)1.0);
             }
-            e += item_ct1.get_global_range(2);
+            e += getGlobalRange(threadBlock);
         }
     }
     else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
@@ -403,8 +405,8 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase2DKernel(
         TData *s_basis1 = s_basis0 + nm0 * nq0;
 
         // Copy to shared memory.
-        const unsigned int idx0   = item_ct1.get_local_id(2);
-        const unsigned int stride = item_ct1.get_local_range(2);
+        const unsigned int idx0   = getLocalIdx(threadBlock);
+        const unsigned int stride = getLocalRange(threadBlock);
 
         for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
         {
@@ -416,7 +418,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase2DKernel(
             s_basis1[idx] = basis1[idx];
         }
 
-        unsigned int e = item_ct1.get_group(2);
+        unsigned int e = getBlockIdx(threadBlock);
         while (e < nelmt)
         {
             const TData *dfptr  = df + ndf * dfsize * e;
@@ -426,31 +428,31 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase2DKernel(
 
             StdAlignDerivBase2DSumFacQPKernel<SHAPE_TYPE, DEFORMED>(
                 ncoord, nq0, nq1, nelmt, w0, w1, f0, f1, dfptr, jacptr, inptr,
-                deriv0, deriv1, item_ct1);
-            SumDerivTensor2DQPKernel<false, DEFORMED>(nq0, nq1, D0, D1, deriv0,
-                                                      deriv1, deriv, item_ct1);
+                deriv0, deriv1, threadBlock);
+            SumDerivTensor2DQPKernel<false, DEFORMED>(
+                nq0, nq1, D0, D1, deriv0, deriv1, deriv, threadBlock);
             if constexpr (SHAPE_TYPE == LibUtilities::Quad)
             {
                 IProductWRTBaseQuadSumFacQPKernel<false, true, DEFORMED>(
                     nm0, nm1, nmTot, nq0, nq1, nqTot, s_basis0, s_basis1, deriv,
-                    outptr, s_wsp0, (TData)1.0, item_ct1);
+                    outptr, s_wsp0, (TData)1.0, threadBlock);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
             {
                 IProductWRTBaseTriSumFacQPKernel<false, true, DEFORMED>(
                     nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0,
                     s_basis0, s_basis1, deriv, outptr, s_wsp0, (TData)1.0,
-                    item_ct1);
+                    threadBlock);
             }
 
-            e += item_ct1.get_group_range(2);
+            e += getBlockRange(threadBlock);
         }
     }
 }
 
 // General Launcher
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, typename TData>
+          bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -467,7 +469,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
     const TData *__restrict__ f2, const TData *__restrict__ df,
     const TData *__restrict__ jac, const TData *__restrict__ in,
     TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ wsp,
-    TData *__restrict__ shmemptr, const sycl::nd_item<3> &item_ct1)
+    TData *__restrict__ shmemptr, const TthreadBlock &threadBlock)
 {
     constexpr unsigned int ndf = 9u;
     const unsigned int nqTot   = nq0 * nq1 * nq2;
@@ -490,8 +492,8 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
         TData *s_f2  = nullptr;
 
         // Pre-compute factor.
-        const unsigned int idx0   = item_ct1.get_local_id(2);
-        const unsigned int stride = item_ct1.get_local_range(2);
+        const unsigned int idx0   = getLocalIdx(threadBlock);
+        const unsigned int stride = getLocalRange(threadBlock);
         if constexpr (SHAPE_TYPE == LibUtilities::Tet)
         {
             s_f0  = shmemptr;
@@ -515,7 +517,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
                 s_f2[idx] = f2[idx];
             }
 
-            localBarrier<NektarSpaces::SYCL>(item_ct1);
+            localBarrier(threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
         {
@@ -532,7 +534,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
                 s_f2[idx] = f2[idx];
             }
 
-            localBarrier<NektarSpaces::SYCL>(item_ct1);
+            localBarrier(threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
@@ -555,10 +557,10 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
                 s_f2[idx] = f2[idx];
             }
 
-            localBarrier<NektarSpaces::SYCL>(item_ct1);
+            localBarrier(threadBlock);
         }
 
-        unsigned int e = item_ct1.get_global_id(2);
+        unsigned int e = getGlobalIdx(threadBlock);
         while (e < nelmt)
         {
             const unsigned int ilane = e % warpsize;
@@ -625,7 +627,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
                     ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
                     basis1, basis2, deriv, outptr, wsp0, wsp1, (TData)1.0);
             }
-            e += item_ct1.get_global_range(2);
+            e += getGlobalRange(threadBlock);
         }
     }
     else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
@@ -675,8 +677,8 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
         TData *s_basis2 = s_basis1 + nmode1 * nq1;
 
         // Copy to shared memory.
-        const unsigned int idx0   = item_ct1.get_local_id(2);
-        const unsigned int stride = item_ct1.get_local_range(2);
+        const unsigned int idx0   = getLocalIdx(threadBlock);
+        const unsigned int stride = getLocalRange(threadBlock);
 
         for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
         {
@@ -693,7 +695,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
             s_basis2[idx] = basis2[idx];
         }
 
-        unsigned int e = item_ct1.get_group(2);
+        unsigned int e = getBlockIdx(threadBlock);
         while (e < nelmt)
         {
             const TData *dfptr  = df + ndf * dfsize * e;
@@ -703,40 +705,40 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
 
             StdAlignDerivBase3DSumFacQPKernel<SHAPE_TYPE, DEFORMED>(
                 nq0, nq1, nq2, nelmt, w0, w1, w2, f0, f1, f1m, f2, dfptr,
-                jacptr, inptr, deriv0, deriv1, deriv2, item_ct1);
+                jacptr, inptr, deriv0, deriv1, deriv2, threadBlock);
             SumDerivTensor3DQPKernel<false, DEFORMED>(nq0, nq1, nq2, D0, D1, D2,
                                                       deriv0, deriv1, deriv2,
-                                                      deriv, item_ct1);
+                                                      deriv, threadBlock);
             if constexpr (SHAPE_TYPE == LibUtilities::Hex)
             {
                 IProductWRTBaseHexSumFacQPKernel<false, true, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, s_basis0,
                     s_basis1, s_basis2, deriv, outptr, s_wsp0, s_wsp1,
-                    (TData)1.0, item_ct1);
+                    (TData)1.0, threadBlock);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
             {
                 IProductWRTBaseTetSumFacQPKernel<false, true, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
                     index0, index1, index2, s_basis0, s_basis1, s_basis2, deriv,
-                    outptr, s_wsp0, s_wsp1, (TData)1.0, item_ct1);
+                    outptr, s_wsp0, s_wsp1, (TData)1.0, threadBlock);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
             {
                 IProductWRTBasePrismSumFacQPKernel<false, true, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
                     index0, index1, index2, s_basis0, s_basis1, s_basis2, deriv,
-                    outptr, s_wsp0, s_wsp1, (TData)1.0, item_ct1);
+                    outptr, s_wsp0, s_wsp1, (TData)1.0, threadBlock);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
             {
                 IProductWRTBasePyrSumFacQPKernel<false, true, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
                     index0, index1, s_basis0, s_basis1, s_basis2, deriv, outptr,
-                    s_wsp0, s_wsp1, (TData)1.0, item_ct1);
+                    s_wsp0, s_wsp1, (TData)1.0, threadBlock);
             }
 
-            e += item_ct1.get_group_range(2);
+            e += getBlockRange(threadBlock);
         }
     }
 }
@@ -754,21 +756,21 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase1DKernel(
 
     const unsigned int shmemsize =
         IProductWRTDerivBaseSharedMemorySize<Implementation>(nq0, nm0);
-    const auto blocksize = GetSYCLBlockSize<Implementation>(nq0);
-    const auto gridsize  = GetSYCLGridSize<Implementation>(nelmt);
+    const unsigned int blocksize = GetSYCLBlockSize<Implementation>(nq0);
+    const unsigned int gridsize  = GetSYCLGridSize<Implementation>(nelmt);
 
     Q.submit([=](sycl::handler &cgh) {
          sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
          cgh.parallel_for(
-             sycl::nd_range<3>(gridsize * blocksize, blocksize),
-             [=](sycl::nd_item<3> item_ct1) {
+             sycl::nd_range<1>(gridsize * blocksize, blocksize),
+             [=](sycl::nd_item<1> threadBlock) {
                  TData *shmemptr =
                      shmem.template get_multi_ptr<sycl::access::decorated::no>()
                          .get();
 #pragma forceinline
                  IProductWRTDerivBase1DKernel<Implementation, DEFORMED>(
                      ncoord, nm0, nq0, nelmt, dbasis0, w0, df, jac, in, out,
-                     wsp, shmemptr, item_ct1);
+                     wsp, shmemptr, threadBlock);
              });
      }).wait();
 }
@@ -803,14 +805,14 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
     const unsigned int shmemsize =
         IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
             nq0, nq1, nm0, nm1);
-    const auto blocksize = GetSYCLBlockSize<Implementation>(nmTot);
-    const auto gridsize  = GetSYCLGridSize<Implementation>(nelmt);
+    const unsigned int blocksize = GetSYCLBlockSize<Implementation>(nmTot);
+    const unsigned int gridsize  = GetSYCLGridSize<Implementation>(nelmt);
 
     Q.submit([=](sycl::handler &cgh) {
          sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
          cgh.parallel_for(
-             sycl::nd_range<3>(gridsize * blocksize, blocksize),
-             [=](sycl::nd_item<3> item_ct1) {
+             sycl::nd_range<1>(gridsize * blocksize, blocksize),
+             [=](sycl::nd_item<1> threadBlock) {
                  TData *shmemptr =
                      shmem.template get_multi_ptr<sycl::access::decorated::no>()
                          .get();
@@ -819,7 +821,7 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
                                               DEFORMED>(
                      ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, isModified,
                      index0, basis0, basis1, D0, D1, w0, w1, f0, f1, df, jac,
-                     in, out, wsp, shmemptr, item_ct1);
+                     in, out, wsp, shmemptr, threadBlock);
              });
      }).wait();
 }
@@ -861,14 +863,14 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
     const unsigned int shmemsize =
         IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
             nq0, nq1, nq2, nm0, nm1, nm2);
-    const auto blocksize = GetSYCLBlockSize<Implementation>(nmTot);
-    const auto gridsize  = GetSYCLGridSize<Implementation>(nelmt);
+    const unsigned int blocksize = GetSYCLBlockSize<Implementation>(nmTot);
+    const unsigned int gridsize  = GetSYCLGridSize<Implementation>(nelmt);
 
     Q.submit([=](sycl::handler &cgh) {
          sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
          cgh.parallel_for(
-             sycl::nd_range<3>(gridsize * blocksize, blocksize),
-             [=](sycl::nd_item<3> item_ct1) {
+             sycl::nd_range<1>(gridsize * blocksize, blocksize),
+             [=](sycl::nd_item<1> threadBlock) {
                  TData *shmemptr =
                      shmem.template get_multi_ptr<sycl::access::decorated::no>()
                          .get();
@@ -878,7 +880,7 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
                      nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified,
                      index0, index1, index2, basis0, basis1, basis2, D0, D1, D2,
                      w0, w1, w2, f0, f1, f1m, f2, df, jac, in, out, wsp,
-                     shmemptr, item_ct1);
+                     shmemptr, threadBlock);
              });
      }).wait();
 }

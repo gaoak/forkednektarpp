@@ -48,126 +48,13 @@ static void *cudaBuffer            = nullptr;
 
 namespace cg = cooperative_groups;
 
-class CUDAblock
-{
-};
-
-NEK_DEVICE_INLINE float atomicMax(float *address, float val)
-{
-    int ret = __float_as_int(*address);
-    while (val > __int_as_float(ret))
-    {
-        int old = ret;
-        if ((ret = atomicCAS((int *)address, old, __float_as_int(val))) == old)
-            break;
-    }
-    return __int_as_float(ret);
-}
-
-NEK_DEVICE_INLINE float atomicMax_block(float *address, float val)
-{
-    int ret = __float_as_int(*address);
-    while (val > __int_as_float(ret))
-    {
-        int old = ret;
-        if ((ret = atomicCAS_block((int *)address, old, __float_as_int(val))) ==
-            old)
-            break;
-    }
-    return __int_as_float(ret);
-}
-
-NEK_DEVICE_INLINE double atomicMax(double *address, double val)
-{
-    unsigned long long ret = __double_as_longlong(*address);
-    while (val > __longlong_as_double(ret))
-    {
-        unsigned long long old = ret;
-        if ((ret = atomicCAS((unsigned long long *)address, old,
-                             __double_as_longlong(val))) == old)
-            break;
-    }
-    return __longlong_as_double(ret);
-}
-
-NEK_DEVICE_INLINE double atomicMax_block(double *address, double val)
-{
-    unsigned long long ret = __double_as_longlong(*address);
-    while (val > __longlong_as_double(ret))
-    {
-        unsigned long long old = ret;
-        if ((ret = atomicCAS_block((unsigned long long *)address, old,
-                                   __double_as_longlong(val))) == old)
-            break;
-    }
-    return __longlong_as_double(ret);
-}
-
-NEK_DEVICE_INLINE float atomicMin(float *address, float val)
-{
-    int ret = __float_as_int(*address);
-    while (val < __int_as_float(ret))
-    {
-        int old = ret;
-        if ((ret = atomicCAS((int *)address, old, __float_as_int(val))) == old)
-            break;
-    }
-    return __int_as_float(ret);
-}
-
-NEK_DEVICE_INLINE float atomicMin_block(float *address, float val)
-{
-    int ret = __float_as_int(*address);
-    while (val < __int_as_float(ret))
-    {
-        int old = ret;
-        if ((ret = atomicCAS_block((int *)address, old, __float_as_int(val))) ==
-            old)
-            break;
-    }
-    return __int_as_float(ret);
-}
-
-NEK_DEVICE_INLINE double atomicMin(double *address, double val)
-{
-    unsigned long long ret = __double_as_longlong(*address);
-    while (val < __longlong_as_double(ret))
-    {
-        unsigned long long old = ret;
-        if ((ret = atomicCAS((unsigned long long *)address, old,
-                             __double_as_longlong(val))) == old)
-            break;
-    }
-    return __longlong_as_double(ret);
-}
-
-NEK_DEVICE_INLINE double atomicMin_block(double *address, double val)
-{
-    unsigned long long ret = __double_as_longlong(*address);
-    while (val < __longlong_as_double(ret))
-    {
-        unsigned long long old = ret;
-        if ((ret = atomicCAS_block((unsigned long long *)address, old,
-                                   __double_as_longlong(val))) == old)
-            break;
-    }
-    return __longlong_as_double(ret);
-}
-
 template <typename ExecSpace, typename Scope, typename TData>
 NEK_DEVICE_INLINE
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
                             void>::type
     atomic_add(TData *const dest, const TData val)
 {
-    if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
-    {
-        atomicAdd(dest, val);
-    }
-    else if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
-    {
-        atomicAdd_block(dest, val);
-    }
+    Nektar::atomic_add<Scope>(dest, val);
 }
 
 template <typename ExecSpace, typename Scope, typename TData>
@@ -176,14 +63,7 @@ NEK_DEVICE_INLINE
                             void>::type
     atomic_sub(TData *const dest, const TData val)
 {
-    if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
-    {
-        atomicAdd(dest, -val);
-    }
-    else if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
-    {
-        atomicAdd_block(dest, -val);
-    }
+    Nektar::atomic_sub<Scope>(dest, val);
 }
 
 template <typename ExecSpace, typename Scope, typename TData>
@@ -192,14 +72,7 @@ NEK_DEVICE_INLINE
                             void>::type
     atomic_max(TData *const dest, const TData val)
 {
-    if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
-    {
-        atomicMax(dest, val);
-    }
-    else if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
-    {
-        atomicMax_block(dest, val);
-    }
+    Nektar::atomic_max<Scope>(dest, val);
 }
 
 template <typename ExecSpace, typename Scope, typename TData>
@@ -208,65 +81,7 @@ NEK_DEVICE_INLINE
                             void>::type
     atomic_min(TData *const dest, const TData val)
 {
-    if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
-    {
-        atomicMin(dest, val);
-    }
-    else if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
-    {
-        atomicMin_block(dest, val);
-    }
-}
-
-template <typename ExecSpace, typename TItem, typename TData>
-NEK_DEVICE_INLINE
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
-                            TData>::type
-    warpReduceSum(TData red, [[maybe_unused]] const TItem &item)
-{
-    red += __shfl_down_sync(0xffffffff, red, 16);
-    red += __shfl_down_sync(0xffffffff, red, 8);
-    red += __shfl_down_sync(0xffffffff, red, 4);
-    red += __shfl_down_sync(0xffffffff, red, 2);
-    red += __shfl_down_sync(0xffffffff, red, 1);
-    return red;
-}
-
-template <typename ExecSpace, typename TItem, typename TData>
-NEK_DEVICE_INLINE
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
-                            TData>::type
-    warpReduceMax(TData red, [[maybe_unused]] const TItem &item)
-{
-    red = std::max(red, __shfl_down_sync(0xffffffff, red, 16));
-    red = std::max(red, __shfl_down_sync(0xffffffff, red, 8));
-    red = std::max(red, __shfl_down_sync(0xffffffff, red, 4));
-    red = std::max(red, __shfl_down_sync(0xffffffff, red, 2));
-    red = std::max(red, __shfl_down_sync(0xffffffff, red, 1));
-    return red;
-}
-
-template <typename ExecSpace, typename TItem, typename TData>
-NEK_DEVICE_INLINE
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
-                            TData>::type
-    warpReduceMin(TData red, [[maybe_unused]] const TItem &item)
-{
-    red = std::min(red, __shfl_down_sync(0xffffffff, red, 16));
-    red = std::min(red, __shfl_down_sync(0xffffffff, red, 8));
-    red = std::min(red, __shfl_down_sync(0xffffffff, red, 4));
-    red = std::min(red, __shfl_down_sync(0xffffffff, red, 2));
-    red = std::min(red, __shfl_down_sync(0xffffffff, red, 1));
-    return red;
-}
-
-template <typename ExecSpace, typename TItem>
-NEK_DEVICE_INLINE
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
-                            void>::type
-    localBarrier([[maybe_unused]] const TItem &item)
-{
-    __syncthreads();
+    Nektar::atomic_min<Scope>(dest, val);
 }
 
 template <typename Functor>

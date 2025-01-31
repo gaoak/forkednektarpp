@@ -46,6 +46,8 @@
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Macros.hpp>
 #include <Kokkos_Random.hpp>
+#elif defined(NEKTAR_ENABLE_SYCL)
+#include "Operators/Utils/SYCLQueue.hpp"
 #endif
 
 #if defined(__CUDACC__) || defined(__HIP_DEVICE_COMPILE__) ||                  \
@@ -237,3 +239,401 @@ struct LocalScope
 };
 
 } // namespace NektarSpaces
+
+namespace Nektar
+{
+
+#if defined(NEKTAR_ENABLE_CUDA) && defined(DEVICE_COMPILE_ONLY)
+class cudaBlock1D
+{
+};
+
+NEK_DEVICE_INLINE static unsigned int getLocalIdx(
+    [[maybe_unused]] const cudaBlock1D &threadBlock)
+{
+    return threadIdx.x;
+}
+
+NEK_DEVICE_INLINE static unsigned int getLocalRange(
+    [[maybe_unused]] const cudaBlock1D &threadBlock)
+{
+    return blockDim.x;
+}
+
+NEK_DEVICE_INLINE static unsigned int getGlobalIdx(
+    [[maybe_unused]] const cudaBlock1D &threadBlock)
+{
+    return blockDim.x * blockIdx.x + threadIdx.x;
+}
+
+NEK_DEVICE_INLINE static unsigned int getGlobalRange(
+    [[maybe_unused]] const cudaBlock1D &threadBlock)
+{
+    return gridDim.x * blockDim.x;
+}
+
+NEK_DEVICE_INLINE static unsigned int getBlockIdx(
+    [[maybe_unused]] const cudaBlock1D &threadBlock)
+{
+    return blockIdx.x;
+}
+
+NEK_DEVICE_INLINE static unsigned int getBlockRange(
+    [[maybe_unused]] const cudaBlock1D &threadBlock)
+{
+    return gridDim.x;
+}
+
+NEK_DEVICE_INLINE static unsigned int getLaneIdx(
+    [[maybe_unused]] const cudaBlock1D &threadBlock)
+{
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<double>::value;
+    return threadIdx.x % warpsize;
+}
+
+template <typename TData>
+NEK_DEVICE_INLINE static TData warpReduceSum(
+    TData red, [[maybe_unused]] const cudaBlock1D &threadBlock)
+{
+    red += __shfl_down_sync(0xffffffff, red, 16);
+    red += __shfl_down_sync(0xffffffff, red, 8);
+    red += __shfl_down_sync(0xffffffff, red, 4);
+    red += __shfl_down_sync(0xffffffff, red, 2);
+    red += __shfl_down_sync(0xffffffff, red, 1);
+    return red;
+}
+
+template <typename TData>
+NEK_DEVICE_INLINE static TData warpReduceMax(
+    TData red, [[maybe_unused]] const cudaBlock1D &threadBlock)
+{
+    red = std::max(red, __shfl_down_sync(0xffffffff, red, 16));
+    red = std::max(red, __shfl_down_sync(0xffffffff, red, 8));
+    red = std::max(red, __shfl_down_sync(0xffffffff, red, 4));
+    red = std::max(red, __shfl_down_sync(0xffffffff, red, 2));
+    red = std::max(red, __shfl_down_sync(0xffffffff, red, 1));
+    return red;
+}
+
+template <typename TData>
+NEK_DEVICE_INLINE static TData warpReduceMin(
+    TData red, [[maybe_unused]] const cudaBlock1D &threadBlock)
+{
+    red = std::min(red, __shfl_down_sync(0xffffffff, red, 16));
+    red = std::min(red, __shfl_down_sync(0xffffffff, red, 8));
+    red = std::min(red, __shfl_down_sync(0xffffffff, red, 4));
+    red = std::min(red, __shfl_down_sync(0xffffffff, red, 2));
+    red = std::min(red, __shfl_down_sync(0xffffffff, red, 1));
+    return red;
+}
+
+NEK_DEVICE_INLINE void localBarrier(const cudaBlock1D &threadBlock)
+{
+    __syncthreads();
+}
+
+NEK_DEVICE_INLINE float atomicMax(float *address, float val)
+{
+    int ret = __float_as_int(*address);
+    while (val > __int_as_float(ret))
+    {
+        int old = ret;
+        if ((ret = atomicCAS((int *)address, old, __float_as_int(val))) == old)
+            break;
+    }
+    return __int_as_float(ret);
+}
+
+NEK_DEVICE_INLINE float atomicMax_block(float *address, float val)
+{
+    int ret = __float_as_int(*address);
+    while (val > __int_as_float(ret))
+    {
+        int old = ret;
+        if ((ret = atomicCAS_block((int *)address, old, __float_as_int(val))) ==
+            old)
+            break;
+    }
+    return __int_as_float(ret);
+}
+
+NEK_DEVICE_INLINE double atomicMax(double *address, double val)
+{
+    unsigned long long ret = __double_as_longlong(*address);
+    while (val > __longlong_as_double(ret))
+    {
+        unsigned long long old = ret;
+        if ((ret = atomicCAS((unsigned long long *)address, old,
+                             __double_as_longlong(val))) == old)
+            break;
+    }
+    return __longlong_as_double(ret);
+}
+
+NEK_DEVICE_INLINE double atomicMax_block(double *address, double val)
+{
+    unsigned long long ret = __double_as_longlong(*address);
+    while (val > __longlong_as_double(ret))
+    {
+        unsigned long long old = ret;
+        if ((ret = atomicCAS_block((unsigned long long *)address, old,
+                                   __double_as_longlong(val))) == old)
+            break;
+    }
+    return __longlong_as_double(ret);
+}
+
+NEK_DEVICE_INLINE float atomicMin(float *address, float val)
+{
+    int ret = __float_as_int(*address);
+    while (val < __int_as_float(ret))
+    {
+        int old = ret;
+        if ((ret = atomicCAS((int *)address, old, __float_as_int(val))) == old)
+            break;
+    }
+    return __int_as_float(ret);
+}
+
+NEK_DEVICE_INLINE float atomicMin_block(float *address, float val)
+{
+    int ret = __float_as_int(*address);
+    while (val < __int_as_float(ret))
+    {
+        int old = ret;
+        if ((ret = atomicCAS_block((int *)address, old, __float_as_int(val))) ==
+            old)
+            break;
+    }
+    return __int_as_float(ret);
+}
+
+NEK_DEVICE_INLINE double atomicMin(double *address, double val)
+{
+    unsigned long long ret = __double_as_longlong(*address);
+    while (val < __longlong_as_double(ret))
+    {
+        unsigned long long old = ret;
+        if ((ret = atomicCAS((unsigned long long *)address, old,
+                             __double_as_longlong(val))) == old)
+            break;
+    }
+    return __longlong_as_double(ret);
+}
+
+NEK_DEVICE_INLINE double atomicMin_block(double *address, double val)
+{
+    unsigned long long ret = __double_as_longlong(*address);
+    while (val < __longlong_as_double(ret))
+    {
+        unsigned long long old = ret;
+        if ((ret = atomicCAS_block((unsigned long long *)address, old,
+                                   __double_as_longlong(val))) == old)
+            break;
+    }
+    return __longlong_as_double(ret);
+}
+
+template <typename Scope, typename TData>
+NEK_DEVICE_INLINE static void atomic_add(TData *const dest, const TData val)
+{
+    if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
+    {
+        atomicAdd(dest, val);
+    }
+    else if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
+    {
+        atomicAdd_block(dest, val);
+    }
+}
+
+template <typename Scope, typename TData>
+NEK_DEVICE_INLINE static void atomic_sub(TData *const dest, const TData val)
+{
+    if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
+    {
+        atomicAdd(dest, -val);
+    }
+    else if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
+    {
+        atomicAdd_block(dest, -val);
+    }
+}
+
+template <typename Scope, typename TData>
+NEK_DEVICE_INLINE static void atomic_max(TData *const dest, const TData val)
+{
+    if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
+    {
+        atomicMax(dest, val);
+    }
+    else if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
+    {
+        atomicMax_block(dest, val);
+    }
+}
+
+template <typename Scope, typename TData>
+NEK_DEVICE_INLINE static void atomic_min(TData *const dest, const TData val)
+{
+    if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
+    {
+        atomicMin(dest, val);
+    }
+    else if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
+    {
+        atomicMin_block(dest, val);
+    }
+}
+
+#elif defined(NEKTAR_ENABLE_SYCL)
+
+NEK_DEVICE_INLINE static unsigned int getLocalIdx(
+    [[maybe_unused]] const sycl::nd_item<1> &threadBlock)
+{
+    return threadBlock.get_local_id(0);
+}
+
+NEK_DEVICE_INLINE static unsigned int getLocalRange(
+    [[maybe_unused]] const sycl::nd_item<1> &threadBlock)
+{
+    return threadBlock.get_local_range(0);
+}
+
+NEK_DEVICE_INLINE static unsigned int getGlobalIdx(
+    [[maybe_unused]] const sycl::nd_item<1> &threadBlock)
+{
+    return threadBlock.get_global_id(0);
+}
+
+NEK_DEVICE_INLINE static unsigned int getGlobalRange(
+    [[maybe_unused]] const sycl::nd_item<1> &threadBlock)
+{
+    return threadBlock.get_global_range(0);
+}
+
+NEK_DEVICE_INLINE static unsigned int getBlockIdx(
+    [[maybe_unused]] const sycl::nd_item<1> &threadBlock)
+{
+    return threadBlock.get_group(0);
+}
+
+NEK_DEVICE_INLINE static unsigned int getBlockRange(
+    [[maybe_unused]] const sycl::nd_item<1> &threadBlock)
+{
+    return threadBlock.get_group_range(0);
+}
+
+NEK_DEVICE_INLINE static unsigned int getLaneIdx(
+    [[maybe_unused]] const sycl::nd_item<1> &threadBlock)
+{
+    return threadBlock.get_sub_group().get_local_id();
+}
+
+template <typename TData>
+NEK_DEVICE_INLINE static TData warpReduceSum(
+    TData red, const sycl::nd_item<1> &threadBlock)
+{
+    return sycl::reduce_over_group(threadBlock.get_sub_group(), red,
+                                   sycl::plus<>());
+}
+
+template <typename TData>
+NEK_DEVICE_INLINE static TData warpReduceMax(
+    TData red, const sycl::nd_item<1> &threadBlock)
+{
+    return sycl::reduce_over_group(threadBlock.get_sub_group(), red,
+                                   sycl::maximum<>());
+}
+
+template <typename TData>
+NEK_DEVICE_INLINE static TData warpReduceMin(
+    TData red, const sycl::nd_item<1> &threadBlock)
+{
+    return sycl::reduce_over_group(threadBlock.get_sub_group(), red,
+                                   sycl::minimum<>());
+}
+
+NEK_DEVICE_INLINE void localBarrier(const sycl::nd_item<1> &threadBlock)
+{
+    threadBlock.barrier(sycl::access::fence_space::local_space);
+}
+
+template <typename Scope, typename TData>
+NEK_DEVICE_INLINE static void atomic_add(TData *const dest, const TData val)
+{
+    if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
+    {
+        sycl::atomic_ref<TData, sycl::memory_order::relaxed,
+                         sycl::memory_scope::device,
+                         sycl::access::address_space::global_space>(*dest)
+            .fetch_add(val);
+    }
+    else if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
+    {
+        sycl::atomic_ref<TData, sycl::memory_order::relaxed,
+                         sycl::memory_scope_work_group,
+                         sycl::access::address_space::local_space>(*dest)
+            .fetch_add(val);
+    }
+}
+
+template <typename Scope, typename TData>
+NEK_DEVICE_INLINE static void atomic_sub(TData *const dest, const TData val)
+{
+    if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
+    {
+        sycl::atomic_ref<TData, sycl::memory_order::relaxed,
+                         sycl::memory_scope::device,
+                         sycl::access::address_space::global_space>(*dest)
+            .fetch_sub(val);
+    }
+    else if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
+    {
+        sycl::atomic_ref<TData, sycl::memory_order::relaxed,
+                         sycl::memory_scope_work_group,
+                         sycl::access::address_space::local_space>(*dest)
+            .fetch_sub(val);
+    }
+}
+
+template <typename Scope, typename TData>
+NEK_DEVICE_INLINE static void atomic_max(TData *const dest, const TData val)
+{
+    if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
+    {
+        sycl::atomic_ref<TData, sycl::memory_order::relaxed,
+                         sycl::memory_scope::device,
+                         sycl::access::address_space::global_space>(*dest)
+            .fetch_max(val);
+    }
+    else if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
+    {
+        sycl::atomic_ref<TData, sycl::memory_order::relaxed,
+                         sycl::memory_scope_work_group,
+                         sycl::access::address_space::local_space>(*dest)
+            .fetch_max(val);
+    }
+}
+
+template <typename Scope, typename TData>
+NEK_DEVICE_INLINE static void atomic_min(TData *const dest, const TData val)
+{
+    if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
+    {
+        sycl::atomic_ref<TData, sycl::memory_order::relaxed,
+                         sycl::memory_scope::device,
+                         sycl::access::address_space::global_space>(*dest)
+            .fetch_min(val);
+    }
+    else if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
+    {
+        sycl::atomic_ref<TData, sycl::memory_order::relaxed,
+                         sycl::memory_scope_work_group,
+                         sycl::access::address_space::local_space>(*dest)
+            .fetch_min(val);
+    }
+}
+#endif
+
+} // namespace Nektar
