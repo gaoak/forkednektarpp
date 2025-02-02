@@ -32,7 +32,10 @@ SET(Implementations StdMat SumFac SumFacQP Generic)
 SET(Shapes Seg Tri Quad Hex Pyr Prism Tet)
 
 # set default data types
-SET(DataTypes double float)
+SET(DataTypes double)
+IF(NEKTAR_ENABLE_SINGLE_PRECISION)
+    SET(DataTypes ${DataTypes} float)
+ENDIF()
 
 # Macro for each operator.
 MACRO(ADD_OPERATOR dir)
