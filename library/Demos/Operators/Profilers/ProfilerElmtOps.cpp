@@ -147,6 +147,7 @@ int main(int argc, char *argv[])
     LaunchProfiler<Mass<double>, FieldState::Coeff, FieldState::Coeff, double>(
         explist, Ntest, 1, 1);
 
+#if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
     // Benchmark-float
     LaunchProfiler<BwdTrans<float>, FieldState::Coeff, FieldState::Phys, float>(
         explist, Ntest, 1, 1);
@@ -160,6 +161,7 @@ int main(int argc, char *argv[])
                    float>(explist, Ntest, 1, 1);
     LaunchProfiler<Mass<float>, FieldState::Coeff, FieldState::Coeff, float>(
         explist, Ntest, 1, 1);
+#endif
 
     LIKWID_MARKER_CLOSE;
 
