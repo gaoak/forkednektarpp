@@ -698,6 +698,69 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
     }
 }
 
+// Size based template version.
+template <typename Implementation, bool DEFORMED, unsigned int nm0,
+          unsigned int nq0, typename TData>
+NEK_DEVICE_INLINE void IProductWRTDerivBase1DKernel(
+    const unsigned int ncoord, const unsigned int nelmt,
+    const TData *__restrict__ dbasis0, const TData *__restrict__ w0,
+    const TData *__restrict__ df, const TData *__restrict__ jac,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp, TData *__restrict__ shmemptr,
+    const team_handle &team)
+{
+    IProductWRTDerivBase1DKernel<Implementation, DEFORMED>(
+        ncoord, nm0, nq0, nelmt, dbasis0, w0, df, jac, in, out, wsp, shmemptr,
+        team);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, unsigned int nm0, unsigned int nm1, unsigned int nmTot,
+          unsigned int nq0, unsigned int nq1, typename TData>
+NEK_DEVICE_INLINE void IProductWRTDerivBase2DKernel(
+    const unsigned int ncoord, const unsigned int nelmt, const bool isModified,
+    const unsigned int *__restrict__ index0, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ D0,
+    const TData *__restrict__ D1, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ f0,
+    const TData *__restrict__ f1, const TData *__restrict__ df,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ wsp,
+    TData *__restrict__ shmemptr, const team_handle &team)
+{
+    IProductWRTDerivBase2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
+        ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0,
+        basis1, D0, D1, w0, w1, f0, f1, df, jac, in, out, wsp, shmemptr, team);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, signed int nm0, unsigned int nm1, unsigned int nm2,
+          unsigned nmTot, unsigned int nq0, unsigned int nq1, unsigned int nq2,
+          typename TData>
+NEK_DEVICE_INLINE void IProductWRTDerivBase3DKernel(
+    const unsigned int nelmt, const bool isModified,
+    const unsigned int *__restrict__ index0,
+    const unsigned int *__restrict__ index1,
+    const unsigned int *__restrict__ index2, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ basis2,
+    const TData *__restrict__ D0, const TData *__restrict__ D1,
+    const TData *__restrict__ D2, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ w2,
+    const TData *__restrict__ f0, const TData *__restrict__ f1,
+    const TData *__restrict__ f1m, const TData *__restrict__ f2,
+    const TData *__restrict__ df, const TData *__restrict__ jac,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp, TData *__restrict__ shmemptr,
+    const team_handle &team)
+{
+    IProductWRTDerivBase3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
+        nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
+        index2, basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2,
+        df, jac, in, out, wsp, shmemptr, team);
+}
+
 // Launchers
 // Non-size based version.
 template <typename ExecSpace, typename Implementation, bool DEFORMED,
@@ -735,8 +798,24 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase1DKernel(
     const TData *w0, const TData *df, const TData *jac, const TData *in,
     TData *out, TData *wsp)
 {
-    IProductWRTDerivBase1DKernel<ExecSpace, Implementation, DEFORMED>(
-        ncoord, nm0, nq0, nelmt, dbasis0, w0, df, jac, in, out, wsp);
+    constexpr unsigned int slevel = 0u;
+    const unsigned int nshared =
+        IProductWRTDerivBaseSharedMemorySize<Implementation>(nq0, nm0);
+    const unsigned int shmemsize =
+        ScratchMemoryView<TData>::shmem_size(nshared);
+    const unsigned int blocksize = GetKokkosBlockSize<Implementation>(nq0);
+    const unsigned int gridsize  = GetKokkosGridSize<Implementation>(nelmt);
+
+    Kokkos::parallel_for(
+        Kokkos::TeamPolicy<>(gridsize, blocksize)
+            .set_scratch_size(slevel, Kokkos::PerTeam(shmemsize)),
+        KOKKOS_LAMBDA(const team_handle &team) {
+            ScratchMemoryView<TData> scratch(team.team_scratch(slevel),
+                                             nshared);
+            IProductWRTDerivBase1DKernel<Implementation, DEFORMED, nm0, nq0>(
+                ncoord, nelmt, dbasis0, w0, df, jac, in, out, wsp,
+                scratch.data(), team);
+        });
 }
 
 // Non-size based version.
@@ -785,10 +864,28 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
     const TData *f0, const TData *f1, const TData *df, const TData *jac,
     const TData *in, TData *out, TData *wsp)
 {
-    IProductWRTDerivBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                 DEFORMED>(
-        ncoord, nm0, nm1, nq0, nq1, nelmt, isModified, index0, basis0, basis1,
-        D0, D1, w0, w1, f0, f1, df, jac, in, out, wsp);
+    constexpr unsigned int slevel = 0u;
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
+    const unsigned int nshared =
+        IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
+            nq0, nq1, nm0, nm1);
+    const unsigned int shmemsize =
+        ScratchMemoryView<TData>::shmem_size(nshared);
+    const unsigned int blocksize = GetKokkosBlockSize<Implementation>(nmTot);
+    const unsigned int gridsize  = GetKokkosGridSize<Implementation>(nelmt);
+
+    Kokkos::parallel_for(
+        Kokkos::TeamPolicy<>(gridsize, blocksize)
+            .set_scratch_size(slevel, Kokkos::PerTeam(shmemsize)),
+        KOKKOS_LAMBDA(const team_handle &team) {
+            ScratchMemoryView<TData> scratch(team.team_scratch(slevel),
+                                             nshared);
+            IProductWRTDerivBase2DKernel<SHAPE_TYPE, Implementation, DEFORMED,
+                                         nm0, nm1, nmTot, nq0, nq1>(
+                ncoord, nelmt, isModified, index0, basis0, basis1, D0, D1, w0,
+                w1, f0, f1, df, jac, in, out, wsp, scratch.data(), team);
+        });
 }
 
 // Non-size based version.
@@ -841,11 +938,29 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
     const TData *f0, const TData *f1, const TData *f1m, const TData *f2,
     const TData *df, const TData *jac, const TData *in, TData *out, TData *wsp)
 {
-    IProductWRTDerivBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                 DEFORMED>(
-        nm0, nm1, nm2, nq0, nq1, nq2, nelmt, isModified, index0, index1, index2,
-        basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2, df,
-        jac, in, out, wsp);
+    constexpr unsigned int slevel = 0u;
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+    const unsigned int nshared =
+        IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
+            nq0, nq1, nq2, nm0, nm1, nm2);
+    const unsigned int shmemsize =
+        ScratchMemoryView<TData>::shmem_size(nshared);
+    const unsigned int blocksize = GetKokkosBlockSize<Implementation>(nmTot);
+    const unsigned int gridsize  = GetKokkosGridSize<Implementation>(nelmt);
+
+    Kokkos::parallel_for(
+        Kokkos::TeamPolicy<>(gridsize, blocksize)
+            .set_scratch_size(slevel, Kokkos::PerTeam(shmemsize)),
+        KOKKOS_LAMBDA(const team_handle &team) {
+            ScratchMemoryView<TData> scratch(team.team_scratch(slevel),
+                                             nshared);
+            IProductWRTDerivBase3DKernel<SHAPE_TYPE, Implementation, DEFORMED,
+                                         nm0, nm1, nm2, nmTot, nq0, nq1, nq2>(
+                nelmt, isModified, index0, index1, index2, basis0, basis1,
+                basis2, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2, df, jac, in,
+                out, wsp, scratch.data(), team);
+        });
 }
 
 } // namespace Nektar::Operators::detail

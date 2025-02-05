@@ -507,6 +507,62 @@ NEK_DEVICE_INLINE static void Mass3DKernel(
     }
 }
 
+// Size based template version.
+template <typename Implementation, bool DEFORMED, unsigned int nm0,
+          unsigned int nq0, typename TData>
+NEK_DEVICE_INLINE void Mass1DKernel(
+    const unsigned int nelmt, const TData *__restrict__ basis0,
+    const TData *__restrict__ w0, const TData *__restrict__ jac,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp, TData *__restrict__ shmemptr,
+    const team_handle &team)
+{
+    Mass1DKernel<Implementation, DEFORMED>(nm0, nq0, nelmt, basis0, w0, jac, in,
+                                           out, wsp, shmemptr, team);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, unsigned int nm0, unsigned int nm1, unsigned int nmTot,
+          unsigned int nq0, unsigned int nq1, typename TData>
+NEK_DEVICE_INLINE void Mass2DKernel(
+    const unsigned int nelmt, const bool isModified,
+    const unsigned int *__restrict__ index0, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ jac,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp, TData *__restrict__ shmemptr,
+    const team_handle &team)
+{
+    Mass2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
+        nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0, basis1,
+        w0, w1, jac, in, out, wsp, shmemptr, team);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, signed int nm0, unsigned int nm1, unsigned int nm2,
+          unsigned nmTot, unsigned int nq0, unsigned int nq1, unsigned int nq2,
+          typename TData>
+NEK_DEVICE_INLINE void Mass3DKernel(
+    const unsigned int nelmt, const bool isModified,
+    const unsigned int *__restrict__ index0,
+    const unsigned int *__restrict__ index1,
+    const unsigned int *__restrict__ index2,
+    const unsigned int *__restrict__ index3, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ basis2,
+    const TData *__restrict__ w0, const TData *__restrict__ w1,
+    const TData *__restrict__ w2, const TData *__restrict__ jac,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp, TData *__restrict__ shmemptr,
+    const team_handle &team)
+{
+    Mass3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
+        nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
+        index2, index3, basis0, basis1, basis2, w0, w1, w2, jac, in, out, wsp,
+        shmemptr, team);
+}
+
 // Kernel launchers
 // Non-size based version.
 template <typename ExecSpace, typename Implementation, bool DEFORMED,
@@ -544,8 +600,21 @@ NEK_FORCE_INLINE static void Mass1DKernel(const unsigned int nelmt,
                                           const TData *jac, TData *wsp,
                                           const TData *in, TData *out)
 {
-    Mass1DKernel<ExecSpace, Implementation, DEFORMED>(nm0, nq0, nelmt, basis0,
-                                                      w0, jac, wsp, in, out);
+    constexpr unsigned int slevel = 0u;
+    const unsigned int nshared = MassSharedMemorySize<Implementation>(nq0, nm0);
+    const unsigned int shmemsize =
+        ScratchMemoryView<TData>::shmem_size(nshared);
+    const unsigned int blocksize = GetKokkosBlockSize<Implementation>(nq0);
+    const unsigned int gridsize  = GetKokkosGridSize<Implementation>(nelmt);
+
+    Kokkos::parallel_for(
+        Kokkos::TeamPolicy<>(gridsize, blocksize)
+            .set_scratch_size(slevel, Kokkos::PerTeam(shmemsize)),
+        KOKKOS_LAMBDA(const team_handle &team) {
+            ScratchMemoryView<TData> shmem(team.team_scratch(slevel), nshared);
+            Mass1DKernel<Implementation, DEFORMED, nm0, nq0>(
+                nelmt, basis0, w0, jac, in, out, wsp, shmem.data(), team);
+        });
 }
 
 // Non-size based version.
@@ -589,9 +658,27 @@ NEK_FORCE_INLINE static void Mass2DKernel(
     const TData *basis0, const TData *basis1, const TData *w0, const TData *w1,
     const TData *jac, TData *wsp, const TData *in, TData *out)
 {
-    Mass2DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
-        nm0, nm1, nq0, nq1, nelmt, isModified, index0, basis0, basis1, w0, w1,
-        jac, wsp, in, out);
+    constexpr unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
+
+    constexpr unsigned int slevel = 0u;
+    const unsigned int nshared =
+        MassSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1, nm0, nm1);
+    const unsigned int shmemsize =
+        ScratchMemoryView<TData>::shmem_size(nshared);
+    const unsigned int blocksize = GetKokkosBlockSize<Implementation>(nmTot);
+    const unsigned int gridsize  = GetKokkosGridSize<Implementation>(nelmt);
+
+    Kokkos::parallel_for(
+        Kokkos::TeamPolicy<>(gridsize, blocksize)
+            .set_scratch_size(slevel, Kokkos::PerTeam(shmemsize)),
+        KOKKOS_LAMBDA(const team_handle &team) {
+            ScratchMemoryView<TData> shmem(team.team_scratch(slevel), nshared);
+            Mass2DKernel<SHAPE_TYPE, Implementation, DEFORMED, nm0, nm1, nmTot,
+                         nq0, nq1>(nelmt, isModified, index0, basis0, basis1,
+                                   w0, w1, jac, in, out, wsp, shmem.data(),
+                                   team);
+        });
 }
 
 // Non-size based version.
@@ -642,9 +729,29 @@ NEK_FORCE_INLINE static void Mass3DKernel(
     const TData *basis2, const TData *w0, const TData *w1, const TData *w2,
     const TData *jac, TData *wsp, const TData *in, TData *out)
 {
-    Mass3DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
-        nm0, nm1, nm2, nq0, nq1, nq2, nelmt, isModified, index0, index1, index2,
-        index3, basis0, basis1, basis2, w0, w1, w2, jac, wsp, in, out);
+    constexpr unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+
+    constexpr unsigned int slevel = 0u;
+    const unsigned int nshared =
+        MassSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1, nq2, nm0,
+                                                         nm1, nm2);
+    const unsigned int shmemsize =
+        ScratchMemoryView<TData>::shmem_size(nshared);
+    const unsigned int blocksize = GetKokkosBlockSize<Implementation>(nmTot);
+    const unsigned int gridsize  = GetKokkosGridSize<Implementation>(nelmt);
+
+    Kokkos::parallel_for(
+        Kokkos::TeamPolicy<>(gridsize, blocksize)
+            .set_scratch_size(slevel, Kokkos::PerTeam(shmemsize)),
+        KOKKOS_LAMBDA(const team_handle &team) {
+            ScratchMemoryView<TData> shmem(team.team_scratch(slevel), nshared);
+            Mass3DKernel<SHAPE_TYPE, Implementation, DEFORMED, nm0, nm1, nm2,
+                         nmTot, nq0, nq1, nq2>(
+                nelmt, isModified, index0, index1, index2, index3, basis0,
+                basis1, basis2, w0, w1, w2, jac, in, out, wsp, shmem.data(),
+                team);
+        });
 }
 
 } // namespace Nektar::Operators::detail
