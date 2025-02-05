@@ -605,6 +605,53 @@ NEK_DEVICE_INLINE static void PhysDeriv3DKernel(
     }
 }
 
+// Size based template version.
+template <typename Implementation, bool DEFORMED, unsigned int ncoord,
+          unsigned int nq0, typename TData>
+NEK_DEVICE_INLINE void PhysDeriv1DKernel(const unsigned int nelmt,
+                                         const TData *__restrict__ D0,
+                                         const TData *__restrict__ df,
+                                         const TData *__restrict__ in,
+                                         TData *__restrict__ out,
+                                         const team_handle &team)
+{
+    PhysDeriv1DKernel<Implementation, DEFORMED>(ncoord, nq0, nelmt, D0, df, in,
+                                                out, team);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, unsigned int ncoord, unsigned int nq0,
+          unsigned int nq1, typename TData>
+NEK_DEVICE_INLINE void PhysDeriv2DKernel(
+    const unsigned int nelmt, const TData *__restrict__ D0,
+    const TData *__restrict__ D1, const TData *__restrict__ f0,
+    const TData *__restrict__ f1, const TData *__restrict__ df,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ shmemptr, const team_handle &team)
+{
+    PhysDeriv2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
+        ncoord, nq0, nq1, nelmt, D0, D1, f0, f1, df, in, out, shmemptr, team);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, unsigned int nq0, unsigned int nq1, unsigned int nq2,
+          typename TData>
+NEK_DEVICE_INLINE void PhysDeriv3DKernel(
+    const unsigned int nelmt, const TData *__restrict__ D0,
+    const TData *__restrict__ D1, const TData *__restrict__ D2,
+    const TData *__restrict__ f0, const TData *__restrict__ f1,
+    const TData *__restrict__ f1m, const TData *__restrict__ f2,
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ shmemptr,
+    const team_handle &team)
+{
+    PhysDeriv3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
+        nq0, nq1, nq2, nelmt, D0, D1, D2, f0, f1, f1m, f2, df, in, out,
+        shmemptr, team);
+}
+
 // Launchers
 // Non-size based version.
 template <typename ExecSpace, typename Implementation, bool DEFORMED,
@@ -633,8 +680,15 @@ NEK_FORCE_INLINE static void PhysDeriv1DKernel(const unsigned int nelmt,
                                                const TData *D0, const TData *df,
                                                const TData *in, TData *out)
 {
-    PhysDeriv1DKernel<ExecSpace, Implementation, DEFORMED>(ncoord, nq0, nelmt,
-                                                           D0, df, in, out);
+    const unsigned int blocksize = GetKokkosBlockSize<Implementation>(nq0);
+    const unsigned int gridsize  = GetKokkosGridSize<Implementation>(nelmt);
+
+    Kokkos::parallel_for(
+        Kokkos::TeamPolicy<>(gridsize, blocksize),
+        KOKKOS_LAMBDA(const team_handle &team) {
+            PhysDeriv1DKernel<Implementation, DEFORMED, ncoord, nq0>(
+                nelmt, D0, df, in, out, team);
+        });
 }
 
 // Non-size based version.
@@ -675,8 +729,24 @@ NEK_FORCE_INLINE static void PhysDeriv2DKernel(const unsigned int nelmt,
                                                const TData *df, const TData *in,
                                                TData *out)
 {
-    PhysDeriv2DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
-        ncoord, nq0, nq1, nelmt, D0, D1, f0, f1, df, in, out);
+    constexpr unsigned int slevel = 0u;
+    const unsigned int nshared =
+        PhysDerivSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1);
+    const unsigned int shmemsize =
+        ScratchMemoryView<TData>::shmem_size(nshared);
+    const unsigned int blocksize =
+        GetKokkosBlockSize<Implementation>(nq0 * nq1);
+    const unsigned int gridsize = GetKokkosGridSize<Implementation>(nelmt);
+
+    Kokkos::parallel_for(
+        Kokkos::TeamPolicy<>(gridsize, blocksize)
+            .set_scratch_size(slevel, Kokkos::PerTeam(shmemsize)),
+        KOKKOS_LAMBDA(const team_handle &team) {
+            ScratchMemoryView<TData> shmem(team.team_scratch(slevel), nshared);
+            PhysDeriv2DKernel<SHAPE_TYPE, Implementation, DEFORMED, ncoord, nq0,
+                              nq1>(nelmt, D0, D1, f0, f1, df, in, out,
+                                   shmem.data(), team);
+        });
 }
 
 // Non-size based version.
@@ -717,8 +787,24 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel(
     const TData *f0, const TData *f1, const TData *f1m, const TData *f2,
     const TData *df, const TData *in, TData *out)
 {
-    PhysDeriv3DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
-        nq0, nq1, nq2, nelmt, D0, D1, D2, f0, f1, f1m, f2, df, in, out);
+    constexpr unsigned int slevel = 0u;
+    const unsigned int nshared =
+        PhysDerivSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1, nq2);
+    const unsigned int shmemsize =
+        ScratchMemoryView<TData>::shmem_size(nshared);
+    const unsigned int blocksize =
+        GetKokkosBlockSize<Implementation>(nq0 * nq1 * nq2);
+    const unsigned int gridsize = GetKokkosGridSize<Implementation>(nelmt);
+
+    Kokkos::parallel_for(
+        Kokkos::TeamPolicy<>(gridsize, blocksize)
+            .set_scratch_size(slevel, Kokkos::PerTeam(shmemsize)),
+        KOKKOS_LAMBDA(const team_handle &team) {
+            ScratchMemoryView<TData> shmem(team.team_scratch(slevel), nshared);
+            PhysDeriv3DKernel<SHAPE_TYPE, Implementation, DEFORMED, nq0, nq1,
+                              nq2>(nelmt, D0, D1, D2, f0, f1, f1m, f2, df, in,
+                                   out, shmem.data(), team);
+        });
 }
 
 } // namespace Nektar::Operators::detail

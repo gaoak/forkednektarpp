@@ -210,7 +210,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacQPKernel(
             prod *= scale;
         }
 
-        out[1u] += prod;
+        Kokkos::single(Kokkos::PerTeam(team), [&]() { out[1u] += prod; });
     }
 
     team.team_barrier();
@@ -1040,6 +1040,63 @@ NEK_DEVICE_INLINE static void IProductWRTBase3DKernel(
     }
 }
 
+// Size based template version.
+template <typename Implementation, bool SCALE, bool APPEND, bool DEFORMED,
+          unsigned int nm0, unsigned int nq0, typename TData>
+NEK_DEVICE_INLINE void IProductWRTBase1DKernel(
+    const unsigned int nelmt, const TData *__restrict__ basis0,
+    const TData *__restrict__ w0, const TData *__restrict__ jac,
+    const TData *__restrict__ in, TData *__restrict__ out, const TData scale,
+    TData *__restrict__ shmemptr, const team_handle &team)
+{
+    IProductWRTBase1DKernel<Implementation, SCALE, APPEND, DEFORMED>(
+        nm0, nq0, nelmt, basis0, w0, jac, in, out, scale, shmemptr, team);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool SCALE, bool APPEND, bool DEFORMED, unsigned int nm0,
+          unsigned int nm1, unsigned int nmTot, unsigned int nq0,
+          unsigned int nq1, typename TData>
+NEK_DEVICE_INLINE void IProductWRTBase2DKernel(
+    const unsigned int nelmt, const bool isModified,
+    const unsigned int *__restrict__ index0, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ jac,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp, const TData scale, TData *__restrict__ shmemptr,
+    const team_handle &team)
+{
+    IProductWRTBase2DKernel<SHAPE_TYPE, Implementation, SCALE, APPEND,
+                            DEFORMED>(
+        nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0, basis1,
+        w0, w1, jac, in, out, wsp, scale, shmemptr, team);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool SCALE, bool APPEND, bool DEFORMED, signed int nm0,
+          unsigned int nm1, unsigned int nm2, unsigned nmTot, unsigned int nq0,
+          unsigned int nq1, unsigned int nq2, typename TData>
+NEK_DEVICE_INLINE void IProductWRTBase3DKernel(
+    const unsigned int nelmt, const bool isModified,
+    const unsigned int *__restrict__ index0,
+    const unsigned int *__restrict__ index1,
+    const unsigned int *__restrict__ index2, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ basis2,
+    const TData *__restrict__ w0, const TData *__restrict__ w1,
+    const TData *__restrict__ w2, const TData *__restrict__ jac,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp, const TData scale, TData *__restrict__ shmemptr,
+    const team_handle &team)
+{
+    IProductWRTBase3DKernel<SHAPE_TYPE, Implementation, SCALE, APPEND,
+                            DEFORMED>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2,
+                                      nelmt, isModified, index0, index1, index2,
+                                      basis0, basis1, basis2, w0, w1, w2, jac,
+                                      in, out, wsp, scale, shmemptr, team);
+}
+
 // Kernel launchers
 // Non-size based version.
 template <typename ExecSpace, typename Implementation, bool SCALE, bool APPEND,
@@ -1075,8 +1132,23 @@ NEK_FORCE_INLINE static void IProductWRTBase1DKernel(
     const unsigned int nelmt, const TData *basis0, const TData *w0,
     const TData *jac, const TData *in, TData *out, const TData scale = 1.0)
 {
-    IProductWRTBase1DKernel<ExecSpace, Implementation, SCALE, APPEND, DEFORMED>(
-        nm0, nq0, nelmt, basis0, w0, jac, in, out, scale);
+    constexpr unsigned int slevel = 0u;
+    const unsigned int nshared =
+        IProductWRTBaseSharedMemorySize<Implementation>(nq0, nm0);
+    const unsigned int shmemsize =
+        ScratchMemoryView<TData>::shmem_size(nshared);
+    const unsigned int blocksize = GetKokkosBlockSize<Implementation>(nq0);
+    const unsigned int gridsize  = GetKokkosGridSize<Implementation>(nelmt);
+
+    Kokkos::parallel_for(
+        Kokkos::TeamPolicy<>(gridsize, blocksize)
+            .set_scratch_size(slevel, Kokkos::PerTeam(shmemsize)),
+        KOKKOS_LAMBDA(const team_handle &team) {
+            ScratchMemoryView<TData> shmem(team.team_scratch(slevel), nshared);
+            IProductWRTBase1DKernel<Implementation, SCALE, APPEND, DEFORMED,
+                                    nm0, nq0>(nelmt, basis0, w0, jac, in, out,
+                                              scale, shmem.data(), team);
+        });
 }
 
 // Non-size based version.
@@ -1125,10 +1197,28 @@ NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
     const TData *jac, const TData *in, TData *out, TData *wsp,
     const TData scale = 1.0)
 {
-    IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation, SCALE,
-                            APPEND, DEFORMED>(
-        nm0, nm1, nq0, nq1, nelmt, isModified, index0, basis0, basis1, w0, w1,
-        jac, in, out, wsp, scale);
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
+
+    constexpr unsigned int slevel = 0u;
+    const unsigned int nshared =
+        IProductWRTBaseSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1,
+                                                                    nm0, nm1);
+    const unsigned int shmemsize =
+        ScratchMemoryView<TData>::shmem_size(nshared);
+    const unsigned int blocksize = GetKokkosBlockSize<Implementation>(nmTot);
+    const unsigned int gridsize  = GetKokkosGridSize<Implementation>(nelmt);
+
+    Kokkos::parallel_for(
+        Kokkos::TeamPolicy<>(gridsize, blocksize)
+            .set_scratch_size(slevel, Kokkos::PerTeam(shmemsize)),
+        KOKKOS_LAMBDA(const team_handle &team) {
+            ScratchMemoryView<TData> shmem(team.team_scratch(slevel), nshared);
+            IProductWRTBase2DKernel<SHAPE_TYPE, Implementation, SCALE, APPEND,
+                                    DEFORMED, nm0, nm1, nmTot, nq0, nq1>(
+                nelmt, isModified, index0, basis0, basis1, w0, w1, jac, in, out,
+                wsp, scale, shmem.data(), team);
+        });
 }
 
 // Non-size based version.
@@ -1181,10 +1271,30 @@ NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
     const TData *w2, const TData *jac, const TData *in, TData *out, TData *wsp,
     const TData scale = 1.0)
 {
-    IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation, SCALE,
-                            APPEND, DEFORMED>(
-        nm0, nm1, nm2, nq0, nq1, nq2, nelmt, isModified, index0, index1, index2,
-        basis0, basis1, basis2, w0, w1, w2, jac, in, out, wsp, scale);
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+
+    constexpr unsigned int slevel = 0u;
+    const unsigned int nshared =
+        IProductWRTBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
+            nq0, nq1, nq2, nm0, nm1, nm2);
+    const unsigned int shmemsize =
+        ScratchMemoryView<TData>::shmem_size(nshared);
+    const unsigned int blocksize = GetKokkosBlockSize<Implementation>(nmTot);
+    const unsigned int gridsize  = GetKokkosGridSize<Implementation>(nelmt);
+
+    Kokkos::parallel_for(
+        Kokkos::TeamPolicy<>(gridsize, blocksize)
+            .set_scratch_size(slevel, Kokkos::PerTeam(shmemsize)),
+        KOKKOS_LAMBDA(const team_handle &team) {
+            ScratchMemoryView<TData> shmem(team.team_scratch(slevel), nshared);
+            IProductWRTBase3DKernel<SHAPE_TYPE, Implementation, SCALE, APPEND,
+                                    DEFORMED, nm0, nm1, nm2, nmTot, nq0, nq1,
+                                    nq2>(nelmt, isModified, index0, index1,
+                                         index2, basis0, basis1, basis2, w0, w1,
+                                         w2, jac, in, out, wsp, scale,
+                                         shmem.data(), team);
+        });
 }
 
 } // namespace Nektar::Operators::detail

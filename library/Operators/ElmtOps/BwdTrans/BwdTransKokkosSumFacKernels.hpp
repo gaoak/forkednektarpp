@@ -608,7 +608,7 @@ NEK_DEVICE_INLINE static void BwdTrans2DKernel(
             nmode1 = nmTot;
         }
 
-        TData *s_wsp0   = (TData *)shmemptr;
+        TData *s_wsp0   = shmemptr;
         TData *s_wsp1   = s_wsp0 + nmTot;
         TData *s_basis0 = s_wsp1 + offset;
         TData *s_basis1 = s_basis0 + nm0 * nq0;
@@ -750,7 +750,7 @@ NEK_DEVICE_INLINE static void BwdTrans3DKernel(
             nmode2  = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
         }
 
-        TData *s_wsp0   = (TData *)shmemptr;
+        TData *s_wsp0   = shmemptr;
         TData *s_wsp1   = s_wsp0 + nmTot;
         TData *s_wsp2   = s_wsp1 + offset0;
         TData *s_basis0 = s_wsp2 + offset1;
@@ -810,6 +810,54 @@ NEK_DEVICE_INLINE static void BwdTrans3DKernel(
     }
 }
 
+// Size based template version.
+template <typename Implementation, unsigned int nm0, unsigned int nq0,
+          typename TData>
+NEK_DEVICE_INLINE void BwdTrans1DKernel(const unsigned int nelmt,
+                                        const TData *__restrict__ basis0,
+                                        const TData *__restrict__ in,
+                                        TData *__restrict__ out,
+                                        TData *__restrict__ shmemptr,
+                                        const team_handle &team)
+{
+    BwdTrans1DKernel<Implementation>(nm0, nq0, nelmt, basis0, in, out, shmemptr,
+                                     team);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          unsigned int nm0, unsigned int nm1, const unsigned nmTot,
+          unsigned int nq0, unsigned int nq1, typename TData>
+NEK_DEVICE_INLINE void BwdTrans2DKernel(
+    const unsigned int nelmt, const bool isModified,
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp, TData *__restrict__ shmemptr,
+    const team_handle &team)
+{
+    BwdTrans2DKernel<SHAPE_TYPE, Implementation>(
+        nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, basis0, basis1, in, out,
+        wsp, shmemptr, team);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          unsigned int nm0, unsigned int nm1, unsigned int nm2,
+          const unsigned int nmTot, unsigned int nq0, unsigned int nq1,
+          unsigned int nq2, typename TData>
+NEK_DEVICE_INLINE void BwdTrans3DKernel(
+    const unsigned int nelmt, const bool isModified, const unsigned int *index0,
+    const unsigned int *index1, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ basis2,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp, TData *__restrict__ shmemptr,
+    const team_handle &team)
+{
+    BwdTrans3DKernel<SHAPE_TYPE, Implementation>(
+        nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
+        basis0, basis1, basis2, in, out, wsp, shmemptr, team);
+}
+
 // Kernel launchers
 // Non-size based version.
 template <typename ExecSpace, typename Implementation, typename TData>
@@ -844,8 +892,22 @@ NEK_FORCE_INLINE static void BwdTrans1DKernel(const unsigned int nelmt,
                                               const TData *basis0,
                                               const TData *in, TData *out)
 {
-    BwdTrans1DKernel<ExecSpace, Implementation>(nm0, nq0, nelmt, basis0, in,
-                                                out);
+    constexpr unsigned int slevel = 0u;
+    const unsigned int nshared =
+        BwdTransSharedMemorySize<Implementation>(nq0, nm0);
+    const unsigned int shmemsize =
+        ScratchMemoryView<TData>::shmem_size(nshared);
+    const unsigned int blocksize = GetKokkosBlockSize<Implementation>(nq0);
+    const unsigned int gridsize  = GetKokkosGridSize<Implementation>(nelmt);
+
+    Kokkos::parallel_for(
+        Kokkos::TeamPolicy<>(gridsize, blocksize)
+            .set_scratch_size(slevel, Kokkos::PerTeam(shmemsize)),
+        KOKKOS_LAMBDA(const team_handle &team) {
+            ScratchMemoryView<TData> shmem(team.team_scratch(slevel), nshared);
+            BwdTrans1DKernel<Implementation, nm0, nq0>(nelmt, basis0, in, out,
+                                                       shmem.data(), team);
+        });
 }
 
 // Non-size based version.
@@ -888,8 +950,27 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(
     const unsigned int nelmt, const bool isModified, const TData *basis0,
     const TData *basis1, const TData *in, TData *out, TData *wsp)
 {
-    BwdTrans2DKernel<SHAPE_TYPE, ExecSpace, Implementation>(
-        nm0, nm1, nq0, nq1, nelmt, isModified, basis0, basis1, in, out, wsp);
+    constexpr unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
+
+    constexpr unsigned int slevel = 0u;
+    const unsigned int nshared =
+        BwdTransSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1, nm0,
+                                                             nm1);
+    const unsigned int shmemsize =
+        ScratchMemoryView<TData>::shmem_size(nshared);
+    const unsigned int blocksize = GetKokkosBlockSize<Implementation>(nmTot);
+    const unsigned int gridsize  = GetKokkosGridSize<Implementation>(nelmt);
+
+    Kokkos::parallel_for(
+        Kokkos::TeamPolicy<>(gridsize, blocksize)
+            .set_scratch_size(slevel, Kokkos::PerTeam(shmemsize)),
+        KOKKOS_LAMBDA(const team_handle &team) {
+            ScratchMemoryView<TData> shmem(team.team_scratch(slevel), nshared);
+            BwdTrans2DKernel<SHAPE_TYPE, Implementation, nm0, nm1, nmTot, nq0,
+                             nq1>(nelmt, isModified, basis0, basis1, in, out,
+                                  wsp, shmem.data(), team);
+        });
 }
 
 // Non-size based version.
@@ -936,9 +1017,28 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
     const unsigned int *index1, const TData *basis0, const TData *basis1,
     const TData *basis2, const TData *in, TData *out, TData *wsp)
 {
-    BwdTrans3DKernel<SHAPE_TYPE, ExecSpace, Implementation>(
-        nm0, nm1, nm2, nq0, nq1, nq2, nelmt, isModified, index0, index1, basis0,
-        basis1, basis2, in, out, wsp);
+    constexpr unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+
+    constexpr unsigned int slevel = 0u;
+    const unsigned int nshared =
+        BwdTransSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1, nq2, nm0,
+                                                             nm1, nm2);
+    const unsigned int shmemsize =
+        ScratchMemoryView<TData>::shmem_size(nshared);
+    const unsigned int blocksize = GetKokkosBlockSize<Implementation>(nmTot);
+    const unsigned int gridsize  = GetKokkosGridSize<Implementation>(nelmt);
+
+    Kokkos::parallel_for(
+        Kokkos::TeamPolicy<>(gridsize, blocksize)
+            .set_scratch_size(slevel, Kokkos::PerTeam(shmemsize)),
+        KOKKOS_LAMBDA(const team_handle &team) {
+            ScratchMemoryView<TData> shmem(team.team_scratch(slevel), nshared);
+            BwdTrans3DKernel<SHAPE_TYPE, Implementation, nm0, nm1, nm2, nmTot,
+                             nq0, nq1, nq2>(nelmt, isModified, index0, index1,
+                                            basis0, basis1, basis2, in, out,
+                                            wsp, shmem.data(), team);
+        });
 }
 
 } // namespace Nektar::Operators::detail
