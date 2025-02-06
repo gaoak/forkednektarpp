@@ -58,8 +58,9 @@ public:
 
     template <typename ExecSpace, typename Impl> void RunTestCase()
     {
-        NeuBndCond<double>::template Create<ExecSpace, Impl>(fixt_explist)
-            ->apply(*fixt_out);
+        auto NeuBndCondOp =
+            NeuBndCond<double>::template Create<ExecSpace, Impl>(fixt_explist);
+        NeuBndCondOp->apply(*fixt_out);
     }
 
     void ExpectedSolution()

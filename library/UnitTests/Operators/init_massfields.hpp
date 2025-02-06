@@ -75,8 +75,9 @@ public:
 
     template <typename ExecSpace, typename Impl> void RunTestCase()
     {
-        Mass<double>::template Create<ExecSpace, Impl>(fixt_explist)
-            ->apply(*fixt_in, *fixt_out);
+        auto MassOp =
+            Mass<double>::template Create<ExecSpace, Impl>(fixt_explist);
+        MassOp->apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution()

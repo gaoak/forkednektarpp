@@ -83,9 +83,10 @@ public:
 
     template <typename ExecSpace, typename Impl> void RunTestCase()
     {
-        IProductWRTDerivBase<double>::template Create<ExecSpace, Impl>(
-            fixt_explist)
-            ->apply(*fixt_in, *fixt_out);
+        auto IProductWRTDerivBaseOp =
+            IProductWRTDerivBase<double>::template Create<ExecSpace, Impl>(
+                fixt_explist);
+        IProductWRTDerivBaseOp->apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution()
