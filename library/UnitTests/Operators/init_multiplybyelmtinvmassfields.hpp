@@ -75,9 +75,10 @@ public:
 
     template <typename ExecSpace, typename Impl> void RunTestCase()
     {
-        MultiplyByElmtInvMass<double>::template Create<ExecSpace, Impl>(
-            fixt_explist)
-            ->apply(*fixt_in, *fixt_out);
+        auto MultiplyByElmtInvMassOp =
+            MultiplyByElmtInvMass<double>::template Create<ExecSpace, Impl>(
+                fixt_explist);
+        MultiplyByElmtInvMassOp->apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution()

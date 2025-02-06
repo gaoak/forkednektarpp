@@ -75,8 +75,9 @@ public:
 
     template <typename ExecSpace, typename Impl> void RunTestCase()
     {
-        Helmholtz<double>::template Create<ExecSpace, Impl>(fixt_explist)
-            ->apply(*fixt_in, *fixt_out);
+        auto HelmholtzOp =
+            Helmholtz<double>::template Create<ExecSpace, Impl>(fixt_explist);
+        HelmholtzOp->apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution()

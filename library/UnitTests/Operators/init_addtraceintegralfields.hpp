@@ -95,8 +95,10 @@ public:
 
     template <typename ExecSpace, typename Impl> void RunTestCase()
     {
-        AddTraceIntegral<double>::template Create<ExecSpace, Impl>(fixt_explist)
-            ->apply(*fixt_in, *fixt_out);
+        auto AddTraceIntegralOp =
+            AddTraceIntegral<double>::template Create<ExecSpace, Impl>(
+                fixt_explist);
+        AddTraceIntegralOp->apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution()

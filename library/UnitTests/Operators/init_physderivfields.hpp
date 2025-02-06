@@ -50,8 +50,9 @@ public:
 
     template <typename ExecSpace, typename Impl> void RunTestCase()
     {
-        PhysDeriv<double>::template Create<ExecSpace, Impl>(fixt_explist)
-            ->apply(*fixt_in, *fixt_out);
+        auto PhysDerivOp =
+            PhysDeriv<double>::template Create<ExecSpace, Impl>(fixt_explist);
+        PhysDerivOp->apply(*fixt_in, *fixt_out);
     }
     void SetTestCase()
     {

@@ -76,12 +76,11 @@ public:
 
     template <typename ExecSpace, typename Impl> void RunTestCase(double scale)
     {
-        std::shared_ptr<OperatorPhysInterp1DScaled<double>> PhysInterp1D =
+        auto PhysInterp1DOp =
             PhysInterp1DScaled<double>::template Create<ExecSpace, Impl>(
                 fixt_explist);
-
-        PhysInterp1D->SetScaleFactor(scale);
-        PhysInterp1D->apply(*fixt_in, *fixt_out);
+        PhysInterp1DOp->SetScaleFactor(scale);
+        PhysInterp1DOp->apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution(double scale)

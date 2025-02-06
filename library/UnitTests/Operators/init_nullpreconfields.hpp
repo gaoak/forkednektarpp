@@ -77,8 +77,9 @@ public:
 
     template <typename ExecSpace, typename Impl> void RunTestCase()
     {
-        NullPrecon<double>::template Create<ExecSpace, Impl>(fixt_explist)
-            ->apply(*fixt_in, *fixt_out);
+        auto NullPreconOp =
+            NullPrecon<double>::template Create<ExecSpace, Impl>(fixt_explist);
+        NullPreconOp->apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution()
