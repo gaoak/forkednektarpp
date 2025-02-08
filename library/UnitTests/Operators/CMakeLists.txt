@@ -7,10 +7,12 @@
 # IdentityPhys           Nodepend - Seg, Quad, etc
 # IProductWRTBase        Nodepend - Seg, Quad, etc
 # IProductWRTDerivBase   Nodepend - Seg, Quad, etc
+# LinAdvDiffReaction     Nodepend - Seg, Quad, etc
 # Mass                   Nodepend - Seg, Quad, etc
 # MultiplyByElmtInvMass  Nodepend - Seg, Quad, etc
 # NullPrecon             Nodepend - Seg, Quad, etc
 # PhysDeriv              Nodepend - Seg, Quad, etc
+# PhysInterp1D           Nodepend - Seg, Quad, etc
 
 # These tests may require an individual  cpp.in file
 # DiagPrecon             creaate operator - Helmholtz - Helmholtz1D_Seg, etc.
@@ -81,6 +83,8 @@ ADD_NEKTAR_EXECUTABLE(test_mass_serial_sumfac
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_serial_sumfac.cpp)
 ADD_NEKTAR_EXECUTABLE(test_helmholtz_serial_sumfac
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_serial_sumfac.cpp)
+ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_serial_sumfac
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_serial_sumfac.cpp)
 ADD_NEKTAR_EXECUTABLE(test_physderiv_serial_sumfac
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_serial_sumfac.cpp)
 ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_serial_sumfac
@@ -104,6 +108,8 @@ IF (${NEKTAR_ENABLE_SIMD_AVX2} OR ${NEKTAR_ENABLE_SIMD_AVX512})
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_avx_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_helmholtz_avx_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_avx_sumfac.cpp)
+ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_avx_sumfac
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_avx_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_avx_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_avx_sumfac.cpp)
 ENDIF()
@@ -144,6 +150,8 @@ IF(NEKTAR_ENABLE_CUDA)
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_cuda_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_cuda_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_cuda_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_cuda_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_cuda_sumfac.cpp)
 ENDIF()
 
 # CUDA SumFacQP
@@ -172,6 +180,8 @@ IF(NEKTAR_ENABLE_CUDA)
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_cuda_sumfac_qp.cpp)
     ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_cuda_sumfac_qp
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_cuda_sumfac_qp.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_cuda_sumfac_qp
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_cuda_sumfac_qp.cpp)
 ENDIF()
 
 # SYCL SumFac
@@ -210,6 +220,8 @@ IF(NEKTAR_ENABLE_SYCL)
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_sycl_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_sycl_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_sycl_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_sycl_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_sycl_sumfac.cpp)
 ENDIF()
 
 # SYCL SumFacQP
@@ -237,7 +249,9 @@ IF(NEKTAR_ENABLE_SYCL)
     ADD_NEKTAR_EXECUTABLE(test_physderiv_sycl_sumfac_qp
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_sycl_sumfac_qp.cpp)
 ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_sycl_sumfac_qp
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_sycl_sumfac.cpp)
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_sycl_sumfac_qp.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_sycl_sumfac_qp
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_sycl_sumfac_qp.cpp)
 ENDIF()
 
 # Kokkos SumFac
@@ -276,6 +290,8 @@ IF(NEKTAR_ENABLE_KOKKOS)
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_kokkos_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_kokkos_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_kokkos_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_kokkos_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_kokkos_sumfac.cpp)
 ENDIF()
 
 # Kokkos SumFacQP
@@ -304,6 +320,8 @@ IF(NEKTAR_ENABLE_KOKKOS)
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_kokkos_sumfac_qp.cpp)
     ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_kokkos_sumfac_qp
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_kokkos_sumfac_qp.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_kokkos_sumfac_qp
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_kokkos_sumfac_qp.cpp)
 ENDIF()
 
 
@@ -355,6 +373,7 @@ SET_UNIT_TEST(Mass_serial_sumfac test_mass_serial_sumfac FALSE)
 SET_UNIT_TEST(PhysDeriv_serial_sumfac test_physderiv_serial_sumfac FALSE)
 SET_UNIT_TEST(Helmholtz_serial_sumfac test_helmholtz_serial_sumfac FALSE)
 SET_UNIT_TEST(PhysInterp1DScaled_serial_sumfac test_physinterp1dscaled_serial_sumfac FALSE)
+SET_UNIT_TEST(LinAdvDiffReaction_serial_sumfac test_linadvdiffreaction_serial_sumfac FALSE)
 
 # AVX SumFac
 IF (NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
@@ -367,6 +386,7 @@ IF (NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
     SET_UNIT_TEST(PhysDeriv_avx_sumfac test_physderiv_avx_sumfac FALSE)
     SET_UNIT_TEST(Helmholtz_avx_sumfac test_helmholtz_avx_sumfac FALSE)
     SET_UNIT_TEST(PhysInterp1DScaled_avx_sumfac test_physinterp1dscaled_avx_sumfac FALSE)
+    SET_UNIT_TEST(LinAdvDiffReaction_avx_sumfac test_linadvdiffreaction_avx_sumfac FALSE)
 ENDIF()
 
 
@@ -395,6 +415,7 @@ IF(NEKTAR_ENABLE_CUDA)
     #SET_UNIT_TEST(NullPrecon_cuda_sumfac test_nullprecon_cuda_sumfac FALSE)
     SET_UNIT_TEST(PhysDeriv_cuda_sumfac test_physderiv_cuda_sumfac FALSE)
     SET_UNIT_TEST(PhysInterp1DScaled_cuda_sumfac test_physinterp1dscaled_cuda_sumfac FALSE)
+    SET_UNIT_TEST(LinAdvDiffReaction_cuda_sumfac test_linadvdiffreaction_cuda_sumfac FALSE)
 ENDIF()
 
 # CUDA SumFacQP
@@ -417,6 +438,7 @@ IF(NEKTAR_ENABLE_CUDA)
     SET_UNIT_TEST(NullPrecon_cuda_sumfac_qp test_nullprecon_cuda_sumfac_qp FALSE)
     SET_UNIT_TEST(PhysDeriv_cuda_sumfac_qp test_physderiv_cuda_sumfac_qp FALSE)
     SET_UNIT_TEST(PhysInterp1DScaled_cuda_sumfac_qp test_physinterp1dscaled_cuda_sumfac_qp FALSE)
+    SET_UNIT_TEST(LinAdvDiffReaction_cuda_sumfac_qp test_linadvdiffreaction_cuda_sumfac_qp FALSE)
 ENDIF()
 
 # SYCL SumFac
@@ -446,6 +468,7 @@ IF(NEKTAR_ENABLE_SYCL)
     #SET_UNIT_TEST(NullPrecon_sycl_sumfac test_nullprecon_sycl_sumfac FALSE)
     SET_UNIT_TEST(PhysDeriv_sycl_sumfac test_physderiv_sycl_sumfac FALSE)
     SET_UNIT_TEST(PhysInterp1DScaled_sycl_sumfac test_physinterp1dscaled_sycl_sumfac FALSE)
+    SET_UNIT_TEST(LinAdvDiffReaction_sycl_sumfac test_linadvdiffreaction_sycl_sumfac FALSE)
 ENDIF()
 
 # SYCL SumFacQP
@@ -468,6 +491,7 @@ IF(NEKTAR_ENABLE_SYCL)
     SET_UNIT_TEST(NullPrecon_sycl_sumfac_qp test_nullprecon_sycl_sumfac_qp FALSE)
     SET_UNIT_TEST(PhysDeriv_sycl_sumfac_qp test_physderiv_sycl_sumfac_qp FALSE)
     SET_UNIT_TEST(PhysInterp1DScaled_sycl_sumfac_qp test_physinterp1dscaled_sycl_sumfac_qp FALSE)
+    SET_UNIT_TEST(LinAdvDiffReaction_sycl_sumfac_qp test_linadvdiffreaction_sycl_sumfac_qp FALSE)
 ENDIF()
 
 # Kokkos SumFac
@@ -495,6 +519,7 @@ IF(NEKTAR_ENABLE_KOKKOS)
     #SET_UNIT_TEST(NullPrecon_kokkos_sumfac test_nullprecon_kokkos_sumfac FALSE)
     SET_UNIT_TEST(PhysDeriv_kokkos_sumfac test_physderiv_kokkos_sumfac FALSE)
     SET_UNIT_TEST(PhysInterp1DScaled_kokkos_sumfac test_physinterp1dscaled_kokkos_sumfac FALSE)
+    SET_UNIT_TEST(LinAdvDiffReaction_kokkos_sumfac test_linadvdiffreaction_kokkos_sumfac FALSE)
 ENDIF()
 
 # Kokkos SumFacQP
@@ -517,6 +542,7 @@ IF(NEKTAR_ENABLE_KOKKOS)
     SET_UNIT_TEST(NullPrecon_kokkos_sumfac_qp test_nullprecon_kokkos_sumfac_qp FALSE)
     SET_UNIT_TEST(PhysDeriv_kokkos_sumfac_qp test_physderiv_kokkos_sumfac_qp FALSE)
     SET_UNIT_TEST(PhysInterp1DScaled_kokkos_sumfac_qp test_physinterp1dscaled_kokkos_sumfac_qp FALSE)
+    SET_UNIT_TEST(LinAdvDiffReaction_kokkos_sumfac_qp test_linadvdiffreaction_kokkos_sumfac_qp FALSE)
 ENDIF()
 
 # Copy XML file to build directory

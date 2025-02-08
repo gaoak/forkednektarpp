@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: init_helmholtzfields.hpp
+// File: init_linadvdiffreactionfields.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,17 +34,17 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/ElmtOps/OperatorHelmholtz.hpp"
+#include "Operators/ElmtOps/OperatorLinAdvDiffReaction.hpp"
 
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
 
-class HelmholtzField
+class LinAdvDiffReactionField
     : public InitFields<double, FieldState::Coeff, FieldState::Coeff>
 {
 public:
-    HelmholtzField()
+    LinAdvDiffReactionField()
         : InitFields<double, FieldState::Coeff, FieldState::Coeff>()
     {
     }
@@ -56,6 +56,7 @@ public:
             auto &block = fixt_in->GetBlocks()[blk];
             auto inptr =
                 block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+
             for (unsigned int nc = 0; nc < fixt_in->GetNumComponents(); ++nc)
             {
                 for (unsigned int el = 0, cnt = 0; el < block.GetNumElements();
@@ -70,15 +71,20 @@ public:
                 inptr += block.size();
             }
         }
+
         ExpectedSolution();
     }
 
     template <typename ExecSpace, typename Impl> void RunTestCase()
     {
-        auto HelmholtzOp =
-            Helmholtz<double>::template Create<ExecSpace, Impl>(fixt_explist);
-        HelmholtzOp->SetLambda(m_lambda);
-        HelmholtzOp->apply(*fixt_in, *fixt_out);
+        std::shared_ptr<OperatorLinAdvDiffReaction<double>> LinADR =
+            LinAdvDiffReaction<double>::template Create<ExecSpace, Impl>(
+                fixt_explist);
+
+        // seem to have the negative definitio of lambda implemented currently
+        LinADR->SetLambda(-1.0 * m_lambda);
+        LinADR->SetAdvVel(m_dim, m_vel);
+        LinADR->apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution()
@@ -86,32 +92,59 @@ public:
         // Calculate expected result from Nektar++
         int compSize = fixt_in->GetNumComponents();
         int ncoeffs  = fixt_explist->GetNcoeffs();
+        int nphys    = fixt_explist->GetTotPoints();
+        Array<OneD, double> tmp;
+
+        // set advection velocity
+        m_dim = fixt_explist->GetCoordim(0);
+        m_vel = Array<OneD, double>(nphys * m_dim, 1.0);
+        for (int d = 1; d < m_dim; ++d)
+        {
+            Vmath::Fill(nphys, d + 1.0, tmp = m_vel + d * nphys, 1);
+            // Vmath::Fill(nphys, 0.0, tmp = m_vel + d * nphys, 1);
+        }
 
         m_lambda = 1.0;
-
         StdRegions::FactorMap factors;
         factors[StdRegions::eFactorLambda] = m_lambda;
         Array<OneD, double> incoeffs       = fixt_in->ToArray();
         Array<OneD, double> outcoeffs(compSize * ncoeffs);
-        Array<OneD, double> tmp;
+        std::vector<StdRegions::VarCoeffType> velCoeffType = {
+            StdRegions::eVarCoeffVelX, StdRegions::eVarCoeffVelY,
+            StdRegions::eVarCoeffVelZ};
 
         for (int i = 0; i < compSize; ++i)
         {
-            unsigned int e      = 0;
-            unsigned int offset = i * ncoeffs;
+            unsigned int e          = 0;
+            unsigned int offset     = i * ncoeffs;
+            unsigned int physoffset = 0;
+
             for (const auto &block : fixt_expected->GetBlocks())
             {
-                auto nmTot = fixt_explist->GetExp(e)->GetNcoeffs();
+                auto nmTot    = fixt_explist->GetExp(e)->GetNcoeffs();
+                auto nphysloc = fixt_explist->GetExp(e)->GetTotPoints();
+
                 for (unsigned int el = 0; el < block.GetNumElements(); ++el)
                 {
+                    // Restrict varcoeffs to size of element
+                    StdRegions::VarCoeffMap varcoeffs;
+
+                    for (int d = 0; d < m_dim; ++d)
+                    {
+                        varcoeffs[velCoeffType[d]] =
+                            m_vel + d * nphys + physoffset;
+                    }
+
                     StdRegions::StdMatrixKey mkey(
-                        StdRegions::eHelmholtz,
+                        StdRegions::eLinearAdvectionDiffusionReaction,
                         fixt_explist->GetExp(e)->DetShapeType(),
-                        *(fixt_explist->GetExp(e)), factors);
+                        *(fixt_explist->GetExp(e)), factors, varcoeffs);
+
                     fixt_explist->GetExp(e)->GeneralMatrixOp(
                         incoeffs + offset, tmp = outcoeffs + offset, mkey);
                     e++;
                     offset += nmTot;
+                    physoffset += nphysloc;
                 }
             }
         }
@@ -119,11 +152,13 @@ public:
     }
 
 private:
+    int m_dim;
     double m_lambda;
+    Array<OneD, double> m_vel;
 };
 
 #define TEST(type, filename)                                                   \
-    class type : public HelmholtzField                                         \
+    class type : public LinAdvDiffReactionField                                \
     {                                                                          \
     public:                                                                    \
         type()                                                                 \

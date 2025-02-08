@@ -82,7 +82,6 @@ public:
         m_IProductWRTDerivBaseOp = IProductWRTDerivBase<TData>::template Create<
             ExecSpace, Implementation>(this->m_expansionList);
 
-        m_IProductWRTBaseOp->SetScale(this->m_lambda);
         m_IProductWRTDerivBaseOp->SetAppend(true);
 
         m_PhysBlockAttributes =
@@ -184,6 +183,12 @@ public:
         return std::make_unique<
             OperatorHelmholtzImpl<ExecSpace, Implementation, TData>>(
             expansionList);
+    }
+
+    void SetLambda(TData lambda) override
+    {
+        this->m_lambda = lambda;
+        m_IProductWRTBaseOp->SetScale(this->m_lambda);
     }
 
 private:

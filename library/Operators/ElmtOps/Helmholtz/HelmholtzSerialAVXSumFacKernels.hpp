@@ -156,9 +156,9 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffTriKernel(
     const std::vector<typename simd_type::scalarType> &varD01,
     const std::vector<typename simd_type::scalarType> &varD11,
     const typename simd_type::vectorType *in, const simd_type *D0,
-    const simd_type *D1, const simd_type *df_ptr,
-    const std::vector<simd_type, tinysimd::allocator<simd_type>> &m_h0,
-    const std::vector<simd_type, tinysimd::allocator<simd_type>> &m_h1,
+    const simd_type *D1, const simd_type *df_ptr, const simd_type *hfac0,
+    const simd_type *hfac1, typename simd_type::scalarType *diffderiv0,
+    typename simd_type::scalarType *diffderiv1,
     typename simd_type::scalarType *deriv0,
     typename simd_type::scalarType *deriv1)
 {
@@ -190,7 +190,7 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffTriKernel(
 
     for (int q = 0; q < nq1; ++q)
     {
-        simd_type h1j = m_h1[q];
+        simd_type h1j = hfac1[q];
         for (int p = 0; p < nq0; ++p)
         {
             int cnt            = q * nq0 + p;
@@ -220,7 +220,7 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffTriKernel(
                 df3 = df_ptr[cnt * ndf + 3];
             }
 
-            simd_type h0i = m_h0[p];
+            simd_type h0i = hfac0[p];
 
             // M = [M_00, df1; M_10; df3]
             metric00      = h1j * (df0 + h0i * df1); // M_00
@@ -263,13 +263,23 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffTriKernel(
                 metric11.fma(df3, dtmp3);
             }
 
+            if (deriv0)
+            {
+                prod_sum.store(deriv0 + cnt * simd_type::width);
+            }
+
             tmp = metric00 * prod_sum;
             tmp.fma(metric01, prod_sum1);
-            tmp.store(deriv0 + cnt * simd_type::width);
+            tmp.store(diffderiv0 + cnt * simd_type::width);
+
+            if (deriv1)
+            {
+                prod_sum1.store(deriv1 + cnt * simd_type::width);
+            }
 
             tmp = metric01 * prod_sum;
             tmp.fma(metric11, prod_sum1);
-            tmp.store(deriv1 + cnt * simd_type::width);
+            tmp.store(diffderiv1 + cnt * simd_type::width);
         }
     }
 }
@@ -284,8 +294,10 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffQuadKernel(
     const std::vector<typename simd_type::scalarType> &varD11,
     const typename simd_type::vectorType *in, const simd_type *D0,
     const simd_type *D1, const simd_type *df_ptr,
-    typename simd_type::scalarType *deriv0,
-    typename simd_type::scalarType *deriv1)
+    typename simd_type::scalarType *diffderiv0,
+    typename simd_type::scalarType *diffderiv1,
+    typename simd_type::scalarType *deriv0 = nullptr,
+    typename simd_type::scalarType *deriv1 = nullptr)
 {
     constexpr auto ndf = 4;
 
@@ -406,13 +418,23 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffQuadKernel(
                 metric11.fma(df3, dtmp3);
             }
 
+            if (deriv0)
+            {
+                prod_sum.store(deriv0 + cnt * simd_type::width);
+            }
+
             simd_type tmp = metric00 * prod_sum;
             tmp.fma(metric01, prod_sum1);
-            tmp.store(deriv0 + cnt * simd_type::width);
+            tmp.store(diffderiv0 + cnt * simd_type::width);
+
+            if (deriv1)
+            {
+                prod_sum1.store(deriv1 + cnt * simd_type::width);
+            }
 
             simd_type tmp1 = metric01 * prod_sum;
             tmp1.fma(metric11, prod_sum1);
-            tmp1.store(deriv1 + cnt * simd_type::width);
+            tmp1.store(diffderiv1 + cnt * simd_type::width);
         }
     }
 }
@@ -431,9 +453,12 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffHexKernel(
     const std::vector<typename simd_type::scalarType> &varD22,
     const typename simd_type::vectorType *in, const simd_type *D0,
     const simd_type *D1, const simd_type *D2, const simd_type *df_ptr,
-    typename simd_type::scalarType *deriv0,
-    typename simd_type::scalarType *deriv1,
-    typename simd_type::scalarType *deriv2)
+    typename simd_type::scalarType *diffderiv0,
+    typename simd_type::scalarType *diffderiv1,
+    typename simd_type::scalarType *diffderiv2,
+    typename simd_type::scalarType *deriv0 = nullptr,
+    typename simd_type::scalarType *deriv1 = nullptr,
+    typename simd_type::scalarType *deriv2 = nullptr)
 {
     constexpr auto ndf = 9;
 
@@ -715,21 +740,35 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffHexKernel(
                     metric22.fma(td8, df8);
                 }
 
+                // store tensor derivs if required
+                if (deriv0)
+                {
+                    prod_sum.store(deriv0 + cnt * simd_type::width);
+                }
+                if (deriv1)
+                {
+                    prod_sum1.store(deriv1 + cnt * simd_type::width);
+                }
+                if (deriv2)
+                {
+                    prod_sum2.store(deriv2 + cnt * simd_type::width);
+                }
+
                 // 3. apply diffusion coeff to deriv and get output
                 simd_type tmp = metric00 * prod_sum;
                 tmp.fma(metric01, prod_sum1);
                 tmp.fma(metric02, prod_sum2);
-                tmp.store(deriv0 + cnt * simd_type::width);
+                tmp.store(diffderiv0 + cnt * simd_type::width);
 
                 simd_type tmp1 = metric01 * prod_sum;
                 tmp1.fma(metric11, prod_sum1);
                 tmp1.fma(metric12, prod_sum2);
-                tmp1.store(deriv1 + cnt * simd_type::width);
+                tmp1.store(diffderiv1 + cnt * simd_type::width);
 
                 simd_type tmp2 = metric02 * prod_sum;
                 tmp2.fma(metric12, prod_sum1);
                 tmp2.fma(metric22, prod_sum2);
-                tmp2.store(deriv2 + cnt * simd_type::width);
+                tmp2.store(diffderiv2 + cnt * simd_type::width);
             }
         }
     }
@@ -749,13 +788,13 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffTetKernel(
     const std::vector<typename simd_type::scalarType> &varD22,
     const typename simd_type::vectorType *in, const simd_type *D0,
     const simd_type *D1, const simd_type *D2, const simd_type *df_ptr,
-    const std::vector<simd_type, tinysimd::allocator<simd_type>> &m_h0,
-    const std::vector<simd_type, tinysimd::allocator<simd_type>> &m_h1,
-    const std::vector<simd_type, tinysimd::allocator<simd_type>> &m_h2,
-    const std::vector<simd_type, tinysimd::allocator<simd_type>> &m_h3,
-    typename simd_type::scalarType *deriv0,
-    typename simd_type::scalarType *deriv1,
-    typename simd_type::scalarType *deriv2)
+    const simd_type *hfac0, const simd_type *hfac1, const simd_type *hfac2,
+    const simd_type *hfac3, typename simd_type::scalarType *diffderiv0,
+    typename simd_type::scalarType *diffderiv1,
+    typename simd_type::scalarType *diffderiv2,
+    typename simd_type::scalarType *deriv0 = nullptr,
+    typename simd_type::scalarType *deriv1 = nullptr,
+    typename simd_type::scalarType *deriv2 = nullptr)
 {
     constexpr auto ndf = 9;
 
@@ -795,11 +834,11 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffTetKernel(
 
     for (int r = 0; r < nq2; ++r)
     {
-        simd_type h3 = m_h3[r];
+        simd_type h3 = hfac3[r];
         for (int q = 0; q < nq1; ++q)
         {
-            simd_type h1   = m_h1[q];
-            simd_type h2   = m_h2[q];
+            simd_type h1   = hfac1[q];
+            simd_type h2   = hfac2[q];
             simd_type h2h3 = h2 * h3;
             simd_type h1h3 = h1 * h3;
 
@@ -849,7 +888,7 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffTetKernel(
                     df8 = df_ptr[cnt * ndf + 8];
                 }
 
-                simd_type h0h2h3 = m_h0[p] * h2h3;
+                simd_type h0h2h3 = hfac0[p] * h2h3;
 
                 simd_type tmp1 = h0h2h3 * (df1 + df2);
                 tmp1.fma(df0, h2h3);
@@ -963,23 +1002,37 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffTetKernel(
                     g2.fma(td8, df8);
                 }
 
+                // store tensor derivs if required
+                if (deriv0)
+                {
+                    prod_sum.store(deriv0 + cnt * simd_type::width);
+                }
+                if (deriv1)
+                {
+                    prod_sum1.store(deriv1 + cnt * simd_type::width);
+                }
+                if (deriv2)
+                {
+                    prod_sum2.store(deriv2 + cnt * simd_type::width);
+                }
+
                 tmp1 = g0 * prod_sum;
                 tmp1.fma(g3, prod_sum1);
                 tmp1.fma(g4, prod_sum2);
                 // deriv0[cnt] = tmp1;
-                tmp1.store(deriv0 + cnt * simd_type::width);
+                tmp1.store(diffderiv0 + cnt * simd_type::width);
 
                 tmp2 = g3 * prod_sum;
                 tmp2.fma(g1, prod_sum1);
                 tmp2.fma(g5, prod_sum2);
                 // deriv1[cnt] = tmp2;
-                tmp2.store(deriv1 + cnt * simd_type::width);
+                tmp2.store(diffderiv1 + cnt * simd_type::width);
 
                 tmp3 = g4 * prod_sum;
                 tmp3.fma(g5, prod_sum1);
                 tmp3.fma(g2, prod_sum2);
                 // deriv2[cnt] = tmp3;
-                tmp3.store(deriv2 + cnt * simd_type::width);
+                tmp3.store(diffderiv2 + cnt * simd_type::width);
             }
         }
     }
@@ -999,11 +1052,13 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffPrismKernel(
     const std::vector<typename simd_type::scalarType> &varD22,
     const typename simd_type::vectorType *in, const simd_type *D0,
     const simd_type *D1, const simd_type *D2, const simd_type *df_ptr,
-    const std::vector<simd_type, tinysimd::allocator<simd_type>> &m_h0,
-    const std::vector<simd_type, tinysimd::allocator<simd_type>> &m_h1,
-    typename simd_type::scalarType *deriv0,
-    typename simd_type::scalarType *deriv1,
-    typename simd_type::scalarType *deriv2)
+    const simd_type *hfac0, const simd_type *hfac1,
+    typename simd_type::scalarType *diffderiv0,
+    typename simd_type::scalarType *diffderiv1,
+    typename simd_type::scalarType *diffderiv2,
+    typename simd_type::scalarType *deriv0 = nullptr,
+    typename simd_type::scalarType *deriv1 = nullptr,
+    typename simd_type::scalarType *deriv2 = nullptr)
 {
     constexpr auto ndf = 9;
 
@@ -1043,7 +1098,7 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffPrismKernel(
 
     for (int r = 0; r < nq2; ++r)
     {
-        simd_type h1 = m_h1[r];
+        simd_type h1 = hfac1[r];
         for (int q = 0; q < nq1; ++q)
         {
             int cnt_qr = (r * nq1 + q);
@@ -1079,7 +1134,7 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffPrismKernel(
                 // prod_sum2.store(deriv2 + cnt * simd_type::width);
 
                 // 3. apply diffusion coeff to deriv and fill output
-                simd_type h0 = m_h0[p];
+                simd_type h0 = hfac0[p];
 
                 if constexpr (DEFORMED)
                 {
@@ -1197,23 +1252,37 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffPrismKernel(
                     g2.fma(td8, df8);
                 }
 
+                // store tensor derivs if required
+                if (deriv0)
+                {
+                    prod_sum.store(deriv0 + cnt * simd_type::width);
+                }
+                if (deriv1)
+                {
+                    prod_sum1.store(deriv1 + cnt * simd_type::width);
+                }
+                if (deriv2)
+                {
+                    prod_sum2.store(deriv2 + cnt * simd_type::width);
+                }
+
                 tmp1 = g0 * prod_sum;
                 tmp1.fma(g3, prod_sum1);
                 tmp1.fma(g4, prod_sum2);
                 // deriv0[cnt] = tmp1;
-                tmp1.store(deriv0 + cnt * simd_type::width);
+                tmp1.store(diffderiv0 + cnt * simd_type::width);
 
                 tmp2 = g3 * prod_sum;
                 tmp2.fma(g1, prod_sum1);
                 tmp2.fma(g5, prod_sum2);
                 // deriv1[cnt] = tmp2;
-                tmp2.store(deriv1 + cnt * simd_type::width);
+                tmp2.store(diffderiv1 + cnt * simd_type::width);
 
                 tmp3 = g4 * prod_sum;
                 tmp3.fma(g5, prod_sum1);
                 tmp3.fma(g2, prod_sum2);
                 // deriv2[cnt] = tmp3;
-                tmp3.store(deriv2 + cnt * simd_type::width);
+                tmp3.store(diffderiv2 + cnt * simd_type::width);
             }
         }
     }
@@ -1233,12 +1302,13 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffPyrKernel(
     const std::vector<typename simd_type::scalarType> &varD22,
     const typename simd_type::vectorType *in, const simd_type *D0,
     const simd_type *D1, const simd_type *D2, const simd_type *df_ptr,
-    const std::vector<simd_type, tinysimd::allocator<simd_type>> &m_h0,
-    const std::vector<simd_type, tinysimd::allocator<simd_type>> &m_h1,
-    const std::vector<simd_type, tinysimd::allocator<simd_type>> &m_h2,
-    typename simd_type::scalarType *deriv0,
-    typename simd_type::scalarType *deriv1,
-    typename simd_type::scalarType *deriv2)
+    const simd_type *hfac0, const simd_type *hfac1, const simd_type *hfac2,
+    typename simd_type::scalarType *diffderiv0,
+    typename simd_type::scalarType *diffderiv1,
+    typename simd_type::scalarType *diffderiv2,
+    typename simd_type::scalarType *deriv0 = nullptr,
+    typename simd_type::scalarType *deriv1 = nullptr,
+    typename simd_type::scalarType *deriv2 = nullptr)
 {
     constexpr auto ndf = 9;
 
@@ -1278,10 +1348,10 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffPyrKernel(
 
     for (int r = 0; r < nq2; ++r)
     {
-        simd_type h2 = m_h2[r];
+        simd_type h2 = hfac2[r];
         for (int q = 0; q < nq1; ++q)
         {
-            simd_type h1   = m_h1[q];
+            simd_type h1   = hfac1[q];
             simd_type h1h2 = h1 * h2;
             int cnt_qr     = (r * nq1 + q);
             for (int p = 0; p < nq0; ++p)
@@ -1316,7 +1386,7 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffPyrKernel(
                 // prod_sum2.store(deriv2 + cnt * simd_type::width);
 
                 // 3. apply diffusion coeff to deriv and fill output
-                simd_type h0   = m_h0[p];
+                simd_type h0   = hfac0[p];
                 simd_type h0h2 = h0 * h2;
 
                 if constexpr (DEFORMED)
@@ -1445,117 +1515,35 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffPyrKernel(
                     g2.fma(td8, df8);
                 }
 
+                // store tensor derivs if required
+                if (deriv0)
+                {
+                    prod_sum.store(deriv0 + cnt * simd_type::width);
+                }
+                if (deriv1)
+                {
+                    prod_sum1.store(deriv1 + cnt * simd_type::width);
+                }
+                if (deriv2)
+                {
+                    prod_sum2.store(deriv2 + cnt * simd_type::width);
+                }
+
                 tmp1 = g0 * prod_sum;
                 tmp1.fma(g3, prod_sum1);
                 tmp1.fma(g4, prod_sum2);
-                tmp1.store(deriv0 + cnt * simd_type::width);
+                tmp1.store(diffderiv0 + cnt * simd_type::width);
 
                 tmp2 = g3 * prod_sum;
                 tmp2.fma(g1, prod_sum1);
                 tmp2.fma(g5, prod_sum2);
-                tmp2.store(deriv1 + cnt * simd_type::width);
+                tmp2.store(diffderiv1 + cnt * simd_type::width);
 
                 tmp3 = g4 * prod_sum;
                 tmp3.fma(g5, prod_sum1);
                 tmp3.fma(g2, prod_sum2);
-                tmp3.store(deriv2 + cnt * simd_type::width);
+                tmp3.store(diffderiv2 + cnt * simd_type::width);
             }
-        }
-    }
-}
-
-template <LibUtilities::ShapeType SHAPE_TYPE, typename simd_type>
-NEK_FORCE_INLINE static void GetHelmholtz2DHalfSpace(
-    const size_t nq0, const size_t nq1, const simd_type *z0,
-    const simd_type *z1,
-    std::vector<simd_type, tinysimd::allocator<simd_type>> &h0,
-    std::vector<simd_type, tinysimd::allocator<simd_type>> &h1)
-{
-    h0.resize(nq0);
-    h1.resize(nq1);
-
-    for (int i = 0; i < nq0; ++i)
-    {
-        h0[i] = 0.5 * (1 + z0[i]);
-    }
-
-    for (int j = 0; j < nq1; ++j)
-    {
-        h1[j] = 2.0 / (1 - z1[j]);
-    }
-}
-
-template <LibUtilities::ShapeType SHAPE_TYPE, typename simd_type>
-NEK_FORCE_INLINE static void GetHelmholtz3DHalfSpace(
-    const size_t nq0, [[maybe_unused]] const size_t nq1, const size_t nq2,
-    const simd_type *z0, [[maybe_unused]] const simd_type *z1,
-    const simd_type *z2,
-    std::vector<simd_type, tinysimd::allocator<simd_type>> &h0,
-    std::vector<simd_type, tinysimd::allocator<simd_type>> &h1,
-    [[maybe_unused]] std::vector<simd_type, tinysimd::allocator<simd_type>> &h2,
-    [[maybe_unused]] std::vector<simd_type, tinysimd::allocator<simd_type>> &h3)
-{
-    // #if defined(SHAPE_TYPE_TET)
-    if constexpr (SHAPE_TYPE == LibUtilities::eTetrahedron)
-    {
-        h0.resize(nq0);
-        h1.resize(nq1);
-        h2.resize(nq1);
-        h3.resize(nq2);
-
-        for (int i = 0; i < nq0; ++i)
-        {
-            h0[i] = 0.5 * (1 + z0[i]);
-        }
-
-        for (int j = 0; j < nq1; ++j)
-        {
-            h1[j] = 0.5 * (1 + z1[j]);
-            h2[j] = 2.0 / (1 - z1[j]);
-        }
-
-        for (int k = 0; k < nq2; ++k)
-        {
-            h3[k] = 2.0 / (1 - z2[k]);
-        }
-
-    } // #elif defined(SHAPE_TYPE_PRISM)
-    else if constexpr (SHAPE_TYPE == LibUtilities::ePrism)
-    {
-
-        h0.resize(nq0);
-        h1.resize(nq2);
-
-        for (int i = 0; i < nq0; ++i)
-        {
-            h0[i] = 0.5 * (1 + z0[i]);
-        }
-
-        for (int k = 0; k < nq2; ++k)
-        {
-            h1[k] = 2.0 / (1 - z2[k]);
-        }
-
-    } // #elif defined(SHAPE_TYPE_PYR)
-    else if constexpr (SHAPE_TYPE == LibUtilities::ePyramid)
-    {
-        h0.resize(nq0);
-        h1.resize(nq1);
-        h2.resize(nq2);
-
-        for (int i = 0; i < nq0; ++i)
-        {
-            h0[i] = 0.5 * (1 + z0[i]);
-        }
-
-        for (int j = 0; j < nq1; ++j)
-        {
-            h1[j] = 0.5 * (1 + z1[j]);
-        }
-
-        for (int k = 0; k < nq2; ++k)
-        {
-            h2[k] = 2.0 / (1 - z2[k]);
         }
     }
 }
@@ -1570,24 +1558,24 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeff2DKernel(
     const std::vector<typename simd_type::scalarType> &varD11,
     const typename simd_type::vectorType *in, const simd_type *D0,
     const simd_type *D1, const simd_type *df_ptr,
-    [[maybe_unused]] const std::vector<simd_type,
-                                       tinysimd::allocator<simd_type>> &h0,
-    [[maybe_unused]] const std::vector<simd_type,
-                                       tinysimd::allocator<simd_type>> &h1,
-    typename simd_type::scalarType *deriv0,
-    typename simd_type::scalarType *deriv1)
+    [[maybe_unused]] const simd_type *h0, [[maybe_unused]] const simd_type *h1,
+    typename simd_type::scalarType *diffderiv0,
+    typename simd_type::scalarType *diffderiv1,
+    typename simd_type::scalarType *deriv0 = nullptr,
+    typename simd_type::scalarType *deriv1 = nullptr)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
     {
         TensorDerivWithDiffuCoeffTriKernel<DEFORMED>(
             nq0, nq1, isConstVarDiff, constVarDiff, isVarDiff, varD00, varD01,
-            varD11, in, D0, D1, df_ptr, h0, h1, deriv0, deriv1);
+            varD11, in, D0, D1, df_ptr, h0, h1, diffderiv0, diffderiv1, deriv0,
+            deriv1);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::eQuadrilateral)
     {
         TensorDerivWithDiffuCoeffQuadKernel<DEFORMED>(
             nq0, nq1, isConstVarDiff, constVarDiff, isVarDiff, varD00, varD01,
-            varD11, in, D0, D1, df_ptr, deriv0, deriv1);
+            varD11, in, D0, D1, df_ptr, diffderiv0, diffderiv1, deriv0, deriv1);
     }
 }
 
@@ -1605,44 +1593,42 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeff3DKernel(
     const std::vector<typename simd_type::scalarType> &varD22,
     const typename simd_type::vectorType *in, const simd_type *D0,
     const simd_type *D1, const simd_type *D2, const simd_type *df_ptr,
-    [[maybe_unused]] const std::vector<simd_type,
-                                       tinysimd::allocator<simd_type>> &h0,
-    [[maybe_unused]] const std::vector<simd_type,
-                                       tinysimd::allocator<simd_type>> &h1,
-    [[maybe_unused]] const std::vector<simd_type,
-                                       tinysimd::allocator<simd_type>> &h2,
-    [[maybe_unused]] const std::vector<simd_type,
-                                       tinysimd::allocator<simd_type>> &h3,
-    typename simd_type::scalarType *deriv0,
-    typename simd_type::scalarType *deriv1,
-    typename simd_type::scalarType *deriv2)
+    [[maybe_unused]] const simd_type *h0, [[maybe_unused]] const simd_type *h1,
+    [[maybe_unused]] const simd_type *h2, [[maybe_unused]] const simd_type *h3,
+    typename simd_type::scalarType *diffderiv0,
+    typename simd_type::scalarType *diffderiv1,
+    typename simd_type::scalarType *diffderiv2,
+    typename simd_type::scalarType *deriv0 = nullptr,
+    typename simd_type::scalarType *deriv1 = nullptr,
+    typename simd_type::scalarType *deriv2 = nullptr)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::eHexahedron)
     {
         TensorDerivWithDiffuCoeffHexKernel<DEFORMED, simd_type>(
             nq0, nq1, nq2, isConstVarDiff, constVarDiff, isVarDiff, varD00,
             varD01, varD11, varD02, varD12, varD22, in, D0, D1, D2, df_ptr,
-            deriv0, deriv1, deriv2);
+            diffderiv0, diffderiv1, diffderiv2, deriv0, deriv1, deriv2);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::eTetrahedron)
     {
         TensorDerivWithDiffuCoeffTetKernel<DEFORMED, simd_type>(
             nq0, nq1, nq2, isConstVarDiff, constVarDiff, isVarDiff, varD00,
             varD01, varD11, varD02, varD12, varD22, in, D0, D1, D2, df_ptr, h0,
-            h1, h2, h3, deriv0, deriv1, deriv2);
+            h1, h2, h3, diffderiv0, diffderiv1, diffderiv2, deriv0, deriv1,
+            deriv2);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::ePrism)
     {
         TensorDerivWithDiffuCoeffPrismKernel<DEFORMED, simd_type>(
             nq0, nq1, nq2, isConstVarDiff, constVarDiff, isVarDiff, varD00,
             varD01, varD11, varD02, varD12, varD22, in, D0, D1, D2, df_ptr, h0,
-            h1, deriv0, deriv1, deriv2);
+            h1, diffderiv0, diffderiv1, diffderiv2, deriv0, deriv1, deriv2);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::ePyramid)
     {
         TensorDerivWithDiffuCoeffPyrKernel<DEFORMED, simd_type>(
             nq0, nq1, nq2, isConstVarDiff, constVarDiff, isVarDiff, varD00,
             varD01, varD11, varD02, varD12, varD22, in, D0, D1, D2, df_ptr, h0,
-            h1, h2, deriv0, deriv1, deriv2);
+            h1, h2, diffderiv0, diffderiv1, diffderiv2, deriv0, deriv1, deriv2);
     }
 }

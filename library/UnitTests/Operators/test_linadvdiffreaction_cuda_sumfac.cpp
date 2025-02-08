@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_helmholtz_kokkos_sumfac.cpp
+// File: test_linadvdiffreaction_cuda_sumfac.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,18 +32,18 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestHelmholtzKokkos
+#define BOOST_TEST_MODULE TestLinAdvDiffReaction
 
-#include "init_helmholtzfields.hpp"
+#include "init_linadvdiffreactionfields.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
 #include <memory>
 
-#define TEST_HELMHOLTZ(test_name, test, tol)                                   \
+#define TEST_LINADVDIFFREACTION(test_name, test, tol)                          \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        using ExecSpace = NektarSpaces::KOKKOS;                                \
+        using ExecSpace = NektarSpaces::CUDA;                                  \
         using Impl      = Operators::SumFac;                                   \
         Configure(2, 2);                                                       \
         SetTestCase();                                                         \
@@ -53,46 +53,46 @@
             BOOST_TEST(Compare(tol));                                          \
         }                                                                      \
     }
-BOOST_AUTO_TEST_SUITE(TestHelmholtzKokkos)
 
-TEST_HELMHOLTZ(helmholtz_kokkos_sumfac_seg, Seg, 1.0E-12)
+BOOST_AUTO_TEST_SUITE(TestLinAdvDiffReaction)
 
-TEST_HELMHOLTZ(helmholtz_kokkos_seg_sem, SegSEM, 1.0E-12)
+TEST_LINADVDIFFREACTION(linadvdiffreaction_cuda_seg, Seg, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_kokkos_sumfac_quad, Quad, 1.0E-12)
+TEST_LINADVDIFFREACTION(linadvdiffreaction_cuda_seg_sem, SegSEM, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_kokkos_quad_sem, QuadSEM, 1.0E-12)
+TEST_LINADVDIFFREACTION(linadvdiffreaction_cuda_quad, Quad, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_kokkos_quad_varp, QuadVarP, 1.0E-12)
+TEST_LINADVDIFFREACTION(linadvdiffreaction_cuda_quad_sem, QuadSEM, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_kokkos_sumfac_tri, Tri, 1.0E-12)
+TEST_LINADVDIFFREACTION(linadvdiffreaction_cuda_quad_varp, QuadVarP, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_kokkos_tri_varp, TriVarP, 1.0E-12)
+TEST_LINADVDIFFREACTION(linadvdiffreaction_cuda_tri, Tri, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_kokkos_sumfac_square_all_elements, SquareAllElements,
-               1.0E-12)
+TEST_LINADVDIFFREACTION(linadvdiffreaction_cuda_tri_varp, TriVarP, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_kokkos_sumfac_hex, Hex, 1.0E-12)
+TEST_LINADVDIFFREACTION(linadvdiffreaction_cuda_square_all_elements,
+                        SquareAllElements, 1.0E-12)
+TEST_LINADVDIFFREACTION(linadvdiffreaction_cuda_hex, Hex, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_kokkos_hex_sem, HexSEM, 1.0E-12)
+TEST_LINADVDIFFREACTION(linadvdiffreaction_cuda_hex_sem, HexSEM, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_kokkos_hex_varp, HexVarP, 1.0E-12)
+TEST_LINADVDIFFREACTION(linadvdiffreaction_cuda_hex_varp, HexVarP, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_kokkos_sumfac_prism, Prism, 1.0E-12)
+TEST_LINADVDIFFREACTION(linadvdiffreaction_cuda_prism, Prism, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_kokkos_prism_varp, PrismVarP, 1.0E-12)
+TEST_LINADVDIFFREACTION(linadvdiffreaction_cuda_prism_varp, PrismVarP, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_kokkos_sumfac_pyr, Pyr, 1.0E-12)
+TEST_LINADVDIFFREACTION(linadvdiffreaction_cuda_pyr, Pyr, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_kokkos_pyr_varp, PyrVarP, 1.0E-12)
+TEST_LINADVDIFFREACTION(linadvdiffreaction_cuda_pyr_varp, PyrVarP, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_kokkos_sumfac_tet, Tet, 1.0E-12)
+TEST_LINADVDIFFREACTION(linadvdiffreaction_cuda_tet, Tet, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_kokkos_tet_varp, TetVarP, 1.0E-12)
+TEST_LINADVDIFFREACTION(linadvdiffreaction_cuda_tet_varp, TetVarP, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_kokkos_sumfac_cube_prism_hex, CubePrismHex, 1.0E-12)
+TEST_LINADVDIFFREACTION(linadvdiffreaction_cuda_cube_prism_hex, CubePrismHex,
+                        1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_kokkos_sumfac_cube_all_elements, CubeAllElements,
-               1.0E-12)
-
+TEST_LINADVDIFFREACTION(linadvdiffreaction_cuda_cube_all_elements,
+                        CubeAllElements, 1.0E-12)
 BOOST_AUTO_TEST_SUITE_END()

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: OperatorHelmholtz.hpp
+// File: LinAdvDiffReactionDeviceSumFac@Shape@.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,61 +28,41 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: Cmake configuration for boilerplate code to generate block
+// operator code wrapped in a 2 level switch statement
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#pragma once
+#include "Common/SwitchLevel2Defs.h"
+// Update this include file to the appropriate operator class definition if
+// using for another operator
+#include "ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionDeviceSumFac.hpp"
 
-#include "Operators/ElmtOps/OperatorElmt.hpp"
-
-namespace Nektar::Operators
+namespace Nektar::Operators::detail
 {
+// clang-format off
 
-// Helmholtz base class
-// Defines the apply operator to enforce apply parameter types
-template <typename TData>
-class OperatorHelmholtz
-    : public OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>
+// Update the operator class name if reusing this file i.e. OperatorXXXBaseImpl
+// and ensure the ExecSpace is consistent
+template <>
+void OperatorLinAdvDiffReactionImpl<NektarSpaces::@ExecSpace@,
+                                    Operators::SumFacQP, @TData@>::@Shape@Block
+                (BlockAccessor<@TData@> &input, BlockAccessor<@TData@> &output)
 {
-public:
-    OperatorHelmholtz(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>(
-              expansionList)
-    {
-    }
+    // The following will use predefined code found in the Operators/Common
+    // directory to import boost_pp code to make wrapper code to call
+    // Operator1D methods for Segs, Operator2D method for Tris and Quads and
+    // Operator3D otherwise
+    //
+    // To see the full code from this macros,  Compile the .cpp file with make
+    // VERBOSE=1 copy the full compile command and add in --preprocess after the
+    // c++ command then you can view the file in the file output after the -o
+    // option in the compile line.
+    
+#define SHAPE_TYPE_@Shape@
+#include "@CMAKE_CURRENT_BINARY_DIR@/BlockOpSwitchCode@Shape@.h"
 
-    ~OperatorHelmholtz() override = default;
+}
+// clang-format on
 
-    virtual void operator()(Field<TData, FieldState::Coeff> &in,
-                            Field<TData, FieldState::Coeff> &out)
-    {
-        this->apply(in, out);
-    }
-
-    virtual void SetLambda(TData lambda)
-    {
-        m_lambda = lambda;
-    }
-
-protected:
-    TData m_lambda = 1.0;
-};
-
-// Descriptor / traits class for Helmholtz
-template <typename TData> struct Helmholtz
-{
-    using class_name = OperatorHelmholtz<TData>;
-
-    Helmholtz() = delete;
-
-    template <typename ExecSpace, typename Impl>
-    static std::shared_ptr<class_name> Create(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-    {
-        return Operator<TData>::template Create<Helmholtz<TData>, ExecSpace,
-                                                Impl>(expansionList);
-    }
-};
-
-} // namespace Nektar::Operators
+} // namespace Nektar::Operators::detail
