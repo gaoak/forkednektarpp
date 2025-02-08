@@ -385,7 +385,7 @@ private:
         }
     }
 
-    // Non-size based operator.
+    // Non-size based operaator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator2D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: OperatorHelmholtz.hpp
+// File: OperatorLinAdvDiffReaction.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -39,20 +39,21 @@
 namespace Nektar::Operators
 {
 
-// Helmholtz base class
+// LinAdvDiffReaction base class
 // Defines the apply operator to enforce apply parameter types
 template <typename TData>
-class OperatorHelmholtz
+class OperatorLinAdvDiffReaction
     : public OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>
 {
 public:
-    OperatorHelmholtz(const MultiRegions::ExpListSharedPtr &expansionList)
+    OperatorLinAdvDiffReaction(
+        const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>(
               expansionList)
     {
     }
 
-    ~OperatorHelmholtz() override = default;
+    ~OperatorLinAdvDiffReaction() override = default;
 
     virtual void operator()(Field<TData, FieldState::Coeff> &in,
                             Field<TData, FieldState::Coeff> &out)
@@ -60,28 +61,36 @@ public:
         this->apply(in, out);
     }
 
-    virtual void SetLambda(TData lambda)
+    void SetLambda(TData lambda)
     {
         m_lambda = lambda;
     }
+
+    void SetAdvVel(const int nVel, const Array<OneD, NekDouble> &Vel)
+    {
+        v_SetAdvVel(nVel, Vel);
+    }
+
+    virtual void v_SetAdvVel(const int nVel,
+                             const Array<OneD, NekDouble> &Vel) = 0;
 
 protected:
     TData m_lambda = 1.0;
 };
 
-// Descriptor / traits class for Helmholtz
-template <typename TData> struct Helmholtz
+// Descriptor / traits class for LinAdvDiffReaction
+template <typename TData> struct LinAdvDiffReaction
 {
-    using class_name = OperatorHelmholtz<TData>;
+    using class_name = OperatorLinAdvDiffReaction<TData>;
 
-    Helmholtz() = delete;
+    LinAdvDiffReaction() = delete;
 
     template <typename ExecSpace, typename Impl>
     static std::shared_ptr<class_name> Create(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return Operator<TData>::template Create<Helmholtz<TData>, ExecSpace,
-                                                Impl>(expansionList);
+        return Operator<TData>::template Create<LinAdvDiffReaction<TData>,
+                                                ExecSpace, Impl>(expansionList);
     }
 };
 
