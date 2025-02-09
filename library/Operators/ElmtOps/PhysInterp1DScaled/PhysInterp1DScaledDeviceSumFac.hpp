@@ -43,7 +43,6 @@
 namespace Nektar::Operators::detail
 {
 
-// Shared implementation
 template <typename ExecSpace, typename Implementation, typename TData>
 class OperatorPhysInterp1DScaledImpl : public OperatorPhysInterp1DScaled<TData>
 {
@@ -232,9 +231,8 @@ public:
     }
 
 private:
-    size_t m_nComps;
-
     unsigned int m_blk;
+    size_t m_nComps;
 
     LocalRegions::ExpansionSharedPtr m_expPtr;
 
@@ -264,45 +262,7 @@ private:
     void TetBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
 
-    template <int nm0, int nq0>
-    void Operator1D(BlockAccessor<TData> &inblock,
-                    BlockAccessor<TData> &outblock)
-    {
-        // Fetch basis data.
-        LibUtilities::BasisKey b0 = m_expPtr->GetBasis(0)->GetBasisKey();
-        LibUtilities::PointsKey p0(nq0, b0.GetPointsType());
-        LibUtilities::BasisKey b0new(b0.GetBasisType(), nm0, p0);
-
-        auto B0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
-
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
-
-        // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
-
-        // Loop over components.
-        for (size_t nc = 0; nc < m_nComps; ++nc)
-        {
-            // Reshape, f necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
-                (TData *)inptr);
-
-            // BwdTrans kernel.
-            BwdTrans1DKernel<ExecSpace, Implementation>(nm0, nq0, nElmtsPad, B0,
-                                                        inptr, outptr);
-            inptr += inblock.size();
-            outptr += outblock.size();
-        }
-
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-    }
-
+    // Non-size based operator.
     void Operator1D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
@@ -326,9 +286,9 @@ private:
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Loop over components.
-        for (size_t nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
-            // Reshape, f necessary.
+            // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
                 inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
                 (TData *)inptr);
@@ -344,21 +304,18 @@ private:
         inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
-    template <int nm0, int nm1, int nq0, int nq1>
-    void Operator2D(BlockAccessor<TData> &inblock,
+
+    // Size based template version.
+    template <int nm0, int nq0>
+    void Operator1D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        // Fetch interp data.
+        // Fetch basis data.
         LibUtilities::BasisKey b0 = m_expPtr->GetBasis(0)->GetBasisKey();
         LibUtilities::PointsKey p0(nq0, b0.GetPointsType());
         LibUtilities::BasisKey b0new(b0.GetBasisType(), nm0, p0);
 
-        LibUtilities::BasisKey b1 = m_expPtr->GetBasis(1)->GetBasisKey();
-        LibUtilities::PointsKey p1(nq1, b1.GetPointsType());
-        LibUtilities::BasisKey b1new(b1.GetBasisType(), nm1, p1);
-
         auto B0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
-        auto B1 = m_interpMap[b1new].template GetPtr<MemSpace, ReadOnly>();
 
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
@@ -368,23 +325,8 @@ private:
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Set workspace.
-        if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
-        {
-            if (m_wsp.size() <= m_blk)
-            {
-                m_wsp.push_back(
-                    SetWorkspace(LibUtilities::Quad, nElmtsPad, nm0, nm1, 0));
-            }
-        }
-
-        // Get workspace pointer.
-        auto wspptr = std::is_same_v<Implementation, Operators::SumFac>
-                          ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
-                          : nullptr;
-
         // Loop over components.
-        for (size_t nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
@@ -392,10 +334,8 @@ private:
                 (TData *)inptr);
 
             // BwdTrans kernel.
-            BwdTrans2DKernel<LibUtilities::Quad, ExecSpace, Implementation>(
-                nm0, nm1, nq0, nq1, nElmtsPad, false, B0, B1, inptr, outptr,
-                wspptr);
-
+            BwdTrans1DKernel<ExecSpace, Implementation, nm0, nq0>(
+                nElmtsPad, B0, inptr, outptr);
             inptr += inblock.size();
             outptr += outblock.size();
         }
@@ -405,6 +345,7 @@ private:
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 
+    // Non-size based operator.
     void Operator2D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
@@ -418,7 +359,7 @@ private:
         const int nq1 = (nm0 - nm1 == 1) ? (int)(this->m_scale * nm0) - 1
                                          : (int)(this->m_scale * nm1);
 
-        // Fetch interp data.
+        // Fetch basis data.
         LibUtilities::BasisKey b0 = m_expPtr->GetBasis(0)->GetBasisKey();
         LibUtilities::PointsKey p0(nq0, b0.GetPointsType());
         LibUtilities::BasisKey b0new(b0.GetBasisType(), nm0, p0);
@@ -454,7 +395,7 @@ private:
                           : nullptr;
 
         // Loop over components.
-        for (size_t nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
@@ -474,10 +415,12 @@ private:
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 
-    template <int nm0, int nm1, int nm2, int nq0, int nq1, int nq2>
-    void Operator3D(BlockAccessor<TData> &inblock,
+    // Size based template version.
+    template <int nm0, int nm1, int nq0, int nq1>
+    void Operator2D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
+        // Fetch basis data.
         LibUtilities::BasisKey b0 = m_expPtr->GetBasis(0)->GetBasisKey();
         LibUtilities::PointsKey p0(nq0, b0.GetPointsType());
         LibUtilities::BasisKey b0new(b0.GetBasisType(), nm0, p0);
@@ -486,13 +429,10 @@ private:
         LibUtilities::PointsKey p1(nq1, b1.GetPointsType());
         LibUtilities::BasisKey b1new(b1.GetBasisType(), nm1, p1);
 
-        LibUtilities::BasisKey b2 = m_expPtr->GetBasis(2)->GetBasisKey();
-        LibUtilities::PointsKey p2(nq2, b2.GetPointsType());
-        LibUtilities::BasisKey b2new(b2.GetBasisType(), nm2, p2);
-
         auto B0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
         auto B1 = m_interpMap[b1new].template GetPtr<MemSpace, ReadOnly>();
-        auto B2 = m_interpMap[b2new].template GetPtr<MemSpace, ReadOnly>();
+
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -500,15 +440,13 @@ private:
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
-
         // Set workspace.
         if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
         {
             if (m_wsp.size() <= m_blk)
             {
                 m_wsp.push_back(
-                    SetWorkspace(LibUtilities::Hex, nElmtsPad, nm0, nm1, nm2));
+                    SetWorkspace(LibUtilities::Quad, nElmtsPad, nm0, nm1, 0));
             }
         }
 
@@ -518,7 +456,7 @@ private:
                           : nullptr;
 
         // Loop over components.
-        for (size_t nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
@@ -526,9 +464,10 @@ private:
                 (TData *)inptr);
 
             // BwdTrans kernel.
-            BwdTrans3DKernel<LibUtilities::Hex, ExecSpace, Implementation>(
-                nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, false, nullptr,
-                nullptr, B0, B1, B2, inptr, outptr, wspptr);
+            BwdTrans2DKernel<LibUtilities::Quad, ExecSpace, Implementation, nm0,
+                             nm1, nq0, nq1>(nElmtsPad, false, B0, B1, inptr,
+                                            outptr, wspptr);
+
             inptr += inblock.size();
             outptr += outblock.size();
         }
@@ -538,6 +477,7 @@ private:
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 
+    // Non-size based operator.
     void Operator3D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
@@ -554,6 +494,7 @@ private:
         const int nq2 = (nm0 - nm2 == 1) ? (int)(this->m_scale * nm0) - 1
                                          : (int)(this->m_scale * nm2);
 
+        // Fetch basis data.
         LibUtilities::BasisKey b0 = m_expPtr->GetBasis(0)->GetBasisKey();
         LibUtilities::PointsKey p0(nq0, b0.GetPointsType());
         LibUtilities::BasisKey b0new(b0.GetBasisType(), nm0, p0);
@@ -594,7 +535,7 @@ private:
                           : nullptr;
 
         // Loop over components.
-        for (size_t nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
@@ -605,6 +546,73 @@ private:
             BwdTrans3DKernel<LibUtilities::Hex, ExecSpace, Implementation>(
                 nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, false, nullptr,
                 nullptr, B0, B1, B2, inptr, outptr, wspptr);
+            inptr += inblock.size();
+            outptr += outblock.size();
+        }
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+    }
+
+    // Size based template version.
+    template <int nm0, int nm1, int nm2, int nq0, int nq1, int nq2>
+    void Operator3D(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
+    {
+        // Fetch basis data.
+        LibUtilities::BasisKey b0 = m_expPtr->GetBasis(0)->GetBasisKey();
+        LibUtilities::PointsKey p0(nq0, b0.GetPointsType());
+        LibUtilities::BasisKey b0new(b0.GetBasisType(), nm0, p0);
+
+        LibUtilities::BasisKey b1 = m_expPtr->GetBasis(1)->GetBasisKey();
+        LibUtilities::PointsKey p1(nq1, b1.GetPointsType());
+        LibUtilities::BasisKey b1new(b1.GetBasisType(), nm1, p1);
+
+        LibUtilities::BasisKey b2 = m_expPtr->GetBasis(2)->GetBasisKey();
+        LibUtilities::PointsKey p2(nq2, b2.GetPointsType());
+        LibUtilities::BasisKey b2new(b2.GetBasisType(), nm2, p2);
+
+        auto B0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
+        auto B1 = m_interpMap[b1new].template GetPtr<MemSpace, ReadOnly>();
+        auto B2 = m_interpMap[b2new].template GetPtr<MemSpace, ReadOnly>();
+
+        // Initialize pointers.
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+
+        // Set workspace.
+        if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+        {
+            if (m_wsp.size() <= m_blk)
+            {
+                m_wsp.push_back(
+                    SetWorkspace(LibUtilities::Hex, nElmtsPad, nm0, nm1, nm2));
+            }
+        }
+
+        // Get workspace pointer.
+        auto wspptr = std::is_same_v<Implementation, Operators::SumFac>
+                          ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
+                          : nullptr;
+
+        // Loop over components.
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        {
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                (TData *)inptr);
+
+            // BwdTrans kernel.
+            BwdTrans3DKernel<LibUtilities::Hex, ExecSpace, Implementation, nm0,
+                             nm1, nm2, nq0, nq1, nq2>(nElmtsPad, false, nullptr,
+                                                      nullptr, B0, B1, B2,
+                                                      inptr, outptr, wspptr);
             inptr += inblock.size();
             outptr += outblock.size();
         }

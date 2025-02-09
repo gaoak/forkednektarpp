@@ -234,67 +234,6 @@ private:
     void TetBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
 
-    // templated operator(), which is instantiated by SwitchNodesPoints.h
-    // and used in apply().
-    // size based template version
-    template <int nm0, int nq0>
-    void Operator1D(BlockAccessor<TData> &inblock,
-                    BlockAccessor<TData> &outblock)
-    {
-        // Shape size.
-        constexpr auto nmTot = nm0;
-        constexpr auto nqTot = nq0;
-
-        LibUtilities::BasisKey b0 = m_expPtr->GetBasis(0)->GetBasisKey();
-        LibUtilities::PointsKey p0(nq0, b0.GetPointsType());
-        LibUtilities::BasisKey b0new(b0.GetBasisType(), nm0, p0);
-
-        auto B0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
-
-        // Get interleave parameter.
-        unsigned int interleave_width = inblock.GetInterleaveWidth();
-        auto width_ratio =
-            (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
-        auto chunkSize = std::max(simd_t::width, interleave_width);
-
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(simd_t::width);
-        outblock.template SetInterleaveWidth<TData>(simd_t::width);
-
-        // Workspace for kernels - also checks preconditions.
-        BwdTrans1DWorkspace<LibUtilities::Seg>(nm0, nq0);
-
-        // Initialize pointers.
-        auto input  = (interleave_width == simd_t::width)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr =
-            reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
-
-        // Loop over components.
-        for (size_t nc = 0; nc < m_nComps; ++nc)
-        {
-            for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
-            {
-                // Reshape, if necessary.
-                if (e % width_ratio == 0)
-                {
-                    ReshapeStorage<ExecSpace, simd_t::width>(
-                        interleave_width, chunkSize, nmTot, (TData *)inptr);
-                }
-
-                // PhysInterp1DScaled kernel.
-                BwdTransSegKernel(nm0, nq0, B0, inptr, outptr);
-
-                // Increment pointers for the next elmt group.
-                inptr += nmTot;
-                outptr += nqTot * simd_t::width;
-            }
-        }
-    }
-
     // Non-size based operator.
     void Operator1D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
@@ -360,24 +299,19 @@ private:
     }
 
     // size based template version
-    template <int nm0, int nm1, int nq0, int nq1>
-    void Operator2D(BlockAccessor<TData> &inblock,
+    template <int nm0, int nq0>
+    void Operator1D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        constexpr auto nmTot = nm0 * nm1;
-        constexpr auto nqTot = nq0 * nq1;
+        constexpr auto nmTot = nm0;
+        constexpr auto nqTot = nq0;
 
         LibUtilities::BasisKey b0 = m_expPtr->GetBasis(0)->GetBasisKey();
         LibUtilities::PointsKey p0(nq0, b0.GetPointsType());
         LibUtilities::BasisKey b0new(b0.GetBasisType(), nm0, p0);
 
-        LibUtilities::BasisKey b1 = m_expPtr->GetBasis(1)->GetBasisKey();
-        LibUtilities::PointsKey p1(nq1, b1.GetPointsType());
-        LibUtilities::BasisKey b1new(b1.GetBasisType(), nm1, p1);
-
         auto B0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
-        auto B1 = m_interpMap[b1new].template GetPtr<MemSpace, ReadOnly>();
 
         // Get interleave parameter.
         unsigned int interleave_width = inblock.GetInterleaveWidth();
@@ -390,9 +324,7 @@ private:
         outblock.template SetInterleaveWidth<TData>(simd_t::width);
 
         // Workspace for kernels - also checks preconditions.
-        size_t wsp0Size = 0;
-        BwdTrans2DWorkspace<LibUtilities::Quad>(nm0, nm1, nq0, nq1, wsp0Size);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
+        BwdTrans1DWorkspace<LibUtilities::Seg>(nm0, nq0);
 
         // Initialize pointers.
         auto input  = (interleave_width == simd_t::width)
@@ -416,8 +348,7 @@ private:
                 }
 
                 // PhysInterp1DScaled kernel.
-                BwdTransQuadKernel(nm0, nm1, nq0, nq1, B0, B1, wsp0, inptr,
-                                   outptr);
+                BwdTransSegKernel(nm0, nq0, B0, inptr, outptr);
 
                 // Increment pointers for the next elmt group.
                 inptr += nmTot;
@@ -503,13 +434,92 @@ private:
     }
 
     // size based template version
-    template <int nm0, int nm1, int nm2, int nq0, int nq1, int nq2>
+    template <int nm0, int nm1, int nq0, int nq1>
+    void Operator2D(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
+    {
+        // Shape size.
+        constexpr auto nmTot = nm0 * nm1;
+        constexpr auto nqTot = nq0 * nq1;
+
+        LibUtilities::BasisKey b0 = m_expPtr->GetBasis(0)->GetBasisKey();
+        LibUtilities::PointsKey p0(nq0, b0.GetPointsType());
+        LibUtilities::BasisKey b0new(b0.GetBasisType(), nm0, p0);
+
+        LibUtilities::BasisKey b1 = m_expPtr->GetBasis(1)->GetBasisKey();
+        LibUtilities::PointsKey p1(nq1, b1.GetPointsType());
+        LibUtilities::BasisKey b1new(b1.GetBasisType(), nm1, p1);
+
+        auto B0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
+        auto B1 = m_interpMap[b1new].template GetPtr<MemSpace, ReadOnly>();
+
+        // Get interleave parameter.
+        unsigned int interleave_width = inblock.GetInterleaveWidth();
+        auto width_ratio =
+            (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
+        auto chunkSize = std::max(simd_t::width, interleave_width);
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(simd_t::width);
+        outblock.template SetInterleaveWidth<TData>(simd_t::width);
+
+        // Workspace for kernels - also checks preconditions.
+        size_t wsp0Size = 0;
+        BwdTrans2DWorkspace<LibUtilities::Quad>(nm0, nm1, nq0, nq1, wsp0Size);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
+
+        // Initialize pointers.
+        auto input  = (interleave_width == simd_t::width)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto inptr =
+            reinterpret_cast<const typename simd_t::vectorType *>(input);
+        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
+
+        // Loop over components.
+        for (size_t nc = 0; nc < m_nComps; ++nc)
+        {
+            for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            {
+                // Reshape, if necessary.
+                if (e % width_ratio == 0)
+                {
+                    ReshapeStorage<ExecSpace, simd_t::width>(
+                        interleave_width, chunkSize, nmTot, (TData *)inptr);
+                }
+
+                // PhysInterp1DScaled kernel.
+                BwdTransQuadKernel(nm0, nm1, nq0, nq1, B0, B1, wsp0, inptr,
+                                   outptr);
+
+                // Increment pointers for the next elmt group.
+                inptr += nmTot;
+                outptr += nqTot * simd_t::width;
+            }
+        }
+    }
+
+    // Non-size based operator.
     void Operator3D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        constexpr auto nmTot = nm0 * nm1 * nm2;
-        constexpr auto nqTot = nq0 * nq1 * nq2;
+        const auto nm0 = m_expPtr->GetNumPoints(0);
+        const auto nm1 = m_expPtr->GetNumPoints(1);
+        const auto nm2 = m_expPtr->GetNumPoints(2);
+
+        const int nq0 = (int)(this->m_scale * nm0);
+        // if delta between nm0 and nm1 is 1 then keep this delta
+        // for new poitns to capitalise on switch templating
+        const int nq1 = (nm0 - nm1 == 1) ? (int)(this->m_scale * nm0) - 1
+                                         : (int)(this->m_scale * nm1);
+        const int nq2 = (nm0 - nm2 == 1) ? (int)(this->m_scale * nm0) - 1
+                                         : (int)(this->m_scale * nm2);
+
+        // Shape size.
+        const auto nmTot = nm0 * nm1 * nm2;
+        const auto nqTot = nq0 * nq1 * nq2;
 
         LibUtilities::BasisKey b0 = m_expPtr->GetBasis(0)->GetBasisKey();
         LibUtilities::PointsKey p0(nq0, b0.GetPointsType());
@@ -576,26 +586,14 @@ private:
         }
     }
 
-    // Non-size based operator.
+    // size based template version
+    template <int nm0, int nm1, int nm2, int nq0, int nq1, int nq2>
     void Operator3D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        const auto nm0 = m_expPtr->GetNumPoints(0);
-        const auto nm1 = m_expPtr->GetNumPoints(1);
-        const auto nm2 = m_expPtr->GetNumPoints(2);
-
-        const int nq0 = (int)(this->m_scale * nm0);
-        // if delta between nm0 and nm1 is 1 then keep this delta
-        // for new poitns to capitalise on switch templating
-        const int nq1 = (nm0 - nm1 == 1) ? (int)(this->m_scale * nm0) - 1
-                                         : (int)(this->m_scale * nm1);
-        const int nq2 = (nm0 - nm2 == 1) ? (int)(this->m_scale * nm0) - 1
-                                         : (int)(this->m_scale * nm2);
-
-        // Shape size.
-        const auto nmTot = nm0 * nm1 * nm2;
-        const auto nqTot = nq0 * nq1 * nq2;
+        constexpr auto nmTot = nm0 * nm1 * nm2;
+        constexpr auto nqTot = nq0 * nq1 * nq2;
 
         LibUtilities::BasisKey b0 = m_expPtr->GetBasis(0)->GetBasisKey();
         LibUtilities::PointsKey p0(nq0, b0.GetPointsType());
