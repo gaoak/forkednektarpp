@@ -1160,7 +1160,6 @@ private:
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
         auto inptr =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-
         auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         // Loop over components.

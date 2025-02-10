@@ -43,7 +43,6 @@
 namespace Nektar::Operators::detail
 {
 
-// Matrix-free implementation
 template <typename ExecSpace, typename Implementation, typename TData>
 class OperatorHelmholtzImpl : public OperatorHelmholtz<TData>
 {
@@ -108,6 +107,7 @@ public:
         ASSERTL1(m_nComps == out.GetNumComponents(),
                  "Number of input and output components differ");
 
+        // Loop over the blocks.
         for (m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
         {
             m_expPtr = this->m_expansionList->GetExp(exp_idx);
@@ -515,8 +515,7 @@ private:
         BwdTrans2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
         IProduct2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
 
-        const simd_t *h0, *h1;
-        h0 = h1 = nullptr;
+        const simd_t *h0 = nullptr, *h1 = nullptr;
         if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
         {
             h0 = m_fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
@@ -626,12 +625,6 @@ private:
             m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto D1 =
             m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-#if defined(NEKTAR_USE_DERIV_BASE)
-        auto DB0 =
-            m_dbasisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto DB1 =
-            m_dbasisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-#endif
         auto W0 =
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto W1 =
@@ -658,8 +651,7 @@ private:
         BwdTrans2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
         IProduct2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
 
-        const simd_t *h0, *h1;
-        h0 = h1 = nullptr;
+        const simd_t *h0 = nullptr, *h1 = nullptr;
         if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
         {
             h0 = m_fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
@@ -798,12 +790,8 @@ private:
                                         wsp1Size);
         IProduct3DWorkspace<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2, wsp0Size,
                                         wsp1Size, wsp2Size);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> m_h0, m_h1, m_h2, m_h3;
-
         // get geometric factors
-        const simd_t *h0, *h1, *h2, *h3;
-        h0 = h1 = h2 = h3 = nullptr;
-
+        const simd_t *h0 = nullptr, *h1 = nullptr, *h2 = nullptr, *h3 = nullptr;
         if constexpr (SHAPE_TYPE == LibUtilities::eTetrahedron)
         {
             h0 = m_fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
@@ -836,13 +824,11 @@ private:
                              std::align_val_t(simd_t::alignment)));
         auto deriv0vec =
             reinterpret_cast<typename simd_t::vectorType *>(deriv0);
-
         auto deriv1 = static_cast<TData *>(
             ::operator new[](nqTot *simd_t::width * sizeof(TData),
                              std::align_val_t(simd_t::alignment)));
         auto deriv1vec =
             reinterpret_cast<typename simd_t::vectorType *>(deriv1);
-
         auto deriv2 = static_cast<TData *>(
             ::operator new[](nqTot *simd_t::width * sizeof(TData),
                              std::align_val_t(simd_t::alignment)));
@@ -971,10 +957,9 @@ private:
                                         wsp1Size);
         IProduct3DWorkspace<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2, wsp0Size,
                                         wsp1Size, wsp2Size);
-        // get geometric factors
-        const simd_t *h0, *h1, *h2, *h3;
-        h0 = h1 = h2 = h3 = nullptr;
 
+        // Get geometric factors.
+        const simd_t *h0 = nullptr, *h1 = nullptr, *h2 = nullptr, *h3 = nullptr;
         if constexpr (SHAPE_TYPE == LibUtilities::eTetrahedron)
         {
             h0 = m_fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();

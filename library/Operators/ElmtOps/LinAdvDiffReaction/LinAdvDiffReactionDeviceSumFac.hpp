@@ -43,7 +43,6 @@
 namespace Nektar::Operators::detail
 {
 
-// Shared implementation
 template <typename ExecSpace, typename Implementation, typename TData>
 class OperatorLinAdvDiffReactionImpl : public OperatorLinAdvDiffReaction<TData>
 {
@@ -654,13 +653,14 @@ private:
     {
         constexpr bool device_only = true;
 
+        // Shape size.
         const auto nCoord = m_expPtr->GetCoordim();
 
         // Flag for collapsed coordinate correction.
         const bool isModified =
             m_expPtr->GetBasis(0)->GetBasisType() == LibUtilities::eModified_A;
 
-        // Fetch basis and weight data.
+        // Get Basis and weight data.
         std::vector<LibUtilities::BasisKey> basisKeys{
             m_expPtr->GetBasis(0)->GetBasisKey(),
             m_expPtr->GetBasis(1)->GetBasisKey()};
@@ -1206,12 +1206,6 @@ private:
             {
                 std::vector<unsigned int> index0(nmTot);
                 std::vector<unsigned int> index1(nmTot);
-                m_index0[basisKeys] =
-                    MemoryRegion<unsigned int>::template FromVector<MemSpace>(
-                        index0, ExecSpace::alignment, device_only);
-                m_index1[basisKeys] =
-                    MemoryRegion<unsigned int>::template FromVector<MemSpace>(
-                        index1, ExecSpace::alignment, device_only);
                 for (unsigned int p = 0, mode_pqr = 0; p < nm0; p++)
                 {
                     for (unsigned int q = 0u; q < nm1; q++)

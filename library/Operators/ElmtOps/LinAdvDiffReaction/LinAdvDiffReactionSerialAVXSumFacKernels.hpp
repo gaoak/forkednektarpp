@@ -37,6 +37,8 @@
 #include "ElmtOps/IProductWRTBase/IProductWRTBaseSerialAVXSumFacKernels.hpp"
 #include "ElmtOps/PhysDeriv/PhysDerivSerialAVXSumFacKernels.hpp"
 
+#include "ElmtOps/Helmholtz/HelmholtzSerialAVXSumFacKernels.hpp"
+
 #include <LibUtilities/BasicUtils/NekInline.hpp>
 
 template <bool DEFORMED, typename simd_type>

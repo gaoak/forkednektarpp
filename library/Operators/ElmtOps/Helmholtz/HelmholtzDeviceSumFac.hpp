@@ -38,12 +38,11 @@
 #include "Operators/ElmtOps/OperatorHelmholtz.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
-#include "Operators/ElmtOps/Helmholtz//HelmholtzDeviceSumFacKernels.hpp"
+#include "Operators/ElmtOps/Helmholtz/HelmholtzDeviceSumFacKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
 
-// Shared implementation
 template <typename ExecSpace, typename Implementation, typename TData>
 class OperatorHelmholtzImpl : public OperatorHelmholtz<TData>
 {
