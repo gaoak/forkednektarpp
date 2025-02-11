@@ -34,7 +34,6 @@
 
 #pragma once
 
-#include "Operators/Common/OperatorHelper.hpp"
 #include "Operators/ElmtOps/OperatorPhysInterp1DScaled.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
@@ -55,67 +54,20 @@ public:
     {
     }
 
-    void SetScaleFactor(double scale) final
-    {
-        if (this->m_scale != scale)
-        {
-            this->m_scale = scale;
-
-            // Loop over the elements of expansionList.
-            size_t nDim = this->m_expansionList->GetShapeDimension();
-
-            for (size_t i = 0; i < this->m_expansionList->GetNumElmts(); ++i)
-            {
-                const auto expPtr = this->m_expansionList->GetExp(i);
-
-                int npts0 = expPtr->GetBasis(0)->GetNumPoints();
-
-                // Fetch basiskeys of the current element.
-                for (size_t d = 0; d < nDim; d++)
-                {
-                    LibUtilities::BasisKey b =
-                        expPtr->GetBasis(d)->GetBasisKey();
-                    int npts = b.GetNumPoints();
-
-                    // if delta between npts and npts0 is 1 then keep this delta
-                    // for new poitns to capitalise on switch templating
-                    npts = (npts0 - npts == 1) ? (int)(scale * npts0) - 1
-                                               : (int)(scale * npts);
-
-                    LibUtilities::PointsKey p(npts, b.GetPointsType());
-
-                    // make basis using modified direction with num points as
-                    // modes and new quarature points as numpoints
-                    LibUtilities::BasisKey bnew(b.GetBasisType(),
-                                                b.GetNumPoints(), p);
-
-                    // If necessary initialise this  basis data in  map.
-                    if (m_interpMap.find(bnew) == m_interpMap.end())
-                    {
-                        m_interpMap[bnew] =
-                            GetBasisData<MemSpace, double, TData>(
-                                expPtr->GetBasis(d), eInterp,
-                                __STDCPP_DEFAULT_NEW_ALIGNMENT__, npts);
-                    }
-                }
-            }
-        }
-    }
-
     void apply(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Phys> &out) override
     {
-        // Initialize index.
-        size_t exp_idx = 0;
-
         m_nComps = in.GetNumComponents();
         ASSERTL1(m_nComps == out.GetNumComponents(),
                  "Number of input and output components differ");
 
+        // Initialize index.
+        m_exp_idx = 0;
+
         // Loop over the blocks.
         for (m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
         {
-            m_expPtr = this->m_expansionList->GetExp(exp_idx);
+            m_expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
             // Block dependent.
             auto &inblock  = in.GetBlocks()[m_blk];
@@ -124,7 +76,7 @@ public:
             this->BlockOperator(inblock, outblock);
 
             // Increment index for next element type.
-            exp_idx += inblock.GetNumElements();
+            m_exp_idx += inblock.GetNumElements();
         }
     }
 
@@ -230,18 +182,15 @@ public:
         }
     }
 
-private:
+protected:
+    unsigned int m_exp_idx;
     unsigned int m_blk;
-    size_t m_nComps;
+    unsigned int m_nComps;
 
     LocalRegions::ExpansionSharedPtr m_expPtr;
 
-    BasisDataMap<TData> m_interpMap;
     std::vector<MemoryRegion<TData>> m_wsp;
-    std::map<std::vector<LibUtilities::BasisKey>, MemoryRegion<unsigned int>>
-        m_index0;
-    std::map<std::vector<LibUtilities::BasisKey>, MemoryRegion<unsigned int>>
-        m_index1;
+
     static constexpr size_t m_implInterleaveWidth =
         std::is_same_v<Implementation, Operators::SumFac>
             ? NektarSpaces::vector_width<TData>::value
@@ -249,16 +198,22 @@ private:
 
     void SegBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
+
     void TriBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
+
     void QuadBlock(BlockAccessor<TData> &inblock,
                    BlockAccessor<TData> &outblock);
+
     void HexBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
+
     void PrismBlock(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock);
+
     void PyrBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
+
     void TetBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
 
@@ -271,11 +226,9 @@ private:
         const auto nq0 = (int)(nm0 * this->m_scale);
 
         // Fetch basis data.
-        LibUtilities::BasisKey b0 = m_expPtr->GetBasis(0)->GetBasisKey();
-        LibUtilities::PointsKey p0(nq0, b0.GetPointsType());
-        LibUtilities::BasisKey b0new(b0.GetBasisType(), nm0, p0);
-
-        auto B0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
+        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(), eInterp,
+                                nq0));
 
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
@@ -306,16 +259,14 @@ private:
     }
 
     // Size based template version.
-    template <int nm0, int nq0>
+    template <unsigned int nm0, unsigned int nq0>
     void Operator1D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
         // Fetch basis data.
-        LibUtilities::BasisKey b0 = m_expPtr->GetBasis(0)->GetBasisKey();
-        LibUtilities::PointsKey p0(nq0, b0.GetPointsType());
-        LibUtilities::BasisKey b0new(b0.GetBasisType(), nm0, p0);
-
-        auto B0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
+        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(), eInterp,
+                                nq0));
 
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
@@ -360,16 +311,12 @@ private:
                                          : (int)(this->m_scale * nm1);
 
         // Fetch basis data.
-        LibUtilities::BasisKey b0 = m_expPtr->GetBasis(0)->GetBasisKey();
-        LibUtilities::PointsKey p0(nq0, b0.GetPointsType());
-        LibUtilities::BasisKey b0new(b0.GetBasisType(), nm0, p0);
-
-        LibUtilities::BasisKey b1 = m_expPtr->GetBasis(1)->GetBasisKey();
-        LibUtilities::PointsKey p1(nq1, b1.GetPointsType());
-        LibUtilities::BasisKey b1new(b1.GetBasisType(), nm1, p1);
-
-        auto B0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
-        auto B1 = m_interpMap[b1new].template GetPtr<MemSpace, ReadOnly>();
+        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(), eInterp,
+                                nq0));
+        auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(), eInterp,
+                                nq1));
 
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
@@ -416,21 +363,18 @@ private:
     }
 
     // Size based template version.
-    template <int nm0, int nm1, int nq0, int nq1>
+    template <unsigned int nm0, unsigned int nm1, unsigned int nq0,
+              unsigned int nq1>
     void Operator2D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
         // Fetch basis data.
-        LibUtilities::BasisKey b0 = m_expPtr->GetBasis(0)->GetBasisKey();
-        LibUtilities::PointsKey p0(nq0, b0.GetPointsType());
-        LibUtilities::BasisKey b0new(b0.GetBasisType(), nm0, p0);
-
-        LibUtilities::BasisKey b1 = m_expPtr->GetBasis(1)->GetBasisKey();
-        LibUtilities::PointsKey p1(nq1, b1.GetPointsType());
-        LibUtilities::BasisKey b1new(b1.GetBasisType(), nm1, p1);
-
-        auto B0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
-        auto B1 = m_interpMap[b1new].template GetPtr<MemSpace, ReadOnly>();
+        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(), eInterp,
+                                nq0));
+        auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(), eInterp,
+                                nq1));
 
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
@@ -495,21 +439,15 @@ private:
                                          : (int)(this->m_scale * nm2);
 
         // Fetch basis data.
-        LibUtilities::BasisKey b0 = m_expPtr->GetBasis(0)->GetBasisKey();
-        LibUtilities::PointsKey p0(nq0, b0.GetPointsType());
-        LibUtilities::BasisKey b0new(b0.GetBasisType(), nm0, p0);
-
-        LibUtilities::BasisKey b1 = m_expPtr->GetBasis(1)->GetBasisKey();
-        LibUtilities::PointsKey p1(nq1, b1.GetPointsType());
-        LibUtilities::BasisKey b1new(b1.GetBasisType(), nm1, p1);
-
-        LibUtilities::BasisKey b2 = m_expPtr->GetBasis(2)->GetBasisKey();
-        LibUtilities::PointsKey p2(nq2, b2.GetPointsType());
-        LibUtilities::BasisKey b2new(b2.GetBasisType(), nm2, p2);
-
-        auto B0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
-        auto B1 = m_interpMap[b1new].template GetPtr<MemSpace, ReadOnly>();
-        auto B2 = m_interpMap[b2new].template GetPtr<MemSpace, ReadOnly>();
+        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(), eInterp,
+                                nq0));
+        auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(), eInterp,
+                                nq1));
+        auto B2 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(2)->GetBasisKey(), eInterp,
+                                nq2));
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -556,26 +494,21 @@ private:
     }
 
     // Size based template version.
-    template <int nm0, int nm1, int nm2, int nq0, int nq1, int nq2>
+    template <unsigned int nm0, unsigned int nm1, unsigned int nm2,
+              unsigned int nq0, unsigned int nq1, unsigned int nq2>
     void Operator3D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
         // Fetch basis data.
-        LibUtilities::BasisKey b0 = m_expPtr->GetBasis(0)->GetBasisKey();
-        LibUtilities::PointsKey p0(nq0, b0.GetPointsType());
-        LibUtilities::BasisKey b0new(b0.GetBasisType(), nm0, p0);
-
-        LibUtilities::BasisKey b1 = m_expPtr->GetBasis(1)->GetBasisKey();
-        LibUtilities::PointsKey p1(nq1, b1.GetPointsType());
-        LibUtilities::BasisKey b1new(b1.GetBasisType(), nm1, p1);
-
-        LibUtilities::BasisKey b2 = m_expPtr->GetBasis(2)->GetBasisKey();
-        LibUtilities::PointsKey p2(nq2, b2.GetPointsType());
-        LibUtilities::BasisKey b2new(b2.GetBasisType(), nm2, p2);
-
-        auto B0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
-        auto B1 = m_interpMap[b1new].template GetPtr<MemSpace, ReadOnly>();
-        auto B2 = m_interpMap[b2new].template GetPtr<MemSpace, ReadOnly>();
+        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(), eInterp,
+                                nq0));
+        auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(), eInterp,
+                                nq1));
+        auto B2 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(2)->GetBasisKey(), eInterp,
+                                nq2));
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)

@@ -36,7 +36,6 @@
 
 #include <StdRegions/StdExpansion.h>
 
-#include "Operators/Common/OperatorHelper.hpp"
 #include "Operators/ElmtOps/OperatorPhysDeriv.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
@@ -53,81 +52,28 @@ public:
     OperatorPhysDerivImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorPhysDeriv<TData>(expansionList)
     {
-        unsigned int dimension = this->m_expansionList->GetShapeDimension();
-
-        // Initialise derivative factor.
-        auto locblocks =
-            GetBlockAttributes<TData>(FieldState::Phys, expansionList);
-        m_df = SetDerivativeFactor<MemSpace, TData>(expansionList, locblocks,
-                                                    ExecSpace::alignment);
-
-        // Initialize basiskey.
-        std::vector<LibUtilities::BasisKey> basisKeys(
-            dimension, LibUtilities::NullBasisKey);
-
-        // Loop over the elements of expansionList.
-        unsigned int nTotElmts = this->m_expansionList->GetNumElmts();
-        for (unsigned int e = 0; e < nTotElmts; ++e)
-        {
-            const auto expPtr = this->m_expansionList->GetExp(e);
-
-            // Fetch basiskeys of current element.
-            for (unsigned int d = 0; d < dimension; d++)
-            {
-                basisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
-            }
-
-            // Copy data to m_mat, if necessary.
-            if (m_mat.find(basisKeys) == m_mat.end())
-            {
-                unsigned int nqTot = expPtr->GetTotPoints();
-                Array<OneD, NekDouble> tmp(nqTot), t;
-                // Get deriv matrix.
-                auto &matPtr = m_mat[basisKeys];
-                matPtr       = std::vector<Array<OneD, TData>>(dimension);
-                for (unsigned int d = 0; d < dimension; ++d)
-                {
-                    matPtr[d] = Array<OneD, TData>(nqTot * nqTot);
-                    Array<OneD, NekDouble> temp(nqTot * nqTot);
-                    for (int i = 0; i < nqTot; ++i)
-                    {
-                        Vmath::Zero(nqTot, tmp, 1);
-                        tmp[i] = 1.0;
-                        expPtr->GetStdExp()->PhysDeriv(d, tmp,
-                                                       t = temp + i * nqTot);
-                    }
-                    // copy temp to matPtr
-                    for (int i = 0; i < nqTot; ++i)
-                    {
-                        for (int j = 0; j < nqTot; ++j)
-                        {
-                            matPtr[d][j + i * nqTot] = temp[j + i * nqTot];
-                        }
-                    }
-                }
-            }
-        }
     }
 
     void apply(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Phys> &out) override
     {
+        m_nComps = in.GetNumComponents();
+        ASSERTL1(m_nComps == out.GetNumComponents() /
+                                 this->m_expansionList->GetCoordim(0),
+                 "Number of input and output components differ");
+
+        m_nComps = in.GetNumComponents();
+        ASSERTL1(m_nComps == out.GetNumComponents() /
+                                 this->m_expansionList->GetCoordim(0),
+                 "Number of input and output components differ");
+
         // Initialize index.
-        unsigned int exp_idx = 0;
+        m_exp_idx = 0;
 
-        m_nComps = in.GetNumComponents();
-        ASSERTL1(m_nComps == out.GetNumComponents() /
-                                 this->m_expansionList->GetCoordim(0),
-                 "Number of input and output components differ");
-
-        m_nComps = in.GetNumComponents();
-        ASSERTL1(m_nComps == out.GetNumComponents() /
-                                 this->m_expansionList->GetCoordim(0),
-                 "Number of input and output components differ");
-
+        // Loop over the blocks.
         for (m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
         {
-            m_expPtr = this->m_expansionList->GetExp(exp_idx);
+            m_expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
             // Block dependent.
             auto &inblock  = in.GetBlocks()[m_blk];
@@ -136,7 +82,7 @@ public:
             this->BlockOperator(inblock, outblock);
 
             // Increment index for next element type.
-            exp_idx += inblock.GetNumElements();
+            m_exp_idx += inblock.GetNumElements();
         }
     }
 
@@ -162,12 +108,13 @@ public:
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Determine shape and type of the element.
-        const auto dimension = m_expPtr->GetShapeDimension();
         const auto deformed =
             m_expPtr->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed;
-        const auto nCoord = m_expPtr->GetCoordim();
-        const auto nqTot  = m_expPtr->GetTotPoints();
-        const auto ndf    = nCoord * dimension;
+        const auto shapeType = m_expPtr->DetShapeType();
+        const auto dimension = m_expPtr->GetShapeDimension();
+        const auto nCoord    = m_expPtr->GetCoordim();
+        const auto nqTot     = m_expPtr->GetTotPoints();
+        const auto ndf       = nCoord * dimension;
 
         // Fetch matrix.
         std::vector<LibUtilities::BasisKey> basisKeys(
@@ -176,12 +123,15 @@ public:
         {
             basisKeys[d] = m_expPtr->GetBasis(d)->GetBasisKey();
         }
-        const auto &matPtr = m_mat[basisKeys];
+        auto matptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+            StdMatKey<TData>(basisKeys, shapeType, ePhysDerivStdMat));
 
         auto nElmts = inblock.GetNumElements();
 
         // Fetch Jacobian data.
-        auto dfPtr_init = m_df[m_blk].template GetPtr<MemSpace, ReadOnly>();
+        auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+            DerivFactorKey<TData>(m_exp_idx, m_implInterleaveWidth,
+                                  inblock.GetNumElements(), false));
 
         // Allocate storate.
         if (m_deriv.size() <= m_blk)
@@ -195,7 +145,7 @@ public:
         // Loop over components.
         for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
-            auto dfPtr = dfPtr_init;
+            auto dfptr = dfptr_init;
 
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
@@ -207,7 +157,7 @@ public:
             {
                 // Perform matrix-matrix multiply.
                 Blas::Gemm('N', 'N', nqTot, nElmts, nqTot, 1.0,
-                           matPtr[d].data(), nqTot, inptr, nqTot, 0.0,
+                           matptr + d * nqTot * nqTot, nqTot, inptr, nqTot, 0.0,
                            derivPtr + d * nqTot * nElmts, nqTot);
             }
 
@@ -220,13 +170,13 @@ public:
                     Nektar::parallel_for<ExecSpace>(
                         0, nElmts * nqTot, [&](const unsigned int i) {
                             ptr[i] =
-                                dfPtr[ndf * i + k * dimension] * derivPtr[i];
+                                dfptr[ndf * i + k * dimension] * derivPtr[i];
                         });
                     for (unsigned int d = 1; d < dimension; d++)
                     {
                         Nektar::parallel_for<ExecSpace>(
                             0, nElmts * nqTot, [&](const unsigned int i) {
-                                ptr[i] += dfPtr[ndf * i + k * dimension + d] *
+                                ptr[i] += dfptr[ndf * i + k * dimension + d] *
                                           derivPtr[i + d * nqTot * nElmts];
                             });
                     }
@@ -242,7 +192,7 @@ public:
                             for (unsigned int i = 0; i < nqTot; i++)
                             {
                                 ptr[nqTot * e + i] =
-                                    dfPtr[ndf * e + k * dimension] *
+                                    dfptr[ndf * e + k * dimension] *
                                     derivPtr[nqTot * e + i];
                             }
                             for (unsigned int d = 1; d < dimension; d++)
@@ -250,7 +200,7 @@ public:
                                 for (unsigned int i = 0; i < nqTot; i++)
                                 {
                                     ptr[nqTot * e + i] +=
-                                        dfPtr[ndf * e + k * dimension + d] *
+                                        dfptr[ndf * e + k * dimension + d] *
                                         derivPtr[nqTot * e + i +
                                                  d * nqTot * nElmts];
                                 }
@@ -269,16 +219,14 @@ public:
     }
 
 private:
+    unsigned int m_exp_idx;
     unsigned int m_blk;
     unsigned int m_nComps;
 
     LocalRegions::ExpansionSharedPtr m_expPtr;
 
-    std::vector<MemoryRegion<TData>> m_df;
     std::vector<std::vector<TData>> m_deriv;
-    std::map<std::vector<LibUtilities::BasisKey>,
-             std::vector<Array<OneD, TData>>>
-        m_mat;
+
     static constexpr size_t m_implInterleaveWidth = 1;
 };
 

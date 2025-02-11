@@ -217,6 +217,8 @@ public:
                     session, graph, true, "u", Collections::eNoCollection);
         }
 
+        fixt_explist->SetDataWarehouse();
+
         // Create two Field objects with a MemoryRegionHost backend by default
         auto blocks_in = GetBlockAttributes<TData>(stateIn, fixt_explist);
         std::vector<BlockAttributes> blocks_out;

@@ -34,7 +34,6 @@
 
 #pragma once
 
-#include "Operators/Common/OperatorHelper.hpp"
 #include "Operators/ElmtOps/OperatorBwdTrans.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
@@ -52,25 +51,22 @@ public:
     OperatorBwdTransImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorBwdTrans<TData>(expansionList)
     {
-        // Initialize the basis data.
-        m_basisMap =
-            GetBasisData<MemSpace, NekDouble, TData>(expansionList, eBasis);
     }
 
     void apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Phys> &out) override
     {
-        // Initialize index.
-        size_t exp_idx = 0;
-
         m_nComps = in.GetNumComponents();
         ASSERTL1(m_nComps == out.GetNumComponents(),
                  "Number of input and output components differ");
 
+        // Initialize index.
+        m_exp_idx = 0;
+
         // Loop over the blocks.
         for (m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
         {
-            m_expPtr = this->m_expansionList->GetExp(exp_idx);
+            m_expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
             // Block dependent.
             auto &inblock  = in.GetBlocks()[m_blk];
@@ -79,7 +75,7 @@ public:
             this->BlockOperator(inblock, outblock);
 
             // Increment index for next element type.
-            exp_idx += inblock.GetNumElements();
+            m_exp_idx += inblock.GetNumElements();
         }
     }
 
@@ -197,18 +193,15 @@ public:
         }
     }
 
-private:
+protected:
+    unsigned int m_exp_idx;
     unsigned int m_blk;
-    size_t m_nComps;
+    unsigned int m_nComps;
 
     LocalRegions::ExpansionSharedPtr m_expPtr;
 
-    BasisDataMap<TData> m_basisMap;
     std::vector<MemoryRegion<TData>> m_wsp;
-    std::map<std::vector<LibUtilities::BasisKey>, MemoryRegion<unsigned int>>
-        m_index0;
-    std::map<std::vector<LibUtilities::BasisKey>, MemoryRegion<unsigned int>>
-        m_index1;
+
     static constexpr size_t m_implInterleaveWidth =
         std::is_same_v<Implementation, Operators::SumFac>
             ? NektarSpaces::vector_width<TData>::value
@@ -216,16 +209,22 @@ private:
 
     void SegBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
+
     void TriBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
+
     void QuadBlock(BlockAccessor<TData> &inblock,
                    BlockAccessor<TData> &outblock);
+
     void HexBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
+
     void PrismBlock(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock);
+
     void PyrBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
+
     void TetBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
 
@@ -239,10 +238,8 @@ private:
         const auto nq0 = m_expPtr->GetNumPoints(0);
 
         // Fetch basis data.
-        std::vector<LibUtilities::BasisKey> basisKeys{
-            m_expPtr->GetBasis(0)->GetBasisKey()};
-        auto B0 =
-            m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(), eBasis));
 
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
@@ -279,10 +276,8 @@ private:
                     BlockAccessor<TData> &outblock)
     {
         // Fetch basis data.
-        std::vector<LibUtilities::BasisKey> basisKeys{
-            m_expPtr->GetBasis(0)->GetBasisKey()};
-        auto B0 =
-            m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(), eBasis));
 
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
@@ -329,21 +324,18 @@ private:
             m_expPtr->GetBasis(0)->GetBasisType() == LibUtilities::eModified_A;
 
         // Fetch basis data.
-        std::vector<LibUtilities::BasisKey> basisKeys{
-            m_expPtr->GetBasis(0)->GetBasisKey(),
-            m_expPtr->GetBasis(1)->GetBasisKey()};
-        auto B0 =
-            m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto B1 =
-            m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(), eBasis));
+        auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(), eBasis));
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
         // Set workspace.
         if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
@@ -394,21 +386,18 @@ private:
             m_expPtr->GetBasis(0)->GetBasisType() == LibUtilities::eModified_A;
 
         // Fetch basis data.
-        std::vector<LibUtilities::BasisKey> basisKeys{
-            m_expPtr->GetBasis(0)->GetBasisKey(),
-            m_expPtr->GetBasis(1)->GetBasisKey()};
-        auto B0 =
-            m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto B1 =
-            m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(), eBasis));
+        auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(), eBasis));
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
         // Set workspace.
         if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
@@ -428,7 +417,6 @@ private:
         // Loop over components.
         for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
-
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
                 inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
@@ -452,8 +440,6 @@ private:
     void Operator3D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        constexpr bool device_only = true;
-
         // Shape size.
         const auto nm0 = m_expPtr->GetBasisNumModes(0);
         const auto nm1 = m_expPtr->GetBasisNumModes(1);
@@ -468,16 +454,12 @@ private:
             m_expPtr->GetBasis(0)->GetBasisType() == LibUtilities::eModified_A;
 
         // Fetch basis data.
-        std::vector<LibUtilities::BasisKey> basisKeys{
-            m_expPtr->GetBasis(0)->GetBasisKey(),
-            m_expPtr->GetBasis(1)->GetBasisKey(),
-            m_expPtr->GetBasis(2)->GetBasisKey()};
-        auto B0 =
-            m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto B1 =
-            m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto B2 =
-            m_basisMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(), eBasis));
+        auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(), eBasis));
+        auto B2 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(2)->GetBasisKey(), eBasis));
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -491,37 +473,14 @@ private:
         const bool indexing =
             SHAPE_TYPE == LibUtilities::Tet &&
             std::is_same_v<Implementation, Operators::SumFacQP>;
-
-        if (indexing)
-        {
-            if (m_index0.find(basisKeys) == m_index0.end())
-            {
-                const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-                std::vector<unsigned int> index0(nm01);
-                std::vector<unsigned int> index1(nm01);
-                for (unsigned int p = 0, mode_pq = 0; p < nm0; p++)
-                {
-                    for (unsigned int q = 0; q < nm1 - p; q++, mode_pq++)
-                    {
-                        index0[mode_pq] = p;
-                        index1[mode_pq] = q;
-                    }
-                }
-                m_index0[basisKeys] =
-                    MemoryRegion<unsigned int>::template FromVector<MemSpace>(
-                        index0, ExecSpace::alignment, device_only);
-                m_index1[basisKeys] =
-                    MemoryRegion<unsigned int>::template FromVector<MemSpace>(
-                        index1, ExecSpace::alignment, device_only);
-            }
-        }
-
-        auto index0 =
-            indexing ? m_index0[basisKeys].template GetPtr<MemSpace, ReadOnly>()
-                     : nullptr;
-        auto index1 =
-            indexing ? m_index1[basisKeys].template GetPtr<MemSpace, ReadOnly>()
-                     : nullptr;
+        auto index0 = indexing
+                          ? this->m_dataWarehouse->template GetData<ExecSpace>(
+                                ModeIndexKey(m_expPtr, 0))
+                          : nullptr;
+        auto index1 = indexing
+                          ? this->m_dataWarehouse->template GetData<ExecSpace>(
+                                ModeIndexKey(m_expPtr, 3))
+                          : nullptr;
 
         // Set workspace.
         if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
@@ -566,23 +525,17 @@ private:
     void Operator3D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        constexpr bool device_only = true;
-
         // Flag for collapsed coordinate correction.
         const bool isModified =
             m_expPtr->GetBasis(0)->GetBasisType() == LibUtilities::eModified_A;
 
         // Fetch basis data.
-        std::vector<LibUtilities::BasisKey> basisKeys{
-            m_expPtr->GetBasis(0)->GetBasisKey(),
-            m_expPtr->GetBasis(1)->GetBasisKey(),
-            m_expPtr->GetBasis(2)->GetBasisKey()};
-        auto B0 =
-            m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto B1 =
-            m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto B2 =
-            m_basisMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(), eBasis));
+        auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(), eBasis));
+        auto B2 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(2)->GetBasisKey(), eBasis));
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -596,37 +549,14 @@ private:
         const bool indexing =
             SHAPE_TYPE == LibUtilities::Tet &&
             std::is_same_v<Implementation, Operators::SumFacQP>;
-
-        if (indexing)
-        {
-            if (m_index0.find(basisKeys) == m_index0.end())
-            {
-                const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-                std::vector<unsigned int> index0(nm01);
-                std::vector<unsigned int> index1(nm01);
-                for (unsigned int p = 0, mode_pq = 0; p < nm0; p++)
-                {
-                    for (unsigned int q = 0; q < nm1 - p; q++, mode_pq++)
-                    {
-                        index0[mode_pq] = p;
-                        index1[mode_pq] = q;
-                    }
-                }
-                m_index0[basisKeys] =
-                    MemoryRegion<unsigned int>::template FromVector<MemSpace>(
-                        index0, ExecSpace::alignment, device_only);
-                m_index1[basisKeys] =
-                    MemoryRegion<unsigned int>::template FromVector<MemSpace>(
-                        index1, ExecSpace::alignment, device_only);
-            }
-        }
-
-        auto index0 =
-            indexing ? m_index0[basisKeys].template GetPtr<MemSpace, ReadOnly>()
-                     : nullptr;
-        auto index1 =
-            indexing ? m_index1[basisKeys].template GetPtr<MemSpace, ReadOnly>()
-                     : nullptr;
+        auto index0 = indexing
+                          ? this->m_dataWarehouse->template GetData<ExecSpace>(
+                                ModeIndexKey(m_expPtr, 0))
+                          : nullptr;
+        auto index1 = indexing
+                          ? this->m_dataWarehouse->template GetData<ExecSpace>(
+                                ModeIndexKey(m_expPtr, 3))
+                          : nullptr;
 
         // Set workspace.
         if constexpr (std::is_same_v<Implementation, Operators::SumFac>)

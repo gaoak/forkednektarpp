@@ -51,6 +51,11 @@
 #include <SpatialDomains/Movement/Movement.h>
 #include <tinyxml.h>
 
+namespace Nektar::Operators
+{
+class NekDataWarehouse;
+}
+
 namespace Nektar::MultiRegions
 {
 
@@ -1049,7 +1054,18 @@ public:
     MULTI_REGIONS_EXPORT const DNekScalBlkMatSharedPtr &GetBlockMatrix(
         const GlobalMatrixKey &gkey);
 
+    MULTI_REGIONS_EXPORT void SetDataWarehouse();
+
+    MULTI_REGIONS_EXPORT std::shared_ptr<Nektar::Operators::NekDataWarehouse>
+    GetDataWarehouseSharedPtr()
+    {
+        return m_dataWarehouse;
+    }
+
 protected:
+    /// Data Warehouse
+    std::shared_ptr<Nektar::Operators::NekDataWarehouse> m_dataWarehouse;
+
     /// Expansion type
     ExpansionType m_expType;
     std::shared_ptr<DNekMat> GenGlobalMatrixFull(

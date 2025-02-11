@@ -64,6 +64,13 @@
 #include <MultiRegions/GlobalMatrixKey.h> // for GlobalMatrixKey
 #include <iomanip>
 
+#include "Operators/Common/NekDataWarehouse.hpp"
+
+#include "Operators/Common/BasisDataWarehouse.hpp"
+#include "Operators/Common/GeometricDataWarehouse.hpp"
+#include "Operators/Common/ModeIndexDataWarehouse.hpp"
+#include "Operators/Common/StdMatDataWarehouse.hpp"
+
 using namespace std;
 
 namespace Nektar::MultiRegions
@@ -1896,6 +1903,22 @@ ExpansionType ExpList::GetExpType(void)
 
 ExpList::~ExpList()
 {
+}
+
+void ExpList::SetDataWarehouse(void)
+{
+    std::shared_ptr<ExpList> vExpList = GetSharedThisPtr();
+
+    m_dataWarehouse = std::make_shared<Nektar::Operators::NekDataWarehouse>();
+    m_dataWarehouse
+        ->RegisterDataCreatorClass<Nektar::Operators::ModeIndexCreator>();
+    m_dataWarehouse
+        ->RegisterDataCreatorClass<Nektar::Operators::BasisDataCreator>();
+    m_dataWarehouse
+        ->RegisterDataCreatorClass<Nektar::Operators::StdMatDataCreator>();
+    m_dataWarehouse
+        ->RegisterDataCreatorClass<Nektar::Operators::GeometricDataCreator>(
+            vExpList);
 }
 
 /**

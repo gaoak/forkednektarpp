@@ -37,7 +37,6 @@
 
 #pragma once
 
-#include "Operators/Common/OperatorHelper.hpp"
 #include "Operators/ElmtOps/OperatorMass.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
@@ -62,31 +61,22 @@ public:
               GetBlockAttributes<TData>(FieldState::Phys, expansionList), 1,
               ExecSpace::alignment))
     {
-        // Initialise jacobian with paddings.
-        auto locblocks = GetBlockAttributes<TData>(
-            FieldState::Phys, expansionList, simd_t::width);
-        m_jac = SetJacobian<MemSpace, TData>(expansionList, locblocks,
-                                             ExecSpace::alignment);
-
-        // Initialize the basis data.
-        m_basisMap = GetBasisData<MemSpace, NekDouble, simd_t>(
-            expansionList, eBasis, ExecSpace::alignment);
-        m_weightMap = GetBasisData<MemSpace, NekDouble, simd_t>(
-            expansionList, eWeights, ExecSpace::alignment);
     }
 
     void apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Coeff> &out) override
     {
-        size_t exp_idx = 0;
-
         m_nComps = in.GetNumComponents();
         ASSERTL1(m_nComps == out.GetNumComponents(),
                  "Number of input and output components differ");
 
+        // Initialize index.
+        m_exp_idx = 0;
+
+        // Loop over the blocks.
         for (m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
         {
-            m_expPtr = this->m_expansionList->GetExp(exp_idx);
+            m_expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
             // Block dependent.
             auto &inblock  = in.GetBlocks()[m_blk];
@@ -95,7 +85,7 @@ public:
             this->BlockOperator(inblock, outblock);
 
             // Increment index for next element type.
-            exp_idx += inblock.GetNumElements();
+            m_exp_idx += inblock.GetNumElements();
         }
     }
 
@@ -173,16 +163,14 @@ public:
         }
     }
 
-private:
+protected:
+    unsigned int m_exp_idx;
     unsigned int m_blk;
-    size_t m_nComps;
+    unsigned int m_nComps;
 
     LocalRegions::ExpansionSharedPtr m_expPtr;
 
     Field<TData, FieldState::Phys> m_tmp;
-    std::vector<MemoryRegion<TData>> m_jac;
-    BasisDataMap<simd_t> m_basisMap;
-    BasisDataMap<simd_t> m_weightMap;
 
     void SegBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
@@ -224,16 +212,17 @@ private:
         }
 
         // Fetch basis and weight data.
-        std::vector<LibUtilities::BasisKey> basisKeys{
-            m_expPtr->GetBasis(0)->GetBasisKey()};
-        const auto B0 =
-            m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        const auto W0 =
-            m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(), eBasis));
+        auto W0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(),
+                                 eWeights));
 
         // Fetch Jacobian data.
-        auto jacPtr_init = reinterpret_cast<const simd_t *>(
-            m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
+        auto jacptr_init = reinterpret_cast<const simd_t *>(
+            this->m_dataWarehouse->template GetData<ExecSpace>(
+                JacobianKey<TData>(m_exp_idx, simd_t::width,
+                                   inblock.GetNumElements())));
 
         // Get interleave parameter.
         unsigned int interleave_width = inblock.GetInterleaveWidth();
@@ -261,10 +250,10 @@ private:
         auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         // Loop over components.
-        for (size_t nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
-            auto jacPtr = jacPtr_init;
-            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            auto jacptr = jacptr_init;
+            for (unsigned int e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -277,9 +266,9 @@ private:
                 BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, B0, inptr, bwd);
                 // Step 2: Inner product for mass matrix operation.
                 IProduct1DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                    nm0, nq0, bwdvec, B0, W0, jacPtr, outptr);
+                    nm0, nq0, bwdvec, B0, W0, jacptr, outptr);
 
-                jacPtr += jacSize;
+                jacptr += jacSize;
                 inptr += nmTot;
                 outptr += nmTot * simd_t::width;
             }
@@ -290,14 +279,14 @@ private:
     }
 
     // Size based template version.
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, int nm0,
-              int nq0>
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+              unsigned int nm0, unsigned int nq0>
     void Operator1D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        const auto nqTot = nq0;
-        const auto nmTot = nm0;
+        constexpr auto nqTot = nq0;
+        constexpr auto nmTot = nm0;
 
         auto jacSize = 1;
         if constexpr (DEFORMED)
@@ -306,16 +295,17 @@ private:
         }
 
         // Fetch basis and weight data.
-        std::vector<LibUtilities::BasisKey> basisKeys{
-            m_expPtr->GetBasis(0)->GetBasisKey()};
-        const auto B0 =
-            m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        const auto W0 =
-            m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(), eBasis));
+        auto W0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(),
+                                 eWeights));
 
         // Fetch Jacobian data.
-        auto jacPtr_init = reinterpret_cast<const simd_t *>(
-            m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
+        auto jacptr_init = reinterpret_cast<const simd_t *>(
+            this->m_dataWarehouse->template GetData<ExecSpace>(
+                JacobianKey<TData>(m_exp_idx, simd_t::width,
+                                   inblock.GetNumElements())));
 
         // Get interleave parameter.
         unsigned int interleave_width = inblock.GetInterleaveWidth();
@@ -343,10 +333,10 @@ private:
         auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         // Loop over components.
-        for (size_t nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
-            auto jacPtr = jacPtr_init;
-            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            auto jacptr = jacptr_init;
+            for (unsigned int e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -359,9 +349,9 @@ private:
                 BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, B0, inptr, bwd);
                 // Step 2: Inner product for mass matrix operation.
                 IProduct1DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                    nm0, nq0, bwdvec, B0, W0, jacPtr, outptr);
+                    nm0, nq0, bwdvec, B0, W0, jacptr, outptr);
 
-                jacPtr += jacSize;
+                jacptr += jacSize;
                 inptr += nmTot;
                 outptr += nmTot * simd_t::width;
             }
@@ -398,21 +388,22 @@ private:
             (m_expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
         // Fetch basis and weight data.
-        std::vector<LibUtilities::BasisKey> basisKeys{
-            m_expPtr->GetBasis(0)->GetBasisKey(),
-            m_expPtr->GetBasis(1)->GetBasisKey()};
-        const auto B0 =
-            m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        const auto B1 =
-            m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        const auto W0 =
-            m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        const auto W1 =
-            m_weightMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(), eBasis));
+        auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(), eBasis));
+        auto W0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(),
+                                 eWeights));
+        auto W1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(),
+                                 eWeights));
 
         // Fetch Jacobian data.
-        auto jacPtr_init = reinterpret_cast<const simd_t *>(
-            m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
+        auto jacptr_init = reinterpret_cast<const simd_t *>(
+            this->m_dataWarehouse->template GetData<ExecSpace>(
+                JacobianKey<TData>(m_exp_idx, simd_t::width,
+                                   inblock.GetNumElements())));
 
         // Get interleave parameter.
         unsigned int interleave_width = inblock.GetInterleaveWidth();
@@ -444,10 +435,10 @@ private:
         auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         // Loop over components.
-        for (size_t nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
-            auto jacPtr = jacPtr_init;
-            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            auto jacptr = jacptr_init;
+            for (unsigned int e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -462,9 +453,9 @@ private:
                 // Step 2: Inner product for mass matrix operation.
                 IProduct2DKernel<SHAPE_TYPE, false, false, DEFORMED>(
                     nm0, nm1, nq0, nq1, isModified, bwdvec, B0, B1, W0, W1,
-                    jacPtr, wsp0, outptr);
+                    jacptr, wsp0, outptr);
 
-                jacPtr += jacSize;
+                jacptr += jacSize;
                 inptr += nmTot;
                 outptr += nmTot * simd_t::width;
             }
@@ -475,14 +466,15 @@ private:
     }
 
     // Size based template version.
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, int nm0,
-              int nm1, int nq0, int nq1>
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+              unsigned int nm0, unsigned int nm1, unsigned int nq0,
+              unsigned int nq1>
     void Operator2D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        const auto nqTot = nq0 * nq1;
-        const auto nmTot =
+        constexpr auto nqTot = nq0 * nq1;
+        constexpr auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
 
         auto jacSize = 1;
@@ -496,21 +488,22 @@ private:
             (m_expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
         // Fetch basis and weight data.
-        std::vector<LibUtilities::BasisKey> basisKeys{
-            m_expPtr->GetBasis(0)->GetBasisKey(),
-            m_expPtr->GetBasis(1)->GetBasisKey()};
-        const auto B0 =
-            m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        const auto B1 =
-            m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        const auto W0 =
-            m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        const auto W1 =
-            m_weightMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(), eBasis));
+        auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(), eBasis));
+        auto W0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(),
+                                 eWeights));
+        auto W1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(),
+                                 eWeights));
 
         // Fetch Jacobian data.
-        auto jacPtr_init = reinterpret_cast<const simd_t *>(
-            m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
+        auto jacptr_init = reinterpret_cast<const simd_t *>(
+            this->m_dataWarehouse->template GetData<ExecSpace>(
+                JacobianKey<TData>(m_exp_idx, simd_t::width,
+                                   inblock.GetNumElements())));
 
         // Get interleave parameter.
         unsigned int interleave_width = inblock.GetInterleaveWidth();
@@ -543,10 +536,10 @@ private:
         auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         // Loop over components.
-        for (size_t nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
-            auto jacPtr = jacPtr_init;
-            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            auto jacptr = jacptr_init;
+            for (unsigned int e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -561,9 +554,9 @@ private:
                 // Step 2: Inner product for mass matrix operation.
                 IProduct2DKernel<SHAPE_TYPE, false, false, DEFORMED>(
                     nm0, nm1, nq0, nq1, isModified, bwdvec, B0, B1, W0, W1,
-                    jacPtr, wsp0, outptr);
+                    jacptr, wsp0, outptr);
 
-                jacPtr += jacSize;
+                jacptr += jacSize;
                 inptr += nmTot;
                 outptr += nmTot * simd_t::width;
             }
@@ -602,26 +595,27 @@ private:
             (m_expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
         // Fetch basis and weight data.
-        std::vector<LibUtilities::BasisKey> basisKeys{
-            m_expPtr->GetBasis(0)->GetBasisKey(),
-            m_expPtr->GetBasis(1)->GetBasisKey(),
-            m_expPtr->GetBasis(2)->GetBasisKey()};
-        const auto B0 =
-            m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        const auto B1 =
-            m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        const auto B2 =
-            m_basisMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-        const auto W0 =
-            m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        const auto W1 =
-            m_weightMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        const auto W2 =
-            m_weightMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(), eBasis));
+        auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(), eBasis));
+        auto B2 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(2)->GetBasisKey(), eBasis));
+        auto W0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(),
+                                 eWeights));
+        auto W1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(),
+                                 eWeights));
+        auto W2 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(2)->GetBasisKey(),
+                                 eWeights));
 
         // Fetch Jacobian data.
-        auto jacPtr_init = reinterpret_cast<const simd_t *>(
-            m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
+        auto jacptr_init = reinterpret_cast<const simd_t *>(
+            this->m_dataWarehouse->template GetData<ExecSpace>(
+                JacobianKey<TData>(m_exp_idx, simd_t::width,
+                                   inblock.GetNumElements())));
 
         // Get interleave parameter.
         unsigned int interleave_width = inblock.GetInterleaveWidth();
@@ -657,10 +651,10 @@ private:
         auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         // Loop over components.
-        for (size_t nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
-            auto jacPtr = jacPtr_init;
-            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            auto jacptr = jacptr_init;
+            for (unsigned int e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -676,9 +670,9 @@ private:
                 // Step 2: Inner product for mass matrix operation.
                 IProduct3DKernel<SHAPE_TYPE, false, false, DEFORMED>(
                     nm0, nm1, nm2, nq0, nq1, nq2, isModified, bwdvec, B0, B1,
-                    B2, W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, outptr);
+                    B2, W0, W1, W2, jacptr, wsp0, wsp1, wsp2, outptr);
 
-                jacPtr += jacSize;
+                jacptr += jacSize;
                 inptr += nmTot;
                 outptr += nmTot * simd_t::width;
             }
@@ -689,14 +683,15 @@ private:
     }
 
     // Size based template version.
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, int nm0,
-              int nm1, int nm2, int nq0, int nq1, int nq2>
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+              unsigned int nm0, unsigned int nm1, unsigned int nm2,
+              unsigned int nq0, unsigned int nq1, unsigned int nq2>
     void Operator3D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        const auto nqTot = nq0 * nq1 * nq2;
-        const auto nmTot =
+        constexpr auto nqTot = nq0 * nq1 * nq2;
+        constexpr auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
 
         auto jacSize = 1;
@@ -710,26 +705,27 @@ private:
             (m_expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
         // Fetch basis and weight data.
-        std::vector<LibUtilities::BasisKey> basisKeys{
-            m_expPtr->GetBasis(0)->GetBasisKey(),
-            m_expPtr->GetBasis(1)->GetBasisKey(),
-            m_expPtr->GetBasis(2)->GetBasisKey()};
-        const auto B0 =
-            m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        const auto B1 =
-            m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        const auto B2 =
-            m_basisMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-        const auto W0 =
-            m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        const auto W1 =
-            m_weightMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        const auto W2 =
-            m_weightMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(), eBasis));
+        auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(), eBasis));
+        auto B2 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(2)->GetBasisKey(), eBasis));
+        auto W0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(),
+                                 eWeights));
+        auto W1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(),
+                                 eWeights));
+        auto W2 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(2)->GetBasisKey(),
+                                 eWeights));
 
         // Fetch Jacobian data.
-        auto jacPtr_init = reinterpret_cast<const simd_t *>(
-            m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
+        auto jacptr_init = reinterpret_cast<const simd_t *>(
+            this->m_dataWarehouse->template GetData<ExecSpace>(
+                JacobianKey<TData>(m_exp_idx, simd_t::width,
+                                   inblock.GetNumElements())));
 
         // Get interleave parameter.
         unsigned int interleave_width = inblock.GetInterleaveWidth();
@@ -765,10 +761,10 @@ private:
         auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         // Loop over components.
-        for (size_t nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
-            auto jacPtr = jacPtr_init;
-            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            auto jacptr = jacptr_init;
+            for (unsigned int e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -784,9 +780,9 @@ private:
                 // Step 2: Inner product for mass matrix operation.
                 IProduct3DKernel<SHAPE_TYPE, false, false, DEFORMED>(
                     nm0, nm1, nm2, nq0, nq1, nq2, isModified, bwdvec, B0, B1,
-                    B2, W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, outptr);
+                    B2, W0, W1, W2, jacptr, wsp0, wsp1, wsp2, outptr);
 
-                jacPtr += jacSize;
+                jacptr += jacSize;
                 inptr += nmTot;
                 outptr += nmTot * simd_t::width;
             }

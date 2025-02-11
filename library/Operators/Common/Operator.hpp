@@ -44,8 +44,13 @@
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 #include <MultiRegions/ExpList.h>
 
+#include "Operators/Common/BasisDataWarehouse.hpp"
+#include "Operators/Common/GeometricDataWarehouse.hpp"
+#include "Operators/Common/ModeIndexDataWarehouse.hpp"
+#include "Operators/Common/NekDataWarehouse.hpp"
 #include "Operators/Common/OperatorsDeclspec.hpp"
 #include "Operators/Common/Spaces.hpp"
+#include "Operators/Common/StdMatDataWarehouse.hpp"
 #include "Operators/Field/Field.hpp"
 
 namespace Nektar::LibUtilities
@@ -125,7 +130,8 @@ public:
     virtual ~Operator() = default;
 
     Operator(const MultiRegions::ExpListSharedPtr &expansionList)
-        : m_expansionList(expansionList)
+        : m_expansionList(expansionList),
+          m_dataWarehouse(expansionList->GetDataWarehouseSharedPtr())
     {
     }
 
@@ -280,6 +286,7 @@ public:
 
 protected:
     MultiRegions::ExpListSharedPtr m_expansionList;
+    NekDataWarehouseSharedPtr m_dataWarehouse;
 };
 
 #if defined(NEKTAR_ENABLE_CUDA)

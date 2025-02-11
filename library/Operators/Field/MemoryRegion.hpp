@@ -77,11 +77,15 @@ template <class TData> struct const_if<true, TData>
     typedef const TData type;
 };
 
+class MemoryRegionBase
+{
+};
+
 /**
  * @brief A MemoryRegion represents a memory region
  * @tparam TData  The floating-point representation used by the MemoryRegion.
  */
-template <typename TData> class MemoryRegion
+template <typename TData> class MemoryRegion : public MemoryRegionBase
 {
     template <typename TDataField, FieldState TState> friend class Field;
 

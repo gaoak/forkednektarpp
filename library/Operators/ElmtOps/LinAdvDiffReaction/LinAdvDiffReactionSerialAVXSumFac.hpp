@@ -34,7 +34,6 @@
 
 #pragma once
 
-#include "Operators/Common/OperatorHelper.hpp"
 #include "Operators/ElmtOps/OperatorLinAdvDiffReaction.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
@@ -56,33 +55,6 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorLinAdvDiffReaction<TData>(expansionList)
     {
-        // Initialise jacobian with paddings.
-        m_physBlockAttributes = GetBlockAttributes<TData>(
-            FieldState::Phys, expansionList, simd_t::width);
-        m_jac = SetJacobian<MemSpace, TData>(
-            expansionList, m_physBlockAttributes, ExecSpace::alignment);
-        m_df = SetDerivativeFactor<MemSpace, TData>(
-            expansionList, m_physBlockAttributes, ExecSpace::alignment);
-
-        // Initialize the basis data.
-        m_Bmap = GetBasisData<MemSpace, NekDouble, simd_t>(
-            expansionList, eBasis, simd_t::alignment);
-        m_weightMap = GetBasisData<MemSpace, NekDouble, simd_t>(
-            expansionList, eWeights, simd_t::alignment);
-        // Initialize the derivative matrix.
-        m_derivativeMap = GetBasisData<MemSpace, NekDouble, simd_t>(
-            expansionList, eDerivative, simd_t::alignment);
-
-        // Initialize the BD data.
-        m_dbasisMap = GetBasisData<MemSpace, NekDouble, simd_t>(
-            expansionList, eBasisDerivative, simd_t::alignment);
-
-        // Initialize the collapsed to cartesian geometric factors.
-        m_fac0 = GetBasisData<MemSpace, NekDouble, simd_t>(
-            expansionList, eHalfMultOnePlusZero, simd_t::alignment);
-        m_fac1 = GetBasisData<MemSpace, NekDouble, simd_t>(
-            expansionList, eTwoOverOneMinusZero, simd_t::alignment);
-
         auto nCoord = this->m_expansionList->GetCoordim(0);
         m_diffCoeff = std::vector<TData>(nCoord * (nCoord + 1) / 2, 0.0);
 
@@ -101,17 +73,17 @@ public:
     void apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Coeff> &out) override
     {
-        // Initialize index.
-        size_t exp_idx = 0;
-
         m_nComps = in.GetNumComponents();
         ASSERTL1(m_nComps == out.GetNumComponents(),
                  "Number of input and output components differ");
 
+        // Initialize index.
+        m_exp_idx = 0;
+
         // Loop over the blocks.
         for (m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
         {
-            m_expPtr = this->m_expansionList->GetExp(exp_idx);
+            m_expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
             // Block dependent.
             auto &inblock  = in.GetBlocks()[m_blk];
@@ -120,13 +92,14 @@ public:
             this->BlockOperator(inblock, outblock);
 
             // Increment index for next element type.
-            exp_idx += inblock.GetNumElements();
+            m_exp_idx += inblock.GetNumElements();
         }
     }
 
     // className - for OperatorFactory
     static std::string className;
 
+    // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
@@ -222,25 +195,14 @@ public:
         m_advVel.template CopyArray<NektarSpaces::HostSpace>(Vel);
     }
 
-private:
+protected:
+    unsigned int m_exp_idx;
     unsigned int m_blk;
-    size_t m_nComps;
-
-    std::vector<BlockAttributes> m_physBlockAttributes;
+    unsigned int m_nComps;
 
     LocalRegions::ExpansionSharedPtr m_expPtr;
 
     Field<TData, FieldState::Phys> m_advVel;
-
-    std::vector<MemoryRegion<TData>> m_jac;
-    std::vector<MemoryRegion<TData>> m_df;
-
-    BasisDataMap<simd_t> m_Bmap;
-    BasisDataMap<simd_t> m_dbasisMap;
-    BasisDataMap<simd_t> m_derivativeMap;
-    BasisDataMap<simd_t> m_fac0;
-    BasisDataMap<simd_t> m_fac1;
-    BasisDataMap<simd_t> m_weightMap;
 
     std::vector<TData> m_diffCoeff;
 
@@ -287,22 +249,28 @@ private:
             dfSize *= nqTot;
         }
 
-        // Fetch basis data.
-        std::vector<LibUtilities::BasisKey> basisKeys{
-            m_expPtr->GetBasis(0)->GetBasisKey()};
-        auto B0 = m_Bmap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto D0 =
-            m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto DB0 =
-            m_dbasisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto W0 =
-            m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        // Get Basis and weight data.
+        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(), eBasis));
+        auto DB0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(),
+                                 eBasisDerivative));
+        auto D0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(),
+                                 eDerivative));
+        auto W0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(),
+                                 eWeights));
 
         // Fetch Jacobian and deriv factors.
-        auto jacPtr_init = reinterpret_cast<const simd_t *>(
-            m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
-        auto dfPtr_init = reinterpret_cast<const simd_t *>(
-            m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
+        auto jacptr_init = reinterpret_cast<const simd_t *>(
+            this->m_dataWarehouse->template GetData<ExecSpace>(
+                JacobianKey<TData>(m_exp_idx, simd_t::width,
+                                   inblock.GetNumElements())));
+        auto dfptr_init = reinterpret_cast<const simd_t *>(
+            this->m_dataWarehouse->template GetData<ExecSpace>(
+                DerivFactorKey<TData>(m_exp_idx, simd_t::width,
+                                      inblock.GetNumElements(), false)));
 
         // Get interleave parameter.
         unsigned int interleave_width = inblock.GetInterleaveWidth();
@@ -348,13 +316,13 @@ private:
         auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         // Loop over components.
-        for (size_t nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
-            auto jacPtr    = jacPtr_init;
-            auto dfPtr     = dfPtr_init;
+            auto jacptr    = jacptr_init;
+            auto dfptr     = dfptr_init;
             auto advVelPtr = advVelPtr_init;
 
-            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            for (unsigned int e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -376,25 +344,25 @@ private:
                 PhysDerivTensor1DKernel(nq0, bwdvec, D0, deriv0);
 
                 // Step 3: add Advect solution to  this->m_lambda * bwd
-                AddAdvectionSegKernel<DEFORMED>(nq0, advVelPtr, dfPtr,
+                AddAdvectionSegKernel<DEFORMED>(nq0, advVelPtr, dfptr,
                                                 deriv0vec, bwd, this->m_lambda);
 
                 // Step 4: Inner product for mass matrix operation.
                 IProduct1DKernel<SHAPE_TYPE, true, false, DEFORMED>(
-                    nm0, nq0, bwdvec, B0, W0, jacPtr, outptr);
+                    nm0, nq0, bwdvec, B0, W0, jacptr, outptr);
 
                 // Step 5: Apply diffusion coefficiets.
                 DiffusionCoeffSegKernel<DEFORMED, simd_t>(
-                    nq0, true, this->m_diffCoeff, false, NullTDataVector, dfPtr,
+                    nq0, true, this->m_diffCoeff, false, NullTDataVector, dfptr,
                     deriv0);
 
                 // Step 6: Apply Laplacian metrics & inner product.
                 IProduct1DKernel<SHAPE_TYPE, false, true, DEFORMED>(
-                    nm0, nq0, deriv0vec, DB0, W0, jacPtr, outptr);
+                    nm0, nq0, deriv0vec, DB0, W0, jacptr, outptr);
 
                 // Increment pointers.
-                dfPtr += dfSize * ndf;
-                jacPtr += dfSize;
+                dfptr += dfSize * ndf;
+                jacptr += dfSize;
                 advVelPtr += nqTot;
                 inptr += nmTot;
                 outptr += nmTot * simd_t::width;
@@ -407,15 +375,14 @@ private:
     }
 
     // Size based template version.
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, int nm0,
-              int nq0>
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+              unsigned int nm0, unsigned int nq0>
     void Operator1D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
         constexpr auto nqTot = nq0;
-        constexpr auto nmTot =
-            LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0);
+        constexpr auto nmTot = nm0;
 
         constexpr auto ndf = 1;
         auto dfSize        = 1;
@@ -424,22 +391,28 @@ private:
             dfSize *= nqTot;
         }
 
-        // Fetch basis and weight data.
-        std::vector<LibUtilities::BasisKey> basisKeys{
-            m_expPtr->GetBasis(0)->GetBasisKey()};
-        auto B0 = m_Bmap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto D0 =
-            m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto DB0 =
-            m_dbasisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto W0 =
-            m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        // Get Basis and weight data.
+        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(), eBasis));
+        auto DB0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(),
+                                 eBasisDerivative));
+        auto D0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(),
+                                 eDerivative));
+        auto W0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(),
+                                 eWeights));
 
         // Fetch Jacobian and deriv factors.
-        auto jacPtr_init = reinterpret_cast<const simd_t *>(
-            m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
-        auto dfPtr_init = reinterpret_cast<const simd_t *>(
-            m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
+        auto jacptr_init = reinterpret_cast<const simd_t *>(
+            this->m_dataWarehouse->template GetData<ExecSpace>(
+                JacobianKey<TData>(m_exp_idx, simd_t::width,
+                                   inblock.GetNumElements())));
+        auto dfptr_init = reinterpret_cast<const simd_t *>(
+            this->m_dataWarehouse->template GetData<ExecSpace>(
+                DerivFactorKey<TData>(m_exp_idx, simd_t::width,
+                                      inblock.GetNumElements(), false)));
 
         // Get interleave parameter.
         unsigned int interleave_width = inblock.GetInterleaveWidth();
@@ -484,13 +457,13 @@ private:
         auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         // Loop over components.
-        for (size_t nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
-            auto jacPtr    = jacPtr_init;
-            auto dfPtr     = dfPtr_init;
+            auto jacptr    = jacptr_init;
+            auto dfptr     = dfptr_init;
             auto advVelPtr = advVelPtr_init;
 
-            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            for (unsigned int e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -512,25 +485,25 @@ private:
                 PhysDerivTensor1DKernel(nq0, bwdvec, D0, deriv0);
 
                 // Step 3: add Advect solution to  this->m_lambda * bwd
-                AddAdvectionSegKernel<DEFORMED>(nq0, advVelPtr, dfPtr,
+                AddAdvectionSegKernel<DEFORMED>(nq0, advVelPtr, dfptr,
                                                 deriv0vec, bwd, this->m_lambda);
 
                 // Step 4: Inner product for mass matrix operation.
                 IProduct1DKernel<SHAPE_TYPE, true, false, DEFORMED>(
-                    nm0, nq0, bwdvec, B0, W0, jacPtr, outptr);
+                    nm0, nq0, bwdvec, B0, W0, jacptr, outptr);
 
                 // Step 5: Apply diffusion coefficiets.
                 DiffusionCoeffSegKernel<DEFORMED, simd_t>(
-                    nq0, true, this->m_diffCoeff, false, NullTDataVector, dfPtr,
+                    nq0, true, this->m_diffCoeff, false, NullTDataVector, dfptr,
                     deriv0);
 
                 // Step 6: Apply Laplacian metrics & inner product.
                 IProduct1DKernel<SHAPE_TYPE, false, true, DEFORMED>(
-                    nm0, nq0, deriv0vec, DB0, W0, jacPtr, outptr);
+                    nm0, nq0, deriv0vec, DB0, W0, jacptr, outptr);
 
                 // Increment pointers.
-                dfPtr += dfSize * ndf;
-                jacPtr += dfSize;
+                dfptr += dfSize * ndf;
+                jacptr += dfSize;
                 advVelPtr += nqTot;
                 inptr += nmTot;
                 outptr += nmTot * simd_t::width;
@@ -542,7 +515,7 @@ private:
         ::operator delete[](deriv0, std::align_val_t(simd_t::alignment));
     }
 
-    // Non-size based Operator.
+    // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator2D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
@@ -569,26 +542,33 @@ private:
         const bool isModified =
             (m_expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
-        // Fetch basis and weight data.
-        std::vector<LibUtilities::BasisKey> basisKeys{
-            m_expPtr->GetBasis(0)->GetBasisKey(),
-            m_expPtr->GetBasis(1)->GetBasisKey()};
-        auto B0 = m_Bmap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto B1 = m_Bmap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto D0 =
-            m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto D1 =
-            m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto W0 =
-            m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto W1 =
-            m_weightMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        // Get Basis and weight data.
+        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(), eBasis));
+        auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(), eBasis));
+        auto D0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(),
+                                 eDerivative));
+        auto D1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(),
+                                 eDerivative));
+        auto W0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(),
+                                 eWeights));
+        auto W1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(),
+                                 eWeights));
 
         // Fetch Jacobian and deriv factors.
-        auto jacPtr_init = reinterpret_cast<const simd_t *>(
-            m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
-        auto dfPtr_init = reinterpret_cast<const simd_t *>(
-            m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
+        auto jacptr_init = reinterpret_cast<const simd_t *>(
+            this->m_dataWarehouse->template GetData<ExecSpace>(
+                JacobianKey<TData>(m_exp_idx, simd_t::width,
+                                   inblock.GetNumElements())));
+        auto dfptr_init = reinterpret_cast<const simd_t *>(
+            this->m_dataWarehouse->template GetData<ExecSpace>(
+                DerivFactorKey<TData>(m_exp_idx, simd_t::width,
+                                      inblock.GetNumElements(), false)));
 
         // Get interleave parameter.
         unsigned int interleave_width = inblock.GetInterleaveWidth();
@@ -608,8 +588,12 @@ private:
         const simd_t *h0 = nullptr, *h1 = nullptr;
         if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
         {
-            h0 = m_fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-            h1 = m_fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+            h0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(),
+                                     eHalfMultOnePlusZero));
+            h1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(),
+                                     eTwoOverOneMinusZero));
         }
 
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
@@ -664,13 +648,13 @@ private:
         auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         // Loop over components.
-        for (size_t nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
-            auto jacPtr    = jacPtr_init;
-            auto dfPtr     = dfPtr_init;
+            auto jacptr    = jacptr_init;
+            auto dfptr     = dfptr_init;
             auto advVelPtr = advVelPtr_init;
 
-            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            for (unsigned int e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -698,17 +682,17 @@ private:
                 // diffusion coeff (diffderiv0, diffderiv1)
                 TensorDerivWithDiffuCoeff2DKernel<SHAPE_TYPE, DEFORMED, simd_t>(
                     nq0, nq1, true, this->m_diffCoeff, false, NullTDataVector,
-                    NullTDataVector, NullTDataVector, bwdvec, D0, D1, dfPtr, h0,
+                    NullTDataVector, NullTDataVector, bwdvec, D0, D1, dfptr, h0,
                     h1, diffderiv0, diffderiv1, deriv0, deriv1);
 
                 // Step 4 evaluate advection term and add to bwd * lambda
                 AddAdvection2DKernel<SHAPE_TYPE, DEFORMED>(
                     nq0, nq1, h0, h1, advVelPtr, advVelPtr + advVelOffset,
-                    dfPtr, deriv0vec, deriv1vec, bwd, this->m_lambda);
+                    dfptr, deriv0vec, deriv1vec, bwd, this->m_lambda);
 
                 // Step 5: apply WJ, derivative and sum up
                 SumDerivTensor2DKernel<DEFORMED, simd_t>(
-                    nq0, nq1, diffderiv0vec, diffderiv1vec, W0, W1, jacPtr, D0,
+                    nq0, nq1, diffderiv0vec, diffderiv1vec, W0, W1, jacptr, D0,
                     D1, bwd, 1.0);
                 // Step 6 : inner product without WJ
                 IProduct2DKernel<SHAPE_TYPE, false, false, simd_t>(
@@ -716,8 +700,8 @@ private:
                     outptr);
 
                 // Increment pointers.
-                dfPtr += dfSize * ndf;
-                jacPtr += dfSize;
+                dfptr += dfSize * ndf;
+                jacptr += dfSize;
                 advVelPtr += nqTot;
                 inptr += nmTot;
                 outptr += nmTot * simd_t::width;
@@ -733,8 +717,9 @@ private:
     }
 
     // Size based template version.
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, int nm0,
-              int nm1, int nq0, int nq1>
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+              unsigned int nm0, unsigned int nm1, unsigned int nq0,
+              unsigned int nq1>
     void Operator2D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
@@ -754,26 +739,33 @@ private:
         const bool isModified =
             (m_expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
-        // Fetch basis and weight data.
-        std::vector<LibUtilities::BasisKey> basisKeys{
-            m_expPtr->GetBasis(0)->GetBasisKey(),
-            m_expPtr->GetBasis(1)->GetBasisKey()};
-        auto B0 = m_Bmap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto B1 = m_Bmap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto D0 =
-            m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto D1 =
-            m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto W0 =
-            m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto W1 =
-            m_weightMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        // Get Basis and weight data.
+        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(), eBasis));
+        auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(), eBasis));
+        auto D0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(),
+                                 eDerivative));
+        auto D1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(),
+                                 eDerivative));
+        auto W0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(),
+                                 eWeights));
+        auto W1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(),
+                                 eWeights));
 
         // Fetch Jacobian and deriv factors.
-        auto jacPtr_init = reinterpret_cast<const simd_t *>(
-            m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
-        auto dfPtr_init = reinterpret_cast<const simd_t *>(
-            m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
+        auto jacptr_init = reinterpret_cast<const simd_t *>(
+            this->m_dataWarehouse->template GetData<ExecSpace>(
+                JacobianKey<TData>(m_exp_idx, simd_t::width,
+                                   inblock.GetNumElements())));
+        auto dfptr_init = reinterpret_cast<const simd_t *>(
+            this->m_dataWarehouse->template GetData<ExecSpace>(
+                DerivFactorKey<TData>(m_exp_idx, simd_t::width,
+                                      inblock.GetNumElements(), false)));
 
         // Get interleave parameter.
         unsigned int interleave_width = inblock.GetInterleaveWidth();
@@ -793,8 +785,12 @@ private:
         const simd_t *h0 = nullptr, *h1 = nullptr;
         if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
         {
-            h0 = m_fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-            h1 = m_fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+            h0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(),
+                                     eHalfMultOnePlusZero));
+            h1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(),
+                                     eTwoOverOneMinusZero));
         }
 
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
@@ -852,13 +848,13 @@ private:
         auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         // Loop over components.
-        for (size_t nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
-            auto jacPtr    = jacPtr_init;
-            auto dfPtr     = dfPtr_init;
+            auto jacptr    = jacptr_init;
+            auto dfptr     = dfptr_init;
             auto advVelPtr = advVelPtr_init;
 
-            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            for (unsigned int e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -886,17 +882,17 @@ private:
                 // diffusion coeff (diffderiv0, diffderiv1)
                 TensorDerivWithDiffuCoeff2DKernel<SHAPE_TYPE, DEFORMED, simd_t>(
                     nq0, nq1, true, this->m_diffCoeff, false, NullTDataVector,
-                    NullTDataVector, NullTDataVector, bwdvec, D0, D1, dfPtr, h0,
+                    NullTDataVector, NullTDataVector, bwdvec, D0, D1, dfptr, h0,
                     h1, diffderiv0, diffderiv1, deriv0, deriv1);
 
                 // Step 4 evaluate advection term and add to bwd * lambda
                 AddAdvection2DKernel<SHAPE_TYPE, DEFORMED>(
                     nq0, nq1, h0, h1, advVelPtr, advVelPtr + advVelOffset,
-                    dfPtr, deriv0vec, deriv1vec, bwd, this->m_lambda);
+                    dfptr, deriv0vec, deriv1vec, bwd, this->m_lambda);
 
                 // Step 5: apply WJ, derivative and sum up
                 SumDerivTensor2DKernel<DEFORMED, simd_t>(
-                    nq0, nq1, diffderiv0vec, diffderiv1vec, W0, W1, jacPtr, D0,
+                    nq0, nq1, diffderiv0vec, diffderiv1vec, W0, W1, jacptr, D0,
                     D1, bwd, 1.0);
 
                 // Step 6 : inner product without WJ
@@ -905,8 +901,8 @@ private:
                     outptr);
 
                 // Increment pointers.
-                dfPtr += dfSize * ndf;
-                jacPtr += dfSize;
+                dfptr += dfSize * ndf;
+                jacptr += dfSize;
                 advVelPtr += nqTot;
                 inptr += nmTot;
                 outptr += nmTot * simd_t::width;
@@ -950,32 +946,41 @@ private:
         const bool isModified =
             (m_expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
-        // Fetch basis and weight data.
-        std::vector<LibUtilities::BasisKey> basisKeys{
-            m_expPtr->GetBasis(0)->GetBasisKey(),
-            m_expPtr->GetBasis(1)->GetBasisKey(),
-            m_expPtr->GetBasis(2)->GetBasisKey()};
-        auto B0 = m_Bmap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto B1 = m_Bmap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto B2 = m_Bmap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-        auto D0 =
-            m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto D1 =
-            m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto D2 =
-            m_derivativeMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-        auto W0 =
-            m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto W1 =
-            m_weightMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto W2 =
-            m_weightMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+        // Get Basis and weight data.
+        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(), eBasis));
+        auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(), eBasis));
+        auto B2 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(2)->GetBasisKey(), eBasis));
+        auto D0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(),
+                                 eDerivative));
+        auto D1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(),
+                                 eDerivative));
+        auto D2 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(2)->GetBasisKey(),
+                                 eDerivative));
+        auto W0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(),
+                                 eWeights));
+        auto W1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(),
+                                 eWeights));
+        auto W2 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(2)->GetBasisKey(),
+                                 eWeights));
 
         // Fetch Jacobian and deriv factors.
-        auto jacPtr_init = reinterpret_cast<const simd_t *>(
-            m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
-        auto dfPtr_init = reinterpret_cast<const simd_t *>(
-            m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
+        auto jacptr_init = reinterpret_cast<const simd_t *>(
+            this->m_dataWarehouse->template GetData<ExecSpace>(
+                JacobianKey<TData>(m_exp_idx, simd_t::width,
+                                   inblock.GetNumElements())));
+        auto dfptr_init = reinterpret_cast<const simd_t *>(
+            this->m_dataWarehouse->template GetData<ExecSpace>(
+                DerivFactorKey<TData>(m_exp_idx, simd_t::width,
+                                      inblock.GetNumElements(), false)));
 
         // Get interleave parameter.
         unsigned int interleave_width = inblock.GetInterleaveWidth();
@@ -997,21 +1002,39 @@ private:
         const simd_t *h0 = nullptr, *h1 = nullptr, *h2 = nullptr, *h3 = nullptr;
         if constexpr (SHAPE_TYPE == LibUtilities::eTetrahedron)
         {
-            h0 = m_fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-            h1 = m_fac0[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-            h2 = m_fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-            h3 = m_fac1[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+            h0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(),
+                                     eHalfMultOnePlusZero));
+            h1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(),
+                                     eHalfMultOnePlusZero));
+            h2 = this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(),
+                                     eTwoOverOneMinusZero));
+            h3 = this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<simd_t>(m_expPtr->GetBasis(2)->GetBasisKey(),
+                                     eTwoOverOneMinusZero));
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::ePrism)
         {
-            h0 = m_fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-            h1 = m_fac1[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+            h0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(),
+                                     eHalfMultOnePlusZero));
+            h1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<simd_t>(m_expPtr->GetBasis(2)->GetBasisKey(),
+                                     eTwoOverOneMinusZero));
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::ePyramid)
         {
-            h0 = m_fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-            h1 = m_fac0[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-            h2 = m_fac1[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+            h0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(),
+                                     eHalfMultOnePlusZero));
+            h1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(),
+                                     eHalfMultOnePlusZero));
+            h2 = this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<simd_t>(m_expPtr->GetBasis(2)->GetBasisKey(),
+                                     eTwoOverOneMinusZero));
         }
 
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
@@ -1080,13 +1103,13 @@ private:
         auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         // Loop over components.
-        for (size_t nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
-            auto jacPtr    = jacPtr_init;
-            auto dfPtr     = dfPtr_init;
+            auto jacptr    = jacptr_init;
+            auto dfptr     = dfptr_init;
             auto advVelPtr = advVelPtr_init;
 
-            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            for (unsigned int e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -1117,26 +1140,26 @@ private:
                     nq0, nq1, nq2, true, this->m_diffCoeff, false,
                     NullTDataVector, NullTDataVector, NullTDataVector,
                     NullTDataVector, NullTDataVector, NullTDataVector, bwdvec,
-                    D0, D1, D2, dfPtr, h0, h1, h2, h3, diffderiv0, diffderiv1,
+                    D0, D1, D2, dfptr, h0, h1, h2, h3, diffderiv0, diffderiv1,
                     diffderiv2, deriv0, deriv1, deriv2);
                 // Step 4 evaluate advection term and add to bwd * lambda
                 AddAdvection3DKernel<SHAPE_TYPE, DEFORMED>(
                     nq0, nq1, nq2, h0, h1, h2, h3, advVelPtr,
                     advVelPtr + advVelOffset, advVelPtr + 2 * advVelOffset,
-                    dfPtr, deriv0vec, deriv1vec, deriv2vec, bwd,
+                    dfptr, deriv0vec, deriv1vec, deriv2vec, bwd,
                     this->m_lambda);
                 // Step 5: apply WJ, derivative and sum up
                 SumDerivTensor3DKernel<DEFORMED, simd_t>(
                     nq0, nq1, nq2, diffderiv0vec, diffderiv1vec, diffderiv2vec,
-                    W0, W1, W2, jacPtr, D0, D1, D2, bwd, 1.0);
+                    W0, W1, W2, jacptr, D0, D1, D2, bwd, 1.0);
                 // Step 6 : inner product without WJ
                 IProduct3DKernel<SHAPE_TYPE, false, false, simd_t>(
                     nm0, nm1, nm2, nq0, nq1, nq2, isModified, bwdvec, B0, B1,
                     B2, wsp0, wsp1, wsp2, outptr);
 
                 // Increment pointers.
-                dfPtr += dfSize * ndf;
-                jacPtr += dfSize;
+                dfptr += dfSize * ndf;
+                jacptr += dfSize;
                 advVelPtr += nqTot;
                 inptr += nmTot;
                 outptr += nmTot * simd_t::width;
@@ -1154,8 +1177,9 @@ private:
     }
 
     // Size based template version.
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, int nm0,
-              int nm1, int nm2, int nq0, int nq1, int nq2>
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+              unsigned int nm0, unsigned int nm1, unsigned int nm2,
+              unsigned int nq0, unsigned int nq1, unsigned int nq2>
     void Operator3D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
@@ -1175,32 +1199,41 @@ private:
         const bool isModified =
             (m_expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
-        // Fetch basis and weight data.
-        std::vector<LibUtilities::BasisKey> basisKeys{
-            m_expPtr->GetBasis(0)->GetBasisKey(),
-            m_expPtr->GetBasis(1)->GetBasisKey(),
-            m_expPtr->GetBasis(2)->GetBasisKey()};
-        auto B0 = m_Bmap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto B1 = m_Bmap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto B2 = m_Bmap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-        auto D0 =
-            m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto D1 =
-            m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto D2 =
-            m_derivativeMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-        auto W0 =
-            m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto W1 =
-            m_weightMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto W2 =
-            m_weightMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+        // Get Basis and weight data.
+        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(), eBasis));
+        auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(), eBasis));
+        auto B2 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(2)->GetBasisKey(), eBasis));
+        auto D0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(),
+                                 eDerivative));
+        auto D1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(),
+                                 eDerivative));
+        auto D2 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(2)->GetBasisKey(),
+                                 eDerivative));
+        auto W0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(),
+                                 eWeights));
+        auto W1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(),
+                                 eWeights));
+        auto W2 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(2)->GetBasisKey(),
+                                 eWeights));
 
         // Fetch Jacobian and deriv factors.
-        auto jacPtr_init = reinterpret_cast<const simd_t *>(
-            m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
-        auto dfPtr_init = reinterpret_cast<const simd_t *>(
-            m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
+        auto jacptr_init = reinterpret_cast<const simd_t *>(
+            this->m_dataWarehouse->template GetData<ExecSpace>(
+                JacobianKey<TData>(m_exp_idx, simd_t::width,
+                                   inblock.GetNumElements())));
+        auto dfptr_init = reinterpret_cast<const simd_t *>(
+            this->m_dataWarehouse->template GetData<ExecSpace>(
+                DerivFactorKey<TData>(m_exp_idx, simd_t::width,
+                                      inblock.GetNumElements(), false)));
 
         // Get interleave parameter.
         unsigned int interleave_width = inblock.GetInterleaveWidth();
@@ -1223,21 +1256,39 @@ private:
         const simd_t *h0 = nullptr, *h1 = nullptr, *h2 = nullptr, *h3 = nullptr;
         if constexpr (SHAPE_TYPE == LibUtilities::eTetrahedron)
         {
-            h0 = m_fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-            h1 = m_fac0[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-            h2 = m_fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-            h3 = m_fac1[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+            h0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(),
+                                     eHalfMultOnePlusZero));
+            h1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(),
+                                     eHalfMultOnePlusZero));
+            h2 = this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(),
+                                     eTwoOverOneMinusZero));
+            h3 = this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<simd_t>(m_expPtr->GetBasis(2)->GetBasisKey(),
+                                     eTwoOverOneMinusZero));
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::ePrism)
         {
-            h0 = m_fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-            h1 = m_fac1[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+            h0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(),
+                                     eHalfMultOnePlusZero));
+            h1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<simd_t>(m_expPtr->GetBasis(2)->GetBasisKey(),
+                                     eTwoOverOneMinusZero));
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::ePyramid)
         {
-            h0 = m_fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-            h1 = m_fac0[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-            h2 = m_fac1[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+            h0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(),
+                                     eHalfMultOnePlusZero));
+            h1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(),
+                                     eHalfMultOnePlusZero));
+            h2 = this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<simd_t>(m_expPtr->GetBasis(2)->GetBasisKey(),
+                                     eTwoOverOneMinusZero));
         }
 
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
@@ -1305,13 +1356,13 @@ private:
         auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         // Loop over components.
-        for (size_t nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
-            auto jacPtr    = jacPtr_init;
-            auto dfPtr     = dfPtr_init;
+            auto jacptr    = jacptr_init;
+            auto dfptr     = dfptr_init;
             auto advVelPtr = advVelPtr_init;
 
-            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            for (unsigned int e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -1342,26 +1393,26 @@ private:
                     nq0, nq1, nq2, true, this->m_diffCoeff, false,
                     NullTDataVector, NullTDataVector, NullTDataVector,
                     NullTDataVector, NullTDataVector, NullTDataVector, bwdvec,
-                    D0, D1, D2, dfPtr, h0, h1, h2, h3, diffderiv0, diffderiv1,
+                    D0, D1, D2, dfptr, h0, h1, h2, h3, diffderiv0, diffderiv1,
                     diffderiv2, deriv0, deriv1, deriv2);
                 // Step 4 evaluate advection term and add to bwd * lambda
                 AddAdvection3DKernel<SHAPE_TYPE, DEFORMED>(
                     nq0, nq1, nq2, h0, h1, h2, h3, advVelPtr,
                     advVelPtr + advVelOffset, advVelPtr + 2 * advVelOffset,
-                    dfPtr, deriv0vec, deriv1vec, deriv2vec, bwd,
+                    dfptr, deriv0vec, deriv1vec, deriv2vec, bwd,
                     this->m_lambda);
                 // Step 5: apply WJ, derivative and sum up
                 SumDerivTensor3DKernel<DEFORMED, simd_t>(
                     nq0, nq1, nq2, diffderiv0vec, diffderiv1vec, diffderiv2vec,
-                    W0, W1, W2, jacPtr, D0, D1, D2, bwd, 1.0);
+                    W0, W1, W2, jacptr, D0, D1, D2, bwd, 1.0);
                 // Step 6 : inner product without WJ
                 IProduct3DKernel<SHAPE_TYPE, false, false, simd_t>(
                     nm0, nm1, nm2, nq0, nq1, nq2, isModified, bwdvec, B0, B1,
                     B2, wsp0, wsp1, wsp2, outptr);
 
                 // Increment pointers.
-                dfPtr += dfSize * ndf;
-                jacPtr += dfSize;
+                dfptr += dfSize * ndf;
+                jacptr += dfSize;
                 advVelPtr += nqTot;
                 inptr += nmTot;
                 outptr += nmTot * simd_t::width;

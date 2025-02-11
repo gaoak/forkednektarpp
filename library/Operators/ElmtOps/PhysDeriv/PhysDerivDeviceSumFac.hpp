@@ -34,7 +34,6 @@
 
 #pragma once
 
-#include "Operators/Common/OperatorHelper.hpp"
 #include "Operators/ElmtOps/OperatorPhysDeriv.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
@@ -53,38 +52,22 @@ public:
     OperatorPhysDerivImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorPhysDeriv<TData>(expansionList)
     {
-        // Initialise the derivative factor.
-        auto transpose = std::is_same_v<Implementation, Operators::SumFacQP>;
-        auto locblocks = GetBlockAttributes<TData>(
-            FieldState::Phys, expansionList, m_implInterleaveWidth);
-        m_df = SetDerivativeFactor<MemSpace, TData>(
-            expansionList, locblocks, ExecSpace::alignment, transpose);
-
-        // Initialize the derivative matrix.
-        m_derivativeMap = GetBasisData<MemSpace, NekDouble, TData>(
-            expansionList, eDerivative);
-
-        // Initialize the geometric factors.
-        m_fac0 = GetBasisData<MemSpace, NekDouble, TData>(
-            expansionList, eHalfMultOnePlusZero, ExecSpace::alignment);
-        m_fac1 = GetBasisData<MemSpace, NekDouble, TData>(
-            expansionList, eTwoOverOneMinusZero, ExecSpace::alignment);
     }
 
     void apply(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Phys> &out) override
     {
-        // Initialize index.
-        size_t exp_idx = 0;
-
         m_nComps = in.GetNumComponents();
         ASSERTL1(m_nComps == out.GetNumComponents() /
                                  this->m_expansionList->GetCoordim(0),
                  "Number of input and output components differ");
 
+        // Initialize index.
+        m_exp_idx = 0;
+
         for (m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
         {
-            m_expPtr = this->m_expansionList->GetExp(exp_idx);
+            m_expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
             // Block dependent.
             auto &inblock  = in.GetBlocks()[m_blk];
@@ -93,7 +76,7 @@ public:
             this->BlockOperator(inblock, outblock);
 
             // Increment index for next element type.
-            exp_idx += inblock.GetNumElements();
+            m_exp_idx += inblock.GetNumElements();
         }
     }
 
@@ -164,16 +147,13 @@ public:
         }
     }
 
-private:
+protected:
+    unsigned int m_exp_idx;
     unsigned int m_blk;
-    size_t m_nComps;
+    unsigned int m_nComps;
 
     LocalRegions::ExpansionSharedPtr m_expPtr;
 
-    BasisDataMap<TData> m_derivativeMap;
-    BasisDataMap<TData> m_fac0;
-    BasisDataMap<TData> m_fac1;
-    std::vector<MemoryRegion<TData>> m_df;
     static constexpr size_t m_implInterleaveWidth =
         std::is_same_v<Implementation, Operators::SumFac>
             ? NektarSpaces::vector_width<TData>::value
@@ -181,16 +161,22 @@ private:
 
     void SegBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
+
     void TriBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
+
     void QuadBlock(BlockAccessor<TData> &inblock,
                    BlockAccessor<TData> &outblock);
+
     void HexBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
+
     void PrismBlock(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock);
+
     void PyrBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
+
     void TetBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
 
@@ -205,13 +191,15 @@ private:
         const auto nCoord = m_expPtr->GetCoordim();
 
         // Fetch basis data.
-        std::vector<LibUtilities::BasisKey> basisKeys{
-            m_expPtr->GetBasis(0)->GetBasisKey()};
-        auto D0 =
-            m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto D0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(),
+                                eDerivative));
 
         // Fetch deriv factors data.
-        auto dfPtr = m_df[m_blk].template GetPtr<MemSpace, ReadOnly>();
+        auto transpose = std::is_same_v<Implementation, Operators::SumFacQP>;
+        auto dfptr     = this->m_dataWarehouse->template GetData<ExecSpace>(
+            DerivFactorKey<TData>(m_exp_idx, m_implInterleaveWidth,
+                                  inblock.GetNumElements(), transpose));
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -231,7 +219,7 @@ private:
 
             // Calculate derivative.
             PhysDeriv1DKernel<ExecSpace, Implementation, DEFORMED>(
-                nCoord, nq0, nElmtsPad, D0, dfPtr, inptr, outptr);
+                nCoord, nq0, nElmtsPad, D0, dfptr, inptr, outptr);
 
             inptr += inblock.size();
             outptr += nCoord * outblock.size();
@@ -249,13 +237,15 @@ private:
                     BlockAccessor<TData> &outblock)
     {
         // Fetch basis data.
-        std::vector<LibUtilities::BasisKey> basisKeys{
-            m_expPtr->GetBasis(0)->GetBasisKey()};
-        auto D0 =
-            m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto D0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(),
+                                eDerivative));
 
         // Fetch deriv factors data.
-        auto dfPtr = m_df[m_blk].template GetPtr<MemSpace, ReadOnly>();
+        auto transpose = std::is_same_v<Implementation, Operators::SumFacQP>;
+        auto dfptr     = this->m_dataWarehouse->template GetData<ExecSpace>(
+            DerivFactorKey<TData>(m_exp_idx, m_implInterleaveWidth,
+                                  inblock.GetNumElements(), transpose));
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -275,7 +265,7 @@ private:
 
             // Calculate derivative.
             PhysDeriv1DKernel<ExecSpace, Implementation, DEFORMED, nCoord, nq0>(
-                nElmtsPad, D0, dfPtr, inptr, outptr);
+                nElmtsPad, D0, dfptr, inptr, outptr);
 
             inptr += inblock.size();
             outptr += nCoord * outblock.size();
@@ -298,18 +288,24 @@ private:
         const auto nCoord = m_expPtr->GetCoordim();
 
         // Fetch basis data.
-        std::vector<LibUtilities::BasisKey> basisKeys{
-            m_expPtr->GetBasis(0)->GetBasisKey(),
-            m_expPtr->GetBasis(1)->GetBasisKey()};
-        auto D0 =
-            m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto D1 =
-            m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto f0 = m_fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto f1 = m_fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto D0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(),
+                                eDerivative));
+        auto D1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(),
+                                eDerivative));
+        auto f0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(),
+                                eHalfMultOnePlusZero));
+        auto f1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(),
+                                eTwoOverOneMinusZero));
 
         // Fetch deriv factors data.
-        auto dfPtr = m_df[m_blk].template GetPtr<MemSpace, ReadOnly>();
+        auto transpose = std::is_same_v<Implementation, Operators::SumFacQP>;
+        auto dfptr     = this->m_dataWarehouse->template GetData<ExecSpace>(
+            DerivFactorKey<TData>(m_exp_idx, m_implInterleaveWidth,
+                                  inblock.GetNumElements(), transpose));
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -329,7 +325,7 @@ private:
 
             // Calculate derivative.
             PhysDeriv2DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
-                nCoord, nq0, nq1, nElmtsPad, D0, D1, f0, f1, dfPtr, inptr,
+                nCoord, nq0, nq1, nElmtsPad, D0, D1, f0, f1, dfptr, inptr,
                 outptr);
 
             inptr += inblock.size();
@@ -348,18 +344,24 @@ private:
                     BlockAccessor<TData> &outblock)
     {
         // Fetch basis data.
-        std::vector<LibUtilities::BasisKey> basisKeys{
-            m_expPtr->GetBasis(0)->GetBasisKey(),
-            m_expPtr->GetBasis(1)->GetBasisKey()};
-        auto D0 =
-            m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto D1 =
-            m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto f0 = m_fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto f1 = m_fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto D0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(),
+                                eDerivative));
+        auto D1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(),
+                                eDerivative));
+        auto f0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(),
+                                eHalfMultOnePlusZero));
+        auto f1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(),
+                                eTwoOverOneMinusZero));
 
         // Fetch deriv factors data.
-        auto dfPtr = m_df[m_blk].template GetPtr<MemSpace, ReadOnly>();
+        auto transpose = std::is_same_v<Implementation, Operators::SumFacQP>;
+        auto dfptr     = this->m_dataWarehouse->template GetData<ExecSpace>(
+            DerivFactorKey<TData>(m_exp_idx, m_implInterleaveWidth,
+                                  inblock.GetNumElements(), transpose));
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -380,7 +382,7 @@ private:
             // Calculate derivative.
             PhysDeriv2DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED,
                               nCoord, nq0, nq1>(nElmtsPad, D0, D1, f0, f1,
-                                                dfPtr, inptr, outptr);
+                                                dfptr, inptr, outptr);
 
             inptr += inblock.size();
             outptr += nCoord * outblock.size();
@@ -402,23 +404,33 @@ private:
         const auto nq2 = m_expPtr->GetNumPoints(2);
 
         // Fetch basis data.
-        std::vector<LibUtilities::BasisKey> basisKeys{
-            m_expPtr->GetBasis(0)->GetBasisKey(),
-            m_expPtr->GetBasis(1)->GetBasisKey(),
-            m_expPtr->GetBasis(2)->GetBasisKey()};
-        auto D0 =
-            m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto D1 =
-            m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto D2 =
-            m_derivativeMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-        auto f0  = m_fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto f1  = m_fac0[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto f1m = m_fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto f2  = m_fac1[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+        auto D0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(),
+                                eDerivative));
+        auto D1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(),
+                                eDerivative));
+        auto D2 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(2)->GetBasisKey(),
+                                eDerivative));
+        auto f0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(),
+                                eHalfMultOnePlusZero));
+        auto f1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(),
+                                eHalfMultOnePlusZero));
+        auto f1m = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(),
+                                eTwoOverOneMinusZero));
+        auto f2 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(2)->GetBasisKey(),
+                                eTwoOverOneMinusZero));
 
         // Fetch deriv factors data.
-        auto dfPtr = m_df[m_blk].template GetPtr<MemSpace, ReadOnly>();
+        auto transpose = std::is_same_v<Implementation, Operators::SumFacQP>;
+        auto dfptr     = this->m_dataWarehouse->template GetData<ExecSpace>(
+            DerivFactorKey<TData>(m_exp_idx, m_implInterleaveWidth,
+                                  inblock.GetNumElements(), transpose));
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -438,7 +450,7 @@ private:
 
             // Calculate derivative.
             PhysDeriv3DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
-                nq0, nq1, nq2, nElmtsPad, D0, D1, D2, f0, f1, f1m, f2, dfPtr,
+                nq0, nq1, nq2, nElmtsPad, D0, D1, D2, f0, f1, f1m, f2, dfptr,
                 inptr, outptr);
 
             inptr += inblock.size();
@@ -457,23 +469,33 @@ private:
                     BlockAccessor<TData> &outblock)
     {
         // Fetch basis data.
-        std::vector<LibUtilities::BasisKey> basisKeys{
-            m_expPtr->GetBasis(0)->GetBasisKey(),
-            m_expPtr->GetBasis(1)->GetBasisKey(),
-            m_expPtr->GetBasis(2)->GetBasisKey()};
-        auto D0 =
-            m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto D1 =
-            m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto D2 =
-            m_derivativeMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-        auto f0  = m_fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto f1  = m_fac0[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto f1m = m_fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto f2  = m_fac1[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+        auto D0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(),
+                                eDerivative));
+        auto D1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(),
+                                eDerivative));
+        auto D2 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(2)->GetBasisKey(),
+                                eDerivative));
+        auto f0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(),
+                                eHalfMultOnePlusZero));
+        auto f1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(),
+                                eHalfMultOnePlusZero));
+        auto f1m = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(),
+                                eTwoOverOneMinusZero));
+        auto f2 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<TData>(m_expPtr->GetBasis(2)->GetBasisKey(),
+                                eTwoOverOneMinusZero));
 
         // Fetch deriv factors data.
-        auto dfPtr = m_df[m_blk].template GetPtr<MemSpace, ReadOnly>();
+        auto transpose = std::is_same_v<Implementation, Operators::SumFacQP>;
+        auto dfptr     = this->m_dataWarehouse->template GetData<ExecSpace>(
+            DerivFactorKey<TData>(m_exp_idx, m_implInterleaveWidth,
+                                  inblock.GetNumElements(), transpose));
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -494,7 +516,7 @@ private:
             // Calculate derivative.
             PhysDeriv3DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED,
                               nq0, nq1, nq2>(nElmtsPad, D0, D1, D2, f0, f1, f1m,
-                                             f2, dfPtr, inptr, outptr);
+                                             f2, dfptr, inptr, outptr);
             inptr += inblock.size();
             outptr += 3 * outblock.size();
         }
