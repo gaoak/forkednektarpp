@@ -36,7 +36,6 @@
 
 #include <StdRegions/StdExpansion.h>
 
-#include "Common/OperatorHelper.hpp"
 #include "Operators/ElmtOps/OperatorIProductWRTBase.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
@@ -54,73 +53,22 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorIProductWRTBase<TData>(expansionList)
     {
-        size_t dimension = this->m_expansionList->GetShapeDimension();
-
-        // Initialise jacobian.
-        auto locblocks =
-            GetBlockAttributes<TData>(FieldState::Phys, expansionList);
-        m_jac = SetJacobian<MemSpace, TData>(expansionList, locblocks,
-                                             ExecSpace::alignment);
-
-        // Initialize basiskey.
-        std::vector<LibUtilities::BasisKey> basisKeys(
-            dimension, LibUtilities::NullBasisKey);
-
-        // Loop over the elements of expansionList.
-        size_t nTotElmts = this->m_expansionList->GetNumElmts();
-        for (size_t e = 0; e < nTotElmts; ++e)
-        {
-            const auto expPtr = this->m_expansionList->GetExp(e);
-
-            // Fetch basiskeys of current element.
-            for (size_t d = 0; d < dimension; d++)
-            {
-                basisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
-            }
-
-            // Copy data to m_mat, if necessary.
-            if (m_mat.find(basisKeys) == m_mat.end())
-            {
-                size_t nqTot = expPtr->GetTotPoints();
-                size_t nmTot = expPtr->GetNcoeffs();
-                Array<OneD, NekDouble> tmp(nqTot), t;
-                // Get IProductWRTBase matrix.
-                auto &matPtr = m_mat[basisKeys];
-                matPtr       = Array<OneD, TData>(nqTot * nmTot);
-                Array<OneD, NekDouble> temp(nqTot * nmTot);
-                for (size_t i = 0; i < nqTot; ++i)
-                {
-                    Vmath::Zero(nqTot, tmp, 1);
-                    tmp[i] = 1.0;
-                    expPtr->GetStdExp()->IProductWRTBase(tmp,
-                                                         t = temp + i * nmTot);
-                }
-                // copy temp to matPtr
-                for (size_t i = 0; i < nqTot; ++i)
-                {
-                    for (size_t j = 0; j < nmTot; ++j)
-                    {
-                        matPtr[j + i * nmTot] = temp[j + i * nmTot];
-                    }
-                }
-            }
-        }
     }
 
     void apply(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Coeff> &out) override
     {
-        // Initialize index.
-        size_t exp_idx = 0;
-
         m_nComps = in.GetNumComponents();
         ASSERTL1(m_nComps == out.GetNumComponents(),
                  "Number of input and output components differ");
 
+        // Initialize index.
+        m_exp_idx = 0;
+
         // Loop over the blocks.
         for (m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
         {
-            m_expPtr = this->m_expansionList->GetExp(exp_idx);
+            m_expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
             // Block dependent.
             auto &inblock  = in.GetBlocks()[m_blk];
@@ -129,7 +77,7 @@ public:
             this->BlockOperator(inblock, outblock);
 
             // Increment index for next element type.
-            exp_idx += inblock.GetNumElements();
+            m_exp_idx += inblock.GetNumElements();
         }
     }
 
@@ -155,15 +103,19 @@ public:
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Determine shape and type of the element.
-        const auto dimension = m_expPtr->GetShapeDimension();
         const auto deformed =
             m_expPtr->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed;
-        const auto nmTot = m_expPtr->GetNcoeffs();
-        const auto nqTot = m_expPtr->GetTotPoints();
+        const auto shapeType = m_expPtr->DetShapeType();
+        const auto dimension = m_expPtr->GetShapeDimension();
+        const auto nmTot     = m_expPtr->GetNcoeffs();
+        const auto nqTot     = m_expPtr->GetTotPoints();
 
         auto nElmts = inblock.GetNumElements();
 
-        auto jacPtr = m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>();
+        // Fetch jacobian.
+        auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+            JacobianKey<TData>(m_exp_idx, m_implInterleaveWidth,
+                               inblock.GetNumElements()));
 
         // Allocate storate.
         if (m_wsp.size() <= m_blk)
@@ -189,7 +141,7 @@ public:
             {
                 for (size_t i = 0; i < nElmts * nqTot; ++i)
                 {
-                    wspptr[i] = jacPtr[i] * inptr[i];
+                    wspptr[i] = jacptr[i] * inptr[i];
                 }
             }
             else
@@ -199,7 +151,7 @@ public:
                     for (size_t i = 0; i < nqTot; ++i)
                     {
                         wspptr[e * nqTot + i] =
-                            jacPtr[e] * inptr[e * nqTot + i];
+                            jacptr[e] * inptr[e * nqTot + i];
                     }
                 }
             }
@@ -211,11 +163,12 @@ public:
             {
                 basisKeys[d] = m_expPtr->GetBasis(d)->GetBasisKey();
             }
-            const auto &matPtr = m_mat[basisKeys];
+            auto matptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+                StdMatKey<TData>(basisKeys, shapeType, eIProductWRTBaseStdMat));
 
             // Perform matrix-matrix multiply.
-            Blas::Gemm('N', 'N', nmTot, nElmts, nqTot, this->m_scale,
-                       matPtr.data(), nmTot, wspptr, nqTot, 0.0, outptr, nmTot);
+            Blas::Gemm('N', 'N', nmTot, nElmts, nqTot, this->m_scale, matptr,
+                       nmTot, wspptr, nqTot, 0.0, outptr, nmTot);
 
             inptr += inblock.size();
             outptr += outblock.size();
@@ -227,13 +180,12 @@ public:
     }
 
 private:
+    unsigned int m_exp_idx;
     unsigned int m_blk;
-    size_t m_nComps;
+    unsigned int m_nComps;
 
     LocalRegions::ExpansionSharedPtr m_expPtr;
 
-    std::map<std::vector<LibUtilities::BasisKey>, Array<OneD, TData>> m_mat;
-    std::vector<MemoryRegion<TData>> m_jac;
     std::vector<std::vector<TData>> m_wsp;
     static constexpr size_t m_implInterleaveWidth = 1;
 };

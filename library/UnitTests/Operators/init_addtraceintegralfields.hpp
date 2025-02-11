@@ -59,6 +59,8 @@ public:
     void ReConfigure(unsigned int nin                   = 1,
                      [[maybe_unused]] unsigned int nout = 1)
     {
+        fixt_explist->GetTrace()->SetDataWarehouse();
+
         const FieldState stateIn = FieldState::Phys;
 
         if (fixt_in)

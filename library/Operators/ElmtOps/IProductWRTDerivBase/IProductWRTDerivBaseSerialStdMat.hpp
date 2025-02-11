@@ -36,14 +36,12 @@
 
 #include <StdRegions/StdExpansion.h>
 
-#include "Common/OperatorHelper.hpp"
 #include "Operators/ElmtOps/OperatorIProductWRTDerivBase.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
 
-// Standard matrix implementation
 template <typename ExecSpace, typename Implementation, typename TData>
 class OperatorIProductWRTDerivBaseImpl
     : public OperatorIProductWRTDerivBase<TData>
@@ -55,85 +53,23 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorIProductWRTDerivBase<TData>(expansionList)
     {
-        unsigned int dimension = this->m_expansionList->GetShapeDimension();
-
-        // Initialise jacobian.
-        auto locblocks =
-            GetBlockAttributes<TData>(FieldState::Phys, expansionList);
-        m_jac = SetJacobian<MemSpace, TData>(expansionList, locblocks,
-                                             ExecSpace::alignment);
-        m_df  = SetDerivativeFactor<MemSpace, TData>(expansionList, locblocks,
-                                                    ExecSpace::alignment);
-
-        // Initialize basiskey.
-        std::vector<LibUtilities::BasisKey> basisKeys(
-            dimension, LibUtilities::NullBasisKey);
-
-        // Loop over the elements of expansionList.
-        unsigned int nTotElmts = this->m_expansionList->GetNumElmts();
-        for (unsigned int e = 0; e < nTotElmts; ++e)
-        {
-            const auto expPtr = this->m_expansionList->GetExp(e);
-
-            // Fetch basiskeys of current element.
-            for (unsigned int d = 0; d < dimension; d++)
-            {
-                basisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
-            }
-
-            // Copy data to m_mat, if necessary.
-            if (m_mat.find(basisKeys) == m_mat.end())
-            {
-                unsigned int nqTot = expPtr->GetTotPoints();
-                unsigned int nmTot = expPtr->GetNcoeffs();
-                Array<OneD, NekDouble> tmp(nqTot), t;
-                // Get IProductWRTDerivBase matrix.
-                auto &matPtr = m_mat[basisKeys];
-                for (unsigned int d = 0; d < dimension; ++d)
-                {
-                    matPtr.push_back(Array<OneD, TData>(nqTot * nmTot));
-                    Array<OneD, NekDouble> temp(nqTot * nmTot);
-                    for (unsigned int i = 0; i < nqTot; ++i)
-                    {
-                        Vmath::Zero(nqTot, tmp, 1);
-                        tmp[i] = 1.0;
-                        expPtr->GetStdExp()->IProductWRTDerivBase(
-                            d, tmp, t = temp + i * nmTot);
-                    }
-                    // copy temp to matPtr
-                    for (unsigned int i = 0; i < nqTot; ++i)
-                    {
-                        for (unsigned int j = 0; j < nmTot; ++j)
-                        {
-                            matPtr[d][j + i * nmTot] = temp[j + i * nmTot];
-                        }
-                    }
-                }
-            }
-        }
     }
 
     void apply(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Coeff> &out) override
     {
-        unsigned int dimension = this->m_expansionList->GetShapeDimension();
-
         m_nComps = out.GetNumComponents();
         ASSERTL1(m_nComps == in.GetNumComponents() /
                                  this->m_expansionList->GetCoordim(0),
                  "Number of input and output components differ");
 
-        // Initialize basiskey.
-        std::vector<LibUtilities::BasisKey> basisKeys(
-            dimension, LibUtilities::NullBasisKey);
-
         // Initialize index.
-        unsigned int exp_idx = 0;
+        m_exp_idx = 0;
 
         // Loop over the blocks.
-        for (m_blk = 0; m_blk < out.GetBlocks().size(); ++m_blk)
+        for (m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
         {
-            m_expPtr = this->m_expansionList->GetExp(exp_idx);
+            m_expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
             // Block dependent.
             auto &inblock  = in.GetBlocks()[m_blk];
@@ -142,7 +78,7 @@ public:
             this->BlockOperator(inblock, outblock);
 
             // Increment index for next element type.
-            exp_idx += inblock.GetNumElements();
+            m_exp_idx += inblock.GetNumElements();
         }
     }
 
@@ -169,17 +105,23 @@ public:
                           ? outblock.template GetPtr<MemSpace, ReadWrite>()
                           : outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        auto dfPtr  = m_df[m_blk].template GetPtr<MemSpace, ReadOnly>();
-        auto jacPtr = m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>();
-
         // Determine shape and type of the element.
-        const auto dimension = m_expPtr->GetShapeDimension();
         const auto deformed =
             m_expPtr->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed;
-        const auto nCoord = m_expPtr->GetCoordim();
-        const auto nqTot  = m_expPtr->GetTotPoints();
-        const auto nmTot  = m_expPtr->GetNcoeffs();
-        const auto ndf    = dimension * nCoord;
+        const auto shapeType = m_expPtr->DetShapeType();
+        const auto dimension = m_expPtr->GetShapeDimension();
+        const auto nCoord    = m_expPtr->GetCoordim();
+        const auto nqTot     = m_expPtr->GetTotPoints();
+        const auto nmTot     = m_expPtr->GetNcoeffs();
+        const auto ndf       = dimension * nCoord;
+
+        // Fetch Jacobian and deriv factors.
+        auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+            JacobianKey<TData>(m_exp_idx, m_implInterleaveWidth,
+                               inblock.GetNumElements()));
+        auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+            DerivFactorKey<TData>(m_exp_idx, m_implInterleaveWidth,
+                                  inblock.GetNumElements(), false));
 
         auto nElmts = inblock.GetNumElements();
 
@@ -231,10 +173,10 @@ public:
 
                     Nektar::parallel_for<ExecSpace>(
                         0, nElmts * nqTot, [&](const unsigned int i) {
-                            ptr[i] = dfPtr[ndf * i + d] * inptr[i];
+                            ptr[i] = dfptr[ndf * i + d] * inptr[i];
                             for (unsigned int k = 1; k < nCoord; ++k)
                             {
-                                ptr[i] += dfPtr[ndf * i + k * dimension + d] *
+                                ptr[i] += dfptr[ndf * i + k * dimension + d] *
                                           inptr[i + k * inblock.size()];
                             }
                         });
@@ -250,17 +192,43 @@ public:
                             for (unsigned int i = 0; i < nqTot; i++)
                             {
                                 ptr[nqTot * e + i] =
-                                    dfPtr[ndf * e + d] * inptr[nqTot * e + i];
+                                    dfptr[ndf * e + d] * inptr[nqTot * e + i];
                             }
                             for (unsigned int k = 1; k < nCoord; ++k)
                             {
                                 for (unsigned int i = 0; i < nqTot; i++)
                                 {
                                     ptr[nqTot * e + i] +=
-                                        dfPtr[ndf * e + k * dimension + d] *
+                                        dfptr[ndf * e + k * dimension + d] *
                                         inptr[nqTot * e + i +
                                               k * inblock.size()];
                                 }
+                            }
+                        }
+                    });
+            }
+
+            // Multiply by jacobian.
+            if (deformed)
+            {
+                for (unsigned int d = 0; d < dimension; d++)
+                {
+                    TData *ptr = wspptr + d * nElmts * nqTot;
+                    Nektar::parallel_for<ExecSpace>(
+                        0, nElmts * nqTot,
+                        [&](const unsigned int i) { ptr[i] *= jacptr[i]; });
+                }
+            }
+            else
+            {
+                Nektar::parallel_for<ExecSpace>(
+                    0, nElmts, [&](const unsigned int e) {
+                        for (unsigned int d = 0; d < dimension; d++)
+                        {
+                            TData *ptr = wspptr + d * nElmts * nqTot;
+                            for (unsigned int i = 0; i < nqTot; i++)
+                            {
+                                ptr[nqTot * e + i] *= jacptr[e];
                             }
                         }
                     });
@@ -273,33 +241,9 @@ public:
             {
                 basisKeys[d] = m_expPtr->GetBasis(d)->GetBasisKey();
             }
-            const auto &matPtr = m_mat[basisKeys];
-
-            // Multiply by jacobian.
-            if (deformed)
-            {
-                for (unsigned int d = 0; d < dimension; d++)
-                {
-                    TData *ptr = wspptr + d * nElmts * nqTot;
-                    Nektar::parallel_for<ExecSpace>(
-                        0, nElmts * nqTot,
-                        [&](const unsigned int i) { ptr[i] *= jacPtr[i]; });
-                }
-            }
-            else
-            {
-                Nektar::parallel_for<ExecSpace>(
-                    0, nElmts, [&](const unsigned int e) {
-                        for (unsigned int d = 0; d < dimension; d++)
-                        {
-                            TData *ptr = wspptr + d * nElmts * nqTot;
-                            for (unsigned int i = 0; i < nqTot; i++)
-                            {
-                                ptr[nqTot * e + i] *= jacPtr[e];
-                            }
-                        }
-                    });
-            }
+            auto matptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+                StdMatKey<TData>(basisKeys, shapeType,
+                                 eIProductWRTDerivBaseStdMat));
 
             // Perform matrix-matrix multiply.
             for (unsigned int d = 0; d < dimension; d++)
@@ -308,8 +252,8 @@ public:
 
                 TData alpha = (d != 0 || this->m_append);
                 Blas::Gemm('N', 'N', nmTot, nElmts, nqTot, 1.0,
-                           matPtr[d].data(), nmTot, ptr, nqTot, alpha, outptr,
-                           nmTot);
+                           matptr + d * nqTot * nmTot, nmTot, ptr, nqTot, alpha,
+                           outptr, nmTot);
             }
 
             inptr += nCoord * inblock.size();
@@ -322,17 +266,14 @@ public:
     }
 
 private:
+    unsigned int m_exp_idx;
     unsigned int m_blk;
     unsigned int m_nComps;
 
     LocalRegions::ExpansionSharedPtr m_expPtr;
 
-    std::vector<MemoryRegion<TData>> m_jac;
-    std::vector<MemoryRegion<TData>> m_df;
     std::vector<std::vector<TData>> m_wsp;
-    std::map<std::vector<LibUtilities::BasisKey>,
-             std::vector<Array<OneD, TData>>>
-        m_mat;
+
     static constexpr size_t m_implInterleaveWidth = 1;
 };
 

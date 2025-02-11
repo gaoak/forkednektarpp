@@ -34,6 +34,7 @@ IF (NEKTAR_BUILD_SOLVER_LIBS)
         ELSE()
             SET(SOLVERLIB_SRCS_USED ${SOLVERLIB_SOURCES})
         ENDIF()
+
         # Append "Lib" suffix to target name, otherwise it clashes with the executable (final output will still be called ${name})
         ADD_NEKTAR_LIBRARY(${name}
                         TARGET_SUFFIX Lib

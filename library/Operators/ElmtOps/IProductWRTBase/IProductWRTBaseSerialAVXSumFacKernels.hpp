@@ -73,7 +73,7 @@ NEK_FORCE_INLINE static void IProduct3DWorkspace(
 {
     wsp0Size = std::max(wsp0Size, nq1 * nq2);
     wsp1Size = std::max(wsp1Size, nq2);
-    wsp2Size = std::max(wsp0Size, nm1);
+    wsp2Size = std::max(wsp2Size, nm1);
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,

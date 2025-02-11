@@ -35,8 +35,8 @@
 
 #include <LibUtilities/BasicUtils/NekInline.hpp>
 
+#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseSerialAVXSumFacKernels.hpp"
 #include "Operators/ElmtOps/PhysDeriv/PhysDerivSerialAVXSumFacKernels.hpp"
-#include "StdRegions/Operators/IProductWRTBaseSumFacStdKernels.hpp"
 
 template <bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void StdAlignDerivBase1D(

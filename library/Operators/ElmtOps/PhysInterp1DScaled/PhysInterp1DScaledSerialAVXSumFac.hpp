@@ -34,7 +34,6 @@
 
 #pragma once
 
-#include "Common/OperatorHelper.hpp"
 #include "Operators/ElmtOps/OperatorPhysInterp1DScaled.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
@@ -60,75 +59,29 @@ public:
     {
     }
 
-    void SetScaleFactor(double scale) final
-    {
-        if (this->m_scale != scale)
-        {
-            this->m_scale = scale;
-
-            // Loop over the elements of expansionList.
-            size_t nDim = this->m_expansionList->GetShapeDimension();
-
-            for (size_t i = 0; i < this->m_expansionList->GetNumElmts(); ++i)
-            {
-                const auto expPtr = this->m_expansionList->GetExp(i);
-
-                int npts0 = expPtr->GetBasis(0)->GetNumPoints();
-
-                // Fetch basiskeys of the current element.
-                for (size_t d = 0; d < nDim; d++)
-                {
-                    LibUtilities::BasisKey b =
-                        expPtr->GetBasis(d)->GetBasisKey();
-                    int npts = b.GetNumPoints();
-
-                    // if delta between npts and npts0 is 1 then keep this delta
-                    // for new poitns to capitalise on switch templating
-                    npts = (npts0 - npts == 1) ? (int)(scale * npts0) - 1
-                                               : (int)(scale * npts);
-
-                    LibUtilities::PointsKey p(npts, b.GetPointsType());
-
-                    // make basis using modified direction with num points as
-                    // modes and new quarature points as numpoints
-                    LibUtilities::BasisKey bnew(b.GetBasisType(),
-                                                b.GetNumPoints(), p);
-
-                    // If necessary initialise this  basis data in  map.
-                    if (m_interpMap.find(bnew) == m_interpMap.end())
-                    {
-                        m_interpMap[bnew] =
-                            GetBasisData<MemSpace, double, simd_t>(
-                                expPtr->GetBasis(d), eInterp, simd_t::alignment,
-                                npts);
-                    }
-                }
-            }
-        }
-    }
-
     void apply(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Phys> &out) override
     {
-        // Initialize index.
-        size_t exp_idx = 0;
-
         m_nComps = in.GetNumComponents();
         ASSERTL1(m_nComps == out.GetNumComponents(),
                  "Number of input and output components differ");
 
-        for (size_t blk = 0; blk < in.GetBlocks().size(); ++blk)
+        // Initialize index.
+        m_exp_idx = 0;
+
+        // Loop over the blocks.
+        for (m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
         {
-            m_expPtr = this->m_expansionList->GetExp(exp_idx);
+            m_expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
             // Block dependent.
-            auto &inblock  = in.GetBlocks()[blk];
-            auto &outblock = out.GetBlocks()[blk];
+            auto &inblock  = in.GetBlocks()[m_blk];
+            auto &outblock = out.GetBlocks()[m_blk];
 
             this->BlockOperator(inblock, outblock);
 
             // Increment index for next element type.
-            exp_idx += inblock.GetNumElements();
+            m_exp_idx += inblock.GetNumElements();
         }
     }
 
@@ -160,43 +113,43 @@ public:
 
         switch (shapeType)
         {
-                // Segment
+            // Segment
             case LibUtilities::Seg:
             {
                 SegBlock(inblock, outblock);
                 break;
             }
-                // Quads
+            // Quads
             case LibUtilities::Quad:
             {
                 QuadBlock(inblock, outblock);
                 break;
             }
-                // Triangles
+            // Triangles
             case LibUtilities::Tri:
             {
                 TriBlock(inblock, outblock);
                 break;
             }
-                // Hexes
+            // Hexes
             case LibUtilities::Hex:
             {
                 HexBlock(inblock, outblock);
                 break;
             }
-                // Tet
+            // Tet
             case LibUtilities::Tet:
             {
                 TetBlock(inblock, outblock);
                 break;
             }
-                // Pyr
+            // Pyr
             case LibUtilities::Pyr:
             {
                 PyrBlock(inblock, outblock);
                 break;
             }
-                // Prism
+            // Prism
             case LibUtilities::Prism:
             {
                 PrismBlock(inblock, outblock);
@@ -207,11 +160,12 @@ public:
         }
     }
 
-private:
-    size_t m_nComps;
+protected:
+    unsigned int m_exp_idx;
+    unsigned int m_blk;
+    unsigned int m_nComps;
 
     LocalRegions::ExpansionSharedPtr m_expPtr;
-    BasisDataMap<simd_t> m_interpMap;
 
     void SegBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
@@ -246,13 +200,9 @@ private:
         const auto nqTot = nq0;
 
         // Fetch basis data.
-        std::vector<LibUtilities::BasisKey> basisKeys;
-
-        LibUtilities::BasisKey b0 = m_expPtr->GetBasis(0)->GetBasisKey();
-        LibUtilities::PointsKey p0(nq0, b0.GetPointsType());
-        LibUtilities::BasisKey b0new(b0.GetBasisType(), nm0, p0);
-
-        auto B0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
+        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(), eInterp,
+                                 nq0));
 
         // Get interleave parameter.
         unsigned int interleave_width = inblock.GetInterleaveWidth();
@@ -277,9 +227,9 @@ private:
         auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         // Loop over components.
-        for (size_t nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
-            for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            for (unsigned int e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -299,7 +249,7 @@ private:
     }
 
     // size based template version
-    template <int nm0, int nq0>
+    template <unsigned int nm0, unsigned int nq0>
     void Operator1D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
@@ -307,11 +257,10 @@ private:
         constexpr auto nmTot = nm0;
         constexpr auto nqTot = nq0;
 
-        LibUtilities::BasisKey b0 = m_expPtr->GetBasis(0)->GetBasisKey();
-        LibUtilities::PointsKey p0(nq0, b0.GetPointsType());
-        LibUtilities::BasisKey b0new(b0.GetBasisType(), nm0, p0);
-
-        auto B0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
+        // Fetch basis data.
+        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(), eInterp,
+                                 nq0));
 
         // Get interleave parameter.
         unsigned int interleave_width = inblock.GetInterleaveWidth();
@@ -336,9 +285,9 @@ private:
         auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         // Loop over components.
-        for (size_t nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
-            for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            for (unsigned int e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -375,16 +324,13 @@ private:
         const auto nmTot = nm0 * nm1;
         const auto nqTot = nq0 * nq1;
 
-        LibUtilities::BasisKey b0 = m_expPtr->GetBasis(0)->GetBasisKey();
-        LibUtilities::PointsKey p0(nq0, b0.GetPointsType());
-        LibUtilities::BasisKey b0new(b0.GetBasisType(), nm0, p0);
-
-        LibUtilities::BasisKey b1 = m_expPtr->GetBasis(1)->GetBasisKey();
-        LibUtilities::PointsKey p1(nq1, b1.GetPointsType());
-        LibUtilities::BasisKey b1new(b1.GetBasisType(), nm1, p1);
-
-        auto B0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
-        auto B1 = m_interpMap[b1new].template GetPtr<MemSpace, ReadOnly>();
+        // Fetch basis data.
+        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(), eInterp,
+                                 nq0));
+        auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(), eInterp,
+                                 nq1));
 
         // Get interleave parameter.
         unsigned int interleave_width = inblock.GetInterleaveWidth();
@@ -411,9 +357,9 @@ private:
         auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         // Loop over components.
-        for (size_t nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
-            for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            for (unsigned int e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -434,7 +380,8 @@ private:
     }
 
     // size based template version
-    template <int nm0, int nm1, int nq0, int nq1>
+    template <unsigned int nm0, unsigned int nm1, unsigned int nq0,
+              unsigned int nq1>
     void Operator2D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
@@ -442,16 +389,13 @@ private:
         constexpr auto nmTot = nm0 * nm1;
         constexpr auto nqTot = nq0 * nq1;
 
-        LibUtilities::BasisKey b0 = m_expPtr->GetBasis(0)->GetBasisKey();
-        LibUtilities::PointsKey p0(nq0, b0.GetPointsType());
-        LibUtilities::BasisKey b0new(b0.GetBasisType(), nm0, p0);
-
-        LibUtilities::BasisKey b1 = m_expPtr->GetBasis(1)->GetBasisKey();
-        LibUtilities::PointsKey p1(nq1, b1.GetPointsType());
-        LibUtilities::BasisKey b1new(b1.GetBasisType(), nm1, p1);
-
-        auto B0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
-        auto B1 = m_interpMap[b1new].template GetPtr<MemSpace, ReadOnly>();
+        // Fetch basis data.
+        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(), eInterp,
+                                 nq0));
+        auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(), eInterp,
+                                 nq1));
 
         // Get interleave parameter.
         unsigned int interleave_width = inblock.GetInterleaveWidth();
@@ -478,9 +422,9 @@ private:
         auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         // Loop over components.
-        for (size_t nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
-            for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            for (unsigned int e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -521,21 +465,16 @@ private:
         const auto nmTot = nm0 * nm1 * nm2;
         const auto nqTot = nq0 * nq1 * nq2;
 
-        LibUtilities::BasisKey b0 = m_expPtr->GetBasis(0)->GetBasisKey();
-        LibUtilities::PointsKey p0(nq0, b0.GetPointsType());
-        LibUtilities::BasisKey b0new(b0.GetBasisType(), nm0, p0);
-
-        LibUtilities::BasisKey b1 = m_expPtr->GetBasis(1)->GetBasisKey();
-        LibUtilities::PointsKey p1(nq1, b1.GetPointsType());
-        LibUtilities::BasisKey b1new(b1.GetBasisType(), nm1, p1);
-
-        LibUtilities::BasisKey b2 = m_expPtr->GetBasis(2)->GetBasisKey();
-        LibUtilities::PointsKey p2(nq2, b2.GetPointsType());
-        LibUtilities::BasisKey b2new(b2.GetBasisType(), nm2, p2);
-
-        auto B0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
-        auto B1 = m_interpMap[b1new].template GetPtr<MemSpace, ReadOnly>();
-        auto B2 = m_interpMap[b2new].template GetPtr<MemSpace, ReadOnly>();
+        // Fetch basis data.
+        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(), eInterp,
+                                 nq0));
+        auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(), eInterp,
+                                 nq1));
+        auto B2 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(2)->GetBasisKey(), eInterp,
+                                 nq2));
 
         // Get interleave parameter.
         unsigned int interleave_width = inblock.GetInterleaveWidth();
@@ -564,9 +503,9 @@ private:
         auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         // Loop over components.
-        for (size_t nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
-            for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            for (unsigned int e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -587,7 +526,8 @@ private:
     }
 
     // size based template version
-    template <int nm0, int nm1, int nm2, int nq0, int nq1, int nq2>
+    template <unsigned int nm0, unsigned int nm1, unsigned int nm2,
+              unsigned int nq0, unsigned int nq1, unsigned int nq2>
     void Operator3D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
@@ -595,21 +535,16 @@ private:
         constexpr auto nmTot = nm0 * nm1 * nm2;
         constexpr auto nqTot = nq0 * nq1 * nq2;
 
-        LibUtilities::BasisKey b0 = m_expPtr->GetBasis(0)->GetBasisKey();
-        LibUtilities::PointsKey p0(nq0, b0.GetPointsType());
-        LibUtilities::BasisKey b0new(b0.GetBasisType(), nm0, p0);
-
-        LibUtilities::BasisKey b1 = m_expPtr->GetBasis(1)->GetBasisKey();
-        LibUtilities::PointsKey p1(nq1, b1.GetPointsType());
-        LibUtilities::BasisKey b1new(b1.GetBasisType(), nm1, p1);
-
-        LibUtilities::BasisKey b2 = m_expPtr->GetBasis(2)->GetBasisKey();
-        LibUtilities::PointsKey p2(nq2, b2.GetPointsType());
-        LibUtilities::BasisKey b2new(b2.GetBasisType(), nm2, p2);
-
-        auto B0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
-        auto B1 = m_interpMap[b1new].template GetPtr<MemSpace, ReadOnly>();
-        auto B2 = m_interpMap[b2new].template GetPtr<MemSpace, ReadOnly>();
+        // Fetch basis data.
+        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(), eInterp,
+                                 nq0));
+        auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(), eInterp,
+                                 nq1));
+        auto B2 = this->m_dataWarehouse->template GetData<ExecSpace>(
+            BasisDataKey<simd_t>(m_expPtr->GetBasis(2)->GetBasisKey(), eInterp,
+                                 nq2));
 
         // Get interleave parameter.
         unsigned int interleave_width = inblock.GetInterleaveWidth();
@@ -638,9 +573,9 @@ private:
         auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         // Loop over components.
-        for (size_t nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
-            for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            for (unsigned int e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
