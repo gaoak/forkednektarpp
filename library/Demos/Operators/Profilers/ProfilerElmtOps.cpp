@@ -130,6 +130,8 @@ int main(int argc, char *argv[])
     explist = MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
         session, graph, true, "DefaultVar", Collections::eNoCollection);
 
+    explist->SetDataWarehouse();
+
     auto nDim = explist->GetGraph()->GetSpaceDimension();
 
     // You can add/remove the operators to be profiled as you like.
