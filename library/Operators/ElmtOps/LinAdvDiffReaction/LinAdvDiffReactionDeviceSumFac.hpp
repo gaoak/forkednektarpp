@@ -558,7 +558,7 @@ protected:
             std::is_same_v<Implementation, Operators::SumFacQP>;
         auto index0 = indexing
                           ? this->m_dataWarehouse->template GetData<ExecSpace>(
-                                ModeIndexKey(m_expPtr, 0))
+                                ModeIndexKey(SHAPE_TYPE, nm0, nm1, 0))
                           : nullptr;
 
         // Set workspace.
@@ -685,7 +685,7 @@ protected:
             std::is_same_v<Implementation, Operators::SumFacQP>;
         auto index0 = indexing
                           ? this->m_dataWarehouse->template GetData<ExecSpace>(
-                                ModeIndexKey(m_expPtr, 0))
+                                ModeIndexKey(SHAPE_TYPE, nm0, nm1, 0))
                           : nullptr;
 
         // Set workspace.
@@ -836,19 +836,19 @@ protected:
             std::is_same_v<Implementation, Operators::SumFacQP>;
         auto index0 = (indexingTet || indexingPrism || indexingPyr)
                           ? this->m_dataWarehouse->template GetData<ExecSpace>(
-                                ModeIndexKey(m_expPtr, 0))
+                                ModeIndexKey(SHAPE_TYPE, nm0, nm1, nm2, 0))
                           : nullptr;
         auto index1 = (indexingTet || indexingPrism || indexingPyr)
                           ? this->m_dataWarehouse->template GetData<ExecSpace>(
-                                ModeIndexKey(m_expPtr, 1))
+                                ModeIndexKey(SHAPE_TYPE, nm0, nm1, nm2, 1))
                           : nullptr;
         auto index2 = (indexingTet || indexingPrism)
                           ? this->m_dataWarehouse->template GetData<ExecSpace>(
-                                ModeIndexKey(m_expPtr, 2))
+                                ModeIndexKey(SHAPE_TYPE, nm0, nm1, nm2, 2))
                           : nullptr;
         auto index3 = (indexingTet)
                           ? this->m_dataWarehouse->template GetData<ExecSpace>(
-                                ModeIndexKey(m_expPtr, 3))
+                                ModeIndexKey(SHAPE_TYPE, nm0, nm1, nm2, 3))
                           : nullptr;
 
         // Set workspace.
@@ -999,19 +999,19 @@ protected:
             std::is_same_v<Implementation, Operators::SumFacQP>;
         auto index0 = (indexingTet || indexingPrism || indexingPyr)
                           ? this->m_dataWarehouse->template GetData<ExecSpace>(
-                                ModeIndexKey(m_expPtr, 0))
+                                ModeIndexKey(SHAPE_TYPE, nm0, nm1, nm2, 0))
                           : nullptr;
         auto index1 = (indexingTet || indexingPrism || indexingPyr)
                           ? this->m_dataWarehouse->template GetData<ExecSpace>(
-                                ModeIndexKey(m_expPtr, 1))
+                                ModeIndexKey(SHAPE_TYPE, nm0, nm1, nm2, 1))
                           : nullptr;
         auto index2 = (indexingTet || indexingPrism)
                           ? this->m_dataWarehouse->template GetData<ExecSpace>(
-                                ModeIndexKey(m_expPtr, 2))
+                                ModeIndexKey(SHAPE_TYPE, nm0, nm1, nm2, 2))
                           : nullptr;
         auto index3 = (indexingTet)
                           ? this->m_dataWarehouse->template GetData<ExecSpace>(
-                                ModeIndexKey(m_expPtr, 3))
+                                ModeIndexKey(SHAPE_TYPE, nm0, nm1, nm2, 3))
                           : nullptr;
 
         // Set workspace.

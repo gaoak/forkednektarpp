@@ -475,11 +475,11 @@ protected:
             std::is_same_v<Implementation, Operators::SumFacQP>;
         auto index0 = indexing
                           ? this->m_dataWarehouse->template GetData<ExecSpace>(
-                                ModeIndexKey(m_expPtr, 0))
+                                ModeIndexKey(SHAPE_TYPE, nm0, nm1, nm2, 0))
                           : nullptr;
         auto index1 = indexing
                           ? this->m_dataWarehouse->template GetData<ExecSpace>(
-                                ModeIndexKey(m_expPtr, 3))
+                                ModeIndexKey(SHAPE_TYPE, nm0, nm1, nm2, 3))
                           : nullptr;
 
         // Set workspace.
@@ -551,11 +551,11 @@ protected:
             std::is_same_v<Implementation, Operators::SumFacQP>;
         auto index0 = indexing
                           ? this->m_dataWarehouse->template GetData<ExecSpace>(
-                                ModeIndexKey(m_expPtr, 0))
+                                ModeIndexKey(SHAPE_TYPE, nm0, nm1, nm2, 0))
                           : nullptr;
         auto index1 = indexing
                           ? this->m_dataWarehouse->template GetData<ExecSpace>(
-                                ModeIndexKey(m_expPtr, 3))
+                                ModeIndexKey(SHAPE_TYPE, nm0, nm1, nm2, 3))
                           : nullptr;
 
         // Set workspace.
