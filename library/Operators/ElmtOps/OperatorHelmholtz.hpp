@@ -39,12 +39,64 @@
 namespace Nektar::Operators
 {
 
+template <typename TData> struct Helmholtz;
+
+template <typename TData>
+class BlockOperatorHelmholtz : public BlockOperator<TData>
+{
+public:
+    BlockOperatorHelmholtz(const LocalRegions::ExpansionSharedPtr &exp,
+                           NekDataWarehouseSharedPtr dataWarehouse)
+        : BlockOperator<TData>(exp, dataWarehouse)
+    {
+    }
+
+    ~BlockOperatorHelmholtz() override = default;
+
+    virtual void apply(BlockAccessor<TData> &inblock,
+                       BlockAccessor<TData> &outblock) = 0;
+
+    virtual void operator()(BlockAccessor<TData> &inblock,
+                            BlockAccessor<TData> &outblock)
+    {
+        this->apply(inblock, outblock);
+    }
+
+    void SetLambda(TData lambda)
+    {
+        m_lambda = lambda;
+    }
+
+protected:
+    TData m_lambda = 1.0;
+};
+
+// Descriptor / traits class for BlockHelmholtz
+template <typename TData> struct BlockHelmholtz
+{
+    using class_name = BlockOperatorHelmholtz<TData>;
+
+    BlockHelmholtz() = delete;
+
+    template <typename ExecSpace, typename Impl>
+    static std::shared_ptr<class_name> Create(
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse)
+    {
+        return BlockOperator<TData>::template Create<BlockHelmholtz<TData>,
+                                                     ExecSpace, Impl>(
+            exp, dataWarehouse);
+    }
+};
+
 // Helmholtz base class
 // Defines the apply operator to enforce apply parameter types
 template <typename TData>
 class OperatorHelmholtz
     : public OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>
 {
+    friend struct Helmholtz<TData>;
+
 public:
     OperatorHelmholtz(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>(
@@ -54,19 +106,40 @@ public:
 
     ~OperatorHelmholtz() override = default;
 
+    void apply(Field<TData, FieldState::Coeff> &in,
+               Field<TData, FieldState::Coeff> &out) override
+    {
+        ASSERTL1(in.GetNumComponents() == out.GetNumComponents(),
+                 "Number of input and output components differ");
+
+        // Loop over the blocks.
+        for (unsigned int blk = 0; blk < m_blockOperator.size(); ++blk)
+        {
+            // Block dependent.
+            auto &inblock  = in.GetBlocks()[blk];
+            auto &outblock = out.GetBlocks()[blk];
+
+            this->m_blockOperator[blk]->apply(inblock, outblock);
+        }
+    }
+
     virtual void operator()(Field<TData, FieldState::Coeff> &in,
                             Field<TData, FieldState::Coeff> &out)
     {
         this->apply(in, out);
     }
 
-    virtual void SetLambda(TData lambda)
+    void SetLambda(TData lambda)
     {
-        m_lambda = lambda;
+        // Loop over the blocks.
+        for (unsigned int blk = 0; blk < m_blockOperator.size(); ++blk)
+        {
+            this->m_blockOperator[blk]->SetLambda(lambda);
+        }
     }
 
 protected:
-    TData m_lambda = 1.0;
+    std::vector<std::shared_ptr<BlockOperatorHelmholtz<TData>>> m_blockOperator;
 };
 
 // Descriptor / traits class for Helmholtz
@@ -80,9 +153,51 @@ template <typename TData> struct Helmholtz
     static std::shared_ptr<class_name> Create(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return Operator<TData>::template Create<Helmholtz<TData>, ExecSpace,
-                                                Impl>(expansionList);
+        auto HelmholtzOp =
+            Operator<TData>::template Create<Helmholtz<TData>, ExecSpace, Impl>(
+                expansionList);
+
+        auto blocks =
+            GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
+
+        // Loop over the blocks.
+        for (auto &block : blocks)
+        {
+            HelmholtzOp->m_blockOperator.push_back(
+                BlockHelmholtz<TData>::template Create<ExecSpace, Impl>(
+                    expansionList->GetExp(block.GetExpIdx()),
+                    expansionList->GetDataWarehouseSharedPtr()));
+        }
+
+        return HelmholtzOp;
     }
 };
 
 } // namespace Nektar::Operators
+
+namespace Nektar::Operators::detail
+{
+
+template <typename ExecSpace, typename Implementation, typename TData>
+class OperatorHelmholtzImpl : public OperatorHelmholtz<TData>
+{
+public:
+    OperatorHelmholtzImpl(const MultiRegions::ExpListSharedPtr &expansionList)
+        : OperatorHelmholtz<TData>(expansionList)
+    {
+    }
+
+    // className - for OperatorFactory
+    static std::string className;
+
+    // instantiation function for CreatorFunction in OperatorFactory
+    static std::unique_ptr<Operator<TData>> instantiate(
+        const MultiRegions::ExpListSharedPtr &expansionList)
+    {
+        return std::make_unique<
+            OperatorHelmholtzImpl<ExecSpace, Implementation, TData>>(
+            expansionList);
+    }
+};
+
+} // namespace Nektar::Operators::detail

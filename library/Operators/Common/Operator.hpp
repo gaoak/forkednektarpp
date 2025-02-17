@@ -114,15 +114,23 @@ struct Generic
 
 // Forward-declare the Operator base class so we can define the factory
 template <typename TData> class Operator;
+template <typename TData> class BlockOperator;
 
 // Typename alias for the factory
 template <typename TData>
 using OperatorFactory =
     Nektar::LibUtilities::NekFactory<std::string, Operator<TData>,
                                      const MultiRegions::ExpListSharedPtr &>;
+template <typename TData>
+using BlockOperatorFactory =
+    Nektar::LibUtilities::NekFactory<std::string, BlockOperator<TData>,
+                                     const LocalRegions::ExpansionSharedPtr &,
+                                     NekDataWarehouseSharedPtr>;
 
 // Operator factory singleton
 template <typename TData> OperatorFactory<TData> &GetOperatorFactory();
+template <typename TData>
+BlockOperatorFactory<TData> &GetBlockOperatorFactory();
 
 template <typename TData> class Operator
 {
@@ -286,6 +294,158 @@ public:
 
 protected:
     MultiRegions::ExpListSharedPtr m_expansionList;
+    NekDataWarehouseSharedPtr m_dataWarehouse;
+};
+
+template <typename TData> class BlockOperator
+{
+public:
+    virtual ~BlockOperator() = default;
+
+    BlockOperator(const LocalRegions::ExpansionSharedPtr &exp,
+                  NekDataWarehouseSharedPtr dataWarehouse)
+        : m_exp(exp), m_dataWarehouse(dataWarehouse)
+    {
+    }
+
+    template <typename TDescriptor, typename ExecSpace, typename Implementation>
+    static std::shared_ptr<typename TDescriptor::class_name> Create(
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse)
+    {
+        // The TDescriptor name contains the namespace as well as the <TData>
+        // of <FieldState, TData> which needs to be removed.
+        std::string descript = Nektar::demangleTypeName(typeid(TDescriptor));
+        std::string descriptStr(descript);
+
+        // Check for a Nektar::Operators:: root.
+        if (Nektar::stripString(descriptStr, "Nektar::Operators::"))
+        {
+            size_t found = descriptStr.find("<");
+            if (found != std::string::npos)
+            {
+                descriptStr.erase(found);
+            }
+            else
+            {
+                NEKERROR(Nektar::ErrorUtil::efatal,
+                         "malformed operator template descriptor.");
+            }
+        }
+        else
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal,
+                     "malformed operator template descriptor.");
+        }
+
+#if defined(_MSC_VER)
+        // Check for a struct root.
+        Nektar::stripString(descriptStr, "struct ");
+#endif
+
+        // The ExecSpace name contains the namespace which needs to be
+        // removed.
+        std::string execStr = Nektar::demangleTypeName(typeid(ExecSpace));
+
+        Nektar::stripString(execStr, "NektarSpaces::");
+
+        if (execStr == "KOKKOS")
+        {
+            execStr = "Kokkos";
+        }
+
+#if defined(_MSC_VER)
+        // Check for a struct root.
+        Nektar::stripString(execStr, "struct ");
+#endif
+
+        // The Implementation name contains the namespace which needs
+        // to be removed.
+        std::string implStr = Nektar::demangleTypeName(typeid(Implementation));
+
+        Nektar::stripString(implStr, "Nektar::Operators::");
+
+#if defined(_MSC_VER)
+        // Check for a struct root.
+        Nektar::stripString(implStr, "struct ");
+#endif
+
+        std::string requestedKey = descriptStr + execStr + implStr;
+        std::string key          = requestedKey;
+
+        BlockOperatorFactory<TData> &factory = GetBlockOperatorFactory<TData>();
+
+        bool notFound = true;
+
+#if !defined(OPERATOR_ENABLE_DEFAULTING)
+        constexpr size_t nOpTests = 2;
+#else
+        constexpr size_t nOpTests = 4;
+#endif
+
+        for (size_t i = 0; i < nOpTests; ++i)
+        {
+            switch (i)
+            {
+                case 0:
+                    // Find the operator with the requested ExecSpace and the
+                    // same implementation.
+                    key = descriptStr + execStr + implStr;
+                    break;
+                case 1:
+                    // Find the operator with the requested ExecSpace and a
+                    // general implementation.
+                    key = descriptStr + execStr + "Generic";
+                    break;
+                case 2:
+                    // Find the operator with the "Serial" ExecSpace and the
+                    // same implementation.
+                    key = descriptStr + "Serial" + implStr;
+                    break;
+                case 3:
+                    // Find the operator with the "Serial" ExecSpace and
+                    // the "StdMat" implementation.
+                    key = descriptStr + "Serial" + "StdMat";
+                    break;
+                default:
+                    break;
+            }
+
+            if (factory.ModuleExists(key))
+            {
+                if (key != requestedKey && i != 1)
+                {
+                    std::string msg;
+                    msg += "The requested operator: " + requestedKey +
+                           " was not found. Using operator: " + key +
+                           " instead";
+
+                    WARNINGL0(false, msg);
+                }
+
+                notFound = false;
+
+                break;
+            }
+        }
+
+        // No suitible operator was found.
+        if (notFound)
+        {
+            std::stringstream msg;
+            msg << "No such operator: " << requestedKey
+                << " and no default operator: " << key << ". Descriptor is "
+                << descript << std::endl;
+            factory.PrintAvailableClasses(msg);
+            NEKERROR(ErrorUtil::efatal, msg.str());
+        }
+
+        return std::static_pointer_cast<typename TDescriptor::class_name>(
+            factory.CreateInstance(key, exp, dataWarehouse));
+    }
+
+protected:
+    LocalRegions::ExpansionSharedPtr m_exp;
     NekDataWarehouseSharedPtr m_dataWarehouse;
 };
 

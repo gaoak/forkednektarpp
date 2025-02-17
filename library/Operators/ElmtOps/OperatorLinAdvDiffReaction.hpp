@@ -39,12 +39,71 @@
 namespace Nektar::Operators
 {
 
+template <typename TData> struct LinAdvDiffReaction;
+
+template <typename TData>
+class BlockOperatorLinAdvDiffReaction : public BlockOperator<TData>
+{
+public:
+    BlockOperatorLinAdvDiffReaction(const LocalRegions::ExpansionSharedPtr &exp,
+                                    NekDataWarehouseSharedPtr dataWarehouse)
+        : BlockOperator<TData>(exp, dataWarehouse)
+    {
+    }
+
+    ~BlockOperatorLinAdvDiffReaction() override = default;
+
+    virtual void apply(BlockAccessor<TData> &inblock,
+                       BlockAccessor<TData> &outblock) = 0;
+
+    virtual void operator()(BlockAccessor<TData> &inblock,
+                            BlockAccessor<TData> &outblock)
+    {
+        this->apply(inblock, outblock);
+    }
+
+    void SetLambda(TData lambda)
+    {
+        m_lambda = lambda;
+    }
+
+    void SetAdvVel(const unsigned int nVel, BlockAccessor<TData> &Vel)
+    {
+        v_SetAdvVel(nVel, Vel);
+    }
+
+protected:
+    virtual void v_SetAdvVel(const unsigned int nVel,
+                             BlockAccessor<TData> &Vel) = 0;
+    TData m_lambda                                      = 1.0;
+};
+
+// Descriptor / traits class for BlockLinAdvDiffReaction
+template <typename TData> struct BlockLinAdvDiffReaction
+{
+    using class_name = BlockOperatorLinAdvDiffReaction<TData>;
+
+    BlockLinAdvDiffReaction() = delete;
+
+    template <typename ExecSpace, typename Impl>
+    static std::shared_ptr<class_name> Create(
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse)
+    {
+        return BlockOperator<TData>::template Create<
+            BlockLinAdvDiffReaction<TData>, ExecSpace, Impl>(exp,
+                                                             dataWarehouse);
+    }
+};
+
 // LinAdvDiffReaction base class
 // Defines the apply operator to enforce apply parameter types
 template <typename TData>
 class OperatorLinAdvDiffReaction
     : public OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>
 {
+    friend struct LinAdvDiffReaction<TData>;
+
 public:
     OperatorLinAdvDiffReaction(
         const MultiRegions::ExpListSharedPtr &expansionList)
@@ -55,6 +114,23 @@ public:
 
     ~OperatorLinAdvDiffReaction() override = default;
 
+    void apply(Field<TData, FieldState::Coeff> &in,
+               Field<TData, FieldState::Coeff> &out) override
+    {
+        ASSERTL1(in.GetNumComponents() == out.GetNumComponents(),
+                 "Number of input and output components differ");
+
+        // Loop over the blocks.
+        for (unsigned int blk = 0; blk < m_blockOperator.size(); ++blk)
+        {
+            // Block dependent.
+            auto &inblock  = in.GetBlocks()[blk];
+            auto &outblock = out.GetBlocks()[blk];
+
+            this->m_blockOperator[blk]->apply(inblock, outblock);
+        }
+    }
+
     virtual void operator()(Field<TData, FieldState::Coeff> &in,
                             Field<TData, FieldState::Coeff> &out)
     {
@@ -63,7 +139,11 @@ public:
 
     void SetLambda(TData lambda)
     {
-        m_lambda = lambda;
+        // Loop over the blocks.
+        for (unsigned int blk = 0; blk < m_blockOperator.size(); ++blk)
+        {
+            this->m_blockOperator[blk]->SetLambda(lambda);
+        }
     }
 
     void SetAdvVel(const int nVel, const Array<OneD, NekDouble> &Vel)
@@ -71,11 +151,13 @@ public:
         v_SetAdvVel(nVel, Vel);
     }
 
+protected:
     virtual void v_SetAdvVel(const int nVel,
                              const Array<OneD, NekDouble> &Vel) = 0;
 
-protected:
-    TData m_lambda = 1.0;
+    std::vector<std::shared_ptr<BlockOperatorLinAdvDiffReaction<TData>>>
+        m_blockOperator;
+    Field<TData, FieldState::Phys> m_advVel;
 };
 
 // Descriptor / traits class for LinAdvDiffReaction
@@ -89,9 +171,77 @@ template <typename TData> struct LinAdvDiffReaction
     static std::shared_ptr<class_name> Create(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return Operator<TData>::template Create<LinAdvDiffReaction<TData>,
-                                                ExecSpace, Impl>(expansionList);
+        auto LinAdvDiffReactionOp =
+            Operator<TData>::template Create<LinAdvDiffReaction<TData>,
+                                             ExecSpace, Impl>(expansionList);
+
+        auto blocks =
+            GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
+
+        // Loop over the blocks.
+        for (auto &block : blocks)
+        {
+            LinAdvDiffReactionOp->m_blockOperator.push_back(
+                BlockLinAdvDiffReaction<TData>::template Create<ExecSpace,
+                                                                Impl>(
+                    expansionList->GetExp(block.GetExpIdx()),
+                    expansionList->GetDataWarehouseSharedPtr()));
+        }
+
+        return LinAdvDiffReactionOp;
     }
 };
 
 } // namespace Nektar::Operators
+
+namespace Nektar::Operators::detail
+{
+
+template <typename ExecSpace, typename Implementation, typename TData>
+class OperatorLinAdvDiffReactionImpl : public OperatorLinAdvDiffReaction<TData>
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+public:
+    OperatorLinAdvDiffReactionImpl(
+        const MultiRegions::ExpListSharedPtr &expansionList)
+        : OperatorLinAdvDiffReaction<TData>(expansionList)
+    {
+    }
+
+    void v_SetAdvVel(const int nVel, const Array<OneD, NekDouble> &Vel) override
+    {
+        // Set up a physBlockAttributes which will be
+        std::vector<BlockAttributes> physBlockAttributes =
+            GetBlockAttributes<TData>(FieldState::Phys, this->m_expansionList,
+                                      1);
+
+        this->m_advVel =
+            Field<TData, FieldState::Phys>::template Create<MemSpace>(
+                "Advection Field", physBlockAttributes, nVel,
+                ExecSpace::alignment);
+
+        this->m_advVel.template CopyArray<NektarSpaces::HostSpace>(Vel);
+
+        // Loop over the blocks.
+        for (unsigned int blk = 0; blk < this->m_blockOperator.size(); ++blk)
+        {
+            this->m_blockOperator[blk]->SetAdvVel(
+                nVel, this->m_advVel.GetBlocks()[blk]);
+        }
+    }
+
+    // className - for OperatorFactory
+    static std::string className;
+
+    // instantiation function for CreatorFunction in OperatorFactory
+    static std::unique_ptr<Operator<TData>> instantiate(
+        const MultiRegions::ExpListSharedPtr &expansionList)
+    {
+        return std::make_unique<
+            OperatorLinAdvDiffReactionImpl<ExecSpace, Implementation, TData>>(
+            expansionList);
+    }
+};
+
+} // namespace Nektar::Operators::detail

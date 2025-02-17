@@ -43,56 +43,19 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename Implementation, typename TData>
-class OperatorBwdTransImpl : public OperatorBwdTrans<TData>
+class BlockOperatorBwdTransImpl : public BlockOperatorBwdTrans<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    OperatorBwdTransImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorBwdTrans<TData>(expansionList)
+    BlockOperatorBwdTransImpl(const LocalRegions::ExpansionSharedPtr &exp,
+                              NekDataWarehouseSharedPtr dataWarehouse)
+        : BlockOperatorBwdTrans<TData>(exp, dataWarehouse)
     {
     }
 
-    void apply(Field<TData, FieldState::Coeff> &in,
-               Field<TData, FieldState::Phys> &out) override
-    {
-        m_nComps = in.GetNumComponents();
-        ASSERTL1(m_nComps == out.GetNumComponents(),
-                 "Number of input and output components differ");
-
-        // Initialize index.
-        m_exp_idx = 0;
-
-        // Loop over the blocks.
-        for (m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
-        {
-            m_expPtr = this->m_expansionList->GetExp(m_exp_idx);
-
-            // Block dependent.
-            auto &inblock  = in.GetBlocks()[m_blk];
-            auto &outblock = out.GetBlocks()[m_blk];
-
-            this->BlockOperator(inblock, outblock);
-
-            // Increment index for next element type.
-            m_exp_idx += inblock.GetNumElements();
-        }
-    }
-
-    // className - for OperatorFactory
-    static std::string className;
-
-    // instantiation function for CreatorFunction in OperatorFactory
-    static std::unique_ptr<Operator<TData>> instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-    {
-        return std::make_unique<
-            OperatorBwdTransImpl<ExecSpace, Implementation, TData>>(
-            expansionList);
-    }
-
-    void BlockOperator(BlockAccessor<TData> &inblock,
-                       BlockAccessor<TData> &outblock)
+    void apply(BlockAccessor<TData> &inblock,
+               BlockAccessor<TData> &outblock) override
     {
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -101,24 +64,25 @@ public:
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Determine shape and type of the element.
-        const auto shapeType = m_expPtr->DetShapeType();
-        const auto dimension = m_expPtr->GetShapeDimension();
-        const auto nmTot     = m_expPtr->GetNcoeffs();
-        const auto nqTot     = m_expPtr->GetTotPoints();
+        const auto shapeType = this->m_exp->DetShapeType();
+        const auto dimension = this->m_exp->GetShapeDimension();
+        const auto nmTot     = this->m_exp->GetNcoeffs();
+        const auto nqTot     = this->m_exp->GetTotPoints();
+
+        const auto nElmts = inblock.GetNumElements();
 
         // Fetch matrix.
         std::vector<LibUtilities::BasisKey> basisKeys(
             dimension, LibUtilities::NullBasisKey);
         for (unsigned int d = 0; d < dimension; d++)
         {
-            basisKeys[d] = m_expPtr->GetBasis(d)->GetBasisKey();
+            basisKeys[d] = this->m_exp->GetBasis(d)->GetBasisKey();
         }
         auto matptr = this->m_dataWarehouse->template GetData<ExecSpace>(
             StdMatKey<TData>(basisKeys, shapeType, eBwdTransStdMat));
-        auto nElmts = inblock.GetNumElements();
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
@@ -138,14 +102,21 @@ public:
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 
-private:
-    unsigned int m_exp_idx;
-    unsigned int m_blk;
-    unsigned int m_nComps;
+    // className - for BlockOperatorFactory
+    static std::string className;
 
-    LocalRegions::ExpansionSharedPtr m_expPtr;
+    // Instantiation function for CreatorFunction in BlockOperatorFactory.
+    static std::unique_ptr<BlockOperator<TData>> instantiate(
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse)
+    {
+        return std::make_unique<
+            BlockOperatorBwdTransImpl<ExecSpace, Implementation, TData>>(
+            exp, dataWarehouse);
+    }
 
-    static constexpr size_t m_implInterleaveWidth = 1;
+protected:
+    static constexpr unsigned int m_implInterleaveWidth = 1;
 };
 
 } // namespace Nektar::Operators::detail

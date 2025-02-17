@@ -42,64 +42,20 @@
 namespace Nektar::Operators::detail
 {
 
-// Standard matrix implementation
 template <typename ExecSpace, typename Implementation, typename TData>
-class OperatorPhysDerivImpl : public OperatorPhysDeriv<TData>
+class BlockOperatorPhysDerivImpl : public BlockOperatorPhysDeriv<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    OperatorPhysDerivImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorPhysDeriv<TData>(expansionList)
+    BlockOperatorPhysDerivImpl(const LocalRegions::ExpansionSharedPtr &exp,
+                               NekDataWarehouseSharedPtr dataWarehouse)
+        : BlockOperatorPhysDeriv<TData>(exp, dataWarehouse)
     {
     }
 
-    void apply(Field<TData, FieldState::Phys> &in,
-               Field<TData, FieldState::Phys> &out) override
-    {
-        m_nComps = in.GetNumComponents();
-        ASSERTL1(m_nComps == out.GetNumComponents() /
-                                 this->m_expansionList->GetCoordim(0),
-                 "Number of input and output components differ");
-
-        m_nComps = in.GetNumComponents();
-        ASSERTL1(m_nComps == out.GetNumComponents() /
-                                 this->m_expansionList->GetCoordim(0),
-                 "Number of input and output components differ");
-
-        // Initialize index.
-        m_exp_idx = 0;
-
-        // Loop over the blocks.
-        for (m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
-        {
-            m_expPtr = this->m_expansionList->GetExp(m_exp_idx);
-
-            // Block dependent.
-            auto &inblock  = in.GetBlocks()[m_blk];
-            auto &outblock = out.GetBlocks()[m_blk];
-
-            this->BlockOperator(inblock, outblock);
-
-            // Increment index for next element type.
-            m_exp_idx += inblock.GetNumElements();
-        }
-    }
-
-    // className - for OperatorFactory
-    static std::string className;
-
-    // instantiation function for CreatorFunction in OperatorFactory
-    static std::unique_ptr<Operator<TData>> instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-    {
-        return std::make_unique<
-            OperatorPhysDerivImpl<ExecSpace, Implementation, TData>>(
-            expansionList);
-    }
-
-    void BlockOperator(BlockAccessor<TData> &inblock,
-                       BlockAccessor<TData> &outblock)
+    void apply(BlockAccessor<TData> &inblock,
+               BlockAccessor<TData> &outblock) override
     {
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -108,42 +64,42 @@ public:
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Determine shape and type of the element.
-        const auto deformed =
-            m_expPtr->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed;
-        const auto shapeType = m_expPtr->DetShapeType();
-        const auto dimension = m_expPtr->GetShapeDimension();
-        const auto nCoord    = m_expPtr->GetCoordim();
-        const auto nqTot     = m_expPtr->GetTotPoints();
+        const auto deformed = this->m_exp->GetMetricInfo()->GetGtype() ==
+                              SpatialDomains::eDeformed;
+        const auto shapeType = this->m_exp->DetShapeType();
+        const auto dimension = this->m_exp->GetShapeDimension();
+        const auto nqTot     = this->m_exp->GetTotPoints();
+        const auto nCoord    = this->m_exp->GetCoordim();
         const auto ndf       = nCoord * dimension;
+
+        auto nElmts = inblock.GetNumElements();
 
         // Fetch matrix.
         std::vector<LibUtilities::BasisKey> basisKeys(
             dimension, LibUtilities::NullBasisKey);
         for (unsigned int d = 0; d < dimension; d++)
         {
-            basisKeys[d] = m_expPtr->GetBasis(d)->GetBasisKey();
+            basisKeys[d] = this->m_exp->GetBasis(d)->GetBasisKey();
         }
         auto matptr = this->m_dataWarehouse->template GetData<ExecSpace>(
             StdMatKey<TData>(basisKeys, shapeType, ePhysDerivStdMat));
 
-        auto nElmts = inblock.GetNumElements();
-
-        // Fetch Jacobian data.
+        // Fetch derivative factor.
         auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
-            DerivFactorKey<TData>(m_exp_idx, m_implInterleaveWidth,
+            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), false));
 
         // Allocate storate.
-        if (m_deriv.size() <= m_blk)
+        if (m_deriv.size() == 0)
         {
-            m_deriv.push_back(std::vector<TData>(dimension * nqTot * nElmts));
+            m_deriv = std::vector<TData>(dimension * nqTot * nElmts);
         }
 
-        // Get pointer.
-        auto derivPtr = m_deriv[m_blk].data();
+        // Get workspace pointer.
+        auto derivPtr = m_deriv.data();
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             auto dfptr = dfptr_init;
 
@@ -218,16 +174,23 @@ public:
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 
-private:
-    unsigned int m_exp_idx;
-    unsigned int m_blk;
-    unsigned int m_nComps;
+    // className - for BlockOperatorFactory
+    static std::string className;
 
-    LocalRegions::ExpansionSharedPtr m_expPtr;
+    // Instantiation function for CreatorFunction in BlockOperatorFactory.
+    static std::unique_ptr<BlockOperator<TData>> instantiate(
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse)
+    {
+        return std::make_unique<
+            BlockOperatorPhysDerivImpl<ExecSpace, Implementation, TData>>(
+            exp, dataWarehouse);
+    }
 
-    std::vector<std::vector<TData>> m_deriv;
+protected:
+    std::vector<TData> m_deriv;
 
-    static constexpr size_t m_implInterleaveWidth = 1;
+    static constexpr unsigned int m_implInterleaveWidth = 1;
 };
 
 } // namespace Nektar::Operators::detail

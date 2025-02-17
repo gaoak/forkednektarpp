@@ -45,164 +45,155 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename Implementation, typename TData>
-class OperatorHelmholtzImpl : public OperatorHelmholtz<TData>
+class BlockOperatorHelmholtzImpl : public BlockOperatorHelmholtz<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    OperatorHelmholtzImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorHelmholtz<TData>(expansionList),
+    BlockOperatorHelmholtzImpl(const LocalRegions::ExpansionSharedPtr &exp,
+                               NekDataWarehouseSharedPtr dataWarehouse)
+        : BlockOperatorHelmholtz<TData>(exp, dataWarehouse),
           m_diffCoeff(MemoryRegion<TData>::template Create<MemSpace>(
-              "Helmholtz diffCoeff",
-              expansionList->GetCoordim(0) * expansionList->GetCoordim(0),
+              "Helmholtz diffCoeff", exp->GetCoordim() * exp->GetCoordim(),
               ExecSpace::alignment))
     {
-        auto nCoord = this->m_expansionList->GetCoordim(0);
+        auto nCoord = this->m_exp->GetCoordim();
 
         m_diffCoeff.template Initialize<MemSpace>(0);
 
         TData *diffCoeff =
             m_diffCoeff.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
 
-        for (size_t d = 0; d < nCoord; d++)
+        for (unsigned int d = 0; d < nCoord; d++)
         {
             diffCoeff[d * nCoord + d] = 1.0; // temporary solution
         }
 
-        m_BwdTransOp =
-            BwdTrans<TData>::template Create<ExecSpace, Implementation>(
-                this->m_expansionList);
-        m_PhysDerivOp =
-            PhysDeriv<TData>::template Create<ExecSpace, Implementation>(
-                this->m_expansionList);
-        m_IProductWRTBaseOp =
-            IProductWRTBase<TData>::template Create<ExecSpace, Implementation>(
-                this->m_expansionList);
-        m_IProductWRTDerivBaseOp = IProductWRTDerivBase<TData>::template Create<
-            ExecSpace, Implementation>(this->m_expansionList);
+        this->m_BwdTransOp =
+            BlockBwdTrans<TData>::template Create<ExecSpace, Implementation>(
+                this->m_exp, this->m_dataWarehouse);
+        this->m_PhysDerivOp =
+            BlockPhysDeriv<TData>::template Create<ExecSpace, Implementation>(
+                this->m_exp, this->m_dataWarehouse);
+        this->m_IProductWRTBaseOp =
+            BlockIProductWRTBase<TData>::template Create<ExecSpace,
+                                                         Implementation>(
+                this->m_exp, this->m_dataWarehouse);
+        this->m_IProductWRTDerivBaseOp =
+            BlockIProductWRTDerivBase<TData>::template Create<ExecSpace,
+                                                              Implementation>(
+                this->m_exp, this->m_dataWarehouse);
 
-        m_IProductWRTDerivBaseOp->SetAppend(true);
-
-        m_PhysBlockAttributes =
-            GetBlockAttributes<TData>(FieldState::Phys, expansionList);
+        this->m_IProductWRTDerivBaseOp->SetAppend(true);
     }
 
-    void apply(Field<TData, FieldState::Coeff> &in,
-               Field<TData, FieldState::Coeff> &out) override
+    void apply(BlockAccessor<TData> &inblock,
+               BlockAccessor<TData> &outblock) override
     {
-        int CompSize = in.GetNumComponents();
-        int nCoords  = this->m_expansionList->GetCoordim(0);
+        unsigned int CompSize = inblock.GetNumComponents();
+        unsigned int nCoords  = this->m_exp->GetCoordim();
 
         // initialise bwd storage space if not for correct number of components
-        if (m_bwd.GetNumComponents() != CompSize)
+        unsigned int size = inblock.GetNumElementsWithPadding() *
+                            this->m_exp->GetTotPoints() * CompSize;
+        if (this->m_bwd.size() != size)
         {
-            m_bwd = Field<TData, FieldState::Phys>::template Create<MemSpace>(
-                "Helmholtz tmp", m_PhysBlockAttributes, CompSize,
-                ExecSpace::alignment);
-            m_deriv = Field<TData, FieldState::Phys>::template Create<MemSpace>(
-                "Helmholtz bwd", m_PhysBlockAttributes, CompSize * nCoords,
-                ExecSpace::alignment);
+            this->m_bwd = MemoryRegion<TData>::template Create<MemSpace>(
+                "Helmholtz bwd", size, ExecSpace::alignment);
+            this->m_deriv = MemoryRegion<TData>::template Create<MemSpace>(
+                "Helmholtz deriv", size * nCoords, ExecSpace::alignment);
         }
 
+        auto bwd = BlockAccessor(inblock.GetExpIdx(), inblock.GetNumElements(),
+                                 inblock.GetNumElementsWithPadding(),
+                                 this->m_exp->GetTotPoints(), 1, this->m_bwd,
+                                 CompSize, 0);
+        auto deriv = BlockAccessor(
+            inblock.GetExpIdx(), inblock.GetNumElements(),
+            inblock.GetNumElementsWithPadding(), this->m_exp->GetTotPoints(), 1,
+            this->m_deriv, CompSize * nCoords, 0);
+
         // Step 1: BwdTrans.
-        this->m_BwdTransOp->apply(in, m_bwd);
+        this->m_BwdTransOp->apply(inblock, bwd);
 
         // Step 2: PhysDeriv.
-        this->m_PhysDerivOp->apply(m_bwd, m_deriv);
+        this->m_PhysDerivOp->apply(bwd, deriv);
 
         // Step 3: Inner product for mass matrix operation.
-        this->m_IProductWRTBaseOp->apply(m_bwd, out);
+        this->m_IProductWRTBaseOp->apply(bwd, outblock);
 
         // Step 4: Multiply by diffusion coefficient.
-        DiffusionCoeff(m_deriv);
+        DiffusionCoeff(deriv);
 
         // Step 5: Inner product.
-        this->m_IProductWRTDerivBaseOp->apply(m_deriv, out);
+        this->m_IProductWRTDerivBaseOp->apply(deriv, outblock);
     }
 
-    void DiffusionCoeff(Field<TData, FieldState::Phys> &deriv)
+    void DiffusionCoeff(BlockAccessor<TData> &deriv)
     {
         // Initialize pointers.
         TData *diffCoeffPtr =
             this->m_diffCoeff.template GetPtr<MemSpace, ReadWrite>();
 
-        // Initialize index.
-        size_t exp_idx = 0;
+        // Initialize pointers.
+        auto derivPtr = deriv.template GetPtr<MemSpace, ReadWrite>();
 
-        for (size_t blk = 0; blk < deriv.GetBlocks().size(); ++blk)
+        // Determine shape and type of the element.
+        auto nCoord = this->m_exp->GetCoordim();
+
+        auto store = std::vector<Array<OneD, TData>>(nCoord);
+
+        // Loop over components.
+        for (unsigned int nc = 0; nc < deriv.GetNumComponents(); ++nc)
         {
-            // Block dependent.
-            auto &derivblock  = deriv.GetBlocks()[blk];
-            const auto nElmts = derivblock.GetNumElements();
-
-            // Initialize pointers.
-            auto derivPtr = derivblock.template GetPtr<MemSpace, ReadWrite>();
-
-            // Determine shape and type of the element.
-            const auto expPtr = this->m_expansionList->GetExp(exp_idx);
-            auto nCoord       = expPtr->GetCoordim();
-            auto nqTot        = expPtr->GetTotPoints();
-
-            auto store = std::vector<Array<OneD, TData>>(nCoord);
-
             // Multiply by diffusion coefficient.
-            for (size_t d = 0; d < nCoord; d++)
+            for (unsigned int d = 0; d < nCoord; d++)
             {
-                store[d] = Array<OneD, TData>(nqTot * nElmts);
+                store[d] = Array<OneD, TData>(deriv.size());
 
-                Vmath::Smul(nqTot * nElmts, diffCoeffPtr[d * nCoord], derivPtr,
-                            1, store[d].data(), 1);
+                Vmath::Smul(deriv.size(), diffCoeffPtr[d * nCoord], derivPtr, 1,
+                            store[d].data(), 1);
 
-                for (size_t l = 1; l < nCoord; l++)
+                for (unsigned int l = 1; l < nCoord; l++)
                 {
-                    Vmath::Svtvp(nqTot * nElmts, diffCoeffPtr[d * nCoord + l],
-                                 derivPtr + l * derivblock.size(), 1,
+                    Vmath::Svtvp(deriv.size(), diffCoeffPtr[d * nCoord + l],
+                                 derivPtr + l * deriv.size(), 1,
                                  store[d].data(), 1, store[d].data(), 1);
                 }
             }
 
-            for (size_t d = 0; d < nCoord; d++)
+            for (unsigned int d = 0; d < nCoord; d++)
             {
-                Vmath::Vcopy(nqTot * nElmts, store[d].data(), 1,
-                             derivPtr + d * derivblock.size(), 1);
+                Vmath::Vcopy(deriv.size(), store[d].data(), 1,
+                             derivPtr + d * deriv.size(), 1);
             }
-
-            // Increment index for next element type.
-            exp_idx += nElmts;
         }
     }
 
-    // className - for OperatorFactory
+    // className - for BlockOperatorFactory
     static std::string className;
 
-    // instantiation function for CreatorFunction in OperatorFactory
-    static std::unique_ptr<Operator<TData>> instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
+    // Instantiation function for CreatorFunction in BlockOperatorFactory.
+    static std::unique_ptr<BlockOperator<TData>> instantiate(
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
-            OperatorHelmholtzImpl<ExecSpace, Implementation, TData>>(
-            expansionList);
+            BlockOperatorHelmholtzImpl<ExecSpace, Implementation, TData>>(
+            exp, dataWarehouse);
     }
 
-    void SetLambda(TData lambda) override
-    {
-        this->m_lambda = lambda;
-        m_IProductWRTBaseOp->SetScale(this->m_lambda);
-    }
+protected:
+    MemoryRegion<TData> m_bwd;
+    MemoryRegion<TData> m_deriv;
 
-private:
-    Field<TData, FieldState::Phys> m_bwd;
-    Field<TData, FieldState::Phys> m_deriv;
-
-    std::shared_ptr<OperatorBwdTrans<TData>> m_BwdTransOp;
-    std::shared_ptr<OperatorPhysDeriv<TData>> m_PhysDerivOp;
-    std::shared_ptr<OperatorIProductWRTBase<TData>> m_IProductWRTBaseOp;
-    std::shared_ptr<OperatorIProductWRTDerivBase<TData>>
+    std::shared_ptr<BlockOperatorBwdTrans<TData>> m_BwdTransOp;
+    std::shared_ptr<BlockOperatorPhysDeriv<TData>> m_PhysDerivOp;
+    std::shared_ptr<BlockOperatorIProductWRTBase<TData>> m_IProductWRTBaseOp;
+    std::shared_ptr<BlockOperatorIProductWRTDerivBase<TData>>
         m_IProductWRTDerivBaseOp;
 
     MemoryRegion<TData> m_diffCoeff;
-
-    std::vector<BlockAttributes> m_PhysBlockAttributes;
 };
 
 } // namespace Nektar::Operators::detail

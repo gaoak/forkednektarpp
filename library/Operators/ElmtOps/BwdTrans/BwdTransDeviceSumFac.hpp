@@ -43,106 +43,22 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename Implementation, typename TData>
-class OperatorBwdTransImpl : public OperatorBwdTrans<TData>
+class BlockOperatorBwdTransImpl : public BlockOperatorBwdTrans<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    OperatorBwdTransImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorBwdTrans<TData>(expansionList)
+    BlockOperatorBwdTransImpl(const LocalRegions::ExpansionSharedPtr &exp,
+                              NekDataWarehouseSharedPtr dataWarehouse)
+        : BlockOperatorBwdTrans<TData>(exp, dataWarehouse)
     {
     }
 
-    void apply(Field<TData, FieldState::Coeff> &in,
-               Field<TData, FieldState::Phys> &out) override
-    {
-        m_nComps = in.GetNumComponents();
-        ASSERTL1(m_nComps == out.GetNumComponents(),
-                 "Number of input and output components differ");
-
-        // Initialize index.
-        m_exp_idx = 0;
-
-        // Loop over the blocks.
-        for (m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
-        {
-            m_expPtr = this->m_expansionList->GetExp(m_exp_idx);
-
-            // Block dependent.
-            auto &inblock  = in.GetBlocks()[m_blk];
-            auto &outblock = out.GetBlocks()[m_blk];
-
-            this->BlockOperator(inblock, outblock);
-
-            // Increment index for next element type.
-            m_exp_idx += inblock.GetNumElements();
-        }
-    }
-
-    size_t GetSharedWorkspaceSize(LibUtilities::ShapeType shapeType,
-                                  size_t nElmts, size_t nm0, size_t nm1,
-                                  size_t nm2)
-    {
-        size_t wspsize = 0;
-
-        if (shapeType == LibUtilities::Quad)
-        {
-            wspsize = nm1 * nElmts;
-        }
-        else if (shapeType == LibUtilities::Tri)
-        {
-            wspsize = nm0 * nElmts;
-        }
-        else if (shapeType == LibUtilities::Hex)
-        {
-            wspsize = (nm1 * nm2 + nm2) * nElmts;
-        }
-        else if (shapeType == LibUtilities::Tet)
-        {
-            wspsize = ((2 * nm1 - nm0 + 1) * nm0 / 2 + nm0) * nElmts;
-        }
-        else if (shapeType == LibUtilities::Prism)
-        {
-            wspsize = (nm0 * nm1 + nm0) * nElmts;
-        }
-        else if (shapeType == LibUtilities::Pyr)
-        {
-            wspsize = (nm0 * nm1 + nm0) * nElmts;
-        }
-
-        return wspsize;
-    }
-
-    MemoryRegion<TData> SetWorkspace(LibUtilities::ShapeType shapeType,
-                                     size_t nElmts, size_t nm0, size_t nm1,
-                                     size_t nm2)
-    {
-        constexpr bool device_only = true;
-
-        size_t wspsize =
-            GetSharedWorkspaceSize(shapeType, nElmts, nm0, nm1, nm2);
-
-        return MemoryRegion<TData>::template Create<MemSpace>(
-            wspsize, ExecSpace::alignment, device_only);
-    }
-
-    // className - for OperatorFactory
-    static std::string className;
-
-    // instantiation function for CreatorFunction in OperatorFactory
-    static std::unique_ptr<Operator<TData>> instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-    {
-        return std::make_unique<
-            OperatorBwdTransImpl<ExecSpace, Implementation, TData>>(
-            expansionList);
-    }
-
-    void BlockOperator(BlockAccessor<TData> &inblock,
-                       BlockAccessor<TData> &outblock)
+    void apply(BlockAccessor<TData> &inblock,
+               BlockAccessor<TData> &outblock) override
     {
         // Determine shape and type of the element.
-        const auto shapeType = m_expPtr->DetShapeType();
+        const auto shapeType = this->m_exp->DetShapeType();
 
         switch (shapeType)
         {
@@ -193,19 +109,73 @@ public:
         }
     }
 
+    // className - for BlockOperatorFactory
+    static std::string className;
+
+    // Instantiation function for CreatorFunction in BlockOperatorFactory.
+    static std::unique_ptr<BlockOperator<TData>> instantiate(
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse)
+    {
+        return std::make_unique<
+            BlockOperatorBwdTransImpl<ExecSpace, Implementation, TData>>(
+            exp, dataWarehouse);
+    }
+
 protected:
-    unsigned int m_exp_idx;
-    unsigned int m_blk;
-    unsigned int m_nComps;
+    MemoryRegion<TData> m_wsp;
 
-    LocalRegions::ExpansionSharedPtr m_expPtr;
-
-    std::vector<MemoryRegion<TData>> m_wsp;
-
-    static constexpr size_t m_implInterleaveWidth =
+    static constexpr unsigned int m_implInterleaveWidth =
         std::is_same_v<Implementation, Operators::SumFac>
             ? NektarSpaces::vector_width<TData>::value
             : 1u;
+
+    unsigned int GetSharedWorkspaceSize(LibUtilities::ShapeType shapeType,
+                                        unsigned int nElmts, unsigned int nm0,
+                                        unsigned int nm1, unsigned int nm2)
+    {
+        unsigned int wspsize = 0;
+
+        if (shapeType == LibUtilities::Quad)
+        {
+            wspsize = nm1 * nElmts;
+        }
+        else if (shapeType == LibUtilities::Tri)
+        {
+            wspsize = nm0 * nElmts;
+        }
+        else if (shapeType == LibUtilities::Hex)
+        {
+            wspsize = (nm1 * nm2 + nm2) * nElmts;
+        }
+        else if (shapeType == LibUtilities::Tet)
+        {
+            wspsize = ((2 * nm1 - nm0 + 1) * nm0 / 2 + nm0) * nElmts;
+        }
+        else if (shapeType == LibUtilities::Prism)
+        {
+            wspsize = (nm0 * nm1 + nm0) * nElmts;
+        }
+        else if (shapeType == LibUtilities::Pyr)
+        {
+            wspsize = (nm0 * nm1 + nm0) * nElmts;
+        }
+
+        return wspsize;
+    }
+
+    MemoryRegion<TData> SetWorkspace(LibUtilities::ShapeType shapeType,
+                                     unsigned int nElmts, unsigned int nm0,
+                                     unsigned int nm1, unsigned int nm2)
+    {
+        constexpr bool device_only = true;
+
+        unsigned int wspsize =
+            GetSharedWorkspaceSize(shapeType, nElmts, nm0, nm1, nm2);
+
+        return MemoryRegion<TData>::template Create<MemSpace>(
+            wspsize, ExecSpace::alignment, device_only);
+    }
 
     void SegBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
@@ -234,14 +204,15 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        const auto nm0 = m_expPtr->GetBasisNumModes(0);
-        const auto nq0 = m_expPtr->GetNumPoints(0);
+        const auto nm0 = this->m_exp->GetBasisNumModes(0);
+        const auto nq0 = this->m_exp->GetNumPoints(0);
+
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
         // Fetch basis data.
         auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(), eBasis));
-
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
+                                eBasis));
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -250,7 +221,7 @@ protected:
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
@@ -275,11 +246,12 @@ protected:
     void Operator1D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+
         // Fetch basis data.
         auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(), eBasis));
-
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
+                                eBasis));
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -288,7 +260,7 @@ protected:
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
@@ -313,21 +285,25 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        const auto nm0 = m_expPtr->GetBasisNumModes(0);
-        const auto nm1 = m_expPtr->GetBasisNumModes(1);
+        const auto nm0 = this->m_exp->GetBasisNumModes(0);
+        const auto nm1 = this->m_exp->GetBasisNumModes(1);
 
-        const auto nq0 = m_expPtr->GetNumPoints(0);
-        const auto nq1 = m_expPtr->GetNumPoints(1);
+        const auto nq0 = this->m_exp->GetNumPoints(0);
+        const auto nq1 = this->m_exp->GetNumPoints(1);
+
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
         // Flag for collapsed coordinate correction.
         const bool isModified =
-            m_expPtr->GetBasis(0)->GetBasisType() == LibUtilities::eModified_A;
+            (this->m_exp->GetBasisType(0) == LibUtilities::eModified_A);
 
         // Fetch basis data.
         auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(), eBasis));
+            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
+                                eBasis));
         auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(), eBasis));
+            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
+                                eBasis));
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -335,25 +311,22 @@ protected:
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
-
         // Set workspace.
         if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
         {
-            if (m_wsp.size() <= m_blk)
+            if (m_wsp.size() == 0)
             {
-                m_wsp.push_back(
-                    SetWorkspace(SHAPE_TYPE, nElmtsPad, nm0, nm1, 0));
+                m_wsp = SetWorkspace(SHAPE_TYPE, nElmtsPad, nm0, nm1, 0);
             }
         }
 
         // Get workspace pointer.
         auto wspptr = std::is_same_v<Implementation, Operators::SumFac>
-                          ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
+                          ? m_wsp.template GetPtr<MemSpace, WriteOnly>()
                           : nullptr;
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
@@ -381,15 +354,19 @@ protected:
     void Operator2D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+
         // Flag for collapsed coordinate correction.
         const bool isModified =
-            m_expPtr->GetBasis(0)->GetBasisType() == LibUtilities::eModified_A;
+            (this->m_exp->GetBasisType(0) == LibUtilities::eModified_A);
 
         // Fetch basis data.
         auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(), eBasis));
+            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
+                                eBasis));
         auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(), eBasis));
+            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
+                                eBasis));
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -397,25 +374,22 @@ protected:
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
-
         // Set workspace.
         if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
         {
-            if (m_wsp.size() <= m_blk)
+            if (m_wsp.size() == 0)
             {
-                m_wsp.push_back(
-                    SetWorkspace(SHAPE_TYPE, nElmtsPad, nm0, nm1, 0));
+                m_wsp = SetWorkspace(SHAPE_TYPE, nElmtsPad, nm0, nm1, 0);
             }
         }
 
         // Get workspace pointer.
         auto wspptr = std::is_same_v<Implementation, Operators::SumFac>
-                          ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
+                          ? m_wsp.template GetPtr<MemSpace, WriteOnly>()
                           : nullptr;
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
@@ -441,33 +415,36 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        const auto nm0 = m_expPtr->GetBasisNumModes(0);
-        const auto nm1 = m_expPtr->GetBasisNumModes(1);
-        const auto nm2 = m_expPtr->GetBasisNumModes(2);
+        const auto nm0 = this->m_exp->GetBasisNumModes(0);
+        const auto nm1 = this->m_exp->GetBasisNumModes(1);
+        const auto nm2 = this->m_exp->GetBasisNumModes(2);
 
-        const auto nq0 = m_expPtr->GetNumPoints(0);
-        const auto nq1 = m_expPtr->GetNumPoints(1);
-        const auto nq2 = m_expPtr->GetNumPoints(2);
+        const auto nq0 = this->m_exp->GetNumPoints(0);
+        const auto nq1 = this->m_exp->GetNumPoints(1);
+        const auto nq2 = this->m_exp->GetNumPoints(2);
+
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
         // Flag for collapsed coordinate correction.
         const bool isModified =
-            m_expPtr->GetBasis(0)->GetBasisType() == LibUtilities::eModified_A;
+            (this->m_exp->GetBasisType(0) == LibUtilities::eModified_A);
 
         // Fetch basis data.
         auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(), eBasis));
+            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
+                                eBasis));
         auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(), eBasis));
+            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
+                                eBasis));
         auto B2 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(2)->GetBasisKey(), eBasis));
+            BasisDataKey<TData>(this->m_exp->GetBasis(2)->GetBasisKey(),
+                                eBasis));
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
-
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
         // Precompute index, if necessary.
         const bool indexing =
@@ -485,20 +462,19 @@ protected:
         // Set workspace.
         if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
         {
-            if (m_wsp.size() <= m_blk)
+            if (m_wsp.size() == 0)
             {
-                m_wsp.push_back(
-                    SetWorkspace(SHAPE_TYPE, nElmtsPad, nm0, nm1, nm2));
+                m_wsp = SetWorkspace(SHAPE_TYPE, nElmtsPad, nm0, nm1, nm2);
             }
         }
 
         // Get workspace pointer.
         auto wspptr = std::is_same_v<Implementation, Operators::SumFac>
-                          ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
+                          ? m_wsp.template GetPtr<MemSpace, WriteOnly>()
                           : nullptr;
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
@@ -525,25 +501,28 @@ protected:
     void Operator3D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+
         // Flag for collapsed coordinate correction.
         const bool isModified =
-            m_expPtr->GetBasis(0)->GetBasisType() == LibUtilities::eModified_A;
+            (this->m_exp->GetBasisType(0) == LibUtilities::eModified_A);
 
         // Fetch basis data.
         auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(), eBasis));
+            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
+                                eBasis));
         auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(), eBasis));
+            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
+                                eBasis));
         auto B2 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(2)->GetBasisKey(), eBasis));
+            BasisDataKey<TData>(this->m_exp->GetBasis(2)->GetBasisKey(),
+                                eBasis));
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
-
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
         // Precompute index, if necessary.
         const bool indexing =
@@ -561,20 +540,19 @@ protected:
         // Set workspace.
         if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
         {
-            if (m_wsp.size() <= m_blk)
+            if (m_wsp.size() == 0)
             {
-                m_wsp.push_back(
-                    SetWorkspace(SHAPE_TYPE, nElmtsPad, nm0, nm1, nm2));
+                m_wsp = SetWorkspace(SHAPE_TYPE, nElmtsPad, nm0, nm1, nm2);
             }
         }
 
         // Get workspace pointer.
         auto wspptr = std::is_same_v<Implementation, Operators::SumFac>
-                          ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
+                          ? m_wsp.template GetPtr<MemSpace, WriteOnly>()
                           : nullptr;
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(

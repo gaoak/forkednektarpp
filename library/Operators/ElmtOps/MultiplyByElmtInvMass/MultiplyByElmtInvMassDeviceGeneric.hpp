@@ -38,104 +38,28 @@
 #include <LocalRegions/Expansion.h>
 
 #include "Operators/ElmtOps/OperatorMultiplyByElmtInvMass.hpp"
-#include "Operators/LoopExecution/LoopExecution.hpp"
+#include "Operators/Utils/UtilsKernels.hpp"
 #include "Operators/Utils/deviceBlas.hpp"
 
 namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename Implementation, typename TData>
-class OperatorMultiplyByElmtInvMassImpl
-    : public OperatorMultiplyByElmtInvMass<TData>
+class BlockOperatorMultiplyByElmtInvMassImpl
+    : public BlockOperatorMultiplyByElmtInvMass<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    OperatorMultiplyByElmtInvMassImpl(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorMultiplyByElmtInvMass<TData>(expansionList)
+    BlockOperatorMultiplyByElmtInvMassImpl(
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse)
+        : BlockOperatorMultiplyByElmtInvMass<TData>(exp, dataWarehouse)
     {
-        const bool device_only = true;
-
-        // Initialize index.
-        size_t exp_idx = 0;
-
-        // Loop over the elements of expansionList.
-        auto blocks =
-            GetBlockAttributes<TData>(FieldState::Phys, expansionList);
-        std::vector<TData> dmat;
-        for (size_t blk = 0; blk < blocks.size(); ++blk)
-        {
-            const auto expPtr   = this->m_expansionList->GetExp(exp_idx);
-            const auto nmTot    = expPtr->GetNcoeffs();
-            const auto deformed = expPtr->GetMetricInfo()->GetGtype() ==
-                                  SpatialDomains::eDeformed;
-            const auto nElmts = blocks[blk].GetNumElements();
-
-            // Copy inv mass matrix.
-            if (deformed)
-            {
-                dmat.resize(nElmts * nmTot * nmTot);
-                auto dmatptr = dmat.data();
-                for (size_t e = 0; e < nElmts; ++e, ++exp_idx)
-                {
-                    const auto expPtr = this->m_expansionList->GetExp(exp_idx);
-                    const auto &InvMass =
-                        expPtr->GetLocMatrix(StdRegions::eInvMass);
-                    std::copy_n(InvMass->GetRawPtr(), nmTot * nmTot, dmatptr);
-                    dmatptr += nmTot * nmTot;
-                }
-            }
-            else
-            {
-                exp_idx += nElmts;
-            }
-
-            m_dmat.push_back(
-                MemoryRegion<TData>::template FromVector<MemSpace, TData>(
-                    dmat, ExecSpace::alignment, device_only));
-        }
     }
 
-    void apply(Field<TData, FieldState::Coeff> &in,
-               Field<TData, FieldState::Coeff> &out) override
-    {
-        m_nComps = in.GetNumComponents();
-        ASSERTL1(m_nComps == out.GetNumComponents(),
-                 "Number of input and output components differ");
-
-        // Initialize index.
-        m_exp_idx = 0;
-
-        // Loop over the blocks.
-        for (m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
-        {
-            m_expPtr = this->m_expansionList->GetExp(m_exp_idx);
-
-            // Block dependent.
-            auto &inblock  = in.GetBlocks()[m_blk];
-            auto &outblock = out.GetBlocks()[m_blk];
-
-            this->BlockOperator(inblock, outblock);
-
-            // Increment index for next element type.
-            m_exp_idx += inblock.GetNumElements();
-        }
-    }
-
-    // className - for OperatorFactory
-    static std::string className;
-
-    // instantiation function for CreatorFunction in OperatorFactory
-    static std::unique_ptr<Operator<TData>> instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-    {
-        return std::make_unique<OperatorMultiplyByElmtInvMassImpl<
-            ExecSpace, Implementation, TData>>(expansionList);
-    }
-
-    void BlockOperator(BlockAccessor<TData> &inblock,
-                       BlockAccessor<TData> &outblock)
+    void apply(BlockAccessor<TData> &inblock,
+               BlockAccessor<TData> &outblock) override
     {
 #if defined(NEKTAR_ENABLE_CUDA)
         auto handle = CUBLASHandle::GetInstance();
@@ -144,15 +68,17 @@ public:
 #endif
 
         // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Determine shape and type of the element.
-        const auto shapeType = m_expPtr->DetShapeType();
-        const auto dimension = m_expPtr->GetShapeDimension();
-        const auto nmTot     = m_expPtr->GetNcoeffs();
-        const auto deformed =
-            m_expPtr->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed;
+        const auto shapeType = this->m_exp->DetShapeType();
+        const auto dimension = this->m_exp->GetShapeDimension();
+        const auto nmTot     = this->m_exp->GetNcoeffs();
+        const auto deformed  = this->m_exp->GetMetricInfo()->GetGtype() ==
+                              SpatialDomains::eDeformed;
         const auto nElmts = inblock.GetNumElements();
 
         const TData alpha = 1.0;
@@ -160,11 +86,17 @@ public:
         if (deformed)
         {
             // Loop over components.
-            for (size_t nc = 0; nc < m_nComps; ++nc)
+            for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
             {
+                // Reshape, if necessary.
+                ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                    inblock.GetInterleaveWidth(),
+                    inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
+                    (TData *)inptr);
+
                 // Perform batched matrix-vector multiply.
-                const auto dmatptr =
-                    m_dmat[m_blk].template GetPtr<MemSpace, ReadOnly>();
+                auto dmatptr =
+                    this->m_invmass.template GetPtr<MemSpace, ReadOnly>();
                 deviceGemmStridedBatched(handle, "N", "N", nmTot, 1, nmTot,
                                          alpha, dmatptr, nmTot, nmTot * nmTot,
                                          inptr, nmTot, nmTot, beta, outptr,
@@ -178,9 +110,9 @@ public:
             // Fetch basis key for the current element type.
             std::vector<LibUtilities::BasisKey> basisKeys(
                 dimension, LibUtilities::NullBasisKey);
-            for (size_t d = 0; d < dimension; d++)
+            for (unsigned int d = 0; d < dimension; d++)
             {
-                basisKeys[d] = m_expPtr->GetBasis(d)->GetBasisKey();
+                basisKeys[d] = this->m_exp->GetBasis(d)->GetBasisKey();
             }
             auto matptr = this->m_dataWarehouse->template GetData<ExecSpace>(
                 StdMatKey<TData>(basisKeys, shapeType,
@@ -188,11 +120,18 @@ public:
 
             // Fetch jacobian.
             auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
-                JacobianKey<TData>(m_exp_idx, 1, inblock.GetNumElements()));
+                JacobianKey<TData>(inblock.GetExpIdx(), 1,
+                                   inblock.GetNumElements()));
 
             // Loop over components.
-            for (size_t nc = 0; nc < m_nComps; ++nc)
+            for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
             {
+                // Reshape, if necessary.
+                ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                    inblock.GetInterleaveWidth(),
+                    inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
+                    (TData *)inptr);
+
                 deviceGemm(handle, "N", "N", nmTot, nElmts, nmTot, alpha,
                            matptr, nmTot, inptr, nmTot, beta, outptr, nmTot);
                 Nektar::parallel_for<ExecSpace>(
@@ -205,14 +144,30 @@ public:
         }
     }
 
-private:
-    unsigned int m_exp_idx;
-    unsigned int m_blk;
-    unsigned int m_nComps;
+    void v_SetInvMassMatrix(std::vector<TData> &invmass) override
+    {
+        const bool device_only = true;
 
-    LocalRegions::ExpansionSharedPtr m_expPtr;
+        this->m_invmass =
+            MemoryRegion<TData>::template FromVector<MemSpace, TData>(
+                invmass, ExecSpace::alignment, device_only);
+    }
 
-    std::vector<MemoryRegion<TData>> m_dmat;
+    // className - for BlockOperatorFactory
+    static std::string className;
+
+    // Instantiation function for CreatorFunction in BlockOperatorFactory.
+    static std::unique_ptr<BlockOperator<TData>> instantiate(
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse)
+    {
+        return std::make_unique<BlockOperatorMultiplyByElmtInvMassImpl<
+            ExecSpace, Implementation, TData>>(exp, dataWarehouse);
+    }
+
+protected:
+    static constexpr unsigned int m_implInterleaveWidth = 1;
+    MemoryRegion<TData> m_invmass;
 };
 
 } // namespace Nektar::Operators::detail

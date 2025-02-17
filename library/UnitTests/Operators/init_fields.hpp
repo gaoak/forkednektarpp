@@ -240,7 +240,7 @@ public:
                 }
 
                 BlockAttributes new_block(
-                    blocks_in[blk].GetNumElements(),
+                    blocks_in[blk].GetExpIdx(), blocks_in[blk].GetNumElements(),
                     blocks_in[blk].GetNumElementsWithPadding(), ndata,
                     blocks_in[blk].GetInterleaveWidth());
 

@@ -43,19 +43,19 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename Implementation, typename TData>
-class OperatorHelmholtzImpl : public OperatorHelmholtz<TData>
+class BlockOperatorHelmholtzImpl : public BlockOperatorHelmholtz<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    OperatorHelmholtzImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorHelmholtz<TData>(expansionList),
+    BlockOperatorHelmholtzImpl(const LocalRegions::ExpansionSharedPtr &exp,
+                               NekDataWarehouseSharedPtr dataWarehouse)
+        : BlockOperatorHelmholtz<TData>(exp, dataWarehouse),
           m_diffCoeff(MemoryRegion<TData>::template Create<MemSpace>(
-              "Helmholtz diffCoeff",
-              expansionList->GetCoordim(0) * expansionList->GetCoordim(0),
+              "Helmholtz diffCoeff", exp->GetCoordim() * exp->GetCoordim(),
               ExecSpace::alignment))
     {
-        auto nCoord = this->m_expansionList->GetCoordim(0);
+        auto nCoord = this->m_exp->GetCoordim();
 
         m_diffCoeff.template Initialize<MemSpace>(0);
 
@@ -64,7 +64,7 @@ public:
 
         if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
         {
-            for (size_t d = 0; d < nCoord; d++)
+            for (unsigned int d = 0; d < nCoord; d++)
             {
                 diffCoeff[d * nCoord + d] = 1.0;
             }
@@ -83,107 +83,11 @@ public:
         }
     }
 
-    void apply(Field<TData, FieldState::Coeff> &in,
-               Field<TData, FieldState::Coeff> &out) override
-    {
-        m_nComps = in.GetNumComponents();
-        ASSERTL1(m_nComps == out.GetNumComponents(),
-                 "Number of input and output components differ");
-
-        // Initialize index.
-        m_exp_idx = 0;
-
-        // Loop over the blocks.
-        for (m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
-        {
-            m_expPtr = this->m_expansionList->GetExp(m_exp_idx);
-
-            // Block dependent.
-            auto &inblock  = in.GetBlocks()[m_blk];
-            auto &outblock = out.GetBlocks()[m_blk];
-
-            this->BlockOperator(inblock, outblock);
-
-            // Increment index for next element type.
-            m_exp_idx += inblock.GetNumElements();
-        }
-    }
-
-    size_t GetSharedWorkspaceSize(LibUtilities::ShapeType shapeType,
-                                  size_t nElmts, [[maybe_unused]] size_t ncoord,
-                                  [[maybe_unused]] size_t nq0, size_t nq1,
-                                  size_t nq2, [[maybe_unused]] size_t nm0,
-                                  size_t nm1, size_t nm2)
-    {
-        size_t wspsize = 0;
-
-        if (shapeType == LibUtilities::Seg)
-        {
-            wspsize = (1 + ncoord) * nq0 * nElmts;
-        }
-        else if (shapeType == LibUtilities::Quad)
-        {
-            wspsize = ((1 + ncoord) * nq0 * nq1 + nq1) * nElmts;
-        }
-        else if (shapeType == LibUtilities::Tri)
-        {
-            wspsize = ((1 + ncoord) * nq0 * nq1 + std::max(nq1, nm0)) * nElmts;
-        }
-        else if (shapeType == LibUtilities::Hex)
-        {
-            wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2) * nElmts;
-        }
-        else if (shapeType == LibUtilities::Tet)
-        {
-            wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2 + nm2) * nElmts;
-        }
-        else if (shapeType == LibUtilities::Prism)
-        {
-            wspsize = (4 * nq0 * nq1 * nq2 + std::max(nq1 * nq2, nm0 * nm1) +
-                       std::max(nq2, nm0) + nm1) *
-                      nElmts;
-        }
-        else if (shapeType == LibUtilities::Pyr)
-        {
-            wspsize = (4 * nq0 * nq1 * nq2 + std::max(nq1 * nq2, nm0 * nm1) +
-                       std::max(nq2, nm0)) *
-                      nElmts;
-        }
-
-        return wspsize;
-    }
-
-    MemoryRegion<TData> SetWorkspace(LibUtilities::ShapeType shapeType,
-                                     size_t nElmts, size_t ncoord, size_t nq0,
-                                     size_t nq1, size_t nq2, size_t nm0,
-                                     size_t nm1, size_t nm2)
-    {
-        constexpr bool device_only = true;
-
-        size_t wspsize = GetSharedWorkspaceSize(shapeType, nElmts, ncoord, nq0,
-                                                nq1, nq2, nm0, nm1, nm2);
-
-        return MemoryRegion<TData>::template Create<MemSpace>(
-            wspsize, ExecSpace::alignment, device_only);
-    }
-
-    // className - for OperatorFactory
-    static std::string className;
-
-    // instantiation function for CreatorFunction in OperatorFactory
-    static std::unique_ptr<Operator<TData>> instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-    {
-        return std::make_unique<
-            OperatorHelmholtzImpl<ExecSpace, Implementation, TData>>(
-            expansionList);
-    }
-
-    void BlockOperator(BlockAccessor<TData> &inblock,
-                       BlockAccessor<TData> &outblock)
+    void apply(BlockAccessor<TData> &inblock,
+               BlockAccessor<TData> &outblock) override
     {
         // Determine shape and type of the element.
-        const auto shapeType = m_expPtr->DetShapeType();
+        const auto shapeType = this->m_exp->DetShapeType();
 
         switch (shapeType)
         {
@@ -234,21 +138,89 @@ public:
         }
     }
 
+    // className - for BlockOperatorFactory
+    static std::string className;
+
+    // Instantiation function for CreatorFunction in BlockOperatorFactory.
+    static std::unique_ptr<BlockOperator<TData>> instantiate(
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse)
+    {
+        return std::make_unique<
+            BlockOperatorHelmholtzImpl<ExecSpace, Implementation, TData>>(
+            exp, dataWarehouse);
+    }
+
 protected:
     MemoryRegion<TData> m_diffCoeff;
 
-    unsigned int m_exp_idx;
-    unsigned int m_blk;
-    unsigned int m_nComps;
+    MemoryRegion<TData> m_wsp;
 
-    LocalRegions::ExpansionSharedPtr m_expPtr;
-
-    std::vector<MemoryRegion<TData>> m_wsp;
-
-    static constexpr size_t m_implInterleaveWidth =
+    static constexpr unsigned int m_implInterleaveWidth =
         std::is_same_v<Implementation, Operators::SumFac>
             ? NektarSpaces::vector_width<TData>::value
             : 1u;
+
+    unsigned int GetSharedWorkspaceSize(LibUtilities::ShapeType shapeType,
+                                        unsigned int nElmts,
+                                        [[maybe_unused]] unsigned int ncoord,
+                                        [[maybe_unused]] unsigned int nq0,
+                                        unsigned int nq1, unsigned int nq2,
+                                        [[maybe_unused]] unsigned int nm0,
+                                        unsigned int nm1, unsigned int nm2)
+    {
+        unsigned int wspsize = 0;
+
+        if (shapeType == LibUtilities::Seg)
+        {
+            wspsize = (1 + ncoord) * nq0 * nElmts;
+        }
+        else if (shapeType == LibUtilities::Quad)
+        {
+            wspsize = ((1 + ncoord) * nq0 * nq1 + nq1) * nElmts;
+        }
+        else if (shapeType == LibUtilities::Tri)
+        {
+            wspsize = ((1 + ncoord) * nq0 * nq1 + std::max(nq1, nm0)) * nElmts;
+        }
+        else if (shapeType == LibUtilities::Hex)
+        {
+            wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2) * nElmts;
+        }
+        else if (shapeType == LibUtilities::Tet)
+        {
+            wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2 + nm2) * nElmts;
+        }
+        else if (shapeType == LibUtilities::Prism)
+        {
+            wspsize = (4 * nq0 * nq1 * nq2 + std::max(nq1 * nq2, nm0 * nm1) +
+                       std::max(nq2, nm0) + nm1) *
+                      nElmts;
+        }
+        else if (shapeType == LibUtilities::Pyr)
+        {
+            wspsize = (4 * nq0 * nq1 * nq2 + std::max(nq1 * nq2, nm0 * nm1) +
+                       std::max(nq2, nm0)) *
+                      nElmts;
+        }
+
+        return wspsize;
+    }
+
+    MemoryRegion<TData> SetWorkspace(LibUtilities::ShapeType shapeType,
+                                     unsigned int nElmts, unsigned int ncoord,
+                                     unsigned int nq0, unsigned int nq1,
+                                     unsigned int nq2, unsigned int nm0,
+                                     unsigned int nm1, unsigned int nm2)
+    {
+        constexpr bool device_only = true;
+
+        unsigned int wspsize = GetSharedWorkspaceSize(
+            shapeType, nElmts, ncoord, nq0, nq1, nq2, nm0, nm1, nm2);
+
+        return MemoryRegion<TData>::template Create<MemSpace>(
+            wspsize, ExecSpace::alignment, device_only);
+    }
 
     void SegBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
@@ -277,28 +249,32 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        const auto nm0 = m_expPtr->GetBasisNumModes(0);
-        const auto nq0 = m_expPtr->GetNumPoints(0);
+        const auto nm0 = this->m_exp->GetBasisNumModes(0);
+        const auto nq0 = this->m_exp->GetNumPoints(0);
 
-        const auto nCoord = m_expPtr->GetCoordim();
+        const auto nCoord = this->m_exp->GetCoordim();
+
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
         // Fetch basis and weight data.
         auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(), eBasis));
+            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
+                                eBasis));
         auto D0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
                                 eDerivative));
         auto W0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
                                 eWeights));
 
         // Fetch Jacobian and deriv factors.
-        auto transpose = std::is_same_v<Implementation, Operators::SumFacQP>;
-        auto jacptr    = this->m_dataWarehouse->template GetData<ExecSpace>(
-            JacobianKey<TData>(m_exp_idx, m_implInterleaveWidth,
+        constexpr bool transpose =
+            std::is_same_v<Implementation, Operators::SumFacQP>;
+        auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
         auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
-            DerivFactorKey<TData>(m_exp_idx, m_implInterleaveWidth,
+            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), transpose));
 
         auto diffptr = m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
@@ -309,25 +285,23 @@ protected:
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
-
         // Set workspace.
         if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
         {
-            if (m_wsp.size() <= m_blk)
+            if (m_wsp.size() == 0)
             {
-                m_wsp.push_back(SetWorkspace(SHAPE_TYPE, nElmtsPad, nCoord, nq0,
-                                             0, 0, nm0, 0, 0));
+                m_wsp = SetWorkspace(SHAPE_TYPE, nElmtsPad, nCoord, nq0, 0, 0,
+                                     nm0, 0, 0);
             }
         }
 
         // Get workspace pointer.
         auto wspptr = std::is_same_v<Implementation, Operators::SumFac>
-                          ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
+                          ? m_wsp.template GetPtr<MemSpace, WriteOnly>()
                           : nullptr;
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
@@ -354,25 +328,29 @@ protected:
     void Operator1D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        const auto nCoord = m_expPtr->GetCoordim();
+        const auto nCoord = this->m_exp->GetCoordim();
+
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
         // Fetch basis and weight data.
         auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(), eBasis));
+            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
+                                eBasis));
         auto D0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
                                 eDerivative));
         auto W0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
                                 eWeights));
 
         // Fetch Jacobian and deriv factors.
-        auto transpose = std::is_same_v<Implementation, Operators::SumFacQP>;
-        auto jacptr    = this->m_dataWarehouse->template GetData<ExecSpace>(
-            JacobianKey<TData>(m_exp_idx, m_implInterleaveWidth,
+        constexpr bool transpose =
+            std::is_same_v<Implementation, Operators::SumFacQP>;
+        auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
         auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
-            DerivFactorKey<TData>(m_exp_idx, m_implInterleaveWidth,
+            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), transpose));
 
         auto diffptr = m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
@@ -383,25 +361,23 @@ protected:
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
-
         // Set workspace.
         if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
         {
-            if (m_wsp.size() <= m_blk)
+            if (m_wsp.size() == 0)
             {
-                m_wsp.push_back(SetWorkspace(SHAPE_TYPE, nElmtsPad, nCoord, nq0,
-                                             0, 0, nm0, 0, 0));
+                m_wsp = SetWorkspace(SHAPE_TYPE, nElmtsPad, nCoord, nq0, 0, 0,
+                                     nm0, 0, 0);
             }
         }
 
         // Get workspace pointer.
         auto wspptr = std::is_same_v<Implementation, Operators::SumFac>
-                          ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
+                          ? m_wsp.template GetPtr<MemSpace, WriteOnly>()
                           : nullptr;
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
@@ -428,49 +404,54 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        const auto nm0 = m_expPtr->GetBasisNumModes(0);
-        const auto nm1 = m_expPtr->GetBasisNumModes(1);
+        const auto nm0 = this->m_exp->GetBasisNumModes(0);
+        const auto nm1 = this->m_exp->GetBasisNumModes(1);
 
-        const auto nq0 = m_expPtr->GetNumPoints(0);
-        const auto nq1 = m_expPtr->GetNumPoints(1);
+        const auto nq0 = this->m_exp->GetNumPoints(0);
+        const auto nq1 = this->m_exp->GetNumPoints(1);
 
-        const auto nCoord = m_expPtr->GetCoordim();
+        const auto nCoord = this->m_exp->GetCoordim();
+
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
         // Flag for collapsed coordinate correction.
         const bool isModified =
-            m_expPtr->GetBasis(0)->GetBasisType() == LibUtilities::eModified_A;
+            (this->m_exp->GetBasisType(0) == LibUtilities::eModified_A);
 
         // Fetch basis and weight data.
         auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(), eBasis));
+            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
+                                eBasis));
         auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(), eBasis));
+            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
+                                eBasis));
         auto D0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
                                 eDerivative));
         auto D1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
                                 eDerivative));
         auto W0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
                                 eWeights));
         auto W1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
                                 eWeights));
         auto f0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
                                 eHalfMultOnePlusZero));
         auto f1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
                                 eTwoOverOneMinusZero));
 
         // Fetch Jacobian and deriv factors.
-        auto transpose = std::is_same_v<Implementation, Operators::SumFacQP>;
-        auto jacptr    = this->m_dataWarehouse->template GetData<ExecSpace>(
-            JacobianKey<TData>(m_exp_idx, m_implInterleaveWidth,
+        constexpr bool transpose =
+            std::is_same_v<Implementation, Operators::SumFacQP>;
+        auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
         auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
-            DerivFactorKey<TData>(m_exp_idx, m_implInterleaveWidth,
+            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), transpose));
 
         auto diffptr = m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
@@ -480,8 +461,6 @@ protected:
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
-
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
         // Precompute index, if necessary.
         const bool indexing =
@@ -495,20 +474,20 @@ protected:
         // Set workspace.
         if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
         {
-            if (m_wsp.size() <= m_blk)
+            if (m_wsp.size() == 0)
             {
-                m_wsp.push_back(SetWorkspace(SHAPE_TYPE, nElmtsPad, nCoord, nq0,
-                                             nq1, 0, nm0, nm1, 0));
+                m_wsp = SetWorkspace(SHAPE_TYPE, nElmtsPad, nCoord, nq0, nq1, 0,
+                                     nm0, nm1, 0);
             }
         }
 
         // Get workspace pointer.
         auto wspptr = std::is_same_v<Implementation, Operators::SumFac>
-                          ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
+                          ? m_wsp.template GetPtr<MemSpace, WriteOnly>()
                           : nullptr;
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
@@ -538,43 +517,48 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        const auto nCoord = m_expPtr->GetCoordim();
+        const auto nCoord = this->m_exp->GetCoordim();
+
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
         // Flag for collapsed coordinate correction.
         const bool isModified =
-            m_expPtr->GetBasis(0)->GetBasisType() == LibUtilities::eModified_A;
+            (this->m_exp->GetBasisType(0) == LibUtilities::eModified_A);
 
         // Fetch basis and weight data.
         auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(), eBasis));
+            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
+                                eBasis));
         auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(), eBasis));
+            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
+                                eBasis));
         auto D0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
                                 eDerivative));
         auto D1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
                                 eDerivative));
         auto W0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
                                 eWeights));
         auto W1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
                                 eWeights));
         auto f0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
                                 eHalfMultOnePlusZero));
         auto f1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
                                 eTwoOverOneMinusZero));
 
         // Fetch Jacobian and deriv factors.
-        auto transpose = std::is_same_v<Implementation, Operators::SumFacQP>;
-        auto jacptr    = this->m_dataWarehouse->template GetData<ExecSpace>(
-            JacobianKey<TData>(m_exp_idx, m_implInterleaveWidth,
+        constexpr bool transpose =
+            std::is_same_v<Implementation, Operators::SumFacQP>;
+        auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
         auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
-            DerivFactorKey<TData>(m_exp_idx, m_implInterleaveWidth,
+            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), transpose));
 
         auto diffptr = m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
@@ -584,8 +568,6 @@ protected:
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
-
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
         // Precompute index, if necessary.
         const bool indexing =
@@ -599,20 +581,20 @@ protected:
         // Set workspace.
         if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
         {
-            if (m_wsp.size() <= m_blk)
+            if (m_wsp.size() == 0)
             {
-                m_wsp.push_back(SetWorkspace(SHAPE_TYPE, nElmtsPad, nCoord, nq0,
-                                             nq1, 0, nm0, nm1, 0));
+                m_wsp = SetWorkspace(SHAPE_TYPE, nElmtsPad, nCoord, nq0, nq1, 0,
+                                     nm0, nm1, 0);
             }
         }
 
         // Get workspace pointer.
         auto wspptr = std::is_same_v<Implementation, Operators::SumFac>
-                          ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
+                          ? m_wsp.template GetPtr<MemSpace, WriteOnly>()
                           : nullptr;
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
@@ -641,63 +623,69 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        const auto nm0 = m_expPtr->GetBasisNumModes(0);
-        const auto nm1 = m_expPtr->GetBasisNumModes(1);
-        const auto nm2 = m_expPtr->GetBasisNumModes(2);
+        const auto nm0 = this->m_exp->GetBasisNumModes(0);
+        const auto nm1 = this->m_exp->GetBasisNumModes(1);
+        const auto nm2 = this->m_exp->GetBasisNumModes(2);
 
-        const auto nq0 = m_expPtr->GetNumPoints(0);
-        const auto nq1 = m_expPtr->GetNumPoints(1);
-        const auto nq2 = m_expPtr->GetNumPoints(2);
+        const auto nq0 = this->m_exp->GetNumPoints(0);
+        const auto nq1 = this->m_exp->GetNumPoints(1);
+        const auto nq2 = this->m_exp->GetNumPoints(2);
+
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
         // Flag for collapsed coordinate correction.
         const bool isModified =
-            m_expPtr->GetBasis(0)->GetBasisType() == LibUtilities::eModified_A;
+            (this->m_exp->GetBasisType(0) == LibUtilities::eModified_A);
 
         // Fetch basis and weight data.
         auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(), eBasis));
+            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
+                                eBasis));
         auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(), eBasis));
+            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
+                                eBasis));
         auto B2 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(2)->GetBasisKey(), eBasis));
+            BasisDataKey<TData>(this->m_exp->GetBasis(2)->GetBasisKey(),
+                                eBasis));
         auto D0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
                                 eDerivative));
         auto D1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
                                 eDerivative));
         auto D2 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(2)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(2)->GetBasisKey(),
                                 eDerivative));
         auto W0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
                                 eWeights));
         auto W1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
                                 eWeights));
         auto W2 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(2)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(2)->GetBasisKey(),
                                 eWeights));
         auto f0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
                                 eHalfMultOnePlusZero));
         auto f1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
                                 eHalfMultOnePlusZero));
         auto f1m = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
                                 eTwoOverOneMinusZero));
         auto f2 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(2)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(2)->GetBasisKey(),
                                 eTwoOverOneMinusZero));
 
         // Fetch Jacobian and deriv factors.
-        auto transpose = std::is_same_v<Implementation, Operators::SumFacQP>;
-        auto jacptr    = this->m_dataWarehouse->template GetData<ExecSpace>(
-            JacobianKey<TData>(m_exp_idx, m_implInterleaveWidth,
+        constexpr bool transpose =
+            std::is_same_v<Implementation, Operators::SumFacQP>;
+        auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
         auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
-            DerivFactorKey<TData>(m_exp_idx, m_implInterleaveWidth,
+            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), transpose));
 
         auto diffptr = m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
@@ -707,8 +695,6 @@ protected:
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
-
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
         // Precompute index, if necessary.
         const bool indexingTet =
@@ -740,20 +726,20 @@ protected:
         // Set workspace.
         if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
         {
-            if (m_wsp.size() <= m_blk)
+            if (m_wsp.size() == 0)
             {
-                m_wsp.push_back(SetWorkspace(SHAPE_TYPE, nElmtsPad, 3, nq0, nq1,
-                                             nq2, nm0, nm1, nm2));
+                m_wsp = SetWorkspace(SHAPE_TYPE, nElmtsPad, 3, nq0, nq1, nq2,
+                                     nm0, nm1, nm2);
             }
         }
 
         // Get workspace pointer.
         auto wspptr = std::is_same_v<Implementation, Operators::SumFac>
-                          ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
+                          ? m_wsp.template GetPtr<MemSpace, WriteOnly>()
                           : nullptr;
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
@@ -783,55 +769,61 @@ protected:
     void Operator3D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+
         // Flag for collapsed coordinate correction.
         const bool isModified =
-            m_expPtr->GetBasis(0)->GetBasisType() == LibUtilities::eModified_A;
+            (this->m_exp->GetBasisType(0) == LibUtilities::eModified_A);
 
         // Fetch basis and weight data.
         auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(), eBasis));
+            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
+                                eBasis));
         auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(), eBasis));
+            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
+                                eBasis));
         auto B2 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(2)->GetBasisKey(), eBasis));
+            BasisDataKey<TData>(this->m_exp->GetBasis(2)->GetBasisKey(),
+                                eBasis));
         auto D0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
                                 eDerivative));
         auto D1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
                                 eDerivative));
         auto D2 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(2)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(2)->GetBasisKey(),
                                 eDerivative));
         auto W0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
                                 eWeights));
         auto W1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
                                 eWeights));
         auto W2 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(2)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(2)->GetBasisKey(),
                                 eWeights));
         auto f0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
                                 eHalfMultOnePlusZero));
         auto f1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
                                 eHalfMultOnePlusZero));
         auto f1m = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
                                 eTwoOverOneMinusZero));
         auto f2 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(2)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(2)->GetBasisKey(),
                                 eTwoOverOneMinusZero));
 
         // Fetch Jacobian and deriv factors.
-        auto transpose = std::is_same_v<Implementation, Operators::SumFacQP>;
-        auto jacptr    = this->m_dataWarehouse->template GetData<ExecSpace>(
-            JacobianKey<TData>(m_exp_idx, m_implInterleaveWidth,
+        constexpr bool transpose =
+            std::is_same_v<Implementation, Operators::SumFacQP>;
+        auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
         auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
-            DerivFactorKey<TData>(m_exp_idx, m_implInterleaveWidth,
+            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), transpose));
 
         auto diffptr = m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
@@ -841,8 +833,6 @@ protected:
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
-
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
         // Precompute index, if necessary.
         const bool indexingTet =
@@ -874,20 +864,20 @@ protected:
         // Set workspace.
         if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
         {
-            if (m_wsp.size() <= m_blk)
+            if (m_wsp.size() == 0)
             {
-                m_wsp.push_back(SetWorkspace(SHAPE_TYPE, nElmtsPad, 3, nq0, nq1,
-                                             nq2, nm0, nm1, nm2));
+                m_wsp = SetWorkspace(SHAPE_TYPE, nElmtsPad, 3, nq0, nq1, nq2,
+                                     nm0, nm1, nm2);
             }
         }
 
         // Get workspace pointer.
         auto wspptr = std::is_same_v<Implementation, Operators::SumFac>
-                          ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
+                          ? m_wsp.template GetPtr<MemSpace, WriteOnly>()
                           : nullptr;
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(

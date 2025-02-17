@@ -1,9 +1,9 @@
 // clang-format off
 #if defined(SHAPE_TYPE_Seg)
-    const auto isDeformed = m_expPtr->GetMetricInfo()->GetGtype();
+    const auto isDeformed = this->m_exp->GetMetricInfo()->GetGtype();
 
-    const auto nm0 = m_expPtr->GetBasisNumModes(0);
-    const auto nq0 = m_expPtr->GetNumPoints(0);
+    const auto nm0 = this->m_exp->GetBasisNumModes(0);
+    const auto nq0 = this->m_exp->GetNumPoints(0);
 
     if (isDeformed == SpatialDomains::eDeformed)
     {
@@ -88,13 +88,13 @@
         }
     }
 #elif defined(SHAPE_TYPE_Quad) || defined(SHAPE_TYPE_Tri)
-    const auto isDeformed = m_expPtr->GetMetricInfo()->GetGtype();
+    const auto isDeformed = this->m_exp->GetMetricInfo()->GetGtype();
 
-    const auto nm0 = m_expPtr->GetBasisNumModes(0);
-    const auto nm1 = m_expPtr->GetBasisNumModes(1);
+    const auto nm0 = this->m_exp->GetBasisNumModes(0);
+    const auto nm1 = this->m_exp->GetBasisNumModes(1);
 
-    const auto nq0 = m_expPtr->GetNumPoints(0);
-    const auto nq1 = m_expPtr->GetNumPoints(1);
+    const auto nq0 = this->m_exp->GetNumPoints(0);
+    const auto nq1 = this->m_exp->GetNumPoints(1);
 
     if (isDeformed == SpatialDomains::eDeformed)
     {
@@ -219,15 +219,15 @@
         }
     }
 #else
-    const auto isDeformed = m_expPtr->GetMetricInfo()->GetGtype();
+    const auto isDeformed = this->m_exp->GetMetricInfo()->GetGtype();
 
-    const auto nm0 = m_expPtr->GetBasisNumModes(0);
-    const auto nm1 = m_expPtr->GetBasisNumModes(1);
-    const auto nm2 = m_expPtr->GetBasisNumModes(2);
+    const auto nm0 = this->m_exp->GetBasisNumModes(0);
+    const auto nm1 = this->m_exp->GetBasisNumModes(1);
+    const auto nm2 = this->m_exp->GetBasisNumModes(2);
 
-    const auto nq0 = m_expPtr->GetNumPoints(0);
-    const auto nq1 = m_expPtr->GetNumPoints(1);
-    const auto nq2 = m_expPtr->GetNumPoints(2);
+    const auto nq0 = this->m_exp->GetNumPoints(0);
+    const auto nq1 = this->m_exp->GetNumPoints(1);
+    const auto nq2 = this->m_exp->GetNumPoints(2);
 
     if (isDeformed == SpatialDomains::eDeformed)
     {
