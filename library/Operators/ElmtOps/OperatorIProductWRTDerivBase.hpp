@@ -34,32 +34,33 @@
 
 #pragma once
 
-#include "Operators/Common/Operator.hpp"
+#include "Operators/ElmtOps/OperatorElmt.hpp"
 
 namespace Nektar::Operators
 {
 
-// IProductWRTDerivBase base class
-// Defines the apply operator to enforce apply parameter types
+template <typename TData> struct IProductWRTDerivBase;
+
 template <typename TData>
-class OperatorIProductWRTDerivBase : public Operator<TData>
+class BlockOperatorIProductWRTDerivBase : public BlockOperator<TData>
 {
 public:
-    OperatorIProductWRTDerivBase(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-        : Operator<TData>(expansionList)
+    BlockOperatorIProductWRTDerivBase(
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse)
+        : BlockOperator<TData>(exp, dataWarehouse)
     {
     }
 
-    ~OperatorIProductWRTDerivBase() override = default;
+    ~BlockOperatorIProductWRTDerivBase() override = default;
 
-    virtual void apply(Field<TData, FieldState::Phys> &in,
-                       Field<TData, FieldState::Coeff> &out) = 0;
+    virtual void apply(BlockAccessor<TData> &inblock,
+                       BlockAccessor<TData> &outblock) = 0;
 
-    virtual void operator()(Field<TData, FieldState::Phys> &in,
-                            Field<TData, FieldState::Coeff> &out)
+    virtual void operator()(BlockAccessor<TData> &inblock,
+                            BlockAccessor<TData> &outblock)
     {
-        apply(in, out);
+        this->apply(inblock, outblock);
     }
 
     void SetAppend(bool append)
@@ -69,6 +70,81 @@ public:
 
 protected:
     bool m_append = false;
+};
+
+// Descriptor / traits class for BlockIProductWRTDerivBase
+template <typename TData> struct BlockIProductWRTDerivBase
+{
+    using class_name = BlockOperatorIProductWRTDerivBase<TData>;
+
+    BlockIProductWRTDerivBase() = delete;
+
+    template <typename ExecSpace, typename Impl>
+    static std::shared_ptr<class_name> Create(
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse)
+    {
+        return BlockOperator<TData>::template Create<
+            BlockIProductWRTDerivBase<TData>, ExecSpace, Impl>(exp,
+                                                               dataWarehouse);
+    }
+};
+
+// IProductWRTDerivBase base class
+// Defines the apply operator to enforce apply parameter types
+template <typename TData>
+class OperatorIProductWRTDerivBase
+    : public OperatorElmt<FieldState::Phys, FieldState::Coeff, TData>
+{
+    friend struct IProductWRTDerivBase<TData>;
+
+public:
+    OperatorIProductWRTDerivBase(
+        const MultiRegions::ExpListSharedPtr &expansionList)
+        : OperatorElmt<FieldState::Phys, FieldState::Coeff, TData>(
+              expansionList)
+    {
+    }
+
+    ~OperatorIProductWRTDerivBase() override = default;
+
+    void apply(Field<TData, FieldState::Phys> &in,
+               Field<TData, FieldState::Coeff> &out) override
+    {
+        ASSERTL1(out.GetNumComponents() ==
+                     in.GetNumComponents() /
+                         this->m_expansionList->GetCoordim(0),
+                 "Number of input and output components differ");
+
+        // Loop over the blocks.
+        for (unsigned int blk = 0; blk < m_blockOperator.size(); ++blk)
+        {
+            // Block dependent.
+            auto &inblock  = in.GetBlocks()[blk];
+            auto &outblock = out.GetBlocks()[blk];
+
+            this->m_blockOperator[blk]->apply(inblock, outblock);
+        }
+    }
+
+    virtual void operator()(Field<TData, FieldState::Phys> &in,
+                            Field<TData, FieldState::Coeff> &out)
+    {
+        this->apply(in, out);
+    }
+
+    void SetAppend(bool append)
+    {
+        // Loop over the blocks.
+        for (unsigned int blk = 0; blk < m_blockOperator.size(); ++blk)
+        {
+            this->m_blockOperator[blk]->SetAppend(append);
+        }
+    }
+
+protected:
+    std::vector<std::shared_ptr<BlockOperatorIProductWRTDerivBase<TData>>>
+        m_blockOperator;
 };
 
 // Descriptor / traits class for IProductWRTDerivBase
@@ -82,9 +158,54 @@ template <typename TData> struct IProductWRTDerivBase
     static std::shared_ptr<class_name> Create(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return Operator<TData>::template Create<IProductWRTDerivBase<TData>,
-                                                ExecSpace, Impl>(expansionList);
+        auto IProductWRTDerivBaseOp =
+            Operator<TData>::template Create<IProductWRTDerivBase<TData>,
+                                             ExecSpace, Impl>(expansionList);
+
+        auto blocks =
+            GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
+
+        // Loop over the blocks.
+        for (auto &block : blocks)
+        {
+            IProductWRTDerivBaseOp->m_blockOperator.push_back(
+                BlockIProductWRTDerivBase<TData>::template Create<ExecSpace,
+                                                                  Impl>(
+                    expansionList->GetExp(block.GetExpIdx()),
+                    expansionList->GetDataWarehouseSharedPtr()));
+        }
+
+        return IProductWRTDerivBaseOp;
     }
 };
 
 } // namespace Nektar::Operators
+
+namespace Nektar::Operators::detail
+{
+
+template <typename ExecSpace, typename Implementation, typename TData>
+class OperatorIProductWRTDerivBaseImpl
+    : public OperatorIProductWRTDerivBase<TData>
+{
+public:
+    OperatorIProductWRTDerivBaseImpl(
+        const MultiRegions::ExpListSharedPtr &expansionList)
+        : OperatorIProductWRTDerivBase<TData>(expansionList)
+    {
+    }
+
+    // className - for OperatorFactory
+    static std::string className;
+
+    // instantiation function for CreatorFunction in OperatorFactory
+    static std::unique_ptr<Operator<TData>> instantiate(
+        const MultiRegions::ExpListSharedPtr &expansionList)
+    {
+        return std::make_unique<
+            OperatorIProductWRTDerivBaseImpl<ExecSpace, Implementation, TData>>(
+            expansionList);
+    }
+};
+
+} // namespace Nektar::Operators::detail

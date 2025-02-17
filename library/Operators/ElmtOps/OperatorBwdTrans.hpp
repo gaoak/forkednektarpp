@@ -39,12 +39,56 @@
 namespace Nektar::Operators
 {
 
+template <typename TData> struct BwdTrans;
+
+template <typename TData>
+class BlockOperatorBwdTrans : public BlockOperator<TData>
+{
+public:
+    BlockOperatorBwdTrans(const LocalRegions::ExpansionSharedPtr &exp,
+                          NekDataWarehouseSharedPtr dataWarehouse)
+        : BlockOperator<TData>(exp, dataWarehouse)
+    {
+    }
+
+    ~BlockOperatorBwdTrans() override = default;
+
+    virtual void apply(BlockAccessor<TData> &inblock,
+                       BlockAccessor<TData> &outblock) = 0;
+
+    virtual void operator()(BlockAccessor<TData> &inblock,
+                            BlockAccessor<TData> &outblock)
+    {
+        this->apply(inblock, outblock);
+    }
+};
+
+// Descriptor / traits class for BlockBwdTrans
+template <typename TData> struct BlockBwdTrans
+{
+    using class_name = BlockOperatorBwdTrans<TData>;
+
+    BlockBwdTrans() = delete;
+
+    template <typename ExecSpace, typename Impl>
+    static std::shared_ptr<class_name> Create(
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse)
+    {
+        return BlockOperator<TData>::template Create<BlockBwdTrans<TData>,
+                                                     ExecSpace, Impl>(
+            exp, dataWarehouse);
+    }
+};
+
 // BwdTrans base class
 // Defines the apply operator to enforce apply parameter types
 template <typename TData>
 class OperatorBwdTrans
     : public OperatorElmt<FieldState::Coeff, FieldState::Phys, TData>
 {
+    friend struct BwdTrans<TData>;
+
 public:
     OperatorBwdTrans(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorElmt<FieldState::Coeff, FieldState::Phys, TData>(
@@ -54,11 +98,31 @@ public:
 
     ~OperatorBwdTrans() override = default;
 
+    void apply(Field<TData, FieldState::Coeff> &in,
+               Field<TData, FieldState::Phys> &out) override
+    {
+        ASSERTL1(in.GetNumComponents() == out.GetNumComponents(),
+                 "Number of input and output components differ");
+
+        // Loop over the blocks.
+        for (unsigned int blk = 0; blk < m_blockOperator.size(); ++blk)
+        {
+            // Block dependent.
+            auto &inblock  = in.GetBlocks()[blk];
+            auto &outblock = out.GetBlocks()[blk];
+
+            this->m_blockOperator[blk]->apply(inblock, outblock);
+        }
+    }
+
     virtual void operator()(Field<TData, FieldState::Coeff> &in,
                             Field<TData, FieldState::Phys> &out)
     {
         this->apply(in, out);
     }
+
+protected:
+    std::vector<std::shared_ptr<BlockOperatorBwdTrans<TData>>> m_blockOperator;
 };
 
 // Descriptor / traits class for BwdTrans
@@ -72,9 +136,51 @@ template <typename TData> struct BwdTrans
     static std::shared_ptr<class_name> Create(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return Operator<TData>::template Create<BwdTrans<TData>, ExecSpace,
-                                                Impl>(expansionList);
+        auto BwdTransOp =
+            Operator<TData>::template Create<BwdTrans<TData>, ExecSpace, Impl>(
+                expansionList);
+
+        auto blocks =
+            GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
+
+        // Loop over the blocks.
+        for (auto &block : blocks)
+        {
+            BwdTransOp->m_blockOperator.push_back(
+                BlockBwdTrans<TData>::template Create<ExecSpace, Impl>(
+                    expansionList->GetExp(block.GetExpIdx()),
+                    expansionList->GetDataWarehouseSharedPtr()));
+        }
+
+        return BwdTransOp;
     }
 };
 
 } // namespace Nektar::Operators
+
+namespace Nektar::Operators::detail
+{
+
+template <typename ExecSpace, typename Implementation, typename TData>
+class OperatorBwdTransImpl : public OperatorBwdTrans<TData>
+{
+public:
+    OperatorBwdTransImpl(const MultiRegions::ExpListSharedPtr &expansionList)
+        : OperatorBwdTrans<TData>(expansionList)
+    {
+    }
+
+    // className - for OperatorFactory
+    static std::string className;
+
+    // instantiation function for CreatorFunction in OperatorFactory
+    static std::unique_ptr<Operator<TData>> instantiate(
+        const MultiRegions::ExpListSharedPtr &expansionList)
+    {
+        return std::make_unique<
+            OperatorBwdTransImpl<ExecSpace, Implementation, TData>>(
+            expansionList);
+    }
+};
+
+} // namespace Nektar::Operators::detail

@@ -47,14 +47,27 @@ public:
     using creator = ModeIndexCreator;
 
     ~ModeIndexKey() override = default;
-    ModeIndexKey(const LocalRegions::ExpansionSharedPtr expPtr,
+    ModeIndexKey(const LibUtilities::ShapeType shapeType,
+                 const unsigned int nm0, const unsigned int nm1,
                  const unsigned int mode)
-        : m_expPtr(expPtr), m_mode(mode)
+        : m_shapeType(shapeType), m_nm0(nm0), m_nm1(nm1), m_mode(mode)
     {
-        hash_combine(m_hash, m_expPtr, m_mode, m_name);
+        hash_combine(m_hash, m_shapeType, m_nm0, m_nm1, m_nm2, m_mode, m_name);
     }
 
-    LocalRegions::ExpansionSharedPtr m_expPtr;
+    ModeIndexKey(const LibUtilities::ShapeType shapeType,
+                 const unsigned int nm0, const unsigned int nm1,
+                 const unsigned int nm2, const unsigned int mode)
+        : m_shapeType(shapeType), m_nm0(nm0), m_nm1(nm1), m_nm2(nm2),
+          m_mode(mode)
+    {
+        hash_combine(m_hash, m_shapeType, m_nm0, m_nm1, m_nm2, m_mode, m_name);
+    }
+
+    LibUtilities::ShapeType m_shapeType;
+    unsigned int m_nm0 = 0;
+    unsigned int m_nm1 = 0;
+    unsigned int m_nm2 = 0;
     unsigned int m_mode;
     typedef unsigned int m_data_type;
 
@@ -71,16 +84,17 @@ public:
     MemoryRegion<TData> Create(const ModeIndexKey &modeIndexKey,
                                const unsigned int alignment)
     {
-        const auto expPtr = modeIndexKey.m_expPtr;
-        const auto mode   = modeIndexKey.m_mode;
+        const auto shapeType = modeIndexKey.m_shapeType;
 
-        switch (expPtr->DetShapeType())
+        switch (shapeType)
         {
             case LibUtilities::Tri:
             {
-                const auto nm0          = expPtr->GetBasisNumModes(0);
-                const auto nm1          = expPtr->GetBasisNumModes(1);
-                const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+                const auto mode = modeIndexKey.m_mode;
+                const auto nm0  = modeIndexKey.m_nm0;
+                const auto nm1  = modeIndexKey.m_nm1;
+                const auto nm01 =
+                    LibUtilities::GetNumberOfCoefficients(shapeType, nm0, nm1);
 
                 auto index = MemoryRegion<TData>::template Create<MemSpace>(
                     nm01, alignment);
@@ -111,10 +125,12 @@ public:
             break;
             case LibUtilities::Tet:
             {
-                const auto nmTot        = expPtr->GetNcoeffs();
-                const auto nm0          = expPtr->GetBasisNumModes(0);
-                const auto nm1          = expPtr->GetBasisNumModes(1);
-                const auto nm2          = expPtr->GetBasisNumModes(2);
+                const auto mode  = modeIndexKey.m_mode;
+                const auto nm0   = modeIndexKey.m_nm0;
+                const auto nm1   = modeIndexKey.m_nm1;
+                const auto nm2   = modeIndexKey.m_nm2;
+                const auto nmTot = LibUtilities::GetNumberOfCoefficients(
+                    shapeType, nm0, nm1, nm2);
                 const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
                 if (mode == 0 || mode == 3)
                 {
@@ -177,10 +193,12 @@ public:
             break;
             case LibUtilities::Prism:
             {
-                const auto nmTot = expPtr->GetNcoeffs();
-                const auto nm0   = expPtr->GetBasisNumModes(0);
-                const auto nm1   = expPtr->GetBasisNumModes(1);
-                const auto nm2   = expPtr->GetBasisNumModes(2);
+                const auto mode  = modeIndexKey.m_mode;
+                const auto nm0   = modeIndexKey.m_nm0;
+                const auto nm1   = modeIndexKey.m_nm1;
+                const auto nm2   = modeIndexKey.m_nm2;
+                const auto nmTot = LibUtilities::GetNumberOfCoefficients(
+                    shapeType, nm0, nm1, nm2);
 
                 auto index = MemoryRegion<TData>::template Create<MemSpace>(
                     nmTot, alignment);
@@ -218,10 +236,12 @@ public:
             break;
             case LibUtilities::Pyr:
             {
-                const auto nmTot = expPtr->GetNcoeffs();
-                const auto nm0   = expPtr->GetBasisNumModes(0);
-                const auto nm1   = expPtr->GetBasisNumModes(1);
-                const auto nm2   = expPtr->GetBasisNumModes(2);
+                const auto mode  = modeIndexKey.m_mode;
+                const auto nm0   = modeIndexKey.m_nm0;
+                const auto nm1   = modeIndexKey.m_nm1;
+                const auto nm2   = modeIndexKey.m_nm2;
+                const auto nmTot = LibUtilities::GetNumberOfCoefficients(
+                    shapeType, nm0, nm1, nm2);
 
                 auto index = MemoryRegion<TData>::template Create<MemSpace>(
                     nmTot, alignment);

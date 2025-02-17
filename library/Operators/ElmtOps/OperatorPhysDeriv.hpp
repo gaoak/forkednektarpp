@@ -39,12 +39,56 @@
 namespace Nektar::Operators
 {
 
+template <typename TData> struct PhysDeriv;
+
+template <typename TData>
+class BlockOperatorPhysDeriv : public BlockOperator<TData>
+{
+public:
+    BlockOperatorPhysDeriv(const LocalRegions::ExpansionSharedPtr &exp,
+                           NekDataWarehouseSharedPtr dataWarehouse)
+        : BlockOperator<TData>(exp, dataWarehouse)
+    {
+    }
+
+    ~BlockOperatorPhysDeriv() override = default;
+
+    virtual void apply(BlockAccessor<TData> &inblock,
+                       BlockAccessor<TData> &outblock) = 0;
+
+    virtual void operator()(BlockAccessor<TData> &inblock,
+                            BlockAccessor<TData> &outblock)
+    {
+        this->apply(inblock, outblock);
+    }
+};
+
+// Descriptor / traits class for BlockPhysDeriv
+template <typename TData> struct BlockPhysDeriv
+{
+    using class_name = BlockOperatorPhysDeriv<TData>;
+
+    BlockPhysDeriv() = delete;
+
+    template <typename ExecSpace, typename Impl>
+    static std::shared_ptr<class_name> Create(
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse)
+    {
+        return BlockOperator<TData>::template Create<BlockPhysDeriv<TData>,
+                                                     ExecSpace, Impl>(
+            exp, dataWarehouse);
+    }
+};
+
 // PhysDeriv base class
 // Defines the apply operator to enforce apply parameter types
 template <typename TData>
 class OperatorPhysDeriv
     : public OperatorElmt<FieldState::Phys, FieldState::Phys, TData>
 {
+    friend struct PhysDeriv<TData>;
+
 public:
     OperatorPhysDeriv(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorElmt<FieldState::Phys, FieldState::Phys, TData>(expansionList)
@@ -53,11 +97,33 @@ public:
 
     ~OperatorPhysDeriv() override = default;
 
+    void apply(Field<TData, FieldState::Phys> &in,
+               Field<TData, FieldState::Phys> &out) override
+    {
+        ASSERTL1(in.GetNumComponents() ==
+                     out.GetNumComponents() /
+                         this->m_expansionList->GetCoordim(0),
+                 "Number of input and output components differ");
+
+        // Loop over the blocks.
+        for (unsigned int blk = 0; blk < m_blockOperator.size(); ++blk)
+        {
+            // Block dependent.
+            auto &inblock  = in.GetBlocks()[blk];
+            auto &outblock = out.GetBlocks()[blk];
+
+            this->m_blockOperator[blk]->apply(inblock, outblock);
+        }
+    }
+
     virtual void operator()(Field<TData, FieldState::Phys> &in,
                             Field<TData, FieldState::Phys> &out)
     {
         this->apply(in, out);
     }
+
+protected:
+    std::vector<std::shared_ptr<BlockOperatorPhysDeriv<TData>>> m_blockOperator;
 };
 
 // Descriptor / traits class for PhysDeriv
@@ -71,9 +137,51 @@ template <typename TData> struct PhysDeriv
     static std::shared_ptr<class_name> Create(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return Operator<TData>::template Create<PhysDeriv<TData>, ExecSpace,
-                                                Impl>(expansionList);
+        auto PhysDerivOp =
+            Operator<TData>::template Create<PhysDeriv<TData>, ExecSpace, Impl>(
+                expansionList);
+
+        auto blocks =
+            GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
+
+        // Loop over the blocks.
+        for (auto &block : blocks)
+        {
+            PhysDerivOp->m_blockOperator.push_back(
+                BlockPhysDeriv<TData>::template Create<ExecSpace, Impl>(
+                    expansionList->GetExp(block.GetExpIdx()),
+                    expansionList->GetDataWarehouseSharedPtr()));
+        }
+
+        return PhysDerivOp;
     }
 };
 
 } // namespace Nektar::Operators
+
+namespace Nektar::Operators::detail
+{
+
+template <typename ExecSpace, typename Implementation, typename TData>
+class OperatorPhysDerivImpl : public OperatorPhysDeriv<TData>
+{
+public:
+    OperatorPhysDerivImpl(const MultiRegions::ExpListSharedPtr &expansionList)
+        : OperatorPhysDeriv<TData>(expansionList)
+    {
+    }
+
+    // className - for OperatorFactory
+    static std::string className;
+
+    // instantiation function for CreatorFunction in OperatorFactory
+    static std::unique_ptr<Operator<TData>> instantiate(
+        const MultiRegions::ExpListSharedPtr &expansionList)
+    {
+        return std::make_unique<
+            OperatorPhysDerivImpl<ExecSpace, Implementation, TData>>(
+            expansionList);
+    }
+};
+
+} // namespace Nektar::Operators::detail

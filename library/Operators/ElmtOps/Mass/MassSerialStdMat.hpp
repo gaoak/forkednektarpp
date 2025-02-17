@@ -38,66 +38,73 @@
 
 #include "Operators/ElmtOps/OperatorBwdTrans.hpp"
 #include "Operators/ElmtOps/OperatorIProductWRTBase.hpp"
+
 namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename Implementation, typename TData>
-class OperatorMassImpl : public OperatorMass<TData>
+class BlockOperatorMassImpl : public BlockOperatorMass<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    OperatorMassImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorMass<TData>(expansionList)
+    BlockOperatorMassImpl(const LocalRegions::ExpansionSharedPtr &exp,
+                          NekDataWarehouseSharedPtr dataWarehouse)
+        : BlockOperatorMass<TData>(exp, dataWarehouse)
     {
-        m_BwdTransOp =
-            BwdTrans<TData>::template Create<ExecSpace, Implementation>(
-                this->m_expansionList);
-        m_IProductWRTBaseOp =
-            IProductWRTBase<TData>::template Create<ExecSpace, Implementation>(
-                this->m_expansionList);
-        m_PhysBlockAttributes =
-            GetBlockAttributes<TData>(FieldState::Phys, expansionList);
+        this->m_BwdTransOp =
+            BlockBwdTrans<TData>::template Create<ExecSpace, Implementation>(
+                this->m_exp, this->m_dataWarehouse);
+        this->m_IProductWRTBaseOp =
+            BlockIProductWRTBase<TData>::template Create<ExecSpace,
+                                                         Implementation>(
+                this->m_exp, this->m_dataWarehouse);
     }
 
-    void apply(Field<TData, FieldState::Coeff> &in,
-               Field<TData, FieldState::Coeff> &out) override
+    void apply(BlockAccessor<TData> &inblock,
+               BlockAccessor<TData> &outblock) override
     {
-        int CompSize = in.GetNumComponents();
+        unsigned int CompSize = inblock.GetNumComponents();
 
         // initialise bwd storage space if not for correct number of components
-        if (m_bwd.GetNumComponents() != CompSize)
+        unsigned int size = inblock.GetNumElementsWithPadding() *
+                            this->m_exp->GetTotPoints() * CompSize;
+        if (this->m_bwd.size() != size)
         {
-            m_bwd = Field<TData, FieldState::Phys>::template Create<MemSpace>(
-                "Mass tmp", m_PhysBlockAttributes, CompSize,
-                ExecSpace::alignment);
+            this->m_bwd = MemoryRegion<TData>::template Create<MemSpace>(
+                "Mass bwd", size, ExecSpace::alignment);
         }
 
-        // Step 1: BwdTrans
-        m_BwdTransOp->apply(in, m_bwd);
+        auto bwd = BlockAccessor(inblock.GetExpIdx(), inblock.GetNumElements(),
+                                 inblock.GetNumElementsWithPadding(),
+                                 this->m_exp->GetTotPoints(), 1, this->m_bwd,
+                                 CompSize, 0);
 
-        // Step 2: Inner product for mass matrix operation
-        m_IProductWRTBaseOp->apply(m_bwd, out);
+        // Step 1: BwdTrans.
+        this->m_BwdTransOp->apply(inblock, bwd);
+
+        // Step 2: Inner product for mass matrix operation.
+        this->m_IProductWRTBaseOp->apply(bwd, outblock);
     }
 
-    // className - for OperatorFactory
+    // className - for BlockOperatorFactory
     static std::string className;
 
-    // instantiation function for CreatorFunction in OperatorFactory
-    static std::unique_ptr<Operator<TData>> instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
+    // Instantiation function for CreatorFunction in BlockOperatorFactory.
+    static std::unique_ptr<BlockOperator<TData>> instantiate(
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
-            OperatorMassImpl<ExecSpace, Implementation, TData>>(expansionList);
+            BlockOperatorMassImpl<ExecSpace, Implementation, TData>>(
+            exp, dataWarehouse);
     }
 
 protected:
-    Field<TData, FieldState::Phys> m_bwd;
+    MemoryRegion<TData> m_bwd;
 
-    std::shared_ptr<OperatorBwdTrans<TData>> m_BwdTransOp;
-    std::shared_ptr<OperatorIProductWRTBase<TData>> m_IProductWRTBaseOp;
-
-    std::vector<BlockAttributes> m_PhysBlockAttributes;
+    std::shared_ptr<BlockOperatorBwdTrans<TData>> m_BwdTransOp;
+    std::shared_ptr<BlockOperatorIProductWRTBase<TData>> m_IProductWRTBaseOp;
 };
 
 } // namespace Nektar::Operators::detail

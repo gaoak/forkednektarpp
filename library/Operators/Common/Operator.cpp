@@ -46,4 +46,13 @@ template <typename TData> OperatorFactory<TData> &GetOperatorFactory()
 template OperatorFactory<float> &GetOperatorFactory();
 template OperatorFactory<double> &GetOperatorFactory();
 
+template <typename TData> BlockOperatorFactory<TData> &GetBlockOperatorFactory()
+{
+    static BlockOperatorFactory<TData> instance;
+    return instance;
+}
+
+template BlockOperatorFactory<float> &GetBlockOperatorFactory();
+template BlockOperatorFactory<double> &GetBlockOperatorFactory();
+
 } // namespace Nektar::Operators

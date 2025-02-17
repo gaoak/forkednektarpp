@@ -42,9 +42,9 @@
 namespace Nektar::Operators::detail
 {
 
-// Matrix-free implementation
 template <typename ExecSpace, typename Implementation, typename TData>
-class OperatorIProductWRTBaseImpl : public OperatorIProductWRTBase<TData>
+class BlockOperatorIProductWRTBaseImpl
+    : public BlockOperatorIProductWRTBase<TData>
 {
     using simd_t =
         typename simd_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
@@ -52,52 +52,15 @@ class OperatorIProductWRTBaseImpl : public OperatorIProductWRTBase<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    OperatorIProductWRTBaseImpl(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorIProductWRTBase<TData>(expansionList)
+    BlockOperatorIProductWRTBaseImpl(
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse)
+        : BlockOperatorIProductWRTBase<TData>(exp, dataWarehouse)
     {
     }
 
-    void apply(Field<TData, FieldState::Phys> &in,
-               Field<TData, FieldState::Coeff> &out) override
-    {
-        m_nComps = in.GetNumComponents();
-        ASSERTL1(m_nComps == out.GetNumComponents(),
-                 "Number of input and output components differ");
-
-        // Initialize index.
-        m_exp_idx = 0;
-
-        // Loop over the blocks.
-        for (m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
-        {
-            m_expPtr = this->m_expansionList->GetExp(m_exp_idx);
-
-            // Block dependent.
-            auto &inblock  = in.GetBlocks()[m_blk];
-            auto &outblock = out.GetBlocks()[m_blk];
-
-            this->BlockOperator(inblock, outblock);
-
-            // Increment index for next element type.
-            m_exp_idx += inblock.GetNumElements();
-        }
-    }
-
-    // className - for OperatorFactory
-    static std::string className;
-
-    // instantiation function for CreatorFunction in OperatorFactory
-    static std::unique_ptr<Operator<TData>> instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-    {
-        return std::make_unique<
-            OperatorIProductWRTBaseImpl<ExecSpace, Implementation, TData>>(
-            expansionList);
-    }
-
-    void BlockOperator(BlockAccessor<TData> &inblock,
-                       BlockAccessor<TData> &outblock)
+    void apply(BlockAccessor<TData> &inblock,
+               BlockAccessor<TData> &outblock) override
     {
         // Check alignment.
         WARNINGL1(inblock.GetAlignment() == simd_t::alignment,
@@ -108,7 +71,7 @@ public:
                   "for the SIMD vector type.");
 
         // Determine shape and type of the element.
-        const auto shapeType = m_expPtr->DetShapeType();
+        const auto shapeType = this->m_exp->DetShapeType();
 
         switch (shapeType)
         {
@@ -159,13 +122,20 @@ public:
         }
     }
 
+    // className - for BlockOperatorFactory
+    static std::string className;
+
+    // Instantiation function for CreatorFunction in BlockOperatorFactory.
+    static std::unique_ptr<BlockOperator<TData>> instantiate(
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse)
+    {
+        return std::make_unique<
+            BlockOperatorIProductWRTBaseImpl<ExecSpace, Implementation, TData>>(
+            exp, dataWarehouse);
+    }
+
 protected:
-    unsigned int m_exp_idx;
-    unsigned int m_blk;
-    unsigned int m_nComps;
-
-    LocalRegions::ExpansionSharedPtr m_expPtr;
-
     void SegBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
 
@@ -193,13 +163,13 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        const auto nm0 = m_expPtr->GetBasisNumModes(0);
-        const auto nq0 = m_expPtr->GetNumPoints(0);
+        const auto nm0 = this->m_exp->GetBasisNumModes(0);
+        const auto nq0 = this->m_exp->GetNumPoints(0);
 
         const auto nmTot = nm0;
         const auto nqTot = nq0;
 
-        auto jacSize = 1;
+        unsigned int jacSize = 1;
         if constexpr (DEFORMED)
         {
             jacSize *= nqTot;
@@ -207,30 +177,30 @@ protected:
 
         // Fetch basis and weight data.
         auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(), eBasis));
+            BasisDataKey<simd_t>(this->m_exp->GetBasis(0)->GetBasisKey(),
+                                 eBasis));
         auto W0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(),
+            BasisDataKey<simd_t>(this->m_exp->GetBasis(0)->GetBasisKey(),
                                  eWeights));
 
-        // Fetch Jacobian data.
+        // Fetch Jacobian.
         auto jacptr_init = reinterpret_cast<const simd_t *>(
             this->m_dataWarehouse->template GetData<ExecSpace>(
-                JacobianKey<TData>(m_exp_idx, simd_t::width,
+                JacobianKey<TData>(inblock.GetExpIdx(), simd_t::width,
                                    inblock.GetNumElements())));
 
         // Get interleave parameter.
-        unsigned int in_interleave_width = inblock.GetInterleaveWidth();
-        auto width_ratio                 = (in_interleave_width == 1)
-                                               ? 1
-                                               : in_interleave_width / simd_t::width;
-        auto chunkSize = std::max(simd_t::width, in_interleave_width);
+        unsigned int interleave_width = inblock.GetInterleaveWidth();
+        const auto width_ratio =
+            (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
+        const auto chunkSize = std::max(simd_t::width, interleave_width);
 
         // Set to new interleave width.
         inblock.template SetInterleaveWidth<TData>(simd_t::width);
         outblock.template SetInterleaveWidth<TData>(simd_t::width);
 
         // Initialize pointers.
-        auto input  = (in_interleave_width == simd_t::width)
+        auto input  = (interleave_width == simd_t::width)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -239,7 +209,7 @@ protected:
         auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             auto jacptr = jacptr_init;
             for (unsigned int e = 0; e < inblock.GetNumElmtGroups(); ++e)
@@ -248,7 +218,7 @@ protected:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        in_interleave_width, chunkSize, nqTot, (TData *)inptr);
+                        interleave_width, chunkSize, nqTot, (TData *)inptr);
                 }
 
                 // IProduct Kernel.
@@ -273,7 +243,7 @@ protected:
         constexpr auto nmTot = nm0;
         constexpr auto nqTot = nq0;
 
-        auto jacSize = 1;
+        unsigned int jacSize = 1;
         if constexpr (DEFORMED)
         {
             jacSize *= nqTot;
@@ -281,30 +251,30 @@ protected:
 
         // Fetch basis and weight data.
         auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(), eBasis));
+            BasisDataKey<simd_t>(this->m_exp->GetBasis(0)->GetBasisKey(),
+                                 eBasis));
         auto W0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(),
+            BasisDataKey<simd_t>(this->m_exp->GetBasis(0)->GetBasisKey(),
                                  eWeights));
 
-        // Fetch Jacobian data.
+        // Fetch Jacobian.
         auto jacptr_init = reinterpret_cast<const simd_t *>(
             this->m_dataWarehouse->template GetData<ExecSpace>(
-                JacobianKey<TData>(m_exp_idx, simd_t::width,
+                JacobianKey<TData>(inblock.GetExpIdx(), simd_t::width,
                                    inblock.GetNumElements())));
 
         // Get interleave parameter.
-        unsigned int in_interleave_width = inblock.GetInterleaveWidth();
-        auto width_ratio                 = (in_interleave_width == 1)
-                                               ? 1
-                                               : in_interleave_width / simd_t::width;
-        auto chunkSize = std::max(simd_t::width, in_interleave_width);
+        unsigned int interleave_width = inblock.GetInterleaveWidth();
+        const auto width_ratio =
+            (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
+        const auto chunkSize = std::max(simd_t::width, interleave_width);
 
         // Set to new interleave width.
         inblock.template SetInterleaveWidth<TData>(simd_t::width);
         outblock.template SetInterleaveWidth<TData>(simd_t::width);
 
         // Initialize pointers.
-        auto input  = (in_interleave_width == simd_t::width)
+        auto input  = (interleave_width == simd_t::width)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -313,7 +283,7 @@ protected:
         auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             auto jacptr = jacptr_init;
             for (unsigned int e = 0; e < inblock.GetNumElmtGroups(); ++e)
@@ -322,7 +292,7 @@ protected:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        in_interleave_width, chunkSize, nqTot, (TData *)inptr);
+                        interleave_width, chunkSize, nqTot, (TData *)inptr);
                 }
 
                 // IProduct Kernel.
@@ -343,17 +313,17 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        const auto nm0 = m_expPtr->GetBasisNumModes(0);
-        const auto nm1 = m_expPtr->GetBasisNumModes(1);
+        const auto nm0 = this->m_exp->GetBasisNumModes(0);
+        const auto nm1 = this->m_exp->GetBasisNumModes(1);
 
-        const auto nq0 = m_expPtr->GetNumPoints(0);
-        const auto nq1 = m_expPtr->GetNumPoints(1);
+        const auto nq0 = this->m_exp->GetNumPoints(0);
+        const auto nq1 = this->m_exp->GetNumPoints(1);
 
-        const auto nqTot = nq0 * nq1;
         const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
+        const auto nqTot = nq0 * nq1;
 
-        auto jacSize = 1;
+        unsigned int jacSize = 1;
         if constexpr (DEFORMED)
         {
             jacSize *= nqTot;
@@ -361,32 +331,33 @@ protected:
 
         // Flag for collapsed coordinate correction.
         const bool isModified =
-            (m_expPtr->GetBasisType(0) == LibUtilities::eModified_A);
+            (this->m_exp->GetBasisType(0) == LibUtilities::eModified_A);
 
         // Fetch basis and weight data.
         auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(), eBasis));
+            BasisDataKey<simd_t>(this->m_exp->GetBasis(0)->GetBasisKey(),
+                                 eBasis));
         auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(), eBasis));
+            BasisDataKey<simd_t>(this->m_exp->GetBasis(1)->GetBasisKey(),
+                                 eBasis));
         auto W0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(),
+            BasisDataKey<simd_t>(this->m_exp->GetBasis(0)->GetBasisKey(),
                                  eWeights));
         auto W1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(),
+            BasisDataKey<simd_t>(this->m_exp->GetBasis(1)->GetBasisKey(),
                                  eWeights));
 
         // Fetch Jacobian data.
         auto jacptr_init = reinterpret_cast<const simd_t *>(
             this->m_dataWarehouse->template GetData<ExecSpace>(
-                JacobianKey<TData>(m_exp_idx, simd_t::width,
+                JacobianKey<TData>(inblock.GetExpIdx(), simd_t::width,
                                    inblock.GetNumElements())));
 
         // Get interleave parameter.
-        unsigned int in_interleave_width = inblock.GetInterleaveWidth();
-        auto width_ratio                 = (in_interleave_width == 1)
-                                               ? 1
-                                               : in_interleave_width / simd_t::width;
-        auto chunkSize = std::max(simd_t::width, in_interleave_width);
+        unsigned int interleave_width = inblock.GetInterleaveWidth();
+        const auto width_ratio =
+            (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
+        const auto chunkSize = std::max(simd_t::width, interleave_width);
 
         // Set to new interleave width.
         inblock.template SetInterleaveWidth<TData>(simd_t::width);
@@ -398,7 +369,7 @@ protected:
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
 
         // Initialize pointers.
-        auto input  = (in_interleave_width == simd_t::width)
+        auto input  = (interleave_width == simd_t::width)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -407,7 +378,7 @@ protected:
         auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             auto jacptr = jacptr_init;
             for (unsigned int e = 0; e < inblock.GetNumElmtGroups(); ++e)
@@ -416,7 +387,7 @@ protected:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        in_interleave_width, chunkSize, nqTot, (TData *)inptr);
+                        interleave_width, chunkSize, nqTot, (TData *)inptr);
                 }
 
                 // IProduct Kernel.
@@ -440,11 +411,11 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        constexpr auto nqTot = nq0 * nq1;
         constexpr auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
+        constexpr auto nqTot = nq0 * nq1;
 
-        auto jacSize = 1;
+        unsigned int jacSize = 1;
         if constexpr (DEFORMED)
         {
             jacSize *= nqTot;
@@ -452,32 +423,33 @@ protected:
 
         // Flag for collapsed coordinate correction.
         const bool isModified =
-            (m_expPtr->GetBasisType(0) == LibUtilities::eModified_A);
+            (this->m_exp->GetBasisType(0) == LibUtilities::eModified_A);
 
         // Fetch basis and weight data.
         auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(), eBasis));
+            BasisDataKey<simd_t>(this->m_exp->GetBasis(0)->GetBasisKey(),
+                                 eBasis));
         auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(), eBasis));
+            BasisDataKey<simd_t>(this->m_exp->GetBasis(1)->GetBasisKey(),
+                                 eBasis));
         auto W0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(),
+            BasisDataKey<simd_t>(this->m_exp->GetBasis(0)->GetBasisKey(),
                                  eWeights));
         auto W1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(),
+            BasisDataKey<simd_t>(this->m_exp->GetBasis(1)->GetBasisKey(),
                                  eWeights));
 
-        // Fetch Jacobian data.
+        // Fetch Jacobian.
         auto jacptr_init = reinterpret_cast<const simd_t *>(
             this->m_dataWarehouse->template GetData<ExecSpace>(
-                JacobianKey<TData>(m_exp_idx, simd_t::width,
+                JacobianKey<TData>(inblock.GetExpIdx(), simd_t::width,
                                    inblock.GetNumElements())));
 
         // Get interleave parameter.
-        unsigned int in_interleave_width = inblock.GetInterleaveWidth();
-        auto width_ratio                 = (in_interleave_width == 1)
-                                               ? 1
-                                               : in_interleave_width / simd_t::width;
-        auto chunkSize = std::max(simd_t::width, in_interleave_width);
+        unsigned int interleave_width = inblock.GetInterleaveWidth();
+        const auto width_ratio =
+            (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
+        const auto chunkSize = std::max(simd_t::width, interleave_width);
 
         // Set to new interleave width.
         inblock.template SetInterleaveWidth<TData>(simd_t::width);
@@ -489,7 +461,7 @@ protected:
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
 
         // Initialize pointers.
-        auto input  = (in_interleave_width == simd_t::width)
+        auto input  = (interleave_width == simd_t::width)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -498,7 +470,7 @@ protected:
         auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             auto jacptr = jacptr_init;
             for (unsigned int e = 0; e < inblock.GetNumElmtGroups(); ++e)
@@ -507,7 +479,7 @@ protected:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        in_interleave_width, chunkSize, nqTot, (TData *)inptr);
+                        interleave_width, chunkSize, nqTot, (TData *)inptr);
                 }
 
                 // IProduct Kernel.
@@ -529,19 +501,19 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        const auto nm0 = m_expPtr->GetBasisNumModes(0);
-        const auto nm1 = m_expPtr->GetBasisNumModes(1);
-        const auto nm2 = m_expPtr->GetBasisNumModes(2);
+        const auto nm0 = this->m_exp->GetBasisNumModes(0);
+        const auto nm1 = this->m_exp->GetBasisNumModes(1);
+        const auto nm2 = this->m_exp->GetBasisNumModes(2);
 
-        const auto nq0 = m_expPtr->GetNumPoints(0);
-        const auto nq1 = m_expPtr->GetNumPoints(1);
-        const auto nq2 = m_expPtr->GetNumPoints(2);
+        const auto nq0 = this->m_exp->GetNumPoints(0);
+        const auto nq1 = this->m_exp->GetNumPoints(1);
+        const auto nq2 = this->m_exp->GetNumPoints(2);
 
-        const auto nqTot = nq0 * nq1 * nq2;
         const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+        const auto nqTot = nq0 * nq1 * nq2;
 
-        auto jacSize = 1;
+        unsigned int jacSize = 1;
         if constexpr (DEFORMED)
         {
             jacSize *= nqTot;
@@ -549,37 +521,39 @@ protected:
 
         // Flag for collapsed coordinate correction.
         const bool isModified =
-            (m_expPtr->GetBasisType(0) == LibUtilities::eModified_A);
+            (this->m_exp->GetBasisType(0) == LibUtilities::eModified_A);
 
         // Fetch basis and weight data.
         auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(), eBasis));
+            BasisDataKey<simd_t>(this->m_exp->GetBasis(0)->GetBasisKey(),
+                                 eBasis));
         auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(), eBasis));
+            BasisDataKey<simd_t>(this->m_exp->GetBasis(1)->GetBasisKey(),
+                                 eBasis));
         auto B2 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(m_expPtr->GetBasis(2)->GetBasisKey(), eBasis));
+            BasisDataKey<simd_t>(this->m_exp->GetBasis(2)->GetBasisKey(),
+                                 eBasis));
         auto W0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(),
+            BasisDataKey<simd_t>(this->m_exp->GetBasis(0)->GetBasisKey(),
                                  eWeights));
         auto W1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(),
+            BasisDataKey<simd_t>(this->m_exp->GetBasis(1)->GetBasisKey(),
                                  eWeights));
         auto W2 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(m_expPtr->GetBasis(2)->GetBasisKey(),
+            BasisDataKey<simd_t>(this->m_exp->GetBasis(2)->GetBasisKey(),
                                  eWeights));
 
-        // Fetch Jacobian data.
+        // Fetch Jacobian.
         auto jacptr_init = reinterpret_cast<const simd_t *>(
             this->m_dataWarehouse->template GetData<ExecSpace>(
-                JacobianKey<TData>(m_exp_idx, simd_t::width,
+                JacobianKey<TData>(inblock.GetExpIdx(), simd_t::width,
                                    inblock.GetNumElements())));
 
         // Get interleave parameter.
-        unsigned int in_interleave_width = inblock.GetInterleaveWidth();
-        auto width_ratio                 = (in_interleave_width == 1)
-                                               ? 1
-                                               : in_interleave_width / simd_t::width;
-        auto chunkSize = std::max(simd_t::width, in_interleave_width);
+        unsigned int interleave_width = inblock.GetInterleaveWidth();
+        const auto width_ratio =
+            (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
+        const auto chunkSize = std::max(simd_t::width, interleave_width);
 
         // Set to new interleave width.
         inblock.template SetInterleaveWidth<TData>(simd_t::width);
@@ -593,7 +567,7 @@ protected:
             wsp1(wsp1Size), wsp2(wsp2Size);
 
         // Initialize pointers.
-        auto input  = (in_interleave_width == simd_t::width)
+        auto input  = (interleave_width == simd_t::width)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -602,7 +576,7 @@ protected:
         auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             auto jacptr = jacptr_init;
             for (unsigned int e = 0; e < inblock.GetNumElmtGroups(); ++e)
@@ -611,7 +585,7 @@ protected:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        in_interleave_width, chunkSize, nqTot, (TData *)inptr);
+                        interleave_width, chunkSize, nqTot, (TData *)inptr);
                 }
 
                 // IProduct Kernel.
@@ -626,6 +600,7 @@ protected:
             }
         }
     }
+
     // Size based template version.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
               unsigned int nm0, unsigned int nm1, unsigned int nm2,
@@ -634,11 +609,11 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        constexpr auto nqTot = nq0 * nq1 * nq2;
         constexpr auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+        constexpr auto nqTot = nq0 * nq1 * nq2;
 
-        auto jacSize = 1;
+        unsigned int jacSize = 1;
         if constexpr (DEFORMED)
         {
             jacSize *= nqTot;
@@ -646,37 +621,39 @@ protected:
 
         // Flag for collapsed coordinate correction.
         const bool isModified =
-            (m_expPtr->GetBasisType(0) == LibUtilities::eModified_A);
+            (this->m_exp->GetBasisType(0) == LibUtilities::eModified_A);
 
         // Fetch basis and weight data.
         auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(), eBasis));
+            BasisDataKey<simd_t>(this->m_exp->GetBasis(0)->GetBasisKey(),
+                                 eBasis));
         auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(), eBasis));
+            BasisDataKey<simd_t>(this->m_exp->GetBasis(1)->GetBasisKey(),
+                                 eBasis));
         auto B2 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(m_expPtr->GetBasis(2)->GetBasisKey(), eBasis));
+            BasisDataKey<simd_t>(this->m_exp->GetBasis(2)->GetBasisKey(),
+                                 eBasis));
         auto W0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(m_expPtr->GetBasis(0)->GetBasisKey(),
+            BasisDataKey<simd_t>(this->m_exp->GetBasis(0)->GetBasisKey(),
                                  eWeights));
         auto W1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(m_expPtr->GetBasis(1)->GetBasisKey(),
+            BasisDataKey<simd_t>(this->m_exp->GetBasis(1)->GetBasisKey(),
                                  eWeights));
         auto W2 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(m_expPtr->GetBasis(2)->GetBasisKey(),
+            BasisDataKey<simd_t>(this->m_exp->GetBasis(2)->GetBasisKey(),
                                  eWeights));
 
-        // Fetch Jacobian data.
+        // Fetch Jacobian.
         auto jacptr_init = reinterpret_cast<const simd_t *>(
             this->m_dataWarehouse->template GetData<ExecSpace>(
-                JacobianKey<TData>(m_exp_idx, simd_t::width,
+                JacobianKey<TData>(inblock.GetExpIdx(), simd_t::width,
                                    inblock.GetNumElements())));
 
         // Get interleave parameter.
-        unsigned int in_interleave_width = inblock.GetInterleaveWidth();
-        auto width_ratio                 = (in_interleave_width == 1)
-                                               ? 1
-                                               : in_interleave_width / simd_t::width;
-        auto chunkSize = std::max(simd_t::width, in_interleave_width);
+        unsigned int interleave_width = inblock.GetInterleaveWidth();
+        const auto width_ratio =
+            (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
+        const auto chunkSize = std::max(simd_t::width, interleave_width);
 
         // Set to new interleave width.
         inblock.template SetInterleaveWidth<TData>(simd_t::width);
@@ -690,7 +667,7 @@ protected:
             wsp1(wsp1Size), wsp2(wsp2Size);
 
         // Initialize pointers.
-        auto input  = (in_interleave_width == simd_t::width)
+        auto input  = (interleave_width == simd_t::width)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -699,7 +676,7 @@ protected:
         auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             auto jacptr = jacptr_init;
             for (unsigned int e = 0; e < inblock.GetNumElmtGroups(); ++e)
@@ -708,7 +685,7 @@ protected:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        in_interleave_width, chunkSize, nqTot, (TData *)inptr);
+                        interleave_width, chunkSize, nqTot, (TData *)inptr);
                 }
 
                 // IProduct Kernel.

@@ -48,10 +48,10 @@ static constexpr FieldState DefaultState = FieldState::Phys;
 class BlockAttributes
 {
 public:
-    BlockAttributes(const size_t num_elements,
+    BlockAttributes(const size_t exp_idx, const size_t num_elements,
                     const size_t num_elements_with_padding,
                     const size_t num_data, const size_t interleave_width)
-        : m_num_elements(num_elements),
+        : m_exp_idx(exp_idx), m_num_elements(num_elements),
           m_num_elements_with_padding(num_elements_with_padding),
           m_num_data(num_data), m_size(num_elements_with_padding * num_data),
           m_interleave_width(interleave_width)
@@ -74,6 +74,11 @@ public:
         }
 
         m_interleave_width = interleave_width;
+    }
+
+    size_t GetExpIdx(void) const
+    {
+        return m_exp_idx;
     }
 
     size_t GetNumElements(void) const
@@ -112,6 +117,7 @@ public:
     }
 
 private:
+    const size_t m_exp_idx;
     const size_t m_num_elements;
     const size_t m_num_elements_with_padding;
     const size_t m_num_data;
@@ -123,19 +129,22 @@ template <typename TData> class BlockAccessor : public BlockAttributes
 {
 public:
     BlockAccessor(const BlockAttributes blockAttr,
-                  MemoryRegion<TData> &memory_region, const size_t offset)
+                  MemoryRegion<TData> &memory_region,
+                  const size_t num_components, const size_t offset)
         : BlockAttributes(blockAttr), m_memory_region(memory_region),
-          m_offset(offset)
+          m_num_components(num_components), m_offset(offset)
     {
     }
 
-    BlockAccessor(const size_t num_elements,
+    BlockAccessor(const size_t exp_idx, const size_t num_elements,
                   const size_t num_elements_with_padding, const size_t num_data,
                   const size_t interleave_width,
-                  MemoryRegion<TData> &memory_region, const size_t offset)
-        : BlockAttributes(num_elements, num_elements_with_padding, num_data,
-                          interleave_width),
-          m_memory_region(memory_region), m_offset(offset)
+                  MemoryRegion<TData> &memory_region,
+                  const size_t num_components, const size_t offset)
+        : BlockAttributes(exp_idx, num_elements, num_elements_with_padding,
+                          num_data, interleave_width),
+          m_memory_region(memory_region), m_num_components(num_components),
+          m_offset(offset)
     {
     }
 
@@ -171,9 +180,20 @@ public:
         return m_memory_region.GetDeviceRank();
     }
 
+    /**
+     * @brief Gets the number of components.
+     *
+     * @return size_t
+     */
+    size_t GetNumComponents() const
+    {
+        return m_num_components;
+    }
+
 private:
     MemoryRegion<TData> &m_memory_region;
-    size_t m_offset = 0;
+    size_t m_num_components = 0;
+    size_t m_offset         = 0;
 };
 
 /**
@@ -204,6 +224,7 @@ std::vector<BlockAttributes> GetBlockAttributes(
     std::vector<LibUtilities::BasisKey> thisbasisKeys(
         expPtr->GetNumBases(), LibUtilities::NullBasisKey);
 
+    size_t exp_idx      = 0;
     size_t num_elements = 1;
     size_t ndata        = state == FieldState::Phys ? expPtr->GetTotPoints()
                                                     : expPtr->GetNcoeffs();
@@ -237,10 +258,12 @@ std::vector<BlockAttributes> GetBlockAttributes(
             size_t num_elements_with_padding =
                 ((num_elements + vector_width - 1) / vector_width) *
                 vector_width;
-            blockAttr.push_back({num_elements, num_elements_with_padding, ndata,
+            blockAttr.push_back({exp_idx, num_elements,
+                                 num_elements_with_padding, ndata,
                                  interleave_width});
 
             // update ndata for a new block
+            exp_idx        = i;
             num_elements   = 1;
             ndata          = state == FieldState::Phys ? expPtr->GetTotPoints()
                                                        : expPtr->GetNcoeffs();
@@ -252,8 +275,8 @@ std::vector<BlockAttributes> GetBlockAttributes(
     // update the padding elements for the last block
     size_t num_elements_with_padding =
         ((num_elements + vector_width - 1) / vector_width) * vector_width;
-    blockAttr.push_back(
-        {num_elements, num_elements_with_padding, ndata, interleave_width});
+    blockAttr.push_back({exp_idx, num_elements, num_elements_with_padding,
+                         ndata, interleave_width});
 
     return blockAttr;
 }
@@ -544,7 +567,7 @@ public:
             field.m_block_accessors.push_back(BlockAccessor(
                 blockAttr[blk],
                 field.m_memory_regions[field.m_blk_to_mr_mapping[blk]],
-                field.m_blk_to_mr_offset[blk]));
+                field.m_var_names.size(), field.m_blk_to_mr_offset[blk]));
         }
     }
 

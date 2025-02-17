@@ -572,8 +572,7 @@ public:
     {
         if (m_storage == nullptr)
         {
-            NEKERROR(Nektar::ErrorUtil::efatal,
-                     "MemoryRegion::size - Storage has not allocated.");
+            return 0;
         }
 
         return m_storage->m_size;

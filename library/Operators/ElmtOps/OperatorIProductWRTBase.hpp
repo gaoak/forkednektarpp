@@ -34,30 +34,32 @@
 
 #pragma once
 
-#include "Operators/Common/Operator.hpp"
+#include "Operators/ElmtOps/OperatorElmt.hpp"
 
 namespace Nektar::Operators
 {
 
-// IProductWRTBase base class
-// Defines the apply operator to enforce apply parameter types
-template <typename TData> class OperatorIProductWRTBase : public Operator<TData>
+template <typename TData> struct IProductWRTBase;
+
+template <typename TData>
+class BlockOperatorIProductWRTBase : public BlockOperator<TData>
 {
 public:
-    OperatorIProductWRTBase(const MultiRegions::ExpListSharedPtr &expansionList)
-        : Operator<TData>(expansionList)
+    BlockOperatorIProductWRTBase(const LocalRegions::ExpansionSharedPtr &exp,
+                                 NekDataWarehouseSharedPtr dataWarehouse)
+        : BlockOperator<TData>(exp, dataWarehouse)
     {
     }
 
-    ~OperatorIProductWRTBase() override = default;
+    ~BlockOperatorIProductWRTBase() override = default;
 
-    virtual void apply(Field<TData, FieldState::Phys> &in,
-                       Field<TData, FieldState::Coeff> &out) = 0;
+    virtual void apply(BlockAccessor<TData> &inblock,
+                       BlockAccessor<TData> &outblock) = 0;
 
-    virtual void operator()(Field<TData, FieldState::Phys> &in,
-                            Field<TData, FieldState::Coeff> &out)
+    virtual void operator()(BlockAccessor<TData> &inblock,
+                            BlockAccessor<TData> &outblock)
     {
-        apply(in, out);
+        this->apply(inblock, outblock);
     }
 
     void SetScale(TData scale)
@@ -67,6 +69,77 @@ public:
 
 protected:
     TData m_scale = 1.0;
+};
+
+// Descriptor / traits class for BlockIProductWRTBase
+template <typename TData> struct BlockIProductWRTBase
+{
+    using class_name = BlockOperatorIProductWRTBase<TData>;
+
+    BlockIProductWRTBase() = delete;
+
+    template <typename ExecSpace, typename Impl>
+    static std::shared_ptr<class_name> Create(
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse)
+    {
+        return BlockOperator<TData>::template Create<
+            BlockIProductWRTBase<TData>, ExecSpace, Impl>(exp, dataWarehouse);
+    }
+};
+
+// IProductWRTBase base class
+// Defines the apply operator to enforce apply parameter types
+template <typename TData>
+class OperatorIProductWRTBase
+    : public OperatorElmt<FieldState::Phys, FieldState::Coeff, TData>
+{
+    friend struct IProductWRTBase<TData>;
+
+public:
+    OperatorIProductWRTBase(const MultiRegions::ExpListSharedPtr &expansionList)
+        : OperatorElmt<FieldState::Phys, FieldState::Coeff, TData>(
+              expansionList)
+    {
+    }
+
+    ~OperatorIProductWRTBase() override = default;
+
+    void apply(Field<TData, FieldState::Phys> &in,
+               Field<TData, FieldState::Coeff> &out) override
+    {
+        ASSERTL1(in.GetNumComponents() == out.GetNumComponents(),
+                 "Number of input and output components differ");
+
+        // Loop over the blocks.
+        for (unsigned int blk = 0; blk < m_blockOperator.size(); ++blk)
+        {
+            // Block dependent.
+            auto &inblock  = in.GetBlocks()[blk];
+            auto &outblock = out.GetBlocks()[blk];
+
+            this->m_blockOperator[blk]->apply(inblock, outblock);
+        }
+    }
+
+    virtual void operator()(Field<TData, FieldState::Phys> &in,
+                            Field<TData, FieldState::Coeff> &out)
+    {
+        this->apply(in, out);
+    }
+
+    void SetScale(TData scale)
+    {
+        // Loop over the blocks.
+        for (unsigned int blk = 0; blk < m_blockOperator.size(); ++blk)
+        {
+            this->m_blockOperator[blk]->SetScale(scale);
+        }
+    }
+
+protected:
+    std::vector<std::shared_ptr<BlockOperatorIProductWRTBase<TData>>>
+        m_blockOperator;
 };
 
 // Descriptor / traits class for IProductWRTBase
@@ -80,9 +153,52 @@ template <typename TData> struct IProductWRTBase
     static std::shared_ptr<class_name> Create(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return Operator<TData>::template Create<IProductWRTBase<TData>,
-                                                ExecSpace, Impl>(expansionList);
+        auto IProductWRTBaseOp =
+            Operator<TData>::template Create<IProductWRTBase<TData>, ExecSpace,
+                                             Impl>(expansionList);
+
+        auto blocks =
+            GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
+
+        // Loop over the blocks.
+        for (auto &block : blocks)
+        {
+            IProductWRTBaseOp->m_blockOperator.push_back(
+                BlockIProductWRTBase<TData>::template Create<ExecSpace, Impl>(
+                    expansionList->GetExp(block.GetExpIdx()),
+                    expansionList->GetDataWarehouseSharedPtr()));
+        }
+
+        return IProductWRTBaseOp;
     }
 };
 
 } // namespace Nektar::Operators
+
+namespace Nektar::Operators::detail
+{
+
+template <typename ExecSpace, typename Implementation, typename TData>
+class OperatorIProductWRTBaseImpl : public OperatorIProductWRTBase<TData>
+{
+public:
+    OperatorIProductWRTBaseImpl(
+        const MultiRegions::ExpListSharedPtr &expansionList)
+        : OperatorIProductWRTBase<TData>(expansionList)
+    {
+    }
+
+    // className - for OperatorFactory
+    static std::string className;
+
+    // instantiation function for CreatorFunction in OperatorFactory
+    static std::unique_ptr<Operator<TData>> instantiate(
+        const MultiRegions::ExpListSharedPtr &expansionList)
+    {
+        return std::make_unique<
+            OperatorIProductWRTBaseImpl<ExecSpace, Implementation, TData>>(
+            expansionList);
+    }
+};
+
+} // namespace Nektar::Operators::detail

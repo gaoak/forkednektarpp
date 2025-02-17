@@ -64,6 +64,20 @@ MACRO(ADD_OPERATOR dir)
     # which requires two delcarations.
     SET(CONFIG_FILE OperatorFactoryDec.cpp.in)
 
+    IF("${name}" STREQUAL "BwdTrans" OR 
+       "${name}" STREQUAL "IProductWRTBase" OR 
+       "${name}" STREQUAL "IProductWRTDerivBase" OR 
+       "${name}" STREQUAL "PhysDeriv"  OR 
+       "${name}" STREQUAL "PhysInterp1DScaled"OR 
+       "${name}" STREQUAL "Helmholtz" OR
+       "${name}" STREQUAL "Mass" OR
+       "${name}" STREQUAL "MultiplyByElmtInvMass" OR
+       "${name}" STREQUAL "LinAdvDiffReaction")
+        # These operator have an additional argument for the FieldState
+        # which requires two delcarations.
+         SET(BLOCK_CONFIG_FILE BlockOperatorFactoryDec.cpp.in)
+    ENDIF()
+
     # Check to see if shape specific BlockOpSwitch*.h files have
     # been generated and if not generate for later potential use.
     IF(EXISTS "${CMAKE_CURRENT_BINARY_DIR}/BlockOpSwitchCodeSeg.h")
@@ -188,6 +202,17 @@ MACRO(ADD_OPERATOR dir)
             FOREACH (TData IN LISTS DataTypes)
                 # Set up the name used for the .cpp declaration file.
                 SET(FactoryDeclName ${name}${ExecSpace}${Impl}${TData}.${SOURCE_EXT})
+                IF("${name}" STREQUAL "BwdTrans" OR 
+                   "${name}" STREQUAL "IProductWRTBase" OR 
+                   "${name}" STREQUAL "IProductWRTDerivBase" OR 
+                   "${name}" STREQUAL "PhysDeriv"  OR 
+                   "${name}" STREQUAL "PhysInterp1DScaled" OR 
+                   "${name}" STREQUAL "Mass" OR 
+                   "${name}" STREQUAL "MultiplyByElmtInvMass" OR 
+                   "${name}" STREQUAL "Helmholtz" OR
+                   "${name}" STREQUAL "LinAdvDiffReaction")
+                    SET(BlockFactoryDeclName "Block${name}${ExecSpace}${Impl}${TData}.${SOURCE_EXT}")
+                ENDIF()
 
                 # Get the source and header files for this operator,
                 # execution space, and implementation.
@@ -324,13 +349,39 @@ MACRO(ADD_OPERATOR dir)
                 # Create the cpp file from the implementation file.
                 CONFIGURE_FILE(${CONFIG_FILE} ${FactoryDeclName})
 
-                # Add the respective cpp file.
-                SET(${CURRENT_SOURCES} ${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName})
+                IF("${name}" STREQUAL "BwdTrans" OR 
+                   "${name}" STREQUAL "IProductWRTBase" OR 
+                   "${name}" STREQUAL "IProductWRTDerivBase" OR 
+                   "${name}" STREQUAL "PhysDeriv"  OR 
+                   "${name}" STREQUAL "PhysInterp1DScaled" OR
+                   "${name}" STREQUAL "Mass" OR 
+                   "${name}" STREQUAL "MultiplyByElmtInvMass" OR 
+                   "${name}" STREQUAL "Helmholtz" OR
+                   "${name}" STREQUAL "LinAdvDiffReaction")
+                    CONFIGURE_FILE(${BLOCK_CONFIG_FILE} ${BlockFactoryDeclName})
+                ENDIF()
 
-                # Add this specific implementation to the operator's
-                # source and header files.
+                # Add the respective cpp file.
                 SET(${NAME_HEADERS} ${${NAME_HEADERS}} ${${CURRENT_HEADERS}})
+                SET(${CURRENT_SOURCES} ${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName})
                 SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${${CURRENT_SOURCES}})
+
+                IF("${name}" STREQUAL "BwdTrans" OR 
+                   "${name}" STREQUAL "IProductWRTBase" OR 
+                   "${name}" STREQUAL "IProductWRTDerivBase" OR 
+                   "${name}" STREQUAL "PhysDeriv"  OR 
+                   "${name}" STREQUAL "PhysInterp1DScaled" OR 
+                   "${name}" STREQUAL "Mass"  OR
+                   "${name}" STREQUAL "MultiplyByElmtInvMass"  OR
+                   "${name}" STREQUAL "Helmholtz" OR 
+                   "${name}" STREQUAL "LinAdvDiffReaction")
+
+                   SET(${CURRENT_SOURCES} ${CMAKE_CURRENT_BINARY_DIR}/${BlockFactoryDeclName})
+
+                   # Add this specific implementation to the operator's
+                   # source and header files.
+                   SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${${CURRENT_SOURCES}})
+                ENDIF()
             ENDFOREACH()
         ENDFOREACH()
     ENDFOREACH()

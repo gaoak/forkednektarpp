@@ -42,61 +42,23 @@
 namespace Nektar::Operators::detail
 {
 
-// Shared implementation
 template <typename ExecSpace, typename Implementation, typename TData>
-class OperatorPhysDerivImpl : public OperatorPhysDeriv<TData>
+class BlockOperatorPhysDerivImpl : public BlockOperatorPhysDeriv<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    OperatorPhysDerivImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorPhysDeriv<TData>(expansionList)
+    BlockOperatorPhysDerivImpl(const LocalRegions::ExpansionSharedPtr &exp,
+                               NekDataWarehouseSharedPtr dataWarehouse)
+        : BlockOperatorPhysDeriv<TData>(exp, dataWarehouse)
     {
     }
 
-    void apply(Field<TData, FieldState::Phys> &in,
-               Field<TData, FieldState::Phys> &out) override
-    {
-        m_nComps = in.GetNumComponents();
-        ASSERTL1(m_nComps == out.GetNumComponents() /
-                                 this->m_expansionList->GetCoordim(0),
-                 "Number of input and output components differ");
-
-        // Initialize index.
-        m_exp_idx = 0;
-
-        for (m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
-        {
-            m_expPtr = this->m_expansionList->GetExp(m_exp_idx);
-
-            // Block dependent.
-            auto &inblock  = in.GetBlocks()[m_blk];
-            auto &outblock = out.GetBlocks()[m_blk];
-
-            this->BlockOperator(inblock, outblock);
-
-            // Increment index for next element type.
-            m_exp_idx += inblock.GetNumElements();
-        }
-    }
-
-    // className - for OperatorFactory
-    static std::string className;
-
-    // instantiation function for CreatorFunction in OperatorFactory
-    static std::unique_ptr<Operator<TData>> instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-    {
-        return std::make_unique<
-            OperatorPhysDerivImpl<ExecSpace, Implementation, TData>>(
-            expansionList);
-    }
-
-    void BlockOperator(BlockAccessor<TData> &inblock,
-                       BlockAccessor<TData> &outblock)
+    void apply(BlockAccessor<TData> &inblock,
+               BlockAccessor<TData> &outblock) override
     {
         // Determine shape and type of the element.
-        const auto shapeType = m_expPtr->DetShapeType();
+        const auto shapeType = this->m_exp->DetShapeType();
 
         switch (shapeType)
         {
@@ -147,14 +109,21 @@ public:
         }
     }
 
+    // className - for BlockOperatorFactory
+    static std::string className;
+
+    // Instantiation function for CreatorFunction in BlockOperatorFactory.
+    static std::unique_ptr<BlockOperator<TData>> instantiate(
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse)
+    {
+        return std::make_unique<
+            BlockOperatorPhysDerivImpl<ExecSpace, Implementation, TData>>(
+            exp, dataWarehouse);
+    }
+
 protected:
-    unsigned int m_exp_idx;
-    unsigned int m_blk;
-    unsigned int m_nComps;
-
-    LocalRegions::ExpansionSharedPtr m_expPtr;
-
-    static constexpr size_t m_implInterleaveWidth =
+    static constexpr unsigned int m_implInterleaveWidth =
         std::is_same_v<Implementation, Operators::SumFac>
             ? NektarSpaces::vector_width<TData>::value
             : 1u;
@@ -186,19 +155,22 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        const auto nq0 = m_expPtr->GetNumPoints(0);
+        const auto nq0 = this->m_exp->GetNumPoints(0);
 
-        const auto nCoord = m_expPtr->GetCoordim();
+        const auto nCoord = this->m_exp->GetCoordim();
+
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
         // Fetch basis data.
         auto D0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
                                 eDerivative));
 
         // Fetch deriv factors data.
-        auto transpose = std::is_same_v<Implementation, Operators::SumFacQP>;
-        auto dfptr     = this->m_dataWarehouse->template GetData<ExecSpace>(
-            DerivFactorKey<TData>(m_exp_idx, m_implInterleaveWidth,
+        constexpr bool transpose =
+            std::is_same_v<Implementation, Operators::SumFacQP>;
+        auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), transpose));
 
         // Initialize pointers.
@@ -207,10 +179,8 @@ protected:
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
-
         // Loop over components.
-        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
@@ -236,15 +206,18 @@ protected:
     void Operator1D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+
         // Fetch basis data.
         auto D0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
                                 eDerivative));
 
         // Fetch deriv factors data.
-        auto transpose = std::is_same_v<Implementation, Operators::SumFacQP>;
-        auto dfptr     = this->m_dataWarehouse->template GetData<ExecSpace>(
-            DerivFactorKey<TData>(m_exp_idx, m_implInterleaveWidth,
+        constexpr bool transpose =
+            std::is_same_v<Implementation, Operators::SumFacQP>;
+        auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), transpose));
 
         // Initialize pointers.
@@ -253,10 +226,8 @@ protected:
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
-
         // Loop over components.
-        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
@@ -282,29 +253,32 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        const auto nq0 = m_expPtr->GetNumPoints(0);
-        const auto nq1 = m_expPtr->GetNumPoints(1);
+        const auto nq0 = this->m_exp->GetNumPoints(0);
+        const auto nq1 = this->m_exp->GetNumPoints(1);
 
-        const auto nCoord = m_expPtr->GetCoordim();
+        const auto nCoord = this->m_exp->GetCoordim();
+
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
         // Fetch basis data.
         auto D0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
                                 eDerivative));
         auto D1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
                                 eDerivative));
         auto f0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
                                 eHalfMultOnePlusZero));
         auto f1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
                                 eTwoOverOneMinusZero));
 
         // Fetch deriv factors data.
-        auto transpose = std::is_same_v<Implementation, Operators::SumFacQP>;
-        auto dfptr     = this->m_dataWarehouse->template GetData<ExecSpace>(
-            DerivFactorKey<TData>(m_exp_idx, m_implInterleaveWidth,
+        constexpr bool transpose =
+            std::is_same_v<Implementation, Operators::SumFacQP>;
+        auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), transpose));
 
         // Initialize pointers.
@@ -313,10 +287,8 @@ protected:
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
-
         // Loop over components.
-        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
@@ -343,24 +315,27 @@ protected:
     void Operator2D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+
         // Fetch basis data.
         auto D0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
                                 eDerivative));
         auto D1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
                                 eDerivative));
         auto f0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
                                 eHalfMultOnePlusZero));
         auto f1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
                                 eTwoOverOneMinusZero));
 
         // Fetch deriv factors data.
-        auto transpose = std::is_same_v<Implementation, Operators::SumFacQP>;
-        auto dfptr     = this->m_dataWarehouse->template GetData<ExecSpace>(
-            DerivFactorKey<TData>(m_exp_idx, m_implInterleaveWidth,
+        constexpr bool transpose =
+            std::is_same_v<Implementation, Operators::SumFacQP>;
+        auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), transpose));
 
         // Initialize pointers.
@@ -369,10 +344,8 @@ protected:
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
-
         // Loop over components.
-        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
@@ -399,37 +372,40 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        const auto nq0 = m_expPtr->GetNumPoints(0);
-        const auto nq1 = m_expPtr->GetNumPoints(1);
-        const auto nq2 = m_expPtr->GetNumPoints(2);
+        const auto nq0 = this->m_exp->GetNumPoints(0);
+        const auto nq1 = this->m_exp->GetNumPoints(1);
+        const auto nq2 = this->m_exp->GetNumPoints(2);
+
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
         // Fetch basis data.
         auto D0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
                                 eDerivative));
         auto D1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
                                 eDerivative));
         auto D2 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(2)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(2)->GetBasisKey(),
                                 eDerivative));
         auto f0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
                                 eHalfMultOnePlusZero));
         auto f1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
                                 eHalfMultOnePlusZero));
         auto f1m = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
                                 eTwoOverOneMinusZero));
         auto f2 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(2)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(2)->GetBasisKey(),
                                 eTwoOverOneMinusZero));
 
         // Fetch deriv factors data.
-        auto transpose = std::is_same_v<Implementation, Operators::SumFacQP>;
-        auto dfptr     = this->m_dataWarehouse->template GetData<ExecSpace>(
-            DerivFactorKey<TData>(m_exp_idx, m_implInterleaveWidth,
+        constexpr bool transpose =
+            std::is_same_v<Implementation, Operators::SumFacQP>;
+        auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), transpose));
 
         // Initialize pointers.
@@ -438,10 +414,8 @@ protected:
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
-
         // Loop over components.
-        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
@@ -468,33 +442,36 @@ protected:
     void Operator3D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+
         // Fetch basis data.
         auto D0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
                                 eDerivative));
         auto D1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
                                 eDerivative));
         auto D2 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(2)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(2)->GetBasisKey(),
                                 eDerivative));
         auto f0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(0)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
                                 eHalfMultOnePlusZero));
         auto f1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
                                 eHalfMultOnePlusZero));
         auto f1m = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(1)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
                                 eTwoOverOneMinusZero));
         auto f2 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(m_expPtr->GetBasis(2)->GetBasisKey(),
+            BasisDataKey<TData>(this->m_exp->GetBasis(2)->GetBasisKey(),
                                 eTwoOverOneMinusZero));
 
         // Fetch deriv factors data.
-        auto transpose = std::is_same_v<Implementation, Operators::SumFacQP>;
-        auto dfptr     = this->m_dataWarehouse->template GetData<ExecSpace>(
-            DerivFactorKey<TData>(m_exp_idx, m_implInterleaveWidth,
+        constexpr bool transpose =
+            std::is_same_v<Implementation, Operators::SumFacQP>;
+        auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), transpose));
 
         // Initialize pointers.
@@ -503,10 +480,8 @@ protected:
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
-
         // Loop over components.
-        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(

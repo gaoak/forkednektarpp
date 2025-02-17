@@ -1,7 +1,7 @@
 // clang-format off
 #if defined(SHAPE_TYPE_Seg)
-    const auto nmodes0  = m_expPtr->GetNumPoints(0); 
-    const int  nquad0   = m_scale * nmodes0;
+    const auto nmodes0  = this->m_exp->GetNumPoints(0); 
+    const int  nquad0   = this->m_scale * nmodes0;
 
         // Default case
 #undef PHYSINTERP1D_DEF
@@ -42,11 +42,11 @@
         }
         
 #elif defined(SHAPE_TYPE_Quad) || defined(SHAPE_TYPE_Tri)
-    const auto nmodes0  = m_expPtr->GetNumPoints(0);
-    const auto nmodes1  = m_expPtr->GetNumPoints(1);
+    const auto nmodes0  = this->m_exp->GetNumPoints(0);
+    const auto nmodes1  = this->m_exp->GetNumPoints(1);
 
-    const int nquad0 = m_scale * nmodes0;
-    const int nquad1 = m_scale * nmodes1;
+    const int nquad0 = this->m_scale * nmodes0;
+    const int nquad1 = this->m_scale * nmodes1;
 
         // Default case
 #undef PHYSINTERP1D_DEF
@@ -107,13 +107,13 @@
             PHYSINTERP1D_DEF
         }
 #else
-    const auto nmodes0  = m_expPtr->GetNumPoints(0);
-    const auto nmodes1  = m_expPtr->GetNumPoints(1);
-    const auto nmodes2  = m_expPtr->GetNumPoints(2);
+    const auto nmodes0  = this->m_exp->GetNumPoints(0);
+    const auto nmodes1  = this->m_exp->GetNumPoints(1);
+    const auto nmodes2  = this->m_exp->GetNumPoints(2);
 
-    const int  nquad0 = m_scale * nmodes0; 
-    const int  nquad1 = m_scale * nmodes1; 
-    const int  nquad2 = m_scale * nmodes2; 
+    const int  nquad0 = this->m_scale * nmodes0; 
+    const int  nquad1 = this->m_scale * nmodes1; 
+    const int  nquad2 = this->m_scale * nmodes2; 
 
         // Default case
 #undef PHYSINTERP1D_DEF

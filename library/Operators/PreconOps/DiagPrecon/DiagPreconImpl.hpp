@@ -128,8 +128,6 @@ public:
         unit_vec.template Initialize<MemSpace>(0);
         m_glodiag.template Initialize<MemSpace>(0);
 
-        size_t exp_idx = 0;
-
         for (size_t blk = 0; blk < unit_vec.GetBlocks().size(); ++blk)
         {
             // Block dependent.
@@ -164,9 +162,6 @@ public:
                 SetDiagonalKernel<ExecSpace, TData>(nmTot, nElmts, mode, 0.0,
                                                     unitptr);
             }
-
-            // Increment index for next element type.
-            exp_idx += nElmts;
         }
 
         // Assembly.

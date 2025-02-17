@@ -45,7 +45,7 @@ namespace Nektar::Operators::detail
 
 // Update the operator class name if reusing this file i.e. OperatorXXXBaseImpl
 template <>
-void OperatorPhysDerivImpl<NektarSpaces::@ExecSpace@, Operators::SumFacQP,
+void BlockOperatorPhysDerivImpl<NektarSpaces::@ExecSpace@, Operators::SumFacQP,
                                       @TData@>::@Shape@Block
                 (BlockAccessor<@TData@> &input, BlockAccessor<@TData@> &output)
 {

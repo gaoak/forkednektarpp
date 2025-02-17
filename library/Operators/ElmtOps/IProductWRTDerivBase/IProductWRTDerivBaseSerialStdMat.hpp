@@ -43,59 +43,21 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename Implementation, typename TData>
-class OperatorIProductWRTDerivBaseImpl
-    : public OperatorIProductWRTDerivBase<TData>
+class BlockOperatorIProductWRTDerivBaseImpl
+    : public BlockOperatorIProductWRTDerivBase<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    OperatorIProductWRTDerivBaseImpl(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorIProductWRTDerivBase<TData>(expansionList)
+    BlockOperatorIProductWRTDerivBaseImpl(
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse)
+        : BlockOperatorIProductWRTDerivBase<TData>(exp, dataWarehouse)
     {
     }
 
-    void apply(Field<TData, FieldState::Phys> &in,
-               Field<TData, FieldState::Coeff> &out) override
-    {
-        m_nComps = out.GetNumComponents();
-        ASSERTL1(m_nComps == in.GetNumComponents() /
-                                 this->m_expansionList->GetCoordim(0),
-                 "Number of input and output components differ");
-
-        // Initialize index.
-        m_exp_idx = 0;
-
-        // Loop over the blocks.
-        for (m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
-        {
-            m_expPtr = this->m_expansionList->GetExp(m_exp_idx);
-
-            // Block dependent.
-            auto &inblock  = in.GetBlocks()[m_blk];
-            auto &outblock = out.GetBlocks()[m_blk];
-
-            this->BlockOperator(inblock, outblock);
-
-            // Increment index for next element type.
-            m_exp_idx += inblock.GetNumElements();
-        }
-    }
-
-    // className - for OperatorFactory
-    static std::string className;
-
-    // instantiation function for CreatorFunction in OperatorFactory
-    static std::unique_ptr<Operator<TData>> instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-    {
-        return std::make_unique<
-            OperatorIProductWRTDerivBaseImpl<ExecSpace, Implementation, TData>>(
-            expansionList);
-    }
-
-    void BlockOperator(BlockAccessor<TData> &inblock,
-                       BlockAccessor<TData> &outblock)
+    void apply(BlockAccessor<TData> &inblock,
+               BlockAccessor<TData> &outblock) override
     {
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -106,36 +68,47 @@ public:
                           : outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Determine shape and type of the element.
-        const auto deformed =
-            m_expPtr->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed;
-        const auto shapeType = m_expPtr->DetShapeType();
-        const auto dimension = m_expPtr->GetShapeDimension();
-        const auto nCoord    = m_expPtr->GetCoordim();
-        const auto nqTot     = m_expPtr->GetTotPoints();
-        const auto nmTot     = m_expPtr->GetNcoeffs();
+        const auto deformed = this->m_exp->GetMetricInfo()->GetGtype() ==
+                              SpatialDomains::eDeformed;
+        const auto shapeType = this->m_exp->DetShapeType();
+        const auto dimension = this->m_exp->GetShapeDimension();
+        const auto nmTot     = this->m_exp->GetNcoeffs();
+        const auto nqTot     = this->m_exp->GetTotPoints();
+        const auto nCoord    = this->m_exp->GetCoordim();
         const auto ndf       = dimension * nCoord;
-
-        // Fetch Jacobian and deriv factors.
-        auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
-            JacobianKey<TData>(m_exp_idx, m_implInterleaveWidth,
-                               inblock.GetNumElements()));
-        auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
-            DerivFactorKey<TData>(m_exp_idx, m_implInterleaveWidth,
-                                  inblock.GetNumElements(), false));
 
         auto nElmts = inblock.GetNumElements();
 
-        // Allocate storate.
-        if (m_wsp.size() <= m_blk)
+        // Fetch matrix.
+        std::vector<LibUtilities::BasisKey> basisKeys(
+            dimension, LibUtilities::NullBasisKey);
+        for (unsigned int d = 0; d < dimension; d++)
         {
-            m_wsp.push_back(std::vector<TData>(dimension * nElmts * nqTot));
+            basisKeys[d] = this->m_exp->GetBasis(d)->GetBasisKey();
+        }
+        auto matptr =
+            this->m_dataWarehouse->template GetData<ExecSpace>(StdMatKey<TData>(
+                basisKeys, shapeType, eIProductWRTDerivBaseStdMat));
+
+        // Fetch Jacobian and deriv factors.
+        auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
+                               inblock.GetNumElements()));
+        auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
+                                  inblock.GetNumElements(), false));
+
+        // Allocate storate.
+        if (m_wsp.size() == 0)
+        {
+            m_wsp = std::vector<TData>(dimension * nElmts * nqTot);
         }
 
         // Get workspace pointer.
-        auto wspptr = m_wsp[m_blk].data();
+        auto wspptr = m_wsp.data();
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
@@ -234,17 +207,6 @@ public:
                     });
             }
 
-            // Fetch matrix.
-            std::vector<LibUtilities::BasisKey> basisKeys(
-                dimension, LibUtilities::NullBasisKey);
-            for (unsigned int d = 0; d < dimension; d++)
-            {
-                basisKeys[d] = m_expPtr->GetBasis(d)->GetBasisKey();
-            }
-            auto matptr = this->m_dataWarehouse->template GetData<ExecSpace>(
-                StdMatKey<TData>(basisKeys, shapeType,
-                                 eIProductWRTDerivBaseStdMat));
-
             // Perform matrix-matrix multiply.
             for (unsigned int d = 0; d < dimension; d++)
             {
@@ -265,16 +227,22 @@ public:
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 
-private:
-    unsigned int m_exp_idx;
-    unsigned int m_blk;
-    unsigned int m_nComps;
+    // className - for BlockOperatorFactory
+    static std::string className;
 
-    LocalRegions::ExpansionSharedPtr m_expPtr;
+    // Instantiation function for CreatorFunction in BlockOperatorFactory.
+    static std::unique_ptr<BlockOperator<TData>> instantiate(
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse)
+    {
+        return std::make_unique<BlockOperatorIProductWRTDerivBaseImpl<
+            ExecSpace, Implementation, TData>>(exp, dataWarehouse);
+    }
 
-    std::vector<std::vector<TData>> m_wsp;
+protected:
+    std::vector<TData> m_wsp;
 
-    static constexpr size_t m_implInterleaveWidth = 1;
+    static constexpr unsigned int m_implInterleaveWidth = 1;
 };
 
 } // namespace Nektar::Operators::detail
