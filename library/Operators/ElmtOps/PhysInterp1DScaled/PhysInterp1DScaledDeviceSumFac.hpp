@@ -54,6 +54,58 @@ public:
         NekDataWarehouseSharedPtr dataWarehouse)
         : BlockOperatorPhysInterp1DScaled<TData>(exp, dataWarehouse)
     {
+        // Determine shape and type of the element.
+        m_shapeType = exp->DetShapeType();
+        m_isDeformed =
+            exp->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed;
+        m_dimension = exp->GetShapeDimension();
+        m_coordDim  = exp->GetCoordim();
+
+        // Flag for collapsed coordinate correction.
+        m_isModified = (exp->GetBasisType(0) == LibUtilities::eModified_A);
+
+        for (unsigned int d = 0; d < m_dimension; d++)
+        {
+            // Fetch element size.
+            m_nm.push_back(exp->GetNumPoints(d));
+        }
+    }
+
+    void v_SetScaleFactor(TData scale) override
+    {
+        this->m_scale = scale;
+        m_nq.clear();
+        for (unsigned int d = 0; d < m_dimension; d++)
+        {
+            // Fetch element size.
+            if (d == 0)
+            {
+                m_nq.push_back(this->m_scale * m_nm[0]);
+            }
+            else if (d == 1)
+            {
+                // if delta between nm0 and nm1 is 1 then keep this delta
+                // for new poitns to capitalise on switch templating
+                const auto nq1 =
+                    (m_nm[0] - m_nm[1] == 1)
+                        ? (unsigned int)(this->m_scale * m_nm[0]) - 1
+                        : (unsigned int)(this->m_scale * m_nm[1]);
+                m_nq.push_back(nq1);
+            }
+            else if (d == 2)
+            {
+                const auto nq2 =
+                    (m_nm[0] - m_nm[2] == 1)
+                        ? (unsigned int)(this->m_scale * m_nm[0]) - 1
+                        : (unsigned int)(this->m_scale * m_nm[2]);
+                m_nq.push_back(nq2);
+            }
+
+            // Fetch basis data.
+            m_B.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<TData>(this->m_exp->GetBasis(d)->GetBasisKey(),
+                                    eInterp, m_nq[d])));
+        }
     }
 
     void apply(BlockAccessor<TData> &inblock,
@@ -62,10 +114,7 @@ public:
         ASSERTL1(this->m_scale != -1.0,
                  "Scale factor has not been initialised");
 
-        // Determine shape and type of the element.
-        const auto shapeType = this->m_exp->DetShapeType();
-
-        switch (shapeType)
+        switch (m_shapeType)
         {
             // Segment
             case LibUtilities::Seg:
@@ -127,12 +176,20 @@ public:
     }
 
 protected:
-    MemoryRegion<TData> m_wsp;
-
     static constexpr unsigned int m_implInterleaveWidth =
         std::is_same_v<Implementation, Operators::SumFac>
             ? NektarSpaces::vector_width<TData>::value
             : 1u;
+
+    LibUtilities::ShapeType m_shapeType;
+    bool m_isDeformed;
+    bool m_isModified;
+    unsigned int m_dimension;
+    unsigned int m_coordDim;
+    std::vector<unsigned int> m_nm;
+    std::vector<unsigned int> m_nq;
+    std::vector<const TData *> m_B;
+    MemoryRegion<TData> m_wsp;
 
     unsigned int GetSharedWorkspaceSize(LibUtilities::ShapeType shapeType,
                                         unsigned int nElmts,
@@ -196,15 +253,10 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        const auto nm0 = this->m_exp->GetNumPoints(0);
-        const auto nq0 = (unsigned int)(this->m_scale * nm0);
+        const auto nm0 = m_nm[0];
+        const auto nq0 = m_nq[0];
 
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
-
-        // Fetch basis data.
-        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                eInterp, nq0));
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -221,8 +273,8 @@ protected:
                 (TData *)inptr);
 
             // BwdTrans kernel.
-            BwdTrans1DKernel<ExecSpace, Implementation>(nm0, nq0, nElmtsPad, B0,
-                                                        inptr, outptr);
+            BwdTrans1DKernel<ExecSpace, Implementation>(nm0, nq0, nElmtsPad,
+                                                        m_B[0], inptr, outptr);
             inptr += inblock.size();
             outptr += outblock.size();
         }
@@ -238,11 +290,6 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
-
-        // Fetch basis data.
-        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                eInterp, nq0));
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -260,7 +307,7 @@ protected:
 
             // BwdTrans kernel.
             BwdTrans1DKernel<ExecSpace, Implementation, nm0, nq0>(
-                nElmtsPad, B0, inptr, outptr);
+                nElmtsPad, m_B[0], inptr, outptr);
             inptr += inblock.size();
             outptr += outblock.size();
         }
@@ -275,25 +322,13 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        const auto nm0 = this->m_exp->GetNumPoints(0);
-        const auto nm1 = this->m_exp->GetNumPoints(1);
+        const auto nm0 = m_nm[0];
+        const auto nm1 = m_nm[1];
 
-        const auto nq0 = (unsigned int)(this->m_scale * nm0);
-        // if delta between nm0 and nm1 is 1 then keep this delta
-        // for new poitns to capitalise on switch templating
-        const auto nq1 = (nm0 - nm1 == 1)
-                             ? (unsigned int)(this->m_scale * nm0) - 1
-                             : (unsigned int)(this->m_scale * nm1);
+        const auto nq0 = m_nq[0];
+        const auto nq1 = m_nq[1];
 
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
-
-        // Fetch basis data.
-        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                eInterp, nq0));
-        auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
-                                eInterp, nq1));
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -326,8 +361,8 @@ protected:
 
             // BwdTrans kernel.
             BwdTrans2DKernel<LibUtilities::Quad, ExecSpace, Implementation>(
-                nm0, nm1, nq0, nq1, nElmtsPad, false, B0, B1, inptr, outptr,
-                wspptr);
+                nm0, nm1, nq0, nq1, nElmtsPad, false, m_B[0], m_B[1], inptr,
+                outptr, wspptr);
             inptr += inblock.size();
             outptr += outblock.size();
         }
@@ -344,14 +379,6 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
-
-        // Fetch basis data.
-        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                eInterp, nq0));
-        auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
-                                eInterp, nq1));
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -384,8 +411,8 @@ protected:
 
             // BwdTrans kernel.
             BwdTrans2DKernel<LibUtilities::Quad, ExecSpace, Implementation, nm0,
-                             nm1, nq0, nq1>(nElmtsPad, false, B0, B1, inptr,
-                                            outptr, wspptr);
+                             nm1, nq0, nq1>(nElmtsPad, false, m_B[0], m_B[1],
+                                            inptr, outptr, wspptr);
 
             inptr += inblock.size();
             outptr += outblock.size();
@@ -401,32 +428,15 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        const auto nm0 = this->m_exp->GetNumPoints(0);
-        const auto nm1 = this->m_exp->GetNumPoints(1);
-        const auto nm2 = this->m_exp->GetNumPoints(2);
+        const auto nm0 = m_nm[0];
+        const auto nm1 = m_nm[1];
+        const auto nm2 = m_nm[2];
 
-        const auto nq0 = (unsigned int)(this->m_scale * nm0);
-        // if delta between nm0 and nm1 is 1 then keep this delta
-        // for new poitns to capitalise on switch templating
-        const auto nq1 = (nm0 - nm1 == 1)
-                             ? (unsigned int)(this->m_scale * nm0) - 1
-                             : (unsigned int)(this->m_scale * nm1);
-        const auto nq2 = (nm0 - nm2 == 1)
-                             ? (unsigned int)(this->m_scale * nm0) - 1
-                             : (unsigned int)(this->m_scale * nm2);
+        const auto nq0 = m_nq[0];
+        const auto nq1 = m_nq[1];
+        const auto nq2 = m_nq[2];
 
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
-
-        // Fetch basis data.
-        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                eInterp, nq0));
-        auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
-                                eInterp, nq1));
-        auto B2 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(this->m_exp->GetBasis(2)->GetBasisKey(),
-                                eInterp, nq2));
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -460,7 +470,7 @@ protected:
             // BwdTrans kernel.
             BwdTrans3DKernel<LibUtilities::Hex, ExecSpace, Implementation>(
                 nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, false, nullptr,
-                nullptr, B0, B1, B2, inptr, outptr, wspptr);
+                nullptr, m_B[0], m_B[1], m_B[2], inptr, outptr, wspptr);
             inptr += inblock.size();
             outptr += outblock.size();
         }
@@ -477,17 +487,6 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
-
-        // Fetch basis data.
-        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                eInterp, nq0));
-        auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
-                                eInterp, nq1));
-        auto B2 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(this->m_exp->GetBasis(2)->GetBasisKey(),
-                                eInterp, nq2));
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -520,9 +519,9 @@ protected:
 
             // BwdTrans kernel.
             BwdTrans3DKernel<LibUtilities::Hex, ExecSpace, Implementation, nm0,
-                             nm1, nm2, nq0, nq1, nq2>(nElmtsPad, false, nullptr,
-                                                      nullptr, B0, B1, B2,
-                                                      inptr, outptr, wspptr);
+                             nm1, nm2, nq0, nq1, nq2>(
+                nElmtsPad, false, nullptr, nullptr, m_B[0], m_B[1], m_B[2],
+                inptr, outptr, wspptr);
             inptr += inblock.size();
             outptr += outblock.size();
         }

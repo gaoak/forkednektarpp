@@ -52,15 +52,60 @@ public:
                                NekDataWarehouseSharedPtr dataWarehouse)
         : BlockOperatorPhysDeriv<TData>(exp, dataWarehouse)
     {
+        // Determine shape and type of the element.
+        m_shapeType = exp->DetShapeType();
+        m_isDeformed =
+            exp->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed;
+        m_dimension = exp->GetShapeDimension();
+        m_coordDim  = exp->GetCoordim();
+
+        // Flag for collapsed coordinate correction.
+        m_isModified = (exp->GetBasisType(0) == LibUtilities::eModified_A);
+
+        for (unsigned int d = 0; d < m_dimension; d++)
+        {
+            // Fetch element size.
+            m_nm.push_back(exp->GetBasisNumModes(d));
+            m_nq.push_back(exp->GetNumPoints(d));
+
+            // Fetch basis data.
+            m_D.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<TData>(exp->GetBasis(d)->GetBasisKey(),
+                                    eDerivative)));
+        }
+
+        if (m_dimension == 2)
+        {
+            // Fetch geometric factors.
+            m_f.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
+                                    eHalfMultOnePlusZero)));
+            m_f.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
+                                    eTwoOverOneMinusZero)));
+        }
+        else if (m_dimension == 3)
+        {
+            // Fetch geometric factors.
+            m_f.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
+                                    eHalfMultOnePlusZero)));
+            m_f.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
+                                    eHalfMultOnePlusZero)));
+            m_f.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
+                                    eTwoOverOneMinusZero)));
+            m_f.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<TData>(this->m_exp->GetBasis(2)->GetBasisKey(),
+                                    eTwoOverOneMinusZero)));
+        }
     }
 
     void apply(BlockAccessor<TData> &inblock,
                BlockAccessor<TData> &outblock) override
     {
-        // Determine shape and type of the element.
-        const auto shapeType = this->m_exp->DetShapeType();
-
-        switch (shapeType)
+        switch (m_shapeType)
         {
             // Segment
             case LibUtilities::Seg:
@@ -128,6 +173,15 @@ protected:
             ? NektarSpaces::vector_width<TData>::value
             : 1u;
 
+    LibUtilities::ShapeType m_shapeType;
+    bool m_isDeformed;
+    bool m_isModified;
+    unsigned int m_dimension;
+    unsigned int m_coordDim;
+    std::vector<unsigned int> m_nm;
+    std::vector<unsigned int> m_nq;
+    std::vector<const TData *> m_D;
+    std::vector<const TData *> m_f;
     void SegBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
 
@@ -155,16 +209,9 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        const auto nq0 = this->m_exp->GetNumPoints(0);
-
-        const auto nCoord = this->m_exp->GetCoordim();
+        const auto nq0 = m_nq[0];
 
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
-
-        // Fetch basis data.
-        auto D0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                eDerivative));
 
         // Fetch deriv factors data.
         constexpr bool transpose =
@@ -189,10 +236,10 @@ protected:
 
             // Calculate derivative.
             PhysDeriv1DKernel<ExecSpace, Implementation, DEFORMED>(
-                nCoord, nq0, nElmtsPad, D0, dfptr, inptr, outptr);
+                m_coordDim, nq0, nElmtsPad, m_D[0], dfptr, inptr, outptr);
 
             inptr += inblock.size();
-            outptr += nCoord * outblock.size();
+            outptr += m_coordDim * outblock.size();
         }
 
         // Set to new interleave width.
@@ -202,16 +249,11 @@ protected:
 
     // Size based template version.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-              unsigned int nCoord, unsigned int nq0>
+              unsigned int coordDim, unsigned int nq0>
     void Operator1D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
-
-        // Fetch basis data.
-        auto D0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                eDerivative));
 
         // Fetch deriv factors data.
         constexpr bool transpose =
@@ -235,11 +277,11 @@ protected:
                 (TData *)inptr);
 
             // Calculate derivative.
-            PhysDeriv1DKernel<ExecSpace, Implementation, DEFORMED, nCoord, nq0>(
-                nElmtsPad, D0, dfptr, inptr, outptr);
+            PhysDeriv1DKernel<ExecSpace, Implementation, DEFORMED, coordDim,
+                              nq0>(nElmtsPad, m_D[0], dfptr, inptr, outptr);
 
             inptr += inblock.size();
-            outptr += nCoord * outblock.size();
+            outptr += coordDim * outblock.size();
         }
 
         // Set to new interleave width.
@@ -253,26 +295,10 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        const auto nq0 = this->m_exp->GetNumPoints(0);
-        const auto nq1 = this->m_exp->GetNumPoints(1);
-
-        const auto nCoord = this->m_exp->GetCoordim();
+        const auto nq0 = m_nq[0];
+        const auto nq1 = m_nq[1];
 
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
-
-        // Fetch basis data.
-        auto D0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                eDerivative));
-        auto D1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
-                                eDerivative));
-        auto f0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                eHalfMultOnePlusZero));
-        auto f1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
-                                eTwoOverOneMinusZero));
 
         // Fetch deriv factors data.
         constexpr bool transpose =
@@ -297,11 +323,11 @@ protected:
 
             // Calculate derivative.
             PhysDeriv2DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
-                nCoord, nq0, nq1, nElmtsPad, D0, D1, f0, f1, dfptr, inptr,
-                outptr);
+                m_coordDim, nq0, nq1, nElmtsPad, m_D[0], m_D[1], m_f[0], m_f[1],
+                dfptr, inptr, outptr);
 
             inptr += inblock.size();
-            outptr += nCoord * outblock.size();
+            outptr += m_coordDim * outblock.size();
         }
 
         // Set to new interleave width.
@@ -311,25 +337,11 @@ protected:
 
     // Size based template version.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-              unsigned int nCoord, unsigned int nq0, unsigned int nq1>
+              unsigned int coordDim, unsigned int nq0, unsigned int nq1>
     void Operator2D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
-
-        // Fetch basis data.
-        auto D0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                eDerivative));
-        auto D1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
-                                eDerivative));
-        auto f0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                eHalfMultOnePlusZero));
-        auto f1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
-                                eTwoOverOneMinusZero));
 
         // Fetch deriv factors data.
         constexpr bool transpose =
@@ -354,11 +366,12 @@ protected:
 
             // Calculate derivative.
             PhysDeriv2DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED,
-                              nCoord, nq0, nq1>(nElmtsPad, D0, D1, f0, f1,
-                                                dfptr, inptr, outptr);
+                              coordDim, nq0, nq1>(nElmtsPad, m_D[0], m_D[1],
+                                                  m_f[0], m_f[1], dfptr, inptr,
+                                                  outptr);
 
             inptr += inblock.size();
-            outptr += nCoord * outblock.size();
+            outptr += coordDim * outblock.size();
         }
 
         // Set to new interleave width.
@@ -372,34 +385,11 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        const auto nq0 = this->m_exp->GetNumPoints(0);
-        const auto nq1 = this->m_exp->GetNumPoints(1);
-        const auto nq2 = this->m_exp->GetNumPoints(2);
+        const auto nq0 = m_nq[0];
+        const auto nq1 = m_nq[1];
+        const auto nq2 = m_nq[2];
 
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
-
-        // Fetch basis data.
-        auto D0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                eDerivative));
-        auto D1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
-                                eDerivative));
-        auto D2 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(this->m_exp->GetBasis(2)->GetBasisKey(),
-                                eDerivative));
-        auto f0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                eHalfMultOnePlusZero));
-        auto f1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
-                                eHalfMultOnePlusZero));
-        auto f1m = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
-                                eTwoOverOneMinusZero));
-        auto f2 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(this->m_exp->GetBasis(2)->GetBasisKey(),
-                                eTwoOverOneMinusZero));
 
         // Fetch deriv factors data.
         constexpr bool transpose =
@@ -424,8 +414,8 @@ protected:
 
             // Calculate derivative.
             PhysDeriv3DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
-                nq0, nq1, nq2, nElmtsPad, D0, D1, D2, f0, f1, f1m, f2, dfptr,
-                inptr, outptr);
+                nq0, nq1, nq2, nElmtsPad, m_D[0], m_D[1], m_D[2], m_f[0],
+                m_f[1], m_f[2], m_f[3], dfptr, inptr, outptr);
 
             inptr += inblock.size();
             outptr += 3 * outblock.size();
@@ -443,29 +433,6 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
-
-        // Fetch basis data.
-        auto D0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                eDerivative));
-        auto D1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
-                                eDerivative));
-        auto D2 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(this->m_exp->GetBasis(2)->GetBasisKey(),
-                                eDerivative));
-        auto f0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                eHalfMultOnePlusZero));
-        auto f1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
-                                eHalfMultOnePlusZero));
-        auto f1m = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
-                                eTwoOverOneMinusZero));
-        auto f2 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<TData>(this->m_exp->GetBasis(2)->GetBasisKey(),
-                                eTwoOverOneMinusZero));
 
         // Fetch deriv factors data.
         constexpr bool transpose =
@@ -490,8 +457,9 @@ protected:
 
             // Calculate derivative.
             PhysDeriv3DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED,
-                              nq0, nq1, nq2>(nElmtsPad, D0, D1, D2, f0, f1, f1m,
-                                             f2, dfptr, inptr, outptr);
+                              nq0, nq1, nq2>(nElmtsPad, m_D[0], m_D[1], m_D[2],
+                                             m_f[0], m_f[1], m_f[2], m_f[3],
+                                             dfptr, inptr, outptr);
             inptr += inblock.size();
             outptr += 3 * outblock.size();
         }

@@ -52,34 +52,36 @@ public:
                               NekDataWarehouseSharedPtr dataWarehouse)
         : BlockOperatorBwdTrans<TData>(exp, dataWarehouse)
     {
+        // Determine shape and type of the element.
+        m_shapeType = exp->DetShapeType();
+        m_isDeformed =
+            exp->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed;
+        m_dimension = exp->GetShapeDimension();
+        m_coordDim  = exp->GetCoordim();
+        m_nmTot     = exp->GetNcoeffs();
+        m_nqTot     = exp->GetTotPoints();
+
+        // Fetch matrix.
+        std::vector<LibUtilities::BasisKey> basisKeys(
+            m_dimension, LibUtilities::NullBasisKey);
+        for (unsigned int d = 0; d < m_dimension; d++)
+        {
+            basisKeys[d] = exp->GetBasis(d)->GetBasisKey();
+        }
+        m_matptr = dataWarehouse->template GetData<ExecSpace>(
+            StdMatKey<TData>(basisKeys, m_shapeType, eBwdTransStdMat));
     }
 
     void apply(BlockAccessor<TData> &inblock,
                BlockAccessor<TData> &outblock) override
     {
+        const auto nElmts = inblock.GetNumElements();
+
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
-
-        // Determine shape and type of the element.
-        const auto shapeType = this->m_exp->DetShapeType();
-        const auto dimension = this->m_exp->GetShapeDimension();
-        const auto nmTot     = this->m_exp->GetNcoeffs();
-        const auto nqTot     = this->m_exp->GetTotPoints();
-
-        const auto nElmts = inblock.GetNumElements();
-
-        // Fetch matrix.
-        std::vector<LibUtilities::BasisKey> basisKeys(
-            dimension, LibUtilities::NullBasisKey);
-        for (unsigned int d = 0; d < dimension; d++)
-        {
-            basisKeys[d] = this->m_exp->GetBasis(d)->GetBasisKey();
-        }
-        auto matptr = this->m_dataWarehouse->template GetData<ExecSpace>(
-            StdMatKey<TData>(basisKeys, shapeType, eBwdTransStdMat));
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
@@ -91,8 +93,8 @@ public:
                 (TData *)inptr);
 
             // Perform matrix-matrix multiply.
-            Blas::Gemm('N', 'N', nqTot, nElmts, nmTot, 1.0, matptr, nqTot,
-                       inptr, nmTot, 0.0, outptr, nqTot);
+            Blas::Gemm('N', 'N', m_nqTot, nElmts, m_nmTot, 1.0, m_matptr,
+                       m_nqTot, inptr, m_nmTot, 0.0, outptr, m_nqTot);
             inptr += inblock.size();
             outptr += outblock.size();
         }
@@ -117,6 +119,14 @@ public:
 
 protected:
     static constexpr unsigned int m_implInterleaveWidth = 1;
+
+    LibUtilities::ShapeType m_shapeType;
+    bool m_isDeformed;
+    unsigned int m_dimension;
+    unsigned int m_coordDim;
+    unsigned int m_nmTot;
+    unsigned int m_nqTot;
+    const TData *m_matptr;
 };
 
 } // namespace Nektar::Operators::detail

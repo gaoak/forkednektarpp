@@ -1,24 +1,22 @@
 // clang-format off
 #if defined(SHAPE_TYPE_Seg)
-const auto coordDim   = this->m_exp->GetCoordim();
-const auto isDeformed = this->m_exp->GetMetricInfo()->GetGtype();
-const auto nq0        = this->m_exp->GetNumPoints(0);
+const auto nq0 = m_nq[0];
 
-    if (isDeformed == SpatialDomains::eDeformed)
+    if (m_isDeformed)
     {
         // Default case
 #undef OPERATOR_DEF
-#define OPERATOR_DEF                                               \
+#define OPERATOR_DEF                                                           \
     Operator1D<LibUtilities::@Shape@, true>(input, output);
 
-        switch (coordDim)
+        switch (m_coordDim)
         {
         case 1:
         {
 #undef OPERATOR
-#define OPERATOR(r, i)                                                     \
-    case NQ(i):                                                            \
-        Operator1D<LibUtilities::eSegment, true, 1, NQ(i)>(input, output); \
+#define OPERATOR(r, i)                                                         \
+    case NQ(i):                                                                \
+        Operator1D<LibUtilities::eSegment, true, 1, NQ(i)>(input, output);     \
         break;
             
             // loop case over quarature points 
@@ -73,17 +71,17 @@ const auto nq0        = this->m_exp->GetNumPoints(0);
     {
         // Default case
 #undef OPERATOR_DEF
-#define OPERATOR_DEF                                               \
+#define OPERATOR_DEF                                                           \
     Operator1D<LibUtilities::@Shape@, false>(input, output);
 
-        switch (coordDim)
+        switch (m_coordDim)
         {
         case 1:
         {
 #undef OPERATOR
-#define OPERATOR(r, i)                                                      \
-    case NQ(i):                                                             \
-        Operator1D<LibUtilities::eSegment, false, 1, NQ(i)>(input, output); \
+#define OPERATOR(r, i)                                                         \
+    case NQ(i):                                                                \
+        Operator1D<LibUtilities::eSegment, false, 1, NQ(i)>(input, output);    \
         break;
             
             // loop case over quarature points 
@@ -99,9 +97,9 @@ const auto nq0        = this->m_exp->GetNumPoints(0);
         case 2:
         {
 #undef OPERATOR
-#define OPERATOR(r, i)                                                        \
-    case NQ(i):                                                               \
-        Operator1D<LibUtilities::eSegment, false, 2, NQ(i)>(input, output);  \
+#define OPERATOR(r, i)                                                         \
+    case NQ(i):                                                                \
+        Operator1D<LibUtilities::eSegment, false, 2, NQ(i)>(input, output);    \
         break;
             
             // loop case over quarature points 
@@ -117,9 +115,9 @@ const auto nq0        = this->m_exp->GetNumPoints(0);
         case 3:
         {
 #undef OPERATOR
-#define OPERATOR(r, i)                                                        \
-    case NQ(i):                                                               \
-        Operator1D<LibUtilities::eSegment, false, 3, NQ(i)>(input, output);   \
+#define OPERATOR(r, i)                                                         \
+    case NQ(i):                                                                \
+        Operator1D<LibUtilities::eSegment, false, 3, NQ(i)>(input, output);    \
         break;
 
             // loop case over quarature points 
@@ -136,32 +134,30 @@ const auto nq0        = this->m_exp->GetNumPoints(0);
     }
 #elif defined(SHAPE_TYPE_Quad) || defined(SHAPE_TYPE_Tri)
 
-    const auto coordDim   = this->m_exp->GetCoordim();
-    const auto isDeformed = this->m_exp->GetMetricInfo()->GetGtype();
-    const auto nq0        = this->m_exp->GetNumPoints(0);
-    const auto nq1        = this->m_exp->GetNumPoints(1);
+    const auto nq0 = m_nq[0];
+    const auto nq1 = m_nq[1];
 
-    if (isDeformed == SpatialDomains::eDeformed)
+    if (m_isDeformed)
     {
         // Default case
 #undef OPERATOR_DEF
-#define OPERATOR_DEF                                               \
+#define OPERATOR_DEF                                                           \
     Operator2D<LibUtilities::@Shape@, true>(input, output);
 
-        switch (coordDim)
+        switch (m_coordDim)
         {
         case 2:
         {
 #undef OPERATOR
 #if defined(SHAPE_TYPE_Quad)
-#define OPERATOR(r, i)                                                          \
-    case NQ(i):                                                                 \
-        Operator2D<LibUtilities::Quad, true, 2, NQ(i), NQ(i)>(input, output);   \
+#define OPERATOR(r, i)                                                         \
+    case NQ(i):                                                                \
+        Operator2D<LibUtilities::Quad, true, 2, NQ(i), NQ(i)>(input, output);  \
         break;
 #elif defined(SHAPE_TYPE_Tri)
-#define OPERATOR(r, i)                                                          \
-    case NQ(i):                                                                 \
-        Operator2D<LibUtilities::Tri, true, 2, NQ(i), NQ_M1(i)>(input, output); \
+#define OPERATOR(r, i)                                                         \
+    case NQ(i):                                                                \
+        Operator2D<LibUtilities::Tri, true, 2, NQ(i), NQ_M1(i)>(input, output);\
         break;
 #endif
             
@@ -191,14 +187,14 @@ const auto nq0        = this->m_exp->GetNumPoints(0);
         {
 #undef OPERATOR
 #if defined(SHAPE_TYPE_Quad)
-#define OPERATOR(r, i)                                                          \
-    case NQ(i):                                                                 \
-        Operator2D<LibUtilities::Quad, true, 3, NQ(i), NQ(i)>(input, output);   \
+#define OPERATOR(r, i)                                                         \
+    case NQ(i):                                                                \
+        Operator2D<LibUtilities::Quad, true, 3, NQ(i), NQ(i)>(input, output);  \
         break;
 #elif defined(SHAPE_TYPE_Tri)
-#define OPERATOR(r, i)                                                          \
-    case NQ(i):                                                                 \
-        Operator2D<LibUtilities::Tri, true, 3, NQ(i), NQ_M1(i)>(input, output); \
+#define OPERATOR(r, i)                                                         \
+    case NQ(i):                                                                \
+        Operator2D<LibUtilities::Tri, true, 3, NQ(i), NQ_M1(i)>(input, output);\
         break;
 #endif
             
@@ -230,22 +226,22 @@ const auto nq0        = this->m_exp->GetNumPoints(0);
     {
         // Default case
 #undef OPERATOR_DEF
-#define OPERATOR_DEF                                               \
+#define OPERATOR_DEF                                                           \
     Operator2D<LibUtilities::@Shape@, false>(input, output);
 
-        switch (coordDim)
+        switch (m_coordDim)
         {
         case 2:
         {
 #undef OPERATOR
 #if defined(SHAPE_TYPE_Quad)
-#define OPERATOR(r, i)                                                           \
-    case NQ(i):                                                                  \
-        Operator2D<LibUtilities::Quad, false, 2, NQ(i), NQ(i)>(input, output);   \
+#define OPERATOR(r, i)                                                         \
+    case NQ(i):                                                                \
+        Operator2D<LibUtilities::Quad, false, 2, NQ(i), NQ(i)>(input, output); \
         break;
 #elif defined(SHAPE_TYPE_Tri)
-#define OPERATOR(r, i)                                                           \
-    case NQ(i):                                                                  \
+#define OPERATOR(r, i)                                                         \
+    case NQ(i):                                                                \
         Operator2D<LibUtilities::Tri, false, 2, NQ(i), NQ_M1(i)>(input, output); \
         break;
 #endif
@@ -276,13 +272,13 @@ const auto nq0        = this->m_exp->GetNumPoints(0);
         {
 #undef OPERATOR
 #if defined(SHAPE_TYPE_Quad)
-#define OPERATOR(r, i)                                                           \
-    case NQ(i):                                                                  \
-        Operator2D<LibUtilities::Quad, false, 3, NQ(i), NQ(i)>(input, output);   \
+#define OPERATOR(r, i)                                                         \
+    case NQ(i):                                                                \
+        Operator2D<LibUtilities::Quad, false, 3, NQ(i), NQ(i)>(input, output); \
         break;
 #elif defined(SHAPE_TYPE_Tri)
-#define OPERATOR(r, i)                                                           \
-    case NQ(i):                                                                  \
+#define OPERATOR(r, i)                                                         \
+    case NQ(i):                                                                \
         Operator2D<LibUtilities::Tri, false, 3, NQ(i), NQ_M1(i)>(input, output); \
         break;
 #endif
@@ -312,38 +308,37 @@ const auto nq0        = this->m_exp->GetNumPoints(0);
         }
     }
 #else
-    const auto isDeformed = this->m_exp->GetMetricInfo()->GetGtype();
-    const auto nq0        = this->m_exp->GetNumPoints(0);
-    const auto nq1        = this->m_exp->GetNumPoints(1);
-    const auto nq2        = this->m_exp->GetNumPoints(2);
+    const auto nq0 = m_nq[0];
+    const auto nq1 = m_nq[1];
+    const auto nq2 = m_nq[2];
 
-    if (isDeformed == SpatialDomains::eDeformed)
+    if (m_isDeformed)
     {
         // Default case
 #undef OPERATOR_DEF
-#define OPERATOR_DEF                                                          \
+#define OPERATOR_DEF                                                           \
         Operator3D<LibUtilities::@Shape@, false>(input, output);
 
 #if defined(SHAPE_TYPE_Hex)
 #undef OPERATOR
-#define OPERATOR(r, i)                                                        \
-    case NQ(i):                                                               \
-        Operator3D<LibUtilities::@Shape@, true, NQ(i),  NQ(i), NQ(i)>         \
-            (input, output);                                                  \
+#define OPERATOR(r, i)                                                         \
+    case NQ(i):                                                                \
+        Operator3D<LibUtilities::@Shape@, true, NQ(i),  NQ(i), NQ(i)>          \
+            (input, output);                                                   \
         break;
 #elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_Pyr)
 #undef OPERATOR
-#define OPERATOR(r, i)                                                        \
-    case NQ(i):                                                               \
-        Operator3D<LibUtilities::@Shape@, true, NQ(i),  NQ(i), NQ_M1(i)>      \
-            (input, output);                                                  \
+#define OPERATOR(r, i)                                                         \
+    case NQ(i):                                                                \
+        Operator3D<LibUtilities::@Shape@, true, NQ(i),  NQ(i), NQ_M1(i)>       \
+            (input, output);                                                   \
         break;
 #elif defined(SHAPE_TYPE_Tet)
 #undef OPERATOR
-#define OPERATOR(r, i)                                                        \
-    case NQ(i):                                                               \
-        Operator3D<LibUtilities::@Shape@, true, NQ(i),  NQ_M1(i), NQ_M1(i)>   \
-            (input, output);                                                  \
+#define OPERATOR(r, i)                                                         \
+    case NQ(i):                                                                \
+        Operator3D<LibUtilities::@Shape@, true, NQ(i),  NQ_M1(i), NQ_M1(i)>    \
+            (input, output);                                                   \
         break;
 #endif
 
@@ -373,29 +368,29 @@ const auto nq0        = this->m_exp->GetNumPoints(0);
     {
         // Default case
 #undef OPERATOR_DEF
-#define OPERATOR_DEF                                                          \
+#define OPERATOR_DEF                                                           \
         Operator3D<LibUtilities::@Shape@, false>(input, output);
 
 #if defined(SHAPE_TYPE_Hex)
 #undef OPERATOR
-#define OPERATOR(r, i)                                                        \
-    case NQ(i):                                                               \
-        Operator3D<LibUtilities::@Shape@, false, NQ(i),  NQ(i), NQ(i)>        \
-            (input, output);                                                  \
+#define OPERATOR(r, i)                                                         \
+    case NQ(i):                                                                \
+        Operator3D<LibUtilities::@Shape@, false, NQ(i),  NQ(i), NQ(i)>         \
+            (input, output);                                                   \
         break;
 #elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_Pyr)
 #undef OPERATOR
-#define OPERATOR(r, i)                                                        \
-    case NQ(i):                                                               \
-        Operator3D<LibUtilities::@Shape@, false, NQ(i),  NQ(i), NQ_M1(i)>     \
-            (input, output);                                                  \
+#define OPERATOR(r, i)                                                         \
+    case NQ(i):                                                                \
+        Operator3D<LibUtilities::@Shape@, false, NQ(i),  NQ(i), NQ_M1(i)>      \
+            (input, output);                                                   \
         break;
 #elif defined(SHAPE_TYPE_Tet)
 #undef OPERATOR
-#define OPERATOR(r, i)                                                        \
-    case NQ(i):                                                               \
-        Operator3D<LibUtilities::@Shape@, false, NQ(i),  NQ_M1(i), NQ_M1(i)>  \
-            (input, output);                                                  \
+#define OPERATOR(r, i)                                                         \
+    case NQ(i):                                                                \
+        Operator3D<LibUtilities::@Shape@, false, NQ(i),  NQ_M1(i), NQ_M1(i)>   \
+            (input, output);                                                   \
         break;
 #endif
 

@@ -40,9 +40,9 @@
 
 template <bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void StdAlignDerivBase1D(
-    const size_t nq0, const size_t indim, const simd_type *df_ptr,
+    const unsigned int nq0, const unsigned int indim, const simd_type *df_ptr,
     std::vector<simd_type, tinysimd::allocator<simd_type>> &df_tmp,
-    const size_t inSize, const typename simd_type::vectorType *in,
+    const unsigned int inSize, const typename simd_type::vectorType *in,
     typename simd_type::scalarType *out)
 
 {
@@ -61,7 +61,7 @@ NEK_FORCE_INLINE static void StdAlignDerivBase1D(
         }
     }
 
-    for (int i = 0; i < nq0; ++i)
+    for (unsigned int i = 0; i < nq0; ++i)
     {
         if constexpr (DEFORMED)
         {
@@ -77,7 +77,7 @@ NEK_FORCE_INLINE static void StdAlignDerivBase1D(
         }
 
         simd_type sum = 0.0;
-        for (int d = 0; d < indim; ++d)
+        for (unsigned int d = 0; d < indim; ++d)
         {
             simd_type inval =
                 simd_type(in[d * inSize + i]); // possibly large stride
@@ -89,10 +89,10 @@ NEK_FORCE_INLINE static void StdAlignDerivBase1D(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void StdAlignDerivBase2D(
-    const size_t nq0, const size_t nq1, const size_t indim,
+    const unsigned int nq0, const unsigned int nq1, const unsigned int indim,
     const simd_type *df_Ptr,
     std::vector<simd_type, tinysimd::allocator<simd_type>> &df_tmp,
-    const size_t inoffset, const typename simd_type::vectorType *inptr,
+    const unsigned int inoffset, const typename simd_type::vectorType *inptr,
     typename simd_type::scalarType *out[2],
     [[maybe_unused]] const simd_type *Fac0,
     [[maybe_unused]] const simd_type *Fac1)
@@ -115,15 +115,15 @@ NEK_FORCE_INLINE static void StdAlignDerivBase2D(
     }
 
     simd_type f1;
-    size_t cnt_ji = 0;
-    for (size_t j = 0; j < nq1; ++j)
+    unsigned int cnt_ji = 0;
+    for (unsigned int j = 0; j < nq1; ++j)
     {
         if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
         {
             f1 = simd_type(Fac1[j]);
         }
 
-        for (size_t i = 0; i < nq0; ++i, ++cnt_ji)
+        for (unsigned int i = 0; i < nq0; ++i, ++cnt_ji)
         {
             if constexpr (DEFORMED)
             {
@@ -176,10 +176,10 @@ NEK_FORCE_INLINE static void StdAlignDerivBase2D(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void StdAlignDerivBase3D(
-    const size_t nq0, const size_t nq1, const size_t nq2,
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const simd_type *df_Ptr,
     std::vector<simd_type, tinysimd::allocator<simd_type>> &df_tmp,
-    const size_t inoffset, [[maybe_unused]] const simd_type *Fac0,
+    const unsigned int inoffset, [[maybe_unused]] const simd_type *Fac0,
     [[maybe_unused]] const simd_type *Fac1,
     [[maybe_unused]] const simd_type *Fac1a,
     [[maybe_unused]] const simd_type *Fac2,
@@ -202,17 +202,17 @@ NEK_FORCE_INLINE static void StdAlignDerivBase3D(
         df_tmp[8] = df_Ptr[8];
     }
 
-    size_t cnt_kji = 0;
+    unsigned int cnt_kji = 0;
     simd_type f0, f1, f1a, f2;
 
-    for (size_t k = 0; k < nq2; ++k)
+    for (unsigned int k = 0; k < nq2; ++k)
     {
         if constexpr (SHAPE_TYPE != LibUtilities::eHexahedron)
         {
             f2 = simd_type(Fac2[k]);
         }
 
-        for (size_t j = 0; j < nq1; ++j)
+        for (unsigned int j = 0; j < nq1; ++j)
         {
             if constexpr (SHAPE_TYPE == LibUtilities::eTetrahedron)
             {
@@ -224,7 +224,7 @@ NEK_FORCE_INLINE static void StdAlignDerivBase3D(
                 f1 = simd_type(Fac1[j]);
             }
 
-            for (size_t i = 0; i < nq0; ++i, ++cnt_kji)
+            for (unsigned int i = 0; i < nq0; ++i, ++cnt_kji)
             {
                 if constexpr (DEFORMED)
                 {

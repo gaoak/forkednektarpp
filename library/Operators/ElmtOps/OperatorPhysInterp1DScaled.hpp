@@ -64,10 +64,15 @@ public:
 
     void SetScaleFactor(TData scale)
     {
-        m_scale = scale;
+        v_SetScaleFactor(scale);
     }
 
 protected:
+    virtual void v_SetScaleFactor(TData scale)
+    {
+        m_scale = scale;
+    }
+
     TData m_scale = -1.0; // scaling factor
 };
 
