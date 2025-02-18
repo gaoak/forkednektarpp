@@ -55,6 +55,29 @@ public:
                                NekDataWarehouseSharedPtr dataWarehouse)
         : BlockOperatorPhysDeriv<TData>(exp, dataWarehouse)
     {
+        // Determine shape and type of the element.
+        m_shapeType = exp->DetShapeType();
+        m_isDeformed =
+            exp->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed;
+        m_dimension = exp->GetShapeDimension();
+        m_coordDim  = exp->GetCoordim();
+
+        // Flag for collapsed coordinate correction.
+        m_isModified = (exp->GetBasisType(0) == LibUtilities::eModified_A);
+
+        for (unsigned int d = 0; d < m_dimension; d++)
+        {
+            // Fetch element size.
+            m_nm.push_back(exp->GetBasisNumModes(d));
+            m_nq.push_back(exp->GetNumPoints(d));
+
+            // Fetch basis data.
+            m_D.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<simd_t>(exp->GetBasis(d)->GetBasisKey(),
+                                     eDerivative)));
+            m_Z.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<simd_t>(exp->GetBasis(d)->GetBasisKey(), eZeros)));
+        }
     }
 
     void apply(BlockAccessor<TData> &inblock,
@@ -68,10 +91,7 @@ public:
                   "Output Field are not aligned to the required alignment "
                   "for the SIMD vector type.");
 
-        // Determine shape and type of the element.
-        const auto shapeType = this->m_exp->DetShapeType();
-
-        switch (shapeType)
+        switch (m_shapeType)
         {
             // Segment
             case LibUtilities::Seg:
@@ -134,6 +154,16 @@ public:
     }
 
 protected:
+    LibUtilities::ShapeType m_shapeType;
+    bool m_isDeformed;
+    bool m_isModified;
+    unsigned int m_dimension;
+    unsigned int m_coordDim;
+    std::vector<unsigned int> m_nm;
+    std::vector<unsigned int> m_nq;
+    std::vector<const simd_t *> m_D;
+    std::vector<const simd_t *> m_Z;
+
     void SegBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
 
@@ -161,22 +191,15 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        const auto nq0     = this->m_exp->GetNumPoints(0);
+        const auto nq0     = m_nq[0];
         const auto nqTot   = nq0;
         const auto nqBlock = nqTot * simd_t::width;
 
-        const auto nCoord   = this->m_exp->GetCoordim();
-        const auto ndf      = nCoord;
-        unsigned int dfsize = ndf;
+        unsigned int dfsize = m_coordDim;
         if constexpr (DEFORMED)
         {
             dfsize *= nqTot;
         }
-
-        // Fetch basis data.
-        auto D0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                 eDerivative));
 
         // Fetch deriv factors data.
         auto dfptr_init = reinterpret_cast<const simd_t *>(
@@ -185,7 +208,7 @@ protected:
                                       inblock.GetNumElements(), false)));
 
         // Get interleave parameter.
-        unsigned int interleave_width = inblock.GetInterleaveWidth();
+        const unsigned int interleave_width = inblock.GetInterleaveWidth();
         const auto width_ratio =
             (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
         const auto chunkSize = std::max(simd_t::width, interleave_width);
@@ -204,7 +227,7 @@ protected:
 
         auto compOffset = outblock.GetNumElmtGroups() * simd_t::width * nqTot;
         typename simd_t::scalarType *outptr[3];
-        for (unsigned int d = 0; d < nCoord; ++d)
+        for (unsigned int d = 0; d < m_coordDim; ++d)
         {
             outptr[d] = reinterpret_cast<typename simd_t::scalarType *>(
                 output + d * compOffset);
@@ -225,16 +248,16 @@ protected:
                 }
 
                 // Get the basic derivative.
-                PhysDerivTensor1DKernel(nq0, inptr, D0, outptr[0]);
+                PhysDerivTensor1DKernel(nq0, inptr, m_D[0], outptr[0]);
 
                 // Calculate physical derivative.
-                PhysDeriv1DKernel<SHAPE_TYPE, DEFORMED>(nq0, nCoord, dfptr,
+                PhysDeriv1DKernel<SHAPE_TYPE, DEFORMED>(nq0, m_coordDim, dfptr,
                                                         outptr);
 
                 // Increment pointers for the next elmt group.
                 dfptr += dfsize;
                 inptr += nqTot;
-                for (unsigned int d = 0; d < nCoord; ++d)
+                for (unsigned int d = 0; d < m_coordDim; ++d)
                 {
                     outptr[d] += nqBlock;
                 }
@@ -242,16 +265,16 @@ protected:
 
             // advance  by ncoord-1 componennts since have already
             // advanced one component in the above
-            for (unsigned int d = 0; d < nCoord; ++d)
+            for (unsigned int d = 0; d < m_coordDim; ++d)
             {
-                outptr[d] += (nCoord - 1) * compOffset;
+                outptr[d] += (m_coordDim - 1) * compOffset;
             }
         }
     }
 
     // Size based template version.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-              unsigned int nCoord, unsigned int nq0>
+              unsigned int coordDim, unsigned int nq0>
     void Operator1D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
@@ -259,17 +282,11 @@ protected:
         constexpr auto nqTot   = nq0;
         constexpr auto nqBlock = nqTot * simd_t::width;
 
-        constexpr auto ndf  = nCoord;
-        unsigned int dfsize = ndf;
+        unsigned int dfsize = m_coordDim;
         if constexpr (DEFORMED)
         {
             dfsize *= nqTot;
         }
-
-        // Fetch basis data.
-        auto D0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                 eDerivative));
 
         // Fetch deriv factors data.
         auto dfptr_init = reinterpret_cast<const simd_t *>(
@@ -278,7 +295,7 @@ protected:
                                       inblock.GetNumElements(), false)));
 
         // Get interleave parameter.
-        unsigned int interleave_width = inblock.GetInterleaveWidth();
+        const unsigned int interleave_width = inblock.GetInterleaveWidth();
         const auto width_ratio =
             (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
         const auto chunkSize = std::max(simd_t::width, interleave_width);
@@ -297,7 +314,7 @@ protected:
 
         auto compOffset = outblock.GetNumElmtGroups() * simd_t::width * nqTot;
         typename simd_t::scalarType *outptr[3];
-        for (unsigned int d = 0; d < nCoord; ++d)
+        for (unsigned int d = 0; d < coordDim; ++d)
         {
             outptr[d] = reinterpret_cast<typename simd_t::scalarType *>(
                 output + d * compOffset);
@@ -317,17 +334,16 @@ protected:
                 }
 
                 // Get the basic derivative.
-                PhysDerivTensor1DKernel(nq0, inptr, D0, outptr[0]);
+                PhysDerivTensor1DKernel(nq0, inptr, m_D[0], outptr[0]);
 
                 // Calculate physical derivative.
-                PhysDeriv1DKernel<SHAPE_TYPE, DEFORMED>(nq0, nCoord, dfptr,
+                PhysDeriv1DKernel<SHAPE_TYPE, DEFORMED>(nq0, coordDim, dfptr,
                                                         outptr);
 
                 // Increment pointers for the next elmt group.
                 dfptr += dfsize;
                 inptr += nqTot;
-                for (unsigned int d = 0; d < nCoord;
-                     ++d) // automatically unrolled
+                for (unsigned int d = 0; d < coordDim; ++d)
                 {
                     outptr[d] += nqBlock;
                 }
@@ -335,9 +351,9 @@ protected:
 
             // advance  by ncoord-1 componennts since have already
             // advanced one component in the above
-            for (unsigned int d = 0; d < nCoord; ++d)
+            for (unsigned int d = 0; d < coordDim; ++d)
             {
-                outptr[d] += (nCoord - 1) * compOffset;
+                outptr[d] += (coordDim - 1) * compOffset;
             }
         }
     }
@@ -348,33 +364,17 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        const auto nq0 = this->m_exp->GetNumPoints(0);
-        const auto nq1 = this->m_exp->GetNumPoints(1);
+        const auto nq0 = m_nq[0];
+        const auto nq1 = m_nq[1];
 
         const auto nqTot   = nq0 * nq1;
         const auto nqBlock = nqTot * simd_t::width;
 
-        const auto nCoord   = this->m_exp->GetCoordim();
-        const auto ndf      = 2 * nCoord;
-        unsigned int dfsize = ndf;
+        unsigned int dfsize = 2 * m_coordDim;
         if constexpr (DEFORMED)
         {
             dfsize *= nqTot;
         }
-
-        // Fetch basis data.
-        auto D0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                 eDerivative));
-        auto D1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(1)->GetBasisKey(),
-                                 eDerivative));
-        auto Z0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                 eZeros));
-        auto Z1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(1)->GetBasisKey(),
-                                 eZeros));
 
         // Fetch deriv factors data.
         auto dfptr_init = reinterpret_cast<const simd_t *>(
@@ -383,7 +383,7 @@ protected:
                                       inblock.GetNumElements(), false)));
 
         // Get interleave parameter.
-        unsigned int interleave_width = inblock.GetInterleaveWidth();
+        const unsigned int interleave_width = inblock.GetInterleaveWidth();
         const auto width_ratio =
             (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
         const auto chunkSize = std::max(simd_t::width, interleave_width);
@@ -401,7 +401,7 @@ protected:
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto compOffset = outblock.GetNumElmtGroups() * simd_t::width * nqTot;
         typename simd_t::scalarType *outptr[3];
-        for (unsigned int d = 0; d < nCoord; ++d)
+        for (unsigned int d = 0; d < m_coordDim; ++d)
         {
             outptr[d] = reinterpret_cast<typename simd_t::scalarType *>(
                 output + d * compOffset);
@@ -421,18 +421,17 @@ protected:
                 }
 
                 // Results written to outptr0, outptr1.
-                PhysDerivTensor2DKernel(nq0, nq1, inptr, D0, D1, outptr[0],
-                                        outptr[1]);
+                PhysDerivTensor2DKernel(nq0, nq1, inptr, m_D[0], m_D[1],
+                                        outptr[0], outptr[1]);
 
                 // Calculate physical derivative.
-                PhysDeriv2DKernel<SHAPE_TYPE, DEFORMED>(nq0, nq1, nCoord, Z0,
-                                                        Z1, dfptr, outptr);
+                PhysDeriv2DKernel<SHAPE_TYPE, DEFORMED>(
+                    nq0, nq1, m_coordDim, m_Z[0], m_Z[1], dfptr, outptr);
 
                 // Increment pointers for the next elmt group.
                 dfptr += dfsize;
                 inptr += nqTot;
-                for (unsigned int d = 0; d < nCoord;
-                     ++d) // automatically unrolled
+                for (unsigned int d = 0; d < m_coordDim; ++d)
                 {
                     outptr[d] += nqBlock;
                 }
@@ -440,17 +439,17 @@ protected:
 
             // advance  by ncoord-1 componennts since have already
             // advanced one component in the above
-            for (unsigned int d = 0; d < nCoord;
+            for (unsigned int d = 0; d < m_coordDim;
                  ++d) // reset to next output components
             {
-                outptr[d] += (nCoord - 1) * compOffset;
+                outptr[d] += (m_coordDim - 1) * compOffset;
             }
         }
     }
 
     // Size based template version.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-              unsigned int nCoord, unsigned int nq0, unsigned int nq1>
+              unsigned int coordDim, unsigned int nq0, unsigned int nq1>
     void Operator2D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
@@ -458,26 +457,11 @@ protected:
         constexpr auto nqTot   = nq0 * nq1;
         constexpr auto nqBlock = nqTot * simd_t::width;
 
-        constexpr unsigned int ndf = 2 * nCoord;
-        unsigned int dfsize        = ndf;
+        unsigned int dfsize = 2 * m_coordDim;
         if constexpr (DEFORMED)
         {
             dfsize *= nqTot;
         }
-
-        // Fetch basis data.
-        auto D0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                 eDerivative));
-        auto D1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(1)->GetBasisKey(),
-                                 eDerivative));
-        auto Z0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                 eZeros));
-        auto Z1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(1)->GetBasisKey(),
-                                 eZeros));
 
         // Fetch deriv factors data.
         auto dfptr_init = reinterpret_cast<const simd_t *>(
@@ -486,7 +470,7 @@ protected:
                                       inblock.GetNumElements(), false)));
 
         // Get interleave parameter.
-        unsigned int interleave_width = inblock.GetInterleaveWidth();
+        const unsigned int interleave_width = inblock.GetInterleaveWidth();
         const auto width_ratio =
             (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
         const auto chunkSize = std::max(simd_t::width, interleave_width);
@@ -505,7 +489,7 @@ protected:
 
         auto compOffset = outblock.GetNumElmtGroups() * simd_t::width * nqTot;
         typename simd_t::scalarType *outptr[3];
-        for (unsigned int d = 0; d < nCoord; ++d)
+        for (unsigned int d = 0; d < m_coordDim; ++d)
         {
             outptr[d] = reinterpret_cast<typename simd_t::scalarType *>(
                 output + d * compOffset);
@@ -525,18 +509,17 @@ protected:
                 }
 
                 // Results written to outptr0, outptr1.
-                PhysDerivTensor2DKernel(nq0, nq1, inptr, D0, D1, outptr[0],
-                                        outptr[1]);
+                PhysDerivTensor2DKernel(nq0, nq1, inptr, m_D[0], m_D[1],
+                                        outptr[0], outptr[1]);
 
                 // Calculate physical derivative.
-                PhysDeriv2DKernel<SHAPE_TYPE, DEFORMED>(nq0, nq1, nCoord, Z0,
-                                                        Z1, dfptr, outptr);
+                PhysDeriv2DKernel<SHAPE_TYPE, DEFORMED>(
+                    nq0, nq1, coordDim, m_Z[0], m_Z[1], dfptr, outptr);
 
                 // Increment pointers for the next elmt group.
                 dfptr += dfsize;
                 inptr += nqTot;
-                for (unsigned int d = 0; d < nCoord;
-                     ++d) // automatically unrolled
+                for (unsigned int d = 0; d < coordDim; ++d)
                 {
                     outptr[d] += nqBlock;
                 }
@@ -544,9 +527,9 @@ protected:
 
             // advance  by ncoord-1 componennts since have already
             // advanced one component in the above
-            for (unsigned int d = 0; d < nCoord; ++d)
+            for (unsigned int d = 0; d < coordDim; ++d)
             {
-                outptr[d] += (nCoord - 1) * compOffset;
+                outptr[d] += (coordDim - 1) * compOffset;
             }
         }
     }
@@ -557,39 +540,18 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        const auto nq0 = this->m_exp->GetNumPoints(0);
-        const auto nq1 = this->m_exp->GetNumPoints(1);
-        const auto nq2 = this->m_exp->GetNumPoints(2);
+        const auto nq0 = m_nq[0];
+        const auto nq1 = m_nq[1];
+        const auto nq2 = m_nq[2];
 
         const auto nqTot    = nq0 * nq1 * nq2;
         const auto nqBlocks = nqTot * simd_t::width;
 
-        constexpr unsigned int ndf = 9u;
-        unsigned int dfsize        = ndf;
+        unsigned int dfsize = 9u;
         if constexpr (DEFORMED)
         {
             dfsize *= nqTot;
         }
-
-        // Fetch basis data.
-        auto D0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                 eDerivative));
-        auto D1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(1)->GetBasisKey(),
-                                 eDerivative));
-        auto D2 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(2)->GetBasisKey(),
-                                 eDerivative));
-        auto Z0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                 eZeros));
-        auto Z1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(1)->GetBasisKey(),
-                                 eZeros));
-        auto Z2 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(2)->GetBasisKey(),
-                                 eZeros));
 
         // Fetch deriv factors data.
         auto dfptr_init = reinterpret_cast<const simd_t *>(
@@ -598,7 +560,7 @@ protected:
                                       inblock.GetNumElements(), false)));
 
         // Get interleave parameter.
-        unsigned int interleave_width = inblock.GetInterleaveWidth();
+        const unsigned int interleave_width = inblock.GetInterleaveWidth();
         const auto width_ratio =
             (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
         const auto chunkSize = std::max(simd_t::width, interleave_width);
@@ -608,7 +570,7 @@ protected:
         outblock.template SetInterleaveWidth<TData>(simd_t::width);
 
         // Workspace for kernels - also checks preconditions.
-        size_t wsp0Size = 0, wsp1Size = 0;
+        unsigned int wsp0Size = 0, wsp1Size = 0;
         PhysDeriv3DWorkspace<SHAPE_TYPE>(nq0, nq1, nq2, wsp0Size, wsp1Size);
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
             wsp1(wsp1Size);
@@ -644,13 +606,14 @@ protected:
                 }
 
                 // Get the basic derivative.
-                PhysDerivTensor3DKernel(nq0, nq1, nq2, inptr, D0, D1, D2,
-                                        outptr[0], outptr[1], outptr[2]);
+                PhysDerivTensor3DKernel(nq0, nq1, nq2, inptr, m_D[0], m_D[1],
+                                        m_D[2], outptr[0], outptr[1],
+                                        outptr[2]);
 
                 // Calculate physical derivative.
                 PhysDeriv3DKernel<SHAPE_TYPE, DEFORMED>(
-                    nq0, nq1, nq2, Z0, Z1, Z2, dfptr, wsp0, wsp1, outptr[0],
-                    outptr[1], outptr[2]);
+                    nq0, nq1, nq2, m_Z[0], m_Z[1], m_Z[2], dfptr, wsp0, wsp1,
+                    outptr[0], outptr[1], outptr[2]);
 
                 // Increment pointers for the next elmt group.
                 dfptr += dfsize;
@@ -678,32 +641,11 @@ protected:
         constexpr auto nqTot    = nq0 * nq1 * nq2;
         constexpr auto nqBlocks = nqTot * simd_t::width;
 
-        constexpr unsigned int ndf = 9u;
-        unsigned int dfsize        = ndf;
+        unsigned int dfsize = 9u;
         if constexpr (DEFORMED)
         {
             dfsize *= nqTot;
         }
-
-        // Fetch basis data.
-        auto D0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                 eDerivative));
-        auto D1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(1)->GetBasisKey(),
-                                 eDerivative));
-        auto D2 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(2)->GetBasisKey(),
-                                 eDerivative));
-        auto Z0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                 eZeros));
-        auto Z1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(1)->GetBasisKey(),
-                                 eZeros));
-        auto Z2 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(2)->GetBasisKey(),
-                                 eZeros));
 
         // Fetch deriv factors data.
         auto dfptr_init = reinterpret_cast<const simd_t *>(
@@ -712,7 +654,7 @@ protected:
                                       inblock.GetNumElements(), false)));
 
         // Get interleave parameter.
-        unsigned int interleave_width = inblock.GetInterleaveWidth();
+        const unsigned int interleave_width = inblock.GetInterleaveWidth();
         const auto width_ratio =
             (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
         const auto chunkSize = std::max(simd_t::width, interleave_width);
@@ -722,7 +664,7 @@ protected:
         outblock.template SetInterleaveWidth<TData>(simd_t::width);
 
         // Workspace for kernels - also checks preconditions.
-        size_t wsp0Size = 0, wsp1Size = 0;
+        unsigned int wsp0Size = 0, wsp1Size = 0;
         PhysDeriv3DWorkspace<SHAPE_TYPE>(nq0, nq1, nq2, wsp0Size, wsp1Size);
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
             wsp1(wsp1Size);
@@ -758,13 +700,14 @@ protected:
                 }
 
                 // Get the basic derivative.
-                PhysDerivTensor3DKernel(nq0, nq1, nq2, inptr, D0, D1, D2,
-                                        outptr[0], outptr[1], outptr[2]);
+                PhysDerivTensor3DKernel(nq0, nq1, nq2, inptr, m_D[0], m_D[1],
+                                        m_D[2], outptr[0], outptr[1],
+                                        outptr[2]);
 
                 // Calculate physical derivative.
                 PhysDeriv3DKernel<SHAPE_TYPE, DEFORMED>(
-                    nq0, nq1, nq2, Z0, Z1, Z2, dfptr, wsp0, wsp1, outptr[0],
-                    outptr[1], outptr[2]);
+                    nq0, nq1, nq2, m_Z[0], m_Z[1], m_Z[2], dfptr, wsp0, wsp1,
+                    outptr[0], outptr[1], outptr[2]);
 
                 // Increment pointers for the next elmt group.
                 dfptr += dfsize;
@@ -773,6 +716,7 @@ protected:
                 outptr[1] += nqBlocks;
                 outptr[2] += nqBlocks;
             }
+
             // advance  by ncoord-1 componennts since have already
             // advanced one component in the above
             outptr[0] += 2 * compOffset;

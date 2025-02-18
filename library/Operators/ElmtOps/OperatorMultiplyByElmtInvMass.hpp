@@ -168,7 +168,7 @@ template <typename TData> struct MultiplyByElmtInvMass
             {
                 dmat.resize(nElmts * nmTot * nmTot);
                 auto dmatptr = dmat.data();
-                for (size_t e = 0; e < nElmts; ++e)
+                for (unsigned int e = 0; e < nElmts; ++e)
                 {
                     const auto exp =
                         expansionList->GetExp(block.GetExpIdx() + e);

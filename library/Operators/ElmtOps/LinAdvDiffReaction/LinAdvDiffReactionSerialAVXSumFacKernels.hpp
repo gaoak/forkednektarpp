@@ -43,7 +43,7 @@
 
 template <bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void AddAdvectionSegKernel(
-    const size_t nq0, const typename simd_type::vectorType *advVel_ptr,
+    const unsigned int nq0, const typename simd_type::vectorType *advVel_ptr,
     const simd_type *df_ptr, typename simd_type::vectorType *deriv0,
     typename simd_type::scalarType *out,
     const typename simd_type::scalarType scale)
@@ -57,7 +57,7 @@ NEK_FORCE_INLINE static void AddAdvectionSegKernel(
     }
 
     // Apply  metrics on all quad points
-    for (size_t i = 0; i < nq0; ++i)
+    for (unsigned int i = 0; i < nq0; ++i)
     {
         // Set deformed derivative factors
         if (DEFORMED)
@@ -86,7 +86,8 @@ NEK_FORCE_INLINE static void AddAdvectionSegKernel(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void AddAdvection2DKernel(
-    const size_t nq0, const size_t nq1, [[maybe_unused]] const simd_type *hfac0,
+    const unsigned int nq0, const unsigned int nq1,
+    [[maybe_unused]] const simd_type *hfac0,
     [[maybe_unused]] const simd_type *hfac1,
     const typename simd_type::vectorType *advVel0_ptr,
     const typename simd_type::vectorType *advVel1_ptr, const simd_type *df_ptr,
@@ -107,15 +108,15 @@ NEK_FORCE_INLINE static void AddAdvection2DKernel(
     }
 
     // Apply  metrics on all quad points
-    for (int q = 0; q < nq1; ++q)
+    for (unsigned int q = 0; q < nq1; ++q)
     {
         if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
         {
             h1 = hfac1[q];
         }
-        for (size_t p = 0; p < nq0; ++p)
+        for (unsigned int p = 0; p < nq0; ++p)
         {
-            int cnt = q * nq0 + p;
+            unsigned int cnt = q * nq0 + p;
 
             // Set deformed derivative factors
             if (DEFORMED)
@@ -163,7 +164,7 @@ NEK_FORCE_INLINE static void AddAdvection2DKernel(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void AddAdvection3DKernel(
-    const size_t nq0, const size_t nq1, const size_t nq2,
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     [[maybe_unused]] const simd_type *hfac0,
     [[maybe_unused]] const simd_type *hfac1,
     [[maybe_unused]] const simd_type *hfac2,
@@ -196,22 +197,22 @@ NEK_FORCE_INLINE static void AddAdvection3DKernel(
     }
 
     // Apply  metrics on all quad points
-    for (int r = 0; r < nq2; ++r)
+    for (unsigned int r = 0; r < nq2; ++r)
     {
         if constexpr (SHAPE_TYPE == LibUtilities::Prism)
         {
-            h1 = hfac1[r];
+            h3 = hfac3[r];
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
-            h2 = hfac2[r];
+            h3 = hfac3[r];
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
         {
             h3 = hfac3[r];
         }
 
-        for (int q = 0; q < nq1; ++q)
+        for (unsigned int q = 0; q < nq1; ++q)
         {
             if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
             {
@@ -223,9 +224,9 @@ NEK_FORCE_INLINE static void AddAdvection3DKernel(
                 h2 = hfac2[q];
             }
 
-            for (size_t p = 0; p < nq0; ++p)
+            for (unsigned int p = 0; p < nq0; ++p)
             {
-                int cnt = r * nq0 * nq1 + q * nq0 + p;
+                unsigned int cnt = r * nq0 * nq1 + q * nq0 + p;
 
                 // Set deformed derivative factors
                 if (DEFORMED)
@@ -255,14 +256,14 @@ NEK_FORCE_INLINE static void AddAdvection3DKernel(
                 if constexpr (SHAPE_TYPE == LibUtilities::Prism)
                 {
                     h0 = hfac0[p];
-                    d0 *= h1;
+                    d0 *= h3;
                     d2.fma(h0, d0);
                 }
                 else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
                 {
                     h0 = hfac0[p];
-                    d0 *= h2;
-                    d1 *= h2;
+                    d0 *= h3;
+                    d1 *= h3;
                     d2.fma(h0, d0);
                     d2.fma(h1, d1);
                 }

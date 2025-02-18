@@ -49,7 +49,8 @@
 
 template <LibUtilities::ShapeType SHAPE_TYPE>
 NEK_FORCE_INLINE static void IProduct1DWorkspace(
-    [[maybe_unused]] const size_t nm0, [[maybe_unused]] const size_t nq0)
+    [[maybe_unused]] const unsigned int nm0,
+    [[maybe_unused]] const unsigned int nq0)
 
 {
     // Check preconditions
@@ -58,18 +59,21 @@ NEK_FORCE_INLINE static void IProduct1DWorkspace(
 
 template <LibUtilities::ShapeType SHAPE_TYPE>
 NEK_FORCE_INLINE static void IProduct2DWorkspace(
-    [[maybe_unused]] const size_t nm0, [[maybe_unused]] const size_t nm1,
-    [[maybe_unused]] const size_t nq0, const size_t nq1, size_t &wsp0Size)
+    [[maybe_unused]] const unsigned int nm0,
+    [[maybe_unused]] const unsigned int nm1,
+    [[maybe_unused]] const unsigned int nq0, const unsigned int nq1,
+    unsigned int &wsp0Size)
 {
     wsp0Size = std::max(wsp0Size, nq1);
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE>
 NEK_FORCE_INLINE static void IProduct3DWorkspace(
-    [[maybe_unused]] const size_t nm0, const size_t nm1,
-    [[maybe_unused]] const size_t nm2, [[maybe_unused]] const size_t nq0,
-    const size_t nq1, const size_t nq2, size_t &wsp0Size, size_t &wsp1Size,
-    size_t &wsp2Size)
+    [[maybe_unused]] const unsigned int nm0, const unsigned int nm1,
+    [[maybe_unused]] const unsigned int nm2,
+    [[maybe_unused]] const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nq2, unsigned int &wsp0Size, unsigned int &wsp1Size,
+    unsigned int &wsp2Size)
 {
     wsp0Size = std::max(wsp0Size, nq1 * nq2);
     wsp1Size = std::max(wsp1Size, nq2);
@@ -79,7 +83,7 @@ NEK_FORCE_INLINE static void IProduct3DWorkspace(
 template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
           bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void IProduct1DKernel(
-    const size_t nm0, const size_t nq0,
+    const unsigned int nm0, const unsigned int nq0,
     const typename simd_type::vectorType *in, const simd_type *B0,
     const simd_type *w0, const simd_type *jac,
     typename simd_type::scalarType *out,
@@ -92,8 +96,8 @@ NEK_FORCE_INLINE static void IProduct1DKernel(
 template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
           bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void IProduct2DKernel(
-    const size_t nm0, const size_t nm1, const size_t nq0, const size_t nq1,
-    [[maybe_unused]] const bool isModified,
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
+    const unsigned int nq1, [[maybe_unused]] const bool isModified,
     const typename simd_type::vectorType *in, const simd_type *B0,
     const simd_type *B1, const simd_type *w0, const simd_type *w1,
     const simd_type *jac,
@@ -118,8 +122,8 @@ NEK_FORCE_INLINE static void IProduct2DKernel(
 template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
           typename simd_type>
 NEK_FORCE_INLINE static void IProduct2DKernel(
-    const size_t nm0, const size_t nm1, const size_t nq0, const size_t nq1,
-    [[maybe_unused]] const bool isModified,
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
+    const unsigned int nq1, [[maybe_unused]] const bool isModified,
     const typename simd_type::vectorType *in, const simd_type *B0,
     const simd_type *B1,
     std::vector<simd_type, tinysimd::allocator<simd_type>> &wsp0,
@@ -141,8 +145,9 @@ NEK_FORCE_INLINE static void IProduct2DKernel(
 template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
           bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void IProduct3DKernel(
-    const size_t nm0, const size_t nm1, const size_t nm2, const size_t nq0,
-    const size_t nq1, const size_t nq2, [[maybe_unused]] const bool isModified,
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    [[maybe_unused]] const bool isModified,
     const typename simd_type::vectorType *in, const simd_type *B0,
     const simd_type *B1, const simd_type *B2, const simd_type *w0,
     const simd_type *w1, const simd_type *w2, const simd_type *jac,
@@ -183,8 +188,9 @@ NEK_FORCE_INLINE static void IProduct3DKernel(
 template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
           typename simd_type>
 NEK_FORCE_INLINE static void IProduct3DKernel(
-    const size_t nm0, const size_t nm1, const size_t nm2, const size_t nq0,
-    const size_t nq1, const size_t nq2, [[maybe_unused]] const bool isModified,
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    [[maybe_unused]] const bool isModified,
     const typename simd_type::vectorType *in, const simd_type *B0,
     const simd_type *B1, const simd_type *B2,
     std::vector<simd_type, tinysimd::allocator<simd_type>> &wsp0,

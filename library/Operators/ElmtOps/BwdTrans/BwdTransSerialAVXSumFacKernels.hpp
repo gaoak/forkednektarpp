@@ -48,16 +48,18 @@
 // temporary memory.
 template <LibUtilities::ShapeType SHAPE_TYPE>
 NEK_FORCE_INLINE static void BwdTrans1DWorkspace(
-    [[maybe_unused]] const size_t nm0, [[maybe_unused]] const size_t nq0)
+    [[maybe_unused]] const unsigned int nm0,
+    [[maybe_unused]] const unsigned int nq0)
 
 {
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE>
 NEK_FORCE_INLINE static void BwdTrans2DWorkspace(
-    [[maybe_unused]] const size_t nm0, [[maybe_unused]] const size_t nm1,
-    [[maybe_unused]] const size_t nq0, [[maybe_unused]] const size_t nq1,
-    size_t &wsp0Size)
+    [[maybe_unused]] const unsigned int nm0,
+    [[maybe_unused]] const unsigned int nm1,
+    [[maybe_unused]] const unsigned int nq0,
+    [[maybe_unused]] const unsigned int nq1, unsigned int &wsp0Size)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
     {
@@ -71,10 +73,13 @@ NEK_FORCE_INLINE static void BwdTrans2DWorkspace(
 
 template <LibUtilities::ShapeType SHAPE_TYPE>
 NEK_FORCE_INLINE static void BwdTrans3DWorkspace(
-    [[maybe_unused]] const size_t nm0, [[maybe_unused]] const size_t nm1,
-    [[maybe_unused]] const size_t nm2, [[maybe_unused]] const size_t nq0,
-    [[maybe_unused]] const size_t nq1, [[maybe_unused]] const size_t nq2,
-    size_t &wsp0Size, size_t &wsp1Size)
+    [[maybe_unused]] const unsigned int nm0,
+    [[maybe_unused]] const unsigned int nm1,
+    [[maybe_unused]] const unsigned int nm2,
+    [[maybe_unused]] const unsigned int nq0,
+    [[maybe_unused]] const unsigned int nq1,
+    [[maybe_unused]] const unsigned int nq2, unsigned int &wsp0Size,
+    unsigned int &wsp1Size)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::eHexahedron)
     {
@@ -90,7 +95,7 @@ NEK_FORCE_INLINE static void BwdTrans3DWorkspace(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename simd_type>
 NEK_FORCE_INLINE static void BwdTrans1DKernel(
-    const size_t nm0, const size_t nq0, const simd_type *basis0,
+    const unsigned int nm0, const unsigned int nq0, const simd_type *basis0,
     const typename simd_type::vectorType *in,
     typename simd_type::scalarType *out)
 {
@@ -99,9 +104,9 @@ NEK_FORCE_INLINE static void BwdTrans1DKernel(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename simd_type>
 NEK_FORCE_INLINE static void BwdTrans2DKernel(
-    const size_t nm0, const size_t nm1, const size_t nq0, const size_t nq1,
-    [[maybe_unused]] const bool isModified, const simd_type *basis0,
-    const simd_type *basis1,
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
+    const unsigned int nq1, [[maybe_unused]] const bool isModified,
+    const simd_type *basis0, const simd_type *basis1,
     std::vector<simd_type, tinysimd::allocator<simd_type>> &wsp0,
     const typename simd_type::vectorType *in,
     typename simd_type::scalarType *out)
@@ -119,9 +124,10 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename simd_type>
 NEK_FORCE_INLINE static void BwdTrans3DKernel(
-    const size_t nm0, const size_t nm1, const size_t nm2, const size_t nq0,
-    const size_t nq1, const size_t nq2, [[maybe_unused]] const bool isModified,
-    const simd_type *basis0, const simd_type *basis1, const simd_type *basis2,
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    [[maybe_unused]] const bool isModified, const simd_type *basis0,
+    const simd_type *basis1, const simd_type *basis2,
     std::vector<simd_type, tinysimd::allocator<simd_type>> &wsp0,
     std::vector<simd_type, tinysimd::allocator<simd_type>> &wsp1,
     const typename simd_type::vectorType *in,

@@ -52,37 +52,37 @@ public:
                                NekDataWarehouseSharedPtr dataWarehouse)
         : BlockOperatorPhysDeriv<TData>(exp, dataWarehouse)
     {
+        // Determine shape and type of the element.
+        m_shapeType = exp->DetShapeType();
+        m_isDeformed =
+            exp->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed;
+        m_dimension = exp->GetShapeDimension();
+        m_coordDim  = exp->GetCoordim();
+        m_nmTot     = exp->GetNcoeffs();
+        m_nqTot     = exp->GetTotPoints();
+
+        // Fetch matrix.
+        std::vector<LibUtilities::BasisKey> basisKeys(
+            m_dimension, LibUtilities::NullBasisKey);
+        for (unsigned int d = 0; d < m_dimension; d++)
+        {
+            basisKeys[d] = exp->GetBasis(d)->GetBasisKey();
+        }
+        m_matptr = dataWarehouse->template GetData<ExecSpace>(
+            StdMatKey<TData>(basisKeys, m_shapeType, ePhysDerivStdMat));
     }
 
     void apply(BlockAccessor<TData> &inblock,
                BlockAccessor<TData> &outblock) override
     {
+        const auto nElmts = inblock.GetNumElements();
+        const auto ndf    = m_coordDim * m_dimension;
+
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
-
-        // Determine shape and type of the element.
-        const auto deformed = this->m_exp->GetMetricInfo()->GetGtype() ==
-                              SpatialDomains::eDeformed;
-        const auto shapeType = this->m_exp->DetShapeType();
-        const auto dimension = this->m_exp->GetShapeDimension();
-        const auto nqTot     = this->m_exp->GetTotPoints();
-        const auto nCoord    = this->m_exp->GetCoordim();
-        const auto ndf       = nCoord * dimension;
-
-        auto nElmts = inblock.GetNumElements();
-
-        // Fetch matrix.
-        std::vector<LibUtilities::BasisKey> basisKeys(
-            dimension, LibUtilities::NullBasisKey);
-        for (unsigned int d = 0; d < dimension; d++)
-        {
-            basisKeys[d] = this->m_exp->GetBasis(d)->GetBasisKey();
-        }
-        auto matptr = this->m_dataWarehouse->template GetData<ExecSpace>(
-            StdMatKey<TData>(basisKeys, shapeType, ePhysDerivStdMat));
 
         // Fetch derivative factor.
         auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
@@ -92,7 +92,7 @@ public:
         // Allocate storate.
         if (m_deriv.size() == 0)
         {
-            m_deriv = std::vector<TData>(dimension * nqTot * nElmts);
+            m_deriv = std::vector<TData>(m_dimension * m_nqTot * nElmts);
         }
 
         // Get workspace pointer.
@@ -109,31 +109,32 @@ public:
                 inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
                 (TData *)inptr);
 
-            for (unsigned int d = 0; d < dimension; ++d)
+            for (unsigned int d = 0; d < m_dimension; ++d)
             {
                 // Perform matrix-matrix multiply.
-                Blas::Gemm('N', 'N', nqTot, nElmts, nqTot, 1.0,
-                           matptr + d * nqTot * nqTot, nqTot, inptr, nqTot, 0.0,
-                           derivPtr + d * nqTot * nElmts, nqTot);
+                Blas::Gemm('N', 'N', m_nqTot, nElmts, m_nqTot, 1.0,
+                           m_matptr + d * m_nqTot * m_nqTot, m_nqTot, inptr,
+                           m_nqTot, 0.0, derivPtr + d * m_nqTot * nElmts,
+                           m_nqTot);
             }
 
-            if (deformed)
+            if (m_isDeformed)
             {
-                for (unsigned int k = 0; k < nCoord; k++)
+                for (unsigned int k = 0; k < m_coordDim; k++)
                 {
                     TData *ptr = outptr + k * outblock.size();
 
                     Nektar::parallel_for<ExecSpace>(
-                        0, nElmts * nqTot, [&](const unsigned int i) {
+                        0, nElmts * m_nqTot, [&](const unsigned int i) {
                             ptr[i] =
-                                dfptr[ndf * i + k * dimension] * derivPtr[i];
+                                dfptr[ndf * i + k * m_dimension] * derivPtr[i];
                         });
-                    for (unsigned int d = 1; d < dimension; d++)
+                    for (unsigned int d = 1; d < m_dimension; d++)
                     {
                         Nektar::parallel_for<ExecSpace>(
-                            0, nElmts * nqTot, [&](const unsigned int i) {
-                                ptr[i] += dfptr[ndf * i + k * dimension + d] *
-                                          derivPtr[i + d * nqTot * nElmts];
+                            0, nElmts * m_nqTot, [&](const unsigned int i) {
+                                ptr[i] += dfptr[ndf * i + k * m_dimension + d] *
+                                          derivPtr[i + d * m_nqTot * nElmts];
                             });
                     }
                 }
@@ -142,23 +143,23 @@ public:
             {
                 Nektar::parallel_for<ExecSpace>(
                     0, nElmts, [&](const unsigned int e) {
-                        for (unsigned int k = 0; k < nCoord; k++)
+                        for (unsigned int k = 0; k < m_coordDim; k++)
                         {
                             TData *ptr = outptr + k * outblock.size();
-                            for (unsigned int i = 0; i < nqTot; i++)
+                            for (unsigned int i = 0; i < m_nqTot; i++)
                             {
-                                ptr[nqTot * e + i] =
-                                    dfptr[ndf * e + k * dimension] *
-                                    derivPtr[nqTot * e + i];
+                                ptr[m_nqTot * e + i] =
+                                    dfptr[ndf * e + k * m_dimension] *
+                                    derivPtr[m_nqTot * e + i];
                             }
-                            for (unsigned int d = 1; d < dimension; d++)
+                            for (unsigned int d = 1; d < m_dimension; d++)
                             {
-                                for (unsigned int i = 0; i < nqTot; i++)
+                                for (unsigned int i = 0; i < m_nqTot; i++)
                                 {
-                                    ptr[nqTot * e + i] +=
-                                        dfptr[ndf * e + k * dimension + d] *
-                                        derivPtr[nqTot * e + i +
-                                                 d * nqTot * nElmts];
+                                    ptr[m_nqTot * e + i] +=
+                                        dfptr[ndf * e + k * m_dimension + d] *
+                                        derivPtr[m_nqTot * e + i +
+                                                 d * m_nqTot * nElmts];
                                 }
                             }
                         }
@@ -166,7 +167,7 @@ public:
             }
 
             inptr += inblock.size();
-            outptr += nCoord * outblock.size();
+            outptr += m_coordDim * outblock.size();
         }
 
         // Set to new interleave width.
@@ -188,9 +189,16 @@ public:
     }
 
 protected:
-    std::vector<TData> m_deriv;
-
     static constexpr unsigned int m_implInterleaveWidth = 1;
+
+    LibUtilities::ShapeType m_shapeType;
+    bool m_isDeformed;
+    unsigned int m_dimension;
+    unsigned int m_coordDim;
+    unsigned int m_nmTot;
+    unsigned int m_nqTot;
+    const TData *m_matptr;
+    std::vector<TData> m_deriv;
 };
 
 } // namespace Nektar::Operators::detail

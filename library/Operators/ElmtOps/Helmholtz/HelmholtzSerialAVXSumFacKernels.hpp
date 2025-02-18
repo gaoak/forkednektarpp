@@ -42,7 +42,7 @@
 
 template <bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void DiffusionCoeffSegKernel(
-    const size_t nq0, const bool isConstVarDiff,
+    const unsigned int nq0, const bool isConstVarDiff,
     const std::vector<typename simd_type::scalarType> &constVarDiff,
     const bool isVarDiff,
     const std::vector<typename simd_type::scalarType> &varD00,
@@ -81,7 +81,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffSegKernel(
     {
         if constexpr (DEFORMED)
         {
-            for (size_t i = 0; i < nq0; ++i)
+            for (unsigned int i = 0; i < nq0; ++i)
             {
                 df0 = df_ptr[i * ndf];
 
@@ -103,7 +103,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffSegKernel(
         }
         else
         {
-            for (int i = 0; i < nqTot; ++i)
+            for (unsigned int i = 0; i < nqTot; ++i)
             {
                 simd_type d0;
                 d0.load(deriv0 + i * simd_type::width);
@@ -117,7 +117,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffSegKernel(
     {
         if constexpr (DEFORMED)
         {
-            for (size_t i = 0; i < nq0; ++i)
+            for (unsigned int i = 0; i < nq0; ++i)
             {
                 df0      = df_ptr[i * ndf];
                 d00      = varD00[i];
@@ -132,7 +132,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffSegKernel(
         }
         else
         {
-            for (size_t i = 0; i < nq0; ++i)
+            for (unsigned int i = 0; i < nq0; ++i)
             {
                 d00      = varD00[i];
                 metric00 = df0 * df0 * d00;
@@ -149,7 +149,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffSegKernel(
 
 template <bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffTriKernel(
-    const size_t nq0, const size_t nq1, const bool isConstVarDiff,
+    const unsigned int nq0, const unsigned int nq1, const bool isConstVarDiff,
     const std::vector<typename simd_type::scalarType> &constVarDiff,
     const bool isVarDiff,
     const std::vector<typename simd_type::scalarType> &varD00,
@@ -188,14 +188,14 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffTriKernel(
         df3 = df_ptr[3];
     }
 
-    for (int q = 0; q < nq1; ++q)
+    for (unsigned int q = 0; q < nq1; ++q)
     {
         simd_type h1j = hfac1[q];
-        for (int p = 0; p < nq0; ++p)
+        for (unsigned int p = 0; p < nq0; ++p)
         {
-            int cnt            = q * nq0 + p;
+            unsigned int cnt   = q * nq0 + p;
             simd_type prod_sum = 0.0;
-            for (int i = 0; i < nq0; ++i)
+            for (unsigned int i = 0; i < nq0; ++i)
             {
                 simd_type v1 = D0[i * nq0 + p];            // Load 1x
                 simd_type v2 = simd_type(in[q * nq0 + i]); // Load 1x
@@ -204,7 +204,7 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffTriKernel(
             }
 
             simd_type prod_sum1 = 0.0;
-            for (int j = 0; j < nq1; ++j)
+            for (unsigned int j = 0; j < nq1; ++j)
             {
                 simd_type v1 = simd_type(in[j * nq0 + p]); // Load 1x
                 simd_type v2 = D1[j * nq1 + q];            // Load 1x
@@ -286,7 +286,7 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffTriKernel(
 
 template <bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffQuadKernel(
-    const size_t nq0, const size_t nq1, const bool isConstVarDiff,
+    const unsigned int nq0, const unsigned int nq1, const bool isConstVarDiff,
     const std::vector<typename simd_type::scalarType> &constVarDiff,
     const bool isVarDiff,
     const std::vector<typename simd_type::scalarType> &varD00,
@@ -352,13 +352,13 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffQuadKernel(
         }
     }
 
-    for (int q = 0; q < nq1; ++q)
+    for (unsigned int q = 0; q < nq1; ++q)
     {
-        for (int p = 0; p < nq0; ++p)
+        for (unsigned int p = 0; p < nq0; ++p)
         {
-            int cnt            = q * nq0 + p;
+            unsigned int cnt   = q * nq0 + p;
             simd_type prod_sum = 0.0;
-            for (int i = 0; i < nq0; ++i)
+            for (unsigned int i = 0; i < nq0; ++i)
             {
                 simd_type v1 = D0[i * nq0 + p];            // Load 1x
                 simd_type v2 = simd_type(in[q * nq0 + i]); // Load 1x
@@ -367,7 +367,7 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffQuadKernel(
             }
 
             simd_type prod_sum1 = 0.0;
-            for (int j = 0; j < nq1; ++j)
+            for (unsigned int j = 0; j < nq1; ++j)
             {
                 simd_type v1 = simd_type(in[j * nq0 + p]); // Load 1x
                 simd_type v2 = D1[j * nq1 + q];            // Load 1x
@@ -441,7 +441,7 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffQuadKernel(
 
 template <bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffHexKernel(
-    const size_t nq0, const size_t nq1, const size_t nq2,
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const bool isConstVarDiff,
     const std::vector<typename simd_type::scalarType> &constVarDiff,
     const bool isVarDiff,
@@ -590,17 +590,17 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffHexKernel(
     // All matricies are column major ordered since operators used to
     // be computed via BLAS.
 
-    for (int r = 0; r < nq2; ++r)
+    for (unsigned int r = 0; r < nq2; ++r)
     {
-        for (int q = 0; q < nq1; ++q)
+        for (unsigned int q = 0; q < nq1; ++q)
         {
-            int cnt_qr = (r * nq1 + q);
-            for (int p = 0; p < nq0; ++p)
+            unsigned int cnt_qr = (r * nq1 + q);
+            for (unsigned int p = 0; p < nq0; ++p)
             {
-                int cnt = cnt_qr * nq0 + p;
+                unsigned int cnt = cnt_qr * nq0 + p;
                 // 1. get deriv in std coordinate
                 simd_type prod_sum = 0.0;
-                for (int i = 0; i < nq0; ++i)
+                for (unsigned int i = 0; i < nq0; ++i)
                 {
                     simd_type v1 = D0[i * nq0 + p];                 // Load 1x
                     simd_type v2 = simd_type(in[cnt_qr * nq0 + i]); // Load 1x
@@ -608,19 +608,19 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffHexKernel(
                 }
                 // prod_sum.store(deriv0 + cnt * simd_type::width);
                 simd_type prod_sum1 = 0.0;
-                for (int j = 0; j < nq1; ++j)
+                for (unsigned int j = 0; j < nq1; ++j)
                 {
-                    int cnt_jr   = r * nq1 + j;
-                    simd_type v1 = D1[j * nq1 + q];                 // Load 1x
+                    unsigned int cnt_jr = r * nq1 + j;
+                    simd_type v1        = D1[j * nq1 + q];          // Load 1x
                     simd_type v2 = simd_type(in[cnt_jr * nq0 + p]); // Load 1x
                     prod_sum1.fma(v1, v2);
                 }
                 // prod_sum1.store(deriv1 + cnt * simd_type::width);
                 simd_type prod_sum2 = 0.0;
-                for (int k = 0; k < nq2; ++k)
+                for (unsigned int k = 0; k < nq2; ++k)
                 {
-                    int cnt_qk   = (k * nq1 + q);
-                    simd_type v2 = D2[k * nq2 + r];                 // Load 1x
+                    unsigned int cnt_qk = (k * nq1 + q);
+                    simd_type v2        = D2[k * nq2 + r];          // Load 1x
                     simd_type v1 = simd_type(in[cnt_qk * nq0 + p]); // Load 1x
                     prod_sum2.fma(v1, v2);
                 }
@@ -776,7 +776,7 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffHexKernel(
 
 template <bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffTetKernel(
-    const size_t nq0, const size_t nq1, const size_t nq2,
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const bool isConstVarDiff,
     const std::vector<typename simd_type::scalarType> &constVarDiff,
     const bool isVarDiff,
@@ -832,23 +832,23 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffTetKernel(
         df8 = df_ptr[8];
     }
 
-    for (int r = 0; r < nq2; ++r)
+    for (unsigned int r = 0; r < nq2; ++r)
     {
         simd_type h3 = hfac3[r];
-        for (int q = 0; q < nq1; ++q)
+        for (unsigned int q = 0; q < nq1; ++q)
         {
             simd_type h1   = hfac1[q];
             simd_type h2   = hfac2[q];
             simd_type h2h3 = h2 * h3;
             simd_type h1h3 = h1 * h3;
 
-            int cnt_qr = (r * nq1 + q);
-            for (int p = 0; p < nq0; ++p)
+            unsigned int cnt_qr = (r * nq1 + q);
+            for (unsigned int p = 0; p < nq0; ++p)
             {
-                int cnt = cnt_qr * nq0 + p;
+                unsigned int cnt = cnt_qr * nq0 + p;
                 // 1. get deriv in std coordinate
                 simd_type prod_sum = 0.0;
-                for (int i = 0; i < nq0; ++i)
+                for (unsigned int i = 0; i < nq0; ++i)
                 {
                     simd_type v1 = D0[i * nq0 + p];                 // Load 1x
                     simd_type v2 = simd_type(in[cnt_qr * nq0 + i]); // Load 1x
@@ -856,19 +856,19 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffTetKernel(
                 }
                 // prod_sum.store(deriv0 + cnt * simd_type::width);
                 simd_type prod_sum1 = 0.0;
-                for (int j = 0; j < nq1; ++j)
+                for (unsigned int j = 0; j < nq1; ++j)
                 {
-                    int cnt_jr   = r * nq1 + j;
-                    simd_type v1 = D1[j * nq1 + q];                 // Load 1x
+                    unsigned int cnt_jr = r * nq1 + j;
+                    simd_type v1        = D1[j * nq1 + q];          // Load 1x
                     simd_type v2 = simd_type(in[cnt_jr * nq0 + p]); // Load 1x
                     prod_sum1.fma(v1, v2);
                 }
                 // prod_sum1.store(deriv1 + cnt * simd_type::width);
                 simd_type prod_sum2 = 0.0;
-                for (int k = 0; k < nq2; ++k)
+                for (unsigned int k = 0; k < nq2; ++k)
                 {
-                    int cnt_qk   = (k * nq1 + q);
-                    simd_type v2 = D2[k * nq2 + r];                 // Load 1x
+                    unsigned int cnt_qk = (k * nq1 + q);
+                    simd_type v2        = D2[k * nq2 + r];          // Load 1x
                     simd_type v1 = simd_type(in[cnt_qk * nq0 + p]); // Load 1x
                     prod_sum2.fma(v1, v2);
                 }
@@ -1040,7 +1040,7 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffTetKernel(
 
 template <bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffPrismKernel(
-    const size_t nq0, const size_t nq1, const size_t nq2,
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const bool isConstVarDiff,
     const std::vector<typename simd_type::scalarType> &constVarDiff,
     const bool isVarDiff,
@@ -1096,18 +1096,18 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffPrismKernel(
         df8 = df_ptr[8];
     }
 
-    for (int r = 0; r < nq2; ++r)
+    for (unsigned int r = 0; r < nq2; ++r)
     {
         simd_type h1 = hfac1[r];
-        for (int q = 0; q < nq1; ++q)
+        for (unsigned int q = 0; q < nq1; ++q)
         {
-            int cnt_qr = (r * nq1 + q);
-            for (int p = 0; p < nq0; ++p)
+            unsigned int cnt_qr = (r * nq1 + q);
+            for (unsigned int p = 0; p < nq0; ++p)
             {
-                int cnt = cnt_qr * nq0 + p;
+                unsigned int cnt = cnt_qr * nq0 + p;
                 // 1. get deriv in std coordinate
                 simd_type prod_sum = 0.0;
-                for (int i = 0; i < nq0; ++i)
+                for (unsigned int i = 0; i < nq0; ++i)
                 {
                     simd_type v1 = D0[i * nq0 + p];                 // Load 1x
                     simd_type v2 = simd_type(in[cnt_qr * nq0 + i]); // Load 1x
@@ -1115,19 +1115,19 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffPrismKernel(
                 }
                 // prod_sum.store(deriv0 + cnt * simd_type::width);
                 simd_type prod_sum1 = 0.0;
-                for (int j = 0; j < nq1; ++j)
+                for (unsigned int j = 0; j < nq1; ++j)
                 {
-                    int cnt_jr   = r * nq1 + j;
-                    simd_type v1 = D1[j * nq1 + q];                 // Load 1x
+                    unsigned int cnt_jr = r * nq1 + j;
+                    simd_type v1        = D1[j * nq1 + q];          // Load 1x
                     simd_type v2 = simd_type(in[cnt_jr * nq0 + p]); // Load 1x
                     prod_sum1.fma(v1, v2);
                 }
                 // prod_sum1.store(deriv1 + cnt * simd_type::width);
                 simd_type prod_sum2 = 0.0;
-                for (int k = 0; k < nq2; ++k)
+                for (unsigned int k = 0; k < nq2; ++k)
                 {
-                    int cnt_qk   = (k * nq1 + q);
-                    simd_type v2 = D2[k * nq2 + r];                 // Load 1x
+                    unsigned int cnt_qk = (k * nq1 + q);
+                    simd_type v2        = D2[k * nq2 + r];          // Load 1x
                     simd_type v1 = simd_type(in[cnt_qk * nq0 + p]); // Load 1x
                     prod_sum2.fma(v1, v2);
                 }
@@ -1290,7 +1290,7 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffPrismKernel(
 
 template <bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffPyrKernel(
-    const size_t nq0, const size_t nq1, const size_t nq2,
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const bool isConstVarDiff,
     const std::vector<typename simd_type::scalarType> &constVarDiff,
     const bool isVarDiff,
@@ -1346,20 +1346,20 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffPyrKernel(
         df8 = df_ptr[8];
     }
 
-    for (int r = 0; r < nq2; ++r)
+    for (unsigned int r = 0; r < nq2; ++r)
     {
         simd_type h2 = hfac2[r];
-        for (int q = 0; q < nq1; ++q)
+        for (unsigned int q = 0; q < nq1; ++q)
         {
-            simd_type h1   = hfac1[q];
-            simd_type h1h2 = h1 * h2;
-            int cnt_qr     = (r * nq1 + q);
-            for (int p = 0; p < nq0; ++p)
+            simd_type h1        = hfac1[q];
+            simd_type h1h2      = h1 * h2;
+            unsigned int cnt_qr = (r * nq1 + q);
+            for (unsigned int p = 0; p < nq0; ++p)
             {
-                int cnt = cnt_qr * nq0 + p;
+                unsigned int cnt = cnt_qr * nq0 + p;
                 // 1. get deriv in std coordinate
                 simd_type prod_sum = 0.0;
-                for (int i = 0; i < nq0; ++i)
+                for (unsigned int i = 0; i < nq0; ++i)
                 {
                     simd_type v1 = D0[i * nq0 + p];                 // Load 1x
                     simd_type v2 = simd_type(in[cnt_qr * nq0 + i]); // Load 1x
@@ -1367,19 +1367,19 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffPyrKernel(
                 }
                 // prod_sum.store(deriv0 + cnt * simd_type::width);
                 simd_type prod_sum1 = 0.0;
-                for (int j = 0; j < nq1; ++j)
+                for (unsigned int j = 0; j < nq1; ++j)
                 {
-                    int cnt_jr   = r * nq1 + j;
-                    simd_type v1 = D1[j * nq1 + q];                 // Load 1x
+                    unsigned int cnt_jr = r * nq1 + j;
+                    simd_type v1        = D1[j * nq1 + q];          // Load 1x
                     simd_type v2 = simd_type(in[cnt_jr * nq0 + p]); // Load 1x
                     prod_sum1.fma(v1, v2);
                 }
                 // prod_sum1.store(deriv1 + cnt * simd_type::width);
                 simd_type prod_sum2 = 0.0;
-                for (int k = 0; k < nq2; ++k)
+                for (unsigned int k = 0; k < nq2; ++k)
                 {
-                    int cnt_qk   = (k * nq1 + q);
-                    simd_type v2 = D2[k * nq2 + r];                 // Load 1x
+                    unsigned int cnt_qk = (k * nq1 + q);
+                    simd_type v2        = D2[k * nq2 + r];          // Load 1x
                     simd_type v1 = simd_type(in[cnt_qk * nq0 + p]); // Load 1x
                     prod_sum2.fma(v1, v2);
                 }
@@ -1550,7 +1550,7 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffPyrKernel(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeff2DKernel(
-    const size_t nq0, const size_t nq1, const bool isConstVarDiff,
+    const unsigned int nq0, const unsigned int nq1, const bool isConstVarDiff,
     const std::vector<typename simd_type::scalarType> &constVarDiff,
     const bool isVarDiff,
     const std::vector<typename simd_type::scalarType> &varD00,
@@ -1581,7 +1581,7 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeff2DKernel(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeff3DKernel(
-    const size_t nq0, const size_t nq1, const size_t nq2,
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const bool isConstVarDiff,
     const std::vector<typename simd_type::scalarType> &constVarDiff,
     const bool isVarDiff,
@@ -1622,13 +1622,13 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeff3DKernel(
         TensorDerivWithDiffuCoeffPrismKernel<DEFORMED, simd_type>(
             nq0, nq1, nq2, isConstVarDiff, constVarDiff, isVarDiff, varD00,
             varD01, varD11, varD02, varD12, varD22, in, D0, D1, D2, df_ptr, h0,
-            h1, diffderiv0, diffderiv1, diffderiv2, deriv0, deriv1, deriv2);
+            h3, diffderiv0, diffderiv1, diffderiv2, deriv0, deriv1, deriv2);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::ePyramid)
     {
         TensorDerivWithDiffuCoeffPyrKernel<DEFORMED, simd_type>(
             nq0, nq1, nq2, isConstVarDiff, constVarDiff, isVarDiff, varD00,
             varD01, varD11, varD02, varD12, varD22, in, D0, D1, D2, df_ptr, h0,
-            h1, h2, diffderiv0, diffderiv1, diffderiv2, deriv0, deriv1, deriv2);
+            h1, h3, diffderiv0, diffderiv1, diffderiv2, deriv0, deriv1, deriv2);
     }
 }

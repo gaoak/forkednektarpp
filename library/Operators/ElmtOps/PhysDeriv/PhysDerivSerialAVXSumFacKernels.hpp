@@ -39,7 +39,8 @@
 #include "StdRegions/Operators/PhysDerivSumFacStdKernels.hpp"
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
-NEK_FORCE_INLINE void PhysDeriv1DKernel(const int nq0, const size_t ndf,
+NEK_FORCE_INLINE void PhysDeriv1DKernel(const unsigned int nq0,
+                                        const unsigned int ndf,
                                         const simd_type *df_ptr,
                                         typename simd_type::scalarType *out[3])
 {
@@ -59,7 +60,7 @@ NEK_FORCE_INLINE void PhysDeriv1DKernel(const int nq0, const size_t ndf,
         }
     }
 
-    for (int j = 0; j < nq0; ++j)
+    for (unsigned int j = 0; j < nq0; ++j)
     {
         if constexpr (DEFORMED)
         {
@@ -93,12 +94,10 @@ NEK_FORCE_INLINE void PhysDeriv1DKernel(const int nq0, const size_t ndf,
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
-NEK_FORCE_INLINE void PhysDeriv2DKernel(const int nq0, const int nq1,
-                                        const size_t outdim,
-                                        [[maybe_unused]] const simd_type *Z0,
-                                        [[maybe_unused]] const simd_type *Z1,
-                                        const simd_type *df_ptr,
-                                        typename simd_type::scalarType *out[3])
+NEK_FORCE_INLINE void PhysDeriv2DKernel(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int outdim,
+    [[maybe_unused]] const simd_type *Z0, [[maybe_unused]] const simd_type *Z1,
+    const simd_type *df_ptr, typename simd_type::scalarType *out[3])
 {
     auto ndf = 2 * outdim;
     simd_type df_tmp[6];
@@ -117,7 +116,7 @@ NEK_FORCE_INLINE void PhysDeriv2DKernel(const int nq0, const int nq1,
         }
     }
 
-    for (int j = 0, cnt_ji = 0; j < nq1; ++j)
+    for (unsigned int j = 0, cnt_ji = 0; j < nq1; ++j)
     {
         simd_type xfrm0;
         if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
@@ -125,7 +124,7 @@ NEK_FORCE_INLINE void PhysDeriv2DKernel(const int nq0, const int nq1,
             xfrm0 = 2.0 / (1.0 - Z1[j]); // Load 1x
         }
 
-        for (int i = 0; i < nq0; ++i, ++cnt_ji)
+        for (unsigned int i = 0; i < nq0; ++i, ++cnt_ji)
         {
             simd_type d0, d1;
             d0.load(out[0] + cnt_ji * simd_type::width); // Load 1x
@@ -175,7 +174,7 @@ NEK_FORCE_INLINE void PhysDeriv2DKernel(const int nq0, const int nq1,
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE void PhysDeriv3DKernel(
-    const int nq0, const int nq1, const int nq2,
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     [[maybe_unused]] const simd_type *Z0, [[maybe_unused]] const simd_type *Z1,
     [[maybe_unused]] const simd_type *Z2, const simd_type *df_ptr,
     [[maybe_unused]] std::vector<simd_type, tinysimd::allocator<simd_type>>
@@ -191,15 +190,15 @@ NEK_FORCE_INLINE void PhysDeriv3DKernel(
 
     if constexpr (SHAPE_TYPE == LibUtilities::eTetrahedron)
     {
-        for (int k = 0, eta0 = 0; k < nq2; ++k)
+        for (unsigned int k = 0, eta0 = 0; k < nq2; ++k)
         {
             simd_type xfrm_eta2 = 2.0 / (1.0 - Z2[k]); // Load 1x
 
-            for (int j = 0; j < nq1; ++j)
+            for (unsigned int j = 0; j < nq1; ++j)
             {
                 simd_type xfrm_eta1 = 2.0 / (1.0 - Z1[j]); // Load 1x
                 simd_type xfrm      = xfrm_eta1 * xfrm_eta2;
-                for (int i = 0; i < nq0; ++i, ++eta0)
+                for (unsigned int i = 0; i < nq0; ++i, ++eta0)
                 {
                     simd_type d0;
                     d0.load(out_d0 + eta0 * simd_type::width);  // Load 1x
@@ -210,13 +209,13 @@ NEK_FORCE_INLINE void PhysDeriv3DKernel(
             }
         }
 
-        for (int k = 0, eta0 = 0; k < nq2; ++k)
+        for (unsigned int k = 0, eta0 = 0; k < nq2; ++k)
         {
             simd_type xfrm_eta2 = 2.0 / (1.0 - Z2[k]); // Load 1x
 
-            for (int j = 0; j < nq1; ++j)
+            for (unsigned int j = 0; j < nq1; ++j)
             {
-                for (int i = 0; i < nq0; ++i, ++eta0)
+                for (unsigned int i = 0; i < nq0; ++i, ++eta0)
                 {
                     simd_type xfrm_eta0 = 0.5 * (1.0 + Z0[i]); // Load 1x
 
@@ -233,13 +232,13 @@ NEK_FORCE_INLINE void PhysDeriv3DKernel(
             }
         }
 
-        for (int k = 0, eta0 = 0; k < nq2; ++k)
+        for (unsigned int k = 0, eta0 = 0; k < nq2; ++k)
         {
-            for (int j = 0; j < nq1; ++j)
+            for (unsigned int j = 0; j < nq1; ++j)
             {
                 simd_type xfrm_eta1 = 0.5 * (1.0 + Z1[j]); // Load 1x
 
-                for (int i = 0; i < nq0; ++i, ++eta0)
+                for (unsigned int i = 0; i < nq0; ++i, ++eta0)
                 {
                     // out_d2[eta0] += wsp0[eta0] * xfrm_eta1 + wsp1[eta0]
                     simd_type out = wsp0[eta0]; // Load 1x
@@ -266,7 +265,7 @@ NEK_FORCE_INLINE void PhysDeriv3DKernel(
         df_tmp[8] = df_ptr[8];
     }
 
-    for (int k = 0, cnt_ijk = 0; k < nq2; ++k)
+    for (unsigned int k = 0, cnt_ijk = 0; k < nq2; ++k)
     {
         simd_type xfrm_eta2;
         if constexpr (SHAPE_TYPE == LibUtilities::ePrism ||
@@ -275,14 +274,14 @@ NEK_FORCE_INLINE void PhysDeriv3DKernel(
             xfrm_eta2 = 2.0 / (1.0 - Z2[k]); // Load 1x
         }
 
-        for (int j = 0; j < nq1; ++j)
+        for (unsigned int j = 0; j < nq1; ++j)
         {
             simd_type xfrm_eta1;
             if constexpr (SHAPE_TYPE == LibUtilities::ePyramid)
             {
                 xfrm_eta1 = 0.5 * (1.0 + Z1[j]); // Load 1x
             }
-            for (int i = 0; i < nq0; ++i, ++cnt_ijk)
+            for (unsigned int i = 0; i < nq0; ++i, ++cnt_ijk)
             {
                 simd_type d0, d1, d2;
                 d0.load(out_d0 + cnt_ijk * simd_type::width); // Load 1x
@@ -345,9 +344,11 @@ NEK_FORCE_INLINE void PhysDeriv3DKernel(
 
 template <LibUtilities::ShapeType SHAPE_TYPE>
 NEK_FORCE_INLINE static void PhysDeriv3DWorkspace(
-    [[maybe_unused]] const size_t nq0, [[maybe_unused]] const size_t nq1,
-    [[maybe_unused]] const size_t nq2, [[maybe_unused]] size_t &wsp1Size,
-    [[maybe_unused]] size_t &wsp2Size)
+    [[maybe_unused]] const unsigned int nq0,
+    [[maybe_unused]] const unsigned int nq1,
+    [[maybe_unused]] const unsigned int nq2,
+    [[maybe_unused]] unsigned int &wsp1Size,
+    [[maybe_unused]] unsigned int &wsp2Size)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::ShapeType::Tet)
     {

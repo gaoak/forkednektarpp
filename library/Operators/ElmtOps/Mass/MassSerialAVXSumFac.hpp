@@ -58,6 +58,29 @@ public:
                           NekDataWarehouseSharedPtr dataWarehouse)
         : BlockOperatorMass<TData>(exp, dataWarehouse)
     {
+        // Determine shape and type of the element.
+        m_shapeType = exp->DetShapeType();
+        m_isDeformed =
+            exp->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed;
+        m_dimension = exp->GetShapeDimension();
+        m_coordDim  = exp->GetCoordim();
+
+        // Flag for collapsed coordinate correction.
+        m_isModified = (exp->GetBasisType(0) == LibUtilities::eModified_A);
+
+        for (unsigned int d = 0; d < m_dimension; d++)
+        {
+            // Fetch element size.
+            m_nm.push_back(exp->GetBasisNumModes(d));
+            m_nq.push_back(exp->GetNumPoints(d));
+
+            // Fetch basis data.
+            m_B.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<simd_t>(exp->GetBasis(d)->GetBasisKey(), eBasis)));
+            m_W.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<simd_t>(exp->GetBasis(d)->GetBasisKey(),
+                                     eWeights)));
+        }
     }
 
     void apply(BlockAccessor<TData> &inblock,
@@ -71,10 +94,7 @@ public:
                   "Output Field are not aligned to the required alignment "
                   "for the SIMD vector type.");
 
-        // Determine shape and type of the element.
-        const auto shapeType = this->m_exp->DetShapeType();
-
-        switch (shapeType)
+        switch (m_shapeType)
         {
             // Segment
             case LibUtilities::Seg:
@@ -137,6 +157,16 @@ public:
     }
 
 protected:
+    LibUtilities::ShapeType m_shapeType;
+    bool m_isDeformed;
+    bool m_isModified;
+    unsigned int m_dimension;
+    unsigned int m_coordDim;
+    std::vector<unsigned int> m_nm;
+    std::vector<unsigned int> m_nq;
+    std::vector<const simd_t *> m_B;
+    std::vector<const simd_t *> m_W;
+
     void SegBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
 
@@ -164,8 +194,8 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        const auto nm0 = this->m_exp->GetBasisNumModes(0);
-        const auto nq0 = this->m_exp->GetNumPoints(0);
+        const auto nm0 = m_nm[0];
+        const auto nq0 = m_nq[0];
 
         const auto nmTot = nm0;
         const auto nqTot = nq0;
@@ -176,14 +206,6 @@ protected:
             jacSize *= nqTot;
         }
 
-        // Fetch basis and weight data.
-        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                 eBasis));
-        auto W0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                 eWeights));
-
         // Fetch Jacobian.
         auto jacptr_init = reinterpret_cast<const simd_t *>(
             this->m_dataWarehouse->template GetData<ExecSpace>(
@@ -191,7 +213,7 @@ protected:
                                    inblock.GetNumElements())));
 
         // Get interleave parameter.
-        unsigned int interleave_width = inblock.GetInterleaveWidth();
+        const unsigned int interleave_width = inblock.GetInterleaveWidth();
         const auto width_ratio =
             (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
         const auto chunkSize = std::max(simd_t::width, interleave_width);
@@ -229,11 +251,13 @@ protected:
                 }
 
                 // Step 1: BwdTrans.
-                BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, B0, inptr, bwd);
+                BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, m_B[0], inptr, bwd);
+
                 // Step 2: Inner product for mass matrix operation.
                 IProduct1DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                    nm0, nq0, bwdvec, B0, W0, jacptr, outptr);
+                    nm0, nq0, bwdvec, m_B[0], m_W[0], jacptr, outptr);
 
+                // Increment pointers.
                 jacptr += jacSize;
                 inptr += nmTot;
                 outptr += nmTot * simd_t::width;
@@ -260,14 +284,6 @@ protected:
             jacSize *= nqTot;
         }
 
-        // Fetch basis and weight data.
-        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                 eBasis));
-        auto W0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                 eWeights));
-
         // Fetch Jacobian.
         auto jacptr_init = reinterpret_cast<const simd_t *>(
             this->m_dataWarehouse->template GetData<ExecSpace>(
@@ -275,7 +291,7 @@ protected:
                                    inblock.GetNumElements())));
 
         // Get interleave parameter.
-        unsigned int interleave_width = inblock.GetInterleaveWidth();
+        const unsigned int interleave_width = inblock.GetInterleaveWidth();
         const auto width_ratio =
             (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
         const auto chunkSize = std::max(simd_t::width, interleave_width);
@@ -313,11 +329,13 @@ protected:
                 }
 
                 // Step 1: BwdTrans.
-                BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, B0, inptr, bwd);
+                BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, m_B[0], inptr, bwd);
+
                 // Step 2: Inner product for mass matrix operation.
                 IProduct1DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                    nm0, nq0, bwdvec, B0, W0, jacptr, outptr);
+                    nm0, nq0, bwdvec, m_B[0], m_W[0], jacptr, outptr);
 
+                // Increment pointers.
                 jacptr += jacSize;
                 inptr += nmTot;
                 outptr += nmTot * simd_t::width;
@@ -334,11 +352,11 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        const auto nm0 = this->m_exp->GetBasisNumModes(0);
-        const auto nm1 = this->m_exp->GetBasisNumModes(1);
+        const auto nm0 = m_nm[0];
+        const auto nm1 = m_nm[1];
 
-        const auto nq0 = this->m_exp->GetNumPoints(0);
-        const auto nq1 = this->m_exp->GetNumPoints(1);
+        const auto nq0 = m_nq[0];
+        const auto nq1 = m_nq[1];
 
         const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
@@ -350,24 +368,6 @@ protected:
             jacSize *= nqTot;
         }
 
-        // Flag for collapsed coordinate correction.
-        const bool isModified =
-            (this->m_exp->GetBasisType(0) == LibUtilities::eModified_A);
-
-        // Fetch basis and weight data.
-        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                 eBasis));
-        auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(1)->GetBasisKey(),
-                                 eBasis));
-        auto W0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                 eWeights));
-        auto W1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(1)->GetBasisKey(),
-                                 eWeights));
-
         // Fetch Jacobian.
         auto jacptr_init = reinterpret_cast<const simd_t *>(
             this->m_dataWarehouse->template GetData<ExecSpace>(
@@ -375,7 +375,7 @@ protected:
                                    inblock.GetNumElements())));
 
         // Get interleave parameter.
-        unsigned int interleave_width = inblock.GetInterleaveWidth();
+        const unsigned int interleave_width = inblock.GetInterleaveWidth();
         const auto width_ratio =
             (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
         const auto chunkSize = std::max(simd_t::width, interleave_width);
@@ -385,7 +385,7 @@ protected:
         outblock.template SetInterleaveWidth<TData>(simd_t::width);
 
         // Workspace for kernels - also checks preconditions.
-        size_t wsp0Size = 0;
+        unsigned int wsp0Size = 0;
         BwdTrans2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
         IProduct2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
@@ -418,13 +418,15 @@ protected:
                 }
 
                 // Step 1: BwdTrans.
-                BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, isModified, B0,
-                                             B1, wsp0, inptr, bwd);
+                BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, m_isModified,
+                                             m_B[0], m_B[1], wsp0, inptr, bwd);
+
                 // Step 2: Inner product for mass matrix operation.
                 IProduct2DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                    nm0, nm1, nq0, nq1, isModified, bwdvec, B0, B1, W0, W1,
-                    jacptr, wsp0, outptr);
+                    nm0, nm1, nq0, nq1, m_isModified, bwdvec, m_B[0], m_B[1],
+                    m_W[0], m_W[1], jacptr, wsp0, outptr);
 
+                // Increment pointers.
                 jacptr += jacSize;
                 inptr += nmTot;
                 outptr += nmTot * simd_t::width;
@@ -453,24 +455,6 @@ protected:
             jacSize *= nqTot;
         }
 
-        // Flag for collapsed coordinate correction.
-        const bool isModified =
-            (this->m_exp->GetBasisType(0) == LibUtilities::eModified_A);
-
-        // Fetch basis and weight data.
-        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                 eBasis));
-        auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(1)->GetBasisKey(),
-                                 eBasis));
-        auto W0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                 eWeights));
-        auto W1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(1)->GetBasisKey(),
-                                 eWeights));
-
         // Fetch Jacobian.
         auto jacptr_init = reinterpret_cast<const simd_t *>(
             this->m_dataWarehouse->template GetData<ExecSpace>(
@@ -478,7 +462,7 @@ protected:
                                    inblock.GetNumElements())));
 
         // Get interleave parameter.
-        unsigned int interleave_width = inblock.GetInterleaveWidth();
+        const unsigned int interleave_width = inblock.GetInterleaveWidth();
         const auto width_ratio =
             (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
         const auto chunkSize = std::max(simd_t::width, interleave_width);
@@ -488,7 +472,7 @@ protected:
         outblock.template SetInterleaveWidth<TData>(simd_t::width);
 
         // Workspace for kernels - also checks preconditions.
-        size_t wsp0Size = 0;
+        unsigned int wsp0Size = 0;
         BwdTrans2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
         IProduct2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
@@ -521,13 +505,15 @@ protected:
                 }
 
                 // Step 1: BwdTrans.
-                BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, isModified, B0,
-                                             B1, wsp0, inptr, bwd);
+                BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, m_isModified,
+                                             m_B[0], m_B[1], wsp0, inptr, bwd);
+
                 // Step 2: Inner product for mass matrix operation.
                 IProduct2DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                    nm0, nm1, nq0, nq1, isModified, bwdvec, B0, B1, W0, W1,
-                    jacptr, wsp0, outptr);
+                    nm0, nm1, nq0, nq1, m_isModified, bwdvec, m_B[0], m_B[1],
+                    m_W[0], m_W[1], jacptr, wsp0, outptr);
 
+                // Increment pointers.
                 jacptr += jacSize;
                 inptr += nmTot;
                 outptr += nmTot * simd_t::width;
@@ -544,13 +530,13 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        const auto nm0 = this->m_exp->GetBasisNumModes(0);
-        const auto nm1 = this->m_exp->GetBasisNumModes(1);
-        const auto nm2 = this->m_exp->GetBasisNumModes(2);
+        const auto nm0 = m_nm[0];
+        const auto nm1 = m_nm[1];
+        const auto nm2 = m_nm[2];
 
-        const auto nq0 = this->m_exp->GetNumPoints(0);
-        const auto nq1 = this->m_exp->GetNumPoints(1);
-        const auto nq2 = this->m_exp->GetNumPoints(2);
+        const auto nq0 = m_nq[0];
+        const auto nq1 = m_nq[1];
+        const auto nq2 = m_nq[2];
 
         const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
@@ -562,30 +548,6 @@ protected:
             jacSize *= nqTot;
         }
 
-        // Flag for collapsed coordinate correction.
-        const bool isModified =
-            (this->m_exp->GetBasisType(0) == LibUtilities::eModified_A);
-
-        // Fetch basis and weight data.
-        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                 eBasis));
-        auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(1)->GetBasisKey(),
-                                 eBasis));
-        auto B2 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(2)->GetBasisKey(),
-                                 eBasis));
-        auto W0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                 eWeights));
-        auto W1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(1)->GetBasisKey(),
-                                 eWeights));
-        auto W2 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(2)->GetBasisKey(),
-                                 eWeights));
-
         // Fetch Jacobian.
         auto jacptr_init = reinterpret_cast<const simd_t *>(
             this->m_dataWarehouse->template GetData<ExecSpace>(
@@ -593,7 +555,7 @@ protected:
                                    inblock.GetNumElements())));
 
         // Get interleave parameter.
-        unsigned int interleave_width = inblock.GetInterleaveWidth();
+        const unsigned int interleave_width = inblock.GetInterleaveWidth();
         const auto width_ratio =
             (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
         const auto chunkSize = std::max(simd_t::width, interleave_width);
@@ -603,7 +565,7 @@ protected:
         outblock.template SetInterleaveWidth<TData>(simd_t::width);
 
         // Workspace for kernels - also checks preconditions.
-        size_t wsp0Size = 0, wsp1Size = 0, wsp2Size = 0;
+        unsigned int wsp0Size = 0, wsp1Size = 0, wsp2Size = 0;
         BwdTrans3DWorkspace<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2, wsp0Size,
                                         wsp1Size);
         IProduct3DWorkspace<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2, wsp0Size,
@@ -640,13 +602,16 @@ protected:
 
                 // Step 1: BwdTrans.
                 BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2,
-                                             isModified, B0, B1, B2, wsp0, wsp1,
-                                             inptr, bwd);
+                                             m_isModified, m_B[0], m_B[1],
+                                             m_B[2], wsp0, wsp1, inptr, bwd);
+
                 // Step 2: Inner product for mass matrix operation.
                 IProduct3DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                    nm0, nm1, nm2, nq0, nq1, nq2, isModified, bwdvec, B0, B1,
-                    B2, W0, W1, W2, jacptr, wsp0, wsp1, wsp2, outptr);
+                    nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, bwdvec, m_B[0],
+                    m_B[1], m_B[2], m_W[0], m_W[1], m_W[2], jacptr, wsp0, wsp1,
+                    wsp2, outptr);
 
+                // Increment pointers.
                 jacptr += jacSize;
                 inptr += nmTot;
                 outptr += nmTot * simd_t::width;
@@ -675,30 +640,6 @@ protected:
             jacSize *= nqTot;
         }
 
-        // Flag for collapsed coordinate correction.
-        const bool isModified =
-            (this->m_exp->GetBasisType(0) == LibUtilities::eModified_A);
-
-        // Fetch basis and weight data.
-        auto B0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                 eBasis));
-        auto B1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(1)->GetBasisKey(),
-                                 eBasis));
-        auto B2 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(2)->GetBasisKey(),
-                                 eBasis));
-        auto W0 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                 eWeights));
-        auto W1 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(1)->GetBasisKey(),
-                                 eWeights));
-        auto W2 = this->m_dataWarehouse->template GetData<ExecSpace>(
-            BasisDataKey<simd_t>(this->m_exp->GetBasis(2)->GetBasisKey(),
-                                 eWeights));
-
         // Fetch Jacobian.
         auto jacptr_init = reinterpret_cast<const simd_t *>(
             this->m_dataWarehouse->template GetData<ExecSpace>(
@@ -706,7 +647,7 @@ protected:
                                    inblock.GetNumElements())));
 
         // Get interleave parameter.
-        unsigned int interleave_width = inblock.GetInterleaveWidth();
+        const unsigned int interleave_width = inblock.GetInterleaveWidth();
         const auto width_ratio =
             (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
         const auto chunkSize = std::max(simd_t::width, interleave_width);
@@ -716,7 +657,7 @@ protected:
         outblock.template SetInterleaveWidth<TData>(simd_t::width);
 
         // Workspace for kernels - also checks preconditions.
-        size_t wsp0Size = 0, wsp1Size = 0, wsp2Size = 0;
+        unsigned int wsp0Size = 0, wsp1Size = 0, wsp2Size = 0;
         BwdTrans3DWorkspace<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2, wsp0Size,
                                         wsp1Size);
         IProduct3DWorkspace<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2, wsp0Size,
@@ -753,13 +694,16 @@ protected:
 
                 // Step 1: BwdTrans.
                 BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2,
-                                             isModified, B0, B1, B2, wsp0, wsp1,
-                                             inptr, bwd);
+                                             m_isModified, m_B[0], m_B[1],
+                                             m_B[2], wsp0, wsp1, inptr, bwd);
+
                 // Step 2: Inner product for mass matrix operation.
                 IProduct3DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                    nm0, nm1, nm2, nq0, nq1, nq2, isModified, bwdvec, B0, B1,
-                    B2, W0, W1, W2, jacptr, wsp0, wsp1, wsp2, outptr);
+                    nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, bwdvec, m_B[0],
+                    m_B[1], m_B[2], m_W[0], m_W[1], m_W[2], jacptr, wsp0, wsp1,
+                    wsp2, outptr);
 
+                // Increment pointers.
                 jacptr += jacSize;
                 inptr += nmTot;
                 outptr += nmTot * simd_t::width;

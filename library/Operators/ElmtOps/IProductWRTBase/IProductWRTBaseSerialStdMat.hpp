@@ -54,36 +54,36 @@ public:
         NekDataWarehouseSharedPtr dataWarehouse)
         : BlockOperatorIProductWRTBase<TData>(exp, dataWarehouse)
     {
+        // Determine shape and type of the element.
+        m_shapeType = exp->DetShapeType();
+        m_isDeformed =
+            exp->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed;
+        m_dimension = exp->GetShapeDimension();
+        m_coordDim  = exp->GetCoordim();
+        m_nmTot     = exp->GetNcoeffs();
+        m_nqTot     = exp->GetTotPoints();
+
+        // Fetch matrix.
+        std::vector<LibUtilities::BasisKey> basisKeys(
+            m_dimension, LibUtilities::NullBasisKey);
+        for (unsigned int d = 0; d < m_dimension; d++)
+        {
+            basisKeys[d] = exp->GetBasis(d)->GetBasisKey();
+        }
+        m_matptr = dataWarehouse->template GetData<ExecSpace>(
+            StdMatKey<TData>(basisKeys, m_shapeType, eIProductWRTBaseStdMat));
     }
 
     void apply(BlockAccessor<TData> &inblock,
                BlockAccessor<TData> &outblock) override
     {
+        const auto nElmts = inblock.GetNumElements();
+
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
-
-        // Determine shape and type of the element.
-        const auto deformed = this->m_exp->GetMetricInfo()->GetGtype() ==
-                              SpatialDomains::eDeformed;
-        const auto shapeType = this->m_exp->DetShapeType();
-        const auto dimension = this->m_exp->GetShapeDimension();
-        const auto nmTot     = this->m_exp->GetNcoeffs();
-        const auto nqTot     = this->m_exp->GetTotPoints();
-
-        auto nElmts = inblock.GetNumElements();
-
-        // Fetch matrix.
-        std::vector<LibUtilities::BasisKey> basisKeys(
-            dimension, LibUtilities::NullBasisKey);
-        for (unsigned int d = 0; d < dimension; d++)
-        {
-            basisKeys[d] = this->m_exp->GetBasis(d)->GetBasisKey();
-        }
-        auto matptr = this->m_dataWarehouse->template GetData<ExecSpace>(
-            StdMatKey<TData>(basisKeys, shapeType, eIProductWRTBaseStdMat));
 
         // Fetch Jacobian.
         auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
@@ -93,7 +93,7 @@ public:
         // Allocate storate.
         if (m_wsp.size() == 0)
         {
-            m_wsp = std::vector<TData>(dimension * nElmts * nqTot);
+            m_wsp = std::vector<TData>(m_dimension * nElmts * m_nqTot);
         }
 
         // Get workspace pointer.
@@ -109,9 +109,9 @@ public:
                 (TData *)inptr);
 
             // Multiply by jacobian.
-            if (deformed)
+            if (m_isDeformed)
             {
-                for (unsigned int i = 0; i < nElmts * nqTot; ++i)
+                for (unsigned int i = 0; i < nElmts * m_nqTot; ++i)
                 {
                     wspptr[i] = jacptr[i] * inptr[i];
                 }
@@ -120,17 +120,18 @@ public:
             {
                 for (unsigned int e = 0; e < nElmts; ++e)
                 {
-                    for (unsigned int i = 0; i < nqTot; ++i)
+                    for (unsigned int i = 0; i < m_nqTot; ++i)
                     {
-                        wspptr[e * nqTot + i] =
-                            jacptr[e] * inptr[e * nqTot + i];
+                        wspptr[e * m_nqTot + i] =
+                            jacptr[e] * inptr[e * m_nqTot + i];
                     }
                 }
             }
 
             // Perform matrix-matrix multiply.
-            Blas::Gemm('N', 'N', nmTot, nElmts, nqTot, this->m_scale, matptr,
-                       nmTot, wspptr, nqTot, 0.0, outptr, nmTot);
+            Blas::Gemm('N', 'N', m_nmTot, nElmts, m_nqTot, this->m_scale,
+                       m_matptr, m_nmTot, wspptr, m_nqTot, 0.0, outptr,
+                       m_nmTot);
 
             inptr += inblock.size();
             outptr += outblock.size();
@@ -155,9 +156,16 @@ public:
     }
 
 protected:
-    std::vector<TData> m_wsp;
-
     static constexpr unsigned int m_implInterleaveWidth = 1;
+
+    LibUtilities::ShapeType m_shapeType;
+    bool m_isDeformed;
+    unsigned int m_dimension;
+    unsigned int m_coordDim;
+    unsigned int m_nmTot;
+    unsigned int m_nqTot;
+    const TData *m_matptr;
+    std::vector<TData> m_wsp;
 };
 
 } // namespace Nektar::Operators::detail
