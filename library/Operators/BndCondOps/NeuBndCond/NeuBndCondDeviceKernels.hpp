@@ -47,7 +47,7 @@ inline
                                 std::is_same_v<ExecSpace, NektarSpaces::SYCL> ||
                                 std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
                             void>::type
-    NeuBndCondKernel(const size_t bndExpSize, const int *mapPtr,
+    NeuBndCondKernel(const unsigned int bndExpSize, const int *mapPtr,
                      const TData *inptr, TData *outptr)
 {
     Nektar::parallel_for<ExecSpace>(
@@ -61,7 +61,7 @@ inline
                                 std::is_same_v<ExecSpace, NektarSpaces::SYCL> ||
                                 std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
                             void>::type
-    NeuBndCondKernel(const size_t bndExpSize, const TData *signPtr,
+    NeuBndCondKernel(const unsigned int bndExpSize, const TData *signPtr,
                      const int *mapPtr, const TData *inptr, TData *outptr)
 {
     Nektar::parallel_for<ExecSpace>(

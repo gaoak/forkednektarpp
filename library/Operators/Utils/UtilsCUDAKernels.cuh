@@ -66,7 +66,7 @@ __global__ void BuildInterleaveMapKernel(const unsigned int npts,
                              interleaveMapPtr, buffer, cudaBlock1D());
 }
 
-template <size_t VectorWidth, typename ExecSpace, typename TData>
+template <unsigned int VectorWidth, typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
                                void>::type
 interleave(const unsigned int numMetaBlocks, const unsigned int npts,

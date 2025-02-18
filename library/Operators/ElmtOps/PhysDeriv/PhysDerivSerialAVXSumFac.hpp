@@ -154,6 +154,8 @@ public:
     }
 
 protected:
+    static constexpr unsigned int m_implInterleaveWidth = simd_t::width;
+
     LibUtilities::ShapeType m_shapeType;
     bool m_isDeformed;
     bool m_isModified;
@@ -204,21 +206,24 @@ protected:
         // Fetch deriv factors data.
         auto dfptr_init = reinterpret_cast<const simd_t *>(
             this->m_dataWarehouse->template GetData<ExecSpace>(
-                DerivFactorKey<TData>(inblock.GetExpIdx(), simd_t::width,
+                DerivFactorKey<TData>(inblock.GetExpIdx(),
+                                      m_implInterleaveWidth,
                                       inblock.GetNumElements(), false)));
 
         // Get interleave parameter.
         const unsigned int interleave_width = inblock.GetInterleaveWidth();
-        const auto width_ratio =
-            (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
-        const auto chunkSize = std::max(simd_t::width, interleave_width);
+        const auto width_ratio              = (interleave_width == 1)
+                                                  ? 1
+                                                  : interleave_width / m_implInterleaveWidth;
+        const auto chunkSize =
+            std::max(m_implInterleaveWidth, interleave_width);
 
         // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(simd_t::width);
-        outblock.template SetInterleaveWidth<TData>(simd_t::width);
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
 
         // Initialize pointers.
-        auto input  = (interleave_width == simd_t::width)
+        auto input  = (interleave_width == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -243,7 +248,7 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace, simd_t::width>(
+                    ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
                         interleave_width, chunkSize, nqTot, (TData *)inptr);
                 }
 
@@ -291,21 +296,24 @@ protected:
         // Fetch deriv factors data.
         auto dfptr_init = reinterpret_cast<const simd_t *>(
             this->m_dataWarehouse->template GetData<ExecSpace>(
-                DerivFactorKey<TData>(inblock.GetExpIdx(), simd_t::width,
+                DerivFactorKey<TData>(inblock.GetExpIdx(),
+                                      m_implInterleaveWidth,
                                       inblock.GetNumElements(), false)));
 
         // Get interleave parameter.
         const unsigned int interleave_width = inblock.GetInterleaveWidth();
-        const auto width_ratio =
-            (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
-        const auto chunkSize = std::max(simd_t::width, interleave_width);
+        const auto width_ratio              = (interleave_width == 1)
+                                                  ? 1
+                                                  : interleave_width / m_implInterleaveWidth;
+        const auto chunkSize =
+            std::max(m_implInterleaveWidth, interleave_width);
 
         // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(simd_t::width);
-        outblock.template SetInterleaveWidth<TData>(simd_t::width);
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
 
         // Initialize pointers.
-        auto input  = (interleave_width == simd_t::width)
+        auto input  = (interleave_width == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -329,7 +337,7 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace, simd_t::width>(
+                    ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
                         interleave_width, chunkSize, nqTot, (TData *)inptr);
                 }
 
@@ -379,21 +387,24 @@ protected:
         // Fetch deriv factors data.
         auto dfptr_init = reinterpret_cast<const simd_t *>(
             this->m_dataWarehouse->template GetData<ExecSpace>(
-                DerivFactorKey<TData>(inblock.GetExpIdx(), simd_t::width,
+                DerivFactorKey<TData>(inblock.GetExpIdx(),
+                                      m_implInterleaveWidth,
                                       inblock.GetNumElements(), false)));
 
         // Get interleave parameter.
         const unsigned int interleave_width = inblock.GetInterleaveWidth();
-        const auto width_ratio =
-            (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
-        const auto chunkSize = std::max(simd_t::width, interleave_width);
+        const auto width_ratio              = (interleave_width == 1)
+                                                  ? 1
+                                                  : interleave_width / m_implInterleaveWidth;
+        const auto chunkSize =
+            std::max(m_implInterleaveWidth, interleave_width);
 
         // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(simd_t::width);
-        outblock.template SetInterleaveWidth<TData>(simd_t::width);
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
 
         // Initialize pointers.
-        auto input  = (interleave_width == simd_t::width)
+        auto input  = (interleave_width == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -416,7 +427,7 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace, simd_t::width>(
+                    ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
                         interleave_width, chunkSize, nqTot, (TData *)inptr);
                 }
 
@@ -466,21 +477,24 @@ protected:
         // Fetch deriv factors data.
         auto dfptr_init = reinterpret_cast<const simd_t *>(
             this->m_dataWarehouse->template GetData<ExecSpace>(
-                DerivFactorKey<TData>(inblock.GetExpIdx(), simd_t::width,
+                DerivFactorKey<TData>(inblock.GetExpIdx(),
+                                      m_implInterleaveWidth,
                                       inblock.GetNumElements(), false)));
 
         // Get interleave parameter.
         const unsigned int interleave_width = inblock.GetInterleaveWidth();
-        const auto width_ratio =
-            (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
-        const auto chunkSize = std::max(simd_t::width, interleave_width);
+        const auto width_ratio              = (interleave_width == 1)
+                                                  ? 1
+                                                  : interleave_width / m_implInterleaveWidth;
+        const auto chunkSize =
+            std::max(m_implInterleaveWidth, interleave_width);
 
         // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(simd_t::width);
-        outblock.template SetInterleaveWidth<TData>(simd_t::width);
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
 
         // Initialize pointers.
-        auto input  = (interleave_width == simd_t::width)
+        auto input  = (interleave_width == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -504,7 +518,7 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace, simd_t::width>(
+                    ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
                         interleave_width, chunkSize, nqTot, (TData *)inptr);
                 }
 
@@ -556,18 +570,21 @@ protected:
         // Fetch deriv factors data.
         auto dfptr_init = reinterpret_cast<const simd_t *>(
             this->m_dataWarehouse->template GetData<ExecSpace>(
-                DerivFactorKey<TData>(inblock.GetExpIdx(), simd_t::width,
+                DerivFactorKey<TData>(inblock.GetExpIdx(),
+                                      m_implInterleaveWidth,
                                       inblock.GetNumElements(), false)));
 
         // Get interleave parameter.
         const unsigned int interleave_width = inblock.GetInterleaveWidth();
-        const auto width_ratio =
-            (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
-        const auto chunkSize = std::max(simd_t::width, interleave_width);
+        const auto width_ratio              = (interleave_width == 1)
+                                                  ? 1
+                                                  : interleave_width / m_implInterleaveWidth;
+        const auto chunkSize =
+            std::max(m_implInterleaveWidth, interleave_width);
 
         // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(simd_t::width);
-        outblock.template SetInterleaveWidth<TData>(simd_t::width);
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
 
         // Workspace for kernels - also checks preconditions.
         unsigned int wsp0Size = 0, wsp1Size = 0;
@@ -576,7 +593,7 @@ protected:
             wsp1(wsp1Size);
 
         // Initialize pointers.
-        auto input  = (interleave_width == simd_t::width)
+        auto input  = (interleave_width == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -601,7 +618,7 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace, simd_t::width>(
+                    ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
                         interleave_width, chunkSize, nqTot, (TData *)inptr);
                 }
 
@@ -650,18 +667,21 @@ protected:
         // Fetch deriv factors data.
         auto dfptr_init = reinterpret_cast<const simd_t *>(
             this->m_dataWarehouse->template GetData<ExecSpace>(
-                DerivFactorKey<TData>(inblock.GetExpIdx(), simd_t::width,
+                DerivFactorKey<TData>(inblock.GetExpIdx(),
+                                      m_implInterleaveWidth,
                                       inblock.GetNumElements(), false)));
 
         // Get interleave parameter.
         const unsigned int interleave_width = inblock.GetInterleaveWidth();
-        const auto width_ratio =
-            (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
-        const auto chunkSize = std::max(simd_t::width, interleave_width);
+        const auto width_ratio              = (interleave_width == 1)
+                                                  ? 1
+                                                  : interleave_width / m_implInterleaveWidth;
+        const auto chunkSize =
+            std::max(m_implInterleaveWidth, interleave_width);
 
         // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(simd_t::width);
-        outblock.template SetInterleaveWidth<TData>(simd_t::width);
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
 
         // Workspace for kernels - also checks preconditions.
         unsigned int wsp0Size = 0, wsp1Size = 0;
@@ -670,7 +690,7 @@ protected:
             wsp1(wsp1Size);
 
         // Initialize pointers.
-        auto input  = (interleave_width == simd_t::width)
+        auto input  = (interleave_width == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -695,7 +715,7 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace, simd_t::width>(
+                    ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
                         interleave_width, chunkSize, nqTot, (TData *)inptr);
                 }
 

@@ -194,7 +194,7 @@ public:
             {
                 Array<OneD, NekDouble> tmp(nmTot), t;
                 Array<OneD, NekDouble> mat(nmTot * nqTot);
-                for (size_t i = 0; i < nmTot; ++i)
+                for (unsigned int i = 0; i < nmTot; ++i)
                 {
                     Vmath::Zero(nmTot, tmp, 1);
                     tmp[i] = 1.0;
@@ -209,9 +209,9 @@ public:
             {
                 Array<OneD, NekDouble> tmp(nqTot), t;
                 Array<OneD, NekDouble> mat(dimension * nqTot * nqTot);
-                for (size_t d = 0; d < dimension; ++d)
+                for (unsigned int d = 0; d < dimension; ++d)
                 {
-                    for (size_t i = 0; i < nqTot; ++i)
+                    for (unsigned int i = 0; i < nqTot; ++i)
                     {
                         Vmath::Zero(nqTot, tmp, 1);
                         tmp[i] = 1.0;
@@ -228,7 +228,7 @@ public:
             {
                 Array<OneD, NekDouble> tmp(nqTot), t;
                 Array<OneD, NekDouble> mat(nmTot * nqTot);
-                for (size_t i = 0; i < nqTot; ++i)
+                for (unsigned int i = 0; i < nqTot; ++i)
                 {
                     Vmath::Zero(nqTot, tmp, 1);
                     tmp[i] = 1.0;
@@ -243,9 +243,9 @@ public:
             {
                 Array<OneD, NekDouble> tmp(nqTot), t;
                 Array<OneD, NekDouble> mat(dimension * nmTot * nqTot);
-                for (size_t d = 0; d < dimension; ++d)
+                for (unsigned int d = 0; d < dimension; ++d)
                 {
-                    for (size_t i = 0; i < nqTot; ++i)
+                    for (unsigned int i = 0; i < nqTot; ++i)
                     {
                         Vmath::Zero(nqTot, tmp, 1);
                         tmp[i] = 1.0;

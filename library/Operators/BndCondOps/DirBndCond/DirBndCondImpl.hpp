@@ -68,7 +68,7 @@ public:
         m_signChange             = assmbMap->GetSignChange();
 
         // Compute number boundary coefficients
-        for (size_t i = 0; i < bndCondExpansions.size(); ++i)
+        for (unsigned int i = 0; i < bndCondExpansions.size(); ++i)
         {
             if (bndConditions[i]->GetBoundaryConditionType() ==
                 SpatialDomains::eDirichlet)
@@ -100,8 +100,8 @@ public:
         // Collecting boundary coefficients.
         std::vector<TData> bndcoeff(m_nBndCoeff);
         std::vector<int> index(m_nBndCoeff);
-        size_t bndcnt = 0, cnt = 0;
-        for (size_t i = 0; i < bndCondExpansions.size(); ++i)
+        unsigned int bndcnt = 0, cnt = 0;
+        for (unsigned int i = 0; i < bndCondExpansions.size(); ++i)
         {
             auto nBndExpCoeff = bndCondExpansions[i]->GetNcoeffs();
 
@@ -111,7 +111,7 @@ public:
                 auto &bndExpCoeff = bndCondExpansions[i]->GetCoeffs();
                 std::copy(bndExpCoeff.data(), bndExpCoeff.data() + nBndExpCoeff,
                           bndcoeff.data() + bndcnt);
-                for (size_t j = 0; j < nBndExpCoeff; ++j)
+                for (unsigned int j = 0; j < nBndExpCoeff; ++j)
                 {
                     index[bndcnt + j] = cnt + j;
                 }
@@ -139,7 +139,7 @@ public:
         std::vector<std::tuple<int, int, double>> locReordered(m_localDirSize);
         if (m_localDirSize > 0)
         {
-            size_t cnt = 0;
+            unsigned int cnt = 0;
             for (auto &it : assmbMap->GetCopyLocalDirDofs())
             {
                 locReordered[cnt] = it;
@@ -158,7 +158,7 @@ public:
         std::vector<int> parDirBndSignReordered(m_nParDirBndSignSize);
         if (m_nParDirBndSignSize > 0)
         {
-            size_t cnt = 0;
+            unsigned int cnt = 0;
             for (auto &it : parallelDirBndSign)
             {
                 parDirBndSignReordered[cnt] = it;
@@ -219,11 +219,12 @@ public:
         // Split locReordered per block.
         if (m_localDirSize > 0)
         {
-            std::vector<size_t> nLocCoeffBlock(blocks.size(), 0);
+            std::vector<unsigned int> nLocCoeffBlock(blocks.size(), 0);
             std::vector<std::vector<int>> locid0Block(blocks.size());
             std::vector<std::vector<int>> locid1Block(blocks.size());
             std::vector<std::vector<TData>> locsignBlock(blocks.size());
-            m_nLocCoeffBlock = std::vector<std::vector<size_t>>(blocks.size());
+            m_nLocCoeffBlock =
+                std::vector<std::vector<unsigned int>>(blocks.size());
             m_locid0 =
                 std::vector<std::vector<MemoryRegion<int>>>(blocks.size());
             m_locid1 =
@@ -328,7 +329,7 @@ public:
         }
 
         // Loop over the blocks.
-        for (size_t blk = 0; blk < inout.GetBlocks().size(); ++blk)
+        for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
         {
             auto nbndCoeffBlock = m_nBndCoeffBlock[blk];
 
@@ -361,7 +362,7 @@ public:
 
         if (m_nParDirBndSignSize > 0)
         {
-            for (size_t blk = 0; blk < inout.GetBlocks().size(); ++blk)
+            for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
             {
                 auto nParDirBndSignBlock = m_nParDirBndSignBlock[blk];
 
@@ -396,7 +397,7 @@ public:
 
         if (m_nParDirBndSignSize > 0)
         {
-            for (size_t blk = 0; blk < inout.GetBlocks().size(); ++blk)
+            for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
             {
                 auto nParDirBndSignBlock = m_nParDirBndSignBlock[blk];
 
@@ -417,12 +418,13 @@ public:
 
         if (m_localDirSize > 0)
         {
-            for (size_t blk1 = 0; blk1 < inout.GetBlocks().size(); ++blk1)
+            for (unsigned int blk1 = 0; blk1 < inout.GetBlocks().size(); ++blk1)
             {
                 // Initialize pointers.
                 auto inptr = inout.GetBlocks()[blk1]
                                  .template GetPtr<MemSpace, ReadOnly>();
-                for (size_t blk0 = 0; blk0 < inout.GetBlocks().size(); ++blk0)
+                for (unsigned int blk0 = 0; blk0 < inout.GetBlocks().size();
+                     ++blk0)
                 {
                     auto nLocCoeffBlock = m_nLocCoeffBlock[blk1][blk0];
 
@@ -467,17 +469,17 @@ protected:
     std::vector<MemoryRegion<int>> m_map;
     std::vector<MemoryRegion<TData>> m_sign;
     std::vector<MemoryRegion<TData>> m_bndCoeff;
-    std::vector<size_t> m_nBndCoeffBlock;
+    std::vector<unsigned int> m_nBndCoeffBlock;
     std::vector<MemoryRegion<int>> m_parDirBndSign;
-    std::vector<size_t> m_nParDirBndSignBlock;
+    std::vector<unsigned int> m_nParDirBndSignBlock;
     std::vector<std::vector<MemoryRegion<int>>> m_locid0;
     std::vector<std::vector<MemoryRegion<int>>> m_locid1;
     std::vector<std::vector<MemoryRegion<TData>>> m_locsign;
-    std::vector<std::vector<size_t>> m_nLocCoeffBlock;
+    std::vector<std::vector<unsigned int>> m_nLocCoeffBlock;
 
-    size_t m_nBndCoeff          = 0;
-    size_t m_nParDirBndSignSize = 0;
-    size_t m_localDirSize       = 0;
+    unsigned int m_nBndCoeff          = 0;
+    unsigned int m_nParDirBndSignSize = 0;
+    unsigned int m_localDirSize       = 0;
     bool m_signChange;
 };
 

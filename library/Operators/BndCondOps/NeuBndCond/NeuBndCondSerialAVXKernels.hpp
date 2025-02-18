@@ -46,7 +46,7 @@ inline
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                             void>::type
-    NeuBndCondKernel(const size_t bndExpSize, const int *mapPtr,
+    NeuBndCondKernel(const unsigned int bndExpSize, const int *mapPtr,
                      const TData *inptr, TData *outptr)
 {
     Nektar::parallel_for<ExecSpace>(0u, bndExpSize, [&](const unsigned int i) {
@@ -59,7 +59,7 @@ inline
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                             void>::type
-    NeuBndCondKernel(const size_t bndExpSize, const TData *signPtr,
+    NeuBndCondKernel(const unsigned int bndExpSize, const TData *signPtr,
                      const int *mapPtr, const TData *inptr, TData *outptr)
 {
     Nektar::parallel_for<ExecSpace>(0u, bndExpSize, [&](const unsigned int i) {

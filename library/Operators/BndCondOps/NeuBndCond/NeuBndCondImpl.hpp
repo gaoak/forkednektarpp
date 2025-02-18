@@ -66,7 +66,7 @@ public:
         m_signChange            = assmbMap->GetSignChange();
 
         // Compute number boundary coefficients.
-        for (size_t i = 0; i < bndCondExpansions.size(); ++i)
+        for (unsigned int i = 0; i < bndCondExpansions.size(); ++i)
         {
             if (bndConditions[i]->GetBoundaryConditionType() ==
                     SpatialDomains::eNeumann ||
@@ -100,8 +100,8 @@ public:
         // Collecting boundary coefficients.
         std::vector<TData> bndcoeff(m_nBndCoeff);
         std::vector<int> index(m_nBndCoeff);
-        size_t bndcnt = 0, cnt = 0;
-        for (size_t i = 0; i < bndCondExpansions.size(); ++i)
+        unsigned int bndcnt = 0, cnt = 0;
+        for (unsigned int i = 0; i < bndCondExpansions.size(); ++i)
         {
             auto nBndExpCoeff = bndCondExpansions[i]->GetNcoeffs();
 
@@ -113,7 +113,7 @@ public:
                 auto &bndExpCoeff = bndCondExpansions[i]->GetCoeffs();
                 std::copy(bndExpCoeff.data(), bndExpCoeff.data() + nBndExpCoeff,
                           bndcoeff.data() + bndcnt);
-                for (size_t j = 0; j < nBndExpCoeff; ++j)
+                for (unsigned int j = 0; j < nBndExpCoeff; ++j)
                 {
                     index[bndcnt + j] = cnt + j;
                 }
@@ -177,7 +177,7 @@ public:
         }
 
         // Loop over the blocks.
-        for (size_t blk = 0; blk < inout.GetBlocks().size(); ++blk)
+        for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
         {
             // Initialize pointers.
             auto inoutptr =
@@ -222,8 +222,8 @@ protected:
     std::vector<MemoryRegion<int>> m_map;
     std::vector<MemoryRegion<TData>> m_sign;
     std::vector<MemoryRegion<TData>> m_bndCoeff;
-    std::vector<size_t> m_nBndCoeffBlock;
-    size_t m_nBndCoeff = 0;
+    std::vector<unsigned int> m_nBndCoeffBlock;
+    unsigned int m_nBndCoeff = 0;
     bool m_signChange;
 };
 

@@ -57,7 +57,7 @@ void neg(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y)
         NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
     }
 
-    for (size_t blk = 0; blk < x.GetBlocks().size(); ++blk)
+    for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
         auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
@@ -99,7 +99,7 @@ void add(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
         NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
     }
 
-    for (size_t blk = 0; blk < x.GetBlocks().size(); ++blk)
+    for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
         auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
@@ -143,7 +143,7 @@ void sub(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
         NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
     }
 
-    for (size_t blk = 0; blk < x.GetBlocks().size(); ++blk)
+    for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
         auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
@@ -187,7 +187,7 @@ void daxpy(const TData alpha, Field<TData, TFieldState> &x,
         NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
     }
 
-    for (size_t blk = 0; blk < x.GetBlocks().size(); ++blk)
+    for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
         auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
@@ -232,7 +232,7 @@ void div(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
         NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
     }
 
-    for (size_t blk = 0; blk < x.GetBlocks().size(); ++blk)
+    for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
         auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
@@ -270,7 +270,7 @@ void reduceSum(Field<TData, TFieldState> &x, TData *out)
     TData reduce;
     *out = 0.0;
 
-    for (size_t blk = 0; blk < x.GetBlocks().size(); ++blk)
+    for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
         auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto &block = x.GetBlocks()[blk];
@@ -289,7 +289,7 @@ void reduceMax(Field<TData, TFieldState> &x, TData *out)
     TData reduce;
     *out = std::numeric_limits<TData>::min();
 
-    for (size_t blk = 0; blk < x.GetBlocks().size(); ++blk)
+    for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
         auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto &block = x.GetBlocks()[blk];
@@ -308,7 +308,7 @@ void reduceMin(Field<TData, TFieldState> &x, TData *out)
     TData reduce;
     *out = std::numeric_limits<TData>::max();
 
-    for (size_t blk = 0; blk < x.GetBlocks().size(); ++blk)
+    for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
         auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto &block = x.GetBlocks()[blk];
@@ -336,7 +336,7 @@ void ddot(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
         NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
     }
 
-    for (size_t blk = 0; blk < x.GetBlocks().size(); ++blk)
+    for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
         auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto yptr   = y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
@@ -356,7 +356,7 @@ void l1norm(Field<TData, TFieldState> &x, TData *out)
     TData reduce;
     *out = 0.0;
 
-    for (size_t blk = 0; blk < x.GetBlocks().size(); ++blk)
+    for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
         auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto &block = x.GetBlocks()[blk];
@@ -375,7 +375,7 @@ void l2norm(Field<TData, TFieldState> &x, TData *out)
     TData reduce;
     *out = 0.0;
 
-    for (size_t blk = 0; blk < x.GetBlocks().size(); ++blk)
+    for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
         auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto &block = x.GetBlocks()[blk];
@@ -394,7 +394,7 @@ void lpnorm(const unsigned int p, Field<TData, TFieldState> &x, TData *out)
     TData reduce;
     *out = 0.0;
 
-    for (size_t blk = 0; blk < x.GetBlocks().size(); ++blk)
+    for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
         auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto &block = x.GetBlocks()[blk];
@@ -413,7 +413,7 @@ void linfnorm(Field<TData, TFieldState> &x, TData *out)
     TData reduce;
     *out = std::numeric_limits<TData>::min();
 
-    for (size_t blk = 0; blk < x.GetBlocks().size(); ++blk)
+    for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
         auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto &block = x.GetBlocks()[blk];

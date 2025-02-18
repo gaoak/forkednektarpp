@@ -128,7 +128,7 @@ public:
         unit_vec.template Initialize<MemSpace>(0);
         m_glodiag.template Initialize<MemSpace>(0);
 
-        for (size_t blk = 0; blk < unit_vec.GetBlocks().size(); ++blk)
+        for (unsigned int blk = 0; blk < unit_vec.GetBlocks().size(); ++blk)
         {
             // Block dependent.
             auto &unitvecblock = unit_vec.GetBlocks()[blk];
@@ -137,7 +137,7 @@ public:
             const auto nmTot   = unitvecblock.GetNumData();
             const auto nElmts  = unitvecblock.GetNumElements();
 
-            for (size_t mode = 0; mode < nmTot; ++mode)
+            for (unsigned int mode = 0; mode < nmTot; ++mode)
             {
                 // Set ith term in unit vector to be 1.
                 auto unitptr =
@@ -199,8 +199,8 @@ protected:
     MemoryRegion<TData> m_glodiag;
     MemoryRegion<TData> m_wk;
 
-    size_t m_nGlobal;
-    size_t m_nDir;
+    unsigned int m_nGlobal;
+    unsigned int m_nDir;
 };
 
 } // namespace Nektar::Operators::detail

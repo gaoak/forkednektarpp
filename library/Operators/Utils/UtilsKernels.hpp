@@ -50,7 +50,7 @@
  * @tparam  interleave_width     Target vector width.
  * @tparam  alignment            Memory alignment to use.
  */
-template <typename ExecSpace, size_t interleave_width, typename TData>
+template <typename ExecSpace, unsigned int interleave_width, typename TData>
 void ReshapeStorage(const int curr_interleave_width, const int numElmt,
                     const int ndata, TData *inoutptr)
 {
@@ -121,13 +121,13 @@ void BuildInterleaveMap(std::vector<BlockAttributes> &blocks,
         InterleaveMap.template GetPtr<MemSpace, WriteOnly>();
 
     // Counting the subindex that has been processed so far
-    size_t offset = 0;
+    unsigned int offset = 0;
 
     for (auto &block : blocks)
     {
         block.interleave_width   = new_interleave_width;
         const auto ncoeff        = block.ndata;
-        const size_t nElmtGroups = block.GetNumElmtGroups();
+        const unsigned int nElmtGroups = block.GetNumElmtGroups();
 
         // this function fills both InterleaveMap and deInterleaveMap;
         // deInterleaveMap is saved as a member for later use;
