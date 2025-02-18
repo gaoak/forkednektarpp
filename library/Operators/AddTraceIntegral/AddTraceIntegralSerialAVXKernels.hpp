@@ -76,14 +76,14 @@ inline
     std::vector<int> tempMap(nsize);
     std::vector<int> tempSign(nsize);
     std::vector<int> tempTrace(nsize);
-    for (size_t i = 0; i < nsize; i++)
+    for (unsigned int i = 0; i < nsize; i++)
     {
         tempMap[i]   = traceCoeffsToElmtMapPtr[permutation[i]];
         tempSign[i]  = traceCoeffsToElmtSignPtr[permutation[i]];
         tempTrace[i] = traceCoeffsToElmtTracePtr[permutation[i]];
     }
     // copy back to the original map and sign
-    for (size_t i = 0; i < nsize; i++)
+    for (unsigned int i = 0; i < nsize; i++)
     {
         traceCoeffsToElmtMapPtr[i]   = tempMap[i];
         traceCoeffsToElmtSignPtr[i]  = tempSign[i];

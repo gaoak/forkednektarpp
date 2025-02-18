@@ -137,8 +137,8 @@ public:
         else if (expansionList->GetExp(0)->GetShapeDimension() == 2)
         {
             // Determine size
-            size_t matSize = 0;
-            size_t mapSize = 0;
+            unsigned int matSize = 0;
+            unsigned int mapSize = 0;
             for (auto &r : robinBCInfo)
             {
                 auto n      = r.first;
@@ -152,7 +152,7 @@ public:
                     auto edgeid  = rBC->m_robinID;
                     auto edgeExp = expPtr->GetTraceExp(edgeid);
                     auto ncoeff  = edgeExp->GetNcoeffs();
-                    m_nmaxcoeff  = std::max(m_nmaxcoeff, (size_t)ncoeff);
+                    m_nmaxcoeff  = std::max(m_nmaxcoeff, (unsigned int)ncoeff);
                     matSize += ncoeff * ncoeff;
                     mapSize += ncoeff;
                     m_nBndEdge++;
@@ -332,8 +332,8 @@ protected:
     MemoryRegion<unsigned int> m_matOffset;
     MemoryRegion<unsigned int> m_mapOffset;
 
-    size_t m_nmaxcoeff = 0;
-    size_t m_nBndEdge  = 0;
+    unsigned int m_nmaxcoeff = 0;
+    unsigned int m_nBndEdge  = 0;
 };
 
 } // namespace Nektar::Operators::detail

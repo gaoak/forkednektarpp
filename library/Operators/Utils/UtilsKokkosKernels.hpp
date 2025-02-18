@@ -127,7 +127,7 @@ NEK_DEVICE_INLINE static void BuildInterleaveMapKernel(
         });
 }
 
-template <size_t VectorWidth, typename ExecSpace, typename TData>
+template <unsigned int VectorWidth, typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
                                void>::type
 interleave(const unsigned int numMetaBlocks, const unsigned int npts,

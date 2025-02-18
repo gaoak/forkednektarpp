@@ -121,7 +121,7 @@ public:
         global.template Initialize<MemSpace>(0);
 
         // Loop over the blocks.
-        for (size_t blk = 0; blk < local.GetBlocks().size(); ++blk)
+        for (unsigned int blk = 0; blk < local.GetBlocks().size(); ++blk)
         {
             // Determine shape and type of the element.
             auto &localblock = local.GetBlocks()[blk];
@@ -175,7 +175,7 @@ public:
         local.template Initialize<MemSpace>(0);
 
         // Loop over the blocks.
-        for (size_t blk = 0; blk < local.GetBlocks().size(); ++blk)
+        for (unsigned int blk = 0; blk < local.GetBlocks().size(); ++blk)
         {
             // Determine shape and type of the element.
             auto &block = local.GetBlocks()[blk];
@@ -220,7 +220,7 @@ protected:
     MemoryRegion<int> m_map;
 
     bool m_signChange = false;
-    size_t m_nDir;
+    unsigned int m_nDir;
 };
 
 } // namespace Nektar::Operators::detail

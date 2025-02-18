@@ -224,12 +224,12 @@ public:
             return;
         }
 
-        for (size_t blk1 = 0; blk1 < m_trace.GetBlocks().size(); ++blk1)
+        for (unsigned int blk1 = 0; blk1 < m_trace.GetBlocks().size(); ++blk1)
         {
             // Initialize pointers.
             auto tracePtr =
                 m_trace.GetBlocks()[blk1].template GetPtr<MemSpace, ReadOnly>();
-            for (size_t blk0 = 0; blk0 < out.GetBlocks().size(); ++blk0)
+            for (unsigned int blk0 = 0; blk0 < out.GetBlocks().size(); ++blk0)
             {
                 auto nFwdBwdCoeffsBlock = m_nFwdBwdCoeffsBlock[blk1][blk0];
 

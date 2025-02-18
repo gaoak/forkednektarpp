@@ -39,7 +39,7 @@
 namespace Nektar
 {
 
-template <size_t VectorWidth, typename ExecSpace, typename TData>
+template <unsigned int VectorWidth, typename ExecSpace, typename TData>
 inline
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
@@ -104,9 +104,9 @@ inline
 {
     auto MetaBlockSize = newVecWidth * npts;
     std::vector<int> tmp(MetaBlockSize);
-    int count = offset;
+    unsigned int count = offset;
 
-    for (size_t metaBlock = 0; metaBlock < numMetaBlocks; ++metaBlock)
+    for (unsigned int metaBlock = 0; metaBlock < numMetaBlocks; ++metaBlock)
     {
         // assign count+0, count+1, count+2, count+3, count+4, ....
         for (unsigned int i = 0; i < MetaBlockSize; i++)
