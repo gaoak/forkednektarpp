@@ -75,13 +75,11 @@ public:
         m_wk = MemoryRegion<TData>::template Create<MemSpace>(
             "DiagPrecon wk", m_nGlobal, ExecSpace::alignment);
 
-        m_assmbScatrOp =
-            AssmbScatr<TData>::template Create<ExecSpace, Implementation>(
-                this->m_expansionList);
+        m_assmbScatrOp = OperatorAssmbScatr<TData>::Create(
+            this->m_expansionList, ExecSpace::name, Implementation::name);
 
-        m_robBCOp =
-            RobBndCond<TData>::template Create<ExecSpace, Implementation>(
-                this->m_expansionList);
+        m_robBCOp = OperatorRobBndCond<TData>::Create(
+            this->m_expansionList, ExecSpace::name, Implementation::name);
     }
 
     void apply(Field<TData, FieldState::Coeff> &in,

@@ -268,8 +268,8 @@ protected:
                 }
             }
 
-            // advance  by ncoord-1 componennts since have already
-            // advanced one component in the above
+            // Advance  by ncoord-1 componennts since have already
+            // advanced one component in the above.
             for (unsigned int d = 0; d < m_coordDim; ++d)
             {
                 outptr[d] += (m_coordDim - 1) * compOffset;
@@ -332,7 +332,7 @@ protected:
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             auto dfptr = dfptr_init;
-            for (unsigned int e = 0; e < outblock.GetNumElmtGroups(); ++e)
+            for (unsigned int e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -357,8 +357,8 @@ protected:
                 }
             }
 
-            // advance  by ncoord-1 componennts since have already
-            // advanced one component in the above
+            // Advance  by ncoord-1 componennts since have already
+            // advanced one component in the above.
             for (unsigned int d = 0; d < coordDim; ++d)
             {
                 outptr[d] += (coordDim - 1) * compOffset;
@@ -422,7 +422,7 @@ protected:
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             auto dfptr = dfptr_init;
-            for (unsigned int e = 0; e < outblock.GetNumElmtGroups(); ++e)
+            for (unsigned int e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -448,10 +448,9 @@ protected:
                 }
             }
 
-            // advance  by ncoord-1 componennts since have already
-            // advanced one component in the above
-            for (unsigned int d = 0; d < m_coordDim;
-                 ++d) // reset to next output components
+            // Advance  by ncoord-1 componennts since have already
+            // advanced one component in the above.
+            for (unsigned int d = 0; d < m_coordDim; ++d)
             {
                 outptr[d] += (m_coordDim - 1) * compOffset;
             }
@@ -513,7 +512,7 @@ protected:
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             auto dfptr = dfptr_init;
-            for (unsigned int e = 0; e < outblock.GetNumElmtGroups(); ++e)
+            for (unsigned int e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -539,8 +538,8 @@ protected:
                 }
             }
 
-            // advance  by ncoord-1 componennts since have already
-            // advanced one component in the above
+            // Advance  by ncoord-1 componennts since have already
+            // advanced one component in the above.
             for (unsigned int d = 0; d < coordDim; ++d)
             {
                 outptr[d] += (coordDim - 1) * compOffset;
@@ -613,7 +612,7 @@ protected:
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             auto dfptr = dfptr_init;
-            for (unsigned int e = 0; e < outblock.GetNumElmtGroups(); ++e)
+            for (unsigned int e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -640,8 +639,8 @@ protected:
                 outptr[2] += nqBlocks;
             }
 
-            // advance  by ncoord-1 componennts since have already
-            // advanced one component in the above
+            // Advance  by ncoord-1 componennts since have already
+            // advanced one component in the above.
             outptr[0] += 2 * compOffset;
             outptr[1] += 2 * compOffset;
             outptr[2] += 2 * compOffset;
@@ -710,7 +709,7 @@ protected:
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             auto dfptr = dfptr_init;
-            for (unsigned int e = 0; e < outblock.GetNumElmtGroups(); ++e)
+            for (unsigned int e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -737,8 +736,8 @@ protected:
                 outptr[2] += nqBlocks;
             }
 
-            // advance  by ncoord-1 componennts since have already
-            // advanced one component in the above
+            // Advance  by ncoord-1 componennts since have already
+            // advanced one component in the above.
             outptr[0] += 2 * compOffset;
             outptr[1] += 2 * compOffset;
             outptr[2] += 2 * compOffset;

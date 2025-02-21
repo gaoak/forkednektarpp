@@ -51,28 +51,31 @@ public:
 
     ~OperatorNeuBndCond() override = default;
 
+    static std::shared_ptr<OperatorNeuBndCond<TData>> Create(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::string &execStr = "", const std::string &implStr = "")
+    {
+        auto session = expansionList->GetSession();
+
+        std::string execStr0 =
+            (execStr == "")
+                ? session->GetCmdLineArgument<std::string>("opExecSpace")
+                : execStr;
+        std::string implStr0 =
+            (implStr == "") ? session->GetCmdLineArgument<std::string>("opImpl")
+                            : implStr;
+
+        return Operator<TData>::template Create<OperatorNeuBndCond<TData>>(
+            expansionList, execStr0, implStr0);
+    }
+
+    static constexpr char name[] = "NeuBndCond";
+
     virtual void apply(Field<TData, FieldState::Coeff> &inout) = 0;
 
     virtual void operator()(Field<TData, FieldState::Coeff> &inout)
     {
         apply(inout);
-    }
-};
-
-// Descriptor / traits class for NeuBndCond to be used by Operator create
-// function
-template <typename TData> struct NeuBndCond
-{
-    using class_name = OperatorNeuBndCond<TData>;
-
-    NeuBndCond() = delete;
-
-    template <typename ExecSpace, typename Impl>
-    static std::shared_ptr<class_name> Create(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-    {
-        return Operator<TData>::template Create<NeuBndCond<TData>, ExecSpace,
-                                                Impl>(expansionList);
     }
 };
 

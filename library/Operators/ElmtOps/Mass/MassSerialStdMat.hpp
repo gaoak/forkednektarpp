@@ -52,13 +52,12 @@ public:
                           NekDataWarehouseSharedPtr dataWarehouse)
         : BlockOperatorMass<TData>(exp, dataWarehouse)
     {
-        this->m_BwdTransOp =
-            BlockBwdTrans<TData>::template Create<ExecSpace, Implementation>(
-                this->m_exp, this->m_dataWarehouse);
-        this->m_IProductWRTBaseOp =
-            BlockIProductWRTBase<TData>::template Create<ExecSpace,
-                                                         Implementation>(
-                this->m_exp, this->m_dataWarehouse);
+        this->m_BwdTransOp = BlockOperatorBwdTrans<TData>::Create(
+            this->m_exp, this->m_dataWarehouse, ExecSpace::name,
+            Implementation::name);
+        this->m_IProductWRTBaseOp = BlockOperatorIProductWRTBase<TData>::Create(
+            this->m_exp, this->m_dataWarehouse, ExecSpace::name,
+            Implementation::name);
     }
 
     void apply(BlockAccessor<TData> &inblock,
@@ -66,7 +65,7 @@ public:
     {
         unsigned int CompSize = inblock.GetNumComponents();
 
-        // initialise bwd storage space if not for correct number of components
+        // Initialise bwd storage space if not for correct number of components.
         unsigned int size = inblock.GetNumElementsWithPadding() *
                             this->m_exp->GetTotPoints() * CompSize;
         if (this->m_bwd.size() != size)

@@ -50,7 +50,7 @@ BOOST_AUTO_TEST_SUITE(TestMathAVX)
 
 BOOST_FIXTURE_TEST_CASE(avx_negkernel, MathKernels)
 {
-    Configure();
+    Configure("AVX");
     SetTestCase();
 
     // std results
@@ -68,7 +68,7 @@ BOOST_FIXTURE_TEST_CASE(avx_negkernel, MathKernels)
 
 BOOST_FIXTURE_TEST_CASE(avx_addkernel, MathKernels)
 {
-    Configure();
+    Configure("AVX");
     SetTestCase();
 
     // std results
@@ -86,7 +86,7 @@ BOOST_FIXTURE_TEST_CASE(avx_addkernel, MathKernels)
 
 BOOST_FIXTURE_TEST_CASE(avx_subkernel, MathKernels)
 {
-    Configure();
+    Configure("AVX");
     SetTestCase();
 
     // std results
@@ -104,7 +104,7 @@ BOOST_FIXTURE_TEST_CASE(avx_subkernel, MathKernels)
 
 BOOST_FIXTURE_TEST_CASE(avx_daxpykernel, MathKernels)
 {
-    Configure();
+    Configure("AVX");
     SetTestCase();
     double alpha = 1.5;
 
@@ -123,7 +123,7 @@ BOOST_FIXTURE_TEST_CASE(avx_daxpykernel, MathKernels)
 
 BOOST_FIXTURE_TEST_CASE(avx_divkernel, MathKernels)
 {
-    Configure();
+    Configure("AVX");
     SetTestCase();
 
     // std results
@@ -141,7 +141,7 @@ BOOST_FIXTURE_TEST_CASE(avx_divkernel, MathKernels)
 
 BOOST_FIXTURE_TEST_CASE(avx_sum, MathKernels)
 {
-    Configure();
+    Configure("AVX");
     SetTestCase();
 
     // std results
@@ -160,7 +160,7 @@ BOOST_FIXTURE_TEST_CASE(avx_sum, MathKernels)
 
 BOOST_FIXTURE_TEST_CASE(avx_max, MathKernels)
 {
-    Configure();
+    Configure("AVX");
     SetTestCase();
 
     // std results
@@ -179,7 +179,7 @@ BOOST_FIXTURE_TEST_CASE(avx_max, MathKernels)
 
 BOOST_FIXTURE_TEST_CASE(avx_min, MathKernels)
 {
-    Configure();
+    Configure("AVX");
     SetTestCase();
 
     // std results
@@ -198,7 +198,7 @@ BOOST_FIXTURE_TEST_CASE(avx_min, MathKernels)
 
 BOOST_FIXTURE_TEST_CASE(avx_innerproduct, MathKernels)
 {
-    Configure();
+    Configure("AVX");
     SetTestCase();
 
     // std results
@@ -218,7 +218,7 @@ BOOST_FIXTURE_TEST_CASE(avx_innerproduct, MathKernels)
 
 BOOST_FIXTURE_TEST_CASE(avx_l1norm, MathKernels)
 {
-    Configure();
+    Configure("AVX");
     SetTestCase();
 
     // std results
@@ -237,7 +237,7 @@ BOOST_FIXTURE_TEST_CASE(avx_l1norm, MathKernels)
 
 BOOST_FIXTURE_TEST_CASE(avx_l2norm, MathKernels)
 {
-    Configure();
+    Configure("AVX");
     SetTestCase();
 
     // std results
@@ -257,7 +257,7 @@ BOOST_FIXTURE_TEST_CASE(avx_l2norm, MathKernels)
 
 BOOST_FIXTURE_TEST_CASE(avx_lpnorm, MathKernels)
 {
-    Configure();
+    Configure("AVX");
     SetTestCase();
 
     for (unsigned int p = 1; p < 4; p++)
@@ -280,7 +280,7 @@ BOOST_FIXTURE_TEST_CASE(avx_lpnorm, MathKernels)
 
 BOOST_FIXTURE_TEST_CASE(avx_linfnorm, MathKernels)
 {
-    Configure();
+    Configure("AVX");
     SetTestCase();
 
     // std results

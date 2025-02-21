@@ -53,6 +53,18 @@ public:
 
     ~BlockOperatorHelmholtz() override = default;
 
+    static std::shared_ptr<BlockOperatorHelmholtz<TData>> Create(
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
+        std::string implStr)
+    {
+        return BlockOperator<TData>::template Create<
+            BlockOperatorHelmholtz<TData>>(exp, dataWarehouse, execStr,
+                                           implStr);
+    }
+
+    static constexpr char name[] = "BlockHelmholtz";
+
     virtual void apply(BlockAccessor<TData> &inblock,
                        BlockAccessor<TData> &outblock) = 0;
 
@@ -71,24 +83,6 @@ protected:
     TData m_lambda = 1.0;
 };
 
-// Descriptor / traits class for BlockHelmholtz
-template <typename TData> struct BlockHelmholtz
-{
-    using class_name = BlockOperatorHelmholtz<TData>;
-
-    BlockHelmholtz() = delete;
-
-    template <typename ExecSpace, typename Impl>
-    static std::shared_ptr<class_name> Create(
-        const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse)
-    {
-        return BlockOperator<TData>::template Create<BlockHelmholtz<TData>,
-                                                     ExecSpace, Impl>(
-            exp, dataWarehouse);
-    }
-};
-
 // Helmholtz base class
 // Defines the apply operator to enforce apply parameter types
 template <typename TData>
@@ -105,6 +99,42 @@ public:
     }
 
     ~OperatorHelmholtz() override = default;
+
+    static std::shared_ptr<OperatorHelmholtz<TData>> Create(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::string &execStr = "", const std::string &implStr = "")
+    {
+        auto session = expansionList->GetSession();
+
+        std::string execStr0 =
+            (execStr == "")
+                ? session->GetCmdLineArgument<std::string>("opExecSpace")
+                : execStr;
+        std::string implStr0 =
+            (implStr == "") ? session->GetCmdLineArgument<std::string>("opImpl")
+                            : implStr;
+
+        auto HelmholtzOp =
+            Operator<TData>::template Create<OperatorHelmholtz<TData>>(
+                expansionList, execStr0, implStr0);
+
+        auto blocks =
+            GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
+
+        // Loop over the blocks.
+        for (auto &block : blocks)
+        {
+            HelmholtzOp->m_blockOperator.push_back(
+                BlockOperatorHelmholtz<TData>::Create(
+                    expansionList->GetExp(block.GetExpIdx()),
+                    expansionList->GetDataWarehouseSharedPtr(), execStr0,
+                    implStr0));
+        }
+
+        return HelmholtzOp;
+    }
+
+    static constexpr char name[] = "Helmholtz";
 
     void apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Coeff> &out) override
@@ -140,37 +170,6 @@ public:
 
 protected:
     std::vector<std::shared_ptr<BlockOperatorHelmholtz<TData>>> m_blockOperator;
-};
-
-// Descriptor / traits class for Helmholtz
-template <typename TData> struct Helmholtz
-{
-    using class_name = OperatorHelmholtz<TData>;
-
-    Helmholtz() = delete;
-
-    template <typename ExecSpace, typename Impl>
-    static std::shared_ptr<class_name> Create(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-    {
-        auto HelmholtzOp =
-            Operator<TData>::template Create<Helmholtz<TData>, ExecSpace, Impl>(
-                expansionList);
-
-        auto blocks =
-            GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
-
-        // Loop over the blocks.
-        for (auto &block : blocks)
-        {
-            HelmholtzOp->m_blockOperator.push_back(
-                BlockHelmholtz<TData>::template Create<ExecSpace, Impl>(
-                    expansionList->GetExp(block.GetExpIdx()),
-                    expansionList->GetDataWarehouseSharedPtr()));
-        }
-
-        return HelmholtzOp;
-    }
 };
 
 } // namespace Nektar::Operators

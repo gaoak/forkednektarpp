@@ -53,6 +53,17 @@ public:
 
     ~BlockOperatorBwdTrans() override = default;
 
+    static std::shared_ptr<BlockOperatorBwdTrans<TData>> Create(
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
+        std::string implStr)
+    {
+        return BlockOperator<TData>::template Create<
+            BlockOperatorBwdTrans<TData>>(exp, dataWarehouse, execStr, implStr);
+    }
+
+    static constexpr char name[] = "BlockBwdTrans";
+
     virtual void apply(BlockAccessor<TData> &inblock,
                        BlockAccessor<TData> &outblock) = 0;
 
@@ -60,24 +71,6 @@ public:
                             BlockAccessor<TData> &outblock)
     {
         this->apply(inblock, outblock);
-    }
-};
-
-// Descriptor / traits class for BlockBwdTrans
-template <typename TData> struct BlockBwdTrans
-{
-    using class_name = BlockOperatorBwdTrans<TData>;
-
-    BlockBwdTrans() = delete;
-
-    template <typename ExecSpace, typename Impl>
-    static std::shared_ptr<class_name> Create(
-        const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse)
-    {
-        return BlockOperator<TData>::template Create<BlockBwdTrans<TData>,
-                                                     ExecSpace, Impl>(
-            exp, dataWarehouse);
     }
 };
 
@@ -97,6 +90,42 @@ public:
     }
 
     ~OperatorBwdTrans() override = default;
+
+    static std::shared_ptr<OperatorBwdTrans<TData>> Create(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::string &execStr = "", const std::string &implStr = "")
+    {
+        auto session = expansionList->GetSession();
+
+        std::string execStr0 =
+            (execStr == "")
+                ? session->GetCmdLineArgument<std::string>("opExecSpace")
+                : execStr;
+        std::string implStr0 =
+            (implStr == "") ? session->GetCmdLineArgument<std::string>("opImpl")
+                            : implStr;
+
+        auto BwdTransOp =
+            Operator<TData>::template Create<OperatorBwdTrans<TData>>(
+                expansionList, execStr0, implStr0);
+
+        auto blocks =
+            GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
+
+        // Loop over the blocks.
+        for (auto &block : blocks)
+        {
+            BwdTransOp->m_blockOperator.push_back(
+                BlockOperatorBwdTrans<TData>::Create(
+                    expansionList->GetExp(block.GetExpIdx()),
+                    expansionList->GetDataWarehouseSharedPtr(), execStr0,
+                    implStr0));
+        }
+
+        return BwdTransOp;
+    }
+
+    static constexpr char name[] = "BwdTrans";
 
     void apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Phys> &out) override
@@ -123,37 +152,6 @@ public:
 
 protected:
     std::vector<std::shared_ptr<BlockOperatorBwdTrans<TData>>> m_blockOperator;
-};
-
-// Descriptor / traits class for BwdTrans
-template <typename TData> struct BwdTrans
-{
-    using class_name = OperatorBwdTrans<TData>;
-
-    BwdTrans() = delete;
-
-    template <typename ExecSpace, typename Impl>
-    static std::shared_ptr<class_name> Create(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-    {
-        auto BwdTransOp =
-            Operator<TData>::template Create<BwdTrans<TData>, ExecSpace, Impl>(
-                expansionList);
-
-        auto blocks =
-            GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
-
-        // Loop over the blocks.
-        for (auto &block : blocks)
-        {
-            BwdTransOp->m_blockOperator.push_back(
-                BlockBwdTrans<TData>::template Create<ExecSpace, Impl>(
-                    expansionList->GetExp(block.GetExpIdx()),
-                    expansionList->GetDataWarehouseSharedPtr()));
-        }
-
-        return BwdTransOp;
-    }
 };
 
 } // namespace Nektar::Operators

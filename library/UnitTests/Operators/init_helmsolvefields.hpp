@@ -123,12 +123,10 @@ public:
         ExpectedSolution();
     }
 
-    template <typename ExecSpace, typename Impl> void RunTestCase()
+    void RunTestCase()
     {
-        auto HelmSolveOp =
-            HelmSolve<double>::template Create<ExecSpace, Impl>(fixt_explist);
-        auto DiagPreconOp =
-            DiagPrecon<double>::template Create<ExecSpace, Impl>(fixt_explist);
+        auto HelmSolveOp  = OperatorHelmSolve<double>::Create(fixt_explist);
+        auto DiagPreconOp = OperatorDiagPrecon<double>::Create(fixt_explist);
         HelmSolveOp->setPrecon(DiagPreconOp);
         HelmSolveOp->SetLambda(1.0);
         HelmSolveOp->apply(*fixt_in, *fixt_out);

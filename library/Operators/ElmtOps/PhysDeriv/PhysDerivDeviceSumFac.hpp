@@ -182,6 +182,7 @@ protected:
     std::vector<unsigned int> m_nq;
     std::vector<const TData *> m_D;
     std::vector<const TData *> m_f;
+
     void SegBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
 
@@ -238,6 +239,7 @@ protected:
             PhysDeriv1DKernel<ExecSpace, Implementation, DEFORMED>(
                 m_coordDim, nq0, nElmtsPad, m_D[0], dfptr, inptr, outptr);
 
+            // Increment pointers.
             inptr += inblock.size();
             outptr += m_coordDim * outblock.size();
         }
@@ -280,6 +282,7 @@ protected:
             PhysDeriv1DKernel<ExecSpace, Implementation, DEFORMED, coordDim,
                               nq0>(nElmtsPad, m_D[0], dfptr, inptr, outptr);
 
+            // Increment pointers.
             inptr += inblock.size();
             outptr += coordDim * outblock.size();
         }
@@ -326,6 +329,7 @@ protected:
                 m_coordDim, nq0, nq1, nElmtsPad, m_D[0], m_D[1], m_f[0], m_f[1],
                 dfptr, inptr, outptr);
 
+            // Increment pointers.
             inptr += inblock.size();
             outptr += m_coordDim * outblock.size();
         }
@@ -370,6 +374,7 @@ protected:
                                                   m_f[0], m_f[1], dfptr, inptr,
                                                   outptr);
 
+            // Increment pointers.
             inptr += inblock.size();
             outptr += coordDim * outblock.size();
         }
@@ -417,6 +422,7 @@ protected:
                 nq0, nq1, nq2, nElmtsPad, m_D[0], m_D[1], m_D[2], m_f[0],
                 m_f[1], m_f[2], m_f[3], dfptr, inptr, outptr);
 
+            // Increment pointers.
             inptr += inblock.size();
             outptr += 3 * outblock.size();
         }
@@ -460,6 +466,8 @@ protected:
                               nq0, nq1, nq2>(nElmtsPad, m_D[0], m_D[1], m_D[2],
                                              m_f[0], m_f[1], m_f[2], m_f[3],
                                              dfptr, inptr, outptr);
+
+            // Increment pointers.
             inptr += inblock.size();
             outptr += 3 * outblock.size();
         }

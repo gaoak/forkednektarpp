@@ -74,10 +74,9 @@ public:
         ExpectedSolution();
     }
 
-    template <typename ExecSpace, typename Impl> void RunTestCase()
+    void RunTestCase()
     {
-        auto AssmbScatrOp =
-            AssmbScatr<double>::template Create<ExecSpace, Impl>(fixt_explist);
+        auto AssmbScatrOp = OperatorAssmbScatr<double>::Create(fixt_explist);
         AssmbScatrOp->apply(*fixt_in, *fixt_out);
     }
 

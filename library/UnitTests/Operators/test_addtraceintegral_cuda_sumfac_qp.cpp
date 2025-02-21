@@ -43,12 +43,10 @@
 #define TEST_ADDTRACEINTEGRAL(test_name, test, tol)                            \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        using ExecSpace = NektarSpaces::CUDA;                                  \
-        using Impl      = Operators::SumFacQP;                                 \
-        Configure();                                                           \
+        Configure("CUDA", "SumFacQP");                                         \
         ReConfigure();                                                         \
         SetTestCase();                                                         \
-        RunTestCase<ExecSpace, Impl>();                                        \
+        RunTestCase();                                                         \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
             BOOST_TEST(Compare(tol));                                          \

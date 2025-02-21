@@ -133,6 +133,7 @@ public:
                        m_matptr, m_nmTot, wspptr, m_nqTot, 0.0, outptr,
                        m_nmTot);
 
+            // Increment pointers.
             inptr += inblock.size();
             outptr += outblock.size();
         }

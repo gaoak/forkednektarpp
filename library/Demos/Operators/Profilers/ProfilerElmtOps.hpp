@@ -73,129 +73,45 @@ using namespace Nektar::LibUtilities;
 
 static bool _verbose_ = false;
 
-template <typename ExecSpace, typename TData> std::string GetExecutionName()
-{
-    std::string execName = "Unknown";
-    if (std::is_same_v<ExecSpace, NektarSpaces::Serial>)
-    {
-        execName = "Serial";
-    }
-    else if (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
-    {
-#if defined(__AVX512F__) && defined(NEKTAR_ENABLE_SIMD_AVX512)
-        execName = "AVX512";
-#elif defined(__AVX2__) && defined(NEKTAR_ENABLE_SIMD_AVX2)
-        execName = "AVX2";
-#else
-        execName = "AVX";
-#endif
-    }
-    else if (std::is_same_v<ExecSpace, NektarSpaces::CUDA>)
-    {
-        execName = "CUDA";
-    }
-    else if (std::is_same_v<ExecSpace, NektarSpaces::SYCL>)
-    {
-        execName = "SYCL";
-    }
-    else if (std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>)
-    {
-        execName = "Kokkos";
-    }
-    return execName;
-}
-
-template <typename Impl> std::string GetImplementationName()
-{
-    std::string implName = "Unknown";
-    if (std::is_same_v<Impl, SumFac>)
-    {
-        implName = "SumFac";
-    }
-    else if (std::is_same_v<Impl, SumFacQP>)
-    {
-        implName = "SumFacQP";
-    }
-    else if (std::is_same_v<Impl, StdMat>)
-    {
-        implName = "StdMat";
-    }
-    return implName;
-}
-
-template <class Op, typename TData> std::string GetOperatorName()
-{
-    std::string opName = "Unknown";
-    if (std::is_same_v<Op, BwdTrans<TData>>)
-    {
-        opName = "BwdTrans";
-    }
-    else if (std::is_same_v<Op, IProductWRTBase<TData>>)
-    {
-        opName = "IProductWRTBase";
-    }
-    else if (std::is_same_v<Op, Mass<TData>>)
-    {
-        opName = "Mass";
-    }
-    else if (std::is_same_v<Op, MultiplyByElmtInvMass<TData>>)
-    {
-        opName = "MultiplyByElmtInvMass";
-    }
-    else if (std::is_same_v<Op, PhysDeriv<TData>>)
-    {
-        opName = "PhysDeriv";
-    }
-    else if (std::is_same_v<Op, IProductWRTDerivBase<TData>>)
-    {
-        opName = "IProductWRTDerivBase";
-    }
-    else if (std::is_same_v<Op, Helmholtz<TData>>)
-    {
-        opName = "Helmholtz";
-    }
-    return opName;
-}
-
 /// Compute the expected results of certain operator from the expList
-template <class Op, typename TData>
-void GetExpectedResults(const MultiRegions::ExpListSharedPtr &expList,
+template <typename TData>
+void GetExpectedResults(const std::string &opName,
+                        const MultiRegions::ExpListSharedPtr &expList,
                         const Array<OneD, NekDouble> &inArr,
                         const Array<OneD, Array<OneD, NekDouble>> &inArrays,
                         Array<OneD, NekDouble> &outArr,
                         Array<OneD, Array<OneD, NekDouble>> &outArrays)
 {
-    std::string opName = "Unknown";
-    if (std::is_same<Op, BwdTrans<TData>>::value)
+    if (opName == "BwdTrans")
     {
         expList->BwdTrans(inArr, outArr);
     }
-    else if (std::is_same<Op, IProductWRTBase<TData>>::value)
+    else if (opName == "IProductWRTBase")
     {
         expList->IProductWRTBase(inArr, outArr);
     }
-    else if (std::is_same<Op, Mass<TData>>::value)
+    else if (opName == "Mass")
     {
         expList->GeneralMatrixOp(
             MultiRegions::GlobalMatrixKey(StdRegions::eMass), inArr, outArr);
     }
-    else if (std::is_same<Op, MultiplyByElmtInvMass<TData>>::value)
+    else if (opName == "MultiplyByElmtInvMass")
     {
         expList->GeneralMatrixOp(
             MultiRegions::GlobalMatrixKey(StdRegions::eInvMass), inArr, outArr);
     }
-    else if (std::is_same<Op, PhysDeriv<TData>>::value)
+    else if (opName == "PhysDeriv")
     {
         for (int d = 0; d < outArrays.size(); d++)
         {
             expList->PhysDeriv(d, inArr, outArrays[d]);
         }
     }
-    else if (std::is_same<Op, IProductWRTDerivBase<TData>>::value)
+    else if (opName == "IProductWRTDerivBase")
     {
         expList->IProductWRTDerivBase(inArrays, outArr);
     }
-    else if (std::is_same<Op, Helmholtz<TData>>::value)
+    else if (opName == "Helmholtz")
     {
         StdRegions::ConstFactorMap factors;
         factors[StdRegions::eFactorLambda] = 1.0;
@@ -423,15 +339,20 @@ void PrintProfileResult(const CommSharedPtr &comm, const NekDouble timePerTest,
 
 // Different operator may have different input/output attributes (FieldState,
 // or number of components). We must provided all these information.
-template <class Op, FieldState stateIn, FieldState stateOut, typename ExecSpace,
-          typename Impl, typename TData>
-void Profiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
-              const int nIn = 1, const int nOut = 1)
+template <class Op, FieldState stateIn, FieldState stateOut, typename TData>
+void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
+                    const int nIn = 1, const int nOut = 1)
 {
+    // Create operator
+    auto oper = Op::Create(expList);
+
     Timer timer;
-    std::string execName = GetExecutionName<ExecSpace, TData>();
-    std::string implName = GetImplementationName<Impl>();
-    std::string OpName   = GetOperatorName<Op, TData>();
+
+    auto session = expList->GetSession();
+    std::string execName =
+        session->GetCmdLineArgument<std::string>("opExecSpace");
+    std::string implName = session->GetCmdLineArgument<std::string>("opImpl");
+    std::string OpName   = oper->name;
     auto tag             = OpName + execName + implName;
 
     // identify the data type
@@ -446,18 +367,37 @@ void Profiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
 
     auto comm = expList->GetComm();
 
-    using MemSpace = typename ExecSpace::memory_space;
+    unsigned int alignment = 0;
+    if (execName == "AVX")
+    {
+        alignment = NektarSpaces::AVX::alignment;
+    }
+    else if (execName == "CUDA")
+    {
+        alignment = NektarSpaces::CUDA::alignment;
+    }
+    else if (execName == "SYCL")
+    {
+        alignment = NektarSpaces::SYCL::alignment;
+    }
+    else if (execName == "Kokkos")
+    {
+        alignment = NektarSpaces::KOKKOS::alignment;
+    }
+    else
+    {
+        alignment = NektarSpaces::Serial::alignment;
+    }
 
     // Create blocks
     auto blocks_in  = GetBlockAttributes<TData>(stateIn, expList);
     auto blocks_out = GetBlockAttributes<TData>(stateOut, expList);
     // Create fields
-    auto in = Field<TData, stateIn>::template Create<MemSpace>(
-        "f_in", blocks_in, nIn, ExecSpace::alignment);
-    auto out = Field<TData, stateOut>::template Create<MemSpace>(
-        "f_out", blocks_out, nOut, ExecSpace::alignment);
-    // Create operator
-    auto oper = Op::template Create<ExecSpace, Impl>(expList);
+    auto in = Field<TData, stateIn>::template Create<NektarSpaces::DeviceSpace>(
+        "f_in", blocks_in, nIn, alignment);
+    auto out =
+        Field<TData, stateOut>::template Create<NektarSpaces::DeviceSpace>(
+            "f_out", blocks_out, nOut, alignment);
 
     // initialize the in field to random non-zeros: 1 2 3 4 ...
     // initialize the out field to zeros
@@ -465,18 +405,22 @@ void Profiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
     TData blksize = inblk.size();
     for (size_t i = 0; i < inblk.size(); ++i)
     {
-        auto inptr = inblk[i].template GetPtr<MemSpace, WriteOnly>();
-        Nektar::parallel_for<ExecSpace>(
-            0, inblk[i].size(),
-            NEKTAR_LAMBDA(unsigned int j) { inptr[j] = (j + 1.0) / blksize; });
+        auto inptr =
+            inblk[i].template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+        for (size_t j = 0; j < inblk[i].size(); ++j)
+        {
+            inptr[j] = (j + 1.0) / blksize;
+        }
     }
     auto outblk = out.GetBlocks();
     for (size_t i = 0; i < outblk.size(); ++i)
     {
-        auto outptr = outblk[i].template GetPtr<MemSpace, WriteOnly>();
-        Nektar::parallel_for<ExecSpace>(
-            0, outblk[i].size(),
-            NEKTAR_LAMBDA(unsigned int j) { outptr[j] = 0.0; });
+        auto outptr =
+            outblk[i].template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+        for (size_t j = 0; j < outblk[i].size(); ++j)
+        {
+            outptr[j] = 0.0;
+        }
     }
 
     // Create input and output Array for explist
@@ -493,7 +437,8 @@ void Profiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
         outArrays[d] = outArr + d * outArr.size() / nOut;
     }
     // Get expected results from expList
-    GetExpectedResults<Op, TData>(expList, inArr, inArrays, outArr, outArrays);
+    GetExpectedResults<TData>(oper->name, expList, inArr, inArrays, outArr,
+                              outArrays);
 
     // Warm-up : fill the cache and memory, and let core temperature/freq
     // stabilized
@@ -550,7 +495,7 @@ void Profiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
     {
         // First check if the output is all zeros
         TData L2 = 0.0;
-        l2norm<ExecSpace, TData, stateOut>(out, &L2);
+        l2norm<NektarSpaces::Serial, TData, stateOut>(out, &L2);
         if (L2 < 1e-9)
         {
             std::cout << "Warning: output does not change!"
@@ -594,38 +539,4 @@ void Profiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
     // collect elapsed time and compute the max, min, and average
     PrintProfileResult<TData>(comm, timer.TimePerTest(Ntest), ranksNumInDofs,
                               ranksNumOutDofs);
-}
-
-// You can add/remove the impl or exec to be profiled together as you like.
-template <class Op, FieldState stateIn, FieldState stateOut, typename TData>
-void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
-                    const int nIn = 1, const int nOut = 1)
-{
-#if defined(NEKTAR_ENABLE_CUDA)
-    Profiler<Op, stateIn, stateOut, NektarSpaces::CUDA, SumFac, TData>(
-        expList, Ntest, nIn, nOut);
-    Profiler<Op, stateIn, stateOut, NektarSpaces::CUDA, SumFacQP, TData>(
-        expList, Ntest, nIn, nOut);
-#elif defined(NEKTAR_ENABLE_SYCL)
-    Profiler<Op, stateIn, stateOut, NektarSpaces::SYCL, SumFac, TData>(
-        expList, Ntest, nIn, nOut);
-    Profiler<Op, stateIn, stateOut, NektarSpaces::SYCL, SumFacQP, TData>(
-        expList, Ntest, nIn, nOut);
-#elif defined(NEKTAR_ENABLE_KOKKOS)
-    Profiler<Op, stateIn, stateOut, NektarSpaces::KOKKOS, SumFac, TData>(
-        expList, Ntest, nIn, nOut);
-    Profiler<Op, stateIn, stateOut, NektarSpaces::KOKKOS, SumFacQP, TData>(
-        expList, Ntest, nIn, nOut);
-#else
-#if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
-    Profiler<Op, stateIn, stateOut, NektarSpaces::AVX, SumFac, TData>(
-        expList, Ntest, nIn, nOut);
-#else
-    Profiler<Op, stateIn, stateOut, NektarSpaces::Serial, SumFac, TData>(
-        expList, Ntest, nIn, nOut);
-#endif
-    // Since StdMat on CPU is really slow, we disable it by default
-    // Profiler<Op, stateIn, stateOut, NektarSpaces::Serial, StdMat, TData>(
-    //     expList, Ntest / 20, nIn, nOut);
-#endif
 }

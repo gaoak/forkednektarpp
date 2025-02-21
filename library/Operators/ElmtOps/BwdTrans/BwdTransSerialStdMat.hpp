@@ -95,6 +95,8 @@ public:
             // Perform matrix-matrix multiply.
             Blas::Gemm('N', 'N', m_nqTot, nElmts, m_nmTot, 1.0, m_matptr,
                        m_nqTot, inptr, m_nmTot, 0.0, outptr, m_nqTot);
+
+            // Increment pointers.
             inptr += inblock.size();
             outptr += outblock.size();
         }

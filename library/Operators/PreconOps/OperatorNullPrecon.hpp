@@ -47,26 +47,29 @@ class OperatorNullPrecon : public OperatorPrecon<TData>
 public:
     ~OperatorNullPrecon() override = default;
 
+    static std::shared_ptr<OperatorNullPrecon<TData>> Create(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::string &execStr = "", const std::string &implStr = "")
+    {
+        auto session = expansionList->GetSession();
+
+        std::string execStr0 =
+            (execStr == "")
+                ? session->GetCmdLineArgument<std::string>("opExecSpace")
+                : execStr;
+        std::string implStr0 =
+            (implStr == "") ? session->GetCmdLineArgument<std::string>("opImpl")
+                            : implStr;
+
+        return Operator<TData>::template Create<OperatorNullPrecon<TData>>(
+            expansionList, execStr0, implStr0);
+    }
+
+    static constexpr char name[] = "NullPrecon";
+
     OperatorNullPrecon(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorPrecon<TData>(expansionList)
     {
-    }
-};
-
-// Descriptor / traits class for NullPrecon to be used by Operator create
-// function
-template <typename TData> struct NullPrecon
-{
-    using class_name = OperatorNullPrecon<TData>;
-
-    NullPrecon() = delete;
-
-    template <typename ExecSpace, typename Impl>
-    static std::shared_ptr<class_name> Create(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-    {
-        return Operator<TData>::template Create<NullPrecon<TData>, ExecSpace,
-                                                Impl>(expansionList);
     }
 };
 

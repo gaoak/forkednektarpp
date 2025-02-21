@@ -53,6 +53,18 @@ public:
 
     ~BlockOperatorPhysDeriv() override = default;
 
+    static std::shared_ptr<BlockOperatorPhysDeriv<TData>> Create(
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
+        std::string implStr)
+    {
+        return BlockOperator<TData>::template Create<
+            BlockOperatorPhysDeriv<TData>>(exp, dataWarehouse, execStr,
+                                           implStr);
+    }
+
+    static constexpr char name[] = "BlockPhysDeriv";
+
     virtual void apply(BlockAccessor<TData> &inblock,
                        BlockAccessor<TData> &outblock) = 0;
 
@@ -60,24 +72,6 @@ public:
                             BlockAccessor<TData> &outblock)
     {
         this->apply(inblock, outblock);
-    }
-};
-
-// Descriptor / traits class for BlockPhysDeriv
-template <typename TData> struct BlockPhysDeriv
-{
-    using class_name = BlockOperatorPhysDeriv<TData>;
-
-    BlockPhysDeriv() = delete;
-
-    template <typename ExecSpace, typename Impl>
-    static std::shared_ptr<class_name> Create(
-        const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse)
-    {
-        return BlockOperator<TData>::template Create<BlockPhysDeriv<TData>,
-                                                     ExecSpace, Impl>(
-            exp, dataWarehouse);
     }
 };
 
@@ -96,6 +90,42 @@ public:
     }
 
     ~OperatorPhysDeriv() override = default;
+
+    static std::shared_ptr<OperatorPhysDeriv<TData>> Create(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::string &execStr = "", const std::string &implStr = "")
+    {
+        auto session = expansionList->GetSession();
+
+        std::string execStr0 =
+            (execStr == "")
+                ? session->GetCmdLineArgument<std::string>("opExecSpace")
+                : execStr;
+        std::string implStr0 =
+            (implStr == "") ? session->GetCmdLineArgument<std::string>("opImpl")
+                            : implStr;
+
+        auto PhysDerivOp =
+            Operator<TData>::template Create<OperatorPhysDeriv<TData>>(
+                expansionList, execStr0, implStr0);
+
+        auto blocks =
+            GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
+
+        // Loop over the blocks.
+        for (auto &block : blocks)
+        {
+            PhysDerivOp->m_blockOperator.push_back(
+                BlockOperatorPhysDeriv<TData>::Create(
+                    expansionList->GetExp(block.GetExpIdx()),
+                    expansionList->GetDataWarehouseSharedPtr(), execStr0,
+                    implStr0));
+        }
+
+        return PhysDerivOp;
+    }
+
+    static constexpr char name[] = "PhysDeriv";
 
     void apply(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Phys> &out) override
@@ -124,37 +154,6 @@ public:
 
 protected:
     std::vector<std::shared_ptr<BlockOperatorPhysDeriv<TData>>> m_blockOperator;
-};
-
-// Descriptor / traits class for PhysDeriv
-template <typename TData> struct PhysDeriv
-{
-    using class_name = OperatorPhysDeriv<TData>;
-
-    PhysDeriv() = delete;
-
-    template <typename ExecSpace, typename Impl>
-    static std::shared_ptr<class_name> Create(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-    {
-        auto PhysDerivOp =
-            Operator<TData>::template Create<PhysDeriv<TData>, ExecSpace, Impl>(
-                expansionList);
-
-        auto blocks =
-            GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
-
-        // Loop over the blocks.
-        for (auto &block : blocks)
-        {
-            PhysDerivOp->m_blockOperator.push_back(
-                BlockPhysDeriv<TData>::template Create<ExecSpace, Impl>(
-                    expansionList->GetExp(block.GetExpIdx()),
-                    expansionList->GetDataWarehouseSharedPtr()));
-        }
-
-        return PhysDerivOp;
-    }
 };
 
 } // namespace Nektar::Operators

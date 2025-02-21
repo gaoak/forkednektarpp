@@ -81,11 +81,10 @@ public:
         ExpectedSolution();
     }
 
-    template <typename ExecSpace, typename Impl> void RunTestCase()
+    void RunTestCase()
     {
         auto IProductWRTDerivBaseOp =
-            IProductWRTDerivBase<double>::template Create<ExecSpace, Impl>(
-                fixt_explist);
+            OperatorIProductWRTDerivBase<double>::Create(fixt_explist);
         IProductWRTDerivBaseOp->apply(*fixt_in, *fixt_out);
     }
 

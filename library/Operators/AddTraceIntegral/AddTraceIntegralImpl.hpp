@@ -201,9 +201,9 @@ public:
         }
 
         // Initialise IProductWRTBase operator.
-        m_IProductWRTBaseOp =
-            IProductWRTBase<TData>::template Create<ExecSpace, Implementation>(
-                this->m_expansionList->GetTrace());
+        m_IProductWRTBaseOp = OperatorIProductWRTBase<TData>::Create(
+            this->m_expansionList->GetTrace(), ExecSpace::name,
+            Implementation::name);
     }
 
     void apply(Field<TData, FieldState::Phys> &in,

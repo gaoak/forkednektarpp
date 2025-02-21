@@ -97,12 +97,10 @@ public:
                                                tolerance, 1.0E-09);
         m_tol = tolerance;
 
-        m_assmbScatrOp =
-            AssmbScatr<TData>::template Create<ExecSpace, Implementation>(
-                this->m_expansionList);
-        m_robBndCondOp =
-            RobBndCond<TData>::template Create<ExecSpace, Implementation>(
-                this->m_expansionList);
+        m_assmbScatrOp = OperatorAssmbScatr<TData>::Create(
+            this->m_expansionList, ExecSpace::name, Implementation::name);
+        m_robBndCondOp = OperatorRobBndCond<TData>::Create(
+            this->m_expansionList, ExecSpace::name, Implementation::name);
 
         m_rowComm = contfield->GetSession()->GetComm()->GetRowComm();
 

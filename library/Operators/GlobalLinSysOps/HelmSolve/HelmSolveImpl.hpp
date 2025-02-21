@@ -67,22 +67,18 @@ public:
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
               ExecSpace::alignment))
     {
-        m_IProdOp =
-            IProductWRTBase<TData>::template Create<ExecSpace, Implementation>(
-                this->m_expansionList);
-        m_DirBCOp =
-            DirBndCond<TData>::template Create<ExecSpace, Implementation>(
-                this->m_expansionList);
-        m_NeuBCOp =
-            NeuBndCond<TData>::template Create<ExecSpace, Implementation>(
-                this->m_expansionList);
-        m_RobBCOp =
-            RobBndCond<TData>::template Create<ExecSpace, Implementation>(
-                this->m_expansionList);
-        m_HelmOp = Helmholtz<TData>::template Create<ExecSpace, Implementation>(
-            this->m_expansionList);
-        m_CGOp = ConjGrad<TData>::template Create<ExecSpace, Implementation>(
-            this->m_expansionList);
+        m_IProdOp = OperatorIProductWRTBase<TData>::Create(
+            this->m_expansionList, ExecSpace::name, Implementation::name);
+        m_DirBCOp = OperatorDirBndCond<TData>::Create(
+            this->m_expansionList, ExecSpace::name, Implementation::name);
+        m_NeuBCOp = OperatorNeuBndCond<TData>::Create(
+            this->m_expansionList, ExecSpace::name, Implementation::name);
+        m_RobBCOp = OperatorRobBndCond<TData>::Create(
+            this->m_expansionList, ExecSpace::name, Implementation::name);
+        m_HelmOp = OperatorHelmholtz<TData>::Create(
+            this->m_expansionList, ExecSpace::name, Implementation::name);
+        m_CGOp = OperatorConjGrad<TData>::Create(
+            this->m_expansionList, ExecSpace::name, Implementation::name);
         m_CGOp->setLHS(m_HelmOp);
     }
 

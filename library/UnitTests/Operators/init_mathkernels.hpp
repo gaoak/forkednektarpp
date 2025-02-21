@@ -39,17 +39,18 @@
 #undef min
 #endif
 
+using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
 
 class MathKernelsField
     : public InitFields<double, FieldState::Phys, FieldState::Phys,
-                        MultiRegions::ContField>
+                        MultiRegions::ExpList>
 {
 public:
     MathKernelsField()
         : InitFields<double, FieldState::Phys, FieldState::Phys,
-                     MultiRegions::ContField>()
+                     MultiRegions::ExpList>()
     {
     }
 

@@ -53,6 +53,18 @@ public:
 
     ~BlockOperatorPhysInterp1DScaled() override = default;
 
+    static std::shared_ptr<BlockOperatorPhysInterp1DScaled<TData>> Create(
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
+        std::string implStr)
+    {
+        return BlockOperator<TData>::template Create<
+            BlockOperatorPhysInterp1DScaled<TData>>(exp, dataWarehouse, execStr,
+                                                    implStr);
+    }
+
+    static constexpr char name[] = "BlockPhysInterp1DScaled";
+
     virtual void apply(BlockAccessor<TData> &inblock,
                        BlockAccessor<TData> &outblock) = 0;
 
@@ -76,24 +88,6 @@ protected:
     TData m_scale = -1.0; // scaling factor
 };
 
-// Descriptor / traits class for BlockPhysInterp1DScaled
-template <typename TData> struct BlockPhysInterp1DScaled
-{
-    using class_name = BlockOperatorPhysInterp1DScaled<TData>;
-
-    BlockPhysInterp1DScaled() = delete;
-
-    template <typename ExecSpace, typename Impl>
-    static std::shared_ptr<class_name> Create(
-        const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse)
-    {
-        return BlockOperator<TData>::template Create<
-            BlockPhysInterp1DScaled<TData>, ExecSpace, Impl>(exp,
-                                                             dataWarehouse);
-    }
-};
-
 // PhysInterp1DScaled base class
 // Defines the apply operator to enforce apply parameter types
 template <typename TData>
@@ -110,6 +104,42 @@ public:
     }
 
     ~OperatorPhysInterp1DScaled() override = default;
+
+    static std::shared_ptr<OperatorPhysInterp1DScaled<TData>> Create(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::string &execStr = "", const std::string &implStr = "")
+    {
+        auto session = expansionList->GetSession();
+
+        std::string execStr0 =
+            (execStr == "")
+                ? session->GetCmdLineArgument<std::string>("opExecSpace")
+                : execStr;
+        std::string implStr0 =
+            (implStr == "") ? session->GetCmdLineArgument<std::string>("opImpl")
+                            : implStr;
+
+        auto PhysInterp1DScaledOp =
+            Operator<TData>::template Create<OperatorPhysInterp1DScaled<TData>>(
+                expansionList, execStr0, implStr0);
+
+        auto blocks =
+            GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
+
+        // Loop over the blocks.
+        for (auto &block : blocks)
+        {
+            PhysInterp1DScaledOp->m_blockOperator.push_back(
+                BlockOperatorPhysInterp1DScaled<TData>::Create(
+                    expansionList->GetExp(block.GetExpIdx()),
+                    expansionList->GetDataWarehouseSharedPtr(), execStr0,
+                    implStr0));
+        }
+
+        return PhysInterp1DScaledOp;
+    }
+
+    static constexpr char name[] = "PhysInterp1DScaled";
 
     void apply(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Phys> &out) override
@@ -146,38 +176,6 @@ public:
 protected:
     std::vector<std::shared_ptr<BlockOperatorPhysInterp1DScaled<TData>>>
         m_blockOperator;
-};
-
-// Descriptor / traits class for PhysInterp1DScaled
-template <typename TData> struct PhysInterp1DScaled
-{
-    using class_name = OperatorPhysInterp1DScaled<TData>;
-
-    PhysInterp1DScaled() = delete;
-
-    template <typename ExecSpace, typename Impl>
-    static std::shared_ptr<class_name> Create(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-    {
-        auto PhysInterp1DScaledOp =
-            Operator<TData>::template Create<PhysInterp1DScaled<TData>,
-                                             ExecSpace, Impl>(expansionList);
-
-        auto blocks =
-            GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
-
-        // Loop over the blocks.
-        for (auto &block : blocks)
-        {
-            PhysInterp1DScaledOp->m_blockOperator.push_back(
-                BlockPhysInterp1DScaled<TData>::template Create<ExecSpace,
-                                                                Impl>(
-                    expansionList->GetExp(block.GetExpIdx()),
-                    expansionList->GetDataWarehouseSharedPtr()));
-        }
-
-        return PhysInterp1DScaledOp;
-    }
 };
 
 } // namespace Nektar::Operators

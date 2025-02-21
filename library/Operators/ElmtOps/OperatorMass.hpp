@@ -52,6 +52,17 @@ public:
 
     ~BlockOperatorMass() override = default;
 
+    static std::shared_ptr<BlockOperatorMass<TData>> Create(
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
+        std::string implStr)
+    {
+        return BlockOperator<TData>::template Create<BlockOperatorMass<TData>>(
+            exp, dataWarehouse, execStr, implStr);
+    }
+
+    static constexpr char name[] = "BlockMass";
+
     virtual void apply(BlockAccessor<TData> &inblock,
                        BlockAccessor<TData> &outblock) = 0;
 
@@ -59,24 +70,6 @@ public:
                             BlockAccessor<TData> &outblock)
     {
         this->apply(inblock, outblock);
-    }
-};
-
-// Descriptor / traits class for BlockMass
-template <typename TData> struct BlockMass
-{
-    using class_name = BlockOperatorMass<TData>;
-
-    BlockMass() = delete;
-
-    template <typename ExecSpace, typename Impl>
-    static std::shared_ptr<class_name> Create(
-        const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse)
-    {
-        return BlockOperator<TData>::template Create<BlockMass<TData>,
-                                                     ExecSpace, Impl>(
-            exp, dataWarehouse);
     }
 };
 
@@ -96,6 +89,40 @@ public:
     }
 
     ~OperatorMass() override = default;
+
+    static std::shared_ptr<OperatorMass<TData>> Create(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::string &execStr = "", const std::string &implStr = "")
+    {
+        auto session = expansionList->GetSession();
+
+        std::string execStr0 =
+            (execStr == "")
+                ? session->GetCmdLineArgument<std::string>("opExecSpace")
+                : execStr;
+        std::string implStr0 =
+            (implStr == "") ? session->GetCmdLineArgument<std::string>("opImpl")
+                            : implStr;
+
+        auto MassOp = Operator<TData>::template Create<OperatorMass<TData>>(
+            expansionList, execStr0, implStr0);
+
+        auto blocks =
+            GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
+
+        // Loop over the blocks.
+        for (auto &block : blocks)
+        {
+            MassOp->m_blockOperator.push_back(BlockOperatorMass<TData>::Create(
+                expansionList->GetExp(block.GetExpIdx()),
+                expansionList->GetDataWarehouseSharedPtr(), execStr0,
+                implStr0));
+        }
+
+        return MassOp;
+    }
+
+    static constexpr char name[] = "Mass";
 
     void apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Coeff> &out) override
@@ -122,37 +149,6 @@ public:
 
 protected:
     std::vector<std::shared_ptr<BlockOperatorMass<TData>>> m_blockOperator;
-};
-
-// Descriptor / traits class for Mass
-template <typename TData> struct Mass
-{
-    using class_name = OperatorMass<TData>;
-
-    Mass() = delete;
-
-    template <typename ExecSpace, typename Impl>
-    static std::shared_ptr<class_name> Create(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-    {
-        auto MassOp =
-            Operator<TData>::template Create<Mass<TData>, ExecSpace, Impl>(
-                expansionList);
-
-        auto blocks =
-            GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
-
-        // Loop over the blocks.
-        for (auto &block : blocks)
-        {
-            MassOp->m_blockOperator.push_back(
-                BlockMass<TData>::template Create<ExecSpace, Impl>(
-                    expansionList->GetExp(block.GetExpIdx()),
-                    expansionList->GetDataWarehouseSharedPtr()));
-        }
-
-        return MassOp;
-    }
 };
 
 } // namespace Nektar::Operators
