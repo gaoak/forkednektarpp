@@ -275,6 +275,8 @@ protected:
             // BwdTrans kernel.
             BwdTrans1DKernel<ExecSpace, Implementation>(nm0, nq0, nElmtsPad,
                                                         m_B[0], inptr, outptr);
+
+            // Increment pointer.
             inptr += inblock.size();
             outptr += outblock.size();
         }
@@ -308,6 +310,8 @@ protected:
             // BwdTrans kernel.
             BwdTrans1DKernel<ExecSpace, Implementation, nm0, nq0>(
                 nElmtsPad, m_B[0], inptr, outptr);
+
+            // Increment pointer.
             inptr += inblock.size();
             outptr += outblock.size();
         }
@@ -363,6 +367,8 @@ protected:
             BwdTrans2DKernel<LibUtilities::Quad, ExecSpace, Implementation>(
                 nm0, nm1, nq0, nq1, nElmtsPad, false, m_B[0], m_B[1], inptr,
                 outptr, wspptr);
+
+            // Increment pointer.
             inptr += inblock.size();
             outptr += outblock.size();
         }
@@ -414,6 +420,7 @@ protected:
                              nm1, nq0, nq1>(nElmtsPad, false, m_B[0], m_B[1],
                                             inptr, outptr, wspptr);
 
+            // Increment pointer.
             inptr += inblock.size();
             outptr += outblock.size();
         }
@@ -471,6 +478,8 @@ protected:
             BwdTrans3DKernel<LibUtilities::Hex, ExecSpace, Implementation>(
                 nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, false, nullptr,
                 nullptr, m_B[0], m_B[1], m_B[2], inptr, outptr, wspptr);
+
+            // Increment pointer.
             inptr += inblock.size();
             outptr += outblock.size();
         }
@@ -522,6 +531,8 @@ protected:
                              nm1, nm2, nq0, nq1, nq2>(
                 nElmtsPad, false, nullptr, nullptr, m_B[0], m_B[1], m_B[2],
                 inptr, outptr, wspptr);
+
+            // Increment pointer.
             inptr += inblock.size();
             outptr += outblock.size();
         }

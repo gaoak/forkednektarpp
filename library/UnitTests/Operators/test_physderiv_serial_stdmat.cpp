@@ -43,11 +43,9 @@
 #define TEST_PHYSDERIV(test_name, test, dim, tol)                              \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        using ExecSpace = NektarSpaces::Serial;                                \
-        using Impl      = Operators::StdMat;                                   \
-        Configure(2, 2 * dim);                                                 \
+        Configure("Serial", "StdMat", 2, 2 * dim);                             \
         SetTestCase();                                                         \
-        RunTestCase<ExecSpace, Impl>();                                        \
+        RunTestCase();                                                         \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
             BOOST_TEST(Compare(tol));                                          \

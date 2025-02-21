@@ -43,12 +43,10 @@
 #define TEST_PHYSINTERP1DSCALED(test_name, test, tol)                          \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        using ExecSpace = NektarSpaces::Serial;                                \
-        using Impl      = Operators::SumFac;                                   \
-        double scale    = 1.5;                                                 \
-        Configure(2, 2, scale);                                                \
+        double scale = 1.5;                                                    \
+        Configure("Serial", "SumFac", 2, 2, scale);                            \
         SetTestCase(scale);                                                    \
-        RunTestCase<ExecSpace, Impl>(scale);                                   \
+        RunTestCase(scale);                                                    \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
             BOOST_TEST(Compare(tol));                                          \

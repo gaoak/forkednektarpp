@@ -95,11 +95,10 @@ public:
         ExpectedSolution();
     }
 
-    template <typename ExecSpace, typename Impl> void RunTestCase()
+    void RunTestCase()
     {
         auto AddTraceIntegralOp =
-            AddTraceIntegral<double>::template Create<ExecSpace, Impl>(
-                fixt_explist);
+            OperatorAddTraceIntegral<double>::Create(fixt_explist);
         AddTraceIntegralOp->apply(*fixt_in, *fixt_out);
     }
 

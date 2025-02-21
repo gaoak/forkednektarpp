@@ -56,10 +56,9 @@ public:
         ExpectedSolution();
     }
 
-    template <typename ExecSpace, typename Impl> void RunTestCase()
+    void RunTestCase()
     {
-        auto DirBndCondOp =
-            DirBndCond<double>::template Create<ExecSpace, Impl>(fixt_explist);
+        auto DirBndCondOp = OperatorDirBndCond<double>::Create(fixt_explist);
         DirBndCondOp->apply(*fixt_out);
     }
 

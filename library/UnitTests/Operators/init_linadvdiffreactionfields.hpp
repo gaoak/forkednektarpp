@@ -75,11 +75,9 @@ public:
         ExpectedSolution();
     }
 
-    template <typename ExecSpace, typename Impl> void RunTestCase()
+    void RunTestCase()
     {
-        std::shared_ptr<OperatorLinAdvDiffReaction<double>> LinADR =
-            LinAdvDiffReaction<double>::template Create<ExecSpace, Impl>(
-                fixt_explist);
+        auto LinADR = OperatorLinAdvDiffReaction<double>::Create(fixt_explist);
 
         // seem to have the negative definitio of lambda implemented currently
         LinADR->SetLambda(-1.0 * m_lambda);

@@ -56,19 +56,19 @@ public:
         ExpectedSolution();
     }
 
-    template <typename ExecSpace, typename Impl> void RunTestCase()
+    void RunTestCase()
     {
-        auto NeuBndCondOp =
-            NeuBndCond<double>::template Create<ExecSpace, Impl>(fixt_explist);
+        auto NeuBndCondOp = OperatorNeuBndCond<double>::Create(fixt_explist);
         NeuBndCondOp->apply(*fixt_out);
     }
 
     void ExpectedSolution()
     {
-        using ExecSpace = NektarSpaces::Serial;
-        using Impl      = Operators::StdMat;
-        NeuBndCond<double>::template Create<ExecSpace, Impl>(fixt_explist)
-            ->apply(*fixt_expected);
+        std::string execStr = "Serial";
+        std::string implStr = "StdMat";
+        auto NeuBndCondOp =
+            OperatorNeuBndCond<double>::Create(fixt_explist, execStr, implStr);
+        NeuBndCondOp->apply(*fixt_expected);
     }
 };
 

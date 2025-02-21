@@ -43,11 +43,9 @@
 #define TEST_DIAGPRECON(test_name, test, tol)                                  \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        using ExecSpace = NektarSpaces::Serial;                                \
-        using Impl      = Operators::StdMat;                                   \
-        Configure();                                                           \
+        Configure("Serial", "StdMat");                                         \
         SetTestCase();                                                         \
-        RunTestCase<ExecSpace, Impl>();                                        \
+        RunTestCase();                                                         \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
             BOOST_TEST(Compare(tol));                                          \

@@ -505,8 +505,8 @@ protected:
                 dfptr += jacSize * ndf;
             }
 
-            // advance input by m_coordDim-1 componennts since have already
-            // advanced one component in the above
+            // Advance input by m_coordDim-1 componennts since have already
+            // advanced one component in the above.
             inptr += nqTot * NumElmtGroups * (m_coordDim - 1);
         }
     }
@@ -615,8 +615,8 @@ protected:
                 dfptr += jacSize * ndf;
             }
 
-            // advance input by m_coordDim-1 componennts since have already
-            // advanced one component in the above
+            // Advance input by m_coordDim-1 componennts since have already
+            // advanced one component in the above.
             inptr += nqTot * NumElmtGroups * (m_coordDim - 1);
         }
     }
@@ -740,8 +740,8 @@ protected:
                 dfptr += jacSize * ndf;
             }
 
-            // advance input by m_coordDim-1 componennts since have already
-            // advanced one component in the above
+            // Advance input by m_coordDim-1 componennts since have already
+            // advanced one component in the above.
             inptr += nqTot * NumElmtGroups * 2;
         }
     }
@@ -858,8 +858,8 @@ protected:
                 dfptr += jacSize * ndf;
             }
 
-            // advance input by m_coordDim-1 componennts since have already
-            // advanced one component in the above
+            // Advance input by m_coordDim-1 componennts since have already
+            // advanced one component in the above.
             inptr += nqTot * NumElmtGroups * 2;
         }
     }

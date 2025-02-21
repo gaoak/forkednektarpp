@@ -166,6 +166,7 @@ public:
                     });
             }
 
+            // Increment pointer.
             inptr += inblock.size();
             outptr += m_coordDim * outblock.size();
         }

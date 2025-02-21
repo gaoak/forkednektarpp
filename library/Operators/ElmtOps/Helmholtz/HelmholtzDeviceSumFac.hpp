@@ -409,6 +409,7 @@ protected:
                 m_coordDim, nm0, nq0, nElmtsPad, m_B[0], m_D[0], m_W[0], dfptr,
                 jacptr, diffptr, inptr, outptr, wspptr, this->m_lambda);
 
+            // Increment pointers.
             inptr += inblock.size();
             outptr += outblock.size();
         }
@@ -472,6 +473,7 @@ protected:
                 m_coordDim, nElmtsPad, m_B[0], m_D[0], m_W[0], dfptr, jacptr,
                 diffptr, inptr, outptr, wspptr, this->m_lambda);
 
+            // Increment pointers.
             inptr += inblock.size();
             outptr += outblock.size();
         }
@@ -543,6 +545,7 @@ protected:
                 m_f[0], m_f[1], dfptr, jacptr, diffptr, inptr, outptr, wspptr,
                 this->m_lambda);
 
+            // Increment pointers.
             inptr += inblock.size();
             outptr += outblock.size();
         }
@@ -609,6 +612,7 @@ protected:
                 m_D[0], m_D[1], m_W[0], m_W[1], m_f[0], m_f[1], dfptr, jacptr,
                 diffptr, inptr, outptr, wspptr, this->m_lambda);
 
+            // Increment pointers.
             inptr += inblock.size();
             outptr += outblock.size();
         }
@@ -683,6 +687,7 @@ protected:
                 m_f[1], m_f[2], m_f[3], dfptr, jacptr, diffptr, inptr, outptr,
                 wspptr, this->m_lambda);
 
+            // Increment pointers.
             inptr += inblock.size();
             outptr += outblock.size();
         }
@@ -750,6 +755,7 @@ protected:
                 m_W[0], m_W[1], m_W[2], m_f[0], m_f[1], m_f[2], m_f[3], dfptr,
                 jacptr, diffptr, inptr, outptr, wspptr, this->m_lambda);
 
+            // Increment pointers.
             inptr += inblock.size();
             outptr += outblock.size();
         }

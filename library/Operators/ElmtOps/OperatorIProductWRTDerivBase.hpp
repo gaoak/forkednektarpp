@@ -54,6 +54,18 @@ public:
 
     ~BlockOperatorIProductWRTDerivBase() override = default;
 
+    static std::shared_ptr<BlockOperatorIProductWRTDerivBase<TData>> Create(
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
+        std::string implStr)
+    {
+        return BlockOperator<TData>::template Create<
+            BlockOperatorIProductWRTDerivBase<TData>>(exp, dataWarehouse,
+                                                      execStr, implStr);
+    }
+
+    static constexpr char name[] = "BlockIProductWRTDerivBase";
+
     virtual void apply(BlockAccessor<TData> &inblock,
                        BlockAccessor<TData> &outblock) = 0;
 
@@ -70,24 +82,6 @@ public:
 
 protected:
     bool m_append = false;
-};
-
-// Descriptor / traits class for BlockIProductWRTDerivBase
-template <typename TData> struct BlockIProductWRTDerivBase
-{
-    using class_name = BlockOperatorIProductWRTDerivBase<TData>;
-
-    BlockIProductWRTDerivBase() = delete;
-
-    template <typename ExecSpace, typename Impl>
-    static std::shared_ptr<class_name> Create(
-        const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse)
-    {
-        return BlockOperator<TData>::template Create<
-            BlockIProductWRTDerivBase<TData>, ExecSpace, Impl>(exp,
-                                                               dataWarehouse);
-    }
 };
 
 // IProductWRTDerivBase base class
@@ -107,6 +101,42 @@ public:
     }
 
     ~OperatorIProductWRTDerivBase() override = default;
+
+    static std::shared_ptr<OperatorIProductWRTDerivBase<TData>> Create(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::string &execStr = "", const std::string &implStr = "")
+    {
+        auto session = expansionList->GetSession();
+
+        std::string execStr0 =
+            (execStr == "")
+                ? session->GetCmdLineArgument<std::string>("opExecSpace")
+                : execStr;
+        std::string implStr0 =
+            (implStr == "") ? session->GetCmdLineArgument<std::string>("opImpl")
+                            : implStr;
+
+        auto IProductWRTDerivBaseOp = Operator<TData>::template Create<
+            OperatorIProductWRTDerivBase<TData>>(expansionList, execStr0,
+                                                 implStr0);
+
+        auto blocks =
+            GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
+
+        // Loop over the blocks.
+        for (auto &block : blocks)
+        {
+            IProductWRTDerivBaseOp->m_blockOperator.push_back(
+                BlockOperatorIProductWRTDerivBase<TData>::Create(
+                    expansionList->GetExp(block.GetExpIdx()),
+                    expansionList->GetDataWarehouseSharedPtr(), execStr0,
+                    implStr0));
+        }
+
+        return IProductWRTDerivBaseOp;
+    }
+
+    static constexpr char name[] = "IProductWRTDerivBase";
 
     void apply(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Coeff> &out) override
@@ -145,38 +175,6 @@ public:
 protected:
     std::vector<std::shared_ptr<BlockOperatorIProductWRTDerivBase<TData>>>
         m_blockOperator;
-};
-
-// Descriptor / traits class for IProductWRTDerivBase
-template <typename TData> struct IProductWRTDerivBase
-{
-    using class_name = OperatorIProductWRTDerivBase<TData>;
-
-    IProductWRTDerivBase() = delete;
-
-    template <typename ExecSpace, typename Impl>
-    static std::shared_ptr<class_name> Create(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-    {
-        auto IProductWRTDerivBaseOp =
-            Operator<TData>::template Create<IProductWRTDerivBase<TData>,
-                                             ExecSpace, Impl>(expansionList);
-
-        auto blocks =
-            GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
-
-        // Loop over the blocks.
-        for (auto &block : blocks)
-        {
-            IProductWRTDerivBaseOp->m_blockOperator.push_back(
-                BlockIProductWRTDerivBase<TData>::template Create<ExecSpace,
-                                                                  Impl>(
-                    expansionList->GetExp(block.GetExpIdx()),
-                    expansionList->GetDataWarehouseSharedPtr()));
-        }
-
-        return IProductWRTDerivBaseOp;
-    }
 };
 
 } // namespace Nektar::Operators

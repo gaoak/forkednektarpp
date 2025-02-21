@@ -205,6 +205,7 @@ public:
                            m_nqTot, alpha, outptr, m_nmTot);
             }
 
+            // Increment pointers.
             inptr += m_coordDim * inblock.size();
             outptr += outblock.size();
         }

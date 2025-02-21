@@ -51,6 +51,26 @@ public:
 
     ~OperatorConjGrad() override = default;
 
+    static std::shared_ptr<OperatorConjGrad<TData>> Create(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::string &execStr = "", const std::string &implStr = "")
+    {
+        auto session = expansionList->GetSession();
+
+        std::string execStr0 =
+            (execStr == "")
+                ? session->GetCmdLineArgument<std::string>("opExecSpace")
+                : execStr;
+        std::string implStr0 =
+            (implStr == "") ? session->GetCmdLineArgument<std::string>("opImpl")
+                            : implStr;
+
+        return Operator<TData>::template Create<OperatorConjGrad<TData>>(
+            expansionList, execStr0, implStr0);
+    }
+
+    static constexpr char name[] = "ConjGrad";
+
     virtual void apply(Field<TData, FieldState::Coeff> &in,
                        Field<TData, FieldState::Coeff> &out) = 0;
 
@@ -78,22 +98,6 @@ protected:
         m_LHS;
     std::shared_ptr<OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>>
         m_precon;
-};
-
-// Descriptor / traits class for ConjGrad to be used by Operator create function
-template <typename TData> struct ConjGrad
-{
-    using class_name = OperatorConjGrad<TData>;
-
-    ConjGrad() = delete;
-
-    template <typename ExecSpace, typename Impl>
-    static std::shared_ptr<class_name> Create(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-    {
-        return Operator<TData>::template Create<ConjGrad<TData>, ExecSpace,
-                                                Impl>(expansionList);
-    }
 };
 
 } // namespace Nektar::Operators

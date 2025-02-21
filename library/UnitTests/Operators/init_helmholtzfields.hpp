@@ -73,10 +73,9 @@ public:
         ExpectedSolution();
     }
 
-    template <typename ExecSpace, typename Impl> void RunTestCase()
+    void RunTestCase()
     {
-        auto HelmholtzOp =
-            Helmholtz<double>::template Create<ExecSpace, Impl>(fixt_explist);
+        auto HelmholtzOp = OperatorHelmholtz<double>::Create(fixt_explist);
         HelmholtzOp->SetLambda(m_lambda);
         HelmholtzOp->apply(*fixt_in, *fixt_out);
     }

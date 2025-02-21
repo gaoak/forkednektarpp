@@ -133,18 +133,21 @@ using DeviceSpace = HostSpace;
 // Execution space.
 struct Serial
 {
+    static constexpr char name[]      = "Serial";
     using memory_space                = NektarSpaces::HostSpace;
     static constexpr size_t alignment = tinysimd::simd<double>::alignment;
 };
 
 struct AVX
 {
+    static constexpr char name[]      = "AVX";
     using memory_space                = NektarSpaces::HostSpace;
     static constexpr size_t alignment = tinysimd::simd<double>::alignment;
 };
 
 struct CUDA
 {
+    static constexpr char name[]      = "CUDA";
     using memory_space                = NektarSpaces::DeviceSpace;
     static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
     static constexpr unsigned int defaultBlockSize = 256u;
@@ -153,6 +156,7 @@ struct CUDA
 
 struct HIP
 {
+    static constexpr char name[]      = "HIP";
     using memory_space                = NektarSpaces::DeviceSpace;
     static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
     static constexpr unsigned int defaultBlockSize = 256u;
@@ -161,7 +165,8 @@ struct HIP
 
 struct SYCL
 {
-    using memory_space = NektarSpaces::DeviceSpace;
+    static constexpr char name[] = "SYCL";
+    using memory_space           = NektarSpaces::DeviceSpace;
 #if defined(SYCL_ENABLE_CUDA)
     static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
 #if defined(NEKTAR_DEBUG)
@@ -179,7 +184,8 @@ struct SYCL
 
 struct KOKKOS
 {
-    using memory_space = NektarSpaces::DeviceSpace;
+    static constexpr char name[] = "Kokkos";
+    using memory_space           = NektarSpaces::DeviceSpace;
 #if defined(KOKKOS_ENABLE_CUDA)
     static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
     static constexpr unsigned int defaultBlockSize = 256u;

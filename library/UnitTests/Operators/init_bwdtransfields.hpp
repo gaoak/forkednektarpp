@@ -72,10 +72,9 @@ public:
         ExpectedSolution();
     }
 
-    template <typename ExecSpace, typename Impl> void RunTestCase()
+    void RunTestCase()
     {
-        auto BwdTransOp =
-            BwdTrans<double>::template Create<ExecSpace, Impl>(fixt_explist);
+        auto BwdTransOp = OperatorBwdTrans<double>::Create(fixt_explist);
         BwdTransOp->apply(*fixt_in, *fixt_out);
     }
 

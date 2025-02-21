@@ -53,9 +53,8 @@ public:
     OperatorNullPreconImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorNullPrecon<TData>(expansionList)
     {
-        m_assmbScatrOp =
-            AssmbScatr<TData>::template Create<ExecSpace, Implementation>(
-                this->m_expansionList);
+        m_assmbScatrOp = OperatorAssmbScatr<TData>::Create(
+            this->m_expansionList, ExecSpace::name, Implementation::name);
     }
 
     void apply(Field<TData, FieldState::Coeff> &in,

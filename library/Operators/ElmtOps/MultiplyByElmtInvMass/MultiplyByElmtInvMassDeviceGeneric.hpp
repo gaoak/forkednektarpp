@@ -113,6 +113,8 @@ public:
                     handle, "N", "N", m_nmTot, 1, m_nmTot, alpha, dmatptr,
                     m_nmTot, m_nmTot * m_nmTot, inptr, m_nmTot, m_nmTot, beta,
                     outptr, m_nmTot, m_nmTot, nElmts);
+
+                // Increment pointer.
                 inptr += inblock.size();
                 outptr += outblock.size();
             }
@@ -133,16 +135,20 @@ public:
                     inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
                     (TData *)inptr);
 
+                // Perform matrix-matrix multiply.
                 deviceGemm(handle, "N", "N", m_nmTot, nElmts, m_nmTot, alpha,
                            m_matptr, m_nmTot, inptr, m_nmTot, beta, outptr,
                            m_nmTot);
 
                 auto nmTot = m_nmTot;
 
+                // Divide by Jacobian.
                 Nektar::parallel_for<ExecSpace>(
                     0, nElmts * m_nmTot, NEKTAR_LAMBDA(const unsigned int i) {
                         outptr[i] /= jacptr[i / nmTot];
                     });
+
+                // Increment pointer.
                 inptr += inblock.size();
                 outptr += outblock.size();
             }

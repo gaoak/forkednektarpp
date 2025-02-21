@@ -51,26 +51,29 @@ public:
 
     ~OperatorRobBndCond() override = default;
 
+    static std::shared_ptr<OperatorRobBndCond<TData>> Create(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::string &execStr = "", const std::string &implStr = "")
+    {
+        auto session = expansionList->GetSession();
+
+        std::string execStr0 =
+            (execStr == "")
+                ? session->GetCmdLineArgument<std::string>("opExecSpace")
+                : execStr;
+        std::string implStr0 =
+            (implStr == "") ? session->GetCmdLineArgument<std::string>("opImpl")
+                            : implStr;
+
+        return Operator<TData>::template Create<OperatorRobBndCond<TData>>(
+            expansionList, execStr0, implStr0);
+    }
+
+    static constexpr char name[] = "RobBndCond";
+
     virtual void apply(Field<TData, FieldState::Coeff> &in,
                        Field<TData, FieldState::Coeff> &out,
                        const bool &negflag = false) = 0;
-};
-
-// Descriptor / traits class for RobBndCond to be used by Operator create
-// function
-template <typename TData> struct RobBndCond
-{
-    using class_name = OperatorRobBndCond<TData>;
-
-    RobBndCond() = delete;
-
-    template <typename ExecSpace, typename Impl>
-    static std::shared_ptr<class_name> Create(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-    {
-        return Operator<TData>::template Create<RobBndCond<TData>, ExecSpace,
-                                                Impl>(expansionList);
-    }
 };
 
 } // namespace Nektar::Operators

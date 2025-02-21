@@ -54,7 +54,7 @@ template <>
 std::string Operator@OPERATOR@Impl<@EXEC_MEM_SPACE_TAG@,
                              Operators::@Impl@, @TData@>::className =
     GetOperatorFactory<@TData@>().RegisterCreatorFunction(
-        std::string("@OPERATOR@@ExecSpace@@Impl@"),
+        std::string(Operator@OPERATOR@::name) + "@ExecSpace@@Impl@",
         Operator@OPERATOR@Impl<@EXEC_MEM_SPACE_TAG@,
                          Operators::@Impl@, @TData@>::instantiate,
         "...");

@@ -50,7 +50,7 @@ BOOST_AUTO_TEST_SUITE(TestMathSerial)
 
 BOOST_FIXTURE_TEST_CASE(serial_negkernel, MathKernels)
 {
-    Configure();
+    Configure("Serial");
     SetTestCase();
 
     // std results
@@ -68,7 +68,7 @@ BOOST_FIXTURE_TEST_CASE(serial_negkernel, MathKernels)
 
 BOOST_FIXTURE_TEST_CASE(serial_addkernel, MathKernels)
 {
-    Configure();
+    Configure("Serial");
     SetTestCase();
 
     // std results
@@ -86,7 +86,7 @@ BOOST_FIXTURE_TEST_CASE(serial_addkernel, MathKernels)
 
 BOOST_FIXTURE_TEST_CASE(serial_subkernel, MathKernels)
 {
-    Configure();
+    Configure("Serial");
     SetTestCase();
 
     // std results
@@ -104,7 +104,7 @@ BOOST_FIXTURE_TEST_CASE(serial_subkernel, MathKernels)
 
 BOOST_FIXTURE_TEST_CASE(serial_daxpykernel, MathKernels)
 {
-    Configure();
+    Configure("Serial");
     SetTestCase();
     double alpha = 1.5;
 
@@ -123,7 +123,7 @@ BOOST_FIXTURE_TEST_CASE(serial_daxpykernel, MathKernels)
 
 BOOST_FIXTURE_TEST_CASE(serial_divkernel, MathKernels)
 {
-    Configure();
+    Configure("Serial");
     SetTestCase();
 
     // std results
@@ -141,7 +141,7 @@ BOOST_FIXTURE_TEST_CASE(serial_divkernel, MathKernels)
 
 BOOST_FIXTURE_TEST_CASE(serial_sum, MathKernels)
 {
-    Configure();
+    Configure("Serial");
     SetTestCase();
 
     // std results
@@ -160,7 +160,7 @@ BOOST_FIXTURE_TEST_CASE(serial_sum, MathKernels)
 
 BOOST_FIXTURE_TEST_CASE(serial_max, MathKernels)
 {
-    Configure();
+    Configure("Serial");
     SetTestCase();
 
     // std results
@@ -179,7 +179,7 @@ BOOST_FIXTURE_TEST_CASE(serial_max, MathKernels)
 
 BOOST_FIXTURE_TEST_CASE(serial_min, MathKernels)
 {
-    Configure();
+    Configure("Serial");
     SetTestCase();
 
     // std results
@@ -198,7 +198,7 @@ BOOST_FIXTURE_TEST_CASE(serial_min, MathKernels)
 
 BOOST_FIXTURE_TEST_CASE(serial_innerproduct, MathKernels)
 {
-    Configure();
+    Configure("Serial");
     SetTestCase();
 
     // std results
@@ -218,7 +218,7 @@ BOOST_FIXTURE_TEST_CASE(serial_innerproduct, MathKernels)
 
 BOOST_FIXTURE_TEST_CASE(serial_l1norm, MathKernels)
 {
-    Configure();
+    Configure("Serial");
     SetTestCase();
 
     // std results
@@ -237,7 +237,7 @@ BOOST_FIXTURE_TEST_CASE(serial_l1norm, MathKernels)
 
 BOOST_FIXTURE_TEST_CASE(serial_l2norm, MathKernels)
 {
-    Configure();
+    Configure("Serial");
     SetTestCase();
 
     // std results
@@ -257,7 +257,7 @@ BOOST_FIXTURE_TEST_CASE(serial_l2norm, MathKernels)
 
 BOOST_FIXTURE_TEST_CASE(serial_lpnorm, MathKernels)
 {
-    Configure();
+    Configure("Serial");
     SetTestCase();
 
     for (unsigned int p = 1; p < 4; p++)
@@ -280,7 +280,7 @@ BOOST_FIXTURE_TEST_CASE(serial_lpnorm, MathKernels)
 
 BOOST_FIXTURE_TEST_CASE(serial_linfnorm, MathKernels)
 {
-    Configure();
+    Configure("Serial");
     SetTestCase();
 
     // std results

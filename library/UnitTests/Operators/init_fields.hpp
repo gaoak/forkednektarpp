@@ -85,8 +85,6 @@ using namespace Nektar;
 
 struct GlobalConfiguration
 {
-    std::string testModule{STRVX(BOOST_TEST_MODULE)};
-
     GlobalConfiguration()
     {
         [[maybe_unused]] int argc =
@@ -179,8 +177,9 @@ public:
         }
     }
 
-    void Configure(unsigned int nin = 1, unsigned int nout = 1,
-                   double scale_out = 1.0)
+    void Configure(const std::string &execStr = "none",
+                   const std::string &implStr = "none", unsigned int nin = 1,
+                   unsigned int nout = 1, double scale_out = 1.0)
     {
         BOOST_TEST_MESSAGE("Creating input and output fields");
         // Initialise a session, graph and Create an expansion list
@@ -189,10 +188,12 @@ public:
         // Construct a fake command-line argument array to be fed to
         // Session::Reader::CreateInstance. The first element stands for
         // the name of the executable which, in our case, doesn't matter.
-        int argc    = 2;
+        int argc    = 4;
         char **argv = new char *[argc];
         argv[0]     = strdup("exe_name");
         argv[1]     = meshName.data();
+        argv[2]     = strdup(("--opExecSpace=" + execStr).c_str());
+        argv[3]     = strdup(("--opImpl=" + implStr).c_str());
 
         session = LibUtilities::SessionReader::CreateInstance(argc, argv);
         graph   = SpatialDomains::MeshGraphIO::Read(session);
@@ -254,20 +255,25 @@ public:
             blocks_out = GetBlockAttributes<TData>(stateOut, fixt_explist);
         }
 
-        if (testModule.find("AVX") != std::string::npos)
+        std::string execName;
+        if (session->DefinesCmdLineArgument("opExecSpace"))
+        {
+            execName = session->GetCmdLineArgument<std::string>("opExecSpace");
+        }
+
+        if (execName == "AVX")
         {
             alignment = NektarSpaces::AVX::alignment;
         }
-        else if (testModule.find("CUDA") != std::string::npos)
+        else if (execName == "CUDA")
         {
             alignment = NektarSpaces::CUDA::alignment;
         }
-        else if (testModule.find("SYCL") != std::string::npos)
+        else if (execName == "SYCL")
         {
             alignment = NektarSpaces::SYCL::alignment;
         }
-        else if (testModule.find("Kokkos") != std::string::npos ||
-                 testModule.find("KOKKOS") != std::string::npos)
+        else if (execName == "Kokkos")
         {
             alignment = NektarSpaces::KOKKOS::alignment;
         }

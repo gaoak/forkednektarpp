@@ -41,8 +41,7 @@
  *
  *  Benchmark/profile the elemental operators and print out the
  *  performance statistics, e.g. elapsed time, throughput, ndofs. Users can
- *  customize which operators, implementations(StdMat, SumFac), execution
- *  spaces(AVX, CUDA, SYCL), and data types(float, doubule) to be profiled.
+ *  customize which operators and data types(float, doubule) to be profiled.
  *
  * Usage:
  *
@@ -58,6 +57,12 @@
  *      contains correct EXPANSIONS definitions.
  *
  *  3.  Run the profiler executable with the mesh file and other parameters.
+ *      --opExecSpace=Serial
+ *              specify the execution space. Possible values are: Serial, AVX
+ *              CUDA, SYCL, and Kokkos
+ *      --opImpl=StdMat
+ *              specify the implementation. Possible values are: StdMat, SumFac,
+ *              and SumFacQP
  *      -P Ntest=100
  *              number of repeated runs for each operator. Usually a operator
  *              takes very short time to finish, so we need to repeat it many
@@ -74,16 +79,19 @@
  *      Examples:
  *
  *      # So far We can only launch serial run on GPUs:
- *          ./ProfilerElmtOps mesh.xml -P Ntest=100 -P order=5 -verbose
+ *          ./ProfilerElmtOps mesh.xml --opExecSpace=Serial --opImpl=StdMat
+ *          -P Ntest=100 -P order=5 -verbose
  *
  *      # To squeeze all the performance of CPU, typically we launch as many
  *      # processes as the number of cores on a machine:
- *          mpirun -np 12 ./ProfilerElmtOps mesh.xml -P Ntest=200 -P order=3
+ *          mpirun -np 12 ./ProfilerElmtOps mesh.xml --opExecSpace=Serial
+ *          --opImpl=StdMat -P Ntest=200 -P order=3
  *
  *      # Launch likwid and use 18 processes per socket(CPU package), MEM_DP
  *      # tells likwid to measure memory and flops performance, This is
  *      # usually for a roofline analysis:
  *          likwid-mpirun -nperdomain S:18 -m -g MEM_DP ./ProfilerElmtOps
+ *          --opExecSpace=Serial --opImpl=StdMat
  * mesh.xml
  *
  *  4.  likwid is a powerful tool to measure the performance of the CPU/GPI,
@@ -134,35 +142,53 @@ int main(int argc, char *argv[])
 
     auto nDim = explist->GetGraph()->GetSpaceDimension();
 
+    // Print GPU properties
+#if defined(NEKTAR_ENABLE_CUDA)
+    if (session->GetComm()->GetRank() == 0) // print the summaryi
+    {
+        cudaDeviceProp prop;
+        cudaGetDeviceProperties(&prop, 0);
+        std::cout << "--------------------------------" << std::endl;
+        std::cout << "Device Properties " << std::endl;
+        std::cout << "--------------------------------" << std::endl;
+        printf("  Device name: %s\n", prop.name);
+        printf("  Memory Clock Rate (KHz): %d\n", prop.memoryClockRate);
+        printf("  Memory Bus Width (bits): %d\n", prop.memoryBusWidth);
+        printf("  Peak Memory Bandwidth (GB/s): %f\n",
+               2.0 * prop.memoryClockRate * (prop.memoryBusWidth / 8) / 1.0e6);
+        printf("  Number of multiprocessors: %d\n", prop.multiProcessorCount);
+    }
+#endif
+
     // You can add/remove the operators to be profiled as you like.
     // Benchmark-double
-    LaunchProfiler<BwdTrans<double>, FieldState::Coeff, FieldState::Phys,
-                   double>(explist, Ntest, 1, 1);
-    LaunchProfiler<IProductWRTBase<double>, FieldState::Phys, FieldState::Coeff,
-                   double>(explist, Ntest, 1, 1);
-    LaunchProfiler<PhysDeriv<double>, FieldState::Phys, FieldState::Phys,
-                   double>(explist, Ntest, 1, nDim);
-    LaunchProfiler<IProductWRTDerivBase<double>, FieldState::Phys,
+    LaunchProfiler<OperatorBwdTrans<double>, FieldState::Coeff,
+                   FieldState::Phys, double>(explist, Ntest, 1, 1);
+    LaunchProfiler<OperatorIProductWRTBase<double>, FieldState::Phys,
+                   FieldState::Coeff, double>(explist, Ntest, 1, 1);
+    LaunchProfiler<OperatorPhysDeriv<double>, FieldState::Phys,
+                   FieldState::Phys, double>(explist, Ntest, 1, nDim);
+    LaunchProfiler<OperatorIProductWRTDerivBase<double>, FieldState::Phys,
                    FieldState::Coeff, double>(explist, Ntest, nDim, 1);
-    LaunchProfiler<Helmholtz<double>, FieldState::Coeff, FieldState::Coeff,
+    LaunchProfiler<OperatorHelmholtz<double>, FieldState::Coeff,
+                   FieldState::Coeff, double>(explist, Ntest, 1, 1);
+    LaunchProfiler<OperatorMass<double>, FieldState::Coeff, FieldState::Coeff,
                    double>(explist, Ntest, 1, 1);
-    LaunchProfiler<Mass<double>, FieldState::Coeff, FieldState::Coeff, double>(
-        explist, Ntest, 1, 1);
 
 #if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
     // Benchmark-float
-    LaunchProfiler<BwdTrans<float>, FieldState::Coeff, FieldState::Phys, float>(
-        explist, Ntest, 1, 1);
-    LaunchProfiler<IProductWRTBase<float>, FieldState::Phys, FieldState::Coeff,
+    LaunchProfiler<OperatorBwdTrans<float>, FieldState::Coeff, FieldState::Phys,
                    float>(explist, Ntest, 1, 1);
-    LaunchProfiler<PhysDeriv<float>, FieldState::Phys, FieldState::Phys, float>(
-        explist, Ntest, 1, nDim);
-    LaunchProfiler<IProductWRTDerivBase<float>, FieldState::Phys,
+    LaunchProfiler<OperatorIProductWRTBase<float>, FieldState::Phys,
+                   FieldState::Coeff, float>(explist, Ntest, 1, 1);
+    LaunchProfiler<OperatorPhysDeriv<float>, FieldState::Phys, FieldState::Phys,
+                   float>(explist, Ntest, 1, nDim);
+    LaunchProfiler<OperatorIProductWRTDerivBase<float>, FieldState::Phys,
                    FieldState::Coeff, float>(explist, Ntest, nDim, 1);
-    LaunchProfiler<Helmholtz<float>, FieldState::Coeff, FieldState::Coeff,
+    LaunchProfiler<OperatorHelmholtz<float>, FieldState::Coeff,
+                   FieldState::Coeff, float>(explist, Ntest, 1, 1);
+    LaunchProfiler<OperatorMass<float>, FieldState::Coeff, FieldState::Coeff,
                    float>(explist, Ntest, 1, 1);
-    LaunchProfiler<Mass<float>, FieldState::Coeff, FieldState::Coeff, float>(
-        explist, Ntest, 1, 1);
 #endif
 
     LIKWID_MARKER_CLOSE;

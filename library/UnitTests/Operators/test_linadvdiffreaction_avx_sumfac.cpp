@@ -43,11 +43,9 @@
 #define TEST_LINADVDIFFREACTION(test_name, test, tol)                          \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        using ExecSpace = NektarSpaces::AVX;                                   \
-        using Impl      = Operators::SumFac;                                   \
-        Configure(2, 2);                                                       \
+        Configure("AVX", "SumFac", 2, 2);                                      \
         SetTestCase();                                                         \
-        RunTestCase<ExecSpace, Impl>();                                        \
+        RunTestCase();                                                         \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
             BOOST_TEST(Compare(tol));                                          \

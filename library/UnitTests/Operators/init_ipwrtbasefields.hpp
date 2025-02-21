@@ -74,11 +74,10 @@ public:
         ExpectedSolution();
     }
 
-    template <typename ExecSpace, typename Impl> void RunTestCase()
+    void RunTestCase()
     {
         auto IProductWRTBaseOp =
-            IProductWRTBase<double>::template Create<ExecSpace, Impl>(
-                fixt_explist);
+            OperatorIProductWRTBase<double>::Create(fixt_explist);
         IProductWRTBaseOp->apply(*fixt_in, *fixt_out);
     }
 

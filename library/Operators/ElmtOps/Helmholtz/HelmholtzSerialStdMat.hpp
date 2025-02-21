@@ -69,20 +69,19 @@ public:
             diffCoeff[d * nCoord + d] = 1.0; // temporary solution
         }
 
-        this->m_BwdTransOp =
-            BlockBwdTrans<TData>::template Create<ExecSpace, Implementation>(
-                this->m_exp, this->m_dataWarehouse);
-        this->m_PhysDerivOp =
-            BlockPhysDeriv<TData>::template Create<ExecSpace, Implementation>(
-                this->m_exp, this->m_dataWarehouse);
-        this->m_IProductWRTBaseOp =
-            BlockIProductWRTBase<TData>::template Create<ExecSpace,
-                                                         Implementation>(
-                this->m_exp, this->m_dataWarehouse);
+        this->m_BwdTransOp = BlockOperatorBwdTrans<TData>::Create(
+            this->m_exp, this->m_dataWarehouse, ExecSpace::name,
+            Implementation::name);
+        this->m_PhysDerivOp = BlockOperatorPhysDeriv<TData>::Create(
+            this->m_exp, this->m_dataWarehouse, ExecSpace::name,
+            Implementation::name);
+        this->m_IProductWRTBaseOp = BlockOperatorIProductWRTBase<TData>::Create(
+            this->m_exp, this->m_dataWarehouse, ExecSpace::name,
+            Implementation::name);
         this->m_IProductWRTDerivBaseOp =
-            BlockIProductWRTDerivBase<TData>::template Create<ExecSpace,
-                                                              Implementation>(
-                this->m_exp, this->m_dataWarehouse);
+            BlockOperatorIProductWRTDerivBase<TData>::Create(
+                this->m_exp, this->m_dataWarehouse, ExecSpace::name,
+                Implementation::name);
 
         this->m_IProductWRTDerivBaseOp->SetAppend(true);
     }
