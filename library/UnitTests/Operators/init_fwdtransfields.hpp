@@ -34,8 +34,8 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/GlobalLinSysOps/OperatorFwdTrans.hpp"
-#include "Operators/PreconOps/OperatorDiagPrecon.hpp"
+#include "Operators/GlobalLinSysOps/FwdTrans/OperatorFwdTrans.hpp"
+#include "Operators/PreconOps/DiagPrecon/OperatorDiagPrecon.hpp"
 
 #include <MultiRegions/ContField.h>
 

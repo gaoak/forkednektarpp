@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/OperatorIProductWRTDerivBase.hpp"
+#include "Operators/ElmtOps/IProductWRTDerivBase/OperatorIProductWRTDerivBase.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseSerialAVXSumFacKernels.hpp"

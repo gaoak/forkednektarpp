@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/OperatorPhysInterp1DScaled.hpp"
+#include "Operators/ElmtOps/PhysInterp1DScaled/OperatorPhysInterp1DScaled.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
 // interpolation is just a bwd trans from a nodal basis so using these kernels

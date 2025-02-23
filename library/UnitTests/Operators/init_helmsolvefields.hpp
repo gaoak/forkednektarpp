@@ -34,8 +34,8 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/GlobalLinSysOps/OperatorHelmSolve.hpp"
-#include "Operators/PreconOps/OperatorDiagPrecon.hpp"
+#include "Operators/GlobalLinSysOps/HelmSolve/OperatorHelmSolve.hpp"
+#include "Operators/PreconOps/DiagPrecon/OperatorDiagPrecon.hpp"
 
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;

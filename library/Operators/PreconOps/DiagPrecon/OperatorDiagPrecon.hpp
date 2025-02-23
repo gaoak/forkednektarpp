@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: Operator.cpp
+// File: OperatorDiagPrecon.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,26 +32,42 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Operators/Common/Operator.hpp"
+#pragma once
 
-using namespace Nektar::LibUtilities;
+#include "Operators/PreconOps/OperatorPrecon.hpp"
 
 namespace Nektar::Operators
 {
 
-std::string cmdOpExecSpace = SessionReader::RegisterCmdLineArgument(
-    "opExecSpace", "", "Specify default ExecSpace");
-
-std::string cmdOpImpl = SessionReader::RegisterCmdLineArgument(
-    "opImpl", "", "Specify default Implementation");
-
-template <typename TData> OperatorFactory<TData> &GetOperatorFactory()
+// DiagPrecon base class
+// Defines the apply operator to enforce apply parameter types
+template <typename TData>
+class OperatorDiagPrecon : public OperatorPrecon<TData>
 {
-    static OperatorFactory<TData> instance;
-    return instance;
-}
+public:
+    ~OperatorDiagPrecon() override = default;
 
-template OperatorFactory<float> &GetOperatorFactory();
-template OperatorFactory<double> &GetOperatorFactory();
+    static std::shared_ptr<OperatorDiagPrecon<TData>> Create(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::string &execStr = "")
+    {
+        auto session = expansionList->GetSession();
+
+        std::string execStr0 =
+            (execStr == "")
+                ? session->GetCmdLineArgument<std::string>("opExecSpace")
+                : execStr;
+
+        return Operator<TData>::template Create<OperatorDiagPrecon<TData>>(
+            expansionList, execStr0);
+    }
+
+    static constexpr char name[] = "DiagPrecon";
+
+    OperatorDiagPrecon(const MultiRegions::ExpListSharedPtr &expansionList)
+        : OperatorPrecon<TData>(expansionList)
+    {
+    }
+};
 
 } // namespace Nektar::Operators

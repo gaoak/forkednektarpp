@@ -34,7 +34,7 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/ElmtOps/OperatorBwdTrans.hpp"
+#include "Operators/ElmtOps/BwdTrans/OperatorBwdTrans.hpp"
 
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;

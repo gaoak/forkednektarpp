@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: OperatorBwdTrans.hpp
+// File: OperatorMass.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -39,59 +39,54 @@
 namespace Nektar::Operators
 {
 
-template <typename TData> struct BwdTrans;
-
-template <typename TData>
-class BlockOperatorBwdTrans : public BlockOperator<TData>
+template <typename TData> class BlockOperatorMass : public BlockOperator<TData>
 {
 public:
-    BlockOperatorBwdTrans(const LocalRegions::ExpansionSharedPtr &exp,
-                          NekDataWarehouseSharedPtr dataWarehouse)
+    BlockOperatorMass(const LocalRegions::ExpansionSharedPtr &exp,
+                      NekDataWarehouseSharedPtr dataWarehouse)
         : BlockOperator<TData>(exp, dataWarehouse)
     {
     }
 
-    ~BlockOperatorBwdTrans() override = default;
+    ~BlockOperatorMass() override = default;
 
-    static std::shared_ptr<BlockOperatorBwdTrans<TData>> Create(
+    static std::shared_ptr<BlockOperatorMass<TData>> Create(
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
         std::string implStr)
     {
-        return BlockOperator<TData>::template Create<
-            BlockOperatorBwdTrans<TData>>(exp, dataWarehouse, execStr, implStr);
+        return BlockOperator<TData>::template Create<BlockOperatorMass<TData>>(
+            exp, dataWarehouse, execStr, implStr);
     }
 
-    static constexpr char name[] = "BlockBwdTrans";
+    static constexpr char name[] = "BlockMass";
 
     virtual void apply(BlockAccessor<TData> &inblock,
                        BlockAccessor<TData> &outblock) = 0;
 
-    virtual void operator()(BlockAccessor<TData> &inblock,
-                            BlockAccessor<TData> &outblock)
+    void operator()(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
     {
         this->apply(inblock, outblock);
     }
 };
 
-// BwdTrans base class
+// Mass base class
 // Defines the apply operator to enforce apply parameter types
 template <typename TData>
-class OperatorBwdTrans
-    : public OperatorElmt<FieldState::Coeff, FieldState::Phys, TData>
+class OperatorMass
+    : public OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>
 {
-    friend struct BwdTrans<TData>;
-
 public:
-    OperatorBwdTrans(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorElmt<FieldState::Coeff, FieldState::Phys, TData>(
+    OperatorMass(const MultiRegions::ExpListSharedPtr &expansionList)
+        : OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>(
               expansionList)
     {
     }
 
-    ~OperatorBwdTrans() override = default;
+    ~OperatorMass() override = default;
 
-    static std::shared_ptr<OperatorBwdTrans<TData>> Create(
+    static std::shared_ptr<OperatorMass<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &execStr = "", const std::string &implStr = "")
     {
@@ -105,9 +100,8 @@ public:
             (implStr == "") ? session->GetCmdLineArgument<std::string>("opImpl")
                             : implStr;
 
-        auto BwdTransOp =
-            Operator<TData>::template Create<OperatorBwdTrans<TData>>(
-                expansionList, execStr0, implStr0);
+        auto MassOp = Operator<TData>::template Create<OperatorMass<TData>>(
+            expansionList, execStr0);
 
         auto blocks =
             GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
@@ -115,20 +109,19 @@ public:
         // Loop over the blocks.
         for (auto &block : blocks)
         {
-            BwdTransOp->m_blockOperator.push_back(
-                BlockOperatorBwdTrans<TData>::Create(
-                    expansionList->GetExp(block.GetExpIdx()),
-                    expansionList->GetDataWarehouseSharedPtr(), execStr0,
-                    implStr0));
+            MassOp->m_blockOperator.push_back(BlockOperatorMass<TData>::Create(
+                expansionList->GetExp(block.GetExpIdx()),
+                expansionList->GetDataWarehouseSharedPtr(), execStr0,
+                implStr0));
         }
 
-        return BwdTransOp;
+        return MassOp;
     }
 
-    static constexpr char name[] = "BwdTrans";
+    static constexpr char name[] = "Mass";
 
     void apply(Field<TData, FieldState::Coeff> &in,
-               Field<TData, FieldState::Phys> &out) override
+               Field<TData, FieldState::Coeff> &out) override
     {
         ASSERTL1(in.GetNumComponents() == out.GetNumComponents(),
                  "Number of input and output components differ");
@@ -144,41 +137,14 @@ public:
         }
     }
 
-    virtual void operator()(Field<TData, FieldState::Coeff> &in,
-                            Field<TData, FieldState::Phys> &out)
+    void operator()(Field<TData, FieldState::Coeff> &in,
+                    Field<TData, FieldState::Coeff> &out)
     {
         this->apply(in, out);
     }
 
 protected:
-    std::vector<std::shared_ptr<BlockOperatorBwdTrans<TData>>> m_blockOperator;
+    std::vector<std::shared_ptr<BlockOperatorMass<TData>>> m_blockOperator;
 };
 
 } // namespace Nektar::Operators
-
-namespace Nektar::Operators::detail
-{
-
-template <typename ExecSpace, typename Implementation, typename TData>
-class OperatorBwdTransImpl : public OperatorBwdTrans<TData>
-{
-public:
-    OperatorBwdTransImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorBwdTrans<TData>(expansionList)
-    {
-    }
-
-    // className - for OperatorFactory
-    static std::string className;
-
-    // instantiation function for CreatorFunction in OperatorFactory
-    static std::unique_ptr<Operator<TData>> instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-    {
-        return std::make_unique<
-            OperatorBwdTransImpl<ExecSpace, Implementation, TData>>(
-            expansionList);
-    }
-};
-
-} // namespace Nektar::Operators::detail

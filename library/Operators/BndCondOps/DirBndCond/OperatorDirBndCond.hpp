@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: OperatorRobBndCond.hpp
+// File: OperatorDirBndCond.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -39,21 +39,22 @@
 namespace Nektar::Operators
 {
 
-// Robin boundary condition operator base class
+// Dirichlet boundary condition operator base class
 // Defines the apply operator to enforce apply parameter types
-template <typename TData> class OperatorRobBndCond : public Operator<TData>
+template <typename TData> class OperatorDirBndCond : public Operator<TData>
 {
+
 public:
-    OperatorRobBndCond(const MultiRegions::ExpListSharedPtr &expansionList)
+    OperatorDirBndCond(const MultiRegions::ExpListSharedPtr &expansionList)
         : Operator<TData>(expansionList)
     {
     }
 
-    ~OperatorRobBndCond() override = default;
+    ~OperatorDirBndCond() override = default;
 
-    static std::shared_ptr<OperatorRobBndCond<TData>> Create(
+    static std::shared_ptr<OperatorDirBndCond<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
-        const std::string &execStr = "", const std::string &implStr = "")
+        const std::string &execStr = "")
     {
         auto session = expansionList->GetSession();
 
@@ -61,19 +62,19 @@ public:
             (execStr == "")
                 ? session->GetCmdLineArgument<std::string>("opExecSpace")
                 : execStr;
-        std::string implStr0 =
-            (implStr == "") ? session->GetCmdLineArgument<std::string>("opImpl")
-                            : implStr;
 
-        return Operator<TData>::template Create<OperatorRobBndCond<TData>>(
-            expansionList, execStr0, implStr0);
+        return Operator<TData>::template Create<OperatorDirBndCond<TData>>(
+            expansionList, execStr0);
     }
 
-    static constexpr char name[] = "RobBndCond";
+    static constexpr char name[] = "DirBndCond";
 
-    virtual void apply(Field<TData, FieldState::Coeff> &in,
-                       Field<TData, FieldState::Coeff> &out,
-                       const bool &negflag = false) = 0;
+    virtual void apply(Field<TData, FieldState::Coeff> &out) = 0;
+
+    void operator()(Field<TData, FieldState::Coeff> &out)
+    {
+        apply(out);
+    }
 };
 
 } // namespace Nektar::Operators

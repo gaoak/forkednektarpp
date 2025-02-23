@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: OperatorMass.hpp
+// File: OperatorMultiplyByElmtInvMass.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -39,58 +39,66 @@
 namespace Nektar::Operators
 {
 
-template <typename TData> struct Mass;
-
-template <typename TData> class BlockOperatorMass : public BlockOperator<TData>
+template <typename TData>
+class BlockOperatorMultiplyByElmtInvMass : public BlockOperator<TData>
 {
 public:
-    BlockOperatorMass(const LocalRegions::ExpansionSharedPtr &exp,
-                      NekDataWarehouseSharedPtr dataWarehouse)
+    BlockOperatorMultiplyByElmtInvMass(
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse)
         : BlockOperator<TData>(exp, dataWarehouse)
     {
     }
 
-    ~BlockOperatorMass() override = default;
+    ~BlockOperatorMultiplyByElmtInvMass() override = default;
 
-    static std::shared_ptr<BlockOperatorMass<TData>> Create(
+    static std::shared_ptr<BlockOperatorMultiplyByElmtInvMass<TData>> Create(
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
         std::string implStr)
     {
-        return BlockOperator<TData>::template Create<BlockOperatorMass<TData>>(
-            exp, dataWarehouse, execStr, implStr);
+        return BlockOperator<TData>::template Create<
+            BlockOperatorMultiplyByElmtInvMass<TData>>(exp, dataWarehouse,
+                                                       execStr, implStr);
     }
 
-    static constexpr char name[] = "BlockMass";
+    static constexpr char name[] = "BlockMultiplyByElmtInvMass";
 
     virtual void apply(BlockAccessor<TData> &inblock,
                        BlockAccessor<TData> &outblock) = 0;
 
-    virtual void operator()(BlockAccessor<TData> &inblock,
-                            BlockAccessor<TData> &outblock)
+    void operator()(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
     {
         this->apply(inblock, outblock);
     }
+
+    void SetInvMassMatrix(std::vector<TData> &dmat)
+    {
+        v_SetInvMassMatrix(dmat);
+    }
+
+protected:
+    virtual void v_SetInvMassMatrix(std::vector<TData> &dmat) = 0;
 };
 
-// Mass base class
+// MultiplyByElmtInvMass base class
 // Defines the apply operator to enforce apply parameter types
 template <typename TData>
-class OperatorMass
+class OperatorMultiplyByElmtInvMass
     : public OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>
 {
-    friend struct Mass<TData>;
-
 public:
-    OperatorMass(const MultiRegions::ExpListSharedPtr &expansionList)
+    OperatorMultiplyByElmtInvMass(
+        const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>(
               expansionList)
     {
     }
 
-    ~OperatorMass() override = default;
+    ~OperatorMultiplyByElmtInvMass() override = default;
 
-    static std::shared_ptr<OperatorMass<TData>> Create(
+    static std::shared_ptr<OperatorMultiplyByElmtInvMass<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &execStr = "", const std::string &implStr = "")
     {
@@ -104,25 +112,51 @@ public:
             (implStr == "") ? session->GetCmdLineArgument<std::string>("opImpl")
                             : implStr;
 
-        auto MassOp = Operator<TData>::template Create<OperatorMass<TData>>(
-            expansionList, execStr0, implStr0);
+        auto MultiplyByElmtInvMassOp = Operator<TData>::template Create<
+            OperatorMultiplyByElmtInvMass<TData>>(expansionList, execStr0);
 
         auto blocks =
-            GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
+            GetBlockAttributes<TData>(FieldState::Phys, expansionList);
 
         // Loop over the blocks.
+        std::vector<TData> dmat;
         for (auto &block : blocks)
         {
-            MassOp->m_blockOperator.push_back(BlockOperatorMass<TData>::Create(
-                expansionList->GetExp(block.GetExpIdx()),
-                expansionList->GetDataWarehouseSharedPtr(), execStr0,
-                implStr0));
+            const auto exp   = expansionList->GetExp(block.GetExpIdx());
+            const auto nmTot = exp->GetNcoeffs();
+            const auto deformed =
+                exp->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed;
+            const auto nElmts = block.GetNumElements();
+
+            if (deformed)
+            {
+                dmat.resize(nElmts * nmTot * nmTot);
+                auto dmatptr = dmat.data();
+                for (unsigned int e = 0; e < nElmts; ++e)
+                {
+                    const auto exp =
+                        expansionList->GetExp(block.GetExpIdx() + e);
+                    const auto &InvMass =
+                        exp->GetLocMatrix(StdRegions::eInvMass);
+                    std::copy_n(InvMass->GetRawPtr(), nmTot * nmTot, dmatptr);
+                    dmatptr += nmTot * nmTot;
+                }
+            }
+
+            MultiplyByElmtInvMassOp->m_blockOperator.push_back(
+                BlockOperatorMultiplyByElmtInvMass<TData>::Create(
+                    expansionList->GetExp(block.GetExpIdx()),
+                    expansionList->GetDataWarehouseSharedPtr(), execStr0,
+                    implStr0));
+
+            MultiplyByElmtInvMassOp->m_blockOperator.back()->SetInvMassMatrix(
+                dmat);
         }
 
-        return MassOp;
+        return MultiplyByElmtInvMassOp;
     }
 
-    static constexpr char name[] = "Mass";
+    static constexpr char name[] = "MultiplyByElmtInvMass";
 
     void apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Coeff> &out) override
@@ -141,40 +175,15 @@ public:
         }
     }
 
-    virtual void operator()(Field<TData, FieldState::Coeff> &in,
-                            Field<TData, FieldState::Coeff> &out)
+    void operator()(Field<TData, FieldState::Coeff> &in,
+                    Field<TData, FieldState::Coeff> &out)
     {
         this->apply(in, out);
     }
 
 protected:
-    std::vector<std::shared_ptr<BlockOperatorMass<TData>>> m_blockOperator;
+    std::vector<std::shared_ptr<BlockOperatorMultiplyByElmtInvMass<TData>>>
+        m_blockOperator;
 };
 
 } // namespace Nektar::Operators
-
-namespace Nektar::Operators::detail
-{
-
-template <typename ExecSpace, typename Implementation, typename TData>
-class OperatorMassImpl : public OperatorMass<TData>
-{
-public:
-    OperatorMassImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorMass<TData>(expansionList)
-    {
-    }
-
-    // className - for OperatorFactory
-    static std::string className;
-
-    // instantiation function for CreatorFunction in OperatorFactory
-    static std::unique_ptr<Operator<TData>> instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-    {
-        return std::make_unique<
-            OperatorMassImpl<ExecSpace, Implementation, TData>>(expansionList);
-    }
-};
-
-} // namespace Nektar::Operators::detail

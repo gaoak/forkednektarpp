@@ -34,17 +34,16 @@
 
 #pragma once
 
-#include "Operators/PreconOps/OperatorNullPrecon.hpp"
+#include "Operators/PreconOps/NullPrecon/OperatorNullPrecon.hpp"
 
-#include "Operators/OperatorAssmbScatr.hpp"
+#include "Operators/AssmbScatr/OperatorAssmbScatr.hpp"
 
 using namespace Nektar;
 
 namespace Nektar::Operators::detail
 {
 
-// Generic implementation
-template <typename ExecSpace, typename Implementation, typename TData>
+template <typename ExecSpace, typename TData>
 class OperatorNullPreconImpl : public OperatorNullPrecon<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
@@ -54,7 +53,7 @@ public:
         : OperatorNullPrecon<TData>(expansionList)
     {
         m_assmbScatrOp = OperatorAssmbScatr<TData>::Create(
-            this->m_expansionList, ExecSpace::name, Implementation::name);
+            this->m_expansionList, ExecSpace::name);
     }
 
     void apply(Field<TData, FieldState::Coeff> &in,
@@ -76,8 +75,7 @@ public:
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return std::make_unique<
-            OperatorNullPreconImpl<ExecSpace, Implementation, TData>>(
+        return std::make_unique<OperatorNullPreconImpl<ExecSpace, TData>>(
             expansionList);
     }
 

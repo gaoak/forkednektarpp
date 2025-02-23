@@ -36,7 +36,7 @@
 
 #include <MultiRegions/ContField.h>
 
-#include "Operators/OperatorAssmbScatr.hpp"
+#include "Operators/AssmbScatr/OperatorAssmbScatr.hpp"
 
 #include "Operators/AssmbScatr/AssmbScatrCUDAKernels.cuh"
 #include "Operators/AssmbScatr/AssmbScatrKokkosKernels.hpp"
@@ -50,8 +50,7 @@ using namespace Nektar::Operators;
 namespace Nektar::Operators::detail
 {
 
-// Base implementation
-template <typename ExecSpace, typename Implementation, typename TData>
+template <typename ExecSpace, typename TData>
 class OperatorAssmbScatrImpl : public OperatorAssmbScatr<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
@@ -209,8 +208,7 @@ public:
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return std::make_unique<
-            OperatorAssmbScatrImpl<ExecSpace, Implementation, TData>>(
+        return std::make_unique<OperatorAssmbScatrImpl<ExecSpace, TData>>(
             expansionList);
     }
 

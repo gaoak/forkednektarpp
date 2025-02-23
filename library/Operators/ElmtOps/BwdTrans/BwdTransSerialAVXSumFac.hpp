@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/OperatorBwdTrans.hpp"
+#include "Operators/ElmtOps/BwdTrans/OperatorBwdTrans.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/BwdTrans/BwdTransSerialAVXSumFacKernels.hpp"

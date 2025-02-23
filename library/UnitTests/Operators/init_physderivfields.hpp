@@ -34,7 +34,7 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/ElmtOps/OperatorPhysDeriv.hpp"
+#include "Operators/ElmtOps/PhysDeriv/OperatorPhysDeriv.hpp"
 
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;

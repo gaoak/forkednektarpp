@@ -43,7 +43,6 @@ MACRO(ADD_OPERATOR dir)
     # Extract operator name form directory if it exists.
     IF(IS_DIRECTORY ${dir})
         GET_FILENAME_COMPONENT(name "${dir}" NAME)
-        MESSAGE("Name identified from dir: " "${name}")
     ELSE()
         CONTINUE()
     ENDIF()
@@ -64,19 +63,154 @@ MACRO(ADD_OPERATOR dir)
     # which requires two delcarations.
     SET(CONFIG_FILE OperatorFactoryDec.cpp.in)
 
-    IF("${name}" STREQUAL "BwdTrans" OR 
-       "${name}" STREQUAL "IProductWRTBase" OR 
-       "${name}" STREQUAL "IProductWRTDerivBase" OR 
-       "${name}" STREQUAL "PhysDeriv"  OR 
-       "${name}" STREQUAL "PhysInterp1DScaled"OR 
-       "${name}" STREQUAL "Helmholtz" OR
-       "${name}" STREQUAL "Mass" OR
-       "${name}" STREQUAL "MultiplyByElmtInvMass" OR
-       "${name}" STREQUAL "LinAdvDiffReaction")
-        # These operator have an additional argument for the FieldState
-        # which requires two delcarations.
-         SET(BLOCK_CONFIG_FILE BlockOperatorFactoryDec.cpp.in)
+    # Loop through each possible execution space.
+    FOREACH (ExecSpace IN LISTS ExecSpaces)
+    
+        # Set file extension.
+        IF("${ExecSpace}" STREQUAL "CUDA")
+            SET(SOURCE_EXT cu)
+            SET(HEADER_EXT cuh)
+        ELSE()
+            SET(SOURCE_EXT cpp)
+            SET(HEADER_EXT hpp)
+        ENDIF()
+
+        # Set execuation space - see Spaces.hpp
+        IF("${ExecSpace}" STREQUAL "Serial")
+            SET(EXEC_MEM_SPACE_TAG NEKTAR_DEFAULT_HOST_TAG)
+        ELSE()
+            SET(EXEC_MEM_SPACE_TAG NEKTAR_DEFAULT_DEVICE_TAG)
+        ENDIF()
+
+        # Loop through each possible data type.
+        FOREACH (TData IN LISTS DataTypes)
+            # Set up the name used for the .cpp declaration file.
+            SET(FactoryDeclName ${name}${ExecSpace}${TData}.${SOURCE_EXT})
+
+            # Get the source and header files for this operator,
+            # execution space, and implementation.
+            SET(CURRENT_HEADERS ${name}_${ExecSpace}_${Impl}_HEADERS)
+            SET(CURRENT_SOURCES ${name}_${ExecSpace}_${Impl}_SOURCES)
+                
+            # Get the headers matching the name, execution space, and
+            # Implementation (specific and kernel).
+            FILE(GLOB ${CURRENT_HEADERS} RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+                ${dir}/${name}${ExecSpace}${Impl}*.${HEADER_EXT})
+
+            # Found a impl header.
+            IF(EXISTS "${dir}/${name}Impl.hpp")
+                FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                    "${dir}/${name}Impl.hpp")
+                SET(IMPL_HEADER "#include \"${include_file}\"")
+                # Found a general kernel
+                IF(EXISTS "${dir}/${name}ImplKernels.hpp" )
+                    MESSAGE("Adding operator with a ${ExecSpace} implementation: " "${FactoryDeclName}")
+                # Found a specific kernel
+                ELSEIF(EXISTS "${dir}/${name}${ExecSpace}Kernels.${HEADER_EXT}")
+                    MESSAGE("Adding operator with a ${ExecSpace} implementation: " "${FactoryDeclName}")
+                ELSEIF(("${ExecSpace}" STREQUAL "Serial" AND EXISTS "${dir}/${name}SerialAVXKernels.hpp") OR
+                    ("${ExecSpace}" STREQUAL "AVX" AND EXISTS "${dir}/${name}SerialAVXKernels.hpp"))
+                    MESSAGE("Adding operator with a ${ExecSpace} implementation: " "${FactoryDeclName}")
+                ELSEIF(("${ExecSpace}" STREQUAL "CUDA" AND EXISTS "${dir}/${name}DeviceKernels.hpp") OR
+                    ("${ExecSpace}" STREQUAL "SYCL" AND EXISTS "${dir}/${name}DeviceKernels.hpp") OR
+                    ("${ExecSpace}" STREQUAL "Kokkos" AND EXISTS "${dir}/${name}DeviceKernels.hpp"))
+                    MESSAGE("Adding operator with a ${ExecSpace} implementation: " "${FactoryDeclName}")
+                # No kernel found
+                ELSEIF(NOT EXISTS "${dir}/${name}ImplKernels.hpp" AND
+                    NOT EXISTS "${dir}/${name}SerialKernels.hpp" AND
+                    NOT EXISTS "${dir}/${name}AVXKernels.hpp" AND
+                    NOT EXISTS "${dir}/${name}SerialAVXKernels.hpp" AND
+                    NOT EXISTS "${dir}/${name}CUDA.hpp" AND
+                    NOT EXISTS "${dir}/${name}SYCL.hpp" AND
+                    NOT EXISTS "${dir}/${name}Kokkos.hpp" AND
+                    NOT EXISTS "${dir}/${name}DeviceKernels.hpp")
+                    MESSAGE("Adding operator with a ${ExecSpace} implementation: " "${FactoryDeclName}")
+                ELSE()
+                    CONTINUE() # This avoid creating a *.cpp file
+                ENDIF()
+
+            # Found a Serial header.
+            ELSEIF((EXISTS "${dir}/${name}Serial.hpp") AND ("${ExecSpace}" STREQUAL "Serial"))
+                FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                    "${dir}/${name}Serial.hpp")
+                SET(IMPL_HEADER "#include \"${include_file}\"")
+                MESSAGE("Adding operator with a ${ExecSpace} implementation: " "${FactoryDeclName}")
+
+            # Found a AVX header.
+            ELSEIF((EXISTS "${dir}/${name}AVX.hpp") AND ("${ExecSpace}" STREQUAL "AVX"))
+                FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                    "${dir}/${name}AVX.hpp")
+                SET(IMPL_HEADER "#include \"${include_file}\"")
+                MESSAGE("Adding operator with a ${ExecSpace} implementation: " "${FactoryDeclName}")
+
+            # Found a Device header.
+            ELSEIF(EXISTS "${dir}/${name}DeviceSumFac.hpp" AND
+                ("${ExecSpace}" STREQUAL "CUDA" OR "${ExecSpace}" STREQUAL "SYCL" OR "${ExecSpace}" STREQUAL "Kokkos"))
+                FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                    "${dir}/${name}Device.hpp")
+                SET(IMPL_HEADER "#include \"${include_file}\"")
+                # Found general kernel
+                IF(EXISTS "${dir}/${name}DeviceKernels.hpp")
+                    MESSAGE("Adding operator with a ${ExecSpace} implementation: " "${FactoryDeclName}")
+                # Found specific kernel
+                ELSEIF(EXISTS "${dir}/${name}${ExecSpace}Kernels.${HEADER_EXT}")
+                    MESSAGE("Adding operator with a ${ExecSpace} implementation: " "${FactoryDeclName}")
+                # No kernel found, generic implementation
+                ELSEIF(
+                    NOT EXISTS "${dir}/${name}CUDAKernels.cuh" AND
+                    NOT EXISTS "${dir}/${name}SYCLKernels.hpp" AND
+                    NOT EXISTS "${dir}/${name}KokkosKernels.hpp" AND
+                    NOT EXISTS "${dir}/${name}DeviceKernels.hpp")
+                    MESSAGE("Adding operator with a ${ExecSpace} implementation: " "${FactoryDeclName}")
+                ELSE()
+                    CONTINUE() # This avoid creating a *.cpp file
+                ENDIF()
+
+            # No implementation, skip.
+            ELSE()
+                CONTINUE() # This avoid creating a *.cpp file
+            ENDIF()
+
+            # Create the cpp file from the implementation file.
+            CONFIGURE_FILE(${CONFIG_FILE} ${FactoryDeclName})
+
+            # Add the respective cpp file.
+            SET(${NAME_HEADERS} ${${NAME_HEADERS}} ${${CURRENT_HEADERS}})
+            SET(${CURRENT_SOURCES} ${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName})
+            SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${${CURRENT_SOURCES}})
+
+        ENDFOREACH()
+    ENDFOREACH()
+
+    # Add this operator's implemenations to the global operator source
+    # and header files.
+    SET(OPERATORS_HEADERS
+        ${OPERATORS_HEADERS}
+        ${${NAME_HEADERS}}
+        )
+    SET(OPERATORS_SOURCES
+        ${OPERATORS_SOURCES}
+        ${${NAME_SOURCES}}
+        )
+ENDMACRO()
+
+# Macro for each operator.
+MACRO(ADD_ELMT_OPERATOR dir)
+
+    # Extract operator name form directory if it exists.
+    IF(IS_DIRECTORY ${dir})
+        GET_FILENAME_COMPONENT(name "${dir}" NAME)
+    ELSE()
+        CONTINUE()
     ENDIF()
+
+    SET(NAME_HEADERS ${name}_HEADERS)
+    SET(NAME_SOURCES ${name}_SOURCES)
+    SET(OPERATOR ${name})
+
+    # These operator have an additional argument for the FieldState
+    # which requires two delcarations.
+    SET(CONFIG_FILE ElmtOps/BlockOperatorFactoryDec.cpp.in)
 
     # Check to see if shape specific BlockOpSwitch*.h files have
     # been generated and if not generate for later potential use.
@@ -140,9 +274,7 @@ MACRO(ADD_OPERATOR dir)
                     ENDFOREACH()
                 ENDFOREACH()
             ENDIF()
-        ENDIF()
-
-        IF("${ExecSpace}" STREQUAL "CUDA" OR "${ExecSpace}" STREQUAL "SYCL" OR 
+        ELSEIF("${ExecSpace}" STREQUAL "CUDA" OR "${ExecSpace}" STREQUAL "SYCL" OR 
            "${ExecSpace}" STREQUAL "Kokkos")
             SET(ExecSpaceName ${ExecSpace})
             IF("${ExecSpace}" STREQUAL "Kokkos")
@@ -201,18 +333,7 @@ MACRO(ADD_OPERATOR dir)
             # Loop through each possible data type.
             FOREACH (TData IN LISTS DataTypes)
                 # Set up the name used for the .cpp declaration file.
-                SET(FactoryDeclName ${name}${ExecSpace}${Impl}${TData}.${SOURCE_EXT})
-                IF("${name}" STREQUAL "BwdTrans" OR 
-                   "${name}" STREQUAL "IProductWRTBase" OR 
-                   "${name}" STREQUAL "IProductWRTDerivBase" OR 
-                   "${name}" STREQUAL "PhysDeriv"  OR 
-                   "${name}" STREQUAL "PhysInterp1DScaled" OR 
-                   "${name}" STREQUAL "Mass" OR 
-                   "${name}" STREQUAL "MultiplyByElmtInvMass" OR 
-                   "${name}" STREQUAL "Helmholtz" OR
-                   "${name}" STREQUAL "LinAdvDiffReaction")
-                    SET(BlockFactoryDeclName "Block${name}${ExecSpace}${Impl}${TData}.${SOURCE_EXT}")
-                ENDIF()
+                SET(FactoryDeclName "Block${name}${ExecSpace}${Impl}${TData}.${SOURCE_EXT}")
 
                 # Get the source and header files for this operator,
                 # execution space, and implementation.
@@ -309,38 +430,6 @@ MACRO(ADD_OPERATOR dir)
                         CONTINUE() # This avoid creating a *.cpp file
                     ENDIF()
 
-                # Found a impl header.
-                ELSEIF(EXISTS "${dir}/${name}Impl.hpp" AND NOT  "${Impl}" STREQUAL "Generic")
-                    FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                        "${dir}/${name}Impl.hpp")
-                    SET(IMPL_HEADER "#include \"${include_file}\"")
-                    # Found a general kernel
-                    IF(EXISTS "${dir}/${name}ImplKernels.hpp" )
-                        MESSAGE("Adding operator with a common implementation and a general kernel: " "${FactoryDeclName}")
-                    # Found a specific kernel
-                    ELSEIF(EXISTS "${dir}/${name}${ExecSpace}Kernels.${HEADER_EXT}")
-                        MESSAGE("Adding operator with a common implementation and a specific ${ExecSpace} kernel: " "${FactoryDeclName}")
-                    ELSEIF(("${ExecSpace}" STREQUAL "Serial" AND EXISTS "${dir}/${name}SerialAVXKernels.hpp") OR
-                        ("${ExecSpace}" STREQUAL "AVX" AND EXISTS "${dir}/${name}SerialAVXKernels.hpp"))
-                        MESSAGE("Adding operator with a common implementation and a unified Serial/AVX kernel: " "${FactoryDeclName}")
-                    ELSEIF(("${ExecSpace}" STREQUAL "CUDA" AND EXISTS "${dir}/${name}DeviceKernels.hpp") OR
-                        ("${ExecSpace}" STREQUAL "SYCL" AND EXISTS "${dir}/${name}DeviceKernels.hpp") OR
-                        ("${ExecSpace}" STREQUAL "Kokkos" AND EXISTS "${dir}/${name}DeviceKernels.hpp"))
-                        MESSAGE("Adding operator with a common implementation and a generic device kernel: " "${FactoryDeclName}")
-                    # No kernel found
-                    ELSEIF(NOT EXISTS "${dir}/${name}ImplKernels.hpp" AND
-                        NOT EXISTS "${dir}/${name}SerialKernels.hpp" AND
-                        NOT EXISTS "${dir}/${name}AVXKernels.hpp" AND
-                        NOT EXISTS "${dir}/${name}SerialAVXKernels.hpp" AND
-                        NOT EXISTS "${dir}/${name}CUDA.hpp" AND
-                        NOT EXISTS "${dir}/${name}SYCL.hpp" AND
-                        NOT EXISTS "${dir}/${name}Kokkos.hpp" AND
-                        NOT EXISTS "${dir}/${name}DeviceKernels.hpp")
-                        MESSAGE("Adding operator with a common implementation: " "${FactoryDeclName}")
-                    ELSE()
-                        CONTINUE() # This avoid creating a *.cpp file
-                    ENDIF()
-
                 # No implementation, skip.
                 ELSE()
                     CONTINUE() # This avoid creating a *.cpp file
@@ -349,39 +438,11 @@ MACRO(ADD_OPERATOR dir)
                 # Create the cpp file from the implementation file.
                 CONFIGURE_FILE(${CONFIG_FILE} ${FactoryDeclName})
 
-                IF("${name}" STREQUAL "BwdTrans" OR 
-                   "${name}" STREQUAL "IProductWRTBase" OR 
-                   "${name}" STREQUAL "IProductWRTDerivBase" OR 
-                   "${name}" STREQUAL "PhysDeriv"  OR 
-                   "${name}" STREQUAL "PhysInterp1DScaled" OR
-                   "${name}" STREQUAL "Mass" OR 
-                   "${name}" STREQUAL "MultiplyByElmtInvMass" OR 
-                   "${name}" STREQUAL "Helmholtz" OR
-                   "${name}" STREQUAL "LinAdvDiffReaction")
-                    CONFIGURE_FILE(${BLOCK_CONFIG_FILE} ${BlockFactoryDeclName})
-                ENDIF()
-
-                # Add the respective cpp file.
+                # Add this specific implementation to the operator's
+                # source and header files.
                 SET(${NAME_HEADERS} ${${NAME_HEADERS}} ${${CURRENT_HEADERS}})
                 SET(${CURRENT_SOURCES} ${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName})
                 SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${${CURRENT_SOURCES}})
-
-                IF("${name}" STREQUAL "BwdTrans" OR 
-                   "${name}" STREQUAL "IProductWRTBase" OR 
-                   "${name}" STREQUAL "IProductWRTDerivBase" OR 
-                   "${name}" STREQUAL "PhysDeriv"  OR 
-                   "${name}" STREQUAL "PhysInterp1DScaled" OR 
-                   "${name}" STREQUAL "Mass"  OR
-                   "${name}" STREQUAL "MultiplyByElmtInvMass"  OR
-                   "${name}" STREQUAL "Helmholtz" OR 
-                   "${name}" STREQUAL "LinAdvDiffReaction")
-
-                   SET(${CURRENT_SOURCES} ${CMAKE_CURRENT_BINARY_DIR}/${BlockFactoryDeclName})
-
-                   # Add this specific implementation to the operator's
-                   # source and header files.
-                   SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${${CURRENT_SOURCES}})
-                ENDIF()
             ENDFOREACH()
         ENDFOREACH()
     ENDFOREACH()
@@ -401,12 +462,14 @@ ENDMACRO()
 # Common header file.
 SET(OPERATORS_HEADERS
     Common/Operator.hpp
+    ElmtOps/OperatorElmt.hpp
     Utils/deviceBlas.hpp 
     )
 
 # Common source file.
 SET(OPERATORS_SOURCES
     Common/Operator.cpp
+    ElmtOps/OperatorElmt.cpp
     )
 
 # Only these cpp files go into the group set below.
@@ -417,6 +480,13 @@ SET(GROUP_SOURCES ${OPERATORS_SOURCES})
 FILE(GLOB children ./* ElmtOps/* GlobalLinSysOps/* PreconOps/* BndCondOps/*)
 FOREACH(child ${children})
     ADD_OPERATOR(${child})
+ENDFOREACH()
+
+# Loop through all of the directories which contain operators and add
+# their source and header files.
+FILE(GLOB children ElmtOps/*)
+FOREACH(child ${children})
+    ADD_ELMT_OPERATOR(${child})
 ENDFOREACH()
 
 SET(OPERATORS_DEPENDS

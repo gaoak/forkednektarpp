@@ -39,8 +39,6 @@
 namespace Nektar::Operators
 {
 
-template <typename TData> struct PhysDeriv;
-
 template <typename TData>
 class BlockOperatorPhysDeriv : public BlockOperator<TData>
 {
@@ -68,8 +66,8 @@ public:
     virtual void apply(BlockAccessor<TData> &inblock,
                        BlockAccessor<TData> &outblock) = 0;
 
-    virtual void operator()(BlockAccessor<TData> &inblock,
-                            BlockAccessor<TData> &outblock)
+    void operator()(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
     {
         this->apply(inblock, outblock);
     }
@@ -81,8 +79,6 @@ template <typename TData>
 class OperatorPhysDeriv
     : public OperatorElmt<FieldState::Phys, FieldState::Phys, TData>
 {
-    friend struct PhysDeriv<TData>;
-
 public:
     OperatorPhysDeriv(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorElmt<FieldState::Phys, FieldState::Phys, TData>(expansionList)
@@ -107,7 +103,7 @@ public:
 
         auto PhysDerivOp =
             Operator<TData>::template Create<OperatorPhysDeriv<TData>>(
-                expansionList, execStr0, implStr0);
+                expansionList, execStr0);
 
         auto blocks =
             GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
@@ -146,8 +142,8 @@ public:
         }
     }
 
-    virtual void operator()(Field<TData, FieldState::Phys> &in,
-                            Field<TData, FieldState::Phys> &out)
+    void operator()(Field<TData, FieldState::Phys> &in,
+                    Field<TData, FieldState::Phys> &out)
     {
         this->apply(in, out);
     }
@@ -157,30 +153,3 @@ protected:
 };
 
 } // namespace Nektar::Operators
-
-namespace Nektar::Operators::detail
-{
-
-template <typename ExecSpace, typename Implementation, typename TData>
-class OperatorPhysDerivImpl : public OperatorPhysDeriv<TData>
-{
-public:
-    OperatorPhysDerivImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorPhysDeriv<TData>(expansionList)
-    {
-    }
-
-    // className - for OperatorFactory
-    static std::string className;
-
-    // instantiation function for CreatorFunction in OperatorFactory
-    static std::unique_ptr<Operator<TData>> instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-    {
-        return std::make_unique<
-            OperatorPhysDerivImpl<ExecSpace, Implementation, TData>>(
-            expansionList);
-    }
-};
-
-} // namespace Nektar::Operators::detail

@@ -36,13 +36,13 @@
 #include <iomanip>
 #include <iostream>
 
-#include <Operators/ElmtOps/OperatorBwdTrans.hpp>
-#include <Operators/ElmtOps/OperatorHelmholtz.hpp>
-#include <Operators/ElmtOps/OperatorIProductWRTBase.hpp>
-#include <Operators/ElmtOps/OperatorIProductWRTDerivBase.hpp>
-#include <Operators/ElmtOps/OperatorMass.hpp>
-#include <Operators/ElmtOps/OperatorMultiplyByElmtInvMass.hpp>
-#include <Operators/ElmtOps/OperatorPhysDeriv.hpp>
+#include <Operators/ElmtOps/BwdTrans/OperatorBwdTrans.hpp>
+#include <Operators/ElmtOps/Helmholtz/OperatorHelmholtz.hpp>
+#include <Operators/ElmtOps/IProductWRTBase/OperatorIProductWRTBase.hpp>
+#include <Operators/ElmtOps/IProductWRTDerivBase/OperatorIProductWRTDerivBase.hpp>
+#include <Operators/ElmtOps/Mass/OperatorMass.hpp>
+#include <Operators/ElmtOps/MultiplyByElmtInvMass/OperatorMultiplyByElmtInvMass.hpp>
+#include <Operators/ElmtOps/PhysDeriv/OperatorPhysDeriv.hpp>
 #include <Operators/Field/Field.hpp>
 #include <Operators/LoopExecution/LoopExecution.hpp>
 #include <Operators/MathKernels/MathKernels.hpp>

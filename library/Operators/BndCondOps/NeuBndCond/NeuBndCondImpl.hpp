@@ -36,7 +36,7 @@
 
 #include <MultiRegions/ContField.h>
 
-#include "Operators/BndCondOps/OperatorNeuBndCond.hpp"
+#include "Operators/BndCondOps/NeuBndCond/OperatorNeuBndCond.hpp"
 
 #include "Operators/BndCondOps/NeuBndCond/NeuBndCondDeviceKernels.hpp"
 #include "Operators/BndCondOps/NeuBndCond/NeuBndCondSerialAVXKernels.hpp"
@@ -47,7 +47,7 @@ using namespace Nektar::MultiRegions;
 namespace Nektar::Operators::detail
 {
 
-template <typename ExecSpace, typename Implementation, typename TData>
+template <typename ExecSpace, typename TData>
 class OperatorNeuBndCondImpl : public OperatorNeuBndCond<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
@@ -213,8 +213,7 @@ public:
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return std::make_unique<
-            OperatorNeuBndCondImpl<ExecSpace, Implementation, TData>>(
+        return std::make_unique<OperatorNeuBndCondImpl<ExecSpace, TData>>(
             expansionList);
     }
 

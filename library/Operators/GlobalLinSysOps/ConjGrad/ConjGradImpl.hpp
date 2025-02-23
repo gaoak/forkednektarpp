@@ -36,11 +36,11 @@
 
 #include <MultiRegions/ContField.h>
 
-#include "Operators/GlobalLinSysOps/OperatorConjGrad.hpp"
+#include "Operators/GlobalLinSysOps/ConjGrad/OperatorConjGrad.hpp"
 
-#include "Operators/BndCondOps/OperatorRobBndCond.hpp"
+#include "Operators/AssmbScatr/OperatorAssmbScatr.hpp"
+#include "Operators/BndCondOps/RobBndCond/OperatorRobBndCond.hpp"
 #include "Operators/MathKernels/MathKernels.hpp"
-#include "Operators/OperatorAssmbScatr.hpp"
 
 #include <algorithm>
 #include <array>
@@ -54,8 +54,7 @@ using namespace Nektar::MultiRegions;
 namespace Nektar::Operators::detail
 {
 
-// Generic implementation
-template <typename ExecSpace, typename Implementation, typename TData>
+template <typename ExecSpace, typename TData>
 class OperatorConjGradImpl : public OperatorConjGrad<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
@@ -98,9 +97,9 @@ public:
         m_tol = tolerance;
 
         m_assmbScatrOp = OperatorAssmbScatr<TData>::Create(
-            this->m_expansionList, ExecSpace::name, Implementation::name);
+            this->m_expansionList, ExecSpace::name);
         m_robBndCondOp = OperatorRobBndCond<TData>::Create(
-            this->m_expansionList, ExecSpace::name, Implementation::name);
+            this->m_expansionList, ExecSpace::name);
 
         m_rowComm = contfield->GetSession()->GetComm()->GetRowComm();
 
@@ -244,8 +243,7 @@ public:
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return std::make_unique<
-            OperatorConjGradImpl<ExecSpace, Implementation, TData>>(
+        return std::make_unique<OperatorConjGradImpl<ExecSpace, TData>>(
             expansionList);
     }
 

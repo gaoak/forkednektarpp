@@ -34,8 +34,8 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/ElmtOps/OperatorHelmholtz.hpp"
-#include "Operators/PreconOps/OperatorDiagPrecon.hpp"
+#include "Operators/ElmtOps/Helmholtz/OperatorHelmholtz.hpp"
+#include "Operators/PreconOps/DiagPrecon/OperatorDiagPrecon.hpp"
 
 #include <MultiRegions/GlobalLinSys.h>
 #include <MultiRegions/Preconditioner.h>

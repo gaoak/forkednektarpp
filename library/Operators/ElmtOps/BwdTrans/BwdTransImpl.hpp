@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: Operator.cpp
+// File: BwdTransImpl.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,26 +32,32 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Operators/Common/Operator.hpp"
+#pragma once
 
-using namespace Nektar::LibUtilities;
+#include "Operators/ElmtOps/BwdTrans/OperatorBwdTrans.hpp"
 
-namespace Nektar::Operators
+namespace Nektar::Operators::detail
 {
 
-std::string cmdOpExecSpace = SessionReader::RegisterCmdLineArgument(
-    "opExecSpace", "", "Specify default ExecSpace");
-
-std::string cmdOpImpl = SessionReader::RegisterCmdLineArgument(
-    "opImpl", "", "Specify default Implementation");
-
-template <typename TData> OperatorFactory<TData> &GetOperatorFactory()
+template <typename ExecSpace, typename TData>
+class OperatorBwdTransImpl : public OperatorBwdTrans<TData>
 {
-    static OperatorFactory<TData> instance;
-    return instance;
-}
+public:
+    OperatorBwdTransImpl(const MultiRegions::ExpListSharedPtr &expansionList)
+        : OperatorBwdTrans<TData>(expansionList)
+    {
+    }
 
-template OperatorFactory<float> &GetOperatorFactory();
-template OperatorFactory<double> &GetOperatorFactory();
+    // className - for OperatorFactory
+    static std::string className;
 
-} // namespace Nektar::Operators
+    // instantiation function for CreatorFunction in OperatorFactory
+    static std::unique_ptr<Operator<TData>> instantiate(
+        const MultiRegions::ExpListSharedPtr &expansionList)
+    {
+        return std::make_unique<OperatorBwdTransImpl<ExecSpace, TData>>(
+            expansionList);
+    }
+};
+
+} // namespace Nektar::Operators::detail

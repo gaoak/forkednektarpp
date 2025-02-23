@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: OperatorHelmSolve.hpp
+// File: OperatorRobBndCond.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,26 +34,26 @@
 
 #pragma once
 
-#include "Operators/PreconOps/OperatorPrecon.hpp"
+#include "Operators/Common/Operator.hpp"
 
 namespace Nektar::Operators
 {
 
-// HelmSolve operator base class
+// Robin boundary condition operator base class
 // Defines the apply operator to enforce apply parameter types
-template <typename TData> class OperatorHelmSolve : public Operator<TData>
+template <typename TData> class OperatorRobBndCond : public Operator<TData>
 {
 public:
-    OperatorHelmSolve(const MultiRegions::ExpListSharedPtr &expansionList)
+    OperatorRobBndCond(const MultiRegions::ExpListSharedPtr &expansionList)
         : Operator<TData>(expansionList)
     {
     }
 
-    ~OperatorHelmSolve() override = default;
+    ~OperatorRobBndCond() override = default;
 
-    static std::shared_ptr<OperatorHelmSolve<TData>> Create(
+    static std::shared_ptr<OperatorRobBndCond<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
-        const std::string &execStr = "", const std::string &implStr = "")
+        const std::string &execStr = "")
     {
         auto session = expansionList->GetSession();
 
@@ -61,29 +61,16 @@ public:
             (execStr == "")
                 ? session->GetCmdLineArgument<std::string>("opExecSpace")
                 : execStr;
-        std::string implStr0 =
-            (implStr == "") ? session->GetCmdLineArgument<std::string>("opImpl")
-                            : implStr;
 
-        return Operator<TData>::template Create<OperatorHelmSolve<TData>>(
-            expansionList, execStr0, implStr0);
+        return Operator<TData>::template Create<OperatorRobBndCond<TData>>(
+            expansionList, execStr0);
     }
 
-    static constexpr char name[] = "HelmSolve";
+    static constexpr char name[] = "RobBndCond";
 
-    virtual void apply(Field<TData, FieldState::Phys> &in,
-                       Field<TData, FieldState::Coeff> &out) = 0;
-
-    virtual void operator()(Field<TData, FieldState::Phys> &in,
-                            Field<TData, FieldState::Coeff> &out)
-    {
-        apply(in, out);
-    }
-
-    virtual void SetLambda(const TData &lambda) = 0;
-
-    virtual void setPrecon(
-        const std::shared_ptr<OperatorPrecon<TData>> &precon) = 0;
+    virtual void apply(Field<TData, FieldState::Coeff> &in,
+                       Field<TData, FieldState::Coeff> &out,
+                       const bool &negflag = false) = 0;
 };
 
 } // namespace Nektar::Operators

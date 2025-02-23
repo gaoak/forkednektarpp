@@ -34,21 +34,20 @@
 
 #pragma once
 
-#include "Operators/GlobalLinSysOps/OperatorConjGrad.hpp"
-#include "Operators/GlobalLinSysOps/OperatorFwdTrans.hpp"
+#include "Operators/GlobalLinSysOps/ConjGrad/OperatorConjGrad.hpp"
+#include "Operators/GlobalLinSysOps/FwdTrans/OperatorFwdTrans.hpp"
 
-#include "Operators/BndCondOps/OperatorDirBndCond.hpp"
-#include "Operators/BndCondOps/OperatorRobBndCond.hpp"
-#include "Operators/ElmtOps/OperatorIProductWRTBase.hpp"
-#include "Operators/ElmtOps/OperatorMass.hpp"
+#include "Operators/BndCondOps/DirBndCond/OperatorDirBndCond.hpp"
+#include "Operators/BndCondOps/RobBndCond/OperatorRobBndCond.hpp"
+#include "Operators/ElmtOps/IProductWRTBase/OperatorIProductWRTBase.hpp"
+#include "Operators/ElmtOps/Mass/OperatorMass.hpp"
 #include "Operators/MathKernels/MathKernels.hpp"
 #include "Operators/PreconOps/OperatorPrecon.hpp"
 
 namespace Nektar::Operators::detail
 {
 
-// Generic implementation
-template <typename ExecSpace, typename Implementation, typename TData>
+template <typename ExecSpace, typename TData>
 class OperatorFwdTransImpl : public OperatorFwdTrans<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
@@ -65,16 +64,16 @@ public:
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
               ExecSpace::alignment))
     {
-        m_MassOp = OperatorMass<TData>::Create(
-            this->m_expansionList, ExecSpace::name, Implementation::name);
-        m_DirBCOp = OperatorDirBndCond<TData>::Create(
-            this->m_expansionList, ExecSpace::name, Implementation::name);
-        m_RobBCOp = OperatorRobBndCond<TData>::Create(
-            this->m_expansionList, ExecSpace::name, Implementation::name);
+        m_MassOp =
+            OperatorMass<TData>::Create(this->m_expansionList, ExecSpace::name);
+        m_DirBCOp = OperatorDirBndCond<TData>::Create(this->m_expansionList,
+                                                      ExecSpace::name);
+        m_RobBCOp = OperatorRobBndCond<TData>::Create(this->m_expansionList,
+                                                      ExecSpace::name);
         m_IProdOp = OperatorIProductWRTBase<TData>::Create(
-            this->m_expansionList, ExecSpace::name, Implementation::name);
-        m_CGOp = OperatorConjGrad<TData>::Create(
-            this->m_expansionList, ExecSpace::name, Implementation::name);
+            this->m_expansionList, ExecSpace::name);
+        m_CGOp = OperatorConjGrad<TData>::Create(this->m_expansionList,
+                                                 ExecSpace::name);
         m_CGOp->setLHS(m_MassOp);
     }
 
@@ -114,8 +113,7 @@ public:
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return std::make_unique<
-            OperatorFwdTransImpl<ExecSpace, Implementation, TData>>(
+        return std::make_unique<OperatorFwdTransImpl<ExecSpace, TData>>(
             expansionList);
     }
 

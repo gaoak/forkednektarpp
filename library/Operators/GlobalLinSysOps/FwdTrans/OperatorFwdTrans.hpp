@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: Operator.cpp
+// File: OperatorFwdTrans.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,26 +32,53 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Operators/Common/Operator.hpp"
+#pragma once
 
-using namespace Nektar::LibUtilities;
+#include "Operators/PreconOps/OperatorPrecon.hpp"
 
 namespace Nektar::Operators
 {
 
-std::string cmdOpExecSpace = SessionReader::RegisterCmdLineArgument(
-    "opExecSpace", "", "Specify default ExecSpace");
-
-std::string cmdOpImpl = SessionReader::RegisterCmdLineArgument(
-    "opImpl", "", "Specify default Implementation");
-
-template <typename TData> OperatorFactory<TData> &GetOperatorFactory()
+// FwdTrans base class
+// Defines the apply operator to enforce apply parameter types
+template <typename TData> class OperatorFwdTrans : public Operator<TData>
 {
-    static OperatorFactory<TData> instance;
-    return instance;
-}
+public:
+    OperatorFwdTrans(const MultiRegions::ExpListSharedPtr &expansionList)
+        : Operator<TData>(expansionList)
+    {
+    }
 
-template OperatorFactory<float> &GetOperatorFactory();
-template OperatorFactory<double> &GetOperatorFactory();
+    ~OperatorFwdTrans() override = default;
+
+    static std::shared_ptr<OperatorFwdTrans<TData>> Create(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::string &execStr = "")
+    {
+        auto session = expansionList->GetSession();
+
+        std::string execStr0 =
+            (execStr == "")
+                ? session->GetCmdLineArgument<std::string>("opExecSpace")
+                : execStr;
+
+        return Operator<TData>::template Create<OperatorFwdTrans<TData>>(
+            expansionList, execStr0);
+    }
+
+    static constexpr char name[] = "FwdTrans";
+
+    virtual void apply(Field<TData, FieldState::Phys> &in,
+                       Field<TData, FieldState::Coeff> &out) = 0;
+
+    void operator()(Field<TData, FieldState::Phys> &in,
+                    Field<TData, FieldState::Coeff> &out)
+    {
+        apply(in, out);
+    }
+
+    virtual void setPrecon(
+        const std::shared_ptr<OperatorPrecon<TData>> &precon) = 0;
+};
 
 } // namespace Nektar::Operators

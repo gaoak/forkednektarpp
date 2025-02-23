@@ -34,7 +34,7 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/ElmtOps/OperatorLinAdvDiffReaction.hpp"
+#include "Operators/ElmtOps/LinAdvDiffReaction/OperatorLinAdvDiffReaction.hpp"
 
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;

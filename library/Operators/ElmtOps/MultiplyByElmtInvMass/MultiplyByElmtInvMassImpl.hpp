@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: OperatorNeuBndCond.hpp
+// File: MultiplyByElmtInvMassImpl.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,49 +34,32 @@
 
 #pragma once
 
-#include "Operators/Common/Operator.hpp"
+#include "Operators/ElmtOps/MultiplyByElmtInvMass/OperatorMultiplyByElmtInvMass.hpp"
 
-namespace Nektar::Operators
+namespace Nektar::Operators::detail
 {
 
-// Neuman boundary condition operator base class
-// Defines the apply operator to enforce apply parameter types
-template <typename TData> class OperatorNeuBndCond : public Operator<TData>
+template <typename ExecSpace, typename TData>
+class OperatorMultiplyByElmtInvMassImpl
+    : public OperatorMultiplyByElmtInvMass<TData>
 {
 public:
-    OperatorNeuBndCond(const MultiRegions::ExpListSharedPtr &expansionList)
-        : Operator<TData>(expansionList)
+    OperatorMultiplyByElmtInvMassImpl(
+        const MultiRegions::ExpListSharedPtr &expansionList)
+        : OperatorMultiplyByElmtInvMass<TData>(expansionList)
     {
     }
 
-    ~OperatorNeuBndCond() override = default;
+    // className - for OperatorFactory
+    static std::string className;
 
-    static std::shared_ptr<OperatorNeuBndCond<TData>> Create(
-        const MultiRegions::ExpListSharedPtr &expansionList,
-        const std::string &execStr = "", const std::string &implStr = "")
+    // instantiation function for CreatorFunction in OperatorFactory
+    static std::unique_ptr<Operator<TData>> instantiate(
+        const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        auto session = expansionList->GetSession();
-
-        std::string execStr0 =
-            (execStr == "")
-                ? session->GetCmdLineArgument<std::string>("opExecSpace")
-                : execStr;
-        std::string implStr0 =
-            (implStr == "") ? session->GetCmdLineArgument<std::string>("opImpl")
-                            : implStr;
-
-        return Operator<TData>::template Create<OperatorNeuBndCond<TData>>(
-            expansionList, execStr0, implStr0);
-    }
-
-    static constexpr char name[] = "NeuBndCond";
-
-    virtual void apply(Field<TData, FieldState::Coeff> &inout) = 0;
-
-    virtual void operator()(Field<TData, FieldState::Coeff> &inout)
-    {
-        apply(inout);
+        return std::make_unique<
+            OperatorMultiplyByElmtInvMassImpl<ExecSpace, TData>>(expansionList);
     }
 };
 
-} // namespace Nektar::Operators
+} // namespace Nektar::Operators::detail

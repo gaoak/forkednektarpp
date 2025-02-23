@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: Operator.cpp
+// File: OperatorElmt.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,26 +32,20 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Operators/Common/Operator.hpp"
+#include "Operators/ElmtOps/OperatorElmt.hpp"
 
 using namespace Nektar::LibUtilities;
 
 namespace Nektar::Operators
 {
 
-std::string cmdOpExecSpace = SessionReader::RegisterCmdLineArgument(
-    "opExecSpace", "", "Specify default ExecSpace");
-
-std::string cmdOpImpl = SessionReader::RegisterCmdLineArgument(
-    "opImpl", "", "Specify default Implementation");
-
-template <typename TData> OperatorFactory<TData> &GetOperatorFactory()
+template <typename TData> BlockOperatorFactory<TData> &GetBlockOperatorFactory()
 {
-    static OperatorFactory<TData> instance;
+    static BlockOperatorFactory<TData> instance;
     return instance;
 }
 
-template OperatorFactory<float> &GetOperatorFactory();
-template OperatorFactory<double> &GetOperatorFactory();
+template BlockOperatorFactory<float> &GetBlockOperatorFactory();
+template BlockOperatorFactory<double> &GetBlockOperatorFactory();
 
 } // namespace Nektar::Operators

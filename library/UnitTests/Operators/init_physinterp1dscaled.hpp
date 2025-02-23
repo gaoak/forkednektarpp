@@ -34,7 +34,7 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/ElmtOps/OperatorPhysInterp1DScaled.hpp"
+#include "Operators/ElmtOps/PhysInterp1DScaled/OperatorPhysInterp1DScaled.hpp"
 
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;

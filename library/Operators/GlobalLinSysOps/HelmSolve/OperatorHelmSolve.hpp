@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: OperatorFwdTrans.hpp
+// File: OperatorHelmSolve.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -39,21 +39,21 @@
 namespace Nektar::Operators
 {
 
-// FwdTrans base class
+// HelmSolve operator base class
 // Defines the apply operator to enforce apply parameter types
-template <typename TData> class OperatorFwdTrans : public Operator<TData>
+template <typename TData> class OperatorHelmSolve : public Operator<TData>
 {
 public:
-    OperatorFwdTrans(const MultiRegions::ExpListSharedPtr &expansionList)
+    OperatorHelmSolve(const MultiRegions::ExpListSharedPtr &expansionList)
         : Operator<TData>(expansionList)
     {
     }
 
-    ~OperatorFwdTrans() override = default;
+    ~OperatorHelmSolve() override = default;
 
-    static std::shared_ptr<OperatorFwdTrans<TData>> Create(
+    static std::shared_ptr<OperatorHelmSolve<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
-        const std::string &execStr = "", const std::string &implStr = "")
+        const std::string &execStr = "")
     {
         auto session = expansionList->GetSession();
 
@@ -61,24 +61,23 @@ public:
             (execStr == "")
                 ? session->GetCmdLineArgument<std::string>("opExecSpace")
                 : execStr;
-        std::string implStr0 =
-            (implStr == "") ? session->GetCmdLineArgument<std::string>("opImpl")
-                            : implStr;
 
-        return Operator<TData>::template Create<OperatorFwdTrans<TData>>(
-            expansionList, execStr0, implStr0);
+        return Operator<TData>::template Create<OperatorHelmSolve<TData>>(
+            expansionList, execStr0);
     }
 
-    static constexpr char name[] = "FwdTrans";
+    static constexpr char name[] = "HelmSolve";
 
     virtual void apply(Field<TData, FieldState::Phys> &in,
                        Field<TData, FieldState::Coeff> &out) = 0;
 
-    virtual void operator()(Field<TData, FieldState::Phys> &in,
-                            Field<TData, FieldState::Coeff> &out)
+    void operator()(Field<TData, FieldState::Phys> &in,
+                    Field<TData, FieldState::Coeff> &out)
     {
         apply(in, out);
     }
+
+    virtual void SetLambda(const TData &lambda) = 0;
 
     virtual void setPrecon(
         const std::shared_ptr<OperatorPrecon<TData>> &precon) = 0;

@@ -36,11 +36,11 @@
 
 #include <MultiRegions/ContField.h>
 
-#include "Operators/PreconOps/OperatorDiagPrecon.hpp"
+#include "Operators/PreconOps/DiagPrecon/OperatorDiagPrecon.hpp"
 
-#include "Operators/BndCondOps/OperatorRobBndCond.hpp"
+#include "Operators/AssmbScatr/OperatorAssmbScatr.hpp"
+#include "Operators/BndCondOps/RobBndCond/OperatorRobBndCond.hpp"
 #include "Operators/MathKernels/MathKernels.hpp"
-#include "Operators/OperatorAssmbScatr.hpp"
 
 #include "Operators/PreconOps/DiagPrecon/DiagPreconImplKernels.hpp"
 
@@ -51,7 +51,7 @@ using namespace Nektar::SpatialDomains;
 namespace Nektar::Operators::detail
 {
 
-template <typename ExecSpace, typename Implementation, typename TData>
+template <typename ExecSpace, typename TData>
 class OperatorDiagPreconImpl : public OperatorDiagPrecon<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
@@ -76,10 +76,10 @@ public:
             "DiagPrecon wk", m_nGlobal, ExecSpace::alignment);
 
         m_assmbScatrOp = OperatorAssmbScatr<TData>::Create(
-            this->m_expansionList, ExecSpace::name, Implementation::name);
+            this->m_expansionList, ExecSpace::name);
 
-        m_robBCOp = OperatorRobBndCond<TData>::Create(
-            this->m_expansionList, ExecSpace::name, Implementation::name);
+        m_robBCOp = OperatorRobBndCond<TData>::Create(this->m_expansionList,
+                                                      ExecSpace::name);
     }
 
     void apply(Field<TData, FieldState::Coeff> &in,
@@ -185,8 +185,7 @@ public:
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return std::make_unique<
-            OperatorDiagPreconImpl<ExecSpace, Implementation, TData>>(
+        return std::make_unique<OperatorDiagPreconImpl<ExecSpace, TData>>(
             expansionList);
     }
 

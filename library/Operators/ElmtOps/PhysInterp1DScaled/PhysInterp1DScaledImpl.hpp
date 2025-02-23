@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: OperatorDirBndCond.hpp
+// File: PhysInterp1DScaledImpl.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,50 +34,31 @@
 
 #pragma once
 
-#include "Operators/Common/Operator.hpp"
+#include "Operators/ElmtOps/PhysInterp1DScaled/OperatorPhysInterp1DScaled.hpp"
 
-namespace Nektar::Operators
+namespace Nektar::Operators::detail
 {
 
-// Dirichlet boundary condition operator base class
-// Defines the apply operator to enforce apply parameter types
-template <typename TData> class OperatorDirBndCond : public Operator<TData>
+template <typename ExecSpace, typename TData>
+class OperatorPhysInterp1DScaledImpl : public OperatorPhysInterp1DScaled<TData>
 {
-
 public:
-    OperatorDirBndCond(const MultiRegions::ExpListSharedPtr &expansionList)
-        : Operator<TData>(expansionList)
+    OperatorPhysInterp1DScaledImpl(
+        const MultiRegions::ExpListSharedPtr &expansionList)
+        : OperatorPhysInterp1DScaled<TData>(expansionList)
     {
     }
 
-    ~OperatorDirBndCond() override = default;
+    // className - for OperatorFactory
+    static std::string className;
 
-    static std::shared_ptr<OperatorDirBndCond<TData>> Create(
-        const MultiRegions::ExpListSharedPtr &expansionList,
-        const std::string &execStr = "", const std::string &implStr = "")
+    // instantiation function for CreatorFunction in OperatorFactory
+    static std::unique_ptr<Operator<TData>> instantiate(
+        const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        auto session = expansionList->GetSession();
-
-        std::string execStr0 =
-            (execStr == "")
-                ? session->GetCmdLineArgument<std::string>("opExecSpace")
-                : execStr;
-        std::string implStr0 =
-            (implStr == "") ? session->GetCmdLineArgument<std::string>("opImpl")
-                            : implStr;
-
-        return Operator<TData>::template Create<OperatorDirBndCond<TData>>(
-            expansionList, execStr0, implStr0);
-    }
-
-    static constexpr char name[] = "DirBndCond";
-
-    virtual void apply(Field<TData, FieldState::Coeff> &out) = 0;
-
-    virtual void operator()(Field<TData, FieldState::Coeff> &out)
-    {
-        apply(out);
+        return std::make_unique<
+            OperatorPhysInterp1DScaledImpl<ExecSpace, TData>>(expansionList);
     }
 };
 
-} // namespace Nektar::Operators
+} // namespace Nektar::Operators::detail
