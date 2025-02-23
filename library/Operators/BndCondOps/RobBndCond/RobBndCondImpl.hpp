@@ -37,7 +37,7 @@
 #include <LocalRegions/MatrixKey.h>
 #include <MultiRegions/ContField.h>
 
-#include "Operators/BndCondOps/OperatorRobBndCond.hpp"
+#include "Operators/BndCondOps/RobBndCond/OperatorRobBndCond.hpp"
 
 #include "Operators/BndCondOps/RobBndCond/RobBndCondDeviceKernels.hpp"
 #include "Operators/BndCondOps/RobBndCond/RobBndCondSerialAVXKernels.hpp"
@@ -45,8 +45,7 @@
 namespace Nektar::Operators::detail
 {
 
-// Shared implementation
-template <typename ExecSpace, typename Implementation, typename TData>
+template <typename ExecSpace, typename TData>
 class OperatorRobBndCondImpl : public OperatorRobBndCond<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
@@ -318,8 +317,7 @@ public:
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return std::make_unique<
-            OperatorRobBndCondImpl<ExecSpace, Implementation, TData>>(
+        return std::make_unique<OperatorRobBndCondImpl<ExecSpace, TData>>(
             expansionList);
     }
 

@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/OperatorMass.hpp"
+#include "Operators/ElmtOps/Mass/OperatorMass.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/Mass/MassDeviceSumFacKernels.hpp"

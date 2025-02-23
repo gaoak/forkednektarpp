@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/OperatorHelmholtz.hpp"
+#include "Operators/ElmtOps/Helmholtz/OperatorHelmholtz.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/Helmholtz/HelmholtzSerialAVXSumFacKernels.hpp"

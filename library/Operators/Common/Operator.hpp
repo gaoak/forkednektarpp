@@ -118,104 +118,15 @@ struct Generic
 
 // Forward-declare the Operator base class so we can define the factory
 template <typename TData> class Operator;
-template <typename TData> class BlockOperator;
 
 // Typename alias for the factory
-template <typename TData>
-using BlockOperatorFactory =
-    Nektar::LibUtilities::NekFactory<std::string, BlockOperator<TData>,
-                                     const LocalRegions::ExpansionSharedPtr &,
-                                     NekDataWarehouseSharedPtr>;
 template <typename TData>
 using OperatorFactory =
     Nektar::LibUtilities::NekFactory<std::string, Operator<TData>,
                                      const MultiRegions::ExpListSharedPtr &>;
 
 // Operator factory singleton
-template <typename TData>
-BlockOperatorFactory<TData> &GetBlockOperatorFactory();
 template <typename TData> OperatorFactory<TData> &GetOperatorFactory();
-
-template <typename TData> class BlockOperator
-{
-public:
-    virtual ~BlockOperator() = default;
-
-    BlockOperator(const LocalRegions::ExpansionSharedPtr &exp,
-                  NekDataWarehouseSharedPtr dataWarehouse)
-        : m_exp(exp), m_dataWarehouse(dataWarehouse)
-    {
-    }
-
-    template <typename TOperator>
-    static std::shared_ptr<TOperator> Create(
-        const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
-        std::string implStr)
-    {
-        std::string requestedKey = TOperator::name + execStr + implStr;
-
-        BlockOperatorFactory<TData> &factory = GetBlockOperatorFactory<TData>();
-
-        bool notFound = true;
-
-        constexpr size_t nOpTests = 2;
-
-        std::string key;
-        for (size_t i = 0; i < nOpTests; ++i)
-        {
-            switch (i)
-            {
-                case 0:
-                    // Find the operator with the requested ExecSpace and the
-                    // same implementation.
-                    key = TOperator::name + execStr + implStr;
-                    break;
-                case 1:
-                    // Find the operator with the requested ExecSpace and a
-                    // general implementation.
-                    key = TOperator::name + execStr + "Generic";
-                    break;
-                default:
-                    break;
-            }
-
-            if (factory.ModuleExists(key))
-            {
-                if (key != requestedKey && i != 1)
-                {
-                    std::string msg;
-                    msg += "The requested operator: " + requestedKey +
-                           " was not found. Using operator: " + key +
-                           " instead";
-
-                    WARNINGL0(false, msg);
-                }
-
-                notFound = false;
-
-                break;
-            }
-        }
-
-        // No suitible operator was found.
-        if (notFound)
-        {
-            std::stringstream msg;
-            msg << "No such operator: " << requestedKey
-                << " and no default operator: " << key << "." << std::endl;
-            factory.PrintAvailableClasses(msg);
-            NEKERROR(ErrorUtil::efatal, msg.str());
-        }
-
-        return std::static_pointer_cast<TOperator>(
-            factory.CreateInstance(key, exp, dataWarehouse));
-    }
-
-protected:
-    LocalRegions::ExpansionSharedPtr m_exp;
-    NekDataWarehouseSharedPtr m_dataWarehouse;
-};
 
 template <typename TData> class Operator
 {
@@ -231,66 +142,31 @@ public:
     template <typename TOperator>
     static std::shared_ptr<TOperator> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
-        const std::string execStr, const std::string implStr)
+        const std::string execStr)
     {
         std::string descriptStr  = TOperator::name;
-        std::string requestedKey = descriptStr + execStr + implStr;
+        std::string requestedKey = descriptStr + execStr;
 
         OperatorFactory<TData> &factory = GetOperatorFactory<TData>();
 
         bool notFound = true;
 
-        constexpr size_t nOpTests = 2;
-
-        std::string key;
-        for (size_t i = 0; i < nOpTests; ++i)
+        if (factory.ModuleExists(requestedKey))
         {
-            switch (i)
-            {
-                case 0:
-                    // Find the operator with the requested ExecSpace and the
-                    // same implementation.
-                    key = descriptStr + execStr + implStr;
-                    break;
-                case 1:
-                    // Find the operator with the requested ExecSpace and a
-                    // general implementation.
-                    key = descriptStr + execStr + "Generic";
-                    break;
-                default:
-                    break;
-            }
-
-            if (factory.ModuleExists(key))
-            {
-                if (key != requestedKey && i != 1)
-                {
-                    std::string msg;
-                    msg += "The requested operator: " + requestedKey +
-                           " was not found. Using operator: " + key +
-                           " instead";
-
-                    WARNINGL0(false, msg);
-                }
-
-                notFound = false;
-
-                break;
-            }
+            notFound = false;
         }
 
         // No suitible operator was found.
         if (notFound)
         {
             std::stringstream msg;
-            msg << "No such operator: " << requestedKey
-                << " and no default operator: " << key << "." << std::endl;
+            msg << "No such operator: " << requestedKey << std::endl;
             factory.PrintAvailableClasses(msg);
             NEKERROR(ErrorUtil::efatal, msg.str());
         }
 
         return std::static_pointer_cast<TOperator>(
-            factory.CreateInstance(key, expansionList));
+            factory.CreateInstance(requestedKey, expansionList));
     }
 
 protected:

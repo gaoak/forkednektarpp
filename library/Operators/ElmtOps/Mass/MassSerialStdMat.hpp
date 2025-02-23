@@ -34,10 +34,10 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/OperatorMass.hpp"
+#include "Operators/ElmtOps/Mass/OperatorMass.hpp"
 
-#include "Operators/ElmtOps/OperatorBwdTrans.hpp"
-#include "Operators/ElmtOps/OperatorIProductWRTBase.hpp"
+#include "Operators/ElmtOps/BwdTrans/OperatorBwdTrans.hpp"
+#include "Operators/ElmtOps/IProductWRTBase/OperatorIProductWRTBase.hpp"
 
 namespace Nektar::Operators::detail
 {

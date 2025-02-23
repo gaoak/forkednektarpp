@@ -37,7 +37,7 @@
 
 #include <LocalRegions/Expansion.h>
 
-#include "Operators/ElmtOps/OperatorMultiplyByElmtInvMass.hpp"
+#include "Operators/ElmtOps/MultiplyByElmtInvMass/OperatorMultiplyByElmtInvMass.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 #include "Operators/Utils/deviceBlas.hpp"
 

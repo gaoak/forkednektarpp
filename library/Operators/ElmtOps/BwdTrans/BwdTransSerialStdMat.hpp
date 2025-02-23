@@ -36,7 +36,7 @@
 
 #include <StdRegions/StdExpansion.h>
 
-#include "Operators/ElmtOps/OperatorBwdTrans.hpp"
+#include "Operators/ElmtOps/BwdTrans/OperatorBwdTrans.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
 namespace Nektar::Operators::detail

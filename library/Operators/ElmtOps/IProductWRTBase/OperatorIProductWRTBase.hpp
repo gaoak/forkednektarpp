@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: OperatorHelmholtz.hpp
+// File: OperatorIProductWRTBase.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -39,68 +39,64 @@
 namespace Nektar::Operators
 {
 
-template <typename TData> struct Helmholtz;
-
 template <typename TData>
-class BlockOperatorHelmholtz : public BlockOperator<TData>
+class BlockOperatorIProductWRTBase : public BlockOperator<TData>
 {
 public:
-    BlockOperatorHelmholtz(const LocalRegions::ExpansionSharedPtr &exp,
-                           NekDataWarehouseSharedPtr dataWarehouse)
+    BlockOperatorIProductWRTBase(const LocalRegions::ExpansionSharedPtr &exp,
+                                 NekDataWarehouseSharedPtr dataWarehouse)
         : BlockOperator<TData>(exp, dataWarehouse)
     {
     }
 
-    ~BlockOperatorHelmholtz() override = default;
+    ~BlockOperatorIProductWRTBase() override = default;
 
-    static std::shared_ptr<BlockOperatorHelmholtz<TData>> Create(
+    static std::shared_ptr<BlockOperatorIProductWRTBase<TData>> Create(
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
         std::string implStr)
     {
         return BlockOperator<TData>::template Create<
-            BlockOperatorHelmholtz<TData>>(exp, dataWarehouse, execStr,
-                                           implStr);
+            BlockOperatorIProductWRTBase<TData>>(exp, dataWarehouse, execStr,
+                                                 implStr);
     }
 
-    static constexpr char name[] = "BlockHelmholtz";
+    static constexpr char name[] = "BlockIProductWRTBase";
 
     virtual void apply(BlockAccessor<TData> &inblock,
                        BlockAccessor<TData> &outblock) = 0;
 
-    virtual void operator()(BlockAccessor<TData> &inblock,
-                            BlockAccessor<TData> &outblock)
+    void operator()(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
     {
         this->apply(inblock, outblock);
     }
 
-    void SetLambda(TData lambda)
+    void SetScale(TData scale)
     {
-        m_lambda = lambda;
+        m_scale = scale;
     }
 
 protected:
-    TData m_lambda = 1.0;
+    TData m_scale = 1.0;
 };
 
-// Helmholtz base class
+// IProductWRTBase base class
 // Defines the apply operator to enforce apply parameter types
 template <typename TData>
-class OperatorHelmholtz
-    : public OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>
+class OperatorIProductWRTBase
+    : public OperatorElmt<FieldState::Phys, FieldState::Coeff, TData>
 {
-    friend struct Helmholtz<TData>;
-
 public:
-    OperatorHelmholtz(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>(
+    OperatorIProductWRTBase(const MultiRegions::ExpListSharedPtr &expansionList)
+        : OperatorElmt<FieldState::Phys, FieldState::Coeff, TData>(
               expansionList)
     {
     }
 
-    ~OperatorHelmholtz() override = default;
+    ~OperatorIProductWRTBase() override = default;
 
-    static std::shared_ptr<OperatorHelmholtz<TData>> Create(
+    static std::shared_ptr<OperatorIProductWRTBase<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &execStr = "", const std::string &implStr = "")
     {
@@ -114,9 +110,9 @@ public:
             (implStr == "") ? session->GetCmdLineArgument<std::string>("opImpl")
                             : implStr;
 
-        auto HelmholtzOp =
-            Operator<TData>::template Create<OperatorHelmholtz<TData>>(
-                expansionList, execStr0, implStr0);
+        auto IProductWRTBaseOp =
+            Operator<TData>::template Create<OperatorIProductWRTBase<TData>>(
+                expansionList, execStr0);
 
         auto blocks =
             GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
@@ -124,19 +120,19 @@ public:
         // Loop over the blocks.
         for (auto &block : blocks)
         {
-            HelmholtzOp->m_blockOperator.push_back(
-                BlockOperatorHelmholtz<TData>::Create(
+            IProductWRTBaseOp->m_blockOperator.push_back(
+                BlockOperatorIProductWRTBase<TData>::Create(
                     expansionList->GetExp(block.GetExpIdx()),
                     expansionList->GetDataWarehouseSharedPtr(), execStr0,
                     implStr0));
         }
 
-        return HelmholtzOp;
+        return IProductWRTBaseOp;
     }
 
-    static constexpr char name[] = "Helmholtz";
+    static constexpr char name[] = "IProductWRTBase";
 
-    void apply(Field<TData, FieldState::Coeff> &in,
+    void apply(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Coeff> &out) override
     {
         ASSERTL1(in.GetNumComponents() == out.GetNumComponents(),
@@ -153,50 +149,24 @@ public:
         }
     }
 
-    virtual void operator()(Field<TData, FieldState::Coeff> &in,
-                            Field<TData, FieldState::Coeff> &out)
+    void operator()(Field<TData, FieldState::Phys> &in,
+                    Field<TData, FieldState::Coeff> &out)
     {
         this->apply(in, out);
     }
 
-    void SetLambda(TData lambda)
+    void SetScale(TData scale)
     {
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < m_blockOperator.size(); ++blk)
         {
-            this->m_blockOperator[blk]->SetLambda(lambda);
+            this->m_blockOperator[blk]->SetScale(scale);
         }
     }
 
 protected:
-    std::vector<std::shared_ptr<BlockOperatorHelmholtz<TData>>> m_blockOperator;
+    std::vector<std::shared_ptr<BlockOperatorIProductWRTBase<TData>>>
+        m_blockOperator;
 };
 
 } // namespace Nektar::Operators
-
-namespace Nektar::Operators::detail
-{
-
-template <typename ExecSpace, typename Implementation, typename TData>
-class OperatorHelmholtzImpl : public OperatorHelmholtz<TData>
-{
-public:
-    OperatorHelmholtzImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorHelmholtz<TData>(expansionList)
-    {
-    }
-
-    // className - for OperatorFactory
-    static std::string className;
-
-    // instantiation function for CreatorFunction in OperatorFactory
-    static std::unique_ptr<Operator<TData>> instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-    {
-        return std::make_unique<
-            OperatorHelmholtzImpl<ExecSpace, Implementation, TData>>(
-            expansionList);
-    }
-};
-
-} // namespace Nektar::Operators::detail

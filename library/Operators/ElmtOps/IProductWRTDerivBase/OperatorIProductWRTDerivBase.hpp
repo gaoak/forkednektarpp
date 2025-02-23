@@ -39,8 +39,6 @@
 namespace Nektar::Operators
 {
 
-template <typename TData> struct IProductWRTDerivBase;
-
 template <typename TData>
 class BlockOperatorIProductWRTDerivBase : public BlockOperator<TData>
 {
@@ -69,8 +67,8 @@ public:
     virtual void apply(BlockAccessor<TData> &inblock,
                        BlockAccessor<TData> &outblock) = 0;
 
-    virtual void operator()(BlockAccessor<TData> &inblock,
-                            BlockAccessor<TData> &outblock)
+    void operator()(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
     {
         this->apply(inblock, outblock);
     }
@@ -90,8 +88,6 @@ template <typename TData>
 class OperatorIProductWRTDerivBase
     : public OperatorElmt<FieldState::Phys, FieldState::Coeff, TData>
 {
-    friend struct IProductWRTDerivBase<TData>;
-
 public:
     OperatorIProductWRTDerivBase(
         const MultiRegions::ExpListSharedPtr &expansionList)
@@ -117,8 +113,7 @@ public:
                             : implStr;
 
         auto IProductWRTDerivBaseOp = Operator<TData>::template Create<
-            OperatorIProductWRTDerivBase<TData>>(expansionList, execStr0,
-                                                 implStr0);
+            OperatorIProductWRTDerivBase<TData>>(expansionList, execStr0);
 
         auto blocks =
             GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
@@ -157,8 +152,8 @@ public:
         }
     }
 
-    virtual void operator()(Field<TData, FieldState::Phys> &in,
-                            Field<TData, FieldState::Coeff> &out)
+    void operator()(Field<TData, FieldState::Phys> &in,
+                    Field<TData, FieldState::Coeff> &out)
     {
         this->apply(in, out);
     }
@@ -178,32 +173,3 @@ protected:
 };
 
 } // namespace Nektar::Operators
-
-namespace Nektar::Operators::detail
-{
-
-template <typename ExecSpace, typename Implementation, typename TData>
-class OperatorIProductWRTDerivBaseImpl
-    : public OperatorIProductWRTDerivBase<TData>
-{
-public:
-    OperatorIProductWRTDerivBaseImpl(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorIProductWRTDerivBase<TData>(expansionList)
-    {
-    }
-
-    // className - for OperatorFactory
-    static std::string className;
-
-    // instantiation function for CreatorFunction in OperatorFactory
-    static std::unique_ptr<Operator<TData>> instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-    {
-        return std::make_unique<
-            OperatorIProductWRTDerivBaseImpl<ExecSpace, Implementation, TData>>(
-            expansionList);
-    }
-};
-
-} // namespace Nektar::Operators::detail

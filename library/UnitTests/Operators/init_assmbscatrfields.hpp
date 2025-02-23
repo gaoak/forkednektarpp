@@ -34,7 +34,7 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/OperatorAssmbScatr.hpp"
+#include "Operators/AssmbScatr/OperatorAssmbScatr.hpp"
 
 #include <LibUtilities/LinearAlgebra/NekLinSysIter.h>
 #include <MultiRegions/ContField.h>

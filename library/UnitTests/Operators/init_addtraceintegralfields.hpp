@@ -34,7 +34,7 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/OperatorAddTraceIntegral.hpp"
+#include "Operators/AddTraceIntegral/OperatorAddTraceIntegral.hpp"
 
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;

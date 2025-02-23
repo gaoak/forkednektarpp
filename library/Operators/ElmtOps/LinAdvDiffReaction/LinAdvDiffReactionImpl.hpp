@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: OperatorAddTraceIntegral.hpp
+// File: LinAdvDiffReactionImpl.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,53 +34,55 @@
 
 #pragma once
 
-#include "Operators/Common/Operator.hpp"
+#include "Operators/ElmtOps/LinAdvDiffReaction/OperatorLinAdvDiffReaction.hpp"
 
-namespace Nektar::Operators
+namespace Nektar::Operators::detail
 {
 
-// AddTraceIntegral base class
-// Defines the apply operator to enforce apply parameter types
-template <typename TData>
-class OperatorAddTraceIntegral : public Operator<TData>
+template <typename ExecSpace, typename TData>
+class OperatorLinAdvDiffReactionImpl : public OperatorLinAdvDiffReaction<TData>
 {
+    using MemSpace = typename ExecSpace::memory_space;
+
 public:
-    OperatorAddTraceIntegral(
+    OperatorLinAdvDiffReactionImpl(
         const MultiRegions::ExpListSharedPtr &expansionList)
-        : Operator<TData>(expansionList)
+        : OperatorLinAdvDiffReaction<TData>(expansionList)
     {
     }
 
-    ~OperatorAddTraceIntegral() override = default;
-
-    static std::shared_ptr<OperatorAddTraceIntegral<TData>> Create(
-        const MultiRegions::ExpListSharedPtr &expansionList,
-        const std::string &execStr = "", const std::string &implStr = "")
+    void v_SetAdvVel(const int nVel, const Array<OneD, NekDouble> &Vel) override
     {
-        auto session = expansionList->GetSession();
+        // Set up a physBlockAttributes which will be
+        std::vector<BlockAttributes> physBlockAttributes =
+            GetBlockAttributes<TData>(FieldState::Phys, this->m_expansionList,
+                                      1);
 
-        std::string execStr0 =
-            (execStr == "")
-                ? session->GetCmdLineArgument<std::string>("opExecSpace")
-                : execStr;
-        std::string implStr0 =
-            (implStr == "") ? session->GetCmdLineArgument<std::string>("opImpl")
-                            : implStr;
+        this->m_advVel =
+            Field<TData, FieldState::Phys>::template Create<MemSpace>(
+                "Advection Field", physBlockAttributes, nVel,
+                ExecSpace::alignment);
 
-        return Operator<TData>::template Create<
-            OperatorAddTraceIntegral<TData>>(expansionList, execStr0, implStr0);
+        this->m_advVel.template CopyArray<NektarSpaces::HostSpace>(Vel);
+
+        // Loop over the blocks.
+        for (unsigned int blk = 0; blk < this->m_blockOperator.size(); ++blk)
+        {
+            this->m_blockOperator[blk]->SetAdvVel(
+                nVel, this->m_advVel.GetBlocks()[blk]);
+        }
     }
 
-    static constexpr char name[] = "AddTraceIntegral";
+    // className - for OperatorFactory
+    static std::string className;
 
-    virtual void apply(Field<TData, FieldState::Phys> &in,
-                       Field<TData, FieldState::Coeff> &out) = 0;
-
-    virtual void operator()(Field<TData, FieldState::Phys> &in,
-                            Field<TData, FieldState::Coeff> &out)
+    // instantiation function for CreatorFunction in OperatorFactory
+    static std::unique_ptr<Operator<TData>> instantiate(
+        const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        apply(in, out);
+        return std::make_unique<
+            OperatorLinAdvDiffReactionImpl<ExecSpace, TData>>(expansionList);
     }
 };
 
-} // namespace Nektar::Operators
+} // namespace Nektar::Operators::detail

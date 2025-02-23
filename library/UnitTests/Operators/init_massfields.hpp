@@ -34,7 +34,7 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/ElmtOps/OperatorMass.hpp"
+#include "Operators/ElmtOps/Mass/OperatorMass.hpp"
 
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;

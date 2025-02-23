@@ -34,7 +34,7 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/ElmtOps/OperatorMultiplyByElmtInvMass.hpp"
+#include "Operators/ElmtOps/MultiplyByElmtInvMass/OperatorMultiplyByElmtInvMass.hpp"
 
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;

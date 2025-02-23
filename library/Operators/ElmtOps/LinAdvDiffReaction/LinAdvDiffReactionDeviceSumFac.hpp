@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/OperatorLinAdvDiffReaction.hpp"
+#include "Operators/ElmtOps/LinAdvDiffReaction/OperatorLinAdvDiffReaction.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionDeviceSumFacKernels.hpp"

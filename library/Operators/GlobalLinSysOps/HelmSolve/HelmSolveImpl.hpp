@@ -34,23 +34,22 @@
 
 #pragma once
 
-#include "Operators/GlobalLinSysOps/OperatorConjGrad.hpp"
-#include "Operators/GlobalLinSysOps/OperatorHelmSolve.hpp"
+#include "Operators/GlobalLinSysOps/ConjGrad/OperatorConjGrad.hpp"
+#include "Operators/GlobalLinSysOps/HelmSolve/OperatorHelmSolve.hpp"
 
-#include "Operators/BndCondOps/OperatorDirBndCond.hpp"
-#include "Operators/BndCondOps/OperatorNeuBndCond.hpp"
-#include "Operators/BndCondOps/OperatorRobBndCond.hpp"
-#include "Operators/ElmtOps/OperatorHelmholtz.hpp"
-#include "Operators/ElmtOps/OperatorIProductWRTBase.hpp"
-#include "Operators/ElmtOps/OperatorMass.hpp"
+#include "Operators/BndCondOps/DirBndCond/OperatorDirBndCond.hpp"
+#include "Operators/BndCondOps/NeuBndCond/OperatorNeuBndCond.hpp"
+#include "Operators/BndCondOps/RobBndCond/OperatorRobBndCond.hpp"
+#include "Operators/ElmtOps/Helmholtz/OperatorHelmholtz.hpp"
+#include "Operators/ElmtOps/IProductWRTBase/OperatorIProductWRTBase.hpp"
+#include "Operators/ElmtOps/Mass/OperatorMass.hpp"
 #include "Operators/MathKernels/MathKernels.hpp"
 #include "Operators/PreconOps/OperatorPrecon.hpp"
 
 namespace Nektar::Operators::detail
 {
 
-// CUDA implementation
-template <typename ExecSpace, typename Implementation, typename TData>
+template <typename ExecSpace, typename TData>
 class OperatorHelmSolveImpl : public OperatorHelmSolve<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
@@ -68,17 +67,17 @@ public:
               ExecSpace::alignment))
     {
         m_IProdOp = OperatorIProductWRTBase<TData>::Create(
-            this->m_expansionList, ExecSpace::name, Implementation::name);
-        m_DirBCOp = OperatorDirBndCond<TData>::Create(
-            this->m_expansionList, ExecSpace::name, Implementation::name);
-        m_NeuBCOp = OperatorNeuBndCond<TData>::Create(
-            this->m_expansionList, ExecSpace::name, Implementation::name);
-        m_RobBCOp = OperatorRobBndCond<TData>::Create(
-            this->m_expansionList, ExecSpace::name, Implementation::name);
-        m_HelmOp = OperatorHelmholtz<TData>::Create(
-            this->m_expansionList, ExecSpace::name, Implementation::name);
-        m_CGOp = OperatorConjGrad<TData>::Create(
-            this->m_expansionList, ExecSpace::name, Implementation::name);
+            this->m_expansionList, ExecSpace::name);
+        m_DirBCOp = OperatorDirBndCond<TData>::Create(this->m_expansionList,
+                                                      ExecSpace::name);
+        m_NeuBCOp = OperatorNeuBndCond<TData>::Create(this->m_expansionList,
+                                                      ExecSpace::name);
+        m_RobBCOp = OperatorRobBndCond<TData>::Create(this->m_expansionList,
+                                                      ExecSpace::name);
+        m_HelmOp  = OperatorHelmholtz<TData>::Create(this->m_expansionList,
+                                                     ExecSpace::name);
+        m_CGOp    = OperatorConjGrad<TData>::Create(this->m_expansionList,
+                                                    ExecSpace::name);
         m_CGOp->setLHS(m_HelmOp);
     }
 
@@ -127,8 +126,7 @@ public:
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return std::make_unique<
-            OperatorHelmSolveImpl<ExecSpace, Implementation, TData>>(
+        return std::make_unique<OperatorHelmSolveImpl<ExecSpace, TData>>(
             expansionList);
     }
 

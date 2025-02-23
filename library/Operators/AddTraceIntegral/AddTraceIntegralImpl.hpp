@@ -34,9 +34,9 @@
 
 #pragma once
 
-#include "Operators/OperatorAddTraceIntegral.hpp"
+#include "Operators/AddTraceIntegral/OperatorAddTraceIntegral.hpp"
 
-#include "Operators/ElmtOps/OperatorIProductWRTBase.hpp"
+#include "Operators/ElmtOps/IProductWRTBase/OperatorIProductWRTBase.hpp"
 
 #include "Operators/AddTraceIntegral/AddTraceIntegralCUDAKernels.cuh"
 #include "Operators/AddTraceIntegral/AddTraceIntegralKokkosKernels.hpp"
@@ -48,8 +48,7 @@ using namespace Nektar::MultiRegions;
 namespace Nektar::Operators::detail
 {
 
-// Standard matrix implementation
-template <typename ExecSpace, typename Implementation, typename TData>
+template <typename ExecSpace, typename TData>
 class OperatorAddTraceIntegralImpl : public OperatorAddTraceIntegral<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
@@ -202,8 +201,7 @@ public:
 
         // Initialise IProductWRTBase operator.
         m_IProductWRTBaseOp = OperatorIProductWRTBase<TData>::Create(
-            this->m_expansionList->GetTrace(), ExecSpace::name,
-            Implementation::name);
+            this->m_expansionList->GetTrace(), ExecSpace::name);
     }
 
     void apply(Field<TData, FieldState::Phys> &in,
@@ -264,8 +262,7 @@ public:
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return std::make_unique<
-            OperatorAddTraceIntegralImpl<ExecSpace, Implementation, TData>>(
+        return std::make_unique<OperatorAddTraceIntegralImpl<ExecSpace, TData>>(
             expansionList);
     }
 

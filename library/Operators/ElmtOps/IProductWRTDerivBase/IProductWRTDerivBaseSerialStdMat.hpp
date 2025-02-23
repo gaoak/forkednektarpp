@@ -36,7 +36,7 @@
 
 #include <StdRegions/StdExpansion.h>
 
-#include "Operators/ElmtOps/OperatorIProductWRTDerivBase.hpp"
+#include "Operators/ElmtOps/IProductWRTDerivBase/OperatorIProductWRTDerivBase.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
 namespace Nektar::Operators::detail

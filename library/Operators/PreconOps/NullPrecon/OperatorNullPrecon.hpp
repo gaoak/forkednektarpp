@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: OperatorDiagPrecon.hpp
+// File: OperatorNullPrecon.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -39,17 +39,17 @@
 namespace Nektar::Operators
 {
 
-// DiagPrecon base class
+// NullPrecon base class
 // Defines the apply operator to enforce apply parameter types
 template <typename TData>
-class OperatorDiagPrecon : public OperatorPrecon<TData>
+class OperatorNullPrecon : public OperatorPrecon<TData>
 {
 public:
-    ~OperatorDiagPrecon() override = default;
+    ~OperatorNullPrecon() override = default;
 
-    static std::shared_ptr<OperatorDiagPrecon<TData>> Create(
+    static std::shared_ptr<OperatorNullPrecon<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
-        const std::string &execStr = "", const std::string &implStr = "")
+        const std::string &execStr = "")
     {
         auto session = expansionList->GetSession();
 
@@ -57,17 +57,14 @@ public:
             (execStr == "")
                 ? session->GetCmdLineArgument<std::string>("opExecSpace")
                 : execStr;
-        std::string implStr0 =
-            (implStr == "") ? session->GetCmdLineArgument<std::string>("opImpl")
-                            : implStr;
 
-        return Operator<TData>::template Create<OperatorDiagPrecon<TData>>(
-            expansionList, execStr0, implStr0);
+        return Operator<TData>::template Create<OperatorNullPrecon<TData>>(
+            expansionList, execStr0);
     }
 
-    static constexpr char name[] = "DiagPrecon";
+    static constexpr char name[] = "NullPrecon";
 
-    OperatorDiagPrecon(const MultiRegions::ExpListSharedPtr &expansionList)
+    OperatorNullPrecon(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorPrecon<TData>(expansionList)
     {
     }

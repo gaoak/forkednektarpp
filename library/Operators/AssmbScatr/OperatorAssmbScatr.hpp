@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: OperatorPrecon.hpp
+// File: OperatorAssmbScatr.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,34 +34,56 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/OperatorElmt.hpp"
+#include "Operators/Common/Operator.hpp"
 
 namespace Nektar::Operators
 {
 
-// Precon base class
-template <typename TData>
-class OperatorPrecon
-    : public OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>
+// AssmbScatr base class
+// Defines the apply operator to enforce apply parameter types
+template <typename TData> class OperatorAssmbScatr : public Operator<TData>
 {
 public:
-    OperatorPrecon(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>(
-              expansionList)
+    OperatorAssmbScatr(const MultiRegions::ExpListSharedPtr &expansionList)
+        : Operator<TData>(expansionList)
     {
     }
 
-    ~OperatorPrecon() override = default;
+    ~OperatorAssmbScatr() override = default;
+
+    static std::shared_ptr<OperatorAssmbScatr<TData>> Create(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::string &execStr = "")
+    {
+        auto session = expansionList->GetSession();
+
+        std::string execStr0 =
+            (execStr == "")
+                ? session->GetCmdLineArgument<std::string>("opExecSpace")
+                : execStr;
+
+        return Operator<TData>::template Create<OperatorAssmbScatr<TData>>(
+            expansionList, execStr0);
+    }
+
+    static constexpr char name[] = "AssmbScatr";
+
+    virtual void apply(Field<TData, FieldState::Coeff> &in,
+                       Field<TData, FieldState::Coeff> &out,
+                       const bool &zeroDir = false) = 0;
 
     void operator()(Field<TData, FieldState::Coeff> &in,
-                    Field<TData, FieldState::Coeff> &out)
+                    Field<TData, FieldState::Coeff> &out, const bool &zeroDir)
     {
-        this->apply(in, out);
+        apply(in, out, zeroDir);
     }
 
-    virtual void configure(
-        const std::shared_ptr<
-            OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>> &op) = 0;
+    virtual void Assemble(Field<TData, FieldState::Coeff> &in,
+                          MemoryRegion<TData> &out,
+                          const bool &signChange = true) = 0;
+
+    virtual void GlobalToLocal(MemoryRegion<TData> &in,
+                               Field<TData, FieldState::Coeff> &out) = 0;
 };
 
 } // namespace Nektar::Operators

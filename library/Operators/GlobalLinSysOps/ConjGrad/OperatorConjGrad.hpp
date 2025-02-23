@@ -53,7 +53,7 @@ public:
 
     static std::shared_ptr<OperatorConjGrad<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
-        const std::string &execStr = "", const std::string &implStr = "")
+        const std::string &execStr = "")
     {
         auto session = expansionList->GetSession();
 
@@ -61,12 +61,9 @@ public:
             (execStr == "")
                 ? session->GetCmdLineArgument<std::string>("opExecSpace")
                 : execStr;
-        std::string implStr0 =
-            (implStr == "") ? session->GetCmdLineArgument<std::string>("opImpl")
-                            : implStr;
 
         return Operator<TData>::template Create<OperatorConjGrad<TData>>(
-            expansionList, execStr0, implStr0);
+            expansionList, execStr0);
     }
 
     static constexpr char name[] = "ConjGrad";
@@ -74,8 +71,8 @@ public:
     virtual void apply(Field<TData, FieldState::Coeff> &in,
                        Field<TData, FieldState::Coeff> &out) = 0;
 
-    virtual void operator()(Field<TData, FieldState::Coeff> &in,
-                            Field<TData, FieldState::Coeff> &out)
+    void operator()(Field<TData, FieldState::Coeff> &in,
+                    Field<TData, FieldState::Coeff> &out)
     {
         apply(in, out);
     }
