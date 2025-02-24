@@ -312,7 +312,7 @@ __global__ void reduceSumKernel(const unsigned int nsize, const TData *x,
     // use atomicAdd to sum over warps
     if (warp.thread_rank() == 0)
     {
-        atomicAdd(&out[block.group_index().x], v);
+        atomicAdd_block(&out[block.group_index().x], v);
     }
 }
 
@@ -385,7 +385,7 @@ __global__ void reduceMaxKernel(const unsigned int nsize, const TData *x,
 
     if (warp.thread_rank() == 0)
     {
-        atomicMax(&out[block.group_index().x], v);
+        atomicMax_block(&out[block.group_index().x], v);
     }
 }
 
@@ -458,7 +458,7 @@ __global__ void reduceMinKernel(const unsigned int nsize, const TData *x,
 
     if (warp.thread_rank() == 0)
     {
-        atomicMin(&out[block.group_index().x], v);
+        atomicMin_block(&out[block.group_index().x], v);
     }
 }
 
@@ -537,7 +537,7 @@ __global__ void ddotKernel(const unsigned int nsize, const TData *x,
     // use atomicAdd to sum over warps
     if (warp.thread_rank() == 0)
     {
-        atomicAdd(&out[block.group_index().x], v);
+        atomicAdd_block(&out[block.group_index().x], v);
     }
 }
 
@@ -614,7 +614,7 @@ __global__ void l1normKernel(const unsigned int nsize, const TData *x,
     // use atomicAdd to sum over warps
     if (warp.thread_rank() == 0)
     {
-        atomicAdd(&out[block.group_index().x], v);
+        atomicAdd_block(&out[block.group_index().x], v);
     }
 }
 
@@ -691,7 +691,7 @@ __global__ void l2normKernel(const unsigned int nsize, const TData *x,
     // use atomicAdd to sum over warps
     if (warp.thread_rank() == 0)
     {
-        atomicAdd(&out[block.group_index().x], v);
+        atomicAdd_block(&out[block.group_index().x], v);
     }
 }
 
@@ -769,7 +769,7 @@ __global__ void lpnormKernel(const unsigned int nsize, const int p,
     // use atomicAdd to sum over warps
     if (warp.thread_rank() == 0)
     {
-        atomicAdd(&out[block.group_index().x], v);
+        atomicAdd_block(&out[block.group_index().x], v);
     }
 }
 
@@ -843,7 +843,7 @@ __global__ void linfnormKernel(const unsigned int nsize, const TData *x,
 
     if (warp.thread_rank() == 0)
     {
-        atomicMax(&out[block.group_index().x], v);
+        atomicMax_block(&out[block.group_index().x], v);
     }
 }
 
@@ -911,7 +911,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
 reduceSumKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+    const unsigned int gridSize  = NektarSpaces::CUDA::maximumBlockSize;
 
     if (cudaBuffer == nullptr)
     {
