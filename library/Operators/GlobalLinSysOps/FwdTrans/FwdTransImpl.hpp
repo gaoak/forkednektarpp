@@ -55,14 +55,14 @@ class OperatorFwdTransImpl : public OperatorFwdTrans<TData>
 public:
     OperatorFwdTransImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorFwdTrans<TData>(expansionList),
-          m_rhs(Field<TData, FieldState::Coeff>::template Create<MemSpace>(
+          m_rhs(Field<TData, FieldState::Coeff>::Create(
               "FwdTrans RHS",
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
-              ExecSpace::alignment)),
-          m_tmp(Field<TData, FieldState::Coeff>::template Create<MemSpace>(
+              ExecSpace::alignment, true)),
+          m_tmp(Field<TData, FieldState::Coeff>::Create(
               "FwdTrans TMP",
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
-              ExecSpace::alignment))
+              ExecSpace::alignment, true))
     {
         m_MassOp =
             OperatorMass<TData>::Create(this->m_expansionList, ExecSpace::name);

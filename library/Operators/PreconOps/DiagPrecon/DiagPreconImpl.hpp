@@ -69,11 +69,11 @@ public:
                                : assmbMap->GetNumGlobalBndCoeffs();
         m_nDir      = assmbMap->GetNumGlobalDirBndCoeffs();
 
-        m_glodiag = MemoryRegion<TData>::template Create<MemSpace>(
-            "DiagPrecon diag", m_nGlobal, ExecSpace::alignment);
+        m_glodiag = MemoryRegion<TData>::Create("DiagPrecon diag", m_nGlobal,
+                                                ExecSpace::alignment);
 
-        m_wk = MemoryRegion<TData>::template Create<MemSpace>(
-            "DiagPrecon wk", m_nGlobal, ExecSpace::alignment);
+        m_wk = MemoryRegion<TData>::Create("DiagPrecon wk", m_nGlobal,
+                                           ExecSpace::alignment);
 
         m_assmbScatrOp = OperatorAssmbScatr<TData>::Create(
             this->m_expansionList, ExecSpace::name);
@@ -108,18 +108,18 @@ public:
 
         // Create local diagonal field.
         Field<TData, FieldState::Coeff> locdiag =
-            Field<TData, FieldState::Coeff>::template Create<MemSpace>(
-                "Local diagonal", blocks, 1, ExecSpace::alignment);
+            Field<TData, FieldState::Coeff>::Create("Local diagonal", blocks, 1,
+                                                    ExecSpace::alignment, true);
 
         // Create unit vector field to extract diagonal.
         Field<TData, FieldState::Coeff> unit_vec =
-            Field<TData, FieldState::Coeff>::template Create<MemSpace>(
-                "DiagPrecon unit vec", blocks, 1, ExecSpace::alignment);
+            Field<TData, FieldState::Coeff>::Create(
+                "DiagPrecon unit vec", blocks, 1, ExecSpace::alignment, true);
 
         // Create action field to receive column action from unit vector.
         Field<TData, FieldState::Coeff> action =
-            Field<TData, FieldState::Coeff>::template Create<MemSpace>(
-                "DiagPrecon action", blocks, 1, ExecSpace::alignment);
+            Field<TData, FieldState::Coeff>::Create(
+                "DiagPrecon action", blocks, 1, ExecSpace::alignment, true);
 
         // Initialize field.
         locdiag.template Initialize<MemSpace>(0);

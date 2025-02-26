@@ -77,8 +77,6 @@ public:
             j += nPadElmts * ncoeff;
         }
 
-        const bool device_only = true;
-
         if (expansionList->GetExp(0)->GetShapeDimension() == 1)
         {
             // Determine size
@@ -125,13 +123,11 @@ public:
             }
 
             m_mat = MemoryRegion<TData>::template FromVector<MemSpace, TData>(
-                mat, ExecSpace::alignment, device_only);
+                mat, ExecSpace::alignment);
             m_map = MemoryRegion<unsigned int>::template FromVector<
-                MemSpace, unsigned int>(map, ExecSpace::alignment, device_only);
-            m_offset =
-                MemoryRegion<unsigned int>::template FromVector<MemSpace,
-                                                                unsigned int>(
-                    offset, ExecSpace::alignment, device_only);
+                MemSpace, unsigned int>(map, ExecSpace::alignment);
+            m_offset = MemoryRegion<unsigned int>::template FromVector<
+                MemSpace, unsigned int>(offset, ExecSpace::alignment);
         }
         else if (expansionList->GetExp(0)->GetShapeDimension() == 2)
         {
@@ -222,27 +218,19 @@ public:
             }
 
             m_mat = MemoryRegion<TData>::template FromVector<MemSpace, TData>(
-                mat, ExecSpace::alignment, device_only);
+                mat, ExecSpace::alignment);
             m_map = MemoryRegion<unsigned int>::template FromVector<
-                MemSpace, unsigned int>(map, ExecSpace::alignment, device_only);
+                MemSpace, unsigned int>(map, ExecSpace::alignment);
             m_sign = MemoryRegion<int>::template FromVector<MemSpace, int>(
-                sign, ExecSpace::alignment, device_only);
-            m_nEdgeCoeff =
-                MemoryRegion<unsigned int>::template FromVector<MemSpace,
-                                                                unsigned int>(
-                    nEdgeCoeff, ExecSpace::alignment, device_only);
-            m_offset =
-                MemoryRegion<unsigned int>::template FromVector<MemSpace,
-                                                                unsigned int>(
-                    offset, ExecSpace::alignment, device_only);
-            m_matOffset =
-                MemoryRegion<unsigned int>::template FromVector<MemSpace,
-                                                                unsigned int>(
-                    matOffset, ExecSpace::alignment, device_only);
-            m_mapOffset =
-                MemoryRegion<unsigned int>::template FromVector<MemSpace,
-                                                                unsigned int>(
-                    mapOffset, ExecSpace::alignment, device_only);
+                sign, ExecSpace::alignment);
+            m_nEdgeCoeff = MemoryRegion<unsigned int>::template FromVector<
+                MemSpace, unsigned int>(nEdgeCoeff, ExecSpace::alignment);
+            m_offset = MemoryRegion<unsigned int>::template FromVector<
+                MemSpace, unsigned int>(offset, ExecSpace::alignment);
+            m_matOffset = MemoryRegion<unsigned int>::template FromVector<
+                MemSpace, unsigned int>(matOffset, ExecSpace::alignment);
+            m_mapOffset = MemoryRegion<unsigned int>::template FromVector<
+                MemSpace, unsigned int>(mapOffset, ExecSpace::alignment);
         }
         else if (expansionList->GetExp(0)->GetShapeDimension() == 3)
         {

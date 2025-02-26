@@ -56,10 +56,8 @@ void ProfilerReduction(const unsigned int size)
         using MemSpace = NektarSpaces::HostSpace;
 
         TData result_serial;
-        auto x = MemoryRegion<TData>::template Create<MemSpace>(
-            "x", size, vec_t::alignment);
-        auto y = MemoryRegion<TData>::template Create<MemSpace>(
-            "y", size, vec_t::alignment);
+        auto x    = MemoryRegion<TData>::Create("x", size, vec_t::alignment);
+        auto y    = MemoryRegion<TData>::Create("y", size, vec_t::alignment);
         auto xptr = x.template GetPtr<MemSpace, WriteOnly>();
         auto yptr = y.template GetPtr<MemSpace, WriteOnly>();
         for (unsigned int t = 0; t < ntests; ++t)
@@ -84,10 +82,8 @@ void ProfilerReduction(const unsigned int size)
         using MemSpace = NektarSpaces::HostSpace;
 
         TData result_avx;
-        auto x = MemoryRegion<TData>::template Create<MemSpace>(
-            "x", size, vec_t::alignment);
-        auto y = MemoryRegion<TData>::template Create<MemSpace>(
-            "y", size, vec_t::alignment);
+        auto x    = MemoryRegion<TData>::Create("x", size, vec_t::alignment);
+        auto y    = MemoryRegion<TData>::Create("y", size, vec_t::alignment);
         auto xptr = x.template GetPtr<MemSpace, WriteOnly>();
         auto yptr = y.template GetPtr<MemSpace, WriteOnly>();
         for (unsigned int t = 0; t < ntests; ++t)
@@ -112,12 +108,10 @@ void ProfilerReduction(const unsigned int size)
     {
         using MemSpace = NektarSpaces::DeviceSpace;
 
-        auto result_sycl = MemoryRegion<TData>::template Create<MemSpace>(
-            "result_sycl", 1, vec_t::alignment);
-        auto x = MemoryRegion<TData>::template Create<MemSpace>(
-            "x", size, vec_t::alignment);
-        auto y = MemoryRegion<TData>::template Create<MemSpace>(
-            "y", size, vec_t::alignment);
+        auto result_sycl =
+            MemoryRegion<TData>::Create("result_sycl", 1, vec_t::alignment);
+        auto x    = MemoryRegion<TData>::Create("x", size, vec_t::alignment);
+        auto y    = MemoryRegion<TData>::Create("y", size, vec_t::alignment);
         auto xptr = x.template GetPtr<MemSpace, WriteOnly>();
         auto yptr = y.template GetPtr<MemSpace, WriteOnly>();
         for (unsigned int t = 0; t < ntests; ++t)
@@ -148,10 +142,8 @@ void ProfilerReduction(const unsigned int size)
         using MemSpace = NektarSpaces::DeviceSpace;
 
         TData result_kokkos;
-        auto x = MemoryRegion<TData>::template Create<MemSpace>(
-            "x", size, vec_t::alignment);
-        auto y = MemoryRegion<TData>::template Create<MemSpace>(
-            "y", size, vec_t::alignment);
+        auto x    = MemoryRegion<TData>::Create("x", size, vec_t::alignment);
+        auto y    = MemoryRegion<TData>::Create("y", size, vec_t::alignment);
         auto xptr = x.template GetPtr<MemSpace, WriteOnly>();
         auto yptr = y.template GetPtr<MemSpace, WriteOnly>();
         for (unsigned int t = 0; t < ntests; ++t)
@@ -201,12 +193,9 @@ void ProfilerDaxpy(const unsigned int size)
     {
         using MemSpace = NektarSpaces::HostSpace;
 
-        auto x = MemoryRegion<TData>::template Create<MemSpace>(
-            "x", size, vec_t::alignment);
-        auto y = MemoryRegion<TData>::template Create<MemSpace>(
-            "y", size, vec_t::alignment);
-        auto z = MemoryRegion<TData>::template Create<MemSpace>(
-            "z", size, vec_t::alignment);
+        auto x    = MemoryRegion<TData>::Create("x", size, vec_t::alignment);
+        auto y    = MemoryRegion<TData>::Create("y", size, vec_t::alignment);
+        auto z    = MemoryRegion<TData>::Create("z", size, vec_t::alignment);
         auto xptr = x.template GetPtr<MemSpace, WriteOnly>();
         auto yptr = y.template GetPtr<MemSpace, WriteOnly>();
         auto zptr = z.template GetPtr<MemSpace, WriteOnly>();
@@ -231,12 +220,9 @@ void ProfilerDaxpy(const unsigned int size)
     {
         using MemSpace = NektarSpaces::HostSpace;
 
-        auto x = MemoryRegion<TData>::template Create<MemSpace>(
-            "x", size, vec_t::alignment);
-        auto y = MemoryRegion<TData>::template Create<MemSpace>(
-            "y", size, vec_t::alignment);
-        auto z = MemoryRegion<TData>::template Create<MemSpace>(
-            "z", size, vec_t::alignment);
+        auto x    = MemoryRegion<TData>::Create("x", size, vec_t::alignment);
+        auto y    = MemoryRegion<TData>::Create("y", size, vec_t::alignment);
+        auto z    = MemoryRegion<TData>::Create("z", size, vec_t::alignment);
         auto xptr = x.template GetPtr<MemSpace, WriteOnly>();
         auto yptr = y.template GetPtr<MemSpace, WriteOnly>();
         auto zptr = z.template GetPtr<MemSpace, WriteOnly>();
@@ -262,12 +248,9 @@ void ProfilerDaxpy(const unsigned int size)
     {
         using MemSpace = NektarSpaces::DeviceSpace;
 
-        auto x = MemoryRegion<TData>::template Create<MemSpace>(
-            "x", size, vec_t::alignment);
-        auto y = MemoryRegion<TData>::template Create<MemSpace>(
-            "y", size, vec_t::alignment);
-        auto z = MemoryRegion<TData>::template Create<MemSpace>(
-            "z", size, vec_t::alignment);
+        auto x    = MemoryRegion<TData>::Create("x", size, vec_t::alignment);
+        auto y    = MemoryRegion<TData>::Create("y", size, vec_t::alignment);
+        auto z    = MemoryRegion<TData>::Create("z", size, vec_t::alignment);
         auto xptr = x.template GetPtr<MemSpace, WriteOnly>();
         auto yptr = y.template GetPtr<MemSpace, WriteOnly>();
         auto zptr = z.template GetPtr<MemSpace, WriteOnly>();
@@ -296,12 +279,9 @@ void ProfilerDaxpy(const unsigned int size)
     {
         using MemSpace = NektarSpaces::DeviceSpace;
 
-        auto x = MemoryRegion<TData>::template Create<MemSpace>(
-            "x", size, vec_t::alignment);
-        auto y = MemoryRegion<TData>::template Create<MemSpace>(
-            "y", size, vec_t::alignment);
-        auto z = MemoryRegion<TData>::template Create<MemSpace>(
-            "z", size, vec_t::alignment);
+        auto x    = MemoryRegion<TData>::Create("x", size, vec_t::alignment);
+        auto y    = MemoryRegion<TData>::Create("y", size, vec_t::alignment);
+        auto z    = MemoryRegion<TData>::Create("z", size, vec_t::alignment);
         auto xptr = x.template GetPtr<MemSpace, WriteOnly>();
         auto yptr = y.template GetPtr<MemSpace, WriteOnly>();
         auto zptr = z.template GetPtr<MemSpace, WriteOnly>();

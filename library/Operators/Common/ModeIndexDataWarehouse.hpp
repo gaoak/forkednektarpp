@@ -96,8 +96,7 @@ public:
                 const auto nm01 =
                     LibUtilities::GetNumberOfCoefficients(shapeType, nm0, nm1);
 
-                auto index = MemoryRegion<TData>::template Create<MemSpace>(
-                    nm01, alignment);
+                auto index = MemoryRegion<TData>::Create(nm01, alignment);
                 auto ptr =
                     index.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
                 for (unsigned int p = 0, mode_pq = 0; p < nm0; p++)
@@ -134,9 +133,8 @@ public:
                 const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
                 if (mode == 0 || mode == 3)
                 {
-                    auto index = MemoryRegion<TData>::template Create<MemSpace>(
-                        nm01, alignment);
-                    auto ptr = index.template GetPtr<NektarSpaces::HostSpace,
+                    auto index = MemoryRegion<TData>::Create(nm01, alignment);
+                    auto ptr   = index.template GetPtr<NektarSpaces::HostSpace,
                                                      WriteOnly>();
                     for (unsigned int p = 0, mode_pq = 0; p < nm0; p++)
                     {
@@ -157,9 +155,8 @@ public:
                 }
                 else if (mode == 1 || mode == 2)
                 {
-                    auto index = MemoryRegion<TData>::template Create<MemSpace>(
-                        nmTot, alignment);
-                    auto ptr = index.template GetPtr<NektarSpaces::HostSpace,
+                    auto index = MemoryRegion<TData>::Create(nmTot, alignment);
+                    auto ptr   = index.template GetPtr<NektarSpaces::HostSpace,
                                                      WriteOnly>();
                     for (unsigned int p = 0, mode_pq = 0, mode_pqr = 0; p < nm0;
                          p++)
@@ -186,8 +183,7 @@ public:
                 else
                 {
                     NEKERROR(ErrorUtil::efatal, "invalid data requested.");
-                    return MemoryRegion<TData>::template Create<MemSpace>(
-                        0, alignment);
+                    return MemoryRegion<TData>::Create(0, alignment);
                 }
             }
             break;
@@ -200,8 +196,7 @@ public:
                 const auto nmTot = LibUtilities::GetNumberOfCoefficients(
                     shapeType, nm0, nm1, nm2);
 
-                auto index = MemoryRegion<TData>::template Create<MemSpace>(
-                    nmTot, alignment);
+                auto index = MemoryRegion<TData>::Create(nmTot, alignment);
                 auto ptr =
                     index.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
                 for (unsigned int p = 0, mode_pqr = 0; p < nm0; p++)
@@ -243,8 +238,7 @@ public:
                 const auto nmTot = LibUtilities::GetNumberOfCoefficients(
                     shapeType, nm0, nm1, nm2);
 
-                auto index = MemoryRegion<TData>::template Create<MemSpace>(
-                    nmTot, alignment);
+                auto index = MemoryRegion<TData>::Create(nmTot, alignment);
                 auto ptr =
                     index.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
                 for (unsigned int p = 0, mode_pqr = 0; p < nm0; p++)
@@ -276,8 +270,7 @@ public:
             break;
             default:
                 NEKERROR(ErrorUtil::efatal, "invalid data requested.");
-                return MemoryRegion<TData>::template Create<MemSpace>(
-                    0, alignment);
+                return MemoryRegion<TData>::Create(0, alignment);
                 break;
         }
     }

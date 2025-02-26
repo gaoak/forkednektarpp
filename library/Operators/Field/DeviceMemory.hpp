@@ -127,20 +127,20 @@ void deviceMemset(TData *dst, const int val, const unsigned int size,
 
 #if defined(NEKTAR_ENABLE_CUDA)
     cudaSetDevice(device_rank);
-    cudaMemset(dst, val, size * sizeof(TData));
+    cudaMemset((void *)dst, val, size * sizeof(TData));
 #elif defined(NEKTAR_ENABLE_HIP)
     hipSetDevice(device_rank);
-    hipMemset(dst, val, size * sizeof(TData));
+    hipMemset((void *)dst, val, size * sizeof(TData));
 #elif defined(NEKTAR_ENABLE_SYCL)
     sycl::queue &Q = SYCLQueue::GetInstance();
-    Q.memset(dst, val, size * sizeof(TData)).wait();
+    Q.memset((void *)dst, val, size * sizeof(TData)).wait();
 #elif defined(NEKTAR_ENABLE_KOKKOS)
     // Create an unmanage Kokkos view from the raw pointer.
     Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> dstView(dst, size);
     // Deep copy the val to the device view.
     Kokkos::deep_copy(dstView, val);
 #else
-    memset(dst, val, size * sizeof(TData));
+    memset((void *)dst, val, size * sizeof(TData));
 #endif
 }
 

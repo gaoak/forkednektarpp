@@ -119,7 +119,7 @@ public:
         if (expPtr->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed)
         {
             Array<OneD, Array<OneD, NekDouble>> jacArray(interleave_width);
-            auto jac = MemoryRegion<TData>::template Create<MemSpace>(
+            auto jac = MemoryRegion<TData>::Create(
                 num_elmt_groups * interleave_width * expPtr->GetTotPoints(),
                 alignment);
             auto jacptr =
@@ -159,7 +159,7 @@ public:
         // Regular geometry.
         else
         {
-            auto jac = MemoryRegion<TData>::template Create<MemSpace>(
+            auto jac = MemoryRegion<TData>::Create(
                 num_elmt_groups * interleave_width, alignment);
             auto jacptr =
                 jac.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
@@ -215,7 +215,7 @@ public:
         if (expPtr->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed)
         {
             // Allocate memory and get pointer.
-            auto df = MemoryRegion<TData>::template Create<MemSpace>(
+            auto df = MemoryRegion<TData>::Create(
                 num_elmt_groups * interleave_width * expPtr->GetTotPoints() *
                     nDim * nCoord,
                 alignment);
@@ -261,7 +261,7 @@ public:
         // Regular geometry.
         else
         {
-            auto df = MemoryRegion<TData>::template Create<MemSpace>(
+            auto df = MemoryRegion<TData>::Create(
                 num_elmt_groups * interleave_width * nDim * nCoord, alignment);
             auto dfptr =
                 df.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();

@@ -68,15 +68,11 @@ public:
      * @param size        - size of memory
      * @param alignment   - memory alignment
      * @param device_rank - device (GPU) rank id
-     * @param device_only - flag to only allocated memory on device
      */
     MemoryRegionDevice(const std::string name, const size_t size,
-                       const size_t alignment, const size_t device_rank,
-                       const bool device_only)
-        : MemoryRegionHost<TData>(name, size, alignment, device_rank,
-                                  device_only)
+                       const size_t alignment, const size_t device_rank)
+        : MemoryRegionHost<TData>(name, size, alignment, device_rank)
     {
-        deviceMalloc(this->m_device, this->m_size, this->m_device_rank);
     }
 
     /**
@@ -89,13 +85,12 @@ public:
      * @param h_src       - host src pointer
      * @param size        - size of memory
      * @param alignment   - memory alignment
-     * @param device_only - flag to only allocated memory on device
+     * @param device_rank - device (GPU) rank id
      */
     MemoryRegionDevice(const std::string name, TData *h_src, const size_t size,
                        const size_t alignment, const size_t device_rank)
         : MemoryRegionHost<TData>(name, h_src, size, alignment, device_rank)
     {
-        deviceMalloc(this->m_device, this->m_size, this->m_device_rank);
     }
 
     /**
@@ -120,7 +115,6 @@ public:
     MemoryRegionDevice<TData>(MemoryRegionHost<TData> &&host)
         : MemoryRegionHost<TData>(std::move(host))
     {
-        deviceMalloc(this->m_device, this->m_size, this->m_device_rank);
     }
 
     /**
@@ -184,11 +178,10 @@ protected:
     {
         if (this->m_host == nullptr)
         {
-            // Throw an error.
-            NEKERROR(Nektar::ErrorUtil::efatal,
-                     "MemoryRegionDevice::GetWriteOnlyHostPtr - "
-                     "attempt to access host data (" +
-                         this->m_name + ") without it being allocated.");
+            this->m_host = static_cast<TData *>(
+                ::operator new[](this->m_size * sizeof(TData),
+                                 std::align_val_t(this->m_alignment)));
+            std::memset((void *)this->m_host, 0, this->m_size * sizeof(TData));
         }
 
         this->m_host_valid   = true;
@@ -231,13 +224,10 @@ protected:
      */
     TData *GetWriteOnlyDevicePtr() override
     {
-        if (m_device == nullptr)
+        if (this->m_device == nullptr)
         {
-            // Throw an error.
-            NEKERROR(Nektar::ErrorUtil::efatal,
-                     "MemoryRegionDevice::GetWriteOnlyDevicePtr - "
-                     "attempt to access device memory (" +
-                         this->m_name + ") without it being allocated.");
+            deviceMalloc(this->m_device, this->m_size, this->m_device_rank);
+            deviceMemset(this->m_device, 0, this->m_size, this->m_device_rank);
         }
 
         this->m_device_valid = true;
@@ -270,22 +260,36 @@ protected:
     void Initialize(const TData val, const size_t count = 0,
                     const size_t offset = 0) override
     {
-        MemoryRegionHost<TData>::Initialize(val, count, offset);
+        if (this->m_device == nullptr)
+        {
+            deviceMalloc(this->m_device, this->m_size, this->m_device_rank);
+            deviceMemset(this->m_device, 0, this->m_size, this->m_device_rank);
+        }
 
-        auto size  = (count == 0) ? this->m_size : count;
+        auto size = (count == 0) ? this->m_size : count;
+
         TData *dst = this->m_device + offset;
 
         // If the value is zero, memset is the most efficent.
-        if (val == TData(0))
+        if constexpr (std::is_floating_point_v<TData> ||
+                      std::is_integral_v<TData>)
         {
-            deviceMemset(dst, 0, size, this->m_device_rank);
+            if (val == TData(0))
+            {
+                deviceMemset(dst, 0, size, this->m_device_rank);
+            }
+            // Nonzero value
+            else
+            {
+                deviceFill(dst, val, size, this->m_device_rank);
+            }
         }
-        // Nonzero value
         else
         {
             deviceFill(dst, val, size, this->m_device_rank);
         }
 
+        this->m_host_valid   = false;
         this->m_device_valid = true;
         this->m_initialize   = false;
     }
@@ -300,9 +304,17 @@ protected:
     void CopyFromHostPtr(const TData *src, const size_t size,
                          const size_t offset = 0) override
     {
-        MemoryRegionHost<TData>::CopyFromHostPtr(src, size, offset);
+        if (this->m_device == nullptr)
+        {
+            deviceMalloc(this->m_device, this->m_size, this->m_device_rank);
+            deviceMemset(this->m_device, 0, this->m_size, this->m_device_rank);
+        }
+
         TData *dst = this->m_device + offset;
+
         deviceMemcpy<HostToDevice>(dst, src, size, this->m_device_rank);
+
+        this->m_host_valid   = false;
         this->m_device_valid = true;
         this->m_initialize   = false;
     }
@@ -323,6 +335,11 @@ protected:
                              this->m_name +
                              ") without any "
                              "valid host memory allocated.");
+            }
+
+            if (this->m_device == nullptr)
+            {
+                deviceMalloc(this->m_device, this->m_size, this->m_device_rank);
             }
 
             // Make sure the host data is valid. It might not be.
@@ -362,12 +379,9 @@ protected:
         {
             if (this->m_host == nullptr)
             {
-                NEKERROR(Nektar::ErrorUtil::efatal,
-                         "MemoryRegionDevice::DeviceToHostCopy - attempt to "
-                         "transfer data (" +
-                             this->m_name +
-                             ") to the host without any "
-                             "valid host memory allocated.");
+                this->m_host = static_cast<TData *>(
+                    ::operator new[](this->m_size * sizeof(TData),
+                                     std::align_val_t(this->m_alignment)));
             }
 
             // Make sure the device data is valid. It might not be.

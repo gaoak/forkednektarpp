@@ -283,14 +283,11 @@ public:
         }
 
         auto f_in =
-            Field<TData, stateIn>::template Create<NektarSpaces::DeviceSpace>(
-                "f_in", blocks_in, nin, alignment);
-        auto f_out =
-            Field<TData, stateOut>::template Create<NektarSpaces::DeviceSpace>(
-                "f_out", blocks_out, nout, alignment);
-        auto f_expected =
-            Field<TData, stateOut>::template Create<NektarSpaces::HostSpace>(
-                "f_expected", blocks_out, nout, alignment);
+            Field<TData, stateIn>::Create("f_in", blocks_in, nin, alignment);
+        auto f_out = Field<TData, stateOut>::Create("f_out", blocks_out, nout,
+                                                    alignment);
+        auto f_expected = Field<TData, stateOut>::Create(
+            "f_expected", blocks_out, nout, alignment);
         fixt_in       = new Field<TData, stateIn>(std::move(f_in));
         fixt_out      = new Field<TData, stateOut>(std::move(f_out));
         fixt_expected = new Field<TData, stateOut>(std::move(f_expected));

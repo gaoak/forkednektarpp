@@ -157,11 +157,9 @@ public:
 
     void v_SetInvMassMatrix(std::vector<TData> &invmass) override
     {
-        const bool device_only = true;
-
         this->m_invmass =
             MemoryRegion<TData>::template FromVector<MemSpace, TData>(
-                invmass, ExecSpace::alignment, device_only);
+                invmass, ExecSpace::alignment);
     }
 
     // className - for BlockOperatorFactory

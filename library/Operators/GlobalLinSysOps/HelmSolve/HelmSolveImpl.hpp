@@ -57,14 +57,14 @@ class OperatorHelmSolveImpl : public OperatorHelmSolve<TData>
 public:
     OperatorHelmSolveImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorHelmSolve<TData>(expansionList),
-          m_rhs(Field<TData, FieldState::Coeff>::template Create<MemSpace>(
+          m_rhs(Field<TData, FieldState::Coeff>::Create(
               "HelmSolve RHS",
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
-              ExecSpace::alignment)),
-          m_tmp(Field<TData, FieldState::Coeff>::template Create<MemSpace>(
+              ExecSpace::alignment, true)),
+          m_tmp(Field<TData, FieldState::Coeff>::Create(
               "HelmSolve TMP",
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
-              ExecSpace::alignment))
+              ExecSpace::alignment, true))
     {
         m_IProdOp = OperatorIProductWRTBase<TData>::Create(
             this->m_expansionList, ExecSpace::name);

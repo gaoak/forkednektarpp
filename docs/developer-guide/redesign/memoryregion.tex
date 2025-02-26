@@ -13,8 +13,8 @@ Note: Multi-device capabilities are not yet fully implemented.
 \section{MemoryRegion}
 \subsection{Description}
 \lstinline[style=C++Style]!MemoryRegion! is a templated class
-containing a pointer to a \lstinline[style=C++Style]!MemoryRegionHost!
-base class. The \lstinline[style=C++Style]!MemoryRegionHost! base
+containing a pointer to a \lstinline[style=C++Style]!MemoryRegionDevice!
+class. The \lstinline[style=C++Style]!MemoryRegionHost! base
 class and its \lstinline[style=C++Style]!MemoryRegionDevice! derived
 class should never be used directly. Instead the
 \lstinline[style=C++Style]!MemoryRegion! class should be used as a
@@ -41,34 +41,24 @@ protected:
     ...
 
     // Member variables:
-    std::unique_ptr<MemoryRegionHost<TData>> m_storage = nullptr;
+    std::unique_ptr<MemoryRegionDevice<TData>> m_storage = nullptr;
 };
 \end{lstlisting}
 
 \subsection{Instantiation}
-An instance of \lstinline[style=C++Style]!MemoryRegion! object should be created using the templated \lstinline[style=C++Style]!Create! member function. The template parameter \lstinline[style=C++Style]!MemSpace! can be either \lstinline[style=C++Style]!NektarSpaces::HostSpace! or \lstinline[style=C++Style]!NektarSpaces::DeviceSpace!, where  \lstinline[style=C++Style]!NektarSpaces::HostSpace! is used to allocate a \lstinline[style=C++Style]!MemoryRegionHost! pointer while  \lstinline[style=C++Style]!NektarSpaces::DeviceSpace! is used to allocate a \lstinline[style=C++Style]!MemoryRegionDevice! pointer. The \lstinline[style=C++Style]!size! argument indicates the number of elements of type \lstinline[style=C++Style]!TData! to allocate memory for, while \lstinline[style=C++Style]!device_only! is an optional flag used to prevent host memory allocaton when a \lstinline[style=C++Style]!NektarSpaces::DeviceSpace! memory space is requested.
+An instance of \lstinline[style=C++Style]!MemoryRegion! object should be created using the \lstinline[style=C++Style]!Create! member function. The \lstinline[style=C++Style]!size! argument indicates the number of elements of type \lstinline[style=C++Style]!TData! to allocate memory for, while the \lstinline[style=C++Style]!alignment! argument indicates the desired memory alignment.
 \begin{lstlisting}[style=C++Style]
-template <typename MemSpace>
 static MemoryRegion<TData> Create(
     const std::string name, const size_t size, const size_t alignment,
-    [[maybe_unused]] const bool device_only = false,
     const size_t device_rank                = 0)
 {
     ...
 }
 \end{lstlisting}
 
-For example, an instance of \lstinline[style=C++Style]!MemoryRegion! object \lstinline[style=C++Style]!MR! with a host only memory allocation can be instantiated as follow:
+For example, an instance of \lstinline[style=C++Style]!MemoryRegion! object \lstinline[style=C++Style]!MR! can be instantiated as follow:
 \begin{lstlisting}[style=C++Style]
-auto MR = MemoryRegion<TData>::template Create<NektarSpaces::HostSpace>(name, size, alignment);
-\end{lstlisting}
-while an instance of \lstinline[style=C++Style]!MemoryRegion! object \lstinline[style=C++Style]!MR!  with both host and device memory allocation can be instantiated as follow:
-\begin{lstlisting}[style=C++Style]
-auto MR = MemoryRegion<TData>::template Create<NektarSpaces::DeviceSpace>(name, size, alignment);
-\end{lstlisting}
-and an instance of \lstinline[style=C++Style]!MemoryRegion! object \lstinline[style=C++Style]!MR! with a device only memory allocation can be instantiated as follow:
-\begin{lstlisting}[style=C++Style]
-auto MR = MemoryRegion<TData>::template Create<NektarSpaces::DeviceSpace>(name, size, alignment, true);
+auto MR = MemoryRegion<TData>::Create(name, size, alignment);
 \end{lstlisting}
 
 \subsection{Interoperability}
@@ -78,8 +68,7 @@ template <typename MemSpace, typename TDataIn>
 static MemoryRegion<TData> FromArray(
     const std::string name,
     Nektar::Array<Nektar::OneD, TDataIn> const &array,
-    const size_t alignment, const bool device_only = false,
-    const size_t device_rank = 0)
+    const size_t alignment, const size_t device_rank = 0)
 {
     ...
 }
@@ -96,8 +85,7 @@ template <typename MemSpace, typename TDataIn,
           class Alloc = std::allocator<TDataIn>>
 static MemoryRegion<TData> FromVector(
     const std::string name, std::vector<TDataIn, Alloc> const &array,
-    const size_t alignment, const bool device_only = false,
-    const size_t device_rank = 0)
+    const size_t alignment, const size_t device_rank = 0)
 {
     ...
 }
@@ -189,8 +177,6 @@ protected:
                                   // to be initialize and is needed for
                                   // host device transfers.
     size_t m_device_rank = 0;     // Index indicating device ID.
-    bool m_device_only   = false; // Flag indicating that the data is only
-                                  // initialized on the device.
     std::string m_name{""}; 
 };
 \end{lstlisting}
@@ -203,28 +189,18 @@ MemoryRegionHost(const MemoryRegionHost &rhs)            = delete;
 MemoryRegionHost &operator=(const MemoryRegionHost &rhs) = delete;
 \end{lstlisting}
 
-The \lstinline[style=C++Style]!MemoryRegionHost! templated base class has a custom constructor allocating a contiguous memory chunk on the host with a specified \lstinline[style=C++Style]!alignment! and number of elements \lstinline[style=C++Style]!size! of type \lstinline[style=C++Style]!TData!.
+The \lstinline[style=C++Style]!MemoryRegionHost! templated base class has a custom constructor allowing provision to allocate a contiguous memory chunk on the host with a specified \lstinline[style=C++Style]!alignment! and number of elements \lstinline[style=C++Style]!size! of type \lstinline[style=C++Style]!TData!. However, the requested memory is not allocated during construction, but allocated only if a host memory access is requested.
 
 \begin{lstlisting}[style=C++Style]
 MemoryRegionHost(const std::string name, const size_t size,
-                 const size_t alignment, const size_t device_rank,
-                 const bool device_only)
+                 const size_t alignment, const size_t device_rank)
 {
     m_owned       = true;
     m_size        = size;
     m_alignment   = alignment;
     m_initialize  = true;
     m_device_rank = device_rank;
-    m_device_only = device_only;
     m_name        = name;
-
-    if (!m_device_only)
-    {
-        m_host = static_cast<TData *>(::operator new[](
-            m_size * sizeof(TData), std::align_val_t(m_alignment)));
-
-        m_host_valid = false;
-    }
 }
 \end{lstlisting}
 
@@ -256,20 +232,15 @@ MemoryRegionDevice(const MemoryRegionDevice &rhs)            = delete;
 MemoryRegionDevice &operator=(const MemoryRegionDevice &rhs) = delete;
 \end{lstlisting}
 
-The \lstinline[style=C++Style]!MemoryRegionDevice! templated derive class has a custom constructor allocating a contiguous memory chunk on both the host and the device with a specified \lstinline[style=C++Style]!alignment! and number of elements \lstinline[style=C++Style]!size! of type \lstinline[style=C++Style]!TData!.
+The \lstinline[style=C++Style]!MemoryRegionDevice! templated derive class has a custom constructor allowing provision to allocate a contiguous memory chunk on both the host and the device with a specified \lstinline[style=C++Style]!alignment! and number of elements \lstinline[style=C++Style]!size! of type \lstinline[style=C++Style]!TData!. Again, memory is not allocated during construction, but only when a device memory access is requested.
 
 \begin{lstlisting}[style=C++Style]
 MemoryRegionDevice(const std::string name, const size_t size,
-                   const size_t alignment, const size_t device_rank,
-                   const bool device_only)
-    : MemoryRegionHost<TData>(name, size, alignment, device_rank,
-                              device_only)
+                   const size_t alignment, const size_t device_rank)
+    : MemoryRegionHost<TData>(name, size, alignment, device_rank)
 {
-    deviceMalloc(this->m_device, this->m_size, this->m_device_rank);
 }
 \end{lstlisting}
-
-Optionally, the host memory allocation can be eliminated by setting the \lstinline[style=C++Style]!device_only! input argument to \lstinline[style=C++Style]!true!. This feature is useful when allocating workspace memory buffers for device off-loading as it prevents allocating unused host memory.
 
 The \lstinline[style=C++Style]!MemoryRegionDevice! has member functions responsible of host-to-device and device-to-memory copy. Memory copy is only performed if necessary by keeping track of when the data is modified on either the host or the device with the member variables \lstinline[style=C++Style]!m_host_valid! and \lstinline[style=C++Style]!m_device_valid!.
 

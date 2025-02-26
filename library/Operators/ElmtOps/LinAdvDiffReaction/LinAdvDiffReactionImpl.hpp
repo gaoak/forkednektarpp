@@ -58,10 +58,8 @@ public:
             GetBlockAttributes<TData>(FieldState::Phys, this->m_expansionList,
                                       1);
 
-        this->m_advVel =
-            Field<TData, FieldState::Phys>::template Create<MemSpace>(
-                "Advection Field", physBlockAttributes, nVel,
-                ExecSpace::alignment);
+        this->m_advVel = Field<TData, FieldState::Phys>::Create(
+            "Advection Field", physBlockAttributes, nVel, ExecSpace::alignment);
 
         this->m_advVel.template CopyArray<NektarSpaces::HostSpace>(Vel);
 

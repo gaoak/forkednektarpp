@@ -54,27 +54,16 @@ public:
      * @param size        - size of memory
      * @param alignment   - memory alignment
      * @param device_rank - device (GPU) rank id
-     * @param device_only - flag to only allocated memory on device
      */
     MemoryRegionHost(const std::string name, const size_t size,
-                     const size_t alignment, const size_t device_rank,
-                     const bool device_only)
+                     const size_t alignment, const size_t device_rank)
     {
         m_owned       = true;
         m_size        = size;
         m_alignment   = alignment;
         m_initialize  = true;
         m_device_rank = device_rank;
-        m_device_only = device_only;
         m_name        = name;
-
-        if (!m_device_only)
-        {
-            m_host = static_cast<TData *>(::operator new[](
-                m_size * sizeof(TData), std::align_val_t(m_alignment)));
-
-            m_host_valid = false;
-        }
     }
 
     /**
@@ -95,13 +84,12 @@ public:
         m_owned       = false;
         m_size        = size;
         m_alignment   = alignment;
-        m_initialize  = true;
+        m_initialize  = false;
         m_device_rank = device_rank;
-        m_device_only = false;
         m_name        = name;
 
         m_host       = h_src;
-        m_host_valid = false;
+        m_host_valid = true;
     }
 
     /**
@@ -113,7 +101,7 @@ public:
         : m_owned(rhs.m_owned), m_host(rhs.m_host), m_size(rhs.m_size),
           m_alignment(rhs.m_alignment), m_host_valid(rhs.m_host_valid),
           m_initialize(rhs.m_initialize), m_device_rank(rhs.m_device_rank),
-          m_device_only(rhs.m_device_only), m_name(rhs.m_name)
+          m_name(rhs.m_name)
     {
         rhs.m_owned       = true;
         rhs.m_host        = nullptr;
@@ -122,7 +110,6 @@ public:
         rhs.m_host_valid  = false;
         rhs.m_initialize  = true;
         rhs.m_device_rank = 0;
-        rhs.m_device_only = false;
         rhs.m_name        = "";
     }
 
@@ -144,7 +131,6 @@ public:
         m_host_valid  = false;
         m_initialize  = true;
         m_device_rank = 0;
-        m_device_only = false;
         m_name        = "";
     }
 
@@ -173,7 +159,6 @@ protected:
         m_host_valid  = rhs.m_host_valid;
         m_initialize  = rhs.m_initialize;
         m_device_rank = rhs.m_device_rank;
-        m_device_only = rhs.m_device_only;
         m_name        = rhs.m_name;
 
         rhs.m_owned       = true;
@@ -183,7 +168,6 @@ protected:
         rhs.m_host_valid  = false;
         rhs.m_initialize  = true;
         rhs.m_device_rank = 0;
-        rhs.m_device_only = false;
         rhs.m_name        = "";
 
         return *this;
@@ -227,11 +211,9 @@ protected:
     {
         if (m_host == nullptr)
         {
-            // Throw an error.
-            NEKERROR(Nektar::ErrorUtil::efatal,
-                     "MemoryRegionHost::GetWriteOnlyHostPtr - "
-                     "attempt to access host data (" +
-                         m_name + ") without it being allocated.");
+            m_host = static_cast<TData *>(::operator new[](
+                m_size * sizeof(TData), std::align_val_t(m_alignment)));
+            std::memset((void *)m_host, 0, m_size * sizeof(TData));
         }
 
         m_host_valid = true;
@@ -333,17 +315,38 @@ protected:
     virtual void Initialize(const TData val, const size_t count = 0,
                             const size_t offset = 0)
     {
-        if (m_host)
+        if (this->m_host == nullptr)
         {
-            auto size = (count == 0) ? m_size : count;
-
-            TData *dst = m_host + offset;
-
-            std::fill(dst, dst + size, val);
-
-            m_host_valid = true;
-            m_initialize = false;
+            m_host = static_cast<TData *>(::operator new[](
+                m_size * sizeof(TData), std::align_val_t(m_alignment)));
+            std::memset((void *)m_host, 0, m_size * sizeof(TData));
         }
+
+        auto size = (count == 0) ? m_size : count;
+
+        TData *dst = m_host + offset;
+
+        // If the value is zero, memset is the most efficent.
+        if constexpr (std::is_floating_point_v<TData> ||
+                      std::is_integral_v<TData>)
+        {
+            if (val == TData(0))
+            {
+                std::memset(dst, 0, size * sizeof(TData));
+            }
+            // Nonzero value
+            else
+            {
+                std::fill(dst, dst + size, val);
+            }
+        }
+        else
+        {
+            std::fill(dst, dst + size, val);
+        }
+
+        m_host_valid = true;
+        m_initialize = false;
     }
 
     /**
@@ -356,15 +359,19 @@ protected:
     virtual void CopyFromHostPtr(const TData *src, const size_t size,
                                  const size_t offset = 0)
     {
-        if (!m_device_only)
+        if (m_host == nullptr)
         {
-            TData *dst = m_host + offset;
-
-            std::memcpy(dst, src, size * sizeof(TData));
-
-            m_host_valid = true;
-            m_initialize = false;
+            m_host = static_cast<TData *>(::operator new[](
+                m_size * sizeof(TData), std::align_val_t(m_alignment)));
+            std::memset((void *)m_host, 0, m_size * sizeof(TData));
         }
+
+        TData *dst = m_host + offset;
+
+        std::memcpy(dst, src, size * sizeof(TData));
+
+        m_host_valid = true;
+        m_initialize = false;
     }
 
     // Member variables:
@@ -374,12 +381,10 @@ protected:
     size_t m_size      = 0;
     size_t m_alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
 
-    bool m_host_valid = false;    // Flag indicating that the host data is valid
-    bool m_initialize = true;     // Flag indicating that the data needs
-                                  // to be initialize and is needed for
-                                  // host device transfers.
-    size_t m_device_rank = 0;     // Index indicating device ID.
-    bool m_device_only   = false; // Flag indicating that the data is only
-                                  // initialized on the device.
+    bool m_host_valid = false; // Flag indicating that the host data is valid
+    bool m_initialize = true;  // Flag indicating that the data needs
+                               // to be initialize and is needed for
+                               // host device transfers.
+    size_t m_device_rank = 0;  // Index indicating device ID.
     std::string m_name{""};
 };

@@ -57,10 +57,10 @@ public:
     OperatorAddTraceIntegralImpl(
         const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorAddTraceIntegral<TData>(std::move(expansionList)),
-          m_trace(Field<TData, FieldState::Coeff>::template Create<MemSpace>(
+          m_trace(Field<TData, FieldState::Coeff>::Create(
               GetBlockAttributes<TData>(FieldState::Coeff,
                                         expansionList->GetTrace()),
-              1, ExecSpace::alignment))
+              1, ExecSpace::alignment, true))
     {
         // Get Trace-to-Element Map
         auto locTraceToTraceMap = expansionList->GetLocTraceToTraceMap();
@@ -126,8 +126,6 @@ public:
         }
 
         // Assign map to memory region.
-        const bool device_only = true;
-
         std::vector<int> nFwdBwdCoeffsBlock(blocks.size(), 0);
         std::vector<std::vector<int>> traceCoeffsToElmtMapBlock(blocks.size());
         std::vector<std::vector<int>> traceCoeffsToElmtTraceBlock(
@@ -156,24 +154,21 @@ public:
                 {
                     m_traceCoeffsToElmtMap[blk1].push_back(
                         MemoryRegion<int>::template FromVector<MemSpace, int>(
-                            traceCoeffsToElmtMap, ExecSpace::alignment,
-                            device_only));
+                            traceCoeffsToElmtMap, ExecSpace::alignment));
                     traceCoeffsToElmtMap.clear();
                 }
                 for (auto &traceCoeffsToElmtTrace : traceCoeffsToElmtTraceBlock)
                 {
                     m_traceCoeffsToElmtTrace[blk1].push_back(
                         MemoryRegion<int>::template FromVector<MemSpace, int>(
-                            traceCoeffsToElmtTrace, ExecSpace::alignment,
-                            device_only));
+                            traceCoeffsToElmtTrace, ExecSpace::alignment));
                     traceCoeffsToElmtTrace.clear();
                 }
                 for (auto &traceCoeffsToElmtSign : traceCoeffsToElmtSignBlock)
                 {
                     m_traceCoeffsToElmtSign[blk1].push_back(
                         MemoryRegion<int>::template FromVector<MemSpace, int>(
-                            traceCoeffsToElmtSign, ExecSpace::alignment,
-                            device_only));
+                            traceCoeffsToElmtSign, ExecSpace::alignment));
                     traceCoeffsToElmtSign.clear();
                 }
                 offset1 = traceBlockBound[blk1];

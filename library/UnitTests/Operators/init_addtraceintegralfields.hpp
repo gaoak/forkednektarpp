@@ -70,8 +70,7 @@ public:
         auto blocks_in =
             GetBlockAttributes<double>(stateIn, fixt_explist->GetTrace());
         auto f_in =
-            Field<double, stateIn>::template Create<NektarSpaces::DeviceSpace>(
-                "f_in", blocks_in, nin, alignment);
+            Field<double, stateIn>::Create("f_in", blocks_in, nin, alignment);
         fixt_in = new Field<double, stateIn>(std::move(f_in));
     }
 

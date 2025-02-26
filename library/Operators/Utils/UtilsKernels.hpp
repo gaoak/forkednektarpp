@@ -86,8 +86,8 @@ void ReshuffleMap(MemoryRegion<int> &deInterleaveMap, MemoryRegion<int> &map)
     using MemSpace = typename ExecSpace::memory_space;
 
     // temporary storage for the map
-    MemoryRegion<int> temp = MemoryRegion<int>::template Create<MemSpace>(
-        map.size(), ExecSpace::alignment, true);
+    MemoryRegion<int> temp =
+        MemoryRegion<int>::Create(map.size(), ExecSpace::alignment);
     // copy map to temp
     temp.template Copy<MemSpace>(map);
 

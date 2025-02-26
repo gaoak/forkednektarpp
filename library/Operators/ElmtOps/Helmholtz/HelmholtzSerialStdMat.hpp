@@ -53,7 +53,7 @@ public:
     BlockOperatorHelmholtzImpl(const LocalRegions::ExpansionSharedPtr &exp,
                                NekDataWarehouseSharedPtr dataWarehouse)
         : BlockOperatorHelmholtz<TData>(exp, dataWarehouse),
-          m_diffCoeff(MemoryRegion<TData>::template Create<MemSpace>(
+          m_diffCoeff(MemoryRegion<TData>::Create(
               "Helmholtz diffCoeff", exp->GetCoordim() * exp->GetCoordim(),
               ExecSpace::alignment))
     {
@@ -97,9 +97,9 @@ public:
                             this->m_exp->GetTotPoints() * CompSize;
         if (this->m_bwd.size() != size)
         {
-            this->m_bwd = MemoryRegion<TData>::template Create<MemSpace>(
-                "Helmholtz bwd", size, ExecSpace::alignment);
-            this->m_deriv = MemoryRegion<TData>::template Create<MemSpace>(
+            this->m_bwd   = MemoryRegion<TData>::Create("Helmholtz bwd", size,
+                                                        ExecSpace::alignment);
+            this->m_deriv = MemoryRegion<TData>::Create(
                 "Helmholtz deriv", size * nCoords, ExecSpace::alignment);
         }
 

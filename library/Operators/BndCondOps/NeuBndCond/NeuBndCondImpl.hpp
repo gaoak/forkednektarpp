@@ -122,8 +122,6 @@ public:
             cnt += nBndExpCoeff;
         }
 
-        const bool device_only = true;
-
         // Compute number of bndcoeff per block.
         std::vector<TData> bndCoeffBlock;
         std::vector<int> mapBlock;
@@ -136,16 +134,16 @@ public:
                 m_nBndCoeffBlock.push_back(nbndCoeffBlock);
                 m_bndCoeff.push_back(
                     MemoryRegion<TData>::template FromVector<MemSpace, TData>(
-                        bndCoeffBlock, ExecSpace::alignment, device_only));
+                        bndCoeffBlock, ExecSpace::alignment));
                 m_map.push_back(
                     MemoryRegion<int>::template FromVector<MemSpace, int>(
-                        mapBlock, ExecSpace::alignment, device_only));
+                        mapBlock, ExecSpace::alignment));
                 if (m_signChange)
                 {
                     m_sign.push_back(
                         MemoryRegion<TData>::template FromVector<MemSpace,
                                                                  TData>(
-                            signBlock, ExecSpace::alignment, device_only));
+                            signBlock, ExecSpace::alignment));
                 }
                 nbndCoeffBlock = 0;
                 bndCoeffBlock.clear();

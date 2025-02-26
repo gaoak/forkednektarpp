@@ -66,9 +66,9 @@ public:
     {
         auto blocks_in =
             GetBlockAttributes<double>(FieldState::Phys, fixt_explist);
-        auto f_in = Field<double, FieldState::Phys>::template Create<
-            NektarSpaces::DeviceSpace>("f_in2", blocks_in, 1, alignment);
-        fixt_in2 = new Field<double, FieldState::Phys>(std::move(f_in));
+        auto f_in = Field<double, FieldState::Phys>::Create("f_in2", blocks_in,
+                                                            1, alignment);
+        fixt_in2  = new Field<double, FieldState::Phys>(std::move(f_in));
 
         Array<OneD, double> x(fixt_explist->GetTotPoints());
         Array<OneD, double> y(fixt_explist->GetTotPoints());
@@ -97,8 +97,8 @@ public:
         {
             auto inptr = fixt_in2->GetBlocks()[blk]
                              .GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-            auto size = fixt_in->GetBlocks()[blk].GetNumElements() *
-                        fixt_in->GetBlocks()[blk].GetNumData();
+            auto size = fixt_in2->GetBlocks()[blk].GetNumElements() *
+                        fixt_in2->GetBlocks()[blk].GetNumData();
             std::copy(ptr, ptr + size, inptr);
             ptr += size;
         }
