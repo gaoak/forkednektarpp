@@ -168,8 +168,6 @@ public:
                       [](const int t1, const int t2) { return t1 < t2; });
         }
 
-        const bool device_only = true;
-
         // Split bndcoeff per block.
         std::vector<TData> bndCoeffBlock;
         std::vector<int> mapBlock;
@@ -183,16 +181,16 @@ public:
                 m_nBndCoeffBlock.push_back(nbndCoeffBlock);
                 m_bndCoeff.push_back(
                     MemoryRegion<TData>::template FromVector<MemSpace, TData>(
-                        bndCoeffBlock, ExecSpace::alignment, device_only));
+                        bndCoeffBlock, ExecSpace::alignment));
                 m_map.push_back(
                     MemoryRegion<int>::template FromVector<MemSpace, int>(
-                        mapBlock, ExecSpace::alignment, device_only));
+                        mapBlock, ExecSpace::alignment));
                 if (m_signChange)
                 {
                     m_sign.push_back(
                         MemoryRegion<TData>::template FromVector<MemSpace,
                                                                  TData>(
-                            signBlock, ExecSpace::alignment, device_only));
+                            signBlock, ExecSpace::alignment));
                 }
                 nbndCoeffBlock = 0;
                 bndCoeffBlock.clear();
@@ -246,7 +244,7 @@ public:
                         m_locid0[blk1].push_back(
                             MemoryRegion<int>::template FromVector<MemSpace,
                                                                    int>(
-                                locid0, ExecSpace::alignment, device_only));
+                                locid0, ExecSpace::alignment));
                         locid0.clear();
                     }
                     for (auto &locid1 : locid1Block)
@@ -254,7 +252,7 @@ public:
                         m_locid1[blk1].push_back(
                             MemoryRegion<int>::template FromVector<MemSpace,
                                                                    int>(
-                                locid1, ExecSpace::alignment, device_only));
+                                locid1, ExecSpace::alignment));
                         locid1.clear();
                     }
                     for (auto &locsign : locsignBlock)
@@ -262,7 +260,7 @@ public:
                         m_locsign[blk1].push_back(
                             MemoryRegion<TData>::template FromVector<MemSpace,
                                                                      TData>(
-                                locsign, ExecSpace::alignment, device_only));
+                                locsign, ExecSpace::alignment));
                         locsign.clear();
                     }
                     offset1 = blockBound[blk1];
@@ -301,8 +299,7 @@ public:
                     m_nParDirBndSignBlock.push_back(nParDirBndSignBlock);
                     m_parDirBndSign.push_back(
                         MemoryRegion<int>::template FromVector<MemSpace, int>(
-                            parDirBndSignBlock, ExecSpace::alignment,
-                            device_only));
+                            parDirBndSignBlock, ExecSpace::alignment));
                     nParDirBndSignBlock = 0;
                     parDirBndSignBlock.clear();
                     offset = blockBound[blk];

@@ -393,11 +393,9 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
     auto blocks_in  = GetBlockAttributes<TData>(stateIn, expList);
     auto blocks_out = GetBlockAttributes<TData>(stateOut, expList);
     // Create fields
-    auto in = Field<TData, stateIn>::template Create<NektarSpaces::DeviceSpace>(
-        "f_in", blocks_in, nIn, alignment);
+    auto in = Field<TData, stateIn>::Create("f_in", blocks_in, nIn, alignment);
     auto out =
-        Field<TData, stateOut>::template Create<NektarSpaces::DeviceSpace>(
-            "f_out", blocks_out, nOut, alignment);
+        Field<TData, stateOut>::Create("f_out", blocks_out, nOut, alignment);
 
     // initialize the in field to random non-zeros: 1 2 3 4 ...
     // initialize the out field to zeros

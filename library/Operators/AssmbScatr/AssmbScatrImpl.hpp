@@ -66,17 +66,15 @@ public:
         m_nDir       = assmbMap->GetNumGlobalDirBndCoeffs();
         m_signChange = assmbMap->AssemblyMap::GetSignChange();
 
-        const bool device_only = true;
-
         auto nGlobal = assmbMap->GetNumGlobalCoeffs();
 
-        m_global = MemoryRegion<TData>::template Create<MemSpace>(
-            "AssmbScatr global", nGlobal, ExecSpace::alignment, device_only);
+        m_global = MemoryRegion<TData>::Create("AssmbScatr global", nGlobal,
+                                               ExecSpace::alignment);
 
         auto map = assmbMap->GetLocalToGlobalMap();
 
         m_map = MemoryRegion<int>::template FromArray<MemSpace, int>(
-            map, ExecSpace::alignment, device_only);
+            map, ExecSpace::alignment);
 
         if (m_signChange)
         {
@@ -84,7 +82,7 @@ public:
 
             m_sign =
                 MemoryRegion<TData>::template FromArray<MemSpace, NekDouble>(
-                    sign, ExecSpace::alignment, device_only);
+                    sign, ExecSpace::alignment);
         }
     }
 

@@ -70,8 +70,8 @@ public:
                             this->m_exp->GetTotPoints() * CompSize;
         if (this->m_bwd.size() != size)
         {
-            this->m_bwd = MemoryRegion<TData>::template Create<MemSpace>(
-                "Mass bwd", size, ExecSpace::alignment);
+            this->m_bwd = MemoryRegion<TData>::Create("Mass bwd", size,
+                                                      ExecSpace::alignment);
         }
 
         auto bwd = BlockAccessor(inblock.GetExpIdx(), inblock.GetNumElements(),

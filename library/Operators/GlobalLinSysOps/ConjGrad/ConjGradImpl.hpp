@@ -62,30 +62,30 @@ class OperatorConjGradImpl : public OperatorConjGrad<TData>
 public:
     OperatorConjGradImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorConjGrad<TData>(expansionList),
-          m_w_A(Field<TData, FieldState::Coeff>::template Create<MemSpace>(
+          m_w_A(Field<TData, FieldState::Coeff>::Create(
               "ConjGrad w_A",
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
-              ExecSpace::alignment)),
-          m_s_A(Field<TData, FieldState::Coeff>::template Create<MemSpace>(
+              ExecSpace::alignment, true)),
+          m_s_A(Field<TData, FieldState::Coeff>::Create(
               "ConjGrad s_A",
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
-              ExecSpace::alignment)),
-          m_r_A(Field<TData, FieldState::Coeff>::template Create<MemSpace>(
+              ExecSpace::alignment, true)),
+          m_r_A(Field<TData, FieldState::Coeff>::Create(
               "ConjGrad r_A",
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
-              ExecSpace::alignment)),
-          m_wk(Field<TData, FieldState::Coeff>::template Create<MemSpace>(
+              ExecSpace::alignment, true)),
+          m_wk(Field<TData, FieldState::Coeff>::Create(
               "ConjGrad wk",
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
-              ExecSpace::alignment)),
-          m_q_A(Field<TData, FieldState::Coeff>::template Create<MemSpace>(
+              ExecSpace::alignment, true)),
+          m_q_A(Field<TData, FieldState::Coeff>::Create(
               "ConjGrad wk",
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
-              ExecSpace::alignment)),
-          m_p_A(Field<TData, FieldState::Coeff>::template Create<MemSpace>(
+              ExecSpace::alignment, true)),
+          m_p_A(Field<TData, FieldState::Coeff>::Create(
               "ConjGrad wk",
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
-              ExecSpace::alignment))
+              ExecSpace::alignment, true))
     {
         auto contfield =
             std::dynamic_pointer_cast<ContField>(this->m_expansionList);
@@ -104,8 +104,7 @@ public:
         m_rowComm = contfield->GetSession()->GetComm()->GetRowComm();
 
         m_vExchange =
-            MemoryRegion<TData>::template Create<NektarSpaces::HostSpace>(
-                4, __STDCPP_DEFAULT_NEW_ALIGNMENT__);
+            MemoryRegion<TData>::Create(4, __STDCPP_DEFAULT_NEW_ALIGNMENT__);
     }
 
     void apply(Field<TData, FieldState::Coeff> &in,

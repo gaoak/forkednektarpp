@@ -132,9 +132,8 @@ protected:
 \end{lstlisting}
 
 \subsection{Instantiation}
-An instance of \lstinline[style=C++Style]!Field! object can be created using the templated \lstinline[style=C++Style]!Create! function. The template parameter \lstinline[style=C++Style]!MemSpace! can be either \lstinline[style=C++Style]!NektarSpaces::HostSpace! or \lstinline[style=C++Style]!NektarSpaces::DeviceSpace!. The \lstinline[style=C++Style]!blockAttr! input argument is a vector of \lstinline[style=C++Style]!BlockAttributes! while \lstinline[style=C++Style]!nvar! is the number of variables associated with the \lstinline[style=C++Style]!Field!.
+An instance of \lstinline[style=C++Style]!Field! object can be created using the \lstinline[style=C++Style]!Create! function. The \lstinline[style=C++Style]!blockAttr! input argument is a vector of \lstinline[style=C++Style]!BlockAttributes! while \lstinline[style=C++Style]!nvar! is the number of variables associated with the \lstinline[style=C++Style]!Field!.
 \begin{lstlisting}[style=C++Style]
-template <typename MemSpace>
 static Field<TData, TState> Create(
     const std::string name, const std::vector<BlockAttributes> blockAttr,
     const int nvar, const size_t alignment,
@@ -146,7 +145,6 @@ static Field<TData, TState> Create(
 
 Alternatively, a \lstinline[style=C++Style]!Field! object can be also instantiated by providing a vector of component names:
 \begin{lstlisting}[style=C++Style]
-template <typename MemSpace>
 static Field<TData, TState> Create(
     const std::string name, const std::vector<BlockAttributes> blockAttr,
     const std::vector<std::string> components, const size_t alignment,
@@ -248,113 +246,115 @@ In terms of memory management, the various blocks are represented using a vector
   %  \centering{}\caption{Unified design with generalized MemoryRegion mapping} \label{fig:block-structure}
   %\end{figure}
 
-The mapping between the blocks and the \lstinline[style=C++Style]!MemoryRegion! objects is determined during the creation of the \lstinline[style=C++Style]!Field! object by the templated member function \lstinline[style=C++Style]!SetBlockToMemoryRegionMapping!. 
+The mapping between the blocks and the \lstinline[style=C++Style]!MemoryRegion! objects is determined during the creation of the \lstinline[style=C++Style]!Field! object by the member function \lstinline[style=C++Style]!SetBlockToMemoryRegionMapping!. 
 \begin{lstlisting}[style=C++Style]
-template <typename MemSpace>
-static void SetBlockToMemoryRegionMapping(
-    Field<TData, TState> &field,
-    const std::vector<BlockAttributes> blockAttr, const size_t alignment,
-    const bool device_only = false)
-{
+    static Field<TData, TState> Create(
+        const std::vector<BlockAttributes> blockAttr, const int nvar,
+        const size_t alignment, const bool device_only = false)
+    {
+        return Field<TData, TState>::Create("", blockAttr, nvar, alignment,
+                                            device_only);
+    }
+
+    static void SetBlockToMemoryRegionMapping(
+        Field<TData, TState> &field,
+        const std::vector<BlockAttributes> blockAttr, const size_t alignment,
+        const bool device_only = false)
+    {
 #if defined(NEKTAR_USE_SINGLE_MEMORY_REGION_PER_DEVICE)
-    std::vector<size_t> offset(field.m_num_device, 0);
-    std::vector<size_t> size(field.m_num_device, 0);
-    size_t hsize = 0;
-    for (size_t blk = 0; blk < blockAttr.size(); ++blk)
-    {
-        // Set one-to-one MemoryRegion to device mapping.
-        auto mr    = blk % field.m_num_device;
-        auto nsize = blockAttr[blk].size() * field.GetNumComponents();
-        field.m_blk_to_mr_mapping.push_back(mr);
-        field.m_blk_to_mr_offset.push_back(offset[mr]);
-        offset[mr] += nsize;
+        std::vector<size_t> offset(field.m_num_device, 0);
+        std::vector<size_t> size(field.m_num_device, 0);
+        size_t hsize = 0;
+        for (size_t blk = 0; blk < blockAttr.size(); ++blk)
+        {
+            // Set one-to-one MemoryRegion to device mapping.
+            auto mr    = blk % field.m_num_device;
+            auto nsize = blockAttr[blk].size() * field.GetNumComponents();
+            field.m_blk_to_mr_mapping.push_back(mr);
+            field.m_blk_to_mr_offset.push_back(offset[mr]);
+            offset[mr] += nsize;
 
-        // Compute MemoryRegion memory size.
-        size[mr] += nsize;
-        hsize += nsize;
-    }
+            // Compute MemoryRegion memory size.
+            size[mr] += nsize;
+            hsize += nsize;
+        }
 
-    // Allocate contiguous memory on the host.
-    if (!device_only)
-    {
-        field.m_host = static_cast<TData *>(::operator new[](
-            hsize * sizeof(TData), std::align_val_t(field.m_alignment)));
-    }
-
-    auto hsrc = field.m_host;
-    for (size_t mr = 0; mr < field.m_num_device; ++mr)
-    {
-        // Create memory region.
-        auto device_rank = mr;
+        // Allocate contiguous memory on the host.
         if (!device_only)
         {
-            field.m_memory_regions.push_back(
-                MemoryRegion<TData>::template CreateFromHostPtr<MemSpace>(
-                    field.m_name + std::to_string(mr), hsrc, size[mr],
-                    alignment, device_rank));
-            hsrc += size;
+            field.m_host = static_cast<TData *>(::operator new[](
+                hsize * sizeof(TData), std::align_val_t(field.m_alignment)));
+            std::memset((void *)field.m_host, 0, hsize * sizeof(TData));
         }
-        else
+
+        auto hsrc = field.m_host;
+        for (size_t mr = 0; mr < field.m_num_device; ++mr)
         {
-            field.m_memory_regions.push_back(
-                MemoryRegion<TData>::template Create<MemSpace>(
+            // Create memory region.
+            auto device_rank = mr;
+            if (!device_only)
+            {
+                field.m_memory_regions.push_back(
+                    MemoryRegion<TData>::CreateFromHostPtr(
+                        field.m_name + std::to_string(mr), hsrc, size[mr],
+                        alignment, device_rank));
+                hsrc += size;
+            }
+            else
+            {
+                field.m_memory_regions.push_back(MemoryRegion<TData>::Create(
                     field.m_name + std::to_string(mr), size[mr], alignment,
-                    device_only, device_rank));
+                    device_rank));
+            }
+        }
+#else
+        size_t hsize = 0;
+        for (size_t blk = 0; blk < blockAttr.size(); ++blk)
+        {
+            // Set one-to-one block to MemoryRegion mapping.
+            auto nsize = blockAttr[blk].size() * field.GetNumComponents();
+            field.m_blk_to_mr_mapping.push_back(blk);
+            field.m_blk_to_mr_offset.push_back(0);
+            hsize += nsize;
         }
 
-        // Zero memory.
-        field.m_memory_regions[mr].template Initialize<MemSpace>(0);
-    }
-#else
-    size_t hsize = 0;
-    for (size_t blk = 0; blk < blockAttr.size(); ++blk)
-    {
-        // Set one-to-one block to MemoryRegion mapping.
-        auto nsize = blockAttr[blk].size() * field.GetNumComponents();
-        field.m_blk_to_mr_mapping.push_back(blk);
-        field.m_blk_to_mr_offset.push_back(0);
-        hsize += nsize;
-    }
-
-    // Allocate contiguous memory on the host.
-    if (!device_only)
-    {
-        field.m_host = static_cast<TData *>(::operator new[](
-            hsize * sizeof(TData), std::align_val_t(field.m_alignment)));
-    }
-
-    auto hsrc = field.m_host;
-    for (size_t blk = 0; blk < blockAttr.size(); ++blk)
-    {
-        // Create memory region.
-        auto device_rank = blk % field.m_num_device;
-        auto size        = blockAttr[blk].size() * field.GetNumComponents();
+        // Allocate contiguous memory on the host.
         if (!device_only)
         {
-            field.m_memory_regions.push_back(
-                MemoryRegion<TData>::template CreateFromHostPtr<MemSpace>(
-                    field.m_name + std::to_string(blk), hsrc, size,
-                    alignment, device_rank));
-            hsrc += size;
-        }
-        else
-        {
-            field.m_memory_regions.push_back(
-                MemoryRegion<TData>::template Create<MemSpace>(
-                    field.m_name + std::to_string(blk), size, alignment,
-                    device_only, device_rank));
+            field.m_host = static_cast<TData *>(::operator new[](
+                hsize * sizeof(TData), std::align_val_t(field.m_alignment)));
+            std::memset((void *)field.m_host, 0, hsize * sizeof(TData));
         }
 
-        // Zero memory.
-        field.m_memory_regions[blk].template Initialize<MemSpace>(0);
-    }
+        auto hsrc = field.m_host;
+        for (size_t blk = 0; blk < blockAttr.size(); ++blk)
+        {
+            // Create memory region.
+            auto device_rank = blk % field.m_num_device;
+            auto size        = blockAttr[blk].size() * field.GetNumComponents();
+            if (!device_only)
+            {
+                field.m_memory_regions.push_back(
+                    MemoryRegion<TData>::CreateFromHostPtr(
+                        field.m_name + std::to_string(blk), hsrc, size,
+                        alignment, device_rank));
+                hsrc += size;
+            }
+            else
+            {
+                field.m_memory_regions.push_back(MemoryRegion<TData>::Create(
+                    field.m_name + std::to_string(blk), size, alignment,
+                    device_rank));
+            }
+        }
 #endif
-    for (size_t blk = 0; blk < blockAttr.size(); ++blk)
-    {
-        field.m_block_accessors.push_back(BlockAccessor(
-            blockAttr[blk],
-            field.m_memory_regions[field.m_blk_to_mr_mapping[blk]],
-            field.m_blk_to_mr_offset[blk]));
+        for (size_t blk = 0; blk < blockAttr.size(); ++blk)
+        {
+            field.m_block_accessors.push_back(BlockAccessor(
+                blockAttr[blk],
+                field.m_memory_regions[field.m_blk_to_mr_mapping[blk]],
+                field.m_var_names.size(), field.m_blk_to_mr_offset[blk]));
+        }
     }
 }
 
@@ -386,12 +386,12 @@ To guarantee contiguous memory allocation on the host side for the whole \lstinl
     {
         field.m_host = static_cast<TData *>(::operator new[](
             hsize * sizeof(TData), std::align_val_t(field.m_alignment)));
+        std::memset((void *)field.m_host, 0, hsize * sizeof(TData));
     }  
 \end{lstlisting}
 
 The specialized \lstinline[style=C++Style]!CreateFromHostPtr! creator function is used to create \lstinline[style=C++Style]!MemoryRegion! objects without host memory allocation by using previously allocated host pointers as argument parameter.
 \begin{lstlisting}[style=C++Style]
-template <typename MemSpace>
 static MemoryRegion<TData> CreateFromHostPtr(const std::string name,
                                              TData *h_src,
                                              const size_t size,
@@ -411,13 +411,12 @@ Within \lstinline[style=C++Style]!CreateFromHostPtr!, specialized \lstinline[sty
         m_owned       = false;
         m_size        = size;
         m_alignment   = alignment;
-        m_initialize  = true;
+        m_initialize  = false;
         m_device_rank = device_rank;
-        m_device_only = false;
         m_name        = name;
 
         m_host       = h_src;
-        m_host_valid = false;
+        m_host_valid = true;
     }
 \end{lstlisting}
 
@@ -426,7 +425,6 @@ Within \lstinline[style=C++Style]!CreateFromHostPtr!, specialized \lstinline[sty
                        const size_t alignment, const size_t device_rank)
         : MemoryRegionHost<TData>(name, h_src, size, alignment, device_rank)
     {
-        deviceMalloc(this->m_device, this->m_size, this->m_device_rank);
     }
 \end{lstlisting}
 

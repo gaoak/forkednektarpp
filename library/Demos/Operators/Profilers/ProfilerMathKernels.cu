@@ -50,10 +50,8 @@ void ProfilerReduction(const unsigned int size)
 {
     Timer timer;
     const unsigned int ntests = 40;
-    auto x = MemoryRegion<TData>::template Create<NektarSpaces::DeviceSpace>(
-        "x", size, vec_t::alignment);
-    auto y = MemoryRegion<TData>::template Create<NektarSpaces::DeviceSpace>(
-        "y", size, vec_t::alignment);
+    auto x = MemoryRegion<TData>::Create("x", size, vec_t::alignment);
+    auto y = MemoryRegion<TData>::Create("y", size, vec_t::alignment);
 
     TData time_serial = 0.0;
     {
@@ -79,8 +77,7 @@ void ProfilerReduction(const unsigned int size)
     TData time_cuda = 0.0;
     {
         auto result_cuda =
-            MemoryRegion<TData>::template Create<NektarSpaces::DeviceSpace>(
-                "result_cuda", 1, vec_t::alignment);
+            MemoryRegion<TData>::Create("result_cuda", 1, vec_t::alignment);
         auto xptr = x.template GetPtr<NektarSpaces::DeviceSpace, WriteOnly>();
         auto yptr = y.template GetPtr<NektarSpaces::DeviceSpace, WriteOnly>();
         for (unsigned int t = 0; t < ntests; ++t)
@@ -121,12 +118,9 @@ void ProfilerDaxpy(const unsigned int size)
 {
     Timer timer;
     const unsigned int ntests = 40;
-    auto x = MemoryRegion<TData>::template Create<NektarSpaces::DeviceSpace>(
-        "x", size, vec_t::alignment);
-    auto y = MemoryRegion<TData>::template Create<NektarSpaces::DeviceSpace>(
-        "y", size, vec_t::alignment);
-    auto z = MemoryRegion<TData>::template Create<NektarSpaces::DeviceSpace>(
-        "z", size, vec_t::alignment);
+    auto x = MemoryRegion<TData>::Create("x", size, vec_t::alignment);
+    auto y = MemoryRegion<TData>::Create("y", size, vec_t::alignment);
+    auto z = MemoryRegion<TData>::Create("z", size, vec_t::alignment);
 
     TData time_serial = 0.0;
     {

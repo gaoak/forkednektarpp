@@ -7,7 +7,7 @@ if [[ $OS_VERSION != "macos" ]]; then
     . /etc/profile.d/modules.sh
 
     # Display ccache usage and set limit
-    ccache -s && ccache -M 5G
+    ccache -s && ccache -M 8G
 fi
 
 echo "Running build with:"

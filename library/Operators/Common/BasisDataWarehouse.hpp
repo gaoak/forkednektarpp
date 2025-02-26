@@ -237,8 +237,7 @@ public:
             break;
             default:
                 NEKERROR(ErrorUtil::efatal, "invalid basis data requested.");
-                return MemoryRegion<TData>::template Create<MemSpace>(
-                    0, alignment);
+                return MemoryRegion<TData>::Create(0, alignment);
                 break;
         }
     }

@@ -374,7 +374,6 @@ public:
      *
      * @return Field<TData, TState>
      */
-    template <typename MemSpace>
     static Field<TData, TState> Create(
         const std::string name, const std::vector<BlockAttributes> blockAttr,
         const std::vector<std::string> components, const size_t alignment,
@@ -383,8 +382,7 @@ public:
         size_t num_device = 1;
         auto field        = Field(name, components, alignment, num_device);
 
-        SetBlockToMemoryRegionMapping<MemSpace>(field, blockAttr, alignment,
-                                                device_only);
+        SetBlockToMemoryRegionMapping(field, blockAttr, alignment, device_only);
 
         return field;
     }
@@ -402,14 +400,13 @@ public:
      *
      * @return Field<TData, TState>
      */
-    template <typename MemSpace>
     static Field<TData, TState> Create(
         const std::vector<BlockAttributes> blockAttr,
         const std::vector<std::string> components, const size_t alignment,
         const bool device_only = false)
     {
-        return Field<TData, TState>::template Create<MemSpace>(
-            "", blockAttr, components, alignment, device_only);
+        return Field<TData, TState>::Create("", blockAttr, components,
+                                            alignment, device_only);
     }
 
     /**
@@ -426,7 +423,6 @@ public:
      *
      * @return Field<TData, TState>
      */
-    template <typename MemSpace>
     static Field<TData, TState> Create(
         const std::string name, const std::vector<BlockAttributes> blockAttr,
         const int nvar, const size_t alignment,
@@ -435,8 +431,7 @@ public:
         size_t num_device = 1;
         auto field        = Field(name, nvar, alignment, num_device);
 
-        SetBlockToMemoryRegionMapping<MemSpace>(field, blockAttr, alignment,
-                                                device_only);
+        SetBlockToMemoryRegionMapping(field, blockAttr, alignment, device_only);
 
         return field;
     }
@@ -454,16 +449,14 @@ public:
      *
      * @return Field<TData, TState>
      */
-    template <typename MemSpace>
     static Field<TData, TState> Create(
         const std::vector<BlockAttributes> blockAttr, const int nvar,
         const size_t alignment, const bool device_only = false)
     {
-        return Field<TData, TState>::template Create<MemSpace>(
-            "", blockAttr, nvar, alignment, device_only);
+        return Field<TData, TState>::Create("", blockAttr, nvar, alignment,
+                                            device_only);
     }
 
-    template <typename MemSpace>
     static void SetBlockToMemoryRegionMapping(
         Field<TData, TState> &field,
         const std::vector<BlockAttributes> blockAttr, const size_t alignment,
@@ -492,6 +485,7 @@ public:
         {
             field.m_host = static_cast<TData *>(::operator new[](
                 hsize * sizeof(TData), std::align_val_t(field.m_alignment)));
+            std::memset((void *)field.m_host, 0, hsize * sizeof(TData));
         }
 
         auto hsrc = field.m_host;
@@ -502,21 +496,17 @@ public:
             if (!device_only)
             {
                 field.m_memory_regions.push_back(
-                    MemoryRegion<TData>::template CreateFromHostPtr<MemSpace>(
+                    MemoryRegion<TData>::CreateFromHostPtr(
                         field.m_name + std::to_string(mr), hsrc, size[mr],
                         alignment, device_rank));
                 hsrc += size;
             }
             else
             {
-                field.m_memory_regions.push_back(
-                    MemoryRegion<TData>::template Create<MemSpace>(
-                        field.m_name + std::to_string(mr), size[mr], alignment,
-                        device_only, device_rank));
+                field.m_memory_regions.push_back(MemoryRegion<TData>::Create(
+                    field.m_name + std::to_string(mr), size[mr], alignment,
+                    device_rank));
             }
-
-            // Zero memory.
-            field.m_memory_regions[mr].template Initialize<MemSpace>(0);
         }
 #else
         size_t hsize = 0;
@@ -534,6 +524,7 @@ public:
         {
             field.m_host = static_cast<TData *>(::operator new[](
                 hsize * sizeof(TData), std::align_val_t(field.m_alignment)));
+            std::memset((void *)field.m_host, 0, hsize * sizeof(TData));
         }
 
         auto hsrc = field.m_host;
@@ -545,21 +536,17 @@ public:
             if (!device_only)
             {
                 field.m_memory_regions.push_back(
-                    MemoryRegion<TData>::template CreateFromHostPtr<MemSpace>(
+                    MemoryRegion<TData>::CreateFromHostPtr(
                         field.m_name + std::to_string(blk), hsrc, size,
                         alignment, device_rank));
                 hsrc += size;
             }
             else
             {
-                field.m_memory_regions.push_back(
-                    MemoryRegion<TData>::template Create<MemSpace>(
-                        field.m_name + std::to_string(blk), size, alignment,
-                        device_only, device_rank));
+                field.m_memory_regions.push_back(MemoryRegion<TData>::Create(
+                    field.m_name + std::to_string(blk), size, alignment,
+                    device_rank));
             }
-
-            // Zero memory.
-            field.m_memory_regions[blk].template Initialize<MemSpace>(0);
         }
 #endif
         for (size_t blk = 0; blk < blockAttr.size(); ++blk)
@@ -598,9 +585,8 @@ public:
             compSize += block.GetNumData() * block.GetNumElements();
         }
 
-        MemoryRegion<TDataOut> mr =
-            MemoryRegion<TDataOut>::template Create<MemSpace>(
-                compSize * this->GetNumComponents(), this->m_alignment, false);
+        MemoryRegion<TDataOut> mr = MemoryRegion<TDataOut>::Create(
+            compSize * this->GetNumComponents(), this->m_alignment);
 
         // Copy the data from the input field
         auto dst = mr.template GetPtr<MemSpace, WriteOnly>();
@@ -611,7 +597,7 @@ public:
             auto nPts   = this->GetBlocks()[blk].GetNumData();
             auto src =
                 this->GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-            auto device_rank = this->GetDeviceRank(blk);
+            auto device_rank = this->GetBlocks()[blk].GetDeviceRank(blk);
             for (auto n = 0; n < this->GetNumComponents(); n++)
             {
                 if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)

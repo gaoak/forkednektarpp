@@ -264,13 +264,10 @@ protected:
                                      unsigned int nm0, unsigned int nm1,
                                      unsigned int nm2)
     {
-        constexpr bool device_only = true;
-
         unsigned int wspsize = GetSharedWorkspaceSize(shapeType, nElmts, nq0,
                                                       nq1, nq2, nm0, nm1, nm2);
 
-        return MemoryRegion<TData>::template Create<MemSpace>(
-            wspsize, ExecSpace::alignment, device_only);
+        return MemoryRegion<TData>::Create(wspsize, ExecSpace::alignment);
     }
 
     void SegBlock(BlockAccessor<TData> &inblock,

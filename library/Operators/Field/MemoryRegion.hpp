@@ -160,21 +160,6 @@ public:
         }
         else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
         {
-#if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG) ||                      \
-    defined(OPERATOR_ENABLE_DEFAULTING)
-            try
-            {
-                // This cast fails if e.g. a MemoryRegionDevice is requested
-                // from a MemoryRegionHost storage.
-                [[maybe_unused]] auto &discard =
-                    dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
-            }
-            catch (const std::bad_cast &e)
-            {
-                // Convert the storage to device
-                GetDeviceStorage();
-            }
-#endif
             if constexpr (std::is_same_v<MemAccess, ReadOnly>)
             {
                 return m_storage->GetReadOnlyDevicePtr();
@@ -199,38 +184,17 @@ public:
      * @param name        - name of the memory region
      * @param size        - size of memory
      * @param alignment   - memory alignment
-     * @param device_only - flag to only allocated memory on device
      *
      * @return MemoryRegion<TData>
      */
-    template <typename MemSpace>
-    static MemoryRegion<TData> Create(
-        const std::string name, const size_t size, const size_t alignment,
-        [[maybe_unused]] const bool device_only = false,
-        const size_t device_rank                = 0)
+    static MemoryRegion<TData> Create(const std::string name, const size_t size,
+                                      const size_t alignment,
+                                      const size_t device_rank = 0)
     {
         auto mr = MemoryRegion();
 
-        // Create a new MemoryRegion and polymorphically store as
-        // MemoryRegionHost.
-        if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
-        {
-            mr.m_storage = std::make_unique<MemoryRegionHost<TData>>(
-                name, size, alignment, device_rank, false);
-        }
-        else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
-        {
-            mr.m_storage = std::make_unique<MemoryRegionDevice<TData>>(
-                name, size, alignment, device_rank, device_only);
-        }
-        else
-        {
-            std::string msg("MemoryRegion::create - "
-                            "invaid memory space (");
-            msg += name + "): " + Nektar::demangleTypeName(typeid(MemSpace));
-
-            NEKERROR(Nektar::ErrorUtil::efatal, msg);
-        }
+        mr.m_storage = std::make_unique<MemoryRegionDevice<TData>>(
+            name, size, alignment, device_rank);
 
         return mr;
     }
@@ -241,17 +205,13 @@ public:
      *
      * @param size        - size of memory
      * @param alignment   - memory alignment
-     * @param device_only - flag to only allocated memory on device
      *
      * @return MemoryRegion<TData>
      */
-    template <typename MemSpace>
     static MemoryRegion<TData> Create(const size_t size, const size_t alignment,
-                                      const bool device_only   = false,
                                       const size_t device_rank = 0)
     {
-        return MemoryRegion<TData>::template Create<MemSpace>(
-            "", size, alignment, device_only, device_rank);
+        return MemoryRegion<TData>::Create("", size, alignment, device_rank);
     }
 
     /**
@@ -261,7 +221,6 @@ public:
      * @param name        - name of the memory region
      * @param array       - std::vector to copy from
      * @param alignment   - Memory alignment to use.
-     * @param device_only - flag to only allocated memory on device
      *
      * @return MemoryRegion<TData>
      */
@@ -269,11 +228,10 @@ public:
               class Alloc = std::allocator<TDataIn>>
     static MemoryRegion<TData> FromVector(
         const std::string name, std::vector<TDataIn, Alloc> const &array,
-        const size_t alignment, const bool device_only = false,
-        const size_t device_rank = 0)
+        const size_t alignment, const size_t device_rank = 0)
     {
-        auto mr = MemoryRegion<TData>::template Create<MemSpace>(
-            name, array.size(), alignment, device_only, device_rank);
+        auto mr = MemoryRegion<TData>::Create(name, array.size(), alignment,
+                                              device_rank);
         mr.template CopyFromHostPtr<MemSpace>(array.data(), array.size());
         return mr;
     }
@@ -284,7 +242,6 @@ public:
      *
      * @param array       - std::vector to copy from
      * @param alignment   - Memory alignment to use.
-     * @param device_only - flag to only allocated memory on device
      *
      * @return MemoryRegion<TData>
      */
@@ -292,10 +249,10 @@ public:
               class Alloc = std::allocator<TDataIn>>
     static MemoryRegion<TData> FromVector(
         std::vector<TDataIn, Alloc> const &array, const size_t alignment,
-        const bool device_only = false, const size_t device_rank = 0)
+        const size_t device_rank = 0)
     {
         return MemoryRegion<TData>::template FromVector<MemSpace, TDataIn>(
-            "", array, alignment, device_only, device_rank);
+            "", array, alignment, device_rank);
     }
 
     /**
@@ -306,7 +263,6 @@ public:
      * @param name        - name of the memory region
      * @param array       - Nektar::Array to copy from
      * @param alignment   - Memory alignment to use.
-     * @param device_only - flag to only allocated memory on device
      *
      * @return MemoryRegion<TData>
      */
@@ -314,11 +270,10 @@ public:
     static MemoryRegion<TData> FromArray(
         const std::string name,
         Nektar::Array<Nektar::OneD, TDataIn> const &array,
-        const size_t alignment, const bool device_only = false,
-        const size_t device_rank = 0)
+        const size_t alignment, const size_t device_rank = 0)
     {
-        auto mr = MemoryRegion<TData>::template Create<MemSpace>(
-            name, array.size(), alignment, device_only, device_rank);
+        auto mr = MemoryRegion<TData>::Create(name, array.size(), alignment,
+                                              device_rank);
         mr.template CopyFromHostPtr<MemSpace>(array.data(), array.size());
         return mr;
     }
@@ -335,11 +290,10 @@ public:
     template <typename MemSpace, typename TDataIn>
     static MemoryRegion<TData> FromArray(
         Nektar::Array<Nektar::OneD, TDataIn> const &array,
-        const size_t alignment, const bool device_only = false,
-        const size_t device_rank = 0)
+        const size_t alignment, const size_t device_rank = 0)
     {
         return MemoryRegion<TData>::template FromArray<MemSpace, TDataIn>(
-            "", array, alignment, device_only, device_rank);
+            "", array, alignment, device_rank);
     }
 
     /**
@@ -360,26 +314,10 @@ public:
 
         if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
         {
-            m_storage->Initialize(val, count, offset);
+            m_storage->MemoryRegionHost<TData>::Initialize(val, count, offset);
         }
         else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
         {
-#if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG) ||                      \
-    defined(OPERATOR_ENABLE_DEFAULTING)
-            try
-            {
-                // This cast fails if e.g. a MemoryRegionDevice is requested
-                // from a MemoryRegionHost storage.
-                [[maybe_unused]] auto &discard =
-                    dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
-            }
-            catch (const std::bad_cast &e)
-            {
-                // Convert the storage to device
-                GetDeviceStorage();
-            }
-#endif
-
             m_storage->Initialize(val, count, offset);
         }
     }
@@ -608,7 +546,6 @@ private:
      *
      * @return MemoryRegion<TData>
      */
-    template <typename MemSpace>
     static MemoryRegion<TData> CreateFromHostPtr(const std::string name,
                                                  TData *h_src,
                                                  const size_t size,
@@ -617,26 +554,8 @@ private:
     {
         auto mr = MemoryRegion();
 
-        // Create a new MemoryRegion and polymorphically store as
-        // MemoryRegionHost.
-        if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
-        {
-            mr.m_storage = std::make_unique<MemoryRegionHost<TData>>(
-                name, h_src, size, alignment, device_rank);
-        }
-        else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
-        {
-            mr.m_storage = std::make_unique<MemoryRegionDevice<TData>>(
-                name, h_src, size, alignment, device_rank);
-        }
-        else
-        {
-            std::string msg("MemoryRegion::create - "
-                            "invaid memory space (");
-            msg += name + "): " + Nektar::demangleTypeName(typeid(MemSpace));
-
-            NEKERROR(Nektar::ErrorUtil::efatal, msg);
-        }
+        mr.m_storage = std::make_unique<MemoryRegionDevice<TData>>(
+            name, h_src, size, alignment, device_rank);
 
         return mr;
     }
@@ -655,41 +574,13 @@ private:
      *
      * @return MemoryRegion<TData>
      */
-    template <typename MemSpace>
     static MemoryRegion<TData> CreateFromHostPtr(TData *h_src,
                                                  const size_t size,
                                                  const size_t alignment,
                                                  const size_t device_rank = 0)
     {
-        return MemoryRegion<TData>::template CreateFromHostPtr<MemSpace>(
-            "", h_src, size, alignment, device_rank);
-    }
-
-    /**
-     * @brief This routine performs a MemoryRegion conversion from a host
-     * memory region to a device memory region.
-     *
-     * @return MemoryRegionDevice<TData> storage
-     *
-     */
-    void GetDeviceStorage()
-    {
-        using TMemoryRegion = MemoryRegionDevice<TData>;
-
-        std::string name  = Nektar::demangleTypeName(typeid(TMemoryRegion));
-        std::string sname = Nektar::demangleTypeName(typeid(*m_storage));
-
-        // Create new TMemoryRegion from the MemoryRegionHost base
-        // class.
-        m_storage = std::make_unique<TMemoryRegion>(
-            TMemoryRegion(std::move(*m_storage)));
-
-        // Debug warning, a (possibly) undesired conversion occured.
-        std::string msg("MemoryRegion::GetDeviceStorage - "
-                        "Converting backing storage (");
-        msg += m_storage->m_name + ") from " + sname + " to " + name;
-
-        WARNINGL0(false, msg);
+        return MemoryRegion<TData>::CreateFromHostPtr("", h_src, size,
+                                                      alignment, device_rank);
     }
 
     /**
@@ -727,21 +618,6 @@ private:
         }
         else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
         {
-#if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG) ||                      \
-    defined(OPERATOR_ENABLE_DEFAULTING)
-            try
-            {
-                // This cast fails if e.g. a MemoryRegionDevice is requested
-                // from a MemoryRegionHost storage.
-                [[maybe_unused]] auto &discard =
-                    dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
-            }
-            catch (const std::bad_cast &e)
-            {
-                // Convert the storage to device
-                GetDeviceStorage();
-            }
-#endif
             if constexpr (std::is_same_v<TDataIn, TData>)
             {
                 m_storage->CopyFromHostPtr(src, size, offset);
@@ -756,5 +632,5 @@ private:
     }
 
     // Member variables:
-    std::unique_ptr<MemoryRegionHost<TData>> m_storage = nullptr;
+    std::unique_ptr<MemoryRegionDevice<TData>> m_storage = nullptr;
 };
