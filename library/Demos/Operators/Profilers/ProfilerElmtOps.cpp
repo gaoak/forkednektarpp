@@ -109,7 +109,7 @@ int main(int argc, char *argv[])
     LIKWID_MARKER_INIT;
     LIKWID_MARKER_THREADINIT;
 
-    // Initialise a session, graph and explist
+    // Initialise a session, graph and explist.
     LibUtilities::SessionReaderSharedPtr session;
     SpatialDomains::MeshGraphSharedPtr graph;
     MultiRegions::ExpListSharedPtr explist;
@@ -117,24 +117,21 @@ int main(int argc, char *argv[])
     session = LibUtilities::SessionReader::CreateInstance(argc, argv);
     graph   = SpatialDomains::MeshGraphIO::Read(session);
 
-    // Load parameters (from the command lines)
+    // Load parameters (from the command lines).
     int Ntest, order;
     session->LoadParameter("Ntest", Ntest, 100);
     session->LoadParameter("order", order, 0);
 
-    // check if verbose is set
-    _verbose_ = session->DefinesCmdLineArgument("verbose");
-
     // Set the order of the polynomial expansion if provided
     // we keep the point distribution the same and make
     // the number of points the same difference from the number
-    // of modes as the original expansion definition
+    // of modes as the original expansion definition.
     if (order > 0)
     {
         graph->SetExpansionInfoToNumModes(order + 1);
     }
 
-    // create a ExpList from the graph(mesh)
+    // Create a ExpList from the graph(mesh).
     explist = MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
         session, graph, true, "DefaultVar", Collections::eNoCollection);
 
@@ -142,9 +139,9 @@ int main(int argc, char *argv[])
 
     auto nDim = explist->GetGraph()->GetSpaceDimension();
 
-    // Print GPU properties
+    // Print GPU properties.
 #if defined(NEKTAR_ENABLE_CUDA)
-    if (session->GetComm()->GetRank() == 0) // print the summaryi
+    if (session->GetComm()->GetRank() == 0)
     {
         cudaDeviceProp prop;
         cudaGetDeviceProperties(&prop, 0);
@@ -154,6 +151,11 @@ int main(int argc, char *argv[])
         printf("  Device name: %s\n", prop.name);
         printf("  Memory Clock Rate (KHz): %d\n", prop.memoryClockRate);
         printf("  Memory Bus Width (bits): %d\n", prop.memoryBusWidth);
+        printf("  Total Global Memory (bits): %ld\n", prop.totalGlobalMem);
+        printf("  Shared Memory per Block (bits): %ld\n",
+               prop.sharedMemPerBlock);
+        printf("  Shared Memory per Multiprocessor (bits): %ld\n",
+               prop.sharedMemPerMultiprocessor);
         printf("  Peak Memory Bandwidth (GB/s): %f\n",
                2.0 * prop.memoryClockRate * (prop.memoryBusWidth / 8) / 1.0e6);
         printf("  Number of multiprocessors: %d\n", prop.multiProcessorCount);
