@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: NeuBndCondDeviceKernels.hpp
+// File: NeuBndCondKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -42,13 +42,8 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA> ||
-                                std::is_same_v<ExecSpace, NektarSpaces::SYCL> ||
-                                std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
-                            void>::type
-    NeuBndCondKernel(const unsigned int bndExpSize, const int *mapPtr,
-                     const TData *inptr, TData *outptr)
+void NeuBndCondKernel(const unsigned int bndExpSize, const int *mapPtr,
+                      const TData *inptr, TData *outptr)
 {
     Nektar::parallel_for<ExecSpace>(
         0u, bndExpSize,
@@ -56,13 +51,8 @@ inline
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA> ||
-                                std::is_same_v<ExecSpace, NektarSpaces::SYCL> ||
-                                std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
-                            void>::type
-    NeuBndCondKernel(const unsigned int bndExpSize, const TData *signPtr,
-                     const int *mapPtr, const TData *inptr, TData *outptr)
+void NeuBndCondKernel(const unsigned int bndExpSize, const TData *signPtr,
+                      const int *mapPtr, const TData *inptr, TData *outptr)
 {
     Nektar::parallel_for<ExecSpace>(
         0u, bndExpSize, NEKTAR_LAMBDA(const unsigned int i) {

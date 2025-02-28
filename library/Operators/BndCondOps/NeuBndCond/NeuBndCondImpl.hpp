@@ -38,8 +38,7 @@
 
 #include "Operators/BndCondOps/NeuBndCond/OperatorNeuBndCond.hpp"
 
-#include "Operators/BndCondOps/NeuBndCond/NeuBndCondDeviceKernels.hpp"
-#include "Operators/BndCondOps/NeuBndCond/NeuBndCondSerialAVXKernels.hpp"
+#include "Operators/BndCondOps/NeuBndCond/NeuBndCondKernels.hpp"
 
 using namespace Nektar;
 using namespace Nektar::MultiRegions;

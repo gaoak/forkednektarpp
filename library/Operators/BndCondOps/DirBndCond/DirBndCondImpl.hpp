@@ -38,8 +38,7 @@
 
 #include "Operators/BndCondOps/DirBndCond/OperatorDirBndCond.hpp"
 
-#include "Operators/BndCondOps/DirBndCond/DirBndCondDeviceKernels.hpp"
-#include "Operators/BndCondOps/DirBndCond/DirBndCondSerialAVXKernels.hpp"
+#include "Operators/BndCondOps/DirBndCond/DirBndCondKernels.hpp"
 
 using namespace Nektar;
 using namespace Nektar::MultiRegions;
