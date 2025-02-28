@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: NeuBndCondSerialAVXKernels.hpp
+// File: DirBndCondKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -36,35 +36,47 @@
 
 #include "Operators/LoopExecution/LoopExecution.hpp"
 
-using namespace Nektar;
-
 namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
-                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                            void>::type
-    NeuBndCondKernel(const unsigned int bndExpSize, const int *mapPtr,
-                     const TData *inptr, TData *outptr)
+void DirBndCondKernel(const unsigned int nsize, const int *mapPtr,
+                      const TData *inptr, TData *outptr)
 {
-    Nektar::parallel_for<ExecSpace>(0u, bndExpSize, [&](const unsigned int i) {
-        outptr[mapPtr[i]] += inptr[i];
-    });
+    Nektar::parallel_for<ExecSpace>(
+        0u, nsize,
+        NEKTAR_LAMBDA(const unsigned int i) { outptr[mapPtr[i]] = inptr[i]; });
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
-                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                            void>::type
-    NeuBndCondKernel(const unsigned int bndExpSize, const TData *signPtr,
-                     const int *mapPtr, const TData *inptr, TData *outptr)
+void DirBndCondKernel(const unsigned int nsize, const TData *signPtr,
+                      const int *mapPtr, const TData *inptr, TData *outptr)
 {
-    Nektar::parallel_for<ExecSpace>(0u, bndExpSize, [&](const unsigned int i) {
-        outptr[mapPtr[i]] += signPtr[i] * inptr[i];
-    });
+    Nektar::parallel_for<ExecSpace>(
+        0u, nsize, NEKTAR_LAMBDA(const unsigned int i) {
+            outptr[mapPtr[i]] = signPtr[i] * inptr[i];
+        });
+}
+
+template <typename ExecSpace, typename TData>
+void ParallelDirBndSignKernel(const unsigned int nsize, const int *signPtr,
+                              TData *outptr)
+{
+    Nektar::parallel_for<ExecSpace>(
+        0u, nsize,
+        NEKTAR_LAMBDA(const unsigned int i) { outptr[signPtr[i]] *= -1; });
+}
+
+template <typename ExecSpace, typename TData>
+void LocalDirBndCondKernel(const unsigned int nsize, const int *id0Ptr,
+                           const int *id1Ptr, const TData *signPtr,
+                           const TData *inptr, TData *outptr)
+{
+    // Note: inptr and outptr might alias each other.
+    Nektar::parallel_for<ExecSpace>(
+        0u, nsize, NEKTAR_LAMBDA(const unsigned int i) {
+            outptr[id0Ptr[i]] = inptr[id1Ptr[i]] * signPtr[i];
+        });
 }
 
 } // namespace Nektar::Operators::detail

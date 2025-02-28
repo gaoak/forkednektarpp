@@ -1079,7 +1079,7 @@ NEK_DEVICE_INLINE static void Helmholtz2DKernel(
         if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
             s_f0 = shmemptr;
-            s_f1 = s_f0 + nq1;
+            s_f1 = s_f0 + nq0;
 
             for (unsigned int idx = idx0; idx < nq0; idx += stride)
             {
