@@ -381,7 +381,7 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
     std::string implName = session->GetCmdLineArgument<std::string>("opImpl");
     std::string OpName   = oper->name;
     std::string dataType = (std::is_same_v<TData, double>) ? "Double" : "Float";
-    auto tag             = OpName + execName + implName;
+    auto tag             = OpName + execName + implName + dataType;
 
     // Set alignment.
     unsigned int alignment = 0;
