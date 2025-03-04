@@ -915,19 +915,15 @@ reduceSumKernel(const unsigned int nsize, const TData *x, TData *out)
 
     if (cudaBuffer == nullptr)
     {
-        cudaBufferSize = sizeof(TData) * gridSize;
+        cudaBufferSize = sizeof(TData) * (gridSize + 1);
         cudaMalloc(&cudaBuffer, cudaBufferSize);
     }
-    TData *d_out;
-    cudaMalloc((void **)&d_out, sizeof(TData));
-    cudaMemset(cudaBuffer, 0, sizeof(TData) * gridSize);
-    cudaMemset(out, 0, sizeof(TData));
-    reduceSumKernel<TData>
-        <<<gridSize, blockSize>>>(nsize, x, (TData *)cudaBuffer);
-    reduceSumKernel<TData>
-        <<<1, gridSize>>>(gridSize, (TData *)cudaBuffer, d_out);
+
+    TData *buffer = (TData *)cudaBuffer;
+    TData *d_out  = buffer + gridSize;
+    reduceSumKernel<TData><<<gridSize, blockSize>>>(nsize, x, buffer);
+    reduceSumKernel<TData><<<1, gridSize>>>(gridSize, buffer, d_out);
     cudaMemcpy(out, d_out, sizeof(TData), cudaMemcpyDeviceToHost);
-    cudaFree(d_out);
 }
 
 template <typename ExecSpace, typename TData>
@@ -940,17 +936,15 @@ reduceMaxKernel(const unsigned int nsize, const TData *x, TData *out)
 
     if (cudaBuffer == nullptr)
     {
-        cudaBufferSize = sizeof(TData) * gridSize;
+        cudaBufferSize = sizeof(TData) * (gridSize + 1);
         cudaMalloc(&cudaBuffer, cudaBufferSize);
     }
-    TData *d_out;
-    cudaMalloc((void **)&d_out, sizeof(TData));
-    reduceMaxKernel<TData>
-        <<<gridSize, blockSize>>>(nsize, x, (TData *)cudaBuffer);
-    reduceMaxKernel<TData>
-        <<<1, gridSize>>>(gridSize, (TData *)cudaBuffer, d_out);
+
+    TData *buffer = (TData *)cudaBuffer;
+    TData *d_out  = buffer + gridSize;
+    reduceMaxKernel<TData><<<gridSize, blockSize>>>(nsize, x, buffer);
+    reduceMaxKernel<TData><<<1, gridSize>>>(gridSize, buffer, d_out);
     cudaMemcpy(out, d_out, sizeof(TData), cudaMemcpyDeviceToHost);
-    cudaFree(d_out);
 }
 
 template <typename ExecSpace, typename TData>
@@ -963,17 +957,15 @@ reduceMinKernel(const unsigned int nsize, const TData *x, TData *out)
 
     if (cudaBuffer == nullptr)
     {
-        cudaBufferSize = sizeof(TData) * gridSize;
+        cudaBufferSize = sizeof(TData) * (gridSize + 1);
         cudaMalloc(&cudaBuffer, cudaBufferSize);
     }
-    TData *d_out;
-    cudaMalloc((void **)&d_out, sizeof(TData));
-    reduceMinKernel<TData>
-        <<<gridSize, blockSize>>>(nsize, x, (TData *)cudaBuffer);
-    reduceMinKernel<TData>
-        <<<1, gridSize>>>(gridSize, (TData *)cudaBuffer, d_out);
+
+    TData *buffer = (TData *)cudaBuffer;
+    TData *d_out  = buffer + gridSize;
+    reduceMinKernel<TData><<<gridSize, blockSize>>>(nsize, x, buffer);
+    reduceMinKernel<TData><<<1, gridSize>>>(gridSize, buffer, d_out);
     cudaMemcpy(out, d_out, sizeof(TData), cudaMemcpyDeviceToHost);
-    cudaFree(d_out);
 }
 
 template <typename ExecSpace, typename TData>
@@ -986,17 +978,15 @@ ddotKernel(const unsigned int nsize, const TData *x, const TData *y, TData *out)
 
     if (cudaBuffer == nullptr)
     {
-        cudaBufferSize = sizeof(TData) * gridSize;
+        cudaBufferSize = sizeof(TData) * (gridSize + 1);
         cudaMalloc(&cudaBuffer, cudaBufferSize);
     }
-    TData *d_out;
-    cudaMalloc((void **)&d_out, sizeof(TData));
-    ddotKernel<TData>
-        <<<gridSize, blockSize>>>(nsize, x, y, (TData *)cudaBuffer);
-    reduceSumKernel<TData>
-        <<<1, gridSize>>>(gridSize, (TData *)cudaBuffer, d_out);
+
+    TData *buffer = (TData *)cudaBuffer;
+    TData *d_out  = buffer + gridSize;
+    ddotKernel<TData><<<gridSize, blockSize>>>(nsize, x, y, buffer);
+    reduceSumKernel<TData><<<1, gridSize>>>(gridSize, buffer, d_out);
     cudaMemcpy(out, d_out, sizeof(TData), cudaMemcpyDeviceToHost);
-    cudaFree(d_out);
 }
 
 template <typename ExecSpace, typename TData>
@@ -1009,16 +999,15 @@ l1normKernel(const unsigned int nsize, const TData *x, TData *out)
 
     if (cudaBuffer == nullptr)
     {
-        cudaBufferSize = sizeof(TData) * gridSize;
+        cudaBufferSize = sizeof(TData) * (gridSize + 1);
         cudaMalloc(&cudaBuffer, cudaBufferSize);
     }
-    TData *d_out;
-    cudaMalloc((void **)&d_out, sizeof(TData));
-    l1normKernel<TData><<<gridSize, blockSize>>>(nsize, x, (TData *)cudaBuffer);
-    reduceSumKernel<TData>
-        <<<1, gridSize>>>(gridSize, (TData *)cudaBuffer, d_out);
+
+    TData *buffer = (TData *)cudaBuffer;
+    TData *d_out  = buffer + gridSize;
+    l1normKernel<TData><<<gridSize, blockSize>>>(nsize, x, buffer);
+    reduceSumKernel<TData><<<1, gridSize>>>(gridSize, buffer, d_out);
     cudaMemcpy(out, d_out, sizeof(TData), cudaMemcpyDeviceToHost);
-    cudaFree(d_out);
 }
 
 template <typename ExecSpace, typename TData>
@@ -1031,16 +1020,15 @@ l2normKernel(const unsigned int nsize, const TData *x, TData *out)
 
     if (cudaBuffer == nullptr)
     {
-        cudaBufferSize = sizeof(TData) * gridSize;
+        cudaBufferSize = sizeof(TData) * (gridSize + 1);
         cudaMalloc(&cudaBuffer, cudaBufferSize);
     }
-    TData *d_out;
-    cudaMalloc((void **)&d_out, sizeof(TData));
-    l2normKernel<TData><<<gridSize, blockSize>>>(nsize, x, (TData *)cudaBuffer);
-    reduceSumKernel<TData>
-        <<<1, gridSize>>>(gridSize, (TData *)cudaBuffer, d_out);
+
+    TData *buffer = (TData *)cudaBuffer;
+    TData *d_out  = buffer + gridSize;
+    l2normKernel<TData><<<gridSize, blockSize>>>(nsize, x, buffer);
+    reduceSumKernel<TData><<<1, gridSize>>>(gridSize, buffer, d_out);
     cudaMemcpy(out, d_out, sizeof(TData), cudaMemcpyDeviceToHost);
-    cudaFree(d_out);
 }
 
 template <typename ExecSpace, typename TData>
@@ -1054,17 +1042,15 @@ lpnormKernel(const unsigned int nsize, const unsigned int p, const TData *x,
 
     if (cudaBuffer == nullptr)
     {
-        cudaBufferSize = sizeof(TData) * gridSize;
+        cudaBufferSize = sizeof(TData) * (gridSize + 1);
         cudaMalloc(&cudaBuffer, cudaBufferSize);
     }
-    TData *d_out;
-    cudaMalloc((void **)&d_out, sizeof(TData));
-    lpnormKernel<TData>
-        <<<gridSize, blockSize>>>(nsize, p, x, (TData *)cudaBuffer);
-    reduceSumKernel<TData>
-        <<<1, gridSize>>>(gridSize, (TData *)cudaBuffer, d_out);
+
+    TData *buffer = (TData *)cudaBuffer;
+    TData *d_out  = buffer + gridSize;
+    lpnormKernel<TData><<<gridSize, blockSize>>>(nsize, p, x, buffer);
+    reduceSumKernel<TData><<<1, gridSize>>>(gridSize, buffer, d_out);
     cudaMemcpy(out, d_out, sizeof(TData), cudaMemcpyDeviceToHost);
-    cudaFree(d_out);
 }
 
 template <typename ExecSpace, typename TData>
@@ -1077,17 +1063,15 @@ linfnormKernel(const unsigned int nsize, const TData *x, TData *out)
 
     if (cudaBuffer == nullptr)
     {
-        cudaBufferSize = sizeof(TData) * gridSize;
+        cudaBufferSize = sizeof(TData) * (gridSize + 1);
         cudaMalloc(&cudaBuffer, cudaBufferSize);
     }
-    TData *d_out;
-    cudaMalloc((void **)&d_out, sizeof(TData));
-    linfnormKernel<TData>
-        <<<gridSize, blockSize>>>(nsize, x, (TData *)cudaBuffer);
-    reduceMaxKernel<TData>
-        <<<1, gridSize>>>(gridSize, (TData *)cudaBuffer, d_out);
+
+    TData *buffer = (TData *)cudaBuffer;
+    TData *d_out  = buffer + gridSize;
+    linfnormKernel<TData><<<gridSize, blockSize>>>(nsize, x, buffer);
+    reduceMaxKernel<TData><<<1, gridSize>>>(gridSize, buffer, d_out);
     cudaMemcpy(out, d_out, sizeof(TData), cudaMemcpyDeviceToHost);
-    cudaFree(d_out);
 }
 
 } // namespace Nektar
