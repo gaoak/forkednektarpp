@@ -274,13 +274,11 @@ parallel_reduce(const unsigned int begin, const unsigned int end,
     if (syclBuffer == nullptr)
     {
         syclBuffer = (void *)sycl::malloc_device<TData>(
-            gridSize, SYCLQueue::GetInstance());
+            gridSize + 1, SYCLQueue::GetInstance());
     }
 
     TData *buffer = (TData *)syclBuffer;
-
-    TData *d_out = sycl::malloc_device<TData>(1, SYCLQueue::GetInstance());
-
+    TData *d_out  = (TData *)syclBuffer + gridSize;
     if constexpr (std::is_same_v<Reduction, Nektar::ReduceSum<TData>>)
     {
         reduceSumKernel<TData>(gridSize, blockSize, begin, end, buffer,
@@ -308,7 +306,6 @@ parallel_reduce(const unsigned int begin, const unsigned int end,
                                });
     }
     SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
-    sycl::free(d_out, SYCLQueue::GetInstance());
 }
 
 } // namespace Nektar

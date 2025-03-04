@@ -249,14 +249,12 @@ parallel_reduce(const unsigned int begin, const unsigned int end,
 
     if (cudaBuffer == nullptr)
     {
-        cudaBufferSize = sizeof(TData) * gridSize;
+        cudaBufferSize = sizeof(TData) * (gridSize + 1);
         cudaMalloc(&cudaBuffer, cudaBufferSize);
     }
 
     TData *buffer = (TData *)cudaBuffer;
-
-    TData *d_out;
-    cudaMalloc((void **)&d_out, sizeof(TData));
+    TData *d_out  = (TData *)cudaBuffer + gridSize;
     if constexpr (std::is_same_v<Reduction, Nektar::ReduceSum<TData>>)
     {
         reduceSumKernel<TData>
@@ -285,7 +283,6 @@ parallel_reduce(const unsigned int begin, const unsigned int end,
             });
     }
     cudaMemcpy(out, d_out, sizeof(TData), cudaMemcpyDeviceToHost);
-    cudaFree(d_out);
 }
 
 } // namespace Nektar

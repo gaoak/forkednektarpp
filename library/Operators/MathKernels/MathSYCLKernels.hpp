@@ -582,14 +582,15 @@ reduceSumKernel(const unsigned int nsize, const TData *x, TData *out)
 
     if (syclBuffer == nullptr)
     {
-        syclBuffer =
-            sycl::malloc_device<TData>(gridSize, SYCLQueue::GetInstance());
+        syclBuffer = (void *)sycl::malloc_device<TData>(
+            gridSize + 1, SYCLQueue::GetInstance());
     }
-    TData *d_out = sycl::malloc_device<TData>(1, SYCLQueue::GetInstance());
-    reduceSumKernel<TData>(gridSize, blockSize, nsize, x, (TData *)syclBuffer);
-    reduceSumKernel<TData>(1, gridSize, gridSize, (TData *)syclBuffer, d_out);
+
+    TData *buffer = (TData *)syclBuffer;
+    TData *d_out  = buffer + gridSize;
+    reduceSumKernel<TData>(gridSize, blockSize, nsize, x, buffer);
+    reduceSumKernel<TData>(1, gridSize, gridSize, buffer, d_out);
     SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
-    sycl::free(d_out, SYCLQueue::GetInstance());
 }
 
 template <typename ExecSpace, typename TData>
@@ -602,14 +603,15 @@ reduceMaxKernel(const unsigned int nsize, const TData *x, TData *out)
 
     if (syclBuffer == nullptr)
     {
-        syclBuffer =
-            sycl::malloc_device<TData>(gridSize, SYCLQueue::GetInstance());
+        syclBuffer = (void *)sycl::malloc_device<TData>(
+            gridSize + 1, SYCLQueue::GetInstance());
     }
-    TData *d_out = sycl::malloc_device<TData>(1, SYCLQueue::GetInstance());
-    reduceMaxKernel<TData>(gridSize, blockSize, nsize, x, (TData *)syclBuffer);
-    reduceMaxKernel<TData>(1, gridSize, gridSize, (TData *)syclBuffer, d_out);
+
+    TData *buffer = (TData *)syclBuffer;
+    TData *d_out  = buffer + gridSize;
+    reduceMaxKernel<TData>(gridSize, blockSize, nsize, x, buffer);
+    reduceMaxKernel<TData>(1, gridSize, gridSize, buffer, d_out);
     SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
-    sycl::free(d_out, SYCLQueue::GetInstance());
 }
 
 template <typename ExecSpace, typename TData>
@@ -622,14 +624,15 @@ reduceMinKernel(const unsigned int nsize, const TData *x, TData *out)
 
     if (syclBuffer == nullptr)
     {
-        syclBuffer =
-            sycl::malloc_device<TData>(gridSize, SYCLQueue::GetInstance());
+        syclBuffer = (void *)sycl::malloc_device<TData>(
+            gridSize + 1, SYCLQueue::GetInstance());
     }
-    TData *d_out = sycl::malloc_device<TData>(1, SYCLQueue::GetInstance());
-    reduceMinKernel<TData>(gridSize, blockSize, nsize, x, (TData *)syclBuffer);
-    reduceMinKernel<TData>(1, gridSize, gridSize, (TData *)syclBuffer, d_out);
+
+    TData *buffer = (TData *)syclBuffer;
+    TData *d_out  = buffer + gridSize;
+    reduceMinKernel<TData>(gridSize, blockSize, nsize, x, buffer);
+    reduceMinKernel<TData>(1, gridSize, gridSize, buffer, d_out);
     SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
-    sycl::free(d_out, SYCLQueue::GetInstance());
 }
 
 template <typename ExecSpace, typename TData>
@@ -642,14 +645,15 @@ ddotKernel(const unsigned int nsize, const TData *x, const TData *y, TData *out)
 
     if (syclBuffer == nullptr)
     {
-        syclBuffer =
-            sycl::malloc_device<TData>(gridSize, SYCLQueue::GetInstance());
+        syclBuffer = (void *)sycl::malloc_device<TData>(
+            gridSize + 1, SYCLQueue::GetInstance());
     }
-    TData *d_out = sycl::malloc_device<TData>(1, SYCLQueue::GetInstance());
-    ddotKernel<TData>(gridSize, blockSize, nsize, x, y, (TData *)syclBuffer);
-    reduceSumKernel<TData>(1, gridSize, gridSize, (TData *)syclBuffer, d_out);
+
+    TData *buffer = (TData *)syclBuffer;
+    TData *d_out  = buffer + gridSize;
+    ddotKernel<TData>(gridSize, blockSize, nsize, x, y, buffer);
+    reduceSumKernel<TData>(1, gridSize, gridSize, buffer, d_out);
     SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
-    sycl::free(d_out, SYCLQueue::GetInstance());
 }
 
 template <typename ExecSpace, typename TData>
@@ -662,14 +666,15 @@ l1normKernel(const unsigned int nsize, const TData *x, TData *out)
 
     if (syclBuffer == nullptr)
     {
-        syclBuffer =
-            sycl::malloc_device<TData>(gridSize, SYCLQueue::GetInstance());
+        syclBuffer = (void *)sycl::malloc_device<TData>(
+            gridSize + 1, SYCLQueue::GetInstance());
     }
-    TData *d_out = sycl::malloc_device<TData>(1, SYCLQueue::GetInstance());
-    l1normKernel<TData>(gridSize, blockSize, nsize, x, (TData *)syclBuffer);
-    reduceSumKernel<TData>(1, gridSize, gridSize, (TData *)syclBuffer, d_out);
+
+    TData *buffer = (TData *)syclBuffer;
+    TData *d_out  = buffer + gridSize;
+    l1normKernel<TData>(gridSize, blockSize, nsize, x, buffer);
+    reduceSumKernel<TData>(1, gridSize, gridSize, buffer, d_out);
     SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
-    sycl::free(d_out, SYCLQueue::GetInstance());
 }
 
 template <typename ExecSpace, typename TData>
@@ -682,14 +687,15 @@ l2normKernel(const unsigned int nsize, const TData *x, TData *out)
 
     if (syclBuffer == nullptr)
     {
-        syclBuffer =
-            sycl::malloc_device<TData>(gridSize, SYCLQueue::GetInstance());
+        syclBuffer = (void *)sycl::malloc_device<TData>(
+            gridSize + 1, SYCLQueue::GetInstance());
     }
-    TData *d_out = sycl::malloc_device<TData>(1, SYCLQueue::GetInstance());
-    l2normKernel<TData>(gridSize, blockSize, nsize, x, (TData *)syclBuffer);
-    reduceSumKernel<TData>(1, gridSize, gridSize, (TData *)syclBuffer, d_out);
+
+    TData *buffer = (TData *)syclBuffer;
+    TData *d_out  = buffer + gridSize;
+    l2normKernel<TData>(gridSize, blockSize, nsize, x, buffer);
+    reduceSumKernel<TData>(1, gridSize, gridSize, buffer, d_out);
     SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
-    sycl::free(d_out, SYCLQueue::GetInstance());
 }
 
 template <typename ExecSpace, typename TData>
@@ -703,14 +709,15 @@ lpnormKernel(const unsigned int nsize, const unsigned int p, const TData *x,
 
     if (syclBuffer == nullptr)
     {
-        syclBuffer =
-            sycl::malloc_device<TData>(gridSize, SYCLQueue::GetInstance());
+        syclBuffer = (void *)sycl::malloc_device<TData>(
+            gridSize + 1, SYCLQueue::GetInstance());
     }
-    TData *d_out = sycl::malloc_device<TData>(1, SYCLQueue::GetInstance());
-    lpnormKernel<TData>(gridSize, blockSize, nsize, p, x, (TData *)syclBuffer);
-    reduceSumKernel<TData>(1, gridSize, gridSize, (TData *)syclBuffer, d_out);
+
+    TData *buffer = (TData *)syclBuffer;
+    TData *d_out  = buffer + gridSize;
+    lpnormKernel<TData>(gridSize, blockSize, nsize, p, x, buffer);
+    reduceSumKernel<TData>(1, gridSize, gridSize, buffer, d_out);
     SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
-    sycl::free(d_out, SYCLQueue::GetInstance());
 }
 
 template <typename ExecSpace, typename TData>
@@ -724,13 +731,14 @@ linfnormKernel(const unsigned int nsize, const TData *x, TData *out)
     if (syclBuffer == nullptr)
     {
         syclBuffer = (void *)sycl::malloc_device<TData>(
-            gridSize, SYCLQueue::GetInstance());
+            gridSize + 1, SYCLQueue::GetInstance());
     }
-    TData *d_out = sycl::malloc_device<TData>(1, SYCLQueue::GetInstance());
-    linfnormKernel<TData>(gridSize, blockSize, nsize, x, (TData *)syclBuffer);
-    reduceMaxKernel<TData>(1, gridSize, gridSize, (TData *)syclBuffer, d_out);
+
+    TData *buffer = (TData *)syclBuffer;
+    TData *d_out  = buffer + gridSize;
+    linfnormKernel<TData>(gridSize, blockSize, nsize, x, buffer);
+    reduceMaxKernel<TData>(1, gridSize, gridSize, buffer, d_out);
     SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
-    sycl::free(d_out, SYCLQueue::GetInstance());
 }
 
 } // namespace Nektar
