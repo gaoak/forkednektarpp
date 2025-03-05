@@ -853,6 +853,8 @@ public:
         return m_var_names.size();
     }
 
+    typedef TData value_type;
+
 private:
     /**
      * @brief Construct a new Field object.

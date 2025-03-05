@@ -43,34 +43,39 @@ class GeometricDataCreator;
 
 template <typename TData> class JacobianKey : public BaseKey
 {
+    friend class GeometricDataCreator;
+
 public:
     using creator = GeometricDataCreator;
+    typedef TData value_type;
 
     ~JacobianKey() override = default;
+
     JacobianKey(const unsigned int exp_idx, const unsigned int interleave_width,
                 const unsigned int num_elements)
         : m_exp_idx(exp_idx), m_interleave_width(interleave_width),
           m_num_elements(num_elements)
     {
         hash_combine(m_hash, m_exp_idx, m_interleave_width, m_num_elements,
-                     m_name);
+                     "JacobianKey");
     }
 
+private:
     unsigned int m_exp_idx;
     unsigned int m_interleave_width;
     unsigned int m_num_elements;
-    typedef TData m_data_type;
-
-private:
-    inline static const std::string m_name = "JacobianKey";
 };
 
 template <typename TData> class DerivFactorKey : public BaseKey
 {
+    friend class GeometricDataCreator;
+
 public:
     using creator = GeometricDataCreator;
+    typedef TData value_type;
 
     ~DerivFactorKey() override = default;
+
     DerivFactorKey(const unsigned int exp_idx,
                    const unsigned int interleave_width,
                    const unsigned int num_elements, const bool transpose)
@@ -78,17 +83,14 @@ public:
           m_num_elements(num_elements), m_transpose(transpose)
     {
         hash_combine(m_hash, m_exp_idx, m_interleave_width, m_num_elements,
-                     m_transpose, m_name);
+                     m_transpose, "DerivFactorKey");
     }
 
+private:
     unsigned int m_exp_idx;
     unsigned int m_interleave_width;
     unsigned int m_num_elements;
     bool m_transpose;
-    typedef TData m_data_type;
-
-private:
-    inline static const std::string m_name = "DerivFactorKey";
 };
 
 class GeometricDataCreator : public DataCreatorClass

@@ -65,10 +65,14 @@ class StdMatDataCreator;
 
 template <typename TData> class StdMatKey : public BaseKey
 {
+    friend class StdMatDataCreator;
+
 public:
     using creator = StdMatDataCreator;
+    typedef TData value_type;
 
     ~StdMatKey() override = default;
+
     StdMatKey(const std::vector<LibUtilities::BasisKey> basisKeys,
               const LibUtilities::ShapeType shapeType,
               const StdMatType stdMatType)
@@ -96,16 +100,13 @@ public:
                      m_basisKeys[0].GetPointsKey().GetNumPoints(),
                      m_basisKeys[0].GetPointsKey().GetPointsType(),
                      m_basisKeys[0].GetPointsKey().GetFactor(), m_shapeType,
-                     m_stdMatType, m_name);
+                     m_stdMatType, "StdMatKey");
     }
 
+private:
     std::vector<LibUtilities::BasisKey> m_basisKeys;
     LibUtilities::ShapeType m_shapeType;
     StdMatType m_stdMatType;
-    typedef TData m_data_type;
-
-private:
-    inline static const std::string m_name = "StdMatKey";
 };
 
 class StdMatDataCreator : public DataCreatorClass

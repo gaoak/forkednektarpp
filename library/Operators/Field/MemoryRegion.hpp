@@ -531,6 +531,8 @@ public:
         return m_storage->m_name;
     }
 
+    typedef TData value_type;
+
 private:
     /**
      * @brief Static templated creation method. This method creates a
