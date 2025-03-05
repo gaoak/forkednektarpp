@@ -97,9 +97,9 @@ public:
     ~NekDataWarehouse() = default;
 
     template <typename ExecSpace, typename DataKey>
-    const typename DataKey::m_data_type *GetData(const DataKey &dataKey)
+    const typename DataKey::value_type *GetData(const DataKey &dataKey)
     {
-        using TData    = typename DataKey::m_data_type;
+        using TData    = typename DataKey::value_type;
         using MemSpace = typename ExecSpace::memory_space;
 
 #ifdef NEKTAR_USE_THREAD_SAFETY

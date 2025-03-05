@@ -43,16 +43,21 @@ class ModeIndexCreator;
 
 class ModeIndexKey : public BaseKey
 {
+    friend class ModeIndexCreator;
+
 public:
     using creator = ModeIndexCreator;
+    typedef unsigned int value_type;
 
     ~ModeIndexKey() override = default;
+
     ModeIndexKey(const LibUtilities::ShapeType shapeType,
                  const unsigned int nm0, const unsigned int nm1,
                  const unsigned int mode)
         : m_shapeType(shapeType), m_nm0(nm0), m_nm1(nm1), m_mode(mode)
     {
-        hash_combine(m_hash, m_shapeType, m_nm0, m_nm1, m_nm2, m_mode, m_name);
+        hash_combine(m_hash, m_shapeType, m_nm0, m_nm1, m_nm2, m_mode,
+                     "ModeIndexKey");
     }
 
     ModeIndexKey(const LibUtilities::ShapeType shapeType,
@@ -61,18 +66,16 @@ public:
         : m_shapeType(shapeType), m_nm0(nm0), m_nm1(nm1), m_nm2(nm2),
           m_mode(mode)
     {
-        hash_combine(m_hash, m_shapeType, m_nm0, m_nm1, m_nm2, m_mode, m_name);
+        hash_combine(m_hash, m_shapeType, m_nm0, m_nm1, m_nm2, m_mode,
+                     "ModeIndexKey");
     }
 
+private:
     LibUtilities::ShapeType m_shapeType;
     unsigned int m_nm0 = 0;
     unsigned int m_nm1 = 0;
     unsigned int m_nm2 = 0;
     unsigned int m_mode;
-    typedef unsigned int m_data_type;
-
-private:
-    inline static const std::string m_name = "ModeIndexKey";
 };
 
 class ModeIndexCreator : public DataCreatorClass

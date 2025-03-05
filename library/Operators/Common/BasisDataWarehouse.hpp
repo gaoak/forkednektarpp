@@ -59,10 +59,14 @@ class BasisDataCreator;
 
 template <typename TData> class BasisDataKey : public BaseKey
 {
+    friend class BasisDataCreator;
+
 public:
     using creator = BasisDataCreator;
+    typedef TData value_type;
 
     ~BasisDataKey() override = default;
+
     BasisDataKey(const LibUtilities::BasisKey &basisKey,
                  const BasisDataType basisDataType, const unsigned int npts = 0)
         : m_basisKey(basisKey), m_basisDataType(basisDataType), m_npts(npts)
@@ -71,16 +75,13 @@ public:
             m_hash, m_basisKey.GetNumModes(), m_basisKey.GetBasisType(),
             m_basisKey.GetPointsKey().GetNumPoints(),
             m_basisKey.GetPointsKey().GetPointsType(),
-            m_basisKey.GetPointsKey().GetFactor(), m_basisDataType, m_name);
+            m_basisKey.GetPointsKey().GetFactor(), m_basisDataType, "BasisKey");
     }
 
+private:
     LibUtilities::BasisKey m_basisKey;
     BasisDataType m_basisDataType;
     unsigned int m_npts;
-    typedef TData m_data_type;
-
-private:
-    inline static const std::string m_name = "BasisKey";
 };
 
 class BasisDataCreator : public DataCreatorClass
