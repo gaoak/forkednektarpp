@@ -609,13 +609,15 @@ private:
         {
             if constexpr (std::is_same_v<TDataIn, TData>)
             {
-                m_storage->CopyFromHostPtr(src, size, offset);
+                m_storage->MemoryRegionHost<TData>::CopyFromHostPtr(src, size,
+                                                                    offset);
             }
             else
             {
                 std::vector<TData> tmp(size);
                 std::copy(src, src + size, tmp.data());
-                m_storage->CopyFromHostPtr(tmp.data(), size, offset);
+                m_storage->MemoryRegionHost<TData>::CopyFromHostPtr(
+                    tmp.data(), size, offset);
             }
         }
         else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
