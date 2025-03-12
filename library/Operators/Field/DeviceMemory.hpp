@@ -43,7 +43,6 @@
 #include <hip/hip_runtime.h>
 #elif defined(NEKTAR_ENABLE_SYCL)
 #include "Operators/Utils/SYCLQueue.hpp"
-#elif defined(NEKTAR_ENABLE_KOKKOS)
 #endif
 
 namespace Nektar
@@ -78,10 +77,6 @@ void deviceMalloc(TData *&src, const unsigned int size,
 #elif defined(NEKTAR_ENABLE_SYCL)
         sycl::queue &Q = SYCLQueue::GetInstance();
         src            = sycl::malloc_device<TData>(size, Q);
-#elif defined(NEKTAR_ENABLE_KOKKOS)
-        src = (TData *)
-            Kokkos::kokkos_malloc<Kokkos::DefaultExecutionSpace::memory_space>(
-                size * sizeof(TData));
 #else
         src = (TData *)malloc(size * sizeof(TData));
 #endif
@@ -109,8 +104,6 @@ void deviceFree(TData *src, [[maybe_unused]] const unsigned int device_rank)
 #elif defined(NEKTAR_ENABLE_SYCL)
     sycl::queue &Q = SYCLQueue::GetInstance();
     sycl::free(src, Q);
-#elif defined(NEKTAR_ENABLE_KOKKOS)
-    Kokkos::kokkos_free(src);
 #else
     free(src);
 #endif
@@ -134,11 +127,6 @@ void deviceMemset(TData *dst, const int val, const unsigned int size,
 #elif defined(NEKTAR_ENABLE_SYCL)
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.memset((void *)dst, val, size * sizeof(TData)).wait();
-#elif defined(NEKTAR_ENABLE_KOKKOS)
-    // Create an unmanage Kokkos view from the raw pointer.
-    Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> dstView(dst, size);
-    // Deep copy the val to the device view.
-    Kokkos::deep_copy(dstView, val);
 #else
     memset((void *)dst, val, size * sizeof(TData));
 #endif
@@ -163,11 +151,6 @@ void deviceFill(TData *dst, const TData val, const unsigned int size,
 #elif defined(NEKTAR_ENABLE_SYCL)
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.fill(dst, val, size).wait();
-#elif defined(NEKTAR_ENABLE_KOKKOS)
-    // Create an unmanage Kokkos view from the raw pointer.
-    Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> dstView(dst, size);
-    // Deep copy the val to the device view.
-    Kokkos::deep_copy(dstView, val);
 #else
     std::fill(dst, dst + size, val);
 #endif
@@ -193,13 +176,6 @@ void deviceMemcpy(TData *dst, const TData *src, const unsigned int size,
 #elif defined(NEKTAR_ENABLE_SYCL)
         sycl::queue &Q = SYCLQueue::GetInstance();
         Q.memcpy(dst, src, size * sizeof(TData)).wait();
-#elif defined(NEKTAR_ENABLE_KOKKOS)
-        // Create unmanage Kokkos views from the raw pointers.
-        TData *v_src = const_cast<TData *>(src);
-        Kokkos::View<TData *, Kokkos::HostSpace> srcView(v_src, size);
-        Kokkos::View<TData *, Kokkos::HostSpace> dstView(dst, size);
-        // Deep copy the host view to the device view.
-        Kokkos::deep_copy(dstView, srcView);
 #else
         memcpy(dst, src, size * sizeof(TData));
 #endif
@@ -215,14 +191,6 @@ void deviceMemcpy(TData *dst, const TData *src, const unsigned int size,
 #elif defined(NEKTAR_ENABLE_SYCL)
         sycl::queue &Q = SYCLQueue::GetInstance();
         Q.memcpy(dst, src, size * sizeof(TData)).wait();
-#elif defined(NEKTAR_ENABLE_KOKKOS)
-        // Create unmanage Kokkos views from the raw pointers.
-        TData *v_src = const_cast<TData *>(src);
-        Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> srcView(v_src,
-                                                                     size);
-        Kokkos::View<TData *, Kokkos::HostSpace> dstView(dst, size);
-        // Deep copy the host view to the device view.
-        Kokkos::deep_copy(dstView, srcView);
 #else
         memcpy(dst, src, size * sizeof(TData));
 #endif
@@ -238,13 +206,6 @@ void deviceMemcpy(TData *dst, const TData *src, const unsigned int size,
 #elif defined(NEKTAR_ENABLE_SYCL)
         sycl::queue &Q = SYCLQueue::GetInstance();
         Q.memcpy(dst, src, size * sizeof(TData)).wait();
-#elif defined(NEKTAR_ENABLE_KOKKOS)
-        // Create unmanage Kokkos views from the raw pointers.
-        TData *v_src = const_cast<TData *>(src);
-        Kokkos::View<TData *, Kokkos::HostSpace> srcView(v_src, size);
-        Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> dstView(dst, size);
-        // Deep copy the host view to the device view.
-        Kokkos::deep_copy(dstView, srcView);
 #else
         memcpy(dst, src, size * sizeof(TData));
 #endif
@@ -260,14 +221,6 @@ void deviceMemcpy(TData *dst, const TData *src, const unsigned int size,
 #elif defined(NEKTAR_ENABLE_SYCL)
         sycl::queue &Q = SYCLQueue::GetInstance();
         Q.memcpy(dst, src, size * sizeof(TData)).wait();
-#elif defined(NEKTAR_ENABLE_KOKKOS)
-        // Create unmanage Kokkos views from the raw pointers.
-        TData *v_src = const_cast<TData *>(src);
-        Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> srcView(v_src,
-                                                                     size);
-        Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> dstView(dst, size);
-        // Deep copy the host view to the device view.
-        Kokkos::deep_copy(dstView, srcView);
 #else
         memcpy(dst, src, size * sizeof(TData));
 #endif

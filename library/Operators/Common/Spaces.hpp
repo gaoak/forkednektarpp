@@ -42,23 +42,13 @@
 #include <float.h>
 #include <limits.h>
 
-#if defined(NEKTAR_ENABLE_KOKKOS)
-#include <Kokkos_Core.hpp>
-#include <Kokkos_Macros.hpp>
-#include <Kokkos_Random.hpp>
-#elif defined(NEKTAR_ENABLE_SYCL)
+#if defined(NEKTAR_ENABLE_SYCL)
 #include "Operators/Utils/SYCLQueue.hpp"
 #endif
 
 #if defined(__CUDACC__) || defined(__HIP_DEVICE_COMPILE__) ||                  \
     defined(__SYCL_DEVICE_ONLY__)
 #define DEVICE_COMPILE_ONLY
-#endif
-
-#if defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP) ||               \
-    defined(KOKKOS_ENABLE_SYCL) || defined(KOKKOS_ENABLE_OPENMPTARGET) ||      \
-    defined(KOKKOS_ENABLE_OPENACC)
-#define KOKKOS_USING_GPU
 #endif
 
 // Helps turn defines into usable strings (even if it has a comma in it)
@@ -92,21 +82,6 @@ struct vector_width
 {
     static constexpr unsigned int value = 32u;
 };
-#elif defined(KOKKOS_ENABLE_CUDA)
-struct vector_width
-{
-    static constexpr unsigned int value = Kokkos::Impl::CudaTraits::WarpSize;
-};
-#elif defined(KOKKOS_ENABLE_HIP)
-struct vector_width
-{
-    static constexpr unsigned int value = Kokkos::Impl::HIPTraits::WarpSize;
-};
-#elif defined(KOKKOS_ENABLE_SYCL)
-struct vector_width
-{
-    static constexpr unsigned int value = 64u;
-};
 #else
 struct vector_width
 {
@@ -120,7 +95,7 @@ struct HostSpace
 {
 };
 #if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||               \
-    defined(SYCL_ENABLE_CUDA) || defined(KOKKOS_USING_GPU)
+    defined(SYCL_ENABLE_CUDA) || defined(NEKTAR_ENABLE_DEVICEONHOST)
 // Used to refer to any data in device memory.
 struct DeviceSpace
 {
@@ -182,26 +157,13 @@ struct SYCL
 #endif
 };
 
-struct KOKKOS
+struct DeviceOnHost
 {
-    static constexpr char name[] = "Kokkos";
-    using memory_space           = NektarSpaces::DeviceSpace;
-#if defined(KOKKOS_ENABLE_CUDA)
-    static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
-    static constexpr unsigned int defaultBlockSize = 256u;
-    static constexpr unsigned int maximumBlockSize = 1024u;
-#elif defined(KOKKOS_ENABLE_HIP)
-    static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
-    static constexpr unsigned int defaultBlockSize = 256u;
-    static constexpr unsigned int maximumBlockSize = 2048u;
-#elif defined(KOKKOS_ENABLE_SYCL)
-    static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
-    static constexpr unsigned int defaultBlockSize = 256u;
-    static constexpr unsigned int maximumBlockSize = 1024u;
-#else
+    static constexpr char name[]      = "DeviceOnHost";
+    using memory_space                = NektarSpaces::DeviceSpace;
     static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
     static constexpr unsigned int defaultBlockSize = 1u;
-#endif
+    static constexpr unsigned int maximumBlockSize = 1u;
 };
 
 // Specify execution for CMakeList.txt
@@ -215,8 +177,8 @@ struct KOKKOS
 #define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::HIP
 #elif defined(NEKTAR_ENABLE_SYCL)
 #define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::SYCL
-#elif defined(NEKTAR_ENABLE_KOKKOS)
-#define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::KOKKOS
+#elif defined(NEKTAR_ENABLE_DEVICEONHOST)
+#define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::DeviceOnHost
 #endif
 
 // These are used for LoopExecution.hpp
@@ -227,9 +189,6 @@ struct KOKKOS
 #elif defined(NEKTAR_ENABLE_SYCL)
 #define NEKTAR_LAMBDA [=]
 #define NEK_DEVICE_INLINE NEK_FORCE_INLINE
-#elif defined(NEKTAR_ENABLE_KOKKOS) && defined(DEVICE_COMPILE_ONLY)
-#define NEKTAR_LAMBDA KOKKOS_LAMBDA
-#define NEK_DEVICE_INLINE KOKKOS_INLINE_FUNCTION
 #else
 #define NEKTAR_LAMBDA [&]
 #define NEK_DEVICE_INLINE NEK_FORCE_INLINE
@@ -249,7 +208,7 @@ struct LocalScope
 namespace Nektar
 {
 
-#if defined(NEKTAR_ENABLE_CUDA) && defined(DEVICE_COMPILE_ONLY)
+#if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
 class cudaBlock1D
 {
 };
@@ -639,6 +598,103 @@ NEK_DEVICE_INLINE static void atomic_min(TData *const dest, const TData val)
                          sycl::access::address_space::local_space>(*dest)
             .fetch_min(val);
     }
+}
+
+#elif defined(NEKTAR_ENABLE_DEVICEONHOST)
+class deviceOnHostBlock1D
+{
+};
+
+NEK_DEVICE_INLINE static unsigned int getLocalIdx(
+    [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
+{
+    return 0;
+}
+
+NEK_DEVICE_INLINE static unsigned int getLocalRange(
+    [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
+{
+    return 1;
+}
+
+NEK_DEVICE_INLINE static unsigned int getGlobalIdx(
+    [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
+{
+    return 0;
+}
+
+NEK_DEVICE_INLINE static unsigned int getGlobalRange(
+    [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
+{
+    return 1;
+}
+
+NEK_DEVICE_INLINE static unsigned int getBlockIdx(
+    [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
+{
+    return 0;
+}
+
+NEK_DEVICE_INLINE static unsigned int getBlockRange(
+    [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
+{
+    return 1;
+}
+
+NEK_DEVICE_INLINE static unsigned int getLaneIdx(
+    [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
+{
+    return 0;
+}
+
+template <typename TData>
+NEK_DEVICE_INLINE static TData warpReduceSum(
+    TData red, [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
+{
+    return red;
+}
+
+template <typename TData>
+NEK_DEVICE_INLINE static TData warpReduceMax(
+    TData red, [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
+{
+    return red;
+}
+
+template <typename TData>
+NEK_DEVICE_INLINE static TData warpReduceMin(
+    TData red, [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
+{
+    return red;
+}
+
+NEK_DEVICE_INLINE void localBarrier(
+    [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
+{
+}
+
+template <typename Scope, typename TData>
+NEK_DEVICE_INLINE static void atomic_add(TData *const dest, const TData val)
+{
+    *dest += val;
+}
+
+template <typename Scope, typename TData>
+NEK_DEVICE_INLINE static void atomic_sub(TData *const dest, const TData val)
+{
+    *dest -= val;
+}
+
+template <typename Scope, typename TData>
+NEK_DEVICE_INLINE static void atomic_max(TData *const dest, const TData val)
+{
+    *dest = std::max(*dest, val);
+}
+
+template <typename Scope, typename TData>
+NEK_DEVICE_INLINE static void atomic_min(TData *const dest, const TData val)
+{
+    *dest = std::min(*dest, val);
 }
 #endif
 

@@ -238,36 +238,4 @@ NEK_FORCE_INLINE static unsigned int GetSYCLGridSize(const unsigned int nelmt)
 }
 #endif
 
-#if defined(NEKTAR_ENABLE_KOKKOS)
-template <typename Implementation>
-NEK_FORCE_INLINE static unsigned int GetKokkosBlockSize(
-    [[maybe_unused]] const unsigned int blockSize)
-{
-    if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
-    {
-        return NektarSpaces::KOKKOS::defaultBlockSize;
-    }
-    else
-    {
-        auto warpsize = NektarSpaces::vector_width<double>::value;
-        return std::min(((blockSize + warpsize - 1u) / warpsize) * warpsize,
-                        NektarSpaces::KOKKOS::defaultBlockSize);
-    }
-}
-
-template <typename Implementation>
-NEK_FORCE_INLINE static unsigned int GetKokkosGridSize(const unsigned int nelmt)
-{
-    if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
-    {
-        constexpr unsigned int blocksize = NektarSpaces::CUDA::defaultBlockSize;
-        return std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
-    }
-    else
-    {
-        return nelmt;
-    }
-}
-#endif
-
 } // namespace Nektar::Operators

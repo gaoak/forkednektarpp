@@ -397,9 +397,9 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
     {
         alignment = NektarSpaces::SYCL::alignment;
     }
-    else if (execName == "Kokkos")
+    else if (execName == "DeviceOnHost")
     {
-        alignment = NektarSpaces::KOKKOS::alignment;
+        alignment = NektarSpaces::DeviceOnHost::alignment;
     }
     else
     {
@@ -461,8 +461,6 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
 
 #if defined(NEKTAR_ENABLE_CUDA)
     cudaDeviceSynchronize();
-#elif defined(NEKTAR_ENABLE_KOKKOS)
-    Kokkos::fence();
 #endif
     timer.Start();
     LIKWID_MARKER_START(tag.c_str());
@@ -474,8 +472,6 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
 
 #if defined(NEKTAR_ENABLE_CUDA)
     cudaDeviceSynchronize();
-#elif defined(NEKTAR_ENABLE_KOKKOS)
-    Kokkos::fence();
 #endif
     LIKWID_MARKER_STOP(tag.c_str());
     timer.Stop();

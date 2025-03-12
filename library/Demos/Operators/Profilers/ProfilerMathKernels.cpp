@@ -136,30 +136,31 @@ void ProfilerReduction(const unsigned int size)
     }
 #endif
 
-#if defined(NEKTAR_ENABLE_KOKKOS)
-    TData time_kokkos = 0.0;
+#if defined(NEKTAR_ENABLE_DEVICEONHOST)
+    TData time_deviceonhost = 0.0;
     {
         using MemSpace = NektarSpaces::DeviceSpace;
 
-        TData result_kokkos;
+        TData result_deviceonhost;
         auto x    = MemoryRegion<TData>::Create("x", size, vec_t::alignment);
         auto y    = MemoryRegion<TData>::Create("y", size, vec_t::alignment);
         auto xptr = x.template GetPtr<MemSpace, WriteOnly>();
         auto yptr = y.template GetPtr<MemSpace, WriteOnly>();
         for (unsigned int t = 0; t < ntests; ++t)
         {
-            Nektar::parallel_for<NektarSpaces::KOKKOS>(
-                0, size, KOKKOS_LAMBDA(unsigned int i) {
+            Nektar::parallel_for<NektarSpaces::DeviceOnHost>(
+                0, size, NEKTAR_LAMBDA(unsigned int i) {
                     xptr[i] = i % 13 + (0.2 + 0.00001 * (i % (100191 + t)));
                     yptr[i] = i % 42 + (0.1 + 0.00008 * (i % (280516 + t)));
                 });
             timer.Start();
-            ddotKernel<NektarSpaces::KOKKOS>(size, xptr, yptr, &result_kokkos);
-            ASSERTL0(result_kokkos > 0.0, "Error!");
+            ddotKernel<NektarSpaces::DeviceOnHost>(size, xptr, yptr,
+                                                   &result_deviceonhost);
+            ASSERTL0(result_deviceonhost > 0.0, "Error!");
             timer.Stop();
-            time_kokkos += timer.Elapsed().count();
+            time_deviceonhost += timer.Elapsed().count();
         }
-        time_kokkos /= ntests;
+        time_deviceonhost /= ntests;
     }
 #endif
 
@@ -176,8 +177,8 @@ void ProfilerReduction(const unsigned int size)
 #if defined(NEKTAR_ENABLE_SYCL)
                   << 2 * sizeof(TData) * 1e-9 * size / time_sycl
 #endif
-#if defined(NEKTAR_ENABLE_KOKKOS)
-                  << 2 * sizeof(TData) * 1e-9 * size / time_kokkos
+#if defined(NEKTAR_ENABLE_DEVICEONHOST)
+                  << 2 * sizeof(TData) * 1e-9 * size / time_deviceonhost
 #endif
                   << std::endl;
     }
@@ -274,8 +275,8 @@ void ProfilerDaxpy(const unsigned int size)
     }
 #endif
 
-#if defined(NEKTAR_ENABLE_KOKKOS)
-    TData time_kokkos = 0.0;
+#if defined(NEKTAR_ENABLE_DEVICEONHOST)
+    TData time_deviceonhost = 0.0;
     {
         using MemSpace = NektarSpaces::DeviceSpace;
 
@@ -287,22 +288,22 @@ void ProfilerDaxpy(const unsigned int size)
         auto zptr = z.template GetPtr<MemSpace, WriteOnly>();
         for (unsigned int t = 0; t < ntests; ++t)
         {
-            Nektar::parallel_for<NektarSpaces::KOKKOS>(
-                0, size, KOKKOS_LAMBDA(unsigned int i) {
+            Nektar::parallel_for<NektarSpaces::DeviceOnHost>(
+                0, size, NEKTAR_LAMBDA(unsigned int i) {
                     xptr[i] = i % 13 + (0.2 + 0.00001 * (i % (100191 + t)));
                     yptr[i] = i % 42 + (0.1 + 0.00008 * (i % (280516 + t)));
                 });
             timer.Start();
-            daxpyKernel<NektarSpaces::KOKKOS>(size, 3.2, xptr, yptr, zptr);
-            Kokkos::fence();
+            daxpyKernel<NektarSpaces::DeviceOnHost>(size, 3.2, xptr, yptr,
+                                                    zptr);
             ASSERTL0(
                 (z.template GetPtr<NektarSpaces::HostSpace, ReadOnly>()[0] >
                  0.0),
                 "Error!");
             timer.Stop();
-            time_kokkos += timer.Elapsed().count();
+            time_deviceonhost += timer.Elapsed().count();
         }
-        time_kokkos /= ntests;
+        time_deviceonhost /= ntests;
     }
 #endif
 
@@ -319,8 +320,8 @@ void ProfilerDaxpy(const unsigned int size)
 #if defined(NEKTAR_ENABLE_SYCL)
                   << 3 * sizeof(TData) * 1e-9 * size / time_sycl
 #endif
-#if defined(NEKTAR_ENABLE_KOKKOS)
-                  << 3 * sizeof(TData) * 1e-9 * size / time_kokkos
+#if defined(NEKTAR_ENABLE_DEVICEONHOST)
+                  << 3 * sizeof(TData) * 1e-9 * size / time_deviceonhost
 #endif
                   << std::endl;
     }
@@ -328,9 +329,6 @@ void ProfilerDaxpy(const unsigned int size)
 
 int main(void)
 {
-#if defined(NEKTAR_ENABLE_KOKKOS)
-    Kokkos::initialize();
-#endif
     std::cout << "---------------------------------" << std::endl;
     std::cout << "Math Kernel Profiler : Reduction " << std::endl;
     std::cout << "---------------------------------" << std::endl;
@@ -341,8 +339,8 @@ int main(void)
 #if defined(NEKTAR_ENABLE_SYCL)
     std::cout << "      SYCL";
 #endif
-#if defined(NEKTAR_ENABLE_KOKKOS)
-    std::cout << "      Kokkos";
+#if defined(NEKTAR_ENABLE_DEVICEONHOST)
+    std::cout << "      DeviceOnHost";
 #endif
     std::cout << std::endl;
 
@@ -365,8 +363,8 @@ int main(void)
 #if defined(NEKTAR_ENABLE_SYCL)
     std::cout << "      SYCL";
 #endif
-#if defined(NEKTAR_ENABLE_KOKKOS)
-    std::cout << "      Kokkos";
+#if defined(NEKTAR_ENABLE_DEVICEONHOST)
+    std::cout << "      DeviceOnHost";
 #endif
     std::cout << std::endl;
 
@@ -378,7 +376,4 @@ int main(void)
     {
         ProfilerDaxpy<double>(4 << i);
     }
-#if defined(NEKTAR_ENABLE_KOKKOS)
-    Kokkos::finalize();
-#endif
 }

@@ -566,8 +566,6 @@ NEK_DEVICE_INLINE static void ApplyMetric3DSumFacKernel(
     }
 }
 
-#if (defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)) ||                    \
-    defined(NEKTAR_ENABLE_SYCL)
 template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void ApplyMetric1DSumFacQPKernel(
     const unsigned int ncoord, const unsigned int nq0,
@@ -1650,10 +1648,9 @@ NEK_DEVICE_INLINE static void Helmholtz3DKernel(
         }
     }
 }
-#endif
 
 } // namespace Nektar::Operators::detail
 
 #include "Operators/ElmtOps/Helmholtz/HelmholtzCUDASumFacKernels.cuh"
-#include "Operators/ElmtOps/Helmholtz/HelmholtzKokkosSumFacKernels.hpp"
+#include "Operators/ElmtOps/Helmholtz/HelmholtzDeviceOnHostSumFacKernels.hpp"
 #include "Operators/ElmtOps/Helmholtz/HelmholtzSYCLSumFacKernels.hpp"

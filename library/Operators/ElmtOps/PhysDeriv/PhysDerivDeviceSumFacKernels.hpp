@@ -400,8 +400,6 @@ NEK_DEVICE_INLINE static void SumDerivTensor3DKernel(
     }
 }
 
-#if (defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)) ||                    \
-    defined(NEKTAR_ENABLE_SYCL)
 template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void PhysDeriv1DSumFacQPKernel(
     const unsigned int ncoord, const unsigned int nq0,
@@ -1002,10 +1000,9 @@ NEK_DEVICE_INLINE static void PhysDeriv3DKernel(
         }
     }
 }
-#endif
 
 } // namespace Nektar::Operators::detail
 
 #include "Operators/ElmtOps/PhysDeriv/PhysDerivCUDASumFacKernels.cuh"
-#include "Operators/ElmtOps/PhysDeriv/PhysDerivKokkosSumFacKernels.hpp"
+#include "Operators/ElmtOps/PhysDeriv/PhysDerivDeviceOnHostSumFacKernels.hpp"
 #include "Operators/ElmtOps/PhysDeriv/PhysDerivSYCLSumFacKernels.hpp"

@@ -529,8 +529,6 @@ NEK_DEVICE_INLINE static void BwdTransPyrSumFacKernel(
     }
 }
 
-#if (defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)) ||                    \
-    defined(NEKTAR_ENABLE_SYCL)
 template <typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void BwdTransSegSumFacQPKernel(
     const unsigned int nm0, const unsigned int nq0,
@@ -1341,10 +1339,9 @@ NEK_DEVICE_INLINE static void BwdTrans3DKernel(
         }
     }
 }
-#endif
 
 } // namespace Nektar::Operators::detail
 
 #include "Operators/ElmtOps/BwdTrans/BwdTransCUDASumFacKernels.cuh"
-#include "Operators/ElmtOps/BwdTrans/BwdTransKokkosSumFacKernels.hpp"
+#include "Operators/ElmtOps/BwdTrans/BwdTransDeviceOnHostSumFacKernels.hpp"
 #include "Operators/ElmtOps/BwdTrans/BwdTransSYCLSumFacKernels.hpp"

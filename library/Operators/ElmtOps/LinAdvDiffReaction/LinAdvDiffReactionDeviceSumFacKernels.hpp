@@ -102,9 +102,6 @@ NEK_DEVICE_INLINE static void AddAdvection3DKernel(
     }
 }
 
-#if (defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)) ||                    \
-    defined(NEKTAR_ENABLE_SYCL)
-
 template <typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void AddAdvection1DQPKernel(
     const unsigned int nq0, const TData *__restrict__ advVel0,
@@ -867,10 +864,9 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction3DKernel(
         }
     }
 }
-#endif
 
 } // namespace Nektar::Operators::detail
 
 #include "Operators/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionCUDASumFacKernels.cuh"
-#include "Operators/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionKokkosSumFacKernels.hpp"
+#include "Operators/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionDeviceOnHostSumFacKernels.hpp"
 #include "Operators/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionSYCLSumFacKernels.hpp"

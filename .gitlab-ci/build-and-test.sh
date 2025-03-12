@@ -68,14 +68,8 @@ elif [[ $BUILD_TYPE == "full" ]]; then
         CMAKEARGS+=("-DNEKTAR_ENABLE_CUDA:BOOL=ON")
         CMAKEARGS+=("-DCMAKE_CUDA_ARCHITECTURES=86")
     fi
-    if [[ $BUILD_KOKKOS == "Serial" ]]; then
-        CMAKEARGS+=("-DNEKTAR_ENABLE_KOKKOS:STRING=Serial")
-    elif [[ $BUILD_KOKKOS == "CUDA" ]]; then
-        # Load Boost and CUDA on Linux
-        [[ $OS_VERSION != "macos" ]] && module load cuda/12.2.2
-
-        # Enable CUDA in CMake configuration
-        CMAKEARGS+=("-DNEKTAR_ENABLE_KOKKOS:STRING=CUDA")
+    if [[ $BUILD_DEVICEONHOST == "on" ]]; then
+        CMAKEARGS+=("-DNEKTAR_ENABLE_DEVICEONHOST:BOOL=ON")
     fi
     if [[ $BUILD_SYCL == "Default" ]]; then
         # Load Intel compiler module for SYCL support on Linux
@@ -144,13 +138,8 @@ if [[ $EXPORT_COMPILE_COMMANDS != "" ]]; then
     exit_code=$?
 else
     # Otherwise build and test the code.
-    if [[ $BUILD_KOKKOS == "CUDA" ]]; then
-        # Do not run test with Kokkos-CUDA
-        make -C build -j $NUM_CPUS all 2>&1 && make -C build -j $NUM_CPUS install
-    else
-        make -C build -j $NUM_CPUS all 2>&1 && make -C build -j $NUM_CPUS install && \
-            (cd build && ctest -j $TEST_JOBS --output-on-failure)
-    fi
+    make -C build -j $NUM_CPUS all 2>&1 && make -C build -j $NUM_CPUS install && \
+        (cd build && ctest -j $TEST_JOBS --output-on-failure)
     exit_code=$?
 
     # Build coverage
