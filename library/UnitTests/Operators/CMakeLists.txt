@@ -23,12 +23,6 @@
 # Dirichlet              only output - Nodepend - Helmholtz1D_Seg, etc.
 # Neumann                only output - Nodepend - Helmholtz1D_Seg, etc.
 
-# NOTE: THE KOKKOS VERSION OF THE TEST SHOULD BECOME THE TEMPLATE FOR
-# THE *.cpp.in FILE. DO NOT USE ANY OTHER TEST AS THE KOKKOS VERSION
-# OF THE TEST HAS BEEN CLEANDED UP CONSIDERABLElY SO TO FOLLOW A
-# COMMON FORMAT !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-
 SET(OPERATOR_UNIT_TEST_DEPENDS Operators)
 
 IF(BOOST_TEST_DYN_LINK)
@@ -254,74 +248,74 @@ ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_sycl_sumfac_qp
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_sycl_sumfac_qp.cpp)
 ENDIF()
 
-# Kokkos SumFac
-IF(NEKTAR_ENABLE_KOKKOS)
-    ADD_NEKTAR_EXECUTABLE(test_math_kokkos
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_math_kokkos.cpp MathKokkosKernelsLauncher.cpp)
-    #ADD_NEKTAR_EXECUTABLE(test_addtraceintegral_kokkos_sumfac
-    #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral_kokkos_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_assmbscatr_kokkos_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_assmbscatr_kokkos_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_bwdtrans_kokkos_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_kokkos_sumfac.cpp)
-    #ADD_NEKTAR_EXECUTABLE(test_diagprecon_kokkos_sumfac
-    #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_diagprecon_kokkos_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_dirichlet_kokkos_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_dirichlet_kokkos_sumfac.cpp)
-    #ADD_NEKTAR_EXECUTABLE(test_fwdtrans_kokkos_sumfac
-    #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_fwdtrans_kokkos_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_helmholtz_kokkos_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_kokkos_sumfac.cpp)
-    #ADD_NEKTAR_EXECUTABLE(test_helmsolve_kokkos_sumfac
-    #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_kokkos_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_kokkos_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_kokkos_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_kokkos_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_kokkos_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_mass_kokkos_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_kokkos_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_multiplybyelmtinvmass_kokkos_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_multiplybyelmtinvmass_kokkos_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_neumann_kokkos_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_neumann_kokkos_sumfac.cpp)
-    #ADD_NEKTAR_EXECUTABLE(test_nullprecon_kokkos_sumfac
-    #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_nullprecon_kokkos_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_physderiv_kokkos_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_kokkos_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_kokkos_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_kokkos_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_kokkos_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_kokkos_sumfac.cpp)
+# DeviceOnHost SumFac
+IF(NEKTAR_ENABLE_DEVICEONHOST)
+    ADD_NEKTAR_EXECUTABLE(test_math_deviceonhost
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_math_deviceonhost.cpp MathDeviceOnHostKernelsLauncher.cpp)
+    #ADD_NEKTAR_EXECUTABLE(test_addtraceintegral_deviceonhost_sumfac
+    #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral_deviceonhost_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_assmbscatr_deviceonhost_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_assmbscatr_deviceonhost_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_bwdtrans_deviceonhost_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_deviceonhost_sumfac.cpp)
+    #ADD_NEKTAR_EXECUTABLE(test_diagprecon_deviceonhost_sumfac
+    #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_diagprecon_deviceonhost_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_dirichlet_deviceonhost_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_dirichlet_deviceonhost_sumfac.cpp)
+    #ADD_NEKTAR_EXECUTABLE(test_fwdtrans_deviceonhost_sumfac
+    #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_fwdtrans_deviceonhost_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_helmholtz_deviceonhost_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_deviceonhost_sumfac.cpp)
+    #ADD_NEKTAR_EXECUTABLE(test_helmsolve_deviceonhost_sumfac
+    #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_deviceonhost_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_deviceonhost_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_deviceonhost_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_deviceonhost_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_deviceonhost_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_mass_deviceonhost_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_deviceonhost_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_multiplybyelmtinvmass_deviceonhost_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_multiplybyelmtinvmass_deviceonhost_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_neumann_deviceonhost_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_neumann_deviceonhost_sumfac.cpp)
+    #ADD_NEKTAR_EXECUTABLE(test_nullprecon_deviceonhost_sumfac
+    #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_nullprecon_deviceonhost_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_physderiv_deviceonhost_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_deviceonhost_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_deviceonhost_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_deviceonhost_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_deviceonhost_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_deviceonhost_sumfac.cpp)
 ENDIF()
 
-# Kokkos SumFacQP
-IF(NEKTAR_ENABLE_KOKKOS)
-    ADD_NEKTAR_EXECUTABLE(test_addtraceintegral_kokkos_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral_kokkos_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_bwdtrans_kokkos_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_kokkos_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_diagprecon_kokkos_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_diagprecon_kokkos_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_fwdtrans_kokkos_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_fwdtrans_kokkos_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_helmholtz_kokkos_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_kokkos_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_helmsolve_kokkos_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_kokkos_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_kokkos_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_kokkos_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_kokkos_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_kokkos_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_mass_kokkos_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_kokkos_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_nullprecon_kokkos_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_nullprecon_kokkos_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_physderiv_kokkos_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_kokkos_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_kokkos_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_kokkos_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_kokkos_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_kokkos_sumfac_qp.cpp)
+# DeviceOnHost SumFacQP
+IF(NEKTAR_ENABLE_DEVICEONHOST)
+    ADD_NEKTAR_EXECUTABLE(test_addtraceintegral_deviceonhost_sumfac_qp
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral_deviceonhost_sumfac_qp.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_bwdtrans_deviceonhost_sumfac_qp
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_deviceonhost_sumfac_qp.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_diagprecon_deviceonhost_sumfac_qp
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_diagprecon_deviceonhost_sumfac_qp.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_fwdtrans_deviceonhost_sumfac_qp
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_fwdtrans_deviceonhost_sumfac_qp.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_helmholtz_deviceonhost_sumfac_qp
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_deviceonhost_sumfac_qp.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_helmsolve_deviceonhost_sumfac_qp
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_deviceonhost_sumfac_qp.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_deviceonhost_sumfac_qp
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_deviceonhost_sumfac_qp.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_deviceonhost_sumfac_qp
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_deviceonhost_sumfac_qp.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_mass_deviceonhost_sumfac_qp
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_deviceonhost_sumfac_qp.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_nullprecon_deviceonhost_sumfac_qp
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_nullprecon_deviceonhost_sumfac_qp.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_physderiv_deviceonhost_sumfac_qp
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_deviceonhost_sumfac_qp.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_deviceonhost_sumfac_qp
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_deviceonhost_sumfac_qp.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_deviceonhost_sumfac_qp
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_deviceonhost_sumfac_qp.cpp)
 ENDIF()
 
 
@@ -494,55 +488,55 @@ IF(NEKTAR_ENABLE_SYCL)
     SET_UNIT_TEST(LinAdvDiffReaction_sycl_sumfac_qp test_linadvdiffreaction_sycl_sumfac_qp FALSE)
 ENDIF()
 
-# Kokkos SumFac
-IF(NEKTAR_ENABLE_KOKKOS)
-    SET_UNIT_TEST(Math_kokkos test_math_kokkos FALSE)
-    #SET_UNIT_TEST(AddTraceIntegral_kokkos_sumfac test_addtraceintegral_kokkos_sumfac FALSE)
-    SET_UNIT_TEST(AssmbScatr_kokkos_sumfac test_assmbscatr_kokkos_sumfac FALSE)
-    SET_UNIT_TEST(BwdTrans_kokkos_sumfac test_bwdtrans_kokkos_sumfac FALSE)
-    #SET_UNIT_TEST(DiagPrecon_kokkos_sumfac test_diagprecon_kokkos_sumfac FALSE)
-    SET_UNIT_TEST(Dirichlet_kokkos_sumfac test_dirichlet_kokkos_sumfac FALSE)
-    #SET_UNIT_TEST(FwdTrans_kokkos_sumfac test_fwdtrans_kokkos_sumfac FALSE)
+# DeviceOnHost SumFac
+IF(NEKTAR_ENABLE_DEVICEONHOST)
+    SET_UNIT_TEST(Math_deviceonhost test_math_deviceonhost FALSE)
+    #SET_UNIT_TEST(AddTraceIntegral_deviceonhost_sumfac test_addtraceintegral_deviceonhost_sumfac FALSE)
+    SET_UNIT_TEST(AssmbScatr_deviceonhost_sumfac test_assmbscatr_deviceonhost_sumfac FALSE)
+    SET_UNIT_TEST(BwdTrans_deviceonhost_sumfac test_bwdtrans_deviceonhost_sumfac FALSE)
+    #SET_UNIT_TEST(DiagPrecon_deviceonhost_sumfac test_diagprecon_deviceonhost_sumfac FALSE)
+    SET_UNIT_TEST(Dirichlet_deviceonhost_sumfac test_dirichlet_deviceonhost_sumfac FALSE)
+    #SET_UNIT_TEST(FwdTrans_deviceonhost_sumfac test_fwdtrans_deviceonhost_sumfac FALSE)
     #IF (NEKTAR_USE_MPI)
-    #    SET_UNIT_TEST(FwdTrans_kokkos_sumfac test_fwdtrans_kokkos_sumfac TRUE)
+    #    SET_UNIT_TEST(FwdTrans_deviceonhost_sumfac test_fwdtrans_deviceonhost_sumfac TRUE)
     #ENDIF()
-    SET_UNIT_TEST(Helmholtz_kokkos_sumfac test_helmholtz_kokkos_sumfac FALSE)
-    #SET_UNIT_TEST(HelmSolve_kokkos_sumfac test_helmsolve_kokkos_sumfac FALSE)
+    SET_UNIT_TEST(Helmholtz_deviceonhost_sumfac test_helmholtz_deviceonhost_sumfac FALSE)
+    #SET_UNIT_TEST(HelmSolve_deviceonhost_sumfac test_helmsolve_deviceonhost_sumfac FALSE)
     #IF (NEKTAR_USE_MPI)
-    #    SET_UNIT_TEST(HelmSolve_kokkos_sumfac test_helmsolve_kokkos_sumfac TRUE)
+    #    SET_UNIT_TEST(HelmSolve_deviceonhost_sumfac test_helmsolve_deviceonhost_sumfac TRUE)
     #ENDIF()
-    SET_UNIT_TEST(IProductWRTBase_kokkos_sumfac test_ipwrtbase_kokkos_sumfac FALSE)
-    SET_UNIT_TEST(IProductWRTDerivBase_kokkos_sumfac test_ipwrtderivbase_kokkos_sumfac FALSE)
-    SET_UNIT_TEST(Mass_kokkos_sumfac test_mass_kokkos_sumfac FALSE)
-    #SET_UNIT_TEST(MultiplyByElmtInvMass_kokkos_sumfac test_multiplybyelmtinvmass_kokkos_sumfac FALSE)
-    SET_UNIT_TEST(Neumann_kokkos_sumfac test_neumann_kokkos_sumfac FALSE)
-    #SET_UNIT_TEST(NullPrecon_kokkos_sumfac test_nullprecon_kokkos_sumfac FALSE)
-    SET_UNIT_TEST(PhysDeriv_kokkos_sumfac test_physderiv_kokkos_sumfac FALSE)
-    SET_UNIT_TEST(PhysInterp1DScaled_kokkos_sumfac test_physinterp1dscaled_kokkos_sumfac FALSE)
-    SET_UNIT_TEST(LinAdvDiffReaction_kokkos_sumfac test_linadvdiffreaction_kokkos_sumfac FALSE)
+    SET_UNIT_TEST(IProductWRTBase_deviceonhost_sumfac test_ipwrtbase_deviceonhost_sumfac FALSE)
+    SET_UNIT_TEST(IProductWRTDerivBase_deviceonhost_sumfac test_ipwrtderivbase_deviceonhost_sumfac FALSE)
+    SET_UNIT_TEST(Mass_deviceonhost_sumfac test_mass_deviceonhost_sumfac FALSE)
+    #SET_UNIT_TEST(MultiplyByElmtInvMass_deviceonhost_sumfac test_multiplybyelmtinvmass_deviceonhost_sumfac FALSE)
+    SET_UNIT_TEST(Neumann_deviceonhost_sumfac test_neumann_deviceonhost_sumfac FALSE)
+    #SET_UNIT_TEST(NullPrecon_deviceonhost_sumfac test_nullprecon_deviceonhost_sumfac FALSE)
+    SET_UNIT_TEST(PhysDeriv_deviceonhost_sumfac test_physderiv_deviceonhost_sumfac FALSE)
+    SET_UNIT_TEST(PhysInterp1DScaled_deviceonhost_sumfac test_physinterp1dscaled_deviceonhost_sumfac FALSE)
+    SET_UNIT_TEST(LinAdvDiffReaction_deviceonhost_sumfac test_linadvdiffreaction_deviceonhost_sumfac FALSE)
 ENDIF()
 
-# Kokkos SumFacQP
-IF(NEKTAR_ENABLE_KOKKOS)
-    SET_UNIT_TEST(AddTraceIntegral_kokkos_sumfac_qp test_addtraceintegral_kokkos_sumfac_qp FALSE)
-    SET_UNIT_TEST(BwdTrans_kokkos_sumfac_qp test_bwdtrans_kokkos_sumfac_qp FALSE)
-    SET_UNIT_TEST(DiagPrecon_kokkos_sumfac_qp test_diagprecon_kokkos_sumfac_qp FALSE)
-    SET_UNIT_TEST(FwdTrans_kokkos_sumfac_qp test_fwdtrans_kokkos_sumfac_qp FALSE)
+# DeviceOnHost SumFacQP
+IF(NEKTAR_ENABLE_DEVICEONHOST)
+    SET_UNIT_TEST(AddTraceIntegral_deviceonhost_sumfac_qp test_addtraceintegral_deviceonhost_sumfac_qp FALSE)
+    SET_UNIT_TEST(BwdTrans_deviceonhost_sumfac_qp test_bwdtrans_deviceonhost_sumfac_qp FALSE)
+    SET_UNIT_TEST(DiagPrecon_deviceonhost_sumfac_qp test_diagprecon_deviceonhost_sumfac_qp FALSE)
+    SET_UNIT_TEST(FwdTrans_deviceonhost_sumfac_qp test_fwdtrans_deviceonhost_sumfac_qp FALSE)
     #IF (NEKTAR_USE_MPI)
-    #    SET_UNIT_TEST(FwdTrans_kokkos_sumfac_qp test_fwdtrans_kokkos_sumfac_qp TRUE)
+    #    SET_UNIT_TEST(FwdTrans_deviceonhost_sumfac_qp test_fwdtrans_deviceonhost_sumfac_qp TRUE)
     #ENDIF()
-    SET_UNIT_TEST(Helmholtz_kokkos_sumfac_qp test_helmholtz_kokkos_sumfac_qp FALSE)
-    SET_UNIT_TEST(HelmSolve_kokkos_sumfac_qp test_helmsolve_kokkos_sumfac_qp FALSE)
+    SET_UNIT_TEST(Helmholtz_deviceonhost_sumfac_qp test_helmholtz_deviceonhost_sumfac_qp FALSE)
+    SET_UNIT_TEST(HelmSolve_deviceonhost_sumfac_qp test_helmsolve_deviceonhost_sumfac_qp FALSE)
     #IF (NEKTAR_USE_MPI)
-    #    SET_UNIT_TEST(HelmSolve_kokkos_sumfac_qp test_helmsolve_kokkos_sumfac_qp TRUE)
+    #    SET_UNIT_TEST(HelmSolve_deviceonhost_sumfac_qp test_helmsolve_deviceonhost_sumfac_qp TRUE)
     #ENDIF()
-    SET_UNIT_TEST(IProductWRTBase_kokkos_sumfac_qp test_ipwrtbase_kokkos_sumfac_qp FALSE)
-    SET_UNIT_TEST(IProductWRTDerivBase_kokkos_sumfac_qp test_ipwrtderivbase_kokkos_sumfac_qp FALSE)
-    SET_UNIT_TEST(Mass_kokkos_sumfac_qp test_mass_kokkos_sumfac_qp FALSE)
-    SET_UNIT_TEST(NullPrecon_kokkos_sumfac_qp test_nullprecon_kokkos_sumfac_qp FALSE)
-    SET_UNIT_TEST(PhysDeriv_kokkos_sumfac_qp test_physderiv_kokkos_sumfac_qp FALSE)
-    SET_UNIT_TEST(PhysInterp1DScaled_kokkos_sumfac_qp test_physinterp1dscaled_kokkos_sumfac_qp FALSE)
-    SET_UNIT_TEST(LinAdvDiffReaction_kokkos_sumfac_qp test_linadvdiffreaction_kokkos_sumfac_qp FALSE)
+    SET_UNIT_TEST(IProductWRTBase_deviceonhost_sumfac_qp test_ipwrtbase_deviceonhost_sumfac_qp FALSE)
+    SET_UNIT_TEST(IProductWRTDerivBase_deviceonhost_sumfac_qp test_ipwrtderivbase_deviceonhost_sumfac_qp FALSE)
+    SET_UNIT_TEST(Mass_deviceonhost_sumfac_qp test_mass_deviceonhost_sumfac_qp FALSE)
+    SET_UNIT_TEST(NullPrecon_deviceonhost_sumfac_qp test_nullprecon_deviceonhost_sumfac_qp FALSE)
+    SET_UNIT_TEST(PhysDeriv_deviceonhost_sumfac_qp test_physderiv_deviceonhost_sumfac_qp FALSE)
+    SET_UNIT_TEST(PhysInterp1DScaled_deviceonhost_sumfac_qp test_physinterp1dscaled_deviceonhost_sumfac_qp FALSE)
+    SET_UNIT_TEST(LinAdvDiffReaction_deviceonhost_sumfac_qp test_linadvdiffreaction_deviceonhost_sumfac_qp FALSE)
 ENDIF()
 
 # Copy XML file to build directory

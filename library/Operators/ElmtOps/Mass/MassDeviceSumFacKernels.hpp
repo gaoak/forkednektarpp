@@ -130,8 +130,6 @@ inline unsigned int MassSharedMemorySize(
     }
 }
 
-#if (defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)) ||                    \
-    defined(NEKTAR_ENABLE_SYCL)
 template <typename Implementation, bool DEFORMED, typename TthreadBlock,
           typename TData>
 NEK_DEVICE_INLINE static void Mass1DKernel(
@@ -627,10 +625,9 @@ NEK_DEVICE_INLINE static void Mass3DKernel(
         }
     }
 }
-#endif
 
 } // namespace Nektar::Operators::detail
 
 #include "Operators/ElmtOps/Mass/MassCUDASumFacKernels.cuh"
-#include "Operators/ElmtOps/Mass/MassKokkosSumFacKernels.hpp"
+#include "Operators/ElmtOps/Mass/MassDeviceOnHostSumFacKernels.hpp"
 #include "Operators/ElmtOps/Mass/MassSYCLSumFacKernels.hpp"

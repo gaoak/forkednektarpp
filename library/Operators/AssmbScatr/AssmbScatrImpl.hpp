@@ -39,7 +39,7 @@
 #include "Operators/AssmbScatr/OperatorAssmbScatr.hpp"
 
 #include "Operators/AssmbScatr/AssmbScatrCUDAKernels.cuh"
-#include "Operators/AssmbScatr/AssmbScatrKokkosKernels.hpp"
+#include "Operators/AssmbScatr/AssmbScatrDeviceOnHostKernels.hpp"
 #include "Operators/AssmbScatr/AssmbScatrSYCLKernels.hpp"
 #include "Operators/AssmbScatr/AssmbScatrSerialAVXKernels.hpp"
 

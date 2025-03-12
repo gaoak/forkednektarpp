@@ -95,18 +95,10 @@ struct GlobalConfiguration
 #ifdef NEKTAR_USE_MPI
         MPI_Init(&argc, &argv);
 #endif
-
-#if defined(NEKTAR_ENABLE_KOKKOS)
-        Kokkos::initialize(argc, argv);
-#endif
     }
 
     ~GlobalConfiguration()
     {
-#if defined(NEKTAR_ENABLE_KOKKOS)
-        Kokkos::finalize();
-#endif
-
 #ifdef NEKTAR_USE_MPI
         MPI_Finalize();
 #endif
@@ -273,9 +265,9 @@ public:
         {
             alignment = NektarSpaces::SYCL::alignment;
         }
-        else if (execName == "Kokkos")
+        else if (execName == "DeviceOnHost")
         {
-            alignment = NektarSpaces::KOKKOS::alignment;
+            alignment = NektarSpaces::DeviceOnHost::alignment;
         }
         else
         {

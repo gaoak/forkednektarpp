@@ -97,7 +97,7 @@ include:
       -e "BUILD_TYPE=$BUILD_TYPE"
       -e "BUILD_SIMD=$BUILD_SIMD"
       -e "BUILD_CUDA=$BUILD_CUDA"
-      -e "BUILD_KOKKOS=$BUILD_KOKKOS"
+      -e "BUILD_DEVICEONHOST=$BUILD_DEVICEONHOST"
       -e "BUILD_SYCL=$BUILD_SYCL"
       -e "BUILD_CC=$BUILD_CC"
       -e "BUILD_CXX=$BUILD_CXX"
@@ -267,7 +267,7 @@ debian-bookworm-full-build-and-test:
   <<: *build-and-test-template
   needs: ["debian-bookworm-full-build-env"]
   variables:
-    BUILD_KOKKOS: "Serial"
+    BUILD_DEVICEONHOST: "on"
     GIT_SUBMODULE_STRATEGY: recursive
 
 debian-bookworm-full-avx2-build-and-test:
@@ -292,7 +292,7 @@ debian-bookworm-full-clang15-build-and-test:
   variables:
     BUILD_CC: clang-15
     BUILD_CXX: clang++-15
-    BUILD_KOKKOS: "Serial"
+    BUILD_DEVICEONHOST: "on"
 
 debian-bookworm-full-icpx-build-and-test:
   <<: *build-and-test-template
@@ -320,7 +320,7 @@ debian-bullseye-full-build-and-test:
   <<: *build-and-test-template
   needs: ["debian-bullseye-full-build-env"]
   variables:
-    BUILD_KOKKOS: "Serial"
+    BUILD_DEVICEONHOST: "on"
 
 debian-bullseye-full-avx2-build-and-test:
   <<: *build-and-test-template
@@ -515,7 +515,7 @@ ubuntu-jammy-full-build-and-test:
   <<: *build-and-test-template
   needs: ["ubuntu-focal-full-build-env"]
   variables:
-    BUILD_KOKKOS: "Serial"
+    BUILD_DEVICEONHOST: "on"
 
 ubuntu-jammy-full-cuda-build-and-test:
   <<: *build-and-test-template
@@ -523,15 +523,6 @@ ubuntu-jammy-full-cuda-build-and-test:
   variables:
     DOCKER_FLAGS: "--runtime nvidia --gpus=all -v /apps:/apps"
     BUILD_CUDA: "on"
-  tags:
-    - gpu
-
-ubuntu-jammy-full-kokkos-build-and-test:
-  <<: *build-and-test-template
-  needs: ["ubuntu-jammy-full-cuda-build-env"]
-  variables:
-    DOCKER_FLAGS: "--runtime nvidia --gpus=all -v /apps:/apps"
-    BUILD_KOKKOS: "CUDA"
   tags:
     - gpu
 
@@ -686,7 +677,7 @@ fedora-35-full-build-and-test:
   <<: *build-and-test-template
   needs: ["fedora-35-full-build-env"]
   variables:
-    BUILD_KOKKOS: "Serial"
+    BUILD_DEVICEONHOST: "on"
 
 fedora-36-default-build-and-test:
   <<: *build-and-test-template
@@ -696,7 +687,7 @@ fedora-36-full-build-and-test:
   <<: *build-and-test-template
   needs: ["fedora-36-full-build-env"]
   variables:
-    BUILD_KOKKOS: "Serial"
+    BUILD_DEVICEONHOST: "on"
 
 
 # COMPILER WARNINGS
@@ -747,7 +738,7 @@ macos-full-arm-build-and-test:
     - macos-arm
   variables:
     BUILD_TYPE: "full"
-    BUILD_KOKKOS: "Serial"
+    BUILD_DEVICEONHOST: "on"
   needs: []
 
 macos-default-arm-warnings:

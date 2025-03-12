@@ -20,9 +20,9 @@ IF(NEKTAR_ENABLE_SYCL)
     SET(ExecSpaces ${ExecSpaces} SYCL)
 ENDIF()
 
-# Optional Kokkos execution space.
-IF(NEKTAR_ENABLE_KOKKOS)
-    SET(ExecSpaces ${ExecSpaces} Kokkos)
+# Optional DeviceOnHost execution space.
+IF(NEKTAR_ENABLE_DEVICEONHOST)
+    SET(ExecSpaces ${ExecSpaces} DeviceOnHost)
 ENDIF()
 
 # Set implementation types.
@@ -113,7 +113,7 @@ MACRO(ADD_OPERATOR dir)
                     MESSAGE("Adding operator with a ${ExecSpace} implementation: " "${FactoryDeclName}")
                 ELSEIF(("${ExecSpace}" STREQUAL "CUDA" AND EXISTS "${dir}/${name}DeviceKernels.hpp") OR
                     ("${ExecSpace}" STREQUAL "SYCL" AND EXISTS "${dir}/${name}DeviceKernels.hpp") OR
-                    ("${ExecSpace}" STREQUAL "Kokkos" AND EXISTS "${dir}/${name}DeviceKernels.hpp"))
+                    ("${ExecSpace}" STREQUAL "DeviceOnHost" AND EXISTS "${dir}/${name}DeviceKernels.hpp"))
                     MESSAGE("Adding operator with a ${ExecSpace} implementation: " "${FactoryDeclName}")
                 # No kernel found
                 ELSEIF(NOT EXISTS "${dir}/${name}ImplKernels.hpp" AND
@@ -122,7 +122,7 @@ MACRO(ADD_OPERATOR dir)
                     NOT EXISTS "${dir}/${name}SerialAVXKernels.hpp" AND
                     NOT EXISTS "${dir}/${name}CUDA.hpp" AND
                     NOT EXISTS "${dir}/${name}SYCL.hpp" AND
-                    NOT EXISTS "${dir}/${name}Kokkos.hpp" AND
+                    NOT EXISTS "${dir}/${name}DeviceOnHost.hpp" AND
                     NOT EXISTS "${dir}/${name}DeviceKernels.hpp")
                     MESSAGE("Adding operator with a ${ExecSpace} implementation: " "${FactoryDeclName}")
                 ELSE()
@@ -145,7 +145,7 @@ MACRO(ADD_OPERATOR dir)
 
             # Found a Device header.
             ELSEIF(EXISTS "${dir}/${name}DeviceSumFac.hpp" AND
-                ("${ExecSpace}" STREQUAL "CUDA" OR "${ExecSpace}" STREQUAL "SYCL" OR "${ExecSpace}" STREQUAL "Kokkos"))
+                ("${ExecSpace}" STREQUAL "CUDA" OR "${ExecSpace}" STREQUAL "SYCL" OR "${ExecSpace}" STREQUAL "DeviceOnHost"))
                 FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
                     "${dir}/${name}Device.hpp")
                 SET(IMPL_HEADER "#include \"${include_file}\"")
@@ -159,7 +159,7 @@ MACRO(ADD_OPERATOR dir)
                 ELSEIF(
                     NOT EXISTS "${dir}/${name}CUDAKernels.cuh" AND
                     NOT EXISTS "${dir}/${name}SYCLKernels.hpp" AND
-                    NOT EXISTS "${dir}/${name}KokkosKernels.hpp" AND
+                    NOT EXISTS "${dir}/${name}DeviceOnHostKernels.hpp" AND
                     NOT EXISTS "${dir}/${name}DeviceKernels.hpp")
                     MESSAGE("Adding operator with a ${ExecSpace} implementation: " "${FactoryDeclName}")
                 ELSE()
@@ -275,11 +275,8 @@ MACRO(ADD_ELMT_OPERATOR dir)
                 ENDFOREACH()
             ENDIF()
         ELSEIF("${ExecSpace}" STREQUAL "CUDA" OR "${ExecSpace}" STREQUAL "SYCL" OR 
-           "${ExecSpace}" STREQUAL "Kokkos")
+           "${ExecSpace}" STREQUAL "DeviceOnHost")
             SET(ExecSpaceName ${ExecSpace})
-            IF("${ExecSpace}" STREQUAL "Kokkos")
-               SET(ExecSpace "KOKKOS")
-            ENDIF()
             IF(EXISTS "${dir}/${name}DeviceSumFacBlockOp.cpp.in")
                 FOREACH (TData IN LISTS DataTypes)
                     SET(ShapeConfigName "${dir}/${name}DeviceSumFacBlockOp.cpp.in")
@@ -304,9 +301,6 @@ MACRO(ADD_ELMT_OPERATOR dir)
                     ENDFOREACH()
                 ENDFOREACH()
             ENDIF()
-            IF("${ExecSpace}" STREQUAL "KOKKOS")
-               SET(ExecSpace "Kokkos")
-            ENDIF()
         ENDIF()
 
         # Set execuation space - see Spaces.hpp
@@ -326,7 +320,7 @@ MACRO(ADD_ELMT_OPERATOR dir)
                ("${ExecSpace}" STREQUAL "AVX" AND "${Impl}" STREQUAL "StdMat") OR
                ("${ExecSpace}" STREQUAL "CUDA" AND "${Impl}" STREQUAL "StdMat") OR
                ("${ExecSpace}" STREQUAL "SYCL" AND "${Impl}" STREQUAL "StdMat") OR
-               ("${ExecSpace}" STREQUAL "Kokkos" AND "${Impl}" STREQUAL "StdMat") )
+               ("${ExecSpace}" STREQUAL "DeviceOnHost" AND "${Impl}" STREQUAL "StdMat") )
                 CONTINUE()
             ENDIF()
 
@@ -379,7 +373,7 @@ MACRO(ADD_ELMT_OPERATOR dir)
 
                 # Found a Device SumFac header.
                 ELSEIF(EXISTS "${dir}/${name}DeviceSumFac.hpp" AND
-                    ("${ExecSpace}" STREQUAL "CUDA" OR "${ExecSpace}" STREQUAL "SYCL" OR "${ExecSpace}" STREQUAL "Kokkos") AND 
+                    ("${ExecSpace}" STREQUAL "CUDA" OR "${ExecSpace}" STREQUAL "SYCL" OR "${ExecSpace}" STREQUAL "DeviceOnHost") AND 
                     ("${Impl}" STREQUAL "SumFac" OR "${Impl}" STREQUAL "SumFacQP"))
                     FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
                         "${dir}/${name}DeviceSumFac.hpp")
@@ -394,7 +388,7 @@ MACRO(ADD_ELMT_OPERATOR dir)
                     ELSEIF(
                         NOT EXISTS "${dir}/${name}CUDASumFacKernels.cuh" AND
                         NOT EXISTS "${dir}/${name}SYCLSumFacKernels.hpp" AND
-                        NOT EXISTS "${dir}/${name}KokkosSumFacKernels.hpp" AND
+                        NOT EXISTS "${dir}/${name}DeviceOnHostSumFacKernels.hpp" AND
                         NOT EXISTS "${dir}/${name}DeviceSumFacKernels.hpp")
                         MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
                     ELSE()
@@ -414,7 +408,7 @@ MACRO(ADD_ELMT_OPERATOR dir)
                         MESSAGE("Adding operator with a ${ExecSpace} generic implementation and a unified Serial/AVX kernel: " "${FactoryDeclName}")
                     ELSEIF(("${ExecSpace}" STREQUAL "CUDA" AND EXISTS "${dir}/${name}DeviceKernels.hpp") OR
                         ("${ExecSpace}" STREQUAL "SYCL" AND EXISTS "${dir}/${name}DeviceKernels.hpp") OR
-                        ("${ExecSpace}" STREQUAL "Kokkos" AND EXISTS "${dir}/${name}DeviceKernels.hpp"))
+                        ("${ExecSpace}" STREQUAL "DeviceOnHost" AND EXISTS "${dir}/${name}DeviceKernels.hpp"))
                         MESSAGE("Adding operator with a ${ExecSpace} generic implementation and a generic device kernel: " "${FactoryDeclName}")
                     # No kernel found
                     ELSEIF(
@@ -423,7 +417,7 @@ MACRO(ADD_ELMT_OPERATOR dir)
                         NOT EXISTS "${dir}/${name}SerialAVXKernels.hpp" AND
                         NOT EXISTS "${dir}/${name}CUDA.hpp" AND
                         NOT EXISTS "${dir}/${name}SYCL.hpp" AND
-                        NOT EXISTS "${dir}/${name}Kokkos.hpp" AND
+                        NOT EXISTS "${dir}/${name}DeviceOnHost.hpp" AND
                         NOT EXISTS "${dir}/${name}DeviceKernels.hpp")
                         MESSAGE("Adding operator with a ${ExecSpace} generic implementation: " "${FactoryDeclName}")
                     ELSE()

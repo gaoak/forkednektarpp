@@ -1518,8 +1518,6 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacKernel(
     }
 }
 
-#if (defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)) ||                    \
-    defined(NEKTAR_ENABLE_SYCL)
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TthreadBlock,
           typename TData>
 NEK_DEVICE_INLINE static void IProductWRTBaseSegSumFacQPKernel(
@@ -2686,10 +2684,9 @@ NEK_DEVICE_INLINE static void IProductWRTBase3DKernel(
         }
     }
 }
-#endif
 
 } // namespace Nektar::Operators::detail
 
 #include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseCUDASumFacKernels.cuh"
-#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseKokkosSumFacKernels.hpp"
+#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseDeviceOnHostSumFacKernels.hpp"
 #include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseSYCLSumFacKernels.hpp"

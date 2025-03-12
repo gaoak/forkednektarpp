@@ -317,8 +317,6 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase3DSumFacKernel(
     }
 }
 
-#if (defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)) ||                    \
-    defined(NEKTAR_ENABLE_SYCL)
 template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void StdAlignDerivBase1DSumFacQPKernel(
     const unsigned int ncoord, const unsigned int nq0,
@@ -1019,10 +1017,9 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
         }
     }
 }
-#endif
 
 } // namespace Nektar::Operators::detail
 
 #include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseCUDASumFacKernels.cuh"
-#include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseKokkosSumFacKernels.hpp"
+#include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseDeviceOnHostSumFacKernels.hpp"
 #include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseSYCLSumFacKernels.hpp"

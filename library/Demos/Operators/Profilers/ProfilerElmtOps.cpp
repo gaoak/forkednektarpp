@@ -59,7 +59,7 @@
  *  3.  Run the profiler executable with the mesh file and other parameters.
  *      --opExecSpace=Serial
  *              specify the execution space. Possible values are: Serial, AVX
- *              CUDA, SYCL, and Kokkos
+ *              CUDA, SYCL, and DeviceOnHost
  *      --opImpl=StdMat
  *              specify the implementation. Possible values are: StdMat, SumFac,
  *              and SumFacQP
@@ -103,9 +103,6 @@
  */
 int main(int argc, char *argv[])
 {
-#if defined(NEKTAR_ENABLE_KOKKOS)
-    Kokkos::initialize();
-#endif
     LIKWID_MARKER_INIT;
     LIKWID_MARKER_THREADINIT;
 
@@ -196,8 +193,4 @@ int main(int argc, char *argv[])
     LIKWID_MARKER_CLOSE;
 
     session->Finalise();
-
-#if defined(NEKTAR_ENABLE_KOKKOS)
-    Kokkos::finalize();
-#endif
 }
