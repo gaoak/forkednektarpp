@@ -34,11 +34,7 @@
 
 #pragma once
 
-#include "DeviceMemory.hpp"
-
 #include "Operators/Field/MemoryRegionHost.hpp"
-
-using namespace Nektar;
 
 // If this macro is set when calling the device side creation and copy
 // methods will put the data on the host and the device. If not set,
@@ -64,14 +60,17 @@ public:
     /**
      * @brief Constructor methods - create a new memory region.
      *
-     * @param name        - name
-     * @param size        - size of memory
-     * @param alignment   - memory alignment
-     * @param device_rank - device (GPU) rank id
+     * @param name         - name
+     * @param size         - size of memory
+     * @param alignment    - memory alignment
+     * @param device_rank  - device (GPU) rank id
+     * @param memAllocType - [eHostDevice, ePinned]
      */
     MemoryRegionDevice(const std::string name, const size_t size,
-                       const size_t alignment, const size_t device_rank)
-        : MemoryRegionHost<TData>(name, size, alignment, device_rank)
+                       const size_t alignment, const size_t device_rank,
+                       const MemAllocType &memAllocType)
+        : MemoryRegionHost<TData>(name, size, alignment, device_rank,
+                                  memAllocType)
     {
     }
 
@@ -178,10 +177,20 @@ protected:
     {
         if (this->m_host == nullptr)
         {
-            this->m_host = static_cast<TData *>(
-                ::operator new[](this->m_size * sizeof(TData),
-                                 std::align_val_t(this->m_alignment)));
-            std::memset((void *)this->m_host, 0, this->m_size * sizeof(TData));
+            if (this->m_memAllocType == ePinned)
+            {
+                hostMallocPinned(this->m_host, this->m_size, this->m_alignment);
+                std::memset((void *)this->m_host, 0,
+                            this->m_size * sizeof(TData));
+            }
+            else
+            {
+                this->m_host = static_cast<TData *>(
+                    ::operator new[](this->m_size * sizeof(TData),
+                                     std::align_val_t(this->m_alignment)));
+                std::memset((void *)this->m_host, 0,
+                            this->m_size * sizeof(TData));
+            }
         }
 
         this->m_host_valid   = true;
@@ -379,9 +388,17 @@ protected:
         {
             if (this->m_host == nullptr)
             {
-                this->m_host = static_cast<TData *>(
-                    ::operator new[](this->m_size * sizeof(TData),
-                                     std::align_val_t(this->m_alignment)));
+                if (this->m_memAllocType == ePinned)
+                {
+                    hostMallocPinned(this->m_host, this->m_size,
+                                     this->m_alignment);
+                }
+                else
+                {
+                    this->m_host = static_cast<TData *>(
+                        ::operator new[](this->m_size * sizeof(TData),
+                                         std::align_val_t(this->m_alignment)));
+                }
             }
 
             // Make sure the device data is valid. It might not be.

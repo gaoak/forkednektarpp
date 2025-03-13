@@ -34,6 +34,17 @@
 
 #pragma once
 
+#include "MemoryAlloc.hpp"
+
+enum MemAllocType
+{
+    eHostDevice,
+    eDeviceOnly,
+    ePinned
+};
+
+using namespace Nektar;
+
 template <typename TData> class MemoryRegion;
 
 /**
@@ -50,20 +61,23 @@ public:
     /**
      * @brief Constructor methods - create a new memory region.
      *
-     * @param name        - name
-     * @param size        - size of memory
-     * @param alignment   - memory alignment
-     * @param device_rank - device (GPU) rank id
+     * @param name         - name
+     * @param size         - size of memory
+     * @param alignment    - memory alignment
+     * @param device_rank  - device (GPU) rank id
+     * @param memAllocType - [eHostDevice, ePinned]
      */
     MemoryRegionHost(const std::string name, const size_t size,
-                     const size_t alignment, const size_t device_rank)
+                     const size_t alignment, const size_t device_rank,
+                     const MemAllocType &memAllocType)
     {
-        m_owned       = true;
-        m_size        = size;
-        m_alignment   = alignment;
-        m_initialize  = true;
-        m_device_rank = device_rank;
-        m_name        = name;
+        m_owned        = true;
+        m_initialize   = true;
+        m_name         = name;
+        m_size         = size;
+        m_alignment    = alignment;
+        m_device_rank  = device_rank;
+        m_memAllocType = memAllocType;
     }
 
     /**
@@ -82,11 +96,11 @@ public:
                      const size_t alignment, const size_t device_rank)
     {
         m_owned       = false;
+        m_initialize  = false;
+        m_name        = name;
         m_size        = size;
         m_alignment   = alignment;
-        m_initialize  = false;
         m_device_rank = device_rank;
-        m_name        = name;
 
         m_host       = h_src;
         m_host_valid = true;
@@ -103,14 +117,15 @@ public:
           m_initialize(rhs.m_initialize), m_device_rank(rhs.m_device_rank),
           m_name(rhs.m_name)
     {
-        rhs.m_owned       = true;
-        rhs.m_host        = nullptr;
-        rhs.m_size        = 0;
-        rhs.m_alignment   = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
-        rhs.m_host_valid  = false;
-        rhs.m_initialize  = true;
-        rhs.m_device_rank = 0;
-        rhs.m_name        = "";
+        rhs.m_owned        = true;
+        rhs.m_host         = nullptr;
+        rhs.m_size         = 0;
+        rhs.m_alignment    = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+        rhs.m_host_valid   = false;
+        rhs.m_initialize   = true;
+        rhs.m_device_rank  = 0;
+        rhs.m_name         = "";
+        rhs.m_memAllocType = eHostDevice;
     }
 
     /**
@@ -121,17 +136,25 @@ public:
     {
         if (m_host && m_owned)
         {
-            operator delete[](m_host, std::align_val_t(m_alignment));
+            if (m_memAllocType == ePinned)
+            {
+                hostFreePinned(m_host, m_alignment);
+            }
+            else
+            {
+                operator delete[](m_host, std::align_val_t(m_alignment));
+            }
         }
 
-        m_owned       = true;
-        m_host        = nullptr;
-        m_size        = 0;
-        m_alignment   = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
-        m_host_valid  = false;
-        m_initialize  = true;
-        m_device_rank = 0;
-        m_name        = "";
+        m_owned        = true;
+        m_host         = nullptr;
+        m_size         = 0;
+        m_alignment    = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+        m_host_valid   = false;
+        m_initialize   = true;
+        m_device_rank  = 0;
+        m_name         = "";
+        m_memAllocType = eHostDevice;
     }
 
 protected:
@@ -152,23 +175,25 @@ protected:
      */
     MemoryRegionHost &operator=(MemoryRegionHost &&rhs)
     {
-        m_owned       = rhs.m_owned;
-        m_host        = rhs.m_host;
-        m_size        = rhs.m_size;
-        m_alignment   = rhs.m_alignment;
-        m_host_valid  = rhs.m_host_valid;
-        m_initialize  = rhs.m_initialize;
-        m_device_rank = rhs.m_device_rank;
-        m_name        = rhs.m_name;
+        m_owned        = rhs.m_owned;
+        m_host         = rhs.m_host;
+        m_size         = rhs.m_size;
+        m_alignment    = rhs.m_alignment;
+        m_host_valid   = rhs.m_host_valid;
+        m_initialize   = rhs.m_initialize;
+        m_device_rank  = rhs.m_device_rank;
+        m_name         = rhs.m_name;
+        m_memAllocType = rhs.m_memAllocType;
 
-        rhs.m_owned       = true;
-        rhs.m_host        = nullptr;
-        rhs.m_size        = 0;
-        rhs.m_alignment   = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
-        rhs.m_host_valid  = false;
-        rhs.m_initialize  = true;
-        rhs.m_device_rank = 0;
-        rhs.m_name        = "";
+        rhs.m_owned        = true;
+        rhs.m_host         = nullptr;
+        rhs.m_size         = 0;
+        rhs.m_alignment    = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+        rhs.m_host_valid   = false;
+        rhs.m_initialize   = true;
+        rhs.m_device_rank  = 0;
+        rhs.m_name         = "";
+        rhs.m_memAllocType = eHostDevice;
 
         return *this;
     }
@@ -211,9 +236,17 @@ protected:
     {
         if (m_host == nullptr)
         {
-            m_host = static_cast<TData *>(::operator new[](
-                m_size * sizeof(TData), std::align_val_t(m_alignment)));
-            std::memset((void *)m_host, 0, m_size * sizeof(TData));
+            if (m_memAllocType == ePinned)
+            {
+                hostMallocPinned(m_host, m_size, m_alignment);
+                std::memset((void *)m_host, 0, m_size * sizeof(TData));
+            }
+            else
+            {
+                m_host = static_cast<TData *>(::operator new[](
+                    m_size * sizeof(TData), std::align_val_t(m_alignment)));
+                std::memset((void *)m_host, 0, m_size * sizeof(TData));
+            }
         }
 
         m_host_valid = true;
@@ -317,9 +350,17 @@ protected:
     {
         if (this->m_host == nullptr)
         {
-            m_host = static_cast<TData *>(::operator new[](
-                m_size * sizeof(TData), std::align_val_t(m_alignment)));
-            std::memset((void *)m_host, 0, m_size * sizeof(TData));
+            if (m_memAllocType == ePinned)
+            {
+                hostMallocPinned(m_host, m_size, m_alignment);
+                std::memset((void *)m_host, 0, m_size * sizeof(TData));
+            }
+            else
+            {
+                m_host = static_cast<TData *>(::operator new[](
+                    m_size * sizeof(TData), std::align_val_t(m_alignment)));
+                std::memset((void *)m_host, 0, m_size * sizeof(TData));
+            }
         }
 
         auto size = (count == 0) ? m_size : count;
@@ -361,9 +402,17 @@ protected:
     {
         if (m_host == nullptr)
         {
-            m_host = static_cast<TData *>(::operator new[](
-                m_size * sizeof(TData), std::align_val_t(m_alignment)));
-            std::memset((void *)m_host, 0, m_size * sizeof(TData));
+            if (m_memAllocType == ePinned)
+            {
+                hostMallocPinned(m_host, m_size, m_alignment);
+                std::memset((void *)m_host, 0, m_size * sizeof(TData));
+            }
+            else
+            {
+                m_host = static_cast<TData *>(::operator new[](
+                    m_size * sizeof(TData), std::align_val_t(m_alignment)));
+                std::memset((void *)m_host, 0, m_size * sizeof(TData));
+            }
         }
 
         TData *dst = m_host + offset;
@@ -387,4 +436,5 @@ protected:
                                // host device transfers.
     size_t m_device_rank = 0;  // Index indicating device ID.
     std::string m_name{""};
+    MemAllocType m_memAllocType{eHostDevice};
 };

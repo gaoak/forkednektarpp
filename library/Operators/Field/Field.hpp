@@ -296,7 +296,14 @@ public:
     {
         if (m_host)
         {
-            operator delete[](m_host, std::align_val_t(m_alignment));
+            if (m_memAllocType == ePinned)
+            {
+                hostFreePinned(m_host, m_alignment);
+            }
+            else
+            {
+                operator delete[](m_host, std::align_val_t(m_alignment));
+            }
         }
         m_host = nullptr;
     }
@@ -316,7 +323,8 @@ public:
           m_block_accessors(std::move(rhs.m_block_accessors)),
           m_memory_regions(std::move(rhs.m_memory_regions)),
           m_blk_to_mr_offset(std::move(rhs.m_blk_to_mr_offset)),
-          m_blk_to_mr_mapping(std::move(rhs.m_blk_to_mr_mapping))
+          m_blk_to_mr_mapping(std::move(rhs.m_blk_to_mr_mapping)),
+          m_memAllocType(std::move(rhs.m_memAllocType))
     {
         rhs.m_name = "";
         rhs.m_var_names.clear();
@@ -327,6 +335,7 @@ public:
         rhs.m_memory_regions.clear();
         rhs.m_blk_to_mr_offset.clear();
         rhs.m_blk_to_mr_mapping.clear();
+        rhs.m_memAllocType = eHostDevice;
     }
 
     /**
@@ -347,6 +356,7 @@ public:
         m_memory_regions    = std::move(rhs.m_memory_regions);
         m_blk_to_mr_offset  = std::move(rhs.m_blk_to_mr_offset);
         m_blk_to_mr_mapping = std::move(rhs.m_blk_to_mr_mapping);
+        m_memAllocType      = std::move(rhs.m_memAllocType);
 
         rhs.m_name = "";
         rhs.m_var_names.clear();
@@ -357,6 +367,7 @@ public:
         rhs.m_memory_regions.clear();
         rhs.m_blk_to_mr_offset.clear();
         rhs.m_blk_to_mr_mapping.clear();
+        rhs.m_memAllocType = eHostDevice;
         return *this;
     }
 
@@ -364,25 +375,24 @@ public:
      * @brief Static templated creation method. This method create
      * new Field by giving the names of the components.
      *
-     * @tparam MemSpace   - Type of memory space to use
-     *
-     * @param name        - Name of the field (memory region)
-     * @param blockAttr   - Block attributes.
-     * @param components  - Names of components for a vector field.
-     * @param alignment   - Memory alignment to use.
-     * @param device_only - flag to only allocated memory on device
+     * @param name         - Name of the field (memory region)
+     * @param blockAttr    - Block attributes.
+     * @param components   - Names of components for a vector field.
+     * @param alignment    - Memory alignment to use.
+     * @param memAllocType - [eHostDevice, eDeviceOnly, ePinned].
      *
      * @return Field<TData, TState>
      */
     static Field<TData, TState> Create(
         const std::string name, const std::vector<BlockAttributes> blockAttr,
         const std::vector<std::string> components, const size_t alignment,
-        const bool device_only = false)
+        const MemAllocType &memAllocType = eHostDevice)
     {
         size_t num_device = 1;
-        auto field        = Field(name, components, alignment, num_device);
+        auto field =
+            Field(name, components, alignment, num_device, memAllocType);
 
-        SetBlockToMemoryRegionMapping(field, blockAttr, alignment, device_only);
+        SetBlockToMemoryRegionMapping(field, blockAttr);
 
         return field;
     }
@@ -391,47 +401,43 @@ public:
      * @brief Static templated creation method. This method create
      * new Field by giving the names of the components.
      *
-     * @tparam MemSpace   - Type of memory space to use
-     *
-     * @param blocks      - Field data specification.
-     * @param components  - Names of components for a vector field.
-     * @param alignment   - Memory alignment to use.
-     * @param device_only - flag to only allocated memory on device
+     * @param blocks       - Field data specification.
+     * @param components   - Names of components for a vector field.
+     * @param alignment    - Memory alignment to use.
+     * @param memAllocType - [eHostDevice, eDeviceOnly, ePinned].
      *
      * @return Field<TData, TState>
      */
     static Field<TData, TState> Create(
         const std::vector<BlockAttributes> blockAttr,
         const std::vector<std::string> components, const size_t alignment,
-        const bool device_only = false)
+        const MemAllocType &memAllocType = eHostDevice)
     {
         return Field<TData, TState>::Create("", blockAttr, components,
-                                            alignment, device_only);
+                                            alignment, memAllocType);
     }
 
     /**
      * @brief Static templated creation method. This method create
      * new Field by giving the number of components.
      *
-     * @tparam MemSpace   - Type of memory space to use
-     *
-     * @param name        - Name of the field (memory region)
-     * @param blockAttr   - Block attributes.
-     * @param nvar        - Number of components for a vector field.
-     * @param alignment   - Memory alignment to use.
-     * @param device_only - flag to only allocated memory on device
+     * @param name         - Name of the field (memory region)
+     * @param blockAttr    - Block attributes.
+     * @param nvar         - Number of components for a vector field.
+     * @param alignment    - Memory alignment to use.
+     * @param memAllocType - [eHostDevice, eDeviceOnly, ePinned].
      *
      * @return Field<TData, TState>
      */
     static Field<TData, TState> Create(
         const std::string name, const std::vector<BlockAttributes> blockAttr,
         const int nvar, const size_t alignment,
-        [[maybe_unused]] const bool device_only = false)
+        const MemAllocType &memAllocType = eHostDevice)
     {
         size_t num_device = 1;
-        auto field        = Field(name, nvar, alignment, num_device);
+        auto field = Field(name, nvar, alignment, num_device, memAllocType);
 
-        SetBlockToMemoryRegionMapping(field, blockAttr, alignment, device_only);
+        SetBlockToMemoryRegionMapping(field, blockAttr);
 
         return field;
     }
@@ -440,27 +446,24 @@ public:
      * @brief Static templated creation method. This method create
      * new Field by giving the number of components.
      *
-     * @tparam MemSpace   - Type of memory space to use
-     *
-     * @param blocks      - Field data specification.
-     * @param nvar        - Number of components for a vector field.
-     * @param alignment   - Memory alignment to use.
-     * @param device_only - flag to only allocated memory on device
+     * @param blocks       - Field data specification.
+     * @param nvar         - Number of components for a vector field.
+     * @param alignment    - Memory alignment to use.
+     * @param memAllocType - [eHostDevice, eDeviceOnly, ePinned].
      *
      * @return Field<TData, TState>
      */
     static Field<TData, TState> Create(
         const std::vector<BlockAttributes> blockAttr, const int nvar,
-        const size_t alignment, const bool device_only = false)
+        const size_t alignment, const MemAllocType &memAllocType = eHostDevice)
     {
         return Field<TData, TState>::Create("", blockAttr, nvar, alignment,
-                                            device_only);
+                                            memAllocType);
     }
 
     static void SetBlockToMemoryRegionMapping(
         Field<TData, TState> &field,
-        const std::vector<BlockAttributes> blockAttr, const size_t alignment,
-        const bool device_only = false)
+        const std::vector<BlockAttributes> blockAttr)
     {
 #if defined(NEKTAR_USE_SINGLE_MEMORY_REGION_PER_DEVICE)
         std::vector<size_t> offset(field.m_num_device, 0);
@@ -481,10 +484,15 @@ public:
         }
 
         // Allocate contiguous memory on the host.
-        if (!device_only)
+        if (field.m_memAllocType == eHostDevice)
         {
             field.m_host = static_cast<TData *>(::operator new[](
                 hsize * sizeof(TData), std::align_val_t(field.m_alignment)));
+            std::memset((void *)field.m_host, 0, hsize * sizeof(TData));
+        }
+        else if (field.m_memAllocType == ePinned)
+        {
+            hostMallocPinned(field.m_host, hsize, field.m_alignment);
             std::memset((void *)field.m_host, 0, hsize * sizeof(TData));
         }
 
@@ -493,19 +501,19 @@ public:
         {
             // Create memory region.
             auto device_rank = mr;
-            if (!device_only)
+            if (field.m_memAllocType == eDeviceOnly)
+            {
+                field.m_memory_regions.push_back(MemoryRegion<TData>::Create(
+                    field.m_name + std::to_string(mr), size[mr],
+                    field.m_alignment, device_rank));
+            }
+            else
             {
                 field.m_memory_regions.push_back(
                     MemoryRegion<TData>::CreateFromHostPtr(
                         field.m_name + std::to_string(mr), hsrc, size[mr],
-                        alignment, device_rank));
+                        field.m_alignment, device_rank, m_memAllocType));
                 hsrc += size;
-            }
-            else
-            {
-                field.m_memory_regions.push_back(MemoryRegion<TData>::Create(
-                    field.m_name + std::to_string(mr), size[mr], alignment,
-                    device_rank));
             }
         }
 #else
@@ -520,10 +528,15 @@ public:
         }
 
         // Allocate contiguous memory on the host.
-        if (!device_only)
+        if (field.m_memAllocType == eHostDevice)
         {
             field.m_host = static_cast<TData *>(::operator new[](
                 hsize * sizeof(TData), std::align_val_t(field.m_alignment)));
+            std::memset((void *)field.m_host, 0, hsize * sizeof(TData));
+        }
+        else if (field.m_memAllocType == ePinned)
+        {
+            hostMallocPinned(field.m_host, hsize, field.m_alignment);
             std::memset((void *)field.m_host, 0, hsize * sizeof(TData));
         }
 
@@ -533,19 +546,19 @@ public:
             // Create memory region.
             auto device_rank = blk % field.m_num_device;
             auto size        = blockAttr[blk].size() * field.GetNumComponents();
-            if (!device_only)
+            if (field.m_memAllocType == eDeviceOnly)
+            {
+                field.m_memory_regions.push_back(MemoryRegion<TData>::Create(
+                    field.m_name + std::to_string(blk), size, field.m_alignment,
+                    device_rank));
+            }
+            else
             {
                 field.m_memory_regions.push_back(
                     MemoryRegion<TData>::CreateFromHostPtr(
                         field.m_name + std::to_string(blk), hsrc, size,
-                        alignment, device_rank));
+                        field.m_alignment, device_rank));
                 hsrc += size;
-            }
-            else
-            {
-                field.m_memory_regions.push_back(MemoryRegion<TData>::Create(
-                    field.m_name + std::to_string(blk), size, alignment,
-                    device_rank));
             }
         }
 #endif
@@ -859,21 +872,31 @@ private:
     /**
      * @brief Construct a new Field object.
      *
-     * @param name       Name of the field object.
-     * @param blocks     Field data layout specification.
-     * @param components Names of components for vector field.
+     * @param name         - Name of the field object.
+     * @param blocks       - Field data layout specification.
+     * @param nvar         - Number of components.
+     * @param memAllocType - [eHostDevice, eDeviceOnly, ePinned].
      */
     Field(const std::string name, const int nvar, const size_t alignment,
-          const size_t num_device)
+          const size_t num_device, const MemAllocType &memAllocType)
         : m_name(name), m_var_names(nvar), m_alignment(alignment),
-          m_num_device(num_device)
+          m_num_device(num_device), m_memAllocType(memAllocType)
     {
     }
 
+    /**
+     * @brief Construct a new Field object.
+     *
+     * @param name         - Name of the field object.
+     * @param blocks       - Field data layout specification.
+     * @param components   - Names of components for vector field.
+     * @param memAllocType - [eHostDevice, eDeviceOnly, ePinned].
+     */
     Field(const std::string name, const std::vector<std::string> components,
-          const size_t alignment, const size_t num_device)
+          const size_t alignment, const size_t num_device,
+          const MemAllocType &memAllocType)
         : m_name(name), m_var_names(components), m_alignment(alignment),
-          m_num_device(num_device)
+          m_num_device(num_device), m_memAllocType(memAllocType)
     {
     }
 
@@ -921,4 +944,5 @@ private:
     std::vector<MemoryRegion<TData>> m_memory_regions;
     std::vector<size_t> m_blk_to_mr_offset;
     std::vector<size_t> m_blk_to_mr_mapping;
+    MemAllocType m_memAllocType;
 };

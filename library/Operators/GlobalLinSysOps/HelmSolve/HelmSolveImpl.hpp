@@ -60,11 +60,11 @@ public:
           m_rhs(Field<TData, FieldState::Coeff>::Create(
               "HelmSolve RHS",
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
-              ExecSpace::alignment, true)),
+              ExecSpace::alignment, eDeviceOnly)),
           m_tmp(Field<TData, FieldState::Coeff>::Create(
               "HelmSolve TMP",
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
-              ExecSpace::alignment, true))
+              ExecSpace::alignment, eDeviceOnly))
     {
         m_IProdOp = OperatorIProductWRTBase<TData>::Create(
             this->m_expansionList, ExecSpace::name);
