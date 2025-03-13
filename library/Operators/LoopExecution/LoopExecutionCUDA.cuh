@@ -36,7 +36,6 @@
 
 #if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
 
-#include <cooperative_groups.h>
 #include <cuda/std/limits>
 #include <float.h>
 
@@ -45,8 +44,6 @@ namespace Nektar
 
 static unsigned int cudaBufferSize = 0u;
 static void *cudaBuffer            = nullptr;
-
-namespace cg = cooperative_groups;
 
 template <typename ExecSpace, typename Scope, typename TData>
 NEK_DEVICE_INLINE

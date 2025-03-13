@@ -36,15 +36,6 @@
 
 #include "Operators/Common/Spaces.hpp"
 
-#ifdef NEKTAR_ENABLE_CUDA
-#include <cuda_runtime.h>
-#include <thrust/fill.h>
-#elif defined(NEKTAR_ENABLE_HIP)
-#include <hip/hip_runtime.h>
-#elif defined(NEKTAR_ENABLE_SYCL)
-#include "Operators/Utils/SYCLQueue.hpp"
-#endif
-
 namespace Nektar
 {
 
