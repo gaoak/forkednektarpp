@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: DeviceMemory.hpp
+// File: MemoryAlloc.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -63,6 +63,30 @@ struct DeviceToDevice
 };
 
 template <typename TData>
+void hostMallocPinned(TData *&src, const unsigned int size,
+                      [[maybe_unused]] const unsigned int alignment)
+{
+    if (size > 0)
+    {
+#if defined(NEKTAR_ENABLE_CUDA)
+        cudaMallocHost((void **)&src, size * sizeof(TData));
+#elif defined(NEKTAR_ENABLE_HIP)
+        hipMallocHost((void **)&src, size * sizeof(TData));
+#elif defined(NEKTAR_ENABLE_SYCL)
+        sycl::queue &Q = SYCLQueue::GetInstance();
+        src            = sycl::malloc_host<TData>(size, Q);
+#else
+        src = static_cast<TData *>(::operator new[](
+            size * sizeof(TData), std::align_val_t(alignment)));
+#endif
+    }
+    else
+    {
+        src = nullptr;
+    }
+}
+
+template <typename TData>
 void deviceMalloc(TData *&src, const unsigned int size,
                   [[maybe_unused]] const unsigned int device_rank)
 {
@@ -88,7 +112,29 @@ void deviceMalloc(TData *&src, const unsigned int size,
 }
 
 template <typename TData>
-void deviceFree(TData *src, [[maybe_unused]] const unsigned int device_rank)
+void hostFreePinned(TData *&src, [[maybe_unused]] const unsigned int alignment)
+{
+    if (src == nullptr)
+    {
+        return;
+    }
+
+#if defined(NEKTAR_ENABLE_CUDA)
+    cudaFreeHost(src);
+#elif defined(NEKTAR_ENABLE_HIP)
+    hipFreeHost(src);
+#elif defined(NEKTAR_ENABLE_SYCL)
+    sycl::queue &Q = SYCLQueue::GetInstance();
+    sycl::free(src, Q);
+#else
+    operator delete[](src, std::align_val_t(alignment));
+#endif
+
+    src = nullptr;
+}
+
+template <typename TData>
+void deviceFree(TData *&src, [[maybe_unused]] const unsigned int device_rank)
 {
     if (src == nullptr)
     {
@@ -107,6 +153,8 @@ void deviceFree(TData *src, [[maybe_unused]] const unsigned int device_rank)
 #else
     free(src);
 #endif
+
+    src = nullptr;
 }
 
 template <typename TData>

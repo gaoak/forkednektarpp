@@ -181,20 +181,26 @@ public:
      * @brief Static templated creation method. This method creates a
      *        new MemoryRegion.
      *
-     * @param name        - name of the memory region
-     * @param size        - size of memory
-     * @param alignment   - memory alignment
+     * @param name         - name of the memory region
+     * @param size         - size of memory
+     * @param alignment    - memory alignment
+     * @param device_rank  - device (GPU) rank id
+     * @param memAllocType - [eHostDevice, ePinned]
      *
      * @return MemoryRegion<TData>
      */
-    static MemoryRegion<TData> Create(const std::string name, const size_t size,
-                                      const size_t alignment,
-                                      const size_t device_rank = 0)
+    static MemoryRegion<TData> Create(
+        const std::string name, const size_t size, const size_t alignment,
+        const size_t device_rank         = 0,
+        const MemAllocType &memAllocType = eHostDevice)
     {
         auto mr = MemoryRegion();
 
+        ASSERTL0((memAllocType == eHostDevice) || (memAllocType == ePinned),
+                 "Unknown memAllocType option");
+
         mr.m_storage = std::make_unique<MemoryRegionDevice<TData>>(
-            name, size, alignment, device_rank);
+            name, size, alignment, device_rank, memAllocType);
 
         return mr;
     }
@@ -203,15 +209,19 @@ public:
      * @brief Static templated creation method. This method creates a
      *        new MemoryRegion.
      *
-     * @param size        - size of memory
-     * @param alignment   - memory alignment
+     * @param size         - size of memory
+     * @param alignment    - memory alignment
+     * @param device_rank  - device (GPU) rank id
+     * @param memAllocType - [eHostDevice, ePinned]
      *
      * @return MemoryRegion<TData>
      */
-    static MemoryRegion<TData> Create(const size_t size, const size_t alignment,
-                                      const size_t device_rank = 0)
+    static MemoryRegion<TData> Create(
+        const size_t size, const size_t alignment, const size_t device_rank = 0,
+        const MemAllocType &memAllocType = eHostDevice)
     {
-        return MemoryRegion<TData>::Create("", size, alignment, device_rank);
+        return MemoryRegion<TData>::Create("", size, alignment, device_rank,
+                                           memAllocType);
     }
 
     /**

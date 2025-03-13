@@ -58,11 +58,11 @@ public:
           m_rhs(Field<TData, FieldState::Coeff>::Create(
               "FwdTrans RHS",
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
-              ExecSpace::alignment, true)),
+              ExecSpace::alignment, eDeviceOnly)),
           m_tmp(Field<TData, FieldState::Coeff>::Create(
               "FwdTrans TMP",
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
-              ExecSpace::alignment, true))
+              ExecSpace::alignment, eDeviceOnly))
     {
         m_MassOp =
             OperatorMass<TData>::Create(this->m_expansionList, ExecSpace::name);

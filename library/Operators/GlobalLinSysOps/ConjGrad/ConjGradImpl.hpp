@@ -65,27 +65,27 @@ public:
           m_w_A(Field<TData, FieldState::Coeff>::Create(
               "ConjGrad w_A",
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
-              ExecSpace::alignment, true)),
+              ExecSpace::alignment, eDeviceOnly)),
           m_s_A(Field<TData, FieldState::Coeff>::Create(
               "ConjGrad s_A",
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
-              ExecSpace::alignment, true)),
+              ExecSpace::alignment, eDeviceOnly)),
           m_r_A(Field<TData, FieldState::Coeff>::Create(
               "ConjGrad r_A",
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
-              ExecSpace::alignment, true)),
+              ExecSpace::alignment, eDeviceOnly)),
           m_wk(Field<TData, FieldState::Coeff>::Create(
               "ConjGrad wk",
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
-              ExecSpace::alignment, true)),
+              ExecSpace::alignment, eDeviceOnly)),
           m_q_A(Field<TData, FieldState::Coeff>::Create(
               "ConjGrad wk",
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
-              ExecSpace::alignment, true)),
+              ExecSpace::alignment, eDeviceOnly)),
           m_p_A(Field<TData, FieldState::Coeff>::Create(
               "ConjGrad wk",
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
-              ExecSpace::alignment, true))
+              ExecSpace::alignment, eDeviceOnly))
     {
         auto contfield =
             std::dynamic_pointer_cast<ContField>(this->m_expansionList);
@@ -103,8 +103,8 @@ public:
 
         m_rowComm = contfield->GetSession()->GetComm()->GetRowComm();
 
-        m_vExchange =
-            MemoryRegion<TData>::Create(4, __STDCPP_DEFAULT_NEW_ALIGNMENT__);
+        m_vExchange = MemoryRegion<TData>::Create(
+            4, __STDCPP_DEFAULT_NEW_ALIGNMENT__, 0, ePinned);
     }
 
     void apply(Field<TData, FieldState::Coeff> &in,
