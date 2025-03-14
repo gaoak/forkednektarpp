@@ -218,6 +218,32 @@ struct LocalScope
 namespace Nektar
 {
 
+// Helper function
+[[maybe_unused]] static unsigned int GetExecSpaceAlignment(
+    const std::string &execspace)
+{
+    if (execspace == "AVX")
+    {
+        return NektarSpaces::AVX::alignment;
+    }
+    else if (execspace == "CUDA")
+    {
+        return NektarSpaces::CUDA::alignment;
+    }
+    else if (execspace == "SYCL")
+    {
+        return NektarSpaces::SYCL::alignment;
+    }
+    else if (execspace == "DeviceOnHost")
+    {
+        return NektarSpaces::DeviceOnHost::alignment;
+    }
+    else
+    {
+        return NektarSpaces::Serial::alignment;
+    }
+}
+
 #if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
 
 namespace cg = cooperative_groups;

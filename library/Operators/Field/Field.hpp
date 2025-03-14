@@ -588,8 +588,7 @@ public:
      *
      * @return MemoryRegion
      */
-    template <typename MemSpace, typename TDataOut = TData,
-              class Alloc = std::allocator<TDataOut>>
+    template <typename MemSpace, typename TDataOut = TData>
     MemoryRegion<TDataOut> ToMemoryRegion()
     {
         size_t compSize = 0;

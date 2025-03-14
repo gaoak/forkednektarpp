@@ -414,7 +414,7 @@ public:
      *
      * @return std::vector<TDataOut>
      */
-    template <typename TDataOut = TData, class Alloc = std::allocator<TData>>
+    template <typename TDataOut = TData, class Alloc = std::allocator<TDataOut>>
     std::vector<TDataOut, Alloc> ToVector()
     {
         if (m_storage == nullptr)
