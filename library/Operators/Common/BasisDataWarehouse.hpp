@@ -71,11 +71,12 @@ public:
                  const BasisDataType basisDataType, const unsigned int npts = 0)
         : m_basisKey(basisKey), m_basisDataType(basisDataType), m_npts(npts)
     {
-        hash_combine(
-            m_hash, m_basisKey.GetNumModes(), m_basisKey.GetBasisType(),
-            m_basisKey.GetPointsKey().GetNumPoints(),
-            m_basisKey.GetPointsKey().GetPointsType(),
-            m_basisKey.GetPointsKey().GetFactor(), m_basisDataType, "BasisKey");
+        hash_combine(m_hash, m_basisKey.GetNumModes(),
+                     m_basisKey.GetBasisType(),
+                     m_basisKey.GetPointsKey().GetNumPoints(),
+                     m_basisKey.GetPointsKey().GetPointsType(),
+                     m_basisKey.GetPointsKey().GetFactor(), m_basisDataType,
+                     typeid(value_type).name(), "BasisKey");
     }
 
 private:

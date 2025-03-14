@@ -100,7 +100,7 @@ public:
                      m_basisKeys[0].GetPointsKey().GetNumPoints(),
                      m_basisKeys[0].GetPointsKey().GetPointsType(),
                      m_basisKeys[0].GetPointsKey().GetFactor(), m_shapeType,
-                     m_stdMatType, "StdMatKey");
+                     m_stdMatType, typeid(value_type).name(), "StdMatKey");
     }
 
 private:
