@@ -106,8 +106,7 @@ public:
         ReadLock vReadLock(m_mutex);
 #endif
 
-        size_t idKey = std::is_same_v<MemSpace, NektarSpaces::HostSpace>;
-        hash_combine(idKey, dataKey.GetHash());
+        auto idKey = dataKey.GetHash();
 
         // Check if creator class is registered.
         auto it = GetMapDataCreatorClass()->find(DataKey::creator::m_name);

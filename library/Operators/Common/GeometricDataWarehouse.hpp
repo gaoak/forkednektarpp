@@ -57,7 +57,7 @@ public:
           m_num_elements(num_elements)
     {
         hash_combine(m_hash, m_exp_idx, m_interleave_width, m_num_elements,
-                     "JacobianKey");
+                     typeid(value_type).name(), "JacobianKey");
     }
 
 private:
@@ -83,7 +83,7 @@ public:
           m_num_elements(num_elements), m_transpose(transpose)
     {
         hash_combine(m_hash, m_exp_idx, m_interleave_width, m_num_elements,
-                     m_transpose, "DerivFactorKey");
+                     m_transpose, typeid(value_type).name(), "DerivFactorKey");
     }
 
 private:
