@@ -107,12 +107,8 @@ int main(int argc, char *argv[])
     LIKWID_MARKER_THREADINIT;
 
     // Initialise a session, graph and explist.
-    LibUtilities::SessionReaderSharedPtr session;
-    SpatialDomains::MeshGraphSharedPtr graph;
-    MultiRegions::ExpListSharedPtr explist;
-
-    session = LibUtilities::SessionReader::CreateInstance(argc, argv);
-    graph   = SpatialDomains::MeshGraphIO::Read(session);
+    auto session = LibUtilities::SessionReader::CreateInstance(argc, argv);
+    auto graph   = SpatialDomains::MeshGraphIO::Read(session);
 
     // Load parameters (from the command lines).
     int Ntest, order;
@@ -129,7 +125,7 @@ int main(int argc, char *argv[])
     }
 
     // Create a ExpList from the graph(mesh).
-    explist = MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
+    auto explist = MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
         session, graph, true, "DefaultVar", Collections::eNoCollection);
 
     explist->SetDataWarehouse();
@@ -138,7 +134,8 @@ int main(int argc, char *argv[])
 
     // Print GPU properties.
 #if defined(NEKTAR_ENABLE_CUDA)
-    if (session->GetComm()->GetRank() == 0)
+    if (session->GetComm()->GetRank() == 0 &&
+        session->GetCmdLineArgument<std::string>("opExecSpace") == "CUDA")
     {
         cudaDeviceProp prop;
         cudaGetDeviceProperties(&prop, 0);

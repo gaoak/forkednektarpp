@@ -72,7 +72,6 @@ using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 
 /// Compute the expected results of certain operator from the expList
-template <typename TData>
 void GetExpectedResults(const std::string &opName,
                         const MultiRegions::ExpListSharedPtr &expList,
                         const Array<OneD, NekDouble> &inArr,
@@ -379,32 +378,12 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
     std::string execName =
         session->GetCmdLineArgument<std::string>("opExecSpace");
     std::string implName = session->GetCmdLineArgument<std::string>("opImpl");
-    std::string OpName   = oper->name;
+    std::string opName   = oper->name;
     std::string dataType = (std::is_same_v<TData, double>) ? "Double" : "Float";
-    auto tag             = OpName + execName + implName + dataType;
+    auto tag             = opName + execName + implName + dataType;
 
     // Set alignment.
-    unsigned int alignment = 0;
-    if (execName == "AVX")
-    {
-        alignment = NektarSpaces::AVX::alignment;
-    }
-    else if (execName == "CUDA")
-    {
-        alignment = NektarSpaces::CUDA::alignment;
-    }
-    else if (execName == "SYCL")
-    {
-        alignment = NektarSpaces::SYCL::alignment;
-    }
-    else if (execName == "DeviceOnHost")
-    {
-        alignment = NektarSpaces::DeviceOnHost::alignment;
-    }
-    else
-    {
-        alignment = NektarSpaces::Serial::alignment;
-    }
+    unsigned int alignment = Nektar::GetExecSpaceAlignment(execName);
 
     // Create blocks.
     auto blocks_in  = GetBlockAttributes<TData>(stateIn, expList);
@@ -416,15 +395,14 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
         Field<TData, stateOut>::Create("f_out", blocks_out, nOut, alignment);
 
     // Initialize the in field to random non-zeros: 1 2 3 4 ...
-    auto inblk   = in.GetBlocks();
-    auto blksize = inblk.size();
+    auto inblk = in.GetBlocks();
     for (unsigned int i = 0; i < inblk.size(); ++i)
     {
         auto inptr =
             inblk[i].template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
         for (unsigned int j = 0; j < inblk[i].size(); ++j)
         {
-            inptr[j] = (j + 1.0) / blksize;
+            inptr[j] = (j + 1.0) / inblk.size();
         }
     }
 
@@ -443,8 +421,7 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
     }
 
     // Get expected results from expList.
-    GetExpectedResults<TData>(OpName, expList, inArr, inArrays, outArr,
-                              outArrays);
+    GetExpectedResults(opName, expList, inArr, inArrays, outArr, outArrays);
 
     // Warm-up : fill the cache and memory, and let core temperature/freq
     // stabilized.
@@ -487,33 +464,30 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
     }
     PrintBlockInfo(expList, blocks_in, rankL1Error);
 
-    // Additional check on the results, you can disable it if not used.
+    // First check if the output is all zeros.
+    TData L2 = 0.0;
+    l2norm<NektarSpaces::Serial>(out, &L2);
+    if (L2 < 1e-9)
     {
-        // First check if the output is all zeros.
-        TData L2 = 0.0;
-        l2norm<NektarSpaces::Serial, TData, stateOut>(out, &L2);
-        if (L2 < 1e-9)
-        {
-            std::cout << "Warning: output does not change!"
-                      << "Device may not be invoked!" << std::endl;
-        }
+        std::cout << "Warning: output does not change!"
+                  << "Device may not be invoked!" << std::endl;
+    }
 
-        // Then check if results match with expected
-        // If we compare float results with double results, then it is
-        // reasonable to have some mismatched values (e.g., > 1e-4)
-        ReshapeToScalar<TData, stateOut>(out);
-        Array<OneD, NekDouble> tmpArr = out.template ToArray<NekDouble>();
-        for (unsigned int i = 0, cnt = 0; i < tmpArr.size(); ++i)
+    // Then check if results match with expected
+    // If we compare float results with double results, then it is
+    // reasonable to have some mismatched values (e.g., > 1e-4)
+    ReshapeToScalar(out);
+    Array<OneD, NekDouble> tmpArr = out.template ToArray<NekDouble>();
+    for (unsigned int i = 0, cnt = 0; i < tmpArr.size(); ++i)
+    {
+        // Print out first 100 mismatched values.
+        if (abs(tmpArr[i] - outArr[i]) > 1e-4 && cnt < 100)
         {
-            // Print out first 100 mismatched values.
-            if (abs(tmpArr[i] - outArr[i]) > 1e-4 && cnt < 100)
-            {
-                std::cout << "i=" << i << " computed result = " << tmpArr[i]
-                          << " expected result = " << outArr[i] << std::endl;
-                ++cnt;
-            }
-            rankL1Error[0] += abs(tmpArr[i] - outArr[i]);
+            std::cout << "i=" << i << " computed result = " << tmpArr[i]
+                      << " expected result = " << outArr[i] << std::endl;
+            ++cnt;
         }
+        rankL1Error[0] += abs(tmpArr[i] - outArr[i]);
     }
 
     // Print block information and get the total number of dofs.

@@ -253,26 +253,7 @@ public:
             execName = session->GetCmdLineArgument<std::string>("opExecSpace");
         }
 
-        if (execName == "AVX")
-        {
-            alignment = NektarSpaces::AVX::alignment;
-        }
-        else if (execName == "CUDA")
-        {
-            alignment = NektarSpaces::CUDA::alignment;
-        }
-        else if (execName == "SYCL")
-        {
-            alignment = NektarSpaces::SYCL::alignment;
-        }
-        else if (execName == "DeviceOnHost")
-        {
-            alignment = NektarSpaces::DeviceOnHost::alignment;
-        }
-        else
-        {
-            alignment = NektarSpaces::Serial::alignment;
-        }
+        alignment = Nektar::GetExecSpaceAlignment(execName);
 
         auto f_in =
             Field<TData, stateIn>::Create("f_in", blocks_in, nin, alignment);
