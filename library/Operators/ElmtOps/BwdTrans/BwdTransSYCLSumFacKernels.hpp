@@ -59,13 +59,13 @@ NEK_FORCE_INLINE static void BwdTrans1DKernel(const unsigned int nm0,
          sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
          cgh.parallel_for(
              sycl::nd_range<1>(gridsize * blocksize, blocksize),
-             [=](sycl::nd_item<1> item) {
+             [=](sycl::nd_item<1> item_ct1) {
                  TData *shmemptr =
                      shmem.template get_multi_ptr<sycl::access::decorated::no>()
                          .get();
 #pragma forceinline
                  BwdTrans1DKernel<Implementation>(nm0, nq0, nelmt, basis0, in,
-                                                  out, shmemptr, item);
+                                                  out, shmemptr, item_ct1);
              });
      }).wait();
 }
@@ -104,14 +104,14 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(
          sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
          cgh.parallel_for(
              sycl::nd_range<1>(gridsize * blocksize, blocksize),
-             [=](sycl::nd_item<1> item) {
+             [=](sycl::nd_item<1> item_ct1) {
                  TData *shmemptr =
                      shmem.template get_multi_ptr<sycl::access::decorated::no>()
                          .get();
 #pragma forceinline
                  BwdTrans2DKernel<SHAPE_TYPE, Implementation>(
                      nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, basis0,
-                     basis1, in, out, wsp, shmemptr, item);
+                     basis1, in, out, wsp, shmemptr, item_ct1);
              });
      }).wait();
 }
@@ -152,7 +152,7 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
          sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
          cgh.parallel_for(
              sycl::nd_range<1>(gridsize * blocksize, blocksize),
-             [=](sycl::nd_item<1> item) {
+             [=](sycl::nd_item<1> item_ct1) {
                  TData *shmemptr =
                      shmem.template get_multi_ptr<sycl::access::decorated::no>()
                          .get();
@@ -160,7 +160,7 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
                  BwdTrans3DKernel<SHAPE_TYPE, Implementation>(
                      nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified,
                      index0, index1, basis0, basis1, basis2, in, out, wsp,
-                     shmemptr, item);
+                     shmemptr, item_ct1);
              });
      }).wait();
 }

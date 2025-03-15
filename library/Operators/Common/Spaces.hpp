@@ -450,42 +450,6 @@ NEK_DEVICE_INLINE static void atomic_min(TData *const dest, const TData val)
 }
 
 template <typename TData>
-NEK_DEVICE_INLINE static void blockReduceSum(
-    const TData val, [[maybe_unused]] const cudaBlock1D &threadBlock,
-    TData *red)
-{
-    auto tmp = warpReduceSum(val, threadBlock);
-    if (getLaneIdx(threadBlock) == 0)
-    {
-        atomic_add<NektarSpaces::GlobalScope>(red, tmp);
-    }
-}
-
-template <typename TData>
-NEK_DEVICE_INLINE static void blockReduceMax(
-    const TData val, [[maybe_unused]] const cudaBlock1D &threadBlock,
-    TData *red)
-{
-    auto tmp = warpReduceMax(val, threadBlock);
-    if (getLaneIdx(threadBlock) == 0)
-    {
-        atomic_max<NektarSpaces::GlobalScope>(red, tmp);
-    }
-}
-
-template <typename TData>
-NEK_DEVICE_INLINE static void blockReduceMin(
-    const TData val, [[maybe_unused]] const cudaBlock1D &threadBlock,
-    TData *red)
-{
-    auto tmp = warpReduceMin(val, threadBlock);
-    if (getLaneIdx(threadBlock) == 0)
-    {
-        atomic_min<NektarSpaces::GlobalScope>(red, tmp);
-    }
-}
-
-template <typename TData>
 NEK_DEVICE_INLINE static TData warpReduceSum(
     const TData val, [[maybe_unused]] const cudaBlock1D &threadBlock)
 {
@@ -540,6 +504,42 @@ NEK_DEVICE_INLINE static TData warpReduceMin(
     val = std::min(val, __shfl_down_sync(0xffffffff, val, 2));
     val = std::min(val, __shfl_down_sync(0xffffffff, val, 1));
     return val;*/
+}
+
+template <typename TData>
+NEK_DEVICE_INLINE static void blockReduceSum(
+    const TData val, [[maybe_unused]] const cudaBlock1D &threadBlock,
+    TData *red)
+{
+    auto tmp = warpReduceSum(val, threadBlock);
+    if (getLaneIdx(threadBlock) == 0)
+    {
+        atomic_add<NektarSpaces::GlobalScope>(red, tmp);
+    }
+}
+
+template <typename TData>
+NEK_DEVICE_INLINE static void blockReduceMax(
+    const TData val, [[maybe_unused]] const cudaBlock1D &threadBlock,
+    TData *red)
+{
+    auto tmp = warpReduceMax(val, threadBlock);
+    if (getLaneIdx(threadBlock) == 0)
+    {
+        atomic_max<NektarSpaces::GlobalScope>(red, tmp);
+    }
+}
+
+template <typename TData>
+NEK_DEVICE_INLINE static void blockReduceMin(
+    const TData val, [[maybe_unused]] const cudaBlock1D &threadBlock,
+    TData *red)
+{
+    auto tmp = warpReduceMin(val, threadBlock);
+    if (getLaneIdx(threadBlock) == 0)
+    {
+        atomic_min<NektarSpaces::GlobalScope>(red, tmp);
+    }
 }
 
 NEK_DEVICE_INLINE void localBarrier(const cudaBlock1D &threadBlock)
@@ -668,42 +668,6 @@ NEK_DEVICE_INLINE static void atomic_min(TData *const dest, const TData val)
 }
 
 template <typename TData>
-NEK_DEVICE_INLINE static void blockReduceSum(
-    const TData val, const sycl::nd_item<1> &threadBlock, TData *red)
-{
-    auto tmp =
-        sycl::reduce_over_group(threadBlock.get_group(), val, sycl::plus<>());
-    if (getLocalIdx(threadBlock) == 0)
-    {
-        *red += tmp;
-    }
-}
-
-template <typename TData>
-NEK_DEVICE_INLINE static void blockReduceMax(
-    const TData val, const sycl::nd_item<1> &threadBlock, TData *red)
-{
-    auto tmp = sycl::reduce_over_group(threadBlock.get_group(), val,
-                                       sycl::maximum<>());
-    if (getLocalIdx(threadBlock) == 0)
-    {
-        *red = sycl::max(*red, tmp);
-    }
-}
-
-template <typename TData>
-NEK_DEVICE_INLINE static void blockReduceMin(
-    const TData val, const sycl::nd_item<1> &threadBlock, TData *red)
-{
-    auto tmp = sycl::reduce_over_group(threadBlock.get_group(), val,
-                                       sycl::minimum<>());
-    if (getLocalIdx(threadBlock) == 0)
-    {
-        *red = sycl::min(*red, tmp);
-    }
-}
-
-template <typename TData>
 NEK_DEVICE_INLINE static TData warpReduceSum(
     const TData val, const sycl::nd_item<1> &threadBlock)
 {
@@ -725,6 +689,39 @@ NEK_DEVICE_INLINE static TData warpReduceMin(
 {
     return sycl::reduce_over_group(threadBlock.get_sub_group(), val,
                                    sycl::minimum<>());
+}
+
+template <typename TData>
+NEK_DEVICE_INLINE static void blockReduceSum(
+    const TData val, const sycl::nd_item<1> &threadBlock, TData *red)
+{
+    auto tmp = warpReduceSum(val, threadBlock);
+    if (getLaneIdx(threadBlock) == 0)
+    {
+        atomic_add<NektarSpaces::GlobalScope>(red, tmp);
+    }
+}
+
+template <typename TData>
+NEK_DEVICE_INLINE static void blockReduceMax(
+    const TData val, const sycl::nd_item<1> &threadBlock, TData *red)
+{
+    auto tmp = warpReduceMax(val, threadBlock);
+    if (getLaneIdx(threadBlock) == 0)
+    {
+        atomic_max<NektarSpaces::GlobalScope>(red, tmp);
+    }
+}
+
+template <typename TData>
+NEK_DEVICE_INLINE static void blockReduceMin(
+    const TData val, const sycl::nd_item<1> &threadBlock, TData *red)
+{
+    auto tmp = warpReduceMin(val, threadBlock);
+    if (getLaneIdx(threadBlock) == 0)
+    {
+        atomic_min<NektarSpaces::GlobalScope>(red, tmp);
+    }
 }
 
 NEK_DEVICE_INLINE void localBarrier(const sycl::nd_item<1> &threadBlock)
@@ -804,6 +801,27 @@ NEK_DEVICE_INLINE static void atomic_min(TData *const dest, const TData val)
 }
 
 template <typename TData>
+NEK_DEVICE_INLINE static TData warpReduceSum(
+    const TData val, [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
+{
+    return val;
+}
+
+template <typename TData>
+NEK_DEVICE_INLINE static TData warpReduceMax(
+    const TData val, [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
+{
+    return val;
+}
+
+template <typename TData>
+NEK_DEVICE_INLINE static TData warpReduceMin(
+    const TData val, [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
+{
+    return val;
+}
+
+template <typename TData>
 NEK_DEVICE_INLINE static void blockReduceSum(
     const TData val, [[maybe_unused]] const deviceOnHostBlock1D &threadBlock,
     TData *red)
@@ -825,27 +843,6 @@ NEK_DEVICE_INLINE static void blockReduceMin(
     TData *red)
 {
     *red = std::min(*red, val);
-}
-
-template <typename TData>
-NEK_DEVICE_INLINE static TData warpReduceSum(
-    const TData val, [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
-{
-    return val;
-}
-
-template <typename TData>
-NEK_DEVICE_INLINE static TData warpReduceMax(
-    const TData val, [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
-{
-    return val;
-}
-
-template <typename TData>
-NEK_DEVICE_INLINE static TData warpReduceMin(
-    const TData val, [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
-{
-    return val;
 }
 
 NEK_DEVICE_INLINE void localBarrier(
