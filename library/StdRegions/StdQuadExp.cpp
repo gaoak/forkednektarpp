@@ -116,18 +116,19 @@ void StdQuadExp::PhysTensorDeriv(const Array<OneD, const NekDouble> &inarray,
     // --preprocess to the c++ command. Default case
 #undef PHYSDERIV_DEF
 #define PHYSDERIV_DEF                                                          \
-    PhysDerivTensor2DKernel(nquad0, nquad1, intmp.data(), (const vec_t *)D0,   \
-                            (const vec_t *)D1, outarray_d0.data(),             \
-                            outarray_d1.data(), Deriv0, Deriv1)
+    PhysDerivTensor2DKernel(nquad0, nquad1, (const vec_t *)intmp.data(),       \
+                            (const vec_t *)D0, (const vec_t *)D1,              \
+                            (vec_t *)outarray_d0.data(),                       \
+                            (vec_t *)outarray_d1.data(), Deriv0, Deriv1)
 
     // Loop case over quarature points
 #undef PHYSDERIV_Q
 #define PHYSDERIV_Q(r, i)                                                      \
     case NQ1(i):                                                               \
-        PhysDerivTensor2DKernel(NQ1(i), NQ1(i), intmp.data(),                  \
+        PhysDerivTensor2DKernel(NQ1(i), NQ1(i), (const vec_t *)intmp.data(),   \
                                 (const vec_t *)D0, (const vec_t *)D1,          \
-                                outarray_d0.data(), outarray_d1.data(),        \
-                                Deriv0, Deriv1);                               \
+                                (vec_t *)outarray_d0.data(),                   \
+                                (vec_t *)outarray_d1.data(), Deriv0, Deriv1);  \
         break;
 
     // templated cases on  standard quadrature
@@ -230,16 +231,17 @@ void StdQuadExp::v_BwdTrans(const Array<OneD, const NekDouble> &inarray,
 #define BWDTRANS_DEF                                                           \
     BwdTransQuadKernel(                                                        \
         nmodes0, nmodes1, nquad0, nquad1, (const vec_t *)base0.data(),         \
-        (const vec_t *)base1.data(), wsp0, inarray.data(), outarray.data())
+        (const vec_t *)base1.data(), wsp0.data(),                              \
+        (const vec_t *)inarray.data(), (vec_t *)outarray.data())
 
         // Inner loop case over quarature points
 #undef BWDTRANS_Q
 #define BWDTRANS_Q(r, i)                                                       \
     case NQ(i):                                                                \
-        BwdTransQuadKernel(NM(i), NM(i), NQ(i), NQ(i),                         \
-                           (const vec_t *)base0.data(),                        \
-                           (const vec_t *)base1.data(), wsp0, inarray.data(),  \
-                           outarray.data());                                   \
+        BwdTransQuadKernel(                                                    \
+            NM(i), NM(i), NQ(i), NQ(i), (const vec_t *)base0.data(),           \
+            (const vec_t *)base1.data(), wsp0.data(),                          \
+            (const vec_t *)inarray.data(), (vec_t *)outarray.data());          \
         break;
 
         // outer loop case over modes
@@ -513,22 +515,24 @@ void StdQuadExp::IProductWRTBaseKernel(
 #undef IPRODUCTWRTBASE_DEF
 #define IPRODUCTWRTBASE_DEF                                                    \
     IProductQuadKernel<false, false, true>(                                    \
-        order0, order1, nquad0, nquad1, inarray.data(),                        \
+        order0, order1, nquad0, nquad1, (const vec_t *)inarray.data(),         \
         (const vec_t *)base0.data(), (const vec_t *)base1.data(),              \
         (const vec_t *)m_weights[0].data(),                                    \
-        (const vec_t *)m_weights[1].data(), (const vec_t *)jac.data(), wsp0,   \
-        outarray.data(), 1.0, CollDir0, CollDir1)
+        (const vec_t *)m_weights[1].data(), (const vec_t *)jac.data(),         \
+        (vec_t *)wsp0.data(), (vec_t *)outarray.data(), 1.0, CollDir0,         \
+        CollDir1)
 
         // Inner loop case over quarature points
 #undef IPRODUCTWRTBASE_Q
 #define IPRODUCTWRTBASE_Q(r, i)                                                \
     case NQ(i):                                                                \
         IProductQuadKernel<false, false, true>(                                \
-            NM(i), NM(i), NQ(i), NQ(i), inarray.data(),                        \
+            NM(i), NM(i), NQ(i), NQ(i), (const vec_t *)inarray.data(),         \
             (const vec_t *)base0.data(), (const vec_t *)base1.data(),          \
             (const vec_t *)m_weights[0].data(),                                \
             (const vec_t *)m_weights[1].data(), (const vec_t *)jac.data(),     \
-            wsp0, outarray.data(), 1.0, CollDir0, CollDir1);                   \
+            (vec_t *)wsp0.data(), (vec_t *)outarray.data(), 1.0, CollDir0,     \
+            CollDir1);                                                         \
         break;
 
         // outer loop case over modes
@@ -570,22 +574,24 @@ void StdQuadExp::IProductWRTBaseKernel(
 #undef IPRODUCTWRTBASE_DEF
 #define IPRODUCTWRTBASE_DEF                                                    \
     IProductQuadKernel<false, false, false>(                                   \
-        order0, order1, nquad0, nquad1, inarray.data(),                        \
+        order0, order1, nquad0, nquad1, (const vec_t *)inarray.data(),         \
         (const vec_t *)base0.data(), (const vec_t *)base1.data(),              \
         (const vec_t *)m_weights[0].data(),                                    \
-        (const vec_t *)m_weights[1].data(), (const vec_t *)jac.data(), wsp0,   \
-        outarray.data(), 1.0, CollDir0, CollDir1)
+        (const vec_t *)m_weights[1].data(), (const vec_t *)jac.data(),         \
+        (vec_t *)wsp0.data(), (vec_t *)outarray.data(), 1.0, CollDir0,         \
+        CollDir1)
 
         // Inner loop case over quarature points
 #undef IPRODUCTWRTBASE_Q
 #define IPRODUCTWRTBASE_Q(r, i)                                                \
     case NQ(i):                                                                \
         IProductQuadKernel<false, false, false>(                               \
-            NM(i), NM(i), NQ(i), NQ(i), inarray.data(),                        \
+            NM(i), NM(i), NQ(i), NQ(i), (const vec_t *)inarray.data(),         \
             (const vec_t *)base0.data(), (const vec_t *)base1.data(),          \
             (const vec_t *)m_weights[0].data(),                                \
             (const vec_t *)m_weights[1].data(), (const vec_t *)jac.data(),     \
-            wsp0, outarray.data(), 1.0, CollDir0, CollDir1);                   \
+            (vec_t *)wsp0.data(), (vec_t *)outarray.data(), 1.0, CollDir0,     \
+            CollDir1);                                                         \
         break;
 
         // outer loop case over modes

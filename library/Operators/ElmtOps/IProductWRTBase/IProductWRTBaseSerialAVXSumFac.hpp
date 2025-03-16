@@ -230,9 +230,8 @@ protected:
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr =
-            reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto inptr  = reinterpret_cast<const simd_t *>(input);
+        auto outptr = reinterpret_cast<simd_t *>(output);
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
@@ -253,7 +252,7 @@ protected:
 
                 // Increment pointers for the next elmt group.
                 inptr += nqTot;
-                outptr += nmTot * simd_t::width;
+                outptr += nmTot;
                 jacptr += jacSize;
             }
         }
@@ -298,9 +297,8 @@ protected:
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr =
-            reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto inptr  = reinterpret_cast<const simd_t *>(input);
+        auto outptr = reinterpret_cast<simd_t *>(output);
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
@@ -321,7 +319,7 @@ protected:
 
                 // Increment pointers for the next elmt group.
                 inptr += nqTot;
-                outptr += nmTot * simd_t::width;
+                outptr += nmTot;
                 jacptr += jacSize;
             }
         }
@@ -377,9 +375,8 @@ protected:
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr =
-            reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto inptr  = reinterpret_cast<const simd_t *>(input);
+        auto outptr = reinterpret_cast<simd_t *>(output);
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
@@ -397,11 +394,11 @@ protected:
                 // IProduct Kernel.
                 IProduct2DKernel<SHAPE_TYPE, false, false, DEFORMED>(
                     nm0, nm1, nq0, nq1, m_isModified, inptr, m_B[0], m_B[1],
-                    m_W[0], m_W[1], jacptr, wsp0, outptr);
+                    m_W[0], m_W[1], jacptr, wsp0.data(), outptr);
 
                 // Increment pointers for the next elmt group.
                 inptr += nqTot;
-                outptr += nmTot * simd_t::width;
+                outptr += nmTot;
                 jacptr += jacSize;
             }
         }
@@ -453,9 +450,8 @@ protected:
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr =
-            reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto inptr  = reinterpret_cast<const simd_t *>(input);
+        auto outptr = reinterpret_cast<simd_t *>(output);
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
@@ -473,11 +469,11 @@ protected:
                 // IProduct Kernel.
                 IProduct2DKernel<SHAPE_TYPE, false, false, DEFORMED>(
                     nm0, nm1, nq0, nq1, m_isModified, inptr, m_B[0], m_B[1],
-                    m_W[0], m_W[1], jacptr, wsp0, outptr);
+                    m_W[0], m_W[1], jacptr, wsp0.data(), outptr);
 
                 // Increment pointers for the next elmt group.
                 inptr += nqTot;
-                outptr += nmTot * simd_t::width;
+                outptr += nmTot;
                 jacptr += jacSize;
             }
         }
@@ -537,9 +533,8 @@ protected:
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr =
-            reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto inptr  = reinterpret_cast<const simd_t *>(input);
+        auto outptr = reinterpret_cast<simd_t *>(output);
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
@@ -557,12 +552,12 @@ protected:
                 // IProduct Kernel.
                 IProduct3DKernel<SHAPE_TYPE, false, false, DEFORMED>(
                     nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, inptr, m_B[0],
-                    m_B[1], m_B[2], m_W[0], m_W[1], m_W[2], jacptr, wsp0, wsp1,
-                    wsp2, outptr);
+                    m_B[1], m_B[2], m_W[0], m_W[1], m_W[2], jacptr, wsp0.data(),
+                    wsp1.data(), wsp2.data(), outptr);
 
                 // Increment pointers for the next elmt group.
                 inptr += nqTot;
-                outptr += nmTot * simd_t::width;
+                outptr += nmTot;
                 jacptr += jacSize;
             }
         }
@@ -616,9 +611,8 @@ protected:
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr =
-            reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto inptr  = reinterpret_cast<const simd_t *>(input);
+        auto outptr = reinterpret_cast<simd_t *>(output);
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
@@ -636,12 +630,12 @@ protected:
                 // IProduct Kernel.
                 IProduct3DKernel<SHAPE_TYPE, false, false, DEFORMED>(
                     nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, inptr, m_B[0],
-                    m_B[1], m_B[2], m_W[0], m_W[1], m_W[2], jacptr, wsp0, wsp1,
-                    wsp2, outptr);
+                    m_B[1], m_B[2], m_W[0], m_W[1], m_W[2], jacptr, wsp0.data(),
+                    wsp1.data(), wsp2.data(), outptr);
 
                 // Increment pointers for the next elmt group.
                 inptr += nqTot;
-                outptr += nmTot * simd_t::width;
+                outptr += nmTot;
                 jacptr += jacSize;
             }
         }

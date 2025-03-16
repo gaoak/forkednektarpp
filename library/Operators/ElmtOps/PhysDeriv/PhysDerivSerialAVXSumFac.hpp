@@ -193,9 +193,8 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        const auto nq0     = m_nq[0];
-        const auto nqTot   = nq0;
-        const auto nqBlock = nqTot * simd_t::width;
+        const auto nq0   = m_nq[0];
+        const auto nqTot = nq0;
 
         unsigned int dfsize = m_coordDim;
         if constexpr (DEFORMED)
@@ -227,15 +226,14 @@ protected:
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr =
-            reinterpret_cast<const typename simd_t::vectorType *>(input);
+        auto inptr  = reinterpret_cast<const simd_t *>(input);
 
-        auto compOffset = outblock.GetNumElmtGroups() * simd_t::width * nqTot;
-        typename simd_t::scalarType *outptr[3];
+        auto compOffset = outblock.GetNumElmtGroups() * nqTot;
+        simd_t *outptr[3];
         for (unsigned int d = 0; d < m_coordDim; ++d)
         {
-            outptr[d] = reinterpret_cast<typename simd_t::scalarType *>(
-                output + d * compOffset);
+            outptr[d] = reinterpret_cast<simd_t *>(output + d * compOffset *
+                                                                simd_t::width);
         }
 
         // Loop over components.
@@ -264,7 +262,7 @@ protected:
                 inptr += nqTot;
                 for (unsigned int d = 0; d < m_coordDim; ++d)
                 {
-                    outptr[d] += nqBlock;
+                    outptr[d] += nqTot;
                 }
             }
 
@@ -284,8 +282,7 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        constexpr auto nqTot   = nq0;
-        constexpr auto nqBlock = nqTot * simd_t::width;
+        constexpr auto nqTot = nq0;
 
         unsigned int dfsize = m_coordDim;
         if constexpr (DEFORMED)
@@ -313,19 +310,16 @@ protected:
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
 
         // Initialize pointers.
-        auto input  = (interleave_width == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr =
-            reinterpret_cast<const typename simd_t::vectorType *>(input);
-
-        auto compOffset = outblock.GetNumElmtGroups() * simd_t::width * nqTot;
-        typename simd_t::scalarType *outptr[3];
+        auto input      = (interleave_width == m_implInterleaveWidth)
+                              ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                              : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto output     = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto inptr      = reinterpret_cast<const simd_t *>(input);
+        auto compOffset = outblock.GetNumElmtGroups() * nqTot;
+        simd_t *outptr[3];
         for (unsigned int d = 0; d < coordDim; ++d)
         {
-            outptr[d] = reinterpret_cast<typename simd_t::scalarType *>(
-                output + d * compOffset);
+            outptr[d] = reinterpret_cast<simd_t *>(output) + d * compOffset;
         }
 
         // Loop over components.
@@ -353,7 +347,7 @@ protected:
                 inptr += nqTot;
                 for (unsigned int d = 0; d < coordDim; ++d)
                 {
-                    outptr[d] += nqBlock;
+                    outptr[d] += nqTot;
                 }
             }
 
@@ -375,8 +369,7 @@ protected:
         const auto nq0 = m_nq[0];
         const auto nq1 = m_nq[1];
 
-        const auto nqTot   = nq0 * nq1;
-        const auto nqBlock = nqTot * simd_t::width;
+        const auto nqTot = nq0 * nq1;
 
         unsigned int dfsize = 2 * m_coordDim;
         if constexpr (DEFORMED)
@@ -404,18 +397,16 @@ protected:
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
 
         // Initialize pointers.
-        auto input  = (interleave_width == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr =
-            reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto compOffset = outblock.GetNumElmtGroups() * simd_t::width * nqTot;
-        typename simd_t::scalarType *outptr[3];
+        auto input      = (interleave_width == m_implInterleaveWidth)
+                              ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                              : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto output     = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto inptr      = reinterpret_cast<const simd_t *>(input);
+        auto compOffset = outblock.GetNumElmtGroups() * nqTot;
+        simd_t *outptr[3];
         for (unsigned int d = 0; d < m_coordDim; ++d)
         {
-            outptr[d] = reinterpret_cast<typename simd_t::scalarType *>(
-                output + d * compOffset);
+            outptr[d] = reinterpret_cast<simd_t *>(output) + d * compOffset;
         }
 
         // Loop over components.
@@ -444,7 +435,7 @@ protected:
                 inptr += nqTot;
                 for (unsigned int d = 0; d < m_coordDim; ++d)
                 {
-                    outptr[d] += nqBlock;
+                    outptr[d] += nqTot;
                 }
             }
 
@@ -464,8 +455,7 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        constexpr auto nqTot   = nq0 * nq1;
-        constexpr auto nqBlock = nqTot * simd_t::width;
+        constexpr auto nqTot = nq0 * nq1;
 
         unsigned int dfsize = 2 * m_coordDim;
         if constexpr (DEFORMED)
@@ -493,19 +483,16 @@ protected:
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
 
         // Initialize pointers.
-        auto input  = (interleave_width == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr =
-            reinterpret_cast<const typename simd_t::vectorType *>(input);
-
-        auto compOffset = outblock.GetNumElmtGroups() * simd_t::width * nqTot;
-        typename simd_t::scalarType *outptr[3];
+        auto input      = (interleave_width == m_implInterleaveWidth)
+                              ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                              : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto output     = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto inptr      = reinterpret_cast<const simd_t *>(input);
+        auto compOffset = outblock.GetNumElmtGroups() * nqTot;
+        simd_t *outptr[3];
         for (unsigned int d = 0; d < m_coordDim; ++d)
         {
-            outptr[d] = reinterpret_cast<typename simd_t::scalarType *>(
-                output + d * compOffset);
+            outptr[d] = reinterpret_cast<simd_t *>(output) + d * compOffset;
         }
 
         // Loop over components.
@@ -534,7 +521,7 @@ protected:
                 inptr += nqTot;
                 for (unsigned int d = 0; d < coordDim; ++d)
                 {
-                    outptr[d] += nqBlock;
+                    outptr[d] += nqTot;
                 }
             }
 
@@ -557,8 +544,7 @@ protected:
         const auto nq1 = m_nq[1];
         const auto nq2 = m_nq[2];
 
-        const auto nqTot    = nq0 * nq1 * nq2;
-        const auto nqBlocks = nqTot * simd_t::width;
+        const auto nqTot = nq0 * nq1 * nq2;
 
         unsigned int dfsize = 9u;
         if constexpr (DEFORMED)
@@ -596,17 +582,13 @@ protected:
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr =
-            reinterpret_cast<const typename simd_t::vectorType *>(input);
+        auto inptr  = reinterpret_cast<const simd_t *>(input);
 
-        auto compOffset = outblock.GetNumElmtGroups() * simd_t::width * nqTot;
-        typename simd_t::scalarType *outptr[3];
-        outptr[0] = reinterpret_cast<typename simd_t::scalarType *>(output);
-
-        outptr[1] = reinterpret_cast<typename simd_t::scalarType *>(output +
-                                                                    compOffset);
-        outptr[2] = reinterpret_cast<typename simd_t::scalarType *>(
-            output + 2 * compOffset);
+        auto compOffset = outblock.GetNumElmtGroups() * nqTot;
+        simd_t *outptr[3];
+        outptr[0] = reinterpret_cast<simd_t *>(output);
+        outptr[1] = reinterpret_cast<simd_t *>(output) + compOffset;
+        outptr[2] = reinterpret_cast<simd_t *>(output) + 2 * compOffset;
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
@@ -628,15 +610,15 @@ protected:
 
                 // Calculate physical derivative.
                 PhysDeriv3DKernel<SHAPE_TYPE, DEFORMED>(
-                    nq0, nq1, nq2, m_Z[0], m_Z[1], m_Z[2], dfptr, wsp0, wsp1,
-                    outptr[0], outptr[1], outptr[2]);
+                    nq0, nq1, nq2, m_Z[0], m_Z[1], m_Z[2], dfptr, wsp0.data(),
+                    wsp1.data(), outptr[0], outptr[1], outptr[2]);
 
                 // Increment pointers for the next elmt group.
                 dfptr += dfsize;
                 inptr += nqTot;
-                outptr[0] += nqBlocks;
-                outptr[1] += nqBlocks;
-                outptr[2] += nqBlocks;
+                outptr[0] += nqTot;
+                outptr[1] += nqTot;
+                outptr[2] += nqTot;
             }
 
             // Advance  by ncoord-1 componennts since have already
@@ -654,8 +636,7 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        constexpr auto nqTot    = nq0 * nq1 * nq2;
-        constexpr auto nqBlocks = nqTot * simd_t::width;
+        constexpr auto nqTot = nq0 * nq1 * nq2;
 
         unsigned int dfsize = 9u;
         if constexpr (DEFORMED)
@@ -693,17 +674,13 @@ protected:
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr =
-            reinterpret_cast<const typename simd_t::vectorType *>(input);
+        auto inptr  = reinterpret_cast<const simd_t *>(input);
 
-        auto compOffset = outblock.GetNumElmtGroups() * simd_t::width * nqTot;
-        typename simd_t::scalarType *outptr[3];
-        outptr[0] = reinterpret_cast<typename simd_t::scalarType *>(output);
-
-        outptr[1] = reinterpret_cast<typename simd_t::scalarType *>(output +
-                                                                    compOffset);
-        outptr[2] = reinterpret_cast<typename simd_t::scalarType *>(
-            output + 2 * compOffset);
+        auto compOffset = outblock.GetNumElmtGroups() * nqTot;
+        simd_t *outptr[3];
+        outptr[0] = reinterpret_cast<simd_t *>(output);
+        outptr[1] = reinterpret_cast<simd_t *>(output) + compOffset;
+        outptr[2] = reinterpret_cast<simd_t *>(output) + 2 * compOffset;
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
@@ -725,15 +702,15 @@ protected:
 
                 // Calculate physical derivative.
                 PhysDeriv3DKernel<SHAPE_TYPE, DEFORMED>(
-                    nq0, nq1, nq2, m_Z[0], m_Z[1], m_Z[2], dfptr, wsp0, wsp1,
-                    outptr[0], outptr[1], outptr[2]);
+                    nq0, nq1, nq2, m_Z[0], m_Z[1], m_Z[2], dfptr, wsp0.data(),
+                    wsp1.data(), outptr[0], outptr[1], outptr[2]);
 
                 // Increment pointers for the next elmt group.
                 dfptr += dfsize;
                 inptr += nqTot;
-                outptr[0] += nqBlocks;
-                outptr[1] += nqBlocks;
-                outptr[2] += nqBlocks;
+                outptr[0] += nqTot;
+                outptr[1] += nqTot;
+                outptr[2] += nqTot;
             }
 
             // Advance  by ncoord-1 componennts since have already

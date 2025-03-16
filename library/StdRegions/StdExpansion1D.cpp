@@ -83,8 +83,8 @@ void StdExpansion1D::PhysTensorDeriv(
 #undef PHYSDERIV_Q
 #define PHYSDERIV_Q(r, i)                                                      \
     case NQ1(i):                                                               \
-        PhysDerivTensor1DKernel(NQ1(i), intmp.data(), (const vec_t *)D,        \
-                                outarray.data());                              \
+        PhysDerivTensor1DKernel(NQ1(i), (const vec_t *)intmp.data(),           \
+                                (const vec_t *)D, (vec_t *)outarray.data());   \
         break;
 
     // templated cases on  standard quadrature
@@ -93,8 +93,8 @@ void StdExpansion1D::PhysTensorDeriv(
     {
         BOOST_PP_FOR((SMIN, SMAX), STDLEV1TEST, STDLEV1UPDATE, PHYSDERIV_Q);
         default:
-            PhysDerivTensor1DKernel(nquad, intmp.data(), (const vec_t *)D,
-                                    outarray.data());
+            PhysDerivTensor1DKernel(nquad, (const vec_t *)intmp.data(),
+                                    (const vec_t *)D, (vec_t *)outarray.data());
             break;
     }
 }

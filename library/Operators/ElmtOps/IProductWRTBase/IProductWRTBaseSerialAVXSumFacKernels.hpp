@@ -83,11 +83,9 @@ NEK_FORCE_INLINE static void IProduct3DWorkspace(
 template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
           bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void IProduct1DKernel(
-    const unsigned int nm0, const unsigned int nq0,
-    const typename simd_type::vectorType *in, const simd_type *B0,
-    const simd_type *w0, const simd_type *jac,
-    typename simd_type::scalarType *out,
-    typename simd_type::scalarType scale = 1.0)
+    const unsigned int nm0, const unsigned int nq0, const simd_type *in,
+    const simd_type *B0, const simd_type *w0, const simd_type *jac,
+    simd_type *out, typename simd_type::scalarType scale = 1.0)
 {
     IProductSegKernel<SCALE, APPEND, DEFORMED>(nm0, nq0, in, B0, w0, jac, out,
                                                scale);
@@ -98,12 +96,9 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
 NEK_FORCE_INLINE static void IProduct2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, [[maybe_unused]] const bool isModified,
-    const typename simd_type::vectorType *in, const simd_type *B0,
-    const simd_type *B1, const simd_type *w0, const simd_type *w1,
-    const simd_type *jac,
-    std::vector<simd_type, tinysimd::allocator<simd_type>> &wsp0,
-    typename simd_type::scalarType *out,
-    typename simd_type::scalarType scale = 1.0)
+    const simd_type *in, const simd_type *B0, const simd_type *B1,
+    const simd_type *w0, const simd_type *w1, const simd_type *jac,
+    simd_type *wsp0, simd_type *out, typename simd_type::scalarType scale = 1.0)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
     {
@@ -124,11 +119,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
 NEK_FORCE_INLINE static void IProduct2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, [[maybe_unused]] const bool isModified,
-    const typename simd_type::vectorType *in, const simd_type *B0,
-    const simd_type *B1,
-    std::vector<simd_type, tinysimd::allocator<simd_type>> &wsp0,
-    typename simd_type::scalarType *out,
-    typename simd_type::scalarType scale = 1.0)
+    const simd_type *in, const simd_type *B0, const simd_type *B1,
+    simd_type *wsp0, simd_type *out, typename simd_type::scalarType scale = 1.0)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
     {
@@ -147,15 +139,11 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
 NEK_FORCE_INLINE static void IProduct3DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    [[maybe_unused]] const bool isModified,
-    const typename simd_type::vectorType *in, const simd_type *B0,
-    const simd_type *B1, const simd_type *B2, const simd_type *w0,
-    const simd_type *w1, const simd_type *w2, const simd_type *jac,
-    std::vector<simd_type, tinysimd::allocator<simd_type>> &wsp0,
-    std::vector<simd_type, tinysimd::allocator<simd_type>> &wsp1,
-    [[maybe_unused]] std::vector<simd_type, tinysimd::allocator<simd_type>>
-        &wsp2,
-    typename simd_type::scalarType *out,
+    [[maybe_unused]] const bool isModified, const simd_type *in,
+    const simd_type *B0, const simd_type *B1, const simd_type *B2,
+    const simd_type *w0, const simd_type *w1, const simd_type *w2,
+    const simd_type *jac, simd_type *wsp0, simd_type *wsp1,
+    [[maybe_unused]] simd_type *wsp2, simd_type *out,
     typename simd_type::scalarType scale = 1.0)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::eHexahedron)
@@ -190,15 +178,10 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
 NEK_FORCE_INLINE static void IProduct3DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    [[maybe_unused]] const bool isModified,
-    const typename simd_type::vectorType *in, const simd_type *B0,
-    const simd_type *B1, const simd_type *B2,
-    std::vector<simd_type, tinysimd::allocator<simd_type>> &wsp0,
-    std::vector<simd_type, tinysimd::allocator<simd_type>> &wsp1,
-    [[maybe_unused]] std::vector<simd_type, tinysimd::allocator<simd_type>>
-        &wsp2,
-    typename simd_type::scalarType *out,
-    typename simd_type::scalarType scale = 1.0)
+    [[maybe_unused]] const bool isModified, const simd_type *in,
+    const simd_type *B0, const simd_type *B1, const simd_type *B2,
+    simd_type *wsp0, simd_type *wsp1, [[maybe_unused]] simd_type *wsp2,
+    simd_type *out, typename simd_type::scalarType scale = 1.0)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::eHexahedron)
     {

@@ -46,7 +46,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffSegKernel(
     const std::vector<typename simd_type::scalarType> &constVarDiff,
     const bool isVarDiff,
     const std::vector<typename simd_type::scalarType> &varD00,
-    const simd_type *df_ptr, typename simd_type::scalarType *deriv0)
+    const simd_type *df_ptr, simd_type *deriv0)
 {
     constexpr auto ndf = 1;
 
@@ -94,22 +94,14 @@ NEK_FORCE_INLINE static void DiffusionCoeffSegKernel(
                     metric00 = df0 * df0 * d00;
                 }
 
-                simd_type d0;
-                d0.load(deriv0 + i * simd_type::width);
-
-                simd_type tmp = metric00 * d0;
-                tmp.store(deriv0 + i * simd_type::width);
+                deriv0[i] = metric00 * deriv0[i];
             }
         }
         else
         {
             for (unsigned int i = 0; i < nqTot; ++i)
             {
-                simd_type d0;
-                d0.load(deriv0 + i * simd_type::width);
-
-                simd_type tmp = metric00 * d0;
-                tmp.store(deriv0 + i * simd_type::width);
+                deriv0[i] = metric00 * deriv0[i];
             }
         }
     }
@@ -123,11 +115,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffSegKernel(
                 d00      = varD00[i];
                 metric00 = df0 * df0 * d00;
 
-                simd_type d0;
-                d0.load(deriv0 + i * simd_type::width);
-
-                simd_type tmp = metric00 * d0;
-                tmp.store(deriv0 + i * simd_type::width);
+                deriv0[i] = metric00 * deriv0[i];
             }
         }
         else
@@ -137,11 +125,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffSegKernel(
                 d00      = varD00[i];
                 metric00 = df0 * df0 * d00;
 
-                simd_type d0;
-                d0.load(deriv0 + i * simd_type::width);
-
-                simd_type tmp = metric00 * d0;
-                tmp.store(deriv0 + i * simd_type::width);
+                deriv0[i] = metric00 * deriv0[i];
             }
         }
     }
@@ -155,12 +139,10 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffTriKernel(
     const std::vector<typename simd_type::scalarType> &varD00,
     const std::vector<typename simd_type::scalarType> &varD01,
     const std::vector<typename simd_type::scalarType> &varD11,
-    const typename simd_type::vectorType *in, const simd_type *D0,
-    const simd_type *D1, const simd_type *df_ptr, const simd_type *hfac0,
-    const simd_type *hfac1, typename simd_type::scalarType *diffderiv0,
-    typename simd_type::scalarType *diffderiv1,
-    typename simd_type::scalarType *deriv0,
-    typename simd_type::scalarType *deriv1)
+    const simd_type *in, const simd_type *D0, const simd_type *D1,
+    const simd_type *df_ptr, const simd_type *hfac0, const simd_type *hfac1,
+    simd_type *diffderiv0, simd_type *diffderiv1, simd_type *deriv0,
+    simd_type *deriv1)
 {
     constexpr auto ndf = 4;
 
@@ -197,8 +179,8 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffTriKernel(
             simd_type prod_sum = 0.0;
             for (unsigned int i = 0; i < nq0; ++i)
             {
-                simd_type v1 = D0[i * nq0 + p];            // Load 1x
-                simd_type v2 = simd_type(in[q * nq0 + i]); // Load 1x
+                simd_type v1 = D0[i * nq0 + p]; // Load 1x
+                simd_type v2 = in[q * nq0 + i]; // Load 1x
 
                 prod_sum.fma(v1, v2);
             }
@@ -206,8 +188,8 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffTriKernel(
             simd_type prod_sum1 = 0.0;
             for (unsigned int j = 0; j < nq1; ++j)
             {
-                simd_type v1 = simd_type(in[j * nq0 + p]); // Load 1x
-                simd_type v2 = D1[j * nq1 + q];            // Load 1x
+                simd_type v1 = in[j * nq0 + p]; // Load 1x
+                simd_type v2 = D1[j * nq1 + q]; // Load 1x
 
                 prod_sum1.fma(v1, v2);
             }
@@ -265,21 +247,21 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffTriKernel(
 
             if (deriv0)
             {
-                prod_sum.store(deriv0 + cnt * simd_type::width);
+                deriv0[cnt] = prod_sum;
             }
 
             tmp = metric00 * prod_sum;
             tmp.fma(metric01, prod_sum1);
-            tmp.store(diffderiv0 + cnt * simd_type::width);
+            diffderiv0[cnt] = tmp;
 
             if (deriv1)
             {
-                prod_sum1.store(deriv1 + cnt * simd_type::width);
+                deriv1[cnt] = prod_sum1;
             }
 
             tmp = metric01 * prod_sum;
             tmp.fma(metric11, prod_sum1);
-            tmp.store(diffderiv1 + cnt * simd_type::width);
+            diffderiv1[cnt] = tmp;
         }
     }
 }
@@ -292,12 +274,9 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffQuadKernel(
     const std::vector<typename simd_type::scalarType> &varD00,
     const std::vector<typename simd_type::scalarType> &varD01,
     const std::vector<typename simd_type::scalarType> &varD11,
-    const typename simd_type::vectorType *in, const simd_type *D0,
-    const simd_type *D1, const simd_type *df_ptr,
-    typename simd_type::scalarType *diffderiv0,
-    typename simd_type::scalarType *diffderiv1,
-    typename simd_type::scalarType *deriv0 = nullptr,
-    typename simd_type::scalarType *deriv1 = nullptr)
+    const simd_type *in, const simd_type *D0, const simd_type *D1,
+    const simd_type *df_ptr, simd_type *diffderiv0, simd_type *diffderiv1,
+    simd_type *deriv0, simd_type *deriv1)
 {
     constexpr auto ndf = 4;
 
@@ -360,8 +339,8 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffQuadKernel(
             simd_type prod_sum = 0.0;
             for (unsigned int i = 0; i < nq0; ++i)
             {
-                simd_type v1 = D0[i * nq0 + p];            // Load 1x
-                simd_type v2 = simd_type(in[q * nq0 + i]); // Load 1x
+                simd_type v1 = D0[i * nq0 + p]; // Load 1x
+                simd_type v2 = in[q * nq0 + i]; // Load 1x
 
                 prod_sum.fma(v1, v2);
             }
@@ -369,8 +348,8 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffQuadKernel(
             simd_type prod_sum1 = 0.0;
             for (unsigned int j = 0; j < nq1; ++j)
             {
-                simd_type v1 = simd_type(in[j * nq0 + p]); // Load 1x
-                simd_type v2 = D1[j * nq1 + q];            // Load 1x
+                simd_type v1 = in[j * nq0 + p]; // Load 1x
+                simd_type v2 = D1[j * nq1 + q]; // Load 1x
 
                 prod_sum1.fma(v1, v2);
             }
@@ -420,21 +399,21 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffQuadKernel(
 
             if (deriv0)
             {
-                prod_sum.store(deriv0 + cnt * simd_type::width);
+                deriv0[cnt] = prod_sum;
             }
 
             simd_type tmp = metric00 * prod_sum;
             tmp.fma(metric01, prod_sum1);
-            tmp.store(diffderiv0 + cnt * simd_type::width);
+            diffderiv0[cnt] = tmp;
 
             if (deriv1)
             {
-                prod_sum1.store(deriv1 + cnt * simd_type::width);
+                deriv1[cnt] = prod_sum1;
             }
 
             simd_type tmp1 = metric01 * prod_sum;
             tmp1.fma(metric11, prod_sum1);
-            tmp1.store(diffderiv1 + cnt * simd_type::width);
+            diffderiv1[cnt] = tmp1;
         }
     }
 }
@@ -451,14 +430,10 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffHexKernel(
     const std::vector<typename simd_type::scalarType> &varD02,
     const std::vector<typename simd_type::scalarType> &varD12,
     const std::vector<typename simd_type::scalarType> &varD22,
-    const typename simd_type::vectorType *in, const simd_type *D0,
-    const simd_type *D1, const simd_type *D2, const simd_type *df_ptr,
-    typename simd_type::scalarType *diffderiv0,
-    typename simd_type::scalarType *diffderiv1,
-    typename simd_type::scalarType *diffderiv2,
-    typename simd_type::scalarType *deriv0 = nullptr,
-    typename simd_type::scalarType *deriv1 = nullptr,
-    typename simd_type::scalarType *deriv2 = nullptr)
+    const simd_type *in, const simd_type *D0, const simd_type *D1,
+    const simd_type *D2, const simd_type *df_ptr, simd_type *diffderiv0,
+    simd_type *diffderiv1, simd_type *diffderiv2, simd_type *deriv0,
+    simd_type *deriv1, simd_type *deriv2)
 {
     constexpr auto ndf = 9;
 
@@ -602,8 +577,8 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffHexKernel(
                 simd_type prod_sum = 0.0;
                 for (unsigned int i = 0; i < nq0; ++i)
                 {
-                    simd_type v1 = D0[i * nq0 + p];                 // Load 1x
-                    simd_type v2 = simd_type(in[cnt_qr * nq0 + i]); // Load 1x
+                    simd_type v1 = D0[i * nq0 + p];      // Load 1x
+                    simd_type v2 = in[cnt_qr * nq0 + i]; // Load 1x
                     prod_sum.fma(v1, v2);
                 }
                 // prod_sum.store(deriv0 + cnt * simd_type::width);
@@ -611,8 +586,8 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffHexKernel(
                 for (unsigned int j = 0; j < nq1; ++j)
                 {
                     unsigned int cnt_jr = r * nq1 + j;
-                    simd_type v1        = D1[j * nq1 + q];          // Load 1x
-                    simd_type v2 = simd_type(in[cnt_jr * nq0 + p]); // Load 1x
+                    simd_type v1        = D1[j * nq1 + q];      // Load 1x
+                    simd_type v2        = in[cnt_jr * nq0 + p]; // Load 1x
                     prod_sum1.fma(v1, v2);
                 }
                 // prod_sum1.store(deriv1 + cnt * simd_type::width);
@@ -620,8 +595,8 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffHexKernel(
                 for (unsigned int k = 0; k < nq2; ++k)
                 {
                     unsigned int cnt_qk = (k * nq1 + q);
-                    simd_type v2        = D2[k * nq2 + r];          // Load 1x
-                    simd_type v1 = simd_type(in[cnt_qk * nq0 + p]); // Load 1x
+                    simd_type v2        = D2[k * nq2 + r];      // Load 1x
+                    simd_type v1        = in[cnt_qk * nq0 + p]; // Load 1x
                     prod_sum2.fma(v1, v2);
                 }
                 // prod_sum2.store(deriv2 + cnt * simd_type::width);
@@ -743,32 +718,32 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffHexKernel(
                 // store tensor derivs if required
                 if (deriv0)
                 {
-                    prod_sum.store(deriv0 + cnt * simd_type::width);
+                    deriv0[cnt] = prod_sum;
                 }
                 if (deriv1)
                 {
-                    prod_sum1.store(deriv1 + cnt * simd_type::width);
+                    deriv1[cnt] = prod_sum1;
                 }
                 if (deriv2)
                 {
-                    prod_sum2.store(deriv2 + cnt * simd_type::width);
+                    deriv2[cnt] = prod_sum2;
                 }
 
                 // 3. apply diffusion coeff to deriv and get output
                 simd_type tmp = metric00 * prod_sum;
                 tmp.fma(metric01, prod_sum1);
                 tmp.fma(metric02, prod_sum2);
-                tmp.store(diffderiv0 + cnt * simd_type::width);
+                diffderiv0[cnt] = tmp;
 
                 simd_type tmp1 = metric01 * prod_sum;
                 tmp1.fma(metric11, prod_sum1);
                 tmp1.fma(metric12, prod_sum2);
-                tmp1.store(diffderiv1 + cnt * simd_type::width);
+                diffderiv1[cnt] = tmp1;
 
                 simd_type tmp2 = metric02 * prod_sum;
                 tmp2.fma(metric12, prod_sum1);
                 tmp2.fma(metric22, prod_sum2);
-                tmp2.store(diffderiv2 + cnt * simd_type::width);
+                diffderiv2[cnt] = tmp2;
             }
         }
     }
@@ -786,15 +761,11 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffTetKernel(
     const std::vector<typename simd_type::scalarType> &varD02,
     const std::vector<typename simd_type::scalarType> &varD12,
     const std::vector<typename simd_type::scalarType> &varD22,
-    const typename simd_type::vectorType *in, const simd_type *D0,
-    const simd_type *D1, const simd_type *D2, const simd_type *df_ptr,
-    const simd_type *hfac0, const simd_type *hfac1, const simd_type *hfac2,
-    const simd_type *hfac3, typename simd_type::scalarType *diffderiv0,
-    typename simd_type::scalarType *diffderiv1,
-    typename simd_type::scalarType *diffderiv2,
-    typename simd_type::scalarType *deriv0 = nullptr,
-    typename simd_type::scalarType *deriv1 = nullptr,
-    typename simd_type::scalarType *deriv2 = nullptr)
+    const simd_type *in, const simd_type *D0, const simd_type *D1,
+    const simd_type *D2, const simd_type *df_ptr, const simd_type *hfac0,
+    const simd_type *hfac1, const simd_type *hfac2, const simd_type *hfac3,
+    simd_type *diffderiv0, simd_type *diffderiv1, simd_type *diffderiv2,
+    simd_type *deriv0, simd_type *deriv1, simd_type *deriv2)
 {
     constexpr auto ndf = 9;
 
@@ -850,8 +821,8 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffTetKernel(
                 simd_type prod_sum = 0.0;
                 for (unsigned int i = 0; i < nq0; ++i)
                 {
-                    simd_type v1 = D0[i * nq0 + p];                 // Load 1x
-                    simd_type v2 = simd_type(in[cnt_qr * nq0 + i]); // Load 1x
+                    simd_type v1 = D0[i * nq0 + p];      // Load 1x
+                    simd_type v2 = in[cnt_qr * nq0 + i]; // Load 1x
                     prod_sum.fma(v1, v2);
                 }
                 // prod_sum.store(deriv0 + cnt * simd_type::width);
@@ -859,8 +830,8 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffTetKernel(
                 for (unsigned int j = 0; j < nq1; ++j)
                 {
                     unsigned int cnt_jr = r * nq1 + j;
-                    simd_type v1        = D1[j * nq1 + q];          // Load 1x
-                    simd_type v2 = simd_type(in[cnt_jr * nq0 + p]); // Load 1x
+                    simd_type v1        = D1[j * nq1 + q];      // Load 1x
+                    simd_type v2        = in[cnt_jr * nq0 + p]; // Load 1x
                     prod_sum1.fma(v1, v2);
                 }
                 // prod_sum1.store(deriv1 + cnt * simd_type::width);
@@ -868,8 +839,8 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffTetKernel(
                 for (unsigned int k = 0; k < nq2; ++k)
                 {
                     unsigned int cnt_qk = (k * nq1 + q);
-                    simd_type v2        = D2[k * nq2 + r];          // Load 1x
-                    simd_type v1 = simd_type(in[cnt_qk * nq0 + p]); // Load 1x
+                    simd_type v2        = D2[k * nq2 + r];      // Load 1x
+                    simd_type v1        = in[cnt_qk * nq0 + p]; // Load 1x
                     prod_sum2.fma(v1, v2);
                 }
                 // prod_sum2.store(deriv2 + cnt * simd_type::width);
@@ -1005,34 +976,31 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffTetKernel(
                 // store tensor derivs if required
                 if (deriv0)
                 {
-                    prod_sum.store(deriv0 + cnt * simd_type::width);
+                    deriv0[cnt] = prod_sum;
                 }
                 if (deriv1)
                 {
-                    prod_sum1.store(deriv1 + cnt * simd_type::width);
+                    deriv1[cnt] = prod_sum1;
                 }
                 if (deriv2)
                 {
-                    prod_sum2.store(deriv2 + cnt * simd_type::width);
+                    deriv2[cnt] = prod_sum2;
                 }
 
                 tmp1 = g0 * prod_sum;
                 tmp1.fma(g3, prod_sum1);
                 tmp1.fma(g4, prod_sum2);
-                // deriv0[cnt] = tmp1;
-                tmp1.store(diffderiv0 + cnt * simd_type::width);
+                diffderiv0[cnt] = tmp1;
 
                 tmp2 = g3 * prod_sum;
                 tmp2.fma(g1, prod_sum1);
                 tmp2.fma(g5, prod_sum2);
-                // deriv1[cnt] = tmp2;
-                tmp2.store(diffderiv1 + cnt * simd_type::width);
+                diffderiv1[cnt] = tmp2;
 
                 tmp3 = g4 * prod_sum;
                 tmp3.fma(g5, prod_sum1);
                 tmp3.fma(g2, prod_sum2);
-                // deriv2[cnt] = tmp3;
-                tmp3.store(diffderiv2 + cnt * simd_type::width);
+                diffderiv2[cnt] = tmp3;
             }
         }
     }
@@ -1050,15 +1018,11 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffPrismKernel(
     const std::vector<typename simd_type::scalarType> &varD02,
     const std::vector<typename simd_type::scalarType> &varD12,
     const std::vector<typename simd_type::scalarType> &varD22,
-    const typename simd_type::vectorType *in, const simd_type *D0,
-    const simd_type *D1, const simd_type *D2, const simd_type *df_ptr,
-    const simd_type *hfac0, const simd_type *hfac1,
-    typename simd_type::scalarType *diffderiv0,
-    typename simd_type::scalarType *diffderiv1,
-    typename simd_type::scalarType *diffderiv2,
-    typename simd_type::scalarType *deriv0 = nullptr,
-    typename simd_type::scalarType *deriv1 = nullptr,
-    typename simd_type::scalarType *deriv2 = nullptr)
+    const simd_type *in, const simd_type *D0, const simd_type *D1,
+    const simd_type *D2, const simd_type *df_ptr, const simd_type *hfac0,
+    const simd_type *hfac1, simd_type *diffderiv0, simd_type *diffderiv1,
+    simd_type *diffderiv2, simd_type *deriv0, simd_type *deriv1,
+    simd_type *deriv2)
 {
     constexpr auto ndf = 9;
 
@@ -1109,8 +1073,8 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffPrismKernel(
                 simd_type prod_sum = 0.0;
                 for (unsigned int i = 0; i < nq0; ++i)
                 {
-                    simd_type v1 = D0[i * nq0 + p];                 // Load 1x
-                    simd_type v2 = simd_type(in[cnt_qr * nq0 + i]); // Load 1x
+                    simd_type v1 = D0[i * nq0 + p];      // Load 1x
+                    simd_type v2 = in[cnt_qr * nq0 + i]; // Load 1x
                     prod_sum.fma(v1, v2);
                 }
                 // prod_sum.store(deriv0 + cnt * simd_type::width);
@@ -1118,8 +1082,8 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffPrismKernel(
                 for (unsigned int j = 0; j < nq1; ++j)
                 {
                     unsigned int cnt_jr = r * nq1 + j;
-                    simd_type v1        = D1[j * nq1 + q];          // Load 1x
-                    simd_type v2 = simd_type(in[cnt_jr * nq0 + p]); // Load 1x
+                    simd_type v1        = D1[j * nq1 + q];      // Load 1x
+                    simd_type v2        = in[cnt_jr * nq0 + p]; // Load 1x
                     prod_sum1.fma(v1, v2);
                 }
                 // prod_sum1.store(deriv1 + cnt * simd_type::width);
@@ -1127,8 +1091,8 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffPrismKernel(
                 for (unsigned int k = 0; k < nq2; ++k)
                 {
                     unsigned int cnt_qk = (k * nq1 + q);
-                    simd_type v2        = D2[k * nq2 + r];          // Load 1x
-                    simd_type v1 = simd_type(in[cnt_qk * nq0 + p]); // Load 1x
+                    simd_type v2        = D2[k * nq2 + r];      // Load 1x
+                    simd_type v1        = in[cnt_qk * nq0 + p]; // Load 1x
                     prod_sum2.fma(v1, v2);
                 }
                 // prod_sum2.store(deriv2 + cnt * simd_type::width);
@@ -1255,34 +1219,31 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffPrismKernel(
                 // store tensor derivs if required
                 if (deriv0)
                 {
-                    prod_sum.store(deriv0 + cnt * simd_type::width);
+                    deriv0[cnt] = prod_sum;
                 }
                 if (deriv1)
                 {
-                    prod_sum1.store(deriv1 + cnt * simd_type::width);
+                    deriv1[cnt] = prod_sum1;
                 }
                 if (deriv2)
                 {
-                    prod_sum2.store(deriv2 + cnt * simd_type::width);
+                    deriv2[cnt] = prod_sum2;
                 }
 
                 tmp1 = g0 * prod_sum;
                 tmp1.fma(g3, prod_sum1);
                 tmp1.fma(g4, prod_sum2);
-                // deriv0[cnt] = tmp1;
-                tmp1.store(diffderiv0 + cnt * simd_type::width);
+                diffderiv0[cnt] = tmp1;
 
                 tmp2 = g3 * prod_sum;
                 tmp2.fma(g1, prod_sum1);
                 tmp2.fma(g5, prod_sum2);
-                // deriv1[cnt] = tmp2;
-                tmp2.store(diffderiv1 + cnt * simd_type::width);
+                diffderiv1[cnt] = tmp2;
 
                 tmp3 = g4 * prod_sum;
                 tmp3.fma(g5, prod_sum1);
                 tmp3.fma(g2, prod_sum2);
-                // deriv2[cnt] = tmp3;
-                tmp3.store(diffderiv2 + cnt * simd_type::width);
+                diffderiv2[cnt] = tmp3;
             }
         }
     }
@@ -1300,15 +1261,11 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffPyrKernel(
     const std::vector<typename simd_type::scalarType> &varD02,
     const std::vector<typename simd_type::scalarType> &varD12,
     const std::vector<typename simd_type::scalarType> &varD22,
-    const typename simd_type::vectorType *in, const simd_type *D0,
-    const simd_type *D1, const simd_type *D2, const simd_type *df_ptr,
-    const simd_type *hfac0, const simd_type *hfac1, const simd_type *hfac2,
-    typename simd_type::scalarType *diffderiv0,
-    typename simd_type::scalarType *diffderiv1,
-    typename simd_type::scalarType *diffderiv2,
-    typename simd_type::scalarType *deriv0 = nullptr,
-    typename simd_type::scalarType *deriv1 = nullptr,
-    typename simd_type::scalarType *deriv2 = nullptr)
+    const simd_type *in, const simd_type *D0, const simd_type *D1,
+    const simd_type *D2, const simd_type *df_ptr, const simd_type *hfac0,
+    const simd_type *hfac1, const simd_type *hfac2, simd_type *diffderiv0,
+    simd_type *diffderiv1, simd_type *diffderiv2, simd_type *deriv0,
+    simd_type *deriv1, simd_type *deriv2)
 {
     constexpr auto ndf = 9;
 
@@ -1361,8 +1318,8 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffPyrKernel(
                 simd_type prod_sum = 0.0;
                 for (unsigned int i = 0; i < nq0; ++i)
                 {
-                    simd_type v1 = D0[i * nq0 + p];                 // Load 1x
-                    simd_type v2 = simd_type(in[cnt_qr * nq0 + i]); // Load 1x
+                    simd_type v1 = D0[i * nq0 + p];      // Load 1x
+                    simd_type v2 = in[cnt_qr * nq0 + i]; // Load 1x
                     prod_sum.fma(v1, v2);
                 }
                 // prod_sum.store(deriv0 + cnt * simd_type::width);
@@ -1370,8 +1327,8 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffPyrKernel(
                 for (unsigned int j = 0; j < nq1; ++j)
                 {
                     unsigned int cnt_jr = r * nq1 + j;
-                    simd_type v1        = D1[j * nq1 + q];          // Load 1x
-                    simd_type v2 = simd_type(in[cnt_jr * nq0 + p]); // Load 1x
+                    simd_type v1        = D1[j * nq1 + q];      // Load 1x
+                    simd_type v2        = in[cnt_jr * nq0 + p]; // Load 1x
                     prod_sum1.fma(v1, v2);
                 }
                 // prod_sum1.store(deriv1 + cnt * simd_type::width);
@@ -1379,8 +1336,8 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffPyrKernel(
                 for (unsigned int k = 0; k < nq2; ++k)
                 {
                     unsigned int cnt_qk = (k * nq1 + q);
-                    simd_type v2        = D2[k * nq2 + r];          // Load 1x
-                    simd_type v1 = simd_type(in[cnt_qk * nq0 + p]); // Load 1x
+                    simd_type v2        = D2[k * nq2 + r];      // Load 1x
+                    simd_type v1        = in[cnt_qk * nq0 + p]; // Load 1x
                     prod_sum2.fma(v1, v2);
                 }
                 // prod_sum2.store(deriv2 + cnt * simd_type::width);
@@ -1518,31 +1475,31 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeffPyrKernel(
                 // store tensor derivs if required
                 if (deriv0)
                 {
-                    prod_sum.store(deriv0 + cnt * simd_type::width);
+                    deriv0[cnt] = prod_sum;
                 }
                 if (deriv1)
                 {
-                    prod_sum1.store(deriv1 + cnt * simd_type::width);
+                    deriv1[cnt] = prod_sum1;
                 }
                 if (deriv2)
                 {
-                    prod_sum2.store(deriv2 + cnt * simd_type::width);
+                    deriv2[cnt] = prod_sum2;
                 }
 
                 tmp1 = g0 * prod_sum;
                 tmp1.fma(g3, prod_sum1);
                 tmp1.fma(g4, prod_sum2);
-                tmp1.store(diffderiv0 + cnt * simd_type::width);
+                diffderiv0[cnt] = tmp1;
 
                 tmp2 = g3 * prod_sum;
                 tmp2.fma(g1, prod_sum1);
                 tmp2.fma(g5, prod_sum2);
-                tmp2.store(diffderiv1 + cnt * simd_type::width);
+                diffderiv1[cnt] = tmp2;
 
                 tmp3 = g4 * prod_sum;
                 tmp3.fma(g5, prod_sum1);
                 tmp3.fma(g2, prod_sum2);
-                tmp3.store(diffderiv2 + cnt * simd_type::width);
+                diffderiv2[cnt] = tmp3;
             }
         }
     }
@@ -1556,13 +1513,11 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeff2DKernel(
     const std::vector<typename simd_type::scalarType> &varD00,
     const std::vector<typename simd_type::scalarType> &varD01,
     const std::vector<typename simd_type::scalarType> &varD11,
-    const typename simd_type::vectorType *in, const simd_type *D0,
-    const simd_type *D1, const simd_type *df_ptr,
-    [[maybe_unused]] const simd_type *h0, [[maybe_unused]] const simd_type *h1,
-    typename simd_type::scalarType *diffderiv0,
-    typename simd_type::scalarType *diffderiv1,
-    typename simd_type::scalarType *deriv0 = nullptr,
-    typename simd_type::scalarType *deriv1 = nullptr)
+    const simd_type *in, const simd_type *D0, const simd_type *D1,
+    const simd_type *df_ptr, [[maybe_unused]] const simd_type *h0,
+    [[maybe_unused]] const simd_type *h1, simd_type *diffderiv0,
+    simd_type *diffderiv1, simd_type *deriv0 = nullptr,
+    simd_type *deriv1 = nullptr)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
     {
@@ -1591,16 +1546,13 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeff3DKernel(
     const std::vector<typename simd_type::scalarType> &varD02,
     const std::vector<typename simd_type::scalarType> &varD12,
     const std::vector<typename simd_type::scalarType> &varD22,
-    const typename simd_type::vectorType *in, const simd_type *D0,
-    const simd_type *D1, const simd_type *D2, const simd_type *df_ptr,
+    const simd_type *in, const simd_type *D0, const simd_type *D1,
+    const simd_type *D2, const simd_type *df_ptr,
     [[maybe_unused]] const simd_type *h0, [[maybe_unused]] const simd_type *h1,
     [[maybe_unused]] const simd_type *h2, [[maybe_unused]] const simd_type *h3,
-    typename simd_type::scalarType *diffderiv0,
-    typename simd_type::scalarType *diffderiv1,
-    typename simd_type::scalarType *diffderiv2,
-    typename simd_type::scalarType *deriv0 = nullptr,
-    typename simd_type::scalarType *deriv1 = nullptr,
-    typename simd_type::scalarType *deriv2 = nullptr)
+    simd_type *diffderiv0, simd_type *diffderiv1, simd_type *diffderiv2,
+    simd_type *deriv0 = nullptr, simd_type *deriv1 = nullptr,
+    simd_type *deriv2 = nullptr)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::eHexahedron)
     {

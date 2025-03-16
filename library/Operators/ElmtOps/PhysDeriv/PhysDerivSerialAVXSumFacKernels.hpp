@@ -42,7 +42,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE void PhysDeriv1DKernel(const unsigned int nq0,
                                         const unsigned int ndf,
                                         const simd_type *df_ptr,
-                                        typename simd_type::scalarType *out[3])
+                                        simd_type *out[3])
 {
     simd_type df_tmp[3];
 
@@ -77,19 +77,19 @@ NEK_FORCE_INLINE void PhysDeriv1DKernel(const unsigned int nq0,
 
         // Multiply by derivative factors
         simd_type in, tmp;
-        in.load(out[0] + j * simd_type::width);
+        in = out[0][j]; // Load 1x
         if (ndf == 3)
         {
-            tmp = in * df_tmp[2]; // Store 1x
-            tmp.store(out[2] + j * simd_type::width);
+            tmp       = in * df_tmp[2]; // Store 1x
+            out[2][j] = tmp;
         }
         if (ndf >= 2)
         {
-            tmp = in * df_tmp[1]; // Store 1x
-            tmp.store(out[1] + j * simd_type::width);
+            tmp       = in * df_tmp[1]; // Store 1x
+            out[1][j] = tmp;
         }
-        tmp = in * df_tmp[0]; // Store 1x
-        tmp.store(out[0] + j * simd_type::width);
+        tmp       = in * df_tmp[0]; // Store 1x
+        out[0][j] = tmp;
     }
 }
 
@@ -97,7 +97,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE void PhysDeriv2DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int outdim,
     [[maybe_unused]] const simd_type *Z0, [[maybe_unused]] const simd_type *Z1,
-    const simd_type *df_ptr, typename simd_type::scalarType *out[3])
+    const simd_type *df_ptr, simd_type *out[3])
 {
     auto ndf = 2 * outdim;
     simd_type df_tmp[6];
@@ -127,8 +127,8 @@ NEK_FORCE_INLINE void PhysDeriv2DKernel(
         for (unsigned int i = 0; i < nq0; ++i, ++cnt_ji)
         {
             simd_type d0, d1;
-            d0.load(out[0] + cnt_ji * simd_type::width); // Load 1x
-            d1.load(out[1] + cnt_ji * simd_type::width); // Load 1x
+            d0 = out[0][cnt_ji]; // Load 1x
+            d1 = out[1][cnt_ji]; // Load 1x
 
             if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
             {
@@ -156,17 +156,17 @@ NEK_FORCE_INLINE void PhysDeriv2DKernel(
             simd_type tmp;
             tmp = d0 * df_tmp[0]; // d0 * df0 + d1 * df1
             tmp.fma(d1, df_tmp[1]);
-            tmp.store(out[0] + cnt_ji * simd_type::width); // Store 1x
+            out[0][cnt_ji] = tmp; // Store 1x
 
             tmp = d0 * df_tmp[2]; // d0 * df2 + d1 * df3
             tmp.fma(d1, df_tmp[3]);
-            tmp.store(out[1] + cnt_ji * simd_type::width); // Store 1x
+            out[1][cnt_ji] = tmp; // Store 1x
 
             if (outdim == 3)
             {
                 tmp = d0 * df_tmp[4]; // d0 * df4 + d1 * df5
                 tmp.fma(d1, df_tmp[5]);
-                tmp.store(out[2] + cnt_ji * simd_type::width); // Store 1x
+                out[2][cnt_ji] = tmp; // Store 1x
             }
         }
     }
@@ -177,13 +177,9 @@ NEK_FORCE_INLINE void PhysDeriv3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     [[maybe_unused]] const simd_type *Z0, [[maybe_unused]] const simd_type *Z1,
     [[maybe_unused]] const simd_type *Z2, const simd_type *df_ptr,
-    [[maybe_unused]] std::vector<simd_type, tinysimd::allocator<simd_type>>
-        &wsp0, // Tets only
-    [[maybe_unused]] std::vector<simd_type, tinysimd::allocator<simd_type>>
-        &wsp1, // Tets only
-    typename simd_type::scalarType *out_d0,
-    typename simd_type::scalarType *out_d1,
-    typename simd_type::scalarType *out_d2)
+    [[maybe_unused]] simd_type *wsp0, // Tets only
+    [[maybe_unused]] simd_type *wsp1, // Tets only
+    simd_type *out_d0, simd_type *out_d1, simd_type *out_d2)
 {
     constexpr auto ndf = 9;
     simd_type df_tmp[ndf];
@@ -201,10 +197,10 @@ NEK_FORCE_INLINE void PhysDeriv3DKernel(
                 for (unsigned int i = 0; i < nq0; ++i, ++eta0)
                 {
                     simd_type d0;
-                    d0.load(out_d0 + eta0 * simd_type::width);  // Load 1x
-                    d0 *= xfrm;                                 // Load 1x
-                    d0.store(out_d0 + eta0 * simd_type::width); // Store 1x
-                    wsp0[eta0] = d0; // Store 1x partial form for reuse
+                    d0 = out_d0[eta0]; // Load 1x
+                    d0 *= xfrm;        // Load 1x
+                    out_d0[eta0] = d0; // Store 1x
+                    wsp0[eta0]   = d0; // Store 1x partial form for reuse
                 }
             }
         }
@@ -223,11 +219,11 @@ NEK_FORCE_INLINE void PhysDeriv3DKernel(
                     wsp0[eta0]     = out0; // 2 * (1 + eta_0) / (1 -
                                            // eta_1)(1-eta2) | store 1x
                     simd_type d1;
-                    d1.load(out_d1 + eta0 * simd_type::width); // Load 1x
+                    d1 = out_d1[eta0]; // Load 1x
                     d1 *= xfrm_eta2;
                     wsp1[eta0] = d1; // Store 1x partial form for reuse
                     d1 += out0;
-                    d1.store(out_d1 + eta0 * simd_type::width); // Store 1x
+                    out_d1[eta0] = d1; // Store 1x
                 }
             }
         }
@@ -244,9 +240,9 @@ NEK_FORCE_INLINE void PhysDeriv3DKernel(
                     simd_type out = wsp0[eta0]; // Load 1x
                     simd_type d1  = wsp1[eta0]; // Load 1x
                     out.fma(d1, xfrm_eta1);
-                    d1.load(out_d2 + eta0 * simd_type::width); // Load 1x
+                    d1 = out_d2[eta0]; // Load 1x
                     d1 += out;
-                    d1.store(out_d2 + eta0 * simd_type::width); // Store 1x
+                    out_d2[eta0] = d1; // Store 1x
                 }
             }
         }
@@ -284,9 +280,9 @@ NEK_FORCE_INLINE void PhysDeriv3DKernel(
             for (unsigned int i = 0; i < nq0; ++i, ++cnt_ijk)
             {
                 simd_type d0, d1, d2;
-                d0.load(out_d0 + cnt_ijk * simd_type::width); // Load 1x
-                d1.load(out_d1 + cnt_ijk * simd_type::width); // Load 1x
-                d2.load(out_d2 + cnt_ijk * simd_type::width); // Load 1x
+                d0 = out_d0[cnt_ijk]; // Load 1x
+                d1 = out_d1[cnt_ijk]; // Load 1x
+                d2 = out_d2[cnt_ijk]; // Load 1x
 
                 simd_type xfrm_eta0;
                 if constexpr (SHAPE_TYPE == LibUtilities::ePrism)
@@ -326,17 +322,17 @@ NEK_FORCE_INLINE void PhysDeriv3DKernel(
                 tmp = d0 * df_tmp[0];
                 tmp.fma(d1, df_tmp[1]);
                 tmp.fma(d2, df_tmp[2]);
-                tmp.store(out_d0 + cnt_ijk * simd_type::width); // Store 1x
+                out_d0[cnt_ijk] = tmp; // Store 1x
 
                 tmp = d0 * df_tmp[3];
                 tmp.fma(d1, df_tmp[4]);
                 tmp.fma(d2, df_tmp[5]);
-                tmp.store(out_d1 + cnt_ijk * simd_type::width); // Store 1x
+                out_d1[cnt_ijk] = tmp; // Store 1x
 
                 tmp = d0 * df_tmp[6];
                 tmp.fma(d1, df_tmp[7]);
                 tmp.fma(d2, df_tmp[8]);
-                tmp.store(out_d2 + cnt_ijk * simd_type::width); // Store 1x
+                out_d2[cnt_ijk] = tmp; // Store 1x
             }
         }
     }
