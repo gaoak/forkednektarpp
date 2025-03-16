@@ -265,17 +265,14 @@ protected:
         // Workspace for kernels.
         std::vector<simd_t, tinysimd::allocator<simd_t>> df_tmp(m_coordDim);
         std::vector<simd_t, tinysimd::allocator<simd_t>> tmp0(nq0);
-        auto tmpPtr =
-            reinterpret_cast<typename simd_t::scalarType *>(tmp0.data());
 
         // Initialize pointers.
         auto input  = (interleave_width == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr =
-            reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto inptr  = reinterpret_cast<const simd_t *>(input);
+        auto outptr = reinterpret_cast<simd_t *>(output);
 
         // Loop over components.
         for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
@@ -298,14 +295,13 @@ protected:
 
                 StdAlignDerivBase1D<DEFORMED>(nq0, m_coordDim, dfptr, df_tmp,
                                               inblock.GetNumElmtGroups() * nq0,
-                                              inptr, tmpPtr);
+                                              inptr, tmp0.data());
                 IProductSegKernel<false, false, DEFORMED>(
-                    nm0, nq0, (const typename simd_t::vectorType *)tmpPtr,
-                    m_DB[0], m_W[0], jacptr, outptr);
+                    nm0, nq0, tmp0.data(), m_DB[0], m_W[0], jacptr, outptr);
 
                 // Increment pointers for the next elmt group.
                 inptr += nq0;
-                outptr += nm0 * simd_t::width;
+                outptr += nm0;
                 jacptr += jacSize;
                 dfptr += jacSize * m_coordDim;
             }
@@ -350,17 +346,14 @@ protected:
         // Workspace for kernels.
         std::vector<simd_t, tinysimd::allocator<simd_t>> df_tmp(m_coordDim);
         std::vector<simd_t, tinysimd::allocator<simd_t>> tmp0(nq0);
-        auto tmpPtr =
-            reinterpret_cast<typename simd_t::scalarType *>(tmp0.data());
 
         // Initialize pointers.
         auto input  = (interleave_width == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr =
-            reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto inptr  = reinterpret_cast<const simd_t *>(input);
+        auto outptr = reinterpret_cast<simd_t *>(output);
 
         // Loop over components.
         for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
@@ -383,14 +376,13 @@ protected:
 
                 StdAlignDerivBase1D<DEFORMED>(nq0, m_coordDim, dfptr, df_tmp,
                                               inblock.GetNumElmtGroups() * nq0,
-                                              inptr, tmpPtr);
+                                              inptr, tmp0.data());
                 IProductSegKernel<false, false, DEFORMED>(
-                    nm0, nq0, (const typename simd_t::vectorType *)tmpPtr,
-                    m_DB[0], m_W[0], jacptr, outptr);
+                    nm0, nq0, tmp0.data(), m_DB[0], m_W[0], jacptr, outptr);
 
                 // Increment pointers for the next elmt group.
                 inptr += nq0;
-                outptr += nm0 * simd_t::width;
+                outptr += nm0;
                 jacptr += jacSize;
                 dfptr += jacSize * m_coordDim;
             }
@@ -447,26 +439,19 @@ protected:
         std::vector<simd_t, tinysimd::allocator<simd_t>> df_tmp(ndf);
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp(nq1), tmp0(nqTot),
             tmp1(nqTot);
-        typename simd_t::scalarType *tmpPtr[2];
-        tmpPtr[0] =
-            reinterpret_cast<typename simd_t::scalarType *>(tmp0.data());
-        tmpPtr[1] =
-            reinterpret_cast<typename simd_t::scalarType *>(tmp1.data());
+        simd_t *tmpPtr[2];
+        tmpPtr[0] = tmp0.data();
+        tmpPtr[1] = tmp1.data();
 
         std::vector<simd_t, tinysimd::allocator<simd_t>> tmp2(nqTot);
-        auto tmp2Ptr =
-            reinterpret_cast<typename simd_t::scalarType *>(tmp2.data());
-        auto tmp2vec =
-            reinterpret_cast<typename simd_t::vectorType *>(tmp2.data());
 
         // Initialize pointers.
         auto input  = (interleave_width == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr =
-            reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto inptr  = reinterpret_cast<const simd_t *>(input);
+        auto outptr = reinterpret_cast<simd_t *>(output);
 
         // Loop over components.
         for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
@@ -491,16 +476,15 @@ protected:
                     nq0, nq1, m_coordDim, dfptr, df_tmp, NumElmtGroups * nqTot,
                     inptr, tmpPtr, m_f[0], m_f[1]);
                 SumDerivTensor2DKernel<DEFORMED, simd_t>(
-                    nq0, nq1, (const typename simd_t::vectorType *)tmpPtr[0],
-                    (const typename simd_t::vectorType *)tmpPtr[1], m_W[0],
-                    m_W[1], jacptr, m_D[0], m_D[1], tmp2Ptr);
+                    nq0, nq1, tmpPtr[0], tmpPtr[1], m_W[0], m_W[1], jacptr,
+                    m_D[0], m_D[1], tmp2.data());
                 IProduct2DKernel<SHAPE_TYPE, false, false, simd_t>(
-                    nm0, nm1, nq0, nq1, m_isModified, tmp2vec, m_B[0], m_B[1],
-                    wsp, outptr);
+                    nm0, nm1, nq0, nq1, m_isModified, tmp2.data(), m_B[0],
+                    m_B[1], wsp.data(), outptr);
 
                 // Increment pointers for the next elmt group.
                 inptr += nqTot;
-                outptr += nmTot * simd_t::width;
+                outptr += nmTot;
                 jacptr += jacSize;
                 dfptr += jacSize * ndf;
             }
@@ -557,26 +541,19 @@ protected:
         std::vector<simd_t, tinysimd::allocator<simd_t>> df_tmp(ndf);
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp(nq1), tmp0(nqTot),
             tmp1(nqTot);
-        typename simd_t::scalarType *tmpPtr[2];
-        tmpPtr[0] =
-            reinterpret_cast<typename simd_t::scalarType *>(tmp0.data());
-        tmpPtr[1] =
-            reinterpret_cast<typename simd_t::scalarType *>(tmp1.data());
+        simd_t *tmpPtr[2];
+        tmpPtr[0] = tmp0.data();
+        tmpPtr[1] = tmp1.data();
 
         std::vector<simd_t, tinysimd::allocator<simd_t>> tmp2(nqTot);
-        auto tmp2Ptr =
-            reinterpret_cast<typename simd_t::scalarType *>(tmp2.data());
-        auto tmp2vec =
-            reinterpret_cast<typename simd_t::vectorType *>(tmp2.data());
 
         // Initialize pointers.
         auto input  = (interleave_width == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr =
-            reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto inptr  = reinterpret_cast<const simd_t *>(input);
+        auto outptr = reinterpret_cast<simd_t *>(output);
 
         // Loop over components.
         for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
@@ -601,16 +578,15 @@ protected:
                     nq0, nq1, m_coordDim, dfptr, df_tmp, NumElmtGroups * nqTot,
                     inptr, tmpPtr, m_f[0], m_f[1]);
                 SumDerivTensor2DKernel<DEFORMED, simd_t>(
-                    nq0, nq1, (const typename simd_t::vectorType *)tmpPtr[0],
-                    (const typename simd_t::vectorType *)tmpPtr[1], m_W[0],
-                    m_W[1], jacptr, m_D[0], m_D[1], tmp2Ptr);
+                    nq0, nq1, tmpPtr[0], tmpPtr[1], m_W[0], m_W[1], jacptr,
+                    m_D[0], m_D[1], tmp2.data());
                 IProduct2DKernel<SHAPE_TYPE, false, false, simd_t>(
-                    nm0, nm1, nq0, nq1, m_isModified, tmp2vec, m_B[0], m_B[1],
-                    wsp, outptr);
+                    nm0, nm1, nq0, nq1, m_isModified, tmp2.data(), m_B[0],
+                    m_B[1], wsp.data(), outptr);
 
                 // Increment pointers for the next elmt group.
                 inptr += nqTot;
-                outptr += nmTot * simd_t::width;
+                outptr += nmTot;
                 jacptr += jacSize;
                 dfptr += jacSize * ndf;
             }
@@ -677,29 +653,20 @@ protected:
             wsp1(wsp1Size), wsp2(wsp2Size);
         std::vector<simd_t, tinysimd::allocator<simd_t>> tmp0(nqTot),
             tmp1(nqTot), tmp2(nqTot);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> df_tmp(ndf);
-        typename simd_t::scalarType *tmpPtr[3];
-        tmpPtr[0] =
-            reinterpret_cast<typename simd_t::scalarType *>(tmp0.data());
-        tmpPtr[1] =
-            reinterpret_cast<typename simd_t::scalarType *>(tmp1.data());
-        tmpPtr[2] =
-            reinterpret_cast<typename simd_t::scalarType *>(tmp2.data());
-
+        simd_t *tmpPtr[3];
+        tmpPtr[0] = tmp0.data();
+        tmpPtr[1] = tmp1.data();
+        tmpPtr[2] = tmp2.data();
         std::vector<simd_t, tinysimd::allocator<simd_t>> tmp3(nqTot);
-        auto tmp3Ptr =
-            reinterpret_cast<typename simd_t::scalarType *>(tmp3.data());
-        auto tmp3vec =
-            reinterpret_cast<typename simd_t::vectorType *>(tmp3.data());
+        std::vector<simd_t, tinysimd::allocator<simd_t>> df_tmp(ndf);
 
         // Initialize pointers.
         auto input  = (interleave_width == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr =
-            reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto inptr  = reinterpret_cast<const simd_t *>(input);
+        auto outptr = reinterpret_cast<simd_t *>(output);
 
         // Loop over components.
         for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
@@ -724,18 +691,17 @@ protected:
                     nq0, nq1, nq2, dfptr, df_tmp, NumElmtGroups * nqTot, m_f[0],
                     m_f[1], m_f[2], m_f[3], inptr, tmpPtr);
                 SumDerivTensor3DKernel<DEFORMED, simd_t>(
-                    nq0, nq1, nq2,
-                    (const typename simd_t::vectorType *)tmpPtr[0],
-                    (const typename simd_t::vectorType *)tmpPtr[1],
-                    (const typename simd_t::vectorType *)tmpPtr[2], m_W[0],
-                    m_W[1], m_W[2], jacptr, m_D[0], m_D[1], m_D[2], tmp3Ptr);
+                    nq0, nq1, nq2, tmpPtr[0], tmpPtr[1], tmpPtr[2], m_W[0],
+                    m_W[1], m_W[2], jacptr, m_D[0], m_D[1], m_D[2],
+                    tmp3.data());
                 IProduct3DKernel<SHAPE_TYPE, false, false, simd_t>(
-                    nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, tmp3vec, m_B[0],
-                    m_B[1], m_B[2], wsp0, wsp1, wsp2, outptr);
+                    nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, tmp3.data(),
+                    m_B[0], m_B[1], m_B[2], wsp0.data(), wsp1.data(),
+                    wsp2.data(), outptr);
 
                 // Increment pointers for the next elmt group.
                 inptr += nqTot;
-                outptr += nmTot * simd_t::width;
+                outptr += nmTot;
                 jacptr += jacSize;
                 dfptr += jacSize * ndf;
             }
@@ -796,28 +762,20 @@ protected:
             wsp1(wsp1Size), wsp2(wsp2Size);
         std::vector<simd_t, tinysimd::allocator<simd_t>> tmp0(nqTot),
             tmp1(nqTot), tmp2(nqTot);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> df_tmp(ndf);
-        typename simd_t::scalarType *tmpPtr[3];
-        tmpPtr[0] =
-            reinterpret_cast<typename simd_t::scalarType *>(tmp0.data());
-        tmpPtr[1] =
-            reinterpret_cast<typename simd_t::scalarType *>(tmp1.data());
-        tmpPtr[2] =
-            reinterpret_cast<typename simd_t::scalarType *>(tmp2.data());
+        simd_t *tmpPtr[3];
+        tmpPtr[0] = tmp0.data();
+        tmpPtr[1] = tmp1.data();
+        tmpPtr[2] = tmp2.data();
         std::vector<simd_t, tinysimd::allocator<simd_t>> tmp3(nqTot);
-        auto tmp3Ptr =
-            reinterpret_cast<typename simd_t::scalarType *>(tmp3.data());
-        auto tmp3vec =
-            reinterpret_cast<typename simd_t::vectorType *>(tmp3.data());
+        std::vector<simd_t, tinysimd::allocator<simd_t>> df_tmp(ndf);
 
         // Initialize pointers.
         auto input  = (interleave_width == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr =
-            reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto inptr  = reinterpret_cast<const simd_t *>(input);
+        auto outptr = reinterpret_cast<simd_t *>(output);
 
         // Loop over components.
         for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
@@ -842,18 +800,17 @@ protected:
                     nq0, nq1, nq2, dfptr, df_tmp, NumElmtGroups * nqTot, m_f[0],
                     m_f[1], m_f[2], m_f[3], inptr, tmpPtr);
                 SumDerivTensor3DKernel<DEFORMED, simd_t>(
-                    nq0, nq1, nq2,
-                    (const typename simd_t::vectorType *)tmpPtr[0],
-                    (const typename simd_t::vectorType *)tmpPtr[1],
-                    (const typename simd_t::vectorType *)tmpPtr[2], m_W[0],
-                    m_W[1], m_W[2], jacptr, m_D[0], m_D[1], m_D[2], tmp3Ptr);
+                    nq0, nq1, nq2, tmpPtr[0], tmpPtr[1], tmpPtr[2], m_W[0],
+                    m_W[1], m_W[2], jacptr, m_D[0], m_D[1], m_D[2],
+                    tmp3.data());
                 IProduct3DKernel<SHAPE_TYPE, false, false, simd_t>(
-                    nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, tmp3vec, m_B[0],
-                    m_B[1], m_B[2], wsp0, wsp1, wsp2, outptr);
+                    nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, tmp3.data(),
+                    m_B[0], m_B[1], m_B[2], wsp0.data(), wsp1.data(),
+                    wsp2.data(), outptr);
 
                 // Increment pointers for the next elmt group.
                 inptr += nqTot;
-                outptr += nmTot * simd_t::width;
+                outptr += nmTot;
                 jacptr += jacSize;
                 dfptr += jacSize * ndf;
             }

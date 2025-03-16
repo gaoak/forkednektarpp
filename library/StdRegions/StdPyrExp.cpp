@@ -119,19 +119,21 @@ void StdPyrExp::PhysTensorDeriv(const Array<OneD, const NekDouble> &inarray,
     // --preprocess to the c++ command. Default case
 #undef PHYSDERIV_DEF
 #define PHYSDERIV_DEF                                                          \
-    PhysDerivTensor3DKernel(nquad0, nquad1, nquad2, intmp.data(),              \
-                            (const vec_t *)D0, (const vec_t *)D1,              \
-                            (const vec_t *)D2, out_d0.data(), out_d1.data(),   \
-                            out_d2.data(), Deriv0, Deriv1, Deriv2)
+    PhysDerivTensor3DKernel(nquad0, nquad1, nquad2,                            \
+                            (const vec_t *)intmp.data(), (const vec_t *)D0,    \
+                            (const vec_t *)D1, (const vec_t *)D2,              \
+                            (vec_t *)out_d0.data(), (vec_t *)out_d1.data(),    \
+                            (vec_t *)out_d2.data(), Deriv0, Deriv1, Deriv2)
 
     // Loop case over quarature points
 #undef PHYSDERIV_Q
 #define PHYSDERIV_Q(r, i)                                                      \
     case NQ1(i):                                                               \
         PhysDerivTensor3DKernel(                                               \
-            NQ1(i), NQ1(i), NQ1_M1(i), intmp.data(), (const vec_t *)D0,        \
-            (const vec_t *)D1, (const vec_t *)D2, out_d0.data(),               \
-            out_d1.data(), out_d2.data(), Deriv0, Deriv1, Deriv2);             \
+            NQ1(i), NQ1(i), NQ1_M1(i), (const vec_t *)intmp.data(),            \
+            (const vec_t *)D0, (const vec_t *)D1, (const vec_t *)D2,           \
+            (vec_t *)out_d0.data(), (vec_t *)out_d1.data(),                    \
+            (vec_t *)out_d2.data(), Deriv0, Deriv1, Deriv2);                   \
         break;
 
     // templated cases on  standard quadrature
@@ -335,18 +337,18 @@ void StdPyrExp::v_BwdTrans(const Array<OneD, const NekDouble> &inarray,
     BwdTransPyrKernel(nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2,       \
                       isModified, (const vec_t *)base0.data(),                 \
                       (const vec_t *)base1.data(),                             \
-                      (const vec_t *)base2.data(), wsp0, wsp1, inarray.data(), \
-                      outarray.data())
+                      (const vec_t *)base2.data(), wsp0.data(), wsp1.data(),   \
+                      (const vec_t *)inarray.data(), (vec_t *)outarray.data())
 
     // Inner loop case over quarature points
 #undef BWDTRANS_Q
 #define BWDTRANS_Q(r, i)                                                       \
     case NQ(i):                                                                \
-        BwdTransPyrKernel(NM(i), NM(i), NM(i), NQ(i), NQ(i), NQ_M1(i),         \
-                          isModified, (const vec_t *)base0.data(),             \
-                          (const vec_t *)base1.data(),                         \
-                          (const vec_t *)base2.data(), wsp0, wsp1,             \
-                          inarray.data(), outarray.data());                    \
+        BwdTransPyrKernel(                                                     \
+            NM(i), NM(i), NM(i), NQ(i), NQ(i), NQ_M1(i), isModified,           \
+            (const vec_t *)base0.data(), (const vec_t *)base1.data(),          \
+            (const vec_t *)base2.data(), wsp0.data(), wsp1.data(),             \
+            (const vec_t *)inarray.data(), (vec_t *)outarray.data());          \
         break;
 
     // outer loop case over modes
@@ -515,12 +517,12 @@ void StdPyrExp::IProductWRTBaseKernel(
 #define IPRODUCTWRTBASE_DEF                                                    \
     IProductPyrKernel<false, false, true>(                                     \
         order0, order1, order2, nquad0, nquad1, nquad2, isModified,            \
-        inarray.data(), (const vec_t *)base0.data(),                           \
+        (const vec_t *)inarray.data(), (const vec_t *)base0.data(),            \
         (const vec_t *)base1.data(), (const vec_t *)base2.data(),              \
         (const vec_t *)m_weights[0].data(),                                    \
         (const vec_t *)m_weights[1].data(),                                    \
-        (const vec_t *)m_weights[2].data(), (const vec_t *)jac.data(), wsp0,   \
-        wsp1, outarray.data())
+        (const vec_t *)m_weights[2].data(), (const vec_t *)jac.data(),         \
+        (vec_t *)wsp0.data(), (vec_t *)wsp1.data(), (vec_t *)outarray.data())
 
         // Inner loop case over quarature points
 #undef IPRODUCTWRTBASE_Q
@@ -528,12 +530,13 @@ void StdPyrExp::IProductWRTBaseKernel(
     case NQ(i):                                                                \
         IProductPyrKernel<false, false, true>(                                 \
             NM(i), NM(i), NM(i), NQ(i), NQ(i), NQ_M1(i), isModified,           \
-            inarray.data(), (const vec_t *)base0.data(),                       \
+            (const vec_t *)inarray.data(), (const vec_t *)base0.data(),        \
             (const vec_t *)base1.data(), (const vec_t *)base2.data(),          \
             (const vec_t *)m_weights[0].data(),                                \
             (const vec_t *)m_weights[1].data(),                                \
             (const vec_t *)m_weights[2].data(), (const vec_t *)jac.data(),     \
-            wsp0, wsp1, outarray.data());                                      \
+            (vec_t *)wsp0.data(), (vec_t *)wsp1.data(),                        \
+            (vec_t *)outarray.data());                                         \
         break;
 
         // outer loop case over modes
@@ -577,12 +580,12 @@ void StdPyrExp::IProductWRTBaseKernel(
 #define IPRODUCTWRTBASE_DEF                                                    \
     IProductPyrKernel<false, false, false>(                                    \
         order0, order1, order2, nquad0, nquad1, nquad2, isModified,            \
-        inarray.data(), (const vec_t *)base0.data(),                           \
+        (const vec_t *)inarray.data(), (const vec_t *)base0.data(),            \
         (const vec_t *)base1.data(), (const vec_t *)base2.data(),              \
         (const vec_t *)m_weights[0].data(),                                    \
         (const vec_t *)m_weights[1].data(),                                    \
-        (const vec_t *)m_weights[2].data(), (const vec_t *)jac.data(), wsp0,   \
-        wsp1, outarray.data())
+        (const vec_t *)m_weights[2].data(), (const vec_t *)jac.data(),         \
+        (vec_t *)wsp0.data(), (vec_t *)wsp1.data(), (vec_t *)outarray.data())
 
         // Inner loop case over quarature points
 #undef IPRODUCTWRTBASE_Q
@@ -590,12 +593,13 @@ void StdPyrExp::IProductWRTBaseKernel(
     case NQ(i):                                                                \
         IProductPyrKernel<false, false, false>(                                \
             NM(i), NM(i), NM(i), NQ(i), NQ(i), NQ_M1(i), isModified,           \
-            inarray.data(), (const vec_t *)base0.data(),                       \
+            (const vec_t *)inarray.data(), (const vec_t *)base0.data(),        \
             (const vec_t *)base1.data(), (const vec_t *)base2.data(),          \
             (const vec_t *)m_weights[0].data(),                                \
             (const vec_t *)m_weights[1].data(),                                \
             (const vec_t *)m_weights[2].data(), (const vec_t *)jac.data(),     \
-            wsp0, wsp1, outarray.data());                                      \
+            (vec_t *)wsp0.data(), (vec_t *)wsp1.data(),                        \
+            (vec_t *)outarray.data());                                         \
         break;
 
         // outer loop case over modes

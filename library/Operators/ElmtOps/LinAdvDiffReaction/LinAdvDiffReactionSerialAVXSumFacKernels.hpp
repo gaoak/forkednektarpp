@@ -43,9 +43,8 @@
 
 template <bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void AddAdvectionSegKernel(
-    const unsigned int nq0, const typename simd_type::vectorType *advVel_ptr,
-    const simd_type *df_ptr, typename simd_type::vectorType *deriv0,
-    typename simd_type::scalarType *out,
+    const unsigned int nq0, const simd_type *advVel_ptr,
+    const simd_type *df_ptr, simd_type *deriv0, simd_type *out,
     const typename simd_type::scalarType scale)
 {
     simd_type vx, df0, d0;
@@ -75,12 +74,8 @@ NEK_FORCE_INLINE static void AddAdvectionSegKernel(
         simd_type adv = df0 * d0;
         adv *= vx;
 
-        simd_type tmp;
-        tmp.load(out);
-
-        adv.fma(tmp, simd_type(scale));
-        adv.store(out);
-        out += simd_type::width;
+        adv.fma(out[i], simd_type(scale));
+        out[i] = adv;
     }
 }
 
@@ -88,11 +83,9 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void AddAdvection2DKernel(
     const unsigned int nq0, const unsigned int nq1,
     [[maybe_unused]] const simd_type *hfac0,
-    [[maybe_unused]] const simd_type *hfac1,
-    const typename simd_type::vectorType *advVel0_ptr,
-    const typename simd_type::vectorType *advVel1_ptr, const simd_type *df_ptr,
-    typename simd_type::vectorType *deriv0,
-    typename simd_type::vectorType *deriv1, typename simd_type::scalarType *out,
+    [[maybe_unused]] const simd_type *hfac1, const simd_type *advVel0_ptr,
+    const simd_type *advVel1_ptr, const simd_type *df_ptr, simd_type *deriv0,
+    simd_type *deriv1, simd_type *out,
     const typename simd_type::scalarType scale)
 {
     constexpr auto ndf = 4;
@@ -152,12 +145,8 @@ NEK_FORCE_INLINE static void AddAdvection2DKernel(
 
             adv.fma(vy, dy);
 
-            simd_type tmp;
-            tmp.load(out);
-
-            adv.fma(tmp, simd_type(scale));
-            adv.store(out);
-            out += simd_type::width;
+            adv.fma(out[cnt], simd_type(scale));
+            out[cnt] = adv;
         }
     }
 }
@@ -168,13 +157,10 @@ NEK_FORCE_INLINE static void AddAdvection3DKernel(
     [[maybe_unused]] const simd_type *hfac0,
     [[maybe_unused]] const simd_type *hfac1,
     [[maybe_unused]] const simd_type *hfac2,
-    [[maybe_unused]] const simd_type *hfac3,
-    const typename simd_type::vectorType *advVel0_ptr,
-    const typename simd_type::vectorType *advVel1_ptr,
-    const typename simd_type::vectorType *advVel2_ptr, const simd_type *df_ptr,
-    typename simd_type::vectorType *deriv0,
-    typename simd_type::vectorType *deriv1,
-    typename simd_type::vectorType *deriv2, typename simd_type::scalarType *out,
+    [[maybe_unused]] const simd_type *hfac3, const simd_type *advVel0_ptr,
+    const simd_type *advVel1_ptr, const simd_type *advVel2_ptr,
+    const simd_type *df_ptr, simd_type *deriv0, simd_type *deriv1,
+    simd_type *deriv2, simd_type *out,
     const typename simd_type::scalarType scale)
 {
     constexpr auto ndf = 9;
@@ -297,13 +283,8 @@ NEK_FORCE_INLINE static void AddAdvection3DKernel(
                 dz.fma(df8, d2);
                 adv.fma(vz, dz);
 
-                simd_type tmp;
-                tmp.load(out);
-
-                adv.fma(tmp, simd_type(scale));
-                adv.store(out);
-
-                out += simd_type::width;
+                adv.fma(out[cnt], simd_type(scale));
+                out[cnt] = adv;
             }
         }
     }

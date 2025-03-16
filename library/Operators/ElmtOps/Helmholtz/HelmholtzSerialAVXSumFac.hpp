@@ -283,24 +283,16 @@ protected:
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
 
         // Allocate workspace.
-        auto bwd = static_cast<TData *>(
-            ::operator new[](nqTot *simd_t::width * sizeof(TData),
-                             std::align_val_t(simd_t::alignment)));
-        auto bwdvec = reinterpret_cast<typename simd_t::vectorType *>(bwd);
-        auto deriv0 = static_cast<TData *>(
-            ::operator new[](nqTot *simd_t::width * sizeof(TData),
-                             std::align_val_t(simd_t::alignment)));
-        auto deriv0vec =
-            reinterpret_cast<typename simd_t::vectorType *>(deriv0);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> bwd(nqTot);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> deriv0(nqTot);
 
         // Initialize pointers.
         auto input  = (interleave_width == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr =
-            reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto inptr  = reinterpret_cast<const simd_t *>(input);
+        auto outptr = reinterpret_cast<simd_t *>(output);
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
@@ -317,36 +309,33 @@ protected:
                 }
 
                 // Step 1: BwdTrans.
-                BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, m_B[0], inptr, bwd);
+                BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, m_B[0], inptr,
+                                             bwd.data());
 
                 // Step 2: Inner product for mass matrix operation.
                 IProduct1DKernel<SHAPE_TYPE, true, false, DEFORMED>(
-                    nm0, nq0, bwdvec, m_B[0], m_W[0], jacptr, outptr,
+                    nm0, nq0, bwd.data(), m_B[0], m_W[0], jacptr, outptr,
                     this->m_lambda);
 
                 // Step 3: Take derivatives in collapsed coordinate space.
-                PhysDerivTensor1DKernel(nq0, bwdvec, m_D[0], deriv0);
+                PhysDerivTensor1DKernel(nq0, bwd.data(), m_D[0], deriv0.data());
 
                 // Step 4: Apply diffusion coefficiets.
                 DiffusionCoeffSegKernel<DEFORMED, simd_t>(
                     nq0, true, this->m_diffCoeff, false, NullTDataVector, dfptr,
-                    deriv0);
+                    deriv0.data());
 
                 // Step 5: Apply Laplacian metrics & inner product.
                 IProduct1DKernel<SHAPE_TYPE, false, true, DEFORMED>(
-                    nm0, nq0, deriv0vec, m_DB[0], m_W[0], jacptr, outptr);
+                    nm0, nq0, deriv0.data(), m_DB[0], m_W[0], jacptr, outptr);
 
                 // Increment pointers.
                 dfptr += dfSize * ndf;
                 jacptr += dfSize;
                 inptr += nmTot;
-                outptr += nmTot * simd_t::width;
+                outptr += nmTot;
             }
         }
-
-        // Free aligned memory.
-        ::operator delete[](bwd, std::align_val_t(simd_t::alignment));
-        ::operator delete[](deriv0, std::align_val_t(simd_t::alignment));
     }
 
     // Size based template version.
@@ -390,24 +379,16 @@ protected:
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
 
         // Allocate workspace.
-        auto bwd = static_cast<TData *>(
-            ::operator new[](nqTot *simd_t::width * sizeof(TData),
-                             std::align_val_t(simd_t::alignment)));
-        auto bwdvec = reinterpret_cast<typename simd_t::vectorType *>(bwd);
-        auto deriv0 = static_cast<TData *>(
-            ::operator new[](nqTot *simd_t::width * sizeof(TData),
-                             std::align_val_t(simd_t::alignment)));
-        auto deriv0vec =
-            reinterpret_cast<typename simd_t::vectorType *>(deriv0);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> bwd(nqTot);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> deriv0(nqTot);
 
         // Initialize pointers.
         auto input  = (interleave_width == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr =
-            reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto inptr  = reinterpret_cast<const simd_t *>(input);
+        auto outptr = reinterpret_cast<simd_t *>(output);
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
@@ -424,36 +405,33 @@ protected:
                 }
 
                 // Step 1: BwdTrans.
-                BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, m_B[0], inptr, bwd);
+                BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, m_B[0], inptr,
+                                             bwd.data());
 
                 // Step 2: Inner product for mass matrix operation.
                 IProduct1DKernel<SHAPE_TYPE, true, false, DEFORMED>(
-                    nm0, nq0, bwdvec, m_B[0], m_W[0], jacptr, outptr,
+                    nm0, nq0, bwd.data(), m_B[0], m_W[0], jacptr, outptr,
                     this->m_lambda);
 
                 // Step 3: Take derivatives in collapsed coordinate space.
-                PhysDerivTensor1DKernel(nq0, bwdvec, m_D[0], deriv0);
+                PhysDerivTensor1DKernel(nq0, bwd.data(), m_D[0], deriv0.data());
 
                 // Step 4: Apply diffusion coefficiets.
                 DiffusionCoeffSegKernel<DEFORMED, simd_t>(
                     nq0, true, this->m_diffCoeff, false, NullTDataVector, dfptr,
-                    deriv0);
+                    deriv0.data());
 
                 // Step 5: Apply Laplacian metrics & inner product.
                 IProduct1DKernel<SHAPE_TYPE, false, true, DEFORMED>(
-                    nm0, nq0, deriv0vec, m_DB[0], m_W[0], jacptr, outptr);
+                    nm0, nq0, deriv0.data(), m_DB[0], m_W[0], jacptr, outptr);
 
                 // Increment pointers.
                 dfptr += dfSize * ndf;
                 jacptr += dfSize;
                 inptr += nmTot;
-                outptr += nmTot * simd_t::width;
+                outptr += nmTot;
             }
         }
-
-        // Free aligned memory.
-        ::operator delete[](bwd, std::align_val_t(simd_t::alignment));
-        ::operator delete[](deriv0, std::align_val_t(simd_t::alignment));
     }
 
     // Non-size based operator.
@@ -507,30 +485,17 @@ protected:
         BwdTrans2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
         IProduct2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
-
-        auto bwd = static_cast<TData *>(
-            ::operator new[](nqTot *simd_t::width * sizeof(TData),
-                             std::align_val_t(simd_t::alignment)));
-        auto bwdvec = reinterpret_cast<typename simd_t::vectorType *>(bwd);
-        auto deriv0 = static_cast<TData *>(
-            ::operator new[](nqTot *simd_t::width * sizeof(TData),
-                             std::align_val_t(simd_t::alignment)));
-        auto deriv0vec =
-            reinterpret_cast<typename simd_t::vectorType *>(deriv0);
-        auto deriv1 = static_cast<TData *>(
-            ::operator new[](nqTot *simd_t::width * sizeof(TData),
-                             std::align_val_t(simd_t::alignment)));
-        auto deriv1vec =
-            reinterpret_cast<typename simd_t::vectorType *>(deriv1);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> bwd(nqTot);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> deriv0(nqTot);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> deriv1(nqTot);
 
         // Initialize pointers.
         auto input  = (interleave_width == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr =
-            reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto inptr  = reinterpret_cast<const simd_t *>(input);
+        auto outptr = reinterpret_cast<simd_t *>(output);
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
@@ -548,36 +513,33 @@ protected:
 
                 // Step 1: BwdTrans.
                 BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, m_isModified,
-                                             m_B[0], m_B[1], wsp0, inptr, bwd);
+                                             m_B[0], m_B[1], wsp0.data(), inptr,
+                                             bwd.data());
 
                 // Step 2 + 3: Get tensor derivative and apply diffusion coeff.
                 TensorDerivWithDiffuCoeff2DKernel<SHAPE_TYPE, DEFORMED, simd_t>(
                     nq0, nq1, true, this->m_diffCoeff, false, NullTDataVector,
-                    NullTDataVector, NullTDataVector, bwdvec, m_D[0], m_D[1],
-                    dfptr, m_f[0], m_f[1], deriv0, deriv1);
+                    NullTDataVector, NullTDataVector, bwd.data(), m_D[0],
+                    m_D[1], dfptr, m_f[0], m_f[1], deriv0.data(),
+                    deriv1.data());
 
                 // Step 4: apply WJ, derivative and sum up.
                 SumDerivTensor2DKernel<DEFORMED, simd_t>(
-                    nq0, nq1, deriv0vec, deriv1vec, m_W[0], m_W[1], jacptr,
-                    m_D[0], m_D[1], bwd, this->m_lambda);
+                    nq0, nq1, deriv0.data(), deriv1.data(), m_W[0], m_W[1],
+                    jacptr, m_D[0], m_D[1], bwd.data(), this->m_lambda);
 
                 // Step 5 : inner product without WJ.
                 IProduct2DKernel<SHAPE_TYPE, false, false, simd_t>(
-                    nm0, nm1, nq0, nq1, m_isModified, bwdvec, m_B[0], m_B[1],
-                    wsp0, outptr);
+                    nm0, nm1, nq0, nq1, m_isModified, bwd.data(), m_B[0],
+                    m_B[1], wsp0.data(), outptr);
 
                 // Increment pointers.
                 dfptr += dfSize * ndf;
                 jacptr += dfSize;
                 inptr += nmTot;
-                outptr += nmTot * simd_t::width;
+                outptr += nmTot;
             }
         }
-
-        // Free aligned memory.
-        ::operator delete[](bwd, std::align_val_t(simd_t::alignment));
-        ::operator delete[](deriv0, std::align_val_t(simd_t::alignment));
-        ::operator delete[](deriv1, std::align_val_t(simd_t::alignment));
     }
 
     // Size based template version.
@@ -627,24 +589,17 @@ protected:
         BwdTrans2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
         IProduct2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
-
-        alignas(simd_t::alignment) TData bwd[nqTot * simd_t::width];
-        auto bwdvec = reinterpret_cast<typename simd_t::vectorType *>(bwd);
-        alignas(simd_t::alignment) TData deriv0[nqTot * simd_t::width];
-        auto deriv0vec =
-            reinterpret_cast<typename simd_t::vectorType *>(deriv0);
-        alignas(simd_t::alignment) TData deriv1[nqTot * simd_t::width];
-        auto deriv1vec =
-            reinterpret_cast<typename simd_t::vectorType *>(deriv1);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> bwd(nqTot);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> deriv0(nqTot);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> deriv1(nqTot);
 
         // Initialize pointers.
         auto input  = (interleave_width == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr =
-            reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto inptr  = reinterpret_cast<const simd_t *>(input);
+        auto outptr = reinterpret_cast<simd_t *>(output);
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
@@ -662,29 +617,31 @@ protected:
 
                 // Step 1: BwdTrans.
                 BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, m_isModified,
-                                             m_B[0], m_B[1], wsp0, inptr, bwd);
+                                             m_B[0], m_B[1], wsp0.data(), inptr,
+                                             bwd.data());
 
                 // Step 2 + 3: Get tensor derivative and apply diffusion coeff.
                 TensorDerivWithDiffuCoeff2DKernel<SHAPE_TYPE, DEFORMED, simd_t>(
                     nq0, nq1, true, this->m_diffCoeff, false, NullTDataVector,
-                    NullTDataVector, NullTDataVector, bwdvec, m_D[0], m_D[1],
-                    dfptr, m_f[0], m_f[1], deriv0, deriv1);
+                    NullTDataVector, NullTDataVector, bwd.data(), m_D[0],
+                    m_D[1], dfptr, m_f[0], m_f[1], deriv0.data(),
+                    deriv1.data());
 
                 // Step 4: apply WJ, derivative and sum up.
                 SumDerivTensor2DKernel<DEFORMED, simd_t>(
-                    nq0, nq1, deriv0vec, deriv1vec, m_W[0], m_W[1], jacptr,
-                    m_D[0], m_D[1], bwd, this->m_lambda);
+                    nq0, nq1, deriv0.data(), deriv1.data(), m_W[0], m_W[1],
+                    jacptr, m_D[0], m_D[1], bwd.data(), this->m_lambda);
 
                 // Step 5 : inner product without WJ.
                 IProduct2DKernel<SHAPE_TYPE, false, false, simd_t>(
-                    nm0, nm1, nq0, nq1, m_isModified, bwdvec, m_B[0], m_B[1],
-                    wsp0, outptr);
+                    nm0, nm1, nq0, nq1, m_isModified, bwd.data(), m_B[0],
+                    m_B[1], wsp0.data(), outptr);
 
                 // Increment pointers.
                 dfptr += dfSize * ndf;
                 jacptr += dfSize;
                 inptr += nmTot;
-                outptr += nmTot * simd_t::width;
+                outptr += nmTot;
             }
         }
     }
@@ -746,36 +703,18 @@ protected:
 
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
             wsp1(wsp1Size), wsp2(wsp2Size);
-
-        auto bwd = static_cast<TData *>(
-            ::operator new[](nqTot *simd_t::width * sizeof(TData),
-                             std::align_val_t(simd_t::alignment)));
-        auto bwdvec = reinterpret_cast<typename simd_t::vectorType *>(bwd);
-
-        auto deriv0 = static_cast<TData *>(
-            ::operator new[](nqTot *simd_t::width * sizeof(TData),
-                             std::align_val_t(simd_t::alignment)));
-        auto deriv0vec =
-            reinterpret_cast<typename simd_t::vectorType *>(deriv0);
-        auto deriv1 = static_cast<TData *>(
-            ::operator new[](nqTot *simd_t::width * sizeof(TData),
-                             std::align_val_t(simd_t::alignment)));
-        auto deriv1vec =
-            reinterpret_cast<typename simd_t::vectorType *>(deriv1);
-        auto deriv2 = static_cast<TData *>(
-            ::operator new[](nqTot *simd_t::width * sizeof(TData),
-                             std::align_val_t(simd_t::alignment)));
-        auto deriv2vec =
-            reinterpret_cast<typename simd_t::vectorType *>(deriv2);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> bwd(nqTot);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> deriv0(nqTot);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> deriv1(nqTot);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> deriv2(nqTot);
 
         // Initialize pointers.
         auto input  = (interleave_width == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr =
-            reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto inptr  = reinterpret_cast<const simd_t *>(input);
+        auto outptr = reinterpret_cast<simd_t *>(output);
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
@@ -792,42 +731,38 @@ protected:
                 }
 
                 // Step 1: BwdTrans.
-                BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2,
-                                             m_isModified, m_B[0], m_B[1],
-                                             m_B[2], wsp0, wsp1, inptr, bwd);
+                BwdTrans3DKernel<SHAPE_TYPE>(
+                    nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, m_B[0], m_B[1],
+                    m_B[2], wsp0.data(), wsp1.data(), inptr, bwd.data());
 
                 // Step 2 + 3 : Get tensor derivative and apply diffusion coeff.
                 TensorDerivWithDiffuCoeff3DKernel<SHAPE_TYPE, DEFORMED, simd_t>(
                     nq0, nq1, nq2, true, this->m_diffCoeff, false,
                     NullTDataVector, NullTDataVector, NullTDataVector,
-                    NullTDataVector, NullTDataVector, NullTDataVector, bwdvec,
-                    m_D[0], m_D[1], m_D[2], dfptr, m_f[0], m_f[1], m_f[2],
-                    m_f[3], deriv0, deriv1, deriv2);
+                    NullTDataVector, NullTDataVector, NullTDataVector,
+                    bwd.data(), m_D[0], m_D[1], m_D[2], dfptr, m_f[0], m_f[1],
+                    m_f[2], m_f[3], deriv0.data(), deriv1.data(),
+                    deriv2.data());
 
                 // Step 4: apply WJ, derivative and sum up.
                 SumDerivTensor3DKernel<DEFORMED, simd_t>(
-                    nq0, nq1, nq2, deriv0vec, deriv1vec, deriv2vec, m_W[0],
-                    m_W[1], m_W[2], jacptr, m_D[0], m_D[1], m_D[2], bwd,
-                    this->m_lambda);
+                    nq0, nq1, nq2, deriv0.data(), deriv1.data(), deriv2.data(),
+                    m_W[0], m_W[1], m_W[2], jacptr, m_D[0], m_D[1], m_D[2],
+                    bwd.data(), this->m_lambda);
 
                 // Step 5 : inner product without WJ.
                 IProduct3DKernel<SHAPE_TYPE, false, false, simd_t>(
-                    nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, bwdvec, m_B[0],
-                    m_B[1], m_B[2], wsp0, wsp1, wsp2, outptr);
+                    nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, bwd.data(),
+                    m_B[0], m_B[1], m_B[2], wsp0.data(), wsp1.data(),
+                    wsp2.data(), outptr);
 
                 // Increment pointers.
                 dfptr += dfSize * ndf;
                 jacptr += dfSize;
                 inptr += nmTot;
-                outptr += nmTot * simd_t::width;
+                outptr += nmTot;
             }
         }
-
-        // Free aligned memory.
-        ::operator delete[](bwd, std::align_val_t(simd_t::alignment));
-        ::operator delete[](deriv0, std::align_val_t(simd_t::alignment));
-        ::operator delete[](deriv1, std::align_val_t(simd_t::alignment));
-        ::operator delete[](deriv2, std::align_val_t(simd_t::alignment));
     }
 
     // Size based template version.
@@ -880,30 +815,18 @@ protected:
                                         wsp1Size, wsp2Size);
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
             wsp1(wsp1Size), wsp2(wsp2Size);
-
-        alignas(simd_t::alignment) TData bwd[nqTot * simd_t::width];
-        auto bwdvec = reinterpret_cast<typename simd_t::vectorType *>(bwd);
-
-        alignas(simd_t::alignment) TData deriv0[nqTot * simd_t::width];
-        auto deriv0vec =
-            reinterpret_cast<typename simd_t::vectorType *>(deriv0);
-
-        alignas(simd_t::alignment) TData deriv1[nqTot * simd_t::width];
-        auto deriv1vec =
-            reinterpret_cast<typename simd_t::vectorType *>(deriv1);
-
-        alignas(simd_t::alignment) TData deriv2[nqTot * simd_t::width];
-        auto deriv2vec =
-            reinterpret_cast<typename simd_t::vectorType *>(deriv2);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> bwd(nqTot);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> deriv0(nqTot);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> deriv1(nqTot);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> deriv2(nqTot);
 
         // Initialize pointers.
         auto input  = (interleave_width == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr =
-            reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto inptr  = reinterpret_cast<const simd_t *>(input);
+        auto outptr = reinterpret_cast<simd_t *>(output);
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
@@ -920,34 +843,36 @@ protected:
                 }
 
                 // Step 1: BwdTrans.
-                BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2,
-                                             m_isModified, m_B[0], m_B[1],
-                                             m_B[2], wsp0, wsp1, inptr, bwd);
+                BwdTrans3DKernel<SHAPE_TYPE>(
+                    nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, m_B[0], m_B[1],
+                    m_B[2], wsp0.data(), wsp1.data(), inptr, bwd.data());
 
                 // Step 2 + 3 : Get tensor derivative and apply diffusion coeff.
                 TensorDerivWithDiffuCoeff3DKernel<SHAPE_TYPE, DEFORMED, simd_t>(
                     nq0, nq1, nq2, true, this->m_diffCoeff, false,
                     NullTDataVector, NullTDataVector, NullTDataVector,
-                    NullTDataVector, NullTDataVector, NullTDataVector, bwdvec,
-                    m_D[0], m_D[1], m_D[2], dfptr, m_f[0], m_f[1], m_f[2],
-                    m_f[3], deriv0, deriv1, deriv2);
+                    NullTDataVector, NullTDataVector, NullTDataVector,
+                    bwd.data(), m_D[0], m_D[1], m_D[2], dfptr, m_f[0], m_f[1],
+                    m_f[2], m_f[3], deriv0.data(), deriv1.data(),
+                    deriv2.data());
 
                 // Step 4: apply WJ, derivative and sum up.
                 SumDerivTensor3DKernel<DEFORMED, simd_t>(
-                    nq0, nq1, nq2, deriv0vec, deriv1vec, deriv2vec, m_W[0],
-                    m_W[1], m_W[2], jacptr, m_D[0], m_D[1], m_D[2], bwd,
-                    this->m_lambda);
+                    nq0, nq1, nq2, deriv0.data(), deriv1.data(), deriv2.data(),
+                    m_W[0], m_W[1], m_W[2], jacptr, m_D[0], m_D[1], m_D[2],
+                    bwd.data(), this->m_lambda);
 
                 // Step 5 : inner product without WJ.
                 IProduct3DKernel<SHAPE_TYPE, false, false, simd_t>(
-                    nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, bwdvec, m_B[0],
-                    m_B[1], m_B[2], wsp0, wsp1, wsp2, outptr);
+                    nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, bwd.data(),
+                    m_B[0], m_B[1], m_B[2], wsp0.data(), wsp1.data(),
+                    wsp2.data(), outptr);
 
                 // Increment pointers.
                 dfptr += dfSize * ndf;
                 jacptr += dfSize;
                 inptr += nmTot;
-                outptr += nmTot * simd_t::width;
+                outptr += nmTot;
             }
         }
     }

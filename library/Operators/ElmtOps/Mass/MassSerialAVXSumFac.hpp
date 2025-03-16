@@ -227,19 +227,15 @@ protected:
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
 
         // Allocate workspace.
-        auto bwd = static_cast<TData *>(
-            ::operator new[](nqTot *simd_t::width * sizeof(TData),
-                             std::align_val_t(simd_t::alignment)));
-        auto bwdvec = reinterpret_cast<typename simd_t::vectorType *>(bwd);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> bwd(nqTot);
 
         // Initialize pointers.
         auto input  = (interleave_width == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr =
-            reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto inptr  = reinterpret_cast<const simd_t *>(input);
+        auto outptr = reinterpret_cast<simd_t *>(output);
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
@@ -255,21 +251,19 @@ protected:
                 }
 
                 // Step 1: BwdTrans.
-                BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, m_B[0], inptr, bwd);
+                BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, m_B[0], inptr,
+                                             bwd.data());
 
                 // Step 2: Inner product for mass matrix operation.
                 IProduct1DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                    nm0, nq0, bwdvec, m_B[0], m_W[0], jacptr, outptr);
+                    nm0, nq0, bwd.data(), m_B[0], m_W[0], jacptr, outptr);
 
                 // Increment pointers.
                 jacptr += jacSize;
                 inptr += nmTot;
-                outptr += nmTot * simd_t::width;
+                outptr += nmTot;
             }
         }
-
-        // Free aligned memory.
-        ::operator delete[](bwd, std::align_val_t(simd_t::alignment));
     }
 
     // Size based template version.
@@ -307,19 +301,15 @@ protected:
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
 
         // Allocate workspace.
-        auto bwd = static_cast<TData *>(
-            ::operator new[](nqTot *simd_t::width * sizeof(TData),
-                             std::align_val_t(simd_t::alignment)));
-        auto bwdvec = reinterpret_cast<typename simd_t::vectorType *>(bwd);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> bwd(nqTot);
 
         // Initialize pointers.
         auto input  = (interleave_width == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr =
-            reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto inptr  = reinterpret_cast<const simd_t *>(input);
+        auto outptr = reinterpret_cast<simd_t *>(output);
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
@@ -335,21 +325,19 @@ protected:
                 }
 
                 // Step 1: BwdTrans.
-                BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, m_B[0], inptr, bwd);
+                BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, m_B[0], inptr,
+                                             bwd.data());
 
                 // Step 2: Inner product for mass matrix operation.
                 IProduct1DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                    nm0, nq0, bwdvec, m_B[0], m_W[0], jacptr, outptr);
+                    nm0, nq0, bwd.data(), m_B[0], m_W[0], jacptr, outptr);
 
                 // Increment pointers.
                 jacptr += jacSize;
                 inptr += nmTot;
-                outptr += nmTot * simd_t::width;
+                outptr += nmTot;
             }
         }
-
-        // Free aligned memory.
-        ::operator delete[](bwd, std::align_val_t(simd_t::alignment));
     }
 
     // Non-size based operator.
@@ -397,20 +385,15 @@ protected:
         BwdTrans2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
         IProduct2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
-
-        auto bwd = static_cast<TData *>(
-            ::operator new[](nqTot *simd_t::width * sizeof(TData),
-                             std::align_val_t(simd_t::alignment)));
-        auto bwdvec = reinterpret_cast<typename simd_t::vectorType *>(bwd);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> bwd(nqTot);
 
         // Initialize pointers.
         auto input  = (interleave_width == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr =
-            reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto inptr  = reinterpret_cast<const simd_t *>(input);
+        auto outptr = reinterpret_cast<simd_t *>(output);
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
@@ -427,22 +410,20 @@ protected:
 
                 // Step 1: BwdTrans.
                 BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, m_isModified,
-                                             m_B[0], m_B[1], wsp0, inptr, bwd);
+                                             m_B[0], m_B[1], wsp0.data(), inptr,
+                                             bwd.data());
 
                 // Step 2: Inner product for mass matrix operation.
                 IProduct2DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                    nm0, nm1, nq0, nq1, m_isModified, bwdvec, m_B[0], m_B[1],
-                    m_W[0], m_W[1], jacptr, wsp0, outptr);
+                    nm0, nm1, nq0, nq1, m_isModified, bwd.data(), m_B[0],
+                    m_B[1], m_W[0], m_W[1], jacptr, wsp0.data(), outptr);
 
                 // Increment pointers.
                 jacptr += jacSize;
                 inptr += nmTot;
-                outptr += nmTot * simd_t::width;
+                outptr += nmTot;
             }
         }
-
-        // Free aligned memory.
-        ::operator delete[](bwd, std::align_val_t(simd_t::alignment));
     }
 
     // Size based template version.
@@ -487,19 +468,15 @@ protected:
         IProduct2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
 
-        auto bwd = static_cast<TData *>(
-            ::operator new[](nqTot *simd_t::width * sizeof(TData),
-                             std::align_val_t(simd_t::alignment)));
-        auto bwdvec = reinterpret_cast<typename simd_t::vectorType *>(bwd);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> bwd(nqTot);
 
         // Initialize pointers.
         auto input  = (interleave_width == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr =
-            reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto inptr  = reinterpret_cast<const simd_t *>(input);
+        auto outptr = reinterpret_cast<simd_t *>(output);
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
@@ -516,22 +493,20 @@ protected:
 
                 // Step 1: BwdTrans.
                 BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, m_isModified,
-                                             m_B[0], m_B[1], wsp0, inptr, bwd);
+                                             m_B[0], m_B[1], wsp0.data(), inptr,
+                                             bwd.data());
 
                 // Step 2: Inner product for mass matrix operation.
                 IProduct2DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                    nm0, nm1, nq0, nq1, m_isModified, bwdvec, m_B[0], m_B[1],
-                    m_W[0], m_W[1], jacptr, wsp0, outptr);
+                    nm0, nm1, nq0, nq1, m_isModified, bwd.data(), m_B[0],
+                    m_B[1], m_W[0], m_W[1], jacptr, wsp0.data(), outptr);
 
                 // Increment pointers.
                 jacptr += jacSize;
                 inptr += nmTot;
-                outptr += nmTot * simd_t::width;
+                outptr += nmTot;
             }
         }
-
-        // Free aligned memory.
-        ::operator delete[](bwd, std::align_val_t(simd_t::alignment));
     }
 
     // Non-size based operator.
@@ -585,19 +560,15 @@ protected:
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
             wsp1(wsp1Size), wsp2(wsp2Size);
 
-        auto bwd = static_cast<TData *>(
-            ::operator new[](nqTot *simd_t::width * sizeof(TData),
-                             std::align_val_t(simd_t::alignment)));
-        auto bwdvec = reinterpret_cast<typename simd_t::vectorType *>(bwd);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> bwd(nqTot);
 
         // Initialize pointers.
         auto input  = (interleave_width == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr =
-            reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto inptr  = reinterpret_cast<const simd_t *>(input);
+        auto outptr = reinterpret_cast<simd_t *>(output);
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
@@ -613,25 +584,22 @@ protected:
                 }
 
                 // Step 1: BwdTrans.
-                BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2,
-                                             m_isModified, m_B[0], m_B[1],
-                                             m_B[2], wsp0, wsp1, inptr, bwd);
+                BwdTrans3DKernel<SHAPE_TYPE>(
+                    nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, m_B[0], m_B[1],
+                    m_B[2], wsp0.data(), wsp1.data(), inptr, bwd.data());
 
                 // Step 2: Inner product for mass matrix operation.
                 IProduct3DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                    nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, bwdvec, m_B[0],
-                    m_B[1], m_B[2], m_W[0], m_W[1], m_W[2], jacptr, wsp0, wsp1,
-                    wsp2, outptr);
+                    nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, bwd.data(),
+                    m_B[0], m_B[1], m_B[2], m_W[0], m_W[1], m_W[2], jacptr,
+                    wsp0.data(), wsp1.data(), wsp2.data(), outptr);
 
                 // Increment pointers.
                 jacptr += jacSize;
                 inptr += nmTot;
-                outptr += nmTot * simd_t::width;
+                outptr += nmTot;
             }
         }
-
-        // Free aligned memory.
-        ::operator delete[](bwd, std::align_val_t(simd_t::alignment));
     }
 
     // Size based template version.
@@ -679,19 +647,15 @@ protected:
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
             wsp1(wsp1Size), wsp2(wsp2Size);
 
-        auto bwd = static_cast<TData *>(
-            ::operator new[](nqTot *simd_t::width * sizeof(TData),
-                             std::align_val_t(simd_t::alignment)));
-        auto bwdvec = reinterpret_cast<typename simd_t::vectorType *>(bwd);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> bwd(nqTot);
 
         // Initialize pointers.
         auto input  = (interleave_width == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr =
-            reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto inptr  = reinterpret_cast<const simd_t *>(input);
+        auto outptr = reinterpret_cast<simd_t *>(output);
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
@@ -707,25 +671,22 @@ protected:
                 }
 
                 // Step 1: BwdTrans.
-                BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2,
-                                             m_isModified, m_B[0], m_B[1],
-                                             m_B[2], wsp0, wsp1, inptr, bwd);
+                BwdTrans3DKernel<SHAPE_TYPE>(
+                    nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, m_B[0], m_B[1],
+                    m_B[2], wsp0.data(), wsp1.data(), inptr, bwd.data());
 
                 // Step 2: Inner product for mass matrix operation.
                 IProduct3DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                    nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, bwdvec, m_B[0],
-                    m_B[1], m_B[2], m_W[0], m_W[1], m_W[2], jacptr, wsp0, wsp1,
-                    wsp2, outptr);
+                    nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, bwd.data(),
+                    m_B[0], m_B[1], m_B[2], m_W[0], m_W[1], m_W[2], jacptr,
+                    wsp0.data(), wsp1.data(), wsp2.data(), outptr);
 
                 // Increment pointers.
                 jacptr += jacSize;
                 inptr += nmTot;
-                outptr += nmTot * simd_t::width;
+                outptr += nmTot;
             }
         }
-
-        // Free aligned memory.
-        ::operator delete[](bwd, std::align_val_t(simd_t::alignment));
     }
 };
 
