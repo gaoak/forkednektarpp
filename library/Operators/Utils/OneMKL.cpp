@@ -51,29 +51,25 @@ void deviceGemm(deviceHandle queue, std::string transposeA,
         {
             blas::column_major::gemm(queue, oneapi::mkl::transpose::N,
                                      oneapi::mkl::transpose::N, M, N, K, alpha,
-                                     a, lda, b, ldb, beta, c, ldc)
-                .wait();
+                                     a, lda, b, ldb, beta, c, ldc);
         }
         else if (transposeA == "T" && transposeB == "N")
         {
             blas::column_major::gemm(queue, oneapi::mkl::transpose::T,
                                      oneapi::mkl::transpose::N, M, N, K, alpha,
-                                     a, lda, b, ldb, beta, c, ldc)
-                .wait();
+                                     a, lda, b, ldb, beta, c, ldc);
         }
         else if (transposeA == "N" && transposeB == "T")
         {
             blas::column_major::gemm(queue, oneapi::mkl::transpose::N,
                                      oneapi::mkl::transpose::T, M, N, K, alpha,
-                                     a, lda, b, ldb, beta, c, ldc)
-                .wait();
+                                     a, lda, b, ldb, beta, c, ldc);
         }
         else if (transposeA == "T" && transposeB == "T")
         {
             blas::column_major::gemm(queue, oneapi::mkl::transpose::T,
                                      oneapi::mkl::transpose::T, M, N, K, alpha,
-                                     a, lda, b, ldb, beta, c, ldc)
-                .wait();
+                                     a, lda, b, ldb, beta, c, ldc);
         }
     }
     else if constexpr (std::is_same_v<TData, double>)
@@ -82,31 +78,31 @@ void deviceGemm(deviceHandle queue, std::string transposeA,
         {
             blas::column_major::gemm(queue, oneapi::mkl::transpose::N,
                                      oneapi::mkl::transpose::N, M, N, K, alpha,
-                                     a, lda, b, ldb, beta, c, ldc)
-                .wait();
+                                     a, lda, b, ldb, beta, c, ldc);
         }
         else if (transposeA == "T" && transposeB == "N")
         {
             blas::column_major::gemm(queue, oneapi::mkl::transpose::T,
                                      oneapi::mkl::transpose::N, M, N, K, alpha,
-                                     a, lda, b, ldb, beta, c, ldc)
-                .wait();
+                                     a, lda, b, ldb, beta, c, ldc);
         }
         else if (transposeA == "N" && transposeB == "T")
         {
             blas::column_major::gemm(queue, oneapi::mkl::transpose::N,
                                      oneapi::mkl::transpose::T, M, N, K, alpha,
-                                     a, lda, b, ldb, beta, c, ldc)
-                .wait();
+                                     a, lda, b, ldb, beta, c, ldc);
         }
         else if (transposeA == "T" && transposeB == "T")
         {
             blas::column_major::gemm(queue, oneapi::mkl::transpose::T,
                                      oneapi::mkl::transpose::T, M, N, K, alpha,
-                                     a, lda, b, ldb, beta, c, ldc)
-                .wait();
+                                     a, lda, b, ldb, beta, c, ldc);
         }
     }
+
+#if defined(SYCL_ENABLE_SERIAL)
+    queue.wait();
+#endif
 }
 
 template <typename deviceHandle, typename TData>
@@ -126,32 +122,28 @@ void deviceGemmStridedBatched(
             blas::column_major::gemm_batch(
                 queue, oneapi::mkl::transpose::N, oneapi::mkl::transpose::N, M,
                 N, K, alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc,
-                strideC, batchSize)
-                .wait();
+                strideC, batchSize);
         }
         else if (transposeA == "T" && transposeB == "N")
         {
             blas::column_major::gemm_batch(
                 queue, oneapi::mkl::transpose::T, oneapi::mkl::transpose::N, M,
                 N, K, alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc,
-                strideC, batchSize)
-                .wait();
+                strideC, batchSize);
         }
         else if (transposeA == "N" && transposeB == "T")
         {
             blas::column_major::gemm_batch(
                 queue, oneapi::mkl::transpose::N, oneapi::mkl::transpose::T, M,
                 N, K, alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc,
-                strideC, batchSize)
-                .wait();
+                strideC, batchSize);
         }
         else if (transposeA == "T" && transposeB == "T")
         {
             blas::column_major::gemm_batch(
                 queue, oneapi::mkl::transpose::T, oneapi::mkl::transpose::T, M,
                 N, K, alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc,
-                strideC, batchSize)
-                .wait();
+                strideC, batchSize);
         }
     }
     else if constexpr (std::is_same_v<TData, double>)
@@ -161,34 +153,34 @@ void deviceGemmStridedBatched(
             blas::column_major::gemm_batch(
                 queue, oneapi::mkl::transpose::N, oneapi::mkl::transpose::N, M,
                 N, K, alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc,
-                strideC, batchSize)
-                .wait();
+                strideC, batchSize);
         }
         else if (transposeA == "T" && transposeB == "N")
         {
             blas::column_major::gemm_batch(
                 queue, oneapi::mkl::transpose::T, oneapi::mkl::transpose::N, M,
                 N, K, alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc,
-                strideC, batchSize)
-                .wait();
+                strideC, batchSize);
         }
         else if (transposeA == "N" && transposeB == "T")
         {
             blas::column_major::gemm_batch(
                 queue, oneapi::mkl::transpose::N, oneapi::mkl::transpose::T, M,
                 N, K, alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc,
-                strideC, batchSize)
-                .wait();
+                strideC, batchSize);
         }
         else if (transposeA == "T" && transposeB == "T")
         {
             blas::column_major::gemm_batch(
                 queue, oneapi::mkl::transpose::T, oneapi::mkl::transpose::T, M,
                 N, K, alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc,
-                strideC, batchSize)
-                .wait();
+                strideC, batchSize);
         }
     }
+
+#if defined(SYCL_ENABLE_SERIAL)
+    queue.wait();
+#endif
 }
 
 template void deviceGemm<sycl::queue, float>(

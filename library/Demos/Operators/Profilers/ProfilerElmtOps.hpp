@@ -438,6 +438,8 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
 
 #if defined(NEKTAR_ENABLE_CUDA)
     cudaDeviceSynchronize();
+#elif defined(NEKTAR_ENABLE_SYCL)
+    SYCLQueue::GetInstance().wait();
 #endif
     timer.Start();
     LIKWID_MARKER_START(tag.c_str());
@@ -449,6 +451,8 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
 
 #if defined(NEKTAR_ENABLE_CUDA)
     cudaDeviceSynchronize();
+#elif defined(NEKTAR_ENABLE_SYCL)
+    SYCLQueue::GetInstance().wait();
 #endif
     LIKWID_MARKER_STOP(tag.c_str());
     timer.Stop();

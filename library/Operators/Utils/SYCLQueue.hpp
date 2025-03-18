@@ -52,7 +52,8 @@ public:
         /** @todo: Add device selection logic */
         if (!queue)
         {
-            queue = new sycl::queue(sycl::default_selector_v);
+            queue = new sycl::queue(sycl::default_selector_v,
+                                    sycl::property::queue::in_order());
         }
 
         return *queue;

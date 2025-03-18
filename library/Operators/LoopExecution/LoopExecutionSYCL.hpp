@@ -88,17 +88,21 @@ parallel_for(const int begin, const int end, const Functor &functor)
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
-                          [=](sycl::nd_item<1> indx) {
-                              unsigned int i = begin + indx.get_global_id(0);
+        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
+                         [=](sycl::nd_item<1> indx) {
+                             unsigned int i = begin + indx.get_global_id(0);
 
-                              while (i < end)
-                              {
-                                  functor(i);
-                                  i += indx.get_global_range(0);
-                              }
-                          });
-     }).wait();
+                             while (i < end)
+                             {
+                                 functor(i);
+                                 i += indx.get_global_range(0);
+                             }
+                         });
+    });
+
+#if defined(SYCL_ENABLE_SERIAL)
+    Q.wait();
+#endif
 }
 
 template <typename TData, typename Functor>
@@ -108,48 +112,48 @@ void reduceSumKernel(const unsigned int gridSize, const unsigned int blockSize,
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
+        sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
 
-         cgh.parallel_for(
-             sycl::nd_range<1>(gridSize * blockSize, blockSize),
-             [=](sycl::nd_item<1> indx) {
-                 const unsigned int lid = indx.get_local_id(0);
-                 unsigned int gid       = begin + indx.get_global_id(0);
+        cgh.parallel_for(
+            sycl::nd_range<1>(gridSize * blockSize, blockSize),
+            [=](sycl::nd_item<1> indx) {
+                const unsigned int lid = indx.get_local_id(0);
+                unsigned int gid       = begin + indx.get_global_id(0);
 
-                 if (lid == 0)
-                 {
-                     buffer[indx.get_group(0)] = 0.0;
-                 }
+                if (lid == 0)
+                {
+                    buffer[indx.get_group(0)] = 0.0;
+                }
 
-                 indx.barrier(sycl::access::fence_space::local_space);
+                indx.barrier(sycl::access::fence_space::local_space);
 
-                 TData tmp = 0.0;
-                 while (gid < end)
-                 {
-                     functor(gid, tmp);
-                     gid += indx.get_global_range(0);
-                 }
-                 scratch[lid] = tmp;
+                TData tmp = 0.0;
+                while (gid < end)
+                {
+                    functor(gid, tmp);
+                    gid += indx.get_global_range(0);
+                }
+                scratch[lid] = tmp;
 
-                 indx.barrier(sycl::access::fence_space::local_space);
+                indx.barrier(sycl::access::fence_space::local_space);
 
-                 unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
-                 while (n > 0)
-                 {
-                     if (blockSize > n && lid < n && lid + n < blockSize)
-                     {
-                         scratch[lid] += scratch[lid + n];
-                     }
-                     indx.barrier(sycl::access::fence_space::local_space);
-                     n /= 2;
-                 }
+                unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
+                while (n > 0)
+                {
+                    if (blockSize > n && lid < n && lid + n < blockSize)
+                    {
+                        scratch[lid] += scratch[lid + n];
+                    }
+                    indx.barrier(sycl::access::fence_space::local_space);
+                    n /= 2;
+                }
 
-                 if (lid == 0)
-                 {
-                     buffer[indx.get_group(0)] = scratch[0];
-                 }
-             });
-     }).wait();
+                if (lid == 0)
+                {
+                    buffer[indx.get_group(0)] = scratch[0];
+                }
+            });
+    });
 }
 
 template <typename TData, typename Functor>
@@ -161,49 +165,49 @@ void reduceMaxKernel(const unsigned int gridSize, const unsigned int blockSize,
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
+        sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
 
-         cgh.parallel_for(
-             sycl::nd_range<1>(gridSize * blockSize, blockSize),
-             [=](sycl::nd_item<1> indx) {
-                 const unsigned int lid = indx.get_local_id(0);
-                 unsigned int gid       = begin + indx.get_global_id(0);
+        cgh.parallel_for(
+            sycl::nd_range<1>(gridSize * blockSize, blockSize),
+            [=](sycl::nd_item<1> indx) {
+                const unsigned int lid = indx.get_local_id(0);
+                unsigned int gid       = begin + indx.get_global_id(0);
 
-                 if (lid == 0)
-                 {
-                     buffer[indx.get_group(0)] = min;
-                 }
+                if (lid == 0)
+                {
+                    buffer[indx.get_group(0)] = min;
+                }
 
-                 indx.barrier(sycl::access::fence_space::local_space);
+                indx.barrier(sycl::access::fence_space::local_space);
 
-                 TData tmp = min;
-                 while (gid < end)
-                 {
-                     functor(gid, tmp);
-                     gid += indx.get_global_range(0);
-                 }
-                 scratch[lid] = tmp;
+                TData tmp = min;
+                while (gid < end)
+                {
+                    functor(gid, tmp);
+                    gid += indx.get_global_range(0);
+                }
+                scratch[lid] = tmp;
 
-                 indx.barrier(sycl::access::fence_space::local_space);
+                indx.barrier(sycl::access::fence_space::local_space);
 
-                 unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
-                 while (n > 0)
-                 {
-                     if (blockSize > n && lid < n && lid + n < blockSize)
-                     {
-                         scratch[lid] =
-                             sycl::fmax(scratch[lid], scratch[lid + n]);
-                     }
-                     indx.barrier(sycl::access::fence_space::local_space);
-                     n /= 2;
-                 }
+                unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
+                while (n > 0)
+                {
+                    if (blockSize > n && lid < n && lid + n < blockSize)
+                    {
+                        scratch[lid] =
+                            sycl::fmax(scratch[lid], scratch[lid + n]);
+                    }
+                    indx.barrier(sycl::access::fence_space::local_space);
+                    n /= 2;
+                }
 
-                 if (lid == 0)
-                 {
-                     buffer[indx.get_group(0)] = scratch[0];
-                 }
-             });
-     }).wait();
+                if (lid == 0)
+                {
+                    buffer[indx.get_group(0)] = scratch[0];
+                }
+            });
+    });
 }
 
 template <typename TData, typename Functor>
@@ -215,49 +219,49 @@ void reduceMinKernel(const unsigned int gridSize, const unsigned int blockSize,
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
+        sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
 
-         cgh.parallel_for(
-             sycl::nd_range<1>(gridSize * blockSize, blockSize),
-             [=](sycl::nd_item<1> indx) {
-                 const unsigned int lid = indx.get_local_id(0);
-                 unsigned int gid       = begin + indx.get_global_id(0);
+        cgh.parallel_for(
+            sycl::nd_range<1>(gridSize * blockSize, blockSize),
+            [=](sycl::nd_item<1> indx) {
+                const unsigned int lid = indx.get_local_id(0);
+                unsigned int gid       = begin + indx.get_global_id(0);
 
-                 if (lid == 0)
-                 {
-                     buffer[indx.get_group(0)] = max;
-                 }
+                if (lid == 0)
+                {
+                    buffer[indx.get_group(0)] = max;
+                }
 
-                 indx.barrier(sycl::access::fence_space::local_space);
+                indx.barrier(sycl::access::fence_space::local_space);
 
-                 TData tmp = max;
-                 while (gid < end)
-                 {
-                     functor(gid, tmp);
-                     gid += indx.get_global_range(0);
-                 }
-                 scratch[lid] = tmp;
+                TData tmp = max;
+                while (gid < end)
+                {
+                    functor(gid, tmp);
+                    gid += indx.get_global_range(0);
+                }
+                scratch[lid] = tmp;
 
-                 indx.barrier(sycl::access::fence_space::local_space);
+                indx.barrier(sycl::access::fence_space::local_space);
 
-                 unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
-                 while (n > 0)
-                 {
-                     if (blockSize > n && lid < n && lid + n < blockSize)
-                     {
-                         scratch[lid] =
-                             sycl::fmin(scratch[lid], scratch[lid + n]);
-                     }
-                     indx.barrier(sycl::access::fence_space::local_space);
-                     n /= 2;
-                 }
+                unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
+                while (n > 0)
+                {
+                    if (blockSize > n && lid < n && lid + n < blockSize)
+                    {
+                        scratch[lid] =
+                            sycl::fmin(scratch[lid], scratch[lid + n]);
+                    }
+                    indx.barrier(sycl::access::fence_space::local_space);
+                    n /= 2;
+                }
 
-                 if (lid == 0)
-                 {
-                     buffer[indx.get_group(0)] = scratch[0];
-                 }
-             });
-     }).wait();
+                if (lid == 0)
+                {
+                    buffer[indx.get_group(0)] = scratch[0];
+                }
+            });
+    });
 }
 
 template <typename ExecSpace, typename Reduction, typename Functor>

@@ -92,6 +92,11 @@ struct vector_width
 {
     static constexpr unsigned int value = 32u;
 };
+#elif defined(SYCL_ENABLE_HIP)
+struct vector_width
+{
+    static constexpr unsigned int value = 64u;
+};
 #else
 struct vector_width
 {
@@ -105,7 +110,7 @@ struct HostSpace
 {
 };
 #if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||               \
-    defined(SYCL_ENABLE_CUDA) || defined(NEKTAR_ENABLE_DEVICEONHOST)
+    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
 // Used to refer to any data in device memory.
 struct DeviceSpace
 {
@@ -152,7 +157,7 @@ struct SYCL
 {
     static constexpr char name[] = "SYCL";
     using memory_space           = NektarSpaces::DeviceSpace;
-#if defined(SYCL_ENABLE_CUDA)
+#if defined(SYCL_ENABLE_CUDA) || defined(SYCL_ENABLE_HIP)
     static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
 #if defined(NEKTAR_DEBUG)
     static constexpr unsigned int defaultBlockSize = 128u;

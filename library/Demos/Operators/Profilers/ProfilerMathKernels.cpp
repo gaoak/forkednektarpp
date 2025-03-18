@@ -126,6 +126,7 @@ void ProfilerReduction(const unsigned int size)
                 size, xptr, yptr,
                 result_sycl
                     .template GetPtr<NektarSpaces::DeviceSpace, WriteOnly>());
+            SYCLQueue::GetInstance().wait();
             ASSERTL0((*result_sycl.template GetPtr<NektarSpaces::HostSpace,
                                                    ReadOnly>() > 0.0),
                      "Error!");
@@ -264,6 +265,7 @@ void ProfilerDaxpy(const unsigned int size)
                 });
             timer.Start();
             daxpyKernel<NektarSpaces::SYCL>(size, 3.2, xptr, yptr, zptr);
+            SYCLQueue::GetInstance().wait();
             ASSERTL0(
                 (z.template GetPtr<NektarSpaces::HostSpace, ReadOnly>()[0] >
                  0.0),
