@@ -156,13 +156,13 @@ AssembleKernel(const unsigned int nsize, const int *assmbPtr,
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
-                          [=](sycl::nd_item<1> item_ct1) {
+        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
+                         [=](sycl::nd_item<1> item_ct1) {
 #pragma forceinline
-                              AssembleKernel<TData>(nsize, assmbPtr, signPtr,
-                                                    inptr, outptr, item_ct1);
-                          });
-     }).wait();
+                             AssembleKernel<TData>(nsize, assmbPtr, signPtr,
+                                                   inptr, outptr, item_ct1);
+                         });
+    });
 }
 
 template <typename ExecSpace, typename TData>
@@ -176,13 +176,13 @@ AssembleKernel(const unsigned int nsize, const int *assmbPtr, const TData sign,
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
-                          [=](sycl::nd_item<1> item_ct1) {
+        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
+                         [=](sycl::nd_item<1> item_ct1) {
 #pragma forceinline
-                              AssembleKernel<TData>(nsize, assmbPtr, sign,
-                                                    inptr, outptr, item_ct1);
-                          });
-     }).wait();
+                             AssembleKernel<TData>(nsize, assmbPtr, sign, inptr,
+                                                   outptr, item_ct1);
+                         });
+    });
 }
 
 template <typename ExecSpace, typename TData>
@@ -196,13 +196,13 @@ AssembleKernel(const unsigned int nsize, const int *assmbPtr,
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
-                          [=](sycl::nd_item<1> item_ct1) {
+        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
+                         [=](sycl::nd_item<1> item_ct1) {
 #pragma forceinline
-                              AssembleKernel<TData>(nsize, assmbPtr, inptr,
-                                                    outptr, item_ct1);
-                          });
-     }).wait();
+                             AssembleKernel<TData>(nsize, assmbPtr, inptr,
+                                                   outptr, item_ct1);
+                         });
+    });
 }
 
 template <typename ExecSpace, typename TData>
@@ -216,14 +216,14 @@ GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
-                          [=](sycl::nd_item<1> item_ct1) {
+        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
+                         [=](sycl::nd_item<1> item_ct1) {
 #pragma forceinline
-                              GlobalToLocalKernel<TData>(nsize, assmbPtr,
-                                                         signPtr, inptr, outptr,
-                                                         item_ct1);
-                          });
-     }).wait();
+                             GlobalToLocalKernel<TData>(nsize, assmbPtr,
+                                                        signPtr, inptr, outptr,
+                                                        item_ct1);
+                         });
+    });
 }
 
 template <typename ExecSpace, typename TData>
@@ -237,14 +237,14 @@ GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
-                          [=](sycl::nd_item<1> item_ct1) {
+        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
+                         [=](sycl::nd_item<1> item_ct1) {
 #pragma forceinline
-                              GlobalToLocalKernel<TData>(nsize, assmbPtr, sign,
-                                                         inptr, outptr,
-                                                         item_ct1);
-                          });
-     }).wait();
+                             GlobalToLocalKernel<TData>(nsize, assmbPtr, sign,
+                                                        inptr, outptr,
+                                                        item_ct1);
+                         });
+    });
 }
 
 template <typename ExecSpace, typename TData>
@@ -258,13 +258,13 @@ GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
-                          [=](sycl::nd_item<1> item_ct1) {
+        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
+                         [=](sycl::nd_item<1> item_ct1) {
 #pragma forceinline
-                              GlobalToLocalKernel<TData>(nsize, assmbPtr, inptr,
-                                                         outptr, item_ct1);
-                          });
-     }).wait();
+                             GlobalToLocalKernel<TData>(nsize, assmbPtr, inptr,
+                                                        outptr, item_ct1);
+                         });
+    });
 }
 
 } // namespace Nektar::Operators::detail

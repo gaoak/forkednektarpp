@@ -51,14 +51,14 @@ RobBndCond1DKernel(const unsigned int nsize, const unsigned int *offsetPtr,
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
-                          [=](sycl::nd_item<1> item_ct1) {
+        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
+                         [=](sycl::nd_item<1> item_ct1) {
 #pragma forceinline
-                              RobBndCond1DKernel<negflag>(
-                                  nsize, offsetPtr, matPtr, mapPtr, incoeffPtr,
-                                  coeffPtr, item_ct1);
-                          });
-     }).wait();
+                             RobBndCond1DKernel<negflag>(
+                                 nsize, offsetPtr, matPtr, mapPtr, incoeffPtr,
+                                 coeffPtr, item_ct1);
+                         });
+    });
 }
 
 template <typename ExecSpace, bool negflag, typename TData>
@@ -76,20 +76,20 @@ RobBndCond2DKernel(const unsigned int nmaxcoeff, const unsigned int nsize,
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         sycl::local_accessor<TData, 1> shmem(sycl::range<1>(nmaxcoeff), cgh);
-         cgh.parallel_for(
-             sycl::nd_range<1>(gridSize * blockSize, blockSize),
-             [=](sycl::nd_item<1> item_ct1) {
-                 TData *shmemptr =
-                     shmem.template get_multi_ptr<sycl::access::decorated::no>()
-                         .get();
+        sycl::local_accessor<TData, 1> shmem(sycl::range<1>(nmaxcoeff), cgh);
+        cgh.parallel_for(
+            sycl::nd_range<1>(gridSize * blockSize, blockSize),
+            [=](sycl::nd_item<1> item_ct1) {
+                TData *shmemptr =
+                    shmem.template get_multi_ptr<sycl::access::decorated::no>()
+                        .get();
 #pragma forceinline
-                 RobBndCond2DKernel<negflag>(nsize, ncoeffPtr, offsetPtr,
-                                             matOffsetPtr, mapOffsetPtr, matPtr,
-                                             mapPtr, signPtr, incoeffPtr,
-                                             coeffPtr, shmemptr, item_ct1);
-             });
-     }).wait();
+                RobBndCond2DKernel<negflag>(nsize, ncoeffPtr, offsetPtr,
+                                            matOffsetPtr, mapOffsetPtr, matPtr,
+                                            mapPtr, signPtr, incoeffPtr,
+                                            coeffPtr, shmemptr, item_ct1);
+            });
+    });
 }
 
 } // namespace Nektar::Operators::detail

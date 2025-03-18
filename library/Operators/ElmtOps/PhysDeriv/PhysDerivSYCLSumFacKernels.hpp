@@ -55,14 +55,13 @@ NEK_FORCE_INLINE static void PhysDeriv1DKernel(const unsigned int ncoord,
     const unsigned int gridsize  = GetSYCLGridSize<Implementation>(nelmt);
 
     Q.submit([=](sycl::handler &cgh) {
-         cgh.parallel_for(sycl::nd_range<1>(gridsize * blocksize, blocksize),
-                          [=](sycl::nd_item<1> item_ct1) {
+        cgh.parallel_for(sycl::nd_range<1>(gridsize * blocksize, blocksize),
+                         [=](sycl::nd_item<1> item_ct1) {
 #pragma forceinline
-                              PhysDeriv1DKernel<Implementation, DEFORMED>(
-                                  ncoord, nq0, nelmt, D0, df, in, out,
-                                  item_ct1);
-                          });
-     }).wait();
+                             PhysDeriv1DKernel<Implementation, DEFORMED>(
+                                 ncoord, nq0, nelmt, D0, df, in, out, item_ct1);
+                         });
+    });
 }
 
 // Size based template version.
@@ -92,19 +91,19 @@ NEK_FORCE_INLINE static void PhysDeriv2DKernel(
     const unsigned int gridsize  = GetSYCLGridSize<Implementation>(nelmt);
 
     Q.submit([=](sycl::handler &cgh) {
-         sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
-         cgh.parallel_for(
-             sycl::nd_range<1>(gridsize * blocksize, blocksize),
-             [=](sycl::nd_item<1> item_ct1) {
-                 TData *shmemptr =
-                     shmem.template get_multi_ptr<sycl::access::decorated::no>()
-                         .get();
+        sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
+        cgh.parallel_for(
+            sycl::nd_range<1>(gridsize * blocksize, blocksize),
+            [=](sycl::nd_item<1> item_ct1) {
+                TData *shmemptr =
+                    shmem.template get_multi_ptr<sycl::access::decorated::no>()
+                        .get();
 #pragma forceinline
-                 PhysDeriv2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
-                     ncoord, nq0, nq1, nelmt, D0, D1, f0, f1, df, in, out,
-                     shmemptr, item_ct1);
-             });
-     }).wait();
+                PhysDeriv2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
+                    ncoord, nq0, nq1, nelmt, D0, D1, f0, f1, df, in, out,
+                    shmemptr, item_ct1);
+            });
+    });
 }
 
 // Size based template version.
@@ -139,19 +138,19 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel(
     const unsigned int gridsize = GetSYCLGridSize<Implementation>(nelmt);
 
     Q.submit([=](sycl::handler &cgh) {
-         sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
-         cgh.parallel_for(
-             sycl::nd_range<1>(gridsize * blocksize, blocksize),
-             [=](sycl::nd_item<1> item_ct1) {
-                 TData *shmemptr =
-                     shmem.template get_multi_ptr<sycl::access::decorated::no>()
-                         .get();
+        sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
+        cgh.parallel_for(
+            sycl::nd_range<1>(gridsize * blocksize, blocksize),
+            [=](sycl::nd_item<1> item_ct1) {
+                TData *shmemptr =
+                    shmem.template get_multi_ptr<sycl::access::decorated::no>()
+                        .get();
 #pragma forceinline
-                 PhysDeriv3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
-                     nq0, nq1, nq2, nelmt, D0, D1, D2, f0, f1, f1m, f2, df, in,
-                     out, shmemptr, item_ct1);
-             });
-     }).wait();
+                PhysDeriv3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
+                    nq0, nq1, nq2, nelmt, D0, D1, D2, f0, f1, f1m, f2, df, in,
+                    out, shmemptr, item_ct1);
+            });
+    });
 }
 
 // Size based template version.

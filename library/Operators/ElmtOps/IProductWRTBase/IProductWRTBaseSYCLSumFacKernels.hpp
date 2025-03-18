@@ -56,21 +56,20 @@ NEK_FORCE_INLINE static void IProductWRTBase1DKernel(
     const unsigned int gridsize  = GetSYCLGridSize<Implementation>(nelmt);
 
     Q.submit([=](sycl::handler &cgh) {
-         sycl::local_accessor<TData, 1> shared(sycl::range<1>(shmemsize), cgh);
-         cgh.parallel_for(
-             sycl::nd_range<1>(gridsize * blocksize, blocksize),
-             [=](sycl::nd_item<1> item_ct1) {
-                 TData *shmemptr =
-                     shared
-                         .template get_multi_ptr<sycl::access::decorated::no>()
-                         .get();
+        sycl::local_accessor<TData, 1> shared(sycl::range<1>(shmemsize), cgh);
+        cgh.parallel_for(
+            sycl::nd_range<1>(gridsize * blocksize, blocksize),
+            [=](sycl::nd_item<1> item_ct1) {
+                TData *shmemptr =
+                    shared.template get_multi_ptr<sycl::access::decorated::no>()
+                        .get();
 #pragma forceinline
-                 IProductWRTBase1DKernel<Implementation, SCALE, APPEND,
-                                         DEFORMED>(nm0, nq0, nelmt, basis0, w0,
-                                                   jac, in, out, scale,
-                                                   shmemptr, item_ct1);
-             });
-     }).wait();
+                IProductWRTBase1DKernel<Implementation, SCALE, APPEND,
+                                        DEFORMED>(nm0, nq0, nelmt, basis0, w0,
+                                                  jac, in, out, scale, shmemptr,
+                                                  item_ct1);
+            });
+    });
 }
 
 // Size based template version.
@@ -106,22 +105,21 @@ NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
     const unsigned int gridsize  = GetSYCLGridSize<Implementation>(nelmt);
 
     Q.submit([&](sycl::handler &cgh) {
-         sycl::local_accessor<TData, 1> shared(sycl::range<1>(shmemsize), cgh);
-         cgh.parallel_for(
-             sycl::nd_range<1>(gridsize * blocksize, blocksize),
-             [=](sycl::nd_item<1> item_ct1) {
-                 TData *shmemptr =
-                     shared
-                         .template get_multi_ptr<sycl::access::decorated::no>()
-                         .get();
+        sycl::local_accessor<TData, 1> shared(sycl::range<1>(shmemsize), cgh);
+        cgh.parallel_for(
+            sycl::nd_range<1>(gridsize * blocksize, blocksize),
+            [=](sycl::nd_item<1> item_ct1) {
+                TData *shmemptr =
+                    shared.template get_multi_ptr<sycl::access::decorated::no>()
+                        .get();
 #pragma forceinline
-                 IProductWRTBase2DKernel<SHAPE_TYPE, Implementation, SCALE,
-                                         APPEND, DEFORMED>(
-                     nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0,
-                     basis0, basis1, w0, w1, jac, in, out, wsp, scale, shmemptr,
-                     item_ct1);
-             });
-     }).wait();
+                IProductWRTBase2DKernel<SHAPE_TYPE, Implementation, SCALE,
+                                        APPEND, DEFORMED>(
+                    nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0,
+                    basis0, basis1, w0, w1, jac, in, out, wsp, scale, shmemptr,
+                    item_ct1);
+            });
+    });
 }
 
 // Size based template version.
@@ -165,22 +163,21 @@ NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
     const unsigned int gridsize  = GetSYCLGridSize<Implementation>(nelmt);
 
     Q.submit([&](sycl::handler &cgh) {
-         sycl::local_accessor<TData, 1> shared(sycl::range<1>(shmemsize), cgh);
-         cgh.parallel_for(
-             sycl::nd_range<1>(gridsize * blocksize, blocksize),
-             [=](sycl::nd_item<1> item_ct1) {
-                 TData *shmemptr =
-                     shared
-                         .template get_multi_ptr<sycl::access::decorated::no>()
-                         .get();
+        sycl::local_accessor<TData, 1> shared(sycl::range<1>(shmemsize), cgh);
+        cgh.parallel_for(
+            sycl::nd_range<1>(gridsize * blocksize, blocksize),
+            [=](sycl::nd_item<1> item_ct1) {
+                TData *shmemptr =
+                    shared.template get_multi_ptr<sycl::access::decorated::no>()
+                        .get();
 #pragma forceinline
-                 IProductWRTBase3DKernel<SHAPE_TYPE, Implementation, SCALE,
-                                         APPEND, DEFORMED>(
-                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified,
-                     index0, index1, index2, basis0, basis1, basis2, w0, w1, w2,
-                     jac, in, out, wsp, scale, shmemptr, item_ct1);
-             });
-     }).wait();
+                IProductWRTBase3DKernel<SHAPE_TYPE, Implementation, SCALE,
+                                        APPEND, DEFORMED>(
+                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified,
+                    index0, index1, index2, basis0, basis1, basis2, w0, w1, w2,
+                    jac, in, out, wsp, scale, shmemptr, item_ct1);
+            });
+    });
 }
 
 // Size based template version.

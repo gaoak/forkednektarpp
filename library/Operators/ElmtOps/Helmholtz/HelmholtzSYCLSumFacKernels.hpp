@@ -57,19 +57,19 @@ NEK_FORCE_INLINE static void Helmholtz1DKernel(
     const unsigned int gridsize  = GetSYCLGridSize<Implementation>(nelmt);
 
     Q.submit([=](sycl::handler &cgh) {
-         sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
-         cgh.parallel_for(
-             sycl::nd_range<1>(gridsize * blocksize, blocksize),
-             [=](sycl::nd_item<1> item_ct1) {
-                 TData *shmemptr =
-                     shmem.template get_multi_ptr<sycl::access::decorated::no>()
-                         .get();
+        sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
+        cgh.parallel_for(
+            sycl::nd_range<1>(gridsize * blocksize, blocksize),
+            [=](sycl::nd_item<1> item_ct1) {
+                TData *shmemptr =
+                    shmem.template get_multi_ptr<sycl::access::decorated::no>()
+                        .get();
 #pragma forceinline
-                 Helmholtz1DKernel<Implementation, DEFORMED>(
-                     ncoord, nm0, nq0, nelmt, basis0, D0, w0, df, jac, coeff,
-                     in, out, wsp, lambda, shmemptr, item_ct1);
-             });
-     }).wait();
+                Helmholtz1DKernel<Implementation, DEFORMED>(
+                    ncoord, nm0, nq0, nelmt, basis0, D0, w0, df, jac, coeff, in,
+                    out, wsp, lambda, shmemptr, item_ct1);
+            });
+    });
 }
 
 // Size based template version.
@@ -109,20 +109,20 @@ NEK_FORCE_INLINE static void Helmholtz2DKernel(
     const unsigned int gridsize  = GetSYCLGridSize<Implementation>(nelmt);
 
     Q.submit([=](sycl::handler &cgh) {
-         sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
-         cgh.parallel_for(
-             sycl::nd_range<1>(gridsize * blocksize, blocksize),
-             [=](sycl::nd_item<1> item_ct1) {
-                 TData *shmemptr =
-                     shmem.template get_multi_ptr<sycl::access::decorated::no>()
-                         .get();
+        sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
+        cgh.parallel_for(
+            sycl::nd_range<1>(gridsize * blocksize, blocksize),
+            [=](sycl::nd_item<1> item_ct1) {
+                TData *shmemptr =
+                    shmem.template get_multi_ptr<sycl::access::decorated::no>()
+                        .get();
 #pragma forceinline
-                 Helmholtz2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
-                     ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, isModified,
-                     index0, basis0, basis1, D0, D1, w0, w1, f0, f1, df, jac,
-                     coeff, in, out, wsp, lambda, shmemptr, item_ct1);
-             });
-     }).wait();
+                Helmholtz2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
+                    ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, isModified,
+                    index0, basis0, basis1, D0, D1, w0, w1, f0, f1, df, jac,
+                    coeff, in, out, wsp, lambda, shmemptr, item_ct1);
+            });
+    });
 }
 
 // Size based template version.
@@ -168,21 +168,21 @@ NEK_FORCE_INLINE static void Helmholtz3DKernel(
     const unsigned int gridsize  = GetSYCLGridSize<Implementation>(nelmt);
 
     Q.submit([=](sycl::handler &cgh) {
-         sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
-         cgh.parallel_for(
-             sycl::nd_range<1>(gridsize * blocksize, blocksize),
-             [=](sycl::nd_item<1> item_ct1) {
-                 TData *shmemptr =
-                     shmem.template get_multi_ptr<sycl::access::decorated::no>()
-                         .get();
+        sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
+        cgh.parallel_for(
+            sycl::nd_range<1>(gridsize * blocksize, blocksize),
+            [=](sycl::nd_item<1> item_ct1) {
+                TData *shmemptr =
+                    shmem.template get_multi_ptr<sycl::access::decorated::no>()
+                        .get();
 #pragma forceinline
-                 Helmholtz3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
-                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified,
-                     index0, index1, index2, index3, basis0, basis1, basis2, D0,
-                     D1, D2, w0, w1, w2, f0, f1, f1m, f2, df, jac, coeff, in,
-                     out, wsp, lambda, shmemptr, item_ct1);
-             });
-     }).wait();
+                Helmholtz3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
+                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified,
+                    index0, index1, index2, index3, basis0, basis1, basis2, D0,
+                    D1, D2, w0, w1, w2, f0, f1, f1m, f2, df, jac, coeff, in,
+                    out, wsp, lambda, shmemptr, item_ct1);
+            });
+    });
 }
 
 // Size based template version.

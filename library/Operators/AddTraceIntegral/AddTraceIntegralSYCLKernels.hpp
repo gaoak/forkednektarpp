@@ -76,15 +76,15 @@ AddTraceIntegralKernel(const unsigned int nsize,
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         cgh.parallel_for(
-             sycl::nd_range<1>(gridSize * blockSize, blockSize),
-             [=](sycl::nd_item<1> item_ct1) {
+        cgh.parallel_for(
+            sycl::nd_range<1>(gridSize * blockSize, blockSize),
+            [=](sycl::nd_item<1> item_ct1) {
 #pragma forceinline
-                 AddTraceIntegralKernel<TData>(
-                     nsize, traceCoeffsToElmtMapPtr, traceCoeffsToElmtSignPtr,
-                     traceCoeffsToElmtTracePtr, tracePtr, outptr, item_ct1);
-             });
-     }).wait();
+                AddTraceIntegralKernel<TData>(
+                    nsize, traceCoeffsToElmtMapPtr, traceCoeffsToElmtSignPtr,
+                    traceCoeffsToElmtTracePtr, tracePtr, outptr, item_ct1);
+            });
+    });
 }
 
 // Launchers

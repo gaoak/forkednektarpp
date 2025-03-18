@@ -55,17 +55,17 @@ negKernel(const unsigned int nsize, const TData *x, TData *y)
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
-                          [=](sycl::nd_item<1> indx) {
-                              unsigned int i = indx.get_global_id(0);
+        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
+                         [=](sycl::nd_item<1> indx) {
+                             unsigned int i = indx.get_global_id(0);
 
-                              while (i < nsize)
-                              {
-                                  y[i] = -x[i];
-                                  i += indx.get_global_range(0);
-                              }
-                          });
-     }).wait();
+                             while (i < nsize)
+                             {
+                                 y[i] = -x[i];
+                                 i += indx.get_global_range(0);
+                             }
+                         });
+    });
 }
 
 template <typename ExecSpace, typename TData>
@@ -78,17 +78,17 @@ addKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
-                          [=](sycl::nd_item<1> indx) {
-                              unsigned int i = indx.get_global_id(0);
+        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
+                         [=](sycl::nd_item<1> indx) {
+                             unsigned int i = indx.get_global_id(0);
 
-                              while (i < nsize)
-                              {
-                                  z[i] = x[i] + y[i];
-                                  i += indx.get_global_range(0);
-                              }
-                          });
-     }).wait();
+                             while (i < nsize)
+                             {
+                                 z[i] = x[i] + y[i];
+                                 i += indx.get_global_range(0);
+                             }
+                         });
+    });
 }
 
 template <typename ExecSpace, typename TData>
@@ -101,17 +101,17 @@ subKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
-                          [=](sycl::nd_item<1> indx) {
-                              unsigned int i = indx.get_global_id(0);
+        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
+                         [=](sycl::nd_item<1> indx) {
+                             unsigned int i = indx.get_global_id(0);
 
-                              while (i < nsize)
-                              {
-                                  z[i] = x[i] - y[i];
-                                  i += indx.get_global_range(0);
-                              }
-                          });
-     }).wait();
+                             while (i < nsize)
+                             {
+                                 z[i] = x[i] - y[i];
+                                 i += indx.get_global_range(0);
+                             }
+                         });
+    });
 }
 
 template <typename ExecSpace, typename TData>
@@ -125,17 +125,17 @@ daxpyKernel(const unsigned int nsize, const TData alpha, const TData *x,
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
-                          [=](sycl::nd_item<1> indx) {
-                              unsigned int i = indx.get_global_id(0);
+        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
+                         [=](sycl::nd_item<1> indx) {
+                             unsigned int i = indx.get_global_id(0);
 
-                              while (i < nsize)
-                              {
-                                  z[i] = alpha * x[i] + y[i];
-                                  i += indx.get_global_range(0);
-                              }
-                          });
-     }).wait();
+                             while (i < nsize)
+                             {
+                                 z[i] = alpha * x[i] + y[i];
+                                 i += indx.get_global_range(0);
+                             }
+                         });
+    });
 }
 
 template <typename ExecSpace, typename TData>
@@ -148,17 +148,17 @@ divKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
-                          [=](sycl::nd_item<1> indx) {
-                              unsigned int i = indx.get_global_id(0);
+        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
+                         [=](sycl::nd_item<1> indx) {
+                             unsigned int i = indx.get_global_id(0);
 
-                              while (i < nsize)
-                              {
-                                  z[i] = x[i] / y[i];
-                                  i += indx.get_global_range(0);
-                              }
-                          });
-     }).wait();
+                             while (i < nsize)
+                             {
+                                 z[i] = x[i] / y[i];
+                                 i += indx.get_global_range(0);
+                             }
+                         });
+    });
 }
 
 template <typename TData>
@@ -167,48 +167,48 @@ void reduceSumKernel(const unsigned int gridSize, const unsigned int blockSize,
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
+        sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
 
-         cgh.parallel_for(
-             sycl::nd_range<1>(gridSize * blockSize, blockSize),
-             [=](sycl::nd_item<1> indx) {
-                 const unsigned int lid = indx.get_local_id(0);
-                 unsigned int gid       = indx.get_global_id(0);
+        cgh.parallel_for(
+            sycl::nd_range<1>(gridSize * blockSize, blockSize),
+            [=](sycl::nd_item<1> indx) {
+                const unsigned int lid = indx.get_local_id(0);
+                unsigned int gid       = indx.get_global_id(0);
 
-                 if (lid == 0)
-                 {
-                     out[indx.get_group(0)] = 0.0;
-                 }
+                if (lid == 0)
+                {
+                    out[indx.get_group(0)] = 0.0;
+                }
 
-                 indx.barrier(sycl::access::fence_space::local_space);
+                indx.barrier(sycl::access::fence_space::local_space);
 
-                 TData tmp = 0.0;
-                 while (gid < nsize)
-                 {
-                     tmp += x[gid];
-                     gid += indx.get_global_range(0);
-                 }
-                 scratch[lid] = tmp;
+                TData tmp = 0.0;
+                while (gid < nsize)
+                {
+                    tmp += x[gid];
+                    gid += indx.get_global_range(0);
+                }
+                scratch[lid] = tmp;
 
-                 indx.barrier(sycl::access::fence_space::local_space);
+                indx.barrier(sycl::access::fence_space::local_space);
 
-                 unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
-                 while (n > 0)
-                 {
-                     if (blockSize > n && lid < n && lid + n < blockSize)
-                     {
-                         scratch[lid] += scratch[lid + n];
-                     }
-                     indx.barrier(sycl::access::fence_space::local_space);
-                     n /= 2;
-                 }
+                unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
+                while (n > 0)
+                {
+                    if (blockSize > n && lid < n && lid + n < blockSize)
+                    {
+                        scratch[lid] += scratch[lid + n];
+                    }
+                    indx.barrier(sycl::access::fence_space::local_space);
+                    n /= 2;
+                }
 
-                 if (lid == 0)
-                 {
-                     out[indx.get_group(0)] = scratch[0];
-                 }
-             });
-     }).wait();
+                if (lid == 0)
+                {
+                    out[indx.get_group(0)] = scratch[0];
+                }
+            });
+    });
 }
 
 template <typename TData>
@@ -219,49 +219,49 @@ void reduceMaxKernel(const unsigned int gridSize, const unsigned int blockSize,
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
+        sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
 
-         cgh.parallel_for(
-             sycl::nd_range<1>(gridSize * blockSize, blockSize),
-             [=](sycl::nd_item<1> indx) {
-                 const unsigned int lid = indx.get_local_id(0);
-                 unsigned int gid       = indx.get_global_id(0);
+        cgh.parallel_for(
+            sycl::nd_range<1>(gridSize * blockSize, blockSize),
+            [=](sycl::nd_item<1> indx) {
+                const unsigned int lid = indx.get_local_id(0);
+                unsigned int gid       = indx.get_global_id(0);
 
-                 if (lid == 0)
-                 {
-                     out[indx.get_group(0)] = min;
-                 }
+                if (lid == 0)
+                {
+                    out[indx.get_group(0)] = min;
+                }
 
-                 indx.barrier(sycl::access::fence_space::local_space);
+                indx.barrier(sycl::access::fence_space::local_space);
 
-                 TData tmp = min;
-                 while (gid < nsize)
-                 {
-                     tmp = sycl::fmax(tmp, x[gid]);
-                     gid += indx.get_global_range(0);
-                 }
-                 scratch[lid] = tmp;
+                TData tmp = min;
+                while (gid < nsize)
+                {
+                    tmp = sycl::fmax(tmp, x[gid]);
+                    gid += indx.get_global_range(0);
+                }
+                scratch[lid] = tmp;
 
-                 indx.barrier(sycl::access::fence_space::local_space);
+                indx.barrier(sycl::access::fence_space::local_space);
 
-                 unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
-                 while (n > 0)
-                 {
-                     if (blockSize > n && lid < n && lid + n < blockSize)
-                     {
-                         scratch[lid] =
-                             sycl::fmax(scratch[lid], scratch[lid + n]);
-                     }
-                     indx.barrier(sycl::access::fence_space::local_space);
-                     n /= 2;
-                 }
+                unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
+                while (n > 0)
+                {
+                    if (blockSize > n && lid < n && lid + n < blockSize)
+                    {
+                        scratch[lid] =
+                            sycl::fmax(scratch[lid], scratch[lid + n]);
+                    }
+                    indx.barrier(sycl::access::fence_space::local_space);
+                    n /= 2;
+                }
 
-                 if (lid == 0)
-                 {
-                     out[indx.get_group(0)] = scratch[0];
-                 }
-             });
-     }).wait();
+                if (lid == 0)
+                {
+                    out[indx.get_group(0)] = scratch[0];
+                }
+            });
+    });
 }
 
 template <typename TData>
@@ -272,49 +272,49 @@ void reduceMinKernel(const unsigned int gridSize, const unsigned int blockSize,
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
+        sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
 
-         cgh.parallel_for(
-             sycl::nd_range<1>(gridSize * blockSize, blockSize),
-             [=](sycl::nd_item<1> indx) {
-                 const unsigned int lid = indx.get_local_id(0);
-                 unsigned int gid       = indx.get_global_id(0);
+        cgh.parallel_for(
+            sycl::nd_range<1>(gridSize * blockSize, blockSize),
+            [=](sycl::nd_item<1> indx) {
+                const unsigned int lid = indx.get_local_id(0);
+                unsigned int gid       = indx.get_global_id(0);
 
-                 if (lid == 0)
-                 {
-                     out[indx.get_group(0)] = max;
-                 }
+                if (lid == 0)
+                {
+                    out[indx.get_group(0)] = max;
+                }
 
-                 indx.barrier(sycl::access::fence_space::local_space);
+                indx.barrier(sycl::access::fence_space::local_space);
 
-                 TData tmp = max;
-                 while (gid < nsize)
-                 {
-                     tmp = sycl::fmin(tmp, x[gid]);
-                     gid += indx.get_global_range(0);
-                 }
-                 scratch[lid] = tmp;
+                TData tmp = max;
+                while (gid < nsize)
+                {
+                    tmp = sycl::fmin(tmp, x[gid]);
+                    gid += indx.get_global_range(0);
+                }
+                scratch[lid] = tmp;
 
-                 indx.barrier(sycl::access::fence_space::local_space);
+                indx.barrier(sycl::access::fence_space::local_space);
 
-                 unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
-                 while (n > 0)
-                 {
-                     if (blockSize > n && lid < n && lid + n < blockSize)
-                     {
-                         scratch[lid] =
-                             sycl::fmin(scratch[lid], scratch[lid + n]);
-                     }
-                     indx.barrier(sycl::access::fence_space::local_space);
-                     n /= 2;
-                 }
+                unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
+                while (n > 0)
+                {
+                    if (blockSize > n && lid < n && lid + n < blockSize)
+                    {
+                        scratch[lid] =
+                            sycl::fmin(scratch[lid], scratch[lid + n]);
+                    }
+                    indx.barrier(sycl::access::fence_space::local_space);
+                    n /= 2;
+                }
 
-                 if (lid == 0)
-                 {
-                     out[indx.get_group(0)] = scratch[0];
-                 }
-             });
-     }).wait();
+                if (lid == 0)
+                {
+                    out[indx.get_group(0)] = scratch[0];
+                }
+            });
+    });
 }
 
 template <typename TData>
@@ -324,48 +324,48 @@ void ddotKernel(const unsigned int gridSize, const unsigned int blockSize,
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
+        sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
 
-         cgh.parallel_for(
-             sycl::nd_range<1>(gridSize * blockSize, blockSize),
-             [=](sycl::nd_item<1> indx) {
-                 const unsigned int lid = indx.get_local_id(0);
-                 unsigned int gid       = indx.get_global_id(0);
+        cgh.parallel_for(
+            sycl::nd_range<1>(gridSize * blockSize, blockSize),
+            [=](sycl::nd_item<1> indx) {
+                const unsigned int lid = indx.get_local_id(0);
+                unsigned int gid       = indx.get_global_id(0);
 
-                 if (lid == 0)
-                 {
-                     out[indx.get_group(0)] = 0.0;
-                 }
+                if (lid == 0)
+                {
+                    out[indx.get_group(0)] = 0.0;
+                }
 
-                 indx.barrier(sycl::access::fence_space::local_space);
+                indx.barrier(sycl::access::fence_space::local_space);
 
-                 TData tmp = 0.0;
-                 while (gid < nsize)
-                 {
-                     tmp += x[gid] * y[gid];
-                     gid += indx.get_global_range(0);
-                 }
-                 scratch[lid] = tmp;
+                TData tmp = 0.0;
+                while (gid < nsize)
+                {
+                    tmp += x[gid] * y[gid];
+                    gid += indx.get_global_range(0);
+                }
+                scratch[lid] = tmp;
 
-                 indx.barrier(sycl::access::fence_space::local_space);
+                indx.barrier(sycl::access::fence_space::local_space);
 
-                 unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
-                 while (n > 0)
-                 {
-                     if (blockSize > n && lid < n && lid + n < blockSize)
-                     {
-                         scratch[lid] += scratch[lid + n];
-                     }
-                     indx.barrier(sycl::access::fence_space::local_space);
-                     n /= 2;
-                 }
+                unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
+                while (n > 0)
+                {
+                    if (blockSize > n && lid < n && lid + n < blockSize)
+                    {
+                        scratch[lid] += scratch[lid + n];
+                    }
+                    indx.barrier(sycl::access::fence_space::local_space);
+                    n /= 2;
+                }
 
-                 if (lid == 0)
-                 {
-                     out[indx.get_group(0)] = scratch[0];
-                 }
-             });
-     }).wait();
+                if (lid == 0)
+                {
+                    out[indx.get_group(0)] = scratch[0];
+                }
+            });
+    });
 }
 
 template <typename TData>
@@ -374,48 +374,48 @@ void l1normKernel(const unsigned int gridSize, const unsigned int blockSize,
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
+        sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
 
-         cgh.parallel_for(
-             sycl::nd_range<1>(gridSize * blockSize, blockSize),
-             [=](sycl::nd_item<1> indx) {
-                 const unsigned int lid = indx.get_local_id(0);
-                 unsigned int gid       = indx.get_global_id(0);
+        cgh.parallel_for(
+            sycl::nd_range<1>(gridSize * blockSize, blockSize),
+            [=](sycl::nd_item<1> indx) {
+                const unsigned int lid = indx.get_local_id(0);
+                unsigned int gid       = indx.get_global_id(0);
 
-                 if (lid == 0)
-                 {
-                     out[indx.get_group(0)] = 0.0;
-                 }
+                if (lid == 0)
+                {
+                    out[indx.get_group(0)] = 0.0;
+                }
 
-                 indx.barrier(sycl::access::fence_space::local_space);
+                indx.barrier(sycl::access::fence_space::local_space);
 
-                 TData tmp = 0.0;
-                 while (gid < nsize)
-                 {
-                     tmp += sycl::fabs(x[gid]);
-                     gid += indx.get_global_range(0);
-                 }
-                 scratch[lid] = tmp;
+                TData tmp = 0.0;
+                while (gid < nsize)
+                {
+                    tmp += sycl::fabs(x[gid]);
+                    gid += indx.get_global_range(0);
+                }
+                scratch[lid] = tmp;
 
-                 indx.barrier(sycl::access::fence_space::local_space);
+                indx.barrier(sycl::access::fence_space::local_space);
 
-                 unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
-                 while (n > 0)
-                 {
-                     if (blockSize > n && lid < n && lid + n < blockSize)
-                     {
-                         scratch[lid] += scratch[lid + n];
-                     }
-                     indx.barrier(sycl::access::fence_space::local_space);
-                     n /= 2;
-                 }
+                unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
+                while (n > 0)
+                {
+                    if (blockSize > n && lid < n && lid + n < blockSize)
+                    {
+                        scratch[lid] += scratch[lid + n];
+                    }
+                    indx.barrier(sycl::access::fence_space::local_space);
+                    n /= 2;
+                }
 
-                 if (lid == 0)
-                 {
-                     out[indx.get_group(0)] = scratch[0];
-                 }
-             });
-     }).wait();
+                if (lid == 0)
+                {
+                    out[indx.get_group(0)] = scratch[0];
+                }
+            });
+    });
 }
 
 template <typename TData>
@@ -424,48 +424,48 @@ void l2normKernel(const unsigned int gridSize, const unsigned int blockSize,
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
+        sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
 
-         cgh.parallel_for(
-             sycl::nd_range<1>(gridSize * blockSize, blockSize),
-             [=](sycl::nd_item<1> indx) {
-                 const unsigned int lid = indx.get_local_id(0);
-                 unsigned int gid       = indx.get_global_id(0);
+        cgh.parallel_for(
+            sycl::nd_range<1>(gridSize * blockSize, blockSize),
+            [=](sycl::nd_item<1> indx) {
+                const unsigned int lid = indx.get_local_id(0);
+                unsigned int gid       = indx.get_global_id(0);
 
-                 if (lid == 0)
-                 {
-                     out[indx.get_group(0)] = 0.0;
-                 }
+                if (lid == 0)
+                {
+                    out[indx.get_group(0)] = 0.0;
+                }
 
-                 indx.barrier(sycl::access::fence_space::local_space);
+                indx.barrier(sycl::access::fence_space::local_space);
 
-                 TData tmp = 0.0;
-                 while (gid < nsize)
-                 {
-                     tmp += x[gid] * x[gid];
-                     gid += indx.get_global_range(0);
-                 }
-                 scratch[lid] = tmp;
+                TData tmp = 0.0;
+                while (gid < nsize)
+                {
+                    tmp += x[gid] * x[gid];
+                    gid += indx.get_global_range(0);
+                }
+                scratch[lid] = tmp;
 
-                 indx.barrier(sycl::access::fence_space::local_space);
+                indx.barrier(sycl::access::fence_space::local_space);
 
-                 unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
-                 while (n > 0)
-                 {
-                     if (blockSize > n && lid < n && lid + n < blockSize)
-                     {
-                         scratch[lid] += scratch[lid + n];
-                     }
-                     indx.barrier(sycl::access::fence_space::local_space);
-                     n /= 2;
-                 }
+                unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
+                while (n > 0)
+                {
+                    if (blockSize > n && lid < n && lid + n < blockSize)
+                    {
+                        scratch[lid] += scratch[lid + n];
+                    }
+                    indx.barrier(sycl::access::fence_space::local_space);
+                    n /= 2;
+                }
 
-                 if (lid == 0)
-                 {
-                     out[indx.get_group(0)] = scratch[0];
-                 }
-             });
-     }).wait();
+                if (lid == 0)
+                {
+                    out[indx.get_group(0)] = scratch[0];
+                }
+            });
+    });
 }
 
 template <typename TData>
@@ -475,48 +475,48 @@ void lpnormKernel(const unsigned int gridSize, const unsigned int blockSize,
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
+        sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
 
-         cgh.parallel_for(
-             sycl::nd_range<1>(gridSize * blockSize, blockSize),
-             [=](sycl::nd_item<1> indx) {
-                 const unsigned int lid = indx.get_local_id(0);
-                 unsigned int gid       = indx.get_global_id(0);
+        cgh.parallel_for(
+            sycl::nd_range<1>(gridSize * blockSize, blockSize),
+            [=](sycl::nd_item<1> indx) {
+                const unsigned int lid = indx.get_local_id(0);
+                unsigned int gid       = indx.get_global_id(0);
 
-                 if (lid == 0)
-                 {
-                     out[indx.get_group(0)] = 0.0;
-                 }
+                if (lid == 0)
+                {
+                    out[indx.get_group(0)] = 0.0;
+                }
 
-                 indx.barrier(sycl::access::fence_space::local_space);
+                indx.barrier(sycl::access::fence_space::local_space);
 
-                 TData tmp = 0.0;
-                 while (gid < nsize)
-                 {
-                     tmp += sycl::pown(sycl::fabs(x[gid]), p);
-                     gid += indx.get_global_range(0);
-                 }
-                 scratch[lid] = tmp;
+                TData tmp = 0.0;
+                while (gid < nsize)
+                {
+                    tmp += sycl::pown(sycl::fabs(x[gid]), p);
+                    gid += indx.get_global_range(0);
+                }
+                scratch[lid] = tmp;
 
-                 indx.barrier(sycl::access::fence_space::local_space);
+                indx.barrier(sycl::access::fence_space::local_space);
 
-                 unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
-                 while (n > 0)
-                 {
-                     if (blockSize > n && lid < n && lid + n < blockSize)
-                     {
-                         scratch[lid] += scratch[lid + n];
-                     }
-                     indx.barrier(sycl::access::fence_space::local_space);
-                     n /= 2;
-                 }
+                unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
+                while (n > 0)
+                {
+                    if (blockSize > n && lid < n && lid + n < blockSize)
+                    {
+                        scratch[lid] += scratch[lid + n];
+                    }
+                    indx.barrier(sycl::access::fence_space::local_space);
+                    n /= 2;
+                }
 
-                 if (lid == 0)
-                 {
-                     out[indx.get_group(0)] = scratch[0];
-                 }
-             });
-     }).wait();
+                if (lid == 0)
+                {
+                    out[indx.get_group(0)] = scratch[0];
+                }
+            });
+    });
 }
 
 template <typename TData>
@@ -527,49 +527,49 @@ void linfnormKernel(const unsigned int gridSize, const unsigned int blockSize,
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
+        sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
 
-         cgh.parallel_for(
-             sycl::nd_range<1>(gridSize * blockSize, blockSize),
-             [=](sycl::nd_item<1> indx) {
-                 const unsigned int lid = indx.get_local_id(0);
-                 unsigned int gid       = indx.get_global_id(0);
+        cgh.parallel_for(
+            sycl::nd_range<1>(gridSize * blockSize, blockSize),
+            [=](sycl::nd_item<1> indx) {
+                const unsigned int lid = indx.get_local_id(0);
+                unsigned int gid       = indx.get_global_id(0);
 
-                 if (lid == 0)
-                 {
-                     out[indx.get_group(0)] = min;
-                 }
+                if (lid == 0)
+                {
+                    out[indx.get_group(0)] = min;
+                }
 
-                 indx.barrier(sycl::access::fence_space::local_space);
+                indx.barrier(sycl::access::fence_space::local_space);
 
-                 TData tmp = min;
-                 while (gid < nsize)
-                 {
-                     tmp = sycl::fmax(tmp, sycl::fabs(x[gid]));
-                     gid += indx.get_global_range(0);
-                 }
-                 scratch[lid] = tmp;
+                TData tmp = min;
+                while (gid < nsize)
+                {
+                    tmp = sycl::fmax(tmp, sycl::fabs(x[gid]));
+                    gid += indx.get_global_range(0);
+                }
+                scratch[lid] = tmp;
 
-                 indx.barrier(sycl::access::fence_space::local_space);
+                indx.barrier(sycl::access::fence_space::local_space);
 
-                 unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
-                 while (n > 0)
-                 {
-                     if (blockSize > n && lid < n && lid + n < blockSize)
-                     {
-                         scratch[lid] =
-                             sycl::fmax(scratch[lid], scratch[lid + n]);
-                     }
-                     indx.barrier(sycl::access::fence_space::local_space);
-                     n /= 2;
-                 }
+                unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
+                while (n > 0)
+                {
+                    if (blockSize > n && lid < n && lid + n < blockSize)
+                    {
+                        scratch[lid] =
+                            sycl::fmax(scratch[lid], scratch[lid + n]);
+                    }
+                    indx.barrier(sycl::access::fence_space::local_space);
+                    n /= 2;
+                }
 
-                 if (lid == 0)
-                 {
-                     out[indx.get_group(0)] = scratch[0];
-                 }
-             });
-     }).wait();
+                if (lid == 0)
+                {
+                    out[indx.get_group(0)] = scratch[0];
+                }
+            });
+    });
 }
 
 template <typename ExecSpace, typename TData>
