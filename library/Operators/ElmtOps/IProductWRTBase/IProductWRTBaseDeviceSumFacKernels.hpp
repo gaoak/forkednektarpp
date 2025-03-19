@@ -1902,8 +1902,9 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacQPKernel(
                 // bottom vertex
                 prod[0] += basis2[k] * tmp;
             }
-
+#if !defined(NEKTAR_ENABLE_SYCL)
 #pragma unroll
+#endif
             for (unsigned int r = 0u; r < nm2; ++r)
             {
                 if constexpr (SCALE)
@@ -2088,7 +2089,9 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacQPKernel(
                 }
             }
 
+#if !defined(NEKTAR_ENABLE_SYCL)
 #pragma unroll
+#endif
             for (unsigned int q = 0u; q < nm1; ++q)
             {
                 if constexpr (SCALE)

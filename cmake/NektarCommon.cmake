@@ -98,6 +98,8 @@ MACRO(SET_COMMON_PROPERTIES name)
             # For GNU compilers add pedantic warnings
             TARGET_COMPILE_OPTIONS(${name} PRIVATE $<$<COMPILE_LANGUAGE:CXX>: -Wpedantic>)
             TARGET_COMPILE_OPTIONS(${name} PRIVATE -Wnon-virtual-dtor)
+        ELSEIF (CMAKE_CXX_COMPILER_ID STREQUAL "IntelLLVM")
+            TARGET_COMPILE_OPTIONS(${name} PRIVATE -Wno-tautological-constant-compare)
         ENDIF()
         # Temporarily disable warnings about comparing signed and unsigned
         TARGET_COMPILE_OPTIONS(${name} PRIVATE -Wno-sign-compare)

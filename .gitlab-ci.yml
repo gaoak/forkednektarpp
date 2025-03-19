@@ -359,9 +359,9 @@ debian-bookworm-full-clang15-warnings:
   <<: *compiler-warning-template
   needs: ["debian-bookworm-full-clang15-build-and-test"]
 
-#debian-bookworm-full-icpx-warnings:
-#  <<: *compiler-warning-template
-#  needs: ["debian-bookworm-full-icpx-build-and-test"]
+debian-bookworm-full-icpx-warnings:
+  <<: *compiler-warning-template
+  needs: ["debian-bookworm-full-icpx-build-and-test"]
 
 debian-bullseye-default-warnings:
   <<: *compiler-warning-template
@@ -607,6 +607,10 @@ ubuntu-jammy-full-warnings:
 ubuntu-jammy-full-cuda-warnings:
   <<: *compiler-warning-template
   needs: ["ubuntu-jammy-full-cuda-build-and-test"]
+
+ubuntu-jammy-full--icpx-warnings:
+  <<: *compiler-warning-template
+  needs: ["ubuntu-jammy-full-icpx-build-and-test"]
 
 ubuntu-focal-default-warnings:
   <<: *compiler-warning-template
