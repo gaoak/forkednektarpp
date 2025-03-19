@@ -83,6 +83,8 @@ public:
         auto handle = CUBLASHandle::GetInstance();
 #elif defined(NEKTAR_ENABLE_SYCL)
         auto handle = SYCLQueue::GetInstance();
+#else
+        auto handle = nullptr;
 #endif
 
         const auto nElmts = inblock.GetNumElements();
