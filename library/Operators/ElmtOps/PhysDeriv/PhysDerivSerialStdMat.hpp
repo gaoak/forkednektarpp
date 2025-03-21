@@ -34,10 +34,10 @@
 
 #pragma once
 
-#include <StdRegions/StdExpansion.h>
-
 #include "Operators/ElmtOps/PhysDeriv/OperatorPhysDeriv.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
+
+#include "Operators/ElmtOps/PhysDeriv/PhysDerivSerialStdMatKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -75,8 +75,7 @@ public:
     void apply(BlockAccessor<TData> &inblock,
                BlockAccessor<TData> &outblock) override
     {
-        const auto nElmts = inblock.GetNumElements();
-        const auto ndf    = m_coordDim * m_dimension;
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -85,85 +84,49 @@ public:
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Fetch derivative factor.
-        auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), false));
 
         // Allocate storate.
         if (m_deriv.size() == 0)
         {
-            m_deriv = std::vector<TData>(m_dimension * m_nqTot * nElmts);
+            m_deriv = std::vector<TData>(m_dimension * m_nqTot * nElmtsPad);
         }
 
         // Get workspace pointer.
-        auto derivPtr = m_deriv.data();
+        auto derivptr = m_deriv.data();
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
-            auto dfptr = dfptr_init;
-
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
                 inblock.GetInterleaveWidth(),
                 inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
                 (TData *)inptr);
 
+            // Perform matrix-matrix multiply.
             for (unsigned int d = 0; d < m_dimension; ++d)
             {
-                // Perform matrix-matrix multiply.
-                Blas::Gemm('N', 'N', m_nqTot, nElmts, m_nqTot, 1.0,
+                Blas::Gemm('N', 'N', m_nqTot, nElmtsPad, m_nqTot, 1.0,
                            m_matptr + d * m_nqTot * m_nqTot, m_nqTot, inptr,
-                           m_nqTot, 0.0, derivPtr + d * m_nqTot * nElmts,
+                           m_nqTot, 0.0, derivptr + d * m_nqTot * nElmtsPad,
                            m_nqTot);
             }
 
+            // Multiply by derivative factor.
             if (m_isDeformed)
             {
-                for (unsigned int k = 0; k < m_coordDim; k++)
-                {
-                    TData *ptr = outptr + k * outblock.size();
-
-                    Nektar::parallel_for<ExecSpace>(
-                        0, nElmts * m_nqTot, [&](const unsigned int i) {
-                            ptr[i] =
-                                dfptr[ndf * i + k * m_dimension] * derivPtr[i];
-                        });
-                    for (unsigned int d = 1; d < m_dimension; d++)
-                    {
-                        Nektar::parallel_for<ExecSpace>(
-                            0, nElmts * m_nqTot, [&](const unsigned int i) {
-                                ptr[i] += dfptr[ndf * i + k * m_dimension + d] *
-                                          derivPtr[i + d * m_nqTot * nElmts];
-                            });
-                    }
-                }
+                MultiplyByDerivFactorKernel<true>(m_nqTot, m_coordDim,
+                                                  m_dimension, nElmtsPad, dfptr,
+                                                  derivptr, outptr);
             }
             else
             {
-                Nektar::parallel_for<ExecSpace>(
-                    0, nElmts, [&](const unsigned int e) {
-                        for (unsigned int k = 0; k < m_coordDim; k++)
-                        {
-                            TData *ptr = outptr + k * outblock.size();
-                            for (unsigned int i = 0; i < m_nqTot; i++)
-                            {
-                                ptr[m_nqTot * e + i] =
-                                    dfptr[ndf * e + k * m_dimension] *
-                                    derivPtr[m_nqTot * e + i];
-                            }
-                            for (unsigned int d = 1; d < m_dimension; d++)
-                            {
-                                for (unsigned int i = 0; i < m_nqTot; i++)
-                                {
-                                    ptr[m_nqTot * e + i] +=
-                                        dfptr[ndf * e + k * m_dimension + d] *
-                                        derivPtr[m_nqTot * e + i +
-                                                 d * m_nqTot * nElmts];
-                                }
-                            }
-                        }
-                    });
+                MultiplyByDerivFactorKernel<false>(m_nqTot, m_coordDim,
+                                                   m_dimension, nElmtsPad,
+                                                   dfptr, derivptr, outptr);
             }
 
             // Increment pointer.

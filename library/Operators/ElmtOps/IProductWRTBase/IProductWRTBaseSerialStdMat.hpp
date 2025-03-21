@@ -34,10 +34,10 @@
 
 #pragma once
 
-#include <StdRegions/StdExpansion.h>
-
 #include "Operators/ElmtOps/IProductWRTBase/OperatorIProductWRTBase.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
+
+#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseSerialStdMatKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -77,7 +77,7 @@ public:
     void apply(BlockAccessor<TData> &inblock,
                BlockAccessor<TData> &outblock) override
     {
-        const auto nElmts = inblock.GetNumElements();
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -93,7 +93,7 @@ public:
         // Allocate storate.
         if (m_wsp.size() == 0)
         {
-            m_wsp = std::vector<TData>(m_dimension * nElmts * m_nqTot);
+            m_wsp = std::vector<TData>(m_dimension * nElmtsPad * m_nqTot);
         }
 
         // Get workspace pointer.
@@ -111,25 +111,17 @@ public:
             // Multiply by jacobian.
             if (m_isDeformed)
             {
-                for (unsigned int i = 0; i < nElmts * m_nqTot; ++i)
-                {
-                    wspptr[i] = jacptr[i] * inptr[i];
-                }
+                MultiplyByJacobianKernel<true>(m_nqTot, nElmtsPad, jacptr,
+                                               inptr, wspptr);
             }
             else
             {
-                for (unsigned int e = 0; e < nElmts; ++e)
-                {
-                    for (unsigned int i = 0; i < m_nqTot; ++i)
-                    {
-                        wspptr[e * m_nqTot + i] =
-                            jacptr[e] * inptr[e * m_nqTot + i];
-                    }
-                }
+                MultiplyByJacobianKernel<false>(m_nqTot, nElmtsPad, jacptr,
+                                                inptr, wspptr);
             }
 
             // Perform matrix-matrix multiply.
-            Blas::Gemm('N', 'N', m_nmTot, nElmts, m_nqTot, this->m_scale,
+            Blas::Gemm('N', 'N', m_nmTot, nElmtsPad, m_nqTot, this->m_scale,
                        m_matptr, m_nmTot, wspptr, m_nqTot, 0.0, outptr,
                        m_nmTot);
 
