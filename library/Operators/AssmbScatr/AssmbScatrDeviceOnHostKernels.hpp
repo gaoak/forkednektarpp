@@ -36,8 +36,6 @@
 
 #if defined(NEKTAR_ENABLE_DEVICEONHOST)
 
-#include "Operators/LoopExecution/LoopExecution.hpp"
-
 namespace Nektar::Operators::detail
 {
 
@@ -47,11 +45,8 @@ inline typename std::enable_if<
 AssembleKernel(const unsigned int nsize, const int *assmbPtr,
                const TData *signPtr, const TData *inptr, TData *outptr)
 {
-    Nektar::parallel_for<ExecSpace>(
-        0u, nsize, NEKTAR_LAMBDA(const unsigned int i) {
-            atomic_add<NektarSpaces::GlobalScope>(outptr + assmbPtr[i],
-                                                  signPtr[i] * inptr[i]);
-        });
+    AssembleKernel<>(nsize, assmbPtr, signPtr, inptr, outptr,
+                     deviceOnHostBlock1D());
 }
 
 template <typename ExecSpace, typename TData>
@@ -60,11 +55,8 @@ inline typename std::enable_if<
 AssembleKernel(const unsigned int nsize, const int *assmbPtr, const TData sign,
                const TData *inptr, TData *outptr)
 {
-    Nektar::parallel_for<ExecSpace>(
-        0u, nsize, NEKTAR_LAMBDA(const unsigned int i) {
-            atomic_add<NektarSpaces::GlobalScope>(outptr + assmbPtr[i],
-                                                  sign * inptr[i]);
-        });
+    AssembleKernel<>(nsize, assmbPtr, sign, inptr, outptr,
+                     deviceOnHostBlock1D());
 }
 
 template <typename ExecSpace, typename TData>
@@ -73,11 +65,7 @@ inline typename std::enable_if<
 AssembleKernel(const unsigned int nsize, const int *assmbPtr,
                const TData *inptr, TData *outptr)
 {
-    Nektar::parallel_for<ExecSpace>(
-        0u, nsize, NEKTAR_LAMBDA(const unsigned int i) {
-            atomic_add<NektarSpaces::GlobalScope>(outptr + assmbPtr[i],
-                                                  inptr[i]);
-        });
+    AssembleKernel<>(nsize, assmbPtr, inptr, outptr, deviceOnHostBlock1D());
 }
 
 template <typename ExecSpace, typename TData>
@@ -86,10 +74,8 @@ inline typename std::enable_if<
 GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
                     const TData *signPtr, const TData *inptr, TData *outptr)
 {
-    Nektar::parallel_for<ExecSpace>(
-        0u, nsize, NEKTAR_LAMBDA(const unsigned int i) {
-            outptr[i] = signPtr[i] * inptr[assmbPtr[i]];
-        });
+    GlobalToLocalKernel<>(nsize, assmbPtr, signPtr, inptr, outptr,
+                          deviceOnHostBlock1D());
 }
 
 template <typename ExecSpace, typename TData>
@@ -98,10 +84,8 @@ inline typename std::enable_if<
 GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
                     const TData sign, const TData *inptr, TData *outptr)
 {
-    Nektar::parallel_for<ExecSpace>(
-        0u, nsize, NEKTAR_LAMBDA(const unsigned int i) {
-            outptr[i] = sign * inptr[assmbPtr[i]];
-        });
+    GlobalToLocalKernel<>(nsize, assmbPtr, sign, inptr, outptr,
+                          deviceOnHostBlock1D());
 }
 
 template <typename ExecSpace, typename TData>
@@ -110,10 +94,8 @@ inline typename std::enable_if<
 GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
                     const TData *inptr, TData *outptr)
 {
-    Nektar::parallel_for<ExecSpace>(
-        0u, nsize, NEKTAR_LAMBDA(const unsigned int i) {
-            outptr[i] = inptr[assmbPtr[i]];
-        });
+    GlobalToLocalKernel<>(nsize, assmbPtr, inptr, outptr,
+                          deviceOnHostBlock1D());
 }
 
 } // namespace Nektar::Operators::detail

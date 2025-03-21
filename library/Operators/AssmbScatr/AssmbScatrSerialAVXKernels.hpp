@@ -47,10 +47,10 @@ inline
     AssembleKernel(const unsigned int nsize, const int *assmbPtr,
                    const TData *signPtr, const TData *inptr, TData *outptr)
 {
-    Nektar::parallel_for<ExecSpace>(
-        0u, nsize, NEKTAR_LAMBDA(const unsigned int i) {
-            outptr[assmbPtr[i]] += signPtr[i] * inptr[i];
-        });
+    for (unsigned int i = 0; i < nsize; i++)
+    {
+        outptr[assmbPtr[i]] += signPtr[i] * inptr[i];
+    }
 }
 
 template <typename ExecSpace, typename TData>
@@ -61,10 +61,10 @@ inline
     AssembleKernel(const unsigned int nsize, const int *assmbPtr,
                    const TData sign, const TData *inptr, TData *outptr)
 {
-    Nektar::parallel_for<ExecSpace>(
-        0u, nsize, NEKTAR_LAMBDA(const unsigned int i) {
-            outptr[assmbPtr[i]] += sign * inptr[i];
-        });
+    for (unsigned int i = 0; i < nsize; i++)
+    {
+        outptr[assmbPtr[i]] += sign * inptr[i];
+    }
 }
 
 template <typename ExecSpace, typename TData>
@@ -75,10 +75,10 @@ inline
     AssembleKernel(const unsigned int nsize, const int *assmbPtr,
                    const TData *inptr, TData *outptr)
 {
-    Nektar::parallel_for<ExecSpace>(
-        0u, nsize, NEKTAR_LAMBDA(const unsigned int i) {
-            outptr[assmbPtr[i]] += inptr[i];
-        });
+    for (unsigned int i = 0; i < nsize; i++)
+    {
+        outptr[assmbPtr[i]] += inptr[i];
+    }
 }
 
 template <typename ExecSpace, typename TData>
@@ -89,10 +89,10 @@ inline
     GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
                         const TData *signPtr, const TData *inptr, TData *outptr)
 {
-    Nektar::parallel_for<ExecSpace>(
-        0u, nsize, NEKTAR_LAMBDA(const unsigned int i) {
-            outptr[i] = signPtr[i] * inptr[assmbPtr[i]];
-        });
+    for (unsigned int i = 0; i < nsize; i++)
+    {
+        outptr[i] = signPtr[i] * inptr[assmbPtr[i]];
+    }
 }
 
 template <typename ExecSpace, typename TData>
@@ -103,10 +103,10 @@ inline
     GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
                         const TData sign, const TData *inptr, TData *outptr)
 {
-    Nektar::parallel_for<ExecSpace>(
-        0u, nsize, NEKTAR_LAMBDA(const unsigned int i) {
-            outptr[i] = sign * inptr[assmbPtr[i]];
-        });
+    for (unsigned int i = 0; i < nsize; i++)
+    {
+        outptr[i] = sign * inptr[assmbPtr[i]];
+    }
 }
 
 template <typename ExecSpace, typename TData>
@@ -117,10 +117,10 @@ inline
     GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
                         const TData *inptr, TData *outptr)
 {
-    Nektar::parallel_for<ExecSpace>(
-        0u, nsize, NEKTAR_LAMBDA(const unsigned int i) {
-            outptr[i] = inptr[assmbPtr[i]];
-        });
+    for (unsigned int i = 0; i < nsize; i++)
+    {
+        outptr[i] = inptr[assmbPtr[i]];
+    }
 }
 
 } // namespace Nektar::Operators::detail
