@@ -38,9 +38,7 @@
 
 #include "Operators/AssmbScatr/OperatorAssmbScatr.hpp"
 
-#include "Operators/AssmbScatr/AssmbScatrCUDAKernels.cuh"
-#include "Operators/AssmbScatr/AssmbScatrDeviceOnHostKernels.hpp"
-#include "Operators/AssmbScatr/AssmbScatrSYCLKernels.hpp"
+#include "Operators/AssmbScatr/AssmbScatrDeviceKernels.hpp"
 #include "Operators/AssmbScatr/AssmbScatrSerialAVXKernels.hpp"
 
 using namespace Nektar;

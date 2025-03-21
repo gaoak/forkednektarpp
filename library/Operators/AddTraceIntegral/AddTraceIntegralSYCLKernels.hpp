@@ -36,30 +36,8 @@
 
 #if defined(NEKTAR_ENABLE_SYCL)
 
-#include "Operators/LoopExecution/LoopExecution.hpp"
-
 namespace Nektar::Operators::detail
 {
-
-template <typename TData>
-NEK_DEVICE_INLINE static void AddTraceIntegralKernel(
-    const unsigned int nsize, const int *__restrict__ traceCoeffsToElmtMapPtr,
-    const int *__restrict__ traceCoeffsToElmtSignPtr,
-    const int *__restrict__ traceCoeffsToElmtTracePtr,
-    const TData *__restrict__ tracePtr, TData *__restrict__ outptr,
-    const sycl::nd_item<1> &item_ct1)
-{
-    const unsigned int idx0   = item_ct1.get_global_id(0);
-    const unsigned int stride = item_ct1.get_global_range(0);
-
-    for (unsigned int idx = idx0; idx < nsize; idx += stride)
-    {
-        TData *const ptr = outptr + traceCoeffsToElmtMapPtr[idx];
-        const TData val  = traceCoeffsToElmtSignPtr[idx] *
-                          tracePtr[traceCoeffsToElmtTracePtr[idx]];
-        Nektar::atomic_add<NektarSpaces::GlobalScope>(ptr, val);
-    }
-}
 
 // Launchers
 template <typename ExecSpace, typename TData>
@@ -80,7 +58,7 @@ AddTraceIntegralKernel(const unsigned int nsize,
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> item_ct1) {
 #pragma forceinline
-                AddTraceIntegralKernel<TData>(
+                AddTraceIntegralKernel<>(
                     nsize, traceCoeffsToElmtMapPtr, traceCoeffsToElmtSignPtr,
                     traceCoeffsToElmtTracePtr, tracePtr, outptr, item_ct1);
             });

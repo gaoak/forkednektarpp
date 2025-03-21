@@ -36,113 +36,8 @@
 
 #if defined(NEKTAR_ENABLE_SYCL)
 
-#include "Operators/LoopExecution/LoopExecution.hpp"
-
 namespace Nektar::Operators::detail
 {
-
-template <typename TData>
-NEK_DEVICE_INLINE static void AssembleKernel(const unsigned int nsize,
-                                             const int *__restrict__ assmbPtr,
-                                             const TData *__restrict__ signPtr,
-                                             const TData *__restrict__ inptr,
-                                             TData *__restrict__ outptr,
-                                             const sycl::nd_item<1> item_ct1)
-{
-    unsigned int i            = item_ct1.get_global_id(0);
-    const unsigned int stride = item_ct1.get_global_range(0);
-
-    while (i < nsize)
-    {
-        atomic_add<NektarSpaces::GlobalScope>(outptr + assmbPtr[i],
-                                              signPtr[i] * inptr[i]);
-        i += stride;
-    }
-}
-
-template <typename TData>
-NEK_DEVICE_INLINE static void AssembleKernel(const unsigned int nsize,
-                                             const int *__restrict__ assmbPtr,
-                                             const TData sign,
-                                             const TData *__restrict__ inptr,
-                                             TData *__restrict__ outptr,
-                                             const sycl::nd_item<1> item_ct1)
-{
-    unsigned int i            = item_ct1.get_global_id(0);
-    const unsigned int stride = item_ct1.get_global_range(0);
-
-    while (i < nsize)
-    {
-        atomic_add<NektarSpaces::GlobalScope>(outptr + assmbPtr[i],
-                                              sign * inptr[i]);
-        i += stride;
-    }
-}
-
-template <typename TData>
-NEK_DEVICE_INLINE static void AssembleKernel(const unsigned int nsize,
-                                             const int *__restrict__ assmbPtr,
-                                             const TData *__restrict__ inptr,
-                                             TData *__restrict__ outptr,
-                                             const sycl::nd_item<1> item_ct1)
-{
-    unsigned int i            = item_ct1.get_global_id(0);
-    const unsigned int stride = item_ct1.get_global_range(0);
-
-    while (i < nsize)
-    {
-        atomic_add<NektarSpaces::GlobalScope>(outptr + assmbPtr[i], inptr[i]);
-        i += stride;
-    }
-}
-
-template <typename TData>
-NEK_DEVICE_INLINE static void GlobalToLocalKernel(
-    const unsigned int nsize, const int *__restrict__ assmbPtr,
-    const TData *__restrict__ signPtr, const TData *__restrict__ inptr,
-    TData *__restrict__ outptr, const sycl::nd_item<1> item_ct1)
-{
-    unsigned int i            = item_ct1.get_global_id(0);
-    const unsigned int stride = item_ct1.get_global_range(0);
-
-    while (i < nsize)
-    {
-        outptr[i] = signPtr[i] * inptr[assmbPtr[i]];
-        i += stride;
-    }
-}
-
-template <typename TData>
-NEK_DEVICE_INLINE static void GlobalToLocalKernel(
-    const unsigned int nsize, const int *__restrict__ assmbPtr,
-    const TData sign, const TData *__restrict__ inptr,
-    TData *__restrict__ outptr, const sycl::nd_item<1> item_ct1)
-{
-    unsigned int i            = item_ct1.get_global_id(0);
-    const unsigned int stride = item_ct1.get_global_range(0);
-
-    while (i < nsize)
-    {
-        outptr[i] = sign * inptr[assmbPtr[i]];
-        i += stride;
-    }
-}
-
-template <typename TData>
-NEK_DEVICE_INLINE static void GlobalToLocalKernel(
-    const unsigned int nsize, const int *__restrict__ assmbPtr,
-    const TData *__restrict__ inptr, TData *__restrict__ outptr,
-    const sycl::nd_item<1> item_ct1)
-{
-    unsigned int i            = item_ct1.get_global_id(0);
-    const unsigned int stride = item_ct1.get_global_range(0);
-
-    while (i < nsize)
-    {
-        outptr[i] = inptr[assmbPtr[i]];
-        i += stride;
-    }
-}
 
 // Launchers
 template <typename ExecSpace, typename TData>
@@ -159,8 +54,8 @@ AssembleKernel(const unsigned int nsize, const int *assmbPtr,
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
                          [=](sycl::nd_item<1> item_ct1) {
 #pragma forceinline
-                             AssembleKernel<TData>(nsize, assmbPtr, signPtr,
-                                                   inptr, outptr, item_ct1);
+                             AssembleKernel<>(nsize, assmbPtr, signPtr, inptr,
+                                              outptr, item_ct1);
                          });
     });
 }
@@ -179,8 +74,8 @@ AssembleKernel(const unsigned int nsize, const int *assmbPtr, const TData sign,
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
                          [=](sycl::nd_item<1> item_ct1) {
 #pragma forceinline
-                             AssembleKernel<TData>(nsize, assmbPtr, sign, inptr,
-                                                   outptr, item_ct1);
+                             AssembleKernel<>(nsize, assmbPtr, sign, inptr,
+                                              outptr, item_ct1);
                          });
     });
 }
@@ -199,8 +94,8 @@ AssembleKernel(const unsigned int nsize, const int *assmbPtr,
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
                          [=](sycl::nd_item<1> item_ct1) {
 #pragma forceinline
-                             AssembleKernel<TData>(nsize, assmbPtr, inptr,
-                                                   outptr, item_ct1);
+                             AssembleKernel<>(nsize, assmbPtr, inptr, outptr,
+                                              item_ct1);
                          });
     });
 }
@@ -219,9 +114,8 @@ GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
                          [=](sycl::nd_item<1> item_ct1) {
 #pragma forceinline
-                             GlobalToLocalKernel<TData>(nsize, assmbPtr,
-                                                        signPtr, inptr, outptr,
-                                                        item_ct1);
+                             GlobalToLocalKernel<>(nsize, assmbPtr, signPtr,
+                                                   inptr, outptr, item_ct1);
                          });
     });
 }
@@ -240,9 +134,8 @@ GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
                          [=](sycl::nd_item<1> item_ct1) {
 #pragma forceinline
-                             GlobalToLocalKernel<TData>(nsize, assmbPtr, sign,
-                                                        inptr, outptr,
-                                                        item_ct1);
+                             GlobalToLocalKernel<>(nsize, assmbPtr, sign, inptr,
+                                                   outptr, item_ct1);
                          });
     });
 }
@@ -261,8 +154,8 @@ GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
                          [=](sycl::nd_item<1> item_ct1) {
 #pragma forceinline
-                             GlobalToLocalKernel<TData>(nsize, assmbPtr, inptr,
-                                                        outptr, item_ct1);
+                             GlobalToLocalKernel<>(nsize, assmbPtr, inptr,
+                                                   outptr, item_ct1);
                          });
     });
 }

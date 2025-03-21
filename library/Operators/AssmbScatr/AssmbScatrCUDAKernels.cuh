@@ -36,8 +36,6 @@
 
 #if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
 
-#include "Operators/LoopExecution/LoopExecution.hpp"
-
 namespace Nektar::Operators::detail
 {
 
@@ -48,15 +46,7 @@ __global__ void AssembleKernel(const unsigned int nsize,
                                const TData *__restrict__ inptr,
                                TData *__restrict__ outptr)
 {
-    unsigned int i            = blockDim.x * blockIdx.x + threadIdx.x;
-    const unsigned int stride = blockDim.x * gridDim.x;
-
-    while (i < nsize)
-    {
-        atomic_add<NektarSpaces::GlobalScope>(outptr + assmbPtr[i],
-                                              signPtr[i] * inptr[i]);
-        i += stride;
-    }
+    AssembleKernel<>(nsize, assmbPtr, signPtr, inptr, outptr, cudaBlock1D());
 }
 
 template <typename TData>
@@ -66,15 +56,7 @@ __global__ void AssembleKernel(const unsigned int nsize,
                                const TData *__restrict__ inptr,
                                TData *__restrict__ outptr)
 {
-    unsigned int i            = blockDim.x * blockIdx.x + threadIdx.x;
-    const unsigned int stride = blockDim.x * gridDim.x;
-
-    while (i < nsize)
-    {
-        atomic_add<NektarSpaces::GlobalScope>(outptr + assmbPtr[i],
-                                              sign * inptr[i]);
-        i += stride;
-    }
+    AssembleKernel<>(nsize, assmbPtr, sign, inptr, outptr, cudaBlock1D());
 }
 
 template <typename TData>
@@ -83,14 +65,7 @@ __global__ void AssembleKernel(const unsigned int nsize,
                                const TData *__restrict__ inptr,
                                TData *__restrict__ outptr)
 {
-    unsigned int i            = blockDim.x * blockIdx.x + threadIdx.x;
-    const unsigned int stride = blockDim.x * gridDim.x;
-
-    while (i < nsize)
-    {
-        atomic_add<NektarSpaces::GlobalScope>(outptr + assmbPtr[i], inptr[i]);
-        i += stride;
-    }
+    AssembleKernel<>(nsize, assmbPtr, inptr, outptr, cudaBlock1D());
 }
 
 template <typename TData>
@@ -100,14 +75,8 @@ __global__ void GlobalToLocalKernel(const unsigned int nsize,
                                     const TData *__restrict__ inptr,
                                     TData *__restrict__ outptr)
 {
-    unsigned int i            = blockDim.x * blockIdx.x + threadIdx.x;
-    const unsigned int stride = blockDim.x * gridDim.x;
-
-    while (i < nsize)
-    {
-        outptr[i] = signPtr[i] * inptr[assmbPtr[i]];
-        i += stride;
-    }
+    GlobalToLocalKernel<>(nsize, assmbPtr, signPtr, inptr, outptr,
+                          cudaBlock1D());
 }
 
 template <typename TData>
@@ -117,14 +86,7 @@ __global__ void GlobalToLocalKernel(const unsigned int nsize,
                                     const TData *__restrict__ inptr,
                                     TData *__restrict__ outptr)
 {
-    unsigned int i            = blockDim.x * blockIdx.x + threadIdx.x;
-    const unsigned int stride = blockDim.x * gridDim.x;
-
-    while (i < nsize)
-    {
-        outptr[i] = sign * inptr[assmbPtr[i]];
-        i += stride;
-    }
+    GlobalToLocalKernel<>(nsize, assmbPtr, sign, inptr, outptr, cudaBlock1D());
 }
 
 template <typename TData>
@@ -133,14 +95,7 @@ __global__ void GlobalToLocalKernel(const unsigned int nsize,
                                     const TData *__restrict__ inptr,
                                     TData *__restrict__ outptr)
 {
-    unsigned int i            = blockDim.x * blockIdx.x + threadIdx.x;
-    const unsigned int stride = blockDim.x * gridDim.x;
-
-    while (i < nsize)
-    {
-        outptr[i] = inptr[assmbPtr[i]];
-        i += stride;
-    }
+    GlobalToLocalKernel<>(nsize, assmbPtr, inptr, outptr, cudaBlock1D());
 }
 
 // Launchers
@@ -153,7 +108,7 @@ AssembleKernel(const unsigned int nsize, const int *assmbPtr,
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
-    AssembleKernel<TData>
+    AssembleKernel<>
         <<<gridSize, blockSize>>>(nsize, assmbPtr, signPtr, inptr, outptr);
 }
 
@@ -166,7 +121,7 @@ AssembleKernel(const unsigned int nsize, const int *assmbPtr, const TData sign,
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
-    AssembleKernel<TData>
+    AssembleKernel<>
         <<<gridSize, blockSize>>>(nsize, assmbPtr, sign, inptr, outptr);
 }
 
@@ -179,8 +134,7 @@ AssembleKernel(const unsigned int nsize, const int *assmbPtr,
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
-    AssembleKernel<TData>
-        <<<gridSize, blockSize>>>(nsize, assmbPtr, inptr, outptr);
+    AssembleKernel<><<<gridSize, blockSize>>>(nsize, assmbPtr, inptr, outptr);
 }
 
 template <typename ExecSpace, typename TData>
@@ -192,7 +146,7 @@ GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
-    GlobalToLocalKernel<TData>
+    GlobalToLocalKernel<>
         <<<gridSize, blockSize>>>(nsize, assmbPtr, signPtr, inptr, outptr);
 }
 
@@ -205,7 +159,7 @@ GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
-    GlobalToLocalKernel<TData>
+    GlobalToLocalKernel<>
         <<<gridSize, blockSize>>>(nsize, assmbPtr, sign, inptr, outptr);
 }
 
@@ -218,7 +172,7 @@ GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
-    GlobalToLocalKernel<TData>
+    GlobalToLocalKernel<>
         <<<gridSize, blockSize>>>(nsize, assmbPtr, inptr, outptr);
 }
 

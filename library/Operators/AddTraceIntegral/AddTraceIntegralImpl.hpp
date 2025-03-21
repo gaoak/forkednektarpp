@@ -38,9 +38,7 @@
 
 #include "Operators/ElmtOps/IProductWRTBase/OperatorIProductWRTBase.hpp"
 
-#include "Operators/AddTraceIntegral/AddTraceIntegralCUDAKernels.cuh"
-#include "Operators/AddTraceIntegral/AddTraceIntegralDeviceOnHostKernels.hpp"
-#include "Operators/AddTraceIntegral/AddTraceIntegralSYCLKernels.hpp"
+#include "Operators/AddTraceIntegral/AddTraceIntegralDeviceKernels.hpp"
 #include "Operators/AddTraceIntegral/AddTraceIntegralSerialAVXKernels.hpp"
 
 using namespace Nektar::MultiRegions;

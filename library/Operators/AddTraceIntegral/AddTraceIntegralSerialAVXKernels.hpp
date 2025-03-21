@@ -50,11 +50,12 @@ inline
                            const int *traceCoeffsToElmtTracePtr,
                            const TData *tracePtr, TData *outptr)
 {
-    Nektar::parallel_for<ExecSpace>(0u, nsize, [&](const unsigned int i) {
+    for (unsigned int i = 0; i < nsize; i++)
+    {
         outptr[traceCoeffsToElmtMapPtr[i]] +=
             traceCoeffsToElmtSignPtr[i] *
             tracePtr[traceCoeffsToElmtTracePtr[i]];
-    });
+    }
 }
 
 template <typename ExecSpace>
