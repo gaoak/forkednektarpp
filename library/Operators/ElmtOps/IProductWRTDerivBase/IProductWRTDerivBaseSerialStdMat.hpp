@@ -34,10 +34,10 @@
 
 #pragma once
 
-#include <StdRegions/StdExpansion.h>
-
 #include "Operators/ElmtOps/IProductWRTDerivBase/OperatorIProductWRTDerivBase.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
+
+#include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseSerialStdMatKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -77,8 +77,7 @@ public:
     void apply(BlockAccessor<TData> &inblock,
                BlockAccessor<TData> &outblock) override
     {
-        const auto nElmts = inblock.GetNumElements();
-        const auto ndf    = m_coordDim * m_dimension;
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -99,7 +98,7 @@ public:
         // Allocate storate.
         if (m_wsp.size() == 0)
         {
-            m_wsp = std::vector<TData>(m_dimension * nElmts * m_nqTot);
+            m_wsp = std::vector<TData>(m_dimension * nElmtsPad * m_nqTot);
         }
 
         // Get workspace pointer.
@@ -124,83 +123,27 @@ public:
                     outptr);
             }
 
-            // Calculate dx/dxi in[0] + dy/dxi in[1] + dz/dxi in[2].
+            // Multiply by derivative factor and Jacobian.
             if (m_isDeformed)
             {
-                for (unsigned int d = 0; d < m_dimension; d++)
-                {
-                    TData *ptr = wspptr + d * nElmts * m_nqTot;
-
-                    Nektar::parallel_for<ExecSpace>(
-                        0, nElmts * m_nqTot, [&](const unsigned int i) {
-                            ptr[i] = dfptr[ndf * i + d] * inptr[i];
-                            for (unsigned int k = 1; k < m_coordDim; ++k)
-                            {
-                                ptr[i] += dfptr[ndf * i + k * m_dimension + d] *
-                                          inptr[i + k * inblock.size()];
-                            }
-                        });
-                }
+                MultiplyByJacobianAndDerivFactorKernel<true>(
+                    m_nqTot, m_coordDim, m_dimension, nElmtsPad, jacptr, dfptr,
+                    inptr, wspptr);
             }
             else
             {
-                Nektar::parallel_for<ExecSpace>(
-                    0, nElmts, [&](const unsigned int e) {
-                        for (unsigned int d = 0; d < m_dimension; d++)
-                        {
-                            TData *ptr = wspptr + d * nElmts * m_nqTot;
-                            for (unsigned int i = 0; i < m_nqTot; i++)
-                            {
-                                ptr[m_nqTot * e + i] =
-                                    dfptr[ndf * e + d] * inptr[m_nqTot * e + i];
-                            }
-                            for (unsigned int k = 1; k < m_coordDim; ++k)
-                            {
-                                for (unsigned int i = 0; i < m_nqTot; i++)
-                                {
-                                    ptr[m_nqTot * e + i] +=
-                                        dfptr[ndf * e + k * m_dimension + d] *
-                                        inptr[m_nqTot * e + i +
-                                              k * inblock.size()];
-                                }
-                            }
-                        }
-                    });
-            }
-
-            // Multiply by jacobian.
-            if (m_isDeformed)
-            {
-                for (unsigned int d = 0; d < m_dimension; d++)
-                {
-                    TData *ptr = wspptr + d * nElmts * m_nqTot;
-                    Nektar::parallel_for<ExecSpace>(
-                        0, nElmts * m_nqTot,
-                        [&](const unsigned int i) { ptr[i] *= jacptr[i]; });
-                }
-            }
-            else
-            {
-                Nektar::parallel_for<ExecSpace>(
-                    0, nElmts, [&](const unsigned int e) {
-                        for (unsigned int d = 0; d < m_dimension; d++)
-                        {
-                            TData *ptr = wspptr + d * nElmts * m_nqTot;
-                            for (unsigned int i = 0; i < m_nqTot; i++)
-                            {
-                                ptr[m_nqTot * e + i] *= jacptr[e];
-                            }
-                        }
-                    });
+                MultiplyByJacobianAndDerivFactorKernel<false>(
+                    m_nqTot, m_coordDim, m_dimension, nElmtsPad, jacptr, dfptr,
+                    inptr, wspptr);
             }
 
             // Perform matrix-matrix multiply.
             for (unsigned int d = 0; d < m_dimension; d++)
             {
-                TData *ptr = wspptr + d * nElmts * m_nqTot;
+                TData *ptr = wspptr + d * nElmtsPad * m_nqTot;
 
                 TData alpha = (d != 0 || this->m_append);
-                Blas::Gemm('N', 'N', m_nmTot, nElmts, m_nqTot, 1.0,
+                Blas::Gemm('N', 'N', m_nmTot, nElmtsPad, m_nqTot, 1.0,
                            m_matptr + d * m_nqTot * m_nmTot, m_nmTot, ptr,
                            m_nqTot, alpha, outptr, m_nmTot);
             }

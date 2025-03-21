@@ -34,8 +34,6 @@
 
 #pragma once
 
-#include <StdRegions/StdExpansion.h>
-
 #include "Operators/ElmtOps/BwdTrans/OperatorBwdTrans.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
@@ -75,7 +73,7 @@ public:
     void apply(BlockAccessor<TData> &inblock,
                BlockAccessor<TData> &outblock) override
     {
-        const auto nElmts = inblock.GetNumElements();
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -93,7 +91,7 @@ public:
                 (TData *)inptr);
 
             // Perform matrix-matrix multiply.
-            Blas::Gemm('N', 'N', m_nqTot, nElmts, m_nmTot, 1.0, m_matptr,
+            Blas::Gemm('N', 'N', m_nqTot, nElmtsPad, m_nmTot, 1.0, m_matptr,
                        m_nqTot, inptr, m_nmTot, 0.0, outptr, m_nqTot);
 
             // Increment pointers.
