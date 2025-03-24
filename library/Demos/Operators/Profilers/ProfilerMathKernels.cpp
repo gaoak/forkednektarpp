@@ -48,125 +48,80 @@ using vec_t = tinysimd::simd<double>;
 template <typename TData, bool warmup = false>
 void ProfilerReduction(const unsigned int size)
 {
+    // Initialization.
     Timer timer;
     const unsigned int ntests = 40;
-
-    TData time_serial = 0.0;
+    auto x    = MemoryRegion<TData>::Create("x", size, vec_t::alignment);
+    auto y    = MemoryRegion<TData>::Create("y", size, vec_t::alignment);
+    auto xptr = x.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+    auto yptr = y.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+    for (unsigned int i = 0; i < size; i++)
     {
-        using MemSpace = NektarSpaces::HostSpace;
-
-        TData result_serial;
-        auto x    = MemoryRegion<TData>::Create("x", size, vec_t::alignment);
-        auto y    = MemoryRegion<TData>::Create("y", size, vec_t::alignment);
-        auto xptr = x.template GetPtr<MemSpace, WriteOnly>();
-        auto yptr = y.template GetPtr<MemSpace, WriteOnly>();
-        for (unsigned int t = 0; t < ntests; ++t)
-        {
-            Nektar::parallel_for<NektarSpaces::Serial>(
-                0, size, [&](unsigned int i) {
-                    xptr[i] = i % 13 + (0.2 + 0.00001 * (i % (100191 + t)));
-                    yptr[i] = i % 42 + (0.1 + 0.00008 * (i % (280516 + t)));
-                });
-            timer.Start();
-            ddotKernel<NektarSpaces::Serial>(size, xptr, yptr, &result_serial);
-            ASSERTL0(result_serial > 0.0, "Error!");
-            timer.Stop();
-            time_serial += timer.Elapsed().count();
-        }
-        time_serial /= ntests;
+        xptr[i] = i % 13 + (0.2 + 0.00001 * (i % (100191)));
+        yptr[i] = i % 42 + (0.1 + 0.00008 * (i % (280516)));
     }
 
+    // Serial.
+    TData result_serial;
+    timer.Start();
+    for (unsigned int t = 0; t < ntests; ++t)
+    {
+        ddotKernel<NektarSpaces::Serial>(size, xptr, yptr, &result_serial);
+        ASSERTL0((result_serial > 0.0), "Error!");
+    }
+    timer.Stop();
+    TData time_serial = timer.Elapsed().count() / ntests;
+
+    // AVX.
 #if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
-    TData time_avx = 0.0;
+    TData result_avx;
+    timer.Start();
+    for (unsigned int t = 0; t < ntests; ++t)
     {
-        using MemSpace = NektarSpaces::HostSpace;
-
-        TData result_avx;
-        auto x    = MemoryRegion<TData>::Create("x", size, vec_t::alignment);
-        auto y    = MemoryRegion<TData>::Create("y", size, vec_t::alignment);
-        auto xptr = x.template GetPtr<MemSpace, WriteOnly>();
-        auto yptr = y.template GetPtr<MemSpace, WriteOnly>();
-        for (unsigned int t = 0; t < ntests; ++t)
-        {
-            Nektar::parallel_for<NektarSpaces::AVX>(
-                0, size, [&](unsigned int i) {
-                    xptr[i] = i % 13 + (0.2 + 0.00001 * (i % (100191 + t)));
-                    yptr[i] = i % 42 + (0.1 + 0.00008 * (i % (280516 + t)));
-                });
-            timer.Start();
-            ddotKernel<NektarSpaces::AVX>(size, xptr, yptr, &result_avx);
-            ASSERTL0(result_avx > 0.0, "Error!");
-            timer.Stop();
-            time_avx += timer.Elapsed().count();
-        }
-        time_avx /= ntests;
+        ddotKernel<NektarSpaces::AVX>(size, xptr, yptr, &result_avx);
+        ASSERTL0((result_avx > 0.0), "Error!");
     }
+    timer.Stop();
+    TData time_avx = timer.Elapsed().count() / ntests;
 #endif
 
+    // SYCL.
 #if defined(NEKTAR_ENABLE_SYCL)
-    TData time_sycl = 0.0;
+    auto xdptr = x.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
+    auto ydptr = y.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
+    auto result_sycl =
+        MemoryRegion<TData>::Create("result_sycl", 1, vec_t::alignment);
+    timer.Start();
+    for (unsigned int t = 0; t < ntests; ++t)
     {
-        using MemSpace = NektarSpaces::DeviceSpace;
-
-        auto result_sycl =
-            MemoryRegion<TData>::Create("result_sycl", 1, vec_t::alignment);
-        auto x    = MemoryRegion<TData>::Create("x", size, vec_t::alignment);
-        auto y    = MemoryRegion<TData>::Create("y", size, vec_t::alignment);
-        auto xptr = x.template GetPtr<MemSpace, WriteOnly>();
-        auto yptr = y.template GetPtr<MemSpace, WriteOnly>();
-        for (unsigned int t = 0; t < ntests; ++t)
-        {
-            Nektar::parallel_for<NektarSpaces::SYCL>(
-                0, size, [=](unsigned int i) {
-                    xptr[i] = i % 13 + (0.2 + 0.00001 * (i % (100191 + t)));
-                    yptr[i] = i % 42 + (0.1 + 0.00008 * (i % (280516 + t)));
-                });
-            timer.Start();
-            ddotKernel<NektarSpaces::SYCL>(
-                size, xptr, yptr,
-                result_sycl
-                    .template GetPtr<NektarSpaces::DeviceSpace, WriteOnly>());
-            SYCLQueue::GetInstance().wait();
-            ASSERTL0((*result_sycl.template GetPtr<NektarSpaces::HostSpace,
-                                                   ReadOnly>() > 0.0),
-                     "Error!");
-            timer.Stop();
-            time_sycl += timer.Elapsed().count();
-        }
-        time_sycl /= ntests;
+        ddotKernel<NektarSpaces::SYCL>(
+            size, xdptr, ydptr,
+            result_sycl
+                .template GetPtr<NektarSpaces::DeviceSpace, WriteOnly>());
     }
+    SYCLQueue::GetInstance().wait();
+    timer.Stop();
+    TData time_sycl = timer.Elapsed().count() / ntests;
 #endif
 
+    // DeviceOnHost.
 #if defined(NEKTAR_ENABLE_DEVICEONHOST)
-    TData time_deviceonhost = 0.0;
+    auto xdptr = x.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
+    auto ydptr = y.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
+    TData result_deviceonhost;
+    timer.Start();
+    for (unsigned int t = 0; t < ntests; ++t)
     {
-        using MemSpace = NektarSpaces::DeviceSpace;
-
-        TData result_deviceonhost;
-        auto x    = MemoryRegion<TData>::Create("x", size, vec_t::alignment);
-        auto y    = MemoryRegion<TData>::Create("y", size, vec_t::alignment);
-        auto xptr = x.template GetPtr<MemSpace, WriteOnly>();
-        auto yptr = y.template GetPtr<MemSpace, WriteOnly>();
-        for (unsigned int t = 0; t < ntests; ++t)
-        {
-            Nektar::parallel_for<NektarSpaces::DeviceOnHost>(
-                0, size, NEKTAR_LAMBDA(unsigned int i) {
-                    xptr[i] = i % 13 + (0.2 + 0.00001 * (i % (100191 + t)));
-                    yptr[i] = i % 42 + (0.1 + 0.00008 * (i % (280516 + t)));
-                });
-            timer.Start();
-            ddotKernel<NektarSpaces::DeviceOnHost>(size, xptr, yptr,
-                                                   &result_deviceonhost);
-            ASSERTL0(result_deviceonhost > 0.0, "Error!");
-            timer.Stop();
-            time_deviceonhost += timer.Elapsed().count();
-        }
-        time_deviceonhost /= ntests;
+        ddotKernel<NektarSpaces::DeviceOnHost>(size, xdptr, ydptr,
+                                               &result_deviceonhost);
+        ASSERTL0((result_deviceonhost > 0.0), "Error!");
     }
+    timer.Stop();
+    TData time_deviceonhost = timer.Elapsed().count() / ntests;
 #endif
 
-    // Display results
-    if constexpr (!warmup)
+    // Display results.
+    if (!warmup)
     {
         std::cout << std::setprecision(10);
         std::cout << "Size " << size
@@ -188,129 +143,72 @@ void ProfilerReduction(const unsigned int size)
 template <typename TData, bool warmup = false>
 void ProfilerDaxpy(const unsigned int size)
 {
+    // Initialization.
     Timer timer;
     const unsigned int ntests = 40;
-
-    TData time_serial = 0.0;
+    auto x    = MemoryRegion<TData>::Create("x", size, vec_t::alignment);
+    auto y    = MemoryRegion<TData>::Create("y", size, vec_t::alignment);
+    auto z    = MemoryRegion<TData>::Create("z", size, vec_t::alignment);
+    auto xptr = x.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+    auto yptr = y.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+    auto zptr = z.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+    for (unsigned int i = 0; i < size; i++)
     {
-        using MemSpace = NektarSpaces::HostSpace;
-
-        auto x    = MemoryRegion<TData>::Create("x", size, vec_t::alignment);
-        auto y    = MemoryRegion<TData>::Create("y", size, vec_t::alignment);
-        auto z    = MemoryRegion<TData>::Create("z", size, vec_t::alignment);
-        auto xptr = x.template GetPtr<MemSpace, WriteOnly>();
-        auto yptr = y.template GetPtr<MemSpace, WriteOnly>();
-        auto zptr = z.template GetPtr<MemSpace, WriteOnly>();
-        for (unsigned int t = 0; t < ntests; ++t)
-        {
-            Nektar::parallel_for<NektarSpaces::Serial>(
-                0, size, [&](unsigned int i) {
-                    xptr[i] = i % 13 + (0.2 + 0.00001 * (i % (100191 + t)));
-                    yptr[i] = i % 42 + (0.1 + 0.00008 * (i % (280516 + t)));
-                });
-            timer.Start();
-            daxpyKernel<NektarSpaces::Serial>(size, 3.2, xptr, yptr, zptr);
-            ASSERTL0(zptr[0] > 0.0, "Error!");
-            timer.Stop();
-            time_serial += timer.Elapsed().count();
-        }
-        time_serial /= ntests;
+        xptr[i] = i % 13 + (0.2 + 0.00001 * (i % (100191)));
+        yptr[i] = i % 42 + (0.1 + 0.00008 * (i % (280516)));
     }
 
+    // Serial.
+    timer.Start();
+    for (unsigned int t = 0; t < ntests; ++t)
+    {
+        daxpyKernel<NektarSpaces::Serial>(size, 3.2, xptr, yptr, zptr);
+    }
+    timer.Stop();
+    TData time_serial = timer.Elapsed().count() / ntests;
+
+    // AVX.
 #if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
-    TData time_avx = 0.0;
+    timer.Start();
+    for (unsigned int t = 0; t < ntests; ++t)
     {
-        using MemSpace = NektarSpaces::HostSpace;
-
-        auto x    = MemoryRegion<TData>::Create("x", size, vec_t::alignment);
-        auto y    = MemoryRegion<TData>::Create("y", size, vec_t::alignment);
-        auto z    = MemoryRegion<TData>::Create("z", size, vec_t::alignment);
-        auto xptr = x.template GetPtr<MemSpace, WriteOnly>();
-        auto yptr = y.template GetPtr<MemSpace, WriteOnly>();
-        auto zptr = z.template GetPtr<MemSpace, WriteOnly>();
-        for (unsigned int t = 0; t < ntests; ++t)
-        {
-            Nektar::parallel_for<NektarSpaces::AVX>(
-                0, size, [&](unsigned int i) {
-                    xptr[i] = i % 13 + (0.2 + 0.00001 * (i % (100191 + t)));
-                    yptr[i] = i % 42 + (0.1 + 0.00008 * (i % (280516 + t)));
-                });
-            timer.Start();
-            daxpyKernel<NektarSpaces::AVX>(size, 3.2, xptr, yptr, zptr);
-            ASSERTL0(zptr[0] > 0.0, "Error!");
-            timer.Stop();
-            time_avx += timer.Elapsed().count();
-        }
-        time_avx /= ntests;
+        daxpyKernel<NektarSpaces::AVX>(size, 3.2, xptr, yptr, zptr);
     }
+    timer.Stop();
+    TData time_avx = timer.Elapsed().count() / ntests;
 #endif
 
+    // SYCL.
 #if defined(NEKTAR_ENABLE_SYCL)
-    TData time_sycl = 0.0;
+    auto xdptr = x.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
+    auto ydptr = y.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
+    auto zdptr = z.template GetPtr<NektarSpaces::DeviceSpace, WriteOnly>();
+    timer.Start();
+    for (unsigned int t = 0; t < ntests; ++t)
     {
-        using MemSpace = NektarSpaces::DeviceSpace;
-
-        auto x    = MemoryRegion<TData>::Create("x", size, vec_t::alignment);
-        auto y    = MemoryRegion<TData>::Create("y", size, vec_t::alignment);
-        auto z    = MemoryRegion<TData>::Create("z", size, vec_t::alignment);
-        auto xptr = x.template GetPtr<MemSpace, WriteOnly>();
-        auto yptr = y.template GetPtr<MemSpace, WriteOnly>();
-        auto zptr = z.template GetPtr<MemSpace, WriteOnly>();
-        for (unsigned int t = 0; t < ntests; ++t)
-        {
-            Nektar::parallel_for<NektarSpaces::SYCL>(
-                0, size, [=](unsigned int i) {
-                    xptr[i] = i % 13 + (0.2 + 0.00001 * (i % (100191 + t)));
-                    yptr[i] = i % 42 + (0.1 + 0.00008 * (i % (280516 + t)));
-                });
-            timer.Start();
-            daxpyKernel<NektarSpaces::SYCL>(size, 3.2, xptr, yptr, zptr);
-            SYCLQueue::GetInstance().wait();
-            ASSERTL0(
-                (z.template GetPtr<NektarSpaces::HostSpace, ReadOnly>()[0] >
-                 0.0),
-                "Error!");
-            timer.Stop();
-            time_sycl += timer.Elapsed().count();
-        }
-        time_sycl /= ntests;
+        daxpyKernel<NektarSpaces::SYCL>(size, 3.2, xdptr, ydptr, zdptr);
     }
+    SYCLQueue::GetInstance().wait();
+    timer.Stop();
+    TData time_sycl = timer.Elapsed().count() / ntests;
 #endif
 
+    // DeviceOnHost.
 #if defined(NEKTAR_ENABLE_DEVICEONHOST)
-    TData time_deviceonhost = 0.0;
+    auto xdptr = x.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
+    auto ydptr = y.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
+    auto zdptr = z.template GetPtr<NektarSpaces::DeviceSpace, WriteOnly>();
+    timer.Start();
+    for (unsigned int t = 0; t < ntests; ++t)
     {
-        using MemSpace = NektarSpaces::DeviceSpace;
-
-        auto x    = MemoryRegion<TData>::Create("x", size, vec_t::alignment);
-        auto y    = MemoryRegion<TData>::Create("y", size, vec_t::alignment);
-        auto z    = MemoryRegion<TData>::Create("z", size, vec_t::alignment);
-        auto xptr = x.template GetPtr<MemSpace, WriteOnly>();
-        auto yptr = y.template GetPtr<MemSpace, WriteOnly>();
-        auto zptr = z.template GetPtr<MemSpace, WriteOnly>();
-        for (unsigned int t = 0; t < ntests; ++t)
-        {
-            Nektar::parallel_for<NektarSpaces::DeviceOnHost>(
-                0, size, NEKTAR_LAMBDA(unsigned int i) {
-                    xptr[i] = i % 13 + (0.2 + 0.00001 * (i % (100191 + t)));
-                    yptr[i] = i % 42 + (0.1 + 0.00008 * (i % (280516 + t)));
-                });
-            timer.Start();
-            daxpyKernel<NektarSpaces::DeviceOnHost>(size, 3.2, xptr, yptr,
-                                                    zptr);
-            ASSERTL0(
-                (z.template GetPtr<NektarSpaces::HostSpace, ReadOnly>()[0] >
-                 0.0),
-                "Error!");
-            timer.Stop();
-            time_deviceonhost += timer.Elapsed().count();
-        }
-        time_deviceonhost /= ntests;
+        daxpyKernel<NektarSpaces::DeviceOnHost>(size, 3.2, xdptr, ydptr, zdptr);
     }
+    timer.Stop();
+    TData time_deviceonhost = timer.Elapsed().count() / ntests;
 #endif
 
-    // Display results
-    if constexpr (!warmup)
+    // Display results.
+    if (!warmup)
     {
         std::cout << std::setprecision(10);
         std::cout << "Size " << size
@@ -346,10 +244,10 @@ int main(void)
 #endif
     std::cout << std::endl;
 
-    // Warm-up
+    // Warm-up.
     ProfilerReduction<double, true>(2 << 24);
 
-    // Benchmark
+    // Benchmark.
     for (unsigned int i = 0; i < 24; i++)
     {
         ProfilerReduction<double>(4 << i);
@@ -370,10 +268,10 @@ int main(void)
 #endif
     std::cout << std::endl;
 
-    // Warm-up
+    // Warm-up.
     ProfilerDaxpy<double, true>(2 << 24);
 
-    // Benchmark
+    // Benchmark.
     for (unsigned int i = 0; i < 24; i++)
     {
         ProfilerDaxpy<double>(4 << i);

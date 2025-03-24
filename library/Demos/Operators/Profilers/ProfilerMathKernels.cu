@@ -48,62 +48,49 @@ using vec_t = tinysimd::simd<double>;
 template <typename TData, bool warmup = false>
 void ProfilerReduction(const unsigned int size)
 {
+    // Initialization.
     Timer timer;
     const unsigned int ntests = 40;
-    auto x = MemoryRegion<TData>::Create("x", size, vec_t::alignment);
-    auto y = MemoryRegion<TData>::Create("y", size, vec_t::alignment);
-
-    TData time_serial = 0.0;
+    auto x    = MemoryRegion<TData>::Create("x", size, vec_t::alignment);
+    auto y    = MemoryRegion<TData>::Create("y", size, vec_t::alignment);
+    auto xptr = x.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+    auto yptr = y.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+    for (unsigned int i = 0; i < size; i++)
     {
-        TData result_serial;
-        auto xptr = x.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-        auto yptr = y.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-        for (unsigned int t = 0; t < ntests; ++t)
-        {
-            Nektar::parallel_for<NektarSpaces::Serial>(
-                0, size, [&](unsigned int i) {
-                    xptr[i] = i % 13 + (0.2 + 0.00001 * (i % (100191 + t)));
-                    yptr[i] = i % 42 + (0.1 + 0.00008 * (i % (280516 + t)));
-                });
-            timer.Start();
-            ddotKernel<NektarSpaces::Serial>(size, xptr, yptr, &result_serial);
-            ASSERTL0((result_serial > 0.0), "Error!");
-            timer.Stop();
-            time_serial += timer.Elapsed().count();
-        }
-        time_serial /= ntests;
+        xptr[i] = i % 13 + (0.2 + 0.00001 * (i % (100191)));
+        yptr[i] = i % 42 + (0.1 + 0.00008 * (i % (280516)));
     }
 
-    TData time_cuda = 0.0;
+    // Serial.
+    TData result_serial;
+    timer.Start();
+    for (unsigned int t = 0; t < ntests; ++t)
     {
-        auto result_cuda =
-            MemoryRegion<TData>::Create("result_cuda", 1, vec_t::alignment);
-        auto xptr = x.template GetPtr<NektarSpaces::DeviceSpace, WriteOnly>();
-        auto yptr = y.template GetPtr<NektarSpaces::DeviceSpace, WriteOnly>();
-        for (unsigned int t = 0; t < ntests; ++t)
-        {
-            Nektar::parallel_for<NektarSpaces::CUDA>(
-                0, size, NEKTAR_LAMBDA(unsigned int i) {
-                    xptr[i] = i % 13 + (0.2 + 0.00001 * (i % (100191 + t)));
-                    yptr[i] = i % 42 + (0.1 + 0.00008 * (i % (280516 + t)));
-                });
-            timer.Start();
-            ddotKernel<NektarSpaces::CUDA>(
-                size, xptr, yptr,
-                result_cuda
-                    .template GetPtr<NektarSpaces::DeviceSpace, WriteOnly>());
-            cudaDeviceSynchronize();
-            ASSERTL0((*result_cuda.template GetPtr<NektarSpaces::HostSpace,
-                                                   ReadOnly>() > 0.0),
-                     "Error!");
-            timer.Stop();
-            time_cuda += timer.Elapsed().count();
-        }
-        time_cuda /= ntests;
+        ddotKernel<NektarSpaces::Serial>(size, xptr, yptr, &result_serial);
+        ASSERTL0((result_serial > 0.0), "Error!");
     }
+    timer.Stop();
+    TData time_serial = timer.Elapsed().count() / ntests;
 
-    // Display results
-    if constexpr (!warmup)
+    // CUDA.
+    auto xdptr = x.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
+    auto ydptr = y.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
+    auto result_cuda =
+        MemoryRegion<TData>::Create("result_cuda", 1, vec_t::alignment);
+    timer.Start();
+    for (unsigned int t = 0; t < ntests; ++t)
+    {
+        ddotKernel<NektarSpaces::CUDA>(
+            size, xdptr, ydptr,
+            result_cuda
+                .template GetPtr<NektarSpaces::DeviceSpace, WriteOnly>());
+    }
+    cudaDeviceSynchronize();
+    timer.Stop();
+    TData time_cuda = timer.Elapsed().count() / ntests;
+
+    // Display results.
+    if (!warmup)
     {
         std::cout << std::setprecision(10);
         std::cout << "Size " << size
@@ -116,56 +103,45 @@ void ProfilerReduction(const unsigned int size)
 template <typename TData, bool warmup = false>
 void ProfilerDaxpy(const unsigned int size)
 {
+    // Initialization.
     Timer timer;
     const unsigned int ntests = 40;
-    auto x = MemoryRegion<TData>::Create("x", size, vec_t::alignment);
-    auto y = MemoryRegion<TData>::Create("y", size, vec_t::alignment);
-    auto z = MemoryRegion<TData>::Create("z", size, vec_t::alignment);
-
-    TData time_serial = 0.0;
+    auto x    = MemoryRegion<TData>::Create("x", size, vec_t::alignment);
+    auto y    = MemoryRegion<TData>::Create("y", size, vec_t::alignment);
+    auto z    = MemoryRegion<TData>::Create("z", size, vec_t::alignment);
+    auto xptr = x.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+    auto yptr = y.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+    auto zptr = z.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+    for (unsigned int i = 0; i < size; i++)
     {
-        auto xptr = x.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-        auto yptr = y.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-        auto zptr = z.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-        for (unsigned int t = 0; t < ntests; ++t)
-        {
-            Nektar::parallel_for<NektarSpaces::Serial>(
-                0, size, [&](unsigned int i) {
-                    xptr[i] = i % 13 + (0.2 + 0.00001 * (i % (100191 + t)));
-                    yptr[i] = i % 42 + (0.1 + 0.00008 * (i % (280516 + t)));
-                });
-            timer.Start();
-            daxpyKernel<NektarSpaces::Serial>(size, 3.2, xptr, yptr, zptr);
-            ASSERTL0(zptr[0] > 0.0, "Error!");
-            timer.Stop();
-            time_serial += timer.Elapsed().count();
-        }
-        time_serial /= ntests;
+        xptr[i] = i % 13 + (0.2 + 0.00001 * (i % (100191)));
+        yptr[i] = i % 42 + (0.1 + 0.00008 * (i % (280516)));
     }
 
-    TData time_cuda = 0.0;
+    // Serial.
+    timer.Start();
+    for (unsigned int t = 0; t < ntests; ++t)
     {
-        auto xptr = x.template GetPtr<NektarSpaces::DeviceSpace, WriteOnly>();
-        auto yptr = y.template GetPtr<NektarSpaces::DeviceSpace, WriteOnly>();
-        auto zptr = z.template GetPtr<NektarSpaces::DeviceSpace, WriteOnly>();
-        for (unsigned int t = 0; t < ntests; ++t)
-        {
-            Nektar::parallel_for<NektarSpaces::CUDA>(
-                0, size, NEKTAR_LAMBDA(unsigned int i) {
-                    xptr[i] = i % 13 + (0.2 + 0.00001 * (i % (100191 + t)));
-                    yptr[i] = i % 42 + (0.1 + 0.00008 * (i % (280516 + t)));
-                });
-            timer.Start();
-            daxpyKernel<NektarSpaces::CUDA>(size, 3.2, xptr, yptr, zptr);
-            cudaDeviceSynchronize();
-            timer.Stop();
-            time_cuda += timer.Elapsed().count();
-        }
-        time_cuda /= ntests;
+        daxpyKernel<NektarSpaces::Serial>(size, 3.2, xptr, yptr, zptr);
     }
+    timer.Stop();
+    TData time_serial = timer.Elapsed().count() / ntests;
 
-    // Display results
-    if constexpr (!warmup)
+    // CUDA.
+    auto xdptr = x.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
+    auto ydptr = y.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
+    auto zdptr = z.template GetPtr<NektarSpaces::DeviceSpace, WriteOnly>();
+    timer.Start();
+    for (unsigned int t = 0; t < ntests; ++t)
+    {
+        daxpyKernel<NektarSpaces::CUDA>(size, 3.2, xdptr, ydptr, zdptr);
+    }
+    cudaDeviceSynchronize();
+    timer.Stop();
+    TData time_cuda = timer.Elapsed().count() / ntests;
+
+    // Display results.
+    if (!warmup)
     {
         std::cout << std::setprecision(10);
         std::cout << "Size " << size
@@ -186,6 +162,10 @@ int main(void)
     printf("  Device name: %s\n", prop.name);
     printf("  Memory Clock Rate (KHz): %d\n", prop.memoryClockRate);
     printf("  Memory Bus Width (bits): %d\n", prop.memoryBusWidth);
+    printf("  Total Global Memory (bits): %ld\n", prop.totalGlobalMem);
+    printf("  Shared Memory per Block (bits): %ld\n", prop.sharedMemPerBlock);
+    printf("  Shared Memory per Multiprocessor (bits): %ld\n",
+           prop.sharedMemPerMultiprocessor);
     printf("  Peak Memory Bandwidth (GB/s): %f\n",
            2.0 * prop.memoryClockRate * (prop.memoryBusWidth / 8) / 1.0e6);
     printf("  Number of multiprocessors: %d\n", prop.multiProcessorCount);

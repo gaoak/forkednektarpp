@@ -50,8 +50,7 @@ inline typename std::enable_if<
     std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
 negKernel(const unsigned int nsize, const TData *x, TData *y)
 {
-    Nektar::parallel_for<ExecSpace>(
-        0, nsize, NEKTAR_LAMBDA(const unsigned int i) { y[i] = -x[i]; });
+    std::transform(x, x + nsize, y, std::negate<TData>());
 }
 
 template <typename ExecSpace, typename TData>
@@ -59,8 +58,8 @@ inline typename std::enable_if<
     std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
 addKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 {
-    Nektar::parallel_for<ExecSpace>(
-        0, nsize, NEKTAR_LAMBDA(const unsigned int i) { z[i] = x[i] + y[i]; });
+    std::transform(x, x + nsize, y, z,
+                   [](const TData &xi, const TData &yi) { return xi + yi; });
 }
 
 template <typename ExecSpace, typename TData>
@@ -68,8 +67,8 @@ inline typename std::enable_if<
     std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
 subKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 {
-    Nektar::parallel_for<ExecSpace>(
-        0, nsize, NEKTAR_LAMBDA(const unsigned int i) { z[i] = x[i] - y[i]; });
+    std::transform(x, x + nsize, y, z,
+                   [](const TData &xi, const TData &yi) { return xi - yi; });
 }
 
 template <typename ExecSpace, typename TData>
@@ -78,9 +77,9 @@ inline typename std::enable_if<
 daxpyKernel(const unsigned int nsize, const TData alpha, const TData *x,
             const TData *y, TData *z)
 {
-    Nektar::parallel_for<ExecSpace>(
-        0, nsize,
-        NEKTAR_LAMBDA(const unsigned int i) { z[i] = alpha * x[i] + y[i]; });
+    std::transform(x, x + nsize, y, z, [&](const TData &xi, const TData &yi) {
+        return alpha * xi + yi;
+    });
 }
 
 template <typename ExecSpace, typename TData>
@@ -88,8 +87,8 @@ inline typename std::enable_if<
     std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
 divKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 {
-    Nektar::parallel_for<ExecSpace>(
-        0, nsize, NEKTAR_LAMBDA(const unsigned int i) { z[i] = x[i] / y[i]; });
+    std::transform(x, x + nsize, y, z,
+                   [](TData xi, TData yi) { return xi / yi; });
 }
 
 template <typename ExecSpace, typename TData>
@@ -97,9 +96,7 @@ inline typename std::enable_if<
     std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
 reduceSumKernel(const unsigned int nsize, const TData *x, TData *out)
 {
-    Nektar::parallel_reduce<ExecSpace, Nektar::ReduceSum<TData>>(
-        0, nsize,
-        NEKTAR_LAMBDA(const unsigned int i, TData &sum) { sum += x[i]; }, *out);
+    *out = std::accumulate(x, x + nsize, (TData)0.0);
 }
 
 template <typename ExecSpace, typename TData>
@@ -107,12 +104,7 @@ inline typename std::enable_if<
     std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
 reduceMaxKernel(const unsigned int nsize, const TData *x, TData *out)
 {
-    Nektar::parallel_reduce<ExecSpace, Nektar::ReduceMax<TData>>(
-        0, nsize,
-        NEKTAR_LAMBDA(const unsigned int i, TData &max) {
-            max = std::max(max, x[i]);
-        },
-        *out);
+    *out = *(std::max_element(x, x + nsize));
 }
 
 template <typename ExecSpace, typename TData>
@@ -120,12 +112,7 @@ inline typename std::enable_if<
     std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
 reduceMinKernel(const unsigned int nsize, const TData *x, TData *out)
 {
-    Nektar::parallel_reduce<ExecSpace, Nektar::ReduceMin<TData>>(
-        0, nsize,
-        NEKTAR_LAMBDA(const unsigned int i, TData &min) {
-            min = std::min(min, x[i]);
-        },
-        *out);
+    *out = *(std::min_element(x, x + nsize));
 }
 
 template <typename ExecSpace, typename TData>
@@ -133,10 +120,7 @@ inline typename std::enable_if<
     std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
 ddotKernel(const unsigned int nsize, const TData *x, const TData *y, TData *out)
 {
-    Nektar::parallel_reduce<ExecSpace, Nektar::ReduceSum<TData>>(
-        0, nsize,
-        NEKTAR_LAMBDA(const unsigned int i, TData &sum) { sum += x[i] * y[i]; },
-        *out);
+    *out = std::inner_product(x, x + nsize, y, 0.0);
 }
 
 template <typename ExecSpace, typename TData>
@@ -144,12 +128,9 @@ inline typename std::enable_if<
     std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
 l1normKernel(const unsigned int nsize, const TData *x, TData *out)
 {
-    Nektar::parallel_reduce<ExecSpace, Nektar::ReduceSum<TData>>(
-        0, nsize,
-        NEKTAR_LAMBDA(const unsigned int i, TData &sum) {
-            sum += std::abs(x[i]);
-        },
-        *out);
+    *out = std::accumulate(
+        x, x + nsize, (TData)0.0,
+        [](const TData &acc, const TData &val) { return acc + std::abs(val); });
 }
 
 template <typename ExecSpace, typename TData>
@@ -157,10 +138,9 @@ inline typename std::enable_if<
     std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
 l2normKernel(const unsigned int nsize, const TData *x, TData *out)
 {
-    Nektar::parallel_reduce<ExecSpace, Nektar::ReduceSum<TData>>(
-        0, nsize,
-        NEKTAR_LAMBDA(const unsigned int i, TData &sum) { sum += x[i] * x[i]; },
-        *out);
+    *out = std::accumulate(
+        x, x + nsize, (TData)0.0,
+        [](const TData &acc, const TData &val) { return acc + val * val; });
 }
 
 template <typename ExecSpace, typename TData>
@@ -169,12 +149,10 @@ inline typename std::enable_if<
 lpnormKernel(const unsigned int nsize, const unsigned int p, const TData *x,
              TData *out)
 {
-    Nektar::parallel_reduce<ExecSpace, Nektar::ReduceSum<TData>>(
-        0, nsize,
-        NEKTAR_LAMBDA(const unsigned int i, TData &sum) {
-            sum += std::pow(std::abs(x[i]), p);
-        },
-        *out);
+    *out = std::accumulate(x, x + nsize, (TData)0.0,
+                           [&](const TData &acc, const TData &val) {
+                               return acc + std::pow(std::abs(val), p);
+                           });
 }
 
 template <typename ExecSpace, typename TData>
@@ -182,12 +160,10 @@ inline typename std::enable_if<
     std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
 linfnormKernel(const unsigned int nsize, const TData *x, TData *out)
 {
-    Nektar::parallel_reduce<ExecSpace, Nektar::ReduceMax<TData>>(
-        0, nsize,
-        NEKTAR_LAMBDA(const unsigned int i, TData &max) {
-            max = std::max(max, std::abs(x[i]));
-        },
-        *out);
+    *out = std::accumulate(x, x + nsize, 0.0,
+                           [](const TData &acc, const TData &val) {
+                               return std::max(acc, std::abs(val));
+                           });
 }
 
 } // namespace Nektar
