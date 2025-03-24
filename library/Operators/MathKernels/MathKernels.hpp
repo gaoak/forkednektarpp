@@ -348,6 +348,25 @@ void ddot(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
     }
 }
 
+template <typename ExecSpace, typename TData>
+void ddot(MemoryRegion<TData> &x, MemoryRegion<TData> &y, TData *out)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    if (x.size() != y.size())
+    {
+        std::stringstream msg;
+
+        msg << "MathKernel::ddot - Memory size mismatch between Field";
+        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+    }
+
+    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
+    auto yptr  = y.template GetPtr<MemSpace, ReadOnly>();
+    auto nsize = x.size();
+    ddotKernel<ExecSpace>(nsize, xptr, yptr, out);
+}
+
 template <typename ExecSpace, typename TData, FieldState TFieldState>
 void l1norm(Field<TData, TFieldState> &x, TData *out)
 {
@@ -365,6 +384,25 @@ void l1norm(Field<TData, TFieldState> &x, TData *out)
         l1normKernel<ExecSpace>(size, xptr, &reduce);
         *out += reduce;
     }
+}
+
+template <typename ExecSpace, typename TData>
+void l1norm(MemoryRegion<TData> &x, MemoryRegion<TData> &y, TData *out)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    if (x.size() != y.size())
+    {
+        std::stringstream msg;
+
+        msg << "MathKernel::l1norm - Memory size mismatch between Field";
+        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+    }
+
+    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
+    auto yptr  = y.template GetPtr<MemSpace, ReadOnly>();
+    auto nsize = x.size();
+    l1normKernel<ExecSpace>(nsize, xptr, yptr, out);
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
@@ -386,6 +424,25 @@ void l2norm(Field<TData, TFieldState> &x, TData *out)
     }
 }
 
+template <typename ExecSpace, typename TData>
+void l2norm(MemoryRegion<TData> &x, MemoryRegion<TData> &y, TData *out)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    if (x.size() != y.size())
+    {
+        std::stringstream msg;
+
+        msg << "MathKernel::l1norm - Memory size mismatch between Field";
+        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+    }
+
+    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
+    auto yptr  = y.template GetPtr<MemSpace, ReadOnly>();
+    auto nsize = x.size();
+    l2normKernel<ExecSpace>(nsize, xptr, yptr, out);
+}
+
 template <typename ExecSpace, typename TData, FieldState TFieldState>
 void lpnorm(const unsigned int p, Field<TData, TFieldState> &x, TData *out)
 {
@@ -405,6 +462,26 @@ void lpnorm(const unsigned int p, Field<TData, TFieldState> &x, TData *out)
     }
 }
 
+template <typename ExecSpace, typename TData>
+void lpnorm(const unsigned int p, MemoryRegion<TData> &x,
+            MemoryRegion<TData> &y, TData *out)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    if (x.size() != y.size())
+    {
+        std::stringstream msg;
+
+        msg << "MathKernel::l1norm - Memory size mismatch between Field";
+        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+    }
+
+    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
+    auto yptr  = y.template GetPtr<MemSpace, ReadOnly>();
+    auto nsize = x.size();
+    lpnormKernel<ExecSpace>(nsize, p, xptr, yptr, out);
+}
+
 template <typename ExecSpace, typename TData, FieldState TFieldState>
 void linfnorm(Field<TData, TFieldState> &x, TData *out)
 {
@@ -422,6 +499,25 @@ void linfnorm(Field<TData, TFieldState> &x, TData *out)
         linfnormKernel<ExecSpace>(size, xptr, &reduce);
         *out = std::max(*out, reduce);
     }
+}
+
+template <typename ExecSpace, typename TData>
+void linfnorm(MemoryRegion<TData> &x, MemoryRegion<TData> &y, TData *out)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    if (x.size() != y.size())
+    {
+        std::stringstream msg;
+
+        msg << "MathKernel::l1norm - Memory size mismatch between Field";
+        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+    }
+
+    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
+    auto yptr  = y.template GetPtr<MemSpace, ReadOnly>();
+    auto nsize = x.size();
+    linfnormKernel<ExecSpace>(nsize, xptr, yptr, out);
 }
 
 } // namespace Nektar
