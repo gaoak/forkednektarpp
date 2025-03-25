@@ -45,6 +45,23 @@
 #if defined(NEKTAR_ENABLE_CUDA)
 #include <cuda_runtime.h>
 #include <thrust/fill.h>
+#define CHECK_LAST_CUDA_ERROR()                                                \
+    {                                                                          \
+        cudaError_t err = cudaGetLastError();                                  \
+        if (err != cudaSuccess)                                                \
+        {                                                                      \
+            std::cerr << "CUDA Runtime Error at: " << __FILE__ << ":"          \
+                      << __LINE__ << std::endl;                                \
+            std::cerr << cudaGetErrorString(err) << std::endl;                 \
+        }                                                                      \
+    }
+#define CHECK_CUDA_ERROR(err)                                                  \
+    if (err != cudaSuccess)                                                    \
+    {                                                                          \
+        std::cerr << "CUDA Runtime Error at: " << __FILE__ << ":" << __LINE__  \
+                  << std::endl;                                                \
+        std::cerr << cudaGetErrorString(err) << std::endl;                     \
+    }
 #elif defined(NEKTAR_ENABLE_HIP)
 #include <hip/hip_runtime.h>
 #elif defined(NEKTAR_ENABLE_SYCL)

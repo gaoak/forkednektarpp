@@ -110,6 +110,7 @@ AssembleKernel(const unsigned int nsize, const int *assmbPtr,
 
     AssembleKernel<>
         <<<gridSize, blockSize>>>(nsize, assmbPtr, signPtr, inptr, outptr);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 template <typename ExecSpace, typename TData>
@@ -123,6 +124,7 @@ AssembleKernel(const unsigned int nsize, const int *assmbPtr, const TData sign,
 
     AssembleKernel<>
         <<<gridSize, blockSize>>>(nsize, assmbPtr, sign, inptr, outptr);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 template <typename ExecSpace, typename TData>
@@ -135,6 +137,7 @@ AssembleKernel(const unsigned int nsize, const int *assmbPtr,
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     AssembleKernel<><<<gridSize, blockSize>>>(nsize, assmbPtr, inptr, outptr);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 template <typename ExecSpace, typename TData>
@@ -148,6 +151,7 @@ GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
 
     GlobalToLocalKernel<>
         <<<gridSize, blockSize>>>(nsize, assmbPtr, signPtr, inptr, outptr);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 template <typename ExecSpace, typename TData>
@@ -161,6 +165,7 @@ GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
 
     GlobalToLocalKernel<>
         <<<gridSize, blockSize>>>(nsize, assmbPtr, sign, inptr, outptr);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 template <typename ExecSpace, typename TData>
@@ -174,6 +179,7 @@ GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
 
     GlobalToLocalKernel<>
         <<<gridSize, blockSize>>>(nsize, assmbPtr, inptr, outptr);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 } // namespace Nektar::Operators::detail

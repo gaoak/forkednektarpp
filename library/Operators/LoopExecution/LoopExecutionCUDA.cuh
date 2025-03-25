@@ -231,6 +231,7 @@ parallel_for(const unsigned int begin, const unsigned int end,
     const unsigned int gridSize  = ((end - begin) + blockSize - 1u) / blockSize;
 
     parallel_for<<<gridSize, blockSize>>>(begin, end, functor);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 template <typename ExecSpace, typename Reduction, typename Functor>
@@ -247,7 +248,7 @@ parallel_reduce(const unsigned int begin, const unsigned int end,
     if (cudaBuffer == nullptr)
     {
         cudaBufferSize = sizeof(TData) * (gridSize + 1);
-        cudaMalloc(&cudaBuffer, cudaBufferSize);
+        CHECK_CUDA_ERROR(cudaMalloc(&cudaBuffer, cudaBufferSize));
     }
 
     TData *buffer = (TData *)cudaBuffer;
@@ -256,30 +257,37 @@ parallel_reduce(const unsigned int begin, const unsigned int end,
     {
         reduceSumKernel<TData>
             <<<gridSize, blockSize>>>(begin, end, buffer, functor);
+        CHECK_LAST_CUDA_ERROR();
         reduceSumKernel<TData><<<1, gridSize>>>(
             0, gridSize, out, [=] __device__(const unsigned int i, TData &ans) {
                 ans += buffer[i];
             });
+        CHECK_LAST_CUDA_ERROR();
     }
     else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMax<TData>>)
     {
         reduceMaxKernel<TData>
             <<<gridSize, blockSize>>>(begin, end, buffer, functor);
+        CHECK_LAST_CUDA_ERROR();
         reduceMaxKernel<TData><<<1, gridSize>>>(
             0, gridSize, out, [=] __device__(const unsigned int i, TData &ans) {
                 ans = max(ans, buffer[i]);
             });
+        CHECK_LAST_CUDA_ERROR();
     }
     else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMin<TData>>)
     {
         reduceMinKernel<TData>
             <<<gridSize, blockSize>>>(begin, end, buffer, functor);
+        CHECK_LAST_CUDA_ERROR();
         reduceMinKernel<TData><<<1, gridSize>>>(
             0, gridSize, out, [=] __device__(const unsigned int i, TData &ans) {
                 ans = min(ans, buffer[i]);
             });
+        CHECK_LAST_CUDA_ERROR();
     }
-    cudaMemcpy(out, d_out, sizeof(TData), cudaMemcpyDeviceToHost);
+    CHECK_CUDA_ERROR(
+        cudaMemcpy(out, d_out, sizeof(TData), cudaMemcpyDeviceToHost));
 }
 
 } // namespace Nektar

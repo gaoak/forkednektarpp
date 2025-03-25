@@ -158,6 +158,7 @@ NEK_FORCE_INLINE static void BwdTrans1DKernel(const unsigned int nm0,
 
     BwdTrans1DKernelLauncher<Implementation>
         <<<gridsize, blocksize, shmemsize>>>(nm0, nq0, nelmt, basis0, in, out);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 // Size based template version.
@@ -175,6 +176,7 @@ NEK_FORCE_INLINE static void BwdTrans1DKernel(const unsigned int nelmt,
     BwdTrans1DKernelLauncher<Implementation, nm0, nq0>
         <<<gridsize, NektarSpaces::vector_width<TData>::value, shmemsize>>>(
             nelmt, basis0, in, out);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 // Non-size based version.
@@ -198,6 +200,7 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(
         <<<gridsize, blocksize, shmemsize>>>(nm0, nm1, nmTot, nq0, nq1, nelmt,
                                              isModified, basis0, basis1, in,
                                              out, wsp);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 // Size based template version.
@@ -219,6 +222,7 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(
     BwdTrans2DKernelLauncher<SHAPE_TYPE, Implementation, nm0, nm1, nmTot, nq0,
                              nq1><<<gridsize, blocksize, shmemsize>>>(
         nelmt, isModified, basis0, basis1, in, out, wsp);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 // Non-size based version.
@@ -243,6 +247,7 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
         <<<gridsize, blocksize, shmemsize>>>(
             nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0,
             index1, basis0, basis1, basis2, in, out, wsp);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 // Size based template version.
@@ -267,6 +272,7 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
                              nq0, nq1, nq2><<<gridsize, blocksize, shmemsize>>>(
         nelmt, isModified, index0, index1, basis0, basis1, basis2, in, out,
         wsp);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 } // namespace Nektar::Operators::detail

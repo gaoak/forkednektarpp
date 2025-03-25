@@ -191,6 +191,7 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase1DKernel(
     IProductWRTDerivBase1DKernelLauncher<Implementation, DEFORMED>
         <<<gridsize, blocksize, shmemsize>>>(ncoord, nm0, nq0, nelmt, dbasis0,
                                              w0, df, jac, in, out, wsp);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 // Size based template version.
@@ -210,6 +211,7 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase1DKernel(
     IProductWRTDerivBase1DKernelLauncher<Implementation, DEFORMED, nm0, nq0>
         <<<gridsize, blocksize, shmemsize>>>(ncoord, nelmt, dbasis0, w0, df,
                                              jac, in, out, wsp);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 // Non-size based version.
@@ -236,6 +238,7 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
         <<<gridsize, blocksize, shmemsize>>>(
             ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0,
             basis0, basis1, D0, D1, w0, w1, f0, f1, df, jac, in, out, wsp);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 // Size based template version.
@@ -263,6 +266,7 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
         <<<gridsize, blocksize, shmemsize>>>(ncoord, nelmt, isModified, index0,
                                              basis0, basis1, D0, D1, w0, w1, f0,
                                              f1, df, jac, in, out, wsp);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 // Non-size based version.
@@ -292,6 +296,7 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
             nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0,
             index1, index2, basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, f0,
             f1, f1m, f2, df, jac, in, out, wsp);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 // Size based template version.
@@ -321,6 +326,7 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
         <<<gridsize, blocksize, shmemsize>>>(
             nelmt, isModified, index0, index1, index2, basis0, basis1, basis2,
             D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2, df, jac, in, out, wsp);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 } // namespace Nektar::Operators::detail

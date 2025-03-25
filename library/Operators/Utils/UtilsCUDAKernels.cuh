@@ -78,11 +78,10 @@ interleave(const unsigned int numMetaBlocks, const unsigned int npts,
         sizeof(TData) * VectorWidth * numMetaBlocks * npts;
 
     TData *buffer;
-    cudaMalloc(&buffer, bufferSize);
-
+    CHECK_CUDA_ERROR(cudaMalloc(&buffer, bufferSize));
     interleaveKernel<<<gridSize, blockSize>>>(VectorWidth, npts, buffer, inout);
-
-    cudaFree(buffer);
+    CHECK_LAST_CUDA_ERROR();
+    CHECK_CUDA_ERROR(cudaFree(buffer));
 }
 
 template <typename ExecSpace, typename TData>
@@ -97,12 +96,11 @@ deInterleave(const unsigned int VectorWidth, const unsigned int numMetaBlocks,
         sizeof(TData) * VectorWidth * numMetaBlocks * npts;
 
     TData *buffer;
-    cudaMalloc(&buffer, bufferSize);
-
+    CHECK_CUDA_ERROR(cudaMalloc(&buffer, bufferSize));
     deInterleaveKernel<<<gridSize, blockSize>>>(VectorWidth, npts, buffer,
                                                 inout);
-
-    cudaFree(buffer);
+    CHECK_LAST_CUDA_ERROR();
+    CHECK_CUDA_ERROR(cudaFree(buffer));
 }
 
 template <typename ExecSpace>
@@ -118,13 +116,12 @@ BuildInterleaveMap(const unsigned int numMetaBlocks, const unsigned int npts,
         sizeof(int) * newVecWidth * numMetaBlocks * npts;
 
     int *buffer;
-    cudaMalloc(&buffer, bufferSize);
-
+    CHECK_CUDA_ERROR(cudaMalloc(&buffer, bufferSize));
     BuildInterleaveMapKernel<<<gridSize, blockSize>>>(npts, newVecWidth, offset,
                                                       deInterleaveMapPtr,
                                                       interleaveMapPtr, buffer);
-
-    cudaFree(buffer);
+    CHECK_LAST_CUDA_ERROR();
+    CHECK_CUDA_ERROR(cudaFree(buffer));
 }
 
 } // namespace Nektar

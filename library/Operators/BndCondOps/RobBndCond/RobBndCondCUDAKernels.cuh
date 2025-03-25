@@ -80,6 +80,7 @@ RobBndCond1DKernel(const unsigned int nsize, const unsigned int *offsetPtr,
 
     RobBndCond1DKernel<negflag><<<gridSize, blockSize>>>(
         nsize, offsetPtr, matPtr, mapPtr, incoeffPtr, coeffPtr);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 template <typename ExecSpace, bool negflag, typename TData>
@@ -99,6 +100,7 @@ RobBndCond2DKernel(const unsigned int nmaxcoeff, const unsigned int nsize,
         <<<gridSize, blockSize, sizeof(TData) * nmaxcoeff>>>(
             nsize, ncoeffPtr, offsetPtr, matOffsetPtr, mapOffsetPtr, matPtr,
             mapPtr, signPtr, incoeffPtr, coeffPtr);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 } // namespace Nektar::Operators::detail

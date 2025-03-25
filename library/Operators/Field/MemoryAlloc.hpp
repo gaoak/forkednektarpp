@@ -60,7 +60,7 @@ void hostMallocPinned(TData *&src, const unsigned int size,
     if (size > 0)
     {
 #if defined(NEKTAR_ENABLE_CUDA)
-        cudaMallocHost((void **)&src, size * sizeof(TData));
+        CHECK_CUDA_ERROR(cudaMallocHost((void **)&src, size * sizeof(TData)));
 #elif defined(NEKTAR_ENABLE_HIP)
         hipMallocHost((void **)&src, size * sizeof(TData));
 #elif defined(NEKTAR_ENABLE_SYCL)
@@ -84,8 +84,8 @@ void deviceMalloc(TData *&src, const unsigned int size,
     if (size > 0)
     {
 #if defined(NEKTAR_ENABLE_CUDA)
-        cudaSetDevice(device_rank);
-        cudaMalloc((void **)&src, size * sizeof(TData));
+        CHECK_CUDA_ERROR(cudaSetDevice(device_rank));
+        CHECK_CUDA_ERROR(cudaMalloc((void **)&src, size * sizeof(TData)));
 #elif defined(NEKTAR_ENABLE_HIP)
         hipSetDevice(device_rank);
         hipMalloc((void **)&src, size * sizeof(TData));
@@ -111,7 +111,7 @@ void hostFreePinned(TData *&src, [[maybe_unused]] const unsigned int alignment)
     }
 
 #if defined(NEKTAR_ENABLE_CUDA)
-    cudaFreeHost(src);
+    CHECK_CUDA_ERROR(cudaFreeHost(src));
 #elif defined(NEKTAR_ENABLE_HIP)
     hipFreeHost(src);
 #elif defined(NEKTAR_ENABLE_SYCL)
@@ -133,8 +133,8 @@ void deviceFree(TData *&src, [[maybe_unused]] const unsigned int device_rank)
     }
 
 #if defined(NEKTAR_ENABLE_CUDA)
-    cudaSetDevice(device_rank);
-    cudaFree(src);
+    CHECK_CUDA_ERROR(cudaSetDevice(device_rank));
+    CHECK_CUDA_ERROR(cudaFree(src));
 #elif defined(NEKTAR_ENABLE_HIP)
     hipSetDevice(device_rank);
     hipFree(src);
@@ -158,8 +158,8 @@ void deviceMemset(TData *dst, const int val, const unsigned int size,
     }
 
 #if defined(NEKTAR_ENABLE_CUDA)
-    cudaSetDevice(device_rank);
-    cudaMemset((void *)dst, val, size * sizeof(TData));
+    CHECK_CUDA_ERROR(cudaSetDevice(device_rank));
+    CHECK_CUDA_ERROR(cudaMemset((void *)dst, val, size * sizeof(TData)));
 #elif defined(NEKTAR_ENABLE_HIP)
     hipSetDevice(device_rank);
     hipMemset((void *)dst, val, size * sizeof(TData));
@@ -181,7 +181,7 @@ void deviceFill(TData *dst, const TData val, const unsigned int size,
     }
 
 #if defined(NEKTAR_ENABLE_CUDA)
-    cudaSetDevice(device_rank);
+    CHECK_CUDA_ERROR(cudaSetDevice(device_rank));
     thrust::fill(dst, dst + size, val);
 #elif defined(NEKTAR_ENABLE_HIP)
     hipSetDevice(device_rank);
@@ -207,8 +207,9 @@ void deviceMemcpy(TData *dst, const TData *src, const unsigned int size,
     if constexpr (std::is_same_v<MemCopy, HostToHost>)
     {
 #if defined(NEKTAR_ENABLE_CUDA)
-        cudaSetDevice(device_rank);
-        cudaMemcpy(dst, src, size * sizeof(TData), cudaMemcpyHostToHost);
+        CHECK_CUDA_ERROR(cudaSetDevice(device_rank));
+        CHECK_CUDA_ERROR(
+            cudaMemcpy(dst, src, size * sizeof(TData), cudaMemcpyHostToHost));
 #elif defined(NEKTAR_ENABLE_HIP)
         hipSetDevice(device_rank);
         hipMemcpy(dst, src, size * sizeof(TData), hipMemcpyHostToHost);
@@ -222,8 +223,9 @@ void deviceMemcpy(TData *dst, const TData *src, const unsigned int size,
     else if constexpr (std::is_same_v<MemCopy, DeviceToHost>)
     {
 #if defined(NEKTAR_ENABLE_CUDA)
-        cudaSetDevice(device_rank);
-        cudaMemcpy(dst, src, size * sizeof(TData), cudaMemcpyDeviceToHost);
+        CHECK_CUDA_ERROR(cudaSetDevice(device_rank));
+        CHECK_CUDA_ERROR(
+            cudaMemcpy(dst, src, size * sizeof(TData), cudaMemcpyDeviceToHost));
 #elif defined(NEKTAR_ENABLE_HIP)
         hipSetDevice(device_rank);
         hipMemcpy(dst, src, size * sizeof(TData), hipMemcpyDeviceToHost);
@@ -237,8 +239,9 @@ void deviceMemcpy(TData *dst, const TData *src, const unsigned int size,
     else if constexpr (std::is_same_v<MemCopy, HostToDevice>)
     {
 #if defined(NEKTAR_ENABLE_CUDA)
-        cudaSetDevice(device_rank);
-        cudaMemcpy(dst, src, size * sizeof(TData), cudaMemcpyHostToDevice);
+        CHECK_CUDA_ERROR(cudaSetDevice(device_rank));
+        CHECK_CUDA_ERROR(
+            cudaMemcpy(dst, src, size * sizeof(TData), cudaMemcpyHostToDevice));
 #elif defined(NEKTAR_ENABLE_HIP)
         hipSetDevice(device_rank);
         hipMemcpy(dst, src, size * sizeof(TData), hipMemcpyHostToDevice);
@@ -252,8 +255,9 @@ void deviceMemcpy(TData *dst, const TData *src, const unsigned int size,
     else if constexpr (std::is_same_v<MemCopy, DeviceToDevice>)
     {
 #if defined(NEKTAR_ENABLE_CUDA)
-        cudaSetDevice(device_rank);
-        cudaMemcpy(dst, src, size * sizeof(TData), cudaMemcpyDeviceToDevice);
+        CHECK_CUDA_ERROR(cudaSetDevice(device_rank));
+        CHECK_CUDA_ERROR(cudaMemcpy(dst, src, size * sizeof(TData),
+                                    cudaMemcpyDeviceToDevice));
 #elif defined(NEKTAR_ENABLE_HIP)
         hipSetDevice(device_rank);
         hipMemcpy(dst, src, size * sizeof(TData), hipMemcpyDeviceToDevice);

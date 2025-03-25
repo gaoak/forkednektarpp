@@ -150,6 +150,7 @@ NEK_FORCE_INLINE static void PhysDeriv1DKernel(const unsigned int ncoord,
 
     PhysDeriv1DKernelLauncher<Implementation, DEFORMED>
         <<<gridsize, blocksize>>>(ncoord, nq0, nelmt, D0, df, in, out);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 // Size based template version.
@@ -164,6 +165,7 @@ NEK_FORCE_INLINE static void PhysDeriv1DKernel(const unsigned int nelmt,
 
     PhysDeriv1DKernelLauncher<Implementation, DEFORMED, ncoord, nq0>
         <<<gridsize, blocksize>>>(nelmt, D0, df, in, out);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 // Non-size based version.
@@ -183,6 +185,7 @@ NEK_FORCE_INLINE static void PhysDeriv2DKernel(
     PhysDeriv2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>
         <<<gridsize, blocksize, shmemsize>>>(ncoord, nq0, nq1, nelmt, D0, D1,
                                              f0, f1, df, in, out);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 // Size based template version.
@@ -204,6 +207,7 @@ NEK_FORCE_INLINE static void PhysDeriv2DKernel(const unsigned int nelmt,
     PhysDeriv2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED, ncoord, nq0,
                               nq1><<<gridsize, blocksize, shmemsize>>>(
         nelmt, D0, D1, f0, f1, df, in, out);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 // Non-size based version.
@@ -225,6 +229,7 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel(
     PhysDeriv3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>
         <<<gridsize, blocksize, shmemsize>>>(nq0, nq1, nq2, nelmt, D0, D1, D2,
                                              f0, f1, f1m, f2, df, in, out);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 // Size based template version.
@@ -246,6 +251,7 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel(
     PhysDeriv3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED, nq0, nq1,
                               nq2><<<gridsize, blocksize, shmemsize>>>(
         nelmt, D0, D1, D2, f0, f1, f1m, f2, df, in, out);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 } // namespace Nektar::Operators::detail
