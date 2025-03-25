@@ -61,11 +61,11 @@ void subKernelLauncher(Field<double, FieldState::Phys> &x,
     sub<ExecSpace, double>(x, y, z);
 }
 
-void daxpyKernelLauncher(const double alpha, Field<double, FieldState::Phys> &x,
-                         Field<double, FieldState::Phys> &y,
-                         Field<double, FieldState::Phys> &z)
+void mulKernelLauncher(Field<double, FieldState::Phys> &x,
+                       Field<double, FieldState::Phys> &y,
+                       Field<double, FieldState::Phys> &z)
 {
-    daxpy<ExecSpace, double>(alpha, x, y, z);
+    mul<ExecSpace, double>(x, y, z);
 }
 
 void divKernelLauncher(Field<double, FieldState::Phys> &x,
@@ -73,6 +73,13 @@ void divKernelLauncher(Field<double, FieldState::Phys> &x,
                        Field<double, FieldState::Phys> &z)
 {
     div<ExecSpace, double>(x, y, z);
+}
+
+void daxpyKernelLauncher(const double alpha, Field<double, FieldState::Phys> &x,
+                         Field<double, FieldState::Phys> &y,
+                         Field<double, FieldState::Phys> &z)
+{
+    daxpy<ExecSpace, double>(alpha, x, y, z);
 }
 
 double sumKernelLauncher(Field<double, FieldState::Phys> &x)

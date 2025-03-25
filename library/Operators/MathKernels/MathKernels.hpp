@@ -173,33 +173,8 @@ void sub(MemoryRegion<TData> &x, MemoryRegion<TData> &y, MemoryRegion<TData> &z)
     subKernel<ExecSpace>(nsize, xptr, yptr, zptr);
 }
 
-template <typename ExecSpace, typename TData, FieldState TFieldState>
-void daxpy(const TData alpha, Field<TData, TFieldState> &x,
-           Field<TData, TFieldState> &y, Field<TData, TFieldState> &z)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    if (x.size() != y.size() && y.size() != z.size())
-    {
-        std::stringstream msg;
-
-        msg << "MathKernel::daxpy - Memory size mismatch between Field";
-        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
-    }
-
-    for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
-    {
-        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto zptr = z.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
-        auto size = x.GetBlocks()[blk].size() * x.GetNumComponents();
-        daxpyKernel<ExecSpace>(size, alpha, xptr, yptr, zptr);
-    }
-}
-
 template <typename ExecSpace, typename TData>
-void daxpy(const TData alpha, MemoryRegion<TData> &x, MemoryRegion<TData> &y,
-           MemoryRegion<TData> &z)
+void mul(MemoryRegion<TData> &x, MemoryRegion<TData> &y, MemoryRegion<TData> &z)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -207,7 +182,7 @@ void daxpy(const TData alpha, MemoryRegion<TData> &x, MemoryRegion<TData> &y,
     {
         std::stringstream msg;
 
-        msg << "MathKernel::daxpy - Memory size mismatch between Field";
+        msg << "MathKernel::div - Memory size mismatch between Field";
         NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
     }
 
@@ -215,7 +190,7 @@ void daxpy(const TData alpha, MemoryRegion<TData> &x, MemoryRegion<TData> &y,
     auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
     auto yptr  = y.template GetPtr<MemSpace, ReadOnly>();
     auto zptr  = z.template GetPtr<MemSpace, WriteOnly>();
-    daxpyKernel<ExecSpace>(nsize, alpha, xptr, yptr, zptr);
+    mulKernel<ExecSpace>(nsize, xptr, yptr, zptr);
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
@@ -263,6 +238,75 @@ void div(MemoryRegion<TData> &x, MemoryRegion<TData> &y, MemoryRegion<TData> &z)
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
+void daxpy(const TData alpha, Field<TData, TFieldState> &x,
+           Field<TData, TFieldState> &y, Field<TData, TFieldState> &z)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    if (x.size() != y.size() && y.size() != z.size())
+    {
+        std::stringstream msg;
+
+        msg << "MathKernel::daxpy - Memory size mismatch between Field";
+        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+    }
+
+    for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
+    {
+        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        auto zptr = z.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
+        auto size = x.GetBlocks()[blk].size() * x.GetNumComponents();
+        daxpyKernel<ExecSpace>(size, alpha, xptr, yptr, zptr);
+    }
+}
+
+template <typename ExecSpace, typename TData>
+void daxpy(const TData alpha, MemoryRegion<TData> &x, MemoryRegion<TData> &y,
+           MemoryRegion<TData> &z)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    if (x.size() != y.size() && y.size() != z.size())
+    {
+        std::stringstream msg;
+
+        msg << "MathKernel::daxpy - Memory size mismatch between Field";
+        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+    }
+
+    auto nsize = x.size();
+    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
+    auto yptr  = y.template GetPtr<MemSpace, ReadOnly>();
+    auto zptr  = z.template GetPtr<MemSpace, WriteOnly>();
+    daxpyKernel<ExecSpace>(nsize, alpha, xptr, yptr, zptr);
+}
+
+template <typename ExecSpace, typename TData, FieldState TFieldState>
+void mul(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
+         Field<TData, TFieldState> &z)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    if (x.size() != y.size() && y.size() != z.size())
+    {
+        std::stringstream msg;
+
+        msg << "MathKernel::div - Memory size mismatch between Field";
+        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+    }
+
+    for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
+    {
+        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        auto zptr = z.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
+        auto size = x.GetBlocks()[blk].size() * x.GetNumComponents();
+        mulKernel<ExecSpace>(size, xptr, yptr, zptr);
+    }
+}
+
+template <typename ExecSpace, typename TData, FieldState TFieldState>
 void reduceSum(Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
@@ -279,6 +323,16 @@ void reduceSum(Field<TData, TFieldState> &x, TData *out)
         reduceSumKernel<ExecSpace>(size, xptr, &reduce);
         *out += reduce;
     }
+}
+
+template <typename ExecSpace, typename TData>
+void reduceSum(MemoryRegion<TData> &x, TData *out)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
+    auto nsize = x.size();
+    reduceSumKernel<ExecSpace>(nsize, xptr, out);
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
@@ -300,6 +354,16 @@ void reduceMax(Field<TData, TFieldState> &x, TData *out)
     }
 }
 
+template <typename ExecSpace, typename TData>
+void reduceMax(MemoryRegion<TData> &x, TData *out)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
+    auto nsize = x.size();
+    reduceMaxKernel<ExecSpace>(nsize, xptr, out);
+}
+
 template <typename ExecSpace, typename TData, FieldState TFieldState>
 void reduceMin(Field<TData, TFieldState> &x, TData *out)
 {
@@ -317,6 +381,16 @@ void reduceMin(Field<TData, TFieldState> &x, TData *out)
         reduceMinKernel<ExecSpace>(size, xptr, &reduce);
         *out = std::min(*out, reduce);
     }
+}
+
+template <typename ExecSpace, typename TData>
+void reduceMin(MemoryRegion<TData> &x, TData *out)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
+    auto nsize = x.size();
+    reduceMinKernel<ExecSpace>(nsize, xptr, out);
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>

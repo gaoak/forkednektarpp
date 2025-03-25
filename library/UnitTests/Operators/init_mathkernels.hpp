@@ -155,7 +155,7 @@ public:
         }
     }
 
-    void daxpy(double alpha)
+    void mul()
     {
         for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
         {
@@ -167,10 +167,9 @@ public:
                          .GetPtr<NektarSpaces::HostSpace, WriteOnly>();
             auto size = fixt_in->GetBlocks()[blk].GetNumElements() *
                         fixt_in->GetBlocks()[blk].GetNumData();
-            std::transform(x, x + size, y, z,
-                           [=](const double &xi, const double &yi) {
-                               return alpha * xi + yi;
-                           });
+            std::transform(
+                x, x + size, y, z,
+                [](const double &xi, const double &yi) { return xi * yi; });
         }
     }
 
@@ -189,6 +188,25 @@ public:
             std::transform(
                 x, x + size, y, z,
                 [](const double &xi, const double &yi) { return xi / yi; });
+        }
+    }
+
+    void daxpy(double alpha)
+    {
+        for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
+        {
+            auto x = fixt_in->GetBlocks()[blk]
+                         .GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+            auto y = fixt_in2->GetBlocks()[blk]
+                         .GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+            auto z = fixt_expected->GetBlocks()[blk]
+                         .GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+            auto size = fixt_in->GetBlocks()[blk].GetNumElements() *
+                        fixt_in->GetBlocks()[blk].GetNumData();
+            std::transform(x, x + size, y, z,
+                           [=](const double &xi, const double &yi) {
+                               return alpha * xi + yi;
+                           });
         }
     }
 

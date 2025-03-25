@@ -180,12 +180,12 @@ __device__ inline double2 operator+(const double2 &a, const double &b)
 template <typename TData>
 __global__ void negKernel(const unsigned int nsize, const TData *x, TData *y)
 {
-    unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int idx0   = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int stride = blockDim.x * gridDim.x;
 
-    while (i < nsize)
+    for (unsigned int idx = idx0; idx < nsize; idx += stride)
     {
-        y[i] = -x[i];
-        i += blockDim.x * gridDim.x;
+        y[idx] = -x[idx];
     }
 }
 
@@ -193,12 +193,12 @@ template <typename TData>
 __global__ void addKernel(const unsigned int nsize, const TData *x,
                           const TData *y, TData *z)
 {
-    unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int idx0   = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int stride = blockDim.x * gridDim.x;
 
-    while (i < nsize)
+    for (unsigned int idx = idx0; idx < nsize; idx += stride)
     {
-        z[i] = x[i] + y[i];
-        i += blockDim.x * gridDim.x;
+        z[idx] = x[idx] + y[idx];
     }
 }
 
@@ -206,12 +206,64 @@ template <typename TData>
 __global__ void subKernel(const unsigned int nsize, const TData *x,
                           const TData *y, TData *z)
 {
-    unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int idx0   = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int stride = blockDim.x * gridDim.x;
 
-    while (i < nsize)
+    for (unsigned int idx = idx0; idx < nsize; idx += stride)
     {
-        z[i] = x[i] - y[i];
-        i += blockDim.x * gridDim.x;
+        z[idx] = x[idx] - y[idx];
+    }
+}
+
+template <typename TData>
+__global__ void mulKernel(const unsigned int nsize, const TData alpha,
+                          const TData *x, TData *y)
+{
+    unsigned int idx0   = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int stride = blockDim.x * gridDim.x;
+
+    for (unsigned int idx = idx0; idx < nsize; idx += stride)
+    {
+        y[idx] = alpha * x[idx];
+    }
+}
+
+template <typename TData>
+__global__ void mulKernel(const unsigned int nsize, const TData *x,
+                          const TData *y, TData *z)
+{
+    unsigned int idx0   = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int stride = blockDim.x * gridDim.x;
+
+    for (unsigned int idx = idx0; idx < nsize; idx += stride)
+    {
+        z[idx] = x[idx] * y[idx];
+    }
+}
+
+template <typename TData>
+__global__ void divKernel(const unsigned int nsize, const TData alpha,
+                          const TData *x, TData *y)
+{
+    unsigned int idx0   = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int stride = blockDim.x * gridDim.x;
+
+    for (unsigned int idx = idx0; idx < nsize; idx += stride)
+    {
+        y[idx] = alpha / x[idx];
+    }
+}
+
+template <typename TData>
+__global__ void divKernel(const unsigned int nsize, const TData *x,
+                          const TData *y, TData *z)
+{
+    unsigned int idx0   = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int stride = blockDim.x * gridDim.x;
+
+    for (unsigned int idx = idx0; idx < nsize; idx += stride)
+    {
+        z[idx] = x[idx] / y[idx];
     }
 }
 
@@ -219,25 +271,12 @@ template <typename TData>
 __global__ void daxpyKernel(const unsigned int nsize, const TData alpha,
                             const TData *x, const TData *y, TData *z)
 {
-    unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int idx0   = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int stride = blockDim.x * gridDim.x;
 
-    while (i < nsize)
+    for (unsigned int idx = idx0; idx < nsize; idx += stride)
     {
-        z[i] = alpha * x[i] + y[i];
-        i += blockDim.x * gridDim.x;
-    }
-}
-
-template <typename TData>
-__global__ void vdivKernel(const unsigned int nsize, const TData *x,
-                           const TData *y, TData *z)
-{
-    unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
-
-    while (i < nsize)
-    {
-        z[i] = x[i] / y[i];
-        i += blockDim.x * gridDim.x;
+        z[idx] = alpha * x[idx] + y[idx];
     }
 }
 
@@ -888,13 +927,36 @@ subKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
                                void>::type
-daxpyKernel(const unsigned int nsize, const TData alpha, const TData *x,
-            const TData *y, TData *z)
+mulKernel(const unsigned int nsize, const TData alpha, const TData *x, TData *y)
 {
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
-    daxpyKernel<<<gridSize, blockSize>>>(nsize, alpha, x, y, z);
+    mulKernel<<<gridSize, blockSize>>>(nsize, alpha, x, y);
+    CHECK_LAST_CUDA_ERROR();
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                               void>::type
+mulKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
+{
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+
+    mulKernel<<<gridSize, blockSize>>>(nsize, x, y, z);
+    CHECK_LAST_CUDA_ERROR();
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                               void>::type
+divKernel(const unsigned int nsize, const TData alpha, const TData *x, TData *y)
+{
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+
+    divKernel<<<gridSize, blockSize>>>(nsize, alpha, x, y);
     CHECK_LAST_CUDA_ERROR();
 }
 
@@ -906,7 +968,20 @@ divKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
-    vdivKernel<<<gridSize, blockSize>>>(nsize, x, y, z);
+    divKernel<<<gridSize, blockSize>>>(nsize, x, y, z);
+    CHECK_LAST_CUDA_ERROR();
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                               void>::type
+daxpyKernel(const unsigned int nsize, const TData alpha, const TData *x,
+            const TData *y, TData *z)
+{
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+
+    daxpyKernel<<<gridSize, blockSize>>>(nsize, alpha, x, y, z);
     CHECK_LAST_CUDA_ERROR();
 }
 

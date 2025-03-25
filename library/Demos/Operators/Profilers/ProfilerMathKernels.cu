@@ -60,30 +60,26 @@ void ProfilerReduction(const unsigned int size)
         xptr[i] = i % 13 + (0.2 + 0.00001 * (i % (100191)));
         yptr[i] = i % 42 + (0.1 + 0.00008 * (i % (280516)));
     }
+    x.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
+    y.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
 
     // Serial.
     TData result_serial;
     timer.Start();
     for (unsigned int t = 0; t < ntests; ++t)
     {
-        ddotKernel<NektarSpaces::Serial>(size, xptr, yptr, &result_serial);
+        ddot<NektarSpaces::Serial>(x, y, &result_serial);
         ASSERTL0((result_serial > 0.0), "Error!");
     }
     timer.Stop();
     TData time_serial = timer.Elapsed().count() / ntests;
 
     // CUDA.
-    auto xdptr = x.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
-    auto ydptr = y.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
-    auto result_cuda =
-        MemoryRegion<TData>::Create("result_cuda", 1, vec_t::alignment);
+    TData result_cuda;
     timer.Start();
     for (unsigned int t = 0; t < ntests; ++t)
     {
-        ddotKernel<NektarSpaces::CUDA>(
-            size, xdptr, ydptr,
-            result_cuda
-                .template GetPtr<NektarSpaces::DeviceSpace, WriteOnly>());
+        ddot<NektarSpaces::CUDA>(x, y, &result_cuda);
     }
     cudaDeviceSynchronize();
     timer.Stop();
@@ -111,30 +107,29 @@ void ProfilerDaxpy(const unsigned int size)
     auto z    = MemoryRegion<TData>::Create("z", size, vec_t::alignment);
     auto xptr = x.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
     auto yptr = y.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-    auto zptr = z.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
     for (unsigned int i = 0; i < size; i++)
     {
         xptr[i] = i % 13 + (0.2 + 0.00001 * (i % (100191)));
         yptr[i] = i % 42 + (0.1 + 0.00008 * (i % (280516)));
     }
+    x.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
+    y.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
+    z.template GetPtr<NektarSpaces::DeviceSpace, WriteOnly>();
 
     // Serial.
     timer.Start();
     for (unsigned int t = 0; t < ntests; ++t)
     {
-        daxpyKernel<NektarSpaces::Serial>(size, 3.2, xptr, yptr, zptr);
+        daxpy<NektarSpaces::Serial>(3.2, x, y, z);
     }
     timer.Stop();
     TData time_serial = timer.Elapsed().count() / ntests;
 
     // CUDA.
-    auto xdptr = x.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
-    auto ydptr = y.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
-    auto zdptr = z.template GetPtr<NektarSpaces::DeviceSpace, WriteOnly>();
     timer.Start();
     for (unsigned int t = 0; t < ntests; ++t)
     {
-        daxpyKernel<NektarSpaces::CUDA>(size, 3.2, xdptr, ydptr, zdptr);
+        daxpy<NektarSpaces::CUDA>(3.2, x, y, z);
     }
     cudaDeviceSynchronize();
     timer.Stop();

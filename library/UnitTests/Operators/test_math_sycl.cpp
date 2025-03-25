@@ -102,22 +102,21 @@ BOOST_FIXTURE_TEST_CASE(sycl_subkernel, MathKernels)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(sycl_daxpykernel, MathKernels)
+BOOST_FIXTURE_TEST_CASE(sycl_mulkernel, MathKernels)
 {
     Configure("SYCL");
     SetTestCase();
-    double alpha = 1.5;
 
     // std results
-    daxpy(alpha);
+    mul();
 
     // SYCL results
-    daxpyKernelLauncher(alpha, *fixt_in, *fixt_in2, *fixt_out);
+    mulKernelLauncher(*fixt_in, *fixt_in2, *fixt_out);
 
     // Check results
     boost::test_tools::output_test_stream output;
     {
-        BOOST_TEST(Compare(1.0E-14));
+        BOOST_TEST(Compare(1.0E-15));
     }
 }
 
@@ -136,6 +135,25 @@ BOOST_FIXTURE_TEST_CASE(sycl_divkernel, MathKernels)
     boost::test_tools::output_test_stream output;
     {
         BOOST_TEST(Compare(1.0E-15));
+    }
+}
+
+BOOST_FIXTURE_TEST_CASE(sycl_daxpykernel, MathKernels)
+{
+    Configure("SYCL");
+    SetTestCase();
+    double alpha = 1.5;
+
+    // std results
+    daxpy(alpha);
+
+    // SYCL results
+    daxpyKernelLauncher(alpha, *fixt_in, *fixt_in2, *fixt_out);
+
+    // Check results
+    boost::test_tools::output_test_stream output;
+    {
+        BOOST_TEST(Compare(1.0E-14));
     }
 }
 

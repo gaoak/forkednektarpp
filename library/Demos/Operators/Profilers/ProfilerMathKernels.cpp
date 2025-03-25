@@ -60,13 +60,15 @@ void ProfilerReduction(const unsigned int size)
         xptr[i] = i % 13 + (0.2 + 0.00001 * (i % (100191)));
         yptr[i] = i % 42 + (0.1 + 0.00008 * (i % (280516)));
     }
+    x.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
+    y.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
 
     // Serial.
     TData result_serial;
     timer.Start();
     for (unsigned int t = 0; t < ntests; ++t)
     {
-        ddotKernel<NektarSpaces::Serial>(size, xptr, yptr, &result_serial);
+        ddot<NektarSpaces::Serial>(x, y, &result_serial);
         ASSERTL0((result_serial > 0.0), "Error!");
     }
     timer.Stop();
@@ -78,7 +80,7 @@ void ProfilerReduction(const unsigned int size)
     timer.Start();
     for (unsigned int t = 0; t < ntests; ++t)
     {
-        ddotKernel<NektarSpaces::AVX>(size, xptr, yptr, &result_avx);
+        ddot<NektarSpaces::AVX>(x, y, &result_avx);
         ASSERTL0((result_avx > 0.0), "Error!");
     }
     timer.Stop();
@@ -87,17 +89,11 @@ void ProfilerReduction(const unsigned int size)
 
     // SYCL.
 #if defined(NEKTAR_ENABLE_SYCL)
-    auto xdptr = x.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
-    auto ydptr = y.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
-    auto result_sycl =
-        MemoryRegion<TData>::Create("result_sycl", 1, vec_t::alignment);
+    TData result_sycl;
     timer.Start();
     for (unsigned int t = 0; t < ntests; ++t)
     {
-        ddotKernel<NektarSpaces::SYCL>(
-            size, xdptr, ydptr,
-            result_sycl
-                .template GetPtr<NektarSpaces::DeviceSpace, WriteOnly>());
+        ddot<NektarSpaces::SYCL>(x, y, &result_sycl);
     }
     SYCLQueue::GetInstance().wait();
     timer.Stop();
@@ -106,14 +102,11 @@ void ProfilerReduction(const unsigned int size)
 
     // DeviceOnHost.
 #if defined(NEKTAR_ENABLE_DEVICEONHOST)
-    auto xdptr = x.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
-    auto ydptr = y.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
     TData result_deviceonhost;
     timer.Start();
     for (unsigned int t = 0; t < ntests; ++t)
     {
-        ddotKernel<NektarSpaces::DeviceOnHost>(size, xdptr, ydptr,
-                                               &result_deviceonhost);
+        ddot<NektarSpaces::DeviceOnHost>(x, y, &result_deviceonhost);
         ASSERTL0((result_deviceonhost > 0.0), "Error!");
     }
     timer.Stop();
@@ -151,18 +144,20 @@ void ProfilerDaxpy(const unsigned int size)
     auto z    = MemoryRegion<TData>::Create("z", size, vec_t::alignment);
     auto xptr = x.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
     auto yptr = y.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-    auto zptr = z.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
     for (unsigned int i = 0; i < size; i++)
     {
         xptr[i] = i % 13 + (0.2 + 0.00001 * (i % (100191)));
         yptr[i] = i % 42 + (0.1 + 0.00008 * (i % (280516)));
     }
+    x.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
+    y.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
+    z.template GetPtr<NektarSpaces::DeviceSpace, WriteOnly>();
 
     // Serial.
     timer.Start();
     for (unsigned int t = 0; t < ntests; ++t)
     {
-        daxpyKernel<NektarSpaces::Serial>(size, 3.2, xptr, yptr, zptr);
+        daxpy<NektarSpaces::Serial>(3.2, x, y, z);
     }
     timer.Stop();
     TData time_serial = timer.Elapsed().count() / ntests;
@@ -172,7 +167,7 @@ void ProfilerDaxpy(const unsigned int size)
     timer.Start();
     for (unsigned int t = 0; t < ntests; ++t)
     {
-        daxpyKernel<NektarSpaces::AVX>(size, 3.2, xptr, yptr, zptr);
+        daxpy<NektarSpaces::AVX>(3.2, x, y, z);
     }
     timer.Stop();
     TData time_avx = timer.Elapsed().count() / ntests;
@@ -180,13 +175,10 @@ void ProfilerDaxpy(const unsigned int size)
 
     // SYCL.
 #if defined(NEKTAR_ENABLE_SYCL)
-    auto xdptr = x.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
-    auto ydptr = y.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
-    auto zdptr = z.template GetPtr<NektarSpaces::DeviceSpace, WriteOnly>();
     timer.Start();
     for (unsigned int t = 0; t < ntests; ++t)
     {
-        daxpyKernel<NektarSpaces::SYCL>(size, 3.2, xdptr, ydptr, zdptr);
+        daxpy<NektarSpaces::SYCL>(3.2, x, y, z);
     }
     SYCLQueue::GetInstance().wait();
     timer.Stop();
@@ -195,13 +187,10 @@ void ProfilerDaxpy(const unsigned int size)
 
     // DeviceOnHost.
 #if defined(NEKTAR_ENABLE_DEVICEONHOST)
-    auto xdptr = x.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
-    auto ydptr = y.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
-    auto zdptr = z.template GetPtr<NektarSpaces::DeviceSpace, WriteOnly>();
     timer.Start();
     for (unsigned int t = 0; t < ntests; ++t)
     {
-        daxpyKernel<NektarSpaces::DeviceOnHost>(size, 3.2, xdptr, ydptr, zdptr);
+        daxpy<NektarSpaces::DeviceOnHost>(3.2, x, y, z);
     }
     timer.Stop();
     TData time_deviceonhost = timer.Elapsed().count() / ntests;
