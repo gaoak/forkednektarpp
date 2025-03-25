@@ -200,6 +200,7 @@ NEK_FORCE_INLINE static void Helmholtz1DKernel(
         <<<gridsize, blocksize, shmemsize>>>(ncoord, nm0, nq0, nelmt, basis0,
                                              D0, w0, df, jac, coeff, in, out,
                                              wsp, lambda);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 // Size based template version.
@@ -219,6 +220,7 @@ NEK_FORCE_INLINE static void Helmholtz1DKernel(
     Helmholtz1DKernelLauncher<Implementation, DEFORMED, nm0, nq0>
         <<<gridsize, blocksize, shmemsize>>>(ncoord, nelmt, basis0, D0, w0, df,
                                              jac, coeff, in, out, wsp, lambda);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 // Non-size based version.
@@ -246,6 +248,7 @@ NEK_FORCE_INLINE static void Helmholtz2DKernel(
                                              nelmt, isModified, index0, basis0,
                                              basis1, D0, D1, w0, w1, f0, f1, df,
                                              jac, coeff, in, out, wsp, lambda);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 // Size based template version.
@@ -273,6 +276,7 @@ NEK_FORCE_INLINE static void Helmholtz2DKernel(
         <<<gridsize, blocksize, shmemsize>>>(
             ncoord, nelmt, isModified, index0, basis0, basis1, D0, D1, w0, w1,
             f0, f1, df, jac, coeff, in, out, wsp, lambda);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 // Non-size based version.
@@ -303,6 +307,7 @@ NEK_FORCE_INLINE static void Helmholtz3DKernel(
             nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0,
             index1, index2, index3, basis0, basis1, basis2, D0, D1, D2, w0, w1,
             w2, f0, f1, f1m, f2, df, jac, coeff, in, out, wsp, lambda);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 // Size based template version.
@@ -334,6 +339,7 @@ NEK_FORCE_INLINE static void Helmholtz3DKernel(
             nelmt, isModified, index0, index1, index2, index3, basis0, basis1,
             basis2, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2, df, jac, coeff, in,
             out, wsp, lambda);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 } // namespace Nektar::Operators::detail

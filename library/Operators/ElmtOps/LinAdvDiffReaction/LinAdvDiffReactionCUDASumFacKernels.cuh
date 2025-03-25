@@ -208,6 +208,7 @@ NEK_FORCE_INLINE static void LinAdvDiffReaction1DKernel(
         <<<gridsize, blocksize, shmemsize>>>(ncoord, nm0, nq0, nelmt, basis0,
                                              D0, w0, df, jac, coeff, advVel0,
                                              in, out, wsp, lambda);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 // Size based template version.
@@ -228,6 +229,7 @@ NEK_FORCE_INLINE static void LinAdvDiffReaction1DKernel(
         <<<gridsize, blocksize, shmemsize>>>(ncoord, nelmt, basis0, D0, w0, df,
                                              jac, coeff, advVel0, in, out, wsp,
                                              lambda);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 // Non-size based version.
@@ -256,6 +258,7 @@ NEK_FORCE_INLINE static void LinAdvDiffReaction2DKernel(
             ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0,
             basis0, basis1, D0, D1, w0, w1, f0, f1, df, jac, coeff, advVel0,
             advVel1, in, out, wsp, lambda);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 // Size based template version.
@@ -283,6 +286,7 @@ NEK_FORCE_INLINE static void LinAdvDiffReaction2DKernel(
         <<<gridsize, blocksize, shmemsize>>>(
             ncoord, nelmt, isModified, index0, basis0, basis1, D0, D1, w0, w1,
             f0, f1, df, jac, coeff, advVel0, advVel1, in, out, wsp, lambda);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 // Non-size based version.
@@ -315,6 +319,7 @@ NEK_FORCE_INLINE static void LinAdvDiffReaction3DKernel(
             index1, index2, index3, basis0, basis1, basis2, D0, D1, D2, w0, w1,
             w2, f0, f1, f1m, f2, df, jac, coeff, advVel0, advVel1, advVel2, in,
             out, wsp, lambda);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 // Size based template version.
@@ -347,6 +352,7 @@ NEK_FORCE_INLINE static void LinAdvDiffReaction3DKernel(
             nelmt, isModified, index0, index1, index2, index3, basis0, basis1,
             basis2, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2, df, jac, coeff,
             advVel0, advVel1, advVel2, in, out, wsp, lambda);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 } // namespace Nektar::Operators::detail

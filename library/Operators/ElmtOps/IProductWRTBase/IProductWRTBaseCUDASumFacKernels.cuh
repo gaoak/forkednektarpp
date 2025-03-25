@@ -179,6 +179,7 @@ NEK_FORCE_INLINE static void IProductWRTBase1DKernel(
     IProductWRTBase1DKernelLauncher<Implementation, SCALE, APPEND, DEFORMED>
         <<<gridsize, blocksize, shmemsize>>>(nm0, nq0, nelmt, basis0, w0, jac,
                                              in, out, scale);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 // Size based template version.
@@ -198,6 +199,7 @@ NEK_FORCE_INLINE static void IProductWRTBase1DKernel(
                                     nm0, nq0>
         <<<gridsize, blocksize, shmemsize>>>(nelmt, basis0, w0, jac, in, out,
                                              scale);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 // Non-size based version.
@@ -225,6 +227,7 @@ NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
         <<<gridsize, blocksize, shmemsize>>>(nm0, nm1, nmTot, nq0, nq1, nelmt,
                                              isModified, index0, basis0, basis1,
                                              w0, w1, jac, in, out, wsp, scale);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 // Size based template version.
@@ -252,6 +255,7 @@ NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
         <<<gridsize, blocksize, shmemsize>>>(nelmt, isModified, index0, basis0,
                                              basis1, w0, w1, jac, in, out, wsp,
                                              scale);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 // Non-size based version.
@@ -282,6 +286,7 @@ NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
             nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0,
             index1, index2, basis0, basis1, basis2, w0, w1, w2, jac, in, out,
             wsp, scale);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 // Size based template version.
@@ -310,6 +315,7 @@ NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
                                     nq2><<<gridsize, blocksize, shmemsize>>>(
         nelmt, isModified, index0, index1, index2, basis0, basis1, basis2, w0,
         w1, w2, jac, in, out, wsp, scale);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 } // namespace Nektar::Operators::detail

@@ -179,6 +179,7 @@ NEK_FORCE_INLINE static void Mass1DKernel(const unsigned int nm0,
     Mass1DKernelLauncher<Implementation, DEFORMED>
         <<<gridsize, blocksize, shmemsize>>>(nm0, nq0, nelmt, basis0, w0, jac,
                                              in, out, wsp);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 // Size based template version.
@@ -197,6 +198,7 @@ NEK_FORCE_INLINE static void Mass1DKernel(const unsigned int nelmt,
     Mass1DKernelLauncher<Implementation, DEFORMED, nm0, nq0>
         <<<gridsize, blocksize, shmemsize>>>(nelmt, basis0, w0, jac, in, out,
                                              wsp);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 // Non-size based version.
@@ -221,6 +223,7 @@ NEK_FORCE_INLINE static void Mass2DKernel(
         <<<gridsize, blocksize, shmemsize>>>(nm0, nm1, nmTot, nq0, nq1, nelmt,
                                              isModified, index0, basis0, basis1,
                                              w0, w1, jac, in, out, wsp);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 // Size based template version.
@@ -243,6 +246,7 @@ NEK_FORCE_INLINE static void Mass2DKernel(
     Mass2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED, nm0, nm1, nmTot,
                          nq0, nq1><<<gridsize, blocksize, shmemsize>>>(
         nelmt, isModified, index0, basis0, basis1, w0, w1, jac, in, out, wsp);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 // Non-size based version.
@@ -270,6 +274,7 @@ NEK_FORCE_INLINE static void Mass3DKernel(
             nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0,
             index1, index2, index3, basis0, basis1, basis2, w0, w1, w2, jac, in,
             out, wsp);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 // Size based template version.
@@ -297,6 +302,7 @@ NEK_FORCE_INLINE static void Mass3DKernel(
         <<<gridsize, blocksize, shmemsize>>>(
             nelmt, isModified, index0, index1, index2, index3, basis0, basis1,
             basis2, w0, w1, w2, jac, in, out, wsp);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 } // namespace Nektar::Operators::detail

@@ -67,6 +67,7 @@ AddTraceIntegralKernel(const unsigned int nsize,
     AddTraceIntegralKernel<><<<gridSize, blockSize>>>(
         nsize, traceCoeffsToElmtMapPtr, traceCoeffsToElmtSignPtr,
         traceCoeffsToElmtTracePtr, tracePtr, outptr);
+    CHECK_LAST_CUDA_ERROR();
 }
 
 // Launchers
