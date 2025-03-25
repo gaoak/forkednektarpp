@@ -57,12 +57,13 @@ negKernel(const unsigned int nsize, const TData *x, TData *y)
     Q.submit([=](sycl::handler &cgh) {
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
                          [=](sycl::nd_item<1> indx) {
-                             unsigned int i = indx.get_global_id(0);
+                             unsigned int idx0 = indx.get_global_id(0);
+                             unsigned stride   = indx.get_global_range(0);
 
-                             while (i < nsize)
+                             for (unsigned int idx = idx0; idx < nsize;
+                                  idx += stride)
                              {
-                                 y[i] = -x[i];
-                                 i += indx.get_global_range(0);
+                                 y[idx] = -x[idx];
                              }
                          });
     });
@@ -80,12 +81,13 @@ addKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
     Q.submit([=](sycl::handler &cgh) {
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
                          [=](sycl::nd_item<1> indx) {
-                             unsigned int i = indx.get_global_id(0);
+                             unsigned int idx0 = indx.get_global_id(0);
+                             unsigned stride   = indx.get_global_range(0);
 
-                             while (i < nsize)
+                             for (unsigned int idx = idx0; idx < nsize;
+                                  idx += stride)
                              {
-                                 z[i] = x[i] + y[i];
-                                 i += indx.get_global_range(0);
+                                 z[idx] = x[idx] + y[idx];
                              }
                          });
     });
@@ -103,12 +105,109 @@ subKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
     Q.submit([=](sycl::handler &cgh) {
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
                          [=](sycl::nd_item<1> indx) {
-                             unsigned int i = indx.get_global_id(0);
+                             unsigned int idx0 = indx.get_global_id(0);
+                             unsigned stride   = indx.get_global_range(0);
 
-                             while (i < nsize)
+                             for (unsigned int idx = idx0; idx < nsize;
+                                  idx += stride)
                              {
-                                 z[i] = x[i] - y[i];
-                                 i += indx.get_global_range(0);
+                                 z[idx] = x[idx] - y[idx];
+                             }
+                         });
+    });
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                               void>::type
+mulKernel(const unsigned int nsize, const TData alpha, const TData *x, TData *y)
+{
+    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+
+    sycl::queue &Q = SYCLQueue::GetInstance();
+    Q.submit([=](sycl::handler &cgh) {
+        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
+                         [=](sycl::nd_item<1> indx) {
+                             unsigned int idx0 = indx.get_global_id(0);
+                             unsigned stride   = indx.get_global_range(0);
+
+                             for (unsigned int idx = idx0; idx < nsize;
+                                  idx += stride)
+                             {
+                                 y[idx] = alpha * x[idx];
+                             }
+                         });
+    });
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                               void>::type
+mulKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
+{
+    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+
+    sycl::queue &Q = SYCLQueue::GetInstance();
+    Q.submit([=](sycl::handler &cgh) {
+        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
+                         [=](sycl::nd_item<1> indx) {
+                             unsigned int idx0 = indx.get_global_id(0);
+                             unsigned stride   = indx.get_global_range(0);
+
+                             for (unsigned int idx = idx0; idx < nsize;
+                                  idx += stride)
+                             {
+                                 z[idx] = x[idx] * y[idx];
+                             }
+                         });
+    });
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                               void>::type
+divKernel(const unsigned int nsize, const TData alpha, const TData *x, TData *y)
+{
+    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+
+    sycl::queue &Q = SYCLQueue::GetInstance();
+    Q.submit([=](sycl::handler &cgh) {
+        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
+                         [=](sycl::nd_item<1> indx) {
+                             unsigned int idx0 = indx.get_global_id(0);
+                             unsigned stride   = indx.get_global_range(0);
+
+                             for (unsigned int idx = idx0; idx < nsize;
+                                  idx += stride)
+                             {
+                                 y[idx] = alpha / x[idx];
+                             }
+                         });
+    });
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                               void>::type
+divKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
+{
+    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+
+    sycl::queue &Q = SYCLQueue::GetInstance();
+    Q.submit([=](sycl::handler &cgh) {
+        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
+                         [=](sycl::nd_item<1> indx) {
+                             unsigned int idx0 = indx.get_global_id(0);
+                             unsigned stride   = indx.get_global_range(0);
+
+                             for (unsigned int idx = idx0; idx < nsize;
+                                  idx += stride)
+                             {
+                                 z[idx] = x[idx] / y[idx];
                              }
                          });
     });
@@ -127,35 +226,13 @@ daxpyKernel(const unsigned int nsize, const TData alpha, const TData *x,
     Q.submit([=](sycl::handler &cgh) {
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
                          [=](sycl::nd_item<1> indx) {
-                             unsigned int i = indx.get_global_id(0);
+                             unsigned int idx0 = indx.get_global_id(0);
+                             unsigned stride   = indx.get_global_range(0);
 
-                             while (i < nsize)
+                             for (unsigned int idx = idx0; idx < nsize;
+                                  idx += stride)
                              {
-                                 z[i] = alpha * x[i] + y[i];
-                                 i += indx.get_global_range(0);
-                             }
-                         });
-    });
-}
-
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
-                               void>::type
-divKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
-{
-    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
-
-    sycl::queue &Q = SYCLQueue::GetInstance();
-    Q.submit([=](sycl::handler &cgh) {
-        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
-                         [=](sycl::nd_item<1> indx) {
-                             unsigned int i = indx.get_global_id(0);
-
-                             while (i < nsize)
-                             {
-                                 z[i] = x[i] / y[i];
-                                 i += indx.get_global_range(0);
+                                 z[idx] = alpha * x[idx] + y[idx];
                              }
                          });
     });

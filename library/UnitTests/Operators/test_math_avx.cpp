@@ -102,22 +102,21 @@ BOOST_FIXTURE_TEST_CASE(avx_subkernel, MathKernels)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(avx_daxpykernel, MathKernels)
+BOOST_FIXTURE_TEST_CASE(avx_mulkernel, MathKernels)
 {
     Configure("AVX");
     SetTestCase();
-    double alpha = 1.5;
 
     // std results
-    daxpy(alpha);
+    mul();
 
     // AVX results
-    daxpyKernelLauncher(alpha, *fixt_in, *fixt_in2, *fixt_out);
+    mulKernelLauncher(*fixt_in, *fixt_in2, *fixt_out);
 
     // Check results
     boost::test_tools::output_test_stream output;
     {
-        BOOST_TEST(Compare(1.0E-14));
+        BOOST_TEST(Compare(1.0E-15));
     }
 }
 
@@ -136,6 +135,25 @@ BOOST_FIXTURE_TEST_CASE(avx_divkernel, MathKernels)
     boost::test_tools::output_test_stream output;
     {
         BOOST_TEST(Compare(1.0E-15));
+    }
+}
+
+BOOST_FIXTURE_TEST_CASE(avx_daxpykernel, MathKernels)
+{
+    Configure("AVX");
+    SetTestCase();
+    double alpha = 1.5;
+
+    // std results
+    daxpy(alpha);
+
+    // AVX results
+    daxpyKernelLauncher(alpha, *fixt_in, *fixt_in2, *fixt_out);
+
+    // Check results
+    boost::test_tools::output_test_stream output;
+    {
+        BOOST_TEST(Compare(1.0E-14));
     }
 }
 

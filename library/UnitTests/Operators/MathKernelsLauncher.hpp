@@ -42,12 +42,15 @@ void addKernelLauncher(Field<double, FieldState::Phys> &,
 void subKernelLauncher(Field<double, FieldState::Phys> &,
                        Field<double, FieldState::Phys> &,
                        Field<double, FieldState::Phys> &);
-void daxpyKernelLauncher(const double alpha, Field<double, FieldState::Phys> &,
-                         Field<double, FieldState::Phys> &,
-                         Field<double, FieldState::Phys> &);
+void mulKernelLauncher(Field<double, FieldState::Phys> &,
+                       Field<double, FieldState::Phys> &,
+                       Field<double, FieldState::Phys> &);
 void divKernelLauncher(Field<double, FieldState::Phys> &,
                        Field<double, FieldState::Phys> &,
                        Field<double, FieldState::Phys> &);
+void daxpyKernelLauncher(const double alpha, Field<double, FieldState::Phys> &,
+                         Field<double, FieldState::Phys> &,
+                         Field<double, FieldState::Phys> &);
 double sumKernelLauncher(Field<double, FieldState::Phys> &);
 double maxKernelLauncher(Field<double, FieldState::Phys> &);
 double minKernelLauncher(Field<double, FieldState::Phys> &);

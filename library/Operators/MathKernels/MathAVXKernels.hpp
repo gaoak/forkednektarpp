@@ -354,8 +354,100 @@ subKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                                void>::type
-daxpyKernel(const unsigned int nsize, const TData alpha, const TData *x,
-            const TData *y, TData *z)
+mulKernel(const unsigned int nsize, const TData alpha, const TData *x, TData *y)
+{
+    using namespace tinysimd;
+    using simd_t = simd<TData>;
+
+    simd_t aChunk;
+    aChunk.broadcast(alpha);
+
+    unsigned int cnt = nsize;
+    // Vectorized loop unroll 4x
+    while (cnt >= 4 * simd_t::width)
+    {
+        // load
+        simd_t xChunk0, xChunk1, xChunk2, xChunk3;
+        xChunk0.load(x, is_aligned);
+        xChunk1.load(x + simd_t::width, is_aligned);
+        xChunk2.load(x + 2 * simd_t::width, is_aligned);
+        xChunk3.load(x + 3 * simd_t::width, is_aligned);
+
+        // y = alpha * x
+        simd_t yChunk0 = aChunk * xChunk0;
+        simd_t yChunk1 = aChunk * xChunk1;
+        simd_t yChunk2 = aChunk * xChunk2;
+        simd_t yChunk3 = aChunk * xChunk3;
+
+        // store
+        yChunk0.store(y, is_aligned);
+        yChunk1.store(y + simd_t::width, is_aligned);
+        yChunk2.store(y + 2 * simd_t::width, is_aligned);
+        yChunk3.store(y + 3 * simd_t::width, is_aligned);
+
+        // update pointers
+        x += 4 * simd_t::width;
+        y += 4 * simd_t::width;
+        cnt -= 4 * simd_t::width;
+    }
+
+    // Vectorized loop unroll 2x
+    while (cnt >= 2 * simd_t::width)
+    {
+        // load
+        simd_t xChunk0, xChunk1;
+        xChunk0.load(x, is_aligned);
+        xChunk1.load(x + simd_t::width, is_aligned);
+
+        // y = alpha * x
+        simd_t yChunk0 = aChunk * yChunk0;
+        simd_t yChunk1 = aChunk * yChunk1;
+
+        // store
+        yChunk0.store(y, is_aligned);
+        yChunk1.store(y + simd_t::width, is_aligned);
+
+        // update pointers
+        x += 2 * simd_t::width;
+        y += 2 * simd_t::width;
+        cnt -= 2 * simd_t::width;
+    }
+
+    // Vectorized loop
+    while (cnt >= simd_t::width)
+    {
+        // load
+        simd_t xChunk;
+        xChunk.load(x, is_aligned);
+
+        // y = alpha * x
+        simd_t yChunk = aChunk * yChunk;
+
+        // store
+        yChunk.store(y, is_aligned);
+
+        // update pointers
+        x += simd_t::width;
+        y += simd_t::width;
+        cnt -= simd_t::width;
+    }
+
+    // spillover loop
+    while (cnt)
+    {
+        // y = alpha * x;
+        *y = alpha * (*x);
+        // update pointers
+        ++x;
+        ++y;
+        --cnt;
+    }
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                               void>::type
+mulKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 {
     using namespace tinysimd;
     using simd_t = simd<TData>;
@@ -377,17 +469,17 @@ daxpyKernel(const unsigned int nsize, const TData alpha, const TData *x,
         xChunk2.load(x + 2 * simd_t::width, is_aligned);
         xChunk3.load(x + 3 * simd_t::width, is_aligned);
 
-        // z = alpha * x + y
-        yChunk0.fma(simd_t(xChunk0), alpha);
-        yChunk1.fma(simd_t(xChunk1), alpha);
-        yChunk2.fma(simd_t(xChunk2), alpha);
-        yChunk3.fma(simd_t(xChunk3), alpha);
+        // z = x * y
+        simd_t zChunk0 = xChunk0 * yChunk0;
+        simd_t zChunk1 = xChunk1 * yChunk1;
+        simd_t zChunk2 = xChunk2 * yChunk2;
+        simd_t zChunk3 = xChunk3 * yChunk3;
 
         // store
-        yChunk0.store(z, is_aligned);
-        yChunk1.store(z + simd_t::width, is_aligned);
-        yChunk2.store(z + 2 * simd_t::width, is_aligned);
-        yChunk3.store(z + 3 * simd_t::width, is_aligned);
+        zChunk0.store(z, is_aligned);
+        zChunk1.store(z + simd_t::width, is_aligned);
+        zChunk2.store(z + 2 * simd_t::width, is_aligned);
+        zChunk3.store(z + 3 * simd_t::width, is_aligned);
 
         // update pointers
         x += 4 * simd_t::width;
@@ -408,13 +500,13 @@ daxpyKernel(const unsigned int nsize, const TData alpha, const TData *x,
         xChunk0.load(x, is_aligned);
         xChunk1.load(x + simd_t::width, is_aligned);
 
-        // z = alpha * x + y
-        yChunk0.fma(simd_t(xChunk0), alpha);
-        yChunk1.fma(simd_t(xChunk1), alpha);
+        // z = x * y
+        simd_t zChunk0 = xChunk0 * yChunk0;
+        simd_t zChunk1 = xChunk1 * yChunk1;
 
         // store
-        yChunk0.store(z, is_aligned);
-        yChunk1.store(z + simd_t::width, is_aligned);
+        zChunk0.store(z, is_aligned);
+        zChunk1.store(z + simd_t::width, is_aligned);
 
         // update pointers
         x += 2 * simd_t::width;
@@ -432,11 +524,11 @@ daxpyKernel(const unsigned int nsize, const TData alpha, const TData *x,
         simd_t xChunk;
         xChunk.load(x, is_aligned);
 
-        // z = alpha * x + y
-        yChunk.fma(simd_t(xChunk), alpha);
+        // z = x * y
+        simd_t zChunk = xChunk * yChunk;
 
         // store
-        yChunk.store(z, is_aligned);
+        zChunk.store(z, is_aligned);
 
         // update pointers
         x += simd_t::width;
@@ -448,12 +540,105 @@ daxpyKernel(const unsigned int nsize, const TData alpha, const TData *x,
     // spillover loop
     while (cnt)
     {
-        // z = alpha * x + y;
-        *z = alpha * (*x) + (*y);
+        // z = x * y;
+        *z = (*x) * (*y);
         // update pointers
         ++x;
         ++y;
         ++z;
+        --cnt;
+    }
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                               void>::type
+divKernel(const unsigned int nsize, const TData alpha, const TData *x, TData *y)
+{
+    using namespace tinysimd;
+    using simd_t = simd<TData>;
+
+    simd_t aChunk;
+    aChunk.broadcast(alpha);
+
+    unsigned int cnt = nsize;
+    // Vectorized loop unroll 4x
+    while (cnt >= 4 * simd_t::width)
+    {
+        // load
+        simd_t xChunk0, xChunk1, xChunk2, xChunk3;
+        xChunk0.load(x, is_aligned);
+        xChunk1.load(x + simd_t::width, is_aligned);
+        xChunk2.load(x + 2 * simd_t::width, is_aligned);
+        xChunk3.load(x + 3 * simd_t::width, is_aligned);
+
+        // y = alpha / x
+        simd_t yChunk0 = aChunk / xChunk0;
+        simd_t yChunk1 = aChunk / xChunk1;
+        simd_t yChunk2 = aChunk / xChunk2;
+        simd_t yChunk3 = aChunk / xChunk3;
+
+        // store
+        yChunk0.store(y, is_aligned);
+        yChunk1.store(y + simd_t::width, is_aligned);
+        yChunk2.store(y + 2 * simd_t::width, is_aligned);
+        yChunk3.store(y + 3 * simd_t::width, is_aligned);
+
+        // update pointers
+        x += 4 * simd_t::width;
+        y += 4 * simd_t::width;
+        cnt -= 4 * simd_t::width;
+    }
+
+    // Vectorized loop unroll 2x
+    while (cnt >= 2 * simd_t::width)
+    {
+        // load
+        simd_t xChunk0, xChunk1;
+        xChunk0.load(x, is_aligned);
+        xChunk1.load(x + simd_t::width, is_aligned);
+
+        // y = alpha / x
+        simd_t yChunk0 = aChunk / yChunk0;
+        simd_t yChunk1 = aChunk / yChunk1;
+
+        // store
+        yChunk0.store(y, is_aligned);
+        yChunk1.store(y + simd_t::width, is_aligned);
+
+        // update pointers
+        x += 2 * simd_t::width;
+        y += 2 * simd_t::width;
+        cnt -= 2 * simd_t::width;
+    }
+
+    // Vectorized loop
+    while (cnt >= simd_t::width)
+    {
+        // load
+        simd_t xChunk;
+        xChunk.load(x, is_aligned);
+
+        // y = alpha / x
+        simd_t yChunk = aChunk / yChunk;
+
+        // store
+        yChunk.store(y, is_aligned);
+
+        // update pointers
+        x += simd_t::width;
+        y += simd_t::width;
+        cnt -= simd_t::width;
+    }
+
+    // spillover loop
+    while (cnt)
+    {
+        // y = alpha / x;
+        *y = alpha / (*x);
+        // update pointers
+        ++x;
+        ++y;
         --cnt;
     }
 }
@@ -556,6 +741,113 @@ divKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
     {
         // z = x / y;
         *z = (*x) / (*y);
+        // update pointers
+        ++x;
+        ++y;
+        ++z;
+        --cnt;
+    }
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                               void>::type
+daxpyKernel(const unsigned int nsize, const TData alpha, const TData *x,
+            const TData *y, TData *z)
+{
+    using namespace tinysimd;
+    using simd_t = simd<TData>;
+
+    unsigned int cnt = nsize;
+    // Vectorized loop unroll 4x
+    while (cnt >= 4 * simd_t::width)
+    {
+        // load
+        simd_t yChunk0, yChunk1, yChunk2, yChunk3;
+        yChunk0.load(y, is_aligned);
+        yChunk1.load(y + simd_t::width, is_aligned);
+        yChunk2.load(y + 2 * simd_t::width, is_aligned);
+        yChunk3.load(y + 3 * simd_t::width, is_aligned);
+
+        simd_t xChunk0, xChunk1, xChunk2, xChunk3;
+        xChunk0.load(x, is_aligned);
+        xChunk1.load(x + simd_t::width, is_aligned);
+        xChunk2.load(x + 2 * simd_t::width, is_aligned);
+        xChunk3.load(x + 3 * simd_t::width, is_aligned);
+
+        // z = alpha * x + y
+        yChunk0.fma(simd_t(xChunk0), alpha);
+        yChunk1.fma(simd_t(xChunk1), alpha);
+        yChunk2.fma(simd_t(xChunk2), alpha);
+        yChunk3.fma(simd_t(xChunk3), alpha);
+
+        // store
+        yChunk0.store(z, is_aligned);
+        yChunk1.store(z + simd_t::width, is_aligned);
+        yChunk2.store(z + 2 * simd_t::width, is_aligned);
+        yChunk3.store(z + 3 * simd_t::width, is_aligned);
+
+        // update pointers
+        x += 4 * simd_t::width;
+        y += 4 * simd_t::width;
+        z += 4 * simd_t::width;
+        cnt -= 4 * simd_t::width;
+    }
+
+    // Vectorized loop unroll 2x
+    while (cnt >= 2 * simd_t::width)
+    {
+        // load
+        simd_t yChunk0, yChunk1;
+        yChunk0.load(y, is_aligned);
+        yChunk1.load(y + simd_t::width, is_aligned);
+
+        simd_t xChunk0, xChunk1;
+        xChunk0.load(x, is_aligned);
+        xChunk1.load(x + simd_t::width, is_aligned);
+
+        // z = alpha * x + y
+        yChunk0.fma(simd_t(xChunk0), alpha);
+        yChunk1.fma(simd_t(xChunk1), alpha);
+
+        // store
+        yChunk0.store(z, is_aligned);
+        yChunk1.store(z + simd_t::width, is_aligned);
+
+        // update pointers
+        x += 2 * simd_t::width;
+        y += 2 * simd_t::width;
+        z += 2 * simd_t::width;
+        cnt -= 2 * simd_t::width;
+    }
+
+    // Vectorized loop
+    while (cnt >= simd_t::width)
+    {
+        // load
+        simd_t yChunk;
+        yChunk.load(y, is_aligned);
+        simd_t xChunk;
+        xChunk.load(x, is_aligned);
+
+        // z = alpha * x + y
+        yChunk.fma(simd_t(xChunk), alpha);
+
+        // store
+        yChunk.store(z, is_aligned);
+
+        // update pointers
+        x += simd_t::width;
+        y += simd_t::width;
+        z += simd_t::width;
+        cnt -= simd_t::width;
+    }
+
+    // spillover loop
+    while (cnt)
+    {
+        // z = alpha * x + y;
+        *z = alpha * (*x) + (*y);
         // update pointers
         ++x;
         ++y;

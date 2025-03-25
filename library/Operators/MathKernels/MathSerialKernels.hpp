@@ -75,12 +75,26 @@ subKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial>,
                                void>::type
-daxpyKernel(const unsigned int nsize, const TData alpha, const TData *x,
-            const TData *y, TData *z)
+mulKernel(const unsigned int nsize, const TData alpha, const TData *x, TData *y)
 {
-    std::transform(x, x + nsize, y, z, [&](const TData &xi, const TData &yi) {
-        return alpha * xi + yi;
-    });
+    std::transform(x, x + nsize, y, [&alpha](TData xi) { return alpha * xi; });
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial>,
+                               void>::type
+mulKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
+{
+    std::transform(x, x + nsize, y, z,
+                   [](TData xi, TData yi) { return xi * yi; });
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial>,
+                               void>::type
+divKernel(const unsigned int nsize, const TData alpha, const TData *x, TData *y)
+{
+    std::transform(x, x + nsize, y, [&alpha](TData xi) { return alpha / xi; });
 }
 
 template <typename ExecSpace, typename TData>
@@ -90,6 +104,17 @@ divKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 {
     std::transform(x, x + nsize, y, z,
                    [](TData xi, TData yi) { return xi / yi; });
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial>,
+                               void>::type
+daxpyKernel(const unsigned int nsize, const TData alpha, const TData *x,
+            const TData *y, TData *z)
+{
+    std::transform(x, x + nsize, y, z, [&](const TData &xi, const TData &yi) {
+        return alpha * xi + yi;
+    });
 }
 
 template <typename ExecSpace, typename TData>
