@@ -40,7 +40,7 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
+NEK_FORCE_INLINE static typename std::enable_if<
     std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
 AssembleKernel(const unsigned int nsize, const int *assmbPtr,
                const TData *signPtr, const TData *inptr, TData *outptr)
@@ -50,7 +50,7 @@ AssembleKernel(const unsigned int nsize, const int *assmbPtr,
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
+NEK_FORCE_INLINE static typename std::enable_if<
     std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
 AssembleKernel(const unsigned int nsize, const int *assmbPtr, const TData sign,
                const TData *inptr, TData *outptr)
@@ -60,7 +60,7 @@ AssembleKernel(const unsigned int nsize, const int *assmbPtr, const TData sign,
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
+NEK_FORCE_INLINE static typename std::enable_if<
     std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
 AssembleKernel(const unsigned int nsize, const int *assmbPtr,
                const TData *inptr, TData *outptr)
@@ -69,7 +69,7 @@ AssembleKernel(const unsigned int nsize, const int *assmbPtr,
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
+NEK_FORCE_INLINE static typename std::enable_if<
     std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
 GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
                     const TData *signPtr, const TData *inptr, TData *outptr)
@@ -79,7 +79,7 @@ GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
+NEK_FORCE_INLINE static typename std::enable_if<
     std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
 GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
                     const TData sign, const TData *inptr, TData *outptr)
@@ -89,7 +89,7 @@ GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
+NEK_FORCE_INLINE static typename std::enable_if<
     std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
 GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
                     const TData *inptr, TData *outptr)

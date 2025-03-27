@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: AddTraceIntegralSYCLKernels.hpp
+// File: MultiplyByElmtInvMassSerialAVXKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,50 +34,24 @@
 
 #pragma once
 
-#if defined(NEKTAR_ENABLE_SYCL)
-
 namespace Nektar::Operators::detail
 {
 
-// Launchers
 template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                             void>::type
-    AddTraceIntegralKernel(const unsigned int nsize,
-                           const int *traceCoeffsToElmtMapPtr,
-                           const int *traceCoeffsToElmtSignPtr,
-                           const int *traceCoeffsToElmtTracePtr,
-                           const TData *tracePtr, TData *outptr)
+    DivideByJacobianKernel(const unsigned int nelmt, const unsigned int nmTot,
+                           const TData *jacptr, TData *outptr)
 {
-    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
-
-    sycl::queue &Q = SYCLQueue::GetInstance();
-    Q.submit([=](sycl::handler &cgh) {
-        cgh.parallel_for(
-            sycl::nd_range<1>(gridSize * blockSize, blockSize),
-            [=](sycl::nd_item<1> item_ct1) {
-#pragma forceNEK_FORCE_INLINE static
-                AddTraceIntegralKernel<>(
-                    nsize, traceCoeffsToElmtMapPtr, traceCoeffsToElmtSignPtr,
-                    traceCoeffsToElmtTracePtr, tracePtr, outptr, item_ct1);
-            });
-    });
-}
-
-// Launchers
-template <typename ExecSpace>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
-                            void>::type
-    ReOrderMapKernel([[maybe_unused]] const unsigned int nsize,
-                     [[maybe_unused]] int *traceCoeffsToElmtMapPtr,
-                     [[maybe_unused]] int *traceCoeffsToElmtSignPtr,
-                     [[maybe_unused]] int *traceCoeffsToElmtTracePtr)
-{
+    for (unsigned int e = 0; e < nelmt; e++)
+    {
+        for (unsigned int i = 0; i < nmTot; i++)
+        {
+            outptr[nmTot * e + i] /= jacptr[e];
+        }
+    }
 }
 
 } // namespace Nektar::Operators::detail
-
-#endif

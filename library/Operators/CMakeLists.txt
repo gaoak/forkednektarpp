@@ -430,7 +430,7 @@ MACRO(ADD_ELMT_OPERATOR dir)
                     IF(EXISTS "${dir}/${name}DeviceGenericKernels.hpp")
                         MESSAGE("Adding operator with a ${ExecSpace} Generic implementation and a generic device kernel: " "${FactoryDeclName}")
                     # Found specific kernel
-                    ELSEIF(EXISTS "${dir}/${name}${ExecSpace}GenericKernels.${HEADER_EXT}")
+                    ELSEIF(EXISTS "${dir}/${name}${ExecSpace}Kernels.${HEADER_EXT}")
                         MESSAGE("Adding operator with a ${ExecSpace} Generic implementation and a specific ${ExecSpace} kernel: " "${FactoryDeclName}")
                     # No kernel found, generic implementation
                     ELSEIF(

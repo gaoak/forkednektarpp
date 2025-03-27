@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: AddTraceIntegralCUDAKernels.cuh
+// File: MultiplyByElmtInvMassCUDAKernels.cuh
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -40,15 +40,12 @@ namespace Nektar::Operators::detail
 {
 
 template <typename TData>
-__global__ void AddTraceIntegralKernel(
-    const unsigned int nsize, const int *__restrict__ traceCoeffsToElmtMapPtr,
-    const int *__restrict__ traceCoeffsToElmtSignPtr,
-    const int *__restrict__ traceCoeffsToElmtTracePtr,
-    const TData *__restrict__ tracePtr, TData *__restrict__ outptr)
+__global__ void DivideByJacobianKernel(const unsigned int nsize,
+                                       const unsigned int nmTot,
+                                       const TData *__restrict__ jacptr,
+                                       TData *__restrict__ outptr)
 {
-    AddTraceIntegralKernel<>(
-        nsize, traceCoeffsToElmtMapPtr, traceCoeffsToElmtSignPtr,
-        traceCoeffsToElmtTracePtr, tracePtr, outptr, cudaBlock1D());
+    DivideByJacobianKernel<>(nsize, nmTot, jacptr, outptr, cudaBlock1D());
 }
 
 // Launchers
@@ -56,31 +53,17 @@ template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
                             void>::type
-    AddTraceIntegralKernel(const unsigned int nsize,
-                           const int *traceCoeffsToElmtMapPtr,
-                           const int *traceCoeffsToElmtSignPtr,
-                           const int *traceCoeffsToElmtTracePtr,
-                           const TData *tracePtr, TData *outptr)
+    DivideByJacobianKernel(const unsigned int nelmt, const unsigned int nmTot,
+                           const TData *jacptr, TData *outptr)
 {
+    const unsigned int nsize = nelmt * nmTot;
+
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+    const unsigned int gridSize  = (nelmt + blockSize - 1u) / blockSize;
 
-    AddTraceIntegralKernel<><<<gridSize, blockSize>>>(
-        nsize, traceCoeffsToElmtMapPtr, traceCoeffsToElmtSignPtr,
-        traceCoeffsToElmtTracePtr, tracePtr, outptr);
+    DivideByJacobianKernel<>
+        <<<gridSize, blockSize>>>(nsize, nmTot, jacptr, outptr);
     CHECK_LAST_CUDA_ERROR();
-}
-
-// Launchers
-template <typename ExecSpace>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
-                            void>::type
-    ReOrderMapKernel([[maybe_unused]] const unsigned int nsize,
-                     [[maybe_unused]] int *traceCoeffsToElmtMapPtr,
-                     [[maybe_unused]] int *traceCoeffsToElmtSignPtr,
-                     [[maybe_unused]] int *traceCoeffsToElmtTracePtr)
-{
 }
 
 } // namespace Nektar::Operators::detail

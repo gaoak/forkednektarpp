@@ -35,10 +35,11 @@
 #pragma once
 
 template <bool DEFORMED, typename TData>
-static inline void MultiplyByJacobianKernel(const unsigned int nqTot,
-                                            const unsigned int nelmt,
-                                            const TData *jacptr,
-                                            const TData *inptr, TData *outptr)
+NEK_FORCE_INLINE static void MultiplyByJacobianKernel(const unsigned int nqTot,
+                                                      const unsigned int nelmt,
+                                                      const TData *jacptr,
+                                                      const TData *inptr,
+                                                      TData *outptr)
 {
     if constexpr (DEFORMED)
     {

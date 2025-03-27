@@ -34,13 +34,11 @@
 
 #pragma once
 
-#include "Operators/LoopExecution/LoopExecution.hpp"
-
 namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename TData>
-inline
+NEK_FORCE_INLINE static
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                             void>::type
@@ -54,7 +52,7 @@ inline
 }
 
 template <typename ExecSpace, typename TData>
-inline
+NEK_FORCE_INLINE static
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                             void>::type
@@ -68,7 +66,7 @@ inline
 }
 
 template <typename ExecSpace, typename TData>
-inline
+NEK_FORCE_INLINE static
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                             void>::type
@@ -82,7 +80,7 @@ inline
 }
 
 template <typename ExecSpace, typename TData>
-inline
+NEK_FORCE_INLINE static
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                             void>::type
@@ -96,7 +94,7 @@ inline
 }
 
 template <typename ExecSpace, typename TData>
-inline
+NEK_FORCE_INLINE static
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                             void>::type
@@ -110,7 +108,7 @@ inline
 }
 
 template <typename ExecSpace, typename TData>
-inline
+NEK_FORCE_INLINE static
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                             void>::type
