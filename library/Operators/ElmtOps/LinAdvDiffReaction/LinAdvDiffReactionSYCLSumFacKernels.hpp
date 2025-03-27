@@ -62,9 +62,7 @@ NEK_FORCE_INLINE static void LinAdvDiffReaction1DKernel(
         cgh.parallel_for(
             sycl::nd_range<1>(gridsize * blocksize, blocksize),
             [=](sycl::nd_item<1> item_ct1) {
-                TData *shmemptr =
-                    shmem.template get_multi_ptr<sycl::access::decorated::no>()
-                        .get();
+                TData *shmemptr = &shmem[0];
 #pragma forceinline
                 LinAdvDiffReaction1DKernel<Implementation, DEFORMED>(
                     ncoord, nm0, nq0, nelmt, basis0, D0, w0, df, jac, coeff,
@@ -115,9 +113,7 @@ NEK_FORCE_INLINE static void LinAdvDiffReaction2DKernel(
         cgh.parallel_for(
             sycl::nd_range<1>(gridsize * blocksize, blocksize),
             [=](sycl::nd_item<1> item_ct1) {
-                TData *shmemptr =
-                    shmem.template get_multi_ptr<sycl::access::decorated::no>()
-                        .get();
+                TData *shmemptr = &shmem[0];
 #pragma forceinline
                 LinAdvDiffReaction2DKernel<SHAPE_TYPE, Implementation,
                                            DEFORMED>(
@@ -178,9 +174,7 @@ NEK_FORCE_INLINE static void LinAdvDiffReaction3DKernel(
         cgh.parallel_for(
             sycl::nd_range<1>(gridsize * blocksize, blocksize),
             [=](sycl::nd_item<1> item_ct1) {
-                TData *shmemptr =
-                    shmem.template get_multi_ptr<sycl::access::decorated::no>()
-                        .get();
+                TData *shmemptr = &shmem[0];
 #pragma forceinline
                 LinAdvDiffReaction3DKernel<SHAPE_TYPE, Implementation,
                                            DEFORMED>(

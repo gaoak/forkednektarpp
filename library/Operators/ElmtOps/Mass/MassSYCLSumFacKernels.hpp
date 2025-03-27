@@ -58,18 +58,15 @@ NEK_FORCE_INLINE static void Mass1DKernel(const unsigned int nm0,
     const unsigned int gridsize  = GetSYCLGridSize<Implementation>(nelmt);
 
     Q.submit([=](sycl::handler &cgh) {
-        sycl::local_accessor<TData, 1> shared(sycl::range<1>(shmemsize), cgh);
-        cgh.parallel_for(
-            sycl::nd_range<1>(gridsize * blocksize, blocksize),
-            [=](sycl::nd_item<1> item_ct1) {
-                TData *shmemptr =
-                    shared.template get_multi_ptr<sycl::access::decorated::no>()
-                        .get();
+        sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
+        cgh.parallel_for(sycl::nd_range<1>(gridsize * blocksize, blocksize),
+                         [=](sycl::nd_item<1> item_ct1) {
+                             TData *shmemptr = &shmem[0];
 #pragma forceinline
-                Mass1DKernel<Implementation, DEFORMED>(nm0, nq0, nelmt, basis0,
-                                                       w0, jac, in, out, wsp,
-                                                       shmemptr, item_ct1);
-            });
+                             Mass1DKernel<Implementation, DEFORMED>(
+                                 nm0, nq0, nelmt, basis0, w0, jac, in, out, wsp,
+                                 shmemptr, item_ct1);
+                         });
     });
 }
 
@@ -105,19 +102,16 @@ NEK_FORCE_INLINE static void Mass2DKernel(
     const unsigned int gridsize  = GetSYCLGridSize<Implementation>(nelmt);
 
     Q.submit([&](sycl::handler &cgh) {
-        sycl::local_accessor<TData, 1> shared(sycl::range<1>(shmemsize), cgh);
-        cgh.parallel_for(
-            sycl::nd_range<1>(gridsize * blocksize, blocksize),
-            [=](sycl::nd_item<1> item_ct1) {
-                TData *shmemptr =
-                    shared.template get_multi_ptr<sycl::access::decorated::no>()
-                        .get();
+        sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
+        cgh.parallel_for(sycl::nd_range<1>(gridsize * blocksize, blocksize),
+                         [=](sycl::nd_item<1> item_ct1) {
+                             TData *shmemptr = &shmem[0];
 #pragma forceinline
-                Mass2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
-                    nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0,
-                    basis0, basis1, w0, w1, jac, in, out, wsp, shmemptr,
-                    item_ct1);
-            });
+                             Mass2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
+                                 nm0, nm1, nmTot, nq0, nq1, nelmt, isModified,
+                                 index0, basis0, basis1, w0, w1, jac, in, out,
+                                 wsp, shmemptr, item_ct1);
+                         });
     });
 }
 
@@ -158,19 +152,17 @@ NEK_FORCE_INLINE static void Mass3DKernel(
     const unsigned int gridsize  = GetSYCLGridSize<Implementation>(nelmt);
 
     Q.submit([&](sycl::handler &cgh) {
-        sycl::local_accessor<TData, 1> shared(sycl::range<1>(shmemsize), cgh);
-        cgh.parallel_for(
-            sycl::nd_range<1>(gridsize * blocksize, blocksize),
-            [=](sycl::nd_item<1> item_ct1) {
-                TData *shmemptr =
-                    shared.template get_multi_ptr<sycl::access::decorated::no>()
-                        .get();
+        sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
+        cgh.parallel_for(sycl::nd_range<1>(gridsize * blocksize, blocksize),
+                         [=](sycl::nd_item<1> item_ct1) {
+                             TData *shmemptr = &shmem[0];
 #pragma forceinline
-                Mass3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
-                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified,
-                    index0, index1, index2, index3, basis0, basis1, basis2, w0,
-                    w1, w2, jac, in, out, wsp, shmemptr, item_ct1);
-            });
+                             Mass3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
+                                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
+                                 isModified, index0, index1, index2, index3,
+                                 basis0, basis1, basis2, w0, w1, w2, jac, in,
+                                 out, wsp, shmemptr, item_ct1);
+                         });
     });
 }
 
