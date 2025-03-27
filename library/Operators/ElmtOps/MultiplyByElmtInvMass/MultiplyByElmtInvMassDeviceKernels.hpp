@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: AddTraceIntegralSYCLKernels.hpp
+// File: MultiplyByElmtInvMassDeviceKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,50 +34,32 @@
 
 #pragma once
 
-#if defined(NEKTAR_ENABLE_SYCL)
+#include "Operators/Common/Spaces.hpp"
 
+#if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__) ||                      \
+    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
 namespace Nektar::Operators::detail
 {
 
-// Launchers
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
-                            void>::type
-    AddTraceIntegralKernel(const unsigned int nsize,
-                           const int *traceCoeffsToElmtMapPtr,
-                           const int *traceCoeffsToElmtSignPtr,
-                           const int *traceCoeffsToElmtTracePtr,
-                           const TData *tracePtr, TData *outptr)
+template <typename TthreadBlock, typename TData>
+NEK_DEVICE_INLINE static void DivideByJacobianKernel(
+    const unsigned int nsize, const unsigned int nmTot,
+    const TData *__restrict__ jacptr, TData *__restrict__ outptr,
+    const TthreadBlock &threadBlock)
 {
-    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+    const unsigned int idx0   = getGlobalIdx(threadBlock);
+    const unsigned int stride = getGlobalRange(threadBlock);
 
-    sycl::queue &Q = SYCLQueue::GetInstance();
-    Q.submit([=](sycl::handler &cgh) {
-        cgh.parallel_for(
-            sycl::nd_range<1>(gridSize * blockSize, blockSize),
-            [=](sycl::nd_item<1> item_ct1) {
-#pragma forceNEK_FORCE_INLINE static
-                AddTraceIntegralKernel<>(
-                    nsize, traceCoeffsToElmtMapPtr, traceCoeffsToElmtSignPtr,
-                    traceCoeffsToElmtTracePtr, tracePtr, outptr, item_ct1);
-            });
-    });
-}
-
-// Launchers
-template <typename ExecSpace>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
-                            void>::type
-    ReOrderMapKernel([[maybe_unused]] const unsigned int nsize,
-                     [[maybe_unused]] int *traceCoeffsToElmtMapPtr,
-                     [[maybe_unused]] int *traceCoeffsToElmtSignPtr,
-                     [[maybe_unused]] int *traceCoeffsToElmtTracePtr)
-{
+    for (unsigned int idx = idx0; idx < nsize; idx += stride)
+    {
+        unsigned int e = idx / nmTot;
+        outptr[idx] /= jacptr[e];
+    }
 }
 
 } // namespace Nektar::Operators::detail
-
 #endif
+
+#include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassCUDAKernels.cuh"
+#include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassDeviceOnHostKernels.hpp"
+#include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassSYCLKernels.hpp"

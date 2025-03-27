@@ -41,6 +41,8 @@
 #include "Operators/Utils/UtilsKernels.hpp"
 #include "Operators/Utils/deviceBlas.hpp"
 
+#include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassDeviceKernels.hpp"
+
 namespace Nektar::Operators::detail
 {
 
@@ -142,13 +144,9 @@ public:
                            m_matptr, m_nmTot, inptr, m_nmTot, beta, outptr,
                            m_nmTot);
 
-                auto nmTot = m_nmTot;
-
                 // Divide by Jacobian.
-                Nektar::parallel_for<ExecSpace>(
-                    0, nElmts * m_nmTot, NEKTAR_LAMBDA(const unsigned int i) {
-                        outptr[i] /= jacptr[i / nmTot];
-                    });
+                DivideByJacobianKernel<ExecSpace>(nElmts, m_nmTot, jacptr,
+                                                  outptr);
 
                 // Increment pointer.
                 inptr += inblock.size();

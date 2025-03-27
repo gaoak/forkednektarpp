@@ -41,7 +41,7 @@ namespace Nektar::Operators::detail
 
 // Launchers
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
+NEK_FORCE_INLINE static typename std::enable_if<
     std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
 AddTraceIntegralKernel(const unsigned int nsize,
                        const int *traceCoeffsToElmtMapPtr,
@@ -56,7 +56,7 @@ AddTraceIntegralKernel(const unsigned int nsize,
 
 // Launchers
 template <typename ExecSpace>
-inline typename std::enable_if<
+NEK_FORCE_INLINE static typename std::enable_if<
     std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
 ReOrderMapKernel([[maybe_unused]] const unsigned int nsize,
                  [[maybe_unused]] int *traceCoeffsToElmtMapPtr,

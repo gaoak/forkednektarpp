@@ -35,7 +35,7 @@
 #pragma once
 
 template <bool DEFORMED, typename TData>
-static inline void MultiplyByJacobianAndDerivFactorKernel(
+NEK_FORCE_INLINE static void MultiplyByJacobianAndDerivFactorKernel(
     const unsigned int nqTot, const unsigned int ncoord,
     const unsigned int dimension, const unsigned int nelmt, const TData *jacptr,
     const TData *dfptr, const TData *inptr, TData *outptr)

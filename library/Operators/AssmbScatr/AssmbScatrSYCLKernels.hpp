@@ -41,10 +41,11 @@ namespace Nektar::Operators::detail
 
 // Launchers
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
-                               void>::type
-AssembleKernel(const unsigned int nsize, const int *assmbPtr,
-               const TData *signPtr, const TData *inptr, TData *outptr)
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                            void>::type
+    AssembleKernel(const unsigned int nsize, const int *assmbPtr,
+                   const TData *signPtr, const TData *inptr, TData *outptr)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -61,10 +62,11 @@ AssembleKernel(const unsigned int nsize, const int *assmbPtr,
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
-                               void>::type
-AssembleKernel(const unsigned int nsize, const int *assmbPtr, const TData sign,
-               const TData *inptr, TData *outptr)
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                            void>::type
+    AssembleKernel(const unsigned int nsize, const int *assmbPtr,
+                   const TData sign, const TData *inptr, TData *outptr)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -81,10 +83,11 @@ AssembleKernel(const unsigned int nsize, const int *assmbPtr, const TData sign,
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
-                               void>::type
-AssembleKernel(const unsigned int nsize, const int *assmbPtr,
-               const TData *inptr, TData *outptr)
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                            void>::type
+    AssembleKernel(const unsigned int nsize, const int *assmbPtr,
+                   const TData *inptr, TData *outptr)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -101,10 +104,11 @@ AssembleKernel(const unsigned int nsize, const int *assmbPtr,
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
-                               void>::type
-GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
-                    const TData *signPtr, const TData *inptr, TData *outptr)
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                            void>::type
+    GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
+                        const TData *signPtr, const TData *inptr, TData *outptr)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -121,10 +125,11 @@ GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
-                               void>::type
-GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
-                    const TData sign, const TData *inptr, TData *outptr)
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                            void>::type
+    GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
+                        const TData sign, const TData *inptr, TData *outptr)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -141,10 +146,11 @@ GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
-                               void>::type
-GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
-                    const TData *inptr, TData *outptr)
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                            void>::type
+    GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
+                        const TData *inptr, TData *outptr)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;

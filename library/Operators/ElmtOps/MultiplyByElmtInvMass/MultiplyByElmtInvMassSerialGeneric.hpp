@@ -40,6 +40,8 @@
 #include "Operators/ElmtOps/MultiplyByElmtInvMass/OperatorMultiplyByElmtInvMass.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
+#include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassSerialAVXKernels.hpp"
+
 namespace Nektar::Operators::detail
 {
 
@@ -139,10 +141,8 @@ public:
                            m_nmTot, inptr, m_nmTot, beta, outptr, m_nmTot);
 
                 // Divide by Jacobian.
-                Nektar::parallel_for<ExecSpace>(
-                    0, nElmts * m_nmTot, NEKTAR_LAMBDA(const unsigned int i) {
-                        outptr[i] /= jacptr[i / m_nmTot];
-                    });
+                DivideByJacobianKernel<ExecSpace>(nElmts, m_nmTot, jacptr,
+                                                  outptr);
 
                 // Increment pointer.
                 inptr += inblock.size();
