@@ -40,7 +40,7 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, bool negflag, typename TData>
-inline typename std::enable_if<
+NEK_FORCE_INLINE static typename std::enable_if<
     std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
 RobBndCond1DKernel(const unsigned int nsize, const unsigned int *offsetPtr,
                    const TData *matPtr, const unsigned int *mapPtr,
@@ -51,7 +51,7 @@ RobBndCond1DKernel(const unsigned int nsize, const unsigned int *offsetPtr,
 }
 
 template <typename ExecSpace, bool negflag, typename TData>
-inline typename std::enable_if<
+NEK_FORCE_INLINE static typename std::enable_if<
     std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
 RobBndCond2DKernel(const unsigned int nmaxcoeff, const unsigned int nsize,
                    const unsigned int *ncoeffPtr, const unsigned int *offsetPtr,
