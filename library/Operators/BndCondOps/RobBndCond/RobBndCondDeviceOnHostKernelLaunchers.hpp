@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: MultiplyByElmtInvMassDeviceKernels.hpp
+// File: RobBndCondDeviceOnHostKernelLaunchers.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,33 +34,40 @@
 
 #pragma once
 
-#include "Operators/Common/Spaces.hpp"
+#if defined(NEKTAR_ENABLE_DEVICEONHOST)
 
-#if (defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)) ||                    \
-    (defined(NEKTAR_ENABLE_HIP) && defined(__HIPCC__)) ||                      \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
 namespace Nektar::Operators::detail
 {
 
-template <typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void DivideByJacobianKernel(
-    const unsigned int nsize, const unsigned int nmTot,
-    const TData *__restrict__ jacptr, TData *__restrict__ outptr,
-    const TthreadBlock &threadBlock)
+// Kernel Launchers.
+template <typename ExecSpace, bool negflag, typename TData>
+NEK_FORCE_INLINE static typename std::enable_if<
+    std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
+RobBndCond1DKernel(const unsigned int nsize, const unsigned int *offsetPtr,
+                   const TData *matPtr, const unsigned int *mapPtr,
+                   const TData *incoeffPtr, TData *coeffPtr)
 {
-    const unsigned int idx0   = getGlobalIdx(threadBlock);
-    const unsigned int stride = getGlobalRange(threadBlock);
+    RobBndCond1DKernel<negflag>(nsize, offsetPtr, matPtr, mapPtr, incoeffPtr,
+                                coeffPtr, deviceOnHostBlock1D());
+}
 
-    for (unsigned int idx = idx0; idx < nsize; idx += stride)
-    {
-        unsigned int e = idx / nmTot;
-        outptr[idx] /= jacptr[e];
-    }
+template <typename ExecSpace, bool negflag, typename TData>
+NEK_FORCE_INLINE static typename std::enable_if<
+    std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
+RobBndCond2DKernel(const unsigned int nmaxcoeff, const unsigned int nsize,
+                   const unsigned int *ncoeffPtr, const unsigned int *offsetPtr,
+                   const unsigned int *matOffsetPtr,
+                   const unsigned int *mapOffsetPtr, const TData *matPtr,
+                   const unsigned int *mapPtr, const int *signPtr,
+                   const TData *incoeffPtr, TData *coeffPtr)
+{
+    std::vector<TData> shmem(nmaxcoeff);
+
+    RobBndCond2DKernel<negflag>(
+        nsize, ncoeffPtr, offsetPtr, matOffsetPtr, mapOffsetPtr, matPtr, mapPtr,
+        signPtr, incoeffPtr, coeffPtr, shmem.data(), deviceOnHostBlock1D());
 }
 
 } // namespace Nektar::Operators::detail
-#endif
 
-#include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassCUDAKernelLaunchers.hpp"
-#include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassDeviceOnHostKernelLaunchers.hpp"
-#include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassSYCLKernelLaunchers.hpp"
+#endif

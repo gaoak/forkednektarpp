@@ -40,6 +40,7 @@ namespace Nektar::Operators::detail
 {
 
 #if (defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)) ||                    \
+    (defined(NEKTAR_ENABLE_HIP) && defined(__HIPACC__)) ||                     \
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
 template <bool negflag, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void RobBndCond1DKernel(
@@ -133,6 +134,6 @@ NEK_DEVICE_INLINE static void RobBndCond2DKernel(
 
 } // namespace Nektar::Operators::detail
 
-#include "Operators/BndCondOps/RobBndCond/RobBndCondCUDAKernels.cuh"
-#include "Operators/BndCondOps/RobBndCond/RobBndCondDeviceOnHostKernels.hpp"
-#include "Operators/BndCondOps/RobBndCond/RobBndCondSYCLKernels.hpp"
+#include "Operators/BndCondOps/RobBndCond/RobBndCondCUDAKernelLaunchers.hpp"
+#include "Operators/BndCondOps/RobBndCond/RobBndCondDeviceOnHostKernelLaunchers.hpp"
+#include "Operators/BndCondOps/RobBndCond/RobBndCondSYCLKernelLaunchers.hpp"

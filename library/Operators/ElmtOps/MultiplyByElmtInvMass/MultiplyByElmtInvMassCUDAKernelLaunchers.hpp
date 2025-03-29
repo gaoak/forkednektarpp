@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: MultiplyByElmtInvMassDeviceKernels.hpp
+// File: MultiplyByElmtInvMassCUDAKernelLaunchers.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,33 +34,39 @@
 
 #pragma once
 
-#include "Operators/Common/Spaces.hpp"
+#if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
 
-#if (defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)) ||                    \
-    (defined(NEKTAR_ENABLE_HIP) && defined(__HIPCC__)) ||                      \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
 namespace Nektar::Operators::detail
 {
 
-template <typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void DivideByJacobianKernel(
-    const unsigned int nsize, const unsigned int nmTot,
-    const TData *__restrict__ jacptr, TData *__restrict__ outptr,
-    const TthreadBlock &threadBlock)
+template <typename TData>
+__global__ void DivideByJacobianKernelLauncher(const unsigned int nsize,
+                                               const unsigned int nmTot,
+                                               const TData *__restrict__ jacptr,
+                                               TData *__restrict__ outptr,
+                                               const cudaBlock1D &threadBlock)
 {
-    const unsigned int idx0   = getGlobalIdx(threadBlock);
-    const unsigned int stride = getGlobalRange(threadBlock);
+    DivideByJacobianKernel<>(nsize, nmTot, jacptr, outptr, threadBlock);
+}
 
-    for (unsigned int idx = idx0; idx < nsize; idx += stride)
-    {
-        unsigned int e = idx / nmTot;
-        outptr[idx] /= jacptr[e];
-    }
+// Launchers
+template <typename ExecSpace, typename TData>
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                            void>::type
+    DivideByJacobianKernel(const unsigned int nelmt, const unsigned int nmTot,
+                           const TData *jacptr, TData *outptr)
+{
+    const unsigned int nsize = nelmt * nmTot;
+
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
+    const unsigned int gridSize  = (nelmt + blockSize - 1u) / blockSize;
+
+    DivideByJacobianKernelLauncher<>
+        <<<gridSize, blockSize>>>(nsize, nmTot, jacptr, outptr, cudaBlock1D());
+    CHECK_LAST_CUDA_ERROR();
 }
 
 } // namespace Nektar::Operators::detail
-#endif
 
-#include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassCUDAKernelLaunchers.hpp"
-#include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassDeviceOnHostKernelLaunchers.hpp"
-#include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassSYCLKernelLaunchers.hpp"
+#endif

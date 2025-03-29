@@ -36,7 +36,8 @@
 
 #include "Operators/Common/Spaces.hpp"
 
-#if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__) ||                      \
+#if (defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)) ||                    \
+    (defined(NEKTAR_ENABLE_HIP) && defined(__HIPCC__)) ||                      \
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
 namespace Nektar::Operators::detail
 {
@@ -142,6 +143,6 @@ NEK_DEVICE_INLINE static void GlobalToLocalKernel(
 } // namespace Nektar::Operators::detail
 #endif
 
-#include "Operators/AssmbScatr/AssmbScatrCUDAKernels.cuh"
-#include "Operators/AssmbScatr/AssmbScatrDeviceOnHostKernels.hpp"
-#include "Operators/AssmbScatr/AssmbScatrSYCLKernels.hpp"
+#include "Operators/AssmbScatr/AssmbScatrCUDAKernelLaunchers.hpp"
+#include "Operators/AssmbScatr/AssmbScatrDeviceOnHostKernelLaunchers.hpp"
+#include "Operators/AssmbScatr/AssmbScatrSYCLKernelLaunchers.hpp"

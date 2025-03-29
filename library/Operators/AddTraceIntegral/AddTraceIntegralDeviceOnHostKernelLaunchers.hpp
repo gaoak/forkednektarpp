@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: MultiplyByElmtInvMassDeviceKernels.hpp
+// File: AddTraceIntegralDeviceOnHostKernelLaunchers.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,33 +34,36 @@
 
 #pragma once
 
-#include "Operators/Common/Spaces.hpp"
+#if defined(NEKTAR_ENABLE_DEVICEONHOST)
 
-#if (defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)) ||                    \
-    (defined(NEKTAR_ENABLE_HIP) && defined(__HIPCC__)) ||                      \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
 namespace Nektar::Operators::detail
 {
 
-template <typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void DivideByJacobianKernel(
-    const unsigned int nsize, const unsigned int nmTot,
-    const TData *__restrict__ jacptr, TData *__restrict__ outptr,
-    const TthreadBlock &threadBlock)
+// Kernel Launchers.
+template <typename ExecSpace, typename TData>
+NEK_FORCE_INLINE static typename std::enable_if<
+    std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
+AddTraceIntegralKernel(const unsigned int nsize,
+                       const int *traceCoeffsToElmtMapPtr,
+                       const int *traceCoeffsToElmtSignPtr,
+                       const int *traceCoeffsToElmtTracePtr,
+                       const TData *tracePtr, TData *outptr)
 {
-    const unsigned int idx0   = getGlobalIdx(threadBlock);
-    const unsigned int stride = getGlobalRange(threadBlock);
+    AddTraceIntegralKernel<>(
+        nsize, traceCoeffsToElmtMapPtr, traceCoeffsToElmtSignPtr,
+        traceCoeffsToElmtTracePtr, tracePtr, outptr, deviceOnHostBlock1D());
+}
 
-    for (unsigned int idx = idx0; idx < nsize; idx += stride)
-    {
-        unsigned int e = idx / nmTot;
-        outptr[idx] /= jacptr[e];
-    }
+template <typename ExecSpace>
+NEK_FORCE_INLINE static typename std::enable_if<
+    std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
+ReOrderMapKernel([[maybe_unused]] const unsigned int nsize,
+                 [[maybe_unused]] int *traceCoeffsToElmtMapPtr,
+                 [[maybe_unused]] int *traceCoeffsToElmtSignPtr,
+                 [[maybe_unused]] int *traceCoeffsToElmtTracePtr)
+{
 }
 
 } // namespace Nektar::Operators::detail
-#endif
 
-#include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassCUDAKernelLaunchers.hpp"
-#include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassDeviceOnHostKernelLaunchers.hpp"
-#include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassSYCLKernelLaunchers.hpp"
+#endif

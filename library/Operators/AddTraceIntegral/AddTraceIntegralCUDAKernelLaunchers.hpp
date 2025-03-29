@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: AddTraceIntegralDeviceKernels.hpp
+// File: AddTraceIntegralCUDAKernelLaunchers.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,37 +34,55 @@
 
 #pragma once
 
-#include "Operators/Common/Spaces.hpp"
+#if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
 
-#if (defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)) ||                    \
-    (defined(NEKTAR_ENABLE_HIP) && defined(__HIPCC__)) ||                      \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
 namespace Nektar::Operators::detail
 {
 
-template <typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void AddTraceIntegralKernel(
+template <typename TData>
+__global__ void AddTraceIntegralKernelLauncher(
     const unsigned int nsize, const int *__restrict__ traceCoeffsToElmtMapPtr,
     const int *__restrict__ traceCoeffsToElmtSignPtr,
     const int *__restrict__ traceCoeffsToElmtTracePtr,
     const TData *__restrict__ tracePtr, TData *__restrict__ outptr,
-    const TthreadBlock &threadBlock)
+    const cudaBlock1D &threadBlock)
 {
-    const unsigned int idx0   = getGlobalIdx(threadBlock);
-    const unsigned int stride = getGlobalRange(threadBlock);
+    AddTraceIntegralKernel<>(
+        nsize, traceCoeffsToElmtMapPtr, traceCoeffsToElmtSignPtr,
+        traceCoeffsToElmtTracePtr, tracePtr, outptr, threadBlock);
+}
 
-    for (unsigned int idx = idx0; idx < nsize; idx += stride)
-    {
-        TData *const ptr = outptr + traceCoeffsToElmtMapPtr[idx];
-        const TData val  = traceCoeffsToElmtSignPtr[idx] *
-                          tracePtr[traceCoeffsToElmtTracePtr[idx]];
-        Nektar::atomic_add<NektarSpaces::GlobalScope>(ptr, val);
-    }
+// Kernel Launchers.
+template <typename ExecSpace, typename TData>
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                            void>::type
+    AddTraceIntegralKernel(const unsigned int nsize,
+                           const int *traceCoeffsToElmtMapPtr,
+                           const int *traceCoeffsToElmtSignPtr,
+                           const int *traceCoeffsToElmtTracePtr,
+                           const TData *tracePtr, TData *outptr)
+{
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+
+    AddTraceIntegralKernelLauncher<><<<gridSize, blockSize>>>(
+        nsize, traceCoeffsToElmtMapPtr, traceCoeffsToElmtSignPtr,
+        traceCoeffsToElmtTracePtr, tracePtr, outptr, cudaBlock1D());
+    CHECK_LAST_CUDA_ERROR();
+}
+
+template <typename ExecSpace>
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                            void>::type
+    ReOrderMapKernel([[maybe_unused]] const unsigned int nsize,
+                     [[maybe_unused]] int *traceCoeffsToElmtMapPtr,
+                     [[maybe_unused]] int *traceCoeffsToElmtSignPtr,
+                     [[maybe_unused]] int *traceCoeffsToElmtTracePtr)
+{
 }
 
 } // namespace Nektar::Operators::detail
-#endif
 
-#include "Operators/AddTraceIntegral/AddTraceIntegralCUDAKernelLaunchers.hpp"
-#include "Operators/AddTraceIntegral/AddTraceIntegralDeviceOnHostKernelLaunchers.hpp"
-#include "Operators/AddTraceIntegral/AddTraceIntegralSYCLKernelLaunchers.hpp"
+#endif

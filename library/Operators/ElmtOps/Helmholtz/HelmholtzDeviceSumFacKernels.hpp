@@ -1651,6 +1651,6 @@ NEK_DEVICE_INLINE static void Helmholtz3DKernel(
 
 } // namespace Nektar::Operators::detail
 
-#include "Operators/ElmtOps/Helmholtz/HelmholtzCUDASumFacKernels.cuh"
-#include "Operators/ElmtOps/Helmholtz/HelmholtzDeviceOnHostSumFacKernels.hpp"
-#include "Operators/ElmtOps/Helmholtz/HelmholtzSYCLSumFacKernels.hpp"
+#include "Operators/ElmtOps/Helmholtz/HelmholtzCUDASumFacKernelLaunchers.hpp"
+#include "Operators/ElmtOps/Helmholtz/HelmholtzDeviceOnHostSumFacKernelLaunchers.hpp"
+#include "Operators/ElmtOps/Helmholtz/HelmholtzSYCLSumFacKernelLaunchers.hpp"

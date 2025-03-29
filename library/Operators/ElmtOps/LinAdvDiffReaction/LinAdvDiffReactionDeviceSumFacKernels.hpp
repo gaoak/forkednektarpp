@@ -867,6 +867,6 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction3DKernel(
 
 } // namespace Nektar::Operators::detail
 
-#include "Operators/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionCUDASumFacKernels.cuh"
-#include "Operators/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionDeviceOnHostSumFacKernels.hpp"
-#include "Operators/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionSYCLSumFacKernels.hpp"
+#include "Operators/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionCUDASumFacKernelLaunchers.hpp"
+#include "Operators/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionDeviceOnHostSumFacKernelLaunchers.hpp"
+#include "Operators/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionSYCLSumFacKernelLaunchers.hpp"
