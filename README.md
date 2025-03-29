@@ -75,13 +75,13 @@ A minimalist compilation command example is shown below for each available backe
 ### CUDA
     cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
              -DNEKTAR_ENABLE_CUDA=ON \
-             -DCMAKE_CUDA_ARCHITECTURES=86 
+             -DNEKTAR_DEVICE_ARCH=sm_xx \ 
 
 Note:
-- For H100, please use `-DCMAKE_CUDA_ARCHITECTURES=90` 
-- For A40, please use `-DCMAKE_CUDA_ARCHITECTURES=86`
-- For A100, please use `-DCMAKE_CUDA_ARCHITECTURES=80` 
-- For V100, please use `-DCMAKE_CUDA_ARCHITECTURES=70` 
+- For H100, please use `sm_xx=sm_90` 
+- For A40, please use `sm_xx=sm_86`
+- For A100, please use `sm_xx=sm_80` 
+- For V100, please use `sm_xx=sm_70` 
 
 ### SYCL (Default)
     cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
@@ -91,15 +91,14 @@ Note:
 ### SYCL (CUDA)
     cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
              -DNEKTAR_ENABLE_SYCL=CUDA \
+             -DNEKTAR_DEVICE_ARCH=sm_xx \ 
              -DCMAKE_CXX_COMPILER="/path-to-intel-compiler/bin/icpx" 
 
-### Kokkos (Serial)
-    cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
-             -DNEKTAR_ENABLE_KOKKOS=Serial 
-
-### Kokkos (CUDA)
-    cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
-             -DNEKTAR_ENABLE_KOKKOS=CUDA
+Note:
+- For H100, please use `sm_xx=sm_90` 
+- For A40, please use `sm_xx=sm_86`
+- For A100, please use `sm_xx=sm_80` 
+- For V100, please use `sm_xx=sm_70` 
 
 Installation
 ------------

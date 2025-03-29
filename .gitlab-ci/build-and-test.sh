@@ -66,7 +66,7 @@ elif [[ $BUILD_TYPE == "full" ]]; then
 
         # Enable CUDA in CMake configuration
         CMAKEARGS+=("-DNEKTAR_ENABLE_CUDA:BOOL=ON")
-        CMAKEARGS+=("-DCMAKE_CUDA_ARCHITECTURES=86")
+        CMAKEARGS+=("-DNEKTAR_DEVICE_ARCH=sm_86")
     fi
     if [[ $BUILD_DEVICEONHOST == "on" ]]; then
         CMAKEARGS+=("-DNEKTAR_ENABLE_DEVICEONHOST:BOOL=ON")
@@ -83,6 +83,7 @@ elif [[ $BUILD_TYPE == "full" ]]; then
 
         # Enable SYCL in CMake configuration
         CMAKEARGS+=("-DNEKTAR_ENABLE_SYCL:STRING=CUDA")
+        CMAKEARGS+=("-DNEKTAR_DEVICE_ARCH=sm_86")
     fi
 elif [[ $BUILD_TYPE == "performance" ]]; then
     CMAKEARGS=(..
