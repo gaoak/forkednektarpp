@@ -628,6 +628,6 @@ NEK_DEVICE_INLINE static void Mass3DKernel(
 
 } // namespace Nektar::Operators::detail
 
-#include "Operators/ElmtOps/Mass/MassCUDASumFacKernels.cuh"
-#include "Operators/ElmtOps/Mass/MassDeviceOnHostSumFacKernels.hpp"
-#include "Operators/ElmtOps/Mass/MassSYCLSumFacKernels.hpp"
+#include "Operators/ElmtOps/Mass/MassCUDASumFacKernelLaunchers.hpp"
+#include "Operators/ElmtOps/Mass/MassDeviceOnHostSumFacKernelLaunchers.hpp"
+#include "Operators/ElmtOps/Mass/MassSYCLSumFacKernelLaunchers.hpp"

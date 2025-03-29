@@ -1020,6 +1020,6 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
 
 } // namespace Nektar::Operators::detail
 
-#include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseCUDASumFacKernels.cuh"
-#include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseDeviceOnHostSumFacKernels.hpp"
-#include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseSYCLSumFacKernels.hpp"
+#include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseCUDASumFacKernelLaunchers.hpp"
+#include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseDeviceOnHostSumFacKernelLaunchers.hpp"
+#include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseSYCLSumFacKernelLaunchers.hpp"

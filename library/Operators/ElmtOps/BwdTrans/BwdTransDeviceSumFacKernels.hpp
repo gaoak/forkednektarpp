@@ -1342,6 +1342,6 @@ NEK_DEVICE_INLINE static void BwdTrans3DKernel(
 
 } // namespace Nektar::Operators::detail
 
-#include "Operators/ElmtOps/BwdTrans/BwdTransCUDASumFacKernels.cuh"
-#include "Operators/ElmtOps/BwdTrans/BwdTransDeviceOnHostSumFacKernels.hpp"
-#include "Operators/ElmtOps/BwdTrans/BwdTransSYCLSumFacKernels.hpp"
+#include "Operators/ElmtOps/BwdTrans/BwdTransCUDASumFacKernelLaunchers.hpp"
+#include "Operators/ElmtOps/BwdTrans/BwdTransDeviceOnHostSumFacKernelLaunchers.hpp"
+#include "Operators/ElmtOps/BwdTrans/BwdTransSYCLSumFacKernelLaunchers.hpp"
