@@ -174,7 +174,7 @@ protected:
     NekDataWarehouseSharedPtr m_dataWarehouse;
 };
 
-#if defined(NEKTAR_ENABLE_CUDA)
+#if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP)
 template <typename Implementation>
 NEK_FORCE_INLINE static unsigned int GetCUDABlockSize(
     [[maybe_unused]] const unsigned int blockSize)

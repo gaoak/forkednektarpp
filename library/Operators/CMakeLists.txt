@@ -15,6 +15,11 @@ IF(NEKTAR_ENABLE_CUDA)
     SET(ExecSpaces ${ExecSpaces} CUDA)
 ENDIF()
 
+# Optional HIP execution space.
+IF(NEKTAR_ENABLE_HIP)
+    SET(ExecSpaces ${ExecSpaces} HIP)
+ENDIF()
+
 # Optional SYCL execution space.
 IF(NEKTAR_ENABLE_SYCL)
     SET(ExecSpaces ${ExecSpaces} SYCL)
@@ -521,6 +526,22 @@ IF(NEKTAR_ENABLE_CUDA)
     SET(OPERATORS_DEPENDS
       ${OPERATORS_DEPENDS}
       ${NEKTAR_CUDA_DEPENDS})
+# HIP specific file
+ELSEIF(NEKTAR_ENABLE_HIP)
+    SET(OPERATORS_HEADERS
+      ${OPERATORS_HEADERS}
+       Utils/ROCBLASHandle.hpp
+    )
+
+    SET(OPERATORS_SOURCES
+      ${OPERATORS_SOURCES}
+       Utils/ROCBLASHandle.hip
+       #Utils/rocBlas.hip
+    )
+
+    SET(OPERATORS_DEPENDS
+      ${OPERATORS_DEPENDS}
+      ${NEKTAR_HIP_DEPENDS})
 # SYCL specific file
 ELSEIF(NEKTAR_ENABLE_SYCL)
     SET(OPERATORS_HEADERS

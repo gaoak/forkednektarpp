@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: LoopExecution.hpp
+// File: ROCBLASHandle.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,34 +34,26 @@
 
 #pragma once
 
-#include <cstddef>
-#include <limits>
+#include <stdio.h>
 
-#include "Operators/Common/Spaces.hpp"
+#include "rocblas/rocblas.h"
 
-namespace Nektar
-{
-
-template <typename TData> class ReduceSum
+class ROCBLASHandle
 {
 public:
-    typedef typename std::remove_cv<TData>::type value_type;
-};
-template <typename TData> class ReduceMin
-{
-public:
-    typedef typename std::remove_cv<TData>::type value_type;
-};
-template <typename TData> class ReduceMax
-{
-public:
-    typedef typename std::remove_cv<TData>::type value_type;
-};
+    static rocblas_handle &GetInstance()
+    {
+        if (!handle)
+        {
+            if (rocblas_create_handle(&handle) != rocblas_status_success)
+            {
+                printf("ROCBLAS initialization failed\n");
+            }
+        }
 
-} // namespace Nektar
+        return handle;
+    }
 
-#include "Operators/LoopExecution/LoopExecutionCUDA.cuh"
-#include "Operators/LoopExecution/LoopExecutionDeviceOnHost.hpp"
-#include "Operators/LoopExecution/LoopExecutionHIP.hpp"
-#include "Operators/LoopExecution/LoopExecutionSYCL.hpp"
-#include "Operators/LoopExecution/LoopExecutionSerialAVX.hpp"
+private:
+    static rocblas_handle handle;
+};

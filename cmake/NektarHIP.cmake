@@ -5,12 +5,12 @@
 #
 
 IF(CMAKE_VERSION VERSION_LESS "3.21.0")
-    MESSAGE(FATAL_ERROR "CUDA compilation requires CMake version >= 3.21")
+    MESSAGE(FATAL_ERROR "HIP compilation requires CMake version >= 3.21")
 ENDIF()
 
-IF(NOT HIP_MIN_VERSION)
-    SET(HIP_MIN_VERSION "5.7")
-ENDIF()
+#IF(NOT HIP_MIN_VERSION)
+#    SET(HIP_MIN_VERSION "5.7")
+#ENDIF()
 
 ADD_DEFINITIONS(-DNEKTAR_ENABLE_HIP)
 
@@ -31,4 +31,34 @@ ENDIF()
 
 ENABLE_LANGUAGE(HIP)
 
-#SET(NEKTAR_HIP_DEPENDS HIP::HIP)
+IF(WIN32)
+    SET(ROCM_ROOT
+        "$ENV{HIP_PATH}"
+        CACHE PATH
+        "Root directory of the ROCm installation"
+    )
+ELSE()
+    SET(ROCM_ROOT
+        "/opt/rocm"
+        CACHE PATH
+        "Root directory of the ROCm installation"
+    )
+ENDIF()
+
+LIST(APPEND CMAKE_PREFIX_PATH "${ROCM_ROOT}")
+
+FIND_PACKAGE(HIP REQUIRED)
+FIND_PACKAGE(HIPBLAS REQUIRED)
+FIND_PACKAGE(HIPSPARSE REQUIRED)
+FIND_PACKAGE(HIPSOLVER REQUIRED)
+FIND_PACKAGE(HIPFFT REQUIRED)
+FIND_PACKAGE(HIPRAND REQUIRED)
+SET(NEKTAR_HIP_DEPENDS
+  hip::host
+  hip::device
+  roc::hipblas
+  roc::hipsparse
+  roc::hipsolver
+  hip::hipfft
+  hip::hiprand
+  )

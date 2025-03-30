@@ -174,8 +174,8 @@ NEK_FORCE_INLINE static void BwdTrans1DKernel(const unsigned int nelmt,
     const unsigned int gridsize  = GetCUDAGridSize<Implementation>(nelmt);
 
     BwdTrans1DKernelLauncher<Implementation, nm0, nq0>
-        <<<gridsize, NektarSpaces::vector_width<TData>::value, shmemsize>>>(
-            nelmt, basis0, in, out, cudaBlock1D());
+        <<<gridsize, blocksize, shmemsize>>>(nelmt, basis0, in, out,
+                                             cudaBlock1D());
     CHECK_LAST_CUDA_ERROR();
 }
 

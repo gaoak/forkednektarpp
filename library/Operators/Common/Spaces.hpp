@@ -64,6 +64,24 @@
     }
 #elif defined(NEKTAR_ENABLE_HIP)
 #include <hip/hip_runtime.h>
+#include <thrust/fill.h>
+#define CHECK_LAST_HIP_ERROR()                                                 \
+    {                                                                          \
+        hipError_t err = hipGetLastError();                                    \
+        if (err != hipSuccess)                                                 \
+        {                                                                      \
+            std::cerr << "HIP Runtime Error at: " << __FILE__ << ":"           \
+                      << __LINE__ << std::endl;                                \
+            std::cerr << hipGetErrorString(err) << std::endl;                  \
+        }                                                                      \
+    }
+#define CHECK_HIP_ERROR(err)                                                   \
+    if (err != hipSuccess)                                                     \
+    {                                                                          \
+        std::cerr << "HIP Runtime Error at: " << __FILE__ << ":" << __LINE__   \
+                  << std::endl;                                                \
+        std::cerr << hipGetErrorString(err) << std::endl;                      \
+    }
 #elif defined(NEKTAR_ENABLE_SYCL)
 #include "Operators/Utils/SYCLQueue.hpp"
 #endif
@@ -71,10 +89,11 @@
 #if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
 #include <cooperative_groups.h>
 #include <cooperative_groups/reduce.h>
+#elif defined(NEKTAR_ENABLE_HIP) && defined(__HIPCC__)
+#include <hip/hip_cooperative_groups.h>
 #endif
 
-#if defined(__CUDACC__) || defined(__HIP_DEVICE_COMPILE__) ||                  \
-    defined(__SYCL_DEVICE_ONLY__)
+#if defined(__CUDACC__) || defined(__HIPCC__) || defined(__SYCL_DEVICE_ONLY__)
 #define DEVICE_COMPILE_ONLY
 #endif
 
@@ -113,6 +132,11 @@ struct vector_width
 struct vector_width
 {
     static constexpr unsigned int value = 64u;
+};
+#elif defined(SYCL_ENABLE_INTEL)
+struct vector_width
+{
+    static constexpr unsigned int value = 32u;
 };
 #else
 struct vector_width
@@ -172,18 +196,19 @@ struct HIP
 
 struct SYCL
 {
-    static constexpr char name[] = "SYCL";
-    using memory_space           = NektarSpaces::DeviceSpace;
-#if defined(SYCL_ENABLE_CUDA) || defined(SYCL_ENABLE_HIP)
+    static constexpr char name[]      = "SYCL";
+    using memory_space                = NektarSpaces::DeviceSpace;
     static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
-#if defined(NEKTAR_DEBUG)
-    static constexpr unsigned int defaultBlockSize = 128u;
-#else
+#if defined(SYCL_ENABLE_CUDA)
     static constexpr unsigned int defaultBlockSize = 256u;
-#endif
+    static constexpr unsigned int maximumBlockSize = 1024u;
+#elif defined(SYCL_ENABLE_HIP)
+    static constexpr unsigned int defaultBlockSize = 256u;
+    static constexpr unsigned int maximumBlockSize = 2048u;
+#elif defined(SYCL_ENABLE_INTEL)
+    static constexpr unsigned int defaultBlockSize = 256u;
     static constexpr unsigned int maximumBlockSize = 1024u;
 #else
-    static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
     static constexpr unsigned int defaultBlockSize = 16u;
     static constexpr unsigned int maximumBlockSize = 16u;
 #endif
@@ -214,15 +239,25 @@ struct DeviceOnHost
 #endif
 
 // These are used for LoopExecution.hpp
-#if (defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP)) &&             \
-    defined(DEVICE_COMPILE_ONLY)
+// NEKTAR_LAMBDA
+#if defined(NEKTAR_ENABLE_CUDA) && defined(DEVICE_COMPILE_ONLY)
 #define NEKTAR_LAMBDA [=] __device__
-#define NEK_DEVICE_INLINE __device__ __forceinline__
+#elif defined(NEKTAR_ENABLE_HIP) && defined(DEVICE_COMPILE_ONLY)
+#define NEKTAR_LAMBDA [=] __host__ __device__
 #elif defined(NEKTAR_ENABLE_SYCL)
 #define NEKTAR_LAMBDA [=]
-#define NEK_DEVICE_INLINE NEK_FORCE_INLINE
 #else
 #define NEKTAR_LAMBDA [&]
+#endif
+
+// NEK_DEVICE_INLINE
+#if defined(NEKTAR_ENABLE_CUDA) && defined(DEVICE_COMPILE_ONLY)
+#define NEK_DEVICE_INLINE __device__ __forceinline__
+#elif defined(NEKTAR_ENABLE_HIP) && defined(DEVICE_COMPILE_ONLY)
+#define NEK_DEVICE_INLINE __device__ __forceinline__
+#elif defined(NEKTAR_ENABLE_SYCL)
+#define NEK_DEVICE_INLINE NEK_FORCE_INLINE
+#else
 #define NEK_DEVICE_INLINE NEK_FORCE_INLINE
 #endif
 
@@ -252,6 +287,10 @@ namespace Nektar
     {
         return NektarSpaces::CUDA::alignment;
     }
+    else if (execspace == "HIP")
+    {
+        return NektarSpaces::HIP::alignment;
+    }
     else if (execspace == "SYCL")
     {
         return NektarSpaces::SYCL::alignment;
@@ -266,13 +305,14 @@ namespace Nektar
     }
 }
 
-#if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
-
-namespace cg = cooperative_groups;
-
 class cudaBlock1D
 {
 };
+
+#if (defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)) ||                    \
+    (defined(NEKTAR_ENABLE_HIP) && defined(__HIPCC__))
+
+namespace cg = cooperative_groups;
 
 NEK_DEVICE_INLINE static unsigned int getLocalIdx(
     [[maybe_unused]] const cudaBlock1D &threadBlock)
@@ -335,9 +375,14 @@ NEK_DEVICE_INLINE float atomicMax_block(float *address, float val)
     while (val > __int_as_float(ret))
     {
         int old = ret;
+#if defined(__CUDACC__)
         if ((ret = atomicCAS_block((int *)address, old, __float_as_int(val))) ==
             old)
             break;
+#elif defined(__HIPCC__)
+        if ((ret = atomicCAS((int *)address, old, __float_as_int(val))) == old)
+            break;
+#endif
     }
     return __int_as_float(ret);
 }
@@ -361,9 +406,15 @@ NEK_DEVICE_INLINE double atomicMax_block(double *address, double val)
     while (val > __longlong_as_double(ret))
     {
         unsigned long long old = ret;
+#if defined(__CUDACC__)
         if ((ret = atomicCAS_block((unsigned long long *)address, old,
                                    __double_as_longlong(val))) == old)
             break;
+#elif defined(__HIPCC__)
+        if ((ret = atomicCAS((unsigned long long *)address, old,
+                             __double_as_longlong(val))) == old)
+            break;
+#endif
     }
     return __longlong_as_double(ret);
 }
@@ -386,9 +437,14 @@ NEK_DEVICE_INLINE float atomicMin_block(float *address, float val)
     while (val < __int_as_float(ret))
     {
         int old = ret;
+#if defined(__CUDACC__)
         if ((ret = atomicCAS_block((int *)address, old, __float_as_int(val))) ==
             old)
             break;
+#elif defined(__HIPCC__)
+        if ((ret = atomicCAS((int *)address, old, __float_as_int(val))) == old)
+            break;
+#endif
     }
     return __int_as_float(ret);
 }
@@ -412,9 +468,15 @@ NEK_DEVICE_INLINE double atomicMin_block(double *address, double val)
     while (val < __longlong_as_double(ret))
     {
         unsigned long long old = ret;
+#if defined(__CUDACC__)
         if ((ret = atomicCAS_block((unsigned long long *)address, old,
                                    __double_as_longlong(val))) == old)
             break;
+#elif defined(__HIPCC__)
+        if ((ret = atomicCAS((unsigned long long *)address, old,
+                             __double_as_longlong(val))) == old)
+            break;
+#endif
     }
     return __longlong_as_double(ret);
 }
@@ -475,57 +537,96 @@ template <typename TData>
 NEK_DEVICE_INLINE static TData warpReduceSum(
     const TData val, [[maybe_unused]] const cudaBlock1D &threadBlock)
 {
+#if defined(__CUDACC__)
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     auto block = cg::this_thread_block();
     auto warp  = cg::tiled_partition<warpsize>(block);
     return cg::reduce(warp, val, cg::plus<TData>());
 
-    // Warp-level primitives (keep it for now)
-    /* val += __shfl_down_sync(0xffffffff, val, 16);
-    val += __shfl_down_sync(0xffffffff, val, 8);
-    val += __shfl_down_sync(0xffffffff, val, 4);
-    val += __shfl_down_sync(0xffffffff, val, 2);
-    val += __shfl_down_sync(0xffffffff, val, 1);
-    return val;*/
+    /*// Warp-level primitives (keep it for now)
+    auto tmp = val;
+    tmp += __shfl_down_sync(0xffffffff, tmp, 16);
+    tmp += __shfl_down_sync(0xffffffff, tmp, 8);
+    tmp += __shfl_down_sync(0xffffffff, tmp, 4);
+    tmp += __shfl_down_sync(0xffffffff, tmp, 2);
+    tmp += __shfl_down_sync(0xffffffff, tmp, 1);
+    return tmp;*/
+#elif defined(__HIPCC__)
+    // Warp-level primitives
+    auto tmp = val;
+    tmp += __shfl_down(tmp, 32);
+    tmp += __shfl_down(tmp, 16);
+    tmp += __shfl_down(tmp, 8);
+    tmp += __shfl_down(tmp, 4);
+    tmp += __shfl_down(tmp, 2);
+    tmp += __shfl_down(tmp, 1);
+    return tmp;
+#endif
 }
 
 template <typename TData>
 NEK_DEVICE_INLINE static TData warpReduceMax(
     const TData val, [[maybe_unused]] const cudaBlock1D &threadBlock)
 {
+#if defined(__CUDACC__)
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     auto block = cg::this_thread_block();
     auto warp  = cg::tiled_partition<warpsize>(block);
     return cg::reduce(warp, val, cg::greater<TData>());
 
-    // Warp-level primitives (keep it for now)
-    /*val = std::max(val, __shfl_down_sync(0xffffffff, val, 16));
-    val = std::max(val, __shfl_down_sync(0xffffffff, val, 8));
-    val = std::max(val, __shfl_down_sync(0xffffffff, val, 4));
-    val = std::max(val, __shfl_down_sync(0xffffffff, val, 2));
-    val = std::max(val, __shfl_down_sync(0xffffffff, val, 1));
-    return val;*/
+    /*// Warp-level primitives (keep it for now)
+    auto tmp = val;
+    tmp = std::max(tmp, __shfl_down_sync(0xffffffff, tmp, 16));
+    tmp = std::max(tmp, __shfl_down_sync(0xffffffff, tmp, 8));
+    tmp = std::max(tmp, __shfl_down_sync(0xffffffff, tmp, 4));
+    tmp = std::max(tmp, __shfl_down_sync(0xffffffff, tmp, 2));
+    tmp = std::max(tmp, __shfl_down_sync(0xffffffff, tmp, 1));
+    return tmp;*/
+#elif defined(__HIPCC__)
+    // Warp-level primitives
+    auto tmp = val;
+    tmp      = std::max(tmp, __shfl_down(tmp, 32));
+    tmp      = std::max(tmp, __shfl_down(tmp, 16));
+    tmp      = std::max(tmp, __shfl_down(tmp, 8));
+    tmp      = std::max(tmp, __shfl_down(tmp, 4));
+    tmp      = std::max(tmp, __shfl_down(tmp, 2));
+    tmp      = std::max(tmp, __shfl_down(tmp, 1));
+    return tmp;
+#endif
 }
 
 template <typename TData>
 NEK_DEVICE_INLINE static TData warpReduceMin(
     const TData val, [[maybe_unused]] const cudaBlock1D &threadBlock)
 {
+#if defined(__CUDACC__)
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     auto block = cg::this_thread_block();
     auto warp  = cg::tiled_partition<warpsize>(block);
     return cg::reduce(warp, val, cg::less<TData>());
 
-    // Warp-level primitives (keep it for now)
-    /*val = std::min(val, __shfl_down_sync(0xffffffff, val, 16));
-    val = std::min(val, __shfl_down_sync(0xffffffff, val, 8));
-    val = std::min(val, __shfl_down_sync(0xffffffff, val, 4));
-    val = std::min(val, __shfl_down_sync(0xffffffff, val, 2));
-    val = std::min(val, __shfl_down_sync(0xffffffff, val, 1));
-    return val;*/
+    /*// Warp-level primitives (keep it for now)
+    auto tmp = val;
+    tmp = std::min(tmp, __shfl_down_sync(0xffffffff, tmp, 16));
+    tmp = std::min(tmp, __shfl_down_sync(0xffffffff, tmp, 8));
+    tmp = std::min(tmp, __shfl_down_sync(0xffffffff, tmp, 4));
+    tmp = std::min(tmp, __shfl_down_sync(0xffffffff, tmp, 2));
+    tmp = std::min(tmp, __shfl_down_sync(0xffffffff, tmp, 1));
+    return tmp;*/
+#elif defined(__HIPCC__)
+    // Warp-level primitives
+    auto tmp = val;
+    tmp      = std::min(tmp, __shfl_down(tmp, 32));
+    tmp      = std::min(tmp, __shfl_down(tmp, 16));
+    tmp      = std::min(tmp, __shfl_down(tmp, 8));
+    tmp      = std::min(tmp, __shfl_down(tmp, 4));
+    tmp      = std::min(tmp, __shfl_down(tmp, 2));
+    tmp      = std::min(tmp, __shfl_down(tmp, 1));
+    return tmp;
+#endif
 }
 
 template <typename TData>
@@ -564,7 +665,8 @@ NEK_DEVICE_INLINE static void blockReduceMin(
     }
 }
 
-NEK_DEVICE_INLINE void localBarrier(const cudaBlock1D &threadBlock)
+NEK_DEVICE_INLINE void localBarrier(
+    [[maybe_unused]] const cudaBlock1D &threadBlock)
 {
     __syncthreads();
 }

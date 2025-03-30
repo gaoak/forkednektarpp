@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: LoopExecution.hpp
+// File: ROCBLASHandle.hip
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,36 +32,6 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#pragma once
+#include "ROCBLASHandle.hpp"
 
-#include <cstddef>
-#include <limits>
-
-#include "Operators/Common/Spaces.hpp"
-
-namespace Nektar
-{
-
-template <typename TData> class ReduceSum
-{
-public:
-    typedef typename std::remove_cv<TData>::type value_type;
-};
-template <typename TData> class ReduceMin
-{
-public:
-    typedef typename std::remove_cv<TData>::type value_type;
-};
-template <typename TData> class ReduceMax
-{
-public:
-    typedef typename std::remove_cv<TData>::type value_type;
-};
-
-} // namespace Nektar
-
-#include "Operators/LoopExecution/LoopExecutionCUDA.cuh"
-#include "Operators/LoopExecution/LoopExecutionDeviceOnHost.hpp"
-#include "Operators/LoopExecution/LoopExecutionHIP.hpp"
-#include "Operators/LoopExecution/LoopExecutionSYCL.hpp"
-#include "Operators/LoopExecution/LoopExecutionSerialAVX.hpp"
+rocblas_handle ROCBLASHandle::handle = nullptr;
