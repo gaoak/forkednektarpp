@@ -1,7 +1,7 @@
 #
 # NektarCUDA.cmake
 #
-# Sets up cmake variables needed for using Cuda in Nektar++
+# Sets up cmake variables needed for using CUDA in Nektar++
 #
 
 IF(CMAKE_VERSION VERSION_LESS "3.18.0")
@@ -45,4 +45,8 @@ SET(NEKTAR_CUDA_DEPENDS
   CUDA::cudart
   CUDA::cuda_driver
   CUDA::cublas
+  CUDA::cusparse
+  CUDA::cusolver
+  CUDA::cufft
+  CUDA::curand
   )

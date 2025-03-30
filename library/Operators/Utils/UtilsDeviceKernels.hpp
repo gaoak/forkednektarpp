@@ -38,6 +38,7 @@ namespace Nektar
 {
 
 #if (defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)) ||                    \
+    (defined(NEKTAR_ENABLE_HIP) && defined(__HIPCC__)) ||                      \
     defined(NEKTAR_ENABLE_SYCL)
 template <typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void interleaveKernel(const unsigned int VectorWidth,
@@ -132,5 +133,6 @@ NEK_DEVICE_INLINE static void BuildInterleaveMapKernel(
 } // namespace Nektar
 
 #include "Operators/Utils/UtilsCUDAKernels.cuh"
+#include "Operators/Utils/UtilsHIPKernels.hpp"
 #include "Operators/Utils/UtilsDeviceOnHostKernels.hpp"
 #include "Operators/Utils/UtilsSYCLKernels.hpp"
