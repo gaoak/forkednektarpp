@@ -133,6 +133,6 @@ NEK_DEVICE_INLINE static void BuildInterleaveMapKernel(
 } // namespace Nektar
 
 #include "Operators/Utils/UtilsCUDAKernels.cuh"
-#include "Operators/Utils/UtilsHIPKernels.hpp"
 #include "Operators/Utils/UtilsDeviceOnHostKernels.hpp"
+#include "Operators/Utils/UtilsHIPKernels.hpp"
 #include "Operators/Utils/UtilsSYCLKernels.hpp"
