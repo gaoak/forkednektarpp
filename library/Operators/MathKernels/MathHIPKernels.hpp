@@ -1011,7 +1011,7 @@ reduceSumKernel(const unsigned int nsize, const TData *x, TData *out)
 
     if (hipBuffer == nullptr)
     {
-        hipBufferSize = sizeof(TData) * (gridSize + 1);
+        const unsigned int hipBufferSize = sizeof(TData) * (gridSize + 1);
         CHECK_HIP_ERROR(hipMalloc(&hipBuffer, hipBufferSize));
     }
 
@@ -1035,7 +1035,7 @@ reduceMaxKernel(const unsigned int nsize, const TData *x, TData *out)
 
     if (hipBuffer == nullptr)
     {
-        hipBufferSize = sizeof(TData) * (gridSize + 1);
+        const unsigned int hipBufferSize = sizeof(TData) * (gridSize + 1);
         CHECK_HIP_ERROR(hipMalloc(&hipBuffer, hipBufferSize));
     }
 
@@ -1059,7 +1059,7 @@ reduceMinKernel(const unsigned int nsize, const TData *x, TData *out)
 
     if (hipBuffer == nullptr)
     {
-        hipBufferSize = sizeof(TData) * (gridSize + 1);
+        const unsigned int hipBufferSize = sizeof(TData) * (gridSize + 1);
         CHECK_HIP_ERROR(hipMalloc(&hipBuffer, hipBufferSize));
     }
 
@@ -1083,7 +1083,7 @@ ddotKernel(const unsigned int nsize, const TData *x, const TData *y, TData *out)
 
     if (hipBuffer == nullptr)
     {
-        hipBufferSize = sizeof(TData) * (gridSize + 1);
+        const unsigned int hipBufferSize = sizeof(TData) * (gridSize + 1);
         CHECK_HIP_ERROR(hipMalloc(&hipBuffer, hipBufferSize));
     }
 
@@ -1107,7 +1107,7 @@ l1normKernel(const unsigned int nsize, const TData *x, TData *out)
 
     if (hipBuffer == nullptr)
     {
-        hipBufferSize = sizeof(TData) * (gridSize + 1);
+        const unsigned int hipBufferSize = sizeof(TData) * (gridSize + 1);
         CHECK_HIP_ERROR(hipMalloc(&hipBuffer, hipBufferSize));
     }
 
@@ -1131,7 +1131,7 @@ l2normKernel(const unsigned int nsize, const TData *x, TData *out)
 
     if (hipBuffer == nullptr)
     {
-        hipBufferSize = sizeof(TData) * (gridSize + 1);
+        const unsigned int hipBufferSize = sizeof(TData) * (gridSize + 1);
         CHECK_HIP_ERROR(hipMalloc(&hipBuffer, hipBufferSize));
     }
 
@@ -1156,7 +1156,7 @@ lpnormKernel(const unsigned int nsize, const unsigned int p, const TData *x,
 
     if (hipBuffer == nullptr)
     {
-        hipBufferSize = sizeof(TData) * (gridSize + 1);
+        const unsigned int hipBufferSize = sizeof(TData) * (gridSize + 1);
         CHECK_HIP_ERROR(hipMalloc(&hipBuffer, hipBufferSize));
     }
 
@@ -1180,7 +1180,7 @@ linfnormKernel(const unsigned int nsize, const TData *x, TData *out)
 
     if (hipBuffer == nullptr)
     {
-        hipBufferSize = sizeof(TData) * (gridSize + 1);
+        const unsigned int hipBufferSize = sizeof(TData) * (gridSize + 1);
         CHECK_HIP_ERROR(hipMalloc(&hipBuffer, hipBufferSize));
     }
 
