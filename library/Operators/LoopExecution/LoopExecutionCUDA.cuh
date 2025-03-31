@@ -42,8 +42,7 @@
 namespace Nektar
 {
 
-static unsigned int cudaBufferSize = 0u;
-static void *cudaBuffer            = nullptr;
+static void *cudaBuffer = nullptr;
 
 template <typename ExecSpace, typename Scope, typename TData>
 NEK_DEVICE_INLINE
@@ -247,7 +246,7 @@ parallel_reduce(const unsigned int begin, const unsigned int end,
 
     if (cudaBuffer == nullptr)
     {
-        cudaBufferSize = sizeof(TData) * (gridSize + 1);
+        const unsigned int cudaBufferSize = sizeof(TData) * (gridSize + 1);
         CHECK_CUDA_ERROR(cudaMalloc(&cudaBuffer, cudaBufferSize));
     }
 

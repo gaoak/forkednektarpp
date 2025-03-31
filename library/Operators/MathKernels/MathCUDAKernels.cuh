@@ -995,7 +995,7 @@ reduceSumKernel(const unsigned int nsize, const TData *x, TData *out)
 
     if (cudaBuffer == nullptr)
     {
-        cudaBufferSize = sizeof(TData) * (gridSize + 1);
+        const unsigned int cudaBufferSize = sizeof(TData) * (gridSize + 1);
         CHECK_CUDA_ERROR(cudaMalloc(&cudaBuffer, cudaBufferSize));
     }
 
@@ -1019,7 +1019,7 @@ reduceMaxKernel(const unsigned int nsize, const TData *x, TData *out)
 
     if (cudaBuffer == nullptr)
     {
-        cudaBufferSize = sizeof(TData) * (gridSize + 1);
+        const unsigned int cudaBufferSize = sizeof(TData) * (gridSize + 1);
         CHECK_CUDA_ERROR(cudaMalloc(&cudaBuffer, cudaBufferSize));
     }
 
@@ -1043,7 +1043,7 @@ reduceMinKernel(const unsigned int nsize, const TData *x, TData *out)
 
     if (cudaBuffer == nullptr)
     {
-        cudaBufferSize = sizeof(TData) * (gridSize + 1);
+        const unsigned int cudaBufferSize = sizeof(TData) * (gridSize + 1);
         CHECK_CUDA_ERROR(cudaMalloc(&cudaBuffer, cudaBufferSize));
     }
 
@@ -1067,7 +1067,7 @@ ddotKernel(const unsigned int nsize, const TData *x, const TData *y, TData *out)
 
     if (cudaBuffer == nullptr)
     {
-        cudaBufferSize = sizeof(TData) * (gridSize + 1);
+        const unsigned int cudaBufferSize = sizeof(TData) * (gridSize + 1);
         CHECK_CUDA_ERROR(cudaMalloc(&cudaBuffer, cudaBufferSize));
     }
 
@@ -1091,7 +1091,7 @@ l1normKernel(const unsigned int nsize, const TData *x, TData *out)
 
     if (cudaBuffer == nullptr)
     {
-        cudaBufferSize = sizeof(TData) * (gridSize + 1);
+        const unsigned int cudaBufferSize = sizeof(TData) * (gridSize + 1);
         CHECK_CUDA_ERROR(cudaMalloc(&cudaBuffer, cudaBufferSize));
     }
 
@@ -1115,7 +1115,7 @@ l2normKernel(const unsigned int nsize, const TData *x, TData *out)
 
     if (cudaBuffer == nullptr)
     {
-        cudaBufferSize = sizeof(TData) * (gridSize + 1);
+        const unsigned int cudaBufferSize = sizeof(TData) * (gridSize + 1);
         CHECK_CUDA_ERROR(cudaMalloc(&cudaBuffer, cudaBufferSize));
     }
 
@@ -1140,7 +1140,7 @@ lpnormKernel(const unsigned int nsize, const unsigned int p, const TData *x,
 
     if (cudaBuffer == nullptr)
     {
-        cudaBufferSize = sizeof(TData) * (gridSize + 1);
+        const unsigned int cudaBufferSize = sizeof(TData) * (gridSize + 1);
         CHECK_CUDA_ERROR(cudaMalloc(&cudaBuffer, cudaBufferSize));
     }
 
@@ -1164,7 +1164,7 @@ linfnormKernel(const unsigned int nsize, const TData *x, TData *out)
 
     if (cudaBuffer == nullptr)
     {
-        cudaBufferSize = sizeof(TData) * (gridSize + 1);
+        const unsigned int cudaBufferSize = sizeof(TData) * (gridSize + 1);
         CHECK_CUDA_ERROR(cudaMalloc(&cudaBuffer, cudaBufferSize));
     }
 

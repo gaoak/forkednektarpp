@@ -41,8 +41,7 @@
 namespace Nektar
 {
 
-static unsigned int hipBufferSize = 0u;
-static void *hipBuffer            = nullptr;
+static void *hipBuffer = nullptr;
 
 template <typename ExecSpace, typename Scope, typename TData>
 NEK_DEVICE_INLINE
@@ -246,7 +245,7 @@ parallel_reduce(const unsigned int begin, const unsigned int end,
 
     if (hipBuffer == nullptr)
     {
-        hipBufferSize = sizeof(TData) * (gridSize + 1);
+        const unsigned int hipBufferSize = sizeof(TData) * (gridSize + 1);
         CHECK_HIP_ERROR(hipMalloc(&hipBuffer, hipBufferSize));
     }
 

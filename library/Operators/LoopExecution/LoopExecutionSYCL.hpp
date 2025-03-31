@@ -39,8 +39,7 @@
 namespace Nektar
 {
 
-static unsigned int syclBufferSize = 0u;
-static void *syclBuffer            = nullptr;
+static void *syclBuffer = nullptr;
 
 template <typename ExecSpace, typename Scope, typename TData>
 NEK_DEVICE_INLINE
