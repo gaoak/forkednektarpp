@@ -111,7 +111,7 @@ public:
      *
      * @param host - MemoryRegionHost to move from
      */
-    MemoryRegionDevice<TData>(MemoryRegionHost<TData> &&host)
+    MemoryRegionDevice(MemoryRegionHost<TData> &&host)
         : MemoryRegionHost<TData>(std::move(host))
     {
     }
