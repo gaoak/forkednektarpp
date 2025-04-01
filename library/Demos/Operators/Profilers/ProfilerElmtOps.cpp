@@ -58,8 +58,8 @@
  *
  *  3.  Run the profiler executable with the mesh file and other parameters.
  *      --opExecSpace=Serial
- *              specify the execution space. Possible values are: Serial, AVX
- *              CUDA, SYCL, and DeviceOnHost
+ *              specify the execution space. Possible values are: Serial, AVX,
+ *              and Device
  *      --opImpl=StdMat
  *              specify the implementation. Possible values are: StdMat, SumFac,
  *              and SumFacQP
@@ -133,12 +133,12 @@ int main(int argc, char *argv[])
     auto nDim = explist->GetGraph()->GetSpaceDimension();
 
     // Print GPU properties.
-#if defined(NEKTAR_ENABLE_CUDA)
     if (session->GetComm()->GetRank() == 0 &&
-        session->GetCmdLineArgument<std::string>("opExecSpace") == "CUDA")
+        session->GetCmdLineArgument<std::string>("opExecSpace") == "Device")
     {
+#if defined(NEKTAR_ENABLE_CUDA)
         cudaDeviceProp prop;
-        cudaGetDeviceProperties(&prop, 0);
+        CHECK_HIPCUDA_ERROR(cudaGetDeviceProperties(&prop, 0));
         std::cout << "--------------------------------" << std::endl;
         std::cout << "Device Properties " << std::endl;
         std::cout << "--------------------------------" << std::endl;
@@ -153,8 +153,25 @@ int main(int argc, char *argv[])
         printf("  Peak Memory Bandwidth (GB/s): %f\n",
                2.0 * prop.memoryClockRate * (prop.memoryBusWidth / 8) / 1.0e6);
         printf("  Number of multiprocessors: %d\n", prop.multiProcessorCount);
-    }
+#elif defined(NEKTAR_ENABLE_HIP)
+        hipDeviceProp_t prop;
+        CHECK_HIPCUDA_ERROR(hipGetDeviceProperties(&prop, 0));
+        std::cout << "--------------------------------" << std::endl;
+        std::cout << "Device Properties " << std::endl;
+        std::cout << "--------------------------------" << std::endl;
+        printf("  Device name: %s\n", prop.name);
+        printf("  Memory Clock Rate (KHz): %d\n", prop.memoryClockRate);
+        printf("  Memory Bus Width (bits): %d\n", prop.memoryBusWidth);
+        printf("  Total Global Memory (bits): %ld\n", prop.totalGlobalMem);
+        printf("  Shared Memory per Block (bits): %ld\n",
+               prop.sharedMemPerBlock);
+        printf("  Shared Memory per Multiprocessor (bits): %ld\n",
+               prop.sharedMemPerMultiprocessor);
+        printf("  Peak Memory Bandwidth (GB/s): %f\n",
+               2.0 * prop.memoryClockRate * (prop.memoryBusWidth / 8) / 1.0e6);
+        printf("  Number of multiprocessors: %d\n", prop.multiProcessorCount);
 #endif
+    }
 
     // You can add/remove the operators to be profiled as you like.
     // Benchmark-double
