@@ -344,8 +344,29 @@ MACRO(ADD_ELMT_OPERATOR dir)
                 FILE(GLOB ${CURRENT_HEADERS} RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
                     ${dir}/${name}${ExecSpace}${Impl}*.hpp)
 
+                # Found a StdMat header.
+                IF((EXISTS "${dir}/${name}StdMat.hpp") AND ("${Impl}" STREQUAL "StdMat"))
+                    FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                        "${dir}/${name}StdMat.hpp")
+                    SET(IMPL_HEADER "#include \"${include_file}\"")
+                    MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
+
+                # Found a SumFac header.
+                ELSEIF((EXISTS "${dir}/${name}SumFac.hpp") AND ("${Impl}" STREQUAL "SumFac"))
+                    FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                        "${dir}/${name}SumFac.hpp")
+                    SET(IMPL_HEADER "#include \"${include_file}\"")
+                    MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
+
+                # Found a Generic header.
+                ELSEIF((EXISTS "${dir}/${name}Generic.hpp") AND ("${Impl}" STREQUAL "Generic"))
+                    FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                        "${dir}/${name}Generic.hpp")
+                    SET(IMPL_HEADER "#include \"${include_file}\"")
+                    MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
+
                 # Found a Serial StdMat header.
-                IF((EXISTS "${dir}/${name}SerialStdMat.hpp") AND
+                ELSEIF((EXISTS "${dir}/${name}SerialStdMat.hpp") AND
                     ("${ExecSpace}" STREQUAL "Serial") AND ("${Impl}" STREQUAL "StdMat"))
                     FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
                         "${dir}/${name}SerialStdMat.hpp")
@@ -481,13 +502,14 @@ ENDMACRO()
 SET(OPERATORS_HEADERS
     Common/Operator.hpp
     ElmtOps/OperatorElmt.hpp
-    Utils/deviceBlas.hpp 
+    NekBlas/NekBlas.hpp 
     )
 
 # Common source file.
 SET(OPERATORS_SOURCES
     Common/Operator.cpp
     ElmtOps/OperatorElmt.cpp
+    NekBlas/blas.cpp
     )
 
 # Only these cpp files go into the group set below.
@@ -514,13 +536,13 @@ SET(OPERATORS_DEPENDS
 IF(NEKTAR_ENABLE_CUDA)
     SET(OPERATORS_HEADERS
       ${OPERATORS_HEADERS}
-       Utils/CUBLASHandle.cuh
+       NekBlas/cuBlasHandle.hpp
     )
 
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
-       Utils/CUBLASHandle.cu
-       Utils/cuBlas.cu
+       NekBlas/cuBlasHandle.cpp
+       NekBlas/cuBlas.cpp
     )
 
     SET(OPERATORS_DEPENDS
@@ -530,13 +552,13 @@ IF(NEKTAR_ENABLE_CUDA)
 ELSEIF(NEKTAR_ENABLE_HIP)
     SET(OPERATORS_HEADERS
       ${OPERATORS_HEADERS}
-       Utils/ROCBLASHandle.hpp
+       NekBlas/hipBlasHandle.hpp
     )
 
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
-       Utils/ROCBLASHandle.hip
-       #Utils/rocBlas.hip
+       NekBlas/hipBlasHandle.cpp
+       NekBlas/hipBlas.cpp
     )
 
     SET(OPERATORS_DEPENDS
@@ -552,25 +574,12 @@ ELSEIF(NEKTAR_ENABLE_SYCL)
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
       Utils/SYCLQueue.cpp
-      Utils/OneMKL.cpp
+      NekBlas/oneMKL.cpp
     )
 
     SET(OPERATORS_DEPENDS
       ${OPERATORS_DEPENDS}
       ${NEKTAR_SYCL_DEPENDS})
-ELSE()
-    SET(OPERATORS_HEADERS
-      ${OPERATORS_HEADERS}
-    )
-
-    SET(OPERATORS_SOURCES
-      ${OPERATORS_SOURCES}
-      Utils/blas.cpp
-    )
-
-    SET(OPERATORS_DEPENDS
-      ${OPERATORS_DEPENDS}
-    )
 ENDIF()
 
 SOURCE_GROUP(TREE ${CMAKE_CURRENT_SOURCE_DIR}

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: deviceBlas.hpp
+// File: hipBlasHandle.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,27 +34,37 @@
 
 #pragma once
 
-#include <string>
-#if defined(NEKTAR_ENABLE_CUDA)
-#include "Operators/Utils/CUBLASHandle.cuh"
-#elif defined(NEKTAR_ENABLE_SYCL)
-#include "Operators/Utils/SYCLQueue.hpp"
-#endif
+#include <stdio.h>
 
-template <typename deviceHandle, typename TData>
-void deviceGemm(deviceHandle handle, std::string transposeA,
-                std::string transposeB, const unsigned int M,
-                const unsigned int N, const unsigned int K, const TData alpha,
-                const TData *a, const unsigned int lda, const TData *b,
-                const unsigned int ldb, const TData beta, TData *c,
-                const unsigned int ldc);
+#include "hipblas/hipblas.h"
 
-template <typename deviceHandle, typename TData>
-void deviceGemmStridedBatched(
-    deviceHandle handle, std::string transposeA, std::string transposeB,
-    const unsigned int M, const unsigned int N, const unsigned int K,
-    const TData alpha, const TData *a, const unsigned int lda,
-    const unsigned int strideA, const TData *b, const unsigned int ldb,
-    const unsigned int strideB, const TData beta, TData *c,
-    const unsigned int ldc, const unsigned int strideC,
-    const unsigned int batchSize);
+#define HIPBLAS_CHECK(condition)                                               \
+    {                                                                          \
+        const hipblasStatus_t status = condition;                              \
+        if (status != HIPBLAS_STATUS_SUCCESS)                                  \
+        {                                                                      \
+            std::cerr << "hipBLAS error encountered: \""                       \
+                      << hipblasStatusToString(status) << "\" at " << __FILE__ \
+                      << ':' << __LINE__ << std::endl;                         \
+        }                                                                      \
+    }
+
+class hipBlasHandle
+{
+public:
+    static hipblasHandle_t &GetInstance()
+    {
+        if (!handle)
+        {
+            if (hipblasCreate(&handle) != HIPBLAS_STATUS_SUCCESS)
+            {
+                printf("hipBLAS initialization failed\n");
+            }
+        }
+
+        return handle;
+    }
+
+private:
+    static hipblasHandle_t handle;
+};

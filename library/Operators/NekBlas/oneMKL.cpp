@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: blas.cpp
+// File: oneMKL.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,63 +32,79 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Operators/Utils/deviceBlas.hpp"
+#include "Operators/Common/Spaces.hpp"
+#include "Operators/NekBlas/NekBlas.hpp"
+#include "oneapi/mkl.hpp"
 
-#include <LibUtilities/LinearAlgebra/Blas.hpp>
+using namespace oneapi::mkl;
 
-template <typename deviceHandle, typename TData>
-void deviceGemm([[maybe_unused]] deviceHandle queue, std::string transposeA,
-                std::string transposeB, const unsigned int M,
-                const unsigned int N, const unsigned int K, const TData alpha,
-                const TData *a, const unsigned int lda, const TData *b,
-                const unsigned int ldb, const TData beta, TData *c,
-                const unsigned int ldc)
+template <typename THandle, typename TData>
+typename std::enable_if<std::is_same_v<THandle, sycl::queue>, void>::type NekGemm(
+    THandle queue, std::string transposeA, std::string transposeB,
+    const unsigned int M, const unsigned int N, const unsigned int K,
+    const TData alpha, const TData *a, const unsigned int lda, const TData *b,
+    const unsigned int ldb, const TData beta, TData *c, const unsigned int ldc)
 {
-    Blas::Gemm(*transposeA.c_str(), *transposeB.c_str(), M, N, K, alpha, a, lda,
-               b, ldb, beta, c, ldc);
+    auto transA = (transposeA == "N") ? oneapi::mkl::transpose::N
+                                      : oneapi::mkl::transpose::T;
+    auto transB = (transposeB == "N") ? oneapi::mkl::transpose::N
+                                      : oneapi::mkl::transpose::T;
+    blas::column_major::gemm(queue, transA, transB, M, N, K, alpha, a, lda, b,
+                             ldb, beta, c, ldc);
+
+#if defined(SYCL_ENABLE_SERIAL)
+    queue.wait();
+#endif
 }
 
-template <typename deviceHandle, typename TData>
-void deviceGemmStridedBatched(
-    [[maybe_unused]] deviceHandle queue, std::string transposeA,
-    std::string transposeB, const unsigned int M, const unsigned int N,
-    const unsigned int K, const TData alpha, const TData *a,
-    const unsigned int lda, const unsigned int strideA, const TData *b,
-    const unsigned int ldb, const unsigned int strideB, const TData beta,
-    TData *c, const unsigned int ldc, const unsigned int strideC,
-    const unsigned int batchSize)
+template <typename THandle, typename TData>
+typename std::enable_if<std::is_same_v<THandle, sycl::queue>, void>::type
+NekGemmStridedBatched(THandle queue, std::string transposeA,
+                      std::string transposeB, const unsigned int M,
+                      const unsigned int N, const unsigned int K,
+                      const TData alpha, const TData *a, const unsigned int lda,
+                      const unsigned int strideA, const TData *b,
+                      const unsigned int ldb, const unsigned int strideB,
+                      const TData beta, TData *c, const unsigned int ldc,
+                      const unsigned int strideC, const unsigned int batchSize)
 {
-    for (unsigned int i = 0; i < batchSize; i++)
-    {
-        Blas::Gemm(*transposeA.c_str(), *transposeB.c_str(), M, N, K, alpha,
-                   a + strideA * i, lda, b + strideB * i, ldb, beta,
-                   c + strideC * i, ldc);
-    }
+    auto transA = (transposeA == "N") ? oneapi::mkl::transpose::N
+                                      : oneapi::mkl::transpose::T;
+    auto transB = (transposeB == "N") ? oneapi::mkl::transpose::N
+                                      : oneapi::mkl::transpose::T;
+    blas::column_major::gemm_batch(queue, transA, transB, M, N, K, alpha, a,
+                                   lda, strideA, b, ldb, strideB, beta, c, ldc,
+                                   strideC, batchSize);
+
+#if defined(SYCL_ENABLE_SERIAL)
+    queue.wait();
+#endif
 }
 
-template void deviceGemm<std::nullptr_t, float>(
-    std::nullptr_t, std::string transposeA, std::string transposeB,
+template void NekGemm<sycl::queue, float>(
+    sycl::queue queue, std::string transposeA, std::string transposeB,
     const unsigned int M, const unsigned int N, const unsigned int K,
     const float alpha, const float *a, const unsigned int lda, const float *b,
     const unsigned int ldb, const float beta, float *c, const unsigned int ldc);
 
-template void deviceGemm<std::nullptr_t, double>(
-    std::nullptr_t, std::string transposeA, std::string transposeB,
+template void NekGemm<sycl::queue, double>(
+    sycl::queue queue, std::string transposeA, std::string transposeB,
     const unsigned int M, const unsigned int N, const unsigned int K,
     const double alpha, const double *a, const unsigned int lda,
     const double *b, const unsigned int ldb, const double beta, double *c,
     const unsigned int ldc);
 
-template void deviceGemmStridedBatched<std::nullptr_t, float>(
-    std::nullptr_t, std::string transposeA, std::string transposeB,
+template void NekGemmStridedBatched<sycl::queue, float>(
+    sycl::queue queue, std::string transposeA, std::string transposeB,
     const unsigned int M, const unsigned int N, const unsigned int K,
     const float alpha, const float *a, const unsigned int lda,
     const unsigned int strideA, const float *b, const unsigned int ldb,
     const unsigned int strideB, const float beta, float *c,
     const unsigned int ldc, const unsigned int strideC,
     const unsigned int batchSize);
-template void deviceGemmStridedBatched<std::nullptr_t, double>(
-    std::nullptr_t, std::string transposeA, std::string transposeB,
+
+template void NekGemmStridedBatched<sycl::queue, double>(
+    sycl::queue queue, std::string transposeA, std::string transposeB,
     const unsigned int M, const unsigned int N, const unsigned int K,
     const double alpha, const double *a, const unsigned int lda,
     const unsigned int strideA, const double *b, const unsigned int ldb,
