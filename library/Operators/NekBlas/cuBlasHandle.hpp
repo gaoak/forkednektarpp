@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: ROCBLASHandle.hip
+// File: cuBlasHandle.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,6 +32,40 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "ROCBLASHandle.hpp"
+#pragma once
 
-rocblas_handle ROCBLASHandle::handle = nullptr;
+#include <iostream>
+#include <stdio.h>
+
+#include <cublas_v2.h>
+
+#define CUBLAS_CHECK(condition)                                                \
+    {                                                                          \
+        const cublasStatus_t status = condition;                               \
+        if (status != CUBLAS_STATUS_SUCCESS)                                   \
+        {                                                                      \
+            std::cerr << "cuBLAS error encountered: \""                        \
+                      << cublasGetStatusString(status) << "\" at " << __FILE__ \
+                      << ':' << __LINE__ << std::endl;                         \
+        }                                                                      \
+    }
+
+class cuBlasHandle
+{
+public:
+    static cublasHandle_t &GetInstance()
+    {
+        if (!handle)
+        {
+            if (cublasCreate(&handle) != CUBLAS_STATUS_SUCCESS)
+            {
+                printf("cuBLAS initialization failed\n");
+            }
+        }
+
+        return handle;
+    }
+
+private:
+    static cublasHandle_t handle;
+};

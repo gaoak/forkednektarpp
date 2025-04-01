@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: MultiplyByElmtInvMassSerialGeneric.hpp
+// File: MultiplyByElmtInvMassGeneric.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -38,8 +38,10 @@
 #include <LocalRegions/Expansion.h>
 
 #include "Operators/ElmtOps/MultiplyByElmtInvMass/OperatorMultiplyByElmtInvMass.hpp"
+#include "Operators/NekBlas/NekBlas.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
+#include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassDeviceKernels.hpp"
 #include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassSerialAVXKernels.hpp"
 
 namespace Nektar::Operators::detail
@@ -80,8 +82,9 @@ public:
     void apply(BlockAccessor<TData> &inblock,
                BlockAccessor<TData> &outblock) override
     {
-        const auto nElmts        = inblock.GetNumElements();
-        const auto nElmtsWithPad = inblock.GetNumElementsWithPadding();
+        auto handle = NekHandle<ExecSpace>::GetInstance();
+
+        const auto nElmts = inblock.GetNumElements();
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -93,6 +96,8 @@ public:
         const TData beta  = 0.0;
         if (m_isDeformed)
         {
+            auto dmatptr =
+                this->m_invmass.template GetPtr<MemSpace, ReadOnly>();
             // Loop over components.
             for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
             {
@@ -102,22 +107,15 @@ public:
                     inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
                     (TData *)inptr);
 
-                // Perform matrix-vector multiply.
-                auto dmatptr =
-                    this->m_invmass.template GetPtr<MemSpace, ReadOnly>();
-                unsigned int e;
-                for (e = 0; e < nElmts; e++)
-                {
-                    Blas::Gemv('N', m_nmTot, m_nmTot, alpha, dmatptr, m_nmTot,
-                               inptr, 1, beta, outptr, 1);
-                    inptr += m_nmTot;
-                    outptr += m_nmTot;
-                    dmatptr += m_nmTot * m_nmTot;
-                }
+                // Perform batched matrix-vector multiply.
+                NekGemmStridedBatched(
+                    handle, "N", "N", m_nmTot, 1, m_nmTot, alpha, dmatptr,
+                    m_nmTot, m_nmTot * m_nmTot, inptr, m_nmTot, m_nmTot, beta,
+                    outptr, m_nmTot, m_nmTot, nElmts);
 
                 // Increment pointer.
-                inptr += m_nmTot * (nElmtsWithPad - e);
-                outptr += m_nmTot * (nElmtsWithPad - e);
+                inptr += inblock.size();
+                outptr += outblock.size();
             }
         }
         else
@@ -137,8 +135,9 @@ public:
                     (TData *)inptr);
 
                 // Perform matrix-matrix multiply.
-                Blas::Gemm('N', 'N', m_nmTot, nElmts, m_nmTot, alpha, m_matptr,
-                           m_nmTot, inptr, m_nmTot, beta, outptr, m_nmTot);
+                NekGemm(handle, "N", "N", m_nmTot, nElmts, m_nmTot, alpha,
+                        m_matptr, m_nmTot, inptr, m_nmTot, beta, outptr,
+                        m_nmTot);
 
                 // Divide by Jacobian.
                 DivideByJacobianKernel<ExecSpace>(nElmts, m_nmTot, jacptr,

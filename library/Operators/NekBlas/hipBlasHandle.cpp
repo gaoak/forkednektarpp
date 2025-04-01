@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: CUBLASHandle.cu
+// File: hipBlasHandle.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,6 +32,6 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "CUBLASHandle.cuh"
+#include "hipBlasHandle.hpp"
 
-cublasHandle_t CUBLASHandle::handle = nullptr;
+hipblasHandle_t hipBlasHandle::handle = nullptr;

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: CUBLASHandle.cuh
+// File: cuBlasHandle.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,28 +32,6 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#pragma once
+#include "cuBlasHandle.hpp"
 
-#include <stdio.h>
-
-#include <cublas_v2.h>
-
-class CUBLASHandle
-{
-public:
-    static cublasHandle_t &GetInstance()
-    {
-        if (!handle)
-        {
-            if (cublasCreate(&handle) != CUBLAS_STATUS_SUCCESS)
-            {
-                printf("CUBLAS initialization failed\n");
-            }
-        }
-
-        return handle;
-    }
-
-private:
-    static cublasHandle_t handle;
-};
+cublasHandle_t cuBlasHandle::handle = nullptr;

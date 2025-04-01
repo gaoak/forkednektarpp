@@ -41,6 +41,7 @@
 
 #include <float.h>
 #include <limits.h>
+#include <string>
 
 #if defined(NEKTAR_ENABLE_CUDA)
 #include <cuda_runtime.h>
