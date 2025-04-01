@@ -46,16 +46,16 @@ namespace Nektar
 {
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
 negKernel(const unsigned int nsize, const TData *x, TData *y)
 {
     std::transform(x, x + nsize, y, std::negate<TData>());
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
 addKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 {
     std::transform(x, x + nsize, y, z,
@@ -63,8 +63,8 @@ addKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
 subKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 {
     std::transform(x, x + nsize, y, z,
@@ -72,16 +72,16 @@ subKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
 mulKernel(const unsigned int nsize, const TData alpha, const TData *x, TData *y)
 {
     std::transform(x, x + nsize, y, [&alpha](TData xi) { return alpha * xi; });
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
 mulKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 {
     std::transform(x, x + nsize, y, z,
@@ -89,16 +89,16 @@ mulKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
 divKernel(const unsigned int nsize, const TData alpha, const TData *x, TData *y)
 {
     std::transform(x, x + nsize, y, [&alpha](TData xi) { return alpha / xi; });
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
 divKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 {
     std::transform(x, x + nsize, y, z,
@@ -106,8 +106,8 @@ divKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
 daxpyKernel(const unsigned int nsize, const TData alpha, const TData *x,
             const TData *y, TData *z)
 {
@@ -117,40 +117,40 @@ daxpyKernel(const unsigned int nsize, const TData alpha, const TData *x,
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
 reduceSumKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     *out = std::accumulate(x, x + nsize, (TData)0.0);
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
 reduceMaxKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     *out = *(std::max_element(x, x + nsize));
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
 reduceMinKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     *out = *(std::min_element(x, x + nsize));
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
 ddotKernel(const unsigned int nsize, const TData *x, const TData *y, TData *out)
 {
     *out = std::inner_product(x, x + nsize, y, 0.0);
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
 l1normKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     *out = std::accumulate(
@@ -159,8 +159,8 @@ l1normKernel(const unsigned int nsize, const TData *x, TData *out)
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
 l2normKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     *out = std::accumulate(
@@ -169,8 +169,8 @@ l2normKernel(const unsigned int nsize, const TData *x, TData *out)
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
 lpnormKernel(const unsigned int nsize, const unsigned int p, const TData *x,
              TData *out)
 {
@@ -181,8 +181,8 @@ lpnormKernel(const unsigned int nsize, const unsigned int p, const TData *x,
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
 linfnormKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     *out = std::accumulate(x, x + nsize, 0.0,

@@ -60,9 +60,10 @@ void hostMallocPinned(TData *&src, const unsigned int size,
     if (size > 0)
     {
 #if defined(NEKTAR_ENABLE_CUDA)
-        CHECK_CUDA_ERROR(cudaMallocHost((void **)&src, size * sizeof(TData)));
+        CHECK_HIPCUDA_ERROR(
+            cudaMallocHost((void **)&src, size * sizeof(TData)));
 #elif defined(NEKTAR_ENABLE_HIP)
-        CHECK_HIP_ERROR(hipHostMalloc((void **)&src, size * sizeof(TData)));
+        CHECK_HIPCUDA_ERROR(hipHostMalloc((void **)&src, size * sizeof(TData)));
 #elif defined(NEKTAR_ENABLE_SYCL)
         sycl::queue &Q = SYCLQueue::GetInstance();
         src            = sycl::malloc_host<TData>(size, Q);
@@ -84,11 +85,11 @@ void deviceMalloc(TData *&src, const unsigned int size,
     if (size > 0)
     {
 #if defined(NEKTAR_ENABLE_CUDA)
-        CHECK_CUDA_ERROR(cudaSetDevice(device_rank));
-        CHECK_CUDA_ERROR(cudaMalloc((void **)&src, size * sizeof(TData)));
+        CHECK_HIPCUDA_ERROR(cudaSetDevice(device_rank));
+        CHECK_HIPCUDA_ERROR(cudaMalloc((void **)&src, size * sizeof(TData)));
 #elif defined(NEKTAR_ENABLE_HIP)
-        CHECK_HIP_ERROR(hipSetDevice(device_rank));
-        CHECK_HIP_ERROR(hipMalloc((void **)&src, size * sizeof(TData)));
+        CHECK_HIPCUDA_ERROR(hipSetDevice(device_rank));
+        CHECK_HIPCUDA_ERROR(hipMalloc((void **)&src, size * sizeof(TData)));
 #elif defined(NEKTAR_ENABLE_SYCL)
         sycl::queue &Q = SYCLQueue::GetInstance();
         src            = sycl::malloc_device<TData>(size, Q);
@@ -111,9 +112,9 @@ void hostFreePinned(TData *&src, [[maybe_unused]] const unsigned int alignment)
     }
 
 #if defined(NEKTAR_ENABLE_CUDA)
-    CHECK_CUDA_ERROR(cudaFreeHost(src));
+    CHECK_HIPCUDA_ERROR(cudaFreeHost(src));
 #elif defined(NEKTAR_ENABLE_HIP)
-    CHECK_HIP_ERROR(hipFreeHost(src));
+    CHECK_HIPCUDA_ERROR(hipFreeHost(src));
 #elif defined(NEKTAR_ENABLE_SYCL)
     sycl::queue &Q = SYCLQueue::GetInstance();
     sycl::free(src, Q);
@@ -133,11 +134,11 @@ void deviceFree(TData *&src, [[maybe_unused]] const unsigned int device_rank)
     }
 
 #if defined(NEKTAR_ENABLE_CUDA)
-    CHECK_CUDA_ERROR(cudaSetDevice(device_rank));
-    CHECK_CUDA_ERROR(cudaFree(src));
+    CHECK_HIPCUDA_ERROR(cudaSetDevice(device_rank));
+    CHECK_HIPCUDA_ERROR(cudaFree(src));
 #elif defined(NEKTAR_ENABLE_HIP)
-    CHECK_HIP_ERROR(hipSetDevice(device_rank));
-    CHECK_HIP_ERROR(hipFree(src));
+    CHECK_HIPCUDA_ERROR(hipSetDevice(device_rank));
+    CHECK_HIPCUDA_ERROR(hipFree(src));
 #elif defined(NEKTAR_ENABLE_SYCL)
     sycl::queue &Q = SYCLQueue::GetInstance();
     sycl::free(src, Q);
@@ -158,11 +159,11 @@ void deviceMemset(TData *dst, const int val, const unsigned int size,
     }
 
 #if defined(NEKTAR_ENABLE_CUDA)
-    CHECK_CUDA_ERROR(cudaSetDevice(device_rank));
-    CHECK_CUDA_ERROR(cudaMemset((void *)dst, val, size * sizeof(TData)));
+    CHECK_HIPCUDA_ERROR(cudaSetDevice(device_rank));
+    CHECK_HIPCUDA_ERROR(cudaMemset((void *)dst, val, size * sizeof(TData)));
 #elif defined(NEKTAR_ENABLE_HIP)
-    CHECK_HIP_ERROR(hipSetDevice(device_rank));
-    CHECK_HIP_ERROR(hipMemset((void *)dst, val, size * sizeof(TData)));
+    CHECK_HIPCUDA_ERROR(hipSetDevice(device_rank));
+    CHECK_HIPCUDA_ERROR(hipMemset((void *)dst, val, size * sizeof(TData)));
 #elif defined(NEKTAR_ENABLE_SYCL)
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.memset((void *)dst, val, size * sizeof(TData)).wait();
@@ -181,10 +182,10 @@ void deviceFill(TData *dst, const TData val, const unsigned int size,
     }
 
 #if defined(NEKTAR_ENABLE_CUDA)
-    CHECK_CUDA_ERROR(cudaSetDevice(device_rank));
+    CHECK_HIPCUDA_ERROR(cudaSetDevice(device_rank));
     thrust::fill(dst, dst + size, val);
 #elif defined(NEKTAR_ENABLE_HIP)
-    CHECK_HIP_ERROR(hipSetDevice(device_rank));
+    CHECK_HIPCUDA_ERROR(hipSetDevice(device_rank));
     thrust::fill(dst, dst + size, val);
 #elif defined(NEKTAR_ENABLE_SYCL)
     sycl::queue &Q = SYCLQueue::GetInstance();
@@ -206,12 +207,12 @@ void deviceMemcpy(TData *dst, const TData *src, const unsigned int size,
     if constexpr (std::is_same_v<MemCopy, HostToHost>)
     {
 #if defined(NEKTAR_ENABLE_CUDA)
-        CHECK_CUDA_ERROR(cudaSetDevice(device_rank));
-        CHECK_CUDA_ERROR(
+        CHECK_HIPCUDA_ERROR(cudaSetDevice(device_rank));
+        CHECK_HIPCUDA_ERROR(
             cudaMemcpy(dst, src, size * sizeof(TData), cudaMemcpyHostToHost));
 #elif defined(NEKTAR_ENABLE_HIP)
-        CHECK_HIP_ERROR(hipSetDevice(device_rank));
-        CHECK_HIP_ERROR(
+        CHECK_HIPCUDA_ERROR(hipSetDevice(device_rank));
+        CHECK_HIPCUDA_ERROR(
             hipMemcpy(dst, src, size * sizeof(TData), hipMemcpyHostToHost));
 #elif defined(NEKTAR_ENABLE_SYCL)
         sycl::queue &Q = SYCLQueue::GetInstance();
@@ -223,12 +224,12 @@ void deviceMemcpy(TData *dst, const TData *src, const unsigned int size,
     else if constexpr (std::is_same_v<MemCopy, DeviceToHost>)
     {
 #if defined(NEKTAR_ENABLE_CUDA)
-        CHECK_CUDA_ERROR(cudaSetDevice(device_rank));
-        CHECK_CUDA_ERROR(
+        CHECK_HIPCUDA_ERROR(cudaSetDevice(device_rank));
+        CHECK_HIPCUDA_ERROR(
             cudaMemcpy(dst, src, size * sizeof(TData), cudaMemcpyDeviceToHost));
 #elif defined(NEKTAR_ENABLE_HIP)
-        CHECK_HIP_ERROR(hipSetDevice(device_rank));
-        CHECK_HIP_ERROR(
+        CHECK_HIPCUDA_ERROR(hipSetDevice(device_rank));
+        CHECK_HIPCUDA_ERROR(
             hipMemcpy(dst, src, size * sizeof(TData), hipMemcpyDeviceToHost));
 #elif defined(NEKTAR_ENABLE_SYCL)
         sycl::queue &Q = SYCLQueue::GetInstance();
@@ -240,12 +241,12 @@ void deviceMemcpy(TData *dst, const TData *src, const unsigned int size,
     else if constexpr (std::is_same_v<MemCopy, HostToDevice>)
     {
 #if defined(NEKTAR_ENABLE_CUDA)
-        CHECK_CUDA_ERROR(cudaSetDevice(device_rank));
-        CHECK_CUDA_ERROR(
+        CHECK_HIPCUDA_ERROR(cudaSetDevice(device_rank));
+        CHECK_HIPCUDA_ERROR(
             cudaMemcpy(dst, src, size * sizeof(TData), cudaMemcpyHostToDevice));
 #elif defined(NEKTAR_ENABLE_HIP)
-        CHECK_HIP_ERROR(hipSetDevice(device_rank));
-        CHECK_HIP_ERROR(
+        CHECK_HIPCUDA_ERROR(hipSetDevice(device_rank));
+        CHECK_HIPCUDA_ERROR(
             hipMemcpy(dst, src, size * sizeof(TData), hipMemcpyHostToDevice));
 #elif defined(NEKTAR_ENABLE_SYCL)
         sycl::queue &Q = SYCLQueue::GetInstance();
@@ -257,12 +258,12 @@ void deviceMemcpy(TData *dst, const TData *src, const unsigned int size,
     else if constexpr (std::is_same_v<MemCopy, DeviceToDevice>)
     {
 #if defined(NEKTAR_ENABLE_CUDA)
-        CHECK_CUDA_ERROR(cudaSetDevice(device_rank));
-        CHECK_CUDA_ERROR(cudaMemcpy(dst, src, size * sizeof(TData),
-                                    cudaMemcpyDeviceToDevice));
+        CHECK_HIPCUDA_ERROR(cudaSetDevice(device_rank));
+        CHECK_HIPCUDA_ERROR(cudaMemcpy(dst, src, size * sizeof(TData),
+                                       cudaMemcpyDeviceToDevice));
 #elif defined(NEKTAR_ENABLE_HIP)
-        CHECK_HIP_ERROR(hipSetDevice(device_rank));
-        CHECK_HIP_ERROR(
+        CHECK_HIPCUDA_ERROR(hipSetDevice(device_rank));
+        CHECK_HIPCUDA_ERROR(
             hipMemcpy(dst, src, size * sizeof(TData), hipMemcpyDeviceToDevice));
 #elif defined(NEKTAR_ENABLE_SYCL)
         sycl::queue &Q = SYCLQueue::GetInstance();

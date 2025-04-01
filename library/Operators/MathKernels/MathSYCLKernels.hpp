@@ -46,11 +46,11 @@ namespace Nektar
 {
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 negKernel(const unsigned int nsize, const TData *x, TData *y)
 {
-    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     sycl::queue &Q = SYCLQueue::GetInstance();
@@ -70,11 +70,11 @@ negKernel(const unsigned int nsize, const TData *x, TData *y)
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 addKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 {
-    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     sycl::queue &Q = SYCLQueue::GetInstance();
@@ -94,11 +94,11 @@ addKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 subKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 {
-    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     sycl::queue &Q = SYCLQueue::GetInstance();
@@ -118,11 +118,11 @@ subKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 mulKernel(const unsigned int nsize, const TData alpha, const TData *x, TData *y)
 {
-    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     sycl::queue &Q = SYCLQueue::GetInstance();
@@ -142,11 +142,11 @@ mulKernel(const unsigned int nsize, const TData alpha, const TData *x, TData *y)
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 mulKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 {
-    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     sycl::queue &Q = SYCLQueue::GetInstance();
@@ -166,11 +166,11 @@ mulKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 divKernel(const unsigned int nsize, const TData alpha, const TData *x, TData *y)
 {
-    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     sycl::queue &Q = SYCLQueue::GetInstance();
@@ -190,11 +190,11 @@ divKernel(const unsigned int nsize, const TData alpha, const TData *x, TData *y)
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 divKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 {
-    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     sycl::queue &Q = SYCLQueue::GetInstance();
@@ -214,12 +214,12 @@ divKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 daxpyKernel(const unsigned int nsize, const TData alpha, const TData *x,
             const TData *y, TData *z)
 {
-    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     sycl::queue &Q = SYCLQueue::GetInstance();
@@ -269,7 +269,7 @@ void reduceSumKernel(const unsigned int gridSize, const unsigned int blockSize,
 
                 indx.barrier(sycl::access::fence_space::local_space);
 
-                unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
+                unsigned int n = NektarSpaces::Device::maximumBlockSize / 2;
                 while (n > 0)
                 {
                     if (blockSize > n && lid < n && lid + n < blockSize)
@@ -321,7 +321,7 @@ void reduceMaxKernel(const unsigned int gridSize, const unsigned int blockSize,
 
                 indx.barrier(sycl::access::fence_space::local_space);
 
-                unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
+                unsigned int n = NektarSpaces::Device::maximumBlockSize / 2;
                 while (n > 0)
                 {
                     if (blockSize > n && lid < n && lid + n < blockSize)
@@ -374,7 +374,7 @@ void reduceMinKernel(const unsigned int gridSize, const unsigned int blockSize,
 
                 indx.barrier(sycl::access::fence_space::local_space);
 
-                unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
+                unsigned int n = NektarSpaces::Device::maximumBlockSize / 2;
                 while (n > 0)
                 {
                     if (blockSize > n && lid < n && lid + n < blockSize)
@@ -426,7 +426,7 @@ void ddotKernel(const unsigned int gridSize, const unsigned int blockSize,
 
                 indx.barrier(sycl::access::fence_space::local_space);
 
-                unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
+                unsigned int n = NektarSpaces::Device::maximumBlockSize / 2;
                 while (n > 0)
                 {
                     if (blockSize > n && lid < n && lid + n < blockSize)
@@ -476,7 +476,7 @@ void l1normKernel(const unsigned int gridSize, const unsigned int blockSize,
 
                 indx.barrier(sycl::access::fence_space::local_space);
 
-                unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
+                unsigned int n = NektarSpaces::Device::maximumBlockSize / 2;
                 while (n > 0)
                 {
                     if (blockSize > n && lid < n && lid + n < blockSize)
@@ -526,7 +526,7 @@ void l2normKernel(const unsigned int gridSize, const unsigned int blockSize,
 
                 indx.barrier(sycl::access::fence_space::local_space);
 
-                unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
+                unsigned int n = NektarSpaces::Device::maximumBlockSize / 2;
                 while (n > 0)
                 {
                     if (blockSize > n && lid < n && lid + n < blockSize)
@@ -577,7 +577,7 @@ void lpnormKernel(const unsigned int gridSize, const unsigned int blockSize,
 
                 indx.barrier(sycl::access::fence_space::local_space);
 
-                unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
+                unsigned int n = NektarSpaces::Device::maximumBlockSize / 2;
                 while (n > 0)
                 {
                     if (blockSize > n && lid < n && lid + n < blockSize)
@@ -629,7 +629,7 @@ void linfnormKernel(const unsigned int gridSize, const unsigned int blockSize,
 
                 indx.barrier(sycl::access::fence_space::local_space);
 
-                unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
+                unsigned int n = NektarSpaces::Device::maximumBlockSize / 2;
                 while (n > 0)
                 {
                     if (blockSize > n && lid < n && lid + n < blockSize)
@@ -650,12 +650,12 @@ void linfnormKernel(const unsigned int gridSize, const unsigned int blockSize,
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 reduceSumKernel(const unsigned int nsize, const TData *x, TData *out)
 {
-    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::SYCL::maximumBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
     if (syclBuffer == nullptr)
     {
@@ -671,12 +671,12 @@ reduceSumKernel(const unsigned int nsize, const TData *x, TData *out)
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 reduceMaxKernel(const unsigned int nsize, const TData *x, TData *out)
 {
-    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::SYCL::maximumBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
     if (syclBuffer == nullptr)
     {
@@ -692,12 +692,12 @@ reduceMaxKernel(const unsigned int nsize, const TData *x, TData *out)
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 reduceMinKernel(const unsigned int nsize, const TData *x, TData *out)
 {
-    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::SYCL::maximumBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
     if (syclBuffer == nullptr)
     {
@@ -713,12 +713,12 @@ reduceMinKernel(const unsigned int nsize, const TData *x, TData *out)
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 ddotKernel(const unsigned int nsize, const TData *x, const TData *y, TData *out)
 {
-    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::SYCL::maximumBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
     if (syclBuffer == nullptr)
     {
@@ -734,12 +734,12 @@ ddotKernel(const unsigned int nsize, const TData *x, const TData *y, TData *out)
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 l1normKernel(const unsigned int nsize, const TData *x, TData *out)
 {
-    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::SYCL::maximumBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
     if (syclBuffer == nullptr)
     {
@@ -755,12 +755,12 @@ l1normKernel(const unsigned int nsize, const TData *x, TData *out)
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 l2normKernel(const unsigned int nsize, const TData *x, TData *out)
 {
-    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::SYCL::maximumBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
     if (syclBuffer == nullptr)
     {
@@ -776,13 +776,13 @@ l2normKernel(const unsigned int nsize, const TData *x, TData *out)
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 lpnormKernel(const unsigned int nsize, const unsigned int p, const TData *x,
              TData *out)
 {
-    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::SYCL::maximumBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
     if (syclBuffer == nullptr)
     {
@@ -798,12 +798,12 @@ lpnormKernel(const unsigned int nsize, const unsigned int p, const TData *x,
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 linfnormKernel(const unsigned int nsize, const TData *x, TData *out)
 {
-    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::SYCL::maximumBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
     if (syclBuffer == nullptr)
     {

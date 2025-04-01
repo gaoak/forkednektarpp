@@ -41,59 +41,65 @@ namespace Nektar::Operators::detail
 
 // Kernel Launchers.
 template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static typename std::enable_if<
-    std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
-AssembleKernel(const unsigned int nsize, const int *assmbPtr,
-               const TData *signPtr, const TData *inptr, TData *outptr)
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                            void>::type
+    AssembleKernel(const unsigned int nsize, const int *assmbPtr,
+                   const TData *signPtr, const TData *inptr, TData *outptr)
 {
     AssembleKernel<>(nsize, assmbPtr, signPtr, inptr, outptr,
                      deviceOnHostBlock1D());
 }
 
 template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static typename std::enable_if<
-    std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
-AssembleKernel(const unsigned int nsize, const int *assmbPtr, const TData sign,
-               const TData *inptr, TData *outptr)
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                            void>::type
+    AssembleKernel(const unsigned int nsize, const int *assmbPtr,
+                   const TData sign, const TData *inptr, TData *outptr)
 {
     AssembleKernel<>(nsize, assmbPtr, sign, inptr, outptr,
                      deviceOnHostBlock1D());
 }
 
 template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static typename std::enable_if<
-    std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
-AssembleKernel(const unsigned int nsize, const int *assmbPtr,
-               const TData *inptr, TData *outptr)
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                            void>::type
+    AssembleKernel(const unsigned int nsize, const int *assmbPtr,
+                   const TData *inptr, TData *outptr)
 {
     AssembleKernel<>(nsize, assmbPtr, inptr, outptr, deviceOnHostBlock1D());
 }
 
 template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static typename std::enable_if<
-    std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
-GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
-                    const TData *signPtr, const TData *inptr, TData *outptr)
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                            void>::type
+    GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
+                        const TData *signPtr, const TData *inptr, TData *outptr)
 {
     GlobalToLocalKernel<>(nsize, assmbPtr, signPtr, inptr, outptr,
                           deviceOnHostBlock1D());
 }
 
 template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static typename std::enable_if<
-    std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
-GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
-                    const TData sign, const TData *inptr, TData *outptr)
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                            void>::type
+    GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
+                        const TData sign, const TData *inptr, TData *outptr)
 {
     GlobalToLocalKernel<>(nsize, assmbPtr, sign, inptr, outptr,
                           deviceOnHostBlock1D());
 }
 
 template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static typename std::enable_if<
-    std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
-GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
-                    const TData *inptr, TData *outptr)
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                            void>::type
+    GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
+                        const TData *inptr, TData *outptr)
 {
     GlobalToLocalKernel<>(nsize, assmbPtr, inptr, outptr,
                           deviceOnHostBlock1D());

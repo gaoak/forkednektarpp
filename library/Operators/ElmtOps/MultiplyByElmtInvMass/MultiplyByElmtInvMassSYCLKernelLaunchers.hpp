@@ -42,14 +42,14 @@ namespace Nektar::Operators::detail
 // Launchers
 template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                             void>::type
     DivideByJacobianKernel(const unsigned int nelmt, const unsigned int nmTot,
                            const TData *jacptr, TData *outptr)
 {
     const unsigned int nsize = nelmt * nmTot;
 
-    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     sycl::queue &Q = SYCLQueue::GetInstance();

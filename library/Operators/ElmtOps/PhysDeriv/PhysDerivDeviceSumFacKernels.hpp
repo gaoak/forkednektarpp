@@ -1003,6 +1003,6 @@ NEK_DEVICE_INLINE static void PhysDeriv3DKernel(
 
 } // namespace Nektar::Operators::detail
 
-#include "Operators/ElmtOps/PhysDeriv/PhysDerivCUDASumFacKernelLaunchers.hpp"
 #include "Operators/ElmtOps/PhysDeriv/PhysDerivDeviceOnHostSumFacKernelLaunchers.hpp"
+#include "Operators/ElmtOps/PhysDeriv/PhysDerivHIPCUDASumFacKernelLaunchers.hpp"
 #include "Operators/ElmtOps/PhysDeriv/PhysDerivSYCLSumFacKernelLaunchers.hpp"

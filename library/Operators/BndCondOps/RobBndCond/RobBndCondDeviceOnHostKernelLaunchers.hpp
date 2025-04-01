@@ -41,25 +41,28 @@ namespace Nektar::Operators::detail
 
 // Kernel Launchers.
 template <typename ExecSpace, bool negflag, typename TData>
-NEK_FORCE_INLINE static typename std::enable_if<
-    std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
-RobBndCond1DKernel(const unsigned int nsize, const unsigned int *offsetPtr,
-                   const TData *matPtr, const unsigned int *mapPtr,
-                   const TData *incoeffPtr, TData *coeffPtr)
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                            void>::type
+    RobBndCond1DKernel(const unsigned int nsize, const unsigned int *offsetPtr,
+                       const TData *matPtr, const unsigned int *mapPtr,
+                       const TData *incoeffPtr, TData *coeffPtr)
 {
     RobBndCond1DKernel<negflag>(nsize, offsetPtr, matPtr, mapPtr, incoeffPtr,
                                 coeffPtr, deviceOnHostBlock1D());
 }
 
 template <typename ExecSpace, bool negflag, typename TData>
-NEK_FORCE_INLINE static typename std::enable_if<
-    std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
-RobBndCond2DKernel(const unsigned int nmaxcoeff, const unsigned int nsize,
-                   const unsigned int *ncoeffPtr, const unsigned int *offsetPtr,
-                   const unsigned int *matOffsetPtr,
-                   const unsigned int *mapOffsetPtr, const TData *matPtr,
-                   const unsigned int *mapPtr, const int *signPtr,
-                   const TData *incoeffPtr, TData *coeffPtr)
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                            void>::type
+    RobBndCond2DKernel(const unsigned int nmaxcoeff, const unsigned int nsize,
+                       const unsigned int *ncoeffPtr,
+                       const unsigned int *offsetPtr,
+                       const unsigned int *matOffsetPtr,
+                       const unsigned int *mapOffsetPtr, const TData *matPtr,
+                       const unsigned int *mapPtr, const int *signPtr,
+                       const TData *incoeffPtr, TData *coeffPtr)
 {
     std::vector<TData> shmem(nmaxcoeff);
 

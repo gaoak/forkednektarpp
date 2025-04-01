@@ -93,7 +93,7 @@ void ProfilerReduction(const unsigned int size)
     timer.Start();
     for (unsigned int t = 0; t < ntests; ++t)
     {
-        ddot<NektarSpaces::SYCL>(x, y, &result_sycl);
+        ddot<NektarSpaces::Device>(x, y, &result_sycl);
     }
     SYCLQueue::GetInstance().wait();
     timer.Stop();
@@ -106,7 +106,7 @@ void ProfilerReduction(const unsigned int size)
     timer.Start();
     for (unsigned int t = 0; t < ntests; ++t)
     {
-        ddot<NektarSpaces::DeviceOnHost>(x, y, &result_deviceonhost);
+        ddot<NektarSpaces::Device>(x, y, &result_deviceonhost);
         ASSERTL0((result_deviceonhost > 0.0), "Error!");
     }
     timer.Stop();
@@ -178,7 +178,7 @@ void ProfilerDaxpy(const unsigned int size)
     timer.Start();
     for (unsigned int t = 0; t < ntests; ++t)
     {
-        daxpy<NektarSpaces::SYCL>(3.2, x, y, z);
+        daxpy<NektarSpaces::Device>(3.2, x, y, z);
     }
     SYCLQueue::GetInstance().wait();
     timer.Stop();
@@ -190,7 +190,7 @@ void ProfilerDaxpy(const unsigned int size)
     timer.Start();
     for (unsigned int t = 0; t < ntests; ++t)
     {
-        daxpy<NektarSpaces::DeviceOnHost>(3.2, x, y, z);
+        daxpy<NektarSpaces::Device>(3.2, x, y, z);
     }
     timer.Stop();
     TData time_deviceonhost = timer.Elapsed().count() / ntests;

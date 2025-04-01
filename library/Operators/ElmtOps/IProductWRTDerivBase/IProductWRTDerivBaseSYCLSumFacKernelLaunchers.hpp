@@ -52,8 +52,8 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase1DKernel(
 
     const unsigned int shmemsize =
         IProductWRTDerivBaseSharedMemorySize<Implementation>(nq0, nm0);
-    const unsigned int blocksize = GetSYCLBlockSize<Implementation>(nq0);
-    const unsigned int gridsize  = GetSYCLGridSize<Implementation>(nelmt);
+    const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nq0);
+    const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
     Q.submit([=](sycl::handler &cgh) {
         sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
@@ -99,8 +99,8 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
     const unsigned int shmemsize =
         IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
             nq0, nq1, nm0, nm1);
-    const unsigned int blocksize = GetSYCLBlockSize<Implementation>(nmTot);
-    const unsigned int gridsize  = GetSYCLGridSize<Implementation>(nelmt);
+    const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
+    const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
     Q.submit([=](sycl::handler &cgh) {
         sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
@@ -155,8 +155,8 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
     const unsigned int shmemsize =
         IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
             nq0, nq1, nq2, nm0, nm1, nm2);
-    const unsigned int blocksize = GetSYCLBlockSize<Implementation>(nmTot);
-    const unsigned int gridsize  = GetSYCLGridSize<Implementation>(nelmt);
+    const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
+    const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
     Q.submit([=](sycl::handler &cgh) {
         sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);

@@ -83,6 +83,19 @@ Note:
 - For A100, please use `sm_xx=sm_80` 
 - For V100, please use `sm_xx=sm_70` 
 
+### HIP
+    cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
+             -DNEKTAR_ENABLE_HIP=ON \
+             -DCMAKE_CXX_COMPILER=hipcc \
+             -DNEKTAR_DEVICE_ARCH=gfxzzz \
+
+Note:
+- For MI100, please use `gfxzzz=gfx908` 
+- For MI210, please use `gfxzzz=gfx90a` 
+- For MI250, please use `gfxzzz=gfx90a` 
+- For MI300, please use `gfxzzz=gfx942` 
+- For MI325, please use `gfxzzz=gfx942` 
+
 ### SYCL (Default)
     cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
              -DNEKTAR_ENABLE_SYCL=Default \

@@ -143,6 +143,6 @@ NEK_DEVICE_INLINE static void GlobalToLocalKernel(
 } // namespace Nektar::Operators::detail
 #endif
 
-#include "Operators/AssmbScatr/AssmbScatrCUDAKernelLaunchers.hpp"
 #include "Operators/AssmbScatr/AssmbScatrDeviceOnHostKernelLaunchers.hpp"
+#include "Operators/AssmbScatr/AssmbScatrHIPCUDAKernelLaunchers.hpp"
 #include "Operators/AssmbScatr/AssmbScatrSYCLKernelLaunchers.hpp"

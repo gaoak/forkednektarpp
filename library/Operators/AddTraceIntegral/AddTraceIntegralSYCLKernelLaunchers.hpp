@@ -42,7 +42,7 @@ namespace Nektar::Operators::detail
 // Kernel launchers.
 template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                             void>::type
     AddTraceIntegralKernel(const unsigned int nsize,
                            const int *traceCoeffsToElmtMapPtr,
@@ -50,7 +50,7 @@ NEK_FORCE_INLINE static
                            const int *traceCoeffsToElmtTracePtr,
                            const TData *tracePtr, TData *outptr)
 {
-    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     sycl::queue &Q = SYCLQueue::GetInstance();
@@ -69,7 +69,7 @@ NEK_FORCE_INLINE static
 // Launchers
 template <typename ExecSpace>
 NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                             void>::type
     ReOrderMapKernel([[maybe_unused]] const unsigned int nsize,
                      [[maybe_unused]] int *traceCoeffsToElmtMapPtr,

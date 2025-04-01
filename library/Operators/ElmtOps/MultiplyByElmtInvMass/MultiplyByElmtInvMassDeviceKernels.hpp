@@ -61,6 +61,6 @@ NEK_DEVICE_INLINE static void DivideByJacobianKernel(
 } // namespace Nektar::Operators::detail
 #endif
 
-#include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassCUDAKernelLaunchers.hpp"
 #include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassDeviceOnHostKernelLaunchers.hpp"
+#include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassHIPCUDAKernelLaunchers.hpp"
 #include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassSYCLKernelLaunchers.hpp"

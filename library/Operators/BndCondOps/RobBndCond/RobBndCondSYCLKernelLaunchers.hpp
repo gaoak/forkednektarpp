@@ -42,7 +42,7 @@ namespace Nektar::Operators::detail
 // Kernel Launchers.
 template <typename ExecSpace, bool negflag, typename TData>
 NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                             void>::type
     RobBndCond1DKernel(const unsigned int nsize, const unsigned int *offsetPtr,
                        const TData *matPtr, const unsigned int *mapPtr,
@@ -65,7 +65,7 @@ NEK_FORCE_INLINE static
 
 template <typename ExecSpace, bool negflag, typename TData>
 NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                             void>::type
     RobBndCond2DKernel(const unsigned int nmaxcoeff, const unsigned int nsize,
                        const unsigned int *ncoeffPtr,

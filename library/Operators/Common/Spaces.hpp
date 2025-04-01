@@ -40,13 +40,14 @@
 #include <type_traits>
 
 #include <float.h>
+#include <iostream>
 #include <limits.h>
 #include <string>
 
 #if defined(NEKTAR_ENABLE_CUDA)
 #include <cuda_runtime.h>
 #include <thrust/fill.h>
-#define CHECK_LAST_CUDA_ERROR()                                                \
+#define CHECK_LAST_HIPCUDA_ERROR()                                             \
     {                                                                          \
         cudaError_t err = cudaGetLastError();                                  \
         if (err != cudaSuccess)                                                \
@@ -56,7 +57,7 @@
             std::cerr << cudaGetErrorString(err) << std::endl;                 \
         }                                                                      \
     }
-#define CHECK_CUDA_ERROR(err)                                                  \
+#define CHECK_HIPCUDA_ERROR(err)                                               \
     if (err != cudaSuccess)                                                    \
     {                                                                          \
         std::cerr << "CUDA Runtime Error at: " << __FILE__ << ":" << __LINE__  \
@@ -66,7 +67,7 @@
 #elif defined(NEKTAR_ENABLE_HIP)
 #include <hip/hip_runtime.h>
 #include <thrust/fill.h>
-#define CHECK_LAST_HIP_ERROR()                                                 \
+#define CHECK_LAST_HIPCUDA_ERROR()                                             \
     {                                                                          \
         hipError_t err = hipGetLastError();                                    \
         if (err != hipSuccess)                                                 \
@@ -76,7 +77,7 @@
             std::cerr << hipGetErrorString(err) << std::endl;                  \
         }                                                                      \
     }
-#define CHECK_HIP_ERROR(err)                                                   \
+#define CHECK_HIPCUDA_ERROR(err)                                               \
     if (err != hipSuccess)                                                     \
     {                                                                          \
         std::cerr << "HIP Runtime Error at: " << __FILE__ << ":" << __LINE__   \
@@ -177,51 +178,33 @@ struct AVX
     static constexpr size_t alignment = tinysimd::simd<double>::alignment;
 };
 
-struct CUDA
+struct Device
 {
-    static constexpr char name[]      = "CUDA";
+    static constexpr char name[]      = "Device";
     using memory_space                = NektarSpaces::DeviceSpace;
     static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+#if defined(NEKTAR_ENABLE_CUDA)
     static constexpr unsigned int defaultBlockSize = 256u;
     static constexpr unsigned int maximumBlockSize = 1024u;
-};
-
-struct HIP
-{
-    static constexpr char name[]      = "HIP";
-    using memory_space                = NektarSpaces::DeviceSpace;
-    static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+#elif defined(NEKTAR_ENABLE_HIP)
     static constexpr unsigned int defaultBlockSize = 256u;
-    static constexpr unsigned int maximumBlockSize = 2048u;
-};
-
-struct SYCL
-{
-    static constexpr char name[]      = "SYCL";
-    using memory_space                = NektarSpaces::DeviceSpace;
-    static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
-#if defined(SYCL_ENABLE_CUDA)
+    static constexpr unsigned int maximumBlockSize = 1024u;
+#elif defined(SYCL_ENABLE_CUDA)
     static constexpr unsigned int defaultBlockSize = 256u;
     static constexpr unsigned int maximumBlockSize = 1024u;
 #elif defined(SYCL_ENABLE_HIP)
     static constexpr unsigned int defaultBlockSize = 256u;
-    static constexpr unsigned int maximumBlockSize = 2048u;
-#elif defined(SYCL_ENABLE_INTEL)
-    static constexpr unsigned int defaultBlockSize = 256u;
     static constexpr unsigned int maximumBlockSize = 1024u;
-#else
+#elif defined(SYCL_ENABLE_INTEL)
+    static constexpr unsigned int defaultBlockSize = 128u;
+    static constexpr unsigned int maximumBlockSize = 1024u;
+#elif defined(SYCL_ENABLE_SERIAL)
     static constexpr unsigned int defaultBlockSize = 16u;
     static constexpr unsigned int maximumBlockSize = 16u;
-#endif
-};
-
-struct DeviceOnHost
-{
-    static constexpr char name[]      = "DeviceOnHost";
-    using memory_space                = NektarSpaces::DeviceSpace;
-    static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+#else
     static constexpr unsigned int defaultBlockSize = 1u;
     static constexpr unsigned int maximumBlockSize = 1u;
+#endif
 };
 
 // Specify execution for CMakeList.txt
@@ -230,13 +213,13 @@ struct DeviceOnHost
 #if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
 #define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::AVX
 #elif defined(NEKTAR_ENABLE_CUDA)
-#define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::CUDA
+#define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::Device
 #elif defined(NEKTAR_ENABLE_HIP)
-#define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::HIP
+#define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::Device
 #elif defined(NEKTAR_ENABLE_SYCL)
-#define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::SYCL
+#define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::Device
 #elif defined(NEKTAR_ENABLE_DEVICEONHOST)
-#define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::DeviceOnHost
+#define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::Device
 #endif
 
 // These are used for LoopExecution.hpp
@@ -284,21 +267,9 @@ namespace Nektar
     {
         return NektarSpaces::AVX::alignment;
     }
-    else if (execspace == "CUDA")
+    else if (execspace == "Device")
     {
-        return NektarSpaces::CUDA::alignment;
-    }
-    else if (execspace == "HIP")
-    {
-        return NektarSpaces::HIP::alignment;
-    }
-    else if (execspace == "SYCL")
-    {
-        return NektarSpaces::SYCL::alignment;
-    }
-    else if (execspace == "DeviceOnHost")
-    {
-        return NektarSpaces::DeviceOnHost::alignment;
+        return NektarSpaces::Device::alignment;
     }
     else
     {
@@ -306,7 +277,7 @@ namespace Nektar
     }
 }
 
-class cudaBlock1D
+class hipcudaBlock1D
 {
 };
 
@@ -316,43 +287,43 @@ class cudaBlock1D
 namespace cg = cooperative_groups;
 
 NEK_DEVICE_INLINE static unsigned int getLocalIdx(
-    [[maybe_unused]] const cudaBlock1D &threadBlock)
+    [[maybe_unused]] const hipcudaBlock1D &threadBlock)
 {
     return threadIdx.x;
 }
 
 NEK_DEVICE_INLINE static unsigned int getLocalRange(
-    [[maybe_unused]] const cudaBlock1D &threadBlock)
+    [[maybe_unused]] const hipcudaBlock1D &threadBlock)
 {
     return blockDim.x;
 }
 
 NEK_DEVICE_INLINE static unsigned int getGlobalIdx(
-    [[maybe_unused]] const cudaBlock1D &threadBlock)
+    [[maybe_unused]] const hipcudaBlock1D &threadBlock)
 {
     return blockDim.x * blockIdx.x + threadIdx.x;
 }
 
 NEK_DEVICE_INLINE static unsigned int getGlobalRange(
-    [[maybe_unused]] const cudaBlock1D &threadBlock)
+    [[maybe_unused]] const hipcudaBlock1D &threadBlock)
 {
     return gridDim.x * blockDim.x;
 }
 
 NEK_DEVICE_INLINE static unsigned int getBlockIdx(
-    [[maybe_unused]] const cudaBlock1D &threadBlock)
+    [[maybe_unused]] const hipcudaBlock1D &threadBlock)
 {
     return blockIdx.x;
 }
 
 NEK_DEVICE_INLINE static unsigned int getBlockRange(
-    [[maybe_unused]] const cudaBlock1D &threadBlock)
+    [[maybe_unused]] const hipcudaBlock1D &threadBlock)
 {
     return gridDim.x;
 }
 
 NEK_DEVICE_INLINE static unsigned int getLaneIdx(
-    [[maybe_unused]] const cudaBlock1D &threadBlock)
+    [[maybe_unused]] const hipcudaBlock1D &threadBlock)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<double>::value;
     return threadIdx.x % warpsize;
@@ -536,7 +507,7 @@ NEK_DEVICE_INLINE static void atomic_min(TData *const dest, const TData val)
 
 template <typename TData>
 NEK_DEVICE_INLINE static TData warpReduceSum(
-    const TData val, [[maybe_unused]] const cudaBlock1D &threadBlock)
+    const TData val, [[maybe_unused]] const hipcudaBlock1D &threadBlock)
 {
 #if defined(__CUDACC__)
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
@@ -568,7 +539,7 @@ NEK_DEVICE_INLINE static TData warpReduceSum(
 
 template <typename TData>
 NEK_DEVICE_INLINE static TData warpReduceMax(
-    const TData val, [[maybe_unused]] const cudaBlock1D &threadBlock)
+    const TData val, [[maybe_unused]] const hipcudaBlock1D &threadBlock)
 {
 #if defined(__CUDACC__)
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
@@ -600,7 +571,7 @@ NEK_DEVICE_INLINE static TData warpReduceMax(
 
 template <typename TData>
 NEK_DEVICE_INLINE static TData warpReduceMin(
-    const TData val, [[maybe_unused]] const cudaBlock1D &threadBlock)
+    const TData val, [[maybe_unused]] const hipcudaBlock1D &threadBlock)
 {
 #if defined(__CUDACC__)
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
@@ -632,7 +603,7 @@ NEK_DEVICE_INLINE static TData warpReduceMin(
 
 template <typename TData>
 NEK_DEVICE_INLINE static void blockReduceSum(
-    const TData val, [[maybe_unused]] const cudaBlock1D &threadBlock,
+    const TData val, [[maybe_unused]] const hipcudaBlock1D &threadBlock,
     TData *red)
 {
     auto tmp = warpReduceSum(val, threadBlock);
@@ -644,7 +615,7 @@ NEK_DEVICE_INLINE static void blockReduceSum(
 
 template <typename TData>
 NEK_DEVICE_INLINE static void blockReduceMax(
-    const TData val, [[maybe_unused]] const cudaBlock1D &threadBlock,
+    const TData val, [[maybe_unused]] const hipcudaBlock1D &threadBlock,
     TData *red)
 {
     auto tmp = warpReduceMax(val, threadBlock);
@@ -656,7 +627,7 @@ NEK_DEVICE_INLINE static void blockReduceMax(
 
 template <typename TData>
 NEK_DEVICE_INLINE static void blockReduceMin(
-    const TData val, [[maybe_unused]] const cudaBlock1D &threadBlock,
+    const TData val, [[maybe_unused]] const hipcudaBlock1D &threadBlock,
     TData *red)
 {
     auto tmp = warpReduceMin(val, threadBlock);
@@ -667,7 +638,7 @@ NEK_DEVICE_INLINE static void blockReduceMin(
 }
 
 NEK_DEVICE_INLINE void localBarrier(
-    [[maybe_unused]] const cudaBlock1D &threadBlock)
+    [[maybe_unused]] const hipcudaBlock1D &threadBlock)
 {
     __syncthreads();
 }
