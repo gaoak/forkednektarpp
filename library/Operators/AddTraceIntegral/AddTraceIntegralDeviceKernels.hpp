@@ -65,6 +65,6 @@ NEK_DEVICE_INLINE static void AddTraceIntegralKernel(
 } // namespace Nektar::Operators::detail
 #endif
 
-#include "Operators/AddTraceIntegral/AddTraceIntegralCUDAKernelLaunchers.hpp"
 #include "Operators/AddTraceIntegral/AddTraceIntegralDeviceOnHostKernelLaunchers.hpp"
+#include "Operators/AddTraceIntegral/AddTraceIntegralHIPCUDAKernelLaunchers.hpp"
 #include "Operators/AddTraceIntegral/AddTraceIntegralSYCLKernelLaunchers.hpp"

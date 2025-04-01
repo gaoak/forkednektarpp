@@ -40,40 +40,44 @@ namespace Nektar
 {
 
 template <typename ExecSpace, typename Scope, typename TData>
-NEK_DEVICE_INLINE typename std::enable_if<
-    std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
-atomic_add(TData *const dest, const TData val)
+NEK_DEVICE_INLINE
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                            void>::type
+    atomic_add(TData *const dest, const TData val)
 {
     *dest += val;
 }
 
 template <typename ExecSpace, typename Scope, typename TData>
-NEK_DEVICE_INLINE typename std::enable_if<
-    std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
-atomic_sub(TData *const dest, const TData val)
+NEK_DEVICE_INLINE
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                            void>::type
+    atomic_sub(TData *const dest, const TData val)
 {
     *dest -= val;
 }
 
 template <typename ExecSpace, typename Scope, typename TData>
-NEK_DEVICE_INLINE typename std::enable_if<
-    std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
-atomic_max(TData *const dest, const TData val)
+NEK_DEVICE_INLINE
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                            void>::type
+    atomic_max(TData *const dest, const TData val)
 {
     *dest = max(*dest, val);
 }
 
 template <typename ExecSpace, typename Scope, typename TData>
-NEK_DEVICE_INLINE typename std::enable_if<
-    std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
-atomic_min(TData *const dest, const TData val)
+NEK_DEVICE_INLINE
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                            void>::type
+    atomic_min(TData *const dest, const TData val)
 {
     *dest = min(*dest, val);
 }
 
 template <typename ExecSpace, typename Functor>
-inline typename std::enable_if<
-    std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
 parallel_for(const int begin, const int end, const Functor &functor)
 {
     for (int i = begin; i < end; ++i)
@@ -83,8 +87,8 @@ parallel_for(const int begin, const int end, const Functor &functor)
 }
 
 template <typename ExecSpace, typename Reduction, typename Functor>
-inline typename std::enable_if<
-    std::is_same_v<ExecSpace, NektarSpaces::DeviceOnHost>, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
 parallel_reduce(const unsigned int begin, const unsigned int end,
                 const Functor &functor, typename Reduction::value_type &red)
 {

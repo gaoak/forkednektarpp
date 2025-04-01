@@ -53,8 +53,8 @@ public:
 
     /*
      *  Re-Initialise the input blocks based on the Trace-ExpList for this
-     * operator Delete previouisly defined fixt_in (also for CUDA) and re-define
-     * input based on TraceExpList
+     * operator Delete previouisly defined fixt_in (also for Device) and
+     * re-define input based on TraceExpList
      */
     void ReConfigure(unsigned int nin                   = 1,
                      [[maybe_unused]] unsigned int nout = 1)

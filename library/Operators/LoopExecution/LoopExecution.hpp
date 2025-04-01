@@ -60,8 +60,7 @@ public:
 
 } // namespace Nektar
 
-#include "Operators/LoopExecution/LoopExecutionCUDA.cuh"
 #include "Operators/LoopExecution/LoopExecutionDeviceOnHost.hpp"
-#include "Operators/LoopExecution/LoopExecutionHIP.hpp"
+#include "Operators/LoopExecution/LoopExecutionHIPCUDA.hpp"
 #include "Operators/LoopExecution/LoopExecutionSYCL.hpp"
 #include "Operators/LoopExecution/LoopExecutionSerialAVX.hpp"

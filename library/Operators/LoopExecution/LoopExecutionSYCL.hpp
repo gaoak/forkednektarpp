@@ -43,7 +43,7 @@ static void *syclBuffer = nullptr;
 
 template <typename ExecSpace, typename Scope, typename TData>
 NEK_DEVICE_INLINE
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                             void>::type
     atomic_add(TData *const dest, const TData val)
 {
@@ -52,7 +52,7 @@ NEK_DEVICE_INLINE
 
 template <typename ExecSpace, typename Scope, typename TData>
 NEK_DEVICE_INLINE
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                             void>::type
     atomic_sub(TData *const dest, const TData val)
 {
@@ -61,7 +61,7 @@ NEK_DEVICE_INLINE
 
 template <typename ExecSpace, typename Scope, typename TData>
 NEK_DEVICE_INLINE
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                             void>::type
     atomic_max(TData *const dest, const TData val)
 {
@@ -70,7 +70,7 @@ NEK_DEVICE_INLINE
 
 template <typename ExecSpace, typename Scope, typename TData>
 NEK_DEVICE_INLINE
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                             void>::type
     atomic_min(TData *const dest, const TData val)
 {
@@ -78,11 +78,11 @@ NEK_DEVICE_INLINE
 }
 
 template <typename ExecSpace, typename Functor>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 parallel_for(const int begin, const int end, const Functor &functor)
 {
-    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = ((end - begin) + blockSize - 1u) / blockSize;
 
     sycl::queue &Q = SYCLQueue::GetInstance();
@@ -136,7 +136,7 @@ void reduceSumKernel(const unsigned int gridSize, const unsigned int blockSize,
 
                 indx.barrier(sycl::access::fence_space::local_space);
 
-                unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
+                unsigned int n = NektarSpaces::Device::maximumBlockSize / 2;
                 while (n > 0)
                 {
                     if (blockSize > n && lid < n && lid + n < blockSize)
@@ -189,7 +189,7 @@ void reduceMaxKernel(const unsigned int gridSize, const unsigned int blockSize,
 
                 indx.barrier(sycl::access::fence_space::local_space);
 
-                unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
+                unsigned int n = NektarSpaces::Device::maximumBlockSize / 2;
                 while (n > 0)
                 {
                     if (blockSize > n && lid < n && lid + n < blockSize)
@@ -243,7 +243,7 @@ void reduceMinKernel(const unsigned int gridSize, const unsigned int blockSize,
 
                 indx.barrier(sycl::access::fence_space::local_space);
 
-                unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
+                unsigned int n = NektarSpaces::Device::maximumBlockSize / 2;
                 while (n > 0)
                 {
                     if (blockSize > n && lid < n && lid + n < blockSize)
@@ -264,13 +264,13 @@ void reduceMinKernel(const unsigned int gridSize, const unsigned int blockSize,
 }
 
 template <typename ExecSpace, typename Reduction, typename Functor>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 parallel_reduce(const unsigned int begin, const unsigned int end,
                 const Functor &functor, typename Reduction::value_type *out)
 {
-    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::SYCL::maximumBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
     using TData = typename Reduction::value_type;
 

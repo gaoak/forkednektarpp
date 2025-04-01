@@ -40,14 +40,14 @@ namespace Nektar
 {
 
 template <unsigned int VectorWidth, typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 interleave(const unsigned int numMetaBlocks, const unsigned int npts,
            TData *inout)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
 
-    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = numMetaBlocks;
 
     TData *buffer = sycl::malloc_device<TData>(
@@ -65,14 +65,14 @@ interleave(const unsigned int numMetaBlocks, const unsigned int npts,
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 deInterleave(const unsigned int VectorWidth, const unsigned int numMetaBlocks,
              const unsigned int npts, TData *inout)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
 
-    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = numMetaBlocks;
 
     TData *buffer = sycl::malloc_device<TData>(
@@ -90,7 +90,7 @@ deInterleave(const unsigned int VectorWidth, const unsigned int numMetaBlocks,
 }
 
 template <typename ExecSpace>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 BuildInterleaveMap(const unsigned int numMetaBlocks, const unsigned int npts,
                    const unsigned int newVecWidth, const unsigned int offset,
@@ -98,7 +98,7 @@ BuildInterleaveMap(const unsigned int numMetaBlocks, const unsigned int npts,
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
 
-    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = numMetaBlocks;
 
     int *buffer = sycl::malloc_device<int>(newVecWidth * numMetaBlocks * npts,

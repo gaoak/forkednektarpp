@@ -36,9 +36,8 @@
 
 #include "Operators/Field/Field.hpp"
 #include "Operators/MathKernels/MathAVXKernels.hpp"
-#include "Operators/MathKernels/MathCUDAKernels.cuh"
 #include "Operators/MathKernels/MathDeviceOnHostKernels.hpp"
-#include "Operators/MathKernels/MathHIPKernels.hpp"
+#include "Operators/MathKernels/MathHIPCUDAKernels.hpp"
 #include "Operators/MathKernels/MathSYCLKernels.hpp"
 #include "Operators/MathKernels/MathSerialKernels.hpp"
 

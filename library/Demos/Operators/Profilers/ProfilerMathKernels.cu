@@ -79,7 +79,7 @@ void ProfilerReduction(const unsigned int size)
     timer.Start();
     for (unsigned int t = 0; t < ntests; ++t)
     {
-        ddot<NektarSpaces::CUDA>(x, y, &result_cuda);
+        ddot<NektarSpaces::Device>(x, y, &result_cuda);
     }
     cudaDeviceSynchronize();
     timer.Stop();
@@ -129,7 +129,7 @@ void ProfilerDaxpy(const unsigned int size)
     timer.Start();
     for (unsigned int t = 0; t < ntests; ++t)
     {
-        daxpy<NektarSpaces::CUDA>(3.2, x, y, z);
+        daxpy<NektarSpaces::Device>(3.2, x, y, z);
     }
     cudaDeviceSynchronize();
     timer.Stop();

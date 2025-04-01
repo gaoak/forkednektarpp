@@ -39,7 +39,7 @@
 #include "MathKernelsLauncher.hpp"
 
 using namespace Nektar;
-using ExecSpace = NektarSpaces::CUDA;
+using ExecSpace = NektarSpaces::Device;
 
 void negKernelLauncher(Field<double, FieldState::Phys> &x,
                        Field<double, FieldState::Phys> &y)

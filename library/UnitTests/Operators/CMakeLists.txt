@@ -108,216 +108,86 @@ ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_avx_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_avx_sumfac.cpp)
 ENDIF()
 
-# CUDA SumFac
+# Device SumFac
 IF(NEKTAR_ENABLE_CUDA)
-    ADD_NEKTAR_EXECUTABLE(test_math_cuda
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_math_cuda.cpp MathCUDAKernelsLauncher.cu)
-    #ADD_NEKTAR_EXECUTABLE(test_addtraceintegral_cuda_sumfac
-    #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral_cuda_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_assmbscatr_cuda_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_assmbscatr_cuda_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_bwdtrans_cuda_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_cuda_sumfac.cpp)
-    #ADD_NEKTAR_EXECUTABLE(test_diagprecon_cuda_sumfac
-    #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_diagprecon_cuda_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_dirichlet_cuda_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_dirichlet_cuda_sumfac.cpp)
-    #ADD_NEKTAR_EXECUTABLE(test_fwdtrans_cuda_sumfac
-    #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_fwdtrans_cuda_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_helmholtz_cuda_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_cuda_sumfac.cpp)
-    #ADD_NEKTAR_EXECUTABLE(test_helmsolve_cuda_sumfac
-    #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_cuda_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_cuda_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_cuda_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_cuda_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_cuda_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_mass_cuda_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_cuda_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_multiplybyelmtinvmass_cuda_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_multiplybyelmtinvmass_cuda_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_neumann_cuda_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_neumann_cuda_sumfac.cpp)
-    #ADD_NEKTAR_EXECUTABLE(test_nullprecon_cuda_sumfac
-    #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_nullprecon_cuda_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_physderiv_cuda_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_cuda_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_cuda_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_cuda_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_cuda_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_cuda_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_math_device
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_math_device.cpp MathCUDAKernelsLauncher.cu)
+ELSEIF(NEKTAR_ENABLE_HIP)
+    ADD_NEKTAR_EXECUTABLE(test_math_device
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_math_device.cpp MathHIPKernelsLauncher.hip)
+ELSEIF(NEKTAR_ENABLE_SYCL)
+    ADD_NEKTAR_EXECUTABLE(test_math_device
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_math_device.cpp MathSYCLKernelsLauncher.cpp)
+ELSEIF(NEKTAR_ENABLE_DEVICEONHOST)
+    ADD_NEKTAR_EXECUTABLE(test_math_device
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_math_device.cpp MathDeviceOnHostKernelsLauncher.cpp)
+ENDIF()
+IF(NEKTAR_ENABLE_Device OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABLE_DEVICEONHOST)
+    #ADD_NEKTAR_EXECUTABLE(test_addtraceintegral_device_sumfac
+    #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral_device_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_assmbscatr_device_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_assmbscatr_device_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_bwdtrans_device_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_device_sumfac.cpp)
+    #ADD_NEKTAR_EXECUTABLE(test_diagprecon_device_sumfac
+    #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_diagprecon_device_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_dirichlet_device_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_dirichlet_device_sumfac.cpp)
+    #ADD_NEKTAR_EXECUTABLE(test_fwdtrans_device_sumfac
+    #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_fwdtrans_device_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_helmholtz_device_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_device_sumfac.cpp)
+    #ADD_NEKTAR_EXECUTABLE(test_helmsolve_device_sumfac
+    #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_device_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_device_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_device_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_device_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_device_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_mass_device_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_device_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_multiplybyelmtinvmass_device_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_multiplybyelmtinvmass_device_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_neumann_device_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_neumann_device_sumfac.cpp)
+    #ADD_NEKTAR_EXECUTABLE(test_nullprecon_device_sumfac
+    #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_nullprecon_device_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_physderiv_device_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_device_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_device_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_device_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_device_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_device_sumfac.cpp)
 ENDIF()
 
-# CUDA SumFacQP
-IF(NEKTAR_ENABLE_CUDA)
-    ADD_NEKTAR_EXECUTABLE(test_addtraceintegral_cuda_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral_cuda_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_bwdtrans_cuda_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_cuda_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_diagprecon_cuda_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_diagprecon_cuda_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_fwdtrans_cuda_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_fwdtrans_cuda_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_helmholtz_cuda_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_cuda_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_helmsolve_cuda_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_cuda_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_cuda_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_cuda_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_cuda_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_cuda_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_mass_cuda_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_cuda_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_nullprecon_cuda_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_nullprecon_cuda_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_physderiv_cuda_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_cuda_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_cuda_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_cuda_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_cuda_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_cuda_sumfac_qp.cpp)
+# Device SumFacQP
+IF(NEKTAR_ENABLE_Device OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABLE_DEVICEONHOST)
+    ADD_NEKTAR_EXECUTABLE(test_addtraceintegral_device_sumfac_qp
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral_device_sumfac_qp.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_bwdtrans_device_sumfac_qp
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_device_sumfac_qp.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_diagprecon_device_sumfac_qp
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_diagprecon_device_sumfac_qp.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_fwdtrans_device_sumfac_qp
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_fwdtrans_device_sumfac_qp.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_helmholtz_device_sumfac_qp
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_device_sumfac_qp.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_helmsolve_device_sumfac_qp
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_device_sumfac_qp.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_device_sumfac_qp
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_device_sumfac_qp.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_device_sumfac_qp
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_device_sumfac_qp.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_mass_device_sumfac_qp
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_device_sumfac_qp.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_nullprecon_device_sumfac_qp
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_nullprecon_device_sumfac_qp.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_physderiv_device_sumfac_qp
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_device_sumfac_qp.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_device_sumfac_qp
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_device_sumfac_qp.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_device_sumfac_qp
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_device_sumfac_qp.cpp)
 ENDIF()
-
-# SYCL SumFac
-IF(NEKTAR_ENABLE_SYCL)
-    ADD_NEKTAR_EXECUTABLE(test_math_sycl
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_math_sycl.cpp MathSYCLKernelsLauncher.cpp)
-    #ADD_NEKTAR_EXECUTABLE(test_addtraceintegral_sycl_sumfac
-    #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral_sycl_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_assmbscatr_sycl_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_assmbscatr_sycl_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_bwdtrans_sycl_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_sycl_sumfac.cpp)
-    #ADD_NEKTAR_EXECUTABLE(test_diagprecon_sycl_sumfac
-    #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_diagprecon_sycl_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_dirichlet_sycl_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_dirichlet_sycl_sumfac.cpp)
-    #ADD_NEKTAR_EXECUTABLE(test_fwdtrans_sycl_sumfac
-    #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_fwdtrans_sycl_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_helmholtz_sycl_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_sycl_sumfac.cpp)
-    #ADD_NEKTAR_EXECUTABLE(test_helmsolve_sycl_sumfac
-    #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_sycl_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_sycl_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_sycl_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_sycl_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_sycl_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_mass_sycl_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_sycl_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_multiplybyelmtinvmass_sycl_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_multiplybyelmtinvmass_sycl_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_neumann_sycl_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_neumann_sycl_sumfac.cpp)
-    #ADD_NEKTAR_EXECUTABLE(test_nullprecon_sycl_sumfac
-    #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_nullprecon_sycl_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_physderiv_sycl_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_sycl_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_sycl_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_sycl_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_sycl_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_sycl_sumfac.cpp)
-ENDIF()
-
-# SYCL SumFacQP
-IF(NEKTAR_ENABLE_SYCL)
-    ADD_NEKTAR_EXECUTABLE(test_addtraceintegral_sycl_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral_sycl_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_bwdtrans_sycl_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_sycl_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_diagprecon_sycl_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_diagprecon_sycl_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_fwdtrans_sycl_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_fwdtrans_sycl_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_helmholtz_sycl_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_sycl_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_helmsolve_sycl_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_sycl_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_sycl_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_sycl_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_sycl_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_sycl_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_mass_sycl_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_sycl_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_nullprecon_sycl_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_nullprecon_sycl_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_physderiv_sycl_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_sycl_sumfac_qp.cpp)
-ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_sycl_sumfac_qp
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_sycl_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_sycl_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_sycl_sumfac_qp.cpp)
-ENDIF()
-
-# DeviceOnHost SumFac
-IF(NEKTAR_ENABLE_DEVICEONHOST)
-    ADD_NEKTAR_EXECUTABLE(test_math_deviceonhost
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_math_deviceonhost.cpp MathDeviceOnHostKernelsLauncher.cpp)
-    #ADD_NEKTAR_EXECUTABLE(test_addtraceintegral_deviceonhost_sumfac
-    #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral_deviceonhost_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_assmbscatr_deviceonhost_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_assmbscatr_deviceonhost_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_bwdtrans_deviceonhost_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_deviceonhost_sumfac.cpp)
-    #ADD_NEKTAR_EXECUTABLE(test_diagprecon_deviceonhost_sumfac
-    #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_diagprecon_deviceonhost_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_dirichlet_deviceonhost_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_dirichlet_deviceonhost_sumfac.cpp)
-    #ADD_NEKTAR_EXECUTABLE(test_fwdtrans_deviceonhost_sumfac
-    #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_fwdtrans_deviceonhost_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_helmholtz_deviceonhost_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_deviceonhost_sumfac.cpp)
-    #ADD_NEKTAR_EXECUTABLE(test_helmsolve_deviceonhost_sumfac
-    #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_deviceonhost_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_deviceonhost_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_deviceonhost_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_deviceonhost_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_deviceonhost_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_mass_deviceonhost_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_deviceonhost_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_multiplybyelmtinvmass_deviceonhost_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_multiplybyelmtinvmass_deviceonhost_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_neumann_deviceonhost_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_neumann_deviceonhost_sumfac.cpp)
-    #ADD_NEKTAR_EXECUTABLE(test_nullprecon_deviceonhost_sumfac
-    #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_nullprecon_deviceonhost_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_physderiv_deviceonhost_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_deviceonhost_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_deviceonhost_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_deviceonhost_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_deviceonhost_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_deviceonhost_sumfac.cpp)
-ENDIF()
-
-# DeviceOnHost SumFacQP
-IF(NEKTAR_ENABLE_DEVICEONHOST)
-    ADD_NEKTAR_EXECUTABLE(test_addtraceintegral_deviceonhost_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral_deviceonhost_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_bwdtrans_deviceonhost_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_deviceonhost_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_diagprecon_deviceonhost_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_diagprecon_deviceonhost_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_fwdtrans_deviceonhost_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_fwdtrans_deviceonhost_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_helmholtz_deviceonhost_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_deviceonhost_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_helmsolve_deviceonhost_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_deviceonhost_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_deviceonhost_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_deviceonhost_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_deviceonhost_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_deviceonhost_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_mass_deviceonhost_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_deviceonhost_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_nullprecon_deviceonhost_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_nullprecon_deviceonhost_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_physderiv_deviceonhost_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_deviceonhost_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_deviceonhost_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_deviceonhost_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_deviceonhost_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_deviceonhost_sumfac_qp.cpp)
-ENDIF()
-
 
 # Macro
 MACRO(SET_UNIT_TEST testname name mpi_flag)
@@ -383,160 +253,61 @@ IF (NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
     SET_UNIT_TEST(LinAdvDiffReaction_avx_sumfac test_linadvdiffreaction_avx_sumfac FALSE)
 ENDIF()
 
-
-# CUDA SumFac
-IF(NEKTAR_ENABLE_CUDA)
-    SET_UNIT_TEST(Math_cuda test_math_cuda FALSE)
-    #SET_UNIT_TEST(AddTraceIntegral_cuda_sumfac test_addtraceintegral_cuda_sumfac FALSE)
-    SET_UNIT_TEST(AssmbScatr_cuda_sumfac test_assmbscatr_cuda_sumfac FALSE)
-    SET_UNIT_TEST(BwdTrans_cuda_sumfac test_bwdtrans_cuda_sumfac FALSE)
-    #SET_UNIT_TEST(DiagPrecon_cuda_sumfac test_diagprecon_cuda_sumfac FALSE)
-    SET_UNIT_TEST(Dirichlet_cuda_sumfac test_dirichlet_cuda_sumfac FALSE)
-    #SET_UNIT_TEST(FwdTrans_cuda_sumfac test_fwdtrans_cuda_sumfac FALSE)
+# Device SumFac
+IF(NEKTAR_ENABLE_Device OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABLE_DEVICEONHOST)
+    SET_UNIT_TEST(Math_device test_math_device FALSE)
+    #SET_UNIT_TEST(AddTraceIntegral_device_sumfac test_addtraceintegral_device_sumfac FALSE)
+    SET_UNIT_TEST(AssmbScatr_device_sumfac test_assmbscatr_device_sumfac FALSE)
+    SET_UNIT_TEST(BwdTrans_device_sumfac test_bwdtrans_device_sumfac FALSE)
+    #SET_UNIT_TEST(DiagPrecon_device_sumfac test_diagprecon_device_sumfac FALSE)
+    SET_UNIT_TEST(Dirichlet_device_sumfac test_dirichlet_device_sumfac FALSE)
+    #SET_UNIT_TEST(FwdTrans_device_sumfac test_fwdtrans_device_sumfac FALSE)
     #IF (NEKTAR_USE_MPI)
-    #    SET_UNIT_TEST(FwdTrans_cuda_sumfac test_fwdtrans_cuda_sumfac TRUE)
+    #    SET_UNIT_TEST(FwdTrans_device_sumfac test_fwdtrans_device_sumfac TRUE)
     #ENDIF()
-    SET_UNIT_TEST(Helmholtz_cuda_sumfac test_helmholtz_cuda_sumfac FALSE)
-    #SET_UNIT_TEST(HelmSolve_cuda_sumfac test_helmsolve_cuda_sumfac FALSE)
+    SET_UNIT_TEST(Helmholtz_device_sumfac test_helmholtz_device_sumfac FALSE)
+    #SET_UNIT_TEST(HelmSolve_device_sumfac test_helmsolve_device_sumfac FALSE)
     #IF (NEKTAR_USE_MPI)
-    #    SET_UNIT_TEST(HelmSolve_cuda_sumfac test_helmsolve_cuda_sumfac TRUE)
+    #    SET_UNIT_TEST(HelmSolve_device_sumfac test_helmsolve_device_sumfac TRUE)
     #ENDIF()
-    SET_UNIT_TEST(IProductWRTBase_cuda_sumfac test_ipwrtbase_cuda_sumfac FALSE)
-    SET_UNIT_TEST(IProductWRTDerivBase_cuda_sumfac test_ipwrtderivbase_cuda_sumfac FALSE)
-    SET_UNIT_TEST(Mass_cuda_sumfac test_mass_cuda_sumfac FALSE)
-    SET_UNIT_TEST(MultiplyByElmtInvMass_cuda_sumfac test_multiplybyelmtinvmass_cuda_sumfac FALSE)
-    SET_UNIT_TEST(Neumann_cuda_sumfac test_neumann_cuda_sumfac FALSE)
-    #SET_UNIT_TEST(NullPrecon_cuda_sumfac test_nullprecon_cuda_sumfac FALSE)
-    SET_UNIT_TEST(PhysDeriv_cuda_sumfac test_physderiv_cuda_sumfac FALSE)
-    SET_UNIT_TEST(PhysInterp1DScaled_cuda_sumfac test_physinterp1dscaled_cuda_sumfac FALSE)
-    SET_UNIT_TEST(LinAdvDiffReaction_cuda_sumfac test_linadvdiffreaction_cuda_sumfac FALSE)
-ENDIF()
-
-# CUDA SumFacQP
-IF(NEKTAR_ENABLE_CUDA)
-    SET_UNIT_TEST(AddTraceIntegral_cuda_sumfac_qp test_addtraceintegral_cuda_sumfac_qp FALSE)
-    SET_UNIT_TEST(BwdTrans_cuda_sumfac_qp test_bwdtrans_cuda_sumfac_qp FALSE)
-    SET_UNIT_TEST(DiagPrecon_cuda_sumfac_qp test_diagprecon_cuda_sumfac_qp FALSE)
-    SET_UNIT_TEST(FwdTrans_cuda_sumfac_qp test_fwdtrans_cuda_sumfac_qp FALSE)
-    #IF (NEKTAR_USE_MPI)
-    #    SET_UNIT_TEST(FwdTrans_cuda_sumfac_qp test_fwdtrans_cuda_sumfac_qp TRUE)
-    #ENDIF()
-    SET_UNIT_TEST(Helmholtz_cuda_sumfac_qp test_helmholtz_cuda_sumfac_qp FALSE)
-    SET_UNIT_TEST(HelmSolve_cuda_sumfac_qp test_helmsolve_cuda_sumfac_qp FALSE)
-    #IF (NEKTAR_USE_MPI)
-    #    SET_UNIT_TEST(HelmSolve_cuda_sumfac_qp test_helmsolve_cuda_sumfac_qp TRUE)
-    #ENDIF()
-    SET_UNIT_TEST(IProductWRTBase_cuda_sumfac_qp test_ipwrtbase_cuda_sumfac_qp FALSE)
-    SET_UNIT_TEST(IProductWRTDerivBase_cuda_sumfac_qp test_ipwrtderivbase_cuda_sumfac_qp FALSE)
-    SET_UNIT_TEST(Mass_cuda_sumfac_qp test_mass_cuda_sumfac_qp FALSE)
-    SET_UNIT_TEST(NullPrecon_cuda_sumfac_qp test_nullprecon_cuda_sumfac_qp FALSE)
-    SET_UNIT_TEST(PhysDeriv_cuda_sumfac_qp test_physderiv_cuda_sumfac_qp FALSE)
-    SET_UNIT_TEST(PhysInterp1DScaled_cuda_sumfac_qp test_physinterp1dscaled_cuda_sumfac_qp FALSE)
-    SET_UNIT_TEST(LinAdvDiffReaction_cuda_sumfac_qp test_linadvdiffreaction_cuda_sumfac_qp FALSE)
-ENDIF()
-
-# SYCL SumFac
-IF(NEKTAR_ENABLE_SYCL)
-    SET_UNIT_TEST(Math_sycl test_math_sycl FALSE)
-    #SET_UNIT_TEST(AddTraceIntegral_sycl_sumfac test_addtraceintegral_sycl_sumfac FALSE)
-    SET_UNIT_TEST(AssmbScatr_sycl_sumfac test_assmbscatr_sycl_sumfac FALSE)
-    SET_UNIT_TEST(BwdTrans_sycl_sumfac test_bwdtrans_sycl_sumfac FALSE)
-    #SET_UNIT_TEST(DiagPrecon_sycl_sumfac test_diagprecon_sycl_sumfac FALSE)
-    SET_UNIT_TEST(Dirichlet_sycl_sumfac test_dirichlet_sycl_sumfac FALSE)
-    #SET_UNIT_TEST(FwdTrans_sycl_sumfac test_fwdtrans_sycl_sumfac FALSE)
-    #IF (NEKTAR_USE_MPI)
-    #    SET_UNIT_TEST(FwdTrans_sycl_sumfac test_fwdtrans_sycl_sumfac TRUE)
-    #ENDIF()
-    SET_UNIT_TEST(Helmholtz_sycl_sumfac test_helmholtz_sycl_sumfac FALSE)
-    #SET_UNIT_TEST(HelmSolve_sycl_sumfac test_helmsolve_sycl_sumfac FALSE)
-    #IF (NEKTAR_USE_MPI)
-    #    SET_UNIT_TEST(HelmSolve_sycl_sumfac test_helmsolve_sycl_sumfac TRUE)
-    #ENDIF()
-    SET_UNIT_TEST(IProductWRTBase_sycl_sumfac test_ipwrtbase_sycl_sumfac FALSE)
-    SET_UNIT_TEST(IProductWRTDerivBase_sycl_sumfac test_ipwrtderivbase_sycl_sumfac FALSE)
-    SET_UNIT_TEST(Mass_sycl_sumfac test_mass_sycl_sumfac FALSE)
+    SET_UNIT_TEST(IProductWRTBase_device_sumfac test_ipwrtbase_device_sumfac FALSE)
+    SET_UNIT_TEST(IProductWRTDerivBase_device_sumfac test_ipwrtderivbase_device_sumfac FALSE)
+    SET_UNIT_TEST(Mass_device_sumfac test_mass_device_sumfac FALSE)
     IF(NOT NEKTAR_ENABLE_SYCL STREQUAL "CUDA")
-        SET_UNIT_TEST(MultiplyByElmtInvMass_sycl_sumfac test_multiplybyelmtinvmass_sycl_sumfac FALSE)
+        SET_UNIT_TEST(MultiplyByElmtInvMass_device_sumfac test_multiplybyelmtinvmass_device_sumfac FALSE)
     ENDIF()
-    SET_UNIT_TEST(Neumann_sycl_sumfac test_neumann_sycl_sumfac FALSE)
-    #SET_UNIT_TEST(NullPrecon_sycl_sumfac test_nullprecon_sycl_sumfac FALSE)
-    SET_UNIT_TEST(PhysDeriv_sycl_sumfac test_physderiv_sycl_sumfac FALSE)
-    SET_UNIT_TEST(PhysInterp1DScaled_sycl_sumfac test_physinterp1dscaled_sycl_sumfac FALSE)
-    SET_UNIT_TEST(LinAdvDiffReaction_sycl_sumfac test_linadvdiffreaction_sycl_sumfac FALSE)
+    SET_UNIT_TEST(Neumann_device_sumfac test_neumann_device_sumfac FALSE)
+    #SET_UNIT_TEST(NullPrecon_device_sumfac test_nullprecon_device_sumfac FALSE)
+    SET_UNIT_TEST(PhysDeriv_device_sumfac test_physderiv_device_sumfac FALSE)
+    SET_UNIT_TEST(PhysInterp1DScaled_device_sumfac test_physinterp1dscaled_device_sumfac FALSE)
+    SET_UNIT_TEST(LinAdvDiffReaction_device_sumfac test_linadvdiffreaction_device_sumfac FALSE)
 ENDIF()
 
-# SYCL SumFacQP
-IF(NEKTAR_ENABLE_SYCL)
-    SET_UNIT_TEST(AddTraceIntegral_sycl_sumfac_qp test_addtraceintegral_sycl_sumfac_qp FALSE)
-    SET_UNIT_TEST(BwdTrans_sycl_sumfac_qp test_bwdtrans_sycl_sumfac_qp FALSE)
-    #SET_UNIT_TEST(DiagPrecon_sycl_sumfac_qp test_diagprecon_sycl_sumfac_qp FALSE)
-    #SET_UNIT_TEST(FwdTrans_sycl_sumfac_qp test_fwdtrans_sycl_sumfac_qp FALSE)
+# Device SumFacQP
+IF(NEKTAR_ENABLE_Device OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABLE_DEVICEONHOST)
+    SET_UNIT_TEST(AddTraceIntegral_device_sumfac_qp test_addtraceintegral_device_sumfac_qp FALSE)
+    SET_UNIT_TEST(BwdTrans_device_sumfac_qp test_bwdtrans_device_sumfac_qp FALSE)
+    IF(NOT NEKTAR_ENABLE_SYCL STREQUAL "CUDA" AND NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+        SET_UNIT_TEST(DiagPrecon_device_sumfac_qp test_diagprecon_device_sumfac_qp FALSE)
+    ENDIF()
+    SET_UNIT_TEST(FwdTrans_device_sumfac_qp test_fwdtrans_device_sumfac_qp FALSE)
     #IF (NEKTAR_USE_MPI)
-    #    SET_UNIT_TEST(FwdTrans_sycl_sumfac_qp test_fwdtrans_sycl_sumfac_qp TRUE)
+    #    SET_UNIT_TEST(FwdTrans_device_sumfac_qp test_fwdtrans_device_sumfac_qp TRUE)
     #ENDIF()
-    SET_UNIT_TEST(Helmholtz_sycl_sumfac_qp test_helmholtz_sycl_sumfac_qp FALSE)
-    #SET_UNIT_TEST(HelmSolve_sycl_sumfac_qp test_helmsolve_sycl_sumfac_qp FALSE)
+    SET_UNIT_TEST(Helmholtz_device_sumfac_qp test_helmholtz_device_sumfac_qp FALSE)
+    IF(NOT NEKTAR_ENABLE_SYCL STREQUAL "CUDA" AND NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+        SET_UNIT_TEST(HelmSolve_device_sumfac_qp test_helmsolve_device_sumfac_qp FALSE)
+    ENDIF()
     #IF (NEKTAR_USE_MPI)
-    #    SET_UNIT_TEST(HelmSolve_sycl_sumfac_qp test_helmsolve_sycl_sumfac_qp TRUE)
+    #    SET_UNIT_TEST(HelmSolve_device_sumfac_qp test_helmsolve_device_sumfac_qp TRUE)
     #ENDIF()
-    SET_UNIT_TEST(IProductWRTBase_sycl_sumfac_qp test_ipwrtbase_sycl_sumfac_qp FALSE)
-    SET_UNIT_TEST(IProductWRTDerivBase_sycl_sumfac_qp test_ipwrtderivbase_sycl_sumfac_qp FALSE)
-    SET_UNIT_TEST(Mass_sycl_sumfac_qp test_mass_sycl_sumfac_qp FALSE)
-    SET_UNIT_TEST(NullPrecon_sycl_sumfac_qp test_nullprecon_sycl_sumfac_qp FALSE)
-    SET_UNIT_TEST(PhysDeriv_sycl_sumfac_qp test_physderiv_sycl_sumfac_qp FALSE)
-    SET_UNIT_TEST(PhysInterp1DScaled_sycl_sumfac_qp test_physinterp1dscaled_sycl_sumfac_qp FALSE)
-    SET_UNIT_TEST(LinAdvDiffReaction_sycl_sumfac_qp test_linadvdiffreaction_sycl_sumfac_qp FALSE)
-ENDIF()
-
-# DeviceOnHost SumFac
-IF(NEKTAR_ENABLE_DEVICEONHOST)
-    SET_UNIT_TEST(Math_deviceonhost test_math_deviceonhost FALSE)
-    #SET_UNIT_TEST(AddTraceIntegral_deviceonhost_sumfac test_addtraceintegral_deviceonhost_sumfac FALSE)
-    SET_UNIT_TEST(AssmbScatr_deviceonhost_sumfac test_assmbscatr_deviceonhost_sumfac FALSE)
-    SET_UNIT_TEST(BwdTrans_deviceonhost_sumfac test_bwdtrans_deviceonhost_sumfac FALSE)
-    #SET_UNIT_TEST(DiagPrecon_deviceonhost_sumfac test_diagprecon_deviceonhost_sumfac FALSE)
-    SET_UNIT_TEST(Dirichlet_deviceonhost_sumfac test_dirichlet_deviceonhost_sumfac FALSE)
-    #SET_UNIT_TEST(FwdTrans_deviceonhost_sumfac test_fwdtrans_deviceonhost_sumfac FALSE)
-    #IF (NEKTAR_USE_MPI)
-    #    SET_UNIT_TEST(FwdTrans_deviceonhost_sumfac test_fwdtrans_deviceonhost_sumfac TRUE)
-    #ENDIF()
-    SET_UNIT_TEST(Helmholtz_deviceonhost_sumfac test_helmholtz_deviceonhost_sumfac FALSE)
-    #SET_UNIT_TEST(HelmSolve_deviceonhost_sumfac test_helmsolve_deviceonhost_sumfac FALSE)
-    #IF (NEKTAR_USE_MPI)
-    #    SET_UNIT_TEST(HelmSolve_deviceonhost_sumfac test_helmsolve_deviceonhost_sumfac TRUE)
-    #ENDIF()
-    SET_UNIT_TEST(IProductWRTBase_deviceonhost_sumfac test_ipwrtbase_deviceonhost_sumfac FALSE)
-    SET_UNIT_TEST(IProductWRTDerivBase_deviceonhost_sumfac test_ipwrtderivbase_deviceonhost_sumfac FALSE)
-    SET_UNIT_TEST(Mass_deviceonhost_sumfac test_mass_deviceonhost_sumfac FALSE)
-    SET_UNIT_TEST(MultiplyByElmtInvMass_deviceonhost_sumfac test_multiplybyelmtinvmass_deviceonhost_sumfac FALSE)
-    SET_UNIT_TEST(Neumann_deviceonhost_sumfac test_neumann_deviceonhost_sumfac FALSE)
-    #SET_UNIT_TEST(NullPrecon_deviceonhost_sumfac test_nullprecon_deviceonhost_sumfac FALSE)
-    SET_UNIT_TEST(PhysDeriv_deviceonhost_sumfac test_physderiv_deviceonhost_sumfac FALSE)
-    SET_UNIT_TEST(PhysInterp1DScaled_deviceonhost_sumfac test_physinterp1dscaled_deviceonhost_sumfac FALSE)
-    SET_UNIT_TEST(LinAdvDiffReaction_deviceonhost_sumfac test_linadvdiffreaction_deviceonhost_sumfac FALSE)
-ENDIF()
-
-# DeviceOnHost SumFacQP
-IF(NEKTAR_ENABLE_DEVICEONHOST)
-    SET_UNIT_TEST(AddTraceIntegral_deviceonhost_sumfac_qp test_addtraceintegral_deviceonhost_sumfac_qp FALSE)
-    SET_UNIT_TEST(BwdTrans_deviceonhost_sumfac_qp test_bwdtrans_deviceonhost_sumfac_qp FALSE)
-    SET_UNIT_TEST(DiagPrecon_deviceonhost_sumfac_qp test_diagprecon_deviceonhost_sumfac_qp FALSE)
-    SET_UNIT_TEST(FwdTrans_deviceonhost_sumfac_qp test_fwdtrans_deviceonhost_sumfac_qp FALSE)
-    #IF (NEKTAR_USE_MPI)
-    #    SET_UNIT_TEST(FwdTrans_deviceonhost_sumfac_qp test_fwdtrans_deviceonhost_sumfac_qp TRUE)
-    #ENDIF()
-    SET_UNIT_TEST(Helmholtz_deviceonhost_sumfac_qp test_helmholtz_deviceonhost_sumfac_qp FALSE)
-    SET_UNIT_TEST(HelmSolve_deviceonhost_sumfac_qp test_helmsolve_deviceonhost_sumfac_qp FALSE)
-    #IF (NEKTAR_USE_MPI)
-    #    SET_UNIT_TEST(HelmSolve_deviceonhost_sumfac_qp test_helmsolve_deviceonhost_sumfac_qp TRUE)
-    #ENDIF()
-    SET_UNIT_TEST(IProductWRTBase_deviceonhost_sumfac_qp test_ipwrtbase_deviceonhost_sumfac_qp FALSE)
-    SET_UNIT_TEST(IProductWRTDerivBase_deviceonhost_sumfac_qp test_ipwrtderivbase_deviceonhost_sumfac_qp FALSE)
-    SET_UNIT_TEST(Mass_deviceonhost_sumfac_qp test_mass_deviceonhost_sumfac_qp FALSE)
-    SET_UNIT_TEST(NullPrecon_deviceonhost_sumfac_qp test_nullprecon_deviceonhost_sumfac_qp FALSE)
-    SET_UNIT_TEST(PhysDeriv_deviceonhost_sumfac_qp test_physderiv_deviceonhost_sumfac_qp FALSE)
-    SET_UNIT_TEST(PhysInterp1DScaled_deviceonhost_sumfac_qp test_physinterp1dscaled_deviceonhost_sumfac_qp FALSE)
-    SET_UNIT_TEST(LinAdvDiffReaction_deviceonhost_sumfac_qp test_linadvdiffreaction_deviceonhost_sumfac_qp FALSE)
+    SET_UNIT_TEST(IProductWRTBase_device_sumfac_qp test_ipwrtbase_device_sumfac_qp FALSE)
+    SET_UNIT_TEST(IProductWRTDerivBase_device_sumfac_qp test_ipwrtderivbase_device_sumfac_qp FALSE)
+    SET_UNIT_TEST(Mass_device_sumfac_qp test_mass_device_sumfac_qp FALSE)
+    SET_UNIT_TEST(NullPrecon_device_sumfac_qp test_nullprecon_device_sumfac_qp FALSE)
+    SET_UNIT_TEST(PhysDeriv_device_sumfac_qp test_physderiv_device_sumfac_qp FALSE)
+    SET_UNIT_TEST(PhysInterp1DScaled_device_sumfac_qp test_physinterp1dscaled_device_sumfac_qp FALSE)
+    SET_UNIT_TEST(LinAdvDiffReaction_device_sumfac_qp test_linadvdiffreaction_device_sumfac_qp FALSE)
 ENDIF()
 
 # Copy XML file to build directory

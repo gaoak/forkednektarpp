@@ -57,7 +57,7 @@ public:
 };
 
 #if defined(NEKTAR_ENABLE_CUDA)
-template <> class NekHandle<NektarSpaces::CUDA>
+template <> class NekHandle<NektarSpaces::Device>
 {
 public:
     static cublasHandle_t GetInstance(void)
@@ -66,7 +66,7 @@ public:
     }
 };
 #elif defined(NEKTAR_ENABLE_HIP)
-template <> class NekHandle<NektarSpaces::HIP>
+template <> class NekHandle<NektarSpaces::Device>
 {
 public:
     static hipblasHandle_t GetInstance(void)
@@ -75,7 +75,7 @@ public:
     }
 };
 #elif defined(NEKTAR_ENABLE_SYCL)
-template <> class NekHandle<NektarSpaces::SYCL>
+template <> class NekHandle<NektarSpaces::Device>
 {
 public:
     static sycl::queue GetInstance(void)

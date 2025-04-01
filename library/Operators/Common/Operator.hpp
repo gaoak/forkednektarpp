@@ -174,29 +174,29 @@ protected:
     NekDataWarehouseSharedPtr m_dataWarehouse;
 };
 
-#if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP)
 template <typename Implementation>
-NEK_FORCE_INLINE static unsigned int GetCUDABlockSize(
+NEK_FORCE_INLINE static unsigned int GetDeviceBlockSize(
     [[maybe_unused]] const unsigned int blockSize)
 {
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
-        return NektarSpaces::CUDA::defaultBlockSize;
+        return NektarSpaces::Device::defaultBlockSize;
     }
     else
     {
         auto warpsize = NektarSpaces::vector_width<double>::value;
         return std::min(((blockSize + warpsize - 1u) / warpsize) * warpsize,
-                        NektarSpaces::CUDA::defaultBlockSize);
+                        NektarSpaces::Device::defaultBlockSize);
     }
 }
 
 template <typename Implementation>
-NEK_FORCE_INLINE static unsigned int GetCUDAGridSize(const unsigned int nelmt)
+NEK_FORCE_INLINE static unsigned int GetDeviceGridSize(const unsigned int nelmt)
 {
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
-        constexpr unsigned int blocksize = NektarSpaces::CUDA::defaultBlockSize;
+        constexpr unsigned int blocksize =
+            NektarSpaces::Device::defaultBlockSize;
         return std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
     }
     else
@@ -204,38 +204,5 @@ NEK_FORCE_INLINE static unsigned int GetCUDAGridSize(const unsigned int nelmt)
         return std::min(nelmt, 2147483647u);
     }
 }
-#endif
-
-#if defined(NEKTAR_ENABLE_SYCL)
-template <typename Implementation>
-NEK_FORCE_INLINE static unsigned int GetSYCLBlockSize(
-    [[maybe_unused]] const unsigned int blockSize)
-{
-    if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
-    {
-        return NektarSpaces::SYCL::defaultBlockSize;
-    }
-    else
-    {
-        auto warpsize = NektarSpaces::vector_width<double>::value;
-        return std::min(((blockSize + warpsize - 1u) / warpsize) * warpsize,
-                        NektarSpaces::SYCL::defaultBlockSize);
-    }
-}
-
-template <typename Implementation>
-NEK_FORCE_INLINE static unsigned int GetSYCLGridSize(const unsigned int nelmt)
-{
-    if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
-    {
-        constexpr unsigned int blocksize = NektarSpaces::SYCL::defaultBlockSize;
-        return std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
-    }
-    else
-    {
-        return std::min(nelmt, 2147483647u);
-    }
-}
-#endif
 
 } // namespace Nektar::Operators

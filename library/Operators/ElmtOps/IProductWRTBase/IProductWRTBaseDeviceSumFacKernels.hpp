@@ -2650,6 +2650,6 @@ NEK_DEVICE_INLINE static void IProductWRTBase3DKernel(
 
 } // namespace Nektar::Operators::detail
 
-#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseCUDASumFacKernelLaunchers.hpp"
 #include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseDeviceOnHostSumFacKernelLaunchers.hpp"
+#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseHIPCUDASumFacKernelLaunchers.hpp"
 #include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseSYCLSumFacKernelLaunchers.hpp"

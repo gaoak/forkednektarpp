@@ -134,6 +134,6 @@ NEK_DEVICE_INLINE static void RobBndCond2DKernel(
 
 } // namespace Nektar::Operators::detail
 
-#include "Operators/BndCondOps/RobBndCond/RobBndCondCUDAKernelLaunchers.hpp"
 #include "Operators/BndCondOps/RobBndCond/RobBndCondDeviceOnHostKernelLaunchers.hpp"
+#include "Operators/BndCondOps/RobBndCond/RobBndCondHIPCUDAKernelLaunchers.hpp"
 #include "Operators/BndCondOps/RobBndCond/RobBndCondSYCLKernelLaunchers.hpp"
