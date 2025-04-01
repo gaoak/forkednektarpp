@@ -437,7 +437,9 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
     // after each operator call. Just add a block after the timer stops.
 
 #if defined(NEKTAR_ENABLE_CUDA)
-    cudaDeviceSynchronize();
+    CHECK_HIPCUDA_ERROR(cudaDeviceSynchronize());
+#elif defined(NEKTAR_ENABLE_HIP)
+    CHECK_HIPCUDA_ERROR(hipDeviceSynchronize());
 #elif defined(NEKTAR_ENABLE_SYCL)
     SYCLQueue::GetInstance().wait();
 #endif
@@ -450,7 +452,9 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
     }
 
 #if defined(NEKTAR_ENABLE_CUDA)
-    cudaDeviceSynchronize();
+    CHECK_HIPCUDA_ERROR(cudaDeviceSynchronize());
+#elif defined(NEKTAR_ENABLE_HIP)
+    CHECK_HIPCUDA_ERROR(hipDeviceSynchronize());
 #elif defined(NEKTAR_ENABLE_SYCL)
     SYCLQueue::GetInstance().wait();
 #endif

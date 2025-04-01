@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: ProfilerMathKernels.cu
+// File: ProfilerMathKernels.hip
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -74,16 +74,16 @@ void ProfilerReduction(const unsigned int size)
     timer.Stop();
     TData time_serial = timer.Elapsed().count() / ntests;
 
-    // CUDA.
-    TData result_cuda;
+    // HIP.
+    TData result_hip;
     timer.Start();
     for (unsigned int t = 0; t < ntests; ++t)
     {
-        ddot<NektarSpaces::Device>(x, y, &result_cuda);
+        ddot<NektarSpaces::Device>(x, y, &result_hip);
     }
-    CHECK_HIPCUDA_ERROR(cudaDeviceSynchronize());
+    CHECK_HIPCUDA_ERROR(hipDeviceSynchronize());
     timer.Stop();
-    TData time_cuda = timer.Elapsed().count() / ntests;
+    TData time_hip = timer.Elapsed().count() / ntests;
 
     // Display results.
     if (!warmup)
@@ -91,7 +91,7 @@ void ProfilerReduction(const unsigned int size)
         std::cout << std::setprecision(10);
         std::cout << "Size " << size
                   << " GB/s: " << 2 * sizeof(TData) * 1e-9 * size / time_serial
-                  << " " << 2 * sizeof(TData) * 1e-9 * size / time_cuda
+                  << " " << 2 * sizeof(TData) * 1e-9 * size / time_hip
                   << std::endl;
     }
 }
@@ -125,15 +125,15 @@ void ProfilerDaxpy(const unsigned int size)
     timer.Stop();
     TData time_serial = timer.Elapsed().count() / ntests;
 
-    // CUDA.
+    // HIP.
     timer.Start();
     for (unsigned int t = 0; t < ntests; ++t)
     {
         daxpy<NektarSpaces::Device>(3.2, x, y, z);
     }
-    CHECK_HIPCUDA_ERROR(cudaDeviceSynchronize());
+    CHECK_HIPCUDA_ERROR(hipDeviceSynchronize());
     timer.Stop();
-    TData time_cuda = timer.Elapsed().count() / ntests;
+    TData time_hip = timer.Elapsed().count() / ntests;
 
     // Display results.
     if (!warmup)
@@ -141,7 +141,7 @@ void ProfilerDaxpy(const unsigned int size)
         std::cout << std::setprecision(10);
         std::cout << "Size " << size
                   << " GB/s: " << 3 * sizeof(TData) * 1e-9 * size / time_serial
-                  << " " << 3 * sizeof(TData) * 1e-9 * size / time_cuda
+                  << " " << 3 * sizeof(TData) * 1e-9 * size / time_hip
                   << std::endl;
     }
 }
@@ -149,8 +149,8 @@ void ProfilerDaxpy(const unsigned int size)
 int main(void)
 {
     // Print GPU properties
-    cudaDeviceProp prop;
-    cudaGetDeviceProperties(&prop, 0);
+    hipDeviceProp_t prop;
+    hipGetDeviceProperties(&prop, 0);
     std::cout << "--------------------------------" << std::endl;
     std::cout << "Device Properties " << std::endl;
     std::cout << "--------------------------------" << std::endl;
@@ -168,7 +168,7 @@ int main(void)
     std::cout << "---------------------------------" << std::endl;
     std::cout << "Math Kernel Profiler : Reduction " << std::endl;
     std::cout << "---------------------------------" << std::endl;
-    std::cout << "                      Serial        CUDA" << std::endl;
+    std::cout << "                      Serial        HIP" << std::endl;
 
     // Warm-up
     ProfilerReduction<double, true>(1024 << 18);
@@ -182,7 +182,7 @@ int main(void)
     std::cout << "---------------------------------" << std::endl;
     std::cout << "Math Kernel Profiler : daxpy     " << std::endl;
     std::cout << "---------------------------------" << std::endl;
-    std::cout << "                      Serial        CUDA" << std::endl;
+    std::cout << "                      Serial        HIP" << std::endl;
 
     // Warm-up
     ProfilerDaxpy<double, true>(1024 << 18);
