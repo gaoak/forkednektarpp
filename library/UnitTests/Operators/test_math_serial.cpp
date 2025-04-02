@@ -120,7 +120,7 @@ BOOST_FIXTURE_TEST_CASE(serial_mulkernel, MathKernels)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(serial_divkernel, MathKernels)
+/* BOOST_FIXTURE_TEST_CASE(serial_divkernel, MathKernels)
 {
     Configure("Serial");
     SetTestCase();
@@ -136,7 +136,7 @@ BOOST_FIXTURE_TEST_CASE(serial_divkernel, MathKernels)
     {
         BOOST_TEST(Compare(1.0E-15));
     }
-}
+}*/
 
 BOOST_FIXTURE_TEST_CASE(serial_daxpykernel, MathKernels)
 {

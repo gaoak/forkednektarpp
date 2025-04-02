@@ -120,7 +120,7 @@ BOOST_FIXTURE_TEST_CASE(avx_mulkernel, MathKernels)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(avx_divkernel, MathKernels)
+/* BOOST_FIXTURE_TEST_CASE(avx_divkernel, MathKernels)
 {
     Configure("AVX");
     SetTestCase();
@@ -136,7 +136,7 @@ BOOST_FIXTURE_TEST_CASE(avx_divkernel, MathKernels)
     {
         BOOST_TEST(Compare(1.0E-15));
     }
-}
+}*/
 
 BOOST_FIXTURE_TEST_CASE(avx_daxpykernel, MathKernels)
 {

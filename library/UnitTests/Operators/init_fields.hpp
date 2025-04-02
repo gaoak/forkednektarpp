@@ -323,7 +323,8 @@ public:
                     for (unsigned int pts = 0;
                          pts < fixt_out->GetBlocks()[blk].GetNumData(); ++pts)
                     {
-                        if (std::abs(*outptr - *expptr) > tol)
+                        if (std::isnan(*outptr) || std::isinf(*outptr) ||
+                            std::abs(*outptr - *expptr) > tol)
                         {
                             printf("%04u %04u %20.16f %20.16f %20.16f\n", el,
                                    pts, *outptr, *expptr,
