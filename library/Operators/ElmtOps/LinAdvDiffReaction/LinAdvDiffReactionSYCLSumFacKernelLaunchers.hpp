@@ -68,14 +68,14 @@ NEK_DEVICE_INLINE void LinAdvDiffReaction2DKernel(
     const TData *__restrict__ w1, const TData *__restrict__ f0,
     const TData *__restrict__ f1, const TData *__restrict__ df,
     const TData *__restrict__ jac, const TData *__restrict__ coeff,
-    const TData *advVel0, const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp, const TData lambda, TData *__restrict__ shmemptr,
-    const sycl::nd_item<1> &item_ct1)
+    const TData *advVel0, const TData *advVel1, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ wsp, const TData lambda,
+    TData *__restrict__ shmemptr, const sycl::nd_item<1> &item_ct1)
 {
     LinAdvDiffReaction2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
         ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0,
-        basis1, D0, D1, w0, w1, f0, f1, df, jac, coeff, advVel0, in, out, wsp,
-        lambda, shmemptr, item_ct1);
+        basis1, D0, D1, w0, w1, f0, f1, df, jac, coeff, advVel0, advVel1, in,
+        out, wsp, lambda, shmemptr, item_ct1);
 }
 
 // Size based template version.
@@ -96,16 +96,16 @@ NEK_DEVICE_INLINE void LinAdvDiffReaction3DKernel(
     const TData *__restrict__ f0, const TData *__restrict__ f1,
     const TData *__restrict__ f1m, const TData *__restrict__ f2,
     const TData *__restrict__ df, const TData *__restrict__ jac,
-    const TData *__restrict__ coeff, const TData *advVel0,
-    const TData *__restrict__ in, TData *__restrict__ out,
+    const TData *__restrict__ coeff, const TData *advVel0, const TData *advVel1,
+    const TData *advVel2, const TData *__restrict__ in, TData *__restrict__ out,
     TData *__restrict__ wsp, const TData lambda, TData *__restrict__ shmemptr,
     const sycl::nd_item<1> &item_ct1)
 {
     LinAdvDiffReaction3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
         index2, index3, basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, f0, f1,
-        f1m, f2, df, jac, coeff, advVel0, in, out, wsp, lambda,
-        (TData *)shmemptr, item_ct1);
+        f1m, f2, df, jac, coeff, advVel0, advVel1, advVel2, in, out, wsp,
+        lambda, (TData *)shmemptr, item_ct1);
 }
 
 // Kernel Launchers.
