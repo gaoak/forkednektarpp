@@ -144,20 +144,12 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string execStr)
     {
-        std::string descriptStr  = TOperator::name;
-        std::string requestedKey = descriptStr + execStr;
+        std::string requestedKey = TOperator::name + execStr;
 
         OperatorFactory<TData> &factory = GetOperatorFactory<TData>();
 
-        bool notFound = true;
-
-        if (factory.ModuleExists(requestedKey))
-        {
-            notFound = false;
-        }
-
         // No suitible operator was found.
-        if (notFound)
+        if (!factory.ModuleExists(requestedKey))
         {
             std::stringstream msg;
             msg << "No such operator: " << requestedKey << std::endl;
@@ -182,11 +174,15 @@ NEK_FORCE_INLINE static unsigned int GetDeviceBlockSize(
     {
         return NektarSpaces::Device::defaultBlockSize;
     }
-    else
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
         auto warpsize = NektarSpaces::vector_width<double>::value;
         return std::min(((blockSize + warpsize - 1u) / warpsize) * warpsize,
                         NektarSpaces::Device::defaultBlockSize);
+    }
+    else
+    {
+        return 0;
     }
 }
 
@@ -199,9 +195,13 @@ NEK_FORCE_INLINE static unsigned int GetDeviceGridSize(const unsigned int nelmt)
             NektarSpaces::Device::defaultBlockSize;
         return std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
     }
-    else
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
         return std::min(nelmt, 2147483647u);
+    }
+    else
+    {
+        return 0;
     }
 }
 

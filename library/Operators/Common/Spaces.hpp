@@ -212,13 +212,8 @@ struct Device
 
 #if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
 #define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::AVX
-#elif defined(NEKTAR_ENABLE_CUDA)
-#define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::Device
-#elif defined(NEKTAR_ENABLE_HIP)
-#define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::Device
-#elif defined(NEKTAR_ENABLE_SYCL)
-#define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::Device
-#elif defined(NEKTAR_ENABLE_DEVICEONHOST)
+#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
+    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
 #define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::Device
 #endif
 

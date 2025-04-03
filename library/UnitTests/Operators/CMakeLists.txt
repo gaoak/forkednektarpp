@@ -55,8 +55,6 @@ ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_serial_stdmat
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_serial_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_mass_serial_stdmat
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_serial_stdmat.cpp)
-ADD_NEKTAR_EXECUTABLE(test_multiplybyelmtinvmass_serial_stdmat
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_multiplybyelmtinvmass_serial_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_neumann_serial_stdmat
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_neumann_serial_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_nullprecon_serial_stdmat
@@ -83,6 +81,10 @@ ADD_NEKTAR_EXECUTABLE(test_physderiv_serial_sumfac
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_serial_sumfac.cpp)
 ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_serial_sumfac
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_serial_sumfac.cpp)
+
+# Serial generic
+ADD_NEKTAR_EXECUTABLE(test_multiplybyelmtinvmass_serial_generic
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_multiplybyelmtinvmass_serial_generic.cpp)
 
 # AVX SumFac
 IF (${NEKTAR_ENABLE_SIMD_AVX2} OR ${NEKTAR_ENABLE_SIMD_AVX512})
@@ -145,8 +147,6 @@ IF(NEKTAR_ENABLE_Device OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENA
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_device_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_mass_device_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_device_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_multiplybyelmtinvmass_device_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_multiplybyelmtinvmass_device_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_neumann_device_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_neumann_device_sumfac.cpp)
     #ADD_NEKTAR_EXECUTABLE(test_nullprecon_device_sumfac
@@ -189,6 +189,12 @@ IF(NEKTAR_ENABLE_Device OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENA
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_device_sumfac_qp.cpp)
 ENDIF()
 
+# Device generic
+IF(NEKTAR_ENABLE_Device OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABLE_DEVICEONHOST)
+    ADD_NEKTAR_EXECUTABLE(test_multiplybyelmtinvmass_device_generic
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_multiplybyelmtinvmass_device_generic.cpp)
+ENDIF()
+
 # Macro
 MACRO(SET_UNIT_TEST testname name mpi_flag)
     IF (${mpi_flag})
@@ -223,7 +229,6 @@ SET_UNIT_TEST(HelmSolve_serial_stdmat test_helmsolve_serial_stdmat FALSE)
 SET_UNIT_TEST(IProductWRTBase_serial_stdmat test_ipwrtbase_serial_stdmat FALSE)
 SET_UNIT_TEST(IProductWRTDerivBase_serial_stdmat test_ipwrtderivbase_serial_stdmat FALSE)
 SET_UNIT_TEST(Mass_serial_stdmat test_mass_serial_stdmat FALSE)
-SET_UNIT_TEST(MultiplyByElmtInvMass_serial_stdmat test_multiplybyelmtinvmass_serial_stdmat FALSE)
 SET_UNIT_TEST(Neumann_serial_stdmat test_neumann_serial_stdmat FALSE)
 SET_UNIT_TEST(NullPrecon_serial_stdmat test_nullprecon_serial_stdmat FALSE)
 SET_UNIT_TEST(PhysDeriv_serial_stdmat test_physderiv_serial_stdmat FALSE)
@@ -238,6 +243,9 @@ SET_UNIT_TEST(PhysDeriv_serial_sumfac test_physderiv_serial_sumfac FALSE)
 SET_UNIT_TEST(Helmholtz_serial_sumfac test_helmholtz_serial_sumfac FALSE)
 SET_UNIT_TEST(PhysInterp1DScaled_serial_sumfac test_physinterp1dscaled_serial_sumfac FALSE)
 SET_UNIT_TEST(LinAdvDiffReaction_serial_sumfac test_linadvdiffreaction_serial_sumfac FALSE)
+
+# Serial generic
+SET_UNIT_TEST(MultiplyByElmtInvMass_serial_generic test_multiplybyelmtinvmass_serial_generic FALSE)
 
 # AVX SumFac
 IF (NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
@@ -273,9 +281,6 @@ IF(NEKTAR_ENABLE_Device OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENA
     SET_UNIT_TEST(IProductWRTBase_device_sumfac test_ipwrtbase_device_sumfac FALSE)
     SET_UNIT_TEST(IProductWRTDerivBase_device_sumfac test_ipwrtderivbase_device_sumfac FALSE)
     SET_UNIT_TEST(Mass_device_sumfac test_mass_device_sumfac FALSE)
-    IF(NOT NEKTAR_ENABLE_SYCL STREQUAL "CUDA")
-        SET_UNIT_TEST(MultiplyByElmtInvMass_device_sumfac test_multiplybyelmtinvmass_device_sumfac FALSE)
-    ENDIF()
     SET_UNIT_TEST(Neumann_device_sumfac test_neumann_device_sumfac FALSE)
     #SET_UNIT_TEST(NullPrecon_device_sumfac test_nullprecon_device_sumfac FALSE)
     SET_UNIT_TEST(PhysDeriv_device_sumfac test_physderiv_device_sumfac FALSE)
@@ -287,7 +292,7 @@ ENDIF()
 IF(NEKTAR_ENABLE_Device OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABLE_DEVICEONHOST)
     SET_UNIT_TEST(AddTraceIntegral_device_sumfac_qp test_addtraceintegral_device_sumfac_qp FALSE)
     SET_UNIT_TEST(BwdTrans_device_sumfac_qp test_bwdtrans_device_sumfac_qp FALSE)
-    IF(NOT NEKTAR_ENABLE_SYCL STREQUAL "CUDA" AND NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+    IF(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
         SET_UNIT_TEST(DiagPrecon_device_sumfac_qp test_diagprecon_device_sumfac_qp FALSE)
     ENDIF()
     SET_UNIT_TEST(FwdTrans_device_sumfac_qp test_fwdtrans_device_sumfac_qp FALSE)
@@ -295,7 +300,7 @@ IF(NEKTAR_ENABLE_Device OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENA
     #    SET_UNIT_TEST(FwdTrans_device_sumfac_qp test_fwdtrans_device_sumfac_qp TRUE)
     #ENDIF()
     SET_UNIT_TEST(Helmholtz_device_sumfac_qp test_helmholtz_device_sumfac_qp FALSE)
-    IF(NOT NEKTAR_ENABLE_SYCL STREQUAL "CUDA" AND NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+    IF(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
         SET_UNIT_TEST(HelmSolve_device_sumfac_qp test_helmsolve_device_sumfac_qp FALSE)
     ENDIF()
     #IF (NEKTAR_USE_MPI)
@@ -308,6 +313,13 @@ IF(NEKTAR_ENABLE_Device OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENA
     SET_UNIT_TEST(PhysDeriv_device_sumfac_qp test_physderiv_device_sumfac_qp FALSE)
     SET_UNIT_TEST(PhysInterp1DScaled_device_sumfac_qp test_physinterp1dscaled_device_sumfac_qp FALSE)
     SET_UNIT_TEST(LinAdvDiffReaction_device_sumfac_qp test_linadvdiffreaction_device_sumfac_qp FALSE)
+ENDIF()
+
+# Device generic
+IF(NEKTAR_ENABLE_Device OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABLE_DEVICEONHOST)
+    IF(NOT NEKTAR_ENABLE_SYCL STREQUAL "CUDA")
+        SET_UNIT_TEST(MultiplyByElmtInvMass_device_generic test_multiplybyelmtinvmass_device_generic FALSE)
+    ENDIF()
 ENDIF()
 
 # Copy XML file to build directory

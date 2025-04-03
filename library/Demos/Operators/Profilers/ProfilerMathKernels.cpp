@@ -218,6 +218,39 @@ void ProfilerDaxpy(const unsigned int size)
 
 int main(void)
 {
+    // Print GPU properties
+#if defined(NEKTAR_ENABLE_SYCL)
+    auto device =
+        SYCLQueue::GetInstance().get_info<sycl::info::queue::device>();
+    std::cout << "--------------------------------" << std::endl;
+    std::cout << "Device Properties " << std::endl;
+    std::cout << "--------------------------------" << std::endl;
+    printf("  Device name: %s\n",
+           device.get_info<sycl::info::device::name>().c_str());
+    printf(
+        "  Memory Clock Rate (KHz): %d\n",
+        1000 *
+            device
+                .get_info<sycl::ext::intel::info::device::memory_clock_rate>());
+    printf("  Memory Bus Width (bits): %d\n",
+           device.get_info<sycl::ext::intel::info::device::memory_bus_width>());
+    printf("  Total Global Memory (bytes): %ld\n",
+           device.get_info<sycl::info::device::global_mem_size>());
+    printf("  Shared Memory per Block (bytes): %ld\n",
+           device.get_info<sycl::info::device::local_mem_size>());
+    printf(
+        "  Peak Memory Bandwidth (GB/s): %f\n",
+        2.0 *
+            device
+                .get_info<sycl::ext::intel::info::device::memory_clock_rate>() *
+            (device
+                 .get_info<sycl::ext::intel::info::device::memory_bus_width>() /
+             8) /
+            1.0e3);
+    printf("  Number of multiprocessors: %d\n",
+           device.get_info<sycl::info::device::max_compute_units>());
+#endif
+
     std::cout << "---------------------------------" << std::endl;
     std::cout << "Math Kernel Profiler : Reduction " << std::endl;
     std::cout << "---------------------------------" << std::endl;

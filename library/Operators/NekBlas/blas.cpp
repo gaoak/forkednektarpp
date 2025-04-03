@@ -45,8 +45,10 @@ typename std::enable_if<std::is_same_v<THandle, blasHandle>, void>::type NekGemm
     const unsigned int lda, const TData *b, const unsigned int ldb,
     const TData beta, TData *c, const unsigned int ldc)
 {
-    Blas::Gemm(*transposeA.c_str(), *transposeB.c_str(), M, N, K, alpha, a, lda,
-               b, ldb, beta, c, ldc);
+    auto transA = *transposeA.c_str();
+    auto transB = *transposeB.c_str();
+
+    Blas::Gemm(transA, transB, M, N, K, alpha, a, lda, b, ldb, beta, c, ldc);
 }
 
 template <typename THandle, typename TData>
@@ -60,11 +62,13 @@ NekGemmStridedBatched([[maybe_unused]] THandle handle, std::string transposeA,
                       const TData beta, TData *c, const unsigned int ldc,
                       const unsigned int strideC, const unsigned int batchSize)
 {
+    auto transA = *transposeA.c_str();
+    auto transB = *transposeB.c_str();
+
     for (unsigned int i = 0; i < batchSize; i++)
     {
-        Blas::Gemm(*transposeA.c_str(), *transposeB.c_str(), M, N, K, alpha,
-                   a + strideA * i, lda, b + strideB * i, ldb, beta,
-                   c + strideC * i, ldc);
+        Blas::Gemm(transA, transB, M, N, K, alpha, a + strideA * i, lda,
+                   b + strideB * i, ldb, beta, c + strideC * i, ldc);
     }
 }
 
