@@ -39,6 +39,63 @@
 namespace Nektar::Operators::detail
 {
 
+// Size based template version.
+template <typename Implementation, bool SCALE, bool APPEND, bool DEFORMED,
+          unsigned int nm0, unsigned int nq0, typename TData>
+NEK_DEVICE_INLINE void IProductWRTBase1DKernel(
+    const unsigned int nelmt, const TData *__restrict__ basis0,
+    const TData *__restrict__ w0, const TData *__restrict__ jac,
+    const TData *__restrict__ in, TData *__restrict__ out, const TData scale,
+    TData *__restrict__ shmemptr, const sycl::nd_item<1> &item_ct1)
+{
+    IProductWRTBase1DKernel<Implementation, SCALE, APPEND, DEFORMED>(
+        nm0, nq0, nelmt, basis0, w0, jac, in, out, scale, shmemptr, item_ct1);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool SCALE, bool APPEND, bool DEFORMED, unsigned int nm0,
+          unsigned int nm1, unsigned int nmTot, unsigned int nq0,
+          unsigned int nq1, typename TData>
+NEK_DEVICE_INLINE void IProductWRTBase2DKernel(
+    const unsigned int nelmt, const bool isModified,
+    const unsigned int *__restrict__ index0, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ jac,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp, const TData scale, TData *__restrict__ shmemptr,
+    const sycl::nd_item<1> &item_ct1)
+{
+    IProductWRTBase2DKernel<SHAPE_TYPE, Implementation, SCALE, APPEND,
+                            DEFORMED>(
+        nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0, basis1,
+        w0, w1, jac, in, out, wsp, scale, shmemptr, item_ct1);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool SCALE, bool APPEND, bool DEFORMED, signed int nm0,
+          unsigned int nm1, unsigned int nm2, unsigned nmTot, unsigned int nq0,
+          unsigned int nq1, unsigned int nq2, typename TData>
+NEK_DEVICE_INLINE void IProductWRTBase3DKernel(
+    const unsigned int nelmt, const bool isModified,
+    const unsigned int *__restrict__ index0,
+    const unsigned int *__restrict__ index1,
+    const unsigned int *__restrict__ index2, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ basis2,
+    const TData *__restrict__ w0, const TData *__restrict__ w1,
+    const TData *__restrict__ w2, const TData *__restrict__ jac,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp, const TData scale, TData *__restrict__ shmemptr,
+    const sycl::nd_item<1> &item_ct1)
+{
+    IProductWRTBase3DKernel<SHAPE_TYPE, Implementation, SCALE, APPEND,
+                            DEFORMED>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2,
+                                      nelmt, isModified, index0, index1, index2,
+                                      basis0, basis1, basis2, w0, w1, w2, jac,
+                                      in, out, wsp, scale, shmemptr, item_ct1);
+}
+
 // Kernel Launchers.
 // Non-size based version.
 template <typename ExecSpace, typename Implementation, bool SCALE, bool APPEND,
@@ -76,8 +133,30 @@ NEK_FORCE_INLINE static void IProductWRTBase1DKernel(
     const unsigned int nelmt, const TData *basis0, const TData *w0,
     const TData *jac, const TData *in, TData *out, const TData scale = 1.0)
 {
+#if defined(NEKTAR_DEBUG)
     IProductWRTBase1DKernel<ExecSpace, Implementation, SCALE, APPEND, DEFORMED>(
         nm0, nq0, nelmt, basis0, w0, jac, in, out, scale);
+#else
+    sycl::queue &Q = SYCLQueue::GetInstance();
+
+    const unsigned int shmemsize =
+        IProductWRTBaseSharedMemorySize<Implementation>(nq0, nm0);
+    const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nq0);
+    const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+
+    Q.submit([=](sycl::handler &cgh) {
+        sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
+        cgh.parallel_for(
+            sycl::nd_range<1>(gridsize * blocksize, blocksize),
+            [=](sycl::nd_item<1> item_ct1) {
+                TData *shmemptr = &shmem[0];
+#pragma forceinline
+                IProductWRTBase1DKernel<Implementation, SCALE, APPEND, DEFORMED,
+                                        nm0, nq0>(
+                    nelmt, basis0, w0, jac, in, out, scale, shmemptr, item_ct1);
+            });
+    });
+#endif
 }
 
 // Non-size based version.
@@ -127,10 +206,38 @@ NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
     const TData *jac, const TData *in, TData *out, TData *wsp,
     const TData scale = 1.0)
 {
+#if defined(NEKTAR_DEBUG)
+
     IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation, SCALE,
                             APPEND, DEFORMED>(
         nm0, nm1, nq0, nq1, nelmt, isModified, index0, basis0, basis1, w0, w1,
         jac, in, out, wsp, scale);
+#else
+    sycl::queue &Q = SYCLQueue::GetInstance();
+
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
+    const unsigned int shmemsize =
+        IProductWRTBaseSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1,
+                                                                    nm0, nm1);
+    const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
+    const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+
+    Q.submit([&](sycl::handler &cgh) {
+        sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
+        cgh.parallel_for(sycl::nd_range<1>(gridsize * blocksize, blocksize),
+                         [=](sycl::nd_item<1> item_ct1) {
+                             TData *shmemptr = &shmem[0];
+#pragma forceinline
+                             IProductWRTBase2DKernel<SHAPE_TYPE, Implementation,
+                                                     SCALE, APPEND, DEFORMED,
+                                                     nm0, nm1, nmTot, nq0, nq1>(
+                                 nelmt, isModified, index0, basis0, basis1, w0,
+                                 w1, jac, in, out, wsp, scale, shmemptr,
+                                 item_ct1);
+                         });
+    });
+#endif
 }
 
 // Non-size based version.
@@ -184,10 +291,39 @@ NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
     const TData *w2, const TData *jac, const TData *in, TData *out, TData *wsp,
     const TData scale = 1.0)
 {
+#if defined(NEKTAR_DEBUG)
+
     IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation, SCALE,
                             APPEND, DEFORMED>(
         nm0, nm1, nm2, nq0, nq1, nq2, nelmt, isModified, index0, index1, index2,
         basis0, basis1, basis2, w0, w1, w2, jac, in, out, wsp, scale);
+#else
+    sycl::queue &Q = SYCLQueue::GetInstance();
+
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+    const unsigned int shmemsize =
+        IProductWRTBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
+            nq0, nq1, nq2, nm0, nm1, nm2);
+    const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
+    const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+
+    Q.submit([&](sycl::handler &cgh) {
+        sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
+        cgh.parallel_for(
+            sycl::nd_range<1>(gridsize * blocksize, blocksize),
+            [=](sycl::nd_item<1> item_ct1) {
+                TData *shmemptr = &shmem[0];
+#pragma forceinline
+                IProductWRTBase3DKernel<SHAPE_TYPE, Implementation, SCALE,
+                                        APPEND, DEFORMED, nm0, nm1, nm2, nmTot,
+                                        nq0, nq1, nq2>(
+                    nelmt, isModified, index0, index1, index2, basis0, basis1,
+                    basis2, w0, w1, w2, jac, in, out, wsp, scale, shmemptr,
+                    item_ct1);
+            });
+    });
+#endif
 }
 
 } // namespace Nektar::Operators::detail

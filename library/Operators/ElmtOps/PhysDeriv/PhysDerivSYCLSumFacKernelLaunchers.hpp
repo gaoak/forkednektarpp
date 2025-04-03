@@ -39,6 +39,54 @@
 namespace Nektar::Operators::detail
 {
 
+// Size based template version.
+template <typename Implementation, bool DEFORMED, unsigned int ncoord,
+          unsigned int nq0, typename TData>
+NEK_DEVICE_INLINE void PhysDeriv1DKernel(const unsigned int nelmt,
+                                         const TData *__restrict__ D0,
+                                         const TData *__restrict__ df,
+                                         const TData *__restrict__ in,
+                                         TData *__restrict__ out,
+                                         const sycl::nd_item<1> &item_ct1)
+{
+    PhysDeriv1DKernel<Implementation, DEFORMED>(ncoord, nq0, nelmt, D0, df, in,
+                                                out, item_ct1);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, unsigned int ncoord, unsigned int nq0,
+          unsigned int nq1, typename TData>
+NEK_DEVICE_INLINE void PhysDeriv2DKernel(
+    const unsigned int nelmt, const TData *__restrict__ D0,
+    const TData *__restrict__ D1, const TData *__restrict__ f0,
+    const TData *__restrict__ f1, const TData *__restrict__ df,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ shmemptr, const sycl::nd_item<1> &item_ct1)
+{
+    PhysDeriv2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
+        ncoord, nq0, nq1, nelmt, D0, D1, f0, f1, df, in, out, shmemptr,
+        item_ct1);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, unsigned int nq0, unsigned int nq1, unsigned int nq2,
+          typename TData>
+NEK_DEVICE_INLINE void PhysDeriv3DKernel(
+    const unsigned int nelmt, const TData *__restrict__ D0,
+    const TData *__restrict__ D1, const TData *__restrict__ D2,
+    const TData *__restrict__ f0, const TData *__restrict__ f1,
+    const TData *__restrict__ f1m, const TData *__restrict__ f2,
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ shmemptr,
+    const sycl::nd_item<1> &item_ct1)
+{
+    PhysDeriv3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
+        nq0, nq1, nq2, nelmt, D0, D1, D2, f0, f1, f1m, f2, df, in, out,
+        shmemptr, item_ct1);
+}
+
 // Kernel Launchers.
 // Non-size based version.
 template <typename ExecSpace, typename Implementation, bool DEFORMED,
@@ -71,8 +119,25 @@ NEK_FORCE_INLINE static void PhysDeriv1DKernel(const unsigned int nelmt,
                                                const TData *D0, const TData *df,
                                                const TData *in, TData *out)
 {
+#if defined(NEKTAR_DEBUG)
     PhysDeriv1DKernel<ExecSpace, Implementation, DEFORMED>(ncoord, nq0, nelmt,
                                                            D0, df, in, out);
+#else
+    sycl::queue &Q = SYCLQueue::GetInstance();
+
+    const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nq0);
+    const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+
+    Q.submit([=](sycl::handler &cgh) {
+        cgh.parallel_for(
+            sycl::nd_range<1>(gridsize * blocksize, blocksize),
+            [=](sycl::nd_item<1> item_ct1) {
+#pragma forceinline
+                PhysDeriv1DKernel<Implementation, DEFORMED, ncoord, nq0>(
+                    nelmt, D0, df, in, out, item_ct1);
+            });
+    });
+#endif
 }
 
 // Non-size based version.
@@ -115,8 +180,31 @@ NEK_FORCE_INLINE static void PhysDeriv2DKernel(const unsigned int nelmt,
                                                const TData *df, const TData *in,
                                                TData *out)
 {
+#if defined(NEKTAR_DEBUG)
     PhysDeriv2DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
         ncoord, nq0, nq1, nelmt, D0, D1, f0, f1, df, in, out);
+#else
+    sycl::queue &Q = SYCLQueue::GetInstance();
+
+    const unsigned int shmemsize =
+        PhysDerivSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1);
+    const unsigned int blocksize =
+        GetDeviceBlockSize<Implementation>(nq0 * nq1);
+    const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
+
+    Q.submit([=](sycl::handler &cgh) {
+        sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
+        cgh.parallel_for(sycl::nd_range<1>(gridsize * blocksize, blocksize),
+                         [=](sycl::nd_item<1> item_ct1) {
+                             TData *shmemptr = &shmem[0];
+#pragma forceinline
+                             PhysDeriv2DKernel<SHAPE_TYPE, Implementation,
+                                               DEFORMED, ncoord, nq0, nq1>(
+                                 nelmt, D0, D1, f0, f1, df, in, out, shmemptr,
+                                 item_ct1);
+                         });
+    });
+#endif
 }
 
 // Non-size based version.
@@ -159,8 +247,31 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel(
     const TData *f0, const TData *f1, const TData *f1m, const TData *f2,
     const TData *df, const TData *in, TData *out)
 {
+#if defined(NEKTAR_DEBUG)
     PhysDeriv3DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
         nq0, nq1, nq2, nelmt, D0, D1, D2, f0, f1, f1m, f2, df, in, out);
+#else
+    sycl::queue &Q = SYCLQueue::GetInstance();
+
+    const unsigned int shmemsize =
+        PhysDerivSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1, nq2);
+    const unsigned int blocksize =
+        GetDeviceBlockSize<Implementation>(nq0 * nq1 * nq2);
+    const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
+
+    Q.submit([=](sycl::handler &cgh) {
+        sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
+        cgh.parallel_for(sycl::nd_range<1>(gridsize * blocksize, blocksize),
+                         [=](sycl::nd_item<1> item_ct1) {
+                             TData *shmemptr = &shmem[0];
+#pragma forceinline
+                             PhysDeriv3DKernel<SHAPE_TYPE, Implementation,
+                                               DEFORMED, nq0, nq1, nq2>(
+                                 nelmt, D0, D1, D2, f0, f1, f1m, f2, df, in,
+                                 out, shmemptr, item_ct1);
+                         });
+    });
+#endif
 }
 
 } // namespace Nektar::Operators::detail
