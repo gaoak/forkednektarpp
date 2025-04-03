@@ -487,10 +487,10 @@ protected:
                 (TData *)inptr);
 
             // LinAdvDiffReaction kernel.
-            LinAdvDiffReaction1DKernel<ExecSpace, Implementation, DEFORMED>(
-                m_coordDim, nm0, nq0, nElmtsPad, m_B[0], m_D[0], m_W[0], dfptr,
-                jacptr, diffptr, advVelptr, inptr, outptr, wspptr,
-                this->m_lambda);
+            LinAdvDiffReaction1DKernel<ExecSpace, Implementation, DEFORMED, nm0,
+                                       nq0>(
+                m_coordDim, nElmtsPad, m_B[0], m_D[0], m_W[0], dfptr, jacptr,
+                diffptr, advVelptr, inptr, outptr, wspptr, this->m_lambda);
 
             // Increment pointers.
             inptr += inblock.size();
@@ -640,11 +640,11 @@ protected:
 
             // LinAdvDiffReaction kernel.
             LinAdvDiffReaction2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                       DEFORMED>(
-                m_coordDim, nm0, nm1, nq0, nq1, nElmtsPad, m_isModified,
-                m_index[0], m_B[0], m_B[1], m_D[0], m_D[1], m_W[0], m_W[1],
-                m_f[0], m_f[1], dfptr, jacptr, diffptr, advVelptr,
-                advVelptr + advVelSize, inptr, outptr, wspptr, this->m_lambda);
+                                       DEFORMED, nm0, nm1, nq0, nq1>(
+                m_coordDim, nElmtsPad, m_isModified, m_index[0], m_B[0], m_B[1],
+                m_D[0], m_D[1], m_W[0], m_W[1], m_f[0], m_f[1], dfptr, jacptr,
+                diffptr, advVelptr, advVelptr + advVelSize, inptr, outptr,
+                wspptr, this->m_lambda);
 
             // Increment pointers.
             inptr += inblock.size();
@@ -797,13 +797,13 @@ protected:
 
             // LinAdvDiffReaction kernel.
             LinAdvDiffReaction3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                       DEFORMED>(
-                nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, m_isModified,
-                m_index[0], m_index[1], m_index[2], m_index[3], m_B[0], m_B[1],
-                m_B[2], m_D[0], m_D[1], m_D[2], m_W[0], m_W[1], m_W[2], m_f[0],
-                m_f[1], m_f[2], m_f[3], dfptr, jacptr, diffptr, advVelptr,
-                advVelptr + advVelSize, advVelptr + 2 * advVelSize, inptr,
-                outptr, wspptr, this->m_lambda);
+                                       DEFORMED, nm0, nm1, nm2, nq0, nq1, nq2>(
+                nElmtsPad, m_isModified, m_index[0], m_index[1], m_index[2],
+                m_index[3], m_B[0], m_B[1], m_B[2], m_D[0], m_D[1], m_D[2],
+                m_W[0], m_W[1], m_W[2], m_f[0], m_f[1], m_f[2], m_f[3], dfptr,
+                jacptr, diffptr, advVelptr, advVelptr + advVelSize,
+                advVelptr + 2 * advVelSize, inptr, outptr, wspptr,
+                this->m_lambda);
 
             // Increment pointers.
             inptr += inblock.size();

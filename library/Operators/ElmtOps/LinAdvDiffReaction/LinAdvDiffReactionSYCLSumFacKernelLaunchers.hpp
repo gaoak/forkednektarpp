@@ -39,6 +39,75 @@
 namespace Nektar::Operators::detail
 {
 
+// Size based template version.
+template <typename Implementation, bool DEFORMED, unsigned int nm0,
+          unsigned int nq0, typename TData>
+NEK_DEVICE_INLINE void LinAdvDiffReaction1DKernel(
+    const unsigned int ncoord, const unsigned int nelmt,
+    const TData *__restrict__ basis0, const TData *__restrict__ D0,
+    const TData *__restrict__ w0, const TData *__restrict__ df,
+    const TData *__restrict__ jac, const TData *__restrict__ coeff,
+    const TData *advVel0, const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp, const TData lambda, TData *__restrict__ shmemptr,
+    const sycl::nd_item<1> &item_ct1)
+{
+    LinAdvDiffReaction1DKernel<Implementation, DEFORMED>(
+        ncoord, nm0, nq0, nelmt, basis0, D0, w0, df, jac, coeff, advVel0, in,
+        out, wsp, lambda, shmemptr, item_ct1);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, unsigned int nm0, unsigned int nm1, unsigned int nmTot,
+          unsigned int nq0, unsigned int nq1, typename TData>
+NEK_DEVICE_INLINE void LinAdvDiffReaction2DKernel(
+    const unsigned int ncoord, const unsigned int nelmt, const bool isModified,
+    const unsigned int *__restrict__ index0, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ D0,
+    const TData *__restrict__ D1, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ f0,
+    const TData *__restrict__ f1, const TData *__restrict__ df,
+    const TData *__restrict__ jac, const TData *__restrict__ coeff,
+    const TData *advVel0, const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp, const TData lambda, TData *__restrict__ shmemptr,
+    const sycl::nd_item<1> &item_ct1)
+{
+    LinAdvDiffReaction2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
+        ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0,
+        basis1, D0, D1, w0, w1, f0, f1, df, jac, coeff, advVel0, in, out, wsp,
+        lambda, shmemptr, item_ct1);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, signed int nm0, unsigned int nm1, unsigned int nm2,
+          unsigned nmTot, unsigned int nq0, unsigned int nq1, unsigned int nq2,
+          typename TData>
+NEK_DEVICE_INLINE void LinAdvDiffReaction3DKernel(
+    const unsigned int nelmt, const bool isModified,
+    const unsigned int *__restrict__ index0,
+    const unsigned int *__restrict__ index1,
+    const unsigned int *__restrict__ index2,
+    const unsigned int *__restrict__ index3, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ basis2,
+    const TData *__restrict__ D0, const TData *__restrict__ D1,
+    const TData *__restrict__ D2, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ w2,
+    const TData *__restrict__ f0, const TData *__restrict__ f1,
+    const TData *__restrict__ f1m, const TData *__restrict__ f2,
+    const TData *__restrict__ df, const TData *__restrict__ jac,
+    const TData *__restrict__ coeff, const TData *advVel0,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp, const TData lambda, TData *__restrict__ shmemptr,
+    const sycl::nd_item<1> &item_ct1)
+{
+    LinAdvDiffReaction3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
+        nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
+        index2, index3, basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, f0, f1,
+        f1m, f2, df, jac, coeff, advVel0, in, out, wsp, lambda,
+        (TData *)shmemptr, item_ct1);
+}
+
 // Kernel Launchers.
 // Non-size based version.
 template <typename ExecSpace, typename Implementation, bool DEFORMED,
@@ -80,9 +149,31 @@ NEK_FORCE_INLINE static void LinAdvDiffReaction1DKernel(
     const TData *coeff, const TData *advVel0, const TData *in, TData *out,
     TData *wsp, const TData lambda = 1.0)
 {
+#if defined(NEKTAR_DEBUG)
     LinAdvDiffReaction1DKernel<ExecSpace, Implementation, DEFORMED>(
         ncoord, nm0, nq0, nelmt, basis0, D0, w0, df, jac, coeff, advVel0, in,
         out, wsp, lambda);
+#else
+    sycl::queue &Q = SYCLQueue::GetInstance();
+
+    const unsigned int shmemsize =
+        HelmholtzSharedMemorySize<Implementation>(nq0, nm0);
+    const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nq0);
+    const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+
+    Q.submit([=](sycl::handler &cgh) {
+        sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
+        cgh.parallel_for(
+            sycl::nd_range<1>(gridsize * blocksize, blocksize),
+            [=](sycl::nd_item<1> item_ct1) {
+                TData *shmemptr = &shmem[0];
+#pragma forceinline
+                LinAdvDiffReaction1DKernel<Implementation, DEFORMED, nm0, nq0>(
+                    ncoord, nelmt, basis0, D0, w0, df, jac, coeff, advVel0, in,
+                    out, wsp, lambda, shmemptr, item_ct1);
+            });
+    });
+#endif
 }
 
 // Non-size based version.
@@ -137,10 +228,38 @@ NEK_FORCE_INLINE static void LinAdvDiffReaction2DKernel(
     const TData *coeff, const TData *advVel0, const TData *advVel1,
     const TData *in, TData *out, TData *wsp, const TData lambda = 1.0)
 {
+#if defined(NEKTAR_DEBUG)
+
     LinAdvDiffReaction2DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
         ncoord, nm0, nm1, nq0, nq1, nelmt, isModified, index0, basis0, basis1,
         D0, D1, w0, w1, f0, f1, df, jac, coeff, advVel0, advVel1, in, out, wsp,
         lambda);
+#else
+    sycl::queue &Q = SYCLQueue::GetInstance();
+
+    constexpr unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
+    const unsigned int shmemsize =
+        HelmholtzSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1, nm0,
+                                                              nm1);
+    const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
+    const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+
+    Q.submit([=](sycl::handler &cgh) {
+        sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
+        cgh.parallel_for(
+            sycl::nd_range<1>(gridsize * blocksize, blocksize),
+            [=](sycl::nd_item<1> item_ct1) {
+                TData *shmemptr = &shmem[0];
+#pragma forceinline
+                LinAdvDiffReaction2DKernel<SHAPE_TYPE, Implementation, DEFORMED,
+                                           nm0, nm1, nmTot, nq0, nq1>(
+                    ncoord, nelmt, isModified, index0, basis0, basis1, D0, D1,
+                    w0, w1, f0, f1, df, jac, coeff, advVel0, advVel1, in, out,
+                    wsp, lambda, shmemptr, item_ct1);
+            });
+    });
+#endif
 }
 
 // Non-size based version.
@@ -203,10 +322,38 @@ NEK_FORCE_INLINE static void LinAdvDiffReaction3DKernel(
     const TData *advVel1, const TData *advVel2, const TData *in, TData *out,
     TData *wsp, const TData lambda = 1.0)
 {
+#if defined(NEKTAR_DEBUG)
     LinAdvDiffReaction3DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
         nm0, nm1, nm2, nq0, nq1, nq2, nelmt, isModified, index0, index1, index2,
         index3, basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2,
         df, jac, coeff, advVel0, advVel1, advVel2, in, out, wsp, lambda);
+#else
+    sycl::queue &Q = SYCLQueue::GetInstance();
+
+    constexpr unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+    const unsigned int shmemsize =
+        HelmholtzSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1, nq2,
+                                                              nm0, nm1, nm2);
+    const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
+    const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+
+    Q.submit([=](sycl::handler &cgh) {
+        sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
+        cgh.parallel_for(
+            sycl::nd_range<1>(gridsize * blocksize, blocksize),
+            [=](sycl::nd_item<1> item_ct1) {
+                TData *shmemptr = &shmem[0];
+#pragma forceinline
+                LinAdvDiffReaction3DKernel<SHAPE_TYPE, Implementation, DEFORMED,
+                                           nm0, nm1, nm2, nmTot, nq0, nq1, nq2>(
+                    nelmt, isModified, index0, index1, index2, index3, basis0,
+                    basis1, basis2, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2, df,
+                    jac, coeff, advVel0, advVel1, advVel2, in, out, wsp, lambda,
+                    shmemptr, item_ct1);
+            });
+    });
+#endif
 }
 
 } // namespace Nektar::Operators::detail
