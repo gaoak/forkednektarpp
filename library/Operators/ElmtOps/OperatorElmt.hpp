@@ -74,59 +74,17 @@ public:
 
         BlockOperatorFactory<TData> &factory = GetBlockOperatorFactory<TData>();
 
-        bool notFound = true;
-
-        constexpr size_t nOpTests = 2;
-
-        std::string key;
-        for (size_t i = 0; i < nOpTests; ++i)
-        {
-            switch (i)
-            {
-                case 0:
-                    // Find the operator with the requested ExecSpace and the
-                    // same implementation.
-                    key = TOperator::name + execStr + implStr;
-                    break;
-                case 1:
-                    // Find the operator with the requested ExecSpace and a
-                    // general implementation.
-                    key = TOperator::name + execStr + "Generic";
-                    break;
-                default:
-                    break;
-            }
-
-            if (factory.ModuleExists(key))
-            {
-                if (key != requestedKey && i != 1)
-                {
-                    std::string msg;
-                    msg += "The requested operator: " + requestedKey +
-                           " was not found. Using operator: " + key +
-                           " instead";
-
-                    WARNINGL0(false, msg);
-                }
-
-                notFound = false;
-
-                break;
-            }
-        }
-
         // No suitible operator was found.
-        if (notFound)
+        if (!factory.ModuleExists(requestedKey))
         {
             std::stringstream msg;
-            msg << "No such operator: " << requestedKey
-                << " and no default operator: " << key << "." << std::endl;
+            msg << "No such operator: " << requestedKey << std::endl;
             factory.PrintAvailableClasses(msg);
             NEKERROR(ErrorUtil::efatal, msg.str());
         }
 
         return std::static_pointer_cast<TOperator>(
-            factory.CreateInstance(key, exp, dataWarehouse));
+            factory.CreateInstance(requestedKey, exp, dataWarehouse));
     }
 
 protected:

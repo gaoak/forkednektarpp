@@ -157,9 +157,9 @@ int main(void)
     printf("  Device name: %s\n", prop.name);
     printf("  Memory Clock Rate (KHz): %d\n", prop.memoryClockRate);
     printf("  Memory Bus Width (bits): %d\n", prop.memoryBusWidth);
-    printf("  Total Global Memory (bits): %ld\n", prop.totalGlobalMem);
-    printf("  Shared Memory per Block (bits): %ld\n", prop.sharedMemPerBlock);
-    printf("  Shared Memory per Multiprocessor (bits): %ld\n",
+    printf("  Total Global Memory (bytes): %ld\n", prop.totalGlobalMem);
+    printf("  Shared Memory per Block (bytes): %ld\n", prop.sharedMemPerBlock);
+    printf("  Shared Memory per Multiprocessor (bytes): %ld\n",
            prop.sharedMemPerMultiprocessor);
     printf("  Peak Memory Bandwidth (GB/s): %f\n",
            2.0 * prop.memoryClockRate * (prop.memoryBusWidth / 8) / 1.0e6);
