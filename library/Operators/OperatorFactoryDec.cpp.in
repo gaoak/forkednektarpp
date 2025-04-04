@@ -53,7 +53,7 @@ namespace Nektar::Operators::detail
 template <>
 std::string Operator@OPERATOR@Impl<@EXEC_MEM_SPACE_TAG@, @TData@>::className =
     GetOperatorFactory<@TData@>().RegisterCreatorFunction(
-        std::string(Operator@OPERATOR@::name) + "@ExecSpace@",
+        std::string(Operator@OPERATOR@<@TData@>::name) + "@ExecSpace@",
         Operator@OPERATOR@Impl<@EXEC_MEM_SPACE_TAG@,
                          @TData@>::instantiate,
         "...");
