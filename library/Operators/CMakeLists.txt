@@ -523,7 +523,7 @@ ELSEIF(NEKTAR_ENABLE_SYCL)
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
       Utils/SYCLQueue.cpp
-      NekBlas/oneMKL.cpp
+      NekBlas/syclBlas.cpp
     )
 
     SET(OPERATORS_DEPENDS

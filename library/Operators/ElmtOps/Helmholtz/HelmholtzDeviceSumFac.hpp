@@ -270,13 +270,13 @@ protected:
     MemoryRegion<TData> m_diffCoeff;
     MemoryRegion<TData> m_wsp;
 
-    unsigned int GetSharedWorkspaceSize(LibUtilities::ShapeType shapeType,
-                                        unsigned int nElmts,
-                                        [[maybe_unused]] unsigned int ncoord,
-                                        [[maybe_unused]] unsigned int nq0,
-                                        unsigned int nq1, unsigned int nq2,
-                                        [[maybe_unused]] unsigned int nm0,
-                                        unsigned int nm1, unsigned int nm2)
+    unsigned int GetWorkspaceSize(LibUtilities::ShapeType shapeType,
+                                  unsigned int nElmts,
+                                  [[maybe_unused]] unsigned int ncoord,
+                                  [[maybe_unused]] unsigned int nq0,
+                                  unsigned int nq1, unsigned int nq2,
+                                  [[maybe_unused]] unsigned int nm0,
+                                  unsigned int nm1, unsigned int nm2)
     {
         unsigned int wspsize = 0;
 
@@ -322,8 +322,8 @@ protected:
                                      unsigned int nq2, unsigned int nm0,
                                      unsigned int nm1, unsigned int nm2)
     {
-        unsigned int wspsize = GetSharedWorkspaceSize(
-            shapeType, nElmts, ncoord, nq0, nq1, nq2, nm0, nm1, nm2);
+        unsigned int wspsize = GetWorkspaceSize(shapeType, nElmts, ncoord, nq0,
+                                                nq1, nq2, nm0, nm1, nm2);
 
         return MemoryRegion<TData>::Create(wspsize, ExecSpace::alignment);
     }
