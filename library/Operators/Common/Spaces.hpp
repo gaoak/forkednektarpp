@@ -44,6 +44,11 @@
 #include <limits.h>
 #include <string>
 
+#if defined(_MSC_VER)
+#undef max
+#undef min
+#endif
+
 #if defined(NEKTAR_ENABLE_CUDA)
 #include <cuda_runtime.h>
 #include <thrust/fill.h>

@@ -48,6 +48,11 @@
 
 #include "Operators/Common/NekDataWarehouse.hpp"
 
+#if defined(_MSC_VER)
+#undef max
+#undef min
+#endif
+
 namespace Nektar::Operators
 {
 

@@ -45,7 +45,6 @@
 #include <thread>
 #endif
 
-#include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <LibUtilities/BasicUtils/HashUtils.hpp>
 
 #include "Operators/Field/MemoryRegion.hpp"
