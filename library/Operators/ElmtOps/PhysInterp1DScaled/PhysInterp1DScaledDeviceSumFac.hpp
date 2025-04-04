@@ -191,10 +191,10 @@ protected:
     std::vector<const TData *> m_B;
     MemoryRegion<TData> m_wsp;
 
-    unsigned int GetSharedWorkspaceSize(LibUtilities::ShapeType shapeType,
-                                        unsigned int nElmts,
-                                        [[maybe_unused]] unsigned int nm0,
-                                        unsigned int nm1, unsigned int nm2)
+    unsigned int GetWorkspaceSize(LibUtilities::ShapeType shapeType,
+                                  unsigned int nElmts,
+                                  [[maybe_unused]] unsigned int nm0,
+                                  unsigned int nm1, unsigned int nm2)
     {
         unsigned int wspsize = 0;
 
@@ -219,7 +219,7 @@ protected:
                                      unsigned int nm1, unsigned int nm2)
     {
         unsigned int wspsize =
-            GetSharedWorkspaceSize(shapeType, nElmts, nm0, nm1, nm2);
+            GetWorkspaceSize(shapeType, nElmts, nm0, nm1, nm2);
 
         return MemoryRegion<TData>::Create(wspsize, ExecSpace::alignment);
     }

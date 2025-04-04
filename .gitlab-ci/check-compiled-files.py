@@ -60,7 +60,7 @@ ignore_sources = [
     "library/Operators/NekBlas/cuBlasHandle.cpp",
     "library/Operators/NekBlas/hipBlas.cpp",
     "library/Operators/NekBlas/hipBlasHandle.cpp",
-    "library/Operators/NekBlas/oneMKL.cpp",
+    "library/Operators/NekBlas/syclBlas.cpp",
 ]
 
 ignore_sources = [ os.path.join(cwd, os.path.normpath(p)) for p in ignore_sources ]
