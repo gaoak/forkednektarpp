@@ -132,13 +132,13 @@ public:
         // Assembly (communication)
         m_assmbScatrOp->apply(m_r_A, m_wk, true);
 
-        ddot<ExecSpace, TData>(m_wk, m_r_A, vExchangePtr + 2);
+        ddot<ExecSpace>(m_wk, m_r_A, vExchangePtr + 2);
 
         // Calculate rhs magnitude
         m_wk.template Initialize<MemSpace>(0);
         m_assmbScatrOp->apply(m_r_A, m_wk);
 
-        ddot<ExecSpace, TData>(in, m_wk, vExchangePtr + 3);
+        ddot<ExecSpace>(in, m_wk, vExchangePtr + 3);
 
         m_rowComm->AllReduce(m_vExchange, Nektar::LibUtilities::ReduceSum);
 
@@ -159,9 +159,9 @@ public:
 
         m_robBndCondOp->apply(m_w_A, m_s_A);
 
-        ddot<ExecSpace, TData>(m_r_A, m_w_A, vExchangePtr + 0);
+        ddot<ExecSpace>(m_r_A, m_w_A, vExchangePtr + 0);
 
-        ddot<ExecSpace, TData>(m_s_A, m_w_A, vExchangePtr + 1);
+        ddot<ExecSpace>(m_s_A, m_w_A, vExchangePtr + 1);
 
         m_rowComm->AllReduce(m_vExchange, Nektar::LibUtilities::ReduceSum);
 
@@ -183,16 +183,16 @@ public:
             }
 
             // Compute new search direction p_k
-            daxpy<ExecSpace, TData>(beta, m_p_A, m_w_A, m_p_A);
+            daxpy<ExecSpace>(beta, m_p_A, m_w_A, m_p_A);
 
             // Compute new search direction q_k
-            daxpy<ExecSpace, TData>(beta, m_q_A, m_s_A, m_q_A);
+            daxpy<ExecSpace>(beta, m_q_A, m_s_A, m_q_A);
 
             // Update solution x_{k+1}
-            daxpy<ExecSpace, TData>(alpha, m_p_A, out, out);
+            daxpy<ExecSpace>(alpha, m_p_A, out, out);
 
             // Update residual vector r_{k+1}
-            daxpy<ExecSpace, TData>(-alpha, m_q_A, m_r_A, m_r_A);
+            daxpy<ExecSpace>(-alpha, m_q_A, m_r_A, m_r_A);
 
             // Apply preconditioner
             this->m_precon->apply(m_r_A, m_w_A);
@@ -204,15 +204,15 @@ public:
             m_robBndCondOp->apply(m_w_A, m_s_A);
 
             // <r_{k+1}, w_{k+1}>
-            ddot<ExecSpace, TData>(m_r_A, m_w_A, vExchangePtr + 0);
+            ddot<ExecSpace>(m_r_A, m_w_A, vExchangePtr + 0);
 
             // <s_{k+1}, w_{k+1}>
-            ddot<ExecSpace, TData>(m_s_A, m_w_A, vExchangePtr + 1);
+            ddot<ExecSpace>(m_s_A, m_w_A, vExchangePtr + 1);
 
             // <r_{k+1}, r_{k+1}>
             m_assmbScatrOp->apply(m_r_A, m_wk, true);
 
-            ddot<ExecSpace, TData>(m_wk, m_r_A, vExchangePtr + 2);
+            ddot<ExecSpace>(m_wk, m_r_A, vExchangePtr + 2);
 
             m_rowComm->AllReduce(m_vExchange, Nektar::LibUtilities::ReduceSum);
 

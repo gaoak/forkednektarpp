@@ -192,13 +192,13 @@ public:
             // Add weak boundary conditions to the forcing.
             if (m_signChange)
             {
-                NeuBndCondKernel<ExecSpace, TData>(
-                    nbndCoeffBlock, signPtr, mapPtr, bndcoeffPtr, inoutptr);
+                NeuBndCondKernel<ExecSpace>(nbndCoeffBlock, signPtr, mapPtr,
+                                            bndcoeffPtr, inoutptr);
             }
             else
             {
-                NeuBndCondKernel<ExecSpace, TData>(nbndCoeffBlock, mapPtr,
-                                                   bndcoeffPtr, inoutptr);
+                NeuBndCondKernel<ExecSpace>(nbndCoeffBlock, mapPtr, bndcoeffPtr,
+                                            inoutptr);
             }
         }
     }
