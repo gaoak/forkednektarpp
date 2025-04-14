@@ -566,17 +566,23 @@ protected:
                                              m_B[0], m_B[1], m_nodToMod,
                                              wsp0.data(), inptr, bwd.data());
 
-                // Step 2 + 3: Get tensor derivative and apply diffusion coeff.
-                TensorDerivWithDiffuCoeff2DKernel<SHAPE_TYPE, DEFORMED, simd_t>(
-                    nq0, nq1, true, this->m_diffCoeff, false, NullTDataVector,
-                    NullTDataVector, NullTDataVector, bwd.data(), m_D[0],
-                    m_D[1], dfptr, m_f[0], m_f[1], deriv0.data(),
-                    deriv1.data());
+                // Step 2: Get tensor derivatives
+                PhysDerivTensor2DKernel<simd_t>(nq0, nq1, bwd.data(), m_D[0],
+                                                m_D[1], deriv0.data(),
+                                                deriv1.data());
 
-                // Step 4: apply WJ, derivative and sum up.
-                SumDerivTensor2DKernel<DEFORMED, simd_t>(
-                    nq0, nq1, deriv0.data(), deriv1.data(), m_W[0], m_W[1],
-                    jacptr, m_D[0], m_D[1], bwd.data(), this->m_lambda);
+                // Step 3: apply diffusion coeff and WJ
+                DiffusionCoeffwithWJ2DKernel<SHAPE_TYPE, DEFORMED, true,
+                                             simd_t>(
+                    nq0, nq1, true, this->m_diffCoeff, false, NullTDataVector,
+                    NullTDataVector, NullTDataVector, jacptr, m_W[0], m_W[1],
+                    dfptr, m_f[0], m_f[1], deriv0.data(), deriv1.data(),
+                    bwd.data(), this->m_lambda);
+
+                // Step 4: apply derivative and sum up.
+                SumDerivTensor2DKernel<simd_t>(nq0, nq1, deriv0.data(),
+                                               deriv1.data(), m_D[0], m_D[1],
+                                               bwd.data(), 1.0);
 
                 // Step 5 : inner product without WJ.
                 IProduct2DKernel<SHAPE_TYPE, false, false, simd_t>(
@@ -671,17 +677,23 @@ protected:
                                              m_B[0], m_B[1], m_nodToMod,
                                              wsp0.data(), inptr, bwd.data());
 
-                // Step 2 + 3: Get tensor derivative and apply diffusion coeff.
-                TensorDerivWithDiffuCoeff2DKernel<SHAPE_TYPE, DEFORMED, simd_t>(
-                    nq0, nq1, true, this->m_diffCoeff, false, NullTDataVector,
-                    NullTDataVector, NullTDataVector, bwd.data(), m_D[0],
-                    m_D[1], dfptr, m_f[0], m_f[1], deriv0.data(),
-                    deriv1.data());
+                // Step 2: Get tensor derivatives
+                PhysDerivTensor2DKernel<simd_t>(nq0, nq1, bwd.data(), m_D[0],
+                                                m_D[1], deriv0.data(),
+                                                deriv1.data());
 
-                // Step 4: apply WJ, derivative and sum up.
-                SumDerivTensor2DKernel<DEFORMED, simd_t>(
-                    nq0, nq1, deriv0.data(), deriv1.data(), m_W[0], m_W[1],
-                    jacptr, m_D[0], m_D[1], bwd.data(), this->m_lambda);
+                // Step 3: apply diffusion coeff and WJ
+                DiffusionCoeffwithWJ2DKernel<SHAPE_TYPE, DEFORMED, true,
+                                             simd_t>(
+                    nq0, nq1, true, this->m_diffCoeff, false, NullTDataVector,
+                    NullTDataVector, NullTDataVector, jacptr, m_W[0], m_W[1],
+                    dfptr, m_f[0], m_f[1], deriv0.data(), deriv1.data(),
+                    bwd.data(), this->m_lambda);
+
+                // Step 4: apply derivative and sum up.
+                SumDerivTensor2DKernel<simd_t>(nq0, nq1, deriv0.data(),
+                                               deriv1.data(), m_D[0], m_D[1],
+                                               bwd.data(), 1.0);
 
                 // Step 5 : inner product without WJ.
                 IProduct2DKernel<SHAPE_TYPE, false, false, simd_t>(
@@ -788,20 +800,25 @@ protected:
                                              m_B[2], m_nodToMod, wsp0.data(),
                                              wsp1.data(), inptr, bwd.data());
 
-                // Step 2 + 3 : Get tensor derivative and apply diffusion coeff.
-                TensorDerivWithDiffuCoeff3DKernel<SHAPE_TYPE, DEFORMED, simd_t>(
+                // Step 2: Get tensor derivatives
+                PhysDerivTensor3DKernel<simd_t>(
+                    nq0, nq1, nq2, bwd.data(), m_D[0], m_D[1], m_D[2],
+                    deriv0.data(), deriv1.data(), deriv2.data());
+
+                // Step 2 + 3 : apply diffusion coeff and WJ
+                DiffusionCoeffwithWJ3DKernel<SHAPE_TYPE, DEFORMED, true,
+                                             simd_t>(
                     nq0, nq1, nq2, true, this->m_diffCoeff, false,
                     NullTDataVector, NullTDataVector, NullTDataVector,
-                    NullTDataVector, NullTDataVector, NullTDataVector,
-                    bwd.data(), m_D[0], m_D[1], m_D[2], dfptr, m_f[0], m_f[1],
-                    m_f[2], m_f[3], deriv0.data(), deriv1.data(),
-                    deriv2.data());
+                    NullTDataVector, NullTDataVector, NullTDataVector, jacptr,
+                    m_W[0], m_W[1], m_W[2], dfptr, m_f[0], m_f[1], m_f[2],
+                    m_f[3], deriv0.data(), deriv1.data(), deriv2.data(),
+                    bwd.data(), this->m_lambda);
 
                 // Step 4: apply WJ, derivative and sum up.
-                SumDerivTensor3DKernel<DEFORMED, simd_t>(
+                SumDerivTensor3DKernel<simd_t>(
                     nq0, nq1, nq2, deriv0.data(), deriv1.data(), deriv2.data(),
-                    m_W[0], m_W[1], m_W[2], jacptr, m_D[0], m_D[1], m_D[2],
-                    bwd.data(), this->m_lambda);
+                    m_D[0], m_D[1], m_D[2], bwd.data(), 1.0);
 
                 // Step 5 : inner product without WJ.
                 IProduct3DKernel<SHAPE_TYPE, false, false, simd_t>(
@@ -902,20 +919,25 @@ protected:
                                              m_B[2], m_nodToMod, wsp0.data(),
                                              wsp1.data(), inptr, bwd.data());
 
-                // Step 2 + 3 : Get tensor derivative and apply diffusion coeff.
-                TensorDerivWithDiffuCoeff3DKernel<SHAPE_TYPE, DEFORMED, simd_t>(
+                // Step 2: Get tensor derivatives
+                PhysDerivTensor3DKernel<simd_t>(
+                    nq0, nq1, nq2, bwd.data(), m_D[0], m_D[1], m_D[2],
+                    deriv0.data(), deriv1.data(), deriv2.data());
+
+                // Step 2 + 3 : apply diffusion coeff and WJ
+                DiffusionCoeffwithWJ3DKernel<SHAPE_TYPE, DEFORMED, true,
+                                             simd_t>(
                     nq0, nq1, nq2, true, this->m_diffCoeff, false,
                     NullTDataVector, NullTDataVector, NullTDataVector,
-                    NullTDataVector, NullTDataVector, NullTDataVector,
-                    bwd.data(), m_D[0], m_D[1], m_D[2], dfptr, m_f[0], m_f[1],
-                    m_f[2], m_f[3], deriv0.data(), deriv1.data(),
-                    deriv2.data());
+                    NullTDataVector, NullTDataVector, NullTDataVector, jacptr,
+                    m_W[0], m_W[1], m_W[2], dfptr, m_f[0], m_f[1], m_f[2],
+                    m_f[3], deriv0.data(), deriv1.data(), deriv2.data(),
+                    bwd.data(), this->m_lambda);
 
                 // Step 4: apply WJ, derivative and sum up.
-                SumDerivTensor3DKernel<DEFORMED, simd_t>(
+                SumDerivTensor3DKernel<simd_t>(
                     nq0, nq1, nq2, deriv0.data(), deriv1.data(), deriv2.data(),
-                    m_W[0], m_W[1], m_W[2], jacptr, m_D[0], m_D[1], m_D[2],
-                    bwd.data(), this->m_lambda);
+                    m_D[0], m_D[1], m_D[2], bwd.data(), 1.0);
 
                 // Step 5 : inner product without WJ.
                 IProduct3DKernel<SHAPE_TYPE, false, false, simd_t>(

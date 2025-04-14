@@ -91,13 +91,16 @@ NEK_FORCE_INLINE static void StdAlignDerivBase2D(
     std::vector<simd_type, tinysimd::allocator<simd_type>> &df_tmp,
     const unsigned int inoffset, const simd_type *inptr, simd_type *out[2],
     [[maybe_unused]] const simd_type *Fac0,
-    [[maybe_unused]] const simd_type *Fac1)
+    [[maybe_unused]] const simd_type *Fac1, const simd_type *jac_Ptr,
+    const simd_type *w0, const simd_type *w1)
 {
     const auto ndf = 2 * indim;
+    simd_type jac  = 1.0;
 
     // Calculate dxi/dx in[0] + dxi/dy in[1] + dxi/dz in[2]
     if constexpr (!DEFORMED)
     {
+        jac       = jac_Ptr[0];
         df_tmp[0] = df_Ptr[0];
         df_tmp[1] = df_Ptr[1];
         df_tmp[2] = df_Ptr[2];
@@ -124,6 +127,7 @@ NEK_FORCE_INLINE static void StdAlignDerivBase2D(
         {
             if constexpr (DEFORMED)
             {
+                jac       = jac_Ptr[cnt_ji];
                 df_tmp[0] = df_Ptr[cnt_ji * ndf];
                 df_tmp[1] = df_Ptr[cnt_ji * ndf + 1];
                 df_tmp[2] = df_Ptr[cnt_ji * ndf + 2];
@@ -166,8 +170,9 @@ NEK_FORCE_INLINE static void StdAlignDerivBase2D(
             }
 
             // store ouputs
-            out[0][cnt_ji] = out0;
-            out[1][cnt_ji] = out1;
+            simd_type WJ   = jac * w0[i] * w1[j];
+            out[0][cnt_ji] = out0 * WJ;
+            out[1][cnt_ji] = out1 * WJ;
         }
     }
 }
@@ -180,14 +185,17 @@ NEK_FORCE_INLINE static void StdAlignDerivBase3D(
     const unsigned int inoffset, [[maybe_unused]] const simd_type *Fac0,
     [[maybe_unused]] const simd_type *Fac1,
     [[maybe_unused]] const simd_type *Fac1a,
-    [[maybe_unused]] const simd_type *Fac2, const simd_type *inptr,
-    simd_type *out[3])
+    [[maybe_unused]] const simd_type *Fac2, const simd_type *jac_Ptr,
+    const simd_type *w0, const simd_type *w1, const simd_type *w2,
+    const simd_type *inptr, simd_type *out[3])
 {
     const auto ndf = 9;
+    simd_type jac  = 1.0;
 
     // Calculate dxi/dx in[0] + dxi/dy in[1] + dxi/dz in[2]
     if constexpr (!DEFORMED)
     {
+        jac       = jac_Ptr[0];
         df_tmp[0] = df_Ptr[0];
         df_tmp[1] = df_Ptr[1];
         df_tmp[2] = df_Ptr[2];
@@ -222,10 +230,13 @@ NEK_FORCE_INLINE static void StdAlignDerivBase3D(
                 f1 = simd_type(Fac1[j]);
             }
 
+            simd_type w12 = w1[j] * w2[k];
+
             for (unsigned int i = 0; i < nq0; ++i, ++cnt_kji)
             {
                 if constexpr (DEFORMED)
                 {
+                    jac       = jac_Ptr[cnt_kji];
                     df_tmp[0] = df_Ptr[cnt_kji * ndf];
                     df_tmp[1] = df_Ptr[cnt_kji * ndf + 1];
                     df_tmp[2] = df_Ptr[cnt_kji * ndf + 2];
@@ -286,9 +297,10 @@ NEK_FORCE_INLINE static void StdAlignDerivBase3D(
                 }
 
                 // store ouputs
-                out[0][cnt_kji] = out0;
-                out[1][cnt_kji] = out1;
-                out[2][cnt_kji] = out2;
+                simd_type WJ    = jac * w0[i] * w12;
+                out[0][cnt_kji] = out0 * WJ;
+                out[1][cnt_kji] = out1 * WJ;
+                out[2][cnt_kji] = out2 * WJ;
             }
         }
     }

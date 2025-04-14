@@ -519,10 +519,9 @@ protected:
 
                 StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(
                     nq0, nq1, m_coordDim, dfptr, df_tmp, NumElmtGroups * nqTot,
-                    inptr, tmpPtr, m_f[0], m_f[1]);
-                SumDerivTensor2DKernel<DEFORMED, simd_t>(
-                    nq0, nq1, tmpPtr[0], tmpPtr[1], m_W[0], m_W[1], jacptr,
-                    m_D[0], m_D[1], tmp2.data());
+                    inptr, tmpPtr, m_f[0], m_f[1], jacptr, m_W[0], m_W[1]);
+                SumDerivTensor2DKernel<simd_t>(nq0, nq1, tmpPtr[0], tmpPtr[1],
+                                               m_D[0], m_D[1], tmp2.data());
                 IProduct2DKernel<SHAPE_TYPE, false, false, simd_t>(
                     nm0, nm1, nq0, nq1, m_isModified, tmp2.data(), m_B[0],
                     m_B[1], m_nodToModTrans, wsp.data(), outptr, 1.0);
@@ -624,10 +623,9 @@ protected:
 
                 StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(
                     nq0, nq1, m_coordDim, dfptr, df_tmp, NumElmtGroups * nqTot,
-                    inptr, tmpPtr, m_f[0], m_f[1]);
-                SumDerivTensor2DKernel<DEFORMED, simd_t>(
-                    nq0, nq1, tmpPtr[0], tmpPtr[1], m_W[0], m_W[1], jacptr,
-                    m_D[0], m_D[1], tmp2.data());
+                    inptr, tmpPtr, m_f[0], m_f[1], jacptr, m_W[0], m_W[1]);
+                SumDerivTensor2DKernel<simd_t>(nq0, nq1, tmpPtr[0], tmpPtr[1],
+                                               m_D[0], m_D[1], tmp2.data());
                 IProduct2DKernel<SHAPE_TYPE, false, false, simd_t>(
                     nm0, nm1, nq0, nq1, m_isModified, tmp2.data(), m_B[0],
                     m_B[1], m_nodToModTrans, wsp.data(), outptr, 1.0);
@@ -737,11 +735,11 @@ protected:
 
                 StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
                     nq0, nq1, nq2, dfptr, df_tmp, NumElmtGroups * nqTot, m_f[0],
-                    m_f[1], m_f[2], m_f[3], inptr, tmpPtr);
-                SumDerivTensor3DKernel<DEFORMED, simd_t>(
-                    nq0, nq1, nq2, tmpPtr[0], tmpPtr[1], tmpPtr[2], m_W[0],
-                    m_W[1], m_W[2], jacptr, m_D[0], m_D[1], m_D[2],
-                    tmp3.data());
+                    m_f[1], m_f[2], m_f[3], jacptr, m_W[0], m_W[1], m_W[2],
+                    inptr, tmpPtr);
+                SumDerivTensor3DKernel<simd_t>(nq0, nq1, nq2, tmpPtr[0],
+                                               tmpPtr[1], tmpPtr[2], m_D[0],
+                                               m_D[1], m_D[2], tmp3.data());
                 IProduct3DKernel<SHAPE_TYPE, false, false, simd_t>(
                     nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, tmp3.data(),
                     m_B[0], m_B[1], m_B[2], m_nodToModTrans, wsp0.data(),
@@ -846,11 +844,11 @@ protected:
 
                 StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
                     nq0, nq1, nq2, dfptr, df_tmp, NumElmtGroups * nqTot, m_f[0],
-                    m_f[1], m_f[2], m_f[3], inptr, tmpPtr);
-                SumDerivTensor3DKernel<DEFORMED, simd_t>(
-                    nq0, nq1, nq2, tmpPtr[0], tmpPtr[1], tmpPtr[2], m_W[0],
-                    m_W[1], m_W[2], jacptr, m_D[0], m_D[1], m_D[2],
-                    tmp3.data());
+                    m_f[1], m_f[2], m_f[3], jacptr, m_W[0], m_W[1], m_W[2],
+                    inptr, tmpPtr);
+                SumDerivTensor3DKernel<simd_t>(nq0, nq1, nq2, tmpPtr[0],
+                                               tmpPtr[1], tmpPtr[2], m_D[0],
+                                               m_D[1], m_D[2], tmp3.data());
                 IProduct3DKernel<SHAPE_TYPE, false, false, simd_t>(
                     nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, tmp3.data(),
                     m_B[0], m_B[1], m_B[2], m_nodToModTrans, wsp0.data(),
