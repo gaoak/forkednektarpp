@@ -128,13 +128,13 @@ public:
 
             if (m_signChange && signChange)
             {
-                AssembleKernel<ExecSpace, TData>(ncoeff * nElmts, mapPtr,
-                                                 signPtr, localPtr, globalPtr);
+                AssembleKernel<ExecSpace>(ncoeff * nElmts, mapPtr, signPtr,
+                                          localPtr, globalPtr);
             }
             else
             {
-                AssembleKernel<ExecSpace, TData>(ncoeff * nElmts, mapPtr,
-                                                 localPtr, globalPtr);
+                AssembleKernel<ExecSpace>(ncoeff * nElmts, mapPtr, localPtr,
+                                          globalPtr);
             }
 
             // Increment pointers for the next element type.
@@ -182,13 +182,13 @@ public:
 
             if (m_signChange)
             {
-                GlobalToLocalKernel<ExecSpace, TData>(
-                    ncoeff * nElmts, mapPtr, signPtr, globalPtr, localPtr);
+                GlobalToLocalKernel<ExecSpace>(ncoeff * nElmts, mapPtr, signPtr,
+                                               globalPtr, localPtr);
             }
             else
             {
-                GlobalToLocalKernel<ExecSpace, TData>(ncoeff * nElmts, mapPtr,
-                                                      globalPtr, localPtr);
+                GlobalToLocalKernel<ExecSpace>(ncoeff * nElmts, mapPtr,
+                                               globalPtr, localPtr);
             }
 
             // Increment pointers for the next element type.

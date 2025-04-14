@@ -90,8 +90,8 @@ public:
         auto diagPtr = m_glodiag.template GetPtr<MemSpace, ReadOnly>();
         auto wkPtr   = m_wk.template GetPtr<MemSpace, ReadWrite>();
 
-        divKernel<ExecSpace, TData>(m_nGlobal - m_nDir, wkPtr + m_nDir,
-                                    diagPtr + m_nDir, wkPtr + m_nDir);
+        divKernel<ExecSpace>(m_nGlobal - m_nDir, wkPtr + m_nDir,
+                             diagPtr + m_nDir, wkPtr + m_nDir);
 
         m_wk.template Initialize<MemSpace>(0, m_nDir);
 
@@ -142,8 +142,7 @@ public:
                 // Set ith term in unit vector to be 1.
                 auto unitptr =
                     unitvecblock.template GetPtr<MemSpace, WriteOnly>();
-                SetDiagonalKernel<ExecSpace, TData>(nmTot, nElmts, mode, 1.0,
-                                                    unitptr);
+                SetDiagonalKernel<ExecSpace>(nmTot, nElmts, mode, 1.0, unitptr);
 
                 // Apply the operator to unit vector and store in the
                 // action field.
@@ -154,13 +153,12 @@ public:
                 // the ith diagonal.
                 auto actptr = actionblock.template GetPtr<MemSpace, ReadOnly>();
                 auto diagptr = diagblock.template GetPtr<MemSpace, WriteOnly>();
-                CopyDiagonalKernel<ExecSpace, TData>(nmTot, nElmts, mode,
-                                                     actptr, diagptr);
+                CopyDiagonalKernel<ExecSpace>(nmTot, nElmts, mode, actptr,
+                                              diagptr);
 
                 // Reset the ith term in the unit vector to be 0.
                 unitptr = unitvecblock.template GetPtr<MemSpace, WriteOnly>();
-                SetDiagonalKernel<ExecSpace, TData>(nmTot, nElmts, mode, 0.0,
-                                                    unitptr);
+                SetDiagonalKernel<ExecSpace>(nmTot, nElmts, mode, 0.0, unitptr);
             }
         }
 

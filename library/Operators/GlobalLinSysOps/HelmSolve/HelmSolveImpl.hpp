@@ -86,7 +86,7 @@ public:
     {
         // IProductWRT of RHS
         m_IProdOp->apply(in, m_rhs);
-        neg<ExecSpace, TData>(m_rhs, m_rhs);
+        neg<ExecSpace>(m_rhs, m_rhs);
 
         // Handle Neumann BCs on RHS
         m_NeuBCOp->apply(m_rhs);
@@ -94,7 +94,7 @@ public:
         // Handle Dirichlet BCs
         m_DirBCOp->apply(out);
         m_HelmOp->apply(out, m_tmp);
-        sub<ExecSpace, TData>(m_rhs, m_tmp, m_rhs);
+        sub<ExecSpace>(m_rhs, m_tmp, m_rhs);
 
         // Handle Robin BCs
         m_RobBCOp->apply(out, m_rhs, true);
@@ -103,7 +103,7 @@ public:
         m_CGOp->apply(m_rhs, m_tmp);
 
         // Add Dirichlet BCs
-        add<ExecSpace, TData>(out, m_tmp, out);
+        add<ExecSpace>(out, m_tmp, out);
     }
 
     void SetLambda(const TData &lambda) override
