@@ -1519,7 +1519,8 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeff2DKernel(
     simd_type *diffderiv1, simd_type *deriv0 = nullptr,
     simd_type *deriv1 = nullptr)
 {
-    if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
+    if constexpr (SHAPE_TYPE == LibUtilities::eTriangle ||
+                  SHAPE_TYPE == LibUtilities::eNodalTri)
     {
         TensorDerivWithDiffuCoeffTriKernel<DEFORMED>(
             nq0, nq1, isConstVarDiff, constVarDiff, isVarDiff, varD00, varD01,
@@ -1561,7 +1562,8 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeff3DKernel(
             varD01, varD11, varD02, varD12, varD22, in, D0, D1, D2, df_ptr,
             diffderiv0, diffderiv1, diffderiv2, deriv0, deriv1, deriv2);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::eTetrahedron)
+    else if constexpr ((SHAPE_TYPE == LibUtilities::eTetrahedron) ||
+                       (SHAPE_TYPE == LibUtilities::eNodalTet))
     {
         TensorDerivWithDiffuCoeffTetKernel<DEFORMED, simd_type>(
             nq0, nq1, nq2, isConstVarDiff, constVarDiff, isVarDiff, varD00,
@@ -1569,7 +1571,8 @@ NEK_FORCE_INLINE static void TensorDerivWithDiffuCoeff3DKernel(
             h1, h2, h3, diffderiv0, diffderiv1, diffderiv2, deriv0, deriv1,
             deriv2);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::ePrism)
+    else if constexpr ((SHAPE_TYPE == LibUtilities::ePrism) ||
+                       (SHAPE_TYPE == LibUtilities::eNodalPrism))
     {
         TensorDerivWithDiffuCoeffPrismKernel<DEFORMED, simd_type>(
             nq0, nq1, nq2, isConstVarDiff, constVarDiff, isVarDiff, varD00,

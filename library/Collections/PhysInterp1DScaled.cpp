@@ -45,6 +45,9 @@ namespace Nektar::Collections
 {
 
 using LibUtilities::eHexahedron;
+using LibUtilities::eNodalPrism;
+using LibUtilities::eNodalTet;
+using LibUtilities::eNodalTri;
 using LibUtilities::ePrism;
 using LibUtilities::ePyramid;
 using LibUtilities::eQuadrilateral;
@@ -247,7 +250,7 @@ OperatorKey PhysInterp1DScaled_MatrixFree::m_typeArr[] = {
         PhysInterp1DScaled_MatrixFree::create,
         "PhysInterp1DScaled_MatrixFree_Tri"),
     GetOperatorFactory().RegisterCreatorFunction(
-        OperatorKey(eTriangle, ePhysInterp1DScaled, eMatrixFree, true),
+        OperatorKey(eNodalTri, ePhysInterp1DScaled, eMatrixFree, true),
         PhysInterp1DScaled_MatrixFree::create,
         "PhysInterp1DScaled_MatrixFree_NodalTri"),
     GetOperatorFactory().RegisterCreatorFunction(
@@ -259,7 +262,7 @@ OperatorKey PhysInterp1DScaled_MatrixFree::m_typeArr[] = {
         PhysInterp1DScaled_MatrixFree::create,
         "PhysInterp1DScaled_MatrixFree_Tet"),
     GetOperatorFactory().RegisterCreatorFunction(
-        OperatorKey(eTetrahedron, ePhysInterp1DScaled, eMatrixFree, true),
+        OperatorKey(eNodalTet, ePhysInterp1DScaled, eMatrixFree, true),
         PhysInterp1DScaled_MatrixFree::create,
         "PhysInterp1DScaled_MatrixFree_NodalTet"),
     GetOperatorFactory().RegisterCreatorFunction(
@@ -271,7 +274,7 @@ OperatorKey PhysInterp1DScaled_MatrixFree::m_typeArr[] = {
         PhysInterp1DScaled_MatrixFree::create,
         "PhysInterp1DScaled_MatrixFree_Prism"),
     GetOperatorFactory().RegisterCreatorFunction(
-        OperatorKey(ePrism, ePhysInterp1DScaled, eMatrixFree, true),
+        OperatorKey(eNodalPrism, ePhysInterp1DScaled, eMatrixFree, true),
         PhysInterp1DScaled_MatrixFree::create,
         "PhysInterp1DScaled_MatrixFree_NodalPrism"),
     GetOperatorFactory().RegisterCreatorFunction(
@@ -485,7 +488,7 @@ OperatorKey PhysInterp1DScaled_NoCollection::m_typeArr[] = {
         PhysInterp1DScaled_NoCollection::create,
         "PhysInterp1DScaled_NoCollection_Tri"),
     GetOperatorFactory().RegisterCreatorFunction(
-        OperatorKey(eTriangle, ePhysInterp1DScaled, eNoCollection, true),
+        OperatorKey(eNodalTri, ePhysInterp1DScaled, eNoCollection, true),
         PhysInterp1DScaled_NoCollection::create,
         "PhysInterp1DScaled_NoCollection_NodalTri"),
     GetOperatorFactory().RegisterCreatorFunction(
@@ -497,7 +500,7 @@ OperatorKey PhysInterp1DScaled_NoCollection::m_typeArr[] = {
         PhysInterp1DScaled_NoCollection::create,
         "PhysInterp1DScaled_NoCollection_Tet"),
     GetOperatorFactory().RegisterCreatorFunction(
-        OperatorKey(eTetrahedron, ePhysInterp1DScaled, eNoCollection, true),
+        OperatorKey(eNodalTet, ePhysInterp1DScaled, eNoCollection, true),
         PhysInterp1DScaled_NoCollection::create,
         "PhysInterp1DScaled_NoCollection_NodalTet"),
     GetOperatorFactory().RegisterCreatorFunction(
@@ -509,7 +512,7 @@ OperatorKey PhysInterp1DScaled_NoCollection::m_typeArr[] = {
         PhysInterp1DScaled_NoCollection::create,
         "PhysInterp1DScaled_NoCollection_Prism"),
     GetOperatorFactory().RegisterCreatorFunction(
-        OperatorKey(ePrism, ePhysInterp1DScaled, eNoCollection, true),
+        OperatorKey(eNodalPrism, ePhysInterp1DScaled, eNoCollection, true),
         PhysInterp1DScaled_NoCollection::create,
         "PhysInterp1DScaled_NoCollection_NodalPrism"),
     GetOperatorFactory().RegisterCreatorFunction(

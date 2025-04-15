@@ -97,6 +97,7 @@ public:
         switch (shapeType)
         {
             case LibUtilities::Tri:
+            case LibUtilities::NodalTri:
             {
                 const auto mode = modeIndexKey.m_mode;
                 const auto nm0  = modeIndexKey.m_nm0;
@@ -131,6 +132,7 @@ public:
             }
             break;
             case LibUtilities::Tet:
+            case LibUtilities::NodalTet:
             {
                 const auto mode  = modeIndexKey.m_mode;
                 const auto nm0   = modeIndexKey.m_nm0;
@@ -196,6 +198,7 @@ public:
             }
             break;
             case LibUtilities::Prism:
+            case LibUtilities::NodalPrism:
             {
                 const auto mode  = modeIndexKey.m_mode;
                 const auto nm0   = modeIndexKey.m_nm0;

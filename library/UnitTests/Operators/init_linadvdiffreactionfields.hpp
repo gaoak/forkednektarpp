@@ -179,6 +179,8 @@ TEST(Tri, "run/tri.xml")
 
 TEST(TriVarP, "run/tri_varp.xml")
 
+TEST(TriNodal, "run/tri_nodal.xml")
+
 TEST(SquareAllElements, "run/square_all_elements.xml")
 
 TEST(Hex, "run/hex.xml")
@@ -191,6 +193,8 @@ TEST(Prism, "run/prism.xml")
 
 TEST(PrismVarP, "run/prism_varp.xml")
 
+TEST(PrismNodal, "run/prism_nodal.xml")
+
 TEST(Pyr, "run/pyr.xml")
 
 TEST(PyrVarP, "run/pyr_varp.xml")
@@ -198,6 +202,8 @@ TEST(PyrVarP, "run/pyr_varp.xml")
 TEST(Tet, "run/tet.xml")
 
 TEST(TetVarP, "run/tet_varp.xml")
+
+TEST(TetNodal, "run/tet_nodal.xml")
 
 TEST(CubePrismHex, "run/cube_prismhex.xml")
 

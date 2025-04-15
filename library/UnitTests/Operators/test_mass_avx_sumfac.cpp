@@ -68,6 +68,8 @@ TEST_MASS(mass_avx_tri, Tri, 1.0E-12)
 
 TEST_MASS(mass_avx_tri_varp, TriVarP, 1.0E-12)
 
+TEST_MASS(mass_avx_tri_nodal, TriNodal, 1.0E-12)
+
 TEST_MASS(mass_avx_square_all_elements, SquareAllElements, 1.0E-12)
 
 TEST_MASS(mass_avx_hex, Hex, 1.0E-12)
@@ -79,6 +81,8 @@ TEST_MASS(mass_avx_hex_varp, HexVarP, 1.0E-12)
 TEST_MASS(mass_avx_prism, Prism, 1.0E-12)
 
 TEST_MASS(mass_avx_prism_varp, PrismVarP, 1.0E-12)
+
+TEST_MASS(mass_avx_prism_nodal, PrismNodal, 1.0E-12)
 
 TEST_MASS(mass_avx_pyr, Pyr, 1.0E-12)
 

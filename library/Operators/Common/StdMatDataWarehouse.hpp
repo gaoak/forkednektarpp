@@ -78,11 +78,12 @@ public:
 
     ~StdMatKey() override = default;
 
-    StdMatKey(const std::vector<LibUtilities::BasisKey> basisKeys,
-              const LibUtilities::ShapeType shapeType,
-              const StdMatType stdMatType)
+    StdMatKey(
+        const std::vector<LibUtilities::BasisKey> basisKeys,
+        const LibUtilities::ShapeType shapeType, const StdMatType stdMatType,
+        const LibUtilities::PointsType nodalType = LibUtilities::eNoPointsType)
         : m_basisKeys(basisKeys), m_shapeType(shapeType),
-          m_stdMatType(stdMatType)
+          m_stdMatType(stdMatType), m_nodalType(nodalType)
     {
         if (m_basisKeys.size() > 2)
         {
@@ -100,18 +101,19 @@ public:
                          m_basisKeys[1].GetPointsKey().GetPointsType(),
                          m_basisKeys[1].GetPointsKey().GetFactor());
         }
-        hash_combine(m_hash, m_basisKeys[0].GetNumModes(),
-                     m_basisKeys[0].GetBasisType(),
-                     m_basisKeys[0].GetPointsKey().GetNumPoints(),
-                     m_basisKeys[0].GetPointsKey().GetPointsType(),
-                     m_basisKeys[0].GetPointsKey().GetFactor(), m_shapeType,
-                     m_stdMatType, typeid(value_type).name(), "StdMatKey");
+        hash_combine(
+            m_hash, m_basisKeys[0].GetNumModes(), m_basisKeys[0].GetBasisType(),
+            m_basisKeys[0].GetPointsKey().GetNumPoints(),
+            m_basisKeys[0].GetPointsKey().GetPointsType(),
+            m_basisKeys[0].GetPointsKey().GetFactor(), m_shapeType,
+            m_stdMatType, m_nodalType, typeid(value_type).name(), "StdMatKey");
     }
 
 private:
     std::vector<LibUtilities::BasisKey> m_basisKeys;
     LibUtilities::ShapeType m_shapeType;
     StdMatType m_stdMatType;
+    LibUtilities::PointsType m_nodalType;
 };
 
 class StdMatDataCreator : public DataCreatorClass
@@ -129,6 +131,7 @@ public:
         const auto shapeType  = stdMatKey.m_shapeType;
         const auto bkey       = stdMatKey.m_basisKeys;
         const auto stdMatType = stdMatKey.m_stdMatType;
+        const auto nodaltype  = stdMatKey.m_nodalType;
 
         StdExpansion *stdExp = nullptr;
 
@@ -146,10 +149,12 @@ public:
             }
             case eTriangle:
             {
-                // stdExp = nodaltype != eNoPointsType
-                //             ? new StdNodalTriExp(bkey[0], bkey[1], nodaltype)
-                //             : new StdTriExp(bkey[0], bkey[1]);
                 stdExp = new StdTriExp(bkey[0], bkey[1]);
+                break;
+            }
+            case eNodalTri:
+            {
+                stdExp = new StdNodalTriExp(bkey[0], bkey[1], nodaltype);
                 break;
             }
             case eQuadrilateral:
@@ -159,11 +164,13 @@ public:
             }
             case eTetrahedron:
             {
-                // stdExp = nodaltype != eNoPointsType
-                //              ? new StdNodalTetExp(bkey[0], bkey[1], bkey[2],
-                //                                   nodaltype)
-                //              : new StdTetExp(bkey[0], bkey[1], bkey[2]);
                 stdExp = new StdTetExp(bkey[0], bkey[1], bkey[2]);
+                break;
+            }
+            case eNodalTet:
+            {
+                stdExp =
+                    new StdNodalTetExp(bkey[0], bkey[1], bkey[2], nodaltype);
                 break;
             }
             case ePyramid:
@@ -173,12 +180,13 @@ public:
             }
             case ePrism:
             {
-                // stdExp = nodaltype != eNoPointsType
-                //              ? new StdNodalPrismExp(bkey[0], bkey[1],
-                //              bkey[2],
-                //                                     nodaltype)
-                //              : new StdPrismExp(bkey[0], bkey[1], bkey[2]);
                 stdExp = new StdPrismExp(bkey[0], bkey[1], bkey[2]);
+                break;
+            }
+            case eNodalPrism:
+            {
+                stdExp =
+                    new StdNodalPrismExp(bkey[0], bkey[1], bkey[2], nodaltype);
                 break;
             }
             case eHexahedron:

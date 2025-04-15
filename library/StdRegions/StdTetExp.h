@@ -50,13 +50,9 @@ public:
                                  const LibUtilities::BasisKey &Bb,
                                  const LibUtilities::BasisKey &Bc,
                                  NekDouble *coeffs, NekDouble *phys);
+    STD_REGIONS_EXPORT StdTetExp()                   = default;
     STD_REGIONS_EXPORT StdTetExp(const StdTetExp &T) = default;
     STD_REGIONS_EXPORT ~StdTetExp() override         = default;
-
-    LibUtilities::ShapeType DetShapeType() const
-    {
-        return LibUtilities::eTetrahedron;
-    }
 
 protected:
     //----------------------------

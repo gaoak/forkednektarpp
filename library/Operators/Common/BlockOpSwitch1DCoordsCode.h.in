@@ -132,7 +132,7 @@ const auto nq0 = m_nq[0];
         break;
         }
     }
-#elif defined(SHAPE_TYPE_Quad) || defined(SHAPE_TYPE_Tri)
+#elif defined(SHAPE_TYPE_Quad) || defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
 
     const auto nq0 = m_nq[0];
     const auto nq1 = m_nq[1];
@@ -154,7 +154,7 @@ const auto nq0 = m_nq[0];
     case NQ(i):                                                                \
         Operator2D<LibUtilities::Quad, true, 2, NQ(i), NQ(i)>(input, output);  \
         break;
-#elif defined(SHAPE_TYPE_Tri)
+#elif defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
 #define OPERATOR(r, i)                                                         \
     case NQ(i):                                                                \
         Operator2D<LibUtilities::Tri, true, 2, NQ(i), NQ_M1(i)>(input, output);\
@@ -164,7 +164,7 @@ const auto nq0 = m_nq[0];
             // loop case over quarature points 
 #if defined(SHAPE_TYPE_Quad)
             if (nq0 == nq1)
-#elif defined(SHAPE_TYPE_Tri)
+#elif defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
             if (nq0 == nq1 + 1)
 #endif
             {
@@ -191,7 +191,7 @@ const auto nq0 = m_nq[0];
     case NQ(i):                                                                \
         Operator2D<LibUtilities::Quad, true, 3, NQ(i), NQ(i)>(input, output);  \
         break;
-#elif defined(SHAPE_TYPE_Tri)
+#elif defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
 #define OPERATOR(r, i)                                                         \
     case NQ(i):                                                                \
         Operator2D<LibUtilities::Tri, true, 3, NQ(i), NQ_M1(i)>(input, output);\
@@ -201,7 +201,7 @@ const auto nq0 = m_nq[0];
             // loop case over quarature points 
 #if defined(SHAPE_TYPE_Quad)
             if (nq0 == nq1)
-#elif defined(SHAPE_TYPE_Tri)
+#elif defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
             if (nq0 == nq1 + 1)
 #endif
             {
@@ -239,7 +239,7 @@ const auto nq0 = m_nq[0];
     case NQ(i):                                                                \
         Operator2D<LibUtilities::Quad, false, 2, NQ(i), NQ(i)>(input, output); \
         break;
-#elif defined(SHAPE_TYPE_Tri)
+#elif defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
 #define OPERATOR(r, i)                                                         \
     case NQ(i):                                                                \
         Operator2D<LibUtilities::Tri, false, 2, NQ(i), NQ_M1(i)>(input, output); \
@@ -249,7 +249,7 @@ const auto nq0 = m_nq[0];
             // loop case over quarature points 
 #if defined(SHAPE_TYPE_Quad)
             if (nq0 == nq1)
-#elif defined(SHAPE_TYPE_Tri)
+#elif defined(SHAPE_TYPE_Tri)  || defined(SHAPE_TYPE_NodalTri)
             if (nq0 == nq1 + 1)
 #endif
             {
@@ -276,7 +276,7 @@ const auto nq0 = m_nq[0];
     case NQ(i):                                                                \
         Operator2D<LibUtilities::Quad, false, 3, NQ(i), NQ(i)>(input, output); \
         break;
-#elif defined(SHAPE_TYPE_Tri)
+#elif defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
 #define OPERATOR(r, i)                                                         \
     case NQ(i):                                                                \
         Operator2D<LibUtilities::Tri, false, 3, NQ(i), NQ_M1(i)>(input, output); \
@@ -286,7 +286,7 @@ const auto nq0 = m_nq[0];
             // loop case over quarature points 
 #if defined(SHAPE_TYPE_Quad)
             if (nq0 == nq1)
-#elif defined(SHAPE_TYPE_Tri)
+#elif defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
             if (nq0 == nq1 + 1)
 #endif
             {
@@ -326,14 +326,14 @@ const auto nq0 = m_nq[0];
         Operator3D<LibUtilities::@Shape@, true, NQ(i),  NQ(i), NQ(i)>          \
             (input, output);                                                   \
         break;
-#elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_Pyr)
+#elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) || defined(SHAPE_TYPE_Pyr)
 #undef OPERATOR
 #define OPERATOR(r, i)                                                         \
     case NQ(i):                                                                \
         Operator3D<LibUtilities::@Shape@, true, NQ(i),  NQ(i), NQ_M1(i)>       \
             (input, output);                                                   \
         break;
-#elif defined(SHAPE_TYPE_Tet)
+#elif defined(SHAPE_TYPE_Tet) || defined(SHAPE_TYPE_NodalTet)
 #undef OPERATOR
 #define OPERATOR(r, i)                                                         \
     case NQ(i):                                                                \
@@ -345,9 +345,9 @@ const auto nq0 = m_nq[0];
             // loop case over quarature points 
 #if defined(SHAPE_TYPE_Hex)
         if ((nq0 == nq1) && (nq1 == nq2))
-#elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_Pyr)
+#elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) || defined(SHAPE_TYPE_Pyr)
         if ((nq0 == nq1) && (nq1 == nq2 + 1))
-#elif defined(SHAPE_TYPE_Tet)
+#elif defined(SHAPE_TYPE_Tet)|| defined(SHAPE_TYPE_NodalTet)
         if ((nq0 == nq1 + 1) && (nq1 == nq2))
 #endif
         {
@@ -378,14 +378,14 @@ const auto nq0 = m_nq[0];
         Operator3D<LibUtilities::@Shape@, false, NQ(i),  NQ(i), NQ(i)>         \
             (input, output);                                                   \
         break;
-#elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_Pyr)
+#elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) || defined(SHAPE_TYPE_Pyr)
 #undef OPERATOR
 #define OPERATOR(r, i)                                                         \
     case NQ(i):                                                                \
         Operator3D<LibUtilities::@Shape@, false, NQ(i),  NQ(i), NQ_M1(i)>      \
             (input, output);                                                   \
         break;
-#elif defined(SHAPE_TYPE_Tet)
+#elif defined(SHAPE_TYPE_Tet) || defined(SHAPE_TYPE_NodalTet)
 #undef OPERATOR
 #define OPERATOR(r, i)                                                         \
     case NQ(i):                                                                \
@@ -397,9 +397,9 @@ const auto nq0 = m_nq[0];
             // loop case over quarature points 
 #if defined(SHAPE_TYPE_Hex)
         if ((nq0 == nq1) && (nq1 == nq2))
-#elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_Pyr)
+#elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) || defined(SHAPE_TYPE_Pyr)
         if ((nq0 == nq1) && (nq1 == nq2 + 1))
-#elif defined(SHAPE_TYPE_Tet)
+#elif defined(SHAPE_TYPE_Tet) || defined(SHAPE_TYPE_NodalTet)
         if ((nq0 == nq1 + 1) && (nq1 == nq2))
 #endif
         {

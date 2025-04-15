@@ -7,6 +7,7 @@ Expansion3D.cpp
 HexExp.cpp
 IndexMapKey.cpp
 MatrixKey.cpp
+NodalPrismExp.cpp
 NodalTetExp.cpp
 NodalTriExp.cpp
 PointExp.cpp
@@ -32,6 +33,7 @@ LocalRegionsDeclspec.h
 MatrixKey.h
 NodalTetExp.h
 NodalTriExp.h
+NodalPrismExp.h
 PointExp.h
 PrismExp.h
 PyrExp.h

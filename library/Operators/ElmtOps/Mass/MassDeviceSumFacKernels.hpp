@@ -75,7 +75,8 @@ inline unsigned int MassSharedMemorySize(const unsigned int nq0,
             return nm0 * nq0 + nm1 * nq1 + nmTot + nq0 * nq1 +
                    std::max(nq0 * nm1, nm0 * nq1);
         }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
+        else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                           SHAPE_TYPE == LibUtilities::NodalTri)
         {
             return nm0 * nq0 + nmTot * nq1 + nmTot + nq0 * nq1 + nm0 * nq1;
         }
@@ -84,6 +85,7 @@ inline unsigned int MassSharedMemorySize(const unsigned int nq0,
     {
         return 0;
     }
+    return 0;
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation>
@@ -102,7 +104,8 @@ inline unsigned int MassSharedMemorySize(
                    std::max(nq0 * nm1 * nm2, nm0 * nq1 * nq2) +
                    std::max(nq0 * nq1 * nm2, nm0 * nm1 * nq2);
         }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
+        else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                           SHAPE_TYPE == LibUtilities::NodalTet)
         {
             const unsigned int nmode2 =
                 nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
@@ -110,7 +113,8 @@ inline unsigned int MassSharedMemorySize(
             return nm0 * nq0 + nm01 * nq1 + nmode2 * nq2 + nmTot +
                    nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm01 * nq2;
         }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
+        else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
+                           SHAPE_TYPE == LibUtilities::NodalPrism)
         {
             const unsigned int nm02 = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
             return nm0 * nq0 + nm1 * nq1 + nm02 * nq2 + nmTot +
@@ -128,6 +132,7 @@ inline unsigned int MassSharedMemorySize(
     {
         return 0;
     }
+    return 0;
 }
 
 template <typename Implementation, bool DEFORMED, typename TthreadBlock,
@@ -214,8 +219,9 @@ NEK_DEVICE_INLINE static void Mass2DKernel(
     [[maybe_unused]] const unsigned int *__restrict__ index0,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ w0, const TData *__restrict__ w1,
-    const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ wsp,
+    const TData *__restrict__ nodToMod, const TData *__restrict__ jac,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    [[maybe_unused]] TData *__restrict__ wsp,
     [[maybe_unused]] TData *__restrict__ shmemptr,
     const TthreadBlock &threadBlock)
 {
@@ -260,19 +266,35 @@ NEK_DEVICE_INLINE static void Mass2DKernel(
                     ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1, w0,
                     w1, jacptr, bwd, outptr, wsp0, (TData)1.0);
             }
+            else if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
+            {
+                TData *modes = wsp + nqTot * nelmt + nmTot * warpsize * iwarp;
+                TData *wsp0  = wsp + (nqTot + nmTot) * nelmt +
+                              std::max(nq1, nm0) * warpsize * iwarp;
+                MatVecKernel(ilane, nmTot, nodToMod, inptr, modes);
+                BwdTransTriSumFacKernel(ilane, nm0, nm1, nq0, nq1, isModified,
+                                        basis0, basis1, modes, bwd, wsp0);
+                IProductWRTBaseTriSumFacKernel<false, false, DEFORMED>(
+                    ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1, w0,
+                    w1, jacptr, bwd, modes, wsp0, (TData)1.0);
+                // multiply by transpose  notToMod to transform coeffs
+                MatVecKernel<false, true>(ilane, nmTot, nodToMod, modes,
+                                          outptr);
+            }
             e += getGlobalRange(threadBlock);
         }
     }
     else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
-        unsigned int offset, nmode0, nmode1;
+        unsigned int offset{0}, nmode0{0}, nmode1{0};
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
             offset = std::max(nm0 * nq1, nm1 * nq0);
             nmode0 = nm0;
             nmode1 = nm1;
         }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
+        else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                           SHAPE_TYPE == LibUtilities::NodalTri)
         {
             offset = nm0 * nq1;
             nmode0 = nm0;
@@ -283,7 +305,7 @@ NEK_DEVICE_INLINE static void Mass2DKernel(
         TData *bwd      = tmp + nmTot;
         TData *s_wsp0   = bwd + nqTot;
         TData *s_basis0 = s_wsp0 + offset;
-        TData *s_basis1 = s_basis0 + nm0 * nq0;
+        TData *s_basis1 = s_basis0 + nmode0 * nq0;
 
         // Copy to shared memory.
         const unsigned int idx0   = getLocalIdx(threadBlock);
@@ -306,13 +328,19 @@ NEK_DEVICE_INLINE static void Mass2DKernel(
             const TData *inptr  = in + nmTot * e;
             TData *outptr       = out + nmTot * e;
 
-            // Copy to shared memory.
-            for (unsigned int idx = idx0; idx < nmTot; idx += stride)
+            if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
             {
-                tmp[idx] = inptr[idx];
+                MatVecQPKernel(nmTot, nodToMod, inptr, tmp, threadBlock);
             }
-
-            localBarrier(threadBlock);
+            else
+            {
+                // Copy to shared memory.
+                for (unsigned int idx = idx0; idx < nmTot; idx += stride)
+                {
+                    tmp[idx] = inptr[idx];
+                }
+                localBarrier(threadBlock);
+            }
 
             if constexpr (SHAPE_TYPE == LibUtilities::Quad)
             {
@@ -320,7 +348,8 @@ NEK_DEVICE_INLINE static void Mass2DKernel(
                                            s_basis1, tmp, bwd, s_wsp0,
                                            threadBlock);
             }
-            else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
+            else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                               SHAPE_TYPE == LibUtilities::NodalTri)
             {
                 BwdTransTriSumFacQPKernel(nm0, nm1, nq0, nq1, nqTot, isModified,
                                           s_basis0, s_basis1, tmp, bwd, s_wsp0,
@@ -356,6 +385,16 @@ NEK_DEVICE_INLINE static void Mass2DKernel(
                     s_basis0, s_basis1, bwd, outptr, s_wsp0, (TData)1.0,
                     threadBlock);
             }
+            else if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
+            {
+                IProductWRTBaseTriSumFacQPKernel<false, false, DEFORMED>(
+                    nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0,
+                    s_basis0, s_basis1, bwd, tmp, s_wsp0, (TData)1.0,
+                    threadBlock);
+                // multiply by transpose nodToMod to convert coeffs
+                MatVecQPKernel<false, true>(nmTot, nodToMod, tmp, outptr,
+                                            threadBlock);
+            }
 
             e += getBlockRange(threadBlock);
         }
@@ -375,8 +414,9 @@ NEK_DEVICE_INLINE static void Mass3DKernel(
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ basis2, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ w2,
-    const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ wsp,
+    const TData *__restrict__ nodToMod, const TData *__restrict__ jac,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    [[maybe_unused]] TData *__restrict__ wsp,
     [[maybe_unused]] TData *__restrict__ shmemptr,
     const TthreadBlock &threadBlock)
 {
@@ -432,6 +472,30 @@ NEK_DEVICE_INLINE static void Mass3DKernel(
                     basis1, basis2, w0, w1, w2, jacptr, bwd, outptr, wsp0, wsp1,
                     wsp2, (TData)1.0);
             }
+            else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
+            {
+                TData *modes = wsp + nqTot * nelmt + nmTot * warpsize * iwarp;
+                TData *wsp0  = wsp + (nqTot + nmTot) * nelmt +
+                              nq1 * nq2 * warpsize * iwarp;
+                TData *wsp1 = wsp + (nqTot + nq1 * nq2 + nmTot) * nelmt +
+                              std::max(nq2, nm0) * warpsize * iwarp;
+                TData *wsp2 =
+                    wsp +
+                    (nqTot + nq1 * nq2 + std::max(nq2, nm0) + nmTot) * nelmt +
+                    nm2 * warpsize * iwarp;
+
+                MatVecKernel(ilane, nmTot, nodToMod, inptr, modes);
+                BwdTransTetSumFacKernel(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
+                                        isModified, basis0, basis1, basis2,
+                                        modes, bwd, wsp0, wsp1);
+                IProductWRTBaseTetSumFacKernel<false, false, DEFORMED>(
+                    ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
+                    basis1, basis2, w0, w1, w2, jacptr, bwd, modes, wsp0, wsp1,
+                    wsp2, (TData)1.0);
+                // multiply by transpose  notToMod to transform coeffs
+                MatVecKernel<false, true>(ilane, nmTot, nodToMod, modes,
+                                          outptr);
+            }
             else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
             {
                 TData *wsp0 = wsp + nqTot * nelmt +
@@ -451,6 +515,32 @@ NEK_DEVICE_INLINE static void Mass3DKernel(
                     ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
                     basis1, basis2, w0, w1, w2, jacptr, bwd, outptr, wsp0, wsp1,
                     wsp2, (TData)1.0);
+            }
+            else if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism)
+            {
+                TData *modes = wsp + nqTot * nelmt + nmTot * warpsize * iwarp;
+                TData *wsp0  = wsp + (nqTot + nmTot) * nelmt +
+                              std::max(nq1 * nq2, nm0 * nm1) * warpsize * iwarp;
+                TData *wsp1 =
+                    wsp +
+                    (nqTot + nmTot + std::max(nq1 * nq2, nm0 * nm1)) * nelmt +
+                    std::max(nq2, nm0) * warpsize * iwarp;
+                TData *wsp2 = wsp +
+                              (nqTot + nmTot + std::max(nq1 * nq2, nm0 * nm1) +
+                               std::max(nq2, nm0)) *
+                                  nelmt +
+                              nm1 * warpsize * iwarp;
+                MatVecKernel(ilane, nmTot, nodToMod, inptr, modes);
+                BwdTransPrismSumFacKernel(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
+                                          isModified, basis0, basis1, basis2,
+                                          modes, bwd, wsp0, wsp1);
+                IProductWRTBasePrismSumFacKernel<false, false, DEFORMED>(
+                    ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
+                    basis1, basis2, w0, w1, w2, jacptr, bwd, modes, wsp0, wsp1,
+                    wsp2, (TData)1.0);
+                // multiply by transpose  notToMod to transform coeffs
+                MatVecKernel<false, true>(ilane, nmTot, nodToMod, modes,
+                                          outptr);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
             {
@@ -472,7 +562,7 @@ NEK_DEVICE_INLINE static void Mass3DKernel(
     }
     else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
-        unsigned int offset0, offset1, nmode0, nmode1, nmode2;
+        unsigned int offset0{0}, offset1{0}, nmode0{0}, nmode1{0}, nmode2{0};
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
             offset0 = std::max(nq0 * nm1 * nm2, nm0 * nq1 * nq2);
@@ -481,7 +571,8 @@ NEK_DEVICE_INLINE static void Mass3DKernel(
             nmode1  = nm1;
             nmode2  = nm2;
         }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
+        else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                           SHAPE_TYPE == LibUtilities::NodalTet)
         {
             offset0 = (2u * nm1 - nm0 + 1u) * nm0 / 2u * nq2;
             offset1 = nm0 * nq1 * nq2;
@@ -489,7 +580,8 @@ NEK_DEVICE_INLINE static void Mass3DKernel(
             nmode1  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
             nmode2  = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
         }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
+        else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
+                           SHAPE_TYPE == LibUtilities::NodalPrism)
         {
             offset0 = nm0 * nm1 * nq2;
             offset1 = nm0 * nq1 * nq2;
@@ -540,13 +632,21 @@ NEK_DEVICE_INLINE static void Mass3DKernel(
             const TData *inptr  = in + nmTot * e;
             TData *outptr       = out + nmTot * e;
 
-            // Copy to shared memory.
-            for (unsigned int idx = idx0; idx < nmTot; idx += stride)
+            if constexpr (SHAPE_TYPE == LibUtilities::NodalTet ||
+                          SHAPE_TYPE == LibUtilities::NodalPrism)
             {
-                tmp[idx] = inptr[idx];
+                MatVecQPKernel(nmTot, nodToMod, inptr, tmp, threadBlock);
             }
+            else
+            {
+                // Copy to shared memory.
+                for (unsigned int idx = idx0; idx < nmTot; idx += stride)
+                {
+                    tmp[idx] = inptr[idx];
+                }
 
-            localBarrier(threadBlock);
+                localBarrier(threadBlock);
+            }
 
             if constexpr (SHAPE_TYPE == LibUtilities::Hex)
             {
@@ -554,14 +654,16 @@ NEK_DEVICE_INLINE static void Mass3DKernel(
                                           s_basis0, s_basis1, s_basis2, tmp,
                                           bwd, s_wsp0, s_wsp1, threadBlock);
             }
-            else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
+            else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                               SHAPE_TYPE == LibUtilities::NodalTet)
             {
                 BwdTransTetSumFacQPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
                                           isModified, index0, index3, s_basis0,
                                           s_basis1, s_basis2, tmp, bwd, s_wsp0,
                                           s_wsp1, threadBlock);
             }
-            else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
+            else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
+                               SHAPE_TYPE == LibUtilities::NodalPrism)
             {
                 BwdTransPrismSumFacQPKernel(
                     nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, s_basis0,
@@ -606,12 +708,32 @@ NEK_DEVICE_INLINE static void Mass3DKernel(
                     index0, index1, index2, s_basis0, s_basis1, s_basis2, bwd,
                     outptr, s_wsp1, s_wsp0, (TData)1.0, threadBlock);
             }
+            else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
+            {
+                IProductWRTBaseTetSumFacQPKernel<false, false, DEFORMED>(
+                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
+                    index0, index1, index2, s_basis0, s_basis1, s_basis2, bwd,
+                    tmp, s_wsp1, s_wsp0, (TData)1.0, threadBlock);
+                // multiply by transpose nodToMod to convert coeffs
+                MatVecQPKernel<false, true>(nmTot, nodToMod, tmp, outptr,
+                                            threadBlock);
+            }
             else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
             {
                 IProductWRTBasePrismSumFacQPKernel<false, false, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
                     index0, index1, index2, s_basis0, s_basis1, s_basis2, bwd,
                     outptr, s_wsp1, s_wsp0, (TData)1.0, threadBlock);
+            }
+            else if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism)
+            {
+                IProductWRTBasePrismSumFacQPKernel<false, false, DEFORMED>(
+                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
+                    index0, index1, index2, s_basis0, s_basis1, s_basis2, bwd,
+                    tmp, s_wsp1, s_wsp0, (TData)1.0, threadBlock);
+                // multiply by transpose nodToMod to convert coeffs
+                MatVecQPKernel<false, true>(nmTot, nodToMod, tmp, outptr,
+                                            threadBlock);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
             {

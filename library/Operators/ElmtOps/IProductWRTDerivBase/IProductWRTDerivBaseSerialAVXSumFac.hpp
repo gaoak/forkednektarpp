@@ -113,6 +113,21 @@ public:
                 BasisDataKey<simd_t>(exp->GetBasis(2)->GetBasisKey(),
                                      eTwoOverOneMinusZero)));
         }
+
+        if ((m_shapeType == LibUtilities::eNodalTri) ||
+            (m_shapeType == LibUtilities::eNodalTet) ||
+            (m_shapeType == LibUtilities::eNodalPrism))
+        {
+            // Fetch NodalToModal Matrix if required.
+            m_nodToModTrans =
+                this->m_dataWarehouse->template GetData<ExecSpace>(
+                    VandemondeKey<simd_t>(eNodalToModalTranspose,
+                                          exp->GetElmtId()));
+        }
+        else
+        {
+            m_nodToModTrans = (const simd_t *)nullptr;
+        }
     }
 
     void apply(BlockAccessor<TData> &inblock,
@@ -146,6 +161,12 @@ public:
                 TriBlock(inblock, outblock);
                 break;
             }
+            // NodalTriangles
+            case LibUtilities::NodalTri:
+            {
+                NodalTriBlock(inblock, outblock);
+                break;
+            }
             // Hexes
             case LibUtilities::Hex:
             {
@@ -158,6 +179,12 @@ public:
                 TetBlock(inblock, outblock);
                 break;
             }
+            // NodalTet
+            case LibUtilities::NodalTet:
+            {
+                NodalTetBlock(inblock, outblock);
+                break;
+            }
             // Pyr
             case LibUtilities::Pyr:
             {
@@ -168,6 +195,12 @@ public:
             case LibUtilities::Prism:
             {
                 PrismBlock(inblock, outblock);
+                break;
+            }
+            // NodalPrism
+            case LibUtilities::NodalPrism:
+            {
+                NodalPrismBlock(inblock, outblock);
                 break;
             }
             default:
@@ -202,6 +235,7 @@ protected:
     std::vector<const simd_t *> m_D;
     std::vector<const simd_t *> m_W;
     std::vector<const simd_t *> m_f;
+    const simd_t *m_nodToModTrans;
 
     void SegBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
@@ -209,11 +243,17 @@ protected:
     void TriBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
 
+    void NodalTriBlock(BlockAccessor<TData> &inblock,
+                       BlockAccessor<TData> &outblock);
+
     void QuadBlock(BlockAccessor<TData> &inblock,
                    BlockAccessor<TData> &outblock);
 
     void HexBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
+
+    void NodalPrismBlock(BlockAccessor<TData> &inblock,
+                         BlockAccessor<TData> &outblock);
 
     void PrismBlock(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock);
@@ -223,6 +263,9 @@ protected:
 
     void TetBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
+
+    void NodalTetBlock(BlockAccessor<TData> &inblock,
+                       BlockAccessor<TData> &outblock);
 
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
@@ -436,9 +479,11 @@ protected:
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
 
         // Workspace for kernels.
-        std::vector<simd_t, tinysimd::allocator<simd_t>> df_tmp(ndf);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp(nq1), tmp0(nqTot),
-            tmp1(nqTot);
+        unsigned int wspSize = 0;
+        IProduct2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wspSize);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp(wspSize);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> df_tmp(ndf),
+            tmp0(nqTot), tmp1(nqTot);
         simd_t *tmpPtr[2];
         tmpPtr[0] = tmp0.data();
         tmpPtr[1] = tmp1.data();
@@ -480,7 +525,7 @@ protected:
                     m_D[0], m_D[1], tmp2.data());
                 IProduct2DKernel<SHAPE_TYPE, false, false, simd_t>(
                     nm0, nm1, nq0, nq1, m_isModified, tmp2.data(), m_B[0],
-                    m_B[1], wsp.data(), outptr);
+                    m_B[1], m_nodToModTrans, wsp.data(), outptr, 1.0);
 
                 // Increment pointers for the next elmt group.
                 inptr += nqTot;
@@ -527,9 +572,10 @@ protected:
 
         // Get interleave parameter.
         const unsigned int interleave_width = inblock.GetInterleaveWidth();
-        const auto width_ratio              = (interleave_width == 1)
-                                                  ? 1
-                                                  : interleave_width / m_implInterleaveWidth;
+
+        const auto width_ratio = (interleave_width == 1)
+                                     ? 1
+                                     : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
 
@@ -538,9 +584,11 @@ protected:
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
 
         // Workspace for kernels.
-        std::vector<simd_t, tinysimd::allocator<simd_t>> df_tmp(ndf);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp(nq1), tmp0(nqTot),
-            tmp1(nqTot);
+        unsigned int wspSize = 0;
+        IProduct2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wspSize);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp(wspSize);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> df_tmp(ndf),
+            tmp0(nqTot), tmp1(nqTot);
         simd_t *tmpPtr[2];
         tmpPtr[0] = tmp0.data();
         tmpPtr[1] = tmp1.data();
@@ -582,7 +630,7 @@ protected:
                     m_D[0], m_D[1], tmp2.data());
                 IProduct2DKernel<SHAPE_TYPE, false, false, simd_t>(
                     nm0, nm1, nq0, nq1, m_isModified, tmp2.data(), m_B[0],
-                    m_B[1], wsp.data(), outptr);
+                    m_B[1], m_nodToModTrans, wsp.data(), outptr, 1.0);
 
                 // Increment pointers for the next elmt group.
                 inptr += nqTot;
@@ -696,8 +744,8 @@ protected:
                     tmp3.data());
                 IProduct3DKernel<SHAPE_TYPE, false, false, simd_t>(
                     nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, tmp3.data(),
-                    m_B[0], m_B[1], m_B[2], wsp0.data(), wsp1.data(),
-                    wsp2.data(), outptr);
+                    m_B[0], m_B[1], m_B[2], m_nodToModTrans, wsp0.data(),
+                    wsp1.data(), wsp2.data(), outptr, 1.0);
 
                 // Increment pointers for the next elmt group.
                 inptr += nqTot;
@@ -805,8 +853,8 @@ protected:
                     tmp3.data());
                 IProduct3DKernel<SHAPE_TYPE, false, false, simd_t>(
                     nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, tmp3.data(),
-                    m_B[0], m_B[1], m_B[2], wsp0.data(), wsp1.data(),
-                    wsp2.data(), outptr);
+                    m_B[0], m_B[1], m_B[2], m_nodToModTrans, wsp0.data(),
+                    wsp1.data(), wsp2.data(), outptr, 1.0);
 
                 // Increment pointers for the next elmt group.
                 inptr += nqTot;

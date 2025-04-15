@@ -210,6 +210,15 @@ void StdNodalPrismExp::v_FillMode(const int mode,
     v_BwdTrans(outarray, outarray);
 }
 
+//---------------------------
+// Helper functions
+//---------------------------
+
+LibUtilities::ShapeType StdNodalPrismExp::v_DetShapeType() const
+{
+    return LibUtilities::eNodalPrism;
+}
+
 //---------------------------------------
 // Mapping functions
 //---------------------------------------

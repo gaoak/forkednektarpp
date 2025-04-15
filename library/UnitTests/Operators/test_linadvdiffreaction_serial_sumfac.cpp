@@ -68,6 +68,8 @@ TEST_LINADVDIFFREACTION(linadvdiffreaction_serial_tri, Tri, 1.0E-12)
 
 TEST_LINADVDIFFREACTION(linadvdiffreaction_serial_tri_varp, TriVarP, 1.0E-12)
 
+TEST_LINADVDIFFREACTION(linadvdiffreaction_serial_tri_nodal, TriNodal, 1.0E-12)
+
 TEST_LINADVDIFFREACTION(linadvdiffreaction_serial_square_all_elements,
                         SquareAllElements, 1.0E-12)
 
@@ -82,6 +84,9 @@ TEST_LINADVDIFFREACTION(linadvdiffreaction_serial_prism, Prism, 1.0E-12)
 TEST_LINADVDIFFREACTION(linadvdiffreaction_serial_prism_varp, PrismVarP,
                         1.0E-12)
 
+TEST_LINADVDIFFREACTION(linadvdiffreaction_serial_prism_nodal, PrismNodal,
+                        1.0E-12)
+
 TEST_LINADVDIFFREACTION(linadvdiffreaction_serial_pyr, Pyr, 1.0E-12)
 
 TEST_LINADVDIFFREACTION(linadvdiffreaction_serial_pyr_varp, PyrVarP, 1.0E-12)
@@ -89,6 +94,8 @@ TEST_LINADVDIFFREACTION(linadvdiffreaction_serial_pyr_varp, PyrVarP, 1.0E-12)
 TEST_LINADVDIFFREACTION(linadvdiffreaction_serial_tet, Tet, 1.0E-12)
 
 TEST_LINADVDIFFREACTION(linadvdiffreaction_serial_tet_varp, TetVarP, 1.0E-12)
+
+TEST_LINADVDIFFREACTION(linadvdiffreaction_serial_tet_nodal, TetNodal, 1.0E-12)
 
 TEST_LINADVDIFFREACTION(linadvdiffreaction_serial_cube_prism_hex, CubePrismHex,
                         1.0E-12)

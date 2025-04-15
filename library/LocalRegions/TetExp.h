@@ -119,9 +119,6 @@ protected:
     //-----------------------------
     // Helper functions
     //-----------------------------
-    LOCAL_REGIONS_EXPORT LibUtilities::ShapeType v_DetShapeType()
-        const override;
-
     LOCAL_REGIONS_EXPORT StdRegions::StdExpansionSharedPtr v_GetStdExp(
         void) const override;
 

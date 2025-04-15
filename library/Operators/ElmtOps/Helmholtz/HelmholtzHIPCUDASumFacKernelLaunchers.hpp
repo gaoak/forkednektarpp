@@ -88,18 +88,18 @@ __global__ void Helmholtz2DKernelLauncher(
     const TData *__restrict__ basis1, const TData *__restrict__ D0,
     const TData *__restrict__ D1, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ f0,
-    const TData *__restrict__ f1, const TData *__restrict__ df,
-    const TData *__restrict__ jac, const TData *__restrict__ coeff,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp, const TData lambda,
+    const TData *__restrict__ f1, const TData *__restrict__ nodToMod,
+    const TData *__restrict__ df, const TData *__restrict__ jac,
+    const TData *__restrict__ coeff, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ wsp, const TData lambda,
     const hipcudaBlock1D &threadBlock)
 {
     extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     Helmholtz2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
         ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0,
-        basis1, D0, D1, w0, w1, f0, f1, df, jac, coeff, in, out, wsp, lambda,
-        (TData *)shmemptr, threadBlock);
+        basis1, D0, D1, w0, w1, f0, f1, nodToMod, df, jac, coeff, in, out, wsp,
+        lambda, (TData *)shmemptr, threadBlock);
 }
 
 // Size based template version.
@@ -112,18 +112,18 @@ __global__ void Helmholtz2DKernelLauncher(
     const TData *__restrict__ basis1, const TData *__restrict__ D0,
     const TData *__restrict__ D1, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ f0,
-    const TData *__restrict__ f1, const TData *__restrict__ df,
-    const TData *__restrict__ jac, const TData *__restrict__ coeff,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp, const TData lambda,
+    const TData *__restrict__ f1, const TData *__restrict__ nodToMod,
+    const TData *__restrict__ df, const TData *__restrict__ jac,
+    const TData *__restrict__ coeff, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ wsp, const TData lambda,
     const hipcudaBlock1D &threadBlock)
 {
     extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     Helmholtz2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
         ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0,
-        basis1, D0, D1, w0, w1, f0, f1, df, jac, coeff, in, out, wsp, lambda,
-        (TData *)shmemptr, threadBlock);
+        basis1, D0, D1, w0, w1, f0, f1, nodToMod, df, jac, coeff, in, out, wsp,
+        lambda, (TData *)shmemptr, threadBlock);
 }
 
 // Non-size based version.
@@ -143,9 +143,10 @@ __global__ void Helmholtz3DKernelLauncher(
     const TData *__restrict__ w1, const TData *__restrict__ w2,
     const TData *__restrict__ f0, const TData *__restrict__ f1,
     const TData *__restrict__ f1m, const TData *__restrict__ f2,
-    const TData *__restrict__ df, const TData *__restrict__ jac,
-    const TData *__restrict__ coeff, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ wsp, const TData lambda,
+    const TData *__restrict__ nodToMod, const TData *__restrict__ df,
+    const TData *__restrict__ jac, const TData *__restrict__ coeff,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp, const TData lambda,
     const hipcudaBlock1D &threadBlock)
 {
     extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
@@ -153,8 +154,8 @@ __global__ void Helmholtz3DKernelLauncher(
     Helmholtz3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
         index2, index3, basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, f0, f1,
-        f1m, f2, df, jac, coeff, in, out, wsp, lambda, (TData *)shmemptr,
-        threadBlock);
+        f1m, f2, nodToMod, df, jac, coeff, in, out, wsp, lambda,
+        (TData *)shmemptr, threadBlock);
 }
 
 // Size based template version.
@@ -174,9 +175,10 @@ __global__ void Helmholtz3DKernelLauncher(
     const TData *__restrict__ w1, const TData *__restrict__ w2,
     const TData *__restrict__ f0, const TData *__restrict__ f1,
     const TData *__restrict__ f1m, const TData *__restrict__ f2,
-    const TData *__restrict__ df, const TData *__restrict__ jac,
-    const TData *__restrict__ coeff, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ wsp, const TData lambda,
+    const TData *__restrict__ nodToMod, const TData *__restrict__ df,
+    const TData *__restrict__ jac, const TData *__restrict__ coeff,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp, const TData lambda,
     const hipcudaBlock1D &threadBlock)
 {
     extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
@@ -184,8 +186,8 @@ __global__ void Helmholtz3DKernelLauncher(
     Helmholtz3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
         index2, index3, basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, f0, f1,
-        f1m, f2, df, jac, coeff, in, out, wsp, lambda, (TData *)shmemptr,
-        threadBlock);
+        f1m, f2, nodToMod, df, jac, coeff, in, out, wsp, lambda,
+        (TData *)shmemptr, threadBlock);
 }
 
 // Kernel Launchers.
@@ -239,9 +241,9 @@ NEK_FORCE_INLINE static void Helmholtz2DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const bool isModified, const unsigned int *index0, const TData *basis0,
     const TData *basis1, const TData *D0, const TData *D1, const TData *w0,
-    const TData *w1, const TData *f0, const TData *f1, const TData *df,
-    const TData *jac, const TData *coeff, const TData *in, TData *out,
-    TData *wsp, const TData lambda = 1.0)
+    const TData *w1, const TData *f0, const TData *f1, const TData *nodToMod,
+    const TData *df, const TData *jac, const TData *coeff, const TData *in,
+    TData *out, TData *wsp, const TData lambda = 1.0)
 {
     const unsigned int nmTot =
         LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
@@ -254,8 +256,8 @@ NEK_FORCE_INLINE static void Helmholtz2DKernel(
     Helmholtz2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>
         <<<gridsize, blocksize, shmemsize>>>(
             ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0,
-            basis0, basis1, D0, D1, w0, w1, f0, f1, df, jac, coeff, in, out,
-            wsp, lambda, hipcudaBlock1D());
+            basis0, basis1, D0, D1, w0, w1, f0, f1, nodToMod, df, jac, coeff,
+            in, out, wsp, lambda, hipcudaBlock1D());
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -267,9 +269,9 @@ NEK_FORCE_INLINE static void Helmholtz2DKernel(
     const unsigned int ncoord, const unsigned int nelmt, const bool isModified,
     const unsigned int *index0, const TData *basis0, const TData *basis1,
     const TData *D0, const TData *D1, const TData *w0, const TData *w1,
-    const TData *f0, const TData *f1, const TData *df, const TData *jac,
-    const TData *coeff, const TData *in, TData *out, TData *wsp,
-    const TData lambda = 1.0)
+    const TData *f0, const TData *f1, const TData *nodToMod, const TData *df,
+    const TData *jac, const TData *coeff, const TData *in, TData *out,
+    TData *wsp, const TData lambda = 1.0)
 {
     const unsigned int nmTot =
         LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
@@ -284,7 +286,8 @@ NEK_FORCE_INLINE static void Helmholtz2DKernel(
                               nmTot, nq0, nq1>
         <<<gridsize, blocksize, shmemsize>>>(
             ncoord, nelmt, isModified, index0, basis0, basis1, D0, D1, w0, w1,
-            f0, f1, df, jac, coeff, in, out, wsp, lambda, hipcudaBlock1D());
+            f0, f1, nodToMod, df, jac, coeff, in, out, wsp, lambda,
+            hipcudaBlock1D());
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -299,9 +302,9 @@ NEK_FORCE_INLINE static void Helmholtz3DKernel(
     const unsigned int *index3, const TData *basis0, const TData *basis1,
     const TData *basis2, const TData *D0, const TData *D1, const TData *D2,
     const TData *w0, const TData *w1, const TData *w2, const TData *f0,
-    const TData *f1, const TData *f1m, const TData *f2, const TData *df,
-    const TData *jac, const TData *coeff, const TData *in, TData *out,
-    TData *wsp, const TData lambda = 1.0)
+    const TData *f1, const TData *f1m, const TData *f2, const TData *nodToMod,
+    const TData *df, const TData *jac, const TData *coeff, const TData *in,
+    TData *out, TData *wsp, const TData lambda = 1.0)
 {
     const unsigned int nmTot =
         LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
@@ -315,7 +318,7 @@ NEK_FORCE_INLINE static void Helmholtz3DKernel(
         <<<gridsize, blocksize, shmemsize>>>(
             nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0,
             index1, index2, index3, basis0, basis1, basis2, D0, D1, D2, w0, w1,
-            w2, f0, f1, f1m, f2, df, jac, coeff, in, out, wsp, lambda,
+            w2, f0, f1, f1m, f2, nodToMod, df, jac, coeff, in, out, wsp, lambda,
             hipcudaBlock1D());
     CHECK_LAST_HIPCUDA_ERROR();
 }
@@ -331,9 +334,9 @@ NEK_FORCE_INLINE static void Helmholtz3DKernel(
     const unsigned int *index3, const TData *basis0, const TData *basis1,
     const TData *basis2, const TData *D0, const TData *D1, const TData *D2,
     const TData *w0, const TData *w1, const TData *w2, const TData *f0,
-    const TData *f1, const TData *f1m, const TData *f2, const TData *df,
-    const TData *jac, const TData *coeff, const TData *in, TData *out,
-    TData *wsp, const TData lambda = 1.0)
+    const TData *f1, const TData *f1m, const TData *f2, const TData *nodToMod,
+    const TData *df, const TData *jac, const TData *coeff, const TData *in,
+    TData *out, TData *wsp, const TData lambda = 1.0)
 {
     const unsigned int nmTot =
         LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
@@ -347,8 +350,8 @@ NEK_FORCE_INLINE static void Helmholtz3DKernel(
                               nm2, nmTot, nq0, nq1, nq2>
         <<<gridsize, blocksize, shmemsize>>>(
             nelmt, isModified, index0, index1, index2, index3, basis0, basis1,
-            basis2, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2, df, jac, coeff, in,
-            out, wsp, lambda, hipcudaBlock1D());
+            basis2, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2, nodToMod, df, jac,
+            coeff, in, out, wsp, lambda, hipcudaBlock1D());
     CHECK_LAST_HIPCUDA_ERROR();
 }
 

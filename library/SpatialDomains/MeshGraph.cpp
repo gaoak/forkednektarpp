@@ -1754,22 +1754,23 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                     returnval.push_back(bkey);
                 }
                 break;
-                case LibUtilities::eTriangle: // define with corrects points key
+                case LibUtilities::eTriangle:
+                {
+                    // define with corrects points key
                     // and change to Ortho on construction
-                    {
-                        const LibUtilities::PointsKey pkey(
-                            nummodes + 1, LibUtilities::eGaussLobattoLegendre);
-                        LibUtilities::BasisKey bkey(LibUtilities::eGLL_Lagrange,
-                                                    nummodes, pkey);
-                        returnval.push_back(bkey);
+                    const LibUtilities::PointsKey pkey(
+                        nummodes + 1, LibUtilities::eGaussLobattoLegendre);
+                    LibUtilities::BasisKey bkey(LibUtilities::eGLL_Lagrange,
+                                                nummodes, pkey);
+                    returnval.push_back(bkey);
 
-                        const LibUtilities::PointsKey pkey1(
-                            nummodes, LibUtilities::eGaussRadauMAlpha1Beta0);
-                        LibUtilities::BasisKey bkey1(LibUtilities::eOrtho_B,
-                                                     nummodes, pkey1);
-                        returnval.push_back(bkey1);
-                    }
-                    break;
+                    const LibUtilities::PointsKey pkey1(
+                        nummodes, LibUtilities::eGaussRadauMAlpha1Beta0);
+                    LibUtilities::BasisKey bkey1(LibUtilities::eOrtho_B,
+                                                 nummodes, pkey1);
+                    returnval.push_back(bkey1);
+                }
+                break;
                 case LibUtilities::eHexahedron:
                 {
                     const LibUtilities::PointsKey pkey(
@@ -1782,10 +1783,72 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                     returnval.push_back(bkey);
                 }
                 break;
+                case LibUtilities::ePrism:
+                {
+                    // define with corrects points key
+                    // and change to Ortho on construction
+                    const LibUtilities::PointsKey pkey(
+                        nummodes + quadoffset,
+                        LibUtilities::eGaussLobattoLegendre);
+                    LibUtilities::BasisKey bkey(LibUtilities::eGLL_Lagrange,
+                                                nummodes, pkey);
+                    returnval.push_back(bkey);
+
+                    LibUtilities::BasisKey bkey1(LibUtilities::eOrtho_A,
+                                                 nummodes, pkey);
+
+                    returnval.push_back(bkey1);
+
+                    const LibUtilities::PointsKey pkey2(
+                        nummodes + quadoffset - 1,
+                        LibUtilities::eGaussRadauMAlpha1Beta0);
+                    LibUtilities::BasisKey bkey2(LibUtilities::eOrtho_B,
+                                                 nummodes, pkey2);
+                    returnval.push_back(bkey2);
+                }
+                break;
+                case LibUtilities::eTetrahedron:
+                {
+                    // define with corrects points key
+                    // and change to Ortho on construction
+                    const LibUtilities::PointsKey pkey(
+                        nummodes + quadoffset,
+                        LibUtilities::eGaussLobattoLegendre);
+                    LibUtilities::BasisKey bkey(LibUtilities::eGLL_Lagrange,
+                                                nummodes, pkey);
+                    returnval.push_back(bkey);
+
+                    const LibUtilities::PointsKey pkey1(
+                        nummodes + quadoffset - 1,
+                        LibUtilities::eGaussRadauMAlpha1Beta0);
+                    LibUtilities::BasisKey bkey1(LibUtilities::eOrtho_B,
+                                                 nummodes, pkey1);
+                    returnval.push_back(bkey1);
+
+                    if (type == eModifiedGLLRadau10)
+                    {
+                        const LibUtilities::PointsKey pkey2(
+                            nummodes + quadoffset - 1,
+                            LibUtilities::eGaussRadauMAlpha1Beta0);
+                        LibUtilities::BasisKey bkey2(LibUtilities::eOrtho_C,
+                                                     nummodes, pkey2);
+                        returnval.push_back(bkey2);
+                    }
+                    else
+                    {
+                        const LibUtilities::PointsKey pkey2(
+                            nummodes + quadoffset - 1,
+                            LibUtilities::eGaussRadauMAlpha2Beta0);
+                        LibUtilities::BasisKey bkey2(LibUtilities::eOrtho_C,
+                                                     nummodes, pkey2);
+                        returnval.push_back(bkey2);
+                    }
+                }
+                break;
                 default:
                 {
                     ASSERTL0(false,
-                             "Expansion not defined in switch  for this shape");
+                             "Expansion not defined in switch for this shape");
                 }
                 break;
             }

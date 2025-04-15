@@ -61,7 +61,11 @@ NEK_FORCE_INLINE static void BwdTrans2DWorkspace(
     [[maybe_unused]] const unsigned int nq0,
     [[maybe_unused]] const unsigned int nq1, unsigned int &wsp0Size)
 {
-    if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
+    if (SHAPE_TYPE == LibUtilities::eNodalTri)
+    {
+        wsp0Size = std::max(wsp0Size, nm0 + nm0 * (nm0 + 1) / 2);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
     {
         wsp0Size = std::max(wsp0Size, nm0);
     }
@@ -86,6 +90,17 @@ NEK_FORCE_INLINE static void BwdTrans3DWorkspace(
         wsp0Size = std::max(wsp0Size, nq0 * nm1 * nm2);
         wsp1Size = std::max(wsp1Size, nq0 * nq1 * nm2);
     }
+    else if constexpr (SHAPE_TYPE == LibUtilities::eNodalTet)
+    {
+        wsp0Size =
+            std::max(wsp0Size, nm0 * nm1 + nm0 * (nm0 + 1) * (nm0 + 2) / 6);
+        wsp1Size = std::max(wsp1Size, nm0);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::eNodalPrism)
+    {
+        wsp0Size = std::max(wsp0Size, nm0 * nm1 + nm0 * nm0 * (nm0 + 1) / 2);
+        wsp1Size = std::max(wsp1Size, nm0);
+    }
     else
     {
         wsp0Size = std::max(wsp0Size, nm0 * nm1);
@@ -107,10 +122,20 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename simd_type>
 NEK_FORCE_INLINE static void BwdTrans2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, [[maybe_unused]] const bool isModified,
-    const simd_type *basis0, const simd_type *basis1, simd_type *wsp0,
+    const simd_type *basis0, const simd_type *basis1,
+    [[maybe_unused]] const simd_type *NtoM, simd_type *wsp0,
     const simd_type *in, simd_type *out)
 {
-    if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
+    if constexpr (SHAPE_TYPE == LibUtilities::eNodalTri)
+    {
+        const auto nmTot = nm0 * (nm0 + 1) / 2;
+        simd_type *in1   = wsp0 + nm0;
+
+        MatVecKernel(nmTot, NtoM, in, in1);
+        BwdTransTriKernel(nm0, nm1, nq0, nq1, isModified, basis0, basis1, wsp0,
+                          in1, out);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
     {
         BwdTransTriKernel(nm0, nm1, nq0, nq1, isModified, basis0, basis1, wsp0,
                           in, out);
@@ -126,8 +151,9 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     [[maybe_unused]] const bool isModified, const simd_type *basis0,
-    const simd_type *basis1, const simd_type *basis2, simd_type *wsp0,
-    simd_type *wsp1, const simd_type *in, simd_type *out)
+    const simd_type *basis1, const simd_type *basis2,
+    [[maybe_unused]] const simd_type *NtoM, simd_type *wsp0, simd_type *wsp1,
+    const simd_type *in, simd_type *out)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::eHexahedron)
     {
@@ -139,10 +165,28 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
         BwdTransTetKernel(nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
                           basis1, basis2, wsp0, wsp1, in, out);
     }
+    else if constexpr (SHAPE_TYPE == LibUtilities::eNodalTet)
+    {
+        const auto nmTot = nm0 * (nm0 + 1) * (nm0 + 2) / 6;
+        simd_type *in1   = wsp0 + nm0 * nm1;
+
+        MatVecKernel(nmTot, NtoM, in, in1);
+        BwdTransTetKernel(nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
+                          basis1, basis2, wsp0, wsp1, in1, out);
+    }
     else if constexpr (SHAPE_TYPE == LibUtilities::ePrism)
     {
         BwdTransPrismKernel(nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
                             basis1, basis2, wsp0, wsp1, in, out);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::eNodalPrism)
+    {
+        const auto nmTot = nm0 * nm0 * (nm0 + 1) / 2;
+        simd_type *in1   = wsp0 + nm0 * nm1;
+
+        MatVecKernel(nmTot, NtoM, in, in1);
+        BwdTransPrismKernel(nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
+                            basis1, basis2, wsp0, wsp1, in1, out);
     }
     else
     {

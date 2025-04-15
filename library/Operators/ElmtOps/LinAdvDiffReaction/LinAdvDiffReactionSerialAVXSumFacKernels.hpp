@@ -103,7 +103,8 @@ NEK_FORCE_INLINE static void AddAdvection2DKernel(
     // Apply  metrics on all quad points
     for (unsigned int q = 0; q < nq1; ++q)
     {
-        if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
+        if constexpr (SHAPE_TYPE == LibUtilities::eTriangle ||
+                      SHAPE_TYPE == LibUtilities::eNodalTri)
         {
             h1 = hfac1[q];
         }
@@ -128,7 +129,8 @@ NEK_FORCE_INLINE static void AddAdvection2DKernel(
             d0 = deriv0[cnt];
             d1 = deriv1[cnt];
 
-            if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
+            if constexpr (SHAPE_TYPE == LibUtilities::eTriangle ||
+                          SHAPE_TYPE == LibUtilities::eNodalTri)
             {
                 h0 = hfac0[p];
                 d0 *= h1;
@@ -185,7 +187,8 @@ NEK_FORCE_INLINE static void AddAdvection3DKernel(
     // Apply  metrics on all quad points
     for (unsigned int r = 0; r < nq2; ++r)
     {
-        if constexpr (SHAPE_TYPE == LibUtilities::Prism)
+        if constexpr ((SHAPE_TYPE == LibUtilities::Prism) ||
+                      (SHAPE_TYPE == LibUtilities::NodalPrism))
         {
             h3 = hfac3[r];
         }
@@ -193,7 +196,8 @@ NEK_FORCE_INLINE static void AddAdvection3DKernel(
         {
             h3 = hfac3[r];
         }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
+        else if constexpr ((SHAPE_TYPE == LibUtilities::Tet) ||
+                           (SHAPE_TYPE == LibUtilities::NodalTet))
         {
             h3 = hfac3[r];
         }
@@ -204,7 +208,8 @@ NEK_FORCE_INLINE static void AddAdvection3DKernel(
             {
                 h1 = hfac1[q];
             }
-            else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
+            else if constexpr ((SHAPE_TYPE == LibUtilities::Tet) ||
+                               (SHAPE_TYPE == LibUtilities::NodalTet))
             {
                 h1 = hfac1[q];
                 h2 = hfac2[q];
@@ -239,7 +244,8 @@ NEK_FORCE_INLINE static void AddAdvection3DKernel(
                 d2 = deriv2[cnt];
 
                 // Chain-rule  local to cartesian
-                if constexpr (SHAPE_TYPE == LibUtilities::Prism)
+                if constexpr ((SHAPE_TYPE == LibUtilities::Prism) ||
+                              (SHAPE_TYPE == LibUtilities::NodalPrism))
                 {
                     h0 = hfac0[p];
                     d0 *= h3;
@@ -253,7 +259,8 @@ NEK_FORCE_INLINE static void AddAdvection3DKernel(
                     d2.fma(h0, d0);
                     d2.fma(h1, d1);
                 }
-                else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
+                else if constexpr ((SHAPE_TYPE == LibUtilities::Tet) ||
+                                   (SHAPE_TYPE == LibUtilities::NodalTet))
                 {
                     h0 = hfac0[p];
                     d0 *= h3;

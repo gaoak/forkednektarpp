@@ -43,6 +43,9 @@ namespace Nektar::Collections
 {
 
 using LibUtilities::eHexahedron;
+using LibUtilities::eNodalPrism;
+using LibUtilities::eNodalTet;
+using LibUtilities::eNodalTri;
 using LibUtilities::ePrism;
 using LibUtilities::ePyramid;
 using LibUtilities::eQuadrilateral;
@@ -236,7 +239,7 @@ OperatorKey PhysDeriv_StdMat::m_typeArr[] = {
         OperatorKey(eTriangle, ePhysDeriv, eStdMat, false),
         PhysDeriv_StdMat::create, "PhysDeriv_StdMat_Tri"),
     GetOperatorFactory().RegisterCreatorFunction(
-        OperatorKey(eTriangle, ePhysDeriv, eStdMat, true),
+        OperatorKey(eNodalTri, ePhysDeriv, eStdMat, true),
         PhysDeriv_StdMat::create, "PhysDeriv_StdMat_NodalTri"),
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eQuadrilateral, ePhysDeriv, eStdMat, false),
@@ -245,7 +248,7 @@ OperatorKey PhysDeriv_StdMat::m_typeArr[] = {
         OperatorKey(eTetrahedron, ePhysDeriv, eStdMat, false),
         PhysDeriv_StdMat::create, "PhysDeriv_StdMat_Tet"),
     GetOperatorFactory().RegisterCreatorFunction(
-        OperatorKey(eTetrahedron, ePhysDeriv, eStdMat, true),
+        OperatorKey(eNodalTet, ePhysDeriv, eStdMat, true),
         PhysDeriv_StdMat::create, "PhysDeriv_StdMat_NodalTet"),
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(ePyramid, ePhysDeriv, eStdMat, false),
@@ -254,7 +257,7 @@ OperatorKey PhysDeriv_StdMat::m_typeArr[] = {
         OperatorKey(ePrism, ePhysDeriv, eStdMat, false),
         PhysDeriv_StdMat::create, "PhysDeriv_StdMat_Prism"),
     GetOperatorFactory().RegisterCreatorFunction(
-        OperatorKey(ePrism, ePhysDeriv, eStdMat, true),
+        OperatorKey(eNodalPrism, ePhysDeriv, eStdMat, true),
         PhysDeriv_StdMat::create, "PhysDeriv_StdMat_NodalPrism"),
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eHexahedron, ePhysDeriv, eStdMat, false),
@@ -548,7 +551,7 @@ OperatorKey PhysDeriv_IterPerExp::m_typeArr[] = {
         OperatorKey(eTriangle, ePhysDeriv, eIterPerExp, false),
         PhysDeriv_IterPerExp::create, "PhysDeriv_IterPerExp_Tri"),
     GetOperatorFactory().RegisterCreatorFunction(
-        OperatorKey(eTriangle, ePhysDeriv, eIterPerExp, true),
+        OperatorKey(eNodalTri, ePhysDeriv, eIterPerExp, true),
         PhysDeriv_IterPerExp::create, "PhysDeriv_IterPerExp_NodalTri"),
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eQuadrilateral, ePhysDeriv, eIterPerExp, false),
@@ -557,7 +560,7 @@ OperatorKey PhysDeriv_IterPerExp::m_typeArr[] = {
         OperatorKey(eTetrahedron, ePhysDeriv, eIterPerExp, false),
         PhysDeriv_IterPerExp::create, "PhysDeriv_IterPerExp_Tet"),
     GetOperatorFactory().RegisterCreatorFunction(
-        OperatorKey(eTetrahedron, ePhysDeriv, eIterPerExp, true),
+        OperatorKey(eNodalTet, ePhysDeriv, eIterPerExp, true),
         PhysDeriv_IterPerExp::create, "PhysDeriv_IterPerExp_NodalTet"),
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(ePyramid, ePhysDeriv, eIterPerExp, false),
@@ -566,7 +569,7 @@ OperatorKey PhysDeriv_IterPerExp::m_typeArr[] = {
         OperatorKey(ePrism, ePhysDeriv, eIterPerExp, false),
         PhysDeriv_IterPerExp::create, "PhysDeriv_IterPerExp_Prism"),
     GetOperatorFactory().RegisterCreatorFunction(
-        OperatorKey(ePrism, ePhysDeriv, eIterPerExp, true),
+        OperatorKey(eNodalPrism, ePhysDeriv, eIterPerExp, true),
         PhysDeriv_IterPerExp::create, "PhysDeriv_IterPerExp_NodalPrism"),
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eHexahedron, ePhysDeriv, eIterPerExp, false),
@@ -666,7 +669,7 @@ OperatorKey PhysDeriv_NoCollection::m_typeArr[] = {
         OperatorKey(eTriangle, ePhysDeriv, eNoCollection, false),
         PhysDeriv_NoCollection::create, "PhysDeriv_NoCollection_Tri"),
     GetOperatorFactory().RegisterCreatorFunction(
-        OperatorKey(eTriangle, ePhysDeriv, eNoCollection, true),
+        OperatorKey(eNodalTri, ePhysDeriv, eNoCollection, true),
         PhysDeriv_NoCollection::create, "PhysDeriv_NoCollection_NodalTri"),
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eQuadrilateral, ePhysDeriv, eNoCollection, false),
@@ -675,7 +678,7 @@ OperatorKey PhysDeriv_NoCollection::m_typeArr[] = {
         OperatorKey(eTetrahedron, ePhysDeriv, eNoCollection, false),
         PhysDeriv_NoCollection::create, "PhysDeriv_NoCollection_Tet"),
     GetOperatorFactory().RegisterCreatorFunction(
-        OperatorKey(eTetrahedron, ePhysDeriv, eNoCollection, true),
+        OperatorKey(eNodalTet, ePhysDeriv, eNoCollection, true),
         PhysDeriv_NoCollection::create, "PhysDeriv_NoCollection_NodalTet"),
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(ePyramid, ePhysDeriv, eNoCollection, false),
@@ -684,7 +687,7 @@ OperatorKey PhysDeriv_NoCollection::m_typeArr[] = {
         OperatorKey(ePrism, ePhysDeriv, eNoCollection, false),
         PhysDeriv_NoCollection::create, "PhysDeriv_NoCollection_Prism"),
     GetOperatorFactory().RegisterCreatorFunction(
-        OperatorKey(ePrism, ePhysDeriv, eNoCollection, true),
+        OperatorKey(eNodalPrism, ePhysDeriv, eNoCollection, true),
         PhysDeriv_NoCollection::create, "PhysDeriv_NoCollection_NodalPrism"),
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eHexahedron, ePhysDeriv, eNoCollection, false),
@@ -1188,7 +1191,7 @@ OperatorKey PhysDeriv_SumFac_Tri::m_typeArr[] = {
         OperatorKey(eTriangle, ePhysDeriv, eSumFac, false),
         PhysDeriv_SumFac_Tri::create, "PhysDeriv_SumFac_Tri"),
     GetOperatorFactory().RegisterCreatorFunction(
-        OperatorKey(eTriangle, ePhysDeriv, eSumFac, true),
+        OperatorKey(eNodalTri, ePhysDeriv, eSumFac, true),
         PhysDeriv_SumFac_Tri::create, "PhysDeriv_SumFac_NodalTri")};
 
 /**

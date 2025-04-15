@@ -496,14 +496,6 @@ void TetExp::v_GetCoords(Array<OneD, NekDouble> &coords_0,
 // Helper functions
 //-----------------------------
 
-/**
- * \brief Return Shape of region, using  ShapeType enum list.
- */
-LibUtilities::ShapeType TetExp::v_DetShapeType() const
-{
-    return LibUtilities::eTetrahedron;
-}
-
 StdRegions::StdExpansionSharedPtr TetExp::v_GetStdExp(void) const
 {
     return MemoryManager<StdRegions::StdTetExp>::AllocateSharedPtr(

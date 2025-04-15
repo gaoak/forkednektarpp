@@ -68,6 +68,8 @@ TEST_PHYSDERIV(physderiv_avx_tri, Tri, 2, 1.0E-12)
 
 TEST_PHYSDERIV(physderiv_avx_tri_varp, TriVarP, 2, 1.0E-12)
 
+TEST_PHYSDERIV(physderiv_avx_tri_nodal, TriNodal, 2, 1.0E-12)
+
 TEST_PHYSDERIV(physderiv_avx_square_all_elements, SquareAllElements, 2, 1.0E-12)
 
 TEST_PHYSDERIV(physderiv_avx_hex, Hex, 3, 1.0E-12)
@@ -80,6 +82,8 @@ TEST_PHYSDERIV(physderiv_avx_prism, Prism, 3, 1.0E-12)
 
 TEST_PHYSDERIV(physderiv_avx_prism_varp, PrismVarP, 3, 2.5E-12)
 
+TEST_PHYSDERIV(physderiv_avx_prism_nodal, PrismNodal, 3, 2.5E-12)
+
 TEST_PHYSDERIV(physderiv_avx_pyr, Pyr, 3, 1.0E-12)
 
 TEST_PHYSDERIV(physderiv_avx_pyr_varp, PyrVarP, 3, 1.0E-12)
@@ -87,6 +91,8 @@ TEST_PHYSDERIV(physderiv_avx_pyr_varp, PyrVarP, 3, 1.0E-12)
 TEST_PHYSDERIV(physderiv_avx_tet, Tet, 3, 1.0E-12)
 
 TEST_PHYSDERIV(physderiv_avx_tet_varp, TetVarP, 3, 1.0E-12)
+
+TEST_PHYSDERIV(physderiv_avx_tet_nodal, TetNodal, 3, 1.0E-12)
 
 TEST_PHYSDERIV(physderiv_avx_cube_prism_hex, CubePrismHex, 3, 1.0E-12)
 

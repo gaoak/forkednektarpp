@@ -41,7 +41,7 @@
                 break;
         }
         
-#elif defined(SHAPE_TYPE_Quad) || defined(SHAPE_TYPE_Tri)
+#elif defined(SHAPE_TYPE_Quad) || defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
     const auto nm0 = m_nm[0];
     const auto nm1 = m_nm[1];
 
@@ -60,7 +60,7 @@
     case NQ(i):                                                                \
         Operator2D< NM(i), NM(i), NQ(i), NQ(i)>(input, output);                \
         break;
-#elif defined(SHAPE_TYPE_Tri)
+#elif defined(SHAPE_TYPE_Tri)|| defined(SHAPE_TYPE_NodalTri)
 #undef PHYSINTERP1D_Q
 #define PHYSINTERP1D_Q(r, i)                                                   \
     case NQ(i):                                                                \
@@ -89,7 +89,7 @@
         // nquad+1 distributions
 #if defined(SHAPE_TYPE_Quad)
         if ((nm0 == nm1) && (nq0 == nq1))
-#elif defined(SHAPE_TYPE_Tri)
+#elif defined(SHAPE_TYPE_Tri)|| defined(SHAPE_TYPE_NodalTri)
         if ((nm0 == nm1 + 1) && (nq0 == nq1 + 1))
 #endif
         {
@@ -128,14 +128,14 @@
         Operator3D<NM(i), NM(i), NM(i), NQ(i),                                 \
                    NQ(i), NQ(i)>(input, output);                               \
         break;
-#elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_Pyr)
+#elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) || defined(SHAPE_TYPE_Pyr)
 #undef PHYSINTERP1D_Q
 #define PHYSINTERP1D_Q(r, i)                                                   \
     case NQ(i):                                                                \
         Operator3D<NM(i), NM(i), NM_M1(i), NQ(i),                              \
                    NQ(i), NQ_M1(i)>(input, output);                            \
         break;
-#elif defined(SHAPE_TYPE_Tet)
+#elif defined(SHAPE_TYPE_Tet) || defined(SHAPE_TYPE_NodalTet)
 #undef PHYSINTERP1D_Q
 #define PHYSINTERP1D_Q(r, i)                                                   \
     case NQ(i):                                                                \
@@ -164,10 +164,10 @@
 #if defined(SHAPE_TYPE_Hex)
         if ((nm0 == nm1) && (nm1 == nm2) &&
             (nq0 == nq1) && (nq1 == nq2))
-#elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_Pyr)
+#elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) || defined(SHAPE_TYPE_Pyr)
         if ((nm0 == nm1) && (nm1 == nm2+1) &&
             (nq0 == nq1) && (nq1 == nq2 + 1))
-#elif defined(SHAPE_TYPE_Tet)
+#elif defined(SHAPE_TYPE_Tet) || defined(SHAPE_TYPE_NodalTet)
         if ((nm0 == nm1+1) && (nm1 == nm2) &&
             (nq0 == nq1 + 1) && (nq1 == nq2))
 #endif

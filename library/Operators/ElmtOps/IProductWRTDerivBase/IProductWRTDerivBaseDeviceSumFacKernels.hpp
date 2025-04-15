@@ -71,7 +71,8 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(const unsigned int nq0,
         {
             return 0;
         }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
+        else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                           SHAPE_TYPE == LibUtilities::NodalTri)
         {
             return nq0 + nq1;
         }
@@ -88,7 +89,14 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(const unsigned int nq0,
                 LibUtilities::StdTriData::getNumberOfCoefficients(nm0, nm1);
             return nm0 * nq0 + nmTot * nq1 + 3 * nq0 * nq1 + nm0 * nq1;
         }
+        else if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
+        {
+            const unsigned int nmTot =
+                LibUtilities::StdTriData::getNumberOfCoefficients(nm0, nm1);
+            return nm0 * nq0 + nmTot * nq1 + 3 * nq0 * nq1 + nm0 * nq1 + nmTot;
+        }
     }
+    return 0;
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation>
@@ -102,11 +110,13 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
         {
             return 0;
         }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
+        else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                           SHAPE_TYPE == LibUtilities::NodalTet)
         {
             return nq0 + 2 * nq1 + nq2;
         }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
+        else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
+                           SHAPE_TYPE == LibUtilities::NodalPrism)
         {
             return nq0 + nq2;
         }
@@ -132,11 +142,28 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
             return nm0 * nq0 + nm01 * nq1 + nmode2 * nq2 + 4 * nq0 * nq1 * nq2 +
                    nm0 * nq1 * nq2 + nm01 * nq2;
         }
+        else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
+        {
+            const unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(
+                SHAPE_TYPE, nm0, nm1, nm2);
+            const unsigned int nmode2 =
+                nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+            const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+            return nm0 * nq0 + nm01 * nq1 + nmode2 * nq2 + 4 * nq0 * nq1 * nq2 +
+                   nm0 * nq1 * nq2 + nm01 * nq2 + nmTot;
+        }
         else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
         {
             const unsigned int nm02 = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
             return nm0 * nq0 + nm1 * nq1 + nm02 * nq2 + 4 * nq0 * nq1 * nq2 +
                    nm0 * nq1 * nq2 + nm0 * nm1 * nq2;
+        }
+        else if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism)
+        {
+            const unsigned int nm02 = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
+            return nm0 * nq0 + nm1 * nq1 + nm02 * nq2 + 4 * nq0 * nq1 * nq2 +
+                   nm0 * nq1 * nq2 + nm0 * nm1 * nq2 +
+                   nm0 * (nm0 + 1) * nm0 / 2;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
@@ -148,6 +175,7 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
                    nm0 * nq1 * nq2 + nm0 * nm1 * nq2;
         }
     }
+    return 0;
 }
 
 template <bool DEFORMED, typename TData>
@@ -228,7 +256,8 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase2DSumFacKernel(
                 out0[index] = sum1 * tmpQ;
                 out1[index] = sum2 * tmpQ;
             }
-            else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
+            else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                               SHAPE_TYPE == LibUtilities::NodalTri)
             {
                 out0[index] = (sum1 + sum2 * f0[i]) * f1[j] * tmpQ;
                 out1[index] = sum2 * tmpQ;
@@ -292,14 +321,16 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase3DSumFacKernel(
                     out1[index] = sum2 * tmpQ;
                     out2[index] = sum3 * tmpQ;
                 }
-                else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
+                else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                                   SHAPE_TYPE == LibUtilities::NodalTet)
                 {
                     TData tmp   = f2[k] * tmpQ;
                     out0[index] = (sum1 + (sum2 + sum3) * f0[i]) * f1m[j] * tmp;
                     out1[index] = (sum2 + sum3 * f1[j]) * tmp;
                     out2[index] = sum3 * tmpQ;
                 }
-                else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
+                else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
+                                   SHAPE_TYPE == LibUtilities::NodalPrism)
                 {
                     out0[index] = (sum1 + sum3 * f0[i]) * f2[k] * tmpQ;
                     out1[index] = sum2 * tmpQ;
@@ -408,7 +439,8 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase2DSumFacQPKernel(
             out0[idx] = sum1 * tmpQ;
             out1[idx] = sum2 * tmpQ;
         }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
+        else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                           SHAPE_TYPE == LibUtilities::NodalTri)
         {
             out0[idx] = (sum1 + sum2 * f0[i]) * f1[j] * tmpQ;
             out1[idx] = sum2 * tmpQ;
@@ -475,14 +507,16 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase3DSumFacQPKernel(
             out1[idx] = sum2 * tmpQ;
             out2[idx] = sum3 * tmpQ;
         }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
+        else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                           SHAPE_TYPE == LibUtilities::NodalTet)
         {
             TData tmp = f2[k] * tmpQ;
             out0[idx] = (sum1 + (sum2 + sum3) * f0[i]) * f1m[j] * tmp;
             out1[idx] = (sum2 + sum3 * f1[j]) * tmp;
             out2[idx] = sum3 * tmpQ;
         }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
+        else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
+                           SHAPE_TYPE == LibUtilities::NodalPrism)
         {
             out0[idx] = (sum1 + sum3 * f0[i]) * f2[k] * tmpQ;
             out1[idx] = sum2 * tmpQ;
@@ -576,10 +610,10 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase2DKernel(
     const TData *__restrict__ D0, const TData *__restrict__ D1,
     const TData *__restrict__ w0, const TData *__restrict__ w1,
     const TData *__restrict__ f0, const TData *__restrict__ f1,
-    const TData *__restrict__ df, const TData *__restrict__ jac,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    [[maybe_unused]] TData *__restrict__ wsp, TData *__restrict__ shmemptr,
-    const TthreadBlock &threadBlock)
+    const TData *__restrict__ nodToMod, const TData *__restrict__ df,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ wsp,
+    TData *__restrict__ shmemptr, const TthreadBlock &threadBlock)
 {
     const unsigned int ndf   = 2 * ncoord;
     const unsigned int nqTot = nq0 * nq1;
@@ -600,7 +634,8 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase2DKernel(
         TData *s_f1 = nullptr;
 
         // Pre-compute factor.
-        if constexpr (SHAPE_TYPE == LibUtilities::Tri)
+        if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                      SHAPE_TYPE == LibUtilities::NodalTri)
         {
             s_f0 = shmemptr;
             s_f1 = s_f0 + nq0;
@@ -654,31 +689,47 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase2DKernel(
                     ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1,
                     deriv, outptr, wsp0, (TData)1.0);
             }
+            else if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
+            {
+                TData *out1ptr =
+                    wsp + 3 * nqTot * nelmt + nmTot * warpsize * iwarp;
+                TData *wsp0 =
+                    wsp + (nmTot + 3 * nqTot) * nelmt + nq1 * warpsize * iwarp;
+                IProductWRTBaseTriSumFacKernel<false, false, DEFORMED>(
+                    ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1,
+                    deriv, out1ptr, wsp0, (TData)1.0);
+
+                // multiply by transpose  notToMod to transform coeffs
+                MatVecKernel<false, true>(ilane, nmTot, nodToMod, out1ptr,
+                                          outptr);
+            }
             e += getGlobalRange(threadBlock);
         }
     }
     else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
-        unsigned int offset, nmode0, nmode1;
+        unsigned int offset = 0, nmode0 = 0, nmode1 = 0;
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
             offset = nm0 * nq1;
             nmode0 = nm0;
             nmode1 = nm1;
         }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
+        else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                           SHAPE_TYPE == LibUtilities::NodalTri)
         {
             offset = nm0 * nq1;
             nmode0 = nm0;
             nmode1 = nmTot;
         }
 
-        TData *deriv0   = shmemptr;
-        TData *deriv1   = deriv0 + nqTot;
-        TData *deriv    = deriv1 + nqTot;
-        TData *s_wsp0   = deriv + nqTot;
-        TData *s_basis0 = s_wsp0 + offset;
-        TData *s_basis1 = s_basis0 + nm0 * nq0;
+        TData *deriv0    = shmemptr;
+        TData *deriv1    = deriv0 + nqTot;
+        TData *deriv     = deriv1 + nqTot;
+        TData *s_wsp0    = deriv + nqTot;
+        TData *s_basis0  = s_wsp0 + offset;
+        TData *s_basis1  = s_basis0 + nmode0 * nq0;
+        TData *s_out1ptr = s_basis1 + nmode1 * nq1;
 
         // Copy to shared memory.
         const unsigned int idx0   = getLocalIdx(threadBlock);
@@ -720,6 +771,17 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase2DKernel(
                     s_basis0, s_basis1, deriv, outptr, s_wsp0, (TData)1.0,
                     threadBlock);
             }
+            else if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
+            {
+                IProductWRTBaseTriSumFacQPKernel<false, false, DEFORMED>(
+                    nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0,
+                    s_basis0, s_basis1, deriv, s_out1ptr, s_wsp0, (TData)1.0,
+                    threadBlock);
+
+                // multiply by transpose nodToMod to convert coeffs
+                MatVecQPKernel<false, true>(nmTot, nodToMod, s_out1ptr, outptr,
+                                            threadBlock);
+            }
 
             e += getBlockRange(threadBlock);
         }
@@ -741,10 +803,11 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
     const TData *__restrict__ w0, const TData *__restrict__ w1,
     const TData *__restrict__ w2, const TData *__restrict__ f0,
     const TData *__restrict__ f1, const TData *__restrict__ f1m,
-    const TData *__restrict__ f2, const TData *__restrict__ df,
-    const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ wsp,
-    TData *__restrict__ shmemptr, const TthreadBlock &threadBlock)
+    const TData *__restrict__ f2, const TData *__restrict__ nodToMod,
+    const TData *__restrict__ df, const TData *__restrict__ jac,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    [[maybe_unused]] TData *__restrict__ wsp, TData *__restrict__ shmemptr,
+    const TthreadBlock &threadBlock)
 {
     constexpr unsigned int ndf = 9u;
     const unsigned int nqTot   = nq0 * nq1 * nq2;
@@ -769,7 +832,8 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
         // Pre-compute factor.
         const unsigned int idx0   = getLocalIdx(threadBlock);
         const unsigned int stride = getLocalRange(threadBlock);
-        if constexpr (SHAPE_TYPE == LibUtilities::Tet)
+        if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                      SHAPE_TYPE == LibUtilities::NodalTet)
         {
             s_f0  = shmemptr;
             s_f1  = s_f0 + nq0;
@@ -794,7 +858,8 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
 
             localBarrier(threadBlock);
         }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
+        else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
+                           SHAPE_TYPE == LibUtilities::NodalPrism)
         {
             s_f0 = shmemptr;
             s_f2 = s_f0 + nq0;
@@ -845,8 +910,9 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
                 DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
             const TData *inptr = in + nqTot * warpsize * iwarp;
             TData *outptr      = out + nmTot * warpsize * iwarp;
-            TData *deriv0      = wsp + nqTot * warpsize * iwarp;
-            TData *deriv1      = wsp + nqTot * nelmt + nqTot * warpsize * iwarp;
+
+            TData *deriv0 = wsp + nqTot * warpsize * iwarp;
+            TData *deriv1 = wsp + nqTot * nelmt + nqTot * warpsize * iwarp;
             TData *deriv2 = wsp + 2 * nqTot * nelmt + nqTot * warpsize * iwarp;
             TData *deriv  = wsp + 3 * nqTot * nelmt + nqTot * warpsize * iwarp;
 
@@ -879,6 +945,26 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
                     basis1, basis2, deriv, outptr, wsp0, wsp1, prod,
                     (TData)1.0);
             }
+            else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
+            {
+                TData *out1ptr =
+                    wsp + 4 * nqTot * nelmt + nmTot * warpsize * iwarp;
+                TData *wsp0 = wsp + (4 * nqTot + nmTot) * nelmt +
+                              nq1 * nq2 * warpsize * iwarp;
+                TData *wsp1 = wsp + (4 * nqTot + nq1 * nq2 + nmTot) * nelmt +
+                              nq2 * warpsize * iwarp;
+                TData *prod = wsp +
+                              (4 * nqTot + nq1 * nq2 + nq2 + nmTot) * nelmt +
+                              nm2 * warpsize * iwarp;
+                IProductWRTBaseTetSumFacKernel<false, false, DEFORMED>(
+                    ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
+                    basis1, basis2, deriv, out1ptr, wsp0, wsp1, prod,
+                    (TData)1.0);
+
+                // multiply by transpose  notToMod to transform coeffs
+                MatVecKernel<false, true>(ilane, nmTot, nodToMod, out1ptr,
+                                          outptr);
+            }
             else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
             {
                 TData *wsp0 =
@@ -891,6 +977,26 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
                     ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
                     basis1, basis2, deriv, outptr, wsp0, wsp1, wsp2,
                     (TData)1.0);
+            }
+            else if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism)
+            {
+                TData *out1ptr =
+                    wsp + 4 * nqTot * nelmt + nmTot * warpsize * iwarp;
+                TData *wsp0 = wsp + (4 * nqTot + nmTot) * nelmt +
+                              nq1 * nq2 * warpsize * iwarp;
+                TData *wsp1 = wsp + (4 * nqTot + nq1 * nq2 + nmTot) * nelmt +
+                              nq2 * warpsize * iwarp;
+                TData *wsp2 = wsp +
+                              (4 * nqTot + nq1 * nq2 + nq2 + nmTot) * nelmt +
+                              nm1 * warpsize * iwarp;
+                IProductWRTBasePrismSumFacKernel<false, false, DEFORMED>(
+                    ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
+                    basis1, basis2, deriv, out1ptr, wsp0, wsp1, wsp2,
+                    (TData)1.0);
+
+                // multiply by transpose  notToMod to transform coeffs
+                MatVecKernel<false, true>(ilane, nmTot, nodToMod, out1ptr,
+                                          outptr);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
             {
@@ -907,7 +1013,8 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
     }
     else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
-        unsigned int offset0, offset1, nmode0, nmode1, nmode2;
+        unsigned int offset0 = 0, offset1 = 0, nmode0 = 0, nmode1 = 0,
+                     nmode2 = 0;
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
             offset0 = nm0 * nq1 * nq2;
@@ -916,7 +1023,8 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
             nmode1  = nm1;
             nmode2  = nm2;
         }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
+        else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                           SHAPE_TYPE == LibUtilities::NodalTet)
         {
             offset0 = nm0 * nq1 * nq2;
             offset1 = (2u * nm1 - nm0 + 1u) * nm0 / 2u * nq2;
@@ -924,7 +1032,8 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
             nmode1  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
             nmode2  = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
         }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
+        else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
+                           SHAPE_TYPE == LibUtilities::NodalPrism)
         {
             offset0 = nm0 * nq1 * nq2;
             offset1 = nm0 * nm1 * nq2;
@@ -941,15 +1050,16 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
             nmode2  = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
         }
 
-        TData *deriv0   = shmemptr;
-        TData *deriv1   = deriv0 + nqTot;
-        TData *deriv2   = deriv1 + nqTot;
-        TData *deriv    = deriv2 + nqTot;
-        TData *s_wsp0   = deriv + nqTot;
-        TData *s_wsp1   = s_wsp0 + offset0;
-        TData *s_basis0 = s_wsp1 + offset1;
-        TData *s_basis1 = s_basis0 + nmode0 * nq0;
-        TData *s_basis2 = s_basis1 + nmode1 * nq1;
+        TData *deriv0    = shmemptr;
+        TData *deriv1    = deriv0 + nqTot;
+        TData *deriv2    = deriv1 + nqTot;
+        TData *deriv     = deriv2 + nqTot;
+        TData *s_wsp0    = deriv + nqTot;
+        TData *s_wsp1    = s_wsp0 + offset0;
+        TData *s_basis0  = s_wsp1 + offset1;
+        TData *s_basis1  = s_basis0 + nmode0 * nq0;
+        TData *s_basis2  = s_basis1 + nmode1 * nq1;
+        TData *s_out1ptr = s_basis2 + nmode2 * nq2;
 
         // Copy to shared memory.
         const unsigned int idx0   = getLocalIdx(threadBlock);
@@ -998,12 +1108,34 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
                     index0, index1, index2, s_basis0, s_basis1, s_basis2, deriv,
                     outptr, s_wsp0, s_wsp1, (TData)1.0, threadBlock);
             }
+            else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
+            {
+                IProductWRTBaseTetSumFacQPKernel<false, false, DEFORMED>(
+                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
+                    index0, index1, index2, s_basis0, s_basis1, s_basis2, deriv,
+                    s_out1ptr, s_wsp0, s_wsp1, (TData)1.0, threadBlock);
+
+                // multiply by transpose nodToMod to convert coeffs
+                MatVecQPKernel<false, true>(nmTot, nodToMod, s_out1ptr, outptr,
+                                            threadBlock);
+            }
             else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
             {
                 IProductWRTBasePrismSumFacQPKernel<false, false, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
                     index0, index1, index2, s_basis0, s_basis1, s_basis2, deriv,
                     outptr, s_wsp0, s_wsp1, (TData)1.0, threadBlock);
+            }
+            else if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism)
+            {
+                IProductWRTBasePrismSumFacQPKernel<false, false, DEFORMED>(
+                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
+                    index0, index1, index2, s_basis0, s_basis1, s_basis2, deriv,
+                    s_out1ptr, s_wsp0, s_wsp1, (TData)1.0, threadBlock);
+
+                // multiply by transpose nodToMod to convert coeffs
+                MatVecQPKernel<false, true>(nmTot, nodToMod, s_out1ptr, outptr,
+                                            threadBlock);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
             {

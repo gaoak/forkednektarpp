@@ -146,6 +146,12 @@ public:
                 TriBlock(inblock, outblock);
                 break;
             }
+            // Nodal Triangles
+            case LibUtilities::NodalTri:
+            {
+                NodalTriBlock(inblock, outblock);
+                break;
+            }
             // Hexes
             case LibUtilities::Hex:
             {
@@ -158,6 +164,12 @@ public:
                 TetBlock(inblock, outblock);
                 break;
             }
+            // NodalTet
+            case LibUtilities::NodalTet:
+            {
+                NodalTetBlock(inblock, outblock);
+                break;
+            }
             // Pyr
             case LibUtilities::Pyr:
             {
@@ -168,6 +180,12 @@ public:
             case LibUtilities::Prism:
             {
                 PrismBlock(inblock, outblock);
+                break;
+            }
+            // NodalPrism
+            case LibUtilities::NodalPrism:
+            {
+                NodalPrismBlock(inblock, outblock);
                 break;
             }
             default:
@@ -205,6 +223,9 @@ protected:
     void TriBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
 
+    void NodalTriBlock(BlockAccessor<TData> &inblock,
+                       BlockAccessor<TData> &outblock);
+
     void QuadBlock(BlockAccessor<TData> &inblock,
                    BlockAccessor<TData> &outblock);
 
@@ -214,11 +235,17 @@ protected:
     void PrismBlock(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock);
 
+    void NodalPrismBlock(BlockAccessor<TData> &inblock,
+                         BlockAccessor<TData> &outblock);
+
     void PyrBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
 
     void TetBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
+
+    void NodalTetBlock(BlockAccessor<TData> &inblock,
+                       BlockAccessor<TData> &outblock);
 
     // Non-size based operator.
     void Operator1D(BlockAccessor<TData> &inblock,

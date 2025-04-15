@@ -252,4 +252,130 @@ public:
     inline static const std::string m_name = "BasisDataCreator";
 };
 
+enum VandemondeDataType
+{
+    eNodalToModal,
+    eNodalToModalTranspose,
+    eModalToNodal
+};
+
+class VandemondeDataCreator;
+
+template <typename TData> class VandemondeKey : public BaseKey
+{
+    friend class VandemondeDataCreator;
+
+public:
+    using creator = VandemondeDataCreator;
+    typedef TData value_type;
+
+    ~VandemondeKey() override = default;
+
+    VandemondeKey(const VandemondeDataType dataType, const unsigned int exp_idx)
+        : m_dataType(dataType), m_exp_idx(exp_idx)
+    {
+        hash_combine(m_hash, m_dataType, m_exp_idx, typeid(value_type).name(),
+                     "VandemondeKey");
+    }
+
+private:
+    VandemondeDataType m_dataType;
+    unsigned int m_exp_idx;
+};
+
+class VandemondeDataCreator : public DataCreatorClass
+{
+public:
+    ~VandemondeDataCreator() override = default;
+    VandemondeDataCreator(const MultiRegions::ExpListSharedPtr &expansionList)
+        : m_expansionList(expansionList)
+    {
+    }
+
+    template <typename MemSpace, typename TData>
+    MemoryRegion<TData> Create(const VandemondeKey<TData> &vandemondeKey,
+                               const unsigned int alignment)
+    {
+        auto exp_idx = vandemondeKey.m_exp_idx;
+        auto expPtr  = m_expansionList->GetExp(exp_idx);
+
+        auto ncoeffs = expPtr->GetNcoeffs();
+
+        auto vdm    = MemoryRegion<TData>::Create(ncoeffs * ncoeffs, alignment);
+        auto vdmptr = vdm.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+
+        DNekMatSharedPtr vdmMat;
+
+        switch (vandemondeKey.m_dataType)
+        {
+            case eNodalToModal:
+            {
+                StdRegions::StdMatrixKey Nkey(
+                    StdRegions::eInvNBasisTrans, expPtr->DetShapeType(),
+                    *expPtr, StdRegions::NullConstFactorMap,
+                    StdRegions::NullVarCoeffMap,
+                    expPtr->GetNodalPointsKey().GetPointsType());
+
+                vdmMat = expPtr->GetStdMatrix(Nkey);
+                goto FwdMat;
+                break;
+            }
+            case eModalToNodal:
+            {
+                StdRegions::StdMatrixKey Nkey(
+                    StdRegions::eNBasisTrans, expPtr->DetShapeType(), *expPtr,
+                    StdRegions::NullConstFactorMap, StdRegions::NullVarCoeffMap,
+                    expPtr->GetNodalPointsKey().GetPointsType());
+
+                vdmMat = expPtr->GetStdMatrix(Nkey);
+                goto FwdMat;
+                break;
+            }
+            case eNodalToModalTranspose:
+            {
+                StdRegions::StdMatrixKey Nkey(
+                    StdRegions::eInvNBasisTrans, expPtr->DetShapeType(),
+                    *expPtr, StdRegions::NullConstFactorMap,
+                    StdRegions::NullVarCoeffMap,
+                    expPtr->GetNodalPointsKey().GetPointsType());
+
+                vdmMat = expPtr->GetStdMatrix(Nkey);
+                goto TransMat;
+                break;
+            }
+            FwdMat:
+            {
+                unsigned int cnt = 0;
+                for (unsigned int i = 0; i < ncoeffs; ++i)
+                {
+                    for (unsigned int j = 0; j < ncoeffs; ++j, ++cnt)
+                    {
+                        vdmptr[cnt] = vdmMat->GetValue(i, j);
+                    }
+                }
+                break;
+            }
+            TransMat:
+            {
+                unsigned int cnt = 0;
+                for (unsigned int i = 0; i < ncoeffs; ++i)
+                {
+                    for (unsigned int j = 0; j < ncoeffs; ++j, ++cnt)
+                    {
+                        vdmptr[cnt] = vdmMat->GetValue(j, i);
+                    }
+                }
+                break;
+            }
+        }
+
+        return vdm;
+    }
+
+    inline static const std::string m_name = "VandemondeDataCreator";
+
+private:
+    MultiRegions::ExpListSharedPtr m_expansionList;
+};
+
 } // namespace Nektar::Operators

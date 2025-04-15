@@ -40,7 +40,7 @@
 
 namespace Nektar::StdRegions
 {
-class StdNodalPrismExp final : public StdPrismExp
+class StdNodalPrismExp : virtual public StdPrismExp
 {
 public:
     STD_REGIONS_EXPORT StdNodalPrismExp(const LibUtilities::BasisKey &Ba,
@@ -103,6 +103,11 @@ protected:
     //---------------------------------------
     STD_REGIONS_EXPORT void v_FillMode(
         const int mode, Array<OneD, NekDouble> &outarray) override;
+
+    //---------------------------
+    // Helper functions
+    //---------------------------
+    STD_REGIONS_EXPORT LibUtilities::ShapeType v_DetShapeType() const override;
 
     //---------------------------------------
     // Mapping functions

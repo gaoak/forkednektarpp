@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: NodalTetExp.h
+// File: NodalPrismExp.h
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,38 +28,38 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Header for NodalTetExp routines
+// Description: Header for NodalPrismExp routines
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#ifndef NODALTETEXP_H
-#define NODALTETEXP_H
+#ifndef NODALPRISMEXP_H
+#define NODALPRISMEXP_H
 
-#include <SpatialDomains/TetGeom.h>
-#include <StdRegions/StdNodalTetExp.h>
+#include <SpatialDomains/PrismGeom.h>
+#include <StdRegions/StdNodalPrismExp.h>
 
 #include <LocalRegions/LocalRegionsDeclspec.h>
-#include <LocalRegions/TetExp.h>
+#include <LocalRegions/PrismExp.h>
 
 namespace Nektar::LocalRegions
 {
 
-class NodalTetExp final : virtual public StdRegions::StdNodalTetExp,
-                          virtual public TetExp
+class NodalPrismExp final : virtual public StdRegions::StdNodalPrismExp,
+                            virtual public PrismExp
 {
 public:
     /** \brief Constructor using BasisKey class for quadrature
     points and order definition */
-    LOCAL_REGIONS_EXPORT NodalTetExp(
+    LOCAL_REGIONS_EXPORT NodalPrismExp(
         const LibUtilities::BasisKey &Ba, const LibUtilities::BasisKey &Bb,
         const LibUtilities::BasisKey &Bc, const LibUtilities::PointsType Ntype,
-        const SpatialDomains::TetGeomSharedPtr &geom);
+        const SpatialDomains::PrismGeomSharedPtr &geom);
 
     /// Copy Constructor
-    LOCAL_REGIONS_EXPORT NodalTetExp(const NodalTetExp &T);
+    LOCAL_REGIONS_EXPORT NodalPrismExp(const NodalPrismExp &T);
 
     /// Destructor
-    LOCAL_REGIONS_EXPORT ~NodalTetExp() override = default;
+    LOCAL_REGIONS_EXPORT ~NodalPrismExp() override = default;
 
 protected:
     //---------------------------------------
@@ -89,14 +89,14 @@ protected:
         const Array<OneD, const NekDouble> &Lcoords,
         Array<OneD, NekDouble> &coords) override
     {
-        TetExp::v_GetCoord(Lcoords, coords);
+        PrismExp::v_GetCoord(Lcoords, coords);
     }
 
     LOCAL_REGIONS_EXPORT void v_GetCoords(
         Array<OneD, NekDouble> &coords_1, Array<OneD, NekDouble> &coords_2,
         Array<OneD, NekDouble> &coords_3) override
     {
-        TetExp::v_GetCoords(coords_1, coords_2, coords_3);
+        PrismExp::v_GetCoords(coords_1, coords_2, coords_3);
     }
 
     LOCAL_REGIONS_EXPORT StdRegions::StdExpansionSharedPtr v_GetStdExp(
@@ -115,7 +115,7 @@ protected:
     LOCAL_REGIONS_EXPORT DNekMatSharedPtr
     v_GenMatrix(const StdRegions::StdMatrixKey &mkey) override
     {
-        return TetExp::v_GenMatrix(mkey);
+        return PrismExp::v_GenMatrix(mkey);
     }
     LOCAL_REGIONS_EXPORT DNekMatSharedPtr
     v_CreateStdMatrix(const StdRegions::StdMatrixKey &mkey) override;
@@ -156,6 +156,9 @@ private:
         m_staticCondMatrixManager;
 };
 
+typedef std::shared_ptr<NodalPrismExp> NodalPrismExpSharedPtr;
+typedef std::vector<NodalPrismExpSharedPtr> NodalPrismExpVector;
+
 } // namespace Nektar::LocalRegions
 
-#endif // NODALTETEXP_H
+#endif // NODAL_PRISMEXP_H

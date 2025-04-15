@@ -68,6 +68,8 @@ TEST_IPWRTBASE(ipwrtbase_avx_tri, Tri, 1.0E-12)
 
 TEST_IPWRTBASE(ipwrtbase_avx_tri_varp, TriVarP, 1.0E-12)
 
+TEST_IPWRTBASE(ipwrtbase_avx_tri_nodal, TriNodal, 1.0E-12)
+
 TEST_IPWRTBASE(ipwrtbase_avx_square_all_elements, SquareAllElements, 1.0E-12)
 
 TEST_IPWRTBASE(ipwrtbase_avx_hex_sem, HexSEM, 1.0E-12)
@@ -78,6 +80,8 @@ TEST_IPWRTBASE(ipwrtbase_avx_prism, Prism, 1.0E-12)
 
 TEST_IPWRTBASE(ipwrtbase_avx_prism_varp, PrismVarP, 1.0E-12)
 
+TEST_IPWRTBASE(ipwrtbase_avx_prism_nodal, PrismNodal, 1.0E-12)
+
 TEST_IPWRTBASE(ipwrtbase_avx_pyr, Pyr, 1.0E-12)
 
 TEST_IPWRTBASE(ipwrtbase_avx_pyr_varp, PyrVarP, 1.0E-12)
@@ -85,6 +89,8 @@ TEST_IPWRTBASE(ipwrtbase_avx_pyr_varp, PyrVarP, 1.0E-12)
 TEST_IPWRTBASE(ipwrtbase_avx_tet, Tet, 1.0E-12)
 
 TEST_IPWRTBASE(ipwrtbase_avx_tet_varp, TetVarP, 1.0E-12)
+
+TEST_IPWRTBASE(ipwrtbase_avx_tet_nodal, TetNodal, 1.0E-12)
 
 TEST_IPWRTBASE(ipwrtbase_avx_cube_prism_hex, CubePrismHex, 1.0E-12)
 

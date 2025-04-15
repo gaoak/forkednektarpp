@@ -63,6 +63,8 @@ TEST_PHYSINTERP1DSCALED(physinterp1d_serial_tri, Tri, 1.0E-12)
 
 TEST_PHYSINTERP1DSCALED(physinterp1d_serial_tri_varp, TriVarP, 1.0E-12)
 
+TEST_PHYSINTERP1DSCALED(physinterp1d_serial_tri_nodal, TriNodal, 1.0E-12)
+
 TEST_PHYSINTERP1DSCALED(physinterp1d_serial_quad, Quad, 1.0E-12)
 
 TEST_PHYSINTERP1DSCALED(physinterp1d_serial_quad_varp, QuadVarP, 1.0E-12)
@@ -76,11 +78,17 @@ TEST_PHYSINTERP1DSCALED(physinterp1d_serial_tet, Tet, 1.0E-12)
 
 TEST_PHYSINTERP1DSCALED(physinterp1d_serial_tet_varp, TetVarP, 1.0E-12)
 
+TEST_PHYSINTERP1DSCALED(physinterp1d_serial_tet_nodal, TetNodal, 1.0E-12)
+
 TEST_PHYSINTERP1DSCALED(physinterp1d_serial_pyr, Pyr, 1.0E-12)
 
 TEST_PHYSINTERP1DSCALED(physinterp1d_serial_pyr_varp, PyrVarP, 1.0E-12)
 
 TEST_PHYSINTERP1DSCALED(physinterp1d_serial_prism, Prism, 1.0E-12)
+
+TEST_PHYSINTERP1DSCALED(physinterp1d_serial_prism_varp, PrismVarP, 1.0E-12)
+
+TEST_PHYSINTERP1DSCALED(physinterp1d_serial_prism_nodal, PrismNodal, 1.0E-12)
 
 TEST_PHYSINTERP1DSCALED(physinterp1d_serial_hex, Hex, 1.0E-12)
 

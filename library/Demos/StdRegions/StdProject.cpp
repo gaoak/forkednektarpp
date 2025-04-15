@@ -203,6 +203,7 @@ int main(int argc, char *argv[])
             exact = M_E - 1.0 / M_E;
             break;
         case eTriangle:
+        case eNodalTri:
             exact = -0.5 *
                     (sin(1.0) + cos(1.0) + M_E * M_E * (sin(1.0) - cos(1.0))) /
                     M_E;
@@ -211,6 +212,7 @@ int main(int argc, char *argv[])
             exact = 2.0 * (M_E - 1.0 / M_E) * sin(1.0);
             break;
         case eTetrahedron:
+        case eNodalTet:
             exact = 1.0 / M_E - 1.0 / M_E / M_E / M_E;
             break;
         case ePrism:
@@ -245,10 +247,16 @@ NekDouble Shape_sol(NekDouble x, NekDouble y, NekDouble z,
     shapeConstraint2[eTriangle] = [](int k, const std::vector<int> &order) {
         return order[1] - k;
     };
+    shapeConstraint2[eNodalTri] = [](int k, const std::vector<int> &order) {
+        return order[1] - k;
+    };
     shapeConstraint2[eQuadrilateral] = [](int, const std::vector<int> &order) {
         return order[1];
     };
     shapeConstraint2[eTetrahedron] = [](int k, const std::vector<int> &order) {
+        return order[1] - k;
+    };
+    shapeConstraint2[eNodalTet] = [](int k, const std::vector<int> &order) {
         return order[1] - k;
     };
     shapeConstraint2[ePyramid] = [](int k, const std::vector<int> &order) {
@@ -273,11 +281,18 @@ NekDouble Shape_sol(NekDouble x, NekDouble y, NekDouble z,
     shapeConstraint3[eTriangle] = [](int, int, const std::vector<int> &) {
         return 1;
     };
+    shapeConstraint3[eNodalTri] = [](int, int, const std::vector<int> &) {
+        return 1;
+    };
     shapeConstraint3[eQuadrilateral] = [](int, int, const std::vector<int> &) {
         return 1;
     };
     shapeConstraint3[eTetrahedron] = [](int k, int l,
                                         const std::vector<int> &order) {
+        return order[2] - k - l;
+    };
+    shapeConstraint3[eNodalTet] = [](int k, int l,
+                                     const std::vector<int> &order) {
         return order[2] - k - l;
     };
     shapeConstraint3[ePyramid] = [](int k, int l,

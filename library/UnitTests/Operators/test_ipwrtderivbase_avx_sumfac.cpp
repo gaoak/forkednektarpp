@@ -68,6 +68,8 @@ TEST_IPWRTDERIVBASE(ipwrtderivbase_avx_tri, Tri, 2, 1.0E-12)
 
 TEST_IPWRTDERIVBASE(ipwrtderivbase_avx_tri_varp, TriVarP, 2, 1.0E-12)
 
+TEST_IPWRTDERIVBASE(ipwrtderivbase_avx_tri_nodal, TriNodal, 2, 1.0E-12)
+
 TEST_IPWRTDERIVBASE(ipwrtderivbase_avx_square_all_elements, SquareAllElements,
                     2, 1.0E-12)
 
