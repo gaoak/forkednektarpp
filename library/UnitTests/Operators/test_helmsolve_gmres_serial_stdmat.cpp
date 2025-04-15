@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: OperatorConjGrad.hpp
+// File: test_helmsolve_gmres_serial_stdmat.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,42 +32,42 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#pragma once
+#define BOOST_TEST_MODULE TestHelmSolveGMRES
 
-#include "Operators/GlobalLinSysOps/OperatorLinearSolver.hpp"
+#include "init_helmsolve_gmresfields.hpp"
 
-namespace Nektar::Operators
-{
+#include <boost/test/tools/output_test_stream.hpp>
+#include <iostream>
+#include <memory>
 
-// ConjGrad base class
-// Defines the apply operator to enforce apply parameter types
-template <typename TData>
-class OperatorConjGrad : public OperatorLinearSolver<TData>
-{
-public:
-    OperatorConjGrad(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorLinearSolver<TData>(expansionList)
-    {
+#define TEST_HELMSOLVE(test_name, test, tol)                                   \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        Configure("Serial", "StdMat");                                         \
+        SetTestCase();                                                         \
+        RunTestCase();                                                         \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            BOOST_TEST(Compare(tol));                                          \
+        }                                                                      \
     }
 
-    ~OperatorConjGrad() override = default;
+BOOST_AUTO_TEST_SUITE(TestHelmSolveGMRES)
 
-    static std::shared_ptr<OperatorConjGrad<TData>> Create(
-        const MultiRegions::ExpListSharedPtr &expansionList,
-        const std::string &execStr = "")
-    {
-        auto session = expansionList->GetSession();
+#if !defined(NEKTAR_USE_MPI)
+TEST_HELMSOLVE(helmsolve_seg, Helmholtz1D_Seg, 1.0E-12)
+#endif
 
-        std::string execStr0 =
-            (execStr == "")
-                ? session->GetCmdLineArgument<std::string>("opExecSpace")
-                : execStr;
+TEST_HELMSOLVE(helmsolve_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-10)
 
-        return OperatorLinearSolver<TData>::template Create<
-            OperatorConjGrad<TData>>(expansionList, execStr0);
-    }
+// TEST_HELMSOLVE(helmsolve_all_bcs, Helmholtz2D_AllBCs, 1.0E-10)
 
-    static constexpr char name[] = "ConjGrad";
-};
+TEST_HELMSOLVE(helmsolve_hex, Helmholtz3D_Hex, 1.0E-10)
 
-} // namespace Nektar::Operators
+TEST_HELMSOLVE(helmsolve_prism, Helmholtz3D_Prism, 1.0E-10)
+
+TEST_HELMSOLVE(helmsolve_pyr, Helmholtz3D_Pyr, 1.0E-10)
+
+TEST_HELMSOLVE(helmsolve_tet, Helmholtz3D_Tet, 1.0E-10)
+
+BOOST_AUTO_TEST_SUITE_END()

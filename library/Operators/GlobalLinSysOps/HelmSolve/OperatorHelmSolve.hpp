@@ -34,6 +34,7 @@
 
 #pragma once
 
+#include "Operators/GlobalLinSysOps/OperatorLinearSolver.hpp"
 #include "Operators/PreconOps/OperatorPrecon.hpp"
 
 namespace Nektar::Operators
@@ -79,6 +80,8 @@ public:
 
     virtual void SetLambda(const TData &lambda) = 0;
 
+    virtual void setLinearSolver(
+        const std::shared_ptr<OperatorLinearSolver<TData>> &linsolve) = 0;
     virtual void setPrecon(
         const std::shared_ptr<OperatorPrecon<TData>> &precon) = 0;
 };

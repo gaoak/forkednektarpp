@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: init_fwdtransfields.hpp
+// File: init_helmsolve_conjgradfields.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -35,19 +35,19 @@
 #include "init_fields.hpp"
 
 #include "Operators/GlobalLinSysOps/ConjGrad/OperatorConjGrad.hpp"
-#include "Operators/GlobalLinSysOps/FwdTrans/OperatorFwdTrans.hpp"
+#include "Operators/GlobalLinSysOps/HelmSolve/OperatorHelmSolve.hpp"
 #include "Operators/PreconOps/DiagPrecon/OperatorDiagPrecon.hpp"
 
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
 
-class FwdTransField
+class HelmSolveField
     : public InitFields<double, FieldState::Phys, FieldState::Coeff,
                         MultiRegions::ContField>
 {
 public:
-    FwdTransField()
+    HelmSolveField()
         : InitFields<double, FieldState::Phys, FieldState::Coeff,
                      MultiRegions::ContField>()
     {
@@ -126,12 +126,13 @@ public:
 
     void RunTestCase()
     {
-        auto FwdTransOp   = OperatorFwdTrans<double>::Create(fixt_explist);
+        auto HelmSolveOp  = OperatorHelmSolve<double>::Create(fixt_explist);
         auto DiagPreconOp = OperatorDiagPrecon<double>::Create(fixt_explist);
         auto ConjGradOp   = OperatorConjGrad<double>::Create(fixt_explist);
-        FwdTransOp->setLinearSolver(ConjGradOp);
-        FwdTransOp->setPrecon(DiagPreconOp);
-        FwdTransOp->apply(*fixt_in, *fixt_out);
+        HelmSolveOp->setLinearSolver(ConjGradOp);
+        HelmSolveOp->setPrecon(DiagPreconOp);
+        HelmSolveOp->SetLambda(1.0);
+        HelmSolveOp->apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution()
@@ -139,13 +140,18 @@ public:
         // Calculate expected result from Nektar++
         Array<OneD, double> inphys = fixt_in->ToArray();
         Array<OneD, double> outcoeffs(fixt_explist->GetNcoeffs(), 0.0);
-        fixt_explist->FwdTrans(inphys, outcoeffs);
+        StdRegions::ConstFactorMap factors;
+        factors[StdRegions::eFactorLambda] =
+            fixt_explist->GetSession()->DefinesParameter("Lambda")
+                ? fixt_explist->GetSession()->GetParameter("Lambda")
+                : 1.0;
+        fixt_explist->HelmSolve(inphys, outcoeffs, factors);
         fixt_expected->CopyArray<NektarSpaces::HostSpace>(outcoeffs);
     }
 };
 
 #define TEST(type, filename)                                                   \
-    class type : public FwdTransField                                          \
+    class type : public HelmSolveField                                         \
     {                                                                          \
     public:                                                                    \
         type()                                                                 \

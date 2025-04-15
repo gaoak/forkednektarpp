@@ -34,7 +34,6 @@
 
 #pragma once
 
-#include "Operators/GlobalLinSysOps/ConjGrad/OperatorConjGrad.hpp"
 #include "Operators/GlobalLinSysOps/HelmSolve/OperatorHelmSolve.hpp"
 
 #include "Operators/BndCondOps/DirBndCond/OperatorDirBndCond.hpp"
@@ -44,7 +43,6 @@
 #include "Operators/ElmtOps/IProductWRTBase/OperatorIProductWRTBase.hpp"
 #include "Operators/ElmtOps/Mass/OperatorMass.hpp"
 #include "Operators/MathKernels/MathKernels.hpp"
-#include "Operators/PreconOps/OperatorPrecon.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -76,9 +74,6 @@ public:
                                                       ExecSpace::name);
         m_HelmOp  = OperatorHelmholtz<TData>::Create(this->m_expansionList,
                                                      ExecSpace::name);
-        m_CGOp    = OperatorConjGrad<TData>::Create(this->m_expansionList,
-                                                    ExecSpace::name);
-        m_CGOp->setLHS(m_HelmOp);
     }
 
     void apply(Field<TData, FieldState::Phys> &in,
@@ -100,7 +95,7 @@ public:
         m_RobBCOp->apply(out, m_rhs, true);
 
         // Solve using Conjugate Gradient
-        m_CGOp->apply(m_rhs, m_tmp);
+        m_LinSolverOp->apply(m_rhs, m_tmp);
 
         // Add Dirichlet BCs
         add<ExecSpace>(out, m_tmp, out);
@@ -111,12 +106,19 @@ public:
         m_HelmOp->SetLambda(lambda);
     }
 
+    void setLinearSolver(
+        const std::shared_ptr<OperatorLinearSolver<TData>> &linsolve) override
+    {
+        m_LinSolverOp = linsolve;
+        m_LinSolverOp->setLHS(m_HelmOp);
+    }
+
     void setPrecon(
         const std::shared_ptr<OperatorPrecon<TData>> &precon) override
     {
         precon->configure(m_HelmOp);
 
-        m_CGOp->setPrecon(precon);
+        m_LinSolverOp->setPrecon(precon);
     }
 
     // className - for OperatorFactory
@@ -131,7 +133,7 @@ public:
     }
 
 protected:
-    std::shared_ptr<OperatorConjGrad<TData>> m_CGOp;
+    std::shared_ptr<OperatorLinearSolver<TData>> m_LinSolverOp;
     std::shared_ptr<OperatorDirBndCond<TData>> m_DirBCOp;
     std::shared_ptr<OperatorHelmholtz<TData>> m_HelmOp;
     std::shared_ptr<OperatorIProductWRTBase<TData>> m_IProdOp;

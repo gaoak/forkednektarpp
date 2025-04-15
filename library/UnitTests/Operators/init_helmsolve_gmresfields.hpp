@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: init_helmsolvefields.hpp
+// File: init_helmsolve_gmresfields.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,6 +34,7 @@
 
 #include "init_fields.hpp"
 
+#include "Operators/GlobalLinSysOps/GMRES/OperatorGMRES.hpp"
 #include "Operators/GlobalLinSysOps/HelmSolve/OperatorHelmSolve.hpp"
 #include "Operators/PreconOps/DiagPrecon/OperatorDiagPrecon.hpp"
 
@@ -127,6 +128,8 @@ public:
     {
         auto HelmSolveOp  = OperatorHelmSolve<double>::Create(fixt_explist);
         auto DiagPreconOp = OperatorDiagPrecon<double>::Create(fixt_explist);
+        auto GMRESOp      = OperatorGMRES<double>::Create(fixt_explist);
+        HelmSolveOp->setLinearSolver(GMRESOp);
         HelmSolveOp->setPrecon(DiagPreconOp);
         HelmSolveOp->SetLambda(1.0);
         HelmSolveOp->apply(*fixt_in, *fixt_out);

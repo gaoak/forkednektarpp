@@ -174,6 +174,25 @@ void sub(MemoryRegion<TData> &x, MemoryRegion<TData> &y, MemoryRegion<TData> &z)
 }
 
 template <typename ExecSpace, typename TData>
+void mul(const TData alpha, MemoryRegion<TData> &x, MemoryRegion<TData> &y)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    if (x.size() != y.size())
+    {
+        std::stringstream msg;
+
+        msg << "MathKernel::div - Memory size mismatch between Field";
+        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+    }
+
+    auto nsize = x.size();
+    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
+    auto yptr  = y.template GetPtr<MemSpace, WriteOnly>();
+    mulKernel<ExecSpace>(nsize, alpha, xptr, yptr);
+}
+
+template <typename ExecSpace, typename TData>
 void mul(MemoryRegion<TData> &x, MemoryRegion<TData> &y, MemoryRegion<TData> &z)
 {
     using MemSpace = typename ExecSpace::memory_space;
@@ -191,6 +210,29 @@ void mul(MemoryRegion<TData> &x, MemoryRegion<TData> &y, MemoryRegion<TData> &z)
     auto yptr  = y.template GetPtr<MemSpace, ReadOnly>();
     auto zptr  = z.template GetPtr<MemSpace, WriteOnly>();
     mulKernel<ExecSpace>(nsize, xptr, yptr, zptr);
+}
+
+template <typename ExecSpace, typename TData, FieldState TFieldState>
+void div(const TData alpha, Field<TData, TFieldState> &x,
+         Field<TData, TFieldState> &y)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    if (x.size() != y.size())
+    {
+        std::stringstream msg;
+
+        msg << "MathKernel::div - Memory size mismatch between Field";
+        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+    }
+
+    for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
+    {
+        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
+        auto size = x.GetBlocks()[blk].size() * x.GetNumComponents();
+        divKernel<ExecSpace>(size, alpha, xptr, yptr);
+    }
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
@@ -215,6 +257,25 @@ void div(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
         auto size = x.GetBlocks()[blk].size() * x.GetNumComponents();
         divKernel<ExecSpace>(size, xptr, yptr, zptr);
     }
+}
+
+template <typename ExecSpace, typename TData>
+void div(const TData alpha, MemoryRegion<TData> &x, MemoryRegion<TData> &y)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    if (x.size() != y.size())
+    {
+        std::stringstream msg;
+
+        msg << "MathKernel::div - Memory size mismatch between Field";
+        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+    }
+
+    auto nsize = x.size();
+    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
+    auto yptr  = y.template GetPtr<MemSpace, WriteOnly>();
+    divKernel<ExecSpace>(nsize, alpha, xptr, yptr);
 }
 
 template <typename ExecSpace, typename TData>
@@ -280,6 +341,29 @@ void daxpy(const TData alpha, MemoryRegion<TData> &x, MemoryRegion<TData> &y,
     auto yptr  = y.template GetPtr<MemSpace, ReadOnly>();
     auto zptr  = z.template GetPtr<MemSpace, WriteOnly>();
     daxpyKernel<ExecSpace>(nsize, alpha, xptr, yptr, zptr);
+}
+
+template <typename ExecSpace, typename TData, FieldState TFieldState>
+void mul(const TData alpha, Field<TData, TFieldState> &x,
+         Field<TData, TFieldState> &y)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    if (x.size() != y.size())
+    {
+        std::stringstream msg;
+
+        msg << "MathKernel::div - Memory size mismatch between Field";
+        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+    }
+
+    for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
+    {
+        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
+        auto size = x.GetBlocks()[blk].size() * x.GetNumComponents();
+        mulKernel<ExecSpace>(size, alpha, xptr, yptr);
+    }
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>

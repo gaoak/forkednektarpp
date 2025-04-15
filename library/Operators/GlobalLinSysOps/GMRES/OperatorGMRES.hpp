@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_helmsolve_serial_stdmat.cpp
+// File: OperatorGMRES.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,42 +32,42 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestHelmSolve
+#pragma once
 
-#include "init_helmsolvefields.hpp"
+#include "Operators/GlobalLinSysOps/OperatorLinearSolver.hpp"
 
-#include <boost/test/tools/output_test_stream.hpp>
-#include <iostream>
-#include <memory>
+namespace Nektar::Operators
+{
 
-#define TEST_HELMSOLVE(test_name, test, tol)                                   \
-    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
-    {                                                                          \
-        Configure("Serial", "StdMat");                                         \
-        SetTestCase();                                                         \
-        RunTestCase();                                                         \
-        boost::test_tools::output_test_stream output;                          \
-        {                                                                      \
-            BOOST_TEST(Compare(tol));                                          \
-        }                                                                      \
+// GMRES base class
+// Defines the apply operator to enforce apply parameter types
+template <typename TData>
+class OperatorGMRES : public OperatorLinearSolver<TData>
+{
+public:
+    OperatorGMRES(const MultiRegions::ExpListSharedPtr &expansionList)
+        : OperatorLinearSolver<TData>(expansionList)
+    {
     }
 
-BOOST_AUTO_TEST_SUITE(TestHelmSolve)
+    ~OperatorGMRES() override = default;
 
-#if !defined(NEKTAR_USE_MPI)
-TEST_HELMSOLVE(helmsolve_seg, Helmholtz1D_Seg, 1.0E-12)
-#endif
+    static std::shared_ptr<OperatorGMRES<TData>> Create(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::string &execStr = "")
+    {
+        auto session = expansionList->GetSession();
 
-TEST_HELMSOLVE(helmsolve_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-12)
+        std::string execStr0 =
+            (execStr == "")
+                ? session->GetCmdLineArgument<std::string>("opExecSpace")
+                : execStr;
 
-// TEST_HELMSOLVE(helmsolve_all_bcs, Helmholtz2D_AllBCs, 1.0E-12)
+        return OperatorLinearSolver<TData>::template Create<
+            OperatorGMRES<TData>>(expansionList, execStr0);
+    }
 
-TEST_HELMSOLVE(helmsolve_hex, Helmholtz3D_Hex, 1.0E-10)
+    static constexpr char name[] = "GMRES";
+};
 
-TEST_HELMSOLVE(helmsolve_prism, Helmholtz3D_Prism, 1.0E-10)
-
-TEST_HELMSOLVE(helmsolve_pyr, Helmholtz3D_Pyr, 1.0E-10)
-
-TEST_HELMSOLVE(helmsolve_tet, Helmholtz3D_Tet, 1.0E-10)
-
-BOOST_AUTO_TEST_SUITE_END()
+} // namespace Nektar::Operators

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_helmsolve_device_sumfac.cpp
+// File: test_helmsolve_gmres_device_sumfac.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,9 +32,9 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestHelmSolveDevice
+#define BOOST_TEST_MODULE TestHelmSolveGMRESDevice
 
-#include "init_helmsolvefields.hpp"
+#include "init_helmsolve_gmresfields.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
@@ -52,15 +52,15 @@
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestHelmSolveDevice)
+BOOST_AUTO_TEST_SUITE(TestHelmSolveGMRESDevice)
 
 #if !defined(NEKTAR_USE_MPI)
 TEST_HELMSOLVE(helmsolve_device_sumfac_seg, Helmholtz1D_Seg, 1.0E-12)
 #endif
 
-TEST_HELMSOLVE(helmsolve_device_sumfac_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-12)
+TEST_HELMSOLVE(helmsolve_device_sumfac_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-10)
 
-// TEST_HELMSOLVE(helmsolve_device_sumfac_all_bcs, Helmholtz2D_AllBCs, 1.0E-12)
+// TEST_HELMSOLVE(helmsolve_device_sumfac_all_bcs, Helmholtz2D_AllBCs, 1.0E-10)
 
 TEST_HELMSOLVE(helmsolve_device_sumfac_hex, Helmholtz3D_Hex, 1.0E-10)
 
