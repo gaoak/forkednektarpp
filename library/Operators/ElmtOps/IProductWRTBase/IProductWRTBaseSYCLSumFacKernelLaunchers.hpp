@@ -61,15 +61,15 @@ NEK_DEVICE_INLINE void IProductWRTBase2DKernel(
     const unsigned int nelmt, const bool isModified,
     const unsigned int *__restrict__ index0, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ w0,
-    const TData *__restrict__ w1, const TData *__restrict__ jac,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp, const TData scale, TData *__restrict__ shmemptr,
-    const sycl::nd_item<1> &item_ct1)
+    const TData *__restrict__ w1, const TData *__restrict__ nodToMod,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ wsp, const TData scale,
+    TData *__restrict__ shmemptr, const sycl::nd_item<1> &item_ct1)
 {
     IProductWRTBase2DKernel<SHAPE_TYPE, Implementation, SCALE, APPEND,
                             DEFORMED>(
         nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0, basis1,
-        w0, w1, jac, in, out, wsp, scale, shmemptr, item_ct1);
+        w0, w1, nodToMod, jac, in, out, wsp, scale, shmemptr, item_ct1);
 }
 
 // Size based template version.
@@ -84,16 +84,16 @@ NEK_DEVICE_INLINE void IProductWRTBase3DKernel(
     const unsigned int *__restrict__ index2, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ basis2,
     const TData *__restrict__ w0, const TData *__restrict__ w1,
-    const TData *__restrict__ w2, const TData *__restrict__ jac,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp, const TData scale, TData *__restrict__ shmemptr,
-    const sycl::nd_item<1> &item_ct1)
+    const TData *__restrict__ w2, const TData *__restrict__ nodToMod,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ wsp, const TData scale,
+    TData *__restrict__ shmemptr, const sycl::nd_item<1> &item_ct1)
 {
     IProductWRTBase3DKernel<SHAPE_TYPE, Implementation, SCALE, APPEND,
-                            DEFORMED>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2,
-                                      nelmt, isModified, index0, index1, index2,
-                                      basis0, basis1, basis2, w0, w1, w2, jac,
-                                      in, out, wsp, scale, shmemptr, item_ct1);
+                            DEFORMED>(
+        nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
+        index2, basis0, basis1, basis2, w0, w1, w2, nodToMod, jac, in, out, wsp,
+        scale, shmemptr, item_ct1);
 }
 
 // Kernel Launchers.
@@ -167,8 +167,8 @@ NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nelmt, const bool isModified,
     const unsigned int *index0, const TData *basis0, const TData *basis1,
-    const TData *w0, const TData *w1, const TData *jac, const TData *in,
-    TData *out, TData *wsp, const TData scale = 1.0)
+    const TData *w0, const TData *w1, const TData *nodToMod, const TData *jac,
+    const TData *in, TData *out, TData *wsp, const TData scale = 1.0)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
 
@@ -189,8 +189,8 @@ NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
                              IProductWRTBase2DKernel<SHAPE_TYPE, Implementation,
                                                      SCALE, APPEND, DEFORMED>(
                                  nm0, nm1, nmTot, nq0, nq1, nelmt, isModified,
-                                 index0, basis0, basis1, w0, w1, jac, in, out,
-                                 wsp, scale, shmemptr, item_ct1);
+                                 index0, basis0, basis1, w0, w1, nodToMod, jac,
+                                 in, out, wsp, scale, shmemptr, item_ct1);
                          });
     });
 }
@@ -203,15 +203,15 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
 NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
     const unsigned int nelmt, const bool isModified, const unsigned int *index0,
     const TData *basis0, const TData *basis1, const TData *w0, const TData *w1,
-    const TData *jac, const TData *in, TData *out, TData *wsp,
-    const TData scale = 1.0)
+    const TData *nodToMod, const TData *jac, const TData *in, TData *out,
+    TData *wsp, const TData scale = 1.0)
 {
 #if defined(NEKTAR_DEBUG)
 
     IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation, SCALE,
                             APPEND, DEFORMED>(
         nm0, nm1, nq0, nq1, nelmt, isModified, index0, basis0, basis1, w0, w1,
-        jac, in, out, wsp, scale);
+        nodToMod, jac, in, out, wsp, scale);
 #else
     sycl::queue &Q = SYCLQueue::GetInstance();
 
@@ -233,8 +233,8 @@ NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
                                                      SCALE, APPEND, DEFORMED,
                                                      nm0, nm1, nmTot, nq0, nq1>(
                                  nelmt, isModified, index0, basis0, basis1, w0,
-                                 w1, jac, in, out, wsp, scale, shmemptr,
-                                 item_ct1);
+                                 w1, nodToMod, jac, in, out, wsp, scale,
+                                 shmemptr, item_ct1);
                          });
     });
 #endif
@@ -250,8 +250,8 @@ NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
     const unsigned int nelmt, const bool isModified, const unsigned int *index0,
     const unsigned int *index1, const unsigned int *index2, const TData *basis0,
     const TData *basis1, const TData *basis2, const TData *w0, const TData *w1,
-    const TData *w2, const TData *jac, const TData *in, TData *out, TData *wsp,
-    const TData scale = 1.0)
+    const TData *w2, const TData *nodToMod, const TData *jac, const TData *in,
+    TData *out, TData *wsp, const TData scale = 1.0)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
 
@@ -273,8 +273,8 @@ NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
                                                      SCALE, APPEND, DEFORMED>(
                                  nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
                                  isModified, index0, index1, index2, basis0,
-                                 basis1, basis2, w0, w1, w2, jac, in, out, wsp,
-                                 scale, shmemptr, item_ct1);
+                                 basis1, basis2, w0, w1, w2, nodToMod, jac, in,
+                                 out, wsp, scale, shmemptr, item_ct1);
                          });
     });
 }
@@ -288,15 +288,15 @@ NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
     const unsigned int nelmt, const bool isModified, const unsigned int *index0,
     const unsigned int *index1, const unsigned int *index2, const TData *basis0,
     const TData *basis1, const TData *basis2, const TData *w0, const TData *w1,
-    const TData *w2, const TData *jac, const TData *in, TData *out, TData *wsp,
-    const TData scale = 1.0)
+    const TData *w2, const TData *nodToMod, const TData *jac, const TData *in,
+    TData *out, TData *wsp, const TData scale = 1.0)
 {
 #if defined(NEKTAR_DEBUG)
 
     IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation, SCALE,
                             APPEND, DEFORMED>(
         nm0, nm1, nm2, nq0, nq1, nq2, nelmt, isModified, index0, index1, index2,
-        basis0, basis1, basis2, w0, w1, w2, jac, in, out, wsp, scale);
+        basis0, basis1, basis2, w0, w1, w2, nodToMod, jac, in, out, wsp, scale);
 #else
     sycl::queue &Q = SYCLQueue::GetInstance();
 
@@ -319,8 +319,8 @@ NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
                                         APPEND, DEFORMED, nm0, nm1, nm2, nmTot,
                                         nq0, nq1, nq2>(
                     nelmt, isModified, index0, index1, index2, basis0, basis1,
-                    basis2, w0, w1, w2, jac, in, out, wsp, scale, shmemptr,
-                    item_ct1);
+                    basis2, w0, w1, w2, nodToMod, jac, in, out, wsp, scale,
+                    shmemptr, item_ct1);
             });
     });
 #endif

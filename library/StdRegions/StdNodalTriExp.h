@@ -106,8 +106,10 @@ protected:
     //---------------------------
     // Helper functions
     //---------------------------
+    STD_REGIONS_EXPORT LibUtilities::ShapeType v_DetShapeType() const final;
     STD_REGIONS_EXPORT int v_NumBndryCoeffs() const override;
-
+    STD_REGIONS_EXPORT const LibUtilities::BasisKey v_GetTraceBasisKey(
+        const int i, const int j, bool UseGLL = false) const override;
     //--------------------------
     // Mappings
     //--------------------------

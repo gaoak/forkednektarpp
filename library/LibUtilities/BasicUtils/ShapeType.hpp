@@ -59,23 +59,29 @@ enum ShapeType
     ePyramid,
     ePrism,
     eHexahedron,
+    eNodalTri,
+    eNodalTet,
+    eNodalPrism,
     SIZE_ShapeType,
 
     // These are the short names used for MatrixFree operators
-    Point = ePoint,
-    Seg   = eSegment,
-    Tri   = eTriangle,
-    Quad  = eQuadrilateral,
-    Tet   = eTetrahedron,
-    Pyr   = ePyramid,
-    Prism = ePrism,
-    Hex   = eHexahedron,
+    Point      = ePoint,
+    Seg        = eSegment,
+    Tri        = eTriangle,
+    Quad       = eQuadrilateral,
+    Tet        = eTetrahedron,
+    Pyr        = ePyramid,
+    Prism      = ePrism,
+    Hex        = eHexahedron,
+    NodalTri   = eNodalTri,
+    NodalTet   = eNodalTet,
+    NodalPrism = eNodalPrism
 };
 
 const char *const ShapeTypeMap[SIZE_ShapeType] = {
-    "NoGeomShapeType", "Point",   "Segment", "Triangle",   "Quadrilateral",
-    "Tetrahedron",     "Pyramid", "Prism",   "Hexahedron",
-};
+    "NoGeomShapeType", "Point",       "Segment",  "Triangle",
+    "Quadrilateral",   "Tetrahedron", "Pyramid",  "Prism",
+    "Hexahedron",      "NodalTri",    "NodalTet", "NodalPrism"};
 
 // Hold the dimension of each of the types of shapes.
 constexpr unsigned int ShapeTypeDimMap[SIZE_ShapeType] = {
@@ -88,6 +94,9 @@ constexpr unsigned int ShapeTypeDimMap[SIZE_ShapeType] = {
     3, // ePyramid
     3, // ePrism
     3, // eHexahedron
+    2, // eNodalTtri
+    3, // eNodalTet
+    3, // eNodalPrism
 };
 
 namespace StdSegData
@@ -127,6 +136,24 @@ inline constexpr int getNumberOfBndCoefficients(int Na, int Nb)
     return (Na - 1) + 2 * (Nb - 1);
 }
 } // namespace StdTriData
+
+// Dimensions of coefficients for each space
+namespace StdNodalTriData
+{
+inline constexpr int getNumberOfCoefficients(int Na, int Nb)
+{
+    ASSERTL1(Na == Nb, "order in 'a' direction needs to be the same as "
+                       "b' direction for nodaltri");
+    return Na * (Nb + 1) / 2;
+}
+
+inline constexpr int getNumberOfBndCoefficients(int Na, int Nb)
+{
+    ASSERTL1(Na == Nb, "order in 'a' direction needs to be the same as "
+                       "b' direction for nodaltri");
+    return (Na - 1) + 2 * (Nb - 1);
+}
+} // namespace StdNodalTriData
 
 namespace StdQuadData
 {
@@ -206,7 +233,6 @@ inline constexpr int getNumberOfCoefficients(int Na, int Nb, int Nc)
     }
     return nCoef;
 }
-
 inline constexpr int getNumberOfBndCoefficients(int Na, int Nb, int Nc)
 {
     ASSERTL2(Na > 1, "Order in 'a' direction must be > 1.");
@@ -226,6 +252,48 @@ inline constexpr int getNumberOfBndCoefficients(int Na, int Nb, int Nc)
     return nCoef;
 }
 } // namespace StdTetData
+
+namespace StdNodalTetData
+{
+/**
+ * Adds up the number of cells in a truncated Nc by Nc by Nc
+ * pyramid, where the longest Na rows and longest Nb columns are
+ * kept. Example: (Na, Nb, Nc) = (3, 4, 5); The number of
+ * coefficients is the sum of the elements of the following
+ * matrix:
+ *
+ * |5  4  3  2  0|
+ * |4  3  2  0   |
+ * |3  2  0      |
+ * |0  0         |
+ * |0            |
+ *
+ * Sum = 28 = number of tet coefficients.
+ */
+inline constexpr int getNumberOfCoefficients(int Na, int Nb, int Nc)
+{
+    ASSERTL1(Na == Nb, "order in 'a' direction needs to be the same as "
+                       "b' direction for nodaltet");
+    ASSERTL1(Nb == Nc, "order in 'a' direction needs to be the same as "
+                       "c' direction for nodaltet");
+    return Na * (Nb + 1) * (Nc + 2) / 6;
+}
+
+inline constexpr int getNumberOfBndCoefficients(int Na, int Nb, int Nc)
+{
+    ASSERTL1(Na == Nb, "order in 'a' direction needs to be the same as "
+                       "b' direction for nodaltet");
+    ASSERTL1(Nb == Nc, "order in 'a' direction needs to be the same as "
+                       "c' direction for nodaltet");
+    int nCoef = Na * (Na + 1) / 2 + (Nb - Na) * Na         // base
+                + Na * (Na + 1) / 2 + (Nc - Na) * Na       // front
+                + 2 * (Nb * (Nb + 1) / 2 + (Nc - Nb) * Nb) // 2 other sides
+                - Na - 2 * Nb - 3 * Nc                     // less edges
+                + 4;                                       // plus vertices
+
+    return nCoef;
+}
+} // namespace StdNodalTetData
 
 namespace StdPyrData
 {
@@ -302,6 +370,34 @@ inline constexpr int getNumberOfBndCoefficients(int Na, int Nb, int Nc)
 }
 } // namespace StdPrismData
 
+namespace StdNodalPrismData
+{
+inline constexpr int getNumberOfCoefficients(int Na, int Nb, int Nc)
+{
+    ASSERTL1(Na > 1, "Order in 'a' direction must be > 1.");
+    ASSERTL1(Nb > 1, "Order in 'b' direction must be > 1.");
+    ASSERTL1(Nc > 1, "Order in 'c' direction must be > 1.");
+    ASSERTL1(Na <= Nc, "Order in 'a' direction is higher "
+                       "than order in 'c' direction.");
+
+    return Nb * StdTriData::getNumberOfCoefficients(Na, Nc);
+}
+
+inline constexpr int getNumberOfBndCoefficients(int Na, int Nb, int Nc)
+{
+    ASSERTL1(Na > 1, "Order in 'a' direction must be > 1.");
+    ASSERTL1(Nb > 1, "Order in 'b' direction must be > 1.");
+    ASSERTL1(Nc > 1, "Order in 'c' direction must be > 1.");
+    ASSERTL1(Na <= Nc, "Order in 'a' direction is higher "
+                       "than order in 'c' direction.");
+
+    return Na * Nb + 2 * Nb * Nc                      // rect faces
+           + 2 * (Na * (Na + 1) / 2 + (Nc - Na) * Na) // tri faces
+           - 2 * Na - 3 * Nb - 4 * Nc                 // less edges
+           + 6;                                       // plus vertices
+}
+} // namespace StdNodalPrismData
+
 inline constexpr int GetNumberOfCoefficients(ShapeType shape,
                                              std::vector<unsigned int> &modes,
                                              int offset = 0)
@@ -315,6 +411,10 @@ inline constexpr int GetNumberOfCoefficients(ShapeType shape,
         case eTriangle:
             returnval = StdTriData::getNumberOfCoefficients(modes[offset],
                                                             modes[offset + 1]);
+            break;
+        case eNodalTri:
+            returnval = StdNodalTriData::getNumberOfCoefficients(
+                modes[offset], modes[offset + 1]);
             break;
         case eQuadrilateral:
             returnval = modes[offset] * modes[offset + 1];
@@ -354,17 +454,26 @@ inline constexpr int GetNumberOfCoefficients(ShapeType shape, int na,
         case eTriangle:
             returnval = StdTriData::getNumberOfCoefficients(na, nb);
             break;
+        case eNodalTri:
+            returnval = StdNodalTriData::getNumberOfCoefficients(na, nb);
+            break;
         case eQuadrilateral:
             returnval = na * nb;
             break;
         case eTetrahedron:
             returnval = StdTetData::getNumberOfCoefficients(na, nb, nc);
             break;
+        case eNodalTet:
+            returnval = StdNodalTetData::getNumberOfCoefficients(na, nb, nc);
+            break;
         case ePyramid:
             returnval = StdPyrData::getNumberOfCoefficients(na, nb, nc);
             break;
         case ePrism:
             returnval = StdPrismData::getNumberOfCoefficients(na, nb, nc);
+            break;
+        case eNodalPrism:
+            returnval = StdNodalPrismData::getNumberOfCoefficients(na, nb, nc);
             break;
         case eHexahedron:
             returnval = na * nb * nc;

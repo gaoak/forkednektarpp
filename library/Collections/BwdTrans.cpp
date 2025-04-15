@@ -44,6 +44,9 @@ namespace Nektar::Collections
 {
 
 using LibUtilities::eHexahedron;
+using LibUtilities::eNodalPrism;
+using LibUtilities::eNodalTet;
+using LibUtilities::eNodalTri;
 using LibUtilities::ePrism;
 using LibUtilities::ePyramid;
 using LibUtilities::eQuadrilateral;
@@ -124,7 +127,7 @@ OperatorKey BwdTrans_StdMat::m_typeArr[] = {
         OperatorKey(eTriangle, eBwdTrans, eStdMat, false),
         BwdTrans_StdMat::create, "BwdTrans_StdMat_Tri"),
     GetOperatorFactory().RegisterCreatorFunction(
-        OperatorKey(eTriangle, eBwdTrans, eStdMat, true),
+        OperatorKey(eNodalTri, eBwdTrans, eStdMat, true),
         BwdTrans_StdMat::create, "BwdTrans_StdMat_NodalTri"),
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eQuadrilateral, eBwdTrans, eStdMat, false),
@@ -133,7 +136,7 @@ OperatorKey BwdTrans_StdMat::m_typeArr[] = {
         OperatorKey(eTetrahedron, eBwdTrans, eStdMat, false),
         BwdTrans_StdMat::create, "BwdTrans_StdMat_Tet"),
     GetOperatorFactory().RegisterCreatorFunction(
-        OperatorKey(eTetrahedron, eBwdTrans, eStdMat, true),
+        OperatorKey(eNodalTet, eBwdTrans, eStdMat, true),
         BwdTrans_StdMat::create, "BwdTrans_StdMat_NodalTet"),
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(ePyramid, eBwdTrans, eStdMat, false),
@@ -142,8 +145,8 @@ OperatorKey BwdTrans_StdMat::m_typeArr[] = {
         OperatorKey(ePrism, eBwdTrans, eStdMat, false), BwdTrans_StdMat::create,
         "BwdTrans_StdMat_Prism"),
     GetOperatorFactory().RegisterCreatorFunction(
-        OperatorKey(ePrism, eBwdTrans, eStdMat, true), BwdTrans_StdMat::create,
-        "BwdTrans_StdMat_NodalPrism"),
+        OperatorKey(eNodalPrism, eBwdTrans, eStdMat, true),
+        BwdTrans_StdMat::create, "BwdTrans_StdMat_NodalPrism"),
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eHexahedron, eBwdTrans, eStdMat, false),
         BwdTrans_StdMat::create, "BwdTrans_StdMat_Hex"),
@@ -293,7 +296,7 @@ OperatorKey BwdTrans_IterPerExp::m_typeArr[] = {
         OperatorKey(eTriangle, eBwdTrans, eIterPerExp, false),
         BwdTrans_IterPerExp::create, "BwdTrans_IterPerExp_Tri"),
     GetOperatorFactory().RegisterCreatorFunction(
-        OperatorKey(eTriangle, eBwdTrans, eIterPerExp, true),
+        OperatorKey(eNodalTri, eBwdTrans, eIterPerExp, true),
         BwdTrans_IterPerExp::create, "BwdTrans_IterPerExp_NodalTri"),
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eQuadrilateral, eBwdTrans, eIterPerExp, false),
@@ -302,7 +305,7 @@ OperatorKey BwdTrans_IterPerExp::m_typeArr[] = {
         OperatorKey(eTetrahedron, eBwdTrans, eIterPerExp, false),
         BwdTrans_IterPerExp::create, "BwdTrans_IterPerExp_Tet"),
     GetOperatorFactory().RegisterCreatorFunction(
-        OperatorKey(eTetrahedron, eBwdTrans, eIterPerExp, true),
+        OperatorKey(eNodalTet, eBwdTrans, eIterPerExp, true),
         BwdTrans_IterPerExp::create, "BwdTrans_IterPerExp_NodalTet"),
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(ePyramid, eBwdTrans, eIterPerExp, false),
@@ -311,7 +314,7 @@ OperatorKey BwdTrans_IterPerExp::m_typeArr[] = {
         OperatorKey(ePrism, eBwdTrans, eIterPerExp, false),
         BwdTrans_IterPerExp::create, "BwdTrans_IterPerExp_Prism"),
     GetOperatorFactory().RegisterCreatorFunction(
-        OperatorKey(ePrism, eBwdTrans, eIterPerExp, true),
+        OperatorKey(eNodalPrism, eBwdTrans, eIterPerExp, true),
         BwdTrans_IterPerExp::create, "BwdTrans_IterPerExp_NodalPrism"),
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eHexahedron, eBwdTrans, eIterPerExp, false),
@@ -376,7 +379,7 @@ OperatorKey BwdTrans_NoCollection::m_typeArr[] = {
         OperatorKey(eTriangle, eBwdTrans, eNoCollection, false),
         BwdTrans_NoCollection::create, "BwdTrans_NoCollection_Tri"),
     GetOperatorFactory().RegisterCreatorFunction(
-        OperatorKey(eTriangle, eBwdTrans, eNoCollection, true),
+        OperatorKey(eNodalTri, eBwdTrans, eNoCollection, true),
         BwdTrans_NoCollection::create, "BwdTrans_NoCollection_NodalTri"),
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eQuadrilateral, eBwdTrans, eNoCollection, false),
@@ -385,7 +388,7 @@ OperatorKey BwdTrans_NoCollection::m_typeArr[] = {
         OperatorKey(eTetrahedron, eBwdTrans, eNoCollection, false),
         BwdTrans_NoCollection::create, "BwdTrans_NoCollection_Tet"),
     GetOperatorFactory().RegisterCreatorFunction(
-        OperatorKey(eTetrahedron, eBwdTrans, eNoCollection, true),
+        OperatorKey(eNodalTet, eBwdTrans, eNoCollection, true),
         BwdTrans_NoCollection::create, "BwdTrans_NoCollection_NodalTet"),
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(ePyramid, eBwdTrans, eNoCollection, false),
@@ -394,7 +397,7 @@ OperatorKey BwdTrans_NoCollection::m_typeArr[] = {
         OperatorKey(ePrism, eBwdTrans, eNoCollection, false),
         BwdTrans_NoCollection::create, "BwdTrans_NoCollection_Prism"),
     GetOperatorFactory().RegisterCreatorFunction(
-        OperatorKey(ePrism, eBwdTrans, eNoCollection, true),
+        OperatorKey(eNodalPrism, eBwdTrans, eNoCollection, true),
         BwdTrans_NoCollection::create, "BwdTrans_NoCollection_NodalPrism"),
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eHexahedron, eBwdTrans, eNoCollection, false),

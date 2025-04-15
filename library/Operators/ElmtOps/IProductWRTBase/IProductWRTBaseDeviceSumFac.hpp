@@ -78,12 +78,27 @@ public:
                                     eWeights)));
         }
 
+        if ((m_shapeType == LibUtilities::eNodalTri) ||
+            (m_shapeType == LibUtilities::eNodalPrism) ||
+            (m_shapeType == LibUtilities::eNodalTet))
+        {
+            // Fetch NodalToModal Matrix if required.
+            m_nodToMod = this->m_dataWarehouse->template GetData<ExecSpace>(
+                VandemondeKey<TData>(eNodalToModal, exp->GetElmtId()));
+        }
+        else
+        {
+            m_nodToMod = (const TData *)nullptr;
+        }
+
         if (m_dimension == 2)
         {
             // Precompute index, if necessary.
             const bool indexing =
-                m_shapeType == LibUtilities::Tri &&
+                (m_shapeType == LibUtilities::Tri ||
+                 m_shapeType == LibUtilities::NodalTri) &&
                 std::is_same_v<Implementation, Operators::SumFacQP>;
+
             m_index.push_back(
                 indexing ? this->m_dataWarehouse->template GetData<ExecSpace>(
                                ModeIndexKey(m_shapeType, m_nm[0], m_nm[1], 0))
@@ -93,26 +108,31 @@ public:
         {
             // Precompute index, if necessary.
             const bool indexingTet =
-                m_shapeType == LibUtilities::Tet &&
+                (m_shapeType == LibUtilities::Tet ||
+                 m_shapeType == LibUtilities::NodalTet) &&
                 std::is_same_v<Implementation, Operators::SumFacQP>;
             const bool indexingPrism =
-                m_shapeType == LibUtilities::Prism &&
+                (m_shapeType == LibUtilities::Prism ||
+                 m_shapeType == LibUtilities::NodalPrism) &&
                 std::is_same_v<Implementation, Operators::SumFacQP>;
             const bool indexingPyr =
                 m_shapeType == LibUtilities::Pyr &&
                 std::is_same_v<Implementation, Operators::SumFacQP>;
+
             m_index.push_back(
                 (indexingTet || indexingPrism || indexingPyr)
                     ? this->m_dataWarehouse->template GetData<ExecSpace>(
                           ModeIndexKey(m_shapeType, m_nm[0], m_nm[1], m_nm[2],
                                        0))
                     : nullptr);
+
             m_index.push_back(
                 (indexingTet || indexingPrism || indexingPyr)
                     ? this->m_dataWarehouse->template GetData<ExecSpace>(
                           ModeIndexKey(m_shapeType, m_nm[0], m_nm[1], m_nm[2],
                                        1))
                     : nullptr);
+
             m_index.push_back(
                 (indexingTet || indexingPrism)
                     ? this->m_dataWarehouse->template GetData<ExecSpace>(
@@ -145,6 +165,12 @@ public:
                 TriBlock(inblock, outblock);
                 break;
             }
+            // Nodal Triangles
+            case LibUtilities::NodalTri:
+            {
+                NodalTriBlock(inblock, outblock);
+                break;
+            }
             // Hexes
             case LibUtilities::Hex:
             {
@@ -157,6 +183,12 @@ public:
                 TetBlock(inblock, outblock);
                 break;
             }
+            // Nodal Tet
+            case LibUtilities::NodalTet:
+            {
+                NodalTetBlock(inblock, outblock);
+                break;
+            }
             // Pyr
             case LibUtilities::Pyr:
             {
@@ -167,6 +199,12 @@ public:
             case LibUtilities::Prism:
             {
                 PrismBlock(inblock, outblock);
+                break;
+            }
+            // Nodal Prism
+            case LibUtilities::NodalPrism:
+            {
+                NodalPrismBlock(inblock, outblock);
                 break;
             }
             default:
@@ -204,6 +242,7 @@ protected:
     std::vector<const TData *> m_W;
     std::vector<const unsigned int *> m_index;
     MemoryRegion<TData> m_wsp;
+    const TData *m_nodToMod;
 
     unsigned int GetWorkspaceSize(LibUtilities::ShapeType shapeType,
                                   unsigned int nElmts,
@@ -226,6 +265,10 @@ protected:
         {
             wspsize = nq1 * nElmts;
         }
+        else if (shapeType == LibUtilities::NodalTri)
+        {
+            wspsize = (nq1 + nm0 * (nm0 + 1) / 2) * nElmts;
+        }
         else if (shapeType == LibUtilities::Hex)
         {
             wspsize = (nq1 * nq2 + nq2) * nElmts;
@@ -234,9 +277,20 @@ protected:
         {
             wspsize = (nq1 * nq2 + nq2 + nm2) * nElmts;
         }
+        else if (shapeType == LibUtilities::NodalTet)
+        {
+            wspsize =
+                (nq1 * nq2 + nq2 + nm2 + nm0 * (nm0 + 1) * (nm0 + 2) / 6) *
+                nElmts;
+        }
         else if (shapeType == LibUtilities::Prism)
         {
             wspsize = (nq1 * nq2 + nq2 + nm1) * nElmts;
+        }
+        else if (shapeType == LibUtilities::NodalPrism)
+        {
+            wspsize =
+                (nq1 * nq2 + nq2 + nm1 + nm0 * (nm0 + 1) * nm0 / 2) * nElmts;
         }
         else if (shapeType == LibUtilities::Pyr)
         {
@@ -264,6 +318,9 @@ protected:
     void TriBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
 
+    void NodalTriBlock(BlockAccessor<TData> &inblock,
+                       BlockAccessor<TData> &outblock);
+
     void QuadBlock(BlockAccessor<TData> &inblock,
                    BlockAccessor<TData> &outblock);
 
@@ -273,11 +330,17 @@ protected:
     void PrismBlock(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock);
 
+    void NodalPrismBlock(BlockAccessor<TData> &inblock,
+                         BlockAccessor<TData> &outblock);
+
     void PyrBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
 
     void TetBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
+
+    void NodalTetBlock(BlockAccessor<TData> &inblock,
+                       BlockAccessor<TData> &outblock);
 
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
@@ -456,8 +519,8 @@ protected:
                 IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                         Scale, Append, DEFORMED>(
                     nm0, nm1, nq0, nq1, nElmtsPad, m_isModified, m_index[0],
-                    m_B[0], m_B[1], m_W[0], m_W[1], jacptr, inptr, outptr,
-                    wspptr);
+                    m_B[0], m_B[1], m_W[0], m_W[1], m_nodToMod, jacptr, inptr,
+                    outptr, wspptr);
             }
             else
             {
@@ -466,8 +529,8 @@ protected:
                 IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                         Scale, Append, DEFORMED>(
                     nm0, nm1, nq0, nq1, nElmtsPad, m_isModified, m_index[0],
-                    m_B[0], m_B[1], m_W[0], m_W[1], jacptr, inptr, outptr,
-                    wspptr, this->m_scale);
+                    m_B[0], m_B[1], m_W[0], m_W[1], m_nodToMod, jacptr, inptr,
+                    outptr, wspptr, this->m_scale);
             }
 
             // Increment pointers.
@@ -534,7 +597,7 @@ protected:
                                         Scale, Append, DEFORMED, nm0, nm1, nq0,
                                         nq1>(
                     nElmtsPad, m_isModified, m_index[0], m_B[0], m_B[1], m_W[0],
-                    m_W[1], jacptr, inptr, outptr, wspptr);
+                    m_W[1], m_nodToMod, jacptr, inptr, outptr, wspptr);
             }
             else
             {
@@ -542,9 +605,10 @@ protected:
 
                 IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                         Scale, Append, DEFORMED, nm0, nm1, nq0,
-                                        nq1>(
-                    nElmtsPad, m_isModified, m_index[0], m_B[0], m_B[1], m_W[0],
-                    m_W[1], jacptr, inptr, outptr, wspptr, this->m_scale);
+                                        nq1>(nElmtsPad, m_isModified,
+                                             m_index[0], m_B[0], m_B[1], m_W[0],
+                                             m_W[1], m_nodToMod, jacptr, inptr,
+                                             outptr, wspptr, this->m_scale);
             }
 
             // Increment pointers.
@@ -618,7 +682,8 @@ protected:
                                         Scale, Append, DEFORMED>(
                     nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, m_isModified,
                     m_index[0], m_index[1], m_index[2], m_B[0], m_B[1], m_B[2],
-                    m_W[0], m_W[1], m_W[2], jacptr, inptr, outptr, wspptr);
+                    m_W[0], m_W[1], m_W[2], m_nodToMod, jacptr, inptr, outptr,
+                    wspptr);
             }
             else
             {
@@ -628,8 +693,8 @@ protected:
                                         Scale, Append, DEFORMED>(
                     nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, m_isModified,
                     m_index[0], m_index[1], m_index[2], m_B[0], m_B[1], m_B[2],
-                    m_W[0], m_W[1], m_W[2], jacptr, inptr, outptr, wspptr,
-                    this->m_scale);
+                    m_W[0], m_W[1], m_W[2], m_nodToMod, jacptr, inptr, outptr,
+                    wspptr, this->m_scale);
             }
 
             // Increment pointers.
@@ -696,8 +761,8 @@ protected:
                                         Scale, Append, DEFORMED, nm0, nm1, nm2,
                                         nq0, nq1, nq2>(
                     nElmtsPad, m_isModified, m_index[0], m_index[1], m_index[2],
-                    m_B[0], m_B[1], m_B[2], m_W[0], m_W[1], m_W[2], jacptr,
-                    inptr, outptr, wspptr);
+                    m_B[0], m_B[1], m_B[2], m_W[0], m_W[1], m_W[2], m_nodToMod,
+                    jacptr, inptr, outptr, wspptr);
             }
             else
             {
@@ -707,8 +772,8 @@ protected:
                                         Scale, Append, DEFORMED, nm0, nm1, nm2,
                                         nq0, nq1, nq2>(
                     nElmtsPad, m_isModified, m_index[0], m_index[1], m_index[2],
-                    m_B[0], m_B[1], m_B[2], m_W[0], m_W[1], m_W[2], jacptr,
-                    inptr, outptr, wspptr, this->m_scale);
+                    m_B[0], m_B[1], m_B[2], m_W[0], m_W[1], m_W[2], m_nodToMod,
+                    jacptr, inptr, outptr, wspptr, this->m_scale);
             }
 
             // Increment pointers.

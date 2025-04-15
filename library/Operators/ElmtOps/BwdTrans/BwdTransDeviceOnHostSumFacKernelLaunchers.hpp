@@ -77,8 +77,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
 NEK_FORCE_INLINE static void BwdTrans2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nelmt, const bool isModified,
-    const TData *basis0, const TData *basis1, const TData *in, TData *out,
-    TData *wsp)
+    const TData *basis0, const TData *basis1, const TData *nodToMod,
+    const TData *in, TData *out, TData *wsp)
 {
     const unsigned int nmTot =
         LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
@@ -88,8 +88,8 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(
     std::vector<TData> shmem(shmemsize);
 
     BwdTrans2DKernel<SHAPE_TYPE, Implementation>(
-        nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, basis0, basis1, in, out,
-        wsp, shmem.data(), deviceOnHostBlock1D());
+        nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, basis0, basis1, nodToMod,
+        in, out, wsp, shmem.data(), deviceOnHostBlock1D());
 }
 
 // Size based template version.
@@ -98,7 +98,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           unsigned int nq0, unsigned int nq1, typename TData>
 NEK_FORCE_INLINE static void BwdTrans2DKernel(
     const unsigned int nelmt, const bool isModified, const TData *basis0,
-    const TData *basis1, const TData *in, TData *out, TData *wsp)
+    const TData *basis1, const TData *nodToMod, const TData *in, TData *out,
+    TData *wsp)
 {
     constexpr unsigned int nmTot =
         LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
@@ -108,8 +109,8 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(
     std::vector<TData> shmem(shmemsize);
 
     BwdTrans2DKernel<SHAPE_TYPE, Implementation>(
-        nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, basis0, basis1, in, out,
-        wsp, shmem.data(), deviceOnHostBlock1D());
+        nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, basis0, basis1, nodToMod,
+        in, out, wsp, shmem.data(), deviceOnHostBlock1D());
 }
 
 // Non-size based version.
@@ -120,7 +121,8 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nelmt, const bool isModified, const unsigned int *index0,
     const unsigned int *index1, const TData *basis0, const TData *basis1,
-    const TData *basis2, const TData *in, TData *out, TData *wsp)
+    const TData *basis2, const TData *nodToMod, const TData *in, TData *out,
+    TData *wsp)
 {
     const unsigned int nmTot =
         LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
@@ -131,7 +133,7 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
 
     BwdTrans3DKernel<SHAPE_TYPE, Implementation>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
-        basis0, basis1, basis2, in, out, wsp, shmem.data(),
+        basis0, basis1, basis2, nodToMod, in, out, wsp, shmem.data(),
         deviceOnHostBlock1D());
 }
 
@@ -143,7 +145,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
 NEK_FORCE_INLINE static void BwdTrans3DKernel(
     const unsigned int nelmt, const bool isModified, const unsigned int *index0,
     const unsigned int *index1, const TData *basis0, const TData *basis1,
-    const TData *basis2, const TData *in, TData *out, TData *wsp)
+    const TData *basis2, const TData *nodToMod, const TData *in, TData *out,
+    TData *wsp)
 {
     constexpr unsigned int nmTot =
         LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
@@ -154,7 +157,7 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
 
     BwdTrans3DKernel<SHAPE_TYPE, Implementation>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
-        basis0, basis1, basis2, in, out, wsp, shmem.data(),
+        basis0, basis1, basis2, nodToMod, in, out, wsp, shmem.data(),
         deviceOnHostBlock1D());
 }
 

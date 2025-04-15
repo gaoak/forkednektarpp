@@ -165,7 +165,7 @@ protected:
     //---------------------------
     STD_REGIONS_EXPORT int v_GetNverts() const final;
     STD_REGIONS_EXPORT int v_GetNtraces() const final;
-    STD_REGIONS_EXPORT LibUtilities::ShapeType v_DetShapeType() const final;
+    STD_REGIONS_EXPORT LibUtilities::ShapeType v_DetShapeType() const override;
     STD_REGIONS_EXPORT int v_NumBndryCoeffs() const override;
     STD_REGIONS_EXPORT int v_NumDGBndryCoeffs() const override;
     STD_REGIONS_EXPORT int v_GetTraceNcoeffs(const int i) const override;

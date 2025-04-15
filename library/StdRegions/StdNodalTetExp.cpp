@@ -215,6 +215,15 @@ void StdNodalTetExp::v_FillMode(const int mode,
     v_BwdTrans(outarray, outarray);
 }
 
+//---------------------------
+// Helper functions
+//---------------------------
+
+LibUtilities::ShapeType StdNodalTetExp::v_DetShapeType() const
+{
+    return LibUtilities::eNodalTet;
+}
+
 //---------------------------------------
 // Mapping functions
 //---------------------------------------

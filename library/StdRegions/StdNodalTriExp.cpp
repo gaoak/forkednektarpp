@@ -217,9 +217,93 @@ void StdNodalTriExp::v_FillMode(const int mode,
 // Helper functions
 //---------------------------
 
+LibUtilities::ShapeType StdNodalTriExp::v_DetShapeType() const
+{
+    return LibUtilities::eNodalTri;
+}
+
 int StdNodalTriExp::v_NumBndryCoeffs() const
 {
     return 3 + (GetBasisNumModes(0) - 2) + 2 * (GetBasisNumModes(1) - 2);
+}
+
+const LibUtilities::BasisKey StdNodalTriExp::v_GetTraceBasisKey(
+    const int i, [[maybe_unused]] const int j,
+    [[maybe_unused]] bool UseGLL) const
+{
+    ASSERTL2(i >= 0 && i <= 2, "edge id is out of range");
+
+    // Get basiskey (0 or 1) according to edge id i
+    int dir = (i != 0);
+
+    switch (m_base[dir]->GetBasisType())
+    {
+        case LibUtilities::eOrtho_A:
+        case LibUtilities::eModified_A:
+        {
+            switch (m_base[dir]->GetPointsType())
+            {
+                case LibUtilities::eGaussLobattoLegendre:
+                {
+                    LibUtilities::PointsKey pkey(
+                        m_base[dir]
+                            ->GetBasisKey()
+                            .GetPointsKey()
+                            .GetNumPoints(),
+                        LibUtilities::eGaussLobattoLegendre);
+                    return LibUtilities::BasisKey(LibUtilities::eGLL_Lagrange,
+                                                  m_base[dir]->GetNumModes(),
+                                                  pkey);
+                }
+                break;
+                default:
+                {
+                    NEKERROR(ErrorUtil::efatal,
+                             "Unexpected points distribution " +
+                                 LibUtilities::kPointsTypeStr
+                                     [m_base[dir]->GetPointsType()] +
+                                 " in StdNodalTriExp::v_GetTraceBasisKey");
+                }
+            }
+        }
+        break;
+        case LibUtilities::eModified_B:
+        case LibUtilities::eOrtho_B:
+        {
+            switch (m_base[dir]->GetPointsType())
+            {
+                case LibUtilities::eGaussRadauMAlpha1Beta0:
+                {
+                    LibUtilities::PointsKey pkey(
+                        m_base[dir]
+                                ->GetBasisKey()
+                                .GetPointsKey()
+                                .GetNumPoints() +
+                            1,
+                        LibUtilities::eGaussLobattoLegendre);
+                    return LibUtilities::BasisKey(LibUtilities::eGLL_Lagrange,
+                                                  m_base[dir]->GetNumModes(),
+                                                  pkey);
+                }
+                break;
+                default:
+                {
+                    NEKERROR(ErrorUtil::efatal,
+                             "Unexpected points distribution " +
+                                 LibUtilities::kPointsTypeStr
+                                     [m_base[dir]->GetPointsType()] +
+                                 " in StdNodalTriExp::v_GetTraceBasisKey");
+                }
+            }
+        }
+        break;
+        default:
+        {
+            NEKERROR(ErrorUtil::efatal,
+                     "Information not available to set edge key");
+        }
+    }
+    return LibUtilities::NullBasisKey;
 }
 
 //--------------------------

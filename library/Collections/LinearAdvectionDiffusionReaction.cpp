@@ -44,6 +44,7 @@ namespace Nektar::Collections
 {
 
 using LibUtilities::eHexahedron;
+using LibUtilities::eNodalTri;
 using LibUtilities::ePrism;
 using LibUtilities::ePyramid;
 using LibUtilities::eQuadrilateral;
@@ -177,7 +178,7 @@ OperatorKey LinearAdvectionDiffusionReaction_NoCollection::m_typeArr[] = {
         LinearAdvectionDiffusionReaction_NoCollection::create,
         "LinearAdvectionDiffusionReaction_NoCollection_Tri"),
     GetOperatorFactory().RegisterCreatorFunction(
-        OperatorKey(eTriangle, eLinearAdvectionDiffusionReaction, eNoCollection,
+        OperatorKey(eNodalTri, eLinearAdvectionDiffusionReaction, eNoCollection,
                     true),
         LinearAdvectionDiffusionReaction_NoCollection::create,
         "LinearAdvectionDiffusionReaction_NoCollection_NodalTri"),
@@ -502,7 +503,7 @@ OperatorKey LinearAdvectionDiffusionReaction_IterPerExp::m_typeArr[] = {
         LinearAdvectionDiffusionReaction_IterPerExp::create,
         "LinearAdvectionDiffusionReaction_IterPerExp_Tri"),
     GetOperatorFactory().RegisterCreatorFunction(
-        OperatorKey(eTriangle, eLinearAdvectionDiffusionReaction, eIterPerExp,
+        OperatorKey(eNodalTri, eLinearAdvectionDiffusionReaction, eIterPerExp,
                     true),
         LinearAdvectionDiffusionReaction_IterPerExp::create,
         "LinearAdvectionDiffusionReaction_IterPerExp_NodalTri"),

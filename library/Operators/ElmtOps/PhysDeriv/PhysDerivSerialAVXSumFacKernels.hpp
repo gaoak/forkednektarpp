@@ -119,7 +119,8 @@ NEK_FORCE_INLINE void PhysDeriv2DKernel(
     for (unsigned int j = 0, cnt_ji = 0; j < nq1; ++j)
     {
         simd_type xfrm0;
-        if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
+        if constexpr (SHAPE_TYPE == LibUtilities::eTriangle ||
+                      SHAPE_TYPE == LibUtilities::eNodalTri)
         {
             xfrm0 = 2.0 / (1.0 - Z1[j]); // Load 1x
         }
@@ -130,7 +131,8 @@ NEK_FORCE_INLINE void PhysDeriv2DKernel(
             d0 = out[0][cnt_ji]; // Load 1x
             d1 = out[1][cnt_ji]; // Load 1x
 
-            if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
+            if constexpr (SHAPE_TYPE == LibUtilities::eTriangle ||
+                          SHAPE_TYPE == LibUtilities::eNodalTri)
             {
                 // Moving from standard to collapsed coordinates
                 simd_type xfrm1 = 0.5 * (1.0 + Z0[i]); // Load 1x
@@ -184,7 +186,8 @@ NEK_FORCE_INLINE void PhysDeriv3DKernel(
     constexpr auto ndf = 9;
     simd_type df_tmp[ndf];
 
-    if constexpr (SHAPE_TYPE == LibUtilities::eTetrahedron)
+    if constexpr ((SHAPE_TYPE == LibUtilities::eTetrahedron) ||
+                  (SHAPE_TYPE == LibUtilities::eNodalTet))
     {
         for (unsigned int k = 0, eta0 = 0; k < nq2; ++k)
         {
@@ -265,6 +268,7 @@ NEK_FORCE_INLINE void PhysDeriv3DKernel(
     {
         simd_type xfrm_eta2;
         if constexpr (SHAPE_TYPE == LibUtilities::ePrism ||
+                      SHAPE_TYPE == LibUtilities::eNodalPrism ||
                       SHAPE_TYPE == LibUtilities::ePyramid)
         {
             xfrm_eta2 = 2.0 / (1.0 - Z2[k]); // Load 1x
@@ -285,7 +289,8 @@ NEK_FORCE_INLINE void PhysDeriv3DKernel(
                 d2 = out_d2[cnt_ijk]; // Load 1x
 
                 simd_type xfrm_eta0;
-                if constexpr (SHAPE_TYPE == LibUtilities::ePrism)
+                if constexpr ((SHAPE_TYPE == LibUtilities::ePrism) ||
+                              (SHAPE_TYPE == LibUtilities::eNodalPrism))
                 {
                     // Chain-rule for eta_0 and eta_2
                     d0 *= xfrm_eta2; // Load 1x
@@ -346,7 +351,8 @@ NEK_FORCE_INLINE static void PhysDeriv3DWorkspace(
     [[maybe_unused]] unsigned int &wsp1Size,
     [[maybe_unused]] unsigned int &wsp2Size)
 {
-    if constexpr (SHAPE_TYPE == LibUtilities::ShapeType::Tet)
+    if constexpr ((SHAPE_TYPE == LibUtilities::ShapeType::Tet) ||
+                  (SHAPE_TYPE == LibUtilities::eNodalTet))
     {
         wsp1Size = std::max(wsp1Size, nq0 * nq1 * nq2);
         wsp2Size = std::max(wsp2Size, nq0 * nq1 * nq2);

@@ -82,7 +82,31 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const bool isModified, const unsigned int *index0, const TData *basis0,
     const TData *basis1, const TData *D0, const TData *D1, const TData *w0,
-    const TData *w1, const TData *f0, const TData *f1, const TData *df,
+    const TData *w1, const TData *f0, const TData *f1, const TData *nodToMod,
+    const TData *df, const TData *jac, const TData *in, TData *out, TData *wsp)
+{
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
+    const unsigned int shmemsize =
+        IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
+            nq0, nq1, nm0, nm1);
+    std::vector<TData> shmem(shmemsize);
+
+    IProductWRTDerivBase2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
+        ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0,
+        basis1, D0, D1, w0, w1, f0, f1, nodToMod, df, jac, in, out, wsp,
+        shmem.data(), deviceOnHostBlock1D());
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool DEFORMED, unsigned int nm0,
+          unsigned int nm1, unsigned int nq0, unsigned int nq1, typename TData>
+NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
+    const unsigned int ncoord, const unsigned int nelmt, const bool isModified,
+    const unsigned int *index0, const TData *basis0, const TData *basis1,
+    const TData *D0, const TData *D1, const TData *w0, const TData *w1,
+    const TData *f0, const TData *f1, const TData *nodToMod, const TData *df,
     const TData *jac, const TData *in, TData *out, TData *wsp)
 {
     const unsigned int nmTot =
@@ -94,32 +118,8 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
 
     IProductWRTDerivBase2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
         ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0,
-        basis1, D0, D1, w0, w1, f0, f1, df, jac, in, out, wsp, shmem.data(),
-        deviceOnHostBlock1D());
-}
-
-// Size based template version.
-template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
-          typename Implementation, bool DEFORMED, unsigned int nm0,
-          unsigned int nm1, unsigned int nq0, unsigned int nq1, typename TData>
-NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
-    const unsigned int ncoord, const unsigned int nelmt, const bool isModified,
-    const unsigned int *index0, const TData *basis0, const TData *basis1,
-    const TData *D0, const TData *D1, const TData *w0, const TData *w1,
-    const TData *f0, const TData *f1, const TData *df, const TData *jac,
-    const TData *in, TData *out, TData *wsp)
-{
-    const unsigned int nmTot =
-        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
-    const unsigned int shmemsize =
-        IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
-            nq0, nq1, nm0, nm1);
-    std::vector<TData> shmem(shmemsize);
-
-    IProductWRTDerivBase2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
-        ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0,
-        basis1, D0, D1, w0, w1, f0, f1, df, jac, in, out, wsp, shmem.data(),
-        deviceOnHostBlock1D());
+        basis1, D0, D1, w0, w1, f0, f1, nodToMod, df, jac, in, out, wsp,
+        shmem.data(), deviceOnHostBlock1D());
 }
 
 // Non-size based version.
@@ -133,7 +133,8 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
     const TData *basis1, const TData *basis2, const TData *D0, const TData *D1,
     const TData *D2, const TData *w0, const TData *w1, const TData *w2,
     const TData *f0, const TData *f1, const TData *f1m, const TData *f2,
-    const TData *df, const TData *jac, const TData *in, TData *out, TData *wsp)
+    const TData *nodToMod, const TData *df, const TData *jac, const TData *in,
+    TData *out, TData *wsp)
 {
     const unsigned int nmTot =
         LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
@@ -145,7 +146,7 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
     IProductWRTDerivBase3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
         index2, basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2,
-        df, jac, in, out, wsp, shmem.data(), deviceOnHostBlock1D());
+        nodToMod, df, jac, in, out, wsp, shmem.data(), deviceOnHostBlock1D());
 }
 
 // Size based template version.
@@ -159,7 +160,8 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
     const TData *basis1, const TData *basis2, const TData *D0, const TData *D1,
     const TData *D2, const TData *w0, const TData *w1, const TData *w2,
     const TData *f0, const TData *f1, const TData *f1m, const TData *f2,
-    const TData *df, const TData *jac, const TData *in, TData *out, TData *wsp)
+    const TData *nodToMod, const TData *df, const TData *jac, const TData *in,
+    TData *out, TData *wsp)
 {
     const unsigned int nmTot =
         LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
@@ -171,7 +173,7 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
     IProductWRTDerivBase3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
         index2, basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2,
-        df, jac, in, out, wsp, shmem.data(), deviceOnHostBlock1D());
+        nodToMod, df, jac, in, out, wsp, shmem.data(), deviceOnHostBlock1D());
 }
 
 } // namespace Nektar::Operators::detail

@@ -65,15 +65,16 @@ NEK_DEVICE_INLINE void IProductWRTDerivBase2DKernel(
     const TData *__restrict__ basis1, const TData *__restrict__ D0,
     const TData *__restrict__ D1, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ f0,
-    const TData *__restrict__ f1, const TData *__restrict__ df,
-    const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ wsp,
-    TData *__restrict__ shmemptr, const sycl::nd_item<1> &item_ct1)
+    const TData *__restrict__ f1, const TData *__restrict__ nodToMod,
+    const TData *__restrict__ df, const TData *__restrict__ jac,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp, TData *__restrict__ shmemptr,
+    const sycl::nd_item<1> &item_ct1)
 {
     IProductWRTDerivBase2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
         ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0,
-        basis1, D0, D1, w0, w1, f0, f1, df, jac, in, out, wsp, shmemptr,
-        item_ct1);
+        basis1, D0, D1, w0, w1, f0, f1, nodToMod, df, jac, in, out, wsp,
+        shmemptr, item_ct1);
 }
 
 // Size based template version.
@@ -92,15 +93,15 @@ NEK_DEVICE_INLINE void IProductWRTDerivBase3DKernel(
     const TData *__restrict__ w1, const TData *__restrict__ w2,
     const TData *__restrict__ f0, const TData *__restrict__ f1,
     const TData *__restrict__ f1m, const TData *__restrict__ f2,
-    const TData *__restrict__ df, const TData *__restrict__ jac,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp, TData *__restrict__ shmemptr,
-    const sycl::nd_item<1> &item_ct1)
+    const TData *__restrict__ nodToMod, const TData *__restrict__ df,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ wsp,
+    TData *__restrict__ shmemptr, const sycl::nd_item<1> &item_ct1)
 {
     IProductWRTDerivBase3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
         index2, basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2,
-        df, jac, in, out, wsp, shmemptr, item_ct1);
+        nodToMod, df, jac, in, out, wsp, shmemptr, item_ct1);
 }
 
 // Kernel Launchers.
@@ -175,8 +176,8 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const bool isModified, const unsigned int *index0, const TData *basis0,
     const TData *basis1, const TData *D0, const TData *D1, const TData *w0,
-    const TData *w1, const TData *f0, const TData *f1, const TData *df,
-    const TData *jac, const TData *in, TData *out, TData *wsp)
+    const TData *w1, const TData *f0, const TData *f1, const TData *nodToMod,
+    const TData *df, const TData *jac, const TData *in, TData *out, TData *wsp)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
 
@@ -198,8 +199,8 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
                 IProductWRTDerivBase2DKernel<SHAPE_TYPE, Implementation,
                                              DEFORMED>(
                     ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, isModified,
-                    index0, basis0, basis1, D0, D1, w0, w1, f0, f1, df, jac, in,
-                    out, wsp, shmemptr, item_ct1);
+                    index0, basis0, basis1, D0, D1, w0, w1, f0, f1, nodToMod,
+                    df, jac, in, out, wsp, shmemptr, item_ct1);
             });
     });
 }
@@ -212,15 +213,15 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
     const unsigned int ncoord, const unsigned int nelmt, const bool isModified,
     const unsigned int *index0, const TData *basis0, const TData *basis1,
     const TData *D0, const TData *D1, const TData *w0, const TData *w1,
-    const TData *f0, const TData *f1, const TData *df, const TData *jac,
-    const TData *in, TData *out, TData *wsp)
+    const TData *f0, const TData *f1, const TData *nodToMod, const TData *df,
+    const TData *jac, const TData *in, TData *out, TData *wsp)
 {
 #if defined(NEKTAR_DEBUG)
 
     IProductWRTDerivBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                  DEFORMED>(
         ncoord, nm0, nm1, nq0, nq1, nelmt, isModified, index0, basis0, basis1,
-        D0, D1, w0, w1, f0, f1, df, jac, in, out, wsp);
+        D0, D1, w0, w1, f0, f1, nodToMod, df, jac, in, out, wsp);
 #else
     sycl::queue &Q = SYCLQueue::GetInstance();
 
@@ -243,7 +244,8 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
                                              DEFORMED, nm0, nm1, nmTot, nq0,
                                              nq1>(
                     ncoord, nelmt, isModified, index0, basis0, basis1, D0, D1,
-                    w0, w1, f0, f1, df, jac, in, out, wsp, shmemptr, item_ct1);
+                    w0, w1, f0, f1, nodToMod, df, jac, in, out, wsp, shmemptr,
+                    item_ct1);
             });
     });
 #endif
@@ -260,7 +262,8 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
     const TData *basis1, const TData *basis2, const TData *D0, const TData *D1,
     const TData *D2, const TData *w0, const TData *w1, const TData *w2,
     const TData *f0, const TData *f1, const TData *f1m, const TData *f2,
-    const TData *df, const TData *jac, const TData *in, TData *out, TData *wsp)
+    const TData *nodToMod, const TData *df, const TData *jac, const TData *in,
+    TData *out, TData *wsp)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
 
@@ -283,8 +286,8 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
                                              DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified,
                     index0, index1, index2, basis0, basis1, basis2, D0, D1, D2,
-                    w0, w1, w2, f0, f1, f1m, f2, df, jac, in, out, wsp,
-                    shmemptr, item_ct1);
+                    w0, w1, w2, f0, f1, f1m, f2, nodToMod, df, jac, in, out,
+                    wsp, shmemptr, item_ct1);
             });
     });
 }
@@ -300,14 +303,15 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
     const TData *basis1, const TData *basis2, const TData *D0, const TData *D1,
     const TData *D2, const TData *w0, const TData *w1, const TData *w2,
     const TData *f0, const TData *f1, const TData *f1m, const TData *f2,
-    const TData *df, const TData *jac, const TData *in, TData *out, TData *wsp)
+    const TData *nodToMod, const TData *df, const TData *jac, const TData *in,
+    TData *out, TData *wsp)
 {
 #if defined(NEKTAR_DEBUG)
     IProductWRTDerivBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                  DEFORMED>(
         nm0, nm1, nm2, nq0, nq1, nq2, nelmt, isModified, index0, index1, index2,
-        basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2, df,
-        jac, in, out, wsp);
+        basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2,
+        nodToMod, df, jac, in, out, wsp);
 #else
     sycl::queue &Q = SYCLQueue::GetInstance();
 
@@ -330,8 +334,8 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
                                              DEFORMED, nm0, nm1, nm2, nmTot,
                                              nq0, nq1, nq2>(
                     nelmt, isModified, index0, index1, index2, basis0, basis1,
-                    basis2, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2, df, jac,
-                    in, out, wsp, shmemptr, item_ct1);
+                    basis2, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2, nodToMod,
+                    df, jac, in, out, wsp, shmemptr, item_ct1);
             });
     });
 #endif

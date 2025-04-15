@@ -114,7 +114,8 @@ NEK_FORCE_INLINE static void StdAlignDerivBase2D(
     unsigned int cnt_ji = 0;
     for (unsigned int j = 0; j < nq1; ++j)
     {
-        if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
+        if constexpr (SHAPE_TYPE == LibUtilities::eTriangle ||
+                      SHAPE_TYPE == LibUtilities::eNodalTri)
         {
             f1 = simd_type(Fac1[j]);
         }
@@ -151,7 +152,8 @@ NEK_FORCE_INLINE static void StdAlignDerivBase2D(
                 out1.fma(df_tmp[5], in2);
             }
 
-            if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
+            if constexpr (SHAPE_TYPE == LibUtilities::eTriangle ||
+                          SHAPE_TYPE == LibUtilities::eNodalTri)
             {
                 // Multiply by geometric factors
                 simd_type f0 = Fac0[i];
@@ -209,7 +211,8 @@ NEK_FORCE_INLINE static void StdAlignDerivBase3D(
 
         for (unsigned int j = 0; j < nq1; ++j)
         {
-            if constexpr (SHAPE_TYPE == LibUtilities::eTetrahedron)
+            if constexpr ((SHAPE_TYPE == LibUtilities::eTetrahedron) ||
+                          (SHAPE_TYPE == LibUtilities::eNodalTet))
             {
                 f1  = simd_type(Fac1[j]);
                 f1a = simd_type(Fac1a[j]);
@@ -250,7 +253,8 @@ NEK_FORCE_INLINE static void StdAlignDerivBase3D(
                 out2.fma(df_tmp[5], in1);
                 out2.fma(df_tmp[8], in2);
 
-                if constexpr (SHAPE_TYPE == LibUtilities::eTetrahedron)
+                if constexpr ((SHAPE_TYPE == LibUtilities::eTetrahedron) ||
+                              (SHAPE_TYPE == LibUtilities::eNodalTet))
                 {
                     // (out0 + (out1 + out2)*(1+z0)/2) * 2/(1 - z1) * 2/(1 - z2)
                     f0 = Fac0[i];
@@ -272,7 +276,8 @@ NEK_FORCE_INLINE static void StdAlignDerivBase3D(
                     out1.fma(out2, f1);
                     out1 *= f2;
                 }
-                else if constexpr (SHAPE_TYPE == LibUtilities::ePrism)
+                else if constexpr ((SHAPE_TYPE == LibUtilities::ePrism) ||
+                                   (SHAPE_TYPE == LibUtilities::eNodalPrism))
                 {
                     // (out0 +  out2 * (1 + z0)/2 ) * 2/(1 - z2)
                     f0 = Fac0[i];

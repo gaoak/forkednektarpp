@@ -68,6 +68,8 @@ TEST_MASS(mass_device_sumfac_qp_tri, Tri, 1.0E-12)
 
 TEST_MASS(mass_device_sumfac_qp_tri_varp, TriVarP, 1.0E-12)
 
+TEST_MASS(mass_device_sumfac_qp_tri_nodal, TriNodal, 1.0E-12)
+
 TEST_MASS(mass_device_sumfac_qp_square_all_elements, SquareAllElements, 1.0E-12)
 
 TEST_MASS(mass_device_sumfac_qp_hex, Hex, 1.0E-12)
@@ -80,6 +82,8 @@ TEST_MASS(mass_device_sumfac_qp_prism, Prism, 1.0E-12)
 
 TEST_MASS(mass_device_sumfac_qp_prism_varp, PrismVarP, 1.0E-12)
 
+TEST_MASS(mass_device_sumfac_qp_prism_nodal, PrismNodal, 1.0E-12)
+
 TEST_MASS(mass_device_sumfac_qp_pyr, Pyr, 1.0E-12)
 
 TEST_MASS(mass_device_sumfac_qp_pyr_varp, PyrVarP, 1.0E-12)
@@ -87,6 +91,8 @@ TEST_MASS(mass_device_sumfac_qp_pyr_varp, PyrVarP, 1.0E-12)
 TEST_MASS(mass_device_sumfac_qp_tet, Tet, 1.0E-12)
 
 TEST_MASS(mass_device_sumfac_qp_tet_varp, TetVarP, 1.0E-12)
+
+TEST_MASS(mass_device_sumfac_qp_tet_nodal, TetNodal, 1.0E-12)
 
 TEST_MASS(mass_device_sumfac_qp_cube_prism_hex, CubePrismHex, 1.0E-12)
 

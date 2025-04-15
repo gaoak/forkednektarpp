@@ -85,6 +85,19 @@ public:
                                     eWeights)));
         }
 
+        if ((m_shapeType == LibUtilities::eNodalTri) ||
+            (m_shapeType == LibUtilities::eNodalPrism) ||
+            (m_shapeType == LibUtilities::eNodalTet))
+        {
+            // Fetch NodalToModal Matrix if required.
+            m_nodToMod = this->m_dataWarehouse->template GetData<ExecSpace>(
+                VandemondeKey<TData>(eNodalToModal, exp->GetElmtId()));
+        }
+        else
+        {
+            m_nodToMod = (const TData *)nullptr;
+        }
+
         if (m_dimension == 2)
         {
             // Fetch geometric factors.
@@ -97,7 +110,8 @@ public:
 
             // Precompute index, if necessary.
             const bool indexing =
-                m_shapeType == LibUtilities::Tri &&
+                (m_shapeType == LibUtilities::Tri ||
+                 m_shapeType == LibUtilities::NodalTri) &&
                 std::is_same_v<Implementation, Operators::SumFacQP>;
             m_index.push_back(
                 indexing ? this->m_dataWarehouse->template GetData<ExecSpace>(
@@ -122,10 +136,12 @@ public:
 
             // Precompute index, if necessary.
             const bool indexingTet =
-                m_shapeType == LibUtilities::Tet &&
+                (m_shapeType == LibUtilities::Tet ||
+                 m_shapeType == LibUtilities::NodalTet) &&
                 std::is_same_v<Implementation, Operators::SumFacQP>;
             const bool indexingPrism =
-                m_shapeType == LibUtilities::Prism &&
+                (m_shapeType == LibUtilities::Prism ||
+                 m_shapeType == LibUtilities::NodalPrism) &&
                 std::is_same_v<Implementation, Operators::SumFacQP>;
             const bool indexingPyr =
                 m_shapeType == LibUtilities::Pyr &&
@@ -206,6 +222,12 @@ public:
                 TriBlock(inblock, outblock);
                 break;
             }
+            // Nodal Triangles
+            case LibUtilities::NodalTri:
+            {
+                NodalTriBlock(inblock, outblock);
+                break;
+            }
             // Hexes
             case LibUtilities::Hex:
             {
@@ -218,6 +240,12 @@ public:
                 TetBlock(inblock, outblock);
                 break;
             }
+            // Nodal Tet
+            case LibUtilities::NodalTet:
+            {
+                NodalTetBlock(inblock, outblock);
+                break;
+            }
             // Pyr
             case LibUtilities::Pyr:
             {
@@ -228,6 +256,12 @@ public:
             case LibUtilities::Prism:
             {
                 PrismBlock(inblock, outblock);
+                break;
+            }
+            // Nodal Prism
+            case LibUtilities::NodalPrism:
+            {
+                NodalPrismBlock(inblock, outblock);
                 break;
             }
             default:
@@ -269,6 +303,7 @@ protected:
     std::vector<const unsigned int *> m_index;
     MemoryRegion<TData> m_diffCoeff;
     MemoryRegion<TData> m_wsp;
+    const TData *m_nodToMod;
 
     unsigned int GetWorkspaceSize(LibUtilities::ShapeType shapeType,
                                   unsigned int nElmts,
@@ -292,6 +327,12 @@ protected:
         {
             wspsize = ((1 + ncoord) * nq0 * nq1 + std::max(nq1, nm0)) * nElmts;
         }
+        else if (shapeType == LibUtilities::NodalTri)
+        {
+            wspsize = ((1 + ncoord) * nq0 * nq1 + std::max(nq1, nm0) +
+                       nm0 * (nm0 + 1) / 2) *
+                      nElmts;
+        }
         else if (shapeType == LibUtilities::Hex)
         {
             wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2) * nElmts;
@@ -300,10 +341,22 @@ protected:
         {
             wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2 + nm2) * nElmts;
         }
+        else if (shapeType == LibUtilities::NodalTet)
+        {
+            wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2 + nm2 +
+                       nm0 * (nm0 + 1) * (nm0 + 2) / 6) *
+                      nElmts;
+        }
         else if (shapeType == LibUtilities::Prism)
         {
             wspsize = (4 * nq0 * nq1 * nq2 + std::max(nq1 * nq2, nm0 * nm1) +
                        std::max(nq2, nm0) + nm1) *
+                      nElmts;
+        }
+        else if (shapeType == LibUtilities::NodalPrism)
+        {
+            wspsize = (4 * nq0 * nq1 * nq2 + std::max(nq1 * nq2, nm0 * nm1) +
+                       std::max(nq2, nm0) + nm1 + nm0 * (nm0 + 1) * nm0 / 2) *
                       nElmts;
         }
         else if (shapeType == LibUtilities::Pyr)
@@ -334,6 +387,9 @@ protected:
     void TriBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
 
+    void NodalTriBlock(BlockAccessor<TData> &inblock,
+                       BlockAccessor<TData> &outblock);
+
     void QuadBlock(BlockAccessor<TData> &inblock,
                    BlockAccessor<TData> &outblock);
 
@@ -343,11 +399,17 @@ protected:
     void PrismBlock(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock);
 
+    void NodalPrismBlock(BlockAccessor<TData> &inblock,
+                         BlockAccessor<TData> &outblock);
+
     void PyrBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
 
     void TetBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
+
+    void NodalTetBlock(BlockAccessor<TData> &inblock,
+                       BlockAccessor<TData> &outblock);
 
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
@@ -539,8 +601,8 @@ protected:
             Helmholtz2DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
                 m_coordDim, nm0, nm1, nq0, nq1, nElmtsPad, m_isModified,
                 m_index[0], m_B[0], m_B[1], m_D[0], m_D[1], m_W[0], m_W[1],
-                m_f[0], m_f[1], dfptr, jacptr, diffptr, inptr, outptr, wspptr,
-                this->m_lambda);
+                m_f[0], m_f[1], m_nodToMod, dfptr, jacptr, diffptr, inptr,
+                outptr, wspptr, this->m_lambda);
 
             // Increment pointers.
             inptr += inblock.size();
@@ -606,8 +668,8 @@ protected:
             Helmholtz2DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED,
                               nm0, nm1, nq0, nq1>(
                 m_coordDim, nElmtsPad, m_isModified, m_index[0], m_B[0], m_B[1],
-                m_D[0], m_D[1], m_W[0], m_W[1], m_f[0], m_f[1], dfptr, jacptr,
-                diffptr, inptr, outptr, wspptr, this->m_lambda);
+                m_D[0], m_D[1], m_W[0], m_W[1], m_f[0], m_f[1], m_nodToMod,
+                dfptr, jacptr, diffptr, inptr, outptr, wspptr, this->m_lambda);
 
             // Increment pointers.
             inptr += inblock.size();
@@ -681,8 +743,8 @@ protected:
                 nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, m_isModified,
                 m_index[0], m_index[1], m_index[2], m_index[3], m_B[0], m_B[1],
                 m_B[2], m_D[0], m_D[1], m_D[2], m_W[0], m_W[1], m_W[2], m_f[0],
-                m_f[1], m_f[2], m_f[3], dfptr, jacptr, diffptr, inptr, outptr,
-                wspptr, this->m_lambda);
+                m_f[1], m_f[2], m_f[3], m_nodToMod, dfptr, jacptr, diffptr,
+                inptr, outptr, wspptr, this->m_lambda);
 
             // Increment pointers.
             inptr += inblock.size();
@@ -749,8 +811,9 @@ protected:
                               nm0, nm1, nm2, nq0, nq1, nq2>(
                 nElmtsPad, m_isModified, m_index[0], m_index[1], m_index[2],
                 m_index[3], m_B[0], m_B[1], m_B[2], m_D[0], m_D[1], m_D[2],
-                m_W[0], m_W[1], m_W[2], m_f[0], m_f[1], m_f[2], m_f[3], dfptr,
-                jacptr, diffptr, inptr, outptr, wspptr, this->m_lambda);
+                m_W[0], m_W[1], m_W[2], m_f[0], m_f[1], m_f[2], m_f[3],
+                m_nodToMod, dfptr, jacptr, diffptr, inptr, outptr, wspptr,
+                this->m_lambda);
 
             // Increment pointers.
             inptr += inblock.size();

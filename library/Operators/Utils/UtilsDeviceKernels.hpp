@@ -130,6 +130,86 @@ NEK_DEVICE_INLINE static void BuildInterleaveMapKernel(
 }
 #endif
 
+#if (defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)) ||                    \
+    (defined(NEKTAR_ENABLE_HIP) && defined(__HIPCC__)) ||                      \
+    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
+template <bool APPEND = false, bool TRANSPOSE = false, typename TData>
+NEK_DEVICE_INLINE static void MatVecKernel(const unsigned int ilane,
+                                           const unsigned int nmTot,
+                                           const TData *__restrict__ nodToMod,
+                                           const TData *__restrict__ in,
+                                           TData *__restrict__ out)
+{
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+
+    for (unsigned int i = 0u; i < nmTot; ++i)
+    {
+        TData tmp = 0.0;
+#pragma unroll
+        for (unsigned int j = 0u; j < nmTot; ++j)
+        {
+            if constexpr (TRANSPOSE)
+            {
+                tmp += nodToMod[j * nmTot + i] * in[warpsize * j + ilane];
+            }
+            else
+            {
+                tmp += nodToMod[i * nmTot + j] * in[warpsize * j + ilane];
+            }
+        }
+
+        if constexpr (APPEND)
+        {
+            out[warpsize * i + ilane] += tmp;
+        }
+        else
+        {
+            out[warpsize * i + ilane] = tmp;
+        }
+    }
+}
+
+template <bool APPEND = false, bool TRANSPOSE = false, typename TthreadBlock,
+          typename TData>
+NEK_DEVICE_INLINE static void MatVecQPKernel(const unsigned int nmTot,
+                                             const TData *__restrict__ nodToMod,
+                                             const TData *__restrict__ in,
+                                             TData *__restrict__ out,
+                                             const TthreadBlock &threadBlock)
+{
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
+
+    for (unsigned int i = idx0; i < nmTot; i += stride)
+    {
+        TData tmp = 0.0;
+#pragma unroll
+        for (unsigned int j = 0u; j < nmTot; j++)
+        {
+            if constexpr (TRANSPOSE)
+            {
+                tmp += in[j] * nodToMod[j * nmTot + i];
+            }
+            else
+            {
+                tmp += in[j] * nodToMod[i * nmTot + j];
+            }
+        }
+
+        if constexpr (APPEND)
+        {
+            out[i] += tmp;
+        }
+        else
+        {
+            out[i] = tmp;
+        }
+    }
+
+    localBarrier(threadBlock);
+}
+#endif
+
 } // namespace Nektar
 
 #include "Operators/Utils/UtilsDeviceOnHostKernels.hpp"

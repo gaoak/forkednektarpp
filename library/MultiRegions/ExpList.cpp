@@ -46,6 +46,8 @@
 #include <LocalRegions/Expansion3D.h>
 #include <LocalRegions/HexExp.h>
 #include <LocalRegions/MatrixKey.h> // for MatrixKey
+#include <LocalRegions/NodalPrismExp.h>
+#include <LocalRegions/NodalTetExp.h>
 #include <LocalRegions/NodalTriExp.h>
 #include <LocalRegions/PointExp.h>
 #include <LocalRegions/PrismExp.h>
@@ -1834,8 +1836,26 @@ void ExpList::InitialiseExpVector(
                              std::dynamic_pointer_cast<SpatialDomains::TetGeom>(
                                  expInfo->m_geomShPtr)))
                     {
-                        if (Ba.GetBasisType() == LibUtilities::eGLL_Lagrange ||
-                            Ba.GetBasisType() == LibUtilities::eGauss_Lagrange)
+                        if (Ba.GetBasisType() == LibUtilities::eGLL_Lagrange)
+                        {
+                            // This is not elegantly implemented needs
+                            // re-thinking.
+                            if (Ba.GetBasisType() ==
+                                LibUtilities::eGLL_Lagrange)
+                            {
+                                LibUtilities::BasisKey newBa(
+                                    LibUtilities::eOrtho_A, Ba.GetNumModes(),
+                                    Ba.GetPointsKey());
+
+                                LibUtilities::PointsType TetNb =
+                                    LibUtilities::eNodalTetElec;
+                                exp = MemoryManager<LocalRegions::NodalTetExp>::
+                                    AllocateSharedPtr(newBa, Bb, Bc, TetNb,
+                                                      TetGeom);
+                            }
+                        }
+                        else if (Ba.GetBasisType() ==
+                                 LibUtilities::eGauss_Lagrange)
                         {
                             NEKERROR(
                                 ErrorUtil::efatal,
@@ -1852,8 +1872,24 @@ void ExpList::InitialiseExpVector(
                                   SpatialDomains ::PrismGeom>(
                                   expInfo->m_geomShPtr)))
                     {
-                        exp = MemoryManager<LocalRegions::PrismExp>::
-                            AllocateSharedPtr(Ba, Bb, Bc, PrismGeom);
+                        if (Ba.GetBasisType() == LibUtilities::eGLL_Lagrange)
+                        {
+                            LibUtilities::BasisKey newBa(LibUtilities::eOrtho_A,
+                                                         Ba.GetNumModes(),
+                                                         Ba.GetPointsKey());
+
+                            LibUtilities::PointsType PrismNb =
+                                LibUtilities::eNodalPrismElec;
+
+                            exp = MemoryManager<LocalRegions::NodalPrismExp>::
+                                AllocateSharedPtr(newBa, Bb, Bc, PrismNb,
+                                                  PrismGeom);
+                        }
+                        else
+                        {
+                            exp = MemoryManager<LocalRegions::PrismExp>::
+                                AllocateSharedPtr(Ba, Bb, Bc, PrismGeom);
+                        }
                     }
                     else if ((PyrGeom = std::dynamic_pointer_cast<
                                   SpatialDomains::PyrGeom>(
@@ -1918,6 +1954,9 @@ void ExpList::SetDataWarehouse(void)
         ->RegisterDataCreatorClass<Nektar::Operators::StdMatDataCreator>();
     m_dataWarehouse
         ->RegisterDataCreatorClass<Nektar::Operators::GeometricDataCreator>(
+            vExpList);
+    m_dataWarehouse
+        ->RegisterDataCreatorClass<Nektar::Operators::VandemondeDataCreator>(
             vExpList);
 }
 

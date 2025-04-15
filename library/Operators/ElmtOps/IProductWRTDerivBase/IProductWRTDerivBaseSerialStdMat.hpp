@@ -70,8 +70,15 @@ public:
         {
             basisKeys[d] = exp->GetBasis(d)->GetBasisKey();
         }
+
+        LibUtilities::PointsType nodalType = LibUtilities::eNoPointsType;
+        if (exp->IsNodalNonTensorialExp())
+        {
+            nodalType = exp->GetNodalPointsKey().GetPointsType();
+        }
+
         m_matptr = dataWarehouse->template GetData<ExecSpace>(StdMatKey<TData>(
-            basisKeys, m_shapeType, eIProductWRTDerivBaseStdMat));
+            basisKeys, m_shapeType, eIProductWRTDerivBaseStdMat, nodalType));
     }
 
     void apply(BlockAccessor<TData> &inblock,

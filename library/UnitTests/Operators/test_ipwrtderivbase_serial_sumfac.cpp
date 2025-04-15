@@ -68,6 +68,8 @@ TEST_IPWRTDERIVBASE(ipwrtderivbase_tri, Tri, 2, 1.0E-12)
 
 TEST_IPWRTDERIVBASE(ipwrtderivbase_tri_varp, TriVarP, 2, 1.0E-12)
 
+TEST_IPWRTDERIVBASE(ipwrtderivbase_tri_nodal, TriNodal, 2, 1.0E-12)
+
 TEST_IPWRTDERIVBASE(ipwrtderivbase_square_all_elements, SquareAllElements, 2,
                     1.0E-12)
 
@@ -81,6 +83,8 @@ TEST_IPWRTDERIVBASE(ipwrtderivbase_tet, Tet, 3, 1.0E-12)
 
 TEST_IPWRTDERIVBASE(ipwrtderivbase_tet_varp, TetVarP, 3, 1.0E-12)
 
+TEST_IPWRTDERIVBASE(ipwrtderivbase_tet_nodal, TetNodal, 3, 1.0E-12)
+
 TEST_IPWRTDERIVBASE(ipwrtderivbase_pyr, Pyr, 3, 1.0E-12)
 
 TEST_IPWRTDERIVBASE(ipwrtderivbase_pyr_varp, PyrVarP, 3, 1.0E-12)
@@ -88,6 +92,8 @@ TEST_IPWRTDERIVBASE(ipwrtderivbase_pyr_varp, PyrVarP, 3, 1.0E-12)
 TEST_IPWRTDERIVBASE(ipwrtderivbase_prism, Prism, 3, 1.0E-12)
 
 TEST_IPWRTDERIVBASE(ipwrtderivbase_prism_varp, PrismVarP, 3, 1.0E-12)
+
+TEST_IPWRTDERIVBASE(ipwrtderivbase_prism_nodal, PrismNodal, 3, 1.0E-12)
 
 TEST_IPWRTDERIVBASE(ipwrtderivbase_cube_prism_hex, CubePrismHex, 3, 1.0E-12)
 

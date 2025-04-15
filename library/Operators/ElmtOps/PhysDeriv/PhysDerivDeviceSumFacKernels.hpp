@@ -52,7 +52,8 @@ inline constexpr unsigned int PhysDerivSharedMemorySize(const unsigned int nq0,
         {
             return 0;
         }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
+        else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                           SHAPE_TYPE == LibUtilities::NodalTri)
         {
             return nq0 + nq1;
         }
@@ -74,11 +75,13 @@ inline constexpr unsigned int PhysDerivSharedMemorySize(const unsigned int nq0,
         {
             return 0;
         }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
+        else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                           SHAPE_TYPE == LibUtilities::NodalTet)
         {
             return nq0 + 2u * nq1 + nq2;
         }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
+        else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
+                           SHAPE_TYPE == LibUtilities::NodalPrism)
         {
             return nq0 + nq2;
         }
@@ -193,7 +196,8 @@ NEK_DEVICE_INLINE static void PhysDeriv2DSumFacKernel(
             }
 
             // Moving from standard to collapsed coordinates.
-            if constexpr (SHAPE_TYPE == LibUtilities::Tri)
+            if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                          SHAPE_TYPE == LibUtilities::NodalTri)
             {
                 d0 *= f1[j];
                 d1 += d0 * f0[i];
@@ -309,7 +313,8 @@ NEK_DEVICE_INLINE static void PhysDeriv3DSumFacKernel(
                 }
 
                 // Moving from standard to collapsed coordinates.
-                if constexpr (SHAPE_TYPE == LibUtilities::Tet)
+                if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                              SHAPE_TYPE == LibUtilities::NodalTet)
                 {
                     TData tmp0 = f1m[j] * f2[k] * d0;
                     TData tmp1 = f0[i] * tmp0;
@@ -318,7 +323,8 @@ NEK_DEVICE_INLINE static void PhysDeriv3DSumFacKernel(
                     d1         = tmp1 + tmp2;
                     d2 += tmp1 + f1[j] * tmp2;
                 }
-                else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
+                else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
+                                   SHAPE_TYPE == LibUtilities::NodalPrism)
                 {
                     d0 *= f2[k];
                     d2 += f0[i] * d0;
@@ -515,7 +521,8 @@ NEK_DEVICE_INLINE static void PhysDeriv2DSumFacQPKernel(
         }
 
         // Moving from standard to collapsed coordinates.
-        if constexpr (SHAPE_TYPE == LibUtilities::Tri)
+        if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                      SHAPE_TYPE == LibUtilities::NodalTri)
         {
             d0 *= f1[j];
             d1 += d0 * f0[i];
@@ -636,7 +643,8 @@ NEK_DEVICE_INLINE static void PhysDeriv3DSumFacQPKernel(
         }
 
         // Moving from standard to collapsed coordinates.
-        if constexpr (SHAPE_TYPE == LibUtilities::Tet)
+        if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                      SHAPE_TYPE == LibUtilities::NodalTet)
         {
             TData tmp0 = f1m[j] * f2[k] * d0;
             TData tmp1 = f0[i] * tmp0;
@@ -645,7 +653,8 @@ NEK_DEVICE_INLINE static void PhysDeriv3DSumFacQPKernel(
             d1         = tmp1 + tmp2;
             d2 += tmp1 + f1[j] * tmp2;
         }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
+        else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
+                           SHAPE_TYPE == LibUtilities::NodalPrism)
         {
             d0 *= f2[k];
             d2 += f0[i] * d0;
@@ -811,7 +820,8 @@ NEK_DEVICE_INLINE static void PhysDeriv2DKernel(
         const unsigned int idx0   = getLocalIdx(threadBlock);
         const unsigned int stride = getLocalRange(threadBlock);
 
-        if constexpr (SHAPE_TYPE == LibUtilities::Tri)
+        if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                      SHAPE_TYPE == LibUtilities::NodalTri)
         {
             s_f0 = shmemptr;
             s_f1 = s_f0 + nq0;
@@ -899,7 +909,8 @@ NEK_DEVICE_INLINE static void PhysDeriv3DKernel(
         const unsigned int idx0   = getLocalIdx(threadBlock);
         const unsigned int stride = getLocalRange(threadBlock);
 
-        if constexpr (SHAPE_TYPE == LibUtilities::Tet)
+        if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                      SHAPE_TYPE == LibUtilities::NodalTet)
         {
             s_f0  = shmemptr;
             s_f1  = s_f0 + nq0;
@@ -924,7 +935,8 @@ NEK_DEVICE_INLINE static void PhysDeriv3DKernel(
 
             localBarrier(threadBlock);
         }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
+        else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
+                           SHAPE_TYPE == LibUtilities::NodalPrism)
         {
             s_f0 = shmemptr;
             s_f2 = s_f0 + nq0;

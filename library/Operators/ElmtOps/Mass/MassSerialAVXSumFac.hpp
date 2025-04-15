@@ -81,6 +81,25 @@ public:
                 BasisDataKey<simd_t>(exp->GetBasis(d)->GetBasisKey(),
                                      eWeights)));
         }
+        if ((m_shapeType == LibUtilities::eNodalTri) ||
+            (m_shapeType == LibUtilities::eNodalTet) ||
+            (m_shapeType == LibUtilities::eNodalPrism))
+        {
+            // Fetch NodalToModal Matrix if required.
+            m_nodToMod = this->m_dataWarehouse->template GetData<ExecSpace>(
+                VandemondeKey<simd_t>(eNodalToModal, exp->GetElmtId()));
+
+            // Fetch NodalToModal Matrix if required.
+            m_nodToModTrans =
+                this->m_dataWarehouse->template GetData<ExecSpace>(
+                    VandemondeKey<simd_t>(eNodalToModalTranspose,
+                                          exp->GetElmtId()));
+        }
+        else
+        {
+            m_nodToMod      = (const simd_t *)nullptr;
+            m_nodToModTrans = (const simd_t *)nullptr;
+        }
     }
 
     void apply(BlockAccessor<TData> &inblock,
@@ -114,6 +133,12 @@ public:
                 TriBlock(inblock, outblock);
                 break;
             }
+            // Nodal Triangles
+            case LibUtilities::NodalTri:
+            {
+                NodalTriBlock(inblock, outblock);
+                break;
+            }
             // Hexes
             case LibUtilities::Hex:
             {
@@ -126,6 +151,12 @@ public:
                 TetBlock(inblock, outblock);
                 break;
             }
+            // NodalTet
+            case LibUtilities::NodalTet:
+            {
+                NodalTetBlock(inblock, outblock);
+                break;
+            }
             // Pyr
             case LibUtilities::Pyr:
             {
@@ -136,6 +167,12 @@ public:
             case LibUtilities::Prism:
             {
                 PrismBlock(inblock, outblock);
+                break;
+            }
+            // NodalPrism
+            case LibUtilities::NodalPrism:
+            {
+                NodalPrismBlock(inblock, outblock);
                 break;
             }
             default:
@@ -168,12 +205,17 @@ protected:
     std::vector<unsigned int> m_nq;
     std::vector<const simd_t *> m_B;
     std::vector<const simd_t *> m_W;
+    const simd_t *m_nodToMod;
+    const simd_t *m_nodToModTrans;
 
     void SegBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
 
     void TriBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
+
+    void NodalTriBlock(BlockAccessor<TData> &inblock,
+                       BlockAccessor<TData> &outblock);
 
     void QuadBlock(BlockAccessor<TData> &inblock,
                    BlockAccessor<TData> &outblock);
@@ -184,11 +226,17 @@ protected:
     void PrismBlock(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock);
 
+    void NodalPrismBlock(BlockAccessor<TData> &inblock,
+                         BlockAccessor<TData> &outblock);
+
     void PyrBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
 
     void TetBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
+
+    void NodalTetBlock(BlockAccessor<TData> &inblock,
+                       BlockAccessor<TData> &outblock);
 
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
@@ -410,13 +458,14 @@ protected:
 
                 // Step 1: BwdTrans.
                 BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, m_isModified,
-                                             m_B[0], m_B[1], wsp0.data(), inptr,
-                                             bwd.data());
+                                             m_B[0], m_B[1], m_nodToMod,
+                                             wsp0.data(), inptr, bwd.data());
 
                 // Step 2: Inner product for mass matrix operation.
                 IProduct2DKernel<SHAPE_TYPE, false, false, DEFORMED>(
                     nm0, nm1, nq0, nq1, m_isModified, bwd.data(), m_B[0],
-                    m_B[1], m_W[0], m_W[1], jacptr, wsp0.data(), outptr);
+                    m_B[1], m_W[0], m_W[1], m_nodToModTrans, jacptr,
+                    wsp0.data(), outptr, 1.0);
 
                 // Increment pointers.
                 jacptr += jacSize;
@@ -493,13 +542,14 @@ protected:
 
                 // Step 1: BwdTrans.
                 BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, m_isModified,
-                                             m_B[0], m_B[1], wsp0.data(), inptr,
-                                             bwd.data());
+                                             m_B[0], m_B[1], m_nodToMod,
+                                             wsp0.data(), inptr, bwd.data());
 
                 // Step 2: Inner product for mass matrix operation.
                 IProduct2DKernel<SHAPE_TYPE, false, false, DEFORMED>(
                     nm0, nm1, nq0, nq1, m_isModified, bwd.data(), m_B[0],
-                    m_B[1], m_W[0], m_W[1], jacptr, wsp0.data(), outptr);
+                    m_B[1], m_W[0], m_W[1], m_nodToModTrans, jacptr,
+                    wsp0.data(), outptr, 1.0);
 
                 // Increment pointers.
                 jacptr += jacSize;
@@ -541,9 +591,10 @@ protected:
 
         // Get interleave parameter.
         const unsigned int interleave_width = inblock.GetInterleaveWidth();
-        const auto width_ratio              = (interleave_width == 1)
-                                                  ? 1
-                                                  : interleave_width / m_implInterleaveWidth;
+
+        const auto width_ratio = (interleave_width == 1)
+                                     ? 1
+                                     : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
 
@@ -584,15 +635,17 @@ protected:
                 }
 
                 // Step 1: BwdTrans.
-                BwdTrans3DKernel<SHAPE_TYPE>(
-                    nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, m_B[0], m_B[1],
-                    m_B[2], wsp0.data(), wsp1.data(), inptr, bwd.data());
+                BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2,
+                                             m_isModified, m_B[0], m_B[1],
+                                             m_B[2], m_nodToMod, wsp0.data(),
+                                             wsp1.data(), inptr, bwd.data());
 
                 // Step 2: Inner product for mass matrix operation.
                 IProduct3DKernel<SHAPE_TYPE, false, false, DEFORMED>(
                     nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, bwd.data(),
-                    m_B[0], m_B[1], m_B[2], m_W[0], m_W[1], m_W[2], jacptr,
-                    wsp0.data(), wsp1.data(), wsp2.data(), outptr);
+                    m_B[0], m_B[1], m_B[2], m_W[0], m_W[1], m_W[2],
+                    m_nodToModTrans, jacptr, wsp0.data(), wsp1.data(),
+                    wsp2.data(), outptr, 1.0);
 
                 // Increment pointers.
                 jacptr += jacSize;
@@ -671,15 +724,17 @@ protected:
                 }
 
                 // Step 1: BwdTrans.
-                BwdTrans3DKernel<SHAPE_TYPE>(
-                    nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, m_B[0], m_B[1],
-                    m_B[2], wsp0.data(), wsp1.data(), inptr, bwd.data());
+                BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2,
+                                             m_isModified, m_B[0], m_B[1],
+                                             m_B[2], m_nodToMod, wsp0.data(),
+                                             wsp1.data(), inptr, bwd.data());
 
                 // Step 2: Inner product for mass matrix operation.
                 IProduct3DKernel<SHAPE_TYPE, false, false, DEFORMED>(
                     nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, bwd.data(),
-                    m_B[0], m_B[1], m_B[2], m_W[0], m_W[1], m_W[2], jacptr,
-                    wsp0.data(), wsp1.data(), wsp2.data(), outptr);
+                    m_B[0], m_B[1], m_B[2], m_W[0], m_W[1], m_W[2],
+                    m_nodToModTrans, jacptr, wsp0.data(), wsp1.data(),
+                    wsp2.data(), outptr, 1.0);
 
                 // Increment pointers.
                 jacptr += jacSize;

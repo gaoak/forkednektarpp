@@ -64,7 +64,14 @@ NEK_FORCE_INLINE static void IProduct2DWorkspace(
     [[maybe_unused]] const unsigned int nq0, const unsigned int nq1,
     unsigned int &wsp0Size)
 {
-    wsp0Size = std::max(wsp0Size, nq1);
+    if constexpr (SHAPE_TYPE == LibUtilities::eNodalTri)
+    {
+        wsp0Size = std::max(wsp0Size, nq1 + nm0 * (nm0 + 1) / 2);
+    }
+    else
+    {
+        wsp0Size = std::max(wsp0Size, nq1);
+    }
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE>
@@ -75,7 +82,19 @@ NEK_FORCE_INLINE static void IProduct3DWorkspace(
     const unsigned int nq2, unsigned int &wsp0Size, unsigned int &wsp1Size,
     unsigned int &wsp2Size)
 {
-    wsp0Size = std::max(wsp0Size, nq1 * nq2);
+    if constexpr (SHAPE_TYPE == LibUtilities::eNodalTet)
+    {
+        wsp0Size =
+            std::max(wsp0Size, nq1 * nq2 + nm0 * (nm0 + 1) * (nm0 + 2) / 6);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::eNodalPrism)
+    {
+        wsp0Size = std::max(wsp0Size, nq1 * nq2 + nm0 * nm0 * (nm0 + 1) / 2);
+    }
+    else
+    {
+        wsp0Size = std::max(wsp0Size, nq1 * nq2);
+    }
     wsp1Size = std::max(wsp1Size, nq2);
     wsp2Size = std::max(wsp2Size, nm1);
 }
@@ -97,10 +116,21 @@ NEK_FORCE_INLINE static void IProduct2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, [[maybe_unused]] const bool isModified,
     const simd_type *in, const simd_type *B0, const simd_type *B1,
-    const simd_type *w0, const simd_type *w1, const simd_type *jac,
+    const simd_type *w0, const simd_type *w1,
+    [[maybe_unused]] const simd_type *NtoMTrans, const simd_type *jac,
     simd_type *wsp0, simd_type *out, typename simd_type::scalarType scale = 1.0)
 {
-    if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
+    if constexpr (SHAPE_TYPE == LibUtilities::eNodalTri)
+    {
+        const auto nmTot  = nm0 * (nm0 + 1) / 2;
+        simd_type *outtmp = wsp0 + nq1;
+
+        IProductTriKernel<SCALE, APPEND, DEFORMED>(
+            nm0, nm1, nq0, nq1, isModified, in, B0, B1, w0, w1, jac, wsp0,
+            outtmp, scale);
+        MatVecKernel(nmTot, NtoMTrans, outtmp, out);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
     {
         IProductTriKernel<SCALE, APPEND, DEFORMED>(nm0, nm1, nq0, nq1,
                                                    isModified, in, B0, B1, w0,
@@ -120,9 +150,20 @@ NEK_FORCE_INLINE static void IProduct2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, [[maybe_unused]] const bool isModified,
     const simd_type *in, const simd_type *B0, const simd_type *B1,
-    simd_type *wsp0, simd_type *out, typename simd_type::scalarType scale = 1.0)
+    [[maybe_unused]] const simd_type *NtoMTrans, simd_type *wsp0,
+    simd_type *out, typename simd_type::scalarType scale = 1.0)
+
 {
-    if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
+    if constexpr (SHAPE_TYPE == LibUtilities::eNodalTri)
+    {
+        const auto nmTot  = nm0 * (nm0 + 1) / 2;
+        simd_type *outtmp = wsp0 + nq1;
+
+        IProductTriKernel<SCALE, APPEND, simd_type>(
+            nm0, nm1, nq0, nq1, isModified, in, B0, B1, wsp0, outtmp, scale);
+        MatVecKernel(nmTot, NtoMTrans, outtmp, out);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
     {
         IProductTriKernel<SCALE, APPEND, simd_type>(
             nm0, nm1, nq0, nq1, isModified, in, B0, B1, wsp0, out, scale);
@@ -142,9 +183,10 @@ NEK_FORCE_INLINE static void IProduct3DKernel(
     [[maybe_unused]] const bool isModified, const simd_type *in,
     const simd_type *B0, const simd_type *B1, const simd_type *B2,
     const simd_type *w0, const simd_type *w1, const simd_type *w2,
-    const simd_type *jac, simd_type *wsp0, simd_type *wsp1,
-    [[maybe_unused]] simd_type *wsp2, simd_type *out,
-    typename simd_type::scalarType scale = 1.0)
+    [[maybe_unused]] const simd_type *NtoMTrans, const simd_type *jac,
+    simd_type *wsp0, simd_type *wsp1, [[maybe_unused]] simd_type *wsp2,
+    simd_type *out, typename simd_type::scalarType scale = 1.0)
+
 {
     if constexpr (SHAPE_TYPE == LibUtilities::eHexahedron)
     {
@@ -158,11 +200,31 @@ NEK_FORCE_INLINE static void IProduct3DKernel(
             nm0, nm1, nm2, nq0, nq1, nq2, isModified, in, B0, B1, B2, w0, w1,
             w2, jac, wsp0, wsp1, out, scale);
     }
+    else if constexpr (SHAPE_TYPE == LibUtilities::eNodalTet)
+    {
+        const auto nmTot  = nm0 * (nm0 + 1) * (nm0 + 2) / 6;
+        simd_type *outtmp = wsp0 + nq1 * nq2;
+
+        IProductTetKernel<SCALE, APPEND, DEFORMED>(
+            nm0, nm1, nm2, nq0, nq1, nq2, isModified, in, B0, B1, B2, w0, w1,
+            w2, jac, wsp0, wsp1, outtmp, scale);
+        MatVecKernel(nmTot, NtoMTrans, outtmp, out);
+    }
     else if constexpr (SHAPE_TYPE == LibUtilities::ePrism)
     {
         IProductPrismKernel<SCALE, APPEND, DEFORMED>(
             nm0, nm1, nm2, nq0, nq1, nq2, isModified, in, B0, B1, B2, w0, w1,
             w2, jac, wsp0, wsp1, wsp2, out, scale);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::eNodalPrism)
+    {
+        const auto nmTot  = nm0 * nm0 * (nm0 + 1) / 2;
+        simd_type *outtmp = wsp0 + nq1 * nq2;
+
+        IProductPrismKernel<SCALE, APPEND, DEFORMED>(
+            nm0, nm1, nm2, nq0, nq1, nq2, isModified, in, B0, B1, B2, w0, w1,
+            w2, jac, wsp0, wsp1, wsp2, outtmp, scale);
+        MatVecKernel(nmTot, NtoMTrans, outtmp, out);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::ePyramid)
     {
@@ -180,8 +242,9 @@ NEK_FORCE_INLINE static void IProduct3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     [[maybe_unused]] const bool isModified, const simd_type *in,
     const simd_type *B0, const simd_type *B1, const simd_type *B2,
-    simd_type *wsp0, simd_type *wsp1, [[maybe_unused]] simd_type *wsp2,
-    simd_type *out, typename simd_type::scalarType scale = 1.0)
+    [[maybe_unused]] const simd_type *NtoMTrans, simd_type *wsp0,
+    simd_type *wsp1, [[maybe_unused]] simd_type *wsp2, simd_type *out,
+    typename simd_type::scalarType scale = 1.0)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::eHexahedron)
     {
@@ -195,11 +258,31 @@ NEK_FORCE_INLINE static void IProduct3DKernel(
                                                     nq2, isModified, in, B0, B1,
                                                     B2, wsp0, wsp1, out, scale);
     }
+    else if constexpr (SHAPE_TYPE == LibUtilities::eNodalTet)
+    {
+        const auto nmTot  = nm0 * (nm0 + 1) * (nm0 + 2) / 6;
+        simd_type *outtmp = wsp0 + nq1 * nq2;
+
+        IProductTetKernel<SCALE, APPEND, simd_type>(
+            nm0, nm1, nm2, nq0, nq1, nq2, isModified, in, B0, B1, B2, wsp0,
+            wsp1, outtmp, scale);
+        MatVecKernel(nmTot, NtoMTrans, outtmp, out);
+    }
     else if constexpr (SHAPE_TYPE == LibUtilities::ePrism)
     {
         IProductPrismKernel<SCALE, APPEND, simd_type>(
             nm0, nm1, nm2, nq0, nq1, nq2, isModified, in, B0, B1, B2, wsp0,
             wsp1, wsp2, out, scale);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::eNodalPrism)
+    {
+        const auto nmTot  = nm0 * nm0 * (nm0 + 1) / 2;
+        simd_type *outtmp = wsp0 + nq1 * nq2;
+
+        IProductPrismKernel<SCALE, APPEND, simd_type>(
+            nm0, nm1, nm2, nq0, nq1, nq2, isModified, in, B0, B1, B2, wsp0,
+            wsp1, wsp2, outtmp, scale);
+        MatVecKernel(nmTot, NtoMTrans, outtmp, out);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::ePyramid)
     {

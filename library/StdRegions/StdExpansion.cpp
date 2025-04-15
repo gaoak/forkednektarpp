@@ -563,7 +563,8 @@ std::shared_ptr<Array<OneD, const NekDouble>> StdExpansion::CreateStdFac(
             int nquad2 = m_base[2]->GetNumPoints();
 
             // For Prisms we need to do same scaling as for Weights1 code
-            if (mkey.m_basisKey.GetBasisType() == LibUtilities::eModified_B)
+            if ((mkey.m_basisKey.GetBasisType() == LibUtilities::eModified_B) ||
+                mkey.m_basisKey.GetBasisType() == LibUtilities::eOrtho_B)
             {
                 if (m_base[2]->GetPointsType() ==
                     LibUtilities::eGaussRadauMAlpha1Beta0)

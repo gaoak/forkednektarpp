@@ -19,7 +19,7 @@ ENDIF()
 SET(Implementations StdMat SumFac SumFacQP Generic)
 
 # Shape types for seperate code compilation.
-SET(Shapes Seg Tri Quad Hex Pyr Prism Tet)
+SET(Shapes Seg Tri NodalTri Quad Hex Pyr Prism NodalPrism Tet NodalTet)
 
 # set default data types
 SET(DataTypes double)

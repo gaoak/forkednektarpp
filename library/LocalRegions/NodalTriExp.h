@@ -38,15 +38,15 @@
 #include <SpatialDomains/TriGeom.h>
 #include <StdRegions/StdNodalTriExp.h>
 
-#include <LocalRegions/Expansion2D.h>
 #include <LocalRegions/LocalRegionsDeclspec.h>
 #include <LocalRegions/MatrixKey.h>
+#include <LocalRegions/TriExp.h>
 
 namespace Nektar::LocalRegions
 {
 
 class NodalTriExp final : virtual public StdRegions::StdNodalTriExp,
-                          virtual public Expansion2D
+                          virtual public TriExp
 {
 public:
     /** \brief Constructor using BasisKey class for quadrature
@@ -61,27 +61,12 @@ public:
     LOCAL_REGIONS_EXPORT ~NodalTriExp() override = default;
 
 protected:
-    //-------------------------------
-    // Integration Methods
-    //-------------------------------
-    LOCAL_REGIONS_EXPORT NekDouble
-    v_Integral(const Array<OneD, const NekDouble> &inarray) override;
-
-    //----------------------------
-    // Differentiation Methods
-    //----------------------------
-    LOCAL_REGIONS_EXPORT void v_PhysDeriv(
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &out_d0, Array<OneD, NekDouble> &out_d1,
-        [[maybe_unused]] Array<OneD, NekDouble> &out_d2 =
-            NullNekDouble1DArray) override;
-    LOCAL_REGIONS_EXPORT void v_PhysDeriv(
-        const int dir, const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray) override;
-
     //---------------------------------------
     // Transforms
     //---------------------------------------
+    LOCAL_REGIONS_EXPORT void v_BwdTrans(
+        const Array<OneD, const NekDouble> &inarray,
+        Array<OneD, NekDouble> &outarray) override;
     LOCAL_REGIONS_EXPORT void v_FwdTrans(
         const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray) override;
@@ -95,28 +80,28 @@ protected:
     LOCAL_REGIONS_EXPORT void v_IProductWRTDerivBase(
         const int dir, const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray) override;
-    LOCAL_REGIONS_EXPORT void v_AlignVectorToCollapsedDir(
-        const int dir, const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, Array<OneD, NekDouble>> &outarray) override;
 
     //---------------------------------------
     // Evaluation functions
     //---------------------------------------
+    LOCAL_REGIONS_EXPORT void v_GetCoord(
+        const Array<OneD, const NekDouble> &Lcoords,
+        Array<OneD, NekDouble> &coords) override
+    {
+        TriExp::v_GetCoord(Lcoords, coords);
+    }
+
+    LOCAL_REGIONS_EXPORT void v_GetCoords(
+        Array<OneD, NekDouble> &coords_1, Array<OneD, NekDouble> &coords_2,
+        Array<OneD, NekDouble> &coords_3) override
+    {
+        TriExp::v_GetCoords(coords_1, coords_2, coords_3);
+    }
+
     LOCAL_REGIONS_EXPORT StdRegions::StdExpansionSharedPtr v_GetStdExp(
         void) const override;
     LOCAL_REGIONS_EXPORT StdRegions::StdExpansionSharedPtr v_GetLinStdExp(
         void) const override;
-    LOCAL_REGIONS_EXPORT void v_GetCoords(
-        Array<OneD, NekDouble> &coords_0,
-        Array<OneD, NekDouble> &coords_1 = NullNekDouble1DArray,
-        Array<OneD, NekDouble> &coords_2 = NullNekDouble1DArray) override;
-    LOCAL_REGIONS_EXPORT void v_GetCoord(
-        const Array<OneD, const NekDouble> &lcoord,
-        Array<OneD, NekDouble> &coord) override;
-    LOCAL_REGIONS_EXPORT NekDouble
-    v_PhysEvaluate(const Array<OneD, const NekDouble> &coord,
-                   const Array<OneD, const NekDouble> &physvals) override;
-    LOCAL_REGIONS_EXPORT void v_ComputeTraceNormal(const int edge) override;
     LOCAL_REGIONS_EXPORT void v_ExtractDataToCoeffs(
         const NekDouble *data, const std::vector<unsigned int> &nummodes,
         const int mode_offset, NekDouble *coeffs,
@@ -124,19 +109,13 @@ protected:
         override;
 
     //---------------------------------------
-    // Helper functions
-    //---------------------------------------
-    LOCAL_REGIONS_EXPORT void v_GetTracePhysVals(
-        const int edge, const StdRegions::StdExpansionSharedPtr &EdgeExp,
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray,
-        StdRegions::Orientation orient) override;
-
-    //---------------------------------------
     // Matrix creation functions
     //---------------------------------------
     LOCAL_REGIONS_EXPORT DNekMatSharedPtr
-    v_GenMatrix(const StdRegions::StdMatrixKey &mkey) override;
+    v_GenMatrix(const StdRegions::StdMatrixKey &mkey) override
+    {
+        return TriExp::v_GenMatrix(mkey);
+    }
     LOCAL_REGIONS_EXPORT DNekMatSharedPtr
     v_CreateStdMatrix(const StdRegions::StdMatrixKey &mkey) override;
     LOCAL_REGIONS_EXPORT DNekScalMatSharedPtr
@@ -144,6 +123,10 @@ protected:
     LOCAL_REGIONS_EXPORT DNekScalBlkMatSharedPtr
     v_GetLocStaticCondMatrix(const MatrixKey &mkey) override;
     LOCAL_REGIONS_EXPORT void v_DropLocMatrix(const MatrixKey &mkey) override;
+
+    //----------------------------------------
+    // Matrix Operators
+    //----------------------------------------
     LOCAL_REGIONS_EXPORT void v_MassMatrixOp(
         const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray,

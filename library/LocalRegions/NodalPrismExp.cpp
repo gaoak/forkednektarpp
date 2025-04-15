@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: NodalTriExp.cpp
+// File: NodalPrismExp.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,59 +28,56 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: NodalTriExp routines
+// Description: NodalPrismExp routines
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <LibUtilities/Foundations/Interp.h>
-#include <LocalRegions/NodalTriExp.h>
-
-using namespace std;
+#include <LocalRegions/NodalPrismExp.h>
 
 namespace Nektar::LocalRegions
 {
-NodalTriExp::NodalTriExp(const LibUtilities::BasisKey &Ba,
-                         const LibUtilities::BasisKey &Bb,
-                         const LibUtilities::PointsType Ntype,
-                         const SpatialDomains::TriGeomSharedPtr &geom)
-    : StdExpansion(LibUtilities::StdTriData::getNumberOfCoefficients(
-                       Ba.GetNumModes(), (Bb.GetNumModes())),
-                   2, Ba, Bb),
-      StdExpansion2D(LibUtilities::StdTriData::getNumberOfCoefficients(
-                         Ba.GetNumModes(), (Bb.GetNumModes())),
-                     Ba, Bb),
-      StdNodalTriExp(Ba, Bb, Ntype), Expansion(geom), Expansion2D(geom),
-      TriExp(Ba, Bb, geom),
+NodalPrismExp::NodalPrismExp(const LibUtilities::BasisKey &Ba,
+                             const LibUtilities::BasisKey &Bb,
+                             const LibUtilities::BasisKey &Bc,
+                             const LibUtilities::PointsType Ntype,
+                             const SpatialDomains::PrismGeomSharedPtr &geom)
+    : StdExpansion(LibUtilities::StdNodalPrismData::getNumberOfCoefficients(
+                       Ba.GetNumModes(), Bb.GetNumModes(), Bc.GetNumModes()),
+                   3, Ba, Bb, Bc),
+      StdExpansion3D(LibUtilities::StdNodalPrismData::getNumberOfCoefficients(
+                         Ba.GetNumModes(), Bb.GetNumModes(), Bc.GetNumModes()),
+                     Ba, Bb, Bc),
+      StdPrismExp(Ba, Bb, Bc), StdNodalPrismExp(Ba, Bb, Bc, Ntype),
+      Expansion(geom), Expansion3D(geom), PrismExp(Ba, Bb, Bc, geom),
       m_matrixManager(
-          std::bind(&Expansion2D::CreateMatrix, this, std::placeholders::_1),
-          std::string("NodalTriExpMatrix")),
+          std::bind(&Expansion3D::CreateMatrix, this, std::placeholders::_1),
+          std::string("NodalPrismExpMatrix")),
       m_staticCondMatrixManager(std::bind(&Expansion::CreateStaticCondMatrix,
                                           this, std::placeholders::_1),
-                                std::string("NodalTriExpStaticCondMatrix"))
+                                std::string("NodalPrismExpStaticCondMatrix"))
 {
 }
 
-NodalTriExp::NodalTriExp(const NodalTriExp &T)
-    : StdExpansion(T), StdExpansion2D(T), StdTriExp(T), StdNodalTriExp(T),
-      Expansion(T), Expansion2D(T), TriExp(T),
+NodalPrismExp::NodalPrismExp(const NodalPrismExp &T)
+    : StdExpansion(T), StdExpansion3D(T), StdPrismExp(T), StdNodalPrismExp(T),
+      Expansion(T), Expansion3D(T), PrismExp(T),
       m_matrixManager(T.m_matrixManager),
       m_staticCondMatrixManager(T.m_staticCondMatrixManager)
 {
 }
 
-void NodalTriExp::v_BwdTrans(const Array<OneD, const NekDouble> &inarray,
-                             Array<OneD, NekDouble> &outarray)
+void NodalPrismExp::v_BwdTrans(const Array<OneD, const NekDouble> &inarray,
+                               Array<OneD, NekDouble> &outarray)
 {
     Array<OneD, NekDouble> tmp(m_ncoeffs);
-    v_NodalToModal(inarray, tmp);
-    StdTriExp::v_BwdTrans(tmp, outarray);
+    NodalToModal(inarray, tmp);
+    StdPrismExp::v_BwdTrans(tmp, outarray);
 }
 
-void NodalTriExp::v_FwdTrans(const Array<OneD, const NekDouble> &inarray,
-                             Array<OneD, NekDouble> &outarray)
+void NodalPrismExp::v_FwdTrans(const Array<OneD, const NekDouble> &inarray,
+                               Array<OneD, NekDouble> &outarray)
 {
-
-    NodalTriExp::v_IProductWRTBase(inarray, outarray);
+    IProductWRTBase(inarray, outarray);
 
     // get Mass matrix inverse
     MatrixKey masskey(StdRegions::eInvMass, DetShapeType(), *this,
@@ -96,41 +93,44 @@ void NodalTriExp::v_FwdTrans(const Array<OneD, const NekDouble> &inarray,
     out = (*matsys) * in;
 }
 
-void NodalTriExp::v_IProductWRTBase(const Array<OneD, const NekDouble> &inarray,
-                                    Array<OneD, NekDouble> &outarray)
+void NodalPrismExp::v_IProductWRTBase(
+    const Array<OneD, const NekDouble> &inarray,
+    Array<OneD, NekDouble> &outarray)
 {
-    TriExp::v_IProductWRTBase(inarray, outarray);
+    PrismExp::v_IProductWRTBase(inarray, outarray);
     NodalToModalTranspose(outarray, outarray);
 }
 
-void NodalTriExp::v_IProductWRTDerivBase(
+void NodalPrismExp::v_IProductWRTDerivBase(
     const int dir, const Array<OneD, const NekDouble> &inarray,
     Array<OneD, NekDouble> &outarray)
 {
-    TriExp::v_IProductWRTDerivBase(dir, inarray, outarray);
+    PrismExp::v_IProductWRTDerivBase(dir, inarray, outarray);
     NodalToModalTranspose(outarray, outarray);
 }
 
-StdRegions::StdExpansionSharedPtr NodalTriExp::v_GetStdExp(void) const
+StdRegions::StdExpansionSharedPtr NodalPrismExp::v_GetStdExp(void) const
 {
 
-    return MemoryManager<StdRegions::StdNodalTriExp>::AllocateSharedPtr(
+    return MemoryManager<StdRegions::StdNodalPrismExp>::AllocateSharedPtr(
         m_base[0]->GetBasisKey(), m_base[1]->GetBasisKey(),
-        m_nodalPointsKey.GetPointsType());
+        m_base[2]->GetBasisKey(), m_nodalPointsKey.GetPointsType());
 }
 
-StdRegions::StdExpansionSharedPtr NodalTriExp::v_GetLinStdExp(void) const
+StdRegions::StdExpansionSharedPtr NodalPrismExp::v_GetLinStdExp(void) const
 {
     LibUtilities::BasisKey bkey0(m_base[0]->GetBasisType(), 2,
                                  m_base[0]->GetPointsKey());
     LibUtilities::BasisKey bkey1(m_base[1]->GetBasisType(), 2,
                                  m_base[1]->GetPointsKey());
+    LibUtilities::BasisKey bkey2(m_base[2]->GetBasisType(), 2,
+                                 m_base[2]->GetPointsKey());
 
-    return MemoryManager<StdRegions::StdNodalTriExp>::AllocateSharedPtr(
-        bkey0, bkey1, m_nodalPointsKey.GetPointsType());
+    return MemoryManager<StdRegions::StdNodalPrismExp>::AllocateSharedPtr(
+        bkey0, bkey1, bkey2, m_nodalPointsKey.GetPointsType());
 }
 
-void NodalTriExp::v_ExtractDataToCoeffs(
+void NodalPrismExp::v_ExtractDataToCoeffs(
     const NekDouble *data, const std::vector<unsigned int> &nummodes,
     const int mode_offset, NekDouble *coeffs,
     [[maybe_unused]] std::vector<LibUtilities::BasisType> &fromType)
@@ -143,42 +143,44 @@ void NodalTriExp::v_ExtractDataToCoeffs(
     ModalToNodal(modes, nodes);
 }
 
-DNekMatSharedPtr NodalTriExp::v_CreateStdMatrix(
+DNekMatSharedPtr NodalPrismExp::v_CreateStdMatrix(
     const StdRegions::StdMatrixKey &mkey)
 {
     LibUtilities::BasisKey bkey0   = m_base[0]->GetBasisKey();
     LibUtilities::BasisKey bkey1   = m_base[1]->GetBasisKey();
+    LibUtilities::BasisKey bkey2   = m_base[2]->GetBasisKey();
     LibUtilities::PointsType ntype = m_nodalPointsKey.GetPointsType();
-    StdRegions::StdNodalTriExpSharedPtr tmp =
-        MemoryManager<StdNodalTriExp>::AllocateSharedPtr(bkey0, bkey1, ntype);
+    StdRegions::StdNodalPrismExpSharedPtr tmp =
+        MemoryManager<StdNodalPrismExp>::AllocateSharedPtr(bkey0, bkey1, bkey2,
+                                                           ntype);
 
     return tmp->GetStdMatrix(mkey);
 }
 
-DNekScalMatSharedPtr NodalTriExp::v_GetLocMatrix(const MatrixKey &mkey)
+DNekScalMatSharedPtr NodalPrismExp::v_GetLocMatrix(const MatrixKey &mkey)
 {
     return m_matrixManager[mkey];
 }
 
-DNekScalBlkMatSharedPtr NodalTriExp::v_GetLocStaticCondMatrix(
+DNekScalBlkMatSharedPtr NodalPrismExp::v_GetLocStaticCondMatrix(
     const MatrixKey &mkey)
 {
     return m_staticCondMatrixManager[mkey];
 }
 
-void NodalTriExp::v_DropLocMatrix(const MatrixKey &mkey)
+void NodalPrismExp::v_DropLocMatrix(const MatrixKey &mkey)
 {
     m_matrixManager.DeleteObject(mkey);
 }
 
-void NodalTriExp::v_MassMatrixOp(const Array<OneD, const NekDouble> &inarray,
-                                 Array<OneD, NekDouble> &outarray,
-                                 const StdRegions::StdMatrixKey &mkey)
+void NodalPrismExp::v_MassMatrixOp(const Array<OneD, const NekDouble> &inarray,
+                                   Array<OneD, NekDouble> &outarray,
+                                   const StdRegions::StdMatrixKey &mkey)
 {
     StdExpansion::MassMatrixOp_MatFree(inarray, outarray, mkey);
 }
 
-void NodalTriExp::v_LaplacianMatrixOp(
+void NodalPrismExp::v_LaplacianMatrixOp(
     const Array<OneD, const NekDouble> &inarray,
     Array<OneD, NekDouble> &outarray, const StdRegions::StdMatrixKey &mkey)
 {
@@ -186,21 +188,21 @@ void NodalTriExp::v_LaplacianMatrixOp(
                                                         mkey);
 }
 
-void NodalTriExp::v_LaplacianMatrixOp(
+void NodalPrismExp::v_LaplacianMatrixOp(
     const int k1, const int k2, const Array<OneD, const NekDouble> &inarray,
     Array<OneD, NekDouble> &outarray, const StdRegions::StdMatrixKey &mkey)
 {
     StdExpansion::LaplacianMatrixOp_MatFree(k1, k2, inarray, outarray, mkey);
 }
 
-void NodalTriExp::v_WeakDerivMatrixOp(
+void NodalPrismExp::v_WeakDerivMatrixOp(
     const int i, const Array<OneD, const NekDouble> &inarray,
     Array<OneD, NekDouble> &outarray, const StdRegions::StdMatrixKey &mkey)
 {
     StdExpansion::WeakDerivMatrixOp_MatFree(i, inarray, outarray, mkey);
 }
 
-void NodalTriExp::v_HelmholtzMatrixOp(
+void NodalPrismExp::v_HelmholtzMatrixOp(
     const Array<OneD, const NekDouble> &inarray,
     Array<OneD, NekDouble> &outarray, const StdRegions::StdMatrixKey &mkey)
 {

@@ -51,6 +51,7 @@ public:
                                    const LibUtilities::BasisKey &Bb,
                                    const LibUtilities::BasisKey &Bc,
                                    NekDouble *coeffs, NekDouble *phys);
+    STD_REGIONS_EXPORT StdPrismExp()                     = default;
     STD_REGIONS_EXPORT StdPrismExp(const StdPrismExp &T) = default;
     STD_REGIONS_EXPORT ~StdPrismExp() override           = default;
 
@@ -173,9 +174,9 @@ protected:
     //---------------------------------------
     // Helper functions
     //---------------------------------------
-    STD_REGIONS_EXPORT int v_GetNverts() const override;
-    STD_REGIONS_EXPORT int v_GetNedges() const override;
-    STD_REGIONS_EXPORT int v_GetNtraces() const override;
+    STD_REGIONS_EXPORT int v_GetNverts() const final;
+    STD_REGIONS_EXPORT int v_GetNedges() const final;
+    STD_REGIONS_EXPORT int v_GetNtraces() const final;
     STD_REGIONS_EXPORT LibUtilities::ShapeType v_DetShapeType() const override;
     STD_REGIONS_EXPORT int v_NumBndryCoeffs() const override;
     STD_REGIONS_EXPORT int v_NumDGBndryCoeffs() const override;
@@ -194,8 +195,9 @@ protected:
     //---------------------------------------
     // Mappings
     //---------------------------------------
-    STD_REGIONS_EXPORT int v_GetVertexMap(
-        int localVertexId, bool useCoeffPacking = false) override;
+    STD_REGIONS_EXPORT
+    int v_GetVertexMap(int localVertexId,
+                       bool useCoeffPacking = false) override;
     STD_REGIONS_EXPORT void v_GetInteriorMap(
         Array<OneD, unsigned int> &outarray) override;
     STD_REGIONS_EXPORT void v_GetBoundaryMap(

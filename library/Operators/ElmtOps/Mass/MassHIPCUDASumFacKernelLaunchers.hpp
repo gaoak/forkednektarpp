@@ -81,15 +81,15 @@ __global__ void Mass2DKernelLauncher(
     const bool isModified, const unsigned int *__restrict__ index0,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ w0, const TData *__restrict__ w1,
-    const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ wsp,
-    const hipcudaBlock1D &threadBlock)
+    const TData *__restrict__ nodToMod, const TData *__restrict__ jac,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp, const hipcudaBlock1D &threadBlock)
 {
     extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     Mass2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
         nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0, basis1,
-        w0, w1, jac, in, out, wsp, (TData *)shmemptr, threadBlock);
+        w0, w1, nodToMod, jac, in, out, wsp, (TData *)shmemptr, threadBlock);
 }
 
 // Size based template version.
@@ -100,15 +100,16 @@ __global__ void Mass2DKernelLauncher(
     const unsigned int nelmt, const bool isModified,
     const unsigned int *__restrict__ index0, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ w0,
-    const TData *__restrict__ w1, const TData *__restrict__ jac,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp, const hipcudaBlock1D &threadBlock)
+    const TData *__restrict__ w1, const TData *__restrict__ nodToMod,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ wsp,
+    const hipcudaBlock1D &threadBlock)
 {
     extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     Mass2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
         nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0, basis1,
-        w0, w1, jac, in, out, wsp, (TData *)shmemptr, threadBlock);
+        w0, w1, nodToMod, jac, in, out, wsp, (TData *)shmemptr, threadBlock);
 }
 
 // Non-size based version.
@@ -124,16 +125,17 @@ __global__ void Mass3DKernelLauncher(
     const unsigned int *__restrict__ index3, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ basis2,
     const TData *__restrict__ w0, const TData *__restrict__ w1,
-    const TData *__restrict__ w2, const TData *__restrict__ jac,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp, const hipcudaBlock1D &threadBlock)
+    const TData *__restrict__ w2, const TData *__restrict__ nodToMod,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ wsp,
+    const hipcudaBlock1D &threadBlock)
 {
     extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     Mass3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
-        index2, index3, basis0, basis1, basis2, w0, w1, w2, jac, in, out, wsp,
-        (TData *)shmemptr, threadBlock);
+        index2, index3, basis0, basis1, basis2, w0, w1, w2, nodToMod, jac, in,
+        out, wsp, (TData *)shmemptr, threadBlock);
 }
 
 // Size based template version.
@@ -149,16 +151,17 @@ __global__ void Mass3DKernelLauncher(
     const unsigned int *__restrict__ index3, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ basis2,
     const TData *__restrict__ w0, const TData *__restrict__ w1,
-    const TData *__restrict__ w2, const TData *__restrict__ jac,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp, const hipcudaBlock1D &threadBlock)
+    const TData *__restrict__ w2, const TData *__restrict__ nodToMod,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ wsp,
+    const hipcudaBlock1D &threadBlock)
 {
     extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     Mass3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
-        index2, index3, basis0, basis1, basis2, w0, w1, w2, jac, in, out, wsp,
-        (TData *)shmemptr, threadBlock);
+        index2, index3, basis0, basis1, basis2, w0, w1, w2, nodToMod, jac, in,
+        out, wsp, (TData *)shmemptr, threadBlock);
 }
 
 // Kernel Launchers.
@@ -209,8 +212,8 @@ NEK_FORCE_INLINE static void Mass2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nelmt, const bool isModified,
     const unsigned int *index0, const TData *basis0, const TData *basis1,
-    const TData *w0, const TData *w1, const TData *jac, TData *wsp,
-    const TData *in, TData *out)
+    const TData *w0, const TData *w1, const TData *nodToMod, const TData *jac,
+    TData *wsp, const TData *in, TData *out)
 {
     const unsigned int nmTot =
         LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
@@ -223,7 +226,7 @@ NEK_FORCE_INLINE static void Mass2DKernel(
     Mass2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>
         <<<gridsize, blocksize, shmemsize>>>(
             nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0,
-            basis1, w0, w1, jac, in, out, wsp, hipcudaBlock1D());
+            basis1, w0, w1, nodToMod, jac, in, out, wsp, hipcudaBlock1D());
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -234,7 +237,9 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
 NEK_FORCE_INLINE static void Mass2DKernel(
     const unsigned int nelmt, const bool isModified, const unsigned int *index0,
     const TData *basis0, const TData *basis1, const TData *w0, const TData *w1,
-    const TData *jac, TData *wsp, const TData *in, TData *out)
+    const TData *nodToMod, const TData *jac, TData *wsp, const TData *in,
+    TData *out)
+
 {
     const unsigned int nmTot =
         LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
@@ -246,8 +251,8 @@ NEK_FORCE_INLINE static void Mass2DKernel(
 
     Mass2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED, nm0, nm1, nmTot,
                          nq0, nq1><<<gridsize, blocksize, shmemsize>>>(
-        nelmt, isModified, index0, basis0, basis1, w0, w1, jac, in, out, wsp,
-        hipcudaBlock1D());
+        nelmt, isModified, index0, basis0, basis1, w0, w1, nodToMod, jac, in,
+        out, wsp, hipcudaBlock1D());
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -261,7 +266,9 @@ NEK_FORCE_INLINE static void Mass3DKernel(
     const unsigned int *index1, const unsigned int *index2,
     const unsigned int *index3, const TData *basis0, const TData *basis1,
     const TData *basis2, const TData *w0, const TData *w1, const TData *w2,
-    const TData *jac, TData *wsp, const TData *in, TData *out)
+    const TData *nodToMod, const TData *jac, TData *wsp, const TData *in,
+    TData *out)
+
 {
     const unsigned int nmTot =
         LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
@@ -274,8 +281,8 @@ NEK_FORCE_INLINE static void Mass3DKernel(
     Mass3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>
         <<<gridsize, blocksize, shmemsize>>>(
             nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0,
-            index1, index2, index3, basis0, basis1, basis2, w0, w1, w2, jac, in,
-            out, wsp, hipcudaBlock1D());
+            index1, index2, index3, basis0, basis1, basis2, w0, w1, w2,
+            nodToMod, jac, in, out, wsp, hipcudaBlock1D());
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -289,7 +296,9 @@ NEK_FORCE_INLINE static void Mass3DKernel(
     const unsigned int *index1, const unsigned int *index2,
     const unsigned int *index3, const TData *basis0, const TData *basis1,
     const TData *basis2, const TData *w0, const TData *w1, const TData *w2,
-    const TData *jac, TData *wsp, const TData *in, TData *out)
+    const TData *nodToMod, const TData *jac, TData *wsp, const TData *in,
+    TData *out)
+
 {
     const unsigned int nmTot =
         LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
@@ -303,7 +312,7 @@ NEK_FORCE_INLINE static void Mass3DKernel(
                          nmTot, nq0, nq1, nq2>
         <<<gridsize, blocksize, shmemsize>>>(
             nelmt, isModified, index0, index1, index2, index3, basis0, basis1,
-            basis2, w0, w1, w2, jac, in, out, wsp, hipcudaBlock1D());
+            basis2, w0, w1, w2, nodToMod, jac, in, out, wsp, hipcudaBlock1D());
     CHECK_LAST_HIPCUDA_ERROR();
 }
 

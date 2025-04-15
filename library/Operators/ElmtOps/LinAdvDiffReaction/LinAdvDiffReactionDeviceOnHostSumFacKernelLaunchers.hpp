@@ -87,8 +87,8 @@ NEK_FORCE_INLINE static void LinAdvDiffReaction2DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const bool isModified, const unsigned int *index0, const TData *basis0,
     const TData *basis1, const TData *D0, const TData *D1, const TData *w0,
-    const TData *w1, const TData *f0, const TData *f1, const TData *df,
-    const TData *jac, const TData *coeff, const TData *advVel0,
+    const TData *w1, const TData *f0, const TData *f1, const TData *nodToMod,
+    const TData *df, const TData *jac, const TData *coeff, const TData *advVel0,
     const TData *advVel1, const TData *in, TData *out, TData *wsp,
     const TData lambda = 1.0)
 {
@@ -101,8 +101,8 @@ NEK_FORCE_INLINE static void LinAdvDiffReaction2DKernel(
 
     LinAdvDiffReaction2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
         ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0,
-        basis1, D0, D1, w0, w1, f0, f1, df, jac, coeff, advVel0, advVel1, in,
-        out, wsp, lambda, shmem.data(), deviceOnHostBlock1D());
+        basis1, D0, D1, w0, w1, f0, f1, nodToMod, df, jac, coeff, advVel0,
+        advVel1, in, out, wsp, lambda, shmem.data(), deviceOnHostBlock1D());
 }
 
 // Size based template version.
@@ -113,9 +113,10 @@ NEK_FORCE_INLINE static void LinAdvDiffReaction2DKernel(
     const unsigned int ncoord, const unsigned int nelmt, const bool isModified,
     const unsigned int *index0, const TData *basis0, const TData *basis1,
     const TData *D0, const TData *D1, const TData *w0, const TData *w1,
-    const TData *f0, const TData *f1, const TData *df, const TData *jac,
-    const TData *coeff, const TData *advVel0, const TData *advVel1,
-    const TData *in, TData *out, TData *wsp, const TData lambda = 1.0)
+    const TData *f0, const TData *f1, const TData *nodToMod, const TData *df,
+    const TData *jac, const TData *coeff, const TData *advVel0,
+    const TData *advVel1, const TData *in, TData *out, TData *wsp,
+    const TData lambda = 1.0)
 {
     constexpr unsigned int nmTot =
         LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
@@ -126,8 +127,8 @@ NEK_FORCE_INLINE static void LinAdvDiffReaction2DKernel(
 
     LinAdvDiffReaction2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
         ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0,
-        basis1, D0, D1, w0, w1, f0, f1, df, jac, coeff, advVel0, advVel1, in,
-        out, wsp, lambda, shmem.data(), deviceOnHostBlock1D());
+        basis1, D0, D1, w0, w1, f0, f1, nodToMod, df, jac, coeff, advVel0,
+        advVel1, in, out, wsp, lambda, shmem.data(), deviceOnHostBlock1D());
 }
 
 // Non-size based version.
@@ -141,8 +142,8 @@ NEK_FORCE_INLINE static void LinAdvDiffReaction3DKernel(
     const unsigned int *index3, const TData *basis0, const TData *basis1,
     const TData *basis2, const TData *D0, const TData *D1, const TData *D2,
     const TData *w0, const TData *w1, const TData *w2, const TData *f0,
-    const TData *f1, const TData *f1m, const TData *f2, const TData *df,
-    const TData *jac, const TData *coeff, const TData *advVel0,
+    const TData *f1, const TData *f1m, const TData *f2, const TData *nodToMod,
+    const TData *df, const TData *jac, const TData *coeff, const TData *advVel0,
     const TData *advVel1, const TData *advVel2, const TData *in, TData *out,
     TData *wsp, const TData lambda = 1.0)
 {
@@ -156,8 +157,8 @@ NEK_FORCE_INLINE static void LinAdvDiffReaction3DKernel(
     LinAdvDiffReaction3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
         index2, index3, basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, f0, f1,
-        f1m, f2, df, jac, coeff, advVel0, advVel1, advVel2, in, out, wsp,
-        lambda, shmem.data(), deviceOnHostBlock1D());
+        f1m, f2, nodToMod, df, jac, coeff, advVel0, advVel1, advVel2, in, out,
+        wsp, lambda, shmem.data(), deviceOnHostBlock1D());
 }
 
 // Size based template version.
@@ -171,8 +172,8 @@ NEK_FORCE_INLINE static void LinAdvDiffReaction3DKernel(
     const unsigned int *index3, const TData *basis0, const TData *basis1,
     const TData *basis2, const TData *D0, const TData *D1, const TData *D2,
     const TData *w0, const TData *w1, const TData *w2, const TData *f0,
-    const TData *f1, const TData *f1m, const TData *f2, const TData *df,
-    const TData *jac, const TData *coeff, const TData *advVel0,
+    const TData *f1, const TData *f1m, const TData *f2, const TData *nodToMod,
+    const TData *df, const TData *jac, const TData *coeff, const TData *advVel0,
     const TData *advVel1, const TData *advVel2, const TData *in, TData *out,
     TData *wsp, const TData lambda = 1.0)
 {
@@ -186,8 +187,8 @@ NEK_FORCE_INLINE static void LinAdvDiffReaction3DKernel(
     LinAdvDiffReaction3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
         index2, index3, basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, f0, f1,
-        f1m, f2, df, jac, coeff, advVel0, advVel1, advVel2, in, out, wsp,
-        lambda, shmem.data(), deviceOnHostBlock1D());
+        f1m, f2, nodToMod, df, jac, coeff, advVel0, advVel1, advVel2, in, out,
+        wsp, lambda, shmem.data(), deviceOnHostBlock1D());
 }
 
 } // namespace Nektar::Operators::detail

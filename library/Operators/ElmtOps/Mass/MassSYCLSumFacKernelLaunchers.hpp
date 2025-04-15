@@ -61,14 +61,14 @@ NEK_DEVICE_INLINE void Mass2DKernel(
     const unsigned int nelmt, const bool isModified,
     const unsigned int *__restrict__ index0, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ w0,
-    const TData *__restrict__ w1, const TData *__restrict__ jac,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp, TData *__restrict__ shmemptr,
-    const sycl::nd_item<1> &item_ct1)
+    const TData *__restrict__ w1, const TData *__restrict__ nodToMod,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ wsp,
+    TData *__restrict__ shmemptr, const sycl::nd_item<1> &item_ct1)
 {
     Mass2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
         nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0, basis1,
-        w0, w1, jac, in, out, wsp, shmemptr, item_ct1);
+        w0, w1, nodToMod, jac, in, out, wsp, shmemptr, item_ct1);
 }
 
 // Size based template version.
@@ -84,15 +84,15 @@ NEK_DEVICE_INLINE void Mass3DKernel(
     const unsigned int *__restrict__ index3, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ basis2,
     const TData *__restrict__ w0, const TData *__restrict__ w1,
-    const TData *__restrict__ w2, const TData *__restrict__ jac,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp, TData *__restrict__ shmemptr,
-    const sycl::nd_item<1> &item_ct1)
+    const TData *__restrict__ w2, const TData *__restrict__ nodToMod,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ wsp,
+    TData *__restrict__ shmemptr, const sycl::nd_item<1> &item_ct1)
 {
     Mass3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
-        index2, index3, basis0, basis1, basis2, w0, w1, w2, jac, in, out, wsp,
-        shmemptr, item_ct1);
+        index2, index3, basis0, basis1, basis2, w0, w1, w2, nodToMod, jac, in,
+        out, wsp, shmemptr, item_ct1);
 }
 
 // Kernel Launchers.
@@ -166,8 +166,8 @@ NEK_FORCE_INLINE static void Mass2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nelmt, const bool isModified,
     const unsigned int *index0, const TData *basis0, const TData *basis1,
-    const TData *w0, const TData *w1, const TData *jac, TData *wsp,
-    const TData *in, TData *out)
+    const TData *w0, const TData *w1, const TData *nodToMod, const TData *jac,
+    TData *wsp, const TData *in, TData *out)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
 
@@ -186,8 +186,8 @@ NEK_FORCE_INLINE static void Mass2DKernel(
 #pragma forceinline
                              Mass2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
                                  nm0, nm1, nmTot, nq0, nq1, nelmt, isModified,
-                                 index0, basis0, basis1, w0, w1, jac, in, out,
-                                 wsp, shmemptr, item_ct1);
+                                 index0, basis0, basis1, w0, w1, nodToMod, jac,
+                                 in, out, wsp, shmemptr, item_ct1);
                          });
     });
 }
@@ -199,12 +199,13 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
 NEK_FORCE_INLINE static void Mass2DKernel(
     const unsigned int nelmt, const bool isModified, const unsigned int *index0,
     const TData *basis0, const TData *basis1, const TData *w0, const TData *w1,
-    const TData *jac, TData *wsp, const TData *in, TData *out)
+    const TData *nodToMod, const TData *jac, TData *wsp, const TData *in,
+    TData *out)
 {
 #if defined(NEKTAR_DEBUG)
     Mass2DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
         nm0, nm1, nq0, nq1, nelmt, isModified, index0, basis0, basis1, w0, w1,
-        jac, wsp, in, out);
+        nodToMod, jac, wsp, in, out);
 #else
     sycl::queue &Q = SYCLQueue::GetInstance();
 
@@ -224,7 +225,8 @@ NEK_FORCE_INLINE static void Mass2DKernel(
                              Mass2DKernel<SHAPE_TYPE, Implementation, DEFORMED,
                                           nm0, nm1, nmTot, nq0, nq1>(
                                  nelmt, isModified, index0, basis0, basis1, w0,
-                                 w1, jac, in, out, wsp, shmemptr, item_ct1);
+                                 w1, nodToMod, jac, in, out, wsp, shmemptr,
+                                 item_ct1);
                          });
     });
 #endif
@@ -240,7 +242,8 @@ NEK_FORCE_INLINE static void Mass3DKernel(
     const unsigned int *index1, const unsigned int *index2,
     const unsigned int *index3, const TData *basis0, const TData *basis1,
     const TData *basis2, const TData *w0, const TData *w1, const TData *w2,
-    const TData *jac, TData *wsp, const TData *in, TData *out)
+    const TData *nodToMod, const TData *jac, TData *wsp, const TData *in,
+    TData *out)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
 
@@ -261,8 +264,8 @@ NEK_FORCE_INLINE static void Mass3DKernel(
                              Mass3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
                                  nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
                                  isModified, index0, index1, index2, index3,
-                                 basis0, basis1, basis2, w0, w1, w2, jac, in,
-                                 out, wsp, shmemptr, item_ct1);
+                                 basis0, basis1, basis2, w0, w1, w2, nodToMod,
+                                 jac, in, out, wsp, shmemptr, item_ct1);
                          });
     });
 }
@@ -277,12 +280,15 @@ NEK_FORCE_INLINE static void Mass3DKernel(
     const unsigned int *index1, const unsigned int *index2,
     const unsigned int *index3, const TData *basis0, const TData *basis1,
     const TData *basis2, const TData *w0, const TData *w1, const TData *w2,
-    const TData *jac, TData *wsp, const TData *in, TData *out)
+    const TData *nodToMod, const TData *jac, TData *wsp, const TData *in,
+    TData *out)
 {
 #if defined(NEKTAR_DEBUG)
     Mass3DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
         nm0, nm1, nm2, nq0, nq1, nq2, nelmt, isModified, index0, index1, index2,
-        index3, basis0, basis1, basis2, w0, w1, w2, jac, wsp, in, out);
+        index3, basis0, basis1, basis2, w0, w1, w2, nodToMod, jac, wsp, in,
+        out);
+
 #else
     sycl::queue &Q = SYCLQueue::GetInstance();
 
@@ -304,7 +310,8 @@ NEK_FORCE_INLINE static void Mass3DKernel(
                                           nm0, nm1, nm2, nmTot, nq0, nq1, nq2>(
                                  nelmt, isModified, index0, index1, index2,
                                  index3, basis0, basis1, basis2, w0, w1, w2,
-                                 jac, in, out, wsp, shmemptr, item_ct1);
+                                 nodToMod, jac, in, out, wsp, shmemptr,
+                                 item_ct1);
                          });
     });
 #endif

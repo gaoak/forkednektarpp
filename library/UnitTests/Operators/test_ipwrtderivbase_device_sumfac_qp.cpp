@@ -71,6 +71,9 @@ TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfac_qp_tri, Tri, 2, 1.0E-12)
 TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfac_qp_tri_varp, TriVarP, 2,
                     1.0E-12)
 
+TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfac_qp_tri_nodal, TriNodal, 2,
+                    1.0E-12)
+
 TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfac_qp_square_all_elements,
                     SquareAllElements, 2, 1.0E-12)
 
@@ -86,6 +89,9 @@ TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfac_qp_prism, Prism, 3, 1.0E-12)
 TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfac_qp_prism_varp, PrismVarP, 3,
                     1.0E-12)
 
+TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfac_qp_prism_nodal, PrismNodal, 3,
+                    1.0E-12)
+
 TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfac_qp_pyr, Pyr, 3, 1.0E-12)
 
 TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfac_qp_pyr_varp, PyrVarP, 3,
@@ -94,6 +100,9 @@ TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfac_qp_pyr_varp, PyrVarP, 3,
 TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfac_qp_tet, Tet, 3, 1.0E-12)
 
 TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfac_qp_tet_varp, TetVarP, 3,
+                    1.0E-12)
+
+TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfac_qp_tet_nodal, TetNodal, 3,
                     1.0E-12)
 
 TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfac_qp_cube_prism_hex,

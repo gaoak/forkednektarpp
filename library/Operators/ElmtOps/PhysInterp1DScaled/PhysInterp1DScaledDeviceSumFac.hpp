@@ -113,7 +113,6 @@ public:
     {
         ASSERTL1(this->m_scale != -1.0,
                  "Scale factor has not been initialised");
-
         switch (m_shapeType)
         {
             // Segment
@@ -134,6 +133,12 @@ public:
                 TriBlock(inblock, outblock);
                 break;
             }
+            // Nodal Triangles
+            case LibUtilities::NodalTri:
+            {
+                NodalTriBlock(inblock, outblock);
+                break;
+            }
             // Hexes
             case LibUtilities::Hex:
             {
@@ -146,6 +151,12 @@ public:
                 TetBlock(inblock, outblock);
                 break;
             }
+            // Nodal Tet
+            case LibUtilities::NodalTet:
+            {
+                NodalTetBlock(inblock, outblock);
+                break;
+            }
             // Pyr
             case LibUtilities::Pyr:
             {
@@ -156,6 +167,12 @@ public:
             case LibUtilities::Prism:
             {
                 PrismBlock(inblock, outblock);
+                break;
+            }
+            // Nodal Prism
+            case LibUtilities::NodalPrism:
+            {
+                NodalPrismBlock(inblock, outblock);
                 break;
             }
             default:
@@ -199,13 +216,16 @@ protected:
         unsigned int wspsize = 0;
 
         if ((shapeType == LibUtilities::Quad) ||
-            (shapeType == LibUtilities::Tri))
+            (shapeType == LibUtilities::Tri) ||
+            (shapeType == LibUtilities::NodalTri))
         {
             wspsize = nm1 * nElmts;
         }
         else if ((shapeType == LibUtilities::Hex) ||
                  (shapeType == LibUtilities::Tet) ||
+                 (shapeType == LibUtilities::NodalTet) ||
                  (shapeType == LibUtilities::Prism) ||
+                 (shapeType == LibUtilities::NodalPrism) ||
                  (shapeType == LibUtilities::Pyr))
         {
             wspsize = (nm1 * nm2 + nm2) * nElmts;
@@ -230,6 +250,9 @@ protected:
     void TriBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
 
+    void NodalTriBlock(BlockAccessor<TData> &inblock,
+                       BlockAccessor<TData> &outblock);
+
     void QuadBlock(BlockAccessor<TData> &inblock,
                    BlockAccessor<TData> &outblock);
 
@@ -239,11 +262,17 @@ protected:
     void PrismBlock(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock);
 
+    void NodalPrismBlock(BlockAccessor<TData> &inblock,
+                         BlockAccessor<TData> &outblock);
+
     void PyrBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
 
     void TetBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
+
+    void NodalTetBlock(BlockAccessor<TData> &inblock,
+                       BlockAccessor<TData> &outblock);
 
     // Non-size based operator.
     void Operator1D(BlockAccessor<TData> &inblock,
@@ -352,6 +381,8 @@ protected:
                           ? m_wsp.template GetPtr<MemSpace, WriteOnly>()
                           : nullptr;
 
+        const TData *nodToMod = nullptr;
+
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
@@ -362,8 +393,8 @@ protected:
 
             // BwdTrans kernel.
             BwdTrans2DKernel<LibUtilities::Quad, ExecSpace, Implementation>(
-                nm0, nm1, nq0, nq1, nElmtsPad, false, m_B[0], m_B[1], inptr,
-                outptr, wspptr);
+                nm0, nm1, nq0, nq1, nElmtsPad, false, m_B[0], m_B[1], nodToMod,
+                inptr, outptr, wspptr);
 
             // Increment pointer.
             inptr += inblock.size();
@@ -404,6 +435,8 @@ protected:
                           ? m_wsp.template GetPtr<MemSpace, WriteOnly>()
                           : nullptr;
 
+        const TData *nodToMod = nullptr;
+
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
@@ -415,7 +448,7 @@ protected:
             // BwdTrans kernel.
             BwdTrans2DKernel<LibUtilities::Quad, ExecSpace, Implementation, nm0,
                              nm1, nq0, nq1>(nElmtsPad, false, m_B[0], m_B[1],
-                                            inptr, outptr, wspptr);
+                                            nodToMod, inptr, outptr, wspptr);
 
             // Increment pointer.
             inptr += inblock.size();
@@ -463,6 +496,8 @@ protected:
                           ? m_wsp.template GetPtr<MemSpace, WriteOnly>()
                           : nullptr;
 
+        const TData *nodToMod = nullptr;
+
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
@@ -474,7 +509,8 @@ protected:
             // BwdTrans kernel.
             BwdTrans3DKernel<LibUtilities::Hex, ExecSpace, Implementation>(
                 nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, false, nullptr,
-                nullptr, m_B[0], m_B[1], m_B[2], inptr, outptr, wspptr);
+                nullptr, m_B[0], m_B[1], m_B[2], nodToMod, inptr, outptr,
+                wspptr);
 
             // Increment pointer.
             inptr += inblock.size();
@@ -515,6 +551,8 @@ protected:
                           ? m_wsp.template GetPtr<MemSpace, WriteOnly>()
                           : nullptr;
 
+        const TData *nodToMod = nullptr;
+
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
@@ -527,7 +565,7 @@ protected:
             BwdTrans3DKernel<LibUtilities::Hex, ExecSpace, Implementation, nm0,
                              nm1, nm2, nq0, nq1, nq2>(
                 nElmtsPad, false, nullptr, nullptr, m_B[0], m_B[1], m_B[2],
-                inptr, outptr, wspptr);
+                nodToMod, inptr, outptr, wspptr);
 
             // Increment pointer.
             inptr += inblock.size();
