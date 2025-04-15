@@ -594,9 +594,13 @@
             <I PROPERTY="EQTYPE"                     VALUE="UnsteadyDiffusion" />
             <I PROPERTY="Projection"                 VALUE="Continuous" />
             <I PROPERTY="DiffusionAdvancement"       VALUE="Implicit" />
-            <I PROPERTY="TimeIntegrationMethod"      VALUE="DIRKOrder3" />
             <I PROPERTY="SpectralVanishingViscosity" VALUE="True" />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> DIRK </METHOD>
+            <ORDER> 3 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
 
         <FUNCTION NAME="InitialConditions">
             <!--E VAR="u" VALUE="sin(wavefreq*x)*sin(wavefreq*y)+3*exp(-((x-x0)*(x-x0)+(y-y0)*(y-y0))/(a*a))" /!-->

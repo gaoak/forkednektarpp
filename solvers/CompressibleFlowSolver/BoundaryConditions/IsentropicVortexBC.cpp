@@ -34,8 +34,6 @@
 
 #include "IsentropicVortexBC.h"
 
-using namespace std;
-
 namespace Nektar
 {
 

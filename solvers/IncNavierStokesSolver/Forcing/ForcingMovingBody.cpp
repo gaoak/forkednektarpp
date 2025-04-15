@@ -37,10 +37,9 @@
 #include <IncNavierStokesSolver/Forcing/ForcingMovingBody.h>
 #include <MultiRegions/ExpList.h>
 
-using namespace std;
-
 namespace Nektar
 {
+
 std::string ForcingMovingBody::className =
     SolverUtils::GetForcingFactory().RegisterCreatorFunction(
         "MovingBody", ForcingMovingBody::create, "Moving Body Forcing");
@@ -341,7 +340,7 @@ void ForcingMovingBody::EvaluateStructDynModel(
 
             // only consider second order approximation for fictitious variables
             size_t intOrder = 2;
-            size_t nint     = min(m_movingBodyCalls + 1, intOrder);
+            size_t nint     = std::min(m_movingBodyCalls + 1, intOrder);
             size_t nlevels  = m_fV[0].size();
 
             for (size_t i = 0; i < m_motion.size(); ++i)
@@ -820,17 +819,17 @@ void ForcingMovingBody::InitialiseCableModel(
                 // Import the motion variables from the file
                 for (size_t n = 0; n < nzpoints; n++)
                 {
-                    inputStream >> setprecision(6) >> time;
-                    inputStream >> setprecision(6) >> z_cds;
-                    inputStream >> setprecision(8) >> m_MotionVars[0][n];
-                    inputStream >> setprecision(8) >>
+                    inputStream >> std::setprecision(6) >> time;
+                    inputStream >> std::setprecision(6) >> z_cds;
+                    inputStream >> std::setprecision(8) >> m_MotionVars[0][n];
+                    inputStream >> std::setprecision(8) >>
                         m_MotionVars[0][n + nzpoints];
-                    inputStream >> setprecision(8) >>
+                    inputStream >> std::setprecision(8) >>
                         m_MotionVars[0][n + 2 * nzpoints];
-                    inputStream >> setprecision(8) >> m_MotionVars[1][n];
-                    inputStream >> setprecision(8) >>
+                    inputStream >> std::setprecision(8) >> m_MotionVars[1][n];
+                    inputStream >> std::setprecision(8) >>
                         m_MotionVars[1][n + nzpoints];
-                    inputStream >> setprecision(8) >>
+                    inputStream >> std::setprecision(8) >>
                         m_MotionVars[1][n + 2 * nzpoints];
                 }
                 // Close inputstream for cable motions

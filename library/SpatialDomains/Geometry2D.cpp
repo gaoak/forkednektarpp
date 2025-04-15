@@ -69,13 +69,13 @@ int Geometry2D::v_AllLeftCheck(const Array<OneD, const NekDouble> &gloCoord)
         Array<OneD, Array<OneD, NekDouble>> x(2);
         x[0] = Array<OneD, NekDouble>(3);
         x[1] = Array<OneD, NekDouble>(3);
-        m_verts[m_verts.size() - 1]->GetCoords(x[0]);
+        m_verts[0]->GetCoords(x[0]);
         int i0 = 1, i1 = 0, direction = 1;
         for (size_t i = 0; i < m_verts.size(); ++i)
         {
             i0 ^= 1;
             i1 ^= 1;
-            m_verts[i]->GetCoords(x[i1]);
+            m_verts[(i + 1) % m_verts.size()]->GetCoords(x[i1]);
             if (m_edges[i]->GetXmap()->GetBasis(0)->GetNumModes() > 2)
             {
                 continue;
@@ -117,7 +117,15 @@ int Geometry2D::v_AllLeftCheck(const Array<OneD, const NekDouble> &gloCoord)
     Array<OneD, NekDouble> vertex(3);
     for (size_t i = 0; i < m_verts.size(); ++i)
     {
-        m_verts[i]->GetCoords(vertex);
+        int i1 = (i + 1) % m_verts.size();
+        if (m_verts[i]->GetVid() < m_verts[i1]->GetVid())
+        {
+            m_verts[i]->GetCoords(vertex);
+        }
+        else
+        {
+            m_verts[i1]->GetCoords(vertex);
+        }
         if (m_edgeNormal[i].size() == 0)
         {
             nc = 0; // not sure

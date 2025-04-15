@@ -38,6 +38,7 @@
 
 namespace Nektar
 {
+
 using namespace LibUtilities;
 
 /**
@@ -68,10 +69,6 @@ SubSteppingExtrapolate::SubSteppingExtrapolate(
         m_traceNormals[i] = Array<OneD, NekDouble>(nTracePts);
     }
     m_fields[0]->GetTrace()->GetNormals(m_traceNormals);
-}
-
-SubSteppingExtrapolate::~SubSteppingExtrapolate()
-{
 }
 
 void SubSteppingExtrapolate::v_EvaluatePressureBCs(

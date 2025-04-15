@@ -35,8 +35,6 @@
 
 #include <AcousticSolver/RiemannSolvers/LEEUpwindSolver.h>
 
-using namespace std;
-
 namespace Nektar
 {
 
@@ -152,4 +150,5 @@ void LEEUpwindSolver::v_PointSolve(
         rhouF = rhouF + 0.5 * (c0R + u0R) * (rhouR * c0R + pR) / c0R;
     }
 }
+
 } // namespace Nektar

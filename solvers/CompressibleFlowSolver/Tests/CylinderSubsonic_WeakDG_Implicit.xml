@@ -2846,11 +2846,15 @@
         <SOLVERINFO>
             <I PROPERTY="EQTYPE"                VALUE="EulerImplicitCFE"    />
             <I PROPERTY="Projection"            VALUE="DisContinuous"       />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="DIRKOrder2"          />
             <I PROPERTY="AdvectioType"          VALUE="WeakDG"              />
             <I PROPERTY="DiffusionType"         VALUE="InteriorPenalty"     />
             <I PROPERTY="UpwindType"            VALUE="Roe"                 />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> DIRK </METHOD>
+            <ORDER> 2 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
 
         <VARIABLES>
             <V ID="0"> rho  </V>

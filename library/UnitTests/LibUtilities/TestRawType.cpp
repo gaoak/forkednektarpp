@@ -38,129 +38,114 @@
 
 namespace Nektar
 {
-static_assert(std::is_same<double, RawType<double>::type>::value,
+static_assert(std::is_same_v<double, RawType<double>::type>, "RawType error");
+static_assert(std::is_same_v<double, RawType<const double>::type>,
               "RawType error");
-static_assert(std::is_same<double, RawType<const double>::type>::value,
+static_assert(std::is_same_v<double, RawType<volatile double>::type>,
               "RawType error");
-static_assert(std::is_same<double, RawType<volatile double>::type>::value,
-              "RawType error");
-static_assert(std::is_same<double, RawType<const volatile double>::type>::value,
+static_assert(std::is_same_v<double, RawType<const volatile double>::type>,
               "RawType error");
 
-static_assert(std::is_same<double, RawType<double *>::type>::value,
+static_assert(std::is_same_v<double, RawType<double *>::type>, "RawType error");
+static_assert(std::is_same_v<double, RawType<const double *>::type>,
               "RawType error");
-static_assert(std::is_same<double, RawType<const double *>::type>::value,
+static_assert(std::is_same_v<double, RawType<volatile double *>::type>,
               "RawType error");
-static_assert(std::is_same<double, RawType<volatile double *>::type>::value,
+static_assert(std::is_same_v<double, RawType<const volatile double *>::type>,
+              "RawType error");
+
+static_assert(std::is_same_v<double, RawType<double *const>::type>,
+              "RawType error");
+static_assert(std::is_same_v<double, RawType<const double *const>::type>,
+              "RawType error");
+static_assert(std::is_same_v<double, RawType<volatile double *const>::type>,
               "RawType error");
 static_assert(
-    std::is_same<double, RawType<const volatile double *>::type>::value,
+    std::is_same_v<double, RawType<const volatile double *const>::type>,
     "RawType error");
 
-static_assert(std::is_same<double, RawType<double *const>::type>::value,
+static_assert(std::is_same_v<double, RawType<double *volatile>::type>,
               "RawType error");
-static_assert(std::is_same<double, RawType<const double *const>::type>::value,
+static_assert(std::is_same_v<double, RawType<const double *volatile>::type>,
               "RawType error");
-static_assert(
-    std::is_same<double, RawType<volatile double *const>::type>::value,
-    "RawType error");
-static_assert(
-    std::is_same<double, RawType<const volatile double *const>::type>::value,
-    "RawType error");
-
-static_assert(std::is_same<double, RawType<double *volatile>::type>::value,
+static_assert(std::is_same_v<double, RawType<volatile double *volatile>::type>,
               "RawType error");
 static_assert(
-    std::is_same<double, RawType<const double *volatile>::type>::value,
-    "RawType error");
-static_assert(
-    std::is_same<double, RawType<volatile double *volatile>::type>::value,
-    "RawType error");
-static_assert(
-    std::is_same<double, RawType<const volatile double *volatile>::type>::value,
+    std::is_same_v<double, RawType<const volatile double *volatile>::type>,
     "RawType error");
 
+static_assert(std::is_same_v<double, RawType<double *const volatile>::type>,
+              "RawType error");
 static_assert(
-    std::is_same<double, RawType<double *const volatile>::type>::value,
+    std::is_same_v<double, RawType<const double *const volatile>::type>,
     "RawType error");
 static_assert(
-    std::is_same<double, RawType<const double *const volatile>::type>::value,
+    std::is_same_v<double, RawType<volatile double *const volatile>::type>,
     "RawType error");
-static_assert(
-    std::is_same<double, RawType<volatile double *const volatile>::type>::value,
-    "RawType error");
-static_assert(
-    std::is_same<double,
-                 RawType<const volatile double *const volatile>::type>::value,
-    "RawType error");
+static_assert(std::is_same_v<
+                  double, RawType<const volatile double *const volatile>::type>,
+              "RawType error");
 
+static_assert(std::is_same_v<double, RawType<std::shared_ptr<double>>::type>,
+              "RawType error");
 static_assert(
-    std::is_same<double, RawType<std::shared_ptr<double>>::type>::value,
+    std::is_same_v<double, RawType<const std::shared_ptr<double>>::type>,
     "RawType error");
 static_assert(
-    std::is_same<double, RawType<const std::shared_ptr<double>>::type>::value,
+    std::is_same_v<double, RawType<volatile std::shared_ptr<double>>::type>,
     "RawType error");
 static_assert(
-    std::is_same<double,
-                 RawType<volatile std::shared_ptr<double>>::type>::value,
-    "RawType error");
-static_assert(
-    std::is_same<double,
-                 RawType<const volatile std::shared_ptr<double>>::type>::value,
+    std::is_same_v<double,
+                   RawType<const volatile std::shared_ptr<double>>::type>,
     "RawType error");
 
 static_assert(
-    std::is_same<double, RawType<std::shared_ptr<const double>>::type>::value,
+    std::is_same_v<double, RawType<std::shared_ptr<const double>>::type>,
     "RawType error");
 static_assert(
-    std::is_same<double,
-                 RawType<const std::shared_ptr<const double>>::type>::value,
+    std::is_same_v<double, RawType<const std::shared_ptr<const double>>::type>,
     "RawType error");
 static_assert(
-    std::is_same<double,
-                 RawType<volatile std::shared_ptr<const double>>::type>::value,
+    std::is_same_v<double,
+                   RawType<volatile std::shared_ptr<const double>>::type>,
     "RawType error");
 static_assert(
-    std::is_same<
+    std::is_same_v<double,
+                   RawType<const volatile std::shared_ptr<const double>>::type>,
+    "RawType error");
+
+static_assert(
+    std::is_same_v<double, RawType<std::shared_ptr<volatile double>>::type>,
+    "RawType error");
+static_assert(
+    std::is_same_v<double,
+                   RawType<const std::shared_ptr<volatile double>>::type>,
+    "RawType error");
+static_assert(
+    std::is_same_v<double,
+                   RawType<volatile std::shared_ptr<volatile double>>::type>,
+    "RawType error");
+static_assert(
+    std::is_same_v<
+        double, RawType<const volatile std::shared_ptr<volatile double>>::type>,
+    "RawType error");
+
+static_assert(
+    std::is_same_v<double,
+                   RawType<std::shared_ptr<const volatile double>>::type>,
+    "RawType error");
+static_assert(
+    std::is_same_v<double,
+                   RawType<const std::shared_ptr<const volatile double>>::type>,
+    "RawType error");
+static_assert(
+    std::is_same_v<
+        double, RawType<volatile std::shared_ptr<const volatile double>>::type>,
+    "RawType error");
+static_assert(
+    std::is_same_v<
         double,
-        RawType<const volatile std::shared_ptr<const double>>::type>::value,
+        RawType<const volatile std::shared_ptr<const volatile double>>::type>,
     "RawType error");
-
-static_assert(
-    std::is_same<double,
-                 RawType<std::shared_ptr<volatile double>>::type>::value,
-    "RawType error");
-static_assert(
-    std::is_same<double,
-                 RawType<const std::shared_ptr<volatile double>>::type>::value,
-    "RawType error");
-static_assert(
-    std::is_same<
-        double,
-        RawType<volatile std::shared_ptr<volatile double>>::type>::value,
-    "RawType error");
-static_assert(
-    std::is_same<
-        double,
-        RawType<const volatile std::shared_ptr<volatile double>>::type>::value,
-    "RawType error");
-
-static_assert(
-    std::is_same<double,
-                 RawType<std::shared_ptr<const volatile double>>::type>::value,
-    "RawType error");
-static_assert(
-    std::is_same<
-        double,
-        RawType<const std::shared_ptr<const volatile double>>::type>::value,
-    "RawType error");
-static_assert(
-    std::is_same<
-        double,
-        RawType<volatile std::shared_ptr<const volatile double>>::type>::value,
-    "RawType error");
-static_assert(std::is_same<double, RawType<const volatile std::shared_ptr<
-                                       const volatile double>>::type>::value,
-              "RawType error");
 
 } // namespace Nektar

@@ -37,6 +37,7 @@
 
 namespace Nektar
 {
+
 std::string LinearAverageSolver::solverName =
     SolverUtils::GetRiemannSolverFactory().RegisterCreatorFunction(
         "LinearAverage", LinearAverageSolver::create,
@@ -75,4 +76,5 @@ void LinearAverageSolver::v_PointSolve(
     uf   = 0.5 * (g * etaL + g * etaR);
     vf   = 0.0;
 }
+
 } // namespace Nektar

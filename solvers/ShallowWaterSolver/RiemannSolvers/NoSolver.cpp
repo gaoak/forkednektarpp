@@ -36,6 +36,7 @@
 
 namespace Nektar
 {
+
 std::string NoSolver::solverName =
     SolverUtils::GetRiemannSolverFactory().RegisterCreatorFunction(
         "NoSolver", NoSolver::create, "No valid Riemann solver choosen");

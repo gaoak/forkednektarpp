@@ -35,6 +35,7 @@
 
 #include <iomanip>
 
+#include <MultiRegions/ContField.h>
 #include <SolverUtils/DriverModifiedArnoldi.h>
 
 using namespace std;
@@ -92,8 +93,8 @@ void DriverModifiedArnoldi::v_Execute(ostream &out)
 {
     int i             = 0;
     int j             = 0;
-    int nq            = m_equ[0]->UpdateFields()[0]->GetNcoeffs();
-    int ntot          = m_nfields * nq;
+    int nm            = m_equ[0]->UpdateFields()[0]->GetNcoeffs();
+    int ntot          = m_nfields * nm;
     int converged     = 0;
     NekDouble resnorm = 0.0;
     ofstream evlout;
@@ -150,6 +151,20 @@ void DriverModifiedArnoldi::v_Execute(ostream &out)
 
         NekDouble eps = 0.0001;
         Vmath::FillWhiteNoise(ntot, eps, &Kseq[1][0], 1);
+
+        auto contfield = std::dynamic_pointer_cast<MultiRegions::ContField>(
+            m_equ[0]->UpdateFields()[0]);
+        if (contfield)
+        {
+            int nGlobal =
+                contfield->GetLocalToGlobalMap()->GetNumGlobalCoeffs();
+            Array<OneD, NekDouble> global(nGlobal), tmp;
+            for (int n = 0; n < m_nfields; ++n)
+            {
+                contfield->LocalToGlobal(Kseq[1] + n * nm, global);
+                contfield->GlobalToLocal(global, tmp = Kseq[1] + n * nm);
+            }
+        }
         if (m_useMask)
         {
             Vmath::Vmul(ntot, Kseq[1], 1, m_maskCoeffs, 1, Kseq[1], 1);

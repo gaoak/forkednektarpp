@@ -47,12 +47,12 @@ namespace Nektar::LibUtilities
 template <
     class T1, class T2,
     class = typename std::enable_if<
-        std::is_floating_point<typename std::remove_cv<
-            typename std::remove_reference<T1>::type>::type>::value &&
-        std::is_same<typename std::remove_cv<
-                         typename std::remove_reference<T1>::type>::type,
-                     typename std::remove_cv<typename std::remove_reference<
-                         T2>::type>::type>::value>::type>
+        std::is_floating_point_v<typename std::remove_cv<
+            typename std::remove_reference<T1>::type>::type> &&
+        std::is_same_v<typename std::remove_cv<
+                           typename std::remove_reference<T1>::type>::type,
+                       typename std::remove_cv<typename std::remove_reference<
+                           T2>::type>::type>>::type>
 inline bool IsRealEqual(
     T1 &&lhs, T2 &&rhs,
     const unsigned int factor = NekConstants::kNekFloatCompFact)
@@ -67,12 +67,12 @@ inline bool IsRealEqual(
 template <
     class T1, class T2,
     class = typename std::enable_if<
-        std::is_floating_point<typename std::remove_cv<
-            typename std::remove_reference<T1>::type>::type>::value &&
-        std::is_same<typename std::remove_cv<
-                         typename std::remove_reference<T1>::type>::type,
-                     typename std::remove_cv<typename std::remove_reference<
-                         T2>::type>::type>::value>::type>
+        std::is_floating_point_v<typename std::remove_cv<
+            typename std::remove_reference<T1>::type>::type> &&
+        std::is_same_v<typename std::remove_cv<
+                           typename std::remove_reference<T1>::type>::type,
+                       typename std::remove_cv<typename std::remove_reference<
+                           T2>::type>::type>>::type>
 inline bool IsRealClose(T1 &&lhs, T2 &&rhs,
                         const NekDouble tol = NekConstants::kNekMachineEpsilon)
 {

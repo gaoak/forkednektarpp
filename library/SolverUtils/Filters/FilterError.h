@@ -81,7 +81,7 @@ private:
     size_t m_outputFrequency;
     bool m_consoleOutput;
     size_t m_numVariables;
-    bool m_homogeneous;
+    bool m_isHomogeneous1D;
     std::ofstream m_outFile;
     LibUtilities::CommSharedPtr m_comm;
 };

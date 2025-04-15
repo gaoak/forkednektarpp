@@ -63,10 +63,15 @@
             <I PROPERTY="EQTYPE"                VALUE="PulseWavePropagation"/>
             <I PROPERTY="Projection"            VALUE="DisContinuous"       />
             <I PROPERTY="AdvectionType"         VALUE="WeakDG"              />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="ForwardEuler"        />
             <I PROPERTY="UpwindTypePulse"       VALUE="UpwindPulse"         />
             <I PROPERTY="PressureArea"          VALUE="Empirical"           />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> Euler </METHOD>
+            <ORDER> 1 </ORDER>
+            <VARIANT> Forward </VARIANT>
+        </TIMEINTEGRATIONSCHEME>
 
         <VARIABLES>
             <V ID="0"> A </V>

@@ -75,7 +75,7 @@ private:
         const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
         const int spacedim);
 
-    ~NonSmoothShockCapture(void) override{};
+    ~NonSmoothShockCapture(void) override = default;
 
     /// Parameters
     int m_offset;

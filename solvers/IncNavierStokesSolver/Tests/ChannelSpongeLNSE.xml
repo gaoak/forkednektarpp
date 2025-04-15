@@ -247,8 +247,12 @@
             <I PROPERTY="EQTYPE" VALUE="UnsteadyNavierStokes" />
             <I PROPERTY="EvolutionOperator" VALUE="Direct" />
             <I PROPERTY="Projection" VALUE="Galerkin" />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="IMEXOrder2" />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> IMEX </METHOD>
+            <ORDER> 2 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
 
         <PARAMETERS>
             <P> TimeStep      = 0.002 			</P>

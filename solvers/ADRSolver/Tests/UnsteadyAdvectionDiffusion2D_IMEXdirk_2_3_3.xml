@@ -53,8 +53,14 @@
             <I PROPERTY="AdvectionType"         VALUE="WeakDG"                      />
             <I PROPERTY="DiffusionAdvancement"  VALUE="Implicit"                    />
             <I PROPERTY="UpwindType"            VALUE="Upwind"                      />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="IMEXdirk_2_3_3"              />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> IMEX </METHOD>
+            <VARIANT> DIRK </VARIANT>
+            <ORDER> 3 </ORDER>
+            <FREEPARAMETERS> 2 3 </FREEPARAMETERS>
+        </TIMEINTEGRATIONSCHEME>
 
         <PARAMETERS>
             <P> TimeStep      = 0.0005              </P>

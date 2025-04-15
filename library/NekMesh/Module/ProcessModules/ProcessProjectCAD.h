@@ -75,10 +75,49 @@ public:
     }
 
 private:
+    // Min edge length in an element
+    std::map<NodeSharedPtr, NekDouble> minConEdge; // should be unordered?!
+    // Vertices on the surface
+    NodeSet surfNodes;
+    // Edges on the surface
+    EdgeSet surfEdges;
+    // Surface vertices to 3D elements
+    std::map<NodeSharedPtr, std::vector<ElementSharedPtr>> surfNodeToEl;
+    // this is a set of nodes which have a CAD failure
+    // if touched in the HO stage they should be ignored and linearised
+    NodeSet lockedNodes;
+
+    void LoadCAD(std::string filename);
+    void CreateBoundingBoxes(bgi::rtree<boxI, bgi::quadratic<16>> &rtree,
+                             bgi::rtree<boxI, bgi::quadratic<16>> &rtreeCurve,
+                             bgi::rtree<boxI, bgi::quadratic<16>> &rtreeNode,
+                             NekDouble tolv1, NekDouble scale);
+    bool IsNotValid(std::vector<NekMesh::ElementSharedPtr> &els);
+    void CalculateMinEdgeLength();
+    void Auxilaries();
+    void LinkVertexToCAD(NekMesh::MeshSharedPtr &m_mesh, bool CADCurve,
+                         NodeSet &lockedNodes, NekDouble tolv1, NekDouble tolv2,
+                         bgi::rtree<boxI, bgi::quadratic<16>> &rtree,
+                         bgi::rtree<boxI, bgi::quadratic<16>> &rtreeCurve,
+                         bgi::rtree<boxI, bgi::quadratic<16>> &rtreeNode);
+
     bool FindAndProject(bgi::rtree<boxI, bgi::quadratic<16>> &rtree,
                         std::array<NekDouble, 3> &in, int &surf);
+    void LinkEdgeToCAD(EdgeSet &surfEdges, NekDouble tolv1);
+    void LinkFaceToCAD(NekDouble tolv1);
 
-    bool IsNotValid(std::vector<NekMesh::ElementSharedPtr> &els);
+    // for CASE 3 elements between two surfaces
+    void ProjectEdges(EdgeSet &surfEdges, int order,
+                      bgi::rtree<boxI, bgi::quadratic<16>> &rtree);
+    std::vector<int> IntersectCADSurf(std::vector<CADSurfSharedPtr> v1_CADs,
+                                      std::vector<CADSurfSharedPtr> v2_CADs);
+
+    std::vector<int> IntersectCADCurve(std::vector<CADCurveSharedPtr> v1_CADs,
+                                       std::vector<CADCurveSharedPtr> v2_CADs);
+    void LinkHOtoCAD(EdgeSet &surfEdges, NekDouble tolv1);
+
+    void Diagnostics();
+    void ExportCAD();
 };
 } // namespace Nektar::NekMesh
 

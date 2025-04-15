@@ -65,7 +65,7 @@ public:
     }
 
     static std::string className;
-    ~MovingFrameWall() override;
+    ~MovingFrameWall() override = default;
 
 protected:
     void v_Initialise(

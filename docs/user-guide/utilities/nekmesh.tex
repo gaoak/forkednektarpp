@@ -1014,20 +1014,44 @@ float, respectively. As with the \emph{r}-adaption with interpolation file,
 their target scaling based on their current proximity to the selected CAD
 curves.
 
-\subsection{Mesh projection}
-This module can take any linear mesh, providing that it is a close
+\subsection{Mesh Curving}
+This module can take any linear mesh or high-order mesh, given that it is a close
 representation of the CAD and project the boundary of the mesh onto the CAD.
-This will curve the surface of the mesh. The method has a number of failsafes
-ensuring that even bad CAD or poor linear meshes should be able to be curved to
-some degree. If the method encounters an issue, such as the linear mesh being a
+This will reconstruct the connectivity between the CAD and the surface mesh.
+Then it will curve and optimize the surface of the mesh. The method has a number
+of fail-safes ensuring that even bad CAD or poor linear meshes should be able 
+to be curved. If the method encounters an issue, such as the linear mesh being a
 large distance from the CAD, it will simply leave that element straight sided. A
 well made CAD model and accurate linear mesh should be curved with little issue.
+This module has been tested with hybrid prism-tet-pyramid, fully hexahedral and
+tetrahedral meshes. As a best practice, it is recommended to use a single thick
+O-type prismatic or hexahedral layer that is with sufficient thickness to account
+for the mesh curving. 
 
-The module needs to be informed of the CAD file to project the mesh to and the
+The module needs to be informed of the CAD file to curve the mesh on the CAD and the
 order at which to curve the surface:
 \begin{lstlisting}[style=BashInputStyle]
-  NekMesh -m projectcad:file=cadfile.step:order=x inital.xml optimised.xml
+  NekMesh -m projectcad:file=cadfile.step:order=x:cLength=y: inital.xml optimised.xml
 \end{lstlisting}
+
+The new version of the module reuses all state-of-the-art mesh curving modules with additional functionalities. 
+
+\begin{itemize}
+  \item \inlsh{surfopti}: True by default.Activates/Deactivates mesh curving and surface optimization. 
+  \item \inlsh{ho}: Needs to be passed if the input mesh is already high-order.
+  \item \inlsh{tolv1}: (optional) Tolerance for max distance of a node to CADSurface.
+  \item \inlsh{tolv2}: (optional) Tolerance for max distance  (< tolv1) of a node to CADSurface.
+  \item \inlsh{cLength}: (optional) Scales the tolerances by the factor, expands the
+  bounding boxes and speeds up the bounding box generation. This is recommended
+  to be tunned by the users need if the default values do not produce a good result.
+  \item \inlsh{extract}: (optional) Exports the CAD-mesh connectivity to CAD.txt.
+  \item \inlsh{cadtxt}:  (optional) Imports the CAD-mesh connectivity from CAD.txt directly.
+\end{itemize}
+
+Note: Please ensure that the STEP file is using the same dimension as the linear mesh.
+A common error is to have a STP file in MiliMeters, whereas the mesh is in Meters or 
+vice-versa. A way to check is to see the bounding box of printed in the beginning of
+the module is in the correct order. 
 
 \subsection{Mesh combine}
 This module can combine two mesh files into one output file.

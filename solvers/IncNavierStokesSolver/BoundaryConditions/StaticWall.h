@@ -66,21 +66,21 @@ public:
 
     static std::string className;
 
-    ~StaticWall() override;
-
 protected:
+    StaticWall(const LibUtilities::SessionReaderSharedPtr pSession,
+               Array<OneD, MultiRegions::ExpListSharedPtr> pFields,
+               Array<OneD, SpatialDomains::BoundaryConditionShPtr> cond,
+               Array<OneD, MultiRegions::ExpListSharedPtr> exp, int nbnd,
+               int spacedim, int bnddim);
+
+    ~StaticWall() override = default;
+
     void v_Initialise(
         const LibUtilities::SessionReaderSharedPtr &pSession) override;
 
     void v_Update(const Array<OneD, const Array<OneD, NekDouble>> &fields,
                   const Array<OneD, const Array<OneD, NekDouble>> &Adv,
                   std::map<std::string, NekDouble> &params) override;
-
-    StaticWall(const LibUtilities::SessionReaderSharedPtr pSession,
-               Array<OneD, MultiRegions::ExpListSharedPtr> pFields,
-               Array<OneD, SpatialDomains::BoundaryConditionShPtr> cond,
-               Array<OneD, MultiRegions::ExpListSharedPtr> exp, int nbnd,
-               int spacedim, int bnddim);
 };
 
 } // namespace Nektar

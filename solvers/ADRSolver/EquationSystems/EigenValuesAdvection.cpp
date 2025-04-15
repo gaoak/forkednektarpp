@@ -117,31 +117,6 @@ void EigenValuesAdvection::v_InitObject(bool DeclareFields)
     }
 }
 
-/**
- * @brief Get the normal velocity
- */
-Array<OneD, NekDouble> &EigenValuesAdvection::GetNormalVelocity()
-{
-    // Number of trace (interface) points
-    int nTracePts = GetTraceNpoints();
-
-    // Auxiliary variable to compute the normal velocity
-    Array<OneD, NekDouble> tmp(nTracePts);
-
-    // Reset the normal velocity
-    Vmath::Zero(nTracePts, m_traceVn, 1);
-
-    for (int i = 0; i < m_velocity.size(); ++i)
-    {
-        m_fields[0]->ExtractTracePhys(m_velocity[i], tmp);
-
-        Vmath::Vvtvp(nTracePts, m_traceNormals[i], 1, tmp, 1, m_traceVn, 1,
-                     m_traceVn, 1);
-    }
-
-    return m_traceVn;
-}
-
 void EigenValuesAdvection::v_DoInitialise(
     [[maybe_unused]] bool dumpInitialConditions)
 {
@@ -280,6 +255,31 @@ void EigenValuesAdvection::v_DoSolve()
         cout << EIG_R[j] << "\t" << EIG_I[j] << endl;
     }
     cout << endl;
+}
+
+/**
+ * @brief Get the normal velocity
+ */
+Array<OneD, NekDouble> &EigenValuesAdvection::GetNormalVelocity()
+{
+    // Number of trace (interface) points
+    int nTracePts = GetTraceNpoints();
+
+    // Auxiliary variable to compute the normal velocity
+    Array<OneD, NekDouble> tmp(nTracePts);
+
+    // Reset the normal velocity
+    Vmath::Zero(nTracePts, m_traceVn, 1);
+
+    for (int i = 0; i < m_velocity.size(); ++i)
+    {
+        m_fields[0]->ExtractTracePhys(m_velocity[i], tmp);
+
+        Vmath::Vvtvp(nTracePts, m_traceNormals[i], 1, tmp, 1, m_traceVn, 1,
+                     m_traceVn, 1);
+    }
+
+    return m_traceVn;
 }
 
 void EigenValuesAdvection::GetFluxVector(

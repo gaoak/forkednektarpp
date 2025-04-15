@@ -38,6 +38,7 @@
 
 namespace Nektar
 {
+
 std::string ForcingStabilityCoupledLNS::className =
     SolverUtils::GetForcingFactory().RegisterCreatorFunction(
         "StabilityCoupledLNS", ForcingStabilityCoupledLNS::create,

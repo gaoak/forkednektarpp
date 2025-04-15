@@ -204,6 +204,11 @@ public:
 
     NEKMESH_EXPORT void ClearElementLinks();
 
+    /// Extracts the CAD objects to CAD.txt
+    NEKMESH_EXPORT void ExtractCAD();
+    /// Links the CAD to Mesh Objects given CAD.txt
+    NEKMESH_EXPORT void InputCAD();
+
 protected:
     /// Mesh object
     MeshSharedPtr m_mesh;

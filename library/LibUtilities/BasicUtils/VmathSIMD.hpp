@@ -42,8 +42,8 @@
 namespace Vmath::SIMD
 {
 /// \brief Add vector z = x + y
-template <class T, typename = typename std::enable_if<
-                       std::is_floating_point<T>::value>::type>
+template <class T,
+          typename = typename std::enable_if<std::is_floating_point_v<T>>::type>
 void Vadd(const size_t n, const T *x, const T *y, T *z)
 {
     using namespace tinysimd;
@@ -148,8 +148,8 @@ void Vadd(const size_t n, const T *x, const T *y, T *z)
 }
 
 /// \brief Multiply vector z = x * y
-template <class T, typename = typename std::enable_if<
-                       std::is_floating_point<T>::value>::type>
+template <class T,
+          typename = typename std::enable_if<std::is_floating_point_v<T>>::type>
 void Vmul(const size_t n, const T *x, const T *y, T *z)
 {
     using namespace tinysimd;
@@ -254,8 +254,8 @@ void Vmul(const size_t n, const T *x, const T *y, T *z)
 }
 
 /// \brief  vvtvp (vector times vector plus vector): z = w*x + y
-template <class T, typename = typename std::enable_if<
-                       std::is_floating_point<T>::value>::type>
+template <class T,
+          typename = typename std::enable_if<std::is_floating_point_v<T>>::type>
 void Vvtvp(const size_t n, const T *w, const T *x, const T *y, T *z)
 {
     using namespace tinysimd;
@@ -302,8 +302,8 @@ void Vvtvp(const size_t n, const T *w, const T *x, const T *y, T *z)
 }
 
 /// \brief  vvtvm (vector times vector minus vector): z = w*x - y
-template <class T, typename = typename std::enable_if<
-                       std::is_floating_point<T>::value>::type>
+template <class T,
+          typename = typename std::enable_if<std::is_floating_point_v<T>>::type>
 void Vvtvm(const size_t n, const T *w, const T *x, const T *y, T *z)
 {
     using namespace tinysimd;
@@ -351,8 +351,8 @@ void Vvtvm(const size_t n, const T *w, const T *x, const T *y, T *z)
 
 /// \brief  vvtvvtp (vector times vector plus vector times vector):
 // z = v*w + x*y
-template <class T, typename = typename std::enable_if<
-                       std::is_floating_point<T>::value>::type>
+template <class T,
+          typename = typename std::enable_if<std::is_floating_point_v<T>>::type>
 inline void Vvtvvtp(const size_t n, const T *v, const T *w, const T *x,
                     const T *y, T *z)
 {
@@ -409,8 +409,8 @@ inline void Vvtvvtp(const size_t n, const T *v, const T *w, const T *x,
 
 /// \brief  vvtvvtm (vector times vector minus vector times vector):
 // z = v*w - x*y
-template <class T, typename = typename std::enable_if<
-                       std::is_floating_point<T>::value>::type>
+template <class T,
+          typename = typename std::enable_if<std::is_floating_point_v<T>>::type>
 inline void Vvtvvtm(const size_t n, const T *v, const T *w, const T *x,
                     const T *y, T *z)
 {
@@ -467,8 +467,8 @@ inline void Vvtvvtm(const size_t n, const T *v, const T *w, const T *x,
 
 /// \brief Gather vector z[i] = x[y[i]]
 template <class T, class I,
-          typename = typename std::enable_if<std::is_floating_point<T>::value &&
-                                             std::is_integral<I>::value>::type>
+          typename = typename std::enable_if<std::is_floating_point_v<T> &&
+                                             std::is_integral_v<I>>::type>
 void Gathr(const I n, const T *x, const I *y, T *z)
 {
     using namespace tinysimd;

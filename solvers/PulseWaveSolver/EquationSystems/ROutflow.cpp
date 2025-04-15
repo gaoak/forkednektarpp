@@ -35,8 +35,6 @@
 
 #include <PulseWaveSolver/EquationSystems/ROutflow.h>
 
-using namespace std;
-
 namespace Nektar
 {
 
@@ -47,10 +45,6 @@ ROutflow::ROutflow(Array<OneD, MultiRegions::ExpListSharedPtr> pVessel,
                    const LibUtilities::SessionReaderSharedPtr pSession,
                    PulseWavePressureAreaSharedPtr pressureArea)
     : PulseWaveBoundary(pVessel, pSession, pressureArea)
-{
-}
-
-ROutflow::~ROutflow()
 {
 }
 

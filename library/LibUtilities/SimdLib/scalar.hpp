@@ -59,8 +59,7 @@ template <typename scalarType> struct scalar
 // forward declaration of concrete types
 // makes default type available for all arithmetic types
 template <typename T,
-          typename =
-              typename std::enable_if<std::is_arithmetic<T>::value>::type>
+          typename = typename std::enable_if<std::is_arithmetic_v<T>>::type>
 struct scalarT;
 struct scalarMask;
 
@@ -156,15 +155,15 @@ template <typename T, typename> struct scalarT
         _data = rhs;
     }
 
-    template <typename U, typename = typename std::enable_if<
-                              std::is_integral<U>::value>::type>
+    template <typename U,
+              typename = typename std::enable_if<std::is_integral_v<U>>::type>
     inline void gather(const scalarType *p, const scalarT<U> &indices)
     {
         _data = *(p + indices._data);
     }
 
-    template <typename U, typename = typename std::enable_if<
-                              std::is_integral<U>::value>::type>
+    template <typename U,
+              typename = typename std::enable_if<std::is_integral_v<U>>::type>
     inline void scatter(scalarType *p, const scalarT<U> &indices) const
     {
         p += indices._data;
@@ -216,16 +215,14 @@ inline scalarT<T> operator+(scalarT<T> lhs, scalarT<T> rhs)
 {
     return lhs._data + rhs._data;
 }
-template <
-    typename T, typename U,
-    typename = typename std::enable_if<std::is_arithmetic<U>::value>::type>
+template <typename T, typename U,
+          typename = typename std::enable_if<std::is_arithmetic_v<U>>::type>
 inline scalarT<T> operator+(U lhs, scalarT<T> rhs)
 {
     return lhs + rhs._data;
 }
-template <
-    typename T, typename U,
-    typename = typename std::enable_if<std::is_arithmetic<U>::value>::type>
+template <typename T, typename U,
+          typename = typename std::enable_if<std::is_arithmetic_v<U>>::type>
 inline scalarT<T> operator+(scalarT<T> lhs, U rhs)
 {
     return lhs._data + rhs;
@@ -236,16 +233,14 @@ inline scalarT<T> operator-(scalarT<T> lhs, scalarT<T> rhs)
 {
     return lhs._data - rhs._data;
 }
-template <
-    typename T, typename U,
-    typename = typename std::enable_if<std::is_arithmetic<U>::value>::type>
+template <typename T, typename U,
+          typename = typename std::enable_if<std::is_arithmetic_v<U>>::type>
 inline scalarT<T> operator-(U lhs, scalarT<T> rhs)
 {
     return lhs - rhs._data;
 }
-template <
-    typename T, typename U,
-    typename = typename std::enable_if<std::is_arithmetic<U>::value>::type>
+template <typename T, typename U,
+          typename = typename std::enable_if<std::is_arithmetic_v<U>>::type>
 inline scalarT<T> operator-(scalarT<T> lhs, U rhs)
 {
     return lhs._data - rhs;
@@ -261,16 +256,14 @@ inline scalarT<T> operator*(scalarT<T> lhs, scalarT<T> rhs)
 {
     return lhs._data * rhs._data;
 }
-template <
-    typename T, typename U,
-    typename = typename std::enable_if<std::is_arithmetic<U>::value>::type>
+template <typename T, typename U,
+          typename = typename std::enable_if<std::is_arithmetic_v<U>>::type>
 inline scalarT<T> operator*(U lhs, scalarT<T> rhs)
 {
     return lhs * rhs._data;
 }
-template <
-    typename T, typename U,
-    typename = typename std::enable_if<std::is_arithmetic<U>::value>::type>
+template <typename T, typename U,
+          typename = typename std::enable_if<std::is_arithmetic_v<U>>::type>
 inline scalarT<T> operator*(scalarT<T> lhs, U rhs)
 {
     return lhs._data * rhs;
@@ -281,16 +274,14 @@ inline scalarT<T> operator/(scalarT<T> lhs, scalarT<T> rhs)
 {
     return lhs._data / rhs._data;
 }
-template <
-    typename T, typename U,
-    typename = typename std::enable_if<std::is_arithmetic<U>::value>::type>
+template <typename T, typename U,
+          typename = typename std::enable_if<std::is_arithmetic_v<U>>::type>
 inline scalarT<T> operator/(U lhs, scalarT<T> rhs)
 {
     return lhs / rhs._data;
 }
-template <
-    typename T, typename U,
-    typename = typename std::enable_if<std::is_arithmetic<U>::value>::type>
+template <typename T, typename U,
+          typename = typename std::enable_if<std::is_arithmetic_v<U>>::type>
 inline scalarT<T> operator/(scalarT<T> lhs, U rhs)
 {
     return lhs._data / rhs;

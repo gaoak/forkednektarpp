@@ -4090,11 +4090,16 @@
             <I PROPERTY="DiffusionType"         VALUE="LDGNS"               />
             <I PROPERTY="AdvectionAdvancement"  VALUE="Implicit"            />
             <I PROPERTY="DiffusionAdvancement"  VALUE="Implicit"            />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="BackwardEuler"       />
             <I PROPERTY="UpwindType"            VALUE="Roe"                 />
             <I PROPERTY="ProblemType"           VALUE="General"             />
             <I PROPERTY="ViscosityType"         VALUE="Variable"            />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> Euler </METHOD>
+            <ORDER> 1 </ORDER>
+            <VARIANT> Backward </VARIANT>
+        </TIMEINTEGRATIONSCHEME>
 
         <VARIABLES>
             <V ID="0"> rho  </V>

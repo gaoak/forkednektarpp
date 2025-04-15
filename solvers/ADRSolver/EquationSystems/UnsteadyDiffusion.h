@@ -42,6 +42,7 @@ using namespace Nektar::SolverUtils;
 
 namespace Nektar
 {
+
 class UnsteadyDiffusion : public UnsteadySystem
 {
 public:
@@ -58,11 +59,9 @@ public:
         p->InitObject();
         return p;
     }
+
     /// Name of class
     static std::string className;
-
-    /// Destructor
-    ~UnsteadyDiffusion() override = default;
 
 protected:
     NekDouble m_epsilon;
@@ -79,13 +78,10 @@ protected:
     UnsteadyDiffusion(const LibUtilities::SessionReaderSharedPtr &pSession,
                       const SpatialDomains::MeshGraphSharedPtr &pGraph);
 
-    void v_GenerateSummary(SummaryList &s) override;
+    ~UnsteadyDiffusion() override = default;
+
     void v_InitObject(bool DeclareFields = true) override;
 
-    void GetFluxVector(
-        const Array<OneD, Array<OneD, NekDouble>> &inarray,
-        const Array<OneD, Array<OneD, Array<OneD, NekDouble>>> &qfield,
-        Array<OneD, Array<OneD, Array<OneD, NekDouble>>> &viscousTensor);
     void DoOdeRhs(const Array<OneD, const Array<OneD, NekDouble>> &inarray,
                   Array<OneD, Array<OneD, NekDouble>> &outarray,
                   const NekDouble time);
@@ -96,7 +92,14 @@ protected:
         const Array<OneD, const Array<OneD, NekDouble>> &inarray,
         Array<OneD, Array<OneD, NekDouble>> &outarray, NekDouble time,
         NekDouble lambda);
+    void GetFluxVector(
+        const Array<OneD, Array<OneD, NekDouble>> &inarray,
+        const Array<OneD, Array<OneD, Array<OneD, NekDouble>>> &qfield,
+        Array<OneD, Array<OneD, Array<OneD, NekDouble>>> &viscousTensor);
+
+    void v_GenerateSummary(SummaryList &s) override;
 };
+
 } // namespace Nektar
 
 #endif

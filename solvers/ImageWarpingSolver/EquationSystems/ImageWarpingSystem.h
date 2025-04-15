@@ -42,6 +42,7 @@ using namespace Nektar::SolverUtils;
 
 namespace Nektar
 {
+
 class ImageWarpingSystem : public AdvectionSystem
 {
 public:
@@ -58,10 +59,9 @@ public:
         p->InitObject();
         return p;
     }
+
     /// Name of class
     static std::string className;
-
-    ~ImageWarpingSystem() override;
 
 protected:
     SolverUtils::RiemannSolverSharedPtr m_riemannSolver;
@@ -71,6 +71,10 @@ protected:
 
     ImageWarpingSystem(const LibUtilities::SessionReaderSharedPtr &pSession,
                        const SpatialDomains::MeshGraphSharedPtr &pGraph);
+
+    ~ImageWarpingSystem() override = default;
+
+    void v_InitObject(bool DeclareField = true) override;
 
     void DoOdeRhs(const Array<OneD, const Array<OneD, NekDouble>> &inarray,
                   Array<OneD, Array<OneD, NekDouble>> &outarray,
@@ -83,8 +87,6 @@ protected:
     /// Get the normal velocity
     Array<OneD, NekDouble> &GetNormalVelocity();
 
-    void v_InitObject(bool DeclareField = true) override;
-
     // DG Advection routines
     void GetFluxVector(const Array<OneD, Array<OneD, NekDouble>> &physfield,
                        Array<OneD, Array<OneD, Array<OneD, NekDouble>>> &flux);
@@ -92,6 +94,7 @@ protected:
     // Print Summary
     void v_GenerateSummary(SolverUtils::SummaryList &s) override;
 };
+
 } // namespace Nektar
 
 #endif

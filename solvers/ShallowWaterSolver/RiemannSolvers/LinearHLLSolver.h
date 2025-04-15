@@ -39,6 +39,7 @@
 
 namespace Nektar
 {
+
 class LinearHLLSolver : public LinearSWESolver
 {
 public:
@@ -57,6 +58,7 @@ protected:
                       NekDouble etaR, NekDouble uR, NekDouble vR, NekDouble dR,
                       NekDouble &etaf, NekDouble &uf, NekDouble &vf) override;
 };
+
 } // namespace Nektar
 
 #endif

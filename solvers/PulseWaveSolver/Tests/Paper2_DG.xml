@@ -60,9 +60,13 @@
             <I PROPERTY="EQTYPE"                VALUE="PulseWavePropagation"/>
             <I PROPERTY="Projection"            VALUE="DisContinuous"       />
             <I PROPERTY="AdvectionType"         VALUE="WeakDG"              />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="ClassicalRungeKutta4"/>
             <I PROPERTY="UpwindTypePulse"       VALUE="UpwindPulse"         />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> RungeKutta </METHOD>
+            <ORDER> 4 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
 
         <VARIABLES>
             <V ID="0"> A </V>

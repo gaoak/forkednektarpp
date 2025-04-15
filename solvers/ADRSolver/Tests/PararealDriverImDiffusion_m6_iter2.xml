@@ -27,10 +27,15 @@
         <SOLVERINFO>
             <I PROPERTY="EQTYPE"                VALUE="UnsteadyDiffusion" />
             <I PROPERTY="Projection"            VALUE="Continuous"        />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="BackwardEuler"     />
             <I PROPERTY="DiffusionAdvancement"  VALUE="Implicit"          />
             <I PROPERTY="Driver"                VALUE="Parareal"          />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> Euler </METHOD>
+            <ORDER> 1 </ORDER>
+            <VARIANT> Backward </VARIANT>
+        </TIMEINTEGRATIONSCHEME>
 
         <PARAMETERS>
             <TIMELEVEL VALUE="0">

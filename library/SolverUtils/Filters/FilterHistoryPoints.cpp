@@ -56,24 +56,11 @@ FilterHistoryPoints::FilterHistoryPoints(
     : Filter(pSession, pEquation)
 {
     // OutputFile
-    auto it = pParams.find("OutputFile");
-    if (it == pParams.end())
-    {
-        m_outputFile = m_session->GetSessionName();
-    }
-    else
-    {
-        ASSERTL0(it->second.length() > 0, "Missing parameter 'OutputFile'.");
-        m_outputFile = it->second;
-    }
-    if (m_outputFile.length() >= 4 &&
-        m_outputFile.substr(m_outputFile.length() - 4) == ".his")
-    {
-        m_outputFile = m_outputFile.substr(0, m_outputFile.length() - 4);
-    }
+    std::string ext = ".his";
+    m_outputFile    = Filter::SetupOutput(ext, pParams);
 
     // OutputFrequency
-    it = pParams.find("OutputFrequency");
+    auto it = pParams.find("OutputFrequency");
     if (it == pParams.end())
     {
         m_outputFrequency = 1;
@@ -301,7 +288,7 @@ bool FilterHistoryPoints::GetPoint(Array<OneD, NekDouble> gloCoord, int I)
  */
 void FilterHistoryPoints::v_Initialise(
     const Array<OneD, const MultiRegions::ExpListSharedPtr> &pFields,
-    const NekDouble &time)
+    [[maybe_unused]] const NekDouble &time)
 {
     ASSERTL0(!m_historyPointStream.fail(), "No history points in stream.");
 
@@ -458,7 +445,11 @@ void FilterHistoryPoints::v_Initialise(
 
         m_session->MatchSolverInfo("Driver", "Adaptive", m_adaptive, false);
     }
-    v_Update(pFields, time);
+
+    if (m_updateOnInitialise)
+    {
+        v_Update(pFields, time);
+    }
 }
 
 /**
@@ -602,25 +593,31 @@ void FilterHistoryPoints::v_WriteData(const int &rank,
         Array<OneD, NekDouble> gloCoord(3, 0.0);
         if (!m_outputOneFile || m_index == 1)
         {
-            std::stringstream vOutputFilename;
+            std::stringstream vTmpFilename;
+            std::string vOutputFilename;
+            // get the file extension
+            std::string ext = fs::path(m_outputFile).extension().string();
             if (m_outputOneFile)
             {
-                vOutputFilename << m_outputFile << ".his";
+                vTmpFilename << m_outputFile;
             }
             else
             {
-                vOutputFilename << m_outputFile << "_" << m_outputIndex
-                                << ".his";
+                vTmpFilename
+                    << fs::path(m_outputFile).replace_extension("").string()
+                    << "_" << m_outputIndex << ext;
             }
+            // back up the file if already exists and backup switch is turned on
+            vOutputFilename = Filter::SetupOutput(ext, vTmpFilename.str());
+
             ++m_outputIndex;
             if (m_adaptive)
             {
-                m_outputStream.open(vOutputFilename.str().c_str(),
-                                    ofstream::app);
+                m_outputStream.open(vOutputFilename.c_str(), ofstream::app);
             }
             else
             {
-                m_outputStream.open(vOutputFilename.str().c_str());
+                m_outputStream.open(vOutputFilename.c_str());
             }
             m_outputStream << "# History data for variables (:";
 
@@ -674,7 +671,6 @@ void FilterHistoryPoints::v_WriteData(const int &rank,
         if (!m_outputOneFile)
         {
             m_outputStream.close();
-            ;
         }
     }
 }
@@ -688,7 +684,10 @@ void FilterHistoryPoints::v_Finalise(
 {
     if (pFields[0]->GetComm()->GetRank() == 0 && m_outputOneFile)
     {
-        m_outputStream.close();
+        if (m_outputStream.is_open())
+        {
+            m_outputStream.close();
+        }
     }
 }
 

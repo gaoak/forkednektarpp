@@ -77,7 +77,7 @@ private:
                const Array<OneD, Array<OneD, NekDouble>> &pGridVelocity,
                const int pSpaceDim, const int bcRegion, const int cnt);
 
-    ~SymmetryBC(void) override{};
+    ~SymmetryBC(void) override = default;
 };
 
 } // namespace Nektar

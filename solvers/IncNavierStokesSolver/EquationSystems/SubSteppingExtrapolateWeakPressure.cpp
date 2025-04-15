@@ -35,8 +35,6 @@
 
 #include <IncNavierStokesSolver/EquationSystems/SubSteppingExtrapolateWeakPressure.h>
 
-using namespace std;
-
 namespace Nektar
 {
 /**
@@ -53,10 +51,6 @@ SubSteppingExtrapolateWeakPressure::SubSteppingExtrapolateWeakPressure(
     MultiRegions::ExpListSharedPtr pPressure, const Array<OneD, int> pVel,
     const SolverUtils::AdvectionSharedPtr advObject)
     : SubSteppingExtrapolate(pSession, pFields, pPressure, pVel, advObject)
-{
-}
-
-SubSteppingExtrapolateWeakPressure::~SubSteppingExtrapolateWeakPressure()
 {
 }
 
@@ -118,4 +112,5 @@ void SubSteppingExtrapolateWeakPressure::v_AddNormVelOnOBC(
                  m_PBndExp[nreg]->UpdateCoeffs(), 1,
                  m_PBndExp[nreg]->UpdateCoeffs(), 1);
 }
+
 } // namespace Nektar

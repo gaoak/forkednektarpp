@@ -70,11 +70,11 @@ public:
     /// Name of class
     static std::string className;
 
-    ~NonlinearPeregrine() override = default;
-
 protected:
     NonlinearPeregrine(const LibUtilities::SessionReaderSharedPtr &pSession,
                        const SpatialDomains::MeshGraphSharedPtr &pGraph);
+
+    ~NonlinearPeregrine() override = default;
 
     void v_InitObject(bool DeclareFields = true) override;
 

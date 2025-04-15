@@ -36,6 +36,7 @@
 
 namespace Nektar
 {
+
 std::string UnsteadyViscousBurgers::className =
     SolverUtils::GetEquationSystemFactory().RegisterCreatorFunction(
         "UnsteadyViscousBurgers", UnsteadyViscousBurgers::create,
@@ -281,4 +282,5 @@ void UnsteadyViscousBurgers::v_GenerateSummary(SolverUtils::SummaryList &s)
         SolverUtils::AddSummaryItem(s, "Smoothing", ss.str());
     }
 }
+
 } // namespace Nektar

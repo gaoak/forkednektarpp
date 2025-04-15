@@ -80,7 +80,7 @@ private:
         const Array<OneD, Array<OneD, NekDouble>> &pGridVelocity,
         const int pSpaceDim, const int bcRegion, const int cnt);
 
-    ~StagnationInflowBC(void) override{};
+    ~StagnationInflowBC(void) override = default;
 
     // Field storage for StagnationInflowBC
     Array<OneD, Array<OneD, NekDouble>> m_fieldStorage;

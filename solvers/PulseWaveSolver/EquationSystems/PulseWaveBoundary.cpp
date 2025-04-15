@@ -35,8 +35,6 @@
 
 #include <PulseWaveSolver/EquationSystems/PulseWaveBoundary.h>
 
-using namespace std;
-
 namespace Nektar
 {
 
@@ -53,10 +51,6 @@ PulseWaveBoundary::PulseWaveBoundary(
     m_session->LoadParameter("pout", m_pout, 0.0);
     m_session->LoadParameter("pext", m_pext, 0.0);
     m_session->LoadParameter("rho", m_rho, 0.5);
-}
-
-PulseWaveBoundary::~PulseWaveBoundary()
-{
 }
 
 BoundaryFactory &GetBoundaryFactory()

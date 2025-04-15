@@ -659,7 +659,10 @@ void FilterLagrangianPoints::v_Initialise(
         m_ofstreamSamplePoints << endl;
     }
     SetUpCommInfo();
-    v_Update(pFields, time);
+    if (m_updateOnInitialise)
+    {
+        v_Update(pFields, time);
+    }
 }
 
 void FilterLagrangianPoints::v_ModifyVelocity(

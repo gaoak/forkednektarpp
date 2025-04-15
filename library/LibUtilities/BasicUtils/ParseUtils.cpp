@@ -72,7 +72,7 @@ template <typename T> struct PushBackFunctor
      */
     void operator()(fusion::vector<T, T> num) const
     {
-        static_assert(std::is_integral<T>::value, "Integer type required.");
+        static_assert(std::is_integral_v<T>, "Integer type required.");
         for (T i = fusion::at_c<0>(num); i <= fusion::at_c<1>(num); ++i)
         {
             m_vec.push_back(i);

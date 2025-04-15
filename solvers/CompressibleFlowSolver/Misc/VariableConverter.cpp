@@ -32,6 +32,7 @@
 //              the compressible flow system
 //
 ///////////////////////////////////////////////////////////////////////////////
+
 #include <iomanip>
 #include <iostream>
 
@@ -40,10 +41,9 @@
 #include <LocalRegions/Expansion2D.h>
 #include <LocalRegions/Expansion3D.h>
 
-using namespace std;
-
 namespace Nektar
 {
+
 VariableConverter::VariableConverter(
     const LibUtilities::SessionReaderSharedPtr &pSession, const int spaceDim,
     const SpatialDomains::MeshGraphSharedPtr &pGraph)
@@ -116,13 +116,6 @@ VariableConverter::VariableConverter(
         m_session->LoadParameter("Tref", m_Tref, 288.15);
         m_TRatioSutherland = 110.0 / m_Tref;
     }
-}
-
-/**
- * @brief Destructor for VariableConverter class.
- */
-VariableConverter::~VariableConverter()
-{
 }
 
 /**
@@ -475,18 +468,6 @@ void VariableConverter::SetAv(
     }
 }
 
-Array<OneD, NekDouble> &VariableConverter::GetAv()
-{
-    ASSERTL1(m_muAv != NullNekDouble1DArray, "m_muAv not set");
-    return m_muAv;
-}
-
-Array<OneD, NekDouble> &VariableConverter::GetAvTrace()
-{
-    ASSERTL1(m_muAvTrace != NullNekDouble1DArray, "m_muAvTrace not set");
-    return m_muAvTrace;
-}
-
 /**
  * @brief Compute an estimate of minimum h/p
  * for each element of the expansion.
@@ -514,7 +495,7 @@ void VariableConverter::SetElmtMinHP(
                 exp3D = fields[0]->GetExp(e)->as<LocalRegions::Expansion3D>();
                 for (int i = 0; i < exp3D->GetNtraces(); ++i)
                 {
-                    h = min(
+                    h = std::min(
                         h, exp3D->GetGeom3D()->GetEdge(i)->GetVertex(0)->dist(*(
                                exp3D->GetGeom3D()->GetEdge(i)->GetVertex(1))));
                 }
@@ -527,7 +508,7 @@ void VariableConverter::SetElmtMinHP(
                 exp2D = fields[0]->GetExp(e)->as<LocalRegions::Expansion2D>();
                 for (int i = 0; i < exp2D->GetNtraces(); ++i)
                 {
-                    h = min(
+                    h = std::min(
                         h, exp2D->GetGeom2D()->GetEdge(i)->GetVertex(0)->dist(*(
                                exp2D->GetGeom2D()->GetEdge(i)->GetVertex(1))));
                 }
@@ -538,8 +519,8 @@ void VariableConverter::SetElmtMinHP(
                 LocalRegions::Expansion1DSharedPtr exp1D;
                 exp1D = fields[0]->GetExp(e)->as<LocalRegions::Expansion1D>();
 
-                h = min(h, exp1D->GetGeom1D()->GetVertex(0)->dist(
-                               *(exp1D->GetGeom1D()->GetVertex(1))));
+                h = std::min(h, exp1D->GetGeom1D()->GetVertex(0)->dist(
+                                    *(exp1D->GetGeom1D()->GetVertex(1))));
 
                 break;
             }
@@ -550,7 +531,7 @@ void VariableConverter::SetElmtMinHP(
         }
 
         // Store h/p scaling
-        m_hOverP[e] = h / max(pOrderElmt[e] - 1, 1);
+        m_hOverP[e] = h / std::max(pOrderElmt[e] - 1, 1);
     }
 }
 
@@ -616,12 +597,13 @@ void VariableConverter::GetSensor(
         denominator = Vmath::Dot(nElmtPoints, elmtPhys, elmtPhys);
 
         NekDouble elmtSensor = sqrt(numerator / denominator);
-        elmtSensor = log10(max(elmtSensor, NekConstants::kNekMachineEpsilon));
+        elmtSensor =
+            log10(std::max(elmtSensor, NekConstants::kNekMachineEpsilon));
 
         Vmath::Fill(nElmtPoints, elmtSensor, tmp = Sensor + physOffset, 1);
 
         // Compute reference value for sensor
-        order = max(numModesElement - 1, 1);
+        order = std::max(numModesElement - 1, 1);
         if (order > 0)
         {
             Skappa = m_Skappa - 4.25 * log10(static_cast<NekDouble>(order));

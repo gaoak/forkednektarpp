@@ -34,6 +34,7 @@
 
 #include <LibUtilities/BasicUtils/Filesystem.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
+#include <fstream>
 
 #include "Module.h"
 
@@ -992,6 +993,67 @@ void Module::SetDefaults()
             it->second.value = it->second.defValue;
         }
     }
+}
+
+void Module::ExtractCAD()
+{
+    set<NodeSharedPtr> vertices;
+    set<EdgeSharedPtr> edges;
+
+    // Open the file for writing
+    std::ofstream outFile("CAD.txt");
+    ASSERTL1(!outFile.is_open(), "Unable to open file CAD.txt for writing.");
+
+    // Loop over all elements in m_mesh->m_element[2] and collect all surface
+    // vertices and edges
+    for (auto &elmt : m_mesh->m_element[2])
+    {
+        for (size_t i = 0; i < elmt->GetVertexCount(); ++i)
+        {
+            vertices.insert(elmt->GetVertex(i));
+        }
+
+        for (size_t i = 0; i < elmt->GetEdgeCount(); ++i)
+        {
+            edges.insert(elmt->GetEdge(i));
+        }
+    }
+
+    // Export vertices (This can be deducted from Edge and element[2] for now)
+    // Can  be used in V&V campaigns
+    // outFile << "Edge ID | Type CAD | CAD ID:" << endl;
+    // for (auto &vertex : vertices)
+    // {
+    //     outFile << "Vertex ID: " << vertex->m_id << " | Type: Vertex"
+    //             << " | CAD ID: " << vertex->m_parentCAD->GetId() <<
+    //             std::endl;
+    // }
+
+    // Export edges
+    outFile << "Edge ID | Type CAD | CAD ID:" << endl;
+
+    for (auto &edge : edges)
+    {
+        if (edge->m_parentCAD)
+        {
+            outFile << edge->m_id << " " << edge->m_parentCAD->GetType() << " "
+                    << edge->m_parentCAD->GetId() << endl;
+        }
+    }
+
+    // Export elements (Always CADSurf)
+    outFile << "Element/Face ID | CAD ID:" << endl;
+    for (auto &elmt : m_mesh->m_element[2])
+    {
+        if (elmt->m_parentCAD)
+        {
+            outFile << elmt->GetId() << " " << elmt->m_parentCAD->GetId()
+                    << endl;
+        }
+    }
+
+    // Close the file
+    outFile.close();
 }
 
 /**

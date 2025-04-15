@@ -76,8 +76,13 @@
             <I PROPERTY="Projection"            VALUE="DisContinuous"       />
             <I PROPERTY="AdvectionType"         VALUE="WeakDG"              />
             <I PROPERTY="DiffusionAdvancement"  VALUE="Implicit"            />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="DIRKOrder4_ES6"          />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> DIRK </METHOD>
+            <ORDER> 4 </ORDER>
+            <VARIANT> ES6 </VARIANT>
+        </TIMEINTEGRATIONSCHEME>
 
         <VARIABLES>
             <V ID="0"> u </V>

@@ -42,6 +42,7 @@ using namespace Nektar::SolverUtils;
 
 namespace Nektar
 {
+
 class CompressibleSolver : public RiemannSolver
 {
 protected:
@@ -87,6 +88,7 @@ protected:
     ND GetRoeSoundSpeed(ND rhoL, ND pL, ND eL, ND HL, ND srL, ND rhoR, ND pR,
                         ND eR, ND HR, ND srR, ND HRoe, ND URoe2, ND srLR);
 };
+
 } // namespace Nektar
 
 #endif

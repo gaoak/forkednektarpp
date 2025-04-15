@@ -101,11 +101,15 @@
             <I PROPERTY="Projection"            VALUE="DisContinuous"       />
             <I PROPERTY="AdvectionType"         VALUE="WeakDG"              />
             <I PROPERTY="DiffusionType"         VALUE="InteriorPenalty"     />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="DIRKOrder2"          />
             <I PROPERTY="UpwindType"            VALUE="HLLC"                 />
             <I PROPERTY="ProblemType"           VALUE="General"             />
             <I PROPERTY="ViscosityType"         VALUE="Constant"            />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> DIRK </METHOD>
+            <ORDER> 2 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
 
         <VARIABLES>
             <V ID="0"> rho  </V>

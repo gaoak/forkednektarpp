@@ -51,6 +51,7 @@ public:
     {
         return MemoryManager<AlternateSkewAdvection>::AllocateSharedPtr();
     }
+
     /// Name of class
     static std::string className;
     static std::string className2;
@@ -58,7 +59,7 @@ public:
 protected:
     AlternateSkewAdvection();
 
-    ~AlternateSkewAdvection() override;
+    ~AlternateSkewAdvection() override = default;
 
     void v_InitObject(
         LibUtilities::SessionReaderSharedPtr pSession,

@@ -65,19 +65,32 @@ public:
 
     virtual ~PreconCfs() = default;
 
-    inline void InitObject();
+    inline void InitObject()
+    {
+        v_InitObject();
+    }
 
-    void DoPreconCfs(const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
-                     const Array<OneD, NekDouble> &pInput,
-                     Array<OneD, NekDouble> &pOutput, const bool &flag);
+    inline void DoPreconCfs(
+        const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
+        const Array<OneD, NekDouble> &pInput, Array<OneD, NekDouble> &pOutput,
+        const bool &flag)
+    {
+        v_DoPreconCfs(pFields, pInput, pOutput, flag);
+    }
 
     inline void BuildPreconCfs(
         const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
         const Array<OneD, const Array<OneD, NekDouble>> &intmp,
-        const NekDouble time, const NekDouble lambda);
+        const NekDouble time, const NekDouble lambda)
+    {
+        v_BuildPreconCfs(pFields, intmp, time, lambda);
+    }
 
-    bool UpdatePreconMatCheck(const Array<OneD, const NekDouble> &res,
-                              const NekDouble dtLambda);
+    inline bool UpdatePreconMatCheck(const Array<OneD, const NekDouble> &res,
+                                     const NekDouble dtLambda)
+    {
+        return v_UpdatePreconMatCheck(res, dtLambda);
+    }
 
     inline void SetOperators(const NekPreconCfsOperators &in)
     {
@@ -109,49 +122,8 @@ protected:
     virtual bool v_UpdatePreconMatCheck(const Array<OneD, const NekDouble> &res,
                                         const NekDouble dtLambda) = 0;
 };
+
 typedef std::shared_ptr<PreconCfs> PreconCfsSharedPtr;
-
-/**
- *
- */
-inline void PreconCfs::InitObject()
-{
-    v_InitObject();
-}
-
-/**
- *
- */
-inline void PreconCfs::DoPreconCfs(
-    const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
-    const Array<OneD, NekDouble> &pInput, Array<OneD, NekDouble> &pOutput,
-    const bool &flag)
-{
-    ASSERTL0(pInput.size() == pOutput.size(),
-             "In and Out not the same size in DoPreconCfs");
-    v_DoPreconCfs(pFields, pInput, pOutput, flag);
-    m_PreconTimesCounter++;
-}
-
-/**
- *
- */
-inline void PreconCfs::BuildPreconCfs(
-    const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
-    const Array<OneD, const Array<OneD, NekDouble>> &intmp,
-    const NekDouble time, const NekDouble lambda)
-{
-    v_BuildPreconCfs(pFields, intmp, time, lambda);
-}
-
-/**
- *
- */
-inline bool PreconCfs::UpdatePreconMatCheck(
-    const Array<OneD, const NekDouble> &res, const NekDouble dtLambda)
-{
-    return v_UpdatePreconMatCheck(res, dtLambda);
-}
 
 } // namespace Nektar
 

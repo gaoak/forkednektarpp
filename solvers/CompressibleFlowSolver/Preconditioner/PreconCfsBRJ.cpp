@@ -36,10 +36,9 @@
 #include <CompressibleFlowSolver/Preconditioner/PreconCfsBRJ.h>
 #include <LibUtilities/BasicUtils/Timer.h>
 
-using namespace std;
-
 namespace Nektar
 {
+
 /**
  * @class  PreconCfsBRJ
  *
@@ -87,6 +86,9 @@ void PreconCfsBRJ::v_DoPreconCfs(
     const Array<OneD, NekDouble> &inarray, Array<OneD, NekDouble> &outarray,
     [[maybe_unused]] const bool &flag)
 {
+    ASSERTL0(inarray.size() == outarray.size(),
+             "In and Out not the same size in DoPreconCfs");
+
     size_t nBRJIterTot = m_PreconItsStep;
     if (nBRJIterTot == 0)
     {
@@ -180,6 +182,8 @@ void PreconCfsBRJ::v_DoPreconCfs(
             Vmath::Svtvp(ntotpnt, BRJParam, outTmp, 1, outN, 1, outarray, 1);
         }
     }
+
+    m_PreconTimesCounter++;
 }
 
 /**
@@ -211,7 +215,7 @@ void PreconCfsBRJ::v_BuildPreconCfs(
 
         if (m_verbose && m_Comm->GetRank() == 0)
         {
-            cout << "     ## CalcuPreconMat " << endl;
+            std::cout << "     ## CalcuPreconMat " << std::endl;
         }
 
         // copy matrix to simd layout

@@ -64,12 +64,16 @@
             <I PROPERTY="Projection"            VALUE="DisContinuous"       />
             <I PROPERTY="AdvectionType"         VALUE="WeakDG"              />
             <I PROPERTY="DiffusionType"         VALUE="InteriorPenalty"               />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="RungeKutta2_ImprovedEuler"/>
             <I PROPERTY="UpwindType"            VALUE="ExactToro"           />
             <I PROPERTY="ProblemType"           VALUE="General"             />
             <I PROPERTY="ViscosityType"         VALUE="Variable"            />
         </SOLVERINFO>
 
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> RungeKutta </METHOD>
+            <ORDER> 2 </ORDER>
+            <VARIANT> SSP </VARIANT>
+        </TIMEINTEGRATIONSCHEME>
 
         <VARIABLES>
             <V ID="0"> rho  </V>

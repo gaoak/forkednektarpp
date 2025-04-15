@@ -30,10 +30,15 @@
             <I PROPERTY="EQTYPE"                VALUE="UnsteadyNavierStokes" />
             <I PROPERTY="AdvectionForm"         VALUE="Convective" />
             <I PROPERTY="Projection"            VALUE="Continuous" />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="IMEXOrder2" />
             <I PROPERTY="GJPStabilisation"      VALUE="SemiImplicit" />
             <I PROPERTY="SpectralHPDealiasing"  VALUE="True" />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> IMEX </METHOD>
+            <ORDER> 2 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
+
         <PARAMETERS>
             <P> TimeStep      = 0.005        </P>
             <P> NumSteps      = 10 </P>

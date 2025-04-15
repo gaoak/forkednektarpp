@@ -37,11 +37,10 @@
 
 #include <AcousticSolver/EquationSystems/APE.h>
 
-using namespace std;
-
 namespace Nektar
 {
-string APE::className = GetEquationSystemFactory().RegisterCreatorFunction(
+
+std::string APE::className = GetEquationSystemFactory().RegisterCreatorFunction(
     "APE", APE::create, "APE1/APE4 (Acoustic Perturbation Equations)");
 
 APE::APE(const LibUtilities::SessionReaderSharedPtr &pSession,
@@ -78,7 +77,7 @@ void APE::v_InitObject(bool DeclareFields)
         m_bfFwdBwd[i] = Array<OneD, NekDouble>(GetTraceNpoints(), 0.0);
     }
 
-    string riemName;
+    std::string riemName;
     m_session->LoadSolverInfo("UpwindType", riemName, "Upwind");
     if (boost::to_lower_copy(riemName) == "characteristics" ||
         boost::to_lower_copy(riemName) == "apeupwind" ||
@@ -98,7 +97,7 @@ void APE::v_InitObject(bool DeclareFields)
     m_riemannSolver->SetAuxVec("vecLocs", &APE::GetVecLocs, this);
 
     // Set up advection operator
-    string advName;
+    std::string advName;
     m_session->LoadSolverInfo("AdvectionType", advName, "WeakDG");
     m_advection =
         SolverUtils::GetAdvectionFactory().CreateInstance(advName, advName);
@@ -115,13 +114,6 @@ void APE::v_InitObject(bool DeclareFields)
     {
         ASSERTL0(false, "Implicit APE not set up.");
     }
-}
-
-/**
- * @brief Destructor for APE class.
- */
-APE::~APE()
-{
 }
 
 /**

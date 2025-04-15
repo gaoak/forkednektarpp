@@ -36,8 +36,6 @@
 #include <PulseWaveSolver/EquationSystems/RCROutflow.h>
 #include <SpatialDomains/MeshGraph.h>
 
-using namespace std;
-
 namespace Nektar
 {
 
@@ -51,10 +49,6 @@ RCROutflow::RCROutflow(Array<OneD, MultiRegions::ExpListSharedPtr> pVessel,
     : PulseWaveBoundary(pVessel, pSession, pressureArea)
 {
     m_session->LoadParameter("TimeStep", m_timestep);
-}
-
-RCROutflow::~RCROutflow()
-{
 }
 
 void RCROutflow::v_DoBoundary(

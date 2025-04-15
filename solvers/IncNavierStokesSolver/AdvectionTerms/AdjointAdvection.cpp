@@ -34,12 +34,10 @@
 
 #include <IncNavierStokesSolver/AdvectionTerms/AdjointAdvection.h>
 
-using namespace std;
-
 namespace Nektar
 {
 
-string AdjointAdvection::className =
+std::string AdjointAdvection::className =
     SolverUtils ::GetAdvectionFactory().RegisterCreatorFunction(
         "Adjoint", AdjointAdvection::create);
 
@@ -47,10 +45,6 @@ string AdjointAdvection::className =
  *
  */
 AdjointAdvection::AdjointAdvection() : LinearisedAdvection()
-{
-}
-
-AdjointAdvection::~AdjointAdvection()
 {
 }
 

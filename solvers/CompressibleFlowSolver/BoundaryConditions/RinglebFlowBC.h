@@ -77,7 +77,7 @@ private:
                   const Array<OneD, Array<OneD, NekDouble>> &pGridVelocity,
                   const int pSpaceDim, const int bcRegion, const int cnt);
 
-    ~RinglebFlowBC(void) override{};
+    ~RinglebFlowBC(void) override = default;
 
     int m_expdim;
     bool m_homo1D;

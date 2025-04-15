@@ -59,13 +59,18 @@
             <I PROPERTY="EQType"                VALUE="NavierStokesCFE"     />
             <I PROPERTY="Projection"            VALUE="DisContinuous"       />
             <I PROPERTY="AdvectionType"         VALUE="WeakDG"              />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="ForwardEuler"        />
             <I PROPERTY="UpwindType"            VALUE="Roe"                 />
             <I PROPERTY="ProblemType"           VALUE="General"             />
             <I PROPERTY="ShockCaptureType"      VALUE="Physical"            />
             <I PROPERTY="ShockSensorType"       VALUE="Dilatation"          />
             <I PROPERTY="DucrosSensor"          VALUE="On"                  />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> Euler </METHOD>
+            <ORDER> 1 </ORDER>
+            <VARIANT> Forward </VARIANT>
+        </TIMEINTEGRATIONSCHEME>
 
         <VARIABLES>
             <V ID="0"> rho  </V>

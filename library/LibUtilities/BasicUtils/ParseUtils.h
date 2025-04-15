@@ -71,7 +71,7 @@ public:
     template <typename T>
     static std::string GenerateSeqString(const std::vector<T> &v)
     {
-        static_assert(std::is_integral<T>::value && std::is_unsigned<T>::value,
+        static_assert(std::is_integral_v<T> && std::is_unsigned_v<T>,
                       "Unsigned integer type required.");
 
         if (v.size() == 0)

@@ -36,6 +36,7 @@
 
 namespace Nektar
 {
+
 LinearSWESolver::LinearSWESolver(
     const LibUtilities::SessionReaderSharedPtr &pSession)
     : RiemannSolver(pSession), m_pointSolve(true)
@@ -87,4 +88,5 @@ void LinearSWESolver::v_Solve(
         v_ArraySolve(Fwd, Bwd, flux);
     }
 }
+
 } // namespace Nektar

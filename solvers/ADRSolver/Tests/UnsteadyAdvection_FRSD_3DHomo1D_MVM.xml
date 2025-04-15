@@ -60,9 +60,13 @@
             <I PROPERTY="HOMOGENEOUS"           VALUE="1D"                          />
             <I PROPERTY="AdvectionAdvancement"  VALUE="Explicit"                    />
             <I PROPERTY="AdvectionType"         VALUE="FRSD3DHomogeneous1D"         />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="ClassicalRungeKutta4"        />
             <I PROPERTY="UpwindType"            VALUE="Upwind"                      />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> RungeKutta </METHOD>
+            <ORDER> 4 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
 
         <PARAMETERS>
             <P> TimeStep      = 0.001        </P>

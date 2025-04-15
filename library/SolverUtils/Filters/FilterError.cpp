@@ -45,25 +45,19 @@ FilterError::FilterError(const LibUtilities::SessionReaderSharedPtr &pSession,
     : Filter(pSession, pEquation)
 {
     std::string outName;
-
-    // OutputFile
-    auto it = pParams.find("OutputFile");
-    if (it == pParams.end())
-    {
-        outName = m_session->GetSessionName();
-    }
-    else
-    {
-        ASSERTL0(it->second.length() > 0, "Empty parameter 'OutputFile'.");
-        outName = it->second;
-    }
-    outName += ".err";
+    std::string ext = ".err";
+    outName         = Filter::SetupOutput(ext, pParams);
 
     // Lock equation system pointer
     auto equationSys = m_equ.lock();
     ASSERTL0(equationSys, "Weak pointer expired");
 
     m_numVariables = equationSys->GetNvariables();
+
+    // Check if we have homogeneous expansion
+    // If yes, disable H1 error norm as it is not implemented for homogeneous
+    // expansions
+    m_session->MatchSolverInfo("Homogeneous", "1D", m_isHomogeneous1D, false);
 
     m_comm = pSession->GetComm();
     if (m_comm->GetRank() == 0)
@@ -78,13 +72,18 @@ FilterError::FilterError(const LibUtilities::SessionReaderSharedPtr &pSession,
             std::string varName = equationSys->GetVariable(i);
             m_outFile << " " + varName + "_L2"
                       << " " + varName + "_Linf";
+
+            if (!m_isHomogeneous1D)
+            {
+                m_outFile << " " + varName + "_H1";
+            }
         }
 
         m_outFile << std::endl;
     }
 
     // OutputFrequency
-    it = pParams.find("OutputFrequency");
+    auto it = pParams.find("OutputFrequency");
     if (it == pParams.end())
     {
         m_outputFrequency = 1;
@@ -115,11 +114,6 @@ void FilterError::v_Initialise(
     const Array<OneD, const MultiRegions::ExpListSharedPtr> &pFields,
     const NekDouble &time)
 {
-
-    // Check for homogeneous expansion
-    m_homogeneous = pFields[0]->GetExpType() == MultiRegions::e3DH1D ||
-                    pFields[0]->GetExpType() == MultiRegions::e3DH2D;
-
     v_Update(pFields, time);
 }
 
@@ -164,6 +158,23 @@ void FilterError::v_Update(
                 std::cout << "L inf error (variable "
                           << equationSys->GetVariable(i) << ") : " << vLinfError
                           << std::endl;
+            }
+        }
+
+        // Only evaluate H1 for non homogeneous case
+        if (!m_isHomogeneous1D)
+        {
+            NekDouble vH1Error = equationSys->H1Error(i, exactsoln);
+            if (m_comm->GetRank() == 0)
+            {
+                m_outFile << " " << vH1Error;
+
+                if (m_consoleOutput)
+                {
+                    std::cout << "H 1 error (variable "
+                              << equationSys->GetVariable(i)
+                              << ") : " << vH1Error << std::endl;
+                }
             }
         }
     }

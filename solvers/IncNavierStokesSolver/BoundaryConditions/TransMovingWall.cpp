@@ -67,10 +67,6 @@ TransMovingWall::TransMovingWall(
     }
 }
 
-TransMovingWall::~TransMovingWall()
-{
-}
-
 void TransMovingWall::v_Initialise(
     const LibUtilities::SessionReaderSharedPtr &pSession)
 {

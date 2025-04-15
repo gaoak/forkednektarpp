@@ -69,7 +69,7 @@ template <typename T, int width> struct default_abi
         typename avx2<T, width>::type, typename sse2<T>::type,
         typename scalar<T>::type>::type;
 
-    static_assert(!std::is_void<type>::value, "unsupported SIMD type");
+    static_assert(!std::is_void_v<type>, "unsupported SIMD type");
 };
 
 } // namespace abi

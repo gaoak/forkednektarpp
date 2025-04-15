@@ -34,8 +34,6 @@
 
 #include "StagnationInflowBC.h"
 
-using namespace std;
-
 namespace Nektar
 {
 

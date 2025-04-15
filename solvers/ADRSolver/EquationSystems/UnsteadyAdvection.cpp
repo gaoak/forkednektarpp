@@ -38,11 +38,10 @@
 #include <SolverUtils/Advection/AdvectionWeakDG.h>
 #include <iostream>
 
-using namespace std;
-
 namespace Nektar
 {
-string UnsteadyAdvection::className =
+
+std::string UnsteadyAdvection::className =
     SolverUtils::GetEquationSystemFactory().RegisterCreatorFunction(
         "UnsteadyAdvection", UnsteadyAdvection::create,
         "Unsteady Advection equation.");
@@ -103,8 +102,8 @@ void UnsteadyAdvection::v_InitObject(bool DeclareFields)
                 m_traceVn = Array<OneD, NekDouble>(GetTraceNpoints());
             }
 
-            string advName;
-            string riemName;
+            std::string advName;
+            std::string riemName;
             m_session->LoadSolverInfo("AdvectionType", advName, "WeakDG");
             m_advObject = SolverUtils::GetAdvectionFactory().CreateInstance(
                 advName, advName);
@@ -132,7 +131,7 @@ void UnsteadyAdvection::v_InitObject(bool DeclareFields)
         case MultiRegions::eGalerkin:
         case MultiRegions::eMixed_CG_Discontinuous:
         {
-            string advName;
+            std::string advName;
             m_session->LoadSolverInfo("AdvectionType", advName,
                                       "NonConservative");
             m_advObject = SolverUtils::GetAdvectionFactory().CreateInstance(
@@ -171,42 +170,6 @@ void UnsteadyAdvection::v_InitObject(bool DeclareFields)
     {
         ASSERTL0(false, "Implicit unsteady Advection not set up.");
     }
-}
-
-/**
- * @brief Get the normal velocity for the linear advection equation.
- */
-Array<OneD, NekDouble> &UnsteadyAdvection::GetNormalVelocity()
-{
-    GetNormalVel(m_velocity);
-    return m_traceVn;
-}
-
-Array<OneD, NekDouble> &UnsteadyAdvection::GetNormalVel(
-    const Array<OneD, const Array<OneD, NekDouble>> &velfield)
-{
-    // Number of trace (interface) points
-    int nTracePts = GetTraceNpoints();
-    int nPts      = m_velocity[0].size();
-
-    // Auxiliary variable to compute the normal velocity
-    Array<OneD, NekDouble> tmp(nPts), tmp2(nTracePts);
-
-    // Reset the normal velocity
-    Vmath::Zero(nTracePts, m_traceVn, 1);
-
-    for (int i = 0; i < velfield.size(); ++i)
-    {
-        // velocity - grid velocity for ALE before getting trace velocity
-        Vmath::Vsub(nPts, velfield[i], 1, m_gridVelocity[i], 1, tmp, 1);
-
-        m_fields[0]->ExtractTracePhys(tmp, tmp2);
-
-        Vmath::Vvtvp(nTracePts, m_traceNormals[i], 1, tmp2, 1, m_traceVn, 1,
-                     m_traceVn, 1);
-    }
-
-    return m_traceVn;
 }
 
 /**
@@ -365,6 +328,42 @@ void UnsteadyAdvection::DoOdeProjection(
             ASSERTL0(false, "Unknown projection scheme");
             break;
     }
+}
+
+/**
+ * @brief Get the normal velocity for the linear advection equation.
+ */
+Array<OneD, NekDouble> &UnsteadyAdvection::GetNormalVelocity()
+{
+    GetNormalVel(m_velocity);
+    return m_traceVn;
+}
+
+Array<OneD, NekDouble> &UnsteadyAdvection::GetNormalVel(
+    const Array<OneD, const Array<OneD, NekDouble>> &velfield)
+{
+    // Number of trace (interface) points
+    int nTracePts = GetTraceNpoints();
+    int nPts      = m_velocity[0].size();
+
+    // Auxiliary variable to compute the normal velocity
+    Array<OneD, NekDouble> tmp(nPts), tmp2(nTracePts);
+
+    // Reset the normal velocity
+    Vmath::Zero(nTracePts, m_traceVn, 1);
+
+    for (int i = 0; i < velfield.size(); ++i)
+    {
+        // velocity - grid velocity for ALE before getting trace velocity
+        Vmath::Vsub(nPts, velfield[i], 1, m_gridVelocity[i], 1, tmp, 1);
+
+        m_fields[0]->ExtractTracePhys(tmp, tmp2);
+
+        Vmath::Vvtvp(nTracePts, m_traceNormals[i], 1, tmp2, 1, m_traceVn, 1,
+                     m_traceVn, 1);
+    }
+
+    return m_traceVn;
 }
 
 /**

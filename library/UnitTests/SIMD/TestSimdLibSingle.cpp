@@ -130,12 +130,12 @@ BOOST_AUTO_TEST_CASE(SimdLibFloat_type_traits)
     BOOST_CHECK_EQUAL(has_scalarType<float>::value, false);
     BOOST_CHECK_EQUAL(has_scalarType<vec_t>::value, true);
 
-    BOOST_CHECK_EQUAL(is_vector<float>::value, false);
-    BOOST_CHECK_EQUAL(is_vector<vec_t>::value, true);
+    BOOST_CHECK_EQUAL(is_vector_v<float>, false);
+    BOOST_CHECK_EQUAL(is_vector_v<vec_t>, true);
 
-    BOOST_CHECK_EQUAL(is_vector_floating_point<float>::value, false);
-    BOOST_CHECK_EQUAL(is_vector_floating_point<simd<int>>::value, false);
-    BOOST_CHECK_EQUAL(is_vector_floating_point<vec_t>::value, true);
+    BOOST_CHECK_EQUAL(is_vector_floating_point_v<float>, false);
+    BOOST_CHECK_EQUAL(is_vector_floating_point_v<simd<int>>, false);
+    BOOST_CHECK_EQUAL(is_vector_floating_point_v<vec_t>, true);
 }
 
 BOOST_AUTO_TEST_CASE(SimdLibFloat_mem_size)

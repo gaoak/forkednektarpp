@@ -2,7 +2,7 @@
 <test>
     <description>Double Bifurcation, P=5</description>
     <executable>PulseWaveSolver</executable>
-    <parameters>TwoBifurcations.xml</parameters>
+    <parameters>-f TwoBifurcations.xml</parameters>
     <processes>2</processes>
     <files>
         <file description="Session File">TwoBifurcations.xml</file>

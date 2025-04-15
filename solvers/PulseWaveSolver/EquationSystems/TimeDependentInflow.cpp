@@ -35,8 +35,6 @@
 
 #include <PulseWaveSolver/EquationSystems/TimeDependentInflow.h>
 
-using namespace std;
-
 namespace Nektar
 {
 
@@ -50,10 +48,6 @@ TimeDependentInflow::TimeDependentInflow(
     const LibUtilities::SessionReaderSharedPtr pSession,
     PulseWavePressureAreaSharedPtr pressureArea)
     : PulseWaveBoundary(pVessel, pSession, pressureArea)
-{
-}
-
-TimeDependentInflow::~TimeDependentInflow()
 {
 }
 

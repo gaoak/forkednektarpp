@@ -35,10 +35,9 @@
 #include <IncNavierStokesSolver/EquationSystems/Extrapolate.h>
 #include <LibUtilities/Communication/Comm.h>
 
-using namespace std;
-
 namespace Nektar
 {
+
 NekDouble Extrapolate::StifflyStable_Betaq_Coeffs[3][3] = {
     {1.0, 0.0, 0.0}, {2.0, -1.0, 0.0}, {3.0, -3.0, 1.0}};
 NekDouble Extrapolate::StifflyStable_Alpha_Coeffs[3][3] = {
@@ -61,10 +60,6 @@ Extrapolate::Extrapolate(const LibUtilities::SessionReaderSharedPtr pSession,
 {
     m_session->LoadParameter("TimeStep", m_timestep, 0.01);
     m_comm = m_session->GetComm();
-}
-
-Extrapolate::~Extrapolate()
-{
 }
 
 std::string Extrapolate::def =
@@ -976,7 +971,7 @@ std::string Extrapolate::v_GetSubStepName(void)
  */
 void Extrapolate::ExtrapolateArray(Array<OneD, Array<OneD, NekDouble>> &array)
 {
-    int nint    = min(m_pressureCalls, m_intSteps);
+    int nint    = std::min(m_pressureCalls, m_intSteps);
     int nlevels = array.size();
     int nPts    = array[0].size();
 
@@ -1007,7 +1002,7 @@ void Extrapolate::ExtrapolateArray(Array<OneD, Array<OneD, NekDouble>> &array)
  */
 void Extrapolate::EvaluateBDFArray(Array<OneD, Array<OneD, NekDouble>> &array)
 {
-    int nint    = min(m_pressureCalls, m_intSteps);
+    int nint    = std::min(m_pressureCalls, m_intSteps);
     int nlevels = array.size();
     int nPts    = array[0].size();
 
@@ -1045,7 +1040,7 @@ void Extrapolate::v_AccelerationBDF(Array<OneD, Array<OneD, NekDouble>> &array)
         Array<OneD, NekDouble> accelerationTerm(nPts, 0.0);
         if (m_pressureCalls > 2)
         {
-            int acc_order = min(m_pressureCalls - 2, m_intSteps);
+            int acc_order = std::min(m_pressureCalls - 2, m_intSteps);
             Vmath::Smul(nPts, StifflyStable_Gamma0_Coeffs[acc_order - 1],
                         array[0], 1, accelerationTerm, 1);
 
@@ -1074,4 +1069,5 @@ void Extrapolate::CopyPressureHBCsToPbndExp(void)
         }
     }
 }
+
 } // namespace Nektar

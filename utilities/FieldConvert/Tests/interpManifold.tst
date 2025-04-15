@@ -10,28 +10,28 @@
     </files>
     <metrics>
         <metric type="L2" id="1">
-            <value variable="x" tolerance="1e-4">0.557936</value>
-            <value variable="y" tolerance="1e-4">0.155526</value>
+            <value variable="x" tolerance="1e-4">0.54064</value>
+            <value variable="y" tolerance="1e-4">0.150715</value>
             <value variable="z" tolerance="1e-4">0.195195</value>
-            <value variable="Shear_x" tolerance="1e-4">0.0911352</value>
-            <value variable="Shear_y" tolerance="1e-4">0.067545</value>
-            <value variable="Shear_z" tolerance="1e-4">0.013328</value>
-            <value variable="Shear_mag" tolerance="1e-4">0.114146</value>
-            <value variable="Norm_x" tolerance="1e-4">0.296038</value>
-            <value variable="Norm_y" tolerance="1e-4">0.955176</value>
-            <value variable="Norm_z" tolerance="1e-4">2.92847e-17</value>
+            <value variable="Shear_x" tolerance="1e-4">0.130942</value>
+            <value variable="Shear_y" tolerance="1e-4">0.17828</value>
+            <value variable="Shear_z" tolerance="1e-4">0.0128847</value>
+            <value variable="Shear_mag" tolerance="1e-4">0.221541</value>
+            <value variable="Norm_x" tolerance="1e-4">0.351291</value>
+            <value variable="Norm_y" tolerance="1e-4">0.936267</value>
+            <value variable="Norm_z" tolerance="1e-4">0</value>
         </metric>
         <metric type="Linf" id="2">
             <value variable="x" tolerance="1e-4">0.966252</value>
             <value variable="y" tolerance="1e-4">0.260036</value>
             <value variable="z" tolerance="1e-4">0.195195</value>
-            <value variable="Shear_x" tolerance="1e-4">0.719677</value>
+            <value variable="Shear_x" tolerance="1e-4">0.714302</value>
             <value variable="Shear_y" tolerance="1e-4">1.14682</value>
             <value variable="Shear_z" tolerance="1e-4">0.0390763</value>
-            <value variable="Shear_mag" tolerance="1e-4">1.18736</value>
-            <value variable="Norm_x" tolerance="1e-4">0.993076</value>
-            <value variable="Norm_y" tolerance="1e-4">0.999989</value>
-            <value variable="Norm_z" tolerance="1e-4">3.90539e-16</value>
+            <value variable="Shear_mag" tolerance="1e-4">1.22686</value>
+            <value variable="Norm_x" tolerance="1e-4">0.999588</value>
+            <value variable="Norm_y" tolerance="1e-4">0.999984</value>
+            <value variable="Norm_z" tolerance="1e-4">0</value>
         </metric>
     </metrics>
 </test>

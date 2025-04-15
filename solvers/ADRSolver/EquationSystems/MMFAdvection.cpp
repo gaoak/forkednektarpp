@@ -43,6 +43,7 @@
 
 namespace Nektar
 {
+
 std::string MMFAdvection::className =
     SolverUtils::GetEquationSystemFactory().RegisterCreatorFunction(
         "MMFAdvection", MMFAdvection::create, "MMFAdvection equation.");
@@ -1151,4 +1152,5 @@ void MMFAdvection::v_GenerateSummary(SolverUtils::SummaryList &s)
     SolverUtils::AddSummaryItem(s, "TestType", TestTypeMap[m_TestType]);
     SolverUtils::AddSummaryItem(s, "Rotation Angle", m_RotAngle);
 }
+
 } // namespace Nektar

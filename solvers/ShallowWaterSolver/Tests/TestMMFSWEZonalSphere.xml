@@ -2632,12 +2632,16 @@
         <SOLVERINFO>
             <I PROPERTY="EQType" VALUE="MMFSWE" />
             <I PROPERTY="Projection" VALUE="DisContinuous" />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="ClassicalRungeKutta4" />
             <I PROPERTY="UpwindType" VALUE="LaxFriedrich" />
             <I PROPERTY="SurfaceType" VALUE="Sphere" />
             <I PROPERTY="TestType" VALUE="TestUnsteadyZonal" /> <!-- TestSteadyZonal, TestUnSteadyZonal-->
             <I PROPERTY="MMFDir" VALUE="LOCAL" /> <!-- TangentX, TangentY, TangentXY, TangentZ, TangentCircular, LOCAL-->
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> RungeKutta </METHOD>
+            <ORDER> 4 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
 
         <PARAMETERS>
             <P> TimeStep       = 0.001             </P>

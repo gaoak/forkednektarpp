@@ -42,7 +42,6 @@ namespace Nektar
 {
 
 class SkewSymmetricAdvection : public SolverUtils::Advection
-
 {
 public:
     friend class MemoryManager<SkewSymmetricAdvection>;
@@ -60,7 +59,7 @@ public:
 protected:
     SkewSymmetricAdvection();
 
-    ~SkewSymmetricAdvection() override;
+    ~SkewSymmetricAdvection() override = default;
 
     void v_InitObject(
         LibUtilities::SessionReaderSharedPtr pSession,

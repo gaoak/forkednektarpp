@@ -34,11 +34,10 @@
 
 #include <CompressibleFlowSolver/EquationSystems/NavierStokesCFEAxisym.h>
 
-using namespace std;
-
 namespace Nektar
 {
-string NavierStokesCFEAxisym::className =
+
+std::string NavierStokesCFEAxisym::className =
     SolverUtils::GetEquationSystemFactory().RegisterCreatorFunction(
         "NavierStokesCFEAxisym", NavierStokesCFEAxisym::create,
         "Axisymmetric NavierStokes equations in conservative variables.");
@@ -49,10 +48,6 @@ NavierStokesCFEAxisym::NavierStokesCFEAxisym(
     : UnsteadySystem(pSession, pGraph),
       CompressibleFlowSystem(pSession, pGraph),
       NavierStokesCFE(pSession, pGraph)
-{
-}
-
-NavierStokesCFEAxisym::~NavierStokesCFEAxisym()
 {
 }
 
@@ -258,4 +253,5 @@ void NavierStokesCFEAxisym::v_GetViscousFluxVector(
     Vmath::Vmul(nPts, viscousTensor[0][m_spacedim + 1], 1, invR, 1,
                 m_viscousForcing[m_spacedim + 1], 1);
 }
+
 } // namespace Nektar

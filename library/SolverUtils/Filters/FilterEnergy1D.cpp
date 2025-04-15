@@ -57,24 +57,15 @@ FilterEnergy1D::FilterEnergy1D(
     ASSERTL0(pSession->GetComm()->GetSize() == 1,
              "The 1D energy filter currently only works in serial.");
 
-    std::string outName;
-
     // OutputFile
-    auto it = pParams.find("OutputFile");
-    if (it == pParams.end())
-    {
-        outName = m_session->GetSessionName();
-    }
-    else
-    {
-        ASSERTL0(it->second.length() > 0, "Missing parameter 'OutputFile'.");
-        outName = it->second;
-    }
-    outName += ".eny";
+    std::string outName;
+    std::string ext = ".eny";
+    outName         = Filter::SetupOutput(ext, pParams);
+
     m_out.open(outName.c_str());
 
     // OutputFrequency
-    it = pParams.find("OutputFrequency");
+    auto it = pParams.find("OutputFrequency");
     if (it == pParams.end())
     {
         m_outputFrequency = 1;

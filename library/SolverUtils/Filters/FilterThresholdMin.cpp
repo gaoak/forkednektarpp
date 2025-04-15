@@ -73,12 +73,8 @@ FilterThresholdMin::FilterThresholdMin(
     }
 
     // OutputFile
-    it           = pParams.find("OutputFile");
-    m_outputFile = pSession->GetSessionName() + "_max.fld";
-    if (it != pParams.end())
-    {
-        m_outputFile = it->second;
-    }
+    std::string ext = "_min.fld";
+    m_outputFile    = Filter::SetupOutput(ext, pParams);
 
     // ThresholdVar
     it             = pParams.find("ThresholdVar");

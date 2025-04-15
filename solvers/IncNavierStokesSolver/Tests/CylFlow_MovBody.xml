@@ -1827,13 +1827,16 @@
             <I PROPERTY="SolverType" VALUE="VCSMapping" />
             <I PROPERTY="EvolutionOperator" VALUE="SkewSymmetric" />
             <I PROPERTY="Projection" VALUE="Galerkin" />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="IMEXOrder2" />
             <I PROPERTY="HOMOGENEOUS" VALUE="1D"/>
             <I PROPERTY="USEFFT" VALUE="FFTW"/>
             <I PROPERTY="VibrationType" VALUE="Constrained"/>
             <I PROPERTY="SupportType" VALUE="Free-Free"/>
             <I PROPERTY="FictitiousMassMethod" VALUE="True"/>
         </SOLVERINFO>
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> IMEX </METHOD>
+            <ORDER> 2 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
         <PARAMETERS>
             <P> TimeStep      = 0.002            </P>
             <P> NumSteps      = 5                </P>

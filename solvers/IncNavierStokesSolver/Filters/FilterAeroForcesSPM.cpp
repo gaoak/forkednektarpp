@@ -35,10 +35,9 @@
 
 #include <IncNavierStokesSolver/Filters/FilterAeroForcesSPM.h>
 
-using namespace std;
-
 namespace Nektar
 {
+
 std::string FilterAeroForcesSPM::className =
     SolverUtils::GetFilterFactory().RegisterCreatorFunction(
         "AeroForcesSPM", FilterAeroForcesSPM::create);
@@ -53,24 +52,11 @@ FilterAeroForcesSPM::FilterAeroForcesSPM(
     : Filter(pSession, pEquation)
 {
     // OutputFile
-    auto it = pParams.find("OutputFile");
-    if (it == pParams.end())
-    {
-        m_outputFile = m_session->GetSessionName();
-    }
-    else
-    {
-        ASSERTL0(it->second.length() > 0, "Missing parameter 'OutputFile'.");
-        m_outputFile = it->second;
-    }
-    if (!(m_outputFile.length() >= 4 &&
-          m_outputFile.substr(m_outputFile.length() - 4) == ".fce"))
-    {
-        m_outputFile += ".fce";
-    }
+    std::string ext = ".fce";
+    m_outputFile    = Filter::SetupOutput(ext, pParams);
 
     // OutputFrequency
-    it = pParams.find("OutputFrequency");
+    auto it = pParams.find("OutputFrequency");
     if (it == pParams.end())
     {
         m_outputFrequency = 1;
@@ -92,13 +78,6 @@ FilterAeroForcesSPM::FilterAeroForcesSPM(
         LibUtilities::Equation equ(m_session->GetInterpreter(), it->second);
         m_startTime = equ.Evaluate();
     }
-}
-
-/**
- *
- */
-FilterAeroForcesSPM::~FilterAeroForcesSPM()
-{
 }
 
 /**
@@ -134,7 +113,7 @@ void FilterAeroForcesSPM::v_Initialise(
         m_session->MatchSolverInfo("Driver", "Adaptive", adaptive, false);
         if (adaptive)
         {
-            m_outputStream.open(m_outputFile.c_str(), ofstream::app);
+            m_outputStream.open(m_outputFile.c_str(), std::ofstream::app);
         }
         else
         {
@@ -150,7 +129,7 @@ void FilterAeroForcesSPM::v_Initialise(
             m_outputStream << "F_" << m_dirNames[i];
         }
 
-        m_outputStream << endl;
+        m_outputStream << std::endl;
     }
 
     m_index = 0;
@@ -177,15 +156,15 @@ void FilterAeroForcesSPM::v_Update(
     {
         // Write time
         m_outputStream.width(8);
-        m_outputStream << setprecision(6) << time;
+        m_outputStream << std::setprecision(6) << time;
         // Write forces
         for (int i = 0; i < m_spaceDim; ++i)
         {
             m_outputStream.width(15);
-            m_outputStream << setprecision(8) << m_Forces[i];
+            m_outputStream << std::setprecision(8) << m_Forces[i];
         }
         m_outputStream.width(10);
-        m_outputStream << endl;
+        m_outputStream << std::endl;
     }
 }
 

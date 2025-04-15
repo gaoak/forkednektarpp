@@ -1138,10 +1138,14 @@
             <I PROPERTY="ICType"                VALUE="IsentropicVortex"    />
             <I PROPERTY="Projection"            VALUE="DisContinuous"       />
             <I PROPERTY="AdvectionType"         VALUE="WeakDG"              />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="DIRKOrder3"          />
             <I PROPERTY="UpwindType"            VALUE="Roe"                 />
             <I PROPERTY="LinSysIterSolverTypeInNonlin" VALUE="GMRES"        />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> DIRK </METHOD>
+            <ORDER> 3 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
 
         <VARIABLES>
             <V ID="0"> rho  </V>

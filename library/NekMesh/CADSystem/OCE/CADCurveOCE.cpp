@@ -97,6 +97,23 @@ NekDouble CADCurveOCE::loct(std::array<NekDouble, 3> xyz, NekDouble &t)
     return p.Distance(loc) / 1000.0;
 }
 
+// This function updates the parametric coordinate t of a cartesian point xyz
+// within the bounds of the CADCurve cf and cl ; Fixes the bug with respect to
+// Periodic CADCurves like Circles
+NekDouble CADCurveOCE::loct(std::array<NekDouble, 3> xyz, NekDouble &t,
+                            NekDouble cf, NekDouble cl)
+{
+    t = 0.0;
+
+    gp_Pnt loc(xyz[0] * 1000.0, xyz[1] * 1000.0, xyz[2] * 1000.0);
+
+    ShapeAnalysis_Curve sac;
+    gp_Pnt p;
+    sac.Project(m_c, loc, Precision::Confusion(), p, t, cf, cl);
+
+    return p.Distance(loc) / 1000.0;
+}
+
 std::array<NekDouble, 3> CADCurveOCE::P(NekDouble t)
 {
     gp_Pnt loc = m_c->Value(t);
@@ -167,6 +184,28 @@ std::array<NekDouble, 6> CADCurveOCE::GetMinMax()
 
     return {start.X() / 1000.0, start.Y() / 1000.0, start.Z() / 1000.0,
             end.X() / 1000.0,   end.Y() / 1000.0,   end.Z() / 1000.0};
+}
+
+std::array<NekDouble, 6> CADCurveOCE::BoundingBox(NekDouble scale)
+{
+    BRepMesh_IncrementalMesh brmsh(m_occEdge, 0.005 * scale);
+
+    Bnd_Box B;
+    BRepBndLib::Add(m_occEdge, B);
+    NekDouble e = sqrt(B.SquareExtent()) * 0.01 * scale;
+    e           = min(e, 5e-3 * scale);
+    B.Enlarge(e);
+
+    std::array<NekDouble, 6> ret;
+    B.Get(ret[0], ret[1], ret[2], ret[3], ret[4], ret[5]);
+    ret[0] /= 1000.0;
+    ret[1] /= 1000.0;
+    ret[2] /= 1000.0;
+    ret[3] /= 1000.0;
+    ret[4] /= 1000.0;
+    ret[5] /= 1000.0;
+
+    return ret;
 }
 
 } // namespace Nektar::NekMesh

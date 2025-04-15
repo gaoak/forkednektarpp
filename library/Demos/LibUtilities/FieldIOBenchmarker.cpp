@@ -39,7 +39,6 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/program_options.hpp>
 #include <string>
-#include <system_error>
 #include <unordered_set>
 
 typedef std::unordered_set<int> IntSet;
@@ -517,7 +516,7 @@ Results TestWrite(Experiment &exp)
         }
         catch (fs::filesystem_error &e)
         {
-            ASSERTL0(e.code() == std::errc::no_such_file_or_directory,
+            ASSERTL0(e.code() == fserrc::no_such_file_or_directory,
                      "Filesystem error: " + std::string(e.what()));
         }
 

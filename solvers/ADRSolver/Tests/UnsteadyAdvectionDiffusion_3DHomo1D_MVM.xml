@@ -60,8 +60,12 @@
             <I PROPERTY="HOMOGENEOUS"           VALUE="1D" />
             <I PROPERTY="DiffusionAdvancement"  VALUE="Implicit" />
             <I PROPERTY="AdvectionAdvancement"  VALUE="Explicit" />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="IMEXOrder2" />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> IMEX </METHOD>
+            <ORDER> 2 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
 
         <PARAMETERS>
             <P> TimeStep      = 0.001        </P>

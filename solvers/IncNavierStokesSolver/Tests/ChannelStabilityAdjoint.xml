@@ -247,9 +247,13 @@
             <I PROPERTY="EQTYPE" VALUE="UnsteadyNavierStokes" />
             <I PROPERTY="EvolutionOperator" VALUE="Adjoint" />
             <I PROPERTY="Projection" VALUE="Galerkin" />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="IMEXOrder3" />
             <I PROPERTY="Driver" VALUE="ModifiedArnoldi" />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> IMEX </METHOD>
+            <ORDER> 3 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
 
         <PARAMETERS>
             <P> TimeStep      = 0.002  </P>

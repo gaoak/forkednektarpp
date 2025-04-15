@@ -36,7 +36,6 @@
             <I PROPERTY="Projection"            VALUE="DisContinuous"       />
             <I PROPERTY="AdvectionType"         VALUE="WeakDG"              />
             <I PROPERTY="DiffusionType"         VALUE="InteriorPenalty"     />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="DIRKOrder2"          />
             <I PROPERTY="AdvectionAdvancement"  VALUE="Implicit"            />
             <I PROPERTY="DiffusionAdvancement"  VALUE="Implicit"            />
             <I PROPERTY="UpwindType"            VALUE="Roe"                 />
@@ -44,7 +43,10 @@
             <I PROPERTY="ViscosityType"         VALUE="Constant"            />
             <I PROPERTY="OutputExtraFields"     VALUE="True"                />
         </SOLVERINFO>
-
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> DIRK </METHOD>
+            <ORDER> 2 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
         <PARAMETERS>
             <P> TimeStep      = 0.02            </P>
             <P> NumSteps      = 10              </P>

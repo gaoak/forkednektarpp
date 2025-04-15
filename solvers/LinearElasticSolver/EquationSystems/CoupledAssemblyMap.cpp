@@ -42,8 +42,6 @@
 #include <MultiRegions/GlobalLinSysDirectStaticCond.h>
 #include <SpatialDomains/MeshGraph.h>
 
-using namespace std;
-
 namespace Nektar
 {
 
@@ -121,7 +119,7 @@ CoupledAssemblyMap::CoupledAssemblyMap(
 
     const LocalRegions::ExpansionVector &locExpVector = *(fields[0]->GetExp());
 
-    map<int, int> newGlobalIds;
+    std::map<int, int> newGlobalIds;
     int i, j, n, cnt1, cnt2;
 
     // Order local boundary degrees of freedom. These are basically fine; we

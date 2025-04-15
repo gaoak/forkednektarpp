@@ -14,12 +14,15 @@
             <I PROPERTY="DiffusionType"         VALUE="InteriorPenalty"     />
             <I PROPERTY="AdvectionAdvancement"  VALUE="Implicit"            />
             <I PROPERTY="DiffusionAdvancement"  VALUE="Implicit"            />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="DIRKOrder2"          />
             <I PROPERTY="UpwindType"            VALUE="Roe"                 />
             <I PROPERTY="ProblemType"           VALUE="General"             />
             <I PROPERTY="ViscosityType"         VALUE="Constant"            />
             <I PROPERTY="Driver"                VALUE="SteadyState"         />
         </SOLVERINFO>
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> DIRK </METHOD>
+            <ORDER> 2 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
         <PARAMETERS>
             <!-- Flow parameters -->
             <P> Gamma                 = 1.4                       </P>

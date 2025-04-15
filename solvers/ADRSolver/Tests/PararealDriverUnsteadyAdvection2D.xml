@@ -53,7 +53,6 @@
             <TIMELEVEL VALUE="0">
                 <I PROPERTY="EQTYPE"                VALUE="UnsteadyAdvection"           />
                 <I PROPERTY="Projection"            VALUE="DisContinuous"               />
-                <I PROPERTY="TimeIntegrationMethod" VALUE="ClassicalRungeKutta4"        />
                 <I PROPERTY="AdvectionAdvancement"  VALUE="Explicit"                    />
                 <I PROPERTY="AdvectionType"         VALUE="WeakDG"                      />
                 <I PROPERTY="UpwindType"            VALUE="Upwind"                      />
@@ -62,13 +61,23 @@
             <TIMELEVEL VALUE="1">
                 <I PROPERTY="EQTYPE"                VALUE="UnsteadyAdvection"           />
                 <I PROPERTY="Projection"            VALUE="DisContinuous"               />
-                <I PROPERTY="TimeIntegrationMethod" VALUE="RungeKutta2"                 />
                 <I PROPERTY="AdvectionAdvancement"  VALUE="Explicit"                    />
                 <I PROPERTY="AdvectionType"         VALUE="WeakDG"                      />
                 <I PROPERTY="UpwindType"            VALUE="Upwind"                      />
                 <I PROPERTY="Driver"                VALUE="Parareal"                    />
             </TIMELEVEL>
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <TIMELEVEL VALUE="0">
+                <METHOD> RungeKutta </METHOD>
+                <ORDER> 4 </ORDER>
+            </TIMELEVEL>
+            <TIMELEVEL VALUE="1">
+                <METHOD> RungeKutta </METHOD>
+                <ORDER> 2 </ORDER>
+            </TIMELEVEL>
+        </TIMEINTEGRATIONSCHEME>
 
         <PARAMETERS>
             <TIMELEVEL VALUE="0">

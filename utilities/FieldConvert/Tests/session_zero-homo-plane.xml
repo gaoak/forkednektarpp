@@ -9,7 +9,6 @@
             <I PROPERTY="EQTYPE"                               VALUE="UnsteadyNavierStokes"     />
             <I PROPERTY="AdvectionForm"                        VALUE="Convective"               />
             <I PROPERTY="Projection"                           VALUE="Galerkin"                 />
-            <I PROPERTY="TimeIntegrationMethod"                VALUE="IMEXOrder2"               />
             <I PROPERTY="SpectralhpDealiasing"                 VALUE="True"                     />
             <I PROPERTY="SpectralVanishingViscositySpectralHP" VALUE="True"                     />
             <I PROPERTY="SpectralVanishingViscosityHomo1D"     VALUE="True"                     />
@@ -17,6 +16,10 @@
             <!--<I PROPERTY="UseFFT"                               VALUE="FFTW"                     />-->
             <I PROPERTY="GlobalSysSoln"                        VALUE="XxtMultiLevelStaticCond"  />
         </SOLVERINFO>
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> IMEX </METHOD>
+            <ORDER> 2 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
         <PARAMETERS>
             <P> TimeStep        = 1.0e-3                 </P>
             <P> NumSteps        = 5e3                    </P>

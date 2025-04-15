@@ -155,9 +155,14 @@
             <I PROPERTY="AdvectionForm" VALUE="Convective" />
             <I PROPERTY="Projection" VALUE="Mixed_CG_Discontinuous" />
             <I PROPERTY="SubSteppingScheme"     VALUE="True" />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="BackwardEuler" />
             <I PROPERTY="Extrapolation" VALUE="SubStepping" />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> Euler </METHOD>
+            <ORDER> 1 </ORDER>
+            <VARIANT> Backward </VARIANT>
+        </TIMEINTEGRATIONSCHEME>
 
         <PARAMETERS>
             <P> TimeStep      = 0.005        </P>

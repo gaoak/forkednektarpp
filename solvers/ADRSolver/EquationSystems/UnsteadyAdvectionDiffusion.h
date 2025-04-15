@@ -60,35 +60,28 @@ public:
     /// Name of class
     static std::string className;
 
-    /// Destructor
-    ~UnsteadyAdvectionDiffusion() override = default;
-
-    void v_ALEInitObject(
-        int spaceDim,
-        Array<OneD, MultiRegions::ExpListSharedPtr> &fields) override;
-
 protected:
     bool m_subSteppingScheme;
-
     // Use Spectral Vanishing Viscosity
     bool m_useSpecVanVisc;
     // cut off ratio from which to start decayhing modes
     NekDouble m_sVVCutoffRatio;
     // Diffusion coefficient of SVV modes
     NekDouble m_sVVDiffCoeff;
-
     SolverUtils::DiffusionSharedPtr m_diffusion;
+    LibUtilities::TimeIntegrationSchemeSharedPtr m_subStepIntegrationScheme;
+    LibUtilities::TimeIntegrationSchemeOperators m_subStepIntegrationOps;
+    int m_intSteps;
+    int m_minsubsteps;
 
-    /// Session reader
     UnsteadyAdvectionDiffusion(
         const LibUtilities::SessionReaderSharedPtr &pSession,
         const SpatialDomains::MeshGraphSharedPtr &pGraph);
 
-    /// Evaluate the flux at each solution point for the diffusion part
-    void GetFluxVectorDiff(
-        const Array<OneD, Array<OneD, NekDouble>> &inarray,
-        const Array<OneD, Array<OneD, Array<OneD, NekDouble>>> &qfield,
-        Array<OneD, Array<OneD, Array<OneD, NekDouble>>> &viscousTensor);
+    ~UnsteadyAdvectionDiffusion() override = default;
+
+    /// Initialise the object
+    void v_InitObject(bool DeclareFields = true) override;
 
     /// Compute the RHS
     void DoOdeRhs(const Array<OneD, const Array<OneD, NekDouble>> &inarray,
@@ -101,8 +94,11 @@ protected:
         Array<OneD, Array<OneD, NekDouble>> &outarray, NekDouble time,
         NekDouble lambda);
 
-    /// Initialise the object
-    void v_InitObject(bool DeclareFields = true) override;
+    /// Evaluate the flux at each solution point for the diffusion part
+    void GetFluxVectorDiff(
+        const Array<OneD, Array<OneD, NekDouble>> &inarray,
+        const Array<OneD, Array<OneD, Array<OneD, NekDouble>>> &qfield,
+        Array<OneD, Array<OneD, Array<OneD, NekDouble>>> &viscousTensor);
 
     /// Print Summary
     void v_GenerateSummary(SolverUtils::SummaryList &s) override;
@@ -137,11 +133,9 @@ protected:
     Array<OneD, NekDouble> GetMaxStdVelocity(
         const Array<OneD, Array<OneD, NekDouble>> inarray);
 
-    LibUtilities::TimeIntegrationSchemeSharedPtr m_subStepIntegrationScheme;
-    LibUtilities::TimeIntegrationSchemeOperators m_subStepIntegrationOps;
-
-    int m_intSteps;
-    int m_minsubsteps;
+    void v_ALEInitObject(
+        int spaceDim,
+        Array<OneD, MultiRegions::ExpListSharedPtr> &fields) override;
 
 private:
     NekDouble m_epsilon;

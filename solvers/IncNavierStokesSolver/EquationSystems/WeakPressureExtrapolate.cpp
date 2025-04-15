@@ -55,10 +55,6 @@ WeakPressureExtrapolate::WeakPressureExtrapolate(
 {
 }
 
-WeakPressureExtrapolate::~WeakPressureExtrapolate()
-{
-}
-
 /**
  * Function to extrapolate the new pressure boundary condition.
  * Based on the velocity field and on the advection term.

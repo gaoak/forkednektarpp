@@ -37,10 +37,9 @@
 #include <LibUtilities/BasicUtils/Timer.h>
 #include <SolverUtils/Advection/AdvectionWeakDG.h>
 
-using namespace std;
-
 namespace Nektar
 {
+
 CompressibleFlowSystem::CompressibleFlowSystem(
     const LibUtilities::SessionReaderSharedPtr &pSession,
     const SpatialDomains::MeshGraphSharedPtr &pGraph)
@@ -168,7 +167,7 @@ void CompressibleFlowSystem::InitAdvection()
     ASSERTL0(m_projectionType == MultiRegions::eDiscontinuous,
              "Unsupported projection type.");
 
-    string advName, riemName;
+    std::string advName, riemName;
     m_session->LoadSolverInfo("AdvectionType", advName, "WeakDG");
 
     m_advObject =
@@ -997,7 +996,7 @@ void CompressibleFlowSystem::v_ExtraFldOutput(
         Array<OneD, NekDouble> aFwd(nCoeffs), mFwd(nCoeffs);
         Array<OneD, NekDouble> sensFwd(nCoeffs);
 
-        string velNames[3] = {"u", "v", "w"};
+        std::string velNames[3] = {"u", "v", "w"};
         for (int i = 0; i < m_spacedim; ++i)
         {
             m_fields[0]->FwdTransLocalElmt(velocity[i], velFwd[i]);

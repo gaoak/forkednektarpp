@@ -58,8 +58,12 @@
             <I PROPERTY="Projection"            VALUE="Continuous" />
             <I PROPERTY="DiffusionAdvancement"  VALUE="Implicit" />
             <I PROPERTY="AdvectionAdvancement"  VALUE="Explicit" />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="IMEXOrder2" />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> IMEX </METHOD>
+            <ORDER> 2 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
 
         <PARAMETERS>
             <P> TimeStep = 0.0001               </P>

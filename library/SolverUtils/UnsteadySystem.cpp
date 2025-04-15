@@ -114,6 +114,8 @@ void UnsteadySystem::v_InitObject(bool DeclareField)
         }
         else
         {
+            std::cout << "TimeIntegrationMethod is deprecated, please use "
+                         "TIMEINTEGRATIONSCHEME";
             timeInt.method = m_session->GetSolverInfo("TimeIntegrationMethod");
         }
 
@@ -165,8 +167,8 @@ void UnsteadySystem::v_InitObject(bool DeclareField)
     for (auto &x : m_session->GetFilters())
     {
         m_filters.push_back(make_pair(
-            x.first, GetFilterFactory().CreateInstance(
-                         x.first, m_session, shared_from_this(), x.second)));
+            x.name, GetFilterFactory().CreateInstance(
+                        x.name, m_session, shared_from_this(), x.params)));
     }
 }
 

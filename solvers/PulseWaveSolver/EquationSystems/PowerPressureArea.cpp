@@ -34,8 +34,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 #include <PulseWaveSolver/EquationSystems/PowerPressureArea.h>
 
-using namespace std;
-
 namespace Nektar
 {
 
@@ -51,10 +49,6 @@ PowerPressureArea::PowerPressureArea(
 {
     m_session->LoadParameter("P_Collapse", P_Collapse,
                              -13.3322); // -10mmHg converted to kg / (cm s^2)
-}
-
-PowerPressureArea::~PowerPressureArea()
-{
 }
 
 void PowerPressureArea::v_GetPressure(NekDouble &P, const NekDouble &beta,

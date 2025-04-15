@@ -11,10 +11,14 @@
             <I PROPERTY="EQTYPE"                  VALUE="UnsteadyNavierStokes"    />
             <I PROPERTY="Projection"              VALUE="Continuous"              />
             <I PROPERTY="EvolutionOperator"       VALUE="Nonlinear"               />
-            <I PROPERTY="TimeIntegrationMethod"   VALUE="IMEXOrder3"              />
             <I PROPERTY="Driver"                  VALUE="Standard"                />
-            <I PROPERTY="GlobalSysSoln"                 VALUE="XxtMultiLevelStaticCond"  />
+            <I PROPERTY="GlobalSysSoln"           VALUE="XxtMultiLevelStaticCond" />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> IMEX </METHOD>
+            <ORDER> 3 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
 
         <VARIABLES>
             <V ID="0"> u </V>
@@ -35,7 +39,6 @@
             <P> Pr            = 0.71      </P>
             <P> Kinvis        = Pr    </P>
         </PARAMETERS>
-
 
         <BOUNDARYREGIONS>
             <B ID="0"> C[1] </B>

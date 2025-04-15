@@ -74,8 +74,12 @@
             <I PROPERTY="AdvectionType"         VALUE="WeakDG"              />
             <I PROPERTY="DiffusionType"         VALUE="LDG"                 />
             <I PROPERTY="DiffusionAdvancement"  VALUE="Explicit"            />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="ClassicalRungeKutta4"/>
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> RungeKutta </METHOD>
+            <ORDER> 4 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
 
         <VARIABLES>
             <V ID="0"> u </V>

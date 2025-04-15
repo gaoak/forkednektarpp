@@ -58,6 +58,8 @@ typedef std::shared_ptr<WeakPressureExtrapolate>
 class WeakPressureExtrapolate : public StandardExtrapolate
 {
 public:
+    friend class MemoryManager<WeakPressureExtrapolate>;
+
     /// Creates an instance of this class
     static ExtrapolateSharedPtr create(
         const LibUtilities::SessionReaderSharedPtr &pSession,
@@ -74,15 +76,15 @@ public:
     /// Name of class
     static std::string className;
 
+protected:
     WeakPressureExtrapolate(const LibUtilities::SessionReaderSharedPtr pSession,
                             Array<OneD, MultiRegions::ExpListSharedPtr> pFields,
                             MultiRegions::ExpListSharedPtr pPressure,
                             const Array<OneD, int> pVel,
                             const SolverUtils::AdvectionSharedPtr advObject);
 
-    ~WeakPressureExtrapolate() override;
+    ~WeakPressureExtrapolate() override = default;
 
-protected:
     void v_EvaluatePressureBCs(
         const Array<OneD, const Array<OneD, NekDouble>> &fields,
         const Array<OneD, const Array<OneD, NekDouble>> &N,

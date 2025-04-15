@@ -34,11 +34,10 @@
 
 #include <ADRSolver/EquationSystems/UnsteadyDiffusion.h>
 
-using namespace std;
-
 namespace Nektar
 {
-string UnsteadyDiffusion::className =
+
+std::string UnsteadyDiffusion::className =
     GetEquationSystemFactory().RegisterCreatorFunction(
         "UnsteadyDiffusion", UnsteadyDiffusion::create);
 
@@ -125,18 +124,6 @@ void UnsteadyDiffusion::v_InitObject(bool DeclareFields)
     m_ode.DefineOdeRhs(&UnsteadyDiffusion::DoOdeRhs, this);
     m_ode.DefineProjection(&UnsteadyDiffusion::DoOdeProjection, this);
     m_ode.DefineImplicitSolve(&UnsteadyDiffusion::DoImplicitSolve, this);
-}
-
-void UnsteadyDiffusion::v_GenerateSummary(SummaryList &s)
-{
-    UnsteadySystem::v_GenerateSummary(s);
-    if (m_useSpecVanVisc)
-    {
-        stringstream ss;
-        ss << "SVV (cut off = " << m_sVVCutoffRatio
-           << ", coeff = " << m_sVVDiffCoeff << ")";
-        AddSummaryItem(s, "Smoothing", ss.str());
-    }
 }
 
 /* @brief Compute the right-hand side for the unsteady diffusion problem.
@@ -271,4 +258,17 @@ void UnsteadyDiffusion::GetFluxVector(
         }
     }
 }
+
+void UnsteadyDiffusion::v_GenerateSummary(SummaryList &s)
+{
+    UnsteadySystem::v_GenerateSummary(s);
+    if (m_useSpecVanVisc)
+    {
+        std::stringstream ss;
+        ss << "SVV (cut off = " << m_sVVCutoffRatio
+           << ", coeff = " << m_sVVDiffCoeff << ")";
+        AddSummaryItem(s, "Smoothing", ss.str());
+    }
+}
+
 } // namespace Nektar

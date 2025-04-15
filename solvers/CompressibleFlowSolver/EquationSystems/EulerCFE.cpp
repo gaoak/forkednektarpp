@@ -35,11 +35,10 @@
 
 #include <CompressibleFlowSolver/EquationSystems/EulerCFE.h>
 
-using namespace std;
-
 namespace Nektar
 {
-string EulerCFE::className =
+
+std::string EulerCFE::className =
     SolverUtils::GetEquationSystemFactory().RegisterCreatorFunction(
         "EulerCFE", EulerCFE::create,
         "Euler equations in conservative variables.");

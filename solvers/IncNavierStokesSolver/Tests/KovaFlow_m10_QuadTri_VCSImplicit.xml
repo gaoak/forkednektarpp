@@ -11,11 +11,15 @@
             <I PROPERTY="EQTYPE"                VALUE="UnsteadyNavierStokes" />
             <I PROPERTY="EvolutionOperator"     VALUE="Nonlinear" />
             <I PROPERTY="Projection"            VALUE="Galerkin" />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="IMEXOrder2" />
             <I PROPERTY="GlobalSysSoln"         VALUE="IterativeStaticCond"/>
             <I PROPERTY="Preconditioner"        VALUE="Null"/>
             <I PROPERTY="LinSysIterSolver"      VALUE="GMRES"/>
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> IMEX </METHOD>
+            <ORDER> 2 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
 
         <GLOBALSYSSOLNINFO>
             <V VAR="u,v,p">

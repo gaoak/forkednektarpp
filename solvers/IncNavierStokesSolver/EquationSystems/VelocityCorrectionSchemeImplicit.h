@@ -42,6 +42,8 @@ namespace Nektar
 class VCSImplicit : public VelocityCorrectionScheme
 {
 public:
+    friend class MemoryManager<VCSImplicit>;
+
     /// Creates an instance of this class
     static SolverUtils::EquationSystemSharedPtr create(
         const LibUtilities::SessionReaderSharedPtr &pSession,
@@ -55,12 +57,6 @@ public:
 
     /// Name of class
     static std::string className;
-
-    /// Constructor.
-    VCSImplicit(const LibUtilities::SessionReaderSharedPtr &pSession,
-                const SpatialDomains::MeshGraphSharedPtr &pGraph);
-
-    ~VCSImplicit() override;
 
 protected:
     /// 2D Array for Advection Velocities [dir][dof]
@@ -76,6 +72,11 @@ protected:
     std::string m_convectiveType;
     /// Array checking whether GlobalLinSys needs to be unset
     Array<OneD, NekInt> m_unsetGlobalLinSys;
+
+    VCSImplicit(const LibUtilities::SessionReaderSharedPtr &pSession,
+                const SpatialDomains::MeshGraphSharedPtr &pGraph);
+
+    ~VCSImplicit() override = default;
 
     // Virtual functions
     void v_GenerateSummary(SolverUtils::SummaryList &s) override;

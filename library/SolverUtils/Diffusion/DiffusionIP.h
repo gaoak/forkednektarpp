@@ -123,8 +123,8 @@ private:
 
     /// Calculate the average of conservative variables on traces
     template <class T, typename = typename std::enable_if<
-                           std::is_floating_point<T>::value ||
-                           tinysimd::is_vector_floating_point<T>::value>::type>
+                           std::is_floating_point_v<T> ||
+                           tinysimd::is_vector_floating_point_v<T>>::type>
     inline void ConsVarAve(const size_t nConvectiveFields, const T &Bweight,
                            const std::vector<T> &vFwd,
                            const std::vector<T> &vBwd, std::vector<T> &aver)

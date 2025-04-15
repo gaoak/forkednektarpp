@@ -1443,8 +1443,8 @@ template <class T>
 void MeshGraphIOHDF5::WriteGeometryMap(
     std::map<int, std::shared_ptr<T>> &geomMap, std::string datasetName)
 {
-    typedef typename std::conditional<std::is_same<T, PointGeom>::value,
-                                      NekDouble, int>::type DataType;
+    typedef typename std::conditional<std::is_same_v<T, PointGeom>, NekDouble,
+                                      int>::type DataType;
 
     const int nGeomData = GetGeomDataDim(geomMap);
     const size_t nGeom  = geomMap.size();

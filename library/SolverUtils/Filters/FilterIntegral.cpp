@@ -55,22 +55,11 @@ FilterIntegral::FilterIntegral(
     : Filter(pSession, pEquation)
 {
     std::string outName;
-
-    // OutputFile
-    auto it = pParams.find("OutputFile");
-    if (it == pParams.end())
-    {
-        outName = m_session->GetSessionName();
-    }
-    else
-    {
-        ASSERTL0(it->second.length() > 0, "Empty parameter 'OutputFile'.");
-        outName = it->second;
-    }
-    outName += ".int";
+    std::string ext = ".int";
+    outName         = Filter::SetupOutput(ext, pParams);
 
     // Composites (to calculate integrals on)
-    it = pParams.find("Composites");
+    auto it = pParams.find("Composites");
     ASSERTL0(it != pParams.end(), "Missing parameter 'Composites'.");
     ASSERTL0(it->second.length() > 0, "Empty parameter 'Composites'.");
 
@@ -154,7 +143,7 @@ FilterIntegral::FilterIntegral(
  */
 void FilterIntegral::v_Initialise(
     const Array<OneD, const MultiRegions::ExpListSharedPtr> &pFields,
-    const NekDouble &time)
+    [[maybe_unused]] const NekDouble &time)
 {
 
     // Create map from element ID -> expansion list ID
@@ -277,8 +266,10 @@ void FilterIntegral::v_Initialise(
 
         m_compExpMap[i] = tmpCompExp;
     }
-
-    v_Update(pFields, time);
+    if (m_updateOnInitialise)
+    {
+        v_Update(pFields, time);
+    }
 }
 
 /**

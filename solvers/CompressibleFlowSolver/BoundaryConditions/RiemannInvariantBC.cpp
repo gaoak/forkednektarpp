@@ -34,8 +34,6 @@
 
 #include "RiemannInvariantBC.h"
 
-using namespace std;
-
 namespace Nektar
 {
 

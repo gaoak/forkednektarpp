@@ -34,8 +34,6 @@
 
 #include "IdealGasEoS.h"
 
-using namespace std;
-
 namespace Nektar
 {
 

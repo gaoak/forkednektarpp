@@ -34,8 +34,6 @@
 
 #include "PressureOutflowNonReflectiveBC.h"
 
-using namespace std;
-
 namespace Nektar
 {
 

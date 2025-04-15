@@ -35,8 +35,6 @@
 
 #include <AcousticSolver/RiemannSolvers/LEESolver.h>
 
-using namespace std;
-
 namespace Nektar
 {
 

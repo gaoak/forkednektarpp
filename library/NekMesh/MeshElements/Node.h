@@ -229,6 +229,10 @@ public:
     }
 
     // functions for cad information
+    void SetCADVertex(CADVertSharedPtr v)
+    {
+        m_CADVer = v;
+    }
 
     void SetCADCurve(CADCurveSharedPtr c, NekDouble t)
     {
@@ -250,6 +254,11 @@ public:
             m_CADSurfList.erase(it);
         }
         m_CADSurfList.insert(make_pair(s->GetId(), make_pair(s, uv)));
+    }
+
+    CADVertSharedPtr GetCADVertex()
+    {
+        return m_CADVer.lock();
     }
 
     NekDouble GetCADCurveInfo(int i)
@@ -286,6 +295,21 @@ public:
             lst.push_back(s.second.first.lock());
         }
         return lst;
+    }
+
+    void ClearCADSurfs()
+    {
+        m_CADSurfList.clear();
+    }
+
+    void ClearCADCurves()
+    {
+        m_CADCurveList.clear();
+    }
+
+    void ClearCADVert()
+    {
+        m_CADVer.reset();
     }
 
     int GetNumCadCurve()
@@ -415,6 +439,8 @@ public:
     /// list of cadsurfs the node lies on
     std::map<int, std::pair<std::weak_ptr<CADSurf>, std::array<NekDouble, 2>>>
         m_CADSurfList;
+    /// CAD Vertex the node lies on
+    std::weak_ptr<CADVert> m_CADVer;
 
 private:
     SpatialDomains::PointGeomSharedPtr m_geom;

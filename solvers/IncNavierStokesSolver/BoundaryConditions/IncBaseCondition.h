@@ -49,6 +49,7 @@
 
 namespace Nektar
 {
+
 class IncBaseCondition;
 typedef std::shared_ptr<IncBaseCondition> IncBaseConditionSharedPtr;
 
@@ -64,7 +65,12 @@ SOLVER_UTILS_EXPORT IncBCFactory &GetIncBCFactory();
 class IncBaseCondition
 {
 public:
-    virtual ~IncBaseCondition();
+    virtual ~IncBaseCondition() = default;
+
+    void Initialise(const LibUtilities::SessionReaderSharedPtr &pSession)
+    {
+        v_Initialise(pSession);
+    }
 
     void Update(const Array<OneD, const Array<OneD, NekDouble>> &fields,
                 const Array<OneD, const Array<OneD, NekDouble>> &Adv,
@@ -72,11 +78,6 @@ public:
     {
         v_Update(fields, Adv, params);
     };
-
-    void Initialise(const LibUtilities::SessionReaderSharedPtr &pSession)
-    {
-        v_Initialise(pSession);
-    }
 
 protected:
     IncBaseCondition(const LibUtilities::SessionReaderSharedPtr pSession,
@@ -89,9 +90,12 @@ protected:
         const LibUtilities::SessionReaderSharedPtr &pSession);
 
     virtual void v_Update(
-        const Array<OneD, const Array<OneD, NekDouble>> &fields,
-        const Array<OneD, const Array<OneD, NekDouble>> &Adv,
-        std::map<std::string, NekDouble> &params);
+        [[maybe_unused]] const Array<OneD, const Array<OneD, NekDouble>>
+            &fields,
+        [[maybe_unused]] const Array<OneD, const Array<OneD, NekDouble>> &Adv,
+        [[maybe_unused]] std::map<std::string, NekDouble> &params)
+    {
+    }
 
     void ExtrapolateArray(
         const int numCalls,
@@ -106,11 +110,6 @@ protected:
 
     void AddRigidBodyAcc(Array<OneD, Array<OneD, NekDouble>> &N,
                          std::map<std::string, NekDouble> &params, int npts0);
-
-    // void AddDuDtPressureBCs(
-    //    const Array<OneD, const Array<OneD, NekDouble>> &fields,
-    //    Array<OneD, Array<OneD, NekDouble>> &N,
-    //    std::map<std::string, NekDouble> &params);
 
     void RigidBodyVelocity(Array<OneD, Array<OneD, NekDouble>> &velocities,
                            std::map<std::string, NekDouble> &params, int npts0);

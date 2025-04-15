@@ -90,11 +90,15 @@
             <I PROPERTY="Projection"            VALUE="DisContinuous"       />
             <I PROPERTY="AdvectionType"         VALUE="WeakDG"              />
             <I PROPERTY="DiffusionType"         VALUE="LDGNS"               />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="ClassicalRungeKutta4"/>
             <I PROPERTY="UpwindType"            VALUE="Roe"                />
             <I PROPERTY="ProblemType"           VALUE="General"             />
             <I PROPERTY="ViscosityType"         VALUE="Constant"            />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> RungeKutta </METHOD>
+            <ORDER> 4 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
 
         <VARIABLES>
             <V ID="0"> rho  </V>

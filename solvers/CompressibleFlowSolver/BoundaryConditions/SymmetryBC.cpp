@@ -34,8 +34,6 @@
 
 #include "SymmetryBC.h"
 
-using namespace std;
-
 namespace Nektar
 {
 

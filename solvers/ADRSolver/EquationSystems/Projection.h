@@ -41,6 +41,7 @@ using namespace Nektar::SolverUtils;
 
 namespace Nektar
 {
+
 class Projection : public EquationSystem
 {
 public:
@@ -61,18 +62,17 @@ public:
     /// Name of class
     static std::string className;
 
-    ~Projection() override = default;
-
 protected:
     Projection(const LibUtilities::SessionReaderSharedPtr &pSession,
                const SpatialDomains::MeshGraphSharedPtr &pGraph);
 
+    ~Projection() override = default;
+
     void v_InitObject(bool DeclareFields = true) override;
     void v_GenerateSummary(SolverUtils::SummaryList &s) override;
     void v_DoSolve() override;
-
-private:
 };
+
 } // namespace Nektar
 
 #endif

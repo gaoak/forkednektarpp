@@ -27,8 +27,11 @@
             <I PROPERTY="WeightPartitions" VALUE="NonUniform" />
             <I PROPERTY="SpectralVanishingViscosity" VALUE="TRUE" />
             <I PROPERTY="Projection" VALUE="Continuous" />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="IMEXOrder2" />
         </SOLVERINFO>
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> IMEX </METHOD>
+            <ORDER> 2 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
         <PARAMETERS>
             <P>OutputEvery = 1000</P>
             <P>TimeStep = 1.00e-5</P>

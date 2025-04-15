@@ -77,8 +77,13 @@
             <I PROPERTY="AdvectionType"         VALUE="NonConservative"     />
             <I PROPERTY="FRSchemeRecovered"     VALUE="DG"                  />
             <I PROPERTY="UpwindType"            VALUE="Upwind"              />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="ForwardEuler"        />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> Euler </METHOD>
+            <ORDER> 1 </ORDER>
+            <VARIANT> Forward </VARIANT>
+        </TIMEINTEGRATIONSCHEME>
 
         <VARIABLES>
             <V ID="0"> u </V>

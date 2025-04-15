@@ -52,9 +52,13 @@
             <I PROPERTY="AdvectionAdvancement"  VALUE="Explicit"                    />
             <I PROPERTY="AdvectionType"         VALUE="WeakDG"                      />
             <I PROPERTY="DiffusionAdvancement"  VALUE="Explicit"                    />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="ClassicalRungeKutta4"        />
             <I PROPERTY="UpwindType"            VALUE="Upwind"                      />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> RungeKutta </METHOD>
+            <ORDER> 4 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
 
         <PARAMETERS>
             <P> TimeStep      = 1.0e-04             </P>

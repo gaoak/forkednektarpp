@@ -15,8 +15,12 @@
             <I PROPERTY="Driver"            VALUE= "Standard" />
             <I PROPERTY="ModeType"        VALUE= "SingleMode" />
             <I PROPERTY="HOMOGENEOUS"       VALUE="1D"/>
-            <I PROPERTY="TimeIntegrationMethod" VALUE="IMEXOrder1" />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> IMEX </METHOD>
+            <ORDER> 1 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
 
         <PARAMETERS>
             <P> TimeStep      = 0.001 </P>

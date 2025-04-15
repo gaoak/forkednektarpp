@@ -52,9 +52,13 @@
             <I PROPERTY="AdvectionAdvancement"  VALUE="Explicit"                    />
             <I PROPERTY="AdvectionType"         VALUE="WeakDG"                      />
             <I PROPERTY="DiffusionAdvancement"  VALUE="Implicit"                    />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="IMEXOrder2"                  />
             <I PROPERTY="UpwindType"            VALUE="Upwind"                      />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> IMEX </METHOD>
+            <ORDER> 2 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
 
         <PARAMETERS>
             <P> TimeStep      = 1.0e-04             </P>

@@ -598,12 +598,16 @@
         <SOLVERINFO>
             <I PROPERTY="EQType" VALUE="MMFMaxwell" />
             <I PROPERTY="Projection" VALUE="DisContinuous" />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="ClassicalRungeKutta4" />
             <I PROPERTY="UpwindType" VALUE="Upwind" />
             <I PROPERTY="TestMaxwellType" VALUE="TestMaxwell2DPEC" />
             <I PROPERTY="PolType" VALUE="TransElectric" />  <!-- TransElectric, TransMagnetic-->
             <I PROPERTY="MMFDir" VALUE="LOCAL" /> <!-- TangentX, TangentY, TangentXY, TangentZ, TangentCircular, LOCAL-->
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> RungeKutta </METHOD>
+            <ORDER> 4 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
 
         <PARAMETERS>
             <P> TimeStep       = 0.001             </P>

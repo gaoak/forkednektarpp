@@ -59,7 +59,13 @@ typedef std::map<std::string, std::string> GeometricInfoMap;
 typedef std::vector<std::string> VariableList;
 typedef std::map<std::string, std::string> TagMap;
 typedef std::map<std::string, std::string> FilterParams;
-typedef std::vector<std::pair<std::string, FilterParams>> FilterMap;
+struct FilterDefinition
+{
+    std::string name;
+    int domain;
+    FilterParams params;
+};
+typedef std::vector<FilterDefinition> FilterMap;
 
 struct CmdLineArg
 {

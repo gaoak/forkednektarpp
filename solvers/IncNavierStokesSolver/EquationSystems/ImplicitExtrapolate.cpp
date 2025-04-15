@@ -55,10 +55,6 @@ ImplicitExtrapolate::ImplicitExtrapolate(
 {
 }
 
-ImplicitExtrapolate::~ImplicitExtrapolate()
-{
-}
-
 /**
  * Analogous to WeakPressureExtrapolate Implementation
  * However, does not use Extrapolation of CurlCurl-term
@@ -86,4 +82,5 @@ void ImplicitExtrapolate::v_EvaluatePressureBCs(
     // Evaluate High order outflow conditions
     CalcOutflowBCs(fields, kinvis);
 }
+
 } // namespace Nektar

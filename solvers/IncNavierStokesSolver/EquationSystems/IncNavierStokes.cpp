@@ -55,8 +55,6 @@
 #include <SolverUtils/Forcing/ForcingMovingReferenceFrame.h>
 #include <tinyxml.h>
 
-using namespace std;
-
 namespace Nektar
 {
 
@@ -292,13 +290,6 @@ void IncNavierStokes::v_InitObject(bool DeclareField)
     m_fieldMetaDataMap["Kinvis"] = boost::lexical_cast<std::string>(m_kinvis);
     m_fieldMetaDataMap["TimeStep"] =
         boost::lexical_cast<std::string>(m_timestep);
-}
-
-/**
- * Destructor
- */
-IncNavierStokes::~IncNavierStokes(void)
-{
 }
 
 /**
@@ -587,7 +578,7 @@ void IncNavierStokes::SetUpWomersley(const int fldid, const int bndid,
                                      std::string womStr)
 {
     std::string::size_type indxBeg = womStr.find_first_of(':') + 1;
-    string filename                = womStr.substr(indxBeg, string::npos);
+    std::string filename           = womStr.substr(indxBeg, std::string::npos);
 
     TiXmlDocument doc(filename);
 
@@ -611,7 +602,7 @@ void IncNavierStokes::SetUpWomersley(const int fldid, const int bndid,
 
     // Input coefficients
     TiXmlElement *params = womparam->FirstChildElement("W");
-    map<std::string, std::string> Wparams;
+    std::map<std::string, std::string> Wparams;
 
     // read parameter list
     while (params)
@@ -693,19 +684,19 @@ void IncNavierStokes::SetUpWomersley(const int fldid, const int bndid,
         ASSERTL0(err == TIXML_SUCCESS, "Unable to read attribute ID.");
 
         std::string coeffStr = fval->FirstChild()->ToText()->ValueStr();
-        vector<NekDouble> coeffvals;
+        std::vector<NekDouble> coeffvals;
 
         parseGood = ParseUtils::GenerateVector(coeffStr, coeffvals);
         ASSERTL0(
             parseGood,
             (std::string("Problem reading value of fourier coefficient, ID=") +
-             boost::lexical_cast<string>(indx))
+             boost::lexical_cast<std::string>(indx))
                 .c_str());
         ASSERTL1(
             coeffvals.size() == 2,
             (std::string(
                  "Have not read two entries of Fourier coefficicent from ID=" +
-                 boost::lexical_cast<string>(indx))
+                 boost::lexical_cast<std::string>(indx))
                  .c_str()));
 
         m_womersleyParams[fldid][bndid]->m_wom_vel.push_back(
@@ -993,7 +984,7 @@ void IncNavierStokes::v_GetAeroForce(Array<OneD, NekDouble> forces)
  **/
 bool IncNavierStokes::DefinedForcing(const std::string &sForce)
 {
-    vector<std::string> vForceList;
+    std::vector<std::string> vForceList;
     bool hasForce{false};
 
     if (!m_session->DefinesElement("Nektar/Forcing"))
@@ -1007,7 +998,7 @@ bool IncNavierStokes::DefinedForcing(const std::string &sForce)
         TiXmlElement *vForce = vForcing->FirstChildElement("FORCE");
         while (vForce)
         {
-            string vType = vForce->Attribute("TYPE");
+            std::string vType = vForce->Attribute("TYPE");
 
             vForceList.push_back(vType);
             vForce = vForce->NextSiblingElement("FORCE");

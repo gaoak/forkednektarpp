@@ -12,10 +12,14 @@
             <I PROPERTY="EQTYPE"                        VALUE="UnsteadyNavierStokes"     />
             <I PROPERTY="EvolutionOperator"             VALUE="Nonlinear"                />
             <I PROPERTY="Projection"                    VALUE="Continuous"                 />
-            <I PROPERTY="TimeIntegrationMethod"         VALUE="IMEXOrder2"               />
             <I PROPERTY="Driver"                        VALUE="Standard"                 />
             <I PROPERTY="SpectralVanishingViscositySpectralHP"    VALUE="DGKernel" />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> IMEX </METHOD>
+            <ORDER> 2 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
 
         <PARAMETERS>
             <P> Re            = 400.                </P>

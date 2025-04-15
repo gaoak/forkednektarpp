@@ -260,10 +260,13 @@
         <SOLVERINFO>
             <I PROPERTY="EQType" VALUE="NonlinearSWE" />
             <I PROPERTY="Projection" VALUE="DisContinuous" />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="ClassicalRungeKutta4" />
             <I PROPERTY="UpwindType" VALUE="HLLC" />
         </SOLVERINFO>
 
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> RungeKutta </METHOD>
+            <ORDER> 4 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
 
         <PARAMETERS>
             <P> TimeStep       = 0.04             </P>

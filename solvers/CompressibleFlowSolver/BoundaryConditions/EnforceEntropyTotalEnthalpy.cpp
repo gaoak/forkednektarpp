@@ -37,7 +37,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "EnforceEntropyTotalEnthalpy.h"
-using namespace std;
 
 namespace Nektar
 {
@@ -57,7 +56,6 @@ EnforceEntropyTotalEnthalpy::EnforceEntropyTotalEnthalpy(
     : CFSBndCond(pSession, pFields, pTraceNormals, pGridVelocity, pSpaceDim,
                  bcRegion, cnt)
 {
-
     const MultiRegions::ExpListSharedPtr bndexp =
         m_fields[0]->GetBndCondExpansions()[m_bcRegion];
 

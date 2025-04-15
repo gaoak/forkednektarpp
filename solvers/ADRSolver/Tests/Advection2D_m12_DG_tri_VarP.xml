@@ -177,13 +177,18 @@
             <P> advy           = 1.5                </P>
             <P> advz           = 2                  </P>
         </PARAMETERS>
+
         <SOLVERINFO>
             <I PROPERTY="EQTYPE"                VALUE="UnsteadyAdvection"   />
             <I PROPERTY="Projection"            VALUE="DisContinuous"       />
             <I PROPERTY="AdvectionType"         VALUE="WeakDG"              />
             <I PROPERTY="UpwindType"            VALUE="Upwind"              />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="ClassicalRungeKutta4"/>
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> RungeKutta </METHOD>
+            <ORDER> 4 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
 
         <VARIABLES>
             <V ID="0"> u </V>

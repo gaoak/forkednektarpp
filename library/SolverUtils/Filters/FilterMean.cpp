@@ -51,20 +51,11 @@ FilterMean::FilterMean(const LibUtilities::SessionReaderSharedPtr &pSession,
     : Filter(pSession, pEquation), m_index(-1), m_homogeneous(false), m_planes()
 {
     // OutputFile
-    auto it = pParams.find("OutputFile");
-    if (it == pParams.end())
-    {
-        m_outputFile = m_session->GetSessionName();
-    }
-    else
-    {
-        ASSERTL0(it->second.length() > 0, "Missing parameter 'OutputFile'.");
-        m_outputFile = it->second;
-    }
-    m_outputFile += ".avg";
+    std::string ext = ".avg";
+    m_outputFile    = Filter::SetupOutput(ext, pParams);
 
     // OutputFrequency
-    it = pParams.find("OutputFrequency");
+    auto it = pParams.find("OutputFrequency");
     ASSERTL0(it != pParams.end(), "Missing parameter 'OutputFrequency'.");
     LibUtilities::Equation equ(m_session->GetInterpreter(), it->second);
     m_outputFrequency = round(equ.Evaluate());
@@ -78,7 +69,7 @@ FilterMean::~FilterMean()
 
 void FilterMean::v_Initialise(
     const Array<OneD, const MultiRegions::ExpListSharedPtr> &pFields,
-    const NekDouble &time)
+    [[maybe_unused]] const NekDouble &time)
 {
     MultiRegions::ExpListSharedPtr areaField;
     int spacedim = 2;
@@ -141,7 +132,10 @@ void FilterMean::v_Initialise(
 
     // Output values at initial time.
     m_index = 0;
-    v_Update(pFields, time);
+    if (m_updateOnInitialise)
+    {
+        v_Update(pFields, time);
+    }
 }
 
 void FilterMean::v_Update(

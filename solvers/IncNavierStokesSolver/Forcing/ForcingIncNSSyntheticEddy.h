@@ -43,6 +43,7 @@
 namespace Nektar::SolverUtils
 {
 class ForcingIncNSSyntheticEddy
+
     : virtual public SolverUtils::Forcing,
       virtual public SolverUtils::ForcingSyntheticEddy
 {
@@ -72,6 +73,7 @@ protected:
                  const Array<OneD, Array<OneD, NekDouble>> &inarray,
                  Array<OneD, Array<OneD, NekDouble>> &outarray,
                  const NekDouble &time) override;
+
     /// Calculate Forcing
     void CalculateForcing(
         const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields);

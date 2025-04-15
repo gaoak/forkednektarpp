@@ -1067,7 +1067,6 @@ void VortexWaveInteraction::CalcNonLinearWaveForce(void)
 
 void VortexWaveInteraction::CalcL2ToLinfPressure(void)
 {
-
     ExecuteWave();
 
     m_wavePressure->GetPlane(0)->BwdTrans(

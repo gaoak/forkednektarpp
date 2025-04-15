@@ -754,9 +754,12 @@
             <I PROPERTY="EQType"                VALUE="APE"                 />
             <I PROPERTY="Projection"            VALUE="DisContinuous"       />
             <I PROPERTY="AdvectionType"         VALUE="WeakDG"              />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="ClassicalRungeKutta4"/>
             <I PROPERTY="UpwindType"            VALUE="Upwind"              />
         </SOLVERINFO>
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> RungeKutta </METHOD>
+            <ORDER> 4 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
         <PARAMETERS>
             <P> TimeStep      = 0.00002           </P>
             <P> NumSteps      = 5                 </P>

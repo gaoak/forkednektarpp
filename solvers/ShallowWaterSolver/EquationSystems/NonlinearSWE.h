@@ -59,11 +59,11 @@ public:
     /// Name of class
     static std::string className;
 
-    ~NonlinearSWE() override = default;
-
 protected:
     NonlinearSWE(const LibUtilities::SessionReaderSharedPtr &pSession,
                  const SpatialDomains::MeshGraphSharedPtr &pGraph);
+
+    ~NonlinearSWE() override = default;
 
     void v_InitObject(bool DeclareFields = true) override;
 

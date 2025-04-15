@@ -35,8 +35,6 @@
 #include "RinglebFlowBC.h"
 #include <MultiRegions/AssemblyMap/AssemblyMapDG.h>
 
-using namespace std;
-
 namespace Nektar
 {
 

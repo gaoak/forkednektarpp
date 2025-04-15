@@ -10,15 +10,17 @@
     <CONDITIONS>
         <SOLVERINFO>
             <I PROPERTY="SolverType"            VALUE="VelocityCorrectionScheme" />
-            <!--I PROPERTY="SolverType"            VALUE="VCSWeakPressure" / The Standard scheme with weak pressure form-->
-            <!--I PROPERTY="SolverType"            VALUE="VCSImplicit" / The implicit scheme-->
             <I PROPERTY="EQTYPE"                VALUE="UnsteadyNavierStokes" />
             <I PROPERTY="AdvectionForm"         VALUE="Convective" />
             <I PROPERTY="Projection"            VALUE="Continuous" />
             <I PROPERTY="GJPStabilisation"      VALUE="Explicit" />
             <I PROPERTY="GJPNormalVelocity"     VALUE="True" />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="IMEXOrder1" />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> IMEX </METHOD>
+            <ORDER> 1 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
 
         <PARAMETERS>
             <P> TimeStep      = 0.001        </P>

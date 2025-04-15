@@ -36,8 +36,6 @@
 
 #include <PulseWaveSolver/EquationSystems/QInflow.h>
 
-using namespace std;
-
 namespace Nektar
 {
 
@@ -48,10 +46,6 @@ QInflow::QInflow(Array<OneD, MultiRegions::ExpListSharedPtr> pVessel,
                  const LibUtilities::SessionReaderSharedPtr pSession,
                  PulseWavePressureAreaSharedPtr pressureArea)
     : PulseWaveBoundary(pVessel, pSession, pressureArea)
-{
-}
-
-QInflow::~QInflow()
 {
 }
 

@@ -53,12 +53,10 @@
 #include <MultiRegions/GlobalLinSysPETScStaticCond.h>
 #endif
 
-using namespace std;
-
 namespace Nektar
 {
 
-string LinearElasticSystem::className =
+std::string LinearElasticSystem::className =
     GetEquationSystemFactory().RegisterCreatorFunction(
         "LinearElasticSystem", LinearElasticSystem::create);
 
@@ -283,8 +281,8 @@ void LinearElasticSystem::BuildMatrixSystem()
 
             if (verbose && root)
             {
-                cout << "\rBuilding matrix system: " << (int)(100.0 * n / nEl)
-                     << "%" << flush;
+                std::cout << "\rBuilding matrix system: "
+                          << (int)(100.0 * n / nEl) << "%" << std::flush;
             }
         }
     }
@@ -341,15 +339,15 @@ void LinearElasticSystem::BuildMatrixSystem()
 
             if (verbose && root)
             {
-                cout << "\rBuilding matrix system: " << (int)(100.0 * n / nEl)
-                     << "%" << flush;
+                std::cout << "\rBuilding matrix system: "
+                          << (int)(100.0 * n / nEl) << "%" << std::flush;
             }
         }
     }
 
     if (verbose && root)
     {
-        cout << "\rBuilding matrix system: done." << endl;
+        std::cout << "\rBuilding matrix system: done." << std::endl;
     }
 }
 
@@ -442,7 +440,7 @@ void LinearElasticSystem::v_DoSolve()
     GetFunction("Forcing")->Evaluate(forcing);
 
     // Add temperature term
-    string tempEval;
+    std::string tempEval;
     m_session->LoadSolverInfo("Temperature", tempEval, "None");
 
     if (tempEval == "Jacobian")

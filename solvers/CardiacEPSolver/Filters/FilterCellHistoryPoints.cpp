@@ -147,30 +147,33 @@ void FilterCellHistoryPoints::v_WriteData(const int &rank,
     Array<OneD, NekDouble> gloCoord(3, 0.0);
     if (!m_outputOneFile || m_index == 1)
     {
-        std::stringstream vOutputFilename;
+        std::stringstream vTmpFilename;
+        std::string vOutputFilename;
+        // get the file extension
+        std::string ext = fs::path(m_outputFile).extension().string();
+        ext             = (ext == "") ? ".his" : ext;
         if (m_outputOneFile)
         {
-            vOutputFilename << m_outputFile << ".his";
+            vTmpFilename << fs::path(m_outputFile).replace_extension(ext);
         }
         else
         {
-            vOutputFilename << m_outputFile << "_" << m_outputIndex << ".his";
+            vTmpFilename
+                << fs::path(m_outputFile).replace_extension("").string() << "_"
+                << m_outputIndex << ext;
         }
+        // back up the file if already exists and backup switch is turned on
+        vOutputFilename = Filter::SetupOutput(ext, vTmpFilename.str());
+
         ++m_outputIndex;
         if (m_adaptive)
         {
-            m_outputStream.open(vOutputFilename.str().c_str(), ofstream::app);
+            m_outputStream.open(vOutputFilename.c_str(), ofstream::app);
         }
         else
         {
-            m_outputStream.open(vOutputFilename.str().c_str());
+            m_outputStream.open(vOutputFilename.c_str());
         }
-        // m_outputStream << "# History data for variables (:";
-
-        // for (int i = 0; i < numFields; ++i)
-        //{
-        //     m_outputStream << m_session->GetVariable(i) <<",";
-        // }
 
         if (m_isHomogeneous1D)
         {

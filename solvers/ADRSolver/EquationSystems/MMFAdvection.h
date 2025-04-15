@@ -58,6 +58,7 @@ const char *const TestTypeMap[] = {
 
 namespace Nektar
 {
+
 class MMFAdvection : public SolverUtils::MMFSystem,
                      public SolverUtils::AdvectionSystem
 {
@@ -74,46 +75,36 @@ public:
         p->InitObject();
         return p;
     }
+
     /// Name of class
     static std::string className;
 
-    TestType m_TestType;
-
-    /// Destructor
-    ~MMFAdvection() override = default;
-
 protected:
     SolverUtils::RiemannSolverSharedPtr m_riemannSolver;
-
+    TestType m_TestType;
     NekDouble m_advx, m_advy, m_advz;
     NekDouble m_waveFreq, m_RotAngle;
-
     NekDouble m_Mass0;
     int m_VelProjection;
-
-    /// Advection velocity
     Array<OneD, Array<OneD, NekDouble>> m_velocity;
     Array<OneD, NekDouble> m_traceVn;
-
     Array<OneD, Array<OneD, NekDouble>> m_veldotMF;
     Array<OneD, NekDouble> m_vellc;
 
-    /// Session reader
     MMFAdvection(const LibUtilities::SessionReaderSharedPtr &pSession,
                  const SpatialDomains::MeshGraphSharedPtr &pGraph);
+
+    ~MMFAdvection() override = default;
+
+    /// Initialise the object
+    void v_InitObject(bool DeclareFields = true) override;
 
     void WeakDGDirectionalAdvection(
         const Array<OneD, Array<OneD, NekDouble>> &InField,
         Array<OneD, Array<OneD, NekDouble>> &OutField);
 
-    /// Evaluate the flux at each solution point
-    void GetFluxVector(const Array<OneD, Array<OneD, NekDouble>> &physfield,
-                       Array<OneD, Array<OneD, Array<OneD, NekDouble>>> &flux);
-
-    /// Evaluate the flux at each solution point using dealiasing
-    void GetFluxVectorDeAlias(
-        const Array<OneD, Array<OneD, NekDouble>> &physfield,
-        Array<OneD, Array<OneD, Array<OneD, NekDouble>>> &flux);
+    /// Get the normal velocity
+    Array<OneD, NekDouble> &GetNormalVelocity();
 
     /// Compute the RHS
     void DoOdeRhs(const Array<OneD, const Array<OneD, NekDouble>> &inarray,
@@ -125,6 +116,15 @@ protected:
         const Array<OneD, const Array<OneD, NekDouble>> &inarray,
         Array<OneD, Array<OneD, NekDouble>> &outarray, const NekDouble time);
 
+    /// Evaluate the flux at each solution point
+    void GetFluxVector(const Array<OneD, Array<OneD, NekDouble>> &physfield,
+                       Array<OneD, Array<OneD, Array<OneD, NekDouble>>> &flux);
+
+    /// Evaluate the flux at each solution point using dealiasing
+    void GetFluxVectorDeAlias(
+        const Array<OneD, Array<OneD, NekDouble>> &physfield,
+        Array<OneD, Array<OneD, Array<OneD, NekDouble>>> &flux);
+
     // Compute the velocity vector
     void EvaluateAdvectionVelocity(
         Array<OneD, Array<OneD, NekDouble>> &velocity);
@@ -132,9 +132,6 @@ protected:
     // Compute arclenght of the surface at zlebel
     NekDouble ComputeCirculatingArclength(const NekDouble zlevel,
                                           const NekDouble Rhs);
-
-    /// Get the normal velocity
-    Array<OneD, NekDouble> &GetNormalVelocity();
 
     void ComputeNablaCdotVelocity(Array<OneD, NekDouble> &vellc);
 
@@ -145,9 +142,6 @@ protected:
 
     void Test2Dproblem(const NekDouble time, Array<OneD, NekDouble> &outfield);
     void Test3Dproblem(const NekDouble time, Array<OneD, NekDouble> &outfield);
-
-    /// Initialise the object
-    void v_InitObject(bool DeclareFields = true) override;
 
     void v_DoSolve() override;
 
@@ -161,9 +155,8 @@ protected:
     void v_EvaluateExactSolution(unsigned int field,
                                  Array<OneD, NekDouble> &outfield,
                                  const NekDouble time) override;
-
-private:
 };
+
 } // namespace Nektar
 
 #endif

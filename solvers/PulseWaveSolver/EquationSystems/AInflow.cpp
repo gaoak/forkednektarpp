@@ -48,10 +48,6 @@ AInflow::AInflow(Array<OneD, MultiRegions::ExpListSharedPtr> pVessel,
 {
 }
 
-AInflow::~AInflow()
-{
-}
-
 void AInflow::v_DoBoundary(
     const Array<OneD, const Array<OneD, NekDouble>> &inarray,
     [[maybe_unused]] Array<OneD, Array<OneD, NekDouble>> &A_0,

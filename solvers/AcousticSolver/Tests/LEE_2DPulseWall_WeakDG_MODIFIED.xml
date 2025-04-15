@@ -311,9 +311,12 @@
         <SOLVERINFO>
             <I PROPERTY="EQType" VALUE="LEE"/> <!-- Acoustic perturbation equations -->
             <I PROPERTY="Projection" VALUE="DisContinuous"/>
-            <I PROPERTY="TimeIntegrationMethod" VALUE="ClassicalRungeKutta4"/>
             <I PROPERTY="UpwindType" VALUE="Upwind"/>
         </SOLVERINFO>
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> RungeKutta </METHOD>
+            <ORDER> 4 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
         <PARAMETERS>
             <P> TimeStep       = 0.00001            </P>
             <P> NumSteps       = 400                </P>

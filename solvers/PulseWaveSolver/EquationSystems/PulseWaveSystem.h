@@ -77,9 +77,6 @@ typedef std::shared_ptr<InterfacePoint> InterfacePointShPtr;
 class PulseWaveSystem : public UnsteadySystem
 {
 public:
-    /// Destructor
-    ~PulseWaveSystem() override;
-
     int GetNdomains()
     {
         return m_nDomains;
@@ -117,6 +114,8 @@ protected:
     // keep local copy so can be reordered in parallle
     std::map<int, SpatialDomains::CompositeMap> m_domain;
     std::vector<int> m_domOrder;
+    std::map<int, std::vector<int>> m_domainToFilterIDs;
+    std::map<int, int> m_filterToVesselID;
 
     Array<OneD, Array<OneD, NekDouble>> m_pressure;
     PulseWavePressureAreaSharedPtr m_pressureArea;
@@ -134,6 +133,8 @@ protected:
     /// Initialises PulseWaveSystem class members.
     PulseWaveSystem(const LibUtilities::SessionReaderSharedPtr &pSession,
                     const SpatialDomains::MeshGraphSharedPtr &pGraph);
+
+    ~PulseWaveSystem() override = default;
 
     void v_InitObject(bool DeclareField = false) override;
 

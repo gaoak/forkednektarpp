@@ -51,19 +51,8 @@ FilterEnergy::FilterEnergy(const LibUtilities::SessionReaderSharedPtr &pSession,
     : Filter(pSession, pEquation), m_index(-1), m_homogeneous(false), m_planes()
 {
     std::string outName;
-
-    // OutputFile
-    auto it = pParams.find("OutputFile");
-    if (it == pParams.end())
-    {
-        outName = m_session->GetSessionName();
-    }
-    else
-    {
-        ASSERTL0(it->second.length() > 0, "Missing parameter 'OutputFile'.");
-        outName = it->second;
-    }
-    outName += ".eny";
+    std::string ext = ".eny";
+    outName         = Filter::SetupOutput(ext, pParams);
 
     m_comm = pSession->GetComm();
     if (m_comm->GetRank() == 0)
@@ -79,7 +68,7 @@ FilterEnergy::FilterEnergy(const LibUtilities::SessionReaderSharedPtr &pSession,
     pSession->LoadParameter("LZ", m_homogeneousLength, 0.0);
 
     // OutputFrequency
-    it = pParams.find("OutputFrequency");
+    auto it = pParams.find("OutputFrequency");
     ASSERTL0(it != pParams.end(), "Missing parameter 'OutputFrequency'.");
     LibUtilities::Equation equ(m_session->GetInterpreter(), it->second);
     m_outputFrequency = round(equ.Evaluate());
@@ -91,7 +80,7 @@ FilterEnergy::~FilterEnergy()
 
 void FilterEnergy::v_Initialise(
     const Array<OneD, const MultiRegions::ExpListSharedPtr> &pFields,
-    const NekDouble &time)
+    [[maybe_unused]] const NekDouble &time)
 {
     m_index = -1;
     MultiRegions::ExpListSharedPtr areaField;
@@ -128,9 +117,10 @@ void FilterEnergy::v_Initialise(
     {
         m_area *= m_homogeneousLength;
     }
-
-    // Output values at initial time.
-    v_Update(pFields, time);
+    if (m_updateOnInitialise)
+    {
+        v_Update(pFields, time);
+    }
 }
 
 void FilterEnergy::v_Update(

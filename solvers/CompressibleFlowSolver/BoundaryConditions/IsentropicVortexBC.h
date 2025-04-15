@@ -79,13 +79,13 @@ private:
         const Array<OneD, Array<OneD, NekDouble>> &pGridVelocity,
         const int pSpaceDim, const int bcRegion, const int cnt);
 
+    ~IsentropicVortexBC(void) override = default;
+
     void EvaluateIsentropicVortex(const Array<OneD, NekDouble> &x,
                                   const Array<OneD, NekDouble> &y,
                                   const Array<OneD, NekDouble> &z,
                                   Array<OneD, Array<OneD, NekDouble>> &u,
                                   NekDouble time, const int o = 0);
-
-    ~IsentropicVortexBC(void) override{};
 };
 
 } // namespace Nektar

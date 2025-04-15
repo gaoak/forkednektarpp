@@ -40,6 +40,7 @@
 
 namespace Nektar
 {
+
 class UnsteadyInviscidBurgers : public SolverUtils::AdvectionSystem
 {
 public:
@@ -56,30 +57,24 @@ public:
         p->InitObject();
         return p;
     }
+
     /// Name of class
     static std::string className;
-
-    /// Destructor
-    ~UnsteadyInviscidBurgers() override = default;
 
 protected:
     SolverUtils::RiemannSolverSharedPtr m_riemannSolver;
     Array<OneD, NekDouble> m_traceVn;
-
     /// Forcing terms
     std::vector<SolverUtils::ForcingSharedPtr> m_forcing;
 
-    /// Session reader
     UnsteadyInviscidBurgers(
         const LibUtilities::SessionReaderSharedPtr &pSession,
         const SpatialDomains::MeshGraphSharedPtr &pGraph);
 
-    /// Get the normal velocity
-    Array<OneD, NekDouble> &GetNormalVelocity();
+    ~UnsteadyInviscidBurgers() override = default;
 
-    /// Evaluate the flux at each solution point
-    void GetFluxVector(const Array<OneD, Array<OneD, NekDouble>> &physfield,
-                       Array<OneD, Array<OneD, Array<OneD, NekDouble>>> &flux);
+    /// Initialise the object
+    void v_InitObject(bool DeclareFields = true) override;
 
     /// Compute the RHS
     void DoOdeRhs(const Array<OneD, const Array<OneD, NekDouble>> &inarray,
@@ -91,14 +86,19 @@ protected:
         const Array<OneD, const Array<OneD, NekDouble>> &inarray,
         Array<OneD, Array<OneD, NekDouble>> &outarray, const NekDouble time);
 
-    /// Initialise the object
-    void v_InitObject(bool DeclareFields = true) override;
+    /// Get the normal velocity
+    Array<OneD, NekDouble> &GetNormalVelocity();
+
+    /// Evaluate the flux at each solution point
+    void GetFluxVector(const Array<OneD, Array<OneD, NekDouble>> &physfield,
+                       Array<OneD, Array<OneD, Array<OneD, NekDouble>>> &flux);
 
     /// Print Summary
     void v_GenerateSummary(SolverUtils::SummaryList &s) override;
 
 private:
 };
+
 } // namespace Nektar
 
 #endif

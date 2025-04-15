@@ -147,11 +147,6 @@ class IncNavierStokes : public SolverUtils::AdvectionSystem,
                         public SolverUtils::FluidInterface
 {
 public:
-    // Destructor
-    ~IncNavierStokes() override;
-
-    void v_InitObject(bool DeclareField = true) override;
-
     int GetNConvectiveFields(void)
     {
         return m_nConvectiveFields;
@@ -159,41 +154,10 @@ public:
 
     void AddForcing(const SolverUtils::ForcingSharedPtr &pForce);
 
-    void v_GetPressure(
-        const Array<OneD, const Array<OneD, NekDouble>> &physfield,
-        Array<OneD, NekDouble> &pressure) override;
-
-    void v_GetDensity(
-        const Array<OneD, const Array<OneD, NekDouble>> &physfield,
-        Array<OneD, NekDouble> &density) override;
-
-    bool v_HasConstantDensity() override
-    {
-        return true;
-    }
-
-    void v_GetVelocity(
-        const Array<OneD, const Array<OneD, NekDouble>> &physfield,
-        Array<OneD, Array<OneD, NekDouble>> &velocity) override;
-
-    void v_SetMovingFrameVelocities(const Array<OneD, NekDouble> &vFrameVels,
-                                    const int step) override;
-    bool v_GetMovingFrameVelocities(Array<OneD, NekDouble> &vFrameVels,
-                                    const int step) override;
-    void v_SetMovingFrameDisp(const Array<OneD, NekDouble> &vFrameDisp,
-                              const int step) override;
-    void v_SetMovingFramePivot(
-        const Array<OneD, NekDouble> &vFramePivot) override;
-    bool v_GetMovingFrameDisp(Array<OneD, NekDouble> &vFrameDisp,
-                              const int step) override;
-    void v_SetAeroForce(Array<OneD, NekDouble> forces) override;
-    void v_GetAeroForce(Array<OneD, NekDouble> forces) override;
-
     bool DefinedForcing(const std::string &sForce);
 
 protected:
     // pointer to the extrapolation class for sub-stepping and HOPBS
-
     ExtrapolateSharedPtr m_extrapolation;
     IncBoundaryConditionsSharedPtr m_IncNavierStokesBCs;
 
@@ -238,15 +202,45 @@ protected:
     Array<OneD, NekDouble> m_pivotPoint;
     Array<OneD, NekDouble> m_aeroForces;
 
+    static std::string eqTypeLookupIds[];
+
     /// Constructor.
     IncNavierStokes(const LibUtilities::SessionReaderSharedPtr &pSession,
                     const SpatialDomains::MeshGraphSharedPtr &pGraph);
 
-    EquationType GetEquationType(void)
+    ~IncNavierStokes() override = default;
+
+    void v_InitObject(bool DeclareField = true) override;
+
+    void v_GetPressure(
+        const Array<OneD, const Array<OneD, NekDouble>> &physfield,
+        Array<OneD, NekDouble> &pressure) override;
+
+    void v_GetDensity(
+        const Array<OneD, const Array<OneD, NekDouble>> &physfield,
+        Array<OneD, NekDouble> &density) override;
+
+    bool v_HasConstantDensity() override
     {
-        return m_equationType;
+        return true;
     }
-    static std::string eqTypeLookupIds[];
+
+    void v_GetVelocity(
+        const Array<OneD, const Array<OneD, NekDouble>> &physfield,
+        Array<OneD, Array<OneD, NekDouble>> &velocity) override;
+
+    void v_SetMovingFrameVelocities(const Array<OneD, NekDouble> &vFrameVels,
+                                    const int step) override;
+    bool v_GetMovingFrameVelocities(Array<OneD, NekDouble> &vFrameVels,
+                                    const int step) override;
+    void v_SetMovingFrameDisp(const Array<OneD, NekDouble> &vFrameDisp,
+                              const int step) override;
+    void v_SetMovingFramePivot(
+        const Array<OneD, NekDouble> &vFramePivot) override;
+    bool v_GetMovingFrameDisp(Array<OneD, NekDouble> &vFrameDisp,
+                              const int step) override;
+    void v_SetAeroForce(Array<OneD, NekDouble> forces) override;
+    void v_GetAeroForce(Array<OneD, NekDouble> forces) override;
 
     void EvaluateAdvectionTerms(
         const Array<OneD, const Array<OneD, NekDouble>> &inarray,

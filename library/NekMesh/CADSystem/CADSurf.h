@@ -188,9 +188,27 @@ public:
     }
 
     /**
+     * @brief Performs a reverse look up to find u,v and x,y,z.
+     * if xyz is off the surface it will return the closest point
+     *
+     * @param p Array of xyz location
+     * @return The parametric location of xyz on this surface
+     */
+    NEKMESH_EXPORT virtual std::array<NekDouble, 2> locuv(
+        std::array<NekDouble, 3> p, NekDouble &dist, NekDouble Umin,
+        NekDouble Usup, NekDouble Vmin, NekDouble Vsup) = 0;
+
+    /**
      * @brief Returns the bounding box of the surface
      */
     NEKMESH_EXPORT virtual std::array<NekDouble, 6> BoundingBox() = 0;
+
+    /**
+     * @brief Returns the bounding box of the surface that scales the
+     * enlargement and the meshing parameters * scale
+     */
+    NEKMESH_EXPORT virtual std::array<NekDouble, 6> BoundingBox(
+        NekDouble scale) = 0;
 
     /**
      * @brief returns curvature at point uv

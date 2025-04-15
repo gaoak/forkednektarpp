@@ -69,18 +69,29 @@
             <TIMELEVEL VALUE="0">
                 <I PROPERTY="EQTYPE"                VALUE="UnsteadyDiffusion"   />
                 <I PROPERTY="Projection"            VALUE="Continuous"          />
-                <I PROPERTY="TimeIntegrationMethod" VALUE="BackwardEuler"       />
                 <I PROPERTY="DiffusionAdvancement"  VALUE="Implicit"            />
                 <I PROPERTY="Driver"                VALUE="Parareal"            />
             </TIMELEVEL>
             <TIMELEVEL VALUE="1">
                 <I PROPERTY="EQTYPE"                VALUE="UnsteadyDiffusion"   />
                 <I PROPERTY="Projection"            VALUE="Continuous"          />
-                <I PROPERTY="TimeIntegrationMethod" VALUE="BackwardEuler"       />
                 <I PROPERTY="DiffusionAdvancement"  VALUE="Implicit"            />
                 <I PROPERTY="Driver"                VALUE="Parareal"            />
             </TIMELEVEL>
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <TIMELEVEL VALUE="0">
+                <METHOD> Euler </METHOD>
+                <ORDER> 1 </ORDER>
+                <VARIANT> Backward </VARIANT>
+            </TIMELEVEL>
+            <TIMELEVEL VALUE="1">
+                <METHOD> Euler </METHOD>
+                <ORDER> 1 </ORDER>
+                <VARIANT> Backward </VARIANT>
+            </TIMELEVEL>
+        </TIMEINTEGRATIONSCHEME>
 
         <PARAMETERS>
             <TIMELEVEL VALUE="0">

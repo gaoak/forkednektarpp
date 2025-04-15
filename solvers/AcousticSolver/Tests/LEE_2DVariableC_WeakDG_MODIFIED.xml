@@ -86,9 +86,13 @@
             <I PROPERTY="EQType"                VALUE="LEE"                 />
             <I PROPERTY="Projection"            VALUE="DisContinuous"       />
             <I PROPERTY="AdvectionType"         VALUE="WeakDG"              />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="ForwardEuler"/>
             <I PROPERTY="UpwindType"            VALUE="Upwind"              />
         </SOLVERINFO>
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> Euler </METHOD>
+            <ORDER> 1 </ORDER>
+            <VARIANT> Forward </VARIANT>
+        </TIMEINTEGRATIONSCHEME>
         <PARAMETERS>
             <P> TimeStep      = 0.00002           </P>
             <P> NumSteps      = 500               </P>

@@ -44,13 +44,14 @@
 #include <SpatialDomains/MeshGraphIO.h>
 
 #include <boost/math/special_functions/spherical_harmonic.hpp>
-using namespace std;
+
 using namespace Nektar::SolverUtils;
 using namespace Nektar;
 
 namespace Nektar
 {
-string MMFDiffusion::className =
+
+std::string MMFDiffusion::className =
     SolverUtils::GetEquationSystemFactory().RegisterCreatorFunction(
         "MMFDiffusion", MMFDiffusion::create, "MMFDiffusion equation.");
 
@@ -173,13 +174,6 @@ void MMFDiffusion::v_InitObject(bool DeclareFields)
     }
 
     m_ode.DefineOdeRhs(&MMFDiffusion::DoOdeRhs, this);
-}
-
-/**
- *
- */
-MMFDiffusion::~MMFDiffusion()
-{
 }
 
 /**OdeRhs

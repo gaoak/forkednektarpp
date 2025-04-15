@@ -34,10 +34,9 @@
 
 #include <CompressibleFlowSolver/RiemannSolvers/AverageSolver.h>
 
-using namespace std;
-
 namespace Nektar
 {
+
 std::string AverageSolver::solverName =
     SolverUtils::GetRiemannSolverFactory().RegisterCreatorFunction(
         "Average", AverageSolver::create, "Average Riemann solver");
@@ -112,4 +111,5 @@ void AverageSolver::v_ArraySolve(
         flux[1][j] += 0.5 * (Pfwd + Pbwd);
     }
 }
+
 } // namespace Nektar

@@ -39,6 +39,7 @@
 
 namespace Nektar
 {
+
 class AUSM3Solver : public AUSM0Solver
 {
 public:
@@ -60,6 +61,7 @@ protected:
 
     NekDouble m_Mco;
 };
+
 } // namespace Nektar
 
 #endif

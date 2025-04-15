@@ -118,7 +118,7 @@ private:
         const Array<OneD, Array<OneD, NekDouble>> &pGridVelocity,
         const int pSpaceDim, const int bcRegion, const int cnt);
 
-    ~EnforceEntropyPressure(void) override{};
+    ~EnforceEntropyPressure(void) override = default;
 };
 
 } // namespace Nektar

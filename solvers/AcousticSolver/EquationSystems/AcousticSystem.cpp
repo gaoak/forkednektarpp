@@ -48,8 +48,6 @@
 
 #include <AcousticSolver/EquationSystems/AcousticSystem.h>
 
-using namespace std;
-
 namespace Nektar
 {
 
@@ -102,7 +100,7 @@ void AcousticSystem::v_InitObject(bool DeclareFields)
 
         ASSERTL0(vCoupling->Attribute("TYPE"),
                  "Missing TYPE attribute in Coupling");
-        string vType = vCoupling->Attribute("TYPE");
+        std::string vType = vCoupling->Attribute("TYPE");
         ASSERTL0(!vType.empty(),
                  "TYPE attribute must be non-empty in Coupling");
 
@@ -111,13 +109,6 @@ void AcousticSystem::v_InitObject(bool DeclareFields)
 
     m_whiteNoiseBC_lastUpdate = -1.0;
     m_whiteNoiseBC_p          = 0.0;
-}
-
-/**
- * @brief Destructor for AcousticSystem class.
- */
-AcousticSystem::~AcousticSystem()
-{
 }
 
 /**
@@ -135,7 +126,7 @@ bool AcousticSystem::v_PreIntegrate(int step)
         {
             numForceFields += x->GetForces().size();
         }
-        vector<string> varNames;
+        std::vector<std::string> varNames;
         Array<OneD, Array<OneD, NekDouble>> phys(
             m_fields.size() + m_bfNames.size() + numForceFields);
         for (int i = 0; i < m_fields.size(); ++i)
@@ -156,8 +147,8 @@ bool AcousticSystem::v_PreIntegrate(int step)
             {
                 phys[m_fields.size() + m_bfNames.size() + f + i] =
                     x->GetForces()[i];
-                varNames.push_back("F_" + boost::lexical_cast<string>(f) + "_" +
-                                   m_session->GetVariable(i));
+                varNames.push_back("F_" + boost::lexical_cast<std::string>(f) +
+                                   "_" + m_session->GetVariable(i));
             }
             f++;
         }
@@ -284,7 +275,7 @@ void AcousticSystem::SetBoundaryConditions(
             }
             else
             {
-                string errmsg = "Unrecognised boundary condition: ";
+                std::string errmsg = "Unrecognised boundary condition: ";
                 errmsg += userDefStr;
                 ASSERTL0(false, errmsg.c_str());
             }
@@ -579,40 +570,14 @@ void AcousticSystem::v_ExtraFldOutput(
     {
         for (int i = 0; i < x->GetForces().size(); ++i)
         {
-            variables.push_back("F_" + boost::lexical_cast<string>(f) + "_" +
-                                m_session->GetVariable(i));
+            variables.push_back("F_" + boost::lexical_cast<std::string>(f) +
+                                "_" + m_session->GetVariable(i));
             Array<OneD, NekDouble> tmpC(GetNcoeffs());
             m_fields[0]->FwdTrans(x->GetForces()[i], tmpC);
             fieldcoeffs.push_back(tmpC);
         }
         f++;
     }
-}
-
-/**
- * @brief Get the normal vectors.
- */
-const Array<OneD, const Array<OneD, NekDouble>> &AcousticSystem::GetNormals()
-{
-    return m_traceNormals;
-}
-
-/**
- * @brief Get the locations of the components of the directed fields within the
- * fields array.
- */
-const Array<OneD, const Array<OneD, NekDouble>> &AcousticSystem::GetVecLocs()
-{
-    return m_vecLocs;
-}
-
-/**
- * @brief Get the baseflow field.
- */
-const Array<OneD, const Array<OneD, NekDouble>> &AcousticSystem::
-    GetBasefieldFwdBwd()
-{
-    return m_bfFwdBwd;
 }
 
 void AcousticSystem::UpdateBasefieldFwdBwd()

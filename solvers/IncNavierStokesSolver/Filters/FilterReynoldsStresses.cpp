@@ -36,6 +36,7 @@
 
 namespace Nektar::SolverUtils
 {
+
 std::string FilterReynoldsStresses::className =
     GetFilterFactory().RegisterCreatorFunction("ReynoldsStresses",
                                                FilterReynoldsStresses::create);
@@ -133,10 +134,6 @@ FilterReynoldsStresses::FilterReynoldsStresses(
     }
     // Check bounds of m_alpha
     ASSERTL0(m_alpha > 0 && m_alpha < 1, "Alpha out of bounds.");
-}
-
-FilterReynoldsStresses::~FilterReynoldsStresses()
-{
 }
 
 void FilterReynoldsStresses::v_Initialise(

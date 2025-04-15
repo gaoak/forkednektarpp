@@ -39,6 +39,7 @@
 
 namespace Nektar
 {
+
 std::string ExactSolverToro::solverName =
     SolverUtils::GetRiemannSolverFactory().RegisterCreatorFunction(
         "ExactToro", ExactSolverToro::create, "Exact Riemann solver");
@@ -390,4 +391,5 @@ void ExactSolverToro::v_PointSolve(
          (outP / (gamma - 1.0) +
           0.5 * outRho * (outU * outU + outV * outV + outW * outW) + outP);
 }
+
 } // namespace Nektar

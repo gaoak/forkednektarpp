@@ -34,8 +34,6 @@
 
 #include "TimeDependentBC.h"
 
-using namespace std;
-
 namespace Nektar
 {
 

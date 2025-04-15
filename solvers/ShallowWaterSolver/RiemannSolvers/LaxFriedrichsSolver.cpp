@@ -36,6 +36,7 @@
 
 namespace Nektar
 {
+
 std::string LaxFriedrichsSolver::solverName =
     SolverUtils::GetRiemannSolverFactory().RegisterCreatorFunction(
         "LaxFriedrichs", LaxFriedrichsSolver::create,
@@ -108,4 +109,5 @@ void LaxFriedrichsSolver::v_PointSolve(NekDouble hL, NekDouble huL,
     // Lax-Friedrichs Riemann hv flux
     hvf = 0.5 * ((hL * uL * vL + hR * uR * vR) - sign * S * (hvR - hvL));
 }
+
 } // namespace Nektar

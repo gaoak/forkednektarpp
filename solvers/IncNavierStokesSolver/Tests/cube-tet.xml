@@ -10,10 +10,13 @@
             <I PROPERTY="EQTYPE"                     VALUE="UnsteadyNavierStokes"/>
             <I PROPERTY="Projection"                 VALUE="Continuous"/>
             <I PROPERTY="GlobalSysSoln"              VALUE="IterativeStaticCond"/>
-            <I PROPERTY="TimeIntegrationMethod"      VALUE="IMEXOrder2"/>
             <I PROPERTY="Driver"                     VALUE="Standard"/>
             <I PROPERTY="SpectralVanishingViscosity" VALUE="DGKernel"/>
         </SOLVERINFO>
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> IMEX </METHOD>
+            <ORDER> 2 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
         <PARAMETERS>
             <P>    IO_InfoSteps    =  1          </P>
             <P>    TimeStep        =  1e-05      </P>

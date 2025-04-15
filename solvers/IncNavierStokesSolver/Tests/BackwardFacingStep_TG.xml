@@ -1686,11 +1686,15 @@
             <I PROPERTY="EQTYPE"                VALUE="UnsteadyNavierStokes"    />
             <I PROPERTY="EvolutionOperator"     VALUE="TransientGrowth"         />
             <I PROPERTY="Projection"            VALUE="Galerkin"                />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="IMEXOrder2"              />
             <I PROPERTY="SOLVERTYPE"            VALUE="VelocityCorrectionScheme"/>
             <I PROPERTY="Driver"                VALUE="Arpack"                  />
             <I PROPERTY="ArpackProblemType"     VALUE="LargestMag"              />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> IMEX </METHOD>
+            <ORDER> 2 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
 
         <PARAMETERS>
             <P> FinalTime       = 0.1                   </P>

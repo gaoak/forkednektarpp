@@ -57,7 +57,7 @@ struct CanGetRawPtr<NekMatrix<NekMatrix<T, R>, ScaledMatrixTag>>
 
 template <typename T, typename M>
 struct CanGetRawPtr<NekMatrix<T, M>>
-    : std::conditional<!std::is_same<BlockMatrixTag, M>::value &&
+    : std::conditional<!std::is_same_v<BlockMatrixTag, M> &&
                            CanGetRawPtr<T>::value,
                        std::true_type, std::false_type>::type
 {

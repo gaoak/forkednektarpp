@@ -64,10 +64,6 @@ MappingExtrapolate::MappingExtrapolate(
                              1.0);
 }
 
-MappingExtrapolate::~MappingExtrapolate()
-{
-}
-
 /**
  *
  */
@@ -369,4 +365,5 @@ void MappingExtrapolate::v_CalcNeumannPressureBCs(
     }
     m_bcCorrection = Array<OneD, NekDouble>(m_numHBCDof, 0.0);
 }
+
 } // namespace Nektar

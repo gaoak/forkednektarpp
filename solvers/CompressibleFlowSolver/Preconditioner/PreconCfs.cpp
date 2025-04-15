@@ -35,10 +35,9 @@
 
 #include <CompressibleFlowSolver/Preconditioner/PreconCfs.h>
 
-using namespace std;
-
 namespace Nektar
 {
+
 PreconCfsFactory &GetPreconCfsFactory()
 {
     static PreconCfsFactory instance;

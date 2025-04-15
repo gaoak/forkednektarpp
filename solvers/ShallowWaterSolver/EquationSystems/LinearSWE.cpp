@@ -40,6 +40,7 @@
 
 namespace Nektar
 {
+
 std::string LinearSWE::className =
     SolverUtils::GetEquationSystemFactory().RegisterCreatorFunction(
         "LinearSWE", LinearSWE::create,

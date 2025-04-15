@@ -35,11 +35,10 @@
 #include <ImageWarpingSolver/EquationSystems/ImageWarpingSystem.h>
 #include <MultiRegions/ContField.h>
 
-using namespace std;
-
 namespace Nektar
 {
-string ImageWarpingSystem::className =
+
+std::string ImageWarpingSystem::className =
     GetEquationSystemFactory().RegisterCreatorFunction(
         "ImageWarpingSystem", ImageWarpingSystem::create,
         "Image warping system.");
@@ -90,8 +89,8 @@ void ImageWarpingSystem::v_InitObject(bool DeclareField)
         m_traceVn = Array<OneD, NekDouble>(GetTraceNpoints());
     }
 
-    string advName;
-    string riemName;
+    std::string advName;
+    std::string riemName;
     m_session->LoadSolverInfo("AdvectionType", advName, "WeakDG");
     m_advObject =
         SolverUtils::GetAdvectionFactory().CreateInstance(advName, advName);
@@ -114,13 +113,6 @@ void ImageWarpingSystem::v_InitObject(bool DeclareField)
     {
         ASSERTL0(false, "Implicit unsteady Advection not set up.");
     }
-}
-
-/**
- *
- */
-ImageWarpingSystem::~ImageWarpingSystem()
-{
 }
 
 /**

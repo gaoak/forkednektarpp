@@ -35,8 +35,6 @@
 
 #include <PulseWaveSolver/EquationSystems/UndefinedInOutflow.h>
 
-using namespace std;
-
 namespace Nektar
 {
 
@@ -49,10 +47,6 @@ UndefinedInOutflow::UndefinedInOutflow(
     const LibUtilities::SessionReaderSharedPtr pSession,
     PulseWavePressureAreaSharedPtr pressureArea)
     : PulseWaveBoundary(pVessel, pSession, pressureArea)
-{
-}
-
-UndefinedInOutflow::~UndefinedInOutflow()
 {
 }
 

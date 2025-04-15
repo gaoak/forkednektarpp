@@ -46,10 +46,6 @@ std::string DiffusionLDGNS::type =
     GetDiffusionFactory().RegisterCreatorFunction(
         "LDGNS", DiffusionLDGNS::create, "LDG for Navier-Stokes");
 
-DiffusionLDGNS::DiffusionLDGNS()
-{
-}
-
 void DiffusionLDGNS::v_InitObject(
     LibUtilities::SessionReaderSharedPtr pSession,
     Array<OneD, MultiRegions::ExpListSharedPtr> pFields)

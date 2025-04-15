@@ -26,13 +26,16 @@
     <CONDITIONS>
         <SOLVERINFO>
             <I PROPERTY="SolverType"              VALUE="SmoothedProfileMethod" />
-            <I PROPERTY="TimeIntegrationMethod"   VALUE="IMEXOrder3"            />
             <I PROPERTY="Eqtype"                  VALUE="UnsteadyNavierStokes"  />
             <I PROPERTY="EvolutionOperator"       VALUE="Nonlinear"             />
             <I PROPERTY="Projection"              VALUE="Continuous"            />
             <I PROPERTY="Driver"                  VALUE="Standard"              />
             <I PROPERTY="ForceBoundary"           VALUE="False"                 />
         </SOLVERINFO>
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> IMEX </METHOD>
+            <ORDER> 3 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
         <PARAMETERS>
             <P> TimeStep      = 0.001    </P>
             <P> NumSteps      = 20       </P>

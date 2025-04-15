@@ -34,10 +34,9 @@
 
 #include "CFSBndCond.h"
 
-using namespace std;
-
 namespace Nektar
 {
+
 CFSBndCondFactory &GetCFSBndCondFactory()
 {
     static CFSBndCondFactory instance;
@@ -77,20 +76,6 @@ CFSBndCond::CFSBndCond(
     // Load parameter for the wall rotational BC
     // @TODO: Move LoadParameter in to WallRotationalBC.cpp
     m_session->LoadParameter("AngVel", m_angVel, 0);
-}
-
-/**
- * @param   bcRegion      id of the boundary region
- * @param   cnt
- * @param   Fwd
- * @param   physarray
- * @param   time
- */
-void CFSBndCond::Apply(Array<OneD, Array<OneD, NekDouble>> &Fwd,
-                       Array<OneD, Array<OneD, NekDouble>> &physarray,
-                       const NekDouble &time)
-{
-    v_Apply(Fwd, physarray, time);
 }
 
 /**

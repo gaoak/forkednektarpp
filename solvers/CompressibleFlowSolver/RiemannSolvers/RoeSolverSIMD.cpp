@@ -39,6 +39,7 @@
 
 namespace Nektar
 {
+
 std::string RoeSolverSIMD::solverName =
     SolverUtils::GetRiemannSolverFactory().RegisterCreatorFunction(
         "RoeOpt", RoeSolverSIMD::create, "Roe Riemann solver opt");

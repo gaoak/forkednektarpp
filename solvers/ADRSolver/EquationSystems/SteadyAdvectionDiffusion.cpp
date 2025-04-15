@@ -36,6 +36,7 @@
 
 namespace Nektar
 {
+
 std::string SteadyAdvectionDiffusion::className =
     GetEquationSystemFactory().RegisterCreatorFunction(
         "SteadyAdvectionDiffusion", SteadyAdvectionDiffusion::create);

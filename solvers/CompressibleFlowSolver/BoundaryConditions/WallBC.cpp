@@ -34,8 +34,6 @@
 
 #include "WallBC.h"
 
-using namespace std;
-
 namespace Nektar
 {
 

@@ -52,6 +52,8 @@ typedef std::shared_ptr<TimeDependentInflow> TimeDependentInflowSharedPtr;
 class TimeDependentInflow : public PulseWaveBoundary
 {
 public:
+    friend class MemoryManager<TimeDependentInflow>;
+
     // Creates an instance of this class
     static PulseWaveBoundarySharedPtr create(
         Array<OneD, MultiRegions::ExpListSharedPtr> &pVessel,
@@ -65,13 +67,13 @@ public:
     /// Name of class
     static std::string className;
 
+protected:
     TimeDependentInflow(Array<OneD, MultiRegions::ExpListSharedPtr> pVessel,
                         const LibUtilities::SessionReaderSharedPtr pSession,
                         PulseWavePressureAreaSharedPtr pressureArea);
 
-    ~TimeDependentInflow() override;
+    ~TimeDependentInflow() override = default;
 
-protected:
     void v_DoBoundary(const Array<OneD, const Array<OneD, NekDouble>> &inarray,
                       Array<OneD, Array<OneD, NekDouble>> &A_0,
                       Array<OneD, Array<OneD, NekDouble>> &beta,

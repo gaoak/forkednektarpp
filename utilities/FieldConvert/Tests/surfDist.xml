@@ -14,8 +14,12 @@
             <I PROPERTY="GlobalSysSoln"                        VALUE="IterativeStaticCond"     />
             <I PROPERTY="SuccessiveRHS"  		       VALUE="-8"		       />
             <I PROPERTY="WeightPartitions"                     VALUE="Boundary"                />
-            <I PROPERTY="TimeIntegrationMethod"                VALUE="IMEXOrder2"              />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> IMEX </METHOD>
+            <ORDER> 2 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
 
         <PARAMETERS>
             <P> TimeStep              = 5e-5                  </P>

@@ -36,6 +36,7 @@
 
 namespace Nektar
 {
+
 std::string SteadyAdvectionDiffusionReaction::className =
     GetEquationSystemFactory().RegisterCreatorFunction(
         "SteadyAdvectionDiffusionReaction",
@@ -64,4 +65,5 @@ void SteadyAdvectionDiffusionReaction::v_GenerateSummary(
     SteadyAdvectionDiffusion::v_GenerateSummary(s);
     SolverUtils::AddSummaryItem(s, "Lambda", m_lambda);
 }
+
 } // namespace Nektar

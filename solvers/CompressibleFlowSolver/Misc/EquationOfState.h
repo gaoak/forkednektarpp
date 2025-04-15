@@ -42,6 +42,7 @@
 
 namespace Nektar
 {
+
 //  Forward declaration
 class EquationOfState;
 
@@ -66,37 +67,65 @@ using vec_t = tinysimd::simd<NekDouble>;
 class EquationOfState
 {
 public:
-    virtual ~EquationOfState()
-    {
-    }
+    virtual ~EquationOfState() = default;
 
     /// Calculate the temperature
-    NekDouble GetTemperature(const NekDouble &rho, const NekDouble &e);
+    NekDouble GetTemperature(const NekDouble &rho, const NekDouble &e)
+    {
+        return v_GetTemperature(rho, e);
+    }
 
-    vec_t GetTemperature(const vec_t &rho, const vec_t &e);
+    vec_t GetTemperature(const vec_t &rho, const vec_t &e)
+    {
+        return v_GetTemperature(rho, e);
+    }
 
     /// Calculate the pressure
-    NekDouble GetPressure(const NekDouble &rho, const NekDouble &e);
+    NekDouble GetPressure(const NekDouble &rho, const NekDouble &e)
+    {
+        return v_GetPressure(rho, e);
+    }
 
-    vec_t GetPressure(const vec_t &rho, const vec_t &e);
+    vec_t GetPressure(const vec_t &rho, const vec_t &e)
+    {
+        return v_GetPressure(rho, e);
+    }
 
     /// Calculate the sound speed
-    NekDouble GetSoundSpeed(const NekDouble &rho, const NekDouble &e);
+    NekDouble GetSoundSpeed(const NekDouble &rho, const NekDouble &e)
+    {
+        return v_GetSoundSpeed(rho, e);
+    }
 
     /// Calculate the entropy
-    NekDouble GetEntropy(const NekDouble &rho, const NekDouble &e);
+    NekDouble GetEntropy(const NekDouble &rho, const NekDouble &e)
+    {
+        return v_GetEntropy(rho, e);
+    }
 
     /// Calculate the partial derivative of P(rho,e) with respect to rho
-    NekDouble GetDPDrho_e(const NekDouble &rho, const NekDouble &e);
+    NekDouble GetDPDrho_e(const NekDouble &rho, const NekDouble &e)
+    {
+        return v_GetDPDrho_e(rho, e);
+    }
 
     /// Calculate the partial derivative of P(rho,e) with respect to e
-    NekDouble GetDPDe_rho(const NekDouble &rho, const NekDouble &e);
+    NekDouble GetDPDe_rho(const NekDouble &rho, const NekDouble &e)
+    {
+        return v_GetDPDe_rho(rho, e);
+    }
 
     /// Obtain the internal energy from rho and P
-    NekDouble GetEFromRhoP(const NekDouble &rho, const NekDouble &p);
+    NekDouble GetEFromRhoP(const NekDouble &rho, const NekDouble &p)
+    {
+        return v_GetEFromRhoP(rho, p);
+    }
 
     /// Obtain the density from P and T
-    NekDouble GetRhoFromPT(const NekDouble &p, const NekDouble &T);
+    NekDouble GetRhoFromPT(const NekDouble &p, const NekDouble &T)
+    {
+        return v_GetRhoFromPT(p, T);
+    }
 
 protected:
     NekDouble m_gamma;

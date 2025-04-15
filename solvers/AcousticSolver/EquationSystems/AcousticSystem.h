@@ -61,9 +61,6 @@ class AcousticSystem : public AdvectionSystem
 public:
     friend class MemoryManager<AcousticSystem>;
 
-    /// Destructor
-    ~AcousticSystem() override;
-
 protected:
     /// indices of the fields
     int m_ip, m_irho, m_iu;
@@ -82,6 +79,8 @@ protected:
     AcousticSystem(const LibUtilities::SessionReaderSharedPtr &pSession,
                    const SpatialDomains::MeshGraphSharedPtr &pGraph);
 
+    ~AcousticSystem() override = default;
+
     void v_InitObject(bool DeclareFields = true) override;
 
     void DoOdeRhs(const Array<OneD, const Array<OneD, NekDouble>> &inarray,
@@ -93,11 +92,8 @@ protected:
         Array<OneD, Array<OneD, NekDouble>> &outarray, const NekDouble time);
 
     virtual void v_AddLinTerm(
-        [[maybe_unused]] const Array<OneD, const Array<OneD, NekDouble>>
-            &inarray,
-        [[maybe_unused]] Array<OneD, Array<OneD, NekDouble>> &outarray)
-    {
-    }
+        const Array<OneD, const Array<OneD, NekDouble>> &inarray,
+        Array<OneD, Array<OneD, NekDouble>> &outarray) = 0;
 
     virtual void v_GetFluxVector(
         const Array<OneD, Array<OneD, NekDouble>> &physfield,
@@ -118,11 +114,20 @@ protected:
     void v_ExtraFldOutput(std::vector<Array<OneD, NekDouble>> &fieldcoeffs,
                           std::vector<std::string> &variables) override;
 
-    const Array<OneD, const Array<OneD, NekDouble>> &GetNormals();
+    const Array<OneD, const Array<OneD, NekDouble>> &GetNormals()
+    {
+        return m_traceNormals;
+    }
 
-    const Array<OneD, const Array<OneD, NekDouble>> &GetVecLocs();
+    const Array<OneD, const Array<OneD, NekDouble>> &GetVecLocs()
+    {
+        return m_vecLocs;
+    }
 
-    const Array<OneD, const Array<OneD, NekDouble>> &GetBasefieldFwdBwd();
+    const Array<OneD, const Array<OneD, NekDouble>> &GetBasefieldFwdBwd()
+    {
+        return m_bfFwdBwd;
+    }
 
 private:
     std::map<int, boost::mt19937> m_rng;
@@ -147,6 +152,7 @@ private:
 
     void UpdateBasefieldFwdBwd();
 };
+
 } // namespace Nektar
 
 #endif

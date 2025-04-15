@@ -40,9 +40,12 @@
 
 namespace Nektar
 {
+
 class FilterAeroForcesSPM : public SolverUtils::Filter
 {
 public:
+    friend class MemoryManager<FilterAeroForcesSPM>;
+
     /// Creates an instance of this class
     static SolverUtils::FilterSharedPtr create(
         const LibUtilities::SessionReaderSharedPtr &pSession,
@@ -57,13 +60,6 @@ public:
 
     /// Name of the class
     static std::string className;
-
-    FilterAeroForcesSPM(
-        const LibUtilities::SessionReaderSharedPtr &pSession,
-        const std::shared_ptr<SolverUtils::EquationSystem> &pEquation,
-        const std::map<std::string, std::string> &pParams);
-
-    ~FilterAeroForcesSPM() override;
 
     // Calculates the forces and fills the array 'm_Forces' up
     void CalculateForces(const Array<OneD, Array<OneD, NekDouble>> &pIntVel,
@@ -85,6 +81,13 @@ protected:
     /// Array storing the last value of the aerodynamic forces
     Array<OneD, NekDouble> m_Forces;
 
+    FilterAeroForcesSPM(
+        const LibUtilities::SessionReaderSharedPtr &pSession,
+        const std::shared_ptr<SolverUtils::EquationSystem> &pEquation,
+        const std::map<std::string, std::string> &pParams);
+
+    ~FilterAeroForcesSPM() override = default;
+
     void v_Initialise(
         const Array<OneD, const MultiRegions::ExpListSharedPtr> &pFields,
         const NekDouble &time) override;
@@ -103,6 +106,7 @@ private:
 };
 
 typedef std::shared_ptr<FilterAeroForcesSPM> FilterAeroForcesSPMSharedPtr;
+
 } // namespace Nektar
 
 #endif /* NEKTAR_INCNAVIERSTOKES_FILTERS_FILTERAEROFORCESSPM_H */

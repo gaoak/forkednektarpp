@@ -82,7 +82,7 @@ private:
         const Array<OneD, Array<OneD, NekDouble>> &pGridVelocity,
         const int pSpaceDim, const int bcRegion, const int cnt);
 
-    ~PressureInflowFileBC(void) override{};
+    ~PressureInflowFileBC(void) override = default;
 
     // Field storage for PressureInflowFileBC
     Array<OneD, Array<OneD, NekDouble>> m_fieldStorage;

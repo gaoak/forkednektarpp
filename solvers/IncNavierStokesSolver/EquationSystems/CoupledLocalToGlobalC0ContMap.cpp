@@ -41,8 +41,6 @@
 #include <MultiRegions/GlobalLinSysDirectStaticCond.h>
 #include <SpatialDomains/MeshGraph.h>
 
-using namespace std;
-
 namespace Nektar
 {
 /**
@@ -87,7 +85,7 @@ CoupledLocalToGlobalC0ContMap::CoupledLocalToGlobalC0ContMap(
     MultiRegions::PeriodicMap periodicVerts;
     MultiRegions::PeriodicMap periodicEdges;
     MultiRegions::PeriodicMap periodicFaces;
-    vector<map<int, int>> ReorderedGraphVertId(3);
+    std::vector<std::map<int, int>> ReorderedGraphVertId(3);
     MultiRegions::BottomUpSubStructuredGraphSharedPtr bottomUpGraph;
     int staticCondLevel = 0;
 
@@ -120,13 +118,13 @@ CoupledLocalToGlobalC0ContMap::CoupledLocalToGlobalC0ContMap(
         bndConditionsVec[i] = fields[i]->GetBndConditions();
     }
 
-    map<int, int> IsDirVertDof;
-    map<int, int> IsDirEdgeDof;
+    std::map<int, int> IsDirVertDof;
+    std::map<int, int> IsDirEdgeDof;
 
     SpatialDomains::Geometry1DSharedPtr g;
     for (j = 0; j < bndCondExp.size(); ++j)
     {
-        map<int, int> BndExpVids;
+        std::map<int, int> BndExpVids;
         // collect unique list of vertex ids for this expansion
         for (k = 0; k < bndCondExp[j]->GetNumElmts(); ++k)
         {
@@ -201,7 +199,7 @@ CoupledLocalToGlobalC0ContMap::CoupledLocalToGlobalC0ContMap(
         }
     }
 
-    Array<OneD, map<int, int>> Dofs(2);
+    Array<OneD, std::map<int, int>> Dofs(2);
 
     Array<OneD, int> AddMeanPressureToEdgeId(nel, -1);
     size_t edgeId, vertId;
@@ -293,7 +291,7 @@ CoupledLocalToGlobalC0ContMap::CoupledLocalToGlobalC0ContMap(
         }
     }
 
-    set<int> extraDirVerts, extraDirEdges;
+    std::set<int> extraDirVerts, extraDirEdges;
 
     CreateGraph(*fields[0], bndCondExp, bndConditionsVec, false, periodicVerts,
                 periodicEdges, periodicFaces, ReorderedGraphVertId,
@@ -355,7 +353,7 @@ CoupledLocalToGlobalC0ContMap::CoupledLocalToGlobalC0ContMap(
         Dofs[1][AddMeanPressureToEdgeId[i]] += nz_loc;
     }
 
-    map<int, int> pressureEdgeOffset;
+    std::map<int, int> pressureEdgeOffset;
 
     /**
      * STEP 2: Count out the number of Dirichlet vertices and edges first
@@ -455,7 +453,7 @@ CoupledLocalToGlobalC0ContMap::CoupledLocalToGlobalC0ContMap(
     // has a mixed Dirichlet with Neumann/Robin Condition and if
     // so negate the offset associated with this vertex.
 
-    map<int, int> DirVertChk;
+    std::map<int, int> DirVertChk;
 
     for (i = 0; i < bndConditionsVec[0].size(); ++i)
     {
@@ -670,7 +668,7 @@ CoupledLocalToGlobalC0ContMap::CoupledLocalToGlobalC0ContMap(
         // Require an inverse ordering of the bmap system to store
         // local numbering system. Therefore get hold of elemental
         // bmap and set up an inverse map
-        map<int, int> inv_bmap;
+        std::map<int, int> inv_bmap;
         locExpansion->GetBoundaryMap(bmap);
         for (j = 0; j < bmap.size(); ++j)
         {
@@ -692,7 +690,7 @@ CoupledLocalToGlobalC0ContMap::CoupledLocalToGlobalC0ContMap(
             // coefficients to this edge orientation.
             if (pIt != periodicEdges.end())
             {
-                pair<int, StdRegions::Orientation> idOrient =
+                std::pair<int, StdRegions::Orientation> idOrient =
                     DeterminePeriodicEdgeOrientId(meshEdgeId, edgeOrient,
                                                   pIt->second);
                 edgeOrient = idOrient.second;
@@ -894,10 +892,10 @@ CoupledLocalToGlobalC0ContMap::CoupledLocalToGlobalC0ContMap(
 }
 
 void CoupledLocalToGlobalC0ContMap::FindEdgeIdToAddMeanPressure(
-    vector<map<int, int>> &ReorderedGraphVertId, size_t &nel,
+    std::vector<std::map<int, int>> &ReorderedGraphVertId, size_t &nel,
     const LocalRegions::ExpansionVector &locExpVector, size_t &edgeId,
     [[maybe_unused]] size_t &vertId, int &firstNonDirGraphVertId,
-    map<int, int> &IsDirEdgeDof,
+    std::map<int, int> &IsDirEdgeDof,
     MultiRegions::BottomUpSubStructuredGraphSharedPtr &bottomUpGraph,
     Array<OneD, int> &AddMeanPressureToEdgeId)
 {
@@ -905,7 +903,7 @@ void CoupledLocalToGlobalC0ContMap::FindEdgeIdToAddMeanPressure(
 
     // Make list of homogeneous graph edges to elmt mappings
     Array<TwoD, int> EdgeIdToElmts(ReorderedGraphVertId[1].size(), 2, -1);
-    map<int, int> HomGraphEdgeIdToEdgeId;
+    std::map<int, int> HomGraphEdgeIdToEdgeId;
 
     for (i = 0; i < nel; ++i)
     {
@@ -943,7 +941,7 @@ void CoupledLocalToGlobalC0ContMap::FindEdgeIdToAddMeanPressure(
     // which is part of the inner solve;
     int defedge = -1;
 
-    vector<MultiRegions::SubGraphSharedPtr> bndgraphs =
+    std::vector<MultiRegions::SubGraphSharedPtr> bndgraphs =
         bottomUpGraph->GetInteriorBlocks(nlevels);
     for (i = 0; i < bndgraphs.size(); ++i)
     {
@@ -974,11 +972,11 @@ void CoupledLocalToGlobalC0ContMap::FindEdgeIdToAddMeanPressure(
     {
         // produce a map with a key that is the element id
         // that contains which next level patch it belongs to
-        vector<MultiRegions::SubGraphSharedPtr> bndgraphs =
+        std::vector<MultiRegions::SubGraphSharedPtr> bndgraphs =
             bottomUpGraph->GetInteriorBlocks(n + 1);
 
         // Fill next level graph  of adjacent elements and their level
-        map<int, int> ElmtInBndry;
+        std::map<int, int> ElmtInBndry;
 
         for (i = 0; i < bndgraphs.size(); ++i)
         {
@@ -1007,7 +1005,7 @@ void CoupledLocalToGlobalC0ContMap::FindEdgeIdToAddMeanPressure(
         // Now search interior patches in this level for edges
         // that share the same element as a boundary edge and
         // assign this elmt that boundary edge
-        vector<MultiRegions::SubGraphSharedPtr> intgraphs =
+        std::vector<MultiRegions::SubGraphSharedPtr> intgraphs =
             bottomUpGraph->GetInteriorBlocks(n);
         for (i = 0; i < intgraphs.size(); ++i)
         {

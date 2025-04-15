@@ -12,7 +12,8 @@ diff -Naur cwipi-0.11.1.old/cmake/modules/default_flags.cmake cwipi-0.11.1/cmake
    set (CMAKE_Fortran_FLAGS_DEBUG           "-O0 -g -fcheck=bounds -fbacktrace")
 @@ -29,7 +29,7 @@
  
- elseif (CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
+-elseif (CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
++elseif (CMAKE_Fortran_COMPILER_ID MATCHES "^Intel")
  
 -  set (CMAKE_Fortran_FLAGS "-cpp -fpic -warn -diag-disable 7712")
 +  set (CMAKE_Fortran_FLAGS "-w -cpp -fpic -warn -diag-disable 7712")
@@ -39,7 +40,8 @@ diff -Naur cwipi-0.11.1.old/cmake/modules/default_flags.cmake cwipi-0.11.1/cmake
    set (CMAKE_C_FLAGS_DEBUG           "-O0 -g")
 @@ -153,7 +153,7 @@
  
- elseif (CMAKE_C_COMPILER_ID STREQUAL "Intel")
+-elseif (CMAKE_C_COMPILER_ID STREQUAL "Intel")
++elseif (CMAKE_C_COMPILER_ID MATCHES "^Intel")
  
 -  set (CMAKE_C_FLAGS "-std=gnu99 -restrict -fpic -funsigned-char -Wall -Wcheck -Wshadow -Wpointer-arith -Wmissing-prototypes -Wuninitialized -Wunused -wd869,3656,177")
 +  set (CMAKE_C_FLAGS "-std=gnu99 -restrict -fpic -funsigned-char -w")
@@ -64,9 +66,10 @@ diff -Naur cwipi-0.11.1.old/cmake/modules/default_flags.cmake cwipi-0.11.1/cmake
  
    set (CMAKE_CXX_FLAGS_RELEASE         "-O3")
    set (CMAKE_CXX_FLAGS_DEBUG           "-O0 -g")
-@@ -253,7 +253,7 @@
+@@ -251,7 +251,7 @@
  
- elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
+-elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
++elseif (CMAKE_CXX_COMPILER_ID MATCHES "^Intel")
  
 -  set (CMAKE_CXX_FLAGS "-std=c++11 -fpic -funsigned-char -Wall -Wcheck -Wshadow -Wpointer-arith -Wmissing-prototypes -Wuninitialized -Wunused -wd869,3656,177")
 +  set (CMAKE_CXX_FLAGS "-std=c++11 -fpic -funsigned-char -w")

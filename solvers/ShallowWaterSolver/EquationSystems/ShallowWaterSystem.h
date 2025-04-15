@@ -64,9 +64,6 @@ public:
     /// Name of class
     static std::string className;
 
-    /// Destructor
-    ~ShallowWaterSystem() override = default;
-
 protected:
     SolverUtils::RiemannSolverSharedPtr m_riemannSolver;
     SolverUtils::AdvectionSharedPtr m_advection;
@@ -96,9 +93,10 @@ protected:
     // Location of velocity vector.
     Array<OneD, Array<OneD, NekDouble>> m_vecLocs;
 
-    /// Initialises UnsteadySystem class members.
     ShallowWaterSystem(const LibUtilities::SessionReaderSharedPtr &pSession,
                        const SpatialDomains::MeshGraphSharedPtr &pGraph);
+
+    ~ShallowWaterSystem() override = default;
 
     void v_InitObject(bool DeclareFields = true) override;
 
@@ -183,6 +181,7 @@ private:
 
     void EvaluateCoriolis(void);
 };
+
 } // namespace Nektar
 
 #endif

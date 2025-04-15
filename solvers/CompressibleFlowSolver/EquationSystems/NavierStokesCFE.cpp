@@ -34,11 +34,10 @@
 
 #include <CompressibleFlowSolver/EquationSystems/NavierStokesCFE.h>
 
-using namespace std;
-
 namespace Nektar
 {
-string NavierStokesCFE::className =
+
+std::string NavierStokesCFE::className =
     SolverUtils::GetEquationSystemFactory().RegisterCreatorFunction(
         "NavierStokesCFE", NavierStokesCFE::create,
         "NavierStokes equations in conservative variables.");
@@ -101,7 +100,7 @@ void NavierStokesCFE::InitObject_Explicit()
         m_is_shockCaptPhys = true;
     }
 
-    string diffName;
+    std::string diffName;
     m_session->LoadSolverInfo("DiffusionType", diffName, "LDGNS");
 
     m_diffusion =
@@ -221,10 +220,6 @@ void NavierStokesCFE::v_DoDiffusion(
             inBwd[i]       = Array<OneD, NekDouble>{nTracePts};
         }
 
-        // Extract pressure
-        // (use inarrayDiff[0] as a temporary storage for the pressure)
-        m_varConv->GetPressure(inarray, inarrayDiff[0]);
-
         // Extract temperature
         m_varConv->GetTemperature(inarray, inarrayDiff[nvariables - 2]);
 
@@ -240,9 +235,6 @@ void NavierStokesCFE::v_DoDiffusion(
         }
         else
         {
-            m_varConv->GetPressure(pFwd, inFwd[0]);
-            m_varConv->GetPressure(pBwd, inBwd[0]);
-
             m_varConv->GetTemperature(pFwd, inFwd[nvariables - 2]);
             m_varConv->GetTemperature(pBwd, inBwd[nvariables - 2]);
 
@@ -906,7 +898,7 @@ void NavierStokesCFE::v_ExtraFldOutput(
         Array<OneD, NekDouble> aFwd(nCoeffs), mFwd(nCoeffs);
         Array<OneD, NekDouble> sensFwd(nCoeffs);
 
-        string velNames[3] = {"u", "v", "w"};
+        std::string velNames[3] = {"u", "v", "w"};
         for (int i = 0; i < m_spacedim; ++i)
         {
             m_fields[0]->FwdTransLocalElmt(velocity[i], velFwd[i]);
@@ -994,4 +986,5 @@ bool NavierStokesCFE::v_SupportsShockCaptType(const std::string type) const
         return false;
     }
 }
+
 } // namespace Nektar

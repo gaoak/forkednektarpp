@@ -42,6 +42,8 @@ namespace Nektar
 class VelocityCorrectionScheme : public IncNavierStokes
 {
 public:
+    friend class MemoryManager<VelocityCorrectionScheme>;
+
     /// Creates an instance of this class
     static SolverUtils::EquationSystemSharedPtr create(
         const LibUtilities::SessionReaderSharedPtr &pSession,
@@ -56,15 +58,6 @@ public:
 
     /// Name of class
     static std::string className;
-
-    /// Constructor.
-    VelocityCorrectionScheme(
-        const LibUtilities::SessionReaderSharedPtr &pSession,
-        const SpatialDomains::MeshGraphSharedPtr &pGraph);
-
-    ~VelocityCorrectionScheme() override;
-
-    void v_InitObject(bool DeclareField = true) override;
 
     void SetUpPressureForcing(
         const Array<OneD, const Array<OneD, NekDouble>> &fields,
@@ -163,7 +156,17 @@ protected:
     /// Value of aii_dt used to compute Stokes flowrate solution.
     NekDouble m_flowrateAiidt;
 
+    Array<OneD, Array<OneD, NekDouble>> m_F;
+
     static std::string solverTypeLookupId;
+
+    VelocityCorrectionScheme(
+        const LibUtilities::SessionReaderSharedPtr &pSession,
+        const SpatialDomains::MeshGraphSharedPtr &pGraph);
+
+    ~VelocityCorrectionScheme() override = default;
+
+    void v_InitObject(bool DeclareField = true) override;
 
     void SetupFlowrate(NekDouble aii_dt);
     NekDouble MeasureFlowrate(
@@ -222,8 +225,6 @@ protected:
     {
         return instr;
     }
-
-    Array<OneD, Array<OneD, NekDouble>> m_F;
 
     void SetUpSVV(void);
     void SetUpExtrapolation(void);

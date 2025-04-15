@@ -55,8 +55,6 @@ public:
     static std::string type;
 
 protected:
-    DiffusionLDGNS();
-
     /// Penalty coefficient for LDGNS
     NekDouble m_C11;
 
@@ -77,6 +75,8 @@ protected:
 
     std::size_t m_spaceDim;
     std::size_t m_diffDim;
+
+    DiffusionLDGNS() = default;
 
     void v_InitObject(
         LibUtilities::SessionReaderSharedPtr pSession,

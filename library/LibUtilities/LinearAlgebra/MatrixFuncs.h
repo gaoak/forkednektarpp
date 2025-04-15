@@ -101,7 +101,7 @@ struct LIB_UTILITIES_EXPORT FullMatrixFuncs
         Array<OneD, int> ipivot(n);
         Array<OneD, DataType> work(n);
 
-        if (std::is_floating_point<DataType>::value)
+        if (std::is_floating_point_v<DataType>)
         {
             switch (sizeof(DataType))
             {

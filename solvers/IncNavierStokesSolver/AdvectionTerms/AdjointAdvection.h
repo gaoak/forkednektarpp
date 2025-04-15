@@ -58,7 +58,7 @@ public:
 protected:
     AdjointAdvection();
 
-    ~AdjointAdvection() override;
+    ~AdjointAdvection() override = default;
 
     void v_Advect(const int nConvectiveFields,
                   const Array<OneD, MultiRegions::ExpListSharedPtr> &fields,

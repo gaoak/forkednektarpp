@@ -59,11 +59,11 @@ public:
     /// Name of class
     static std::string className;
 
-    ~LinearSWE() override = default;
-
 protected:
     LinearSWE(const LibUtilities::SessionReaderSharedPtr &pSession,
               const SpatialDomains::MeshGraphSharedPtr &pGraph);
+
+    ~LinearSWE() override = default;
 
     void v_InitObject(bool DeclareFields = true) override;
 

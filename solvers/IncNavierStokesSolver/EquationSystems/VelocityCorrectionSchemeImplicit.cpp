@@ -68,13 +68,6 @@ VCSImplicit::VCSImplicit(const LibUtilities::SessionReaderSharedPtr &pSession,
 }
 
 /**
- * Destructor
- */
-VCSImplicit::~VCSImplicit(void)
-{
-}
-
-/**
  *
  */
 void VCSImplicit::v_GenerateSummary(SolverUtils::SummaryList &s)

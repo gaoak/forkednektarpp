@@ -46,7 +46,6 @@
 #include <ios>
 #include <regex>
 #include <set>
-#include <system_error>
 
 #ifdef NEKTAR_USE_MPI
 #include <mpi.h>
@@ -450,7 +449,7 @@ std::string FieldIO::SetUpOutput(const std::string outname, bool perRank,
         }
         catch (fs::filesystem_error &e)
         {
-            ASSERTL0(e.code() == std::errc::no_such_file_or_directory,
+            ASSERTL0(e.code() == fserrc::no_such_file_or_directory,
                      "Filesystem error: " + std::string(e.what()));
         }
     }
@@ -497,7 +496,7 @@ std::string FieldIO::SetUpOutput(const std::string outname, bool perRank,
             }
             catch (fs::filesystem_error &e)
             {
-                ASSERTL0(e.code() == std::errc::no_such_file_or_directory,
+                ASSERTL0(e.code() == fserrc::no_such_file_or_directory,
                          "Filesystem error: " + std::string(e.what()));
             }
         }
@@ -513,7 +512,7 @@ std::string FieldIO::SetUpOutput(const std::string outname, bool perRank,
             }
             catch (fs::filesystem_error &e)
             {
-                ASSERTL0(e.code() == std::errc::no_such_file_or_directory,
+                ASSERTL0(e.code() == fserrc::no_such_file_or_directory,
                          "Filesystem error: " + std::string(e.what()));
             }
         }

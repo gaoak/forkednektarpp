@@ -11,12 +11,16 @@
             <I PROPERTY="Projection"            VALUE="DisContinuous"       />
             <I PROPERTY="AdvectionType"         VALUE="WeakDG"              />
             <I PROPERTY="DiffusionType"         VALUE="LDGNS"               />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="ForwardEuler"        /> <!-- ClassicalRungeKutta4 -->
             <I PROPERTY="UpwindType"            VALUE="ExactToro"           /> <!--HLLC-->
             <I PROPERTY="ProblemType"           VALUE="General"             />
             <I PROPERTY="EquationOfState"       VALUE="IdealGas"            />
             <!--<I PROPERTY="ViscosityType"         VALUE="Variable"            />-->
         </SOLVERINFO>
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> Euler </METHOD>
+            <ORDER> 1 </ORDER>
+            <VARIANT> Forward </VARIANT>
+        </TIMEINTEGRATIONSCHEME>
         <PARAMETERS>
             <!--Computational parameters-->
             <P> TimeStep            = 0.0002		                </P> <!--5e-4-->

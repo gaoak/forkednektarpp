@@ -497,9 +497,14 @@
             <I PROPERTY="EQTYPE"                     VALUE="UnsteadyDiffusion" />
             <I PROPERTY="Projection"                 VALUE="Continuous" />
             <I PROPERTY="DiffusionAdvancement"       VALUE="Implicit" />
-            <I PROPERTY="TimeIntegrationMethod"      VALUE="BackwardEuler" />
             <I PROPERTY="SpectralVanishingViscosity" VALUE="True" />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> Euler </METHOD>
+            <ORDER> 1 </ORDER>
+            <VARIANT> Backward </VARIANT>
+        </TIMEINTEGRATIONSCHEME>
 
         <PARAMETERS>
             <P> TimeStep        = 0.01                    </P>

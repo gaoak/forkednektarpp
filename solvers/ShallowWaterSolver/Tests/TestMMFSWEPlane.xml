@@ -344,7 +344,6 @@
         <SOLVERINFO>
             <I PROPERTY="EQType" VALUE="MMFSWE" />
             <I PROPERTY="Projection" VALUE="DisContinuous" />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="ClassicalRungeKutta4" />
             <I PROPERTY="UpwindType" VALUE="LaxFriedrich" />
             <I PROPERTY="SurfaceType" VALUE="Plane" />
             <I PROPERTY="TestType" VALUE="TestPlane" />
@@ -352,6 +351,10 @@
             <I PROPERTY="MMFDir" VALUE="LOCAL" />
         </SOLVERINFO>
 
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> RungeKutta </METHOD>
+            <ORDER> 4 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
 
         <PARAMETERS>
             <P> TimeStep       = 0.001             </P>

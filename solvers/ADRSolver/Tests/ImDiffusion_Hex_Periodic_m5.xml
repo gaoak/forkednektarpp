@@ -18,8 +18,13 @@
             <I PROPERTY="EQTYPE"                VALUE="UnsteadyDiffusion" />
             <I PROPERTY="Projection"            VALUE="Continuous"        />
             <I PROPERTY="DiffusionAdvancement"  VALUE="Implicit"          />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="BackwardEuler"     />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> Euler </METHOD>
+            <ORDER> 1 </ORDER>
+            <VARIANT> Backward </VARIANT>
+        </TIMEINTEGRATIONSCHEME>
 
         <VARIABLES>
             <V ID="0"> u </V>

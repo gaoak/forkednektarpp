@@ -35,12 +35,22 @@
 #ifndef NEKTAR_LIBUTILITIES_FILESYSTEM_HPP
 #define NEKTAR_LIBUTILITIES_FILESYSTEM_HPP
 
+#ifdef NEKTAR_USE_BOOST_FILESYSTEM
+#include <boost/filesystem.hpp>
+namespace fs     = boost::filesystem;
+namespace fserrc = boost::system::errc;
+#else
 #ifdef NEKTAR_USE_GNU_FS_EXPERIMENTAL
 #include <experimental/filesystem>
+#include <system_error>
 namespace fs = std::experimental::filesystem;
+using fserrc = std::errc;
 #else
 #include <filesystem>
+#include <system_error>
 namespace fs = std::filesystem;
+using fserrc = std::errc;
+#endif
 #endif
 
 #include <algorithm>

@@ -758,12 +758,18 @@
             <I PROPERTY="EQTYPE" VALUE="MMFDiffusion" />
             <I PROPERTY="Projection" VALUE="DisContinuous"/>
             <I PROPERTY="DiffusionAdvancement" VALUE="Implicit" />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="IMEXdirk_3_4_3" />
             <I PROPERTY="TestType" VALUE="TestCube" />
             <I PROPERTY="SurfaceType" VALUE="Plane" />
             <!-- TangentX, TangentY, TangentXY, TangentZ, TangentCircular, LOCAL-->
             <I PROPERTY="MMFDir" VALUE="LOCAL" />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> IMEX </METHOD>
+            <VARIANT> DIRK </VARIANT>
+            <ORDER> 3 </ORDER>
+            <FREEPARAMETERS> 3 4 </FREEPARAMETERS>
+        </TIMEINTEGRATIONSCHEME>
 
         <PARAMETERS>
             <P> TimeStep        = 0.002             </P>

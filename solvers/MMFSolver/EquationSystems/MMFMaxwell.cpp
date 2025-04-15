@@ -49,6 +49,7 @@
 namespace Nektar
 {
 std::string MMFMaxwell::className =
+
     SolverUtils::GetEquationSystemFactory().RegisterCreatorFunction(
         "MMFMaxwell", MMFMaxwell::create, "MMFMaxwell equation.");
 
@@ -437,13 +438,6 @@ void MMFMaxwell::v_InitObject(bool DeclareFields)
     {
         ASSERTL0(false, "Implicit unsteady Advection not set up.");
     }
-}
-
-/**
- * @brief Unsteady linear advection equation destructor.
- */
-MMFMaxwell::~MMFMaxwell()
-{
 }
 
 void MMFMaxwell::v_DoSolve()

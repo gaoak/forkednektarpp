@@ -167,6 +167,12 @@ public:
     LinfError(unsigned int field,
               const Array<OneD, NekDouble> &exactsoln = NullNekDouble1DArray);
 
+    /// Compute the H1 error between fields and a given exact
+    /// solution.
+    SOLVER_UTILS_EXPORT NekDouble
+    H1Error(unsigned int field, const Array<OneD, NekDouble> &exactsoln,
+            bool Normalised = false);
+
     /// Compute error (L2 and L_inf) over an larger set of quadrature
     /// points return [L2 Linf]
     SOLVER_UTILS_EXPORT Array<OneD, NekDouble> ErrorExtraPoints(
@@ -484,6 +490,13 @@ protected:
         const Array<OneD, NekDouble> &exactsoln = NullNekDouble1DArray,
         bool Normalised                         = false);
 
+    /// Virtual function for the H_1 error computation between fields and a
+    /// given exact solution.
+    SOLVER_UTILS_EXPORT virtual NekDouble v_H1Error(
+        unsigned int field,
+        const Array<OneD, NekDouble> &exactsoln = NullNekDouble1DArray,
+        bool Normalised                         = false);
+
     /// Virtual function for transformation to physical space.
     SOLVER_UTILS_EXPORT virtual void v_TransCoeffToPhys();
 
@@ -606,6 +619,17 @@ inline NekDouble EquationSystem::L2Error(
     bool Normalised)
 {
     return v_L2Error(field, exactsoln, Normalised);
+}
+
+/**
+ * H_1 Error computation
+ * Public interface routine to virtual function implementation.
+ */
+inline NekDouble EquationSystem::H1Error(
+    unsigned int field, const Array<OneD, NekDouble> &exactsoln,
+    bool Normalised)
+{
+    return v_H1Error(field, exactsoln, Normalised);
 }
 
 /**

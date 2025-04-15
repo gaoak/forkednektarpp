@@ -39,6 +39,7 @@
 
 namespace Nektar
 {
+
 class AverageSolver : public CompressibleSolver
 {
 public:
@@ -57,6 +58,7 @@ protected:
                       const Array<OneD, const Array<OneD, NekDouble>> &Bwd,
                       Array<OneD, Array<OneD, NekDouble>> &flux) final;
 };
+
 } // namespace Nektar
 
 #endif

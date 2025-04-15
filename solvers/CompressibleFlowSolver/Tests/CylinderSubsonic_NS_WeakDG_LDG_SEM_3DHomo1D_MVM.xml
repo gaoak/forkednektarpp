@@ -4093,12 +4093,17 @@
             <I PROPERTY="HOMOGENEOUS"           VALUE="1D"                      />
             <I PROPERTY="AdvectionType"         VALUE="WeakDG3DHomogeneous1D"   />
             <I PROPERTY="DiffusionType"         VALUE="LDGNS3DHomogeneous1D"    />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="ForwardEuler"    />
             <I PROPERTY="UpwindType"            VALUE="HLLC"                    />
             <I PROPERTY="ProblemType"           VALUE="General"                 />
             <I PROPERTY="ViscosityType"         VALUE="Constant"                />
             <I PROPERTY="USEFFT"                VALUE="MVM"                    />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> Euler </METHOD>
+            <ORDER> 1 </ORDER>
+            <VARIANT> Forward </VARIANT>
+        </TIMEINTEGRATIONSCHEME>
 
         <VARIABLES>
             <V ID="0"> rho  </V>

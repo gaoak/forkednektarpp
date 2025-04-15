@@ -34,8 +34,6 @@
 
 #include "VanDerWaalsEoS.h"
 
-using namespace std;
-
 namespace Nektar
 {
 
@@ -144,10 +142,10 @@ NekDouble VanDerWaalsEoS::v_GetRhoFromPT(const NekDouble &p, const NekDouble &T)
     }
     if (cnt == maxIter)
     {
-        cout << "Newton-Raphson in VanDerWaalsEoS::v_GetRhoFromPT did not "
-                "converge in "
-             << maxIter << " iterations (residual = " << residual << ")"
-             << endl;
+        std::cout << "Newton-Raphson in VanDerWaalsEoS::v_GetRhoFromPT did not "
+                     "converge in "
+                  << maxIter << " iterations (residual = " << residual << ")"
+                  << std::endl;
     }
 
     // Now calculate rho = p/(ZRT)

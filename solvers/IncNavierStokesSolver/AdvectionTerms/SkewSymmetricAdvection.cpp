@@ -34,11 +34,9 @@
 
 #include <IncNavierStokesSolver/AdvectionTerms/SkewSymmetricAdvection.h>
 
-using namespace std;
-
 namespace Nektar
 {
-string SkewSymmetricAdvection::className =
+std::string SkewSymmetricAdvection::className =
     SolverUtils::GetAdvectionFactory().RegisterCreatorFunction(
         "SkewSymmetric", SkewSymmetricAdvection::create, "Skew Symmetric");
 
@@ -47,13 +45,6 @@ string SkewSymmetricAdvection::className =
  */
 SkewSymmetricAdvection::SkewSymmetricAdvection() : Advection()
 
-{
-}
-
-/**
- *
- */
-SkewSymmetricAdvection::~SkewSymmetricAdvection()
 {
 }
 

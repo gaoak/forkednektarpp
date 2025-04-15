@@ -36,6 +36,7 @@
 
 namespace Nektar
 {
+
 NekDouble StandardExtrapolate::DuDt_Coeffs[3][4] = {
     {1.0, -1., 0.0, 0.0},
     {2.5, -4.0, 1.5, 0.0},
@@ -54,10 +55,6 @@ StandardExtrapolate::StandardExtrapolate(
     MultiRegions::ExpListSharedPtr pPressure, const Array<OneD, int> pVel,
     const SolverUtils::AdvectionSharedPtr advObject)
     : Extrapolate(pSession, pFields, pPressure, pVel, advObject)
-{
-}
-
-StandardExtrapolate::~StandardExtrapolate()
 {
 }
 
@@ -181,4 +178,5 @@ void StandardExtrapolate::v_AccelerationBDF(
         array[nlevels - 1] = accelerationTerm;
     }
 }
+
 } // namespace Nektar

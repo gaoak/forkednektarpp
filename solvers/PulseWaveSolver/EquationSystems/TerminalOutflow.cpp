@@ -35,8 +35,6 @@
 
 #include <PulseWaveSolver/EquationSystems/TerminalOutflow.h>
 
-using namespace std;
-
 namespace Nektar
 {
 
@@ -50,10 +48,6 @@ TerminalOutflow::TerminalOutflow(
     const LibUtilities::SessionReaderSharedPtr pSession,
     PulseWavePressureAreaSharedPtr pressureArea)
     : PulseWaveBoundary(pVessel, pSession, pressureArea)
-{
-}
-
-TerminalOutflow::~TerminalOutflow()
 {
 }
 

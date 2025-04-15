@@ -58,16 +58,16 @@ public:
         p->InitObject();
         return p;
     }
+
     /// Name of class
     static std::string className;
-
-    /// Destructor
-    ~UnsteadyReactionDiffusion() override = default;
 
 protected:
     UnsteadyReactionDiffusion(
         const LibUtilities::SessionReaderSharedPtr &pSession,
         const SpatialDomains::MeshGraphSharedPtr &pGraph);
+
+    ~UnsteadyReactionDiffusion() override = default;
 
     void v_InitObject(bool DeclareFields = true) override;
 

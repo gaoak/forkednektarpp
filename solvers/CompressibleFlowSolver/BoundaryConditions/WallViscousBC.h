@@ -82,7 +82,7 @@ private:
                   const Array<OneD, Array<OneD, NekDouble>> &pGridVelocity,
                   const int pSpaceDim, const int bcRegion, const int cnt);
 
-    ~WallViscousBC(void) override{};
+    ~WallViscousBC(void) override = default;
 };
 
 } // namespace Nektar

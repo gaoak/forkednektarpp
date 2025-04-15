@@ -26,13 +26,17 @@
         <SOLVERINFO>
             <I PROPERTY="EQType"                VALUE="NonlinearPeregrine"   />
             <I PROPERTY="Projection"            VALUE="DisContinuous"        />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="DIRKOrder2"           />
             <I PROPERTY="UpwindType"            VALUE="HLLC"                 />
             <I PROPERTY="ProblemType"           VALUE="SolitaryWave"         />
             <I PROPERTY="AdvectionAdvancement"  VALUE="Implicit"             />
             <I PROPERTY="DiffusionAdvancement"  VALUE="Implicit"             />
             <I PROPERTY="LinSysIterSolverTypeInNonlin" VALUE="GMRES"         />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> DIRK </METHOD>
+            <ORDER> 2 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
 
         <PARAMETERS>
             <P> TimeStep       = 0.05               </P>

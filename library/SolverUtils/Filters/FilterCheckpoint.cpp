@@ -46,19 +46,11 @@ FilterCheckpoint::FilterCheckpoint(
     : Filter(pSession, pEquation)
 {
     // OutputFile
-    auto it = pParams.find("OutputFile");
-    if (it == pParams.end())
-    {
-        m_outputFile = m_session->GetSessionName();
-    }
-    else
-    {
-        ASSERTL0(it->second.length() > 0, "Empty parameter 'OutputFile'.");
-        m_outputFile = it->second;
-    }
+    std::string ext = ".chk";
+    m_outputFile    = Filter::SetupOutput(ext, pParams);
 
     // OutputFrequency
-    it = pParams.find("OutputFrequency");
+    auto it = pParams.find("OutputFrequency");
     ASSERTL0(it != pParams.end(), "Missing parameter 'OutputFrequency'.");
     LibUtilities::Equation equ(m_session->GetInterpreter(), it->second);
     m_outputFrequency = round(equ.Evaluate());
@@ -83,12 +75,17 @@ FilterCheckpoint::~FilterCheckpoint()
 }
 
 void FilterCheckpoint::v_Initialise(
-    const Array<OneD, const MultiRegions::ExpListSharedPtr> &pFields,
-    const NekDouble &time)
+    [[maybe_unused]] const Array<OneD, const MultiRegions::ExpListSharedPtr>
+        &pFields,
+    [[maybe_unused]] const NekDouble &time)
 {
     m_index       = 0;
     m_outputIndex = 0;
-    v_Update(pFields, time);
+
+    if (m_updateOnInitialise)
+    {
+        v_Update(pFields, time);
+    }
 }
 
 void FilterCheckpoint::v_Update(
@@ -102,8 +99,14 @@ void FilterCheckpoint::v_Update(
         return;
     }
 
-    std::stringstream vOutputFilename;
-    vOutputFilename << m_outputFile << "_" << m_outputIndex << ".chk";
+    // get the extension of file name
+    std::string ext = fs::path(m_outputFile).extension().string();
+
+    std::stringstream vTmpFilename;
+    std::string vOutputFilename;
+    vTmpFilename << fs::path(m_outputFile).replace_extension("").string() << "_"
+                 << m_outputIndex << ".chk";
+    vOutputFilename = Filter::SetupOutput(ext, vTmpFilename.str());
 
     std::vector<LibUtilities::FieldDefinitionsSharedPtr> FieldDef =
         pFields[0]->GetFieldDefinitions();
@@ -120,7 +123,7 @@ void FilterCheckpoint::v_Update(
                                         pFields[j]->UpdateCoeffs());
         }
     }
-    m_fld->Write(vOutputFilename.str(), FieldDef, FieldData);
+    m_fld->Write(vOutputFilename, FieldDef, FieldData);
     m_outputIndex++;
 }
 

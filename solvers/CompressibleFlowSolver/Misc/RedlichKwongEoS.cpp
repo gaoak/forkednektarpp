@@ -34,8 +34,6 @@
 
 #include "RedlichKwongEoS.h"
 
-using namespace std;
-
 namespace Nektar
 {
 

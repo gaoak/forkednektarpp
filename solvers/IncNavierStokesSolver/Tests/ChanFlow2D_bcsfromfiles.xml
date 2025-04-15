@@ -11,10 +11,14 @@
         <SOLVERINFO>
             <I PROPERTY="EQTYPE"                VALUE="UnsteadyNavierStokes"    />
             <I PROPERTY="AdvectionForm"         VALUE="Convective"              />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="IMEXOrder1"              />
             <I PROPERTY="solvertype"            VALUE="VelocityCorrectionScheme"/>
             <I PROPERTY="Projection"            VALUE="Galerkin"                />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> IMEX </METHOD>
+            <ORDER> 1 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
 
         <PARAMETERS>
             <P> TimeStep      = 0.001 </P>

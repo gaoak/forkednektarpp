@@ -63,6 +63,7 @@ public:
     {
         return MemoryManager<LinearisedAdvection>::AllocateSharedPtr();
     }
+
     /// Name of class
     static std::string className;
 
@@ -98,15 +99,11 @@ protected:
     /// flag to determine if use multiple mode or not
     bool m_multipleModes;
 
-    DNekBlkMatSharedPtr GetFloquetBlockMatrix(FloquetMatType mattype,
-                                              bool UseContCoeffs = false) const;
-    DNekBlkMatSharedPtr GenFloquetBlockMatrix(FloquetMatType mattype,
-                                              bool UseContCoeffs = false) const;
     FloquetBlockMatrixMapShPtr m_FloquetBlockMat;
 
     LinearisedAdvection();
 
-    ~LinearisedAdvection() override;
+    ~LinearisedAdvection() override = default;
 
     void v_InitObject(
         LibUtilities::SessionReaderSharedPtr pSession,
@@ -127,19 +124,21 @@ protected:
         const Array<OneD, Array<OneD, NekDouble>> &inarray,
         const Array<OneD, MultiRegions::ExpListSharedPtr> &fields) override;
 
+    void ImportFldBase(std::string pInfile,
+                       Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
+                       int slice);
+
     void UpdateBase(const Array<OneD, const NekDouble> &inarray,
                     Array<OneD, NekDouble> &outarray, const NekDouble time);
 
     void UpdateGradBase(const int var,
                         const MultiRegions::ExpListSharedPtr &field);
 
+    DNekBlkMatSharedPtr GetFloquetBlockMatrix(FloquetMatType mattype,
+                                              bool UseContCoeffs = false) const;
+
     void DFT(const std::string file,
              Array<OneD, MultiRegions::ExpListSharedPtr> &pFields);
-
-    /// Import Base flow
-    void ImportFldBase(std::string pInfile,
-                       Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
-                       int slice);
 
 private:
     /// Parameter for homogeneous expansions

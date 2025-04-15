@@ -16695,11 +16695,15 @@
             <I PROPERTY="Projection"            VALUE="DisContinuous"       />
             <I PROPERTY="AdvectionType"         VALUE="FRHU"                />
             <I PROPERTY="DiffusionType"         VALUE="LDGNS"               />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="ForwardEuler"/>
             <I PROPERTY="UpwindType"            VALUE="HLLC"           />
             <I PROPERTY="ProblemType"           VALUE="General"             />
             <I PROPERTY="ViscosityType"         VALUE="Constant"            />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> Euler </METHOD>
+            <VARIANT> Forward </VARIANT>
+        </TIMEINTEGRATIONSCHEME>
 
         <VARIABLES>
             <V ID="0"> rho  </V>

@@ -117,8 +117,12 @@
             <I PROPERTY="Projection"            VALUE="Continuous"       />
             <I PROPERTY="GJPStabilisation"      VALUE="Explicit"     />
             <I PROPERTY="AdvectionType"         VALUE="NonConservative"     />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="ClassicalRungeKutta4"/>
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> RungeKutta </METHOD>
+            <ORDER> 4 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
 
         <VARIABLES>
             <V ID="0"> u </V>

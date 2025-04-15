@@ -37,6 +37,7 @@
 
 namespace Nektar
 {
+
 std::string StaticWall::className = GetIncBCFactory().RegisterCreatorFunction(
     "StaticWall", StaticWall::create,
     "Far field boundary condition of moving reference frame");
@@ -56,10 +57,6 @@ StaticWall::StaticWall(
     {
         m_BndExp[m_pressure] = exp[m_pressure];
     }
-}
-
-StaticWall::~StaticWall()
-{
 }
 
 void StaticWall::v_Initialise(

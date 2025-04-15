@@ -34,10 +34,9 @@
 
 #include <CompressibleFlowSolver/Forcing/ForcingQuasi1D.h>
 
-using namespace std;
-
 namespace Nektar
 {
+
 std::string ForcingQuasi1D::className =
     SolverUtils::GetForcingFactory().RegisterCreatorFunction(
         "Quasi1D", ForcingQuasi1D::create, "Quasi-1D nozzle Forcing");
@@ -68,7 +67,7 @@ void ForcingQuasi1D::v_InitObject(
                  "specifying function name which prescribes nozzle area.");
     }
 
-    string funcName = funcNameElmt->GetText();
+    std::string funcName = funcNameElmt->GetText();
     ASSERTL0(m_session->DefinesFunction(funcName),
              "Function '" + funcName + "' not defined.");
 

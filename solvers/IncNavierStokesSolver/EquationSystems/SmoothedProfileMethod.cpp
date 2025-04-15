@@ -39,17 +39,16 @@
 #include <MultiRegions/ContField3DHomogeneous1D.h>
 #include <MultiRegions/ContField3DHomogeneous2D.h>
 
-using namespace std;
-
 namespace Nektar
 {
+
 using namespace MultiRegions;
 
-string SmoothedProfileMethod::className =
+std::string SmoothedProfileMethod::className =
     SolverUtils::GetEquationSystemFactory().RegisterCreatorFunction(
         "SmoothedProfileMethod", SmoothedProfileMethod::create);
 
-string SmoothedProfileMethod::solverTypeLookupId =
+std::string SmoothedProfileMethod::solverTypeLookupId =
     LibUtilities::SessionReader::RegisterEnumValue(
         "SolverType", "SmoothedProfileMethod", eSmoothedProfileMethod);
 
@@ -64,14 +63,6 @@ SmoothedProfileMethod::SmoothedProfileMethod(
     const SpatialDomains::MeshGraphSharedPtr &pGraph)
     : UnsteadySystem(pSession, pGraph),
       VelocityCorrectionScheme(pSession, pGraph)
-{
-}
-
-/**
- * @brief Destroy the Smoothed Profile Method object
- *
- */
-SmoothedProfileMethod::~SmoothedProfileMethod(void)
 {
 }
 
@@ -217,7 +208,7 @@ void SmoothedProfileMethod::v_InitObject(bool DeclareField)
     m_forcesFilter = -1;
     for (size_t i = 0; i < m_session->GetFilters().size(); ++i)
     {
-        if (boost::iequals(m_session->GetFilters()[i].first, "AeroForcesSPM"))
+        if (boost::iequals(m_session->GetFilters()[i].name, "AeroForcesSPM"))
         {
             m_forcesFilter = i;
             break;
@@ -269,7 +260,7 @@ void SmoothedProfileMethod::v_SolveUnsteadyStokesSystem(
     // Estimate forces only if requested
     if (m_forcesFilter >= 0)
     {
-        static_pointer_cast<FilterAeroForcesSPM>(
+        std::static_pointer_cast<FilterAeroForcesSPM>(
             m_filters[m_forcesFilter].second)
             ->CalculateForces(outarray, m_upPrev, m_phi, time, a_iixDt);
     }
@@ -529,8 +520,8 @@ void SmoothedProfileMethod::UpdateForcing(
  * @param attribute
  * @return string
  */
-bool SmoothedProfileMethod::GetVarTimeDependence(string funcName,
-                                                 string elemName)
+bool SmoothedProfileMethod::GetVarTimeDependence(std::string funcName,
+                                                 std::string elemName)
 {
     // Get the handler of the function
     TiXmlElement *function = GetFunctionHdl(funcName);
@@ -540,7 +531,7 @@ bool SmoothedProfileMethod::GetVarTimeDependence(string funcName,
     ASSERTL0(functionDef, "At least one element must be defined in " + funcName)
 
     // And search the element with name 'elemName'
-    string varName = functionDef->Attribute("VAR");
+    std::string varName = functionDef->Attribute("VAR");
     while (functionDef && !boost::iequals(varName, elemName))
     {
         functionDef = functionDef->NextSiblingElement();
@@ -551,7 +542,7 @@ bool SmoothedProfileMethod::GetVarTimeDependence(string funcName,
              "Variable " + elemName + " must be defined in " + funcName + ".");
 
     // And return the value of USERDEFINEDTYPE
-    string attr;
+    std::string attr;
     int err     = functionDef->QueryStringAttribute("USERDEFINEDTYPE", &attr);
     bool output = boost::iequals(attr, "TimeDependent");
 
@@ -569,14 +560,14 @@ bool SmoothedProfileMethod::GetVarTimeDependence(string funcName,
  * @param functionName
  * @return TiXmlElement*
  */
-TiXmlElement *SmoothedProfileMethod::GetFunctionHdl(string functionName)
+TiXmlElement *SmoothedProfileMethod::GetFunctionHdl(std::string functionName)
 {
     // Get the handler of first function block
     TiXmlElement *conds    = m_session->GetElement("Nektar/Conditions");
     TiXmlElement *function = conds->FirstChildElement("FUNCTION");
 
     // Loop over functions until the block 'name' is found
-    string functionType = function->Attribute("NAME");
+    std::string functionType = function->Attribute("NAME");
     while (function && !boost::iequals(functionType, functionName))
     {
         function     = function->NextSiblingElement("FUNCTION");
@@ -599,7 +590,7 @@ void SmoothedProfileMethod::ReadPhi()
     if (boost::iequals(child->ValueStr(), "F"))
     {
         // Get name of STL file
-        string fileName;
+        std::string fileName;
         int status = child->QueryStringAttribute("FILE", &fileName);
         ASSERTL0(status == TIXML_SUCCESS,
                  "An FLD file with the values "
@@ -622,7 +613,7 @@ void SmoothedProfileMethod::ReadPhi()
                                         "defined in the FLD file.")
 
         // Extract Phi field to output
-        string tmp("phi");
+        std::string tmp("phi");
         m_phi->ExtractDataToCoeffs(fieldDef[0], fieldData[0], tmp,
                                    m_phi->UpdateCoeffs());
         m_phi->BwdTrans(m_phi->GetCoeffs(), m_phi->UpdatePhys());

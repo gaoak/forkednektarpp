@@ -34,10 +34,9 @@
 
 #include <CompressibleFlowSolver/Forcing/ForcingAxiSymmetric.h>
 
-using namespace std;
-
 namespace Nektar
 {
+
 std::string ForcingAxiSymmetric::className =
     SolverUtils::GetForcingFactory().RegisterCreatorFunction(
         "AxiSymmetric", ForcingAxiSymmetric::create,

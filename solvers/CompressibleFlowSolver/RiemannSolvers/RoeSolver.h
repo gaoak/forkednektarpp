@@ -39,6 +39,7 @@
 
 namespace Nektar
 {
+
 class RoeSolver : public CompressibleSolver
 {
 public:
@@ -68,8 +69,8 @@ protected:
 };
 
 template <class T, typename = typename std::enable_if<
-                       std::is_floating_point<T>::value ||
-                       tinysimd::is_vector_floating_point<T>::value>::type>
+                       std::is_floating_point_v<T> ||
+                       tinysimd::is_vector_floating_point_v<T>>::type>
 inline void RoeKernel(T &rhoL, T &rhouL, T &rhovL, T &rhowL, T &EL, T &rhoR,
                       T &rhouR, T &rhovR, T &rhowR, T &ER, T &rhof, T &rhouf,
                       T &rhovf, T &rhowf, T &Ef, NekDouble gamma)

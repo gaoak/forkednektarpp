@@ -57,7 +57,7 @@ public:
 protected:
     NoAdvection();
 
-    ~NoAdvection() override;
+    ~NoAdvection() override = default;
 
     void v_InitObject(
         LibUtilities::SessionReaderSharedPtr pSession,

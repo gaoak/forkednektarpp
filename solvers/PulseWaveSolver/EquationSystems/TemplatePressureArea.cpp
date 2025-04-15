@@ -35,8 +35,6 @@
 
 #include <PulseWaveSolver/EquationSystems/TemplatePressureArea.h>
 
-using namespace std;
-
 namespace Nektar
 {
 
@@ -49,10 +47,6 @@ TemplatePressureArea::TemplatePressureArea(
     Array<OneD, MultiRegions::ExpListSharedPtr> pVessel,
     const LibUtilities::SessionReaderSharedPtr pSession)
     : PulseWavePressureArea(pVessel, pSession)
-{
-}
-
-TemplatePressureArea::~TemplatePressureArea()
 {
 }
 

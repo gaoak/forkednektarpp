@@ -36,6 +36,7 @@
 
 namespace Nektar
 {
+
 std::string Helmholtz::className =
     GetEquationSystemFactory().RegisterCreatorFunction("Helmholtz",
                                                        Helmholtz::create);
@@ -74,4 +75,5 @@ Array<OneD, bool> Helmholtz::v_GetSystemSingularChecks()
         return Array<OneD, bool>(m_session->GetVariables().size(), false);
     }
 }
+
 } // namespace Nektar

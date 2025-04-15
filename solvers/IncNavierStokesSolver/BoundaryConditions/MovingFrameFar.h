@@ -66,16 +66,7 @@ public:
 
     static std::string className;
 
-    ~MovingFrameFar() override;
-
 protected:
-    void v_Initialise(
-        const LibUtilities::SessionReaderSharedPtr &pSession) override;
-
-    void v_Update(const Array<OneD, const Array<OneD, NekDouble>> &fields,
-                  const Array<OneD, const Array<OneD, NekDouble>> &Adv,
-                  std::map<std::string, NekDouble> &params) override;
-
     std::vector<LibUtilities::Equation> m_definedVels;
 
     MovingFrameFar(const LibUtilities::SessionReaderSharedPtr pSession,
@@ -83,6 +74,15 @@ protected:
                    Array<OneD, SpatialDomains::BoundaryConditionShPtr> cond,
                    Array<OneD, MultiRegions::ExpListSharedPtr> exp, int nbnd,
                    int spacedim, int bnddim);
+
+    ~MovingFrameFar() override = default;
+
+    void v_Initialise(
+        const LibUtilities::SessionReaderSharedPtr &pSession) override;
+
+    void v_Update(const Array<OneD, const Array<OneD, NekDouble>> &fields,
+                  const Array<OneD, const Array<OneD, NekDouble>> &Adv,
+                  std::map<std::string, NekDouble> &params) override;
 };
 
 } // namespace Nektar

@@ -1997,12 +1997,18 @@
             <I PROPERTY="EQTYPE" VALUE="MMFDiffusion" />
             <I PROPERTY="Projection" VALUE="DisContinuous"/>
             <I PROPERTY="DiffusionAdvancement" VALUE="Implicit" />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="IMEXdirk_3_4_3" />
             <I PROPERTY="TestType" VALUE="TestLinearSphere" />
             <I PROPERTY="SurfaceType" VALUE="Sphere" />
             <!-- TangentX, TangentY, TangentXY, TangentZ, TangentCircular, LOCAL-->
             <I PROPERTY="MMFDir" VALUE="LOCAL" />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> IMEX </METHOD>
+            <VARIANT> DIRK </VARIANT>
+            <ORDER> 3 </ORDER>
+            <FREEPARAMETERS> 3 4 </FREEPARAMETERS>
+        </TIMEINTEGRATIONSCHEME>
 
         <VARIABLES>
             <V ID="0"> u </V>

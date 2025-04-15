@@ -37,6 +37,7 @@
 
 namespace Nektar
 {
+
 std::string MovingFrameFar::className =
     GetIncBCFactory().RegisterCreatorFunction(
         "MovingFrameFar", MovingFrameFar::create,
@@ -60,10 +61,6 @@ MovingFrameFar::MovingFrameFar(
             m_BndExp[i] = exp[i];
         }
     }
-}
-
-MovingFrameFar::~MovingFrameFar()
-{
 }
 
 void MovingFrameFar::v_Initialise(

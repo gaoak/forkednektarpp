@@ -429,8 +429,8 @@ void Svtsvtp(int n, const T alpha, const Array<OneD, const T> &x,
 
 /// \brief Gather vector z[i] = x[y[i]]
 template <class T, class I,
-          typename = typename std::enable_if<std::is_floating_point<T>::value &&
-                                             std::is_integral<I>::value>::type>
+          typename = typename std::enable_if<std::is_floating_point_v<T> &&
+                                             std::is_integral_v<I>>::type>
 void Gathr(I n, const Array<OneD, const T> &x, const Array<OneD, I> &y,
            Array<OneD, T> &z)
 {

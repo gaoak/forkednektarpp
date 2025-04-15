@@ -39,6 +39,7 @@
 
 namespace Nektar
 {
+
 class ExactSolverToro : public CompressibleSolver
 {
 public:
@@ -60,6 +61,7 @@ protected:
                       NekDouble &rhovf, NekDouble &rhowf,
                       NekDouble &Ef) override;
 };
+
 } // namespace Nektar
 
 #endif

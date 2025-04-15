@@ -50,6 +50,8 @@ typedef std::shared_ptr<TemplatePressureArea> TemplatePressureAreaSharedPtr;
 class TemplatePressureArea : public PulseWavePressureArea
 {
 public:
+    friend class MemoryManager<TemplatePressureArea>;
+
     static PulseWavePressureAreaSharedPtr create(
         Array<OneD, MultiRegions::ExpListSharedPtr> &pVessel,
         const LibUtilities::SessionReaderSharedPtr &pSession)
@@ -60,12 +62,12 @@ public:
 
     static std::string className;
 
+protected:
     TemplatePressureArea(Array<OneD, MultiRegions::ExpListSharedPtr> pVessel,
                          const LibUtilities::SessionReaderSharedPtr pSession);
 
-    virtual ~TemplatePressureArea();
+    virtual ~TemplatePressureArea() = default;
 
-protected:
     virtual void v_GetPressure(NekDouble &P, const NekDouble &beta,
                                const NekDouble &A, const NekDouble &A0,
                                const NekDouble &dAUdx,

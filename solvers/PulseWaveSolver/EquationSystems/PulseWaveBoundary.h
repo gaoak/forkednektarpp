@@ -66,23 +66,19 @@ public:
                       const LibUtilities::SessionReaderSharedPtr &pSession,
                       PulseWavePressureAreaSharedPtr &pressureArea);
 
-    virtual ~PulseWaveBoundary();
+    virtual ~PulseWaveBoundary() = default;
 
     inline void DoBoundary(
         const Array<OneD, const Array<OneD, NekDouble>> &inarray,
         Array<OneD, Array<OneD, NekDouble>> &A_0,
         Array<OneD, Array<OneD, NekDouble>> &beta,
         Array<OneD, Array<OneD, NekDouble>> &alpha, const NekDouble time,
-        int omega, int offset, int n);
+        int omega, int offset, int n)
+    {
+        v_DoBoundary(inarray, A_0, beta, alpha, time, omega, offset, n);
+    }
 
 protected:
-    virtual void v_DoBoundary(
-        const Array<OneD, const Array<OneD, NekDouble>> &inarray,
-        Array<OneD, Array<OneD, NekDouble>> &A_0,
-        Array<OneD, Array<OneD, NekDouble>> &beta,
-        Array<OneD, Array<OneD, NekDouble>> &alpha, const NekDouble time,
-        int omega, int offset, int n) = 0;
-
     Array<OneD, MultiRegions::ExpListSharedPtr> m_vessels;
     LibUtilities::SessionReaderSharedPtr m_session;
     PulseWavePressureAreaSharedPtr m_pressureArea;
@@ -91,18 +87,15 @@ protected:
     NekDouble m_pout;
     NekDouble m_rho;
 
+    virtual void v_DoBoundary(
+        const Array<OneD, const Array<OneD, NekDouble>> &inarray,
+        Array<OneD, Array<OneD, NekDouble>> &A_0,
+        Array<OneD, Array<OneD, NekDouble>> &beta,
+        Array<OneD, Array<OneD, NekDouble>> &alpha, const NekDouble time,
+        int omega, int offset, int n) = 0;
+
 private:
 };
-
-void PulseWaveBoundary::DoBoundary(
-    const Array<OneD, const Array<OneD, NekDouble>> &inarray,
-    Array<OneD, Array<OneD, NekDouble>> &A_0,
-    Array<OneD, Array<OneD, NekDouble>> &beta,
-    Array<OneD, Array<OneD, NekDouble>> &alpha, const NekDouble time, int omega,
-    int offset, int n)
-{
-    v_DoBoundary(inarray, A_0, beta, alpha, time, omega, offset, n);
-}
 
 } // namespace Nektar
 

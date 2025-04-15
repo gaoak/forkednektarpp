@@ -47,10 +47,6 @@ PulseWavePressureArea::PulseWavePressureArea(
     m_session->LoadParameter("rho", m_rho, 0.5);
 }
 
-PulseWavePressureArea::~PulseWavePressureArea()
-{
-}
-
 PressureAreaFactory &GetPressureAreaFactory()
 {
     static PressureAreaFactory instance;

@@ -52,7 +52,7 @@ class ArrayInitializationPolicy;
 template <typename ObjectType>
 class ArrayInitializationPolicy<
     ObjectType,
-    typename std::enable_if<std::is_fundamental<ObjectType>::value>::type>
+    typename std::enable_if<std::is_fundamental_v<ObjectType>>::type>
 {
 public:
     static void Initialize([[maybe_unused]] ObjectType *data,
@@ -86,7 +86,7 @@ public:
 template <typename ObjectType>
 class ArrayInitializationPolicy<
     ObjectType,
-    typename std::enable_if<!std::is_fundamental<ObjectType>::value>::type>
+    typename std::enable_if<!std::is_fundamental_v<ObjectType>>::type>
 {
 public:
     /// \brief Initalize each element in the array with ObjectType's default
@@ -152,7 +152,7 @@ class ArrayDestructionPolicy;
 template <typename ObjectType>
 class ArrayDestructionPolicy<
     ObjectType,
-    typename std::enable_if<std::is_fundamental<ObjectType>::value>::type>
+    typename std::enable_if<std::is_fundamental_v<ObjectType>>::type>
 {
 public:
     static void Destroy([[maybe_unused]] ObjectType *data,
@@ -164,7 +164,7 @@ public:
 template <typename ObjectType>
 class ArrayDestructionPolicy<
     ObjectType,
-    typename std::enable_if<!std::is_fundamental<ObjectType>::value>::type>
+    typename std::enable_if<!std::is_fundamental_v<ObjectType>>::type>
 {
 public:
     static void Destroy(ObjectType *data, size_t itemsToDestroy)

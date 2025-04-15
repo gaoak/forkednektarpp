@@ -57,6 +57,8 @@ typedef std::shared_ptr<SubSteppingExtrapolate> SubSteppingExtrapolateSharedPtr;
 class SubSteppingExtrapolate : public Extrapolate
 {
 public:
+    friend class MemoryManager<SubSteppingExtrapolate>;
+
     /// Creates an instance of this class
     static ExtrapolateSharedPtr create(
         const LibUtilities::SessionReaderSharedPtr &pSession,
@@ -73,15 +75,27 @@ public:
     /// Name of class
     static std::string className;
 
+protected:
+    LibUtilities::TimeIntegrationSchemeSharedPtr m_intScheme;
+    LibUtilities::TimeIntegrationSchemeSharedPtr m_subStepIntegrationScheme;
+    LibUtilities::TimeIntegrationSchemeOperators m_subStepIntegrationOps;
+
+    Array<OneD, Array<OneD, NekDouble>> m_previousVelFields;
+    Array<OneD, Array<OneD, NekDouble>> m_previousVnFields;
+
+    NekDouble m_cflSafetyFactor;
+    int m_infosteps;
+    int m_minsubsteps;
+    int m_maxsubsteps;
+
     SubSteppingExtrapolate(const LibUtilities::SessionReaderSharedPtr pSession,
                            Array<OneD, MultiRegions::ExpListSharedPtr> pFields,
                            MultiRegions::ExpListSharedPtr pPressure,
                            const Array<OneD, int> pVel,
                            const SolverUtils::AdvectionSharedPtr advObject);
 
-    ~SubSteppingExtrapolate() override;
+    ~SubSteppingExtrapolate() override = default;
 
-protected:
     void v_EvaluatePressureBCs(
         const Array<OneD, const Array<OneD, NekDouble>> &fields,
         const Array<OneD, const Array<OneD, NekDouble>> &N,
@@ -124,18 +138,6 @@ protected:
         Array<OneD, Array<OneD, NekDouble>> &outarray);
 
     NekDouble GetSubstepTimeStep();
-
-    LibUtilities::TimeIntegrationSchemeSharedPtr m_intScheme;
-    LibUtilities::TimeIntegrationSchemeSharedPtr m_subStepIntegrationScheme;
-    LibUtilities::TimeIntegrationSchemeOperators m_subStepIntegrationOps;
-
-    Array<OneD, Array<OneD, NekDouble>> m_previousVelFields;
-    Array<OneD, Array<OneD, NekDouble>> m_previousVnFields;
-
-    NekDouble m_cflSafetyFactor;
-    int m_infosteps;
-    int m_minsubsteps;
-    int m_maxsubsteps;
 };
 } // namespace Nektar
 

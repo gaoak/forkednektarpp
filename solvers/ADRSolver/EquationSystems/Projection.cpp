@@ -36,6 +36,7 @@
 
 namespace Nektar
 {
+
 std::string Projection::className =
     GetEquationSystemFactory().RegisterCreatorFunction("Projection",
                                                        Projection::create);
@@ -77,4 +78,5 @@ void Projection::v_GenerateSummary(SolverUtils::SummaryList &s)
             m_session->GetFunction("Forcing", i)->GetExpression());
     }
 }
+
 } // namespace Nektar

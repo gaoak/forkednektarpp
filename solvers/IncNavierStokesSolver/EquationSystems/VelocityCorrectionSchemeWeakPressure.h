@@ -42,6 +42,8 @@ namespace Nektar
 class VCSWeakPressure : public VelocityCorrectionScheme
 {
 public:
+    friend class MemoryManager<VCSWeakPressure>;
+
     /// Creates an instance of this class
     static SolverUtils::EquationSystemSharedPtr create(
         const LibUtilities::SessionReaderSharedPtr &pSession,
@@ -56,13 +58,13 @@ public:
     /// Name of class
     static std::string className;
 
+protected:
     /// Constructor.
     VCSWeakPressure(const LibUtilities::SessionReaderSharedPtr &pSession,
                     const SpatialDomains::MeshGraphSharedPtr &pGraph);
 
-    ~VCSWeakPressure() override;
+    ~VCSWeakPressure() override = default;
 
-protected:
     // Virtual functions
     void v_GenerateSummary(SolverUtils::SummaryList &s) override;
 

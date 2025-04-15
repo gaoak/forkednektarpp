@@ -85,20 +85,20 @@ protected:
 private:
     IdealGasEoS(const LibUtilities::SessionReaderSharedPtr &pSession);
 
-    ~IdealGasEoS(void) override{};
+    ~IdealGasEoS(void) override = default;
 
     // type agnostic kernels
     template <class T, typename = typename std::enable_if<
-                           std::is_floating_point<T>::value ||
-                           tinysimd::is_vector_floating_point<T>::value>::type>
+                           std::is_floating_point_v<T> ||
+                           tinysimd::is_vector_floating_point_v<T>>::type>
     inline T GetTemperatureKernel(const T &e)
     {
         return e * m_gammaMoneOgasConst;
     }
 
     template <class T, typename = typename std::enable_if<
-                           std::is_floating_point<T>::value ||
-                           tinysimd::is_vector_floating_point<T>::value>::type>
+                           std::is_floating_point_v<T> ||
+                           tinysimd::is_vector_floating_point_v<T>>::type>
     inline T GetPressureKernel(const T &rho, const T &e)
     {
         return rho * e * m_gammaMone;

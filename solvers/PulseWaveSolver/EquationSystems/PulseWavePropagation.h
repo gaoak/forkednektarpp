@@ -67,8 +67,6 @@ public:
     /// Name of class
     static std::string className;
 
-    ~PulseWavePropagation() override;
-
     // Functions for Riemann solver
     Array<OneD, NekDouble> &GetA0();
     Array<OneD, NekDouble> &GetBeta();
@@ -78,8 +76,16 @@ public:
     NekDouble GetDomains();
 
 protected:
+    SolverUtils::RiemannSolverSharedPtr m_riemannSolver;
+    SolverUtils::AdvectionSharedPtr m_advObject;
+    Array<OneD, PulseWaveBoundarySharedPtr> m_Boundary;
+
     PulseWavePropagation(const LibUtilities::SessionReaderSharedPtr &pSession,
                          const SpatialDomains::MeshGraphSharedPtr &pGraph);
+
+    ~PulseWavePropagation() override = default;
+
+    void v_InitObject(bool DeclareField = false) override;
 
     void DoOdeRhs(const Array<OneD, const Array<OneD, NekDouble>> &inarray,
                   Array<OneD, Array<OneD, NekDouble>> &outarray,
@@ -93,16 +99,9 @@ protected:
         const Array<OneD, const Array<OneD, NekDouble>> &inarray,
         Array<OneD, Array<OneD, NekDouble>> &outarray, const NekDouble time);
 
-    void v_InitObject(bool DeclareField = false) override;
-
     /// DG Pulse Wave Propagation routines:
     void GetFluxVector(const Array<OneD, Array<OneD, NekDouble>> &physfield,
                        Array<OneD, Array<OneD, Array<OneD, NekDouble>>> &flux);
-
-    SolverUtils::RiemannSolverSharedPtr m_riemannSolver;
-    SolverUtils::AdvectionSharedPtr m_advObject;
-
-    Array<OneD, PulseWaveBoundarySharedPtr> m_Boundary;
 
     void v_GenerateSummary(SolverUtils::SummaryList &s) override;
 };

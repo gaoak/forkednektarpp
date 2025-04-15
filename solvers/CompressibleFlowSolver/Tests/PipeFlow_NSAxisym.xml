@@ -43,10 +43,15 @@
             <I PROPERTY="EQTYPE" VALUE="NavierStokesCFEAxisym" />
             <I PROPERTY="Projection" VALUE="DisContinuous" />
             <I PROPERTY="AdvectionType" VALUE="WeakDG" />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="ForwardEuler" />
             <I PROPERTY="UpwindType"  VALUE="HLLC"/>
             <I PROPERTY="ExponentialFiltering"  VALUE="True"/>
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> Euler </METHOD>
+            <ORDER> 1 </ORDER>
+            <VARIANT> Forward </VARIANT>
+        </TIMEINTEGRATIONSCHEME>
 
         <VARIABLES>
             <V ID="0"> rho </V>

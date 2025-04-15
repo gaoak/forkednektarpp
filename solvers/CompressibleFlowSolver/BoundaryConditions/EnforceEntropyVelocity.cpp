@@ -37,7 +37,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "EnforceEntropyVelocity.h"
-using namespace std;
 
 namespace Nektar
 {
@@ -56,7 +55,6 @@ EnforceEntropyVelocity::EnforceEntropyVelocity(
     : CFSBndCond(pSession, pFields, pTraceNormals, pGridVelocity, pSpaceDim,
                  bcRegion, cnt)
 {
-
     const MultiRegions::ExpListSharedPtr bndexp =
         m_fields[0]->GetBndCondExpansions()[m_bcRegion];
 

@@ -34,12 +34,10 @@
 
 #include <IncNavierStokesSolver/AdvectionTerms/AlternateSkewAdvection.h>
 
-using namespace std;
-
 namespace Nektar
 {
 
-string AlternateSkewAdvection::className =
+std::string AlternateSkewAdvection::className =
     SolverUtils::GetAdvectionFactory().RegisterCreatorFunction(
         "AlternateSkew", AlternateSkewAdvection::create,
         "Alternating Skew Symmetric");
@@ -51,10 +49,6 @@ string AlternateSkewAdvection::className =
  * \param
  */
 AlternateSkewAdvection::AlternateSkewAdvection() : Advection()
-{
-}
-
-AlternateSkewAdvection::~AlternateSkewAdvection()
 {
 }
 

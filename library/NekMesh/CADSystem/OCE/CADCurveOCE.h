@@ -71,8 +71,12 @@ public:
     NekDouble GetMinDistance(std::array<NekDouble, 3> &xyz) override;
     NekDouble Curvature(NekDouble t) override;
     std::array<NekDouble, 3> N(NekDouble t) override;
+    std::array<NekDouble, 6> BoundingBox(NekDouble scale) override;
 
     void Initialise(int i, TopoDS_Shape in);
+
+    NekDouble loct(std::array<NekDouble, 3> xyz, NekDouble &t, NekDouble cf,
+                   NekDouble cl) override;
 
 private:
     /// OpenCascade edge

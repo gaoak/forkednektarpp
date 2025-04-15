@@ -44,6 +44,7 @@
 
 namespace Nektar
 {
+
 //  Forward declaration
 class CFSBndCond;
 
@@ -70,14 +71,13 @@ CFSBndCondFactory &GetCFSBndCondFactory();
 class CFSBndCond
 {
 public:
-    virtual ~CFSBndCond()
-    {
-    }
-
     /// Apply the boundary condition
     void Apply(Array<OneD, Array<OneD, NekDouble>> &Fwd,
                Array<OneD, Array<OneD, NekDouble>> &physarray,
-               const NekDouble &time = 0);
+               const NekDouble &time = 0)
+    {
+        v_Apply(Fwd, physarray, time);
+    }
 
     /// Apply the Weight of boundary condition
     void ApplyBwdWeight()
@@ -120,6 +120,8 @@ protected:
                const Array<OneD, Array<OneD, NekDouble>> &pTraceNormals,
                const Array<OneD, Array<OneD, NekDouble>> &pGridVelocity,
                const int pSpaceDim, const int bcRegion, const int cnt);
+
+    virtual ~CFSBndCond() = default;
 
     virtual void v_Apply(Array<OneD, Array<OneD, NekDouble>> &Fwd,
                          Array<OneD, Array<OneD, NekDouble>> &physarray,

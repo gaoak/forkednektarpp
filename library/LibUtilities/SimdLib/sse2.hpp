@@ -82,7 +82,7 @@ template <> struct sse2<std::uint32_t>
 // concrete types
 template <typename T> struct sse2Int4
 {
-    static_assert(std::is_integral<T>::value && sizeof(T) == 4,
+    static_assert(std::is_integral_v<T> && sizeof(T) == 4,
                   "4 bytes Integral required.");
 
     static constexpr unsigned int width     = 4;
@@ -113,17 +113,16 @@ template <typename T> struct sse2Int4
     }
 
     template <class flag,
-              typename std::enable_if<is_requiring_alignment<flag>::value &&
-                                          !is_streaming<flag>::value,
+              typename std::enable_if<is_requiring_alignment_v<flag> &&
+                                          !is_streaming_v<flag>,
                                       bool>::type = 0>
     inline void store(scalarType *p, flag) const
     {
         _mm_store_si128(reinterpret_cast<vectorType *>(p), _data);
     }
 
-    template <class flag,
-              typename std::enable_if<!is_requiring_alignment<flag>::value,
-                                      bool>::type = 0>
+    template <class flag, typename std::enable_if<
+                              !is_requiring_alignment_v<flag>, bool>::type = 0>
     inline void store(scalarType *p, flag) const
     {
         _mm_storeu_si128(reinterpret_cast<vectorType *>(p), _data);
@@ -135,17 +134,16 @@ template <typename T> struct sse2Int4
     }
 
     template <class flag,
-              typename std::enable_if<is_requiring_alignment<flag>::value &&
-                                          !is_streaming<flag>::value,
+              typename std::enable_if<is_requiring_alignment_v<flag> &&
+                                          !is_streaming_v<flag>,
                                       bool>::type = 0>
     inline void load(const scalarType *p, flag)
     {
         _data = _mm_load_si128(reinterpret_cast<const vectorType *>(p));
     }
 
-    template <class flag,
-              typename std::enable_if<!is_requiring_alignment<flag>::value,
-                                      bool>::type = 0>
+    template <class flag, typename std::enable_if<
+                              !is_requiring_alignment_v<flag>, bool>::type = 0>
     inline void load(const scalarType *p, flag)
     {
         _data = _mm_loadu_si128(reinterpret_cast<const vectorType *>(p));

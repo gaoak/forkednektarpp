@@ -41,7 +41,6 @@ namespace Nektar
 {
 
 class NavierStokesAdvection : public SolverUtils::Advection
-
 {
 public:
     friend class MemoryManager<NavierStokesAdvection>;
@@ -64,7 +63,7 @@ public:
 protected:
     NavierStokesAdvection();
 
-    ~NavierStokesAdvection() override;
+    ~NavierStokesAdvection() override = default;
 
     void v_InitObject(
         LibUtilities::SessionReaderSharedPtr pSession,

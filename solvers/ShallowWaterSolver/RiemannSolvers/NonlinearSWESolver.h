@@ -41,6 +41,7 @@ using namespace Nektar::SolverUtils;
 
 namespace Nektar
 {
+
 class NonlinearSWESolver : public RiemannSolver
 {
 protected:
@@ -73,6 +74,7 @@ protected:
                  "This function should be defined by subclasses.");
     }
 };
+
 } // namespace Nektar
 
 #endif

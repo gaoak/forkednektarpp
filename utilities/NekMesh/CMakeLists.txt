@@ -36,6 +36,12 @@ IF(NEKTAR_USE_MESHGEN)
     ADD_NEKTAR_TEST(MeshGen/STEP/3d_bl_cyl)
     ADD_NEKTAR_TEST(MeshGen/STEP/3d_bl_wing LENGTHY)
     ADD_NEKTAR_TEST(MeshGen/STEP/3d_sphere LENGTHY)
+    
+    # IndustrialPipeline tests
+    ADD_NEKTAR_TEST(IndustrialPipeline/00_projectcad_shaft)
+    ADD_NEKTAR_TEST(IndustrialPipeline/01_projectcad_shaftHO)
+    ADD_NEKTAR_TEST(IndustrialPipeline/02_projectcad_3d_sphere_star)
+    ADD_NEKTAR_TEST(IndustrialPipeline/03_projectcad_NACA0012)
 
     IF(NEKTAR_USE_CCM)
         ADD_NEKTAR_TEST(MeshGen/StarCCM/projectcad_ahmed)
@@ -132,6 +138,9 @@ ENDIF()
 # StarCCM tests
 ADD_NEKTAR_TEST(StarTec/peralign_bl_cube)
 ADD_NEKTAR_TEST(StarTec/spherigon_bl_straight_rw LENGTHY)
+
+
+
 
 # Nek5000 tests
 ADD_NEKTAR_TEST(Nek5000/annulus)

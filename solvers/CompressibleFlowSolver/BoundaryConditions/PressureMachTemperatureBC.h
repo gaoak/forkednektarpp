@@ -84,7 +84,7 @@ private:
         const Array<OneD, Array<OneD, NekDouble>> &pGridVelocity,
         const int pSpaceDim, const int bcRegion, const int cnt);
 
-    ~PressureMachTemperatureBC(void) override{};
+    ~PressureMachTemperatureBC(void) override = default;
 
     // Storage for boundary conditions in conserved variables format
     Array<OneD, Array<OneD, NekDouble>> m_bcStorage;

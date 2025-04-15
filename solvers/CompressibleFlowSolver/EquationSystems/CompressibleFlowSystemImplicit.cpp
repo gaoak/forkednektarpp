@@ -37,10 +37,9 @@
 
 #include <LibUtilities/BasicUtils/Timer.h>
 
-using namespace std;
-
 namespace Nektar
 {
+
 CFSImplicit::CFSImplicit(const LibUtilities::SessionReaderSharedPtr &pSession,
                          const SpatialDomains::MeshGraphSharedPtr &pGraph)
     : UnsteadySystem(pSession, pGraph), CompressibleFlowSystem(pSession, pGraph)
@@ -171,10 +170,10 @@ void CFSImplicit::v_PrintStatusInformation(const int step,
     if (m_infosteps && m_session->GetComm()->GetSpaceComm()->GetRank() == 0 &&
         !((step + 1) % m_infosteps) && m_flagImplicitItsStatistics)
     {
-        cout << "       &&"
-             << " TotImpStages= " << m_TotImpStages
-             << " TotNewtonIts= " << m_TotNewtonIts
-             << " TotLinearIts = " << m_TotLinIts << endl;
+        std::cout << "       &&"
+                  << " TotImpStages= " << m_TotImpStages
+                  << " TotNewtonIts= " << m_TotNewtonIts
+                  << " TotLinearIts = " << m_TotLinIts << std::endl;
     }
 }
 
@@ -184,11 +183,11 @@ void CFSImplicit::v_PrintSummaryStatistics(const NekDouble intTime)
 
     if (m_session->GetComm()->GetRank() == 0 && m_flagImplicitItsStatistics)
     {
-        cout << "-------------------------------------------" << endl
-             << "Total Implicit Stages: " << m_TotImpStages << endl
-             << "Total Newton Its     : " << m_TotNewtonIts << endl
-             << "Total Linear Its     : " << m_TotLinIts << endl
-             << "-------------------------------------------" << endl;
+        std::cout << "-------------------------------------------" << std::endl
+                  << "Total Implicit Stages: " << m_TotImpStages << std::endl
+                  << "Total Newton Its     : " << m_TotNewtonIts << std::endl
+                  << "Total Linear Its     : " << m_TotLinIts << std::endl
+                  << "-------------------------------------------" << std::endl;
     }
 }
 
@@ -508,10 +507,10 @@ void CFSImplicit::CalcRefValues(const Array<OneD, const NekDouble> &inarray)
     {
         for (int i = 0; i < nvariables; ++i)
         {
-            cout << "m_magnitdEstimat[" << i << "]    = " << m_magnitdEstimat[i]
-                 << endl;
+            std::cout << "m_magnitdEstimat[" << i
+                      << "]    = " << m_magnitdEstimat[i] << std::endl;
         }
-        cout << "m_inArrayNorm    = " << m_inArrayNorm << endl;
+        std::cout << "m_inArrayNorm    = " << m_inArrayNorm << std::endl;
     }
 }
 
@@ -939,9 +938,9 @@ void CFSImplicit::CalcVolJacStdMat(TensorOfArray4D<DataType> &StdMatDataDBB,
     StdMatDataDBB  = TensorOfArray4D<DataType>(nTotElmt);
     StdMatDataDBDB = TensorOfArray5D<DataType>(nTotElmt);
 
-    vector<DNekMatSharedPtr> VectStdDerivBase0;
-    vector<TensorOfArray3D<DataType>> VectStdDerivBase_Base;
-    vector<TensorOfArray4D<DataType>> VectStdDervBase_DervBase;
+    std::vector<DNekMatSharedPtr> VectStdDerivBase0;
+    std::vector<TensorOfArray3D<DataType>> VectStdDerivBase_Base;
+    std::vector<TensorOfArray4D<DataType>> VectStdDervBase_DervBase;
     DNekMatSharedPtr MatStdDerivBase0;
     Array<OneD, DNekMatSharedPtr> ArrayStdMat(m_spacedim);
     Array<OneD, Array<OneD, NekDouble>> ArrayStdMatData(m_spacedim);
@@ -1474,7 +1473,7 @@ void CFSImplicit::CalcTraceNumericalFlux(
             visflux[i] = Array<OneD, NekDouble>(nTracePts, 0.0);
         }
 
-        string diffName;
+        std::string diffName;
         m_session->LoadSolverInfo("DiffusionType", diffName, "InteriorPenalty");
         if (diffName == "InteriorPenalty")
         {

@@ -35,8 +35,6 @@
 #include <IncNavierStokesSolver/AdvectionTerms/NavierStokesAdvection.h>
 #include <LibUtilities/BasicUtils/Timer.h>
 
-using namespace std;
-
 namespace Nektar
 {
 
@@ -46,10 +44,10 @@ std::string NavierStokesAdvection::navierStokesAdvectionTypeLookupIds[2] = {
     LibUtilities::SessionReader::RegisterEnumValue("SPECTRALHPDEALIASING",
                                                    "False", 1)};
 
-string NavierStokesAdvection::className =
+std::string NavierStokesAdvection::className =
     SolverUtils::GetAdvectionFactory().RegisterCreatorFunction(
         "Convective", NavierStokesAdvection::create, "Convective");
-string NavierStokesAdvection::className2 =
+std::string NavierStokesAdvection::className2 =
     SolverUtils::GetAdvectionFactory().RegisterCreatorFunction(
         "NonConservative", NavierStokesAdvection::create, "NonConserviative");
 
@@ -62,10 +60,6 @@ string NavierStokesAdvection::className2 =
 
 NavierStokesAdvection::NavierStokesAdvection() : Advection()
 
-{
-}
-
-NavierStokesAdvection::~NavierStokesAdvection()
 {
 }
 

@@ -39,6 +39,7 @@
 
 namespace Nektar
 {
+
 class NoSolver : public LinearSWESolver
 {
 public:
@@ -53,6 +54,7 @@ public:
 protected:
     NoSolver(const LibUtilities::SessionReaderSharedPtr &pSession);
 };
+
 } // namespace Nektar
 
 #endif

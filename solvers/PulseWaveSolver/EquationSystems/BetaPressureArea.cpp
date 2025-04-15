@@ -35,8 +35,6 @@
 
 #include <PulseWaveSolver/EquationSystems/BetaPressureArea.h>
 
-using namespace std;
-
 namespace Nektar
 {
 
@@ -49,10 +47,6 @@ BetaPressureArea::BetaPressureArea(
     Array<OneD, MultiRegions::ExpListSharedPtr> pVessel,
     const LibUtilities::SessionReaderSharedPtr pSession)
     : PulseWavePressureArea(pVessel, pSession)
-{
-}
-
-BetaPressureArea::~BetaPressureArea()
 {
 }
 

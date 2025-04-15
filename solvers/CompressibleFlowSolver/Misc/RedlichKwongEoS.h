@@ -94,12 +94,12 @@ protected:
 private:
     RedlichKwongEoS(const LibUtilities::SessionReaderSharedPtr &pSession);
 
-    ~RedlichKwongEoS(void) override{};
+    ~RedlichKwongEoS(void) override = default;
 
     // Alpha term of Redlich-Kwong EoS ( 1.0/sqrt(Tr))
     template <class T, typename = typename std::enable_if<
-                           std::is_floating_point<T>::value ||
-                           tinysimd::is_vector_floating_point<T>::value>::type>
+                           std::is_floating_point_v<T> ||
+                           tinysimd::is_vector_floating_point_v<T>>::type>
     inline T Alpha(const T &temp)
     {
         return 1.0 / sqrt(temp / m_Tc);
@@ -107,16 +107,16 @@ private:
 
     // Log term term of Peng-Robinson EoS
     template <class T, typename = typename std::enable_if<
-                           std::is_floating_point<T>::value ||
-                           tinysimd::is_vector_floating_point<T>::value>::type>
+                           std::is_floating_point_v<T> ||
+                           tinysimd::is_vector_floating_point_v<T>>::type>
     inline T LogTerm(const T &rho)
     {
         return log(1.0 + m_b * rho);
     }
 
     template <class T, typename = typename std::enable_if<
-                           std::is_floating_point<T>::value ||
-                           tinysimd::is_vector_floating_point<T>::value>::type>
+                           std::is_floating_point_v<T> ||
+                           tinysimd::is_vector_floating_point_v<T>>::type>
     inline T GetTemperatureKernel(const T &rho, const T &e)
     {
         // First we need to evaluate the log term
@@ -158,8 +158,8 @@ private:
     }
 
     template <class T, typename = typename std::enable_if<
-                           std::is_floating_point<T>::value ||
-                           tinysimd::is_vector_floating_point<T>::value>::type>
+                           std::is_floating_point_v<T> ||
+                           tinysimd::is_vector_floating_point_v<T>>::type>
     inline T GetPressureKernel(const T &rho, const T &e)
     {
         T temp    = GetTemperatureKernel(rho, e);

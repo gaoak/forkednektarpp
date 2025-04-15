@@ -80,7 +80,7 @@ private:
         const Array<OneD, Array<OneD, NekDouble>> &pGridVelocity,
         const int pSpaceDim, const int bcRegion, const int cnt);
 
-    ~PressureOutflowBC(void) override{};
+    ~PressureOutflowBC(void) override = default;
 
     // Field storage for PressureOutflow
     Array<OneD, NekDouble> m_pressureStorage;

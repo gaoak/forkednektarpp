@@ -35,10 +35,9 @@
 
 #include "ArtificialDiffusion.h"
 
-using namespace std;
-
 namespace Nektar
 {
+
 ArtificialDiffusionFactory &GetArtificialDiffusionFactory()
 {
     static ArtificialDiffusionFactory instance;
@@ -62,16 +61,6 @@ ArtificialDiffusion::ArtificialDiffusion(
 
     // Get constant scaling
     m_session->LoadParameter("mu0", m_mu0, 1.0);
-}
-
-/**
- *
- */
-void ArtificialDiffusion::DoArtificialDiffusion(
-    const Array<OneD, const Array<OneD, NekDouble>> &inarray,
-    Array<OneD, Array<OneD, NekDouble>> &outarray)
-{
-    v_DoArtificialDiffusion(inarray, outarray);
 }
 
 /**
@@ -103,16 +92,6 @@ void ArtificialDiffusion::v_DoArtificialDiffusion(
 /**
  *
  */
-void ArtificialDiffusion::DoArtificialDiffusionCoeff(
-    const Array<OneD, const Array<OneD, NekDouble>> &inarray,
-    Array<OneD, Array<OneD, NekDouble>> &outarray)
-{
-    v_DoArtificialDiffusionCoeff(inarray, outarray);
-}
-
-/**
- *
- */
 void ArtificialDiffusion::v_DoArtificialDiffusionCoeff(
     const Array<OneD, const Array<OneD, NekDouble>> &inarray,
     Array<OneD, Array<OneD, NekDouble>> &outarray)
@@ -134,16 +113,6 @@ void ArtificialDiffusion::v_DoArtificialDiffusionCoeff(
         Vmath::Vadd(ncoeffs, outarray[i], 1, outarrayDiff[i], 1, outarray[i],
                     1);
     }
-}
-
-/**
- *
- */
-void ArtificialDiffusion::GetArtificialViscosity(
-    const Array<OneD, Array<OneD, NekDouble>> &physfield,
-    Array<OneD, NekDouble> &mu)
-{
-    v_GetArtificialViscosity(physfield, mu);
 }
 
 /**

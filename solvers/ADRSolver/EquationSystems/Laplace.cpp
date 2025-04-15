@@ -36,6 +36,7 @@
 
 namespace Nektar
 {
+
 std::string Laplace::className =
     GetEquationSystemFactory().RegisterCreatorFunction("Laplace",
                                                        Laplace::create);
@@ -74,4 +75,5 @@ Array<OneD, bool> Laplace::v_GetSystemSingularChecks()
 {
     return Array<OneD, bool>(m_session->GetVariables().size(), true);
 }
+
 } // namespace Nektar

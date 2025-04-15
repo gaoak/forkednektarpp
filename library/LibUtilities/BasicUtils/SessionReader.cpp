@@ -2409,6 +2409,15 @@ void SessionReader::ReadFilters(TiXmlElement *filters)
                  "Missing attribute 'TYPE' for filter.");
         std::string typeStr = filter->Attribute("TYPE");
 
+        int domainID = -1;
+        if (filter->Attribute("DOMAIN"))
+        {
+            // domainID = int(filter->Attribute("DOMAIN"));
+            int err = filter->QueryIntAttribute("DOMAIN", &domainID);
+            ASSERTL0(err == TIXML_SUCCESS,
+                     "Unable to read attribute DOMAIN in filter.");
+        }
+
         std::map<std::string, std::string> vParams;
 
         TiXmlElement *element = filter;
@@ -2429,8 +2438,11 @@ void SessionReader::ReadFilters(TiXmlElement *filters)
             param = param->NextSiblingElement("PARAM");
         }
 
-        m_filters.push_back(
-            std::pair<std::string, FilterParams>(typeStr, vParams));
+        FilterDefinition filterDef;
+        filterDef.domain = domainID;
+        filterDef.name   = typeStr;
+        filterDef.params = vParams;
+        m_filters.push_back(filterDef);
 
         filter = filter->NextSiblingElement("FILTER");
     }

@@ -36,6 +36,7 @@
 
 namespace Nektar
 {
+
 std::string Poisson::className =
     GetEquationSystemFactory().RegisterCreatorFunction("Poisson",
                                                        Poisson::create);
@@ -70,4 +71,5 @@ Array<OneD, bool> Poisson::v_GetSystemSingularChecks()
 {
     return Array<OneD, bool>(m_session->GetVariables().size(), true);
 }
+
 } // namespace Nektar

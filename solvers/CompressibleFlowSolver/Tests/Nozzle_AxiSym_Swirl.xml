@@ -77,11 +77,16 @@
             <I PROPERTY="EQTYPE" VALUE="EulerCFE" />
             <I PROPERTY="Projection" VALUE="DisContinuous" />
             <I PROPERTY="AdvectionType" VALUE="WeakDG" />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="RungeKutta3_SSP" />
             <I PROPERTY="UpwindType"  VALUE="HLLC"/>
             <I PROPERTY="ShockCaptureType"  VALUE="Off"/>
             <I PROPERTY="ExponentialFiltering"  VALUE="True"/>
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> RungeKutta </METHOD>
+            <ORDER> 3 </ORDER>
+            <VARIANT> SSP </VARIANT>
+        </TIMEINTEGRATIONSCHEME>
 
         <VARIABLES>
             <V ID="0"> rho </V>

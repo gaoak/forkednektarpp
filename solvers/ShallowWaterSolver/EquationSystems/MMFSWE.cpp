@@ -44,6 +44,7 @@
 
 namespace Nektar
 {
+
 std::string MMFSWE::className =
     SolverUtils::GetEquationSystemFactory().RegisterCreatorFunction(
         "MMFSWE", MMFSWE::create, "MMFSWE equation.");

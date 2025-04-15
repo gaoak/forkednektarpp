@@ -98,6 +98,7 @@ private:
     ForcingCFSSyntheticEddy(
         const LibUtilities::SessionReaderSharedPtr &pSession,
         const std::weak_ptr<EquationSystem> &pEquation);
+
     ~ForcingCFSSyntheticEddy(void) override = default;
 };
 

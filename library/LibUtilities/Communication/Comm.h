@@ -406,8 +406,8 @@ void Comm::AlltoAllv(T1 &pSendData, T2 &pSendDataSizeMap,
 {
     static_assert(CommDataTypeTraits<T1>::IsVector,
                   "AlltoAllv only valid with Array or vector arguments.");
-    static_assert(std::is_same<T2, std::vector<int>>::value ||
-                      std::is_same<T2, Array<OneD, int>>::value,
+    static_assert(std::is_same_v<T2, std::vector<int>> ||
+                      std::is_same_v<T2, Array<OneD, int>>,
                   "Alltoallv size and offset maps should be integer vectors.");
     v_AlltoAllv(CommDataTypeTraits<T1>::GetPointer(pSendData),
                 (int *)CommDataTypeTraits<T2>::GetPointer(pSendDataSizeMap),
@@ -585,8 +585,8 @@ void Comm::NeighborAlltoAllv(T1 &pSendData, T2 &pSendDataSizeMap,
         CommDataTypeTraits<T1>::IsVector,
         "NeighbourAlltoAllv only valid with Array or vector arguments.");
     static_assert(
-        std::is_same<T2, std::vector<int>>::value ||
-            std::is_same<T2, Array<OneD, int>>::value,
+        std::is_same_v<T2, std::vector<int>> ||
+            std::is_same_v<T2, Array<OneD, int>>,
         "NeighborAllToAllv size and offset maps should be integer vectors.");
     v_NeighborAlltoAllv(
         CommDataTypeTraits<T1>::GetPointer(pSendData),

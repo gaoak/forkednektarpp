@@ -42,6 +42,7 @@
 
 namespace Nektar
 {
+
 /**
  *
  *
@@ -63,8 +64,6 @@ public:
     }
     // Name of class
     static std::string className;
-
-    ~NavierStokesCFE() override = default;
 
 protected:
     std::string m_ViscosityType;
@@ -95,6 +94,8 @@ protected:
 
     NavierStokesCFE(const LibUtilities::SessionReaderSharedPtr &pSession,
                     const SpatialDomains::MeshGraphSharedPtr &pGraph);
+
+    ~NavierStokesCFE() override = default;
 
     void GetViscousFluxVectorConservVar(
         const size_t nDim, const Array<OneD, Array<OneD, NekDouble>> &inarray,
@@ -170,8 +171,8 @@ protected:
                           std::vector<std::string> &variables) override;
 
     template <class T, typename = typename std::enable_if<
-                           std::is_floating_point<T>::value ||
-                           tinysimd::is_vector_floating_point<T>::value>::type>
+                           std::is_floating_point_v<T> ||
+                           tinysimd::is_vector_floating_point_v<T>>::type>
     inline void GetViscosityAndThermalCondFromTempKernel(const T &temperature,
                                                          T &mu, T &thermalCond)
     {
@@ -181,8 +182,8 @@ protected:
     }
 
     template <class T, typename = typename std::enable_if<
-                           std::is_floating_point<T>::value ||
-                           tinysimd::is_vector_floating_point<T>::value>::type>
+                           std::is_floating_point_v<T> ||
+                           tinysimd::is_vector_floating_point_v<T>>::type>
     inline void GetViscosityFromTempKernel(const T &temperature, T &mu)
     {
         // Variable viscosity through the Sutherland's law
@@ -205,8 +206,8 @@ protected:
      * outarray[nvars] flux
      */
     template <class T, typename = typename std::enable_if<
-                           std::is_floating_point<T>::value ||
-                           tinysimd::is_vector_floating_point<T>::value>::type>
+                           std::is_floating_point_v<T> ||
+                           tinysimd::is_vector_floating_point_v<T>>::type>
     inline void GetViscousFluxBilinearFormKernel(
         const unsigned short nDim, const unsigned short FluxDirection,
         const unsigned short DerivDirection,

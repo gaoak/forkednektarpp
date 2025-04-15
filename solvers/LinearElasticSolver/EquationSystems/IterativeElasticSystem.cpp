@@ -46,12 +46,10 @@
 
 #include <LinearElasticSolver/EquationSystems/IterativeElasticSystem.h>
 
-using namespace std;
-
 namespace Nektar
 {
 
-string IterativeElasticSystem::className =
+std::string IterativeElasticSystem::className =
     GetEquationSystemFactory().RegisterCreatorFunction(
         "IterativeElasticSystem", IterativeElasticSystem::create);
 
@@ -74,7 +72,7 @@ void IterativeElasticSystem::v_InitObject(bool DeclareFields)
 
     // Read in whether to repeatedly apply boundary conditions (for e.g.
     // rotation purposes).
-    string bcType;
+    std::string bcType;
     m_session->LoadSolverInfo("BCType", bcType, "Normal");
     m_repeatBCs = bcType != "Normal";
 
@@ -170,11 +168,11 @@ void IterativeElasticSystem::v_DoSolve()
         {
             if (m_session->GetComm()->GetRank() == 0)
             {
-                cout << "- Detected negative Jacobian in element "
-                     << invalidElmtId
-                     << "; terminating at"
-                        " step: "
-                     << i << endl;
+                std::cout << "- Detected negative Jacobian in element "
+                          << invalidElmtId
+                          << "; terminating at"
+                             " step: "
+                          << i << std::endl;
             }
 
             break;
@@ -182,7 +180,7 @@ void IterativeElasticSystem::v_DoSolve()
 
         if (m_session->GetComm()->GetRank() == 0)
         {
-            cout << "Step: " << i << endl;
+            std::cout << "Step: " << i << std::endl;
         }
 
         // Update boundary conditions
@@ -190,7 +188,7 @@ void IterativeElasticSystem::v_DoSolve()
         {
             for (j = 0; j < m_fields.size(); ++j)
             {
-                string varName = m_session->GetVariable(j);
+                std::string varName = m_session->GetVariable(j);
                 m_fields[j]->EvaluateBoundaryConditions(m_time, varName);
             }
         }
@@ -220,14 +218,14 @@ void IterativeElasticSystem::v_DoSolve()
 void IterativeElasticSystem::WriteGeometry(const int i)
 {
     fs::path filename;
-    stringstream s;
+    std::stringstream s;
     s << m_session->GetSessionName() << "-" << i;
 
     if (m_session->GetComm()->GetSize() > 1)
     {
         s << "_xml";
 
-        string ss = s.str();
+        std::string ss = s.str();
         if (!fs::is_directory(ss))
         {
             fs::create_directory(ss);
@@ -243,8 +241,8 @@ void IterativeElasticSystem::WriteGeometry(const int i)
         filename = fs::path(s.str());
     }
 
-    string fname    = LibUtilities::PortablePath(filename);
-    string geomType = m_session->GetGeometryType();
+    std::string fname    = LibUtilities::PortablePath(filename);
+    std::string geomType = m_session->GetGeometryType();
     auto graphIO =
         SpatialDomains::GetMeshGraphIOFactory().CreateInstance(geomType);
     graphIO->SetMeshGraph(m_graph);

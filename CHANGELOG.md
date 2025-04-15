@@ -18,6 +18,15 @@ v5.8.0
 - Matrix free ops shape cleanup (!1735) 
 - Fix NodalTri processing and static condensation matrix release (!1989)
 - Fix third-party Scotch patch (!1998)
+- Fixed Modified Arnoldi driver to remove discontinuities from random vectors (!2002)
+- Addedd support for backing up filters output when the file name have already existis (!2006)
+- Partially revert Geometry::v_ContainsPoint (!2007)
+- Make the CWIPI third-party patch work with IntelLLVM (!2053)
+- Use C++17 value template for traits (!2081)
+- Add H1-norm to Error filter (!1834)
+- Delete redundant lines in the Navier-Stokes diffusion functions (!2058)
+- Various tidy-up for solvers (!2056)
+- Add Compilation option for boost filesystem (!2092)
 
 **CI**
 - Fix CubeAllElements performance test tolerance (!1943)
@@ -28,6 +37,7 @@ v5.8.0
 
 **NekMesh**
 - Add high-order pyramid and prism support from gmsh (!1956)
+- Industrial Pipeline Mesh Curving and CAD-Mesh link Reconstruction for all type of elements (!2057)
 
 **Python**
 - Transition bindings to use pybind11 (!1950)
@@ -35,7 +45,12 @@ v5.8.0
 **Documentation**
 - Updated the User-guide with additional inofrmation for outflow BC, addressing the issue #103 (!1990)
 
+**PulseWaveSolver**
+- Added ability to output history points (and other filters) (!2000)
 
+**Miscellaneous**
+- Deprecate use of TimeIntegrationMethod in SolverInfo (!2059)
+	
 v5.7.0
 -----
 **Library**
@@ -55,7 +70,7 @@ v5.7.0
 - Fix variable p in tetrahedrons (!1881)
 - Fix BwdTrans for Pyr with var P (!1886)
 - Allow wrapper array around a existing raw pointer (!1848)
-- Tweaked some long tests to make them faster (!!1918)
+- Tweaked some long tests to make them faster (!1918)
 
 **IncNavierStokesSolver**
 - Fix initial and boundary conditions in the moving reference frame (!1692, !1820)

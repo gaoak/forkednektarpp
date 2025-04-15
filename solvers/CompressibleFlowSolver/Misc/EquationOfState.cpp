@@ -34,8 +34,6 @@
 
 #include "EquationOfState.h"
 
-using namespace std;
-
 namespace Nektar
 {
 EquationOfStateFactory &GetEquationOfStateFactory()
@@ -60,59 +58,6 @@ EquationOfState::EquationOfState(const NekDouble &gamma,
 {
 }
 
-NekDouble EquationOfState::GetTemperature(const NekDouble &rho,
-                                          const NekDouble &e)
-{
-    return v_GetTemperature(rho, e);
-}
-
-vec_t EquationOfState::GetTemperature(const vec_t &rho, const vec_t &e)
-{
-    return v_GetTemperature(rho, e);
-}
-
-NekDouble EquationOfState::GetPressure(const NekDouble &rho, const NekDouble &e)
-{
-    return v_GetPressure(rho, e);
-}
-
-vec_t EquationOfState::GetPressure(const vec_t &rho, const vec_t &e)
-{
-    return v_GetPressure(rho, e);
-}
-
-NekDouble EquationOfState::GetSoundSpeed(const NekDouble &rho,
-                                         const NekDouble &e)
-{
-    return v_GetSoundSpeed(rho, e);
-}
-
-NekDouble EquationOfState::GetEntropy(const NekDouble &rho, const NekDouble &e)
-{
-    return v_GetEntropy(rho, e);
-}
-
-NekDouble EquationOfState::GetDPDrho_e(const NekDouble &rho, const NekDouble &e)
-{
-    return v_GetDPDrho_e(rho, e);
-}
-
-NekDouble EquationOfState::GetDPDe_rho(const NekDouble &rho, const NekDouble &e)
-{
-    return v_GetDPDe_rho(rho, e);
-}
-
-NekDouble EquationOfState::GetEFromRhoP(const NekDouble &rho,
-                                        const NekDouble &p)
-{
-    return v_GetEFromRhoP(rho, p);
-}
-
-NekDouble EquationOfState::GetRhoFromPT(const NekDouble &p, const NekDouble &T)
-{
-    return v_GetRhoFromPT(p, T);
-}
-
 // General implementation for v_GetSoundSpeed: c^2 = xi + kappa * h
 //    where xi = dpdrho - e/rho * dp/de    and  kappa = dp/de / rho
 NekDouble EquationOfState::v_GetSoundSpeed(const NekDouble &rho,
@@ -127,7 +72,7 @@ NekDouble EquationOfState::v_GetSoundSpeed(const NekDouble &rho,
     NekDouble chi   = dpdrho - e / rho * dpde;
     NekDouble kappa = dpde / rho;
 
-    return sqrt(chi + kappa * enthalpy);
+    return std::sqrt(chi + kappa * enthalpy);
 }
 
 } // namespace Nektar

@@ -52,6 +52,8 @@ typedef std::shared_ptr<EmpiricalPressureArea> EmpiricalPressureAreaSharedPtr;
 class EmpiricalPressureArea : public PulseWavePressureArea
 {
 public:
+    friend class MemoryManager<EmpiricalPressureArea>;
+
     // Creates an instance of this class
     static PulseWavePressureAreaSharedPtr create(
         Array<OneD, MultiRegions::ExpListSharedPtr> &pVessel,
@@ -64,12 +66,12 @@ public:
     // Name of class
     static std::string className;
 
+protected:
     EmpiricalPressureArea(Array<OneD, MultiRegions::ExpListSharedPtr> pVessel,
                           const LibUtilities::SessionReaderSharedPtr pSession);
 
-    ~EmpiricalPressureArea() override;
+    ~EmpiricalPressureArea() override = default;
 
-protected:
     void v_GetPressure(NekDouble &P, const NekDouble &beta, const NekDouble &A,
                        const NekDouble &A0, const NekDouble &dAUdx,
                        const NekDouble &gamma = 0,

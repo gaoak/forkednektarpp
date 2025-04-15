@@ -34,8 +34,6 @@
 
 #include "ExtrapOrder0BC.h"
 
-using namespace std;
-
 namespace Nektar
 {
 

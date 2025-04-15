@@ -34,8 +34,6 @@
 
 #include "PressureInflowFileBC.h"
 
-using namespace std;
-
 namespace Nektar
 {
 

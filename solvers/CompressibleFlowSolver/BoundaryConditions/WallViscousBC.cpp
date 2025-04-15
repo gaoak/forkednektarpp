@@ -34,8 +34,6 @@
 
 #include "WallViscousBC.h"
 
-using namespace std;
-
 namespace Nektar
 {
 

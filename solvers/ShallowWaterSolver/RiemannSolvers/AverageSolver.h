@@ -41,6 +41,7 @@
 
 namespace Nektar
 {
+
 class AverageSolver : public NonlinearSWESolver
 {
 public:
@@ -59,6 +60,7 @@ protected:
                       NekDouble huR, NekDouble hvR, NekDouble &hf,
                       NekDouble &huf, NekDouble &hvf) override;
 };
+
 } // namespace Nektar
 
 #endif

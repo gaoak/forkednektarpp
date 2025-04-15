@@ -37,6 +37,7 @@
 
 namespace Nektar
 {
+
 std::string MovingFrameWall::className =
     GetIncBCFactory().RegisterCreatorFunction(
         "MovingFrameWall", MovingFrameWall::create,
@@ -67,10 +68,6 @@ MovingFrameWall::MovingFrameWall(
     {
         m_BndExp[m_pressure] = exp[m_pressure];
     }
-}
-
-MovingFrameWall::~MovingFrameWall()
-{
 }
 
 void MovingFrameWall::v_Initialise(

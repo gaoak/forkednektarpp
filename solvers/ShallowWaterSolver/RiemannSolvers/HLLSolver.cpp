@@ -36,6 +36,7 @@
 
 namespace Nektar
 {
+
 std::string HLLSolver::solverName =
     SolverUtils::GetRiemannSolverFactory().RegisterCreatorFunction(
         "HLL", HLLSolver::create, "HLL Riemann solver");
@@ -125,4 +126,5 @@ void HLLSolver::v_PointSolve(NekDouble hL, NekDouble huL, NekDouble hvL,
         hvf = (SR * fL - SL * fR + SL * SR * (hR * vR - hL * vL)) / (SR - SL);
     }
 }
+
 } // namespace Nektar

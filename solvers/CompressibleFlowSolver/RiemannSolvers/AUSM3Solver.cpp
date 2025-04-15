@@ -36,6 +36,7 @@
 
 namespace Nektar
 {
+
 std::string AUSM3Solver::solverName =
     SolverUtils::GetRiemannSolverFactory().RegisterCreatorFunction(
         "AUSM3", AUSM3Solver::create, "AUSM3 Riemann solver");

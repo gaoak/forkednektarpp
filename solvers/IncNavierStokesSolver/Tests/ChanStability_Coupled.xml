@@ -250,11 +250,15 @@
             <I PROPERTY="EQTYPE" VALUE="SteadyLinearisedNS" />
             <I PROPERTY="EvolutionOperator" VALUE="Direct" />
             <I PROPERTY="Projection" VALUE="Galerkin" />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="IMEXOrder1" />
             <I PROPERTY="Driver" VALUE="Arpack" />
             <I PROPERTY="ArpackProblemType" VALUE="LargestImag" />
             <I PROPERTY="InitialVector" VALUE="Random" />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> IMEX </METHOD>
+            <ORDER> 1 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
 
         <PARAMETERS>
             <P> TimeStep      = 0.002 </P>

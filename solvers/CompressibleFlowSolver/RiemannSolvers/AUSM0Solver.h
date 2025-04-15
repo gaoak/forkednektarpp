@@ -39,6 +39,7 @@
 
 namespace Nektar
 {
+
 class AUSM0Solver : public CompressibleSolver
 {
 public:

@@ -52,4 +52,111 @@ Filter::~Filter()
 {
 }
 
+std::string Filter::v_SetupOutput(const std::string ext,
+                                  const ParamMap &pParams)
+{
+    // get the backup switch
+    bool backup = m_session->GetBackups();
+
+    // determinte the root
+    bool root = m_session->GetComm()->TreatAsRankZero();
+
+    std::string outname;
+
+    // set up the base output file name
+    auto it = pParams.find("OutputFile");
+    if (it == pParams.end())
+    {
+        outname = m_session->GetSessionName();
+    }
+    else
+    {
+        ASSERTL0(it->second.length() > 0, "Missing parameter 'OutputFile'.");
+        outname = it->second;
+    }
+
+    // remove any aextension from the input name and add the correct one
+    outname = fs::path(outname).replace_extension("").string() + ext;
+    fs::path specPath(outname);
+    // filters output are handled by root (rank 0) only. check if the path is
+    // already exists
+    if (backup && root && fs::exists(specPath))
+    {
+        // rename. foo/output-name.ext -> foo/output-name.bak0.ext and in case
+        // foo/output-name.bak0.chk already exists,
+        // foo/output-name.bak0.ext ->foo/output-name.bak1.chk
+        fs::path bakPath = specPath;
+        int cnt          = 0;
+        while (fs::exists(bakPath))
+        {
+            bakPath = specPath.parent_path();
+            // this is for parallel in time
+            bakPath += specPath.stem();
+            bakPath += fs::path(".bak" + std::to_string(cnt++));
+            bakPath += specPath.extension();
+        }
+        std::cout << "renaming " << specPath << " -> " << bakPath << std::endl;
+        try
+        {
+            fs::rename(specPath, bakPath);
+        }
+        catch (fs::filesystem_error &e)
+        {
+            ASSERTL0(e.code() == std::errc::no_such_file_or_directory,
+                     "Filesystem error: " + std::string(e.what()));
+        }
+    }
+    // return the output file name
+    return LibUtilities::PortablePath(specPath);
+}
+std::string Filter::v_SetupOutput(const std::string ext,
+                                  const std::string inname)
+{
+    // get the backup switch
+    bool backup = m_session->GetBackups();
+
+    // determinte the root
+    bool root = m_session->GetComm()->TreatAsRankZero();
+
+    // for the history point filter we have already established the file name
+    std::string outname = inname;
+
+    // remove any aextension from the input name and add the correct one
+    outname = fs::path(outname).replace_extension("").string() + ext;
+    // Path to output
+    fs::path specPath(outname);
+
+    // filters output are handled by root (rank 0) only. check if the path is
+    // already exists
+    if (backup && root && fs::exists(specPath))
+    {
+        // rename. foo/output-name.ext -> foo/output-name.bak0.ext and in case
+        // foo/output-name.bak0.chk already exists,
+        // foo/output-name.bak0.ext ->foo/output-name.bak1.chk
+        //
+        fs::path bakPath = specPath;
+        int cnt          = 0;
+        while (fs::exists(bakPath))
+        {
+            bakPath = specPath.parent_path();
+            // this is for parallel in time
+            bakPath += specPath.stem();
+            bakPath += fs::path(".bak" + std::to_string(cnt++));
+            bakPath += specPath.extension();
+        }
+        std::cout << "renaming " << specPath << " -> " << bakPath << std::endl;
+        try
+        {
+            fs::rename(specPath, bakPath);
+        }
+        catch (fs::filesystem_error &e)
+        {
+            ASSERTL0(e.code() == std::errc::no_such_file_or_directory,
+                     "Filesystem error: " + std::string(e.what()));
+        }
+    }
+
+    return LibUtilities::PortablePath(specPath);
+}
+
 } // namespace Nektar::SolverUtils

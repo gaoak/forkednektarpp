@@ -39,6 +39,7 @@
 
 namespace Nektar
 {
+
 /**
  *
  *
@@ -59,16 +60,17 @@ public:
         p->InitObject();
         return p;
     }
+
     // Name of class
     static std::string className;
-
-    ~NavierStokesCFEAxisym() override;
 
 protected:
     Array<OneD, Array<OneD, NekDouble>> m_viscousForcing;
 
     NavierStokesCFEAxisym(const LibUtilities::SessionReaderSharedPtr &pSession,
                           const SpatialDomains::MeshGraphSharedPtr &pGraph);
+
+    ~NavierStokesCFEAxisym() override = default;
 
     void v_InitObject(bool DeclareFields = true) override;
 
@@ -93,5 +95,6 @@ protected:
                  "Dealiased flux not implemented for axisymmetric case");
     }
 };
+
 } // namespace Nektar
 #endif

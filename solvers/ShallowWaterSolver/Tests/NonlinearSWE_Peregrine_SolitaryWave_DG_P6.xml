@@ -1752,11 +1752,14 @@
         <SOLVERINFO>
             <I PROPERTY="EQType"                VALUE="NonlinearPeregrine"   />
             <I PROPERTY="Projection"            VALUE="DisContinuous"        />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="ClassicalRungeKutta4" />
             <I PROPERTY="UpwindType"            VALUE="HLLC"                 />
             <I PROPERTY="ProblemType"           VALUE="SolitaryWave"         />
         </SOLVERINFO>
 
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> RungeKutta </METHOD>
+            <ORDER> 4 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
 
         <PARAMETERS>
             <P> TimeStep       = 0.005                    </P>

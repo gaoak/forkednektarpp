@@ -116,9 +116,13 @@
         <SOLVERINFO>
             <I PROPERTY="EQType" VALUE="LinearSWE" />
             <I PROPERTY="Projection" VALUE="Continuous" />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="ClassicalRungeKutta4" />
             <I PROPERTY="UpwindType" VALUE="LinearAverage" />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> RungeKutta </METHOD>
+            <ORDER> 4 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
 
         <PARAMETERS>
             <P> TimeStep = 9.030472819714618/100           </P>

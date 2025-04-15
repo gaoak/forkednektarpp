@@ -37,6 +37,7 @@
 
 namespace Nektar
 {
+
 std::string UpwindPulseSolver::solverName =
     SolverUtils::GetRiemannSolverFactory().RegisterCreatorFunction(
         "UpwindPulse", UpwindPulseSolver::create, "UpwindPulseSolver");

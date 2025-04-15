@@ -34,12 +34,10 @@
 
 #include <IncNavierStokesSolver/AdvectionTerms/NoAdvection.h>
 
-using namespace std;
-
 namespace Nektar
 {
 
-string NoAdvection::className =
+std::string NoAdvection::className =
     SolverUtils::GetAdvectionFactory().RegisterCreatorFunction(
         "NoAdvection", NoAdvection::create);
 
@@ -48,13 +46,6 @@ string NoAdvection::className =
  */
 NoAdvection::NoAdvection() : Advection()
 
-{
-}
-
-/**
- *
- */
-NoAdvection::~NoAdvection()
 {
 }
 

@@ -355,14 +355,16 @@
             <I PROPERTY="Projection"            VALUE="DisContinuous"       />
             <I PROPERTY="AdvectionType"         VALUE="WeakDG"              />
             <I PROPERTY="DiffusionType"         VALUE="InteriorPenalty"               />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="ForwardEuler"/>
             <I PROPERTY="UpwindType"            VALUE="Roe"                />
             <I PROPERTY="ProblemType"           VALUE="General"             />
             <I PROPERTY="ViscosityType"         VALUE="Constant"            />
-
             <I PROPERTY="useUnifiedWeakIntegration"  VALUE="True"/>
-
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> Euler </METHOD>
+            <VARIANT> Forward </VARIANT>
+        </TIMEINTEGRATIONSCHEME>
 
         <VARIABLES>
             <V ID="0"> rho  </V>

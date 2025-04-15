@@ -38,6 +38,7 @@
 
 namespace Nektar
 {
+
 std::string AverageSolver::solverName =
     SolverUtils::GetRiemannSolverFactory().RegisterCreatorFunction(
         "Average", AverageSolver::create, "Average Value Riemann solver");
@@ -80,4 +81,5 @@ void AverageSolver::v_PointSolve(NekDouble hL, NekDouble huL, NekDouble hvL,
                  (uR * uR * hR + 0.5 * g * hR * hR));
     hvf = 0.5 * (hL * uL * vL + hR * uR * vR);
 }
+
 } // namespace Nektar

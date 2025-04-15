@@ -34,8 +34,6 @@
 
 #include "NonSmoothShockCapture.h"
 
-using namespace std;
-
 namespace Nektar
 {
 
@@ -95,4 +93,5 @@ void NonSmoothShockCapture::v_GetArtificialViscosity(
                     tmp = mu + physOffset, 1);
     }
 }
+
 } // namespace Nektar

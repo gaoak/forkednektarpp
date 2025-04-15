@@ -35,8 +35,6 @@
 
 #include <AcousticSolver/RiemannSolvers/APEUpwindSolver.h>
 
-using namespace std;
-
 namespace Nektar
 {
 

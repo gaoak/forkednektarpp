@@ -77,8 +77,12 @@
             <I PROPERTY="EQTYPE" VALUE="UnsteadyDiffusion" />
             <I PROPERTY="Projection" VALUE="DisContinuous" />
             <I PROPERTY="DiffusionAdvancement" VALUE="Explicit" />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="RungeKutta4" />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> RungeKutta </METHOD>
+            <ORDER> 4 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
 
         <VARIABLES>
             <V ID="0"> u </V>

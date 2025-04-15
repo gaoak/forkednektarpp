@@ -44,8 +44,7 @@ namespace tinysimd
 {
 
 // should be enabled only for vector types
-template <typename T,
-          typename = typename std::enable_if<is_vector<T>::value>::type>
+template <typename T, typename = typename std::enable_if<is_vector_v<T>>::type>
 using allocator = boost::alignment::aligned_allocator<T, T::alignment>;
 
 } // namespace tinysimd

@@ -58,8 +58,12 @@
             <I PROPERTY="EQTYPE"                VALUE="FileSolution" />
             <I PROPERTY="Projection"            VALUE="Continuous" />
             <I PROPERTY="HOMOGENEOUS"           VALUE="1D" />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="NoScheme" />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> NoScheme </METHOD>
+            <ORDER> 1 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
 
         <PARAMETERS>
             <P> TimeStep      = 0.001        </P>

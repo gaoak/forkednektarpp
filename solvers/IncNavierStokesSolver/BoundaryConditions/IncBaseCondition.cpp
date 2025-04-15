@@ -37,6 +37,7 @@
 
 namespace Nektar
 {
+
 NekDouble IncBaseCondition::StifflyStable_Betaq_Coeffs[3][3] = {
     {1.0, 0.0, 0.0}, {2.0, -1.0, 0.0}, {3.0, -3.0, 1.0}};
 NekDouble IncBaseCondition::StifflyStable_Alpha_Coeffs[3][3] = {
@@ -61,10 +62,6 @@ IncBaseCondition::IncBaseCondition(
 {
 }
 
-IncBaseCondition::~IncBaseCondition()
-{
-}
-
 void IncBaseCondition::v_Initialise(
     const LibUtilities::SessionReaderSharedPtr &pSession)
 {
@@ -75,14 +72,25 @@ void IncBaseCondition::v_Initialise(
         m_intSteps = std::round(pSession->GetParameter("ExtrapolateOrder"));
         m_intSteps = std::min(3, std::max(0, m_intSteps));
     }
-    else if (pSession->DefinesSolverInfo("TimeIntegrationMethod"))
+    else if (pSession->DefinesSolverInfo("TimeIntegrationMethod") ||
+             pSession->DefinesTimeIntScheme())
     {
-        if (pSession->GetSolverInfo("TimeIntegrationMethod") == "IMEXOrder1")
+        std::string method;
+        if (pSession->DefinesTimeIntScheme())
+        {
+            auto timeInt = pSession->GetTimeIntScheme();
+            method = timeInt.method + "Order" + std::to_string(timeInt.order);
+        }
+        else
+        {
+            method = pSession->GetSolverInfo("TimeIntegrationMethod");
+        }
+
+        if (method == "IMEXOrder1")
         {
             m_intSteps = 1;
         }
-        else if (pSession->GetSolverInfo("TimeIntegrationMethod") ==
-                 "IMEXOrder2")
+        else if (method == "IMEXOrder2")
         {
             m_intSteps = 2;
         }
@@ -346,13 +354,6 @@ void IncBaseCondition::RigidBodyVelocity(
                         1);
         }
     }
-}
-
-void IncBaseCondition::v_Update(
-    [[maybe_unused]] const Array<OneD, const Array<OneD, NekDouble>> &fields,
-    [[maybe_unused]] const Array<OneD, const Array<OneD, NekDouble>> &Adv,
-    [[maybe_unused]] std::map<std::string, NekDouble> &params)
-{
 }
 
 } // namespace Nektar

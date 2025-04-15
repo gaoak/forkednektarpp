@@ -95,17 +95,16 @@ public:
     /// Name of class
     static std::string className;
 
-    TestType m_TestType;
-
-    /// Desctructor
-    ~MMFDiffusion() override;
-
 protected:
+    TestType m_TestType;
+    InitWaveType m_InitWaveType;
+    NekDouble m_InitPtx, m_InitPty, m_InitPtz;
+
     /// Constructor
     MMFDiffusion(const LibUtilities::SessionReaderSharedPtr &pSession,
                  const SpatialDomains::MeshGraphSharedPtr &pGraph);
 
-    InitWaveType m_InitWaveType;
+    ~MMFDiffusion() override = default;
 
     void v_InitObject(bool DeclareField = true) override;
 
@@ -143,12 +142,9 @@ protected:
                                  Array<OneD, NekDouble> &outfield,
                                  const NekDouble time) override;
 
-    NekDouble m_InitPtx, m_InitPty, m_InitPtz;
-
 private:
     /// Variable diffusivity
     StdRegions::VarCoeffMap m_varcoeff;
-
     Array<OneD, NekDouble> m_epsilon;
     Array<OneD, NekDouble> m_epsu;
 };

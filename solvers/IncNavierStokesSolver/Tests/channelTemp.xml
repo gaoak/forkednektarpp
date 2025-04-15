@@ -12,11 +12,15 @@
             <I PROPERTY="EQTYPE"                        VALUE="UnsteadyNavierStokes"    />
             <I PROPERTY="EvolutionOperator"             VALUE="Nonlinear"               />
             <I PROPERTY="Projection"                    VALUE="Galerkin"                />
-            <I PROPERTY="TimeIntegrationMethod"         VALUE="IMEXOrder2"              />
             <I PROPERTY="Driver"                        VALUE="Standard"                />
             <I PROPERTY="SpectralVanishingViscosity"    VALUE="True"                    />
             <I PROPERTY="SPECTRALHPDEALIASING"          VALUE="True"                    />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> IMEX </METHOD>
+            <ORDER> 2 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
 
         <PARAMETERS>
             <!-- Need to pick Delta t strategically, dont want CFL number to be too large! -->

@@ -1984,13 +1984,17 @@
         <SOLVERINFO>
             <I PROPERTY="EQType" VALUE="MMFMaxwell" />
             <I PROPERTY="Projection" VALUE="DisContinuous" />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="ClassicalRungeKutta4" />
             <I PROPERTY="UpwindType" VALUE="Upwind" />
             <I PROPERTY="SurfaceType" VALUE="Sphere" />
             <I PROPERTY="TestMaxwellType" VALUE="MaxwellSphere" />
             <I PROPERTY="PolType" VALUE="TransMagnetic" />  <!-- TransElectric, TransMagnetic-->
             <I PROPERTY="MMFDir" VALUE="LOCAL" /> <!-- TangentX, TangentY, TangentXY, TangentZ, TangentCircular, LOCAL-->
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> RungeKutta </METHOD>
+            <ORDER> 4 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
 
         <PARAMETERS>
             <P> TimeStep       = 0.001             </P>

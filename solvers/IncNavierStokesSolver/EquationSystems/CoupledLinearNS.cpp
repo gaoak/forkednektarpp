@@ -40,16 +40,14 @@
 #include <MultiRegions/ContField.h>
 #include <MultiRegions/GlobalLinSysDirectStaticCond.h>
 
-using namespace std;
-
 namespace Nektar
 {
 
-string CoupledLinearNS::className =
+std::string CoupledLinearNS::className =
     SolverUtils::GetEquationSystemFactory().RegisterCreatorFunction(
         "CoupledLinearisedNS", CoupledLinearNS::create);
 
-string CoupledLinearNS::solverTypeLookupId =
+std::string CoupledLinearNS::solverTypeLookupId =
     LibUtilities::SessionReader::RegisterEnumValue(
         "SolverType", "CoupledLinearisedNS", eCoupledLinearisedNS);
 
@@ -1339,7 +1337,7 @@ void CoupledLinearNS::SetUpCoupledMatrix(
             loc_mat = MemoryManager<DNekScalMat>::AllocateSharedPtr(one, Dh));
     }
     timer.Stop();
-    cout << "Matrix Setup Costs: " << timer.TimePerTest(1) << endl;
+    std::cout << "Matrix Setup Costs: " << timer.TimePerTest(1) << std::endl;
 
     timer.Start();
     // Set up global coupled boundary solver.
@@ -1462,8 +1460,9 @@ void CoupledLinearNS::v_DoInitialise(bool dumpInitialConditions)
                     m_fields[m_velocity[i]]->FwdTransLocalElmt(
                         Restart[i], m_fields[m_velocity[i]]->UpdateCoeffs());
                 }
-                cout << "Saving the RESTART file for m_kinvis = " << m_kinvis
-                     << " (<=> Re = " << 1 / m_kinvis << ")" << endl;
+                std::cout << "Saving the RESTART file for m_kinvis = "
+                          << m_kinvis << " (<=> Re = " << 1 / m_kinvis << ")"
+                          << std::endl;
             }
             else // We solve the Stokes Problem
             {
@@ -1474,8 +1473,9 @@ void CoupledLinearNS::v_DoInitialise(bool dumpInitialConditions)
                 // SolveLinearNS(m_ForcingTerm_Coeffs);
                 Solve();
                 m_initialStep = false;
-                cout << "Saving the Stokes Flow for m_kinvis = " << m_kinvis
-                     << " (<=> Re = " << 1 / m_kinvis << ")" << endl;
+                std::cout << "Saving the Stokes Flow for m_kinvis = "
+                          << m_kinvis << " (<=> Re = " << 1 / m_kinvis << ")"
+                          << std::endl;
             }
         }
         break;
@@ -1614,18 +1614,21 @@ void CoupledLinearNS::v_DoSolve(void)
             Checkpoint_Output(Check);
             Check++;
 
-            cout << "We execute INITIALLY SolveSteadyNavierStokes for m_kinvis "
-                    "= "
-                 << m_kinvis << " (<=> Re = " << 1 / m_kinvis << ")" << endl;
+            std::cout
+                << "We execute INITIALLY SolveSteadyNavierStokes for m_kinvis "
+                   "= "
+                << m_kinvis << " (<=> Re = " << 1 / m_kinvis << ")"
+                << std::endl;
             SolveSteadyNavierStokes();
 
             while (m_kinvis > m_kinvisMin)
             {
                 if (Check == 1)
                 {
-                    cout << "We execute SolveSteadyNavierStokes for m_kinvis = "
-                         << m_kinvis << " (<=> Re = " << 1 / m_kinvis << ")"
-                         << endl;
+                    std::cout
+                        << "We execute SolveSteadyNavierStokes for m_kinvis = "
+                        << m_kinvis << " (<=> Re = " << 1 / m_kinvis << ")"
+                        << std::endl;
                     SolveSteadyNavierStokes();
                     Checkpoint_Output(Check);
                     Check++;
@@ -1635,9 +1638,10 @@ void CoupledLinearNS::v_DoSolve(void)
 
                 if (m_kinvis > m_kinvisMin)
                 {
-                    cout << "We execute SolveSteadyNavierStokes for m_kinvis = "
-                         << m_kinvis << " (<=> Re = " << 1 / m_kinvis << ")"
-                         << endl;
+                    std::cout
+                        << "We execute SolveSteadyNavierStokes for m_kinvis = "
+                        << m_kinvis << " (<=> Re = " << 1 / m_kinvis << ")"
+                        << std::endl;
                     SolveSteadyNavierStokes();
                     Checkpoint_Output(Check);
                     Check++;
@@ -1645,8 +1649,8 @@ void CoupledLinearNS::v_DoSolve(void)
             }
 
             Generaltimer.Stop();
-            cout << "\nThe total calculation time is : "
-                 << Generaltimer.TimePerTest(1) / 60 << " minute(s). \n\n";
+            std::cout << "\nThe total calculation time is : "
+                      << Generaltimer.TimePerTest(1) / 60 << " minute(s). \n\n";
 
             break;
         }
@@ -1728,9 +1732,10 @@ void CoupledLinearNS::DefineForcingTerm(void)
     }
     else
     {
-        cout << "'ForcingTerm' section has not been defined in the input file "
-                "=> forcing=0"
-             << endl;
+        std::cout
+            << "'ForcingTerm' section has not been defined in the input file "
+               "=> forcing=0"
+            << std::endl;
     }
 }
 
@@ -1759,7 +1764,7 @@ void CoupledLinearNS::SolveSteadyNavierStokes(void)
     L2Norm(delta_velocity_Phys, L2_norm);
 
     // while(max(Inf_norm[0], Inf_norm[1]) > m_tol)
-    while (max(L2_norm[0], L2_norm[1]) > m_tol)
+    while (std::max(L2_norm[0], L2_norm[1]) > m_tol)
     {
         if (m_counter == 1)
         // At the first Newton step, we use the solution of the
@@ -1816,14 +1821,15 @@ void CoupledLinearNS::SolveSteadyNavierStokes(void)
         // InfNorm(delta_velocity_Phys, Inf_norm);
         L2Norm(delta_velocity_Phys, L2_norm);
 
-        if (max(Inf_norm[0], Inf_norm[1]) > 100)
+        if (std::max(Inf_norm[0], Inf_norm[1]) > 100)
         {
-            cout << "\nThe Newton method has failed at m_kinvis = " << m_kinvis
-                 << " (<=> Re = " << 1 / m_kinvis << ")" << endl;
+            std::cout << "\nThe Newton method has failed at m_kinvis = "
+                      << m_kinvis << " (<=> Re = " << 1 / m_kinvis << ")"
+                      << std::endl;
             ASSERTL0(0, "The Newton method has failed... \n");
         }
 
-        cout << "\n";
+        std::cout << "\n";
         m_counter++;
     }
 
@@ -1837,8 +1843,8 @@ void CoupledLinearNS::SolveSteadyNavierStokes(void)
     }
 
     Newtontimer.Stop();
-    cout << "We have done " << m_counter - 1 << " iteration(s) in "
-         << Newtontimer.TimePerTest(1) / 60 << " minute(s). \n\n";
+    std::cout << "We have done " << m_counter - 1 << " iteration(s) in "
+              << Newtontimer.TimePerTest(1) / 60 << " minute(s). \n\n";
 }
 
 void CoupledLinearNS::Continuation(void)
@@ -1848,7 +1854,7 @@ void CoupledLinearNS::Continuation(void)
     Array<OneD, Array<OneD, NekDouble>> RHS(m_velocity.size());
     Array<OneD, Array<OneD, NekDouble>> u_star(m_velocity.size());
 
-    cout << "We apply the continuation method: " << endl;
+    std::cout << "We apply the continuation method: " << std::endl;
 
     for (size_t i = 0; i < m_velocity.size(); ++i)
     {
@@ -1905,7 +1911,7 @@ void CoupledLinearNS::InfNorm(Array<OneD, Array<OneD, NekDouble>> &inarray,
                 outarray[i] = inarray[i][j];
             }
         }
-        cout << "InfNorm[" << i << "] = " << outarray[i] << endl;
+        std::cout << "InfNorm[" << i << "] = " << outarray[i] << std::endl;
     }
 }
 
@@ -1919,8 +1925,8 @@ void CoupledLinearNS::L2Norm(Array<OneD, Array<OneD, NekDouble>> &inarray,
         {
             outarray[i] += inarray[i][j] * inarray[i][j];
         }
-        outarray[i] = sqrt(outarray[i]);
-        cout << "L2Norm[" << i << "] = " << outarray[i] << endl;
+        outarray[i] = std::sqrt(outarray[i]);
+        std::cout << "L2Norm[" << i << "] = " << outarray[i] << std::endl;
     }
 }
 

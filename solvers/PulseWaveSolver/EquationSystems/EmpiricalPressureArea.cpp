@@ -35,8 +35,6 @@
 
 #include <PulseWaveSolver/EquationSystems/EmpiricalPressureArea.h>
 
-using namespace std;
-
 namespace Nektar
 {
 
@@ -49,10 +47,6 @@ EmpiricalPressureArea::EmpiricalPressureArea(
     Array<OneD, MultiRegions::ExpListSharedPtr> pVessel,
     const LibUtilities::SessionReaderSharedPtr pSession)
     : PulseWavePressureArea(pVessel, pSession)
-{
-}
-
-EmpiricalPressureArea::~EmpiricalPressureArea()
 {
 }
 

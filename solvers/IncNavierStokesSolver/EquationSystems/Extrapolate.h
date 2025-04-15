@@ -79,34 +79,78 @@ public:
                 const Array<OneD, int> pVel,
                 const SolverUtils::AdvectionSharedPtr advObject);
 
-    virtual ~Extrapolate();
+    virtual ~Extrapolate() = default;
+
+    inline void SubSteppingTimeIntegration(
+        const LibUtilities::TimeIntegrationSchemeSharedPtr &IntegrationScheme)
+    {
+        v_SubSteppingTimeIntegration(IntegrationScheme);
+    }
+
+    inline void SubStepSaveFields(const int nstep)
+    {
+        v_SubStepSaveFields(nstep);
+    }
+
+    inline void SubStepSetPressureBCs(
+        const Array<OneD, const Array<OneD, NekDouble>> &inarray,
+        const NekDouble Aii_DT, NekDouble kinvis)
+    {
+        v_SubStepSetPressureBCs(inarray, Aii_DT, kinvis);
+    }
+
+    inline void SubStepAdvance(const int nstep, NekDouble time)
+    {
+        v_SubStepAdvance(nstep, time);
+    }
+
+    inline void MountHOPBCs(int HBCdata, NekDouble kinvis,
+                            Array<OneD, NekDouble> &Q,
+                            Array<OneD, const NekDouble> &Advection)
+    {
+        v_MountHOPBCs(HBCdata, kinvis, Q, Advection);
+    }
+
+    inline void EvaluatePressureBCs(
+        const Array<OneD, const Array<OneD, NekDouble>> &fields,
+        const Array<OneD, const Array<OneD, NekDouble>> &N, NekDouble kinvis)
+    {
+        v_EvaluatePressureBCs(fields, N, kinvis);
+    }
+
+    inline void AddNormVelOnOBC(const int nbcoeffs, const int nreg,
+                                Array<OneD, Array<OneD, NekDouble>> &u)
+    {
+        v_AddNormVelOnOBC(nbcoeffs, nreg, u);
+    }
+
+    inline void CorrectPressureBCs(const Array<OneD, NekDouble> &pressure)
+    {
+        v_CorrectPressureBCs(pressure);
+    }
+
+    void CalcNeumannPressureBCs(
+        const Array<OneD, const Array<OneD, NekDouble>> &fields,
+        const Array<OneD, const Array<OneD, NekDouble>> &N, NekDouble kinvis)
+    {
+        v_CalcNeumannPressureBCs(fields, N, kinvis);
+    }
+
+    inline std::string GetSubStepName(void)
+    {
+        return v_GetSubStepName();
+    }
+
+    inline void SetForcing(
+        const std::vector<SolverUtils::ForcingSharedPtr> &forcing)
+    {
+        m_forcing = forcing;
+    }
 
     void GenerateHOPBCMap(
         const LibUtilities::SessionReaderSharedPtr &pSsession);
 
     void UpdateRobinPrimCoeff(void);
-
-    inline void SubSteppingTimeIntegration(
-        const LibUtilities::TimeIntegrationSchemeSharedPtr &IntegrationScheme);
-
-    inline void SubStepSaveFields(const int nstep);
-
-    inline void SubStepSetPressureBCs(
-        const Array<OneD, const Array<OneD, NekDouble>> &inarray,
-        const NekDouble Aii_DT, NekDouble kinvis);
-
-    inline void SubStepAdvance(const int nstep, NekDouble time);
-
-    inline void MountHOPBCs(int HBCdata, NekDouble kinvis,
-                            Array<OneD, NekDouble> &Q,
-                            Array<OneD, const NekDouble> &Advection);
-
-    inline void EvaluatePressureBCs(
-        const Array<OneD, const Array<OneD, NekDouble>> &fields,
-        const Array<OneD, const Array<OneD, NekDouble>> &N, NekDouble kinvis);
-
-    inline void SetForcing(
-        const std::vector<SolverUtils::ForcingSharedPtr> &forcing);
 
     void AddDuDt(void);
 
@@ -118,15 +162,11 @@ public:
     Array<OneD, NekDouble> GetMaxStdVelocity(
         const Array<OneD, Array<OneD, NekDouble>> inarray);
 
-    void CorrectPressureBCs(const Array<OneD, NekDouble> &pressure);
-
     void IProductNormVelocityOnHBC(
         const Array<OneD, const Array<OneD, NekDouble>> &Vel,
         Array<OneD, NekDouble> &IprodVn);
 
     void IProductNormVelocityBCOnHBC(Array<OneD, NekDouble> &IprodVn);
-
-    std::string GetSubStepName(void);
 
     void ExtrapolateArray(Array<OneD, Array<OneD, NekDouble>> &array);
 
@@ -135,9 +175,6 @@ public:
     void ExtrapolateArray(Array<OneD, Array<OneD, NekDouble>> &oldarrays,
                           Array<OneD, NekDouble> &newarray,
                           Array<OneD, NekDouble> &outarray);
-
-    void AddNormVelOnOBC(const int nbcoeffs, const int nreg,
-                         Array<OneD, Array<OneD, NekDouble>> &u);
 
     void AddPressureToOutflowBCs(NekDouble kinvis);
 
@@ -168,13 +205,6 @@ protected:
     virtual std::string v_GetSubStepName(void);
 
     virtual void v_AccelerationBDF(Array<OneD, Array<OneD, NekDouble>> &array);
-
-    void CalcNeumannPressureBCs(
-        const Array<OneD, const Array<OneD, NekDouble>> &fields,
-        const Array<OneD, const Array<OneD, NekDouble>> &N, NekDouble kinvis)
-    {
-        v_CalcNeumannPressureBCs(fields, N, kinvis);
-    }
 
     virtual void v_CalcNeumannPressureBCs(
         const Array<OneD, const Array<OneD, NekDouble>> &fields,
@@ -323,95 +353,6 @@ struct HighOrderOutflow
     Array<OneD, Array<OneD, NekDouble>> m_velocityPrimCoeff;
 };
 
-/**
- * Evaluate Pressure Boundary Conditions for Standard Extrapolation
- */
-inline void Extrapolate::EvaluatePressureBCs(
-    const Array<OneD, const Array<OneD, NekDouble>> &inarray,
-    const Array<OneD, const Array<OneD, NekDouble>> &N, NekDouble kinvis)
-{
-    v_EvaluatePressureBCs(inarray, N, kinvis);
-}
-
-/**
- *
- */
-inline void Extrapolate::SubSteppingTimeIntegration(
-    const LibUtilities::TimeIntegrationSchemeSharedPtr &IntegrationScheme)
-{
-    v_SubSteppingTimeIntegration(IntegrationScheme);
-}
-
-/**
- *
- */
-inline void Extrapolate::SubStepSaveFields(int nstep)
-{
-    v_SubStepSaveFields(nstep);
-}
-
-/**
- *
- */
-inline void Extrapolate::SetForcing(
-    const std::vector<SolverUtils::ForcingSharedPtr> &forcing)
-{
-    m_forcing = forcing;
-}
-
-/**
- *
- */
-inline void Extrapolate::SubStepSetPressureBCs(
-    const Array<OneD, const Array<OneD, NekDouble>> &inarray, NekDouble Aii_DT,
-    NekDouble kinvis)
-{
-    v_SubStepSetPressureBCs(inarray, Aii_DT, kinvis);
-}
-
-/**
- *
- */
-inline void Extrapolate::SubStepAdvance(int nstep, NekDouble time)
-{
-    v_SubStepAdvance(nstep, time);
-}
-
-/**
- *
- */
-inline void Extrapolate::MountHOPBCs(int HBCdata, NekDouble kinvis,
-                                     Array<OneD, NekDouble> &Q,
-                                     Array<OneD, const NekDouble> &Advection)
-{
-    v_MountHOPBCs(HBCdata, kinvis, Q, Advection);
-}
-
-/**
- *
- */
-inline std::string Extrapolate::GetSubStepName(void)
-{
-    return v_GetSubStepName();
-}
-
-/**
- *
- */
-inline void Extrapolate::CorrectPressureBCs(
-    const Array<OneD, NekDouble> &pressure)
-{
-    v_CorrectPressureBCs(pressure);
-}
-
-/**
- *
- */
-inline void Extrapolate::AddNormVelOnOBC(const int nbcoeffs, const int nreg,
-                                         Array<OneD, Array<OneD, NekDouble>> &u)
-{
-    v_AddNormVelOnOBC(nbcoeffs, nreg, u);
-}
 } // namespace Nektar
 
 #endif

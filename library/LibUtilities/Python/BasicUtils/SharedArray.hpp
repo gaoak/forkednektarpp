@@ -83,8 +83,8 @@ public:
         return cast_impl(arr, policy, parent);
     }
 
-    template <typename U                                           = T,
-              std::enable_if_t<std::is_arithmetic<U>::value, bool> = true>
+    template <typename U                                      = T,
+              std::enable_if_t<std::is_arithmetic_v<U>, bool> = true>
     bool load_impl(handle src, bool)
     {
         if (!array_t<U>::check_(src))
@@ -131,8 +131,8 @@ public:
         obj.dec_ref();
     }
 
-    template <typename U                                           = T,
-              std::enable_if_t<std::is_arithmetic<U>::value, bool> = true>
+    template <typename U                                      = T,
+              std::enable_if_t<std::is_arithmetic_v<U>, bool> = true>
     static handle cast_impl(Nektar::Array<Nektar::OneD, T> const &arr,
                             return_value_policy, handle)
     {

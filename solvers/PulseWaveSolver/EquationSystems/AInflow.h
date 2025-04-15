@@ -51,6 +51,8 @@ typedef std::shared_ptr<AInflow> AInflowSharedPtr;
 class AInflow : public PulseWaveBoundary
 {
 public:
+    friend class MemoryManager<AInflow>;
+
     // Creates an instance of this class
     static PulseWaveBoundarySharedPtr create(
         Array<OneD, MultiRegions::ExpListSharedPtr> &pVessel,
@@ -64,13 +66,13 @@ public:
     // Name of class
     static std::string className;
 
+protected:
     AInflow(Array<OneD, MultiRegions::ExpListSharedPtr> pVessel,
             const LibUtilities::SessionReaderSharedPtr pSession,
             PulseWavePressureAreaSharedPtr pressureArea);
 
-    ~AInflow() override;
+    ~AInflow() override = default;
 
-protected:
     void v_DoBoundary(const Array<OneD, const Array<OneD, NekDouble>> &inarray,
                       Array<OneD, Array<OneD, NekDouble>> &A_0,
                       Array<OneD, Array<OneD, NekDouble>> &beta,

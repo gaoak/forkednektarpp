@@ -40,6 +40,7 @@
 
 namespace Nektar
 {
+
 std::string NonlinearSWE::className =
     SolverUtils::GetEquationSystemFactory().RegisterCreatorFunction(
         "NonlinearSWE", NonlinearSWE::create,

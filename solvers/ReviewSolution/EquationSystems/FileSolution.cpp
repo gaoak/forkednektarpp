@@ -59,8 +59,6 @@
 #include <SolverUtils/Forcing/ForcingMovingReferenceFrame.h>
 #include <StdRegions/StdSegExp.h>
 
-using namespace std;
-
 namespace Nektar::SolverUtils
 {
 /**
@@ -69,7 +67,7 @@ namespace Nektar::SolverUtils
  * \param
  * \param
  */
-string FileSolution::className =
+std::string FileSolution::className =
     SolverUtils::GetEquationSystemFactory().RegisterCreatorFunction(
         "FileSolution", FileSolution::create,
         "review a solution from check point files.");
@@ -171,13 +169,6 @@ void FileSolution::v_InitObject(bool DeclareField)
         m_coord[2] = Array<OneD, NekDouble>(nq);
         m_fields[0]->GetCoords(m_coord[0], m_coord[1], m_coord[2]);
     }
-}
-
-/**
- * @brief Unsteady linear advection equation destructor.
- */
-FileSolution::~FileSolution()
-{
 }
 
 void FileSolution::DoImplicitSolve(
@@ -424,32 +415,24 @@ void FileFieldInterpolator::InitObject(
 
     if (m_session->GetComm()->GetRank() == 0)
     {
-        cout << "baseflow info : interpolation order " << m_interporder
-             << ", period " << m_period << ", periodicity ";
+        std::cout << "baseflow info : interpolation order " << m_interporder
+                  << ", period " << m_period << ", periodicity ";
         if (m_isperiodic)
         {
-            cout << "yes\n";
+            std::cout << "yes\n";
         }
         else
         {
-            cout << "no\n";
+            std::cout << "no\n";
         }
-        cout << "baseflow info : files from " << m_start << " to "
-             << (m_start + (m_slices - 1) * m_skip) << " (skip " << m_skip
-             << ") with " << (m_slices - (m_interporder > 1))
-             << " time intervals" << endl;
+        std::cout << "baseflow info : files from " << m_start << " to "
+                  << (m_start + (m_slices - 1) * m_skip) << " (skip " << m_skip
+                  << ") with " << (m_slices - (m_interporder > 1))
+                  << " time intervals" << std::endl;
     }
 
-    string file = m_session->GetFunctionFilename("Solution", 0);
+    std::string file = m_session->GetFunctionFilename("Solution", 0);
     DFT(file, pFields, timefromfile);
-}
-
-FileFieldInterpolator::~FileFieldInterpolator()
-{
-}
-
-FileFieldInterpolator::FileFieldInterpolator()
-{
 }
 
 /**
@@ -585,7 +568,7 @@ void FileFieldInterpolator::InterpolateField(const int v,
         {
             ix = m_slices - 2;
         }
-        int padleft = max(0, m_interporder / 2 - 1);
+        int padleft = std::max(0, m_interporder / 2 - 1);
         if (padleft > ix)
         {
             padleft = ix;
@@ -654,7 +637,7 @@ DNekBlkMatSharedPtr FileFieldInterpolator::GetFloquetBlockMatrix(int nexp)
 
 // Discrete Fourier Transform for Floquet analysis
 void FileFieldInterpolator::DFT(
-    const string file,
+    const std::string file,
     const Array<OneD, const MultiRegions::ExpListSharedPtr> &pFields,
     const bool timefromfile)
 {
@@ -669,9 +652,9 @@ void FileFieldInterpolator::DFT(
     // A subdirectory can also be included, such as "dir/filename_%d.ext"
     size_t found = file.find("%d");
     std::map<std::string, NekDouble> params;
-    if (found != string::npos)
+    if (found != std::string::npos)
     {
-        ASSERTL0(file.find("%d", found + 1) == string::npos,
+        ASSERTL0(file.find("%d", found + 1) == std::string::npos,
                  "There are more than one '%d'.");
         int nstart = m_start;
         std::vector<NekDouble> times;
@@ -682,7 +665,7 @@ void FileFieldInterpolator::DFT(
             ImportFldBase(fmt.str(), pFields, i, params);
             if (m_session->GetComm()->GetRank() == 0)
             {
-                cout << "read base flow file " << fmt.str() << endl;
+                std::cout << "read base flow file " << fmt.str() << std::endl;
             }
             if (timefromfile && params.count("time"))
             {

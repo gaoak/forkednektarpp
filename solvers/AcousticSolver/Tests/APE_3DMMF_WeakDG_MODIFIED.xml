@@ -27,9 +27,12 @@
         <SOLVERINFO>
             <I PROPERTY="EQType" VALUE="APE"/>
             <I PROPERTY="Projection" VALUE="DisContinuous"/>
-            <I PROPERTY="TimeIntegrationMethod" VALUE="ClassicalRungeKutta4"/>
             <I PROPERTY="UpwindType" VALUE="APEUpwind"/>
         </SOLVERINFO>
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> RungeKutta </METHOD>
+            <ORDER> 4 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
         <PARAMETERS>
             <P> TimeStep       = 1e-15 </P>
             <P> NumSteps       = 10    </P>

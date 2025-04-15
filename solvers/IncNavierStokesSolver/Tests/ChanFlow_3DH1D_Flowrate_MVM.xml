@@ -9,9 +9,13 @@
             <I PROPERTY="EQTYPE" VALUE="UnsteadyNavierStokes"/>
             <I PROPERTY="AdvectionForm" VALUE="Convective"/>
             <I PROPERTY="Projection" VALUE="Galerkin"/>
-            <I PROPERTY="TimeIntegrationMethod" VALUE="IMEXOrder2"/>
             <I PROPERTY="HOMOGENEOUS" VALUE="1D"/>
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> IMEX </METHOD>
+            <ORDER> 2 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
 
         <PARAMETERS>
             <P> TimeStep      = 0.01      </P>

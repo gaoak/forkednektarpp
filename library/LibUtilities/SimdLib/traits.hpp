@@ -56,19 +56,18 @@ template <class T>
 struct is_load_tag
     : std::integral_constant<
           bool,
-          std::is_same<is_aligned_t, typename std::remove_cv<T>::type>::value ||
-              std::is_same<is_not_aligned_t,
-                           typename std::remove_cv<T>::type>::value ||
-              std::is_same<is_not_reused_t,
-                           typename std::remove_cv<T>::type>::value>
+          std::is_same_v<is_aligned_t, typename std::remove_cv<T>::type> ||
+              std::is_same_v<is_not_aligned_t,
+                             typename std::remove_cv<T>::type> ||
+              std::is_same_v<is_not_reused_t, typename std::remove_cv<T>::type>>
 {
 };
 
 template <class T>
 struct is_streaming
     : std::integral_constant<
-          bool, std::is_same<is_not_reused_t,
-                             typename std::remove_cv<T>::type>::value>
+          bool,
+          std::is_same_v<is_not_reused_t, typename std::remove_cv<T>::type>>
 {
 };
 
@@ -76,19 +75,18 @@ template <class T>
 struct is_requiring_alignment
     : std::integral_constant<
           bool,
-          std::is_same<is_aligned_t, typename std::remove_cv<T>::type>::value ||
+          std::is_same_v<is_aligned_t, typename std::remove_cv<T>::type> ||
               is_streaming<T>::value>
 {
 };
 
 // Helper c++17 style
-// template <class T>
-// inline constexpr bool is_load_tag_v = is_load_tag<T>::value;
-// template <class T>
-// inline constexpr bool is_streaming_v = is_streaming<T>::value;
-// template <class T>
-// inline constexpr bool is_requiring_alignment_v =
-// is_requiring_alignment<T>::value;
+template <class T> inline constexpr bool is_load_tag_v = is_load_tag<T>::value;
+template <class T>
+inline constexpr bool is_streaming_v = is_streaming<T>::value;
+template <class T>
+inline constexpr bool is_requiring_alignment_v =
+    is_requiring_alignment<T>::value;
 
 namespace details
 {
@@ -141,8 +139,7 @@ struct is_vector
 };
 
 // Helper c++17 style
-// template <class T>
-// inline constexpr bool is_vector_v = is_vector<T>::value;
+template <class T> inline constexpr bool is_vector_v = is_vector<T>::value;
 
 // Generic template handles cases that are not vector type
 template <class T, class = void>
@@ -152,17 +149,17 @@ struct is_vector_floating_point : std::false_type
 
 // Specialized template handles cases that are vector types
 template <class T>
-struct is_vector_floating_point<
-    T, typename std::enable_if<is_vector<T>::value>::type>
-    : std::integral_constant<
-          bool, std::is_floating_point<typename T::scalarType>::value>
+struct is_vector_floating_point<T,
+                                typename std::enable_if<is_vector_v<T>>::type>
+    : std::integral_constant<bool,
+                             std::is_floating_point_v<typename T::scalarType>>
 {
 };
 
 // Helper c++17 style
-// template <class T>
-// inline constexpr bool is_vector_floating_point_v =
-// is_vector_floating_point<T>::value;
+template <class T>
+inline constexpr bool is_vector_floating_point_v =
+    is_vector_floating_point<T>::value;
 
 // Generic template handles cases that are not vector type
 template <class T, class = void> struct is_vector_integral : std::false_type
@@ -171,16 +168,14 @@ template <class T, class = void> struct is_vector_integral : std::false_type
 
 // Specialized template handles cases that are vector types
 template <class T>
-struct is_vector_integral<T, typename std::enable_if<is_vector<T>::value>::type>
-    : std::integral_constant<bool,
-                             std::is_integral<typename T::scalarType>::value>
+struct is_vector_integral<T, typename std::enable_if<is_vector_v<T>>::type>
+    : std::integral_constant<bool, std::is_integral_v<typename T::scalarType>>
 {
 };
 
 // Helper c++17 style
-// template <class T>
-// inline constexpr bool is_vector_floating_point_v =
-// is_vector_floating_point<T>::value;
+template <class T>
+inline constexpr bool is_vector_integral_v = is_vector_integral<T>::value;
 
 } // namespace tinysimd
 

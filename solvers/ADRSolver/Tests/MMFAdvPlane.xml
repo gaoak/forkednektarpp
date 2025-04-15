@@ -303,12 +303,16 @@
         <SOLVERINFO>
             <I PROPERTY="EQTYPE" VALUE="MMFAdvection" />
             <I PROPERTY="Projection" VALUE="DisContinuous" />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="ClassicalRungeKutta4" />
             <I PROPERTY="SurfaceType" VALUE="Plane" />
             <I PROPERTY="TestType" VALUE="TestPlane" />
             <!-- TangentX, TangentY, TangentXY, TangentZ, TangentCircular, LOCAL-->
             <I PROPERTY="MMFDir" VALUE="LOCAL" />
         </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> RungeKutta </METHOD>
+            <ORDER> 4 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
 
         <VARIABLES>
             <V ID="0"> u </V>

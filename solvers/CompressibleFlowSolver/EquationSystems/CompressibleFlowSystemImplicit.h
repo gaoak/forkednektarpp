@@ -43,6 +43,7 @@
 
 namespace Nektar
 {
+
 /**
  *
  */
@@ -399,5 +400,6 @@ protected:
 
     bool v_UpdateTimeStepCheck() override;
 };
+
 } // namespace Nektar
 #endif

@@ -853,9 +853,9 @@ NekDouble EquationSystem::v_L2Error(unsigned int field,
     }
     else
     {
-        Array<OneD, NekDouble> L2INF(2);
-        L2INF   = ErrorExtraPoints(field);
-        L2error = L2INF[0];
+        Array<OneD, NekDouble> errNorms(3);
+        errNorms = ErrorExtraPoints(field);
+        L2error  = errNorms[0];
     }
     return L2error;
 }
@@ -901,24 +901,80 @@ NekDouble EquationSystem::v_LinfError(unsigned int field,
     }
     else
     {
-        Array<OneD, NekDouble> L2INF(2);
-        L2INF     = ErrorExtraPoints(field);
-        Linferror = L2INF[1];
+        Array<OneD, NekDouble> errNorms(3);
+        errNorms  = ErrorExtraPoints(field);
+        Linferror = errNorms[1];
     }
 
     return Linferror;
 }
 
 /**
- * Compute the error in the L2-norm, L-inf for a larger number of
+ * Compute the error in the H1-norm.
+ * @param   field           The field to compare.
+ * @param   exactsoln       The exact solution to compare with.
+ * @param   Normalised      Normalise H1-error.
+ * @returns                 Error in the H1-norm.
+ */
+NekDouble EquationSystem::v_H1Error(unsigned int field,
+                                    const Array<OneD, NekDouble> &exactsoln,
+                                    bool Normalised)
+{
+    NekDouble error = -1.0;
+
+    if (m_NumQuadPointsError == 0)
+    {
+        if (m_fields[field]->GetPhysState() == false)
+        {
+            m_fields[field]->BwdTrans(m_fields[field]->GetCoeffs(),
+                                      m_fields[field]->UpdatePhys());
+        }
+
+        if (exactsoln.size())
+        {
+            error = m_fields[field]->H1(m_fields[field]->GetPhys(), exactsoln);
+        }
+        else if (m_session->DefinesFunction("ExactSolution"))
+        {
+            Array<OneD, NekDouble> exactsoln(m_fields[field]->GetNpoints());
+
+            GetFunction("ExactSolution")
+                ->Evaluate(m_session->GetVariable(field), exactsoln, m_time);
+
+            error = m_fields[field]->H1(m_fields[field]->GetPhys(), exactsoln);
+        }
+        else
+        {
+            error = m_fields[field]->H1(m_fields[field]->GetPhys());
+        }
+
+        if (Normalised == true)
+        {
+            Array<OneD, NekDouble> one(m_fields[field]->GetNpoints(), 1.0);
+
+            NekDouble Vol = m_fields[field]->Integral(one);
+            error         = sqrt(error * error / Vol);
+        }
+    }
+    else
+    {
+        Array<OneD, NekDouble> errNorms(3);
+        errNorms = ErrorExtraPoints(field);
+        error    = errNorms[2];
+    }
+    return error;
+}
+
+/**
+ * Compute the error in the L2-, Linf- and H1-norm for a larger number of
  * quadrature points.
  * @param   field              The field to compare.
- * @returns                    Error in the L2-norm and L-inf norm.
+ * @returns                    Error in the L2-, Linf- and H1-norm.
  */
 Array<OneD, NekDouble> EquationSystem::ErrorExtraPoints(unsigned int field)
 {
     int NumModes = GetNumExpModes();
-    Array<OneD, NekDouble> L2INF(2);
+    Array<OneD, NekDouble> errNorms(3); // Expects 3 norms (L2, Linf, H1)
 
     const LibUtilities::PointsKey PkeyT1(m_NumQuadPointsError,
                                          LibUtilities::eGaussLobattoLegendre);
@@ -955,12 +1011,12 @@ Array<OneD, NekDouble> EquationSystem::ErrorExtraPoints(unsigned int field)
     m_graph->ResetExpansionInfoToBasisKey(ExpInfo, LibUtilities::eQuadrilateral,
                                           Qkeys);
 
-    MultiRegions::ExpListSharedPtr ErrorExp =
+    MultiRegions::ExpListSharedPtr ErrorExplist =
         MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(m_session,
                                                                 NewExpInfo);
 
-    int ErrorCoordim = ErrorExp->GetCoordim(0);
-    int ErrorNq      = ErrorExp->GetTotPoints();
+    int ErrorCoordim = ErrorExplist->GetCoordim(0);
+    int ErrorNq      = ErrorExplist->GetTotPoints();
 
     Array<OneD, NekDouble> ErrorXc0(ErrorNq, 0.0);
     Array<OneD, NekDouble> ErrorXc1(ErrorNq, 0.0);
@@ -969,13 +1025,13 @@ Array<OneD, NekDouble> EquationSystem::ErrorExtraPoints(unsigned int field)
     switch (ErrorCoordim)
     {
         case 1:
-            ErrorExp->GetCoords(ErrorXc0);
+            ErrorExplist->GetCoords(ErrorXc0);
             break;
         case 2:
-            ErrorExp->GetCoords(ErrorXc0, ErrorXc1);
+            ErrorExplist->GetCoords(ErrorXc0, ErrorXc1);
             break;
         case 3:
-            ErrorExp->GetCoords(ErrorXc0, ErrorXc1, ErrorXc2);
+            ErrorExplist->GetCoords(ErrorXc0, ErrorXc1, ErrorXc2);
             break;
     }
     LibUtilities::EquationSharedPtr exSol =
@@ -988,12 +1044,14 @@ Array<OneD, NekDouble> EquationSystem::ErrorExtraPoints(unsigned int field)
 
     // Calcualte spectral/hp approximation on the quadrature points
     // of this new expansion basis
-    ErrorExp->BwdTrans(m_fields[field]->GetCoeffs(), ErrorExp->UpdatePhys());
+    ErrorExplist->BwdTrans(m_fields[field]->GetCoeffs(),
+                           ErrorExplist->UpdatePhys());
 
-    L2INF[0] = ErrorExp->L2(ErrorExp->GetPhys(), ErrorSol);
-    L2INF[1] = ErrorExp->Linf(ErrorExp->GetPhys(), ErrorSol);
+    errNorms[0] = ErrorExplist->L2(ErrorExplist->GetPhys(), ErrorSol);
+    errNorms[1] = ErrorExplist->Linf(ErrorExplist->GetPhys(), ErrorSol);
+    errNorms[2] = ErrorExplist->H1(ErrorExplist->GetPhys(), ErrorSol);
 
-    return L2INF;
+    return errNorms;
 }
 
 /**

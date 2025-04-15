@@ -53,30 +53,11 @@ FilterFieldConvert::FilterFieldConvert(
     m_dt = m_session->GetParameter("TimeStep");
 
     // OutputFile
-    auto it = pParams.find("OutputFile");
-    if (it == pParams.end())
-    {
-        std::stringstream outname;
-        outname << m_session->GetSessionName() << ".fld";
-        m_outputFile = outname.str();
-    }
-    else
-    {
-        ASSERTL0(it->second.length() > 0, "Missing parameter 'OutputFile'.");
-        if (it->second.find_last_of('.') != std::string::npos)
-        {
-            m_outputFile = it->second;
-        }
-        else
-        {
-            std::stringstream outname;
-            outname << it->second << ".fld";
-            m_outputFile = outname.str();
-        }
-    }
+    std::string ext = ".fld";
+    m_outputFile    = Filter::SetupOutput(ext, pParams);
 
     // Time after which we need to write checkfiles
-    it = pParams.find("OutputStartTime");
+    auto it = pParams.find("OutputStartTime");
     if (it == pParams.end())
     {
         m_outputStartTime = 0;
@@ -223,7 +204,9 @@ FilterFieldConvert::FilterFieldConvert(
     // Strip options from m_outputFile
     std::vector<std::string> tmp;
     boost::split(tmp, m_outputFile, boost::is_any_of(":"));
-    m_outputFile = tmp[0];
+    std::string outName = tmp[0];
+    ext                 = fs::path(outName).extension().string();
+    m_outputFile        = Filter::SetupOutput(ext, outName);
 
     // Prevent checking before overwriting
     it = pParams.find("options");
@@ -456,6 +439,7 @@ void FilterFieldConvert::v_Update(
     const NekDouble &time)
 {
     m_index++;
+
     if (m_index % m_sampleFrequency > 0 ||
         (time - m_outputStartTime) < -1.0e-07)
     {
@@ -553,20 +537,23 @@ void FilterFieldConvert::OutputField(
     CreateFields(pFields);
 
     // Determine new file name
-    std::stringstream outname;
+    std::stringstream tmpOutname;
+    std::string outname;
     int dot            = m_outputFile.find_last_of('.');
     std::string name   = m_outputFile.substr(0, dot);
     std::string ext    = m_outputFile.substr(dot, m_outputFile.length() - dot);
     std::string suffix = v_GetFileSuffix();
+
     if (dump == -1) // final dump
     {
-        outname << name << suffix << ext;
+        tmpOutname << name << suffix << ext;
     }
     else
     {
-        outname << name << "_" << dump << suffix << ext;
+        tmpOutname << name << "_" << dump << suffix << ext;
     }
-    m_modules[m_modules.size() - 1]->RegisterConfig("outfile", outname.str());
+    outname = Filter::SetupOutput(ext, tmpOutname.str());
+    m_modules[m_modules.size() - 1]->RegisterConfig("outfile", outname);
 
     // Run field process.
     for (int n = 0; n < SIZE_ModulePriority; ++n)
@@ -799,5 +786,4 @@ void FilterFieldConvert::CheckModules(std::vector<ModuleSharedPtr> &modules)
         ASSERTL0(false, ss.str());
     }
 }
-
 } // namespace Nektar::SolverUtils

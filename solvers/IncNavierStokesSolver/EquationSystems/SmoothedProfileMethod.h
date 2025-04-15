@@ -41,9 +41,12 @@
 
 namespace Nektar
 {
+
 class SmoothedProfileMethod : public VelocityCorrectionScheme
 {
 public:
+    friend class MemoryManager<SmoothedProfileMethod>;
+
     /// Creates an instance of this class
     static SolverUtils::EquationSystemSharedPtr create(
         const LibUtilities::SessionReaderSharedPtr &pSession,
@@ -58,17 +61,6 @@ public:
 
     /// Name of class
     static std::string className;
-
-    // Constructor
-    SmoothedProfileMethod(const LibUtilities::SessionReaderSharedPtr &pSession,
-                          const SpatialDomains::MeshGraphSharedPtr &pGraph);
-
-    // Destructor
-    ~SmoothedProfileMethod() override;
-
-    void v_InitObject(bool DeclareField = true) override;
-
-    void v_GenerateSummary(SolverUtils::SummaryList &s) override;
 
 protected:
     /// Correction pressure field for SPM
@@ -96,6 +88,15 @@ protected:
     int m_forcesFilter;
 
     static std::string solverTypeLookupId;
+
+    SmoothedProfileMethod(const LibUtilities::SessionReaderSharedPtr &pSession,
+                          const SpatialDomains::MeshGraphSharedPtr &pGraph);
+
+    ~SmoothedProfileMethod() override = default;
+
+    void v_InitObject(bool DeclareField = true) override;
+
+    void v_GenerateSummary(SolverUtils::SummaryList &s) override;
 
     // Interface for 'v_SolveUnsteadyStokesSystem'
     void v_SolveUnsteadyStokesSystem(

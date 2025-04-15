@@ -15,8 +15,12 @@
         <SOLVERINFO>
             <I PROPERTY="EQType"                VALUE="Dummy"                 />
             <I PROPERTY="Projection"            VALUE="DisContinuous"       />
-            <I PROPERTY="TimeIntegrationMethod" VALUE="ForwardEuler"/>
         </SOLVERINFO>
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> Euler </METHOD>
+            <ORDER> 1 </ORDER>
+            <VARIANT> Forward </VARIANT>
+        </TIMEINTEGRATIONSCHEME>
         <GLOBALSYSSOLNINFO>
             <V VAR="DefaultVar">
                 <I PROPERTY="GlobalSysSoln"   VALUE="PETScStaticCond" />

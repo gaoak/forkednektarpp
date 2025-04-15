@@ -35,8 +35,6 @@
 
 #include "PressureMachTemperatureBC.h"
 
-using namespace std;
-
 namespace Nektar
 {
 

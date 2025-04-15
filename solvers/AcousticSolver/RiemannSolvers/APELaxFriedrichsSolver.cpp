@@ -35,8 +35,6 @@
 
 #include <AcousticSolver/RiemannSolvers/APELaxFriedrichsSolver.h>
 
-using namespace std;
-
 namespace Nektar
 {
 

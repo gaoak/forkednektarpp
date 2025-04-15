@@ -52,7 +52,7 @@ namespace pybind11::detail
 {
 
 template <typename T>
-struct type_caster<T, enable_if_t<std::is_base_of<vtkObjectBase, T>::value>>
+struct type_caster<T, enable_if_t<std::is_base_of_v<vtkObjectBase, T>>>
 {
 private:
     // Store value as a pointer

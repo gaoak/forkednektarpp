@@ -66,15 +66,7 @@ public:
 
     static std::string className;
 
-    ~TransMovingWall() override;
-
 protected:
-    void v_Initialise(
-        const LibUtilities::SessionReaderSharedPtr &pSession) override;
-
-    void v_Update(const Array<OneD, const Array<OneD, NekDouble>> &fields,
-                  const Array<OneD, const Array<OneD, NekDouble>> &Adv,
-                  std::map<std::string, NekDouble> &params) override;
     NekDouble m_dt;
     int m_pressure;
     NekDouble Fourth_Coeffs[4];
@@ -84,6 +76,15 @@ protected:
                     Array<OneD, SpatialDomains::BoundaryConditionShPtr> cond,
                     Array<OneD, MultiRegions::ExpListSharedPtr> exp, int nbnd,
                     int spacedim, int bnddim);
+
+    ~TransMovingWall() override = default;
+
+    void v_Initialise(
+        const LibUtilities::SessionReaderSharedPtr &pSession) override;
+
+    void v_Update(const Array<OneD, const Array<OneD, NekDouble>> &fields,
+                  const Array<OneD, const Array<OneD, NekDouble>> &Adv,
+                  std::map<std::string, NekDouble> &params) override;
 };
 
 } // namespace Nektar

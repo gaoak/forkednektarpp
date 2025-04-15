@@ -38,15 +38,14 @@
 
 #include <boost/algorithm/string.hpp>
 
-using namespace std;
-
 namespace Nektar
 {
-string VCSMapping::className =
+
+std::string VCSMapping::className =
     SolverUtils::GetEquationSystemFactory().RegisterCreatorFunction(
         "VCSMapping", VCSMapping::create);
 
-string VCSMapping::solverTypeLookupId =
+std::string VCSMapping::solverTypeLookupId =
     LibUtilities::SessionReader::RegisterEnumValue("SolverType", "VCSMapping",
                                                    eVCSMapping);
 
@@ -124,13 +123,6 @@ void VCSMapping::v_InitObject(bool DeclareField)
                              1.0);
     m_session->LoadParameter("MappingViscousRelaxation", m_viscousRelaxation,
                              1.0);
-}
-
-/**
- * Destructor
- */
-VCSMapping::~VCSMapping(void)
-{
 }
 
 void VCSMapping::v_DoInitialise(bool dumpInitialConditions)

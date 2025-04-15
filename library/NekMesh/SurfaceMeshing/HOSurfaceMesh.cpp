@@ -56,6 +56,10 @@ HOSurfaceMesh::HOSurfaceMesh(MeshSharedPtr m) : ProcessModule(m)
 {
     m_config["no_opti"] =
         ConfigOption(false, "0", "Disable edge node optimisation.");
+    m_config["third_party"] =
+        ConfigOption(false, "0",
+                     "The mesh comes from a third-party source or the "
+                     "CADreconstruction/ProjectCAD was used beforehand.");
 }
 
 HOSurfaceMesh::~HOSurfaceMesh()
@@ -76,6 +80,8 @@ void HOSurfaceMesh::Process()
                                  LibUtilities::eNodalTriElec);
 
     Array<OneD, NekDouble> u, v;
+
+    int cntBreak = 0;
 
     int nq = m_mesh->m_nummode;
 
@@ -104,23 +110,31 @@ void HOSurfaceMesh::Process()
         for (int j = 0; j < es.size(); j++)
         {
             surfaceEdges.insert(es[j]);
+            if (es[j]->m_edgeNodes.size() != 0)
+            {
+                completedEdges.insert(es[j]);
+            }
         }
     }
+    m_log(WARNING) << "Curved edges inserted N = " << completedEdges.size()
+                   << endl;
 
     for (int i = 0; i < m_mesh->m_element[2].size(); i++)
     {
         m_log(VERBOSE).Progress(i, m_mesh->m_element[2].size(),
                                 "    Surface elements");
 
+        // Avoid the surface elements with no parentCAD
         if (!m_mesh->m_element[2][i]->m_parentCAD)
         {
             // no parent cad
+            cntBreak++;
             continue;
         }
 
         CADObjectSharedPtr o = m_mesh->m_element[2][i]->m_parentCAD;
         CADSurfSharedPtr s   = std::dynamic_pointer_cast<CADSurf>(o);
-        int surf             = s->GetId();
+        int surf             = s->GetId(); // face CADSurf ID
 
         FaceSharedPtr f = m_mesh->m_element[2][i]->GetFaceLink();
 
@@ -144,6 +158,7 @@ void HOSurfaceMesh::Process()
         f->m_parentCAD = s;
 
         vector<EdgeSharedPtr> edges = f->m_edgeList;
+        int ToBreak                 = 0;
         for (int j = 0; j < edges.size(); j++)
         {
             EdgeSharedPtr e = edges[j];
@@ -174,6 +189,15 @@ void HOSurfaceMesh::Process()
             {
                 e->m_parentCAD = (*it)->m_parentCAD;
             }
+            else if (m_config["third_party"].beenSet)
+            {
+                m_log(WARNING)
+                    << "This edge does not have a CAD object "
+                       "WARNING - CASE3 - so no edge / face projection"
+                    << endl;
+                ToBreak = 1;
+                continue;
+            }
             else
             {
                 e->m_parentCAD = s;
@@ -183,13 +207,25 @@ void HOSurfaceMesh::Process()
 
             if (e->m_parentCAD->GetType() == CADType::eCurve)
             {
+                // the edge is on the CAD curve 1D optimisation (CASE2)
                 int cid = e->m_parentCAD->GetId();
                 CADCurveSharedPtr c =
                     std::dynamic_pointer_cast<CADCurve>(e->m_parentCAD);
                 NekDouble tb = e->m_n1->GetCADCurveInfo(cid);
                 NekDouble te = e->m_n2->GetCADCurveInfo(cid);
 
-                // distrobute points along curve as inital guess
+                // For the third-party case, we would like reavaluate the uv of
+                // the vertices for robustness (circle bug in the past)
+                if (m_config["third_party"].beenSet)
+                {
+                    NekDouble tmin, tmax;
+                    c->GetBounds(tmin, tmax);
+
+                    c->loct(e->m_n1->GetLoc(), tb, tmin, tmax);
+                    c->loct(e->m_n2->GetLoc(), te, tmin, tmax);
+                }
+
+                // distribute points along curve as inital guess
                 Array<OneD, NekDouble> ti(m_mesh->m_nummode);
                 for (int k = 0; k < m_mesh->m_nummode; k++)
                 {
@@ -237,12 +273,12 @@ void HOSurfaceMesh::Process()
                         }
                         Norm = sqrt(Norm);
 
-                        if (Norm < 1E-8)
+                        if (Norm < 1E-7)
                         {
                             repeat = false;
                             break;
                         }
-                        if (itct > 1000)
+                        if (itct > 2000)
                         {
                             m_log(TRACE) << "Failed to optimise on curve "
                                          << c->GetId() << endl;
@@ -287,9 +323,40 @@ void HOSurfaceMesh::Process()
             }
             else
             {
-                // edge is on surface and needs 2d optimisation
-                auto uvb = e->m_n1->GetCADSurfInfo(surf);
-                auto uve = e->m_n2->GetCADSurfInfo(surf);
+                // edge is on surface and needs 2D optimisation (CASE1)
+
+                // To Do : Check if CADSurf is the same as surf (face CADSurf)
+                // if not, then it is CASE3 (robustness !)
+                std::array<Nektar::NekDouble, 2UL> uvb, uve;
+
+                if (m_config["third_party"].beenSet)
+                {
+                    // For the third-party case, we would like reavaluate the uv
+                    // of the vertices for robustness (cylinder bug in the past)
+                    NekDouble dist0, dist1, Umin, Usup, Vmin, Vsup;
+                    s->GetBounds(Umin, Usup, Vmin, Vsup);
+                    uvb = s->locuv(e->m_n1->GetLoc(), dist0, Umin, Usup, Vmin,
+                                   Vsup);
+                    uve = s->locuv(e->m_n2->GetLoc(), dist1, Umin, Usup, Vmin,
+                                   Vsup);
+                    // This check is necessary if identification is not perfect,
+                    // especially in periodic curves/surfaces
+                    NekDouble tol = e->m_n1->Distance(e->m_n2) * 0.01;
+                    if (dist0 > tol || dist1 > tol)
+                    {
+                        ToBreak = 1;
+                        m_log(WARNING)
+                            << "Edge vertices too far from CADSUrf dist = "
+                            << dist0 << " | " << dist1 << "  tol = " << tol
+                            << endl;
+                        continue;
+                    }
+                }
+                else
+                {
+                    uvb = e->m_n1->GetCADSurfInfo(surf);
+                    uve = e->m_n2->GetCADSurfInfo(surf);
+                }
 
                 e->m_parentCAD = s;
                 Array<OneD, std::array<NekDouble, 2>> uvi(nq);
@@ -366,11 +433,12 @@ void HOSurfaceMesh::Process()
                             break;
                         }
 
-                        if (itct > 1000)
+                        if (itct > 2000)
                         {
                             m_log(VERBOSE).Newline();
-                            m_log(WARNING) << "  Failed to optimise on edge "
-                                           << Norm << endl;
+                            m_log(WARNING)
+                                << "  Failed to optimise on edge " << Norm
+                                << " loc= " << e->m_n1 << endl;
                             for (int k = 0; k < nq; k++)
                             {
                                 std::array<NekDouble, 2> uv;
@@ -419,7 +487,16 @@ void HOSurfaceMesh::Process()
             completedEdges.insert(e);
         }
 
-        // just add the face interior nodes through interp and project
+        if (ToBreak == 1)
+        {
+            // if any edge is not projected or is already high-order before hand
+            // then likely the face is CASE3 (between 2 CAD surfaces)
+            cntBreak++;
+            continue;
+        }
+
+        // just add the face interior nodes through interp and project (no
+        // optimization)
         vector<NodeSharedPtr> vertices = f->m_vertexList;
 
         SpatialDomains::GeometrySharedPtr geom = f->GetGeom(3);
@@ -505,6 +582,12 @@ void HOSurfaceMesh::Process()
             m_mesh->m_element[2][i]->SetCurveType(f->m_curveType);
         }
     }
+
+    cout << '\n';
+    m_log(WARNING) << "Surface Optimization (T/F)  = " << qOpti << endl;
+    m_log(WARNING) << "There were " << cntBreak
+                   << " 2D Surface Faces that were skipped for HOSurfModule. "
+                   << endl;
 
     m_log(VERBOSE).Newline();
 }

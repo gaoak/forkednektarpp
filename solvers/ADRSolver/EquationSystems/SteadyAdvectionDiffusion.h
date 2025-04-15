@@ -41,6 +41,7 @@ using namespace Nektar::SolverUtils;
 
 namespace Nektar
 {
+
 class SteadyAdvectionDiffusion : public EquationSystem
 {
 public:
@@ -61,8 +62,6 @@ public:
     /// Name of class
     static std::string className;
 
-    ~SteadyAdvectionDiffusion() override = default;
-
 protected:
     NekDouble m_lambda;
     NekDouble m_epsilon;
@@ -72,11 +71,14 @@ protected:
         const LibUtilities::SessionReaderSharedPtr &pSession,
         const SpatialDomains::MeshGraphSharedPtr &pGraph);
 
+    ~SteadyAdvectionDiffusion() override = default;
+
     void v_InitObject(bool DeclareFields = true) override;
     void v_GenerateSummary(SolverUtils::SummaryList &s) override;
     void v_DoInitialise(bool dumpInitialConditions = false) override;
     void v_DoSolve() override;
 };
+
 } // namespace Nektar
 
 #endif

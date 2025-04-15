@@ -37,11 +37,9 @@
 
 #include <AcousticSolver/EquationSystems/LEE.h>
 
-using namespace std;
-
 namespace Nektar
 {
-string LEE::className = GetEquationSystemFactory().RegisterCreatorFunction(
+std::string LEE::className = GetEquationSystemFactory().RegisterCreatorFunction(
     "LEE", LEE::create, "Linearized Euler Equations");
 
 LEE::LEE(const LibUtilities::SessionReaderSharedPtr &pSession,
@@ -80,7 +78,7 @@ void LEE::v_InitObject(bool DeclareFields)
         m_bfFwdBwd[i] = Array<OneD, NekDouble>(GetTraceNpoints(), 0.0);
     }
 
-    string riemName;
+    std::string riemName;
     m_session->LoadSolverInfo("UpwindType", riemName, "Upwind");
     if (boost::to_lower_copy(riemName) == "characteristics" ||
         boost::to_lower_copy(riemName) == "leeupwind" ||
@@ -100,7 +98,7 @@ void LEE::v_InitObject(bool DeclareFields)
     m_riemannSolver->SetAuxVec("vecLocs", &LEE::GetVecLocs, this);
 
     // Set up advection operator
-    string advName;
+    std::string advName;
     m_session->LoadSolverInfo("AdvectionType", advName, "WeakDG");
     m_advection =
         SolverUtils::GetAdvectionFactory().CreateInstance(advName, advName);
@@ -116,77 +114,6 @@ void LEE::v_InitObject(bool DeclareFields)
     else
     {
         ASSERTL0(false, "Implicit LEE not set up.");
-    }
-}
-
-/**
- * @brief Destructor for LEE class.
- */
-LEE::~LEE()
-{
-}
-
-/**
- * @brief Return the flux vector for the LEE equations.
- *
- * @param physfield   Fields.
- * @param flux        Resulting flux. flux[eq][dir][pt]
- */
-void LEE::v_GetFluxVector(
-    const Array<OneD, Array<OneD, NekDouble>> &physfield,
-    Array<OneD, Array<OneD, Array<OneD, NekDouble>>> &flux)
-{
-    int nq = physfield[0].size();
-
-    ASSERTL1(flux[0].size() == m_spacedim,
-             "Dimension of flux array and velocity array do not match");
-
-    Array<OneD, const NekDouble> c0sq = m_bf[0];
-    Array<OneD, Array<OneD, const NekDouble>> u0(m_spacedim);
-    for (int i = 0; i < m_spacedim; ++i)
-    {
-        u0[i] = m_bf[2 + i];
-    }
-
-    Array<OneD, const NekDouble> p   = physfield[m_ip];
-    Array<OneD, const NekDouble> rho = physfield[m_irho];
-    Array<OneD, Array<OneD, const NekDouble>> ru(m_spacedim);
-    for (int i = 0; i < m_spacedim; ++i)
-    {
-        ru[i] = physfield[m_iu + i];
-    }
-
-    // F_{adv,p',j} = c0^2 * ru_j + u0_j * p
-    for (int j = 0; j < m_spacedim; ++j)
-    {
-        int i = 0;
-        Vmath::Vvtvvtp(nq, c0sq, 1, ru[j], 1, u0[j], 1, p, 1, flux[i][j], 1);
-    }
-
-    // F_{adv,rho',j} = u0_j * rho' + ru_j
-    for (int j = 0; j < m_spacedim; ++j)
-    {
-        int i = 1;
-        // u0_j * rho' + ru_j
-        Vmath::Vvtvp(nq, u0[j], 1, rho, 1, ru[j], 1, flux[i][j], 1);
-    }
-
-    for (int i = 0; i < m_spacedim; ++i)
-    {
-        // F_{adv,u'_i,j} = ru_i * u0_j + delta_ij * p
-        for (int j = 0; j < m_spacedim; ++j)
-        {
-            // ru_i * u0_j
-            Vmath::Vmul(nq, ru[i], 1, u0[j], 1, flux[m_iu + i][j], 1);
-
-            // kronecker delta
-            if (i == j)
-            {
-                // delta_ij + p
-                Vmath::Vadd(nq, p, 1, flux[m_iu + i][j], 1, flux[m_iu + i][j],
-                            1);
-            }
-        }
     }
 }
 
@@ -289,6 +216,70 @@ void LEE::v_AddLinTerm(const Array<OneD, const Array<OneD, NekDouble>> &inarray,
         m_fields[0]->BwdTrans(tmpC, linTerm[i]);
 
         Vmath::Vadd(nq, outarray[i], 1, linTerm[i], 1, outarray[i], 1);
+    }
+}
+
+/**
+ * @brief Return the flux vector for the LEE equations.
+ *
+ * @param physfield   Fields.
+ * @param flux        Resulting flux. flux[eq][dir][pt]
+ */
+void LEE::v_GetFluxVector(
+    const Array<OneD, Array<OneD, NekDouble>> &physfield,
+    Array<OneD, Array<OneD, Array<OneD, NekDouble>>> &flux)
+{
+    int nq = physfield[0].size();
+
+    ASSERTL1(flux[0].size() == m_spacedim,
+             "Dimension of flux array and velocity array do not match");
+
+    Array<OneD, const NekDouble> c0sq = m_bf[0];
+    Array<OneD, Array<OneD, const NekDouble>> u0(m_spacedim);
+    for (int i = 0; i < m_spacedim; ++i)
+    {
+        u0[i] = m_bf[2 + i];
+    }
+
+    Array<OneD, const NekDouble> p   = physfield[m_ip];
+    Array<OneD, const NekDouble> rho = physfield[m_irho];
+    Array<OneD, Array<OneD, const NekDouble>> ru(m_spacedim);
+    for (int i = 0; i < m_spacedim; ++i)
+    {
+        ru[i] = physfield[m_iu + i];
+    }
+
+    // F_{adv,p',j} = c0^2 * ru_j + u0_j * p
+    for (int j = 0; j < m_spacedim; ++j)
+    {
+        int i = 0;
+        Vmath::Vvtvvtp(nq, c0sq, 1, ru[j], 1, u0[j], 1, p, 1, flux[i][j], 1);
+    }
+
+    // F_{adv,rho',j} = u0_j * rho' + ru_j
+    for (int j = 0; j < m_spacedim; ++j)
+    {
+        int i = 1;
+        // u0_j * rho' + ru_j
+        Vmath::Vvtvp(nq, u0[j], 1, rho, 1, ru[j], 1, flux[i][j], 1);
+    }
+
+    for (int i = 0; i < m_spacedim; ++i)
+    {
+        // F_{adv,u'_i,j} = ru_i * u0_j + delta_ij * p
+        for (int j = 0; j < m_spacedim; ++j)
+        {
+            // ru_i * u0_j
+            Vmath::Vmul(nq, ru[i], 1, u0[j], 1, flux[m_iu + i][j], 1);
+
+            // kronecker delta
+            if (i == j)
+            {
+                // delta_ij + p
+                Vmath::Vadd(nq, p, 1, flux[m_iu + i][j], 1, flux[m_iu + i][j],
+                            1);
+            }
+        }
     }
 }
 

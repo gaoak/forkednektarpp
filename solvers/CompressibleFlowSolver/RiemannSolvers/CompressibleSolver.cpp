@@ -37,6 +37,7 @@
 
 namespace Nektar
 {
+
 CompressibleSolver::CompressibleSolver(
     const LibUtilities::SessionReaderSharedPtr &pSession)
     : RiemannSolver(pSession), m_pointSolve(true)

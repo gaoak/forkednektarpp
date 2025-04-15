@@ -75,9 +75,8 @@ FilterBenchmark::FilterBenchmark(
     m_initialValue = floor(equ2.Evaluate());
 
     // OutputFile
-    it = pParams.find("OutputFile");
-    ASSERTL0(it->second.length() > 0, "Missing parameter 'OutputFile'.");
-    m_outputFile = it->second;
+    std::string ext = "";
+    m_outputFile    = Filter::SetupOutput(ext, pParams);
 
     // StartTime
     m_startTime = 0.0;
@@ -178,8 +177,13 @@ void FilterBenchmark::v_Finalise(
 {
     for (size_t j = 0; j < m_threshold.size() - 1; ++j)
     {
-        std::stringstream vOutputFilename;
-        vOutputFilename << m_outputFile << "_" << j << ".fld";
+        std::stringstream vTmpFilename;
+        std::string vOutputFilename;
+        std::string ext = ".fld";
+
+        vTmpFilename << fs::path(m_outputFile).replace_extension("").string()
+                     << "_" << j << ext;
+        vOutputFilename = Filter::SetupOutput(ext, vTmpFilename.str());
 
         std::vector<LibUtilities::FieldDefinitionsSharedPtr> FieldDef =
             pFields[0]->GetFieldDefinitions();
@@ -196,7 +200,7 @@ void FilterBenchmark::v_Finalise(
             pFields[0]->AppendFieldData(FieldDef[i], FieldData[i], vCoeffs);
         }
 
-        m_fld->Write(vOutputFilename.str(), FieldDef, FieldData);
+        m_fld->Write(vOutputFilename, FieldDef, FieldData);
     }
 }
 

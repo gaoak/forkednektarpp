@@ -36,11 +36,10 @@
 #include <StdRegions/StdSegExp.h>
 #include <boost/format.hpp>
 
-using namespace std;
-
 namespace Nektar
 {
-string LinearisedAdvection::className =
+
+std::string LinearisedAdvection::className =
     SolverUtils::GetAdvectionFactory().RegisterCreatorFunction(
         "Linearised", LinearisedAdvection::create,
         "Linearised Non-Conservative");
@@ -169,7 +168,7 @@ void LinearisedAdvection::v_InitObject(
 
     ASSERTL0(m_session->DefinesFunction("BaseFlow"),
              "Base flow must be defined for linearised forms.");
-    string file = m_session->GetFunctionFilename("BaseFlow", 0);
+    std::string file = m_session->GetFunctionFilename("BaseFlow", 0);
 
     // Periodic base flows
     if (m_session->DefinesParameter("N_slices"))
@@ -244,29 +243,24 @@ void LinearisedAdvection::v_InitObject(
     }
     if (m_session->GetComm()->GetRank() == 0)
     {
-        cout << "baseflow info : interpolation order " << m_interporder
-             << ", period " << m_period << ", periodicity ";
+        std::cout << "baseflow info : interpolation order " << m_interporder
+                  << ", period " << m_period << ", periodicity ";
         if (m_isperiodic)
         {
-            cout << "yes\n";
+            std::cout << "yes\n";
         }
         else
         {
-            cout << "no\n";
+            std::cout << "no\n";
         }
-        cout << "baseflow info : files from " << m_start << " to "
-             << (m_start + (m_slices - 1) * m_skip) << " (skip " << m_skip
-             << ") with " << (m_slices - (m_interporder > 1))
-             << " time intervals" << endl;
+        std::cout << "baseflow info : files from " << m_start << " to "
+                  << (m_start + (m_slices - 1) * m_skip) << " (skip " << m_skip
+                  << ") with " << (m_slices - (m_interporder > 1))
+                  << " time intervals" << std::endl;
     }
 }
 
-LinearisedAdvection::~LinearisedAdvection()
-{
-}
-
 // Advection function
-
 void LinearisedAdvection::v_Advect(
     const int nConvectiveFields,
     const Array<OneD, MultiRegions::ExpListSharedPtr> &fields,
@@ -665,7 +659,8 @@ DNekBlkMatSharedPtr LinearisedAdvection::GetFloquetBlockMatrix(
 
 // Discrete Fourier Transform for Floquet analysis
 void LinearisedAdvection::DFT(
-    const string file, Array<OneD, MultiRegions::ExpListSharedPtr> &pFields)
+    const std::string file,
+    Array<OneD, MultiRegions::ExpListSharedPtr> &pFields)
 {
     size_t ConvectedFields = m_baseflow.size() - 1;
     size_t npoints         = m_baseflow[0].size();
@@ -680,8 +675,8 @@ void LinearisedAdvection::DFT(
     // The base flow should be stored in the form "filename_%d.ext"
     // A subdirectory can also be included, such as "dir/filename_%d.ext"
     size_t found = file.find("%d");
-    ASSERTL0(found != string::npos &&
-                 file.find("%d", found + 1) == string::npos,
+    ASSERTL0(found != std::string::npos &&
+                 file.find("%d", found + 1) == std::string::npos,
              "Since N_slices is specified, the filename provided for function "
              "'BaseFlow' must include exactly one instance of the format "
              "specifier '%d', to index the time-slices.");
@@ -693,7 +688,7 @@ void LinearisedAdvection::DFT(
         ImportFldBase(filename.str(), pFields, (i - nstart) / m_skip);
         if (m_session->GetComm()->GetRank() == 0)
         {
-            cout << "read base flow file " << filename.str() << endl;
+            std::cout << "read base flow file " << filename.str() << std::endl;
         }
     }
     if (!m_isperiodic)

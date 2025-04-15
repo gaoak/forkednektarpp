@@ -47,16 +47,8 @@ FilterHilbertFFTPhase::FilterHilbertFFTPhase(
     const ParamMap &pParams)
     : Filter(pSession, pEquation)
 {
-    if (pParams.find("OutputFile") == pParams.end())
-    {
-        m_outputFile = m_session->GetSessionName();
-    }
-    else
-    {
-        ASSERTL0(!(pParams.find("OutputFile")->second.empty()),
-                 "Missing parameter 'OutputFile'.");
-        m_outputFile = pParams.find("OutputFile")->second;
-    }
+    std::string ext = "";
+    m_outputFile    = Filter::SetupOutput(ext, pParams);
 
     ASSERTL0(pParams.find("OutputFrequency") != pParams.end(),
              "Missing parameter 'OutputFrequency'."); // Sampling frequency =
@@ -209,8 +201,14 @@ void FilterHilbertFFTPhase::v_Update(
 
         for (int t = 0; t < m_window - m_overlap; ++t)
         {
-            std::stringstream vOutputFilename;
-            vOutputFilename << m_outputFile << "_" << m_outputIndex << ".chk";
+            std::stringstream vTmpFilename;
+            std::string vOutputFilename;
+            std::string ext = ".chk";
+
+            vTmpFilename
+                << fs::path(m_outputFile).replace_extension("").string() << "_"
+                << m_outputIndex << ext;
+            vOutputFilename = Filter::SetupOutput(ext, vTmpFilename.str());
 
             // Get FieldDefinitions and allocate Fielddata
             std::vector<LibUtilities::FieldDefinitionsSharedPtr> FieldDef =
@@ -268,7 +266,7 @@ void FilterHilbertFFTPhase::v_Update(
             fieldMetaDataMap["Time"] = boost::lexical_cast<std::string>(
                 m_outputIndex * m_outputFrequency * m_TimeStep);
 
-            m_fld->Write(vOutputFilename.str(), FieldDef, FieldData,
+            m_fld->Write(vOutputFilename, FieldDef, FieldData,
                          fieldMetaDataMap);
             m_outputIndex++;
         }

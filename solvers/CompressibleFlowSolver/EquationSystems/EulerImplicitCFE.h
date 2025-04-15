@@ -61,11 +61,11 @@ public:
     /// Name of class.
     static std::string className;
 
-    ~EulerImplicitCFE() override = default;
-
 protected:
     EulerImplicitCFE(const LibUtilities::SessionReaderSharedPtr &pSession,
                      const SpatialDomains::MeshGraphSharedPtr &pGraph);
+
+    ~EulerImplicitCFE() override = default;
 
     void v_InitObject(bool DeclareFields = true) override;
 
@@ -81,5 +81,6 @@ protected:
 
     bool v_SupportsShockCaptType(const std::string type) const final;
 };
+
 } // namespace Nektar
 #endif
