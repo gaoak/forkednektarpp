@@ -34,7 +34,6 @@
 
 #pragma once
 
-#include "Operators/GlobalLinSysOps/ConjGrad/OperatorConjGrad.hpp"
 #include "Operators/GlobalLinSysOps/FwdTrans/OperatorFwdTrans.hpp"
 
 #include "Operators/BndCondOps/DirBndCond/OperatorDirBndCond.hpp"
@@ -42,7 +41,6 @@
 #include "Operators/ElmtOps/IProductWRTBase/OperatorIProductWRTBase.hpp"
 #include "Operators/ElmtOps/Mass/OperatorMass.hpp"
 #include "Operators/MathKernels/MathKernels.hpp"
-#include "Operators/PreconOps/OperatorPrecon.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -72,9 +70,6 @@ public:
                                                       ExecSpace::name);
         m_IProdOp = OperatorIProductWRTBase<TData>::Create(
             this->m_expansionList, ExecSpace::name);
-        m_CGOp = OperatorConjGrad<TData>::Create(this->m_expansionList,
-                                                 ExecSpace::name);
-        m_CGOp->setLHS(m_MassOp);
     }
 
     void apply(Field<TData, FieldState::Phys> &in,
@@ -92,10 +87,17 @@ public:
         m_RobBCOp->apply(out, m_rhs, true);
 
         // Solve for u_hat using Conjugate Gradient
-        m_CGOp->apply(m_rhs, m_tmp);
+        m_LinSolverOp->apply(m_rhs, m_tmp);
 
         // Add Dirichlet BCs
         add<ExecSpace>(out, m_tmp, out);
+    }
+
+    void setLinearSolver(
+        const std::shared_ptr<OperatorLinearSolver<TData>> &linsolve) override
+    {
+        m_LinSolverOp = linsolve;
+        m_LinSolverOp->setLHS(m_MassOp);
     }
 
     void setPrecon(
@@ -103,7 +105,7 @@ public:
     {
         precon->configure(m_MassOp);
 
-        m_CGOp->setPrecon(precon);
+        m_LinSolverOp->setPrecon(precon);
     }
 
     // className - for OperatorFactory
@@ -118,7 +120,7 @@ public:
     }
 
 protected:
-    std::shared_ptr<OperatorConjGrad<TData>> m_CGOp;
+    std::shared_ptr<OperatorLinearSolver<TData>> m_LinSolverOp;
     std::shared_ptr<OperatorDirBndCond<TData>> m_DirBCOp;
     std::shared_ptr<OperatorIProductWRTBase<TData>> m_IProdOp;
     std::shared_ptr<OperatorMass<TData>> m_MassOp;

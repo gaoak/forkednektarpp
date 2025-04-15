@@ -47,8 +47,10 @@ ADD_NEKTAR_EXECUTABLE(test_fwdtrans_serial_stdmat
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_fwdtrans_serial_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_helmholtz_serial_stdmat
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_serial_stdmat.cpp)
-ADD_NEKTAR_EXECUTABLE(test_helmsolve_serial_stdmat
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_serial_stdmat.cpp)
+ADD_NEKTAR_EXECUTABLE(test_helmsolve_conjgrad_serial_stdmat
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_conjgrad_serial_stdmat.cpp)
+ADD_NEKTAR_EXECUTABLE(test_helmsolve_gmres_serial_stdmat
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_gmres_serial_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_serial_stdmat
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_serial_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_serial_stdmat
@@ -139,8 +141,10 @@ IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABL
     #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_fwdtrans_device_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_helmholtz_device_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_device_sumfac.cpp)
-    #ADD_NEKTAR_EXECUTABLE(test_helmsolve_device_sumfac
-    #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_device_sumfac.cpp)
+    #ADD_NEKTAR_EXECUTABLE(test_helmsolve_conjgrad_device_sumfac
+    #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_conjgrad_device_sumfac.cpp)
+    #ADD_NEKTAR_EXECUTABLE(test_helmsolve_gmres_device_sumfac
+    #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_gmres_device_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_device_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_device_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_device_sumfac
@@ -171,8 +175,10 @@ IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABL
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_fwdtrans_device_sumfac_qp.cpp)
     ADD_NEKTAR_EXECUTABLE(test_helmholtz_device_sumfac_qp
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_device_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_helmsolve_device_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_device_sumfac_qp.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_helmsolve_conjgrad_device_sumfac_qp
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_conjgrad_device_sumfac_qp.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_helmsolve_gmres_device_sumfac_qp
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_gmres_device_sumfac_qp.cpp)
     ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_device_sumfac_qp
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_device_sumfac_qp.cpp)
     ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_device_sumfac_qp
@@ -222,9 +228,11 @@ SET_UNIT_TEST(FwdTrans_serial_stdmat test_fwdtrans_serial_stdmat FALSE)
 #    SET_UNIT_TEST(FwdTrans_serial_stdmat test_fwdtrans_serial_stdmat TRUE)
 #ENDIF()
 SET_UNIT_TEST(Helmholtz_serial_stdmat test_helmholtz_serial_stdmat FALSE)
-SET_UNIT_TEST(HelmSolve_serial_stdmat test_helmsolve_serial_stdmat FALSE)
+SET_UNIT_TEST(HelmSolve_conjgrad_serial_stdmat test_helmsolve_conjgrad_serial_stdmat FALSE)
+SET_UNIT_TEST(HelmSolve_gmres_serial_stdmat test_helmsolve_gmres_serial_stdmat FALSE)
 #IF (NEKTAR_USE_MPI)
-#    SET_UNIT_TEST(HelmSolve_serial_stdmat test_helmsolve_serial_stdmat TRUE)
+#    SET_UNIT_TEST(HelmSolve_conjgrad_serial_stdmat test_helmsolve_conjgrad_serial_stdmat TRUE)
+#    SET_UNIT_TEST(HelmSolve_gmres_serial_stdmat test_helmsolve_gmres_serial_stdmat TRUE)
 #ENDIF()
 SET_UNIT_TEST(IProductWRTBase_serial_stdmat test_ipwrtbase_serial_stdmat FALSE)
 SET_UNIT_TEST(IProductWRTDerivBase_serial_stdmat test_ipwrtderivbase_serial_stdmat FALSE)
@@ -274,9 +282,11 @@ IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABL
     #    SET_UNIT_TEST(FwdTrans_device_sumfac test_fwdtrans_device_sumfac TRUE)
     #ENDIF()
     SET_UNIT_TEST(Helmholtz_device_sumfac test_helmholtz_device_sumfac FALSE)
-    #SET_UNIT_TEST(HelmSolve_device_sumfac test_helmsolve_device_sumfac FALSE)
+    #SET_UNIT_TEST(HelmSolve_conjgrad_device_sumfac test_helmsolve_conjgrad_device_sumfac FALSE)
+    #SET_UNIT_TEST(HelmSolve_gmres_device_sumfac test_helmsolve_gmres_device_sumfac FALSE)
     #IF (NEKTAR_USE_MPI)
-    #    SET_UNIT_TEST(HelmSolve_device_sumfac test_helmsolve_device_sumfac TRUE)
+    #    SET_UNIT_TEST(HelmSolve_conjgrad_device_sumfac test_helmsolve_conjgrad_device_sumfac TRUE)
+    #    SET_UNIT_TEST(HelmSolve_gmres_device_sumfac test_helmsolve_gmres_device_sumfac TRUE)
     #ENDIF()
     SET_UNIT_TEST(IProductWRTBase_device_sumfac test_ipwrtbase_device_sumfac FALSE)
     SET_UNIT_TEST(IProductWRTDerivBase_device_sumfac test_ipwrtderivbase_device_sumfac FALSE)
@@ -301,10 +311,12 @@ IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABL
     #ENDIF()
     SET_UNIT_TEST(Helmholtz_device_sumfac_qp test_helmholtz_device_sumfac_qp FALSE)
     IF(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
-        SET_UNIT_TEST(HelmSolve_device_sumfac_qp test_helmsolve_device_sumfac_qp FALSE)
+        SET_UNIT_TEST(HelmSolve_conjgrad_device_sumfac_qp test_helmsolve_conjgrad_device_sumfac_qp FALSE)
+        SET_UNIT_TEST(HelmSolve_gmres_device_sumfac_qp test_helmsolve_gmres_device_sumfac_qp FALSE)
     ENDIF()
     #IF (NEKTAR_USE_MPI)
-    #    SET_UNIT_TEST(HelmSolve_device_sumfac_qp test_helmsolve_device_sumfac_qp TRUE)
+    #    SET_UNIT_TEST(HelmSolve_conjgrad_device_sumfac_qp test_helmsolve_conjgrad_device_sumfac_qp TRUE)
+    #    SET_UNIT_TEST(HelmSolve_gmres_device_sumfac_qp test_helmsolve_gmres_device_sumfac_qp TRUE)
     #ENDIF()
     SET_UNIT_TEST(IProductWRTBase_device_sumfac_qp test_ipwrtbase_device_sumfac_qp FALSE)
     SET_UNIT_TEST(IProductWRTDerivBase_device_sumfac_qp test_ipwrtderivbase_device_sumfac_qp FALSE)

@@ -89,20 +89,21 @@ public:
     {
         auto contfield =
             std::dynamic_pointer_cast<ContField>(this->m_expansionList);
+
+        // Set parameters.
         contfield->GetSession()->LoadParameter("NekLinSysMaxIterations",
                                                m_maxIter, 5000);
-        NekDouble tolerance;
         contfield->GetSession()->LoadParameter("IterativeSolverTolerance",
-                                               tolerance, 1.0E-09);
-        m_tol = tolerance;
+                                               m_tol, 1.0E-09);
 
+        // Set operators.
         m_assmbScatrOp = OperatorAssmbScatr<TData>::Create(
             this->m_expansionList, ExecSpace::name);
         m_robBndCondOp = OperatorRobBndCond<TData>::Create(
             this->m_expansionList, ExecSpace::name);
-
         m_rowComm = contfield->GetSession()->GetComm()->GetRowComm();
 
+        // Allocate array storage.
         m_vExchange = MemoryRegion<TData>::Create(
             4, __STDCPP_DEFAULT_NEW_ALIGNMENT__, 0, ePinned);
     }
@@ -155,7 +156,7 @@ public:
         this->m_precon->apply(m_r_A, m_w_A);
 
         // Perform the method-specific matrix-vector multiply operation.
-        this->m_LHS->apply(m_w_A, m_s_A);
+        this->m_lhs->apply(m_w_A, m_s_A);
 
         m_robBndCondOp->apply(m_w_A, m_s_A);
 
@@ -199,7 +200,7 @@ public:
 
             // Perform the method-specific matrix-vector multiply
             // operation.
-            this->m_LHS->apply(m_w_A, m_s_A);
+            this->m_lhs->apply(m_w_A, m_s_A);
 
             m_robBndCondOp->apply(m_w_A, m_s_A);
 

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: OperatorFwdTrans.hpp
+// File: OperatorLinearSolver.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,54 +34,50 @@
 
 #pragma once
 
-#include "Operators/GlobalLinSysOps/OperatorLinearSolver.hpp"
-#include "Operators/PreconOps/OperatorPrecon.hpp"
+#include "Operators/Common/Operator.hpp"
+#include "Operators/ElmtOps/OperatorElmt.hpp"
 
 namespace Nektar::Operators
 {
 
-// FwdTrans base class
-// Defines the apply operator to enforce apply parameter types
-template <typename TData> class OperatorFwdTrans : public Operator<TData>
+// LinearSolver base class
+template <typename TData> class OperatorLinearSolver : public Operator<TData>
 {
 public:
-    OperatorFwdTrans(const MultiRegions::ExpListSharedPtr &expansionList)
+    OperatorLinearSolver(const MultiRegions::ExpListSharedPtr &expansionList)
         : Operator<TData>(expansionList)
     {
     }
 
-    ~OperatorFwdTrans() override = default;
+    ~OperatorLinearSolver() override = default;
 
-    static std::shared_ptr<OperatorFwdTrans<TData>> Create(
-        const MultiRegions::ExpListSharedPtr &expansionList,
-        const std::string &execStr = "")
-    {
-        auto session = expansionList->GetSession();
-
-        std::string execStr0 =
-            (execStr == "")
-                ? session->GetCmdLineArgument<std::string>("opExecSpace")
-                : execStr;
-
-        return Operator<TData>::template Create<OperatorFwdTrans<TData>>(
-            expansionList, execStr0);
-    }
-
-    static constexpr char name[] = "FwdTrans";
-
-    virtual void apply(Field<TData, FieldState::Phys> &in,
+    virtual void apply(Field<TData, FieldState::Coeff> &in,
                        Field<TData, FieldState::Coeff> &out) = 0;
 
-    void operator()(Field<TData, FieldState::Phys> &in,
+    void operator()(Field<TData, FieldState::Coeff> &in,
                     Field<TData, FieldState::Coeff> &out)
     {
-        apply(in, out);
+        this->apply(in, out);
     }
 
-    virtual void setLinearSolver(
-        const std::shared_ptr<OperatorLinearSolver<TData>> &linsolve) = 0;
-    virtual void setPrecon(
-        const std::shared_ptr<OperatorPrecon<TData>> &precon) = 0;
+    void setLHS(const std::shared_ptr<
+                OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>> &ptr)
+    {
+        this->m_lhs = ptr;
+    }
+
+    void setPrecon(
+        const std::shared_ptr<
+            OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>> &ptr)
+    {
+        this->m_precon = ptr;
+    }
+
+protected:
+    std::shared_ptr<OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>>
+        m_lhs;
+    std::shared_ptr<OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>>
+        m_precon;
 };
 
 } // namespace Nektar::Operators
