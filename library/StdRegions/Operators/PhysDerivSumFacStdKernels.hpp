@@ -114,11 +114,10 @@ NEK_FORCE_INLINE static void PhysDerivTensor2DKernel(
     }
 }
 
-template <bool DEFORMED, typename simd_type>
+template <typename simd_type>
 NEK_FORCE_INLINE static void SumDerivTensor2DKernel(
     const unsigned int nq0, const unsigned int nq1, const simd_type *in0,
-    const simd_type *in1, const simd_type *w0, const simd_type *w1,
-    const simd_type *jac, const simd_type *D0, const simd_type *D1,
+    const simd_type *in1, const simd_type *D0, const simd_type *D1,
     simd_type *out, const typename simd_type::scalarType scale = 0.0,
     bool Deriv0 = true, bool Deriv1 = true)
 {
@@ -139,36 +138,11 @@ NEK_FORCE_INLINE static void SumDerivTensor2DKernel(
                     simd_type v1 = D0[i * nq0 + k];  // Load 1x
                     simd_type v2 = in0[j * nq0 + k]; // Load 1x
 
-                    simd_type jac_val;
-                    if constexpr (DEFORMED)
-                    {
-                        jac_val = jac[j * nq0 + k];
-                    }
-                    else
-                    {
-                        jac_val = jac[0];
-                    }
-                    v2 *= w0[k] * jac_val; // Load 1x
-
                     prod_sum.fma(v1, v2);
                 }
 
-                prod_sum *= w1[j]; // Load 1x
-
-                simd_type jac_val;
-                if constexpr (DEFORMED)
-                {
-                    jac_val = jac[j * nq0 + i];
-                }
-                else
-                {
-                    jac_val = jac[0];
-                }
-                simd_type temp;
-                temp = out[j * nq0 + i] * simd_type(scale) * w1[j] * w0[i] *
-                       jac_val;
-                temp += prod_sum;
-                out[j * nq0 + i] = temp; // Store 1x
+                out[j * nq0 + i] *= simd_type(scale);
+                out[j * nq0 + i] += prod_sum; // Store 1x
             }
         }
     }
@@ -188,21 +162,8 @@ NEK_FORCE_INLINE static void SumDerivTensor2DKernel(
                     simd_type v1 = in1[k * nq0 + i]; // Load 1x
                     simd_type v2 = D1[j * nq1 + k];  // Load 1x
 
-                    simd_type jac_val;
-                    if constexpr (DEFORMED)
-                    {
-                        jac_val = jac[k * nq0 + i];
-                    }
-                    else
-                    {
-                        jac_val = jac[0];
-                    }
-                    v2 *= w1[k] * jac_val; // Load 4x
-
                     prod_sum.fma(v1, v2);
                 }
-
-                prod_sum *= w0[i]; // Load 1x
 
                 out[j * nq0 + i] += prod_sum; // Store 1x
             }
@@ -290,15 +251,13 @@ NEK_FORCE_INLINE static void PhysDerivTensor3DKernel(
     }
 }
 
-template <bool DEFORMED, typename simd_type>
+template <typename simd_type>
 NEK_FORCE_INLINE static void SumDerivTensor3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const simd_type *in0, const simd_type *in1, const simd_type *in2,
-    const simd_type *w0, const simd_type *w1, const simd_type *w2,
-    const simd_type *jac, const simd_type *D0, const simd_type *D1,
-    const simd_type *D2, simd_type *out,
-    const typename simd_type::scalarType scale = 0.0, bool Deriv0 = true,
-    bool Deriv1 = true, bool Deriv2 = true)
+    const simd_type *D0, const simd_type *D1, const simd_type *D2,
+    simd_type *out, const typename simd_type::scalarType scale = 0.0,
+    bool Deriv0 = true, bool Deriv1 = true, bool Deriv2 = true)
 {
     // All matricies are column major ordered since operators used to
     // be computed via BLAS.
@@ -322,37 +281,10 @@ NEK_FORCE_INLINE static void SumDerivTensor3DKernel(
                         simd_type v1 = D0[p * nq0 + i]; // Load 1x
                         simd_type v2 = in0[cnt_kji];    // Load 1x
 
-                        simd_type jac_val;
-                        if constexpr (DEFORMED)
-                        {
-                            jac_val = jac[cnt_kji];
-                        }
-                        else
-                        {
-                            jac_val = jac[0];
-                        }
-                        v2 *= w0[i] * jac_val; // Load 1x
-
                         prod_sum.fma(v1, v2);
                     }
-
-                    prod_sum *= w1[j] * w2[k]; // Load 2x
-
-                    // out[cnt_hj * nq0 + i] += prod_sum; // Store 1x
-                    simd_type jac_val;
-                    if constexpr (DEFORMED)
-                    {
-                        jac_val = jac[cnt_kj * nq0 + p];
-                    }
-                    else
-                    {
-                        jac_val = jac[0];
-                    }
-                    simd_type temp;
-                    temp = out[cnt_kj * nq0 + p] * simd_type(scale) * w1[j] *
-                           w2[k] * w0[p] * jac_val;
-                    temp += prod_sum;
-                    out[cnt_kj * nq0 + p] = temp; // Store 1x
+                    out[cnt_kj * nq0 + p] *= simd_type(scale);
+                    out[cnt_kj * nq0 + p] += prod_sum; // Store 1x
                 }
             }
         }
@@ -375,21 +307,8 @@ NEK_FORCE_INLINE static void SumDerivTensor3DKernel(
                         simd_type v1 = in1[start + k * nq0 + i]; // Load 1x
                         simd_type v2 = D1[j * nq1 + k];          // Load 1x
 
-                        simd_type jac_val;
-                        if constexpr (DEFORMED)
-                        {
-                            jac_val = jac[start + k * nq0 + i];
-                        }
-                        else
-                        {
-                            jac_val = jac[0];
-                        }
-                        v1 *= w1[k] * jac_val; // Load 1x
-
                         prod_sum.fma(v1, v2);
                     }
-
-                    prod_sum *= w0[i] * w2[block]; // Load 1x
 
                     out[start + j * nq0 + i] += prod_sum; // Store 1x
                 }
@@ -413,21 +332,8 @@ NEK_FORCE_INLINE static void SumDerivTensor3DKernel(
                         simd_type v1 = in2[k * nq0 * nq1 + cnt_hi]; // Load 1x
                         simd_type v2 = D2[j * nq2 + k];             // Load 1x
 
-                        simd_type jac_val;
-                        if constexpr (DEFORMED)
-                        {
-                            jac_val = jac[k * nq0 * nq1 + cnt_hi];
-                        }
-                        else
-                        {
-                            jac_val = jac[0];
-                        }
-                        v1 *= w2[k] * jac_val; // Load 1x
-
                         prod_sum.fma(v1, v2);
                     }
-
-                    prod_sum *= w0[i] * w1[h]; // Load 2x
 
                     out[j * nq0 * nq1 + cnt_hi] += prod_sum; // Store 1x
                 }
