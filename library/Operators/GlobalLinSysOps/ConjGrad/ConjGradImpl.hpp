@@ -104,47 +104,37 @@ public:
         m_rowComm = contfield->GetSession()->GetComm()->GetRowComm();
 
         // Allocate array storage.
-        m_vExchange = MemoryRegion<TData>::Create(
-            4, __STDCPP_DEFAULT_NEW_ALIGNMENT__, 0, ePinned);
+        m_vExchange = std::vector<TData>(4, 0.0);
     }
 
     void apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Coeff> &out) override
     {
-        // Set the fields to zero
+        // Set the fields to zero.
         out.template Initialize<MemSpace>(0);
-        m_w_A.template Initialize<MemSpace>(0);
-        m_s_A.template Initialize<MemSpace>(0);
         m_p_A.template Initialize<MemSpace>(0);
         m_q_A.template Initialize<MemSpace>(0);
-        m_wk.template Initialize<MemSpace>(0);
 
-        // Convergence parameters (host)
+        // Convergence parameters.
         size_t totalIterations = 0;
         TData rhsMagnitude, mu, eps;
         TData alpha, beta, rho, rho_new;
 
-        auto vExchangePtr =
-            m_vExchange.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-
-        // Copy RHS into initial residual
+        // Copy RHS into initial residual.
         m_r_A.template Copy<MemSpace>(in);
 
-        // Assembly (communication)
+        // Assembly (communication).
         m_assmbScatrOp->apply(m_r_A, m_wk, true);
+        ddot<ExecSpace>(m_wk, m_r_A, &m_vExchange[2]);
 
-        ddot<ExecSpace>(m_wk, m_r_A, vExchangePtr + 2);
-
-        // Calculate rhs magnitude
-        m_wk.template Initialize<MemSpace>(0);
+        // Calculate rhs magnitude.
         m_assmbScatrOp->apply(m_r_A, m_wk);
-
-        ddot<ExecSpace>(in, m_wk, vExchangePtr + 3);
+        ddot<ExecSpace>(in, m_wk, &m_vExchange[3]);
 
         m_rowComm->AllReduce(m_vExchange, Nektar::LibUtilities::ReduceSum);
 
-        eps          = vExchangePtr[2];
-        rhsMagnitude = (vExchangePtr[3] > 1.0e-6) ? vExchangePtr[3] : 1.0;
+        eps          = m_vExchange[2];
+        rhsMagnitude = (m_vExchange[3] > 1.0e-6) ? m_vExchange[3] : 1.0;
 
         // If the input residual is less than tolerance then skip solve.
         if (eps < m_tol * m_tol * rhsMagnitude)
@@ -152,7 +142,7 @@ public:
             return;
         }
 
-        // Apply preconditioner
+        // Apply preconditioner.
         this->m_precon->apply(m_r_A, m_w_A);
 
         // Perform the method-specific matrix-vector multiply operation.
@@ -160,14 +150,14 @@ public:
 
         m_robBndCondOp->apply(m_w_A, m_s_A);
 
-        ddot<ExecSpace>(m_r_A, m_w_A, vExchangePtr + 0);
+        ddot<ExecSpace>(m_r_A, m_w_A, &m_vExchange[0]);
 
-        ddot<ExecSpace>(m_s_A, m_w_A, vExchangePtr + 1);
+        ddot<ExecSpace>(m_s_A, m_w_A, &m_vExchange[1]);
 
         m_rowComm->AllReduce(m_vExchange, Nektar::LibUtilities::ReduceSum);
 
-        rho             = vExchangePtr[0];
-        mu              = vExchangePtr[1];
+        rho             = m_vExchange[0];
+        mu              = m_vExchange[1];
         beta            = 0.0;
         alpha           = rho / mu;
         totalIterations = 1;
@@ -183,19 +173,19 @@ public:
                 return;
             }
 
-            // Compute new search direction p_k
+            // Compute new search direction p_k.
             daxpy<ExecSpace>(beta, m_p_A, m_w_A, m_p_A);
 
-            // Compute new search direction q_k
+            // Compute new search direction q_k.
             daxpy<ExecSpace>(beta, m_q_A, m_s_A, m_q_A);
 
-            // Update solution x_{k+1}
+            // Update solution x_{k+1}.
             daxpy<ExecSpace>(alpha, m_p_A, out, out);
 
-            // Update residual vector r_{k+1}
+            // Update residual vector r_{k+1}.
             daxpy<ExecSpace>(-alpha, m_q_A, m_r_A, m_r_A);
 
-            // Apply preconditioner
+            // Apply preconditioner.
             this->m_precon->apply(m_r_A, m_w_A);
 
             // Perform the method-specific matrix-vector multiply
@@ -205,31 +195,30 @@ public:
             m_robBndCondOp->apply(m_w_A, m_s_A);
 
             // <r_{k+1}, w_{k+1}>
-            ddot<ExecSpace>(m_r_A, m_w_A, vExchangePtr + 0);
+            ddot<ExecSpace>(m_r_A, m_w_A, &m_vExchange[0]);
 
             // <s_{k+1}, w_{k+1}>
-            ddot<ExecSpace>(m_s_A, m_w_A, vExchangePtr + 1);
+            ddot<ExecSpace>(m_s_A, m_w_A, &m_vExchange[1]);
 
             // <r_{k+1}, r_{k+1}>
             m_assmbScatrOp->apply(m_r_A, m_wk, true);
-
-            ddot<ExecSpace>(m_wk, m_r_A, vExchangePtr + 2);
+            ddot<ExecSpace>(m_wk, m_r_A, &m_vExchange[2]);
 
             m_rowComm->AllReduce(m_vExchange, Nektar::LibUtilities::ReduceSum);
 
-            rho_new = vExchangePtr[0];
-            mu      = vExchangePtr[1];
-            eps     = vExchangePtr[2];
+            rho_new = m_vExchange[0];
+            mu      = m_vExchange[1];
+            eps     = m_vExchange[2];
 
             ++totalIterations;
 
-            // Test if norm is within tolerance
+            // Test if norm is within tolerance.
             if (eps < m_tol * m_tol * rhsMagnitude)
             {
                 break;
             }
 
-            // Compute search direction and solution coefficients
+            // Compute search direction and solution coefficients.
             beta  = rho_new / rho;
             alpha = rho_new / (mu - rho_new * beta / alpha);
             rho   = rho_new;
@@ -260,7 +249,7 @@ protected:
     Field<TData, FieldState::Coeff> m_q_A;
     Field<TData, FieldState::Coeff> m_p_A;
 
-    MemoryRegion<TData> m_vExchange;
+    std::vector<TData> m_vExchange;
 
     TData m_tol;
     size_t m_maxIter;
