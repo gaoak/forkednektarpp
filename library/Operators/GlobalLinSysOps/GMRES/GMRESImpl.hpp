@@ -133,9 +133,8 @@ public:
         // Calculate rhs magnitude.
         if (m_rhs_magnitude == NekConstants::kNekUnsetDouble)
         {
-            m_wk.template Initialize<MemSpace>(0);
             m_assmbScatrOp->apply(in, m_wk);
-            ddot<ExecSpace, TData>(in, m_wk, &m_rhs_magnitude);
+            ddot<ExecSpace>(in, m_wk, &m_rhs_magnitude);
             m_rowComm->AllReduce(m_rhs_magnitude,
                                  Nektar::LibUtilities::ReduceSum);
             m_rhs_magnitude =
@@ -168,6 +167,7 @@ public:
 
             // Calculate difference in residual of solution.
             this->m_lhs->apply(out, m_r0);
+            m_robBndCondOp->apply(out, m_r0);
             sub<ExecSpace>(in, m_r0, m_r0);
             m_assmbScatrOp->apply(m_r0, m_wk, true);
             ddot<ExecSpace>(m_wk, m_r0, &eps1);
@@ -222,13 +222,12 @@ public:
 
         // Set the fields to zero.
         out.template Initialize<MemSpace>(0);
-        m_w.template Initialize<MemSpace>(0);
-        m_wk.template Initialize<MemSpace>(0);
 
         if (restarted)
         {
             // This is A*x
             this->m_lhs->apply(out, m_r0);
+            m_robBndCondOp->apply(out, m_r0);
 
             // This is r0 = b-A*x
             sub<ExecSpace>(in, m_r0, m_r0);
@@ -298,7 +297,7 @@ public:
         }
         mul<ExecSpace>(1.0 / eta[0], m_r0, m_Vtotal[0]);
 
-        // restarted Gmres(m) process
+        // Restarted Gmres(m) process.
         if (m_NekLinSysRightPrecon)
         {
             m_V1.template Initialize<MemSpace>(0.0);
@@ -391,6 +390,7 @@ public:
     {
         // Apply lhs.
         this->m_lhs->apply(V1, w);
+        m_robBndCondOp->apply(V1, w);
 
         // Apply preconditioner.
         if (m_NekLinSysLeftPrecon)
