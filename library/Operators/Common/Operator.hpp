@@ -167,7 +167,7 @@ protected:
 };
 
 template <typename Implementation>
-NEK_FORCE_INLINE static unsigned int GetDeviceBlockSize(
+NEK_FORCE_INLINE static constexpr unsigned int GetDeviceBlockSize(
     [[maybe_unused]] const unsigned int blockSize)
 {
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
@@ -187,7 +187,8 @@ NEK_FORCE_INLINE static unsigned int GetDeviceBlockSize(
 }
 
 template <typename Implementation>
-NEK_FORCE_INLINE static unsigned int GetDeviceGridSize(const unsigned int nelmt)
+NEK_FORCE_INLINE static constexpr unsigned int GetDeviceGridSize(
+    const unsigned int nelmt)
 {
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
