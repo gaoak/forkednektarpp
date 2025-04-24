@@ -77,7 +77,7 @@ public:
     {
         auto MultiplyByElmtInvMassOp =
             OperatorMultiplyByElmtInvMass<double>::Create(fixt_explist);
-        MultiplyByElmtInvMassOp->apply(*fixt_in, *fixt_out);
+        MultiplyByElmtInvMassOp->Apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution()

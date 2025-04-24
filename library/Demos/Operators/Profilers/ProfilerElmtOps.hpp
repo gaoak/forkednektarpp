@@ -427,7 +427,7 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
     // stabilized.
     for (unsigned int i = 0; i < Ntest / 2; ++i)
     {
-        oper->apply(in, out);
+        oper->Apply(in, out);
     }
     comm->Block();
 
@@ -448,7 +448,7 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
 
     for (unsigned int i = 0; i < Ntest; ++i)
     {
-        oper->apply(in, out);
+        oper->Apply(in, out);
     }
 
 #if defined(NEKTAR_ENABLE_CUDA)

@@ -58,12 +58,6 @@ template <typename TData> class BlockOperator
 public:
     virtual ~BlockOperator() = default;
 
-    BlockOperator(const LocalRegions::ExpansionSharedPtr &exp,
-                  NekDataWarehouseSharedPtr dataWarehouse)
-        : m_exp(exp), m_dataWarehouse(dataWarehouse)
-    {
-    }
-
     template <typename TOperator>
     static std::shared_ptr<TOperator> Create(
         const LocalRegions::ExpansionSharedPtr &exp,
@@ -90,13 +84,29 @@ public:
 protected:
     LocalRegions::ExpansionSharedPtr m_exp;
     NekDataWarehouseSharedPtr m_dataWarehouse;
+
+    BlockOperator(const LocalRegions::ExpansionSharedPtr &exp,
+                  NekDataWarehouseSharedPtr dataWarehouse)
+        : m_exp(exp), m_dataWarehouse(dataWarehouse)
+    {
+    }
 };
 
 template <FieldState TFieldIn, FieldState TFieldOut, typename TData>
 class OperatorElmt : public Operator<TData>
 {
-
 public:
+    void Apply(Field<TData, TFieldIn> &in, Field<TData, TFieldOut> &out)
+    {
+        v_Apply(in, out);
+    }
+
+    void operator()(Field<TData, TFieldIn> &in, Field<TData, TFieldOut> &out)
+    {
+        this->v_Apply(in, out);
+    }
+
+protected:
     ~OperatorElmt() override = default;
 
     OperatorElmt(const MultiRegions::ExpListSharedPtr &expansionList)
@@ -104,8 +114,8 @@ public:
     {
     }
 
-    virtual void apply(Field<TData, TFieldIn> &in,
-                       Field<TData, TFieldOut> &out) = 0;
+    virtual void v_Apply(Field<TData, TFieldIn> &in,
+                         Field<TData, TFieldOut> &out) = 0;
 };
 
 } // namespace Nektar::Operators

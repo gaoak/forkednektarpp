@@ -82,7 +82,7 @@ public:
         // seem to have the negative definitio of lambda implemented currently
         LinADR->SetLambda(-1.0 * m_lambda);
         LinADR->SetAdvVel(m_dim, m_vel);
-        LinADR->apply(*fixt_in, *fixt_out);
+        LinADR->Apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution()

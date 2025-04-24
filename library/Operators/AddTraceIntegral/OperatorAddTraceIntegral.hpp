@@ -45,14 +45,6 @@ template <typename TData>
 class OperatorAddTraceIntegral : public Operator<TData>
 {
 public:
-    OperatorAddTraceIntegral(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-        : Operator<TData>(expansionList)
-    {
-    }
-
-    ~OperatorAddTraceIntegral() override = default;
-
     static std::shared_ptr<OperatorAddTraceIntegral<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &execStr = "")
@@ -70,14 +62,29 @@ public:
 
     static constexpr char name[] = "AddTraceIntegral";
 
-    virtual void apply(Field<TData, FieldState::Phys> &in,
-                       Field<TData, FieldState::Coeff> &out) = 0;
+    void Apply(Field<TData, FieldState::Phys> &in,
+               Field<TData, FieldState::Coeff> &out)
+    {
+        v_Apply(in, out);
+    }
 
     void operator()(Field<TData, FieldState::Phys> &in,
                     Field<TData, FieldState::Coeff> &out)
     {
-        apply(in, out);
+        v_Apply(in, out);
     }
+
+protected:
+    OperatorAddTraceIntegral(
+        const MultiRegions::ExpListSharedPtr &expansionList)
+        : Operator<TData>(expansionList)
+    {
+    }
+
+    ~OperatorAddTraceIntegral() override = default;
+
+    virtual void v_Apply(Field<TData, FieldState::Phys> &in,
+                         Field<TData, FieldState::Coeff> &out) = 0;
 };
 
 } // namespace Nektar::Operators

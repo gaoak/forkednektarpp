@@ -84,9 +84,28 @@ public:
         }
     }
 
-    void apply(Field<TData, FieldState::Coeff> &in,
-               Field<TData, FieldState::Coeff> &out,
-               const bool &zeroDir = false) override
+    // className - for OperatorFactory
+    static std::string className;
+
+    // instantiation function for CreatorFunction in OperatorFactory
+    static std::unique_ptr<Operator<TData>> instantiate(
+        const MultiRegions::ExpListSharedPtr &expansionList)
+    {
+        return std::make_unique<OperatorAssmbScatrImpl<ExecSpace, TData>>(
+            expansionList);
+    }
+
+protected:
+    MemoryRegion<TData> m_global;
+    MemoryRegion<TData> m_sign;
+    MemoryRegion<int> m_map;
+
+    bool m_signChange = false;
+    unsigned int m_nDir;
+
+    void v_Apply(Field<TData, FieldState::Coeff> &in,
+                 Field<TData, FieldState::Coeff> &out,
+                 const bool &zeroDir = false) override
     {
         // Local to global.
         this->Assemble(in, m_global);
@@ -101,9 +120,9 @@ public:
         this->GlobalToLocal(m_global, out);
     }
 
-    void Assemble(Field<TData, FieldState::Coeff> &local,
-                  MemoryRegion<TData> &global,
-                  const bool &signChange = true) override
+    void v_Assemble(Field<TData, FieldState::Coeff> &local,
+                    MemoryRegion<TData> &global,
+                    const bool &signChange = true) override
     {
         // Initialize MemoryRegion pointers.
         auto globalPtr = global.template GetPtr<MemSpace, WriteOnly>();
@@ -156,8 +175,8 @@ public:
         }
     }
 
-    void GlobalToLocal(MemoryRegion<TData> &global,
-                       Field<TData, FieldState::Coeff> &local) override
+    void v_GlobalToLocal(MemoryRegion<TData> &global,
+                         Field<TData, FieldState::Coeff> &local) override
     {
         // Initialize MemoryRegion pointers.
         auto globalPtr = global.template GetPtr<MemSpace, ReadOnly>();
@@ -196,25 +215,6 @@ public:
             signPtr += ncoeff * nElmts;
         }
     }
-
-    // className - for OperatorFactory
-    static std::string className;
-
-    // instantiation function for CreatorFunction in OperatorFactory
-    static std::unique_ptr<Operator<TData>> instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-    {
-        return std::make_unique<OperatorAssmbScatrImpl<ExecSpace, TData>>(
-            expansionList);
-    }
-
-protected:
-    MemoryRegion<TData> m_global;
-    MemoryRegion<TData> m_sign;
-    MemoryRegion<int> m_map;
-
-    bool m_signChange = false;
-    unsigned int m_nDir;
 };
 
 } // namespace Nektar::Operators::detail

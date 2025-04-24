@@ -43,14 +43,6 @@ template <typename TData>
 class BlockOperatorLinAdvDiffReaction : public BlockOperator<TData>
 {
 public:
-    BlockOperatorLinAdvDiffReaction(const LocalRegions::ExpansionSharedPtr &exp,
-                                    NekDataWarehouseSharedPtr dataWarehouse)
-        : BlockOperator<TData>(exp, dataWarehouse)
-    {
-    }
-
-    ~BlockOperatorLinAdvDiffReaction() override = default;
-
     static std::shared_ptr<BlockOperatorLinAdvDiffReaction<TData>> Create(
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
@@ -63,13 +55,15 @@ public:
 
     static constexpr char name[] = "BlockLinAdvDiffReaction";
 
-    virtual void apply(BlockAccessor<TData> &inblock,
-                       BlockAccessor<TData> &outblock) = 0;
+    void Apply(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
+    {
+        this->v_Apply(inblock, outblock);
+    }
 
     void operator()(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        this->apply(inblock, outblock);
+        this->v_Apply(inblock, outblock);
     }
 
     void SetLambda(TData lambda)
@@ -83,9 +77,21 @@ public:
     }
 
 protected:
+    TData m_lambda = 1.0;
+
+    BlockOperatorLinAdvDiffReaction(const LocalRegions::ExpansionSharedPtr &exp,
+                                    NekDataWarehouseSharedPtr dataWarehouse)
+        : BlockOperator<TData>(exp, dataWarehouse)
+    {
+    }
+
+    ~BlockOperatorLinAdvDiffReaction() override = default;
+
+    virtual void v_Apply(BlockAccessor<TData> &inblock,
+                         BlockAccessor<TData> &outblock) = 0;
+
     virtual void v_SetAdvVel(const unsigned int nVel,
                              BlockAccessor<TData> &Vel) = 0;
-    TData m_lambda                                      = 1.0;
 };
 
 // LinAdvDiffReaction base class
@@ -95,15 +101,6 @@ class OperatorLinAdvDiffReaction
     : public OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>
 {
 public:
-    OperatorLinAdvDiffReaction(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>(
-              expansionList)
-    {
-    }
-
-    ~OperatorLinAdvDiffReaction() override = default;
-
     static std::shared_ptr<OperatorLinAdvDiffReaction<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &execStr = "", const std::string &implStr = "")
@@ -140,29 +137,6 @@ public:
 
     static constexpr char name[] = "LinAdvDiffReaction";
 
-    void apply(Field<TData, FieldState::Coeff> &in,
-               Field<TData, FieldState::Coeff> &out) override
-    {
-        ASSERTL1(in.GetNumComponents() == out.GetNumComponents(),
-                 "Number of input and output components differ");
-
-        // Loop over the blocks.
-        for (unsigned int blk = 0; blk < m_blockOperator.size(); ++blk)
-        {
-            // Block dependent.
-            auto &inblock  = in.GetBlocks()[blk];
-            auto &outblock = out.GetBlocks()[blk];
-
-            this->m_blockOperator[blk]->apply(inblock, outblock);
-        }
-    }
-
-    void operator()(Field<TData, FieldState::Coeff> &in,
-                    Field<TData, FieldState::Coeff> &out)
-    {
-        this->apply(in, out);
-    }
-
     void SetLambda(TData lambda)
     {
         // Loop over the blocks.
@@ -178,12 +152,38 @@ public:
     }
 
 protected:
-    virtual void v_SetAdvVel(const int nVel,
-                             const Array<OneD, NekDouble> &Vel) = 0;
-
     std::vector<std::shared_ptr<BlockOperatorLinAdvDiffReaction<TData>>>
         m_blockOperator;
     Field<TData, FieldState::Phys> m_advVel;
+
+    OperatorLinAdvDiffReaction(
+        const MultiRegions::ExpListSharedPtr &expansionList)
+        : OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>(
+              expansionList)
+    {
+    }
+
+    ~OperatorLinAdvDiffReaction() override = default;
+
+    void v_Apply(Field<TData, FieldState::Coeff> &in,
+                 Field<TData, FieldState::Coeff> &out) override
+    {
+        ASSERTL1(in.GetNumComponents() == out.GetNumComponents(),
+                 "Number of input and output components differ");
+
+        // Loop over the blocks.
+        for (unsigned int blk = 0; blk < m_blockOperator.size(); ++blk)
+        {
+            // Block dependent.
+            auto &inblock  = in.GetBlocks()[blk];
+            auto &outblock = out.GetBlocks()[blk];
+
+            this->m_blockOperator[blk]->Apply(inblock, outblock);
+        }
+    }
+
+    virtual void v_SetAdvVel(const int nVel,
+                             const Array<OneD, NekDouble> &Vel) = 0;
 };
 
 } // namespace Nektar::Operators

@@ -43,14 +43,6 @@ template <typename TData>
 class BlockOperatorIProductWRTBase : public BlockOperator<TData>
 {
 public:
-    BlockOperatorIProductWRTBase(const LocalRegions::ExpansionSharedPtr &exp,
-                                 NekDataWarehouseSharedPtr dataWarehouse)
-        : BlockOperator<TData>(exp, dataWarehouse)
-    {
-    }
-
-    ~BlockOperatorIProductWRTBase() override = default;
-
     static std::shared_ptr<BlockOperatorIProductWRTBase<TData>> Create(
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
@@ -63,13 +55,15 @@ public:
 
     static constexpr char name[] = "BlockIProductWRTBase";
 
-    virtual void apply(BlockAccessor<TData> &inblock,
-                       BlockAccessor<TData> &outblock) = 0;
+    void Apply(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
+    {
+        this->v_Apply(inblock, outblock);
+    }
 
     void operator()(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        this->apply(inblock, outblock);
+        this->v_Apply(inblock, outblock);
     }
 
     void SetScale(TData scale)
@@ -79,6 +73,17 @@ public:
 
 protected:
     TData m_scale = 1.0;
+
+    BlockOperatorIProductWRTBase(const LocalRegions::ExpansionSharedPtr &exp,
+                                 NekDataWarehouseSharedPtr dataWarehouse)
+        : BlockOperator<TData>(exp, dataWarehouse)
+    {
+    }
+
+    ~BlockOperatorIProductWRTBase() override = default;
+
+    virtual void v_Apply(BlockAccessor<TData> &inblock,
+                         BlockAccessor<TData> &outblock) = 0;
 };
 
 // IProductWRTBase base class
@@ -88,14 +93,6 @@ class OperatorIProductWRTBase
     : public OperatorElmt<FieldState::Phys, FieldState::Coeff, TData>
 {
 public:
-    OperatorIProductWRTBase(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorElmt<FieldState::Phys, FieldState::Coeff, TData>(
-              expansionList)
-    {
-    }
-
-    ~OperatorIProductWRTBase() override = default;
-
     static std::shared_ptr<OperatorIProductWRTBase<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &execStr = "", const std::string &implStr = "")
@@ -132,29 +129,6 @@ public:
 
     static constexpr char name[] = "IProductWRTBase";
 
-    void apply(Field<TData, FieldState::Phys> &in,
-               Field<TData, FieldState::Coeff> &out) override
-    {
-        ASSERTL1(in.GetNumComponents() == out.GetNumComponents(),
-                 "Number of input and output components differ");
-
-        // Loop over the blocks.
-        for (unsigned int blk = 0; blk < m_blockOperator.size(); ++blk)
-        {
-            // Block dependent.
-            auto &inblock  = in.GetBlocks()[blk];
-            auto &outblock = out.GetBlocks()[blk];
-
-            this->m_blockOperator[blk]->apply(inblock, outblock);
-        }
-    }
-
-    void operator()(Field<TData, FieldState::Phys> &in,
-                    Field<TData, FieldState::Coeff> &out)
-    {
-        this->apply(in, out);
-    }
-
     void SetScale(TData scale)
     {
         // Loop over the blocks.
@@ -167,6 +141,31 @@ public:
 protected:
     std::vector<std::shared_ptr<BlockOperatorIProductWRTBase<TData>>>
         m_blockOperator;
+
+    OperatorIProductWRTBase(const MultiRegions::ExpListSharedPtr &expansionList)
+        : OperatorElmt<FieldState::Phys, FieldState::Coeff, TData>(
+              expansionList)
+    {
+    }
+
+    ~OperatorIProductWRTBase() override = default;
+
+    void v_Apply(Field<TData, FieldState::Phys> &in,
+                 Field<TData, FieldState::Coeff> &out) override
+    {
+        ASSERTL1(in.GetNumComponents() == out.GetNumComponents(),
+                 "Number of input and output components differ");
+
+        // Loop over the blocks.
+        for (unsigned int blk = 0; blk < m_blockOperator.size(); ++blk)
+        {
+            // Block dependent.
+            auto &inblock  = in.GetBlocks()[blk];
+            auto &outblock = out.GetBlocks()[blk];
+
+            this->m_blockOperator[blk]->Apply(inblock, outblock);
+        }
+    }
 };
 
 } // namespace Nektar::Operators

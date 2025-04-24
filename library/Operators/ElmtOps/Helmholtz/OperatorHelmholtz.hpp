@@ -43,14 +43,6 @@ template <typename TData>
 class BlockOperatorHelmholtz : public BlockOperator<TData>
 {
 public:
-    BlockOperatorHelmholtz(const LocalRegions::ExpansionSharedPtr &exp,
-                           NekDataWarehouseSharedPtr dataWarehouse)
-        : BlockOperator<TData>(exp, dataWarehouse)
-    {
-    }
-
-    ~BlockOperatorHelmholtz() override = default;
-
     static std::shared_ptr<BlockOperatorHelmholtz<TData>> Create(
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
@@ -63,13 +55,15 @@ public:
 
     static constexpr char name[] = "BlockHelmholtz";
 
-    virtual void apply(BlockAccessor<TData> &inblock,
-                       BlockAccessor<TData> &outblock) = 0;
+    void Apply(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
+    {
+        this->v_Apply(inblock, outblock);
+    }
 
     void operator()(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        this->apply(inblock, outblock);
+        this->v_Apply(inblock, outblock);
     }
 
     void SetLambda(TData lambda)
@@ -79,6 +73,17 @@ public:
 
 protected:
     TData m_lambda = 1.0;
+
+    BlockOperatorHelmholtz(const LocalRegions::ExpansionSharedPtr &exp,
+                           NekDataWarehouseSharedPtr dataWarehouse)
+        : BlockOperator<TData>(exp, dataWarehouse)
+    {
+    }
+
+    ~BlockOperatorHelmholtz() override = default;
+
+    virtual void v_Apply(BlockAccessor<TData> &inblock,
+                         BlockAccessor<TData> &outblock) = 0;
 };
 
 // Helmholtz base class
@@ -88,14 +93,6 @@ class OperatorHelmholtz
     : public OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>
 {
 public:
-    OperatorHelmholtz(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>(
-              expansionList)
-    {
-    }
-
-    ~OperatorHelmholtz() override = default;
-
     static std::shared_ptr<OperatorHelmholtz<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &execStr = "", const std::string &implStr = "")
@@ -132,29 +129,6 @@ public:
 
     static constexpr char name[] = "Helmholtz";
 
-    void apply(Field<TData, FieldState::Coeff> &in,
-               Field<TData, FieldState::Coeff> &out) override
-    {
-        ASSERTL1(in.GetNumComponents() == out.GetNumComponents(),
-                 "Number of input and output components differ");
-
-        // Loop over the blocks.
-        for (unsigned int blk = 0; blk < m_blockOperator.size(); ++blk)
-        {
-            // Block dependent.
-            auto &inblock  = in.GetBlocks()[blk];
-            auto &outblock = out.GetBlocks()[blk];
-
-            this->m_blockOperator[blk]->apply(inblock, outblock);
-        }
-    }
-
-    void operator()(Field<TData, FieldState::Coeff> &in,
-                    Field<TData, FieldState::Coeff> &out)
-    {
-        this->apply(in, out);
-    }
-
     void SetLambda(TData lambda)
     {
         // Loop over the blocks.
@@ -166,6 +140,31 @@ public:
 
 protected:
     std::vector<std::shared_ptr<BlockOperatorHelmholtz<TData>>> m_blockOperator;
+
+    OperatorHelmholtz(const MultiRegions::ExpListSharedPtr &expansionList)
+        : OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>(
+              expansionList)
+    {
+    }
+
+    ~OperatorHelmholtz() override = default;
+
+    void v_Apply(Field<TData, FieldState::Coeff> &in,
+                 Field<TData, FieldState::Coeff> &out) override
+    {
+        ASSERTL1(in.GetNumComponents() == out.GetNumComponents(),
+                 "Number of input and output components differ");
+
+        // Loop over the blocks.
+        for (unsigned int blk = 0; blk < m_blockOperator.size(); ++blk)
+        {
+            // Block dependent.
+            auto &inblock  = in.GetBlocks()[blk];
+            auto &outblock = out.GetBlocks()[blk];
+
+            this->m_blockOperator[blk]->Apply(inblock, outblock);
+        }
+    }
 };
 
 } // namespace Nektar::Operators

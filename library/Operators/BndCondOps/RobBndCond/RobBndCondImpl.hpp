@@ -245,9 +245,32 @@ public:
         }
     }
 
-    void apply(Field<TData, FieldState::Coeff> &in,
-               Field<TData, FieldState::Coeff> &out,
-               const bool &negflag) override
+    // className - for OperatorFactory
+    static std::string className;
+
+    // instantiation function for CreatorFunction in OperatorFactory
+    static std::unique_ptr<Operator<TData>> instantiate(
+        const MultiRegions::ExpListSharedPtr &expansionList)
+    {
+        return std::make_unique<OperatorRobBndCondImpl<ExecSpace, TData>>(
+            expansionList);
+    }
+
+protected:
+    MemoryRegion<TData> m_mat;
+    MemoryRegion<unsigned int> m_map;
+    MemoryRegion<int> m_sign;
+    MemoryRegion<unsigned int> m_nEdgeCoeff;
+    MemoryRegion<unsigned int> m_offset;
+    MemoryRegion<unsigned int> m_matOffset;
+    MemoryRegion<unsigned int> m_mapOffset;
+
+    unsigned int m_nmaxcoeff = 0;
+    unsigned int m_nBndEdge  = 0;
+
+    void v_Apply(Field<TData, FieldState::Coeff> &in,
+                 Field<TData, FieldState::Coeff> &out,
+                 const bool &negflag) override
     {
         // Return if no Robin boundary condition.
         if (m_nBndEdge == 0)
@@ -297,29 +320,6 @@ public:
             }
         }
     }
-
-    // className - for OperatorFactory
-    static std::string className;
-
-    // instantiation function for CreatorFunction in OperatorFactory
-    static std::unique_ptr<Operator<TData>> instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-    {
-        return std::make_unique<OperatorRobBndCondImpl<ExecSpace, TData>>(
-            expansionList);
-    }
-
-protected:
-    MemoryRegion<TData> m_mat;
-    MemoryRegion<unsigned int> m_map;
-    MemoryRegion<int> m_sign;
-    MemoryRegion<unsigned int> m_nEdgeCoeff;
-    MemoryRegion<unsigned int> m_offset;
-    MemoryRegion<unsigned int> m_matOffset;
-    MemoryRegion<unsigned int> m_mapOffset;
-
-    unsigned int m_nmaxcoeff = 0;
-    unsigned int m_nBndEdge  = 0;
 };
 
 } // namespace Nektar::Operators::detail

@@ -77,8 +77,32 @@ public:
             basisKeys, m_shapeType, eBwdTransStdMat, nodalType));
     }
 
-    void apply(BlockAccessor<TData> &inblock,
-               BlockAccessor<TData> &outblock) override
+    // className - for BlockOperatorFactory
+    static std::string className;
+
+    // Instantiation function for CreatorFunction in BlockOperatorFactory.
+    static std::unique_ptr<BlockOperator<TData>> instantiate(
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse)
+    {
+        return std::make_unique<
+            BlockOperatorBwdTransImpl<ExecSpace, Implementation, TData>>(
+            exp, dataWarehouse);
+    }
+
+protected:
+    static constexpr unsigned int m_implInterleaveWidth = 1;
+
+    LibUtilities::ShapeType m_shapeType;
+    bool m_isDeformed;
+    unsigned int m_dimension;
+    unsigned int m_coordDim;
+    unsigned int m_nmTot;
+    unsigned int m_nqTot;
+    const TData *m_matptr;
+
+    void v_Apply(BlockAccessor<TData> &inblock,
+                 BlockAccessor<TData> &outblock) override
     {
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
@@ -110,30 +134,6 @@ public:
         inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
-
-    // className - for BlockOperatorFactory
-    static std::string className;
-
-    // Instantiation function for CreatorFunction in BlockOperatorFactory.
-    static std::unique_ptr<BlockOperator<TData>> instantiate(
-        const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse)
-    {
-        return std::make_unique<
-            BlockOperatorBwdTransImpl<ExecSpace, Implementation, TData>>(
-            exp, dataWarehouse);
-    }
-
-protected:
-    static constexpr unsigned int m_implInterleaveWidth = 1;
-
-    LibUtilities::ShapeType m_shapeType;
-    bool m_isDeformed;
-    unsigned int m_dimension;
-    unsigned int m_coordDim;
-    unsigned int m_nmTot;
-    unsigned int m_nqTot;
-    const TData *m_matptr;
 };
 
 } // namespace Nektar::Operators::detail

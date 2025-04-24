@@ -78,7 +78,7 @@ public:
     {
         auto IProductWRTBaseOp =
             OperatorIProductWRTBase<double>::Create(fixt_explist);
-        IProductWRTBaseOp->apply(*fixt_in, *fixt_out);
+        IProductWRTBaseOp->Apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution()

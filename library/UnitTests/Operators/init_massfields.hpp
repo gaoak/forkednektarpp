@@ -76,7 +76,7 @@ public:
     void RunTestCase()
     {
         auto MassOp = OperatorMass<double>::Create(fixt_explist);
-        MassOp->apply(*fixt_in, *fixt_out);
+        MassOp->Apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution()

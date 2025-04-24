@@ -61,14 +61,14 @@ public:
     void RunTestCase()
     {
         auto NeuBndCondOp = OperatorNeuBndCond<double>::Create(fixt_explist);
-        NeuBndCondOp->apply(*fixt_out);
+        NeuBndCondOp->Apply(*fixt_out);
     }
 
     void ExpectedSolution()
     {
         auto NeuBndCondOp =
             OperatorNeuBndCond<double>::Create(fixt_explist, "Serial");
-        NeuBndCondOp->apply(*fixt_expected);
+        NeuBndCondOp->Apply(*fixt_expected);
     }
 };
 

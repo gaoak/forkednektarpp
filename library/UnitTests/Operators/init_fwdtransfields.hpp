@@ -129,9 +129,9 @@ public:
         auto FwdTransOp   = OperatorFwdTrans<double>::Create(fixt_explist);
         auto DiagPreconOp = OperatorDiagPrecon<double>::Create(fixt_explist);
         auto ConjGradOp   = OperatorConjGrad<double>::Create(fixt_explist);
-        FwdTransOp->setLinearSolver(ConjGradOp);
-        FwdTransOp->setPrecon(DiagPreconOp);
-        FwdTransOp->apply(*fixt_in, *fixt_out);
+        FwdTransOp->SetLinearSolver(ConjGradOp);
+        FwdTransOp->SetPrecon(DiagPreconOp);
+        FwdTransOp->Apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution()

@@ -75,7 +75,7 @@ public:
     void RunTestCase()
     {
         auto BwdTransOp = OperatorBwdTrans<double>::Create(fixt_explist);
-        BwdTransOp->apply(*fixt_in, *fixt_out);
+        BwdTransOp->Apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution()

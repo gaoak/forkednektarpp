@@ -45,6 +45,14 @@ class OperatorPrecon
     : public OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>
 {
 public:
+    void Configure(
+        const std::shared_ptr<
+            OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>> &op)
+    {
+        v_Configure(op);
+    }
+
+protected:
     OperatorPrecon(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>(
               expansionList)
@@ -53,13 +61,7 @@ public:
 
     ~OperatorPrecon() override = default;
 
-    void operator()(Field<TData, FieldState::Coeff> &in,
-                    Field<TData, FieldState::Coeff> &out)
-    {
-        this->apply(in, out);
-    }
-
-    virtual void configure(
+    virtual void v_Configure(
         const std::shared_ptr<
             OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>> &op) = 0;
 };

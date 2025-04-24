@@ -51,7 +51,7 @@ public:
     void RunTestCase()
     {
         auto PhysDerivOp = OperatorPhysDeriv<double>::Create(fixt_explist);
-        PhysDerivOp->apply(*fixt_in, *fixt_out);
+        PhysDerivOp->Apply(*fixt_in, *fixt_out);
     }
     void SetTestCase()
     {

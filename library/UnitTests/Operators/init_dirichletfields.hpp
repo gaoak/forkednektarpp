@@ -59,7 +59,7 @@ public:
     void RunTestCase()
     {
         auto DirBndCondOp = OperatorDirBndCond<double>::Create(fixt_explist);
-        DirBndCondOp->apply(*fixt_out);
+        DirBndCondOp->Apply(*fixt_out);
     }
 
     void ExpectedSolution()

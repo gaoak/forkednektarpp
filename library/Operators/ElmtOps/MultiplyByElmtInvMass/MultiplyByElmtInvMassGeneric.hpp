@@ -79,8 +79,32 @@ public:
             basisKeys, m_shapeType, eMultiplyByElmtInvMassStdMat));
     }
 
-    void apply(BlockAccessor<TData> &inblock,
-               BlockAccessor<TData> &outblock) override
+    // className - for BlockOperatorFactory
+    static std::string className;
+
+    // Instantiation function for CreatorFunction in BlockOperatorFactory.
+    static std::unique_ptr<BlockOperator<TData>> instantiate(
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse)
+    {
+        return std::make_unique<BlockOperatorMultiplyByElmtInvMassImpl<
+            ExecSpace, Implementation, TData>>(exp, dataWarehouse);
+    }
+
+protected:
+    static constexpr unsigned int m_implInterleaveWidth = 1;
+
+    LibUtilities::ShapeType m_shapeType;
+    bool m_isDeformed;
+    unsigned int m_dimension;
+    unsigned int m_coordDim;
+    unsigned int m_nmTot;
+    unsigned int m_nqTot;
+    const TData *m_matptr;
+    MemoryRegion<TData> m_invmass;
+
+    void v_Apply(BlockAccessor<TData> &inblock,
+                 BlockAccessor<TData> &outblock) override
     {
         auto handle = NekHandle<ExecSpace>::GetInstance();
 
@@ -156,30 +180,6 @@ public:
             MemoryRegion<TData>::template FromVector<MemSpace, TData>(
                 invmass, ExecSpace::alignment);
     }
-
-    // className - for BlockOperatorFactory
-    static std::string className;
-
-    // Instantiation function for CreatorFunction in BlockOperatorFactory.
-    static std::unique_ptr<BlockOperator<TData>> instantiate(
-        const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse)
-    {
-        return std::make_unique<BlockOperatorMultiplyByElmtInvMassImpl<
-            ExecSpace, Implementation, TData>>(exp, dataWarehouse);
-    }
-
-protected:
-    static constexpr unsigned int m_implInterleaveWidth = 1;
-
-    LibUtilities::ShapeType m_shapeType;
-    bool m_isDeformed;
-    unsigned int m_dimension;
-    unsigned int m_coordDim;
-    unsigned int m_nmTot;
-    unsigned int m_nqTot;
-    const TData *m_matptr;
-    MemoryRegion<TData> m_invmass;
 };
 
 } // namespace Nektar::Operators::detail

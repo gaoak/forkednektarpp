@@ -78,7 +78,7 @@ public:
     void RunTestCase()
     {
         auto NullPreconOp = OperatorNullPrecon<double>::Create(fixt_explist);
-        NullPreconOp->apply(*fixt_in, *fixt_out);
+        NullPreconOp->Apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution()

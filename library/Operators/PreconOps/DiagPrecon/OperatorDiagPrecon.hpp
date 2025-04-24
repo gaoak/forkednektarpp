@@ -45,8 +45,6 @@ template <typename TData>
 class OperatorDiagPrecon : public OperatorPrecon<TData>
 {
 public:
-    ~OperatorDiagPrecon() override = default;
-
     static std::shared_ptr<OperatorDiagPrecon<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &execStr = "")
@@ -64,10 +62,13 @@ public:
 
     static constexpr char name[] = "DiagPrecon";
 
+protected:
     OperatorDiagPrecon(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorPrecon<TData>(expansionList)
     {
     }
+
+    ~OperatorDiagPrecon() override = default;
 };
 
 } // namespace Nektar::Operators

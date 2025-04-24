@@ -98,7 +98,7 @@ public:
     {
         auto AddTraceIntegralOp =
             OperatorAddTraceIntegral<double>::Create(fixt_explist);
-        AddTraceIntegralOp->apply(*fixt_in, *fixt_out);
+        AddTraceIntegralOp->Apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution()

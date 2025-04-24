@@ -43,14 +43,6 @@ template <typename TData>
 class BlockOperatorBwdTrans : public BlockOperator<TData>
 {
 public:
-    BlockOperatorBwdTrans(const LocalRegions::ExpansionSharedPtr &exp,
-                          NekDataWarehouseSharedPtr dataWarehouse)
-        : BlockOperator<TData>(exp, dataWarehouse)
-    {
-    }
-
-    ~BlockOperatorBwdTrans() override = default;
-
     static std::shared_ptr<BlockOperatorBwdTrans<TData>> Create(
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
@@ -62,14 +54,28 @@ public:
 
     static constexpr char name[] = "BlockBwdTrans";
 
-    virtual void apply(BlockAccessor<TData> &inblock,
-                       BlockAccessor<TData> &outblock) = 0;
+    void Apply(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
+    {
+        this->v_Apply(inblock, outblock);
+    }
 
     void operator()(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        this->apply(inblock, outblock);
+        this->v_Apply(inblock, outblock);
     }
+
+protected:
+    BlockOperatorBwdTrans(const LocalRegions::ExpansionSharedPtr &exp,
+                          NekDataWarehouseSharedPtr dataWarehouse)
+        : BlockOperator<TData>(exp, dataWarehouse)
+    {
+    }
+
+    ~BlockOperatorBwdTrans() override = default;
+
+    virtual void v_Apply(BlockAccessor<TData> &inblock,
+                         BlockAccessor<TData> &outblock) = 0;
 };
 
 // BwdTrans base class
@@ -79,14 +85,6 @@ class OperatorBwdTrans
     : public OperatorElmt<FieldState::Coeff, FieldState::Phys, TData>
 {
 public:
-    OperatorBwdTrans(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorElmt<FieldState::Coeff, FieldState::Phys, TData>(
-              expansionList)
-    {
-    }
-
-    ~OperatorBwdTrans() override = default;
-
     static std::shared_ptr<OperatorBwdTrans<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &execStr = "", const std::string &implStr = "")
@@ -123,8 +121,19 @@ public:
 
     static constexpr char name[] = "BwdTrans";
 
-    void apply(Field<TData, FieldState::Coeff> &in,
-               Field<TData, FieldState::Phys> &out) override
+protected:
+    std::vector<std::shared_ptr<BlockOperatorBwdTrans<TData>>> m_blockOperator;
+
+    OperatorBwdTrans(const MultiRegions::ExpListSharedPtr &expansionList)
+        : OperatorElmt<FieldState::Coeff, FieldState::Phys, TData>(
+              expansionList)
+    {
+    }
+
+    ~OperatorBwdTrans() override = default;
+
+    void v_Apply(Field<TData, FieldState::Coeff> &in,
+                 Field<TData, FieldState::Phys> &out) override
     {
         ASSERTL1(in.GetNumComponents() == out.GetNumComponents(),
                  "Number of input and output components differ");
@@ -136,18 +145,9 @@ public:
             auto &inblock  = in.GetBlocks()[blk];
             auto &outblock = out.GetBlocks()[blk];
 
-            this->m_blockOperator[blk]->apply(inblock, outblock);
+            this->m_blockOperator[blk]->Apply(inblock, outblock);
         }
     }
-
-    void operator()(Field<TData, FieldState::Coeff> &in,
-                    Field<TData, FieldState::Phys> &out)
-    {
-        this->apply(in, out);
-    }
-
-protected:
-    std::vector<std::shared_ptr<BlockOperatorBwdTrans<TData>>> m_blockOperator;
 };
 
 } // namespace Nektar::Operators

@@ -44,29 +44,25 @@ namespace Nektar::Operators
 template <typename TData> class OperatorLinearSolver : public Operator<TData>
 {
 public:
-    OperatorLinearSolver(const MultiRegions::ExpListSharedPtr &expansionList)
-        : Operator<TData>(expansionList)
+    void Apply(Field<TData, FieldState::Coeff> &in,
+               Field<TData, FieldState::Coeff> &out)
     {
+        this->v_Apply(in, out);
     }
-
-    ~OperatorLinearSolver() override = default;
-
-    virtual void apply(Field<TData, FieldState::Coeff> &in,
-                       Field<TData, FieldState::Coeff> &out) = 0;
 
     void operator()(Field<TData, FieldState::Coeff> &in,
                     Field<TData, FieldState::Coeff> &out)
     {
-        this->apply(in, out);
+        this->v_Apply(in, out);
     }
 
-    void setLHS(const std::shared_ptr<
+    void SetLHS(const std::shared_ptr<
                 OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>> &ptr)
     {
         this->m_lhs = ptr;
     }
 
-    void setPrecon(
+    void SetPrecon(
         const std::shared_ptr<
             OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>> &ptr)
     {
@@ -78,6 +74,16 @@ protected:
         m_lhs;
     std::shared_ptr<OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>>
         m_precon;
+
+    OperatorLinearSolver(const MultiRegions::ExpListSharedPtr &expansionList)
+        : Operator<TData>(expansionList)
+    {
+    }
+
+    ~OperatorLinearSolver() override = default;
+
+    virtual void v_Apply(Field<TData, FieldState::Coeff> &in,
+                         Field<TData, FieldState::Coeff> &out) = 0;
 };
 
 } // namespace Nektar::Operators

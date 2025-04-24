@@ -86,8 +86,33 @@ public:
         this->m_IProductWRTDerivBaseOp->SetAppend(true);
     }
 
-    void apply(BlockAccessor<TData> &inblock,
-               BlockAccessor<TData> &outblock) override
+    // className - for BlockOperatorFactory
+    static std::string className;
+
+    // Instantiation function for CreatorFunction in BlockOperatorFactory.
+    static std::unique_ptr<BlockOperator<TData>> instantiate(
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse)
+    {
+        return std::make_unique<
+            BlockOperatorHelmholtzImpl<ExecSpace, Implementation, TData>>(
+            exp, dataWarehouse);
+    }
+
+protected:
+    MemoryRegion<TData> m_bwd;
+    MemoryRegion<TData> m_deriv;
+
+    std::shared_ptr<BlockOperatorBwdTrans<TData>> m_BwdTransOp;
+    std::shared_ptr<BlockOperatorPhysDeriv<TData>> m_PhysDerivOp;
+    std::shared_ptr<BlockOperatorIProductWRTBase<TData>> m_IProductWRTBaseOp;
+    std::shared_ptr<BlockOperatorIProductWRTDerivBase<TData>>
+        m_IProductWRTDerivBaseOp;
+
+    MemoryRegion<TData> m_diffCoeff;
+
+    void v_Apply(BlockAccessor<TData> &inblock,
+                 BlockAccessor<TData> &outblock) override
     {
         unsigned int CompSize = inblock.GetNumComponents();
         unsigned int nCoords  = this->m_exp->GetCoordim();
@@ -113,19 +138,19 @@ public:
             this->m_deriv, CompSize * nCoords, 0);
 
         // Step 1: BwdTrans.
-        this->m_BwdTransOp->apply(inblock, bwd);
+        this->m_BwdTransOp->Apply(inblock, bwd);
 
         // Step 2: PhysDeriv.
-        this->m_PhysDerivOp->apply(bwd, deriv);
+        this->m_PhysDerivOp->Apply(bwd, deriv);
 
         // Step 3: Inner product for mass matrix operation.
-        this->m_IProductWRTBaseOp->apply(bwd, outblock);
+        this->m_IProductWRTBaseOp->Apply(bwd, outblock);
 
         // Step 4: Multiply by diffusion coefficient.
         DiffusionCoeff(deriv);
 
         // Step 5: Inner product.
-        this->m_IProductWRTDerivBaseOp->apply(deriv, outblock);
+        this->m_IProductWRTDerivBaseOp->Apply(deriv, outblock);
     }
 
     void DiffusionCoeff(BlockAccessor<TData> &deriv)
@@ -168,31 +193,6 @@ public:
             }
         }
     }
-
-    // className - for BlockOperatorFactory
-    static std::string className;
-
-    // Instantiation function for CreatorFunction in BlockOperatorFactory.
-    static std::unique_ptr<BlockOperator<TData>> instantiate(
-        const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse)
-    {
-        return std::make_unique<
-            BlockOperatorHelmholtzImpl<ExecSpace, Implementation, TData>>(
-            exp, dataWarehouse);
-    }
-
-protected:
-    MemoryRegion<TData> m_bwd;
-    MemoryRegion<TData> m_deriv;
-
-    std::shared_ptr<BlockOperatorBwdTrans<TData>> m_BwdTransOp;
-    std::shared_ptr<BlockOperatorPhysDeriv<TData>> m_PhysDerivOp;
-    std::shared_ptr<BlockOperatorIProductWRTBase<TData>> m_IProductWRTBaseOp;
-    std::shared_ptr<BlockOperatorIProductWRTDerivBase<TData>>
-        m_IProductWRTDerivBaseOp;
-
-    MemoryRegion<TData> m_diffCoeff;
 };
 
 } // namespace Nektar::Operators::detail
