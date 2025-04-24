@@ -51,6 +51,18 @@ public:
     {
     }
 
+    // className - for OperatorFactory
+    static std::string className;
+
+    // instantiation function for CreatorFunction in OperatorFactory
+    static std::unique_ptr<Operator<TData>> Instantiate(
+        const MultiRegions::ExpListSharedPtr &expansionList)
+    {
+        return std::make_unique<
+            OperatorLinAdvDiffReactionImpl<ExecSpace, TData>>(expansionList);
+    }
+
+protected:
     void v_SetAdvVel(const int nVel, const Array<OneD, NekDouble> &Vel) override
     {
         // Set up a physBlockAttributes which will be
@@ -69,17 +81,6 @@ public:
             this->m_blockOperator[blk]->SetAdvVel(
                 nVel, this->m_advVel.GetBlocks()[blk]);
         }
-    }
-
-    // className - for OperatorFactory
-    static std::string className;
-
-    // instantiation function for CreatorFunction in OperatorFactory
-    static std::unique_ptr<Operator<TData>> instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-    {
-        return std::make_unique<
-            OperatorLinAdvDiffReactionImpl<ExecSpace, TData>>(expansionList);
     }
 };
 

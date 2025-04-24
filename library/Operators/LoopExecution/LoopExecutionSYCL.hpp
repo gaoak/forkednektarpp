@@ -284,29 +284,26 @@ parallel_reduce(const unsigned int begin, const unsigned int end,
     TData *d_out  = (TData *)syclBuffer + gridSize;
     if constexpr (std::is_same_v<Reduction, Nektar::ReduceSum<TData>>)
     {
-        reduceSumKernel<TData>(gridSize, blockSize, begin, end, buffer,
-                               functor);
-        reduceSumKernel<TData>(
+        reduceSumKernel(gridSize, blockSize, begin, end, buffer, functor);
+        reduceSumKernel(
             1, gridSize, 0, gridSize, out,
             [=](const unsigned int i, TData &ans) { ans += buffer[i]; });
     }
     else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMax<TData>>)
     {
-        reduceMaxKernel<TData>(gridSize, blockSize, begin, end, buffer,
-                               functor);
-        reduceMaxKernel<TData>(1, gridSize, 0, gridSize, out,
-                               [=](const unsigned int i, TData &ans) {
-                                   ans = sycl::max(ans, buffer[i]);
-                               });
+        reduceMaxKernel(gridSize, blockSize, begin, end, buffer, functor);
+        reduceMaxKernel(1, gridSize, 0, gridSize, out,
+                        [=](const unsigned int i, TData &ans) {
+                            ans = sycl::max(ans, buffer[i]);
+                        });
     }
     else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMin<TData>>)
     {
-        reduceMinKernel<TData>(gridSize, blockSize, begin, end, buffer,
-                               functor);
-        reduceMinKernel<TData>(1, gridSize, 0, gridSize, out,
-                               [=](const unsigned int i, TData &ans) {
-                                   ans = sycl::min(ans, buffer[i]);
-                               });
+        reduceMinKernel(gridSize, blockSize, begin, end, buffer, functor);
+        reduceMinKernel(1, gridSize, 0, gridSize, out,
+                        [=](const unsigned int i, TData &ans) {
+                            ans = sycl::min(ans, buffer[i]);
+                        });
     }
     SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
 }

@@ -60,7 +60,7 @@ public:
     static std::string className;
 
     // instantiation function for CreatorFunction in OperatorFactory
-    static std::unique_ptr<Operator<TData>> instantiate(
+    static std::unique_ptr<Operator<TData>> Instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
         return std::make_unique<OperatorNullPreconImpl<ExecSpace, TData>>(

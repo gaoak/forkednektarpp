@@ -36,6 +36,11 @@
 
 #include "Operators/Common/Operator.hpp"
 #include "Operators/ElmtOps/OperatorElmt.hpp"
+#include "Operators/PreconOps/OperatorPrecon.hpp"
+
+#include "Operators/AssmbScatr/OperatorAssmbScatr.hpp"
+#include "Operators/BndCondOps/RobBndCond/OperatorRobBndCond.hpp"
+#include "Operators/MathKernels/MathKernels.hpp"
 
 namespace Nektar::Operators
 {
@@ -62,9 +67,7 @@ public:
         this->m_lhs = ptr;
     }
 
-    void SetPrecon(
-        const std::shared_ptr<
-            OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>> &ptr)
+    void SetPrecon(const std::shared_ptr<OperatorPrecon<TData>> &ptr)
     {
         this->m_precon = ptr;
     }

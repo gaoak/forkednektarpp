@@ -38,15 +38,7 @@
 
 #include "Operators/GlobalLinSysOps/ConjGrad/OperatorConjGrad.hpp"
 
-#include "Operators/AssmbScatr/OperatorAssmbScatr.hpp"
-#include "Operators/BndCondOps/RobBndCond/OperatorRobBndCond.hpp"
-#include "Operators/MathKernels/MathKernels.hpp"
-
-#include <algorithm>
-#include <array>
-#include <assert.h>
-#include <cmath>
-#include <memory>
+#include <iomanip>
 
 using namespace Nektar;
 using namespace Nektar::MultiRegions;
@@ -111,7 +103,7 @@ public:
     static std::string className;
 
     // instantiation function for CreatorFunction in Operator Factory
-    static std::unique_ptr<Operator<TData>> instantiate(
+    static std::unique_ptr<Operator<TData>> Instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
         return std::make_unique<OperatorConjGradImpl<ExecSpace, TData>>(

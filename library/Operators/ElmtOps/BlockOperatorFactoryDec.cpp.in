@@ -56,7 +56,7 @@ std::string BlockOperator@OPERATOR@Impl<@EXEC_MEM_SPACE_TAG@,
     GetBlockOperatorFactory<@TData@>().RegisterCreatorFunction(
         std::string(BlockOperator@OPERATOR@<@TData@>::name) + "@ExecSpace@@Impl@",
         BlockOperator@OPERATOR@Impl<@EXEC_MEM_SPACE_TAG@,
-                         Operators::@Impl@, @TData@>::instantiate,
+                         Operators::@Impl@, @TData@>::Instantiate,
         "...");
 
 } // namespace Nektar::Operators::detail
