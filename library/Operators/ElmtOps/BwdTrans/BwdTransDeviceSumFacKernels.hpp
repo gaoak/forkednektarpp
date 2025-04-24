@@ -46,11 +46,18 @@ template <typename Implementation>
 inline unsigned int BwdTransSharedMemorySize(const unsigned int nq0,
                                              const unsigned int nm0)
 {
-    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+    {
+        return 0;
+    }
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
         return nm0 + nm0 * nq0;
     }
-    return 0;
+    else
+    {
+        return 0;
+    }
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation>
@@ -62,7 +69,11 @@ inline unsigned int BwdTransSharedMemorySize(const unsigned int nq0,
     const unsigned int nmTot =
         LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
 
-    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+    {
+        return 0;
+    }
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
@@ -74,8 +85,10 @@ inline unsigned int BwdTransSharedMemorySize(const unsigned int nq0,
             return nm0 * nq0 + nmTot * nq1 + nmTot + nm0 * nq1;
         }
     }
-
-    return 0;
+    else
+    {
+        return 0;
+    }
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation>
@@ -90,7 +103,11 @@ inline unsigned int BwdTransSharedMemorySize(
     const unsigned int nmode2 =
         nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
 
-    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+    {
+        return 0;
+    }
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
@@ -115,8 +132,10 @@ inline unsigned int BwdTransSharedMemorySize(
                    (nm0 * nm1 * nq2) + (nm0 * nq1 * nq2);
         }
     }
-
-    return 0;
+    else
+    {
+        return 0;
+    }
 }
 
 template <typename TData>

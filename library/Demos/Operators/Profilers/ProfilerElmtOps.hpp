@@ -40,6 +40,7 @@
 #include <Operators/ElmtOps/Helmholtz/OperatorHelmholtz.hpp>
 #include <Operators/ElmtOps/IProductWRTBase/OperatorIProductWRTBase.hpp>
 #include <Operators/ElmtOps/IProductWRTDerivBase/OperatorIProductWRTDerivBase.hpp>
+#include <Operators/ElmtOps/LinAdvDiffReaction/OperatorLinAdvDiffReaction.hpp>
 #include <Operators/ElmtOps/Mass/OperatorMass.hpp>
 #include <Operators/ElmtOps/MultiplyByElmtInvMass/OperatorMultiplyByElmtInvMass.hpp>
 #include <Operators/ElmtOps/PhysDeriv/OperatorPhysDeriv.hpp>
@@ -362,7 +363,7 @@ void PrintProfileResult(const CommSharedPtr comm,
 // or number of components). We must provided all these information.
 template <class Op, FieldState stateIn, FieldState stateOut, typename TData>
 void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
-                    const int nIn = 1, const int nOut = 1)
+                    const int nIn = 1, const int nOut = 1, const int nComp = 1)
 {
     // Timer.
     Timer timer;
@@ -382,6 +383,17 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
     std::string dataType = (std::is_same_v<TData, double>) ? "Double" : "Float";
     auto tag             = opName + execName + implName + dataType;
 
+    // Check if addition configure is required.
+    if (opName == "LinAdvDiffReaction")
+    {
+        Array<OneD, NekDouble> vel(
+            expList->GetCoordim(0) * expList->GetNpoints(), 1.0);
+        std::dynamic_pointer_cast<OperatorLinAdvDiffReaction<TData>>(oper)
+            ->SetLambda(-1.0);
+        std::dynamic_pointer_cast<OperatorLinAdvDiffReaction<TData>>(oper)
+            ->SetAdvVel(expList->GetCoordim(0), vel);
+    }
+
     // Set alignment.
     unsigned int alignment = Nektar::GetExecSpaceAlignment(execName);
 
@@ -390,9 +402,10 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
     auto blocks_out = GetBlockAttributes<TData>(stateOut, expList);
 
     // Create fields.
-    auto in = Field<TData, stateIn>::Create("f_in", blocks_in, nIn, alignment);
-    auto out =
-        Field<TData, stateOut>::Create("f_out", blocks_out, nOut, alignment);
+    auto in  = Field<TData, stateIn>::Create("f_in", blocks_in, nIn * nComp,
+                                             alignment);
+    auto out = Field<TData, stateOut>::Create("f_out", blocks_out, nOut * nComp,
+                                              alignment);
 
     // Initialize the in field to random non-zeros: 1 2 3 4 ...
     auto inblk = in.GetBlocks();
@@ -400,9 +413,13 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
     {
         auto inptr =
             inblk[i].template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-        for (unsigned int j = 0; j < inblk[i].size(); ++j)
+        for (unsigned int n = 0; n < nIn * nComp; n++)
         {
-            inptr[j] = (j + 1.0) / inblk.size();
+            for (unsigned int j = 0; j < inblk[i].size(); ++j)
+            {
+                inptr[j] = (j + (n + 1.0)) / inblk.size();
+            }
+            inptr += inblk.size();
         }
     }
 
@@ -413,11 +430,11 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
     Array<OneD, Array<OneD, NekDouble>> outArrays(nOut);
     for (unsigned int d = 0; d < nIn; d++)
     {
-        inArrays[d] = inArr + d * inArr.size() / nIn;
+        inArrays[d] = inArr + d * inArr.size() / nIn / nComp;
     }
     for (unsigned int d = 0; d < nOut; d++)
     {
-        outArrays[d] = outArr + d * outArr.size() / nOut;
+        outArrays[d] = outArr + d * outArr.size() / nOut / nComp;
     }
 
     // Get expected results from expList.
@@ -468,7 +485,8 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
     // Print block information and get the total number of dofs.
     if (comm->GetRank() == 0)
     {
-        std::cout << "Input field: " << std::endl;
+        std::cout << "Input field: " << nComp * nIn << " components"
+                  << std::endl;
     }
     PrintBlockInfo(expList, blocks_in, rankL1Error);
 
@@ -488,6 +506,11 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
     Array<OneD, NekDouble> tmpArr = out.template ToArray<NekDouble>();
     for (unsigned int i = 0, cnt = 0; i < tmpArr.size(); ++i)
     {
+        if (opName == "LinAdvDiffReaction")
+        {
+            break;
+        }
+
         // Print out first 100 mismatched values.
         if (abs(tmpArr[i] - outArr[i]) > 1e-4 && cnt < 100)
         {
@@ -501,7 +524,8 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
     // Print block information and get the total number of dofs.
     if (comm->GetRank() == 0)
     {
-        std::cout << "Output field: " << std::endl;
+        std::cout << "Output field: " << nComp * nOut << " components"
+                  << std::endl;
     }
     PrintBlockInfo(expList, blocks_out, rankL1Error);
 

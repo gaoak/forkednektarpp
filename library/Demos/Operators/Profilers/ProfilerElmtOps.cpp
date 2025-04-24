@@ -111,9 +111,10 @@ int main(int argc, char *argv[])
     auto graph   = SpatialDomains::MeshGraphIO::Read(session);
 
     // Load parameters (from the command lines).
-    int Ntest, order;
+    int Ntest, order, Ncomp;
     session->LoadParameter("Ntest", Ntest, 100);
     session->LoadParameter("order", order, 0);
+    session->LoadParameter("Ncomp", Ncomp, 1);
 
     // Set the order of the polynomial expansion if provided
     // we keep the point distribution the same and make
@@ -205,32 +206,36 @@ int main(int argc, char *argv[])
     // You can add/remove the operators to be profiled as you like.
     // Benchmark-double
     LaunchProfiler<OperatorBwdTrans<double>, FieldState::Coeff,
-                   FieldState::Phys, double>(explist, Ntest, 1, 1);
+                   FieldState::Phys, double>(explist, Ntest, 1, 1, Ncomp);
     LaunchProfiler<OperatorIProductWRTBase<double>, FieldState::Phys,
-                   FieldState::Coeff, double>(explist, Ntest, 1, 1);
+                   FieldState::Coeff, double>(explist, Ntest, 1, 1, Ncomp);
     LaunchProfiler<OperatorPhysDeriv<double>, FieldState::Phys,
-                   FieldState::Phys, double>(explist, Ntest, 1, nDim);
+                   FieldState::Phys, double>(explist, Ntest, 1, nDim, Ncomp);
     LaunchProfiler<OperatorIProductWRTDerivBase<double>, FieldState::Phys,
-                   FieldState::Coeff, double>(explist, Ntest, nDim, 1);
+                   FieldState::Coeff, double>(explist, Ntest, nDim, 1, Ncomp);
     LaunchProfiler<OperatorHelmholtz<double>, FieldState::Coeff,
-                   FieldState::Coeff, double>(explist, Ntest, 1, 1);
+                   FieldState::Coeff, double>(explist, Ntest, 1, 1, Ncomp);
     LaunchProfiler<OperatorMass<double>, FieldState::Coeff, FieldState::Coeff,
-                   double>(explist, Ntest, 1, 1);
+                   double>(explist, Ntest, 1, 1, Ncomp);
+    LaunchProfiler<OperatorLinAdvDiffReaction<double>, FieldState::Coeff,
+                   FieldState::Coeff, double>(explist, Ntest, 1, 1, Ncomp);
 
 #if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
     // Benchmark-float
     LaunchProfiler<OperatorBwdTrans<float>, FieldState::Coeff, FieldState::Phys,
-                   float>(explist, Ntest, 1, 1);
+                   float>(explist, Ntest, 1, 1, Ncomp);
     LaunchProfiler<OperatorIProductWRTBase<float>, FieldState::Phys,
-                   FieldState::Coeff, float>(explist, Ntest, 1, 1);
+                   FieldState::Coeff, float>(explist, Ntest, 1, 1, Ncomp);
     LaunchProfiler<OperatorPhysDeriv<float>, FieldState::Phys, FieldState::Phys,
-                   float>(explist, Ntest, 1, nDim);
+                   float>(explist, Ntest, 1, nDim, Ncomp);
     LaunchProfiler<OperatorIProductWRTDerivBase<float>, FieldState::Phys,
-                   FieldState::Coeff, float>(explist, Ntest, nDim, 1);
+                   FieldState::Coeff, float>(explist, Ntest, nDim, 1, Ncomp);
     LaunchProfiler<OperatorHelmholtz<float>, FieldState::Coeff,
-                   FieldState::Coeff, float>(explist, Ntest, 1, 1);
+                   FieldState::Coeff, float>(explist, Ntest, 1, 1, Ncomp);
     LaunchProfiler<OperatorMass<float>, FieldState::Coeff, FieldState::Coeff,
-                   float>(explist, Ntest, 1, 1);
+                   float>(explist, Ntest, 1, 1, Ncomp);
+    LaunchProfiler<OperatorLinAdvDiffReaction<float>, FieldState::Coeff,
+                   FieldState::Coeff, float>(explist, Ntest, 1, 1, Ncomp);
 #endif
 
     LIKWID_MARKER_CLOSE;
