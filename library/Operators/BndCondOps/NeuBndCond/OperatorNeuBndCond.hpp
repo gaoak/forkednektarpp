@@ -44,13 +44,6 @@ namespace Nektar::Operators
 template <typename TData> class OperatorNeuBndCond : public Operator<TData>
 {
 public:
-    OperatorNeuBndCond(const MultiRegions::ExpListSharedPtr &expansionList)
-        : Operator<TData>(expansionList)
-    {
-    }
-
-    ~OperatorNeuBndCond() override = default;
-
     static std::shared_ptr<OperatorNeuBndCond<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &execStr = "")
@@ -68,12 +61,25 @@ public:
 
     static constexpr char name[] = "NeuBndCond";
 
-    virtual void apply(Field<TData, FieldState::Coeff> &inout) = 0;
+    void Apply(Field<TData, FieldState::Coeff> &inout)
+    {
+        v_Apply(inout);
+    }
 
     void operator()(Field<TData, FieldState::Coeff> &inout)
     {
-        apply(inout);
+        v_Apply(inout);
     }
+
+protected:
+    OperatorNeuBndCond(const MultiRegions::ExpListSharedPtr &expansionList)
+        : Operator<TData>(expansionList)
+    {
+    }
+
+    ~OperatorNeuBndCond() override = default;
+
+    virtual void v_Apply(Field<TData, FieldState::Coeff> &inout) = 0;
 };
 
 } // namespace Nektar::Operators

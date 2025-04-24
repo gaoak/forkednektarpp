@@ -44,13 +44,6 @@ namespace Nektar::Operators
 template <typename TData> class OperatorRobBndCond : public Operator<TData>
 {
 public:
-    OperatorRobBndCond(const MultiRegions::ExpListSharedPtr &expansionList)
-        : Operator<TData>(expansionList)
-    {
-    }
-
-    ~OperatorRobBndCond() override = default;
-
     static std::shared_ptr<OperatorRobBndCond<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &execStr = "")
@@ -68,9 +61,31 @@ public:
 
     static constexpr char name[] = "RobBndCond";
 
-    virtual void apply(Field<TData, FieldState::Coeff> &in,
-                       Field<TData, FieldState::Coeff> &out,
-                       const bool &negflag = false) = 0;
+    void Apply(Field<TData, FieldState::Coeff> &in,
+               Field<TData, FieldState::Coeff> &out,
+               const bool &negflag = false)
+    {
+        v_Apply(in, out, negflag);
+    }
+
+    void operator()(Field<TData, FieldState::Coeff> &in,
+                    Field<TData, FieldState::Coeff> &out,
+                    const bool &negflag = false)
+    {
+        v_Apply(in, out, negflag);
+    }
+
+protected:
+    OperatorRobBndCond(const MultiRegions::ExpListSharedPtr &expansionList)
+        : Operator<TData>(expansionList)
+    {
+    }
+
+    ~OperatorRobBndCond() override = default;
+
+    virtual void v_Apply(Field<TData, FieldState::Coeff> &in,
+                         Field<TData, FieldState::Coeff> &out,
+                         const bool &negflag = false) = 0;
 };
 
 } // namespace Nektar::Operators

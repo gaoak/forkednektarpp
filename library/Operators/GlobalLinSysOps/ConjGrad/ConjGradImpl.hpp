@@ -107,8 +107,37 @@ public:
         m_vExchange = std::vector<TData>(4, 0.0);
     }
 
-    void apply(Field<TData, FieldState::Coeff> &in,
-               Field<TData, FieldState::Coeff> &out) override
+    // className - for OperatorFactory
+    static std::string className;
+
+    // instantiation function for CreatorFunction in Operator Factory
+    static std::unique_ptr<Operator<TData>> instantiate(
+        const MultiRegions::ExpListSharedPtr &expansionList)
+    {
+        return std::make_unique<OperatorConjGradImpl<ExecSpace, TData>>(
+            expansionList);
+    }
+
+protected:
+    LibUtilities::CommSharedPtr m_rowComm = nullptr;
+
+    std::shared_ptr<OperatorAssmbScatr<TData>> m_assmbScatrOp;
+    std::shared_ptr<OperatorRobBndCond<TData>> m_robBndCondOp;
+
+    Field<TData, FieldState::Coeff> m_w_A;
+    Field<TData, FieldState::Coeff> m_s_A;
+    Field<TData, FieldState::Coeff> m_r_A;
+    Field<TData, FieldState::Coeff> m_wk;
+    Field<TData, FieldState::Coeff> m_q_A;
+    Field<TData, FieldState::Coeff> m_p_A;
+
+    std::vector<TData> m_vExchange;
+
+    TData m_tol;
+    size_t m_maxIter;
+
+    void v_Apply(Field<TData, FieldState::Coeff> &in,
+                 Field<TData, FieldState::Coeff> &out) override
     {
         // Set the fields to zero.
         out.template Initialize<MemSpace>(0);
@@ -124,11 +153,11 @@ public:
         m_r_A.template Copy<MemSpace>(in);
 
         // Assembly (communication).
-        m_assmbScatrOp->apply(m_r_A, m_wk, true);
+        m_assmbScatrOp->Apply(m_r_A, m_wk, true);
         ddot<ExecSpace>(m_wk, m_r_A, &m_vExchange[2]);
 
         // Calculate rhs magnitude.
-        m_assmbScatrOp->apply(m_r_A, m_wk);
+        m_assmbScatrOp->Apply(m_r_A, m_wk);
         ddot<ExecSpace>(in, m_wk, &m_vExchange[3]);
 
         m_rowComm->AllReduce(m_vExchange, Nektar::LibUtilities::ReduceSum);
@@ -143,12 +172,12 @@ public:
         }
 
         // Apply preconditioner.
-        this->m_precon->apply(m_r_A, m_w_A);
+        this->m_precon->Apply(m_r_A, m_w_A);
 
         // Perform the method-specific matrix-vector multiply operation.
-        this->m_lhs->apply(m_w_A, m_s_A);
+        this->m_lhs->Apply(m_w_A, m_s_A);
 
-        m_robBndCondOp->apply(m_w_A, m_s_A);
+        m_robBndCondOp->Apply(m_w_A, m_s_A);
 
         ddot<ExecSpace>(m_r_A, m_w_A, &m_vExchange[0]);
 
@@ -186,13 +215,13 @@ public:
             daxpy<ExecSpace>(-alpha, m_q_A, m_r_A, m_r_A);
 
             // Apply preconditioner.
-            this->m_precon->apply(m_r_A, m_w_A);
+            this->m_precon->Apply(m_r_A, m_w_A);
 
             // Perform the method-specific matrix-vector multiply
             // operation.
-            this->m_lhs->apply(m_w_A, m_s_A);
+            this->m_lhs->Apply(m_w_A, m_s_A);
 
-            m_robBndCondOp->apply(m_w_A, m_s_A);
+            m_robBndCondOp->Apply(m_w_A, m_s_A);
 
             // <r_{k+1}, w_{k+1}>
             ddot<ExecSpace>(m_r_A, m_w_A, &m_vExchange[0]);
@@ -201,7 +230,7 @@ public:
             ddot<ExecSpace>(m_s_A, m_w_A, &m_vExchange[1]);
 
             // <r_{k+1}, r_{k+1}>
-            m_assmbScatrOp->apply(m_r_A, m_wk, true);
+            m_assmbScatrOp->Apply(m_r_A, m_wk, true);
             ddot<ExecSpace>(m_wk, m_r_A, &m_vExchange[2]);
 
             m_rowComm->AllReduce(m_vExchange, Nektar::LibUtilities::ReduceSum);
@@ -224,35 +253,6 @@ public:
             rho   = rho_new;
         }
     }
-
-    // className - for OperatorFactory
-    static std::string className;
-
-    // instantiation function for CreatorFunction in Operator Factory
-    static std::unique_ptr<Operator<TData>> instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-    {
-        return std::make_unique<OperatorConjGradImpl<ExecSpace, TData>>(
-            expansionList);
-    }
-
-protected:
-    LibUtilities::CommSharedPtr m_rowComm = nullptr;
-
-    std::shared_ptr<OperatorAssmbScatr<TData>> m_assmbScatrOp;
-    std::shared_ptr<OperatorRobBndCond<TData>> m_robBndCondOp;
-
-    Field<TData, FieldState::Coeff> m_w_A;
-    Field<TData, FieldState::Coeff> m_s_A;
-    Field<TData, FieldState::Coeff> m_r_A;
-    Field<TData, FieldState::Coeff> m_wk;
-    Field<TData, FieldState::Coeff> m_q_A;
-    Field<TData, FieldState::Coeff> m_p_A;
-
-    std::vector<TData> m_vExchange;
-
-    TData m_tol;
-    size_t m_maxIter;
 };
 
 } // namespace Nektar::Operators::detail

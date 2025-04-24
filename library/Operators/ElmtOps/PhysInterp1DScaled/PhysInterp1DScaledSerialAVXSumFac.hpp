@@ -112,8 +112,32 @@ public:
         }
     }
 
-    void apply(BlockAccessor<TData> &inblock,
-               BlockAccessor<TData> &outblock) override
+    // className - for BlockOperatorFactory
+    static std::string className;
+
+    // Instantiation function for CreatorFunction in BlockOperatorFactory.
+    static std::unique_ptr<BlockOperator<TData>> instantiate(
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse)
+    {
+        return std::make_unique<BlockOperatorPhysInterp1DScaledImpl<
+            ExecSpace, Implementation, TData>>(exp, dataWarehouse);
+    }
+
+protected:
+    static constexpr unsigned int m_implInterleaveWidth = simd_t::width;
+
+    LibUtilities::ShapeType m_shapeType;
+    bool m_isDeformed;
+    bool m_isModified;
+    unsigned int m_dimension;
+    unsigned int m_coordDim;
+    std::vector<unsigned int> m_nm;
+    std::vector<unsigned int> m_nq;
+    std::vector<const simd_t *> m_B;
+
+    void v_Apply(BlockAccessor<TData> &inblock,
+                 BlockAccessor<TData> &outblock) override
     {
         // Check alignment.
         WARNINGL1(inblock.GetAlignment() == simd_t::alignment,
@@ -192,30 +216,6 @@ public:
                 std::cout << "shapetype not implemented" << std::endl;
         }
     }
-
-    // className - for BlockOperatorFactory
-    static std::string className;
-
-    // Instantiation function for CreatorFunction in BlockOperatorFactory.
-    static std::unique_ptr<BlockOperator<TData>> instantiate(
-        const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse)
-    {
-        return std::make_unique<BlockOperatorPhysInterp1DScaledImpl<
-            ExecSpace, Implementation, TData>>(exp, dataWarehouse);
-    }
-
-protected:
-    static constexpr unsigned int m_implInterleaveWidth = simd_t::width;
-
-    LibUtilities::ShapeType m_shapeType;
-    bool m_isDeformed;
-    bool m_isModified;
-    unsigned int m_dimension;
-    unsigned int m_coordDim;
-    std::vector<unsigned int> m_nm;
-    std::vector<unsigned int> m_nq;
-    std::vector<const simd_t *> m_B;
 
     void SegBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);

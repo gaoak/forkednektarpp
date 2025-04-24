@@ -45,13 +45,6 @@ template <typename TData> class OperatorDirBndCond : public Operator<TData>
 {
 
 public:
-    OperatorDirBndCond(const MultiRegions::ExpListSharedPtr &expansionList)
-        : Operator<TData>(expansionList)
-    {
-    }
-
-    ~OperatorDirBndCond() override = default;
-
     static std::shared_ptr<OperatorDirBndCond<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &execStr = "")
@@ -69,12 +62,25 @@ public:
 
     static constexpr char name[] = "DirBndCond";
 
-    virtual void apply(Field<TData, FieldState::Coeff> &out) = 0;
+    void Apply(Field<TData, FieldState::Coeff> &out)
+    {
+        v_Apply(out);
+    }
 
     void operator()(Field<TData, FieldState::Coeff> &out)
     {
-        apply(out);
+        v_Apply(out);
     }
+
+protected:
+    OperatorDirBndCond(const MultiRegions::ExpListSharedPtr &expansionList)
+        : Operator<TData>(expansionList)
+    {
+    }
+
+    ~OperatorDirBndCond() override = default;
+
+    virtual void v_Apply(Field<TData, FieldState::Coeff> &out) = 0;
 };
 
 } // namespace Nektar::Operators

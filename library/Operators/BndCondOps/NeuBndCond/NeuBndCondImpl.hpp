@@ -165,7 +165,26 @@ public:
         }
     }
 
-    void apply(Field<TData, FieldState::Coeff> &inout) override
+    // className - for OperatorFactory
+    static std::string className;
+
+    // instantiation function for CreatorFunction in OperatorFactory
+    static std::unique_ptr<Operator<TData>> instantiate(
+        const MultiRegions::ExpListSharedPtr &expansionList)
+    {
+        return std::make_unique<OperatorNeuBndCondImpl<ExecSpace, TData>>(
+            expansionList);
+    }
+
+protected:
+    std::vector<MemoryRegion<int>> m_map;
+    std::vector<MemoryRegion<TData>> m_sign;
+    std::vector<MemoryRegion<TData>> m_bndCoeff;
+    std::vector<unsigned int> m_nBndCoeffBlock;
+    unsigned int m_nBndCoeff = 0;
+    bool m_signChange;
+
+    void v_Apply(Field<TData, FieldState::Coeff> &inout) override
     {
         // Return if no Neumann boundary condition.
         if (m_nBndCoeff == 0)
@@ -202,25 +221,6 @@ public:
             }
         }
     }
-
-    // className - for OperatorFactory
-    static std::string className;
-
-    // instantiation function for CreatorFunction in OperatorFactory
-    static std::unique_ptr<Operator<TData>> instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-    {
-        return std::make_unique<OperatorNeuBndCondImpl<ExecSpace, TData>>(
-            expansionList);
-    }
-
-protected:
-    std::vector<MemoryRegion<int>> m_map;
-    std::vector<MemoryRegion<TData>> m_sign;
-    std::vector<MemoryRegion<TData>> m_bndCoeff;
-    std::vector<unsigned int> m_nBndCoeffBlock;
-    unsigned int m_nBndCoeff = 0;
-    bool m_signChange;
 };
 
 } // namespace Nektar::Operators::detail

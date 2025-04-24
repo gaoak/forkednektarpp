@@ -79,7 +79,7 @@ public:
         auto PhysInterp1DOp =
             OperatorPhysInterp1DScaled<double>::Create(fixt_explist);
         PhysInterp1DOp->SetScaleFactor(scale);
-        PhysInterp1DOp->apply(*fixt_in, *fixt_out);
+        PhysInterp1DOp->Apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution(double scale)

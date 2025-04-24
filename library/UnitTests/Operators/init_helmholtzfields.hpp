@@ -77,7 +77,7 @@ public:
     {
         auto HelmholtzOp = OperatorHelmholtz<double>::Create(fixt_explist);
         HelmholtzOp->SetLambda(m_lambda);
-        HelmholtzOp->apply(*fixt_in, *fixt_out);
+        HelmholtzOp->Apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution()

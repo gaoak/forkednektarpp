@@ -43,14 +43,6 @@ template <typename TData>
 class BlockOperatorPhysDeriv : public BlockOperator<TData>
 {
 public:
-    BlockOperatorPhysDeriv(const LocalRegions::ExpansionSharedPtr &exp,
-                           NekDataWarehouseSharedPtr dataWarehouse)
-        : BlockOperator<TData>(exp, dataWarehouse)
-    {
-    }
-
-    ~BlockOperatorPhysDeriv() override = default;
-
     static std::shared_ptr<BlockOperatorPhysDeriv<TData>> Create(
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
@@ -63,14 +55,28 @@ public:
 
     static constexpr char name[] = "BlockPhysDeriv";
 
-    virtual void apply(BlockAccessor<TData> &inblock,
-                       BlockAccessor<TData> &outblock) = 0;
+    void Apply(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
+    {
+        this->v_Apply(inblock, outblock);
+    }
 
     void operator()(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        this->apply(inblock, outblock);
+        this->v_Apply(inblock, outblock);
     }
+
+protected:
+    BlockOperatorPhysDeriv(const LocalRegions::ExpansionSharedPtr &exp,
+                           NekDataWarehouseSharedPtr dataWarehouse)
+        : BlockOperator<TData>(exp, dataWarehouse)
+    {
+    }
+
+    ~BlockOperatorPhysDeriv() override = default;
+
+    virtual void v_Apply(BlockAccessor<TData> &inblock,
+                         BlockAccessor<TData> &outblock) = 0;
 };
 
 // PhysDeriv base class
@@ -80,13 +86,6 @@ class OperatorPhysDeriv
     : public OperatorElmt<FieldState::Phys, FieldState::Phys, TData>
 {
 public:
-    OperatorPhysDeriv(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorElmt<FieldState::Phys, FieldState::Phys, TData>(expansionList)
-    {
-    }
-
-    ~OperatorPhysDeriv() override = default;
-
     static std::shared_ptr<OperatorPhysDeriv<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &execStr = "", const std::string &implStr = "")
@@ -123,8 +122,18 @@ public:
 
     static constexpr char name[] = "PhysDeriv";
 
-    void apply(Field<TData, FieldState::Phys> &in,
-               Field<TData, FieldState::Phys> &out) override
+protected:
+    std::vector<std::shared_ptr<BlockOperatorPhysDeriv<TData>>> m_blockOperator;
+
+    OperatorPhysDeriv(const MultiRegions::ExpListSharedPtr &expansionList)
+        : OperatorElmt<FieldState::Phys, FieldState::Phys, TData>(expansionList)
+    {
+    }
+
+    ~OperatorPhysDeriv() override = default;
+
+    void v_Apply(Field<TData, FieldState::Phys> &in,
+                 Field<TData, FieldState::Phys> &out) override
     {
         ASSERTL1(in.GetNumComponents() ==
                      out.GetNumComponents() /
@@ -138,18 +147,9 @@ public:
             auto &inblock  = in.GetBlocks()[blk];
             auto &outblock = out.GetBlocks()[blk];
 
-            this->m_blockOperator[blk]->apply(inblock, outblock);
+            this->m_blockOperator[blk]->Apply(inblock, outblock);
         }
     }
-
-    void operator()(Field<TData, FieldState::Phys> &in,
-                    Field<TData, FieldState::Phys> &out)
-    {
-        this->apply(in, out);
-    }
-
-protected:
-    std::vector<std::shared_ptr<BlockOperatorPhysDeriv<TData>>> m_blockOperator;
 };
 
 } // namespace Nektar::Operators

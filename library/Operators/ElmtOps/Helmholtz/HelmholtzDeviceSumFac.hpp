@@ -199,8 +199,44 @@ public:
         }
     }
 
-    void apply(BlockAccessor<TData> &inblock,
-               BlockAccessor<TData> &outblock) override
+    // className - for BlockOperatorFactory
+    static std::string className;
+
+    // Instantiation function for CreatorFunction in BlockOperatorFactory.
+    static std::unique_ptr<BlockOperator<TData>> instantiate(
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse)
+    {
+        return std::make_unique<
+            BlockOperatorHelmholtzImpl<ExecSpace, Implementation, TData>>(
+            exp, dataWarehouse);
+    }
+
+protected:
+    static constexpr unsigned int m_implInterleaveWidth =
+        std::is_same_v<Implementation, Operators::SumFac>
+            ? NektarSpaces::vector_width<TData>::value
+            : 1u;
+
+    LibUtilities::ShapeType m_shapeType;
+    bool m_isDeformed;
+    bool m_isModified;
+    unsigned int m_dimension;
+    unsigned int m_coordDim;
+    std::vector<unsigned int> m_nm;
+    std::vector<unsigned int> m_nq;
+    std::vector<const TData *> m_B;
+    std::vector<const TData *> m_DB;
+    std::vector<const TData *> m_D;
+    std::vector<const TData *> m_W;
+    std::vector<const TData *> m_f;
+    std::vector<const unsigned int *> m_index;
+    MemoryRegion<TData> m_diffCoeff;
+    MemoryRegion<TData> m_wsp;
+    const TData *m_nodToMod;
+
+    void v_Apply(BlockAccessor<TData> &inblock,
+                 BlockAccessor<TData> &outblock) override
     {
         switch (m_shapeType)
         {
@@ -268,42 +304,6 @@ public:
                 std::cout << "shapetype not implemented" << std::endl;
         }
     }
-
-    // className - for BlockOperatorFactory
-    static std::string className;
-
-    // Instantiation function for CreatorFunction in BlockOperatorFactory.
-    static std::unique_ptr<BlockOperator<TData>> instantiate(
-        const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse)
-    {
-        return std::make_unique<
-            BlockOperatorHelmholtzImpl<ExecSpace, Implementation, TData>>(
-            exp, dataWarehouse);
-    }
-
-protected:
-    static constexpr unsigned int m_implInterleaveWidth =
-        std::is_same_v<Implementation, Operators::SumFac>
-            ? NektarSpaces::vector_width<TData>::value
-            : 1u;
-
-    LibUtilities::ShapeType m_shapeType;
-    bool m_isDeformed;
-    bool m_isModified;
-    unsigned int m_dimension;
-    unsigned int m_coordDim;
-    std::vector<unsigned int> m_nm;
-    std::vector<unsigned int> m_nq;
-    std::vector<const TData *> m_B;
-    std::vector<const TData *> m_DB;
-    std::vector<const TData *> m_D;
-    std::vector<const TData *> m_W;
-    std::vector<const TData *> m_f;
-    std::vector<const unsigned int *> m_index;
-    MemoryRegion<TData> m_diffCoeff;
-    MemoryRegion<TData> m_wsp;
-    const TData *m_nodToMod;
 
     unsigned int GetWorkspaceSize(LibUtilities::ShapeType shapeType,
                                   unsigned int nElmts,

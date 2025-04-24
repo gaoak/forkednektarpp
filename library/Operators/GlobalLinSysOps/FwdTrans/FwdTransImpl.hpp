@@ -72,42 +72,6 @@ public:
             this->m_expansionList, ExecSpace::name);
     }
 
-    void apply(Field<TData, FieldState::Phys> &in,
-               Field<TData, FieldState::Coeff> &out) override
-    {
-        // IProductWRT of RHS
-        m_IProdOp->apply(in, m_rhs);
-
-        // Handle Dirichlet BCs
-        m_DirBCOp->apply(out);
-        m_MassOp->apply(out, m_tmp);
-        sub<ExecSpace>(m_rhs, m_tmp, m_rhs);
-
-        // Handle Robin BCs
-        m_RobBCOp->apply(out, m_rhs, true);
-
-        // Solve for u_hat using Conjugate Gradient
-        m_LinSolverOp->apply(m_rhs, m_tmp);
-
-        // Add Dirichlet BCs
-        add<ExecSpace>(out, m_tmp, out);
-    }
-
-    void setLinearSolver(
-        const std::shared_ptr<OperatorLinearSolver<TData>> &linsolve) override
-    {
-        m_LinSolverOp = linsolve;
-        m_LinSolverOp->setLHS(m_MassOp);
-    }
-
-    void setPrecon(
-        const std::shared_ptr<OperatorPrecon<TData>> &precon) override
-    {
-        precon->configure(m_MassOp);
-
-        m_LinSolverOp->setPrecon(precon);
-    }
-
     // className - for OperatorFactory
     static std::string className;
 
@@ -128,6 +92,42 @@ protected:
 
     Field<TData, FieldState::Coeff> m_rhs;
     Field<TData, FieldState::Coeff> m_tmp;
+
+    void v_Apply(Field<TData, FieldState::Phys> &in,
+                 Field<TData, FieldState::Coeff> &out) override
+    {
+        // IProductWRT of RHS
+        m_IProdOp->Apply(in, m_rhs);
+
+        // Handle Dirichlet BCs
+        m_DirBCOp->Apply(out);
+        m_MassOp->Apply(out, m_tmp);
+        sub<ExecSpace>(m_rhs, m_tmp, m_rhs);
+
+        // Handle Robin BCs
+        m_RobBCOp->Apply(out, m_rhs, true);
+
+        // Solve for u_hat using Conjugate Gradient
+        m_LinSolverOp->Apply(m_rhs, m_tmp);
+
+        // Add Dirichlet BCs
+        add<ExecSpace>(out, m_tmp, out);
+    }
+
+    void v_SetLinearSolver(
+        const std::shared_ptr<OperatorLinearSolver<TData>> &linsolve) override
+    {
+        m_LinSolverOp = linsolve;
+        m_LinSolverOp->SetLHS(m_MassOp);
+    }
+
+    void v_SetPrecon(
+        const std::shared_ptr<OperatorPrecon<TData>> &precon) override
+    {
+        precon->Configure(m_MassOp);
+
+        m_LinSolverOp->SetPrecon(precon);
+    }
 };
 
 } // namespace Nektar::Operators::detail

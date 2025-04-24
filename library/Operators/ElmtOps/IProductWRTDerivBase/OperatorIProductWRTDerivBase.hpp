@@ -43,15 +43,6 @@ template <typename TData>
 class BlockOperatorIProductWRTDerivBase : public BlockOperator<TData>
 {
 public:
-    BlockOperatorIProductWRTDerivBase(
-        const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse)
-        : BlockOperator<TData>(exp, dataWarehouse)
-    {
-    }
-
-    ~BlockOperatorIProductWRTDerivBase() override = default;
-
     static std::shared_ptr<BlockOperatorIProductWRTDerivBase<TData>> Create(
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
@@ -64,13 +55,15 @@ public:
 
     static constexpr char name[] = "BlockIProductWRTDerivBase";
 
-    virtual void apply(BlockAccessor<TData> &inblock,
-                       BlockAccessor<TData> &outblock) = 0;
+    void Apply(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
+    {
+        this->v_Apply(inblock, outblock);
+    }
 
     void operator()(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        this->apply(inblock, outblock);
+        this->v_Apply(inblock, outblock);
     }
 
     void SetAppend(bool append)
@@ -80,6 +73,18 @@ public:
 
 protected:
     bool m_append = false;
+
+    BlockOperatorIProductWRTDerivBase(
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse)
+        : BlockOperator<TData>(exp, dataWarehouse)
+    {
+    }
+
+    ~BlockOperatorIProductWRTDerivBase() override = default;
+
+    virtual void v_Apply(BlockAccessor<TData> &inblock,
+                         BlockAccessor<TData> &outblock) = 0;
 };
 
 // IProductWRTDerivBase base class
@@ -89,15 +94,6 @@ class OperatorIProductWRTDerivBase
     : public OperatorElmt<FieldState::Phys, FieldState::Coeff, TData>
 {
 public:
-    OperatorIProductWRTDerivBase(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorElmt<FieldState::Phys, FieldState::Coeff, TData>(
-              expansionList)
-    {
-    }
-
-    ~OperatorIProductWRTDerivBase() override = default;
-
     static std::shared_ptr<OperatorIProductWRTDerivBase<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &execStr = "", const std::string &implStr = "")
@@ -133,8 +129,30 @@ public:
 
     static constexpr char name[] = "IProductWRTDerivBase";
 
-    void apply(Field<TData, FieldState::Phys> &in,
-               Field<TData, FieldState::Coeff> &out) override
+    void SetAppend(bool append)
+    {
+        // Loop over the blocks.
+        for (unsigned int blk = 0; blk < m_blockOperator.size(); ++blk)
+        {
+            this->m_blockOperator[blk]->SetAppend(append);
+        }
+    }
+
+protected:
+    std::vector<std::shared_ptr<BlockOperatorIProductWRTDerivBase<TData>>>
+        m_blockOperator;
+
+    OperatorIProductWRTDerivBase(
+        const MultiRegions::ExpListSharedPtr &expansionList)
+        : OperatorElmt<FieldState::Phys, FieldState::Coeff, TData>(
+              expansionList)
+    {
+    }
+
+    ~OperatorIProductWRTDerivBase() override = default;
+
+    void v_Apply(Field<TData, FieldState::Phys> &in,
+                 Field<TData, FieldState::Coeff> &out) override
     {
         ASSERTL1(out.GetNumComponents() ==
                      in.GetNumComponents() /
@@ -148,28 +166,9 @@ public:
             auto &inblock  = in.GetBlocks()[blk];
             auto &outblock = out.GetBlocks()[blk];
 
-            this->m_blockOperator[blk]->apply(inblock, outblock);
+            this->m_blockOperator[blk]->Apply(inblock, outblock);
         }
     }
-
-    void operator()(Field<TData, FieldState::Phys> &in,
-                    Field<TData, FieldState::Coeff> &out)
-    {
-        this->apply(in, out);
-    }
-
-    void SetAppend(bool append)
-    {
-        // Loop over the blocks.
-        for (unsigned int blk = 0; blk < m_blockOperator.size(); ++blk)
-        {
-            this->m_blockOperator[blk]->SetAppend(append);
-        }
-    }
-
-protected:
-    std::vector<std::shared_ptr<BlockOperatorIProductWRTDerivBase<TData>>>
-        m_blockOperator;
 };
 
 } // namespace Nektar::Operators

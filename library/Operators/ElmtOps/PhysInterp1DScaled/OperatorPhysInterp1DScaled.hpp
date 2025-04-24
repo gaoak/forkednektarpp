@@ -43,14 +43,6 @@ template <typename TData>
 class BlockOperatorPhysInterp1DScaled : public BlockOperator<TData>
 {
 public:
-    BlockOperatorPhysInterp1DScaled(const LocalRegions::ExpansionSharedPtr &exp,
-                                    NekDataWarehouseSharedPtr dataWarehouse)
-        : BlockOperator<TData>(exp, dataWarehouse)
-    {
-    }
-
-    ~BlockOperatorPhysInterp1DScaled() override = default;
-
     static std::shared_ptr<BlockOperatorPhysInterp1DScaled<TData>> Create(
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
@@ -63,13 +55,15 @@ public:
 
     static constexpr char name[] = "BlockPhysInterp1DScaled";
 
-    virtual void apply(BlockAccessor<TData> &inblock,
-                       BlockAccessor<TData> &outblock) = 0;
+    void Apply(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
+    {
+        this->v_Apply(inblock, outblock);
+    }
 
     void operator()(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        this->apply(inblock, outblock);
+        this->v_Apply(inblock, outblock);
     }
 
     void SetScaleFactor(TData scale)
@@ -78,12 +72,23 @@ public:
     }
 
 protected:
+    TData m_scale = -1.0; // scaling factor
+
+    BlockOperatorPhysInterp1DScaled(const LocalRegions::ExpansionSharedPtr &exp,
+                                    NekDataWarehouseSharedPtr dataWarehouse)
+        : BlockOperator<TData>(exp, dataWarehouse)
+    {
+    }
+
+    ~BlockOperatorPhysInterp1DScaled() override = default;
+
+    virtual void v_Apply(BlockAccessor<TData> &inblock,
+                         BlockAccessor<TData> &outblock) = 0;
+
     virtual void v_SetScaleFactor(TData scale)
     {
         m_scale = scale;
     }
-
-    TData m_scale = -1.0; // scaling factor
 };
 
 // PhysInterp1DScaled base class
@@ -93,14 +98,6 @@ class OperatorPhysInterp1DScaled
     : public OperatorElmt<FieldState::Phys, FieldState::Phys, TData>
 {
 public:
-    OperatorPhysInterp1DScaled(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorElmt<FieldState::Phys, FieldState::Phys, TData>(expansionList)
-    {
-    }
-
-    ~OperatorPhysInterp1DScaled() override = default;
-
     static std::shared_ptr<OperatorPhysInterp1DScaled<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &execStr = "", const std::string &implStr = "")
@@ -137,29 +134,6 @@ public:
 
     static constexpr char name[] = "PhysInterp1DScaled";
 
-    void apply(Field<TData, FieldState::Phys> &in,
-               Field<TData, FieldState::Phys> &out) override
-    {
-        ASSERTL1(in.GetNumComponents() == out.GetNumComponents(),
-                 "Number of input and output components differ");
-
-        // Loop over the blocks.
-        for (unsigned int blk = 0; blk < m_blockOperator.size(); ++blk)
-        {
-            // Block dependent.
-            auto &inblock  = in.GetBlocks()[blk];
-            auto &outblock = out.GetBlocks()[blk];
-
-            this->m_blockOperator[blk]->apply(inblock, outblock);
-        }
-    }
-
-    void operator()(Field<TData, FieldState::Phys> &in,
-                    Field<TData, FieldState::Phys> &out)
-    {
-        this->apply(in, out);
-    }
-
     void SetScaleFactor(TData scale)
     {
         // Loop over the blocks.
@@ -172,6 +146,31 @@ public:
 protected:
     std::vector<std::shared_ptr<BlockOperatorPhysInterp1DScaled<TData>>>
         m_blockOperator;
+
+    OperatorPhysInterp1DScaled(
+        const MultiRegions::ExpListSharedPtr &expansionList)
+        : OperatorElmt<FieldState::Phys, FieldState::Phys, TData>(expansionList)
+    {
+    }
+
+    ~OperatorPhysInterp1DScaled() override = default;
+
+    void v_Apply(Field<TData, FieldState::Phys> &in,
+                 Field<TData, FieldState::Phys> &out) override
+    {
+        ASSERTL1(in.GetNumComponents() == out.GetNumComponents(),
+                 "Number of input and output components differ");
+
+        // Loop over the blocks.
+        for (unsigned int blk = 0; blk < m_blockOperator.size(); ++blk)
+        {
+            // Block dependent.
+            auto &inblock  = in.GetBlocks()[blk];
+            auto &outblock = out.GetBlocks()[blk];
+
+            this->m_blockOperator[blk]->Apply(inblock, outblock);
+        }
+    }
 };
 
 } // namespace Nektar::Operators

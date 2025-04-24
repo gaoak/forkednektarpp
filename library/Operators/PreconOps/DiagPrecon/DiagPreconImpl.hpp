@@ -82,8 +82,29 @@ public:
                                                       ExecSpace::name);
     }
 
-    void apply(Field<TData, FieldState::Coeff> &in,
-               Field<TData, FieldState::Coeff> &out) override
+    // className - for OperatorFactory
+    static std::string className;
+
+    // Instantiation function for CreatorFunction in OperatorFactory
+    static std::unique_ptr<Operator<TData>> instantiate(
+        const MultiRegions::ExpListSharedPtr &expansionList)
+    {
+        return std::make_unique<OperatorDiagPreconImpl<ExecSpace, TData>>(
+            expansionList);
+    }
+
+protected:
+    std::shared_ptr<OperatorAssmbScatr<TData>> m_assmbScatrOp;
+    std::shared_ptr<OperatorRobBndCond<TData>> m_robBCOp;
+
+    MemoryRegion<TData> m_glodiag;
+    MemoryRegion<TData> m_wk;
+
+    unsigned int m_nGlobal;
+    unsigned int m_nDir;
+
+    void v_Apply(Field<TData, FieldState::Coeff> &in,
+                 Field<TData, FieldState::Coeff> &out) override
     {
         m_assmbScatrOp->Assemble(in, m_wk);
 
@@ -98,9 +119,9 @@ public:
         m_assmbScatrOp->GlobalToLocal(m_wk, out);
     }
 
-    void configure(const std::shared_ptr<
-                   OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>>
-                       &op) override
+    void v_Configure(const std::shared_ptr<
+                     OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>>
+                         &op) override
     {
         // Create block attributes.
         auto blocks =
@@ -146,8 +167,8 @@ public:
 
                 // Apply the operator to unit vector and store in the
                 // action field.
-                op->apply(unit_vec, action);
-                m_robBCOp->apply(unit_vec, action);
+                op->Apply(unit_vec, action);
+                m_robBCOp->Apply(unit_vec, action);
 
                 // Copy the ith row term from the action field to get
                 // the ith diagonal.
@@ -177,27 +198,6 @@ public:
             m_glodiag.template CopyArray<MemSpace, NekDouble>(glodiagArr);
         }
     }
-
-    // className - for OperatorFactory
-    static std::string className;
-
-    // Instantiation function for CreatorFunction in OperatorFactory
-    static std::unique_ptr<Operator<TData>> instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-    {
-        return std::make_unique<OperatorDiagPreconImpl<ExecSpace, TData>>(
-            expansionList);
-    }
-
-protected:
-    std::shared_ptr<OperatorAssmbScatr<TData>> m_assmbScatrOp;
-    std::shared_ptr<OperatorRobBndCond<TData>> m_robBCOp;
-
-    MemoryRegion<TData> m_glodiag;
-    MemoryRegion<TData> m_wk;
-
-    unsigned int m_nGlobal;
-    unsigned int m_nDir;
 };
 
 } // namespace Nektar::Operators::detail

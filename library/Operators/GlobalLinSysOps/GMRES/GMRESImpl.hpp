@@ -124,8 +124,45 @@ public:
         }
     }
 
-    void apply(Field<TData, FieldState::Coeff> &in,
-               Field<TData, FieldState::Coeff> &out) override
+    // className - for OperatorFactory
+    static std::string className;
+
+    // instantiation function for CreatorFunction in Operator Factory
+    static std::unique_ptr<Operator<TData>> instantiate(
+        const MultiRegions::ExpListSharedPtr &expansionList)
+    {
+        return std::make_unique<OperatorGMRESImpl<ExecSpace, TData>>(
+            expansionList);
+    }
+
+protected:
+    LibUtilities::CommSharedPtr m_rowComm = nullptr;
+
+    std::shared_ptr<OperatorAssmbScatr<TData>> m_assmbScatrOp;
+    std::shared_ptr<OperatorRobBndCond<TData>> m_robBndCondOp;
+
+    Field<TData, FieldState::Coeff> m_w;
+    Field<TData, FieldState::Coeff> m_wk;
+    Field<TData, FieldState::Coeff> m_r0;
+    Field<TData, FieldState::Coeff> m_solution;
+    Field<TData, FieldState::Coeff> m_V1;
+    std::vector<Field<TData, FieldState::Coeff>> m_Vtotal;
+    Array<OneD, Array<OneD, TData>> m_hes;
+    Array<OneD, Array<OneD, TData>> m_upper;
+
+    TData m_rhs_magnitude = NekConstants::kNekUnsetDouble;
+    TData m_prec_factor;
+    TData m_tol;
+    bool m_NekLinSysLeftPrecon;
+    bool m_NekLinSysRightPrecon;
+    bool m_GMRESCentralDifference;
+    size_t m_totalIterations;
+    size_t m_NekLinSysMaxIterations;
+    size_t m_LinSysMaxStorage;
+    size_t m_KrylovMaxHessMatBand;
+
+    void v_Apply(Field<TData, FieldState::Coeff> &in,
+                 Field<TData, FieldState::Coeff> &out) override
     {
         // Initialize precond factor.
         m_prec_factor = NekConstants::kNekUnsetDouble;
@@ -133,7 +170,7 @@ public:
         // Calculate rhs magnitude.
         if (m_rhs_magnitude == NekConstants::kNekUnsetDouble)
         {
-            m_assmbScatrOp->apply(in, m_wk);
+            m_assmbScatrOp->Apply(in, m_wk);
             ddot<ExecSpace>(in, m_wk, &m_rhs_magnitude);
             m_rowComm->AllReduce(m_rhs_magnitude,
                                  Nektar::LibUtilities::ReduceSum);
@@ -166,10 +203,10 @@ public:
             TData eps1;
 
             // Calculate difference in residual of solution.
-            this->m_lhs->apply(out, m_r0);
-            m_robBndCondOp->apply(out, m_r0);
+            this->m_lhs->Apply(out, m_r0);
+            m_robBndCondOp->Apply(out, m_r0);
             sub<ExecSpace>(in, m_r0, m_r0);
-            m_assmbScatrOp->apply(m_r0, m_wk, true);
+            m_assmbScatrOp->Apply(m_r0, m_wk, true);
             ddot<ExecSpace>(m_wk, m_r0, &eps1);
             m_rowComm->AllReduce(eps1, LibUtilities::ReduceSum);
 
@@ -226,8 +263,8 @@ public:
         if (restarted)
         {
             // This is A*x
-            this->m_lhs->apply(out, m_r0);
-            m_robBndCondOp->apply(out, m_r0);
+            this->m_lhs->Apply(out, m_r0);
+            m_robBndCondOp->Apply(out, m_r0);
 
             // This is r0 = b-A*x
             sub<ExecSpace>(in, m_r0, m_r0);
@@ -241,12 +278,12 @@ public:
         // Apply preconditioner.
         if (m_NekLinSysLeftPrecon)
         {
-            this->m_precon->apply(m_r0, m_r0);
+            this->m_precon->Apply(m_r0, m_r0);
         }
 
         // Norm of (r0)
         TData eps;
-        m_assmbScatrOp->apply(m_r0, m_wk, true);
+        m_assmbScatrOp->Apply(m_r0, m_wk, true);
         ddot<ExecSpace>(m_r0, m_wk, &eps);
         m_rowComm->AllReduce(eps, LibUtilities::ReduceSum);
 
@@ -256,7 +293,7 @@ public:
             {
                 if (m_NekLinSysLeftPrecon)
                 {
-                    m_assmbScatrOp->apply(in, m_wk, true);
+                    m_assmbScatrOp->Apply(in, m_wk, true);
                     ddot<ExecSpace>(in, m_wk, &m_prec_factor);
                     m_rowComm->AllReduce(m_prec_factor,
                                          LibUtilities::ReduceSum);
@@ -324,7 +361,7 @@ public:
             // Apply preconditioner.
             if (m_NekLinSysRightPrecon)
             {
-                this->m_precon->apply(m_Vtotal[nd], V1);
+                this->m_precon->Apply(m_Vtotal[nd], V1);
             }
 
             auto idtem    = id[nd];
@@ -372,7 +409,7 @@ public:
         // Apply preconditioner.
         if (m_NekLinSysRightPrecon)
         {
-            this->m_precon->apply(m_solution, m_solution);
+            this->m_precon->Apply(m_solution, m_solution);
         }
 
         // Update output.
@@ -389,13 +426,13 @@ public:
                    Field<TData, FieldState::Coeff> &V2, Array<OneD, TData> &h)
     {
         // Apply lhs.
-        this->m_lhs->apply(V1, w);
-        m_robBndCondOp->apply(V1, w);
+        this->m_lhs->Apply(V1, w);
+        m_robBndCondOp->Apply(V1, w);
 
         // Apply preconditioner.
         if (m_NekLinSysLeftPrecon)
         {
-            this->m_precon->apply(w, w);
+            this->m_precon->Apply(w, w);
         }
 
         mul<ExecSpace>(std::sqrt(m_prec_factor), w, w);
@@ -403,14 +440,14 @@ public:
         // Modified Gram-Schmidt.
         for (int i = starttem; i < endtem; ++i)
         {
-            m_assmbScatrOp->apply(m_Vtotal[i], wk, true);
+            m_assmbScatrOp->Apply(m_Vtotal[i], wk, true);
             ddot<ExecSpace>(w, wk, &h[i]);
             m_rowComm->AllReduce(h[i], LibUtilities::ReduceSum);
             daxpy<ExecSpace>(-1.0 * h[i], m_Vtotal[i], w, w);
         }
 
         // Calculate the L2 norm and normalize.
-        m_assmbScatrOp->apply(w, wk, true);
+        m_assmbScatrOp->Apply(w, wk, true);
         ddot<ExecSpace>(w, wk, &h[endtem]);
         m_rowComm->AllReduce(h[endtem], LibUtilities::ReduceSum);
         h[endtem] = std::sqrt(h[endtem]);
@@ -480,43 +517,6 @@ public:
             y[i] = sum / A[i][i];
         }
     }
-
-    // className - for OperatorFactory
-    static std::string className;
-
-    // instantiation function for CreatorFunction in Operator Factory
-    static std::unique_ptr<Operator<TData>> instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-    {
-        return std::make_unique<OperatorGMRESImpl<ExecSpace, TData>>(
-            expansionList);
-    }
-
-protected:
-    LibUtilities::CommSharedPtr m_rowComm = nullptr;
-
-    std::shared_ptr<OperatorAssmbScatr<TData>> m_assmbScatrOp;
-    std::shared_ptr<OperatorRobBndCond<TData>> m_robBndCondOp;
-
-    Field<TData, FieldState::Coeff> m_w;
-    Field<TData, FieldState::Coeff> m_wk;
-    Field<TData, FieldState::Coeff> m_r0;
-    Field<TData, FieldState::Coeff> m_solution;
-    Field<TData, FieldState::Coeff> m_V1;
-    std::vector<Field<TData, FieldState::Coeff>> m_Vtotal;
-    Array<OneD, Array<OneD, TData>> m_hes;
-    Array<OneD, Array<OneD, TData>> m_upper;
-
-    TData m_rhs_magnitude = NekConstants::kNekUnsetDouble;
-    TData m_prec_factor;
-    TData m_tol;
-    bool m_NekLinSysLeftPrecon;
-    bool m_NekLinSysRightPrecon;
-    bool m_GMRESCentralDifference;
-    size_t m_totalIterations;
-    size_t m_NekLinSysMaxIterations;
-    size_t m_LinSysMaxStorage;
-    size_t m_KrylovMaxHessMatBand;
 };
 
 } // namespace Nektar::Operators::detail

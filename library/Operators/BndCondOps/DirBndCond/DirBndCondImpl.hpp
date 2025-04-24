@@ -315,7 +315,35 @@ public:
         }
     }
 
-    void apply(Field<TData, FieldState::Coeff> &inout) override
+    // className - for OperatorFactory
+    static std::string className;
+
+    // instantiation function for CreatorFunction in OperatorFactory
+    static std::unique_ptr<Operator<TData>> instantiate(
+        const MultiRegions::ExpListSharedPtr &expansionList)
+    {
+        return std::make_unique<OperatorDirBndCondImpl<ExecSpace, TData>>(
+            expansionList);
+    }
+
+protected:
+    std::vector<MemoryRegion<int>> m_map;
+    std::vector<MemoryRegion<TData>> m_sign;
+    std::vector<MemoryRegion<TData>> m_bndCoeff;
+    std::vector<unsigned int> m_nBndCoeffBlock;
+    std::vector<MemoryRegion<int>> m_parDirBndSign;
+    std::vector<unsigned int> m_nParDirBndSignBlock;
+    std::vector<std::vector<MemoryRegion<int>>> m_locid0;
+    std::vector<std::vector<MemoryRegion<int>>> m_locid1;
+    std::vector<std::vector<MemoryRegion<TData>>> m_locsign;
+    std::vector<std::vector<unsigned int>> m_nLocCoeffBlock;
+
+    unsigned int m_nBndCoeff          = 0;
+    unsigned int m_nParDirBndSignSize = 0;
+    unsigned int m_localDirSize       = 0;
+    bool m_signChange;
+
+    void v_Apply(Field<TData, FieldState::Coeff> &inout) override
     {
         // Return if no Dirichlet boundary condition.
         if (m_nBndCoeff == 0)
@@ -447,34 +475,6 @@ public:
             }
         }
     }
-
-    // className - for OperatorFactory
-    static std::string className;
-
-    // instantiation function for CreatorFunction in OperatorFactory
-    static std::unique_ptr<Operator<TData>> instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-    {
-        return std::make_unique<OperatorDirBndCondImpl<ExecSpace, TData>>(
-            expansionList);
-    }
-
-protected:
-    std::vector<MemoryRegion<int>> m_map;
-    std::vector<MemoryRegion<TData>> m_sign;
-    std::vector<MemoryRegion<TData>> m_bndCoeff;
-    std::vector<unsigned int> m_nBndCoeffBlock;
-    std::vector<MemoryRegion<int>> m_parDirBndSign;
-    std::vector<unsigned int> m_nParDirBndSignBlock;
-    std::vector<std::vector<MemoryRegion<int>>> m_locid0;
-    std::vector<std::vector<MemoryRegion<int>>> m_locid1;
-    std::vector<std::vector<MemoryRegion<TData>>> m_locsign;
-    std::vector<std::vector<unsigned int>> m_nLocCoeffBlock;
-
-    unsigned int m_nBndCoeff          = 0;
-    unsigned int m_nParDirBndSignSize = 0;
-    unsigned int m_localDirSize       = 0;
-    bool m_signChange;
 };
 
 } // namespace Nektar::Operators::detail

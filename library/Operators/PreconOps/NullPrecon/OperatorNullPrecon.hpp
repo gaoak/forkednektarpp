@@ -45,8 +45,6 @@ template <typename TData>
 class OperatorNullPrecon : public OperatorPrecon<TData>
 {
 public:
-    ~OperatorNullPrecon() override = default;
-
     static std::shared_ptr<OperatorNullPrecon<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &execStr = "")
@@ -64,10 +62,13 @@ public:
 
     static constexpr char name[] = "NullPrecon";
 
+protected:
     OperatorNullPrecon(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorPrecon<TData>(expansionList)
     {
     }
+
+    ~OperatorNullPrecon() override = default;
 };
 
 } // namespace Nektar::Operators

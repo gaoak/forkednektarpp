@@ -197,11 +197,31 @@ public:
             this->m_expansionList->GetTrace(), ExecSpace::name);
     }
 
-    void apply(Field<TData, FieldState::Phys> &in,
-               Field<TData, FieldState::Coeff> &out) override
+    // className - for OperatorFactory
+    static std::string className;
+
+    // instantiation function for CreatorFunction in OperatorFactory
+    static std::unique_ptr<Operator<TData>> instantiate(
+        const MultiRegions::ExpListSharedPtr &expansionList)
+    {
+        return std::make_unique<OperatorAddTraceIntegralImpl<ExecSpace, TData>>(
+            expansionList);
+    }
+
+protected:
+    std::shared_ptr<OperatorIProductWRTBase<TData>> m_IProductWRTBaseOp;
+    Field<TData, FieldState::Coeff> m_trace;
+    std::vector<std::vector<MemoryRegion<int>>> m_traceCoeffsToElmtMap;
+    std::vector<std::vector<MemoryRegion<int>>> m_traceCoeffsToElmtTrace;
+    std::vector<std::vector<MemoryRegion<int>>> m_traceCoeffsToElmtSign;
+    std::vector<std::vector<int>> m_nFwdBwdCoeffsBlock;
+    int m_nFwdBwdCoeffs;
+
+    void v_Apply(Field<TData, FieldState::Phys> &in,
+                 Field<TData, FieldState::Coeff> &out) override
     {
         // Step 1: Inner product for trace integral.
-        m_IProductWRTBaseOp->apply(in, m_trace);
+        m_IProductWRTBaseOp->Apply(in, m_trace);
 
         // Step 2: Map Trace to element.
         AddTraceIntegral(out);
@@ -247,26 +267,6 @@ public:
             }
         }
     }
-
-    // className - for OperatorFactory
-    static std::string className;
-
-    // instantiation function for CreatorFunction in OperatorFactory
-    static std::unique_ptr<Operator<TData>> instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-    {
-        return std::make_unique<OperatorAddTraceIntegralImpl<ExecSpace, TData>>(
-            expansionList);
-    }
-
-private:
-    std::shared_ptr<OperatorIProductWRTBase<TData>> m_IProductWRTBaseOp;
-    Field<TData, FieldState::Coeff> m_trace;
-    std::vector<std::vector<MemoryRegion<int>>> m_traceCoeffsToElmtMap;
-    std::vector<std::vector<MemoryRegion<int>>> m_traceCoeffsToElmtTrace;
-    std::vector<std::vector<MemoryRegion<int>>> m_traceCoeffsToElmtSign;
-    std::vector<std::vector<int>> m_nFwdBwdCoeffsBlock;
-    int m_nFwdBwdCoeffs;
 };
 
 } // namespace Nektar::Operators::detail

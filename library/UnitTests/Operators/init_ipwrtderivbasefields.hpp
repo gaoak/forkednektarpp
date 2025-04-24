@@ -85,7 +85,7 @@ public:
     {
         auto IProductWRTDerivBaseOp =
             OperatorIProductWRTDerivBase<double>::Create(fixt_explist);
-        IProductWRTDerivBaseOp->apply(*fixt_in, *fixt_out);
+        IProductWRTDerivBaseOp->Apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution()

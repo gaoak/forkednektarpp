@@ -45,13 +45,6 @@ template <typename TData>
 class OperatorConjGrad : public OperatorLinearSolver<TData>
 {
 public:
-    OperatorConjGrad(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorLinearSolver<TData>(expansionList)
-    {
-    }
-
-    ~OperatorConjGrad() override = default;
-
     static std::shared_ptr<OperatorConjGrad<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &execStr = "")
@@ -68,6 +61,14 @@ public:
     }
 
     static constexpr char name[] = "ConjGrad";
+
+protected:
+    OperatorConjGrad(const MultiRegions::ExpListSharedPtr &expansionList)
+        : OperatorLinearSolver<TData>(expansionList)
+    {
+    }
+
+    ~OperatorConjGrad() override = default;
 };
 
 } // namespace Nektar::Operators

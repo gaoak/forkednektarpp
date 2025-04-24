@@ -45,13 +45,6 @@ template <typename TData>
 class OperatorGMRES : public OperatorLinearSolver<TData>
 {
 public:
-    OperatorGMRES(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorLinearSolver<TData>(expansionList)
-    {
-    }
-
-    ~OperatorGMRES() override = default;
-
     static std::shared_ptr<OperatorGMRES<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &execStr = "")
@@ -68,6 +61,14 @@ public:
     }
 
     static constexpr char name[] = "GMRES";
+
+protected:
+    OperatorGMRES(const MultiRegions::ExpListSharedPtr &expansionList)
+        : OperatorLinearSolver<TData>(expansionList)
+    {
+    }
+
+    ~OperatorGMRES() override = default;
 };
 
 } // namespace Nektar::Operators

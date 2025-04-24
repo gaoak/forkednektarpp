@@ -60,32 +60,6 @@ public:
             Implementation::name);
     }
 
-    void apply(BlockAccessor<TData> &inblock,
-               BlockAccessor<TData> &outblock) override
-    {
-        unsigned int CompSize = inblock.GetNumComponents();
-
-        // Initialise bwd storage space if not for correct number of components.
-        unsigned int size = inblock.GetNumElementsWithPadding() *
-                            this->m_exp->GetTotPoints() * CompSize;
-        if (this->m_bwd.size() != size)
-        {
-            this->m_bwd = MemoryRegion<TData>::Create("Mass bwd", size,
-                                                      ExecSpace::alignment);
-        }
-
-        auto bwd = BlockAccessor(inblock.GetExpIdx(), inblock.GetNumElements(),
-                                 inblock.GetNumElementsWithPadding(),
-                                 this->m_exp->GetTotPoints(), 1, this->m_bwd,
-                                 CompSize, 0);
-
-        // Step 1: BwdTrans.
-        this->m_BwdTransOp->apply(inblock, bwd);
-
-        // Step 2: Inner product for mass matrix operation.
-        this->m_IProductWRTBaseOp->apply(bwd, outblock);
-    }
-
     // className - for BlockOperatorFactory
     static std::string className;
 
@@ -104,6 +78,32 @@ protected:
 
     std::shared_ptr<BlockOperatorBwdTrans<TData>> m_BwdTransOp;
     std::shared_ptr<BlockOperatorIProductWRTBase<TData>> m_IProductWRTBaseOp;
+
+    void v_Apply(BlockAccessor<TData> &inblock,
+                 BlockAccessor<TData> &outblock) override
+    {
+        unsigned int CompSize = inblock.GetNumComponents();
+
+        // Initialise bwd storage space if not for correct number of components.
+        unsigned int size = inblock.GetNumElementsWithPadding() *
+                            this->m_exp->GetTotPoints() * CompSize;
+        if (this->m_bwd.size() != size)
+        {
+            this->m_bwd = MemoryRegion<TData>::Create("Mass bwd", size,
+                                                      ExecSpace::alignment);
+        }
+
+        auto bwd = BlockAccessor(inblock.GetExpIdx(), inblock.GetNumElements(),
+                                 inblock.GetNumElementsWithPadding(),
+                                 this->m_exp->GetTotPoints(), 1, this->m_bwd,
+                                 CompSize, 0);
+
+        // Step 1: BwdTrans.
+        this->m_BwdTransOp->Apply(inblock, bwd);
+
+        // Step 2: Inner product for mass matrix operation.
+        this->m_IProductWRTBaseOp->Apply(bwd, outblock);
+    }
 };
 
 } // namespace Nektar::Operators::detail

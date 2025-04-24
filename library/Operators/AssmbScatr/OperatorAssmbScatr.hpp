@@ -44,13 +44,6 @@ namespace Nektar::Operators
 template <typename TData> class OperatorAssmbScatr : public Operator<TData>
 {
 public:
-    OperatorAssmbScatr(const MultiRegions::ExpListSharedPtr &expansionList)
-        : Operator<TData>(expansionList)
-    {
-    }
-
-    ~OperatorAssmbScatr() override = default;
-
     static std::shared_ptr<OperatorAssmbScatr<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &execStr = "")
@@ -68,22 +61,50 @@ public:
 
     static constexpr char name[] = "AssmbScatr";
 
-    virtual void apply(Field<TData, FieldState::Coeff> &in,
-                       Field<TData, FieldState::Coeff> &out,
-                       const bool &zeroDir = false) = 0;
-
-    void operator()(Field<TData, FieldState::Coeff> &in,
-                    Field<TData, FieldState::Coeff> &out, const bool &zeroDir)
+    void Apply(Field<TData, FieldState::Coeff> &in,
+               Field<TData, FieldState::Coeff> &out,
+               const bool &zeroDir = false)
     {
-        apply(in, out, zeroDir);
+        v_Apply(in, out, zeroDir);
     }
 
-    virtual void Assemble(Field<TData, FieldState::Coeff> &in,
-                          MemoryRegion<TData> &out,
-                          const bool &signChange = true) = 0;
+    void operator()(Field<TData, FieldState::Coeff> &in,
+                    Field<TData, FieldState::Coeff> &out,
+                    const bool &zeroDir = false)
+    {
+        v_Apply(in, out, zeroDir);
+    }
 
-    virtual void GlobalToLocal(MemoryRegion<TData> &in,
-                               Field<TData, FieldState::Coeff> &out) = 0;
+    void Assemble(Field<TData, FieldState::Coeff> &in, MemoryRegion<TData> &out,
+                  const bool &signChange = true)
+    {
+        v_Assemble(in, out, signChange);
+    }
+
+    void GlobalToLocal(MemoryRegion<TData> &in,
+                       Field<TData, FieldState::Coeff> &out)
+    {
+        v_GlobalToLocal(in, out);
+    }
+
+protected:
+    OperatorAssmbScatr(const MultiRegions::ExpListSharedPtr &expansionList)
+        : Operator<TData>(expansionList)
+    {
+    }
+
+    ~OperatorAssmbScatr() override = default;
+
+    virtual void v_Apply(Field<TData, FieldState::Coeff> &in,
+                         Field<TData, FieldState::Coeff> &out,
+                         const bool &zeroDir = false) = 0;
+
+    virtual void v_Assemble(Field<TData, FieldState::Coeff> &in,
+                            MemoryRegion<TData> &out,
+                            const bool &signChange = true) = 0;
+
+    virtual void v_GlobalToLocal(MemoryRegion<TData> &in,
+                                 Field<TData, FieldState::Coeff> &out) = 0;
 };
 
 } // namespace Nektar::Operators

@@ -56,18 +56,6 @@ public:
             this->m_expansionList, ExecSpace::name);
     }
 
-    void apply(Field<TData, FieldState::Coeff> &in,
-               Field<TData, FieldState::Coeff> &out) override
-    {
-        m_assmbScatrOp->apply(in, out, true);
-    }
-
-    void configure([[maybe_unused]] const std::shared_ptr<
-                   OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>>
-                       &op) override
-    {
-    }
-
     // className - for OperatorFactory
     static std::string className;
 
@@ -81,6 +69,18 @@ public:
 
 protected:
     std::shared_ptr<OperatorAssmbScatr<TData>> m_assmbScatrOp;
+
+    void v_Apply(Field<TData, FieldState::Coeff> &in,
+                 Field<TData, FieldState::Coeff> &out) override
+    {
+        m_assmbScatrOp->Apply(in, out, true);
+    }
+
+    void v_Configure([[maybe_unused]] const std::shared_ptr<
+                     OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>>
+                         &op) override
+    {
+    }
 };
 
 } // namespace Nektar::Operators::detail

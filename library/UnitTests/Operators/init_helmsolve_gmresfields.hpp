@@ -129,10 +129,10 @@ public:
         auto HelmSolveOp  = OperatorHelmSolve<double>::Create(fixt_explist);
         auto DiagPreconOp = OperatorDiagPrecon<double>::Create(fixt_explist);
         auto GMRESOp      = OperatorGMRES<double>::Create(fixt_explist);
-        HelmSolveOp->setLinearSolver(GMRESOp);
-        HelmSolveOp->setPrecon(DiagPreconOp);
+        HelmSolveOp->SetLinearSolver(GMRESOp);
+        HelmSolveOp->SetPrecon(DiagPreconOp);
         HelmSolveOp->SetLambda(1.0);
-        HelmSolveOp->apply(*fixt_in, *fixt_out);
+        HelmSolveOp->Apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution()

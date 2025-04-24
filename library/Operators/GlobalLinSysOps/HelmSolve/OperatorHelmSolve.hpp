@@ -45,13 +45,6 @@ namespace Nektar::Operators
 template <typename TData> class OperatorHelmSolve : public Operator<TData>
 {
 public:
-    OperatorHelmSolve(const MultiRegions::ExpListSharedPtr &expansionList)
-        : Operator<TData>(expansionList)
-    {
-    }
-
-    ~OperatorHelmSolve() override = default;
-
     static std::shared_ptr<OperatorHelmSolve<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &execStr = "")
@@ -69,20 +62,51 @@ public:
 
     static constexpr char name[] = "HelmSolve";
 
-    virtual void apply(Field<TData, FieldState::Phys> &in,
-                       Field<TData, FieldState::Coeff> &out) = 0;
+    void Apply(Field<TData, FieldState::Phys> &in,
+               Field<TData, FieldState::Coeff> &out)
+    {
+        v_Apply(in, out);
+    }
 
     void operator()(Field<TData, FieldState::Phys> &in,
                     Field<TData, FieldState::Coeff> &out)
     {
-        apply(in, out);
+        v_Apply(in, out);
     }
 
-    virtual void SetLambda(const TData &lambda) = 0;
+    void SetLambda(const TData &lambda)
+    {
+        v_SetLambda(lambda);
+    }
 
-    virtual void setLinearSolver(
+    void SetLinearSolver(
+        const std::shared_ptr<OperatorLinearSolver<TData>> &linsolve)
+    {
+        v_SetLinearSolver(linsolve);
+    }
+
+    void SetPrecon(const std::shared_ptr<OperatorPrecon<TData>> &precon)
+    {
+        v_SetPrecon(precon);
+    }
+
+protected:
+    OperatorHelmSolve(const MultiRegions::ExpListSharedPtr &expansionList)
+        : Operator<TData>(expansionList)
+    {
+    }
+
+    ~OperatorHelmSolve() override = default;
+
+    virtual void v_Apply(Field<TData, FieldState::Phys> &in,
+                         Field<TData, FieldState::Coeff> &out) = 0;
+
+    virtual void v_SetLambda(const TData &lambda) = 0;
+
+    virtual void v_SetLinearSolver(
         const std::shared_ptr<OperatorLinearSolver<TData>> &linsolve) = 0;
-    virtual void setPrecon(
+
+    virtual void v_SetPrecon(
         const std::shared_ptr<OperatorPrecon<TData>> &precon) = 0;
 };
 

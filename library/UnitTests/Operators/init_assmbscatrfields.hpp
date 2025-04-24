@@ -77,7 +77,7 @@ public:
     void RunTestCase()
     {
         auto AssmbScatrOp = OperatorAssmbScatr<double>::Create(fixt_explist);
-        AssmbScatrOp->apply(*fixt_in, *fixt_out);
+        AssmbScatrOp->Apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution()

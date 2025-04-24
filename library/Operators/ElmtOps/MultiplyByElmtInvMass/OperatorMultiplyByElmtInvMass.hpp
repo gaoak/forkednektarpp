@@ -43,15 +43,6 @@ template <typename TData>
 class BlockOperatorMultiplyByElmtInvMass : public BlockOperator<TData>
 {
 public:
-    BlockOperatorMultiplyByElmtInvMass(
-        const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse)
-        : BlockOperator<TData>(exp, dataWarehouse)
-    {
-    }
-
-    ~BlockOperatorMultiplyByElmtInvMass() override = default;
-
     static std::shared_ptr<BlockOperatorMultiplyByElmtInvMass<TData>> Create(
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
@@ -64,13 +55,15 @@ public:
 
     static constexpr char name[] = "BlockMultiplyByElmtInvMass";
 
-    virtual void apply(BlockAccessor<TData> &inblock,
-                       BlockAccessor<TData> &outblock) = 0;
+    void Apply(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
+    {
+        this->v_Apply(inblock, outblock);
+    }
 
     void operator()(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        this->apply(inblock, outblock);
+        this->v_Apply(inblock, outblock);
     }
 
     void SetInvMassMatrix(std::vector<TData> &dmat)
@@ -79,6 +72,18 @@ public:
     }
 
 protected:
+    BlockOperatorMultiplyByElmtInvMass(
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse)
+        : BlockOperator<TData>(exp, dataWarehouse)
+    {
+    }
+
+    ~BlockOperatorMultiplyByElmtInvMass() override = default;
+
+    virtual void v_Apply(BlockAccessor<TData> &inblock,
+                         BlockAccessor<TData> &outblock) = 0;
+
     virtual void v_SetInvMassMatrix(std::vector<TData> &dmat) = 0;
 };
 
@@ -89,15 +94,6 @@ class OperatorMultiplyByElmtInvMass
     : public OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>
 {
 public:
-    OperatorMultiplyByElmtInvMass(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>(
-              expansionList)
-    {
-    }
-
-    ~OperatorMultiplyByElmtInvMass() override = default;
-
     static std::shared_ptr<OperatorMultiplyByElmtInvMass<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &execStr = "", const std::string &implStr = "")
@@ -158,8 +154,21 @@ public:
 
     static constexpr char name[] = "MultiplyByElmtInvMass";
 
-    void apply(Field<TData, FieldState::Coeff> &in,
-               Field<TData, FieldState::Coeff> &out) override
+protected:
+    std::vector<std::shared_ptr<BlockOperatorMultiplyByElmtInvMass<TData>>>
+        m_blockOperator;
+
+    OperatorMultiplyByElmtInvMass(
+        const MultiRegions::ExpListSharedPtr &expansionList)
+        : OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>(
+              expansionList)
+    {
+    }
+
+    ~OperatorMultiplyByElmtInvMass() override = default;
+
+    void v_Apply(Field<TData, FieldState::Coeff> &in,
+                 Field<TData, FieldState::Coeff> &out) override
     {
         ASSERTL1(in.GetNumComponents() == out.GetNumComponents(),
                  "Number of input and output components differ");
@@ -171,19 +180,9 @@ public:
             auto &inblock  = in.GetBlocks()[blk];
             auto &outblock = out.GetBlocks()[blk];
 
-            this->m_blockOperator[blk]->apply(inblock, outblock);
+            this->m_blockOperator[blk]->Apply(inblock, outblock);
         }
     }
-
-    void operator()(Field<TData, FieldState::Coeff> &in,
-                    Field<TData, FieldState::Coeff> &out)
-    {
-        this->apply(in, out);
-    }
-
-protected:
-    std::vector<std::shared_ptr<BlockOperatorMultiplyByElmtInvMass<TData>>>
-        m_blockOperator;
 };
 
 } // namespace Nektar::Operators

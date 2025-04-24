@@ -81,8 +81,8 @@ public:
         auto HelmholtzOp  = OperatorHelmholtz<double>::Create(fixt_explist);
         auto DiagPreconOp = OperatorDiagPrecon<double>::Create(fixt_explist);
         HelmholtzOp->SetLambda(1.0);
-        DiagPreconOp->configure(HelmholtzOp);
-        DiagPreconOp->apply(*fixt_in, *fixt_out);
+        DiagPreconOp->Configure(HelmholtzOp);
+        DiagPreconOp->Apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution()
