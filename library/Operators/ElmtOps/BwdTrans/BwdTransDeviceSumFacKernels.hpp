@@ -111,8 +111,8 @@ inline unsigned int BwdTransSharedMemorySize(
     {
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
-            return nq0 * nm0 + nq1 * nm1 + nq2 * nm2 + nq0 * nm0 + nq1 * nm1 +
-                   nq2 * nm2 + nmTot + (nq0 * nm1 * nm2) + (nq0 * nq1 * nm2);
+            return nq0 * nm0 + nq1 * nm1 + nq2 * nm2 + nmTot +
+                   (nq0 * nm1 * nm2) + (nq0 * nq1 * nm2);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
                            SHAPE_TYPE == LibUtilities::NodalTet)

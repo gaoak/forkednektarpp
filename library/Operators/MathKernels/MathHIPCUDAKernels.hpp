@@ -1110,9 +1110,9 @@ reduceSumKernel(const unsigned int nsize, const TData *x, TData *out)
 
     TData *buffer = (TData *)hipcudaBuffer;
     TData *d_out  = buffer + gridSize;
-    reduceSumKernel<TData><<<gridSize, blockSize>>>(nsize, x, buffer);
+    reduceSumKernel<<<gridSize, blockSize>>>(nsize, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<TData><<<1, gridSize>>>(gridSize, buffer, d_out);
+    reduceSumKernel<<<1, gridSize>>>(gridSize, buffer, d_out);
     CHECK_LAST_HIPCUDA_ERROR();
 #if defined(NEKTAR_ENABLE_CUDA)
     CHECK_HIPCUDA_ERROR(
@@ -1143,9 +1143,9 @@ reduceMaxKernel(const unsigned int nsize, const TData *x, TData *out)
 
     TData *buffer = (TData *)hipcudaBuffer;
     TData *d_out  = buffer + gridSize;
-    reduceMaxKernel<TData><<<gridSize, blockSize>>>(nsize, x, buffer);
+    reduceMaxKernel<<<gridSize, blockSize>>>(nsize, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceMaxKernel<TData><<<1, gridSize>>>(gridSize, buffer, d_out);
+    reduceMaxKernel<<<1, gridSize>>>(gridSize, buffer, d_out);
     CHECK_LAST_HIPCUDA_ERROR();
 #if defined(NEKTAR_ENABLE_CUDA)
     CHECK_HIPCUDA_ERROR(
@@ -1176,9 +1176,9 @@ reduceMinKernel(const unsigned int nsize, const TData *x, TData *out)
 
     TData *buffer = (TData *)hipcudaBuffer;
     TData *d_out  = buffer + gridSize;
-    reduceMinKernel<TData><<<gridSize, blockSize>>>(nsize, x, buffer);
+    reduceMinKernel<<<gridSize, blockSize>>>(nsize, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceMinKernel<TData><<<1, gridSize>>>(gridSize, buffer, d_out);
+    reduceMinKernel<<<1, gridSize>>>(gridSize, buffer, d_out);
     CHECK_LAST_HIPCUDA_ERROR();
 #if defined(NEKTAR_ENABLE_CUDA)
     CHECK_HIPCUDA_ERROR(
@@ -1209,9 +1209,9 @@ ddotKernel(const unsigned int nsize, const TData *x, const TData *y, TData *out)
 
     TData *buffer = (TData *)hipcudaBuffer;
     TData *d_out  = buffer + gridSize;
-    ddotKernel<TData><<<gridSize, blockSize>>>(nsize, x, y, buffer);
+    ddotKernel<<<gridSize, blockSize>>>(nsize, x, y, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<TData><<<1, gridSize>>>(gridSize, buffer, d_out);
+    reduceSumKernel<<<1, gridSize>>>(gridSize, buffer, d_out);
     CHECK_LAST_HIPCUDA_ERROR();
 #if defined(NEKTAR_ENABLE_CUDA)
     CHECK_HIPCUDA_ERROR(
@@ -1242,9 +1242,9 @@ l1normKernel(const unsigned int nsize, const TData *x, TData *out)
 
     TData *buffer = (TData *)hipcudaBuffer;
     TData *d_out  = buffer + gridSize;
-    l1normKernel<TData><<<gridSize, blockSize>>>(nsize, x, buffer);
+    l1normKernel<<<gridSize, blockSize>>>(nsize, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<TData><<<1, gridSize>>>(gridSize, buffer, d_out);
+    reduceSumKernel<<<1, gridSize>>>(gridSize, buffer, d_out);
     CHECK_LAST_HIPCUDA_ERROR();
 #if defined(NEKTAR_ENABLE_CUDA)
     CHECK_HIPCUDA_ERROR(
@@ -1275,9 +1275,9 @@ l2normKernel(const unsigned int nsize, const TData *x, TData *out)
 
     TData *buffer = (TData *)hipcudaBuffer;
     TData *d_out  = buffer + gridSize;
-    l2normKernel<TData><<<gridSize, blockSize>>>(nsize, x, buffer);
+    l2normKernel<<<gridSize, blockSize>>>(nsize, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<TData><<<1, gridSize>>>(gridSize, buffer, d_out);
+    reduceSumKernel<<<1, gridSize>>>(gridSize, buffer, d_out);
     CHECK_LAST_HIPCUDA_ERROR();
 #if defined(NEKTAR_ENABLE_CUDA)
     CHECK_HIPCUDA_ERROR(
@@ -1309,9 +1309,9 @@ lpnormKernel(const unsigned int nsize, const unsigned int p, const TData *x,
 
     TData *buffer = (TData *)hipcudaBuffer;
     TData *d_out  = buffer + gridSize;
-    lpnormKernel<TData><<<gridSize, blockSize>>>(nsize, p, x, buffer);
+    lpnormKernel<<<gridSize, blockSize>>>(nsize, p, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<TData><<<1, gridSize>>>(gridSize, buffer, d_out);
+    reduceSumKernel<<<1, gridSize>>>(gridSize, buffer, d_out);
     CHECK_LAST_HIPCUDA_ERROR();
 #if defined(NEKTAR_ENABLE_CUDA)
     CHECK_HIPCUDA_ERROR(
@@ -1342,9 +1342,9 @@ linfnormKernel(const unsigned int nsize, const TData *x, TData *out)
 
     TData *buffer = (TData *)hipcudaBuffer;
     TData *d_out  = buffer + gridSize;
-    linfnormKernel<TData><<<gridSize, blockSize>>>(nsize, x, buffer);
+    linfnormKernel<<<gridSize, blockSize>>>(nsize, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceMaxKernel<TData><<<1, gridSize>>>(gridSize, buffer, d_out);
+    reduceMaxKernel<<<1, gridSize>>>(gridSize, buffer, d_out);
     CHECK_LAST_HIPCUDA_ERROR();
 #if defined(NEKTAR_ENABLE_CUDA)
     CHECK_HIPCUDA_ERROR(

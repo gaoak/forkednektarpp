@@ -36,8 +36,6 @@
 
 #include "Operators/AddTraceIntegral/OperatorAddTraceIntegral.hpp"
 
-#include "Operators/ElmtOps/IProductWRTBase/OperatorIProductWRTBase.hpp"
-
 #include "Operators/AddTraceIntegral/AddTraceIntegralDeviceKernels.hpp"
 #include "Operators/AddTraceIntegral/AddTraceIntegralSerialAVXKernels.hpp"
 
@@ -201,7 +199,7 @@ public:
     static std::string className;
 
     // instantiation function for CreatorFunction in OperatorFactory
-    static std::unique_ptr<Operator<TData>> instantiate(
+    static std::unique_ptr<Operator<TData>> Instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
         return std::make_unique<OperatorAddTraceIntegralImpl<ExecSpace, TData>>(

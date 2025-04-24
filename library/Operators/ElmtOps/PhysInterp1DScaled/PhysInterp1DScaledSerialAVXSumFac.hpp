@@ -75,48 +75,11 @@ public:
         }
     }
 
-    void v_SetScaleFactor(TData scale) override
-    {
-        this->m_scale = scale;
-        m_nq.clear();
-        for (unsigned int d = 0; d < m_dimension; d++)
-        {
-            // Fetch element size.
-            if (d == 0)
-            {
-                m_nq.push_back(this->m_scale * m_nm[0]);
-            }
-            else if (d == 1)
-            {
-                // if delta between nm0 and nm1 is 1 then keep this delta
-                // for new poitns to capitalise on switch templating
-                const auto nq1 =
-                    (m_nm[0] - m_nm[1] == 1)
-                        ? (unsigned int)(this->m_scale * m_nm[0]) - 1
-                        : (unsigned int)(this->m_scale * m_nm[1]);
-                m_nq.push_back(nq1);
-            }
-            else if (d == 2)
-            {
-                const auto nq2 =
-                    (m_nm[0] - m_nm[2] == 1)
-                        ? (unsigned int)(this->m_scale * m_nm[0]) - 1
-                        : (unsigned int)(this->m_scale * m_nm[2]);
-                m_nq.push_back(nq2);
-            }
-
-            // Fetch basis data.
-            m_B.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
-                BasisDataKey<simd_t>(this->m_exp->GetBasis(d)->GetBasisKey(),
-                                     eInterp, m_nq[d])));
-        }
-    }
-
     // className - for BlockOperatorFactory
     static std::string className;
 
     // Instantiation function for CreatorFunction in BlockOperatorFactory.
-    static std::unique_ptr<BlockOperator<TData>> instantiate(
+    static std::unique_ptr<BlockOperator<TData>> Instantiate(
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse)
     {
@@ -214,6 +177,43 @@ protected:
             }
             default:
                 std::cout << "shapetype not implemented" << std::endl;
+        }
+    }
+
+    void v_SetScaleFactor(TData scale) override
+    {
+        this->m_scale = scale;
+        m_nq.clear();
+        for (unsigned int d = 0; d < m_dimension; d++)
+        {
+            // Fetch element size.
+            if (d == 0)
+            {
+                m_nq.push_back(this->m_scale * m_nm[0]);
+            }
+            else if (d == 1)
+            {
+                // if delta between nm0 and nm1 is 1 then keep this delta
+                // for new poitns to capitalise on switch templating
+                const auto nq1 =
+                    (m_nm[0] - m_nm[1] == 1)
+                        ? (unsigned int)(this->m_scale * m_nm[0]) - 1
+                        : (unsigned int)(this->m_scale * m_nm[1]);
+                m_nq.push_back(nq1);
+            }
+            else if (d == 2)
+            {
+                const auto nq2 =
+                    (m_nm[0] - m_nm[2] == 1)
+                        ? (unsigned int)(this->m_scale * m_nm[0]) - 1
+                        : (unsigned int)(this->m_scale * m_nm[2]);
+                m_nq.push_back(nq2);
+            }
+
+            // Fetch basis data.
+            m_B.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<simd_t>(this->m_exp->GetBasis(d)->GetBasisKey(),
+                                     eInterp, m_nq[d])));
         }
     }
 

@@ -665,8 +665,8 @@ reduceSumKernel(const unsigned int nsize, const TData *x, TData *out)
 
     TData *buffer = (TData *)syclBuffer;
     TData *d_out  = buffer + gridSize;
-    reduceSumKernel<TData>(gridSize, blockSize, nsize, x, buffer);
-    reduceSumKernel<TData>(1, gridSize, gridSize, buffer, d_out);
+    reduceSumKernel(gridSize, blockSize, nsize, x, buffer);
+    reduceSumKernel(1, gridSize, gridSize, buffer, d_out);
     SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
 }
 
@@ -686,8 +686,8 @@ reduceMaxKernel(const unsigned int nsize, const TData *x, TData *out)
 
     TData *buffer = (TData *)syclBuffer;
     TData *d_out  = buffer + gridSize;
-    reduceMaxKernel<TData>(gridSize, blockSize, nsize, x, buffer);
-    reduceMaxKernel<TData>(1, gridSize, gridSize, buffer, d_out);
+    reduceMaxKernel(gridSize, blockSize, nsize, x, buffer);
+    reduceMaxKernel(1, gridSize, gridSize, buffer, d_out);
     SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
 }
 
@@ -707,8 +707,8 @@ reduceMinKernel(const unsigned int nsize, const TData *x, TData *out)
 
     TData *buffer = (TData *)syclBuffer;
     TData *d_out  = buffer + gridSize;
-    reduceMinKernel<TData>(gridSize, blockSize, nsize, x, buffer);
-    reduceMinKernel<TData>(1, gridSize, gridSize, buffer, d_out);
+    reduceMinKernel(gridSize, blockSize, nsize, x, buffer);
+    reduceMinKernel(1, gridSize, gridSize, buffer, d_out);
     SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
 }
 
@@ -728,8 +728,8 @@ ddotKernel(const unsigned int nsize, const TData *x, const TData *y, TData *out)
 
     TData *buffer = (TData *)syclBuffer;
     TData *d_out  = buffer + gridSize;
-    ddotKernel<TData>(gridSize, blockSize, nsize, x, y, buffer);
-    reduceSumKernel<TData>(1, gridSize, gridSize, buffer, d_out);
+    ddotKernel(gridSize, blockSize, nsize, x, y, buffer);
+    reduceSumKernel(1, gridSize, gridSize, buffer, d_out);
     SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
 }
 
@@ -749,8 +749,8 @@ l1normKernel(const unsigned int nsize, const TData *x, TData *out)
 
     TData *buffer = (TData *)syclBuffer;
     TData *d_out  = buffer + gridSize;
-    l1normKernel<TData>(gridSize, blockSize, nsize, x, buffer);
-    reduceSumKernel<TData>(1, gridSize, gridSize, buffer, d_out);
+    l1normKernel(gridSize, blockSize, nsize, x, buffer);
+    reduceSumKernel(1, gridSize, gridSize, buffer, d_out);
     SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
 }
 
@@ -770,8 +770,8 @@ l2normKernel(const unsigned int nsize, const TData *x, TData *out)
 
     TData *buffer = (TData *)syclBuffer;
     TData *d_out  = buffer + gridSize;
-    l2normKernel<TData>(gridSize, blockSize, nsize, x, buffer);
-    reduceSumKernel<TData>(1, gridSize, gridSize, buffer, d_out);
+    l2normKernel(gridSize, blockSize, nsize, x, buffer);
+    reduceSumKernel(1, gridSize, gridSize, buffer, d_out);
     SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
 }
 
@@ -792,8 +792,8 @@ lpnormKernel(const unsigned int nsize, const unsigned int p, const TData *x,
 
     TData *buffer = (TData *)syclBuffer;
     TData *d_out  = buffer + gridSize;
-    lpnormKernel<TData>(gridSize, blockSize, nsize, p, x, buffer);
-    reduceSumKernel<TData>(1, gridSize, gridSize, buffer, d_out);
+    lpnormKernel(gridSize, blockSize, nsize, p, x, buffer);
+    reduceSumKernel(1, gridSize, gridSize, buffer, d_out);
     SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
 }
 
@@ -813,8 +813,8 @@ linfnormKernel(const unsigned int nsize, const TData *x, TData *out)
 
     TData *buffer = (TData *)syclBuffer;
     TData *d_out  = buffer + gridSize;
-    linfnormKernel<TData>(gridSize, blockSize, nsize, x, buffer);
-    reduceMaxKernel<TData>(1, gridSize, gridSize, buffer, d_out);
+    linfnormKernel(gridSize, blockSize, nsize, x, buffer);
+    reduceMaxKernel(1, gridSize, gridSize, buffer, d_out);
     SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
 }
 

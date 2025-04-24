@@ -36,6 +36,8 @@
 
 #include "Operators/Common/Operator.hpp"
 
+#include "Operators/ElmtOps/IProductWRTBase/OperatorIProductWRTBase.hpp"
+
 namespace Nektar::Operators
 {
 

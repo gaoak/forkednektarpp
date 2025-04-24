@@ -258,10 +258,9 @@ parallel_reduce(const unsigned int begin, const unsigned int end,
     TData *d_out  = (TData *)hipcudaBuffer + gridSize;
     if constexpr (std::is_same_v<Reduction, Nektar::ReduceSum<TData>>)
     {
-        reduceSumKernel<TData>
-            <<<gridSize, blockSize>>>(begin, end, buffer, functor);
+        reduceSumKernel<<<gridSize, blockSize>>>(begin, end, buffer, functor);
         CHECK_LAST_HIPCUDA_ERROR();
-        reduceSumKernel<TData><<<1, gridSize>>>(
+        reduceSumKernel<<<1, gridSize>>>(
             0, gridSize, out, [=] __device__(const unsigned int i, TData &ans) {
                 ans += buffer[i];
             });
@@ -269,10 +268,9 @@ parallel_reduce(const unsigned int begin, const unsigned int end,
     }
     else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMax<TData>>)
     {
-        reduceMaxKernel<TData>
-            <<<gridSize, blockSize>>>(begin, end, buffer, functor);
+        reduceMaxKernel<<<gridSize, blockSize>>>(begin, end, buffer, functor);
         CHECK_LAST_HIPCUDA_ERROR();
-        reduceMaxKernel<TData><<<1, gridSize>>>(
+        reduceMaxKernel<<<1, gridSize>>>(
             0, gridSize, out, [=] __device__(const unsigned int i, TData &ans) {
                 ans = max(ans, buffer[i]);
             });
@@ -280,10 +278,9 @@ parallel_reduce(const unsigned int begin, const unsigned int end,
     }
     else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMin<TData>>)
     {
-        reduceMinKernel<TData>
-            <<<gridSize, blockSize>>>(begin, end, buffer, functor);
+        reduceMinKernel<<<gridSize, blockSize>>>(begin, end, buffer, functor);
         CHECK_LAST_HIPCUDA_ERROR();
-        reduceMinKernel<TData><<<1, gridSize>>>(
+        reduceMinKernel<<<1, gridSize>>>(
             0, gridSize, out, [=] __device__(const unsigned int i, TData &ans) {
                 ans = min(ans, buffer[i]);
             });
