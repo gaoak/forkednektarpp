@@ -1944,6 +1944,49 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                     returnval.push_back(bkey);
                 }
                 break;
+                case LibUtilities::eHexahedron:
+                {
+                    const LibUtilities::PointsKey pkey(
+                        nummodes + 1, LibUtilities::eGaussLobattoLegendre);
+                    LibUtilities::BasisKey bkey(LibUtilities::eOrtho_A,
+                                                nummodes, pkey);
+                    returnval.push_back(bkey);
+                    returnval.push_back(bkey);
+                    returnval.push_back(bkey);
+                }
+                break;
+                case LibUtilities::ePyramid:
+                {
+                    const LibUtilities::PointsKey pkey(
+                        nummodes + 1, LibUtilities::eGaussLobattoLegendre);
+                    LibUtilities::BasisKey bkey(LibUtilities::eOrtho_A,
+                                                nummodes, pkey);
+                    returnval.push_back(bkey);
+                    returnval.push_back(bkey);
+
+                    const LibUtilities::PointsKey pkey1(
+                        nummodes, LibUtilities::eGaussRadauMAlpha2Beta0);
+                    LibUtilities::BasisKey bkey1(LibUtilities::eOrthoPyr_C,
+                                                 nummodes, pkey1);
+                    returnval.push_back(bkey1);
+                }
+                break;
+                case LibUtilities::ePrism:
+                {
+                    const LibUtilities::PointsKey pkey(
+                        nummodes + 1, LibUtilities::eGaussLobattoLegendre);
+                    LibUtilities::BasisKey bkey(LibUtilities::eOrtho_A,
+                                                nummodes, pkey);
+                    returnval.push_back(bkey);
+                    returnval.push_back(bkey);
+
+                    const LibUtilities::PointsKey pkey1(
+                        nummodes, LibUtilities::eGaussRadauMAlpha1Beta0);
+                    LibUtilities::BasisKey bkey1(LibUtilities::eOrtho_B,
+                                                 nummodes, pkey1);
+                    returnval.push_back(bkey1);
+                }
+                break;
                 case LibUtilities::eTetrahedron:
                 {
                     const LibUtilities::PointsKey pkey(
@@ -1964,6 +2007,8 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                         nummodes, LibUtilities::eGaussRadauMAlpha2Beta0);
                     LibUtilities::BasisKey bkey2(LibUtilities::eOrtho_C,
                                                  nummodes, pkey2);
+
+                    returnval.push_back(bkey2);
                 }
                 break;
                 default:
