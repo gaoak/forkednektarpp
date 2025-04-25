@@ -58,6 +58,10 @@ inline constexpr unsigned int PhysDerivSharedMemorySize(const unsigned int nq0,
             return nq0 + nq1;
         }
     }
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    {
+        return nq0 * nq1;
+    }
     else
     {
         return 0;
@@ -89,6 +93,10 @@ inline constexpr unsigned int PhysDerivSharedMemorySize(const unsigned int nq0,
         {
             return nq0 + nq1 + nq2;
         }
+    }
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    {
+        return nq0 * nq1 * nq2;
     }
     else
     {
@@ -413,11 +421,7 @@ NEK_DEVICE_INLINE static void PhysDeriv1DSumFacQPKernel(
     const TData *__restrict__ df, const TData *__restrict__ in,
     TData *__restrict__ out, const TthreadBlock &threadBlock)
 {
-    unsigned int dfsize = 1u;
-    if constexpr (DEFORMED)
-    {
-        dfsize *= nq0;
-    }
+    const unsigned int dfsize = DEFORMED ? nq0 : 1u;
 
     const unsigned int idx0   = getLocalIdx(threadBlock);
     const unsigned int stride = getLocalRange(threadBlock);
@@ -487,12 +491,8 @@ NEK_DEVICE_INLINE static void PhysDeriv2DSumFacQPKernel(
     const TData *__restrict__ in, TData *__restrict__ out,
     const TthreadBlock &threadBlock)
 {
-    const unsigned int nqTot = nq0 * nq1;
-    unsigned int dfsize      = 1u;
-    if constexpr (DEFORMED)
-    {
-        dfsize *= nqTot;
-    }
+    const unsigned int nqTot  = nq0 * nq1;
+    const unsigned int dfsize = DEFORMED ? nqTot : 1u;
 
     const unsigned int idx0   = getLocalIdx(threadBlock);
     const unsigned int stride = getLocalRange(threadBlock);
@@ -600,12 +600,8 @@ NEK_DEVICE_INLINE static void PhysDeriv3DSumFacQPKernel(
 {
     constexpr unsigned int ncoord = 3u;
 
-    const unsigned int nqTot = nq0 * nq1 * nq2;
-    unsigned int dfsize      = 1u;
-    if constexpr (DEFORMED)
-    {
-        dfsize *= nqTot;
-    }
+    const unsigned int nqTot  = nq0 * nq1 * nq2;
+    const unsigned int dfsize = DEFORMED ? nqTot : 1u;
 
     const unsigned int idx0   = getLocalIdx(threadBlock);
     const unsigned int stride = getLocalRange(threadBlock);
@@ -858,6 +854,10 @@ NEK_DEVICE_INLINE static void PhysDeriv2DKernel(
     }
     else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
+        TData *s_wsp0             = shmemptr;
+        const unsigned int idx0   = getLocalIdx(threadBlock);
+        const unsigned int stride = getLocalRange(threadBlock);
+
         unsigned int e = getBlockIdx(threadBlock);
         while (e < nelmt)
         {
@@ -867,9 +867,19 @@ NEK_DEVICE_INLINE static void PhysDeriv2DKernel(
             const TData *dfptr = df + dfoffset;
             const TData *inptr = in + offset;
             TData *outptr      = out + offset;
+
+            // Copy to shared memory.
+            for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+            {
+                s_wsp0[idx] = inptr[idx];
+            }
+
+            localBarrier(threadBlock);
+
             PhysDeriv2DSumFacQPKernel<SHAPE_TYPE, DEFORMED>(
-                ncoord, nq0, nq1, nelmt, D0, D1, f0, f1, dfptr, inptr, outptr,
+                ncoord, nq0, nq1, nelmt, D0, D1, f0, f1, dfptr, s_wsp0, outptr,
                 threadBlock);
+
             e += getBlockRange(threadBlock);
         }
     }
@@ -996,6 +1006,10 @@ NEK_DEVICE_INLINE static void PhysDeriv3DKernel(
     }
     else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
+        TData *s_wsp0             = shmemptr;
+        const unsigned int idx0   = getLocalIdx(threadBlock);
+        const unsigned int stride = getLocalRange(threadBlock);
+
         unsigned int e = getBlockIdx(threadBlock);
         while (e < nelmt)
         {
@@ -1005,9 +1019,19 @@ NEK_DEVICE_INLINE static void PhysDeriv3DKernel(
             const TData *dfptr = df + dfoffset;
             const TData *inptr = in + offset;
             TData *outptr      = out + offset;
+
+            // Copy to shared memory.
+            for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+            {
+                s_wsp0[idx] = inptr[idx];
+            }
+
+            localBarrier(threadBlock);
+
             PhysDeriv3DSumFacQPKernel<SHAPE_TYPE, DEFORMED>(
-                nq0, nq1, nq2, nelmt, D0, D1, D2, f0, f1, f1m, f2, dfptr, inptr,
-                outptr, threadBlock);
+                nq0, nq1, nq2, nelmt, D0, D1, D2, f0, f1, f1m, f2, dfptr,
+                s_wsp0, outptr, threadBlock);
+
             e += getBlockRange(threadBlock);
         }
     }
