@@ -62,7 +62,7 @@ public:
             OperatorAddTraceIntegral<TData>>(expansionList, execStr0);
     }
 
-    static constexpr char name[] = "AddTraceIntegral";
+    static inline const std::string name = "AddTraceIntegral";
 
     void Apply(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Coeff> &out)

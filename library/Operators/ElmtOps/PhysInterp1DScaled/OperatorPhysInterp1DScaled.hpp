@@ -53,7 +53,7 @@ public:
                                                     implStr);
     }
 
-    static constexpr char name[] = "BlockPhysInterp1DScaled";
+    static inline const std::string name = "BlockPhysInterp1DScaled";
 
     void Apply(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
     {
@@ -132,7 +132,7 @@ public:
         return PhysInterp1DScaledOp;
     }
 
-    static constexpr char name[] = "PhysInterp1DScaled";
+    static inline const std::string name = "PhysInterp1DScaled";
 
     void SetScaleFactor(TData scale)
     {

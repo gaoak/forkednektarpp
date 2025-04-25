@@ -60,7 +60,7 @@ public:
             expansionList, execStr0);
     }
 
-    static constexpr char name[] = "FwdTrans";
+    static inline const std::string name = "FwdTrans";
 
     void Apply(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Coeff> &out)

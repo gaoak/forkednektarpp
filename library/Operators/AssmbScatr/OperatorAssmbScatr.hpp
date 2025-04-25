@@ -59,7 +59,7 @@ public:
             expansionList, execStr0);
     }
 
-    static constexpr char name[] = "AssmbScatr";
+    static inline const std::string name = "AssmbScatr";
 
     void Apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Coeff> &out,

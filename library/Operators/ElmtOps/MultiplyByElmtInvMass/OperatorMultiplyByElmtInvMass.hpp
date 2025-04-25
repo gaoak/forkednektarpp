@@ -53,7 +53,7 @@ public:
                                                        execStr, implStr);
     }
 
-    static constexpr char name[] = "BlockMultiplyByElmtInvMass";
+    static inline const std::string name = "BlockMultiplyByElmtInvMass";
 
     void Apply(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
     {
@@ -152,7 +152,7 @@ public:
         return MultiplyByElmtInvMassOp;
     }
 
-    static constexpr char name[] = "MultiplyByElmtInvMass";
+    static inline const std::string name = "MultiplyByElmtInvMass";
 
 protected:
     std::vector<std::shared_ptr<BlockOperatorMultiplyByElmtInvMass<TData>>>

@@ -60,7 +60,7 @@ public:
             expansionList, execStr0);
     }
 
-    static constexpr char name[] = "DirBndCond";
+    static inline const std::string name = "DirBndCond";
 
     void Apply(Field<TData, FieldState::Coeff> &out)
     {

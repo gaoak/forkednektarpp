@@ -59,7 +59,7 @@ public:
             expansionList, execStr0);
     }
 
-    static constexpr char name[] = "RobBndCond";
+    static inline const std::string name = "RobBndCond";
 
     void Apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Coeff> &out,

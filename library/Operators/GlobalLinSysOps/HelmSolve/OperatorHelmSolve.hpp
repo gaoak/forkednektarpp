@@ -60,7 +60,7 @@ public:
             expansionList, execStr0);
     }
 
-    static constexpr char name[] = "HelmSolve";
+    static inline const std::string name = "HelmSolve";
 
     void Apply(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Coeff> &out)
