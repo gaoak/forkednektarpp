@@ -52,7 +52,7 @@ public:
             BlockOperatorBwdTrans<TData>>(exp, dataWarehouse, execStr, implStr);
     }
 
-    static constexpr char name[] = "BlockBwdTrans";
+    static inline const std::string name = "BlockBwdTrans";
 
     void Apply(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
     {
@@ -119,7 +119,7 @@ public:
         return BwdTransOp;
     }
 
-    static constexpr char name[] = "BwdTrans";
+    static inline const std::string name = "BwdTrans";
 
 protected:
     std::vector<std::shared_ptr<BlockOperatorBwdTrans<TData>>> m_blockOperator;

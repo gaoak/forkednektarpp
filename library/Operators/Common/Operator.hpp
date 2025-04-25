@@ -98,22 +98,22 @@ template <typename TData> struct simd_type_if<true, TData>
 // Core implementation types.
 struct StdMat
 {
-    static constexpr char name[] = "StdMat";
+    static inline const std::string name = "StdMat";
 };
 
 struct SumFac
 {
-    static constexpr char name[] = "SumFac";
+    static inline const std::string name = "SumFac";
 };
 
 struct SumFacQP
 {
-    static constexpr char name[] = "SumFacQP";
+    static inline const std::string name = "SumFacQP";
 };
 
 struct Generic
 {
-    static constexpr char name[] = "Generic";
+    static inline const std::string name = "Generic";
 };
 
 // Forward-declare the Operator base class so we can define the factory
@@ -167,7 +167,7 @@ protected:
 };
 
 template <typename Implementation>
-NEK_FORCE_INLINE static unsigned int GetDeviceBlockSize(
+NEK_FORCE_INLINE static constexpr unsigned int GetDeviceBlockSize(
     [[maybe_unused]] const unsigned int blockSize)
 {
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
@@ -187,7 +187,8 @@ NEK_FORCE_INLINE static unsigned int GetDeviceBlockSize(
 }
 
 template <typename Implementation>
-NEK_FORCE_INLINE static unsigned int GetDeviceGridSize(const unsigned int nelmt)
+NEK_FORCE_INLINE static constexpr unsigned int GetDeviceGridSize(
+    const unsigned int nelmt)
 {
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {

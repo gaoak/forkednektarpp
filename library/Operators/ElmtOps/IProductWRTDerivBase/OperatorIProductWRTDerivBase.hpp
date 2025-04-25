@@ -53,7 +53,7 @@ public:
                                                       execStr, implStr);
     }
 
-    static constexpr char name[] = "BlockIProductWRTDerivBase";
+    static inline const std::string name = "BlockIProductWRTDerivBase";
 
     void Apply(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
     {
@@ -127,7 +127,7 @@ public:
         return IProductWRTDerivBaseOp;
     }
 
-    static constexpr char name[] = "IProductWRTDerivBase";
+    static inline const std::string name = "IProductWRTDerivBase";
 
     void SetAppend(bool append)
     {

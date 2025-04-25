@@ -60,7 +60,7 @@ public:
             expansionList, execStr0);
     }
 
-    static constexpr char name[] = "DiagPrecon";
+    static inline const std::string name = "DiagPrecon";
 
 protected:
     OperatorDiagPrecon(const MultiRegions::ExpListSharedPtr &expansionList)

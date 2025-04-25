@@ -53,7 +53,7 @@ public:
                                                  implStr);
     }
 
-    static constexpr char name[] = "BlockIProductWRTBase";
+    static inline const std::string name = "BlockIProductWRTBase";
 
     void Apply(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
     {
@@ -127,7 +127,7 @@ public:
         return IProductWRTBaseOp;
     }
 
-    static constexpr char name[] = "IProductWRTBase";
+    static inline const std::string name = "IProductWRTBase";
 
     void SetScale(TData scale)
     {

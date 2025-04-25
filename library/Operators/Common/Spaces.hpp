@@ -171,23 +171,23 @@ using DeviceSpace = HostSpace;
 // Execution space.
 struct Serial
 {
-    static constexpr char name[]      = "Serial";
-    using memory_space                = NektarSpaces::HostSpace;
-    static constexpr size_t alignment = tinysimd::simd<double>::alignment;
+    static inline const std::string name = "Serial";
+    using memory_space                   = NektarSpaces::HostSpace;
+    static constexpr size_t alignment    = tinysimd::simd<double>::alignment;
 };
 
 struct AVX
 {
-    static constexpr char name[]      = "AVX";
-    using memory_space                = NektarSpaces::HostSpace;
-    static constexpr size_t alignment = tinysimd::simd<double>::alignment;
+    static inline const std::string name = "AVX";
+    using memory_space                   = NektarSpaces::HostSpace;
+    static constexpr size_t alignment    = tinysimd::simd<double>::alignment;
 };
 
 struct Device
 {
-    static constexpr char name[]      = "Device";
-    using memory_space                = NektarSpaces::DeviceSpace;
-    static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+    static inline const std::string name = "Device";
+    using memory_space                   = NektarSpaces::DeviceSpace;
+    static constexpr size_t alignment    = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
 #if defined(NEKTAR_ENABLE_CUDA)
     static constexpr unsigned int defaultBlockSize = 256u;
     static constexpr unsigned int maximumBlockSize = 1024u;

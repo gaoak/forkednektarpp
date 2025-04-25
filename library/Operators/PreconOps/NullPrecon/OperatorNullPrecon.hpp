@@ -60,7 +60,7 @@ public:
             expansionList, execStr0);
     }
 
-    static constexpr char name[] = "NullPrecon";
+    static inline const std::string name = "NullPrecon";
 
 protected:
     OperatorNullPrecon(const MultiRegions::ExpListSharedPtr &expansionList)

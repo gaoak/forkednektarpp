@@ -60,7 +60,7 @@ public:
             OperatorGMRES<TData>>(expansionList, execStr0);
     }
 
-    static constexpr char name[] = "GMRES";
+    static inline const std::string name = "GMRES";
 
 protected:
     OperatorGMRES(const MultiRegions::ExpListSharedPtr &expansionList)

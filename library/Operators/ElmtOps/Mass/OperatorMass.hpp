@@ -51,7 +51,7 @@ public:
             exp, dataWarehouse, execStr, implStr);
     }
 
-    static constexpr char name[] = "BlockMass";
+    static inline const std::string name = "BlockMass";
 
     void Apply(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
     {
@@ -116,7 +116,7 @@ public:
         return MassOp;
     }
 
-    static constexpr char name[] = "Mass";
+    static inline const std::string name = "Mass";
 
 protected:
     std::vector<std::shared_ptr<BlockOperatorMass<TData>>> m_blockOperator;

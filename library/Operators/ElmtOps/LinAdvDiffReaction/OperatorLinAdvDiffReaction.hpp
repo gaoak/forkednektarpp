@@ -53,7 +53,7 @@ public:
                                                     implStr);
     }
 
-    static constexpr char name[] = "BlockLinAdvDiffReaction";
+    static inline const std::string name = "BlockLinAdvDiffReaction";
 
     void Apply(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
     {
@@ -135,7 +135,7 @@ public:
         return LinAdvDiffReactionOp;
     }
 
-    static constexpr char name[] = "LinAdvDiffReaction";
+    static inline const std::string name = "LinAdvDiffReaction";
 
     void SetLambda(TData lambda)
     {

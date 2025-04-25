@@ -53,7 +53,7 @@ public:
                                            implStr);
     }
 
-    static constexpr char name[] = "BlockHelmholtz";
+    static inline const std::string name = "BlockHelmholtz";
 
     void Apply(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
     {
@@ -127,7 +127,7 @@ public:
         return HelmholtzOp;
     }
 
-    static constexpr char name[] = "Helmholtz";
+    static inline const std::string name = "Helmholtz";
 
     void SetLambda(TData lambda)
     {

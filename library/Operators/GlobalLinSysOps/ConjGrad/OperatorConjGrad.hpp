@@ -60,7 +60,7 @@ public:
             OperatorConjGrad<TData>>(expansionList, execStr0);
     }
 
-    static constexpr char name[] = "ConjGrad";
+    static inline const std::string name = "ConjGrad";
 
 protected:
     OperatorConjGrad(const MultiRegions::ExpListSharedPtr &expansionList)

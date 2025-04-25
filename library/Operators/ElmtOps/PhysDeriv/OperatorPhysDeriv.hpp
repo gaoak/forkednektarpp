@@ -53,7 +53,7 @@ public:
                                            implStr);
     }
 
-    static constexpr char name[] = "BlockPhysDeriv";
+    static inline const std::string name = "BlockPhysDeriv";
 
     void Apply(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
     {
@@ -120,7 +120,7 @@ public:
         return PhysDerivOp;
     }
 
-    static constexpr char name[] = "PhysDeriv";
+    static inline const std::string name = "PhysDeriv";
 
 protected:
     std::vector<std::shared_ptr<BlockOperatorPhysDeriv<TData>>> m_blockOperator;
