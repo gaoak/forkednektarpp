@@ -16693,7 +16693,7 @@
         <SOLVERINFO>
             <I PROPERTY="EQType"                VALUE="EulerCFE"     />
             <I PROPERTY="Projection"            VALUE="DisContinuous"       />
-            <I PROPERTY="AdvectionType"         VALUE="FRHU"                />
+            <I PROPERTY="AdvectionType"         VALUE="WeakDG"              />
             <I PROPERTY="DiffusionType"         VALUE="LDGNS"               />
             <I PROPERTY="UpwindType"            VALUE="Roe"           />
             <I PROPERTY="ProblemType"           VALUE="General"             />

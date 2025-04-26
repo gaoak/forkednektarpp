@@ -35,8 +35,6 @@
 #include <MultiRegions/ExpList.h>
 #include <SolverUtils/Forcing/ForcingNoise.h>
 
-using namespace std;
-
 namespace Nektar::SolverUtils
 {
 
@@ -61,7 +59,7 @@ void ForcingNoise::v_InitObject(
     ASSERTL0(noiseElmt, "Requires WHITENOISE tag specifying "
                         "magnitude of white noise force.");
 
-    string noiseValue = noiseElmt->GetText();
+    std::string noiseValue = noiseElmt->GetText();
 
     m_noise = std::stod(noiseValue);
 
@@ -69,8 +67,8 @@ void ForcingNoise::v_InitObject(
     const TiXmlElement *freqElmt = pForce->FirstChildElement("UPDATEFREQ");
     if (freqElmt)
     {
-        string freqValue = freqElmt->GetText();
-        m_updateFreq     = boost::lexical_cast<int>(freqValue);
+        std::string freqValue = freqElmt->GetText();
+        m_updateFreq          = boost::lexical_cast<int>(freqValue);
     }
     else
     {
@@ -81,8 +79,8 @@ void ForcingNoise::v_InitObject(
     const TiXmlElement *stepsElmt = pForce->FirstChildElement("NSTEPS");
     if (stepsElmt)
     {
-        string stepsValue = stepsElmt->GetText();
-        m_numSteps        = boost::lexical_cast<int>(stepsValue);
+        std::string stepsValue = stepsElmt->GetText();
+        m_numSteps             = boost::lexical_cast<int>(stepsValue);
     }
     else
     {

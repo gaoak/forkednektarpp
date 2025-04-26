@@ -35,12 +35,22 @@
 #ifndef NEKTAR_SOLVERUTILS_CORE_DEFORM_H
 #define NEKTAR_SOLVERUTILS_CORE_DEFORM_H
 
-#include <string>
-
 #include <GlobalMapping/GlobalMappingDeclspec.h>
 #include <LibUtilities/BasicConst/NektarUnivTypeDefs.hpp>
-#include <MultiRegions/ExpList.h>
-#include <SpatialDomains/MeshGraph.h>
+#include <LibUtilities/BasicUtils/SharedArray.hpp>
+
+// Forward declaration
+namespace Nektar::SpatialDomains
+{
+class MeshGraph;
+typedef std::shared_ptr<MeshGraph> MeshGraphSharedPtr;
+} // namespace Nektar::SpatialDomains
+
+namespace Nektar::MultiRegions
+{
+class ExpList;
+typedef std::shared_ptr<ExpList> ExpListSharedPtr;
+} // namespace Nektar::MultiRegions
 
 namespace Nektar::GlobalMapping
 {

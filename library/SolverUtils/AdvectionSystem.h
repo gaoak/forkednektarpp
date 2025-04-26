@@ -49,9 +49,7 @@ public:
         const LibUtilities::SessionReaderSharedPtr &pSession,
         const SpatialDomains::MeshGraphSharedPtr &pGraph);
 
-    SOLVER_UTILS_EXPORT ~AdvectionSystem() override;
-
-    SOLVER_UTILS_EXPORT void v_InitObject(bool DeclareField = true) override;
+    SOLVER_UTILS_EXPORT ~AdvectionSystem() override = default;
 
     /// Returns the advection object held by this instance.
     SOLVER_UTILS_EXPORT AdvectionSharedPtr GetAdvObject()
@@ -67,6 +65,8 @@ public:
 protected:
     /// Advection term
     SolverUtils::AdvectionSharedPtr m_advObject;
+
+    SOLVER_UTILS_EXPORT void v_InitObject(bool DeclareField = true) override;
 
     SOLVER_UTILS_EXPORT bool v_PostIntegrate(int step) override;
 

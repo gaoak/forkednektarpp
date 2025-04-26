@@ -35,13 +35,7 @@
 #ifndef NEKTAR_GLOBALMAPPING_MAPPINGXOFXZ
 #define NEKTAR_GLOBALMAPPING_MAPPINGXOFXZ
 
-#include <string>
-
-#include <GlobalMapping/GlobalMappingDeclspec.h>
 #include <GlobalMapping/Mapping.h>
-#include <LibUtilities/BasicUtils/NekFactory.hpp>
-#include <LibUtilities/BasicUtils/SharedArray.hpp>
-#include <MultiRegions/ExpList.h>
 
 namespace Nektar::GlobalMapping
 {

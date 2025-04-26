@@ -41,8 +41,6 @@
 
 #include <boost/format.hpp>
 
-using namespace std;
-
 namespace Nektar::SolverUtils
 {
 
@@ -248,7 +246,7 @@ std::string SessionFunction::Describe(std::string pFieldName, const int domain)
  * @param   pTime        The time at which to evaluate the function.
  * @param   domain       The domain to evaluate the function in.
  */
-void SessionFunction::EvaluateExp(string pFieldName,
+void SessionFunction::EvaluateExp(std::string pFieldName,
                                   Array<OneD, NekDouble> &pArray,
                                   const NekDouble &pTime, const int domain)
 {
@@ -279,7 +277,7 @@ void SessionFunction::EvaluateExp(string pFieldName,
  * @param   pTime        The time at which to evaluate the function.
  * @param   domain       The domain to evaluate the function in.
  */
-void SessionFunction::EvaluateFld(string pFieldName,
+void SessionFunction::EvaluateFld(std::string pFieldName,
                                   Array<OneD, NekDouble> &pArray,
                                   const NekDouble &pTime, const int domain)
 {
@@ -362,7 +360,7 @@ void SessionFunction::EvaluateFld(string pFieldName,
         }
         else
         {
-            cout << "Field " + fileVar + " not found." << endl;
+            std::cout << "Field " + fileVar + " not found." << std::endl;
         }
     }
 
@@ -380,7 +378,7 @@ void SessionFunction::EvaluateFld(string pFieldName,
  * @param   pTime        The time at which to evaluate the function.
  * @param   domain       The domain to evaluate the function in.
  */
-void SessionFunction::EvaluatePts(string pFieldName,
+void SessionFunction::EvaluatePts(std::string pFieldName,
                                   Array<OneD, NekDouble> &pArray,
                                   const NekDouble &pTime, const int domain)
 {
@@ -489,7 +487,7 @@ void SessionFunction::EvaluatePts(string pFieldName,
         interp.CalcWeights(inPts, outPts);
         if (m_session->GetComm()->GetRank() == 0)
         {
-            cout << endl;
+            std::cout << std::endl;
             if (m_session->DefinesCmdLineArgument("verbose"))
             {
                 interp.PrintStatistics();
@@ -506,7 +504,7 @@ void SessionFunction::EvaluatePts(string pFieldName,
     interp.Interpolate(inPts, outPts);
 
     int fieldInd;
-    vector<string> fieldNames = outPts->GetFieldNames();
+    std::vector<std::string> fieldNames = outPts->GetFieldNames();
     for (fieldInd = 0; fieldInd < fieldNames.size(); ++fieldInd)
     {
         if (outPts->GetFieldName(fieldInd) == fileVar)

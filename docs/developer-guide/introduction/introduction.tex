@@ -78,11 +78,7 @@ continuous Galerkin methods are very natural for elliptic and parabolic PDEs and
 shoehorn all mixed-type PDEs (such as the incompressible Navier-Stokes equations) into this form.  This holds
 true (similarly) for finite volume and dG proponents with regards to hyperbolic problems (and those systems that are
 dominated by hyperbolicity).  Our goal was to be a high-order finite element framework that allowed users to experiment with
-continuous Galerkin (cG) and discontinuous Galerkin (dG) methods.  After our original developments, we incorporated 
-Flux-Reconstruction Methods (FR Methods) into our framework; this confirmed that generality of our approach as our
-underlying library components merely needed new features added to accommodate the FR perspective on dG methods.
-As stated earlier, this is in part why we use the term \shp{} as it allows us to capture all these various methods (e.g., cG, dG and FR)
-under one common element-and-order terminology.
+continuous Galerkin (cG) and discontinuous Galerkin (dG) methods.  
 
 \item \textbf{Seamlessly:}  {\nek} was to be a code that could run from the desktop (or laptop) to exascale, seamlessly.  It was our
 observation that many {\em grand challenge} efforts target petascale and exascale computing, with the idea that in the future

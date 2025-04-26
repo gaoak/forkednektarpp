@@ -31,11 +31,10 @@
 // Description: Base Driver class for the stability solver
 //
 ///////////////////////////////////////////////////////////////////////////////
+
 #include <iomanip>
 
 #include <SolverUtils/DriverArnoldi.h>
-
-using namespace std;
 
 namespace Nektar::SolverUtils
 {
@@ -54,7 +53,7 @@ DriverArnoldi::DriverArnoldi(
 /**
  * Arnoldi driver initialisation
  */
-void DriverArnoldi::v_InitObject(ostream &out)
+void DriverArnoldi::v_InitObject(std::ostream &out)
 {
     Driver::v_InitObject(out);
     m_session->MatchSolverInfo("SolverType", "VelocityCorrectionScheme",
@@ -135,39 +134,41 @@ void DriverArnoldi::ArnoldiSummary(std::ostream &out)
         if (m_session->DefinesSolverInfo("ModeType") &&
             boost::iequals(m_session->GetSolverInfo("ModeType"), "SingleMode"))
         {
-            out << "\tSingle Fourier mode    : true " << endl;
+            out << "\tSingle Fourier mode    : true " << std::endl;
             ASSERTL0(m_session->DefinesSolverInfo("Homogeneous"),
                      "Expected a homogeneous expansion to be defined "
                      "with single mode");
         }
         else
         {
-            out << "\tSingle Fourier mode    : false " << endl;
+            out << "\tSingle Fourier mode    : false " << std::endl;
         }
         if (m_session->DefinesSolverInfo("BetaZero"))
         {
-            out << "\tBeta set to Zero       : true (overrides LHom)" << endl;
+            out << "\tBeta set to Zero       : true (overrides LHom)"
+                << std::endl;
         }
         else
         {
-            out << "\tBeta set to Zero       : false " << endl;
+            out << "\tBeta set to Zero       : false " << std::endl;
         }
 
         if (m_timeSteppingAlgorithm)
         {
             out << "\tEvolution operator     : "
-                << m_session->GetSolverInfo("EvolutionOperator") << endl;
+                << m_session->GetSolverInfo("EvolutionOperator") << std::endl;
         }
         else
         {
             out << "\tShift (Real,Imag)      : " << m_realShift << ","
-                << m_imagShift << endl;
+                << m_imagShift << std::endl;
         }
-        out << "\tKrylov-space dimension : " << m_kdim << endl;
-        out << "\tNumber of vectors      : " << m_nvec << endl;
-        out << "\tMax iterations         : " << m_nits << endl;
-        out << "\tEigenvalue tolerance   : " << m_evtol << endl;
-        out << "======================================================" << endl;
+        out << "\tKrylov-space dimension : " << m_kdim << std::endl;
+        out << "\tNumber of vectors      : " << m_nvec << std::endl;
+        out << "\tMax iterations         : " << m_nits << std::endl;
+        out << "\tEigenvalue tolerance   : " << m_evtol << std::endl;
+        out << "======================================================"
+            << std::endl;
     }
 }
 
@@ -282,7 +283,7 @@ void DriverArnoldi::WriteFld(std::string file, Array<OneD, NekDouble> coeffs)
 /**
  *
  */
-void DriverArnoldi::WriteEvs(ostream &evlout, const int i,
+void DriverArnoldi::WriteEvs(std::ostream &evlout, const int i,
                              const NekDouble re_ev, const NekDouble im_ev,
                              NekDouble resid, bool DumpInverse)
 {
@@ -291,15 +292,15 @@ void DriverArnoldi::WriteEvs(ostream &evlout, const int i,
         NekDouble abs_ev = hypot(re_ev, im_ev);
         NekDouble ang_ev = atan2(im_ev, re_ev);
 
-        evlout << "EV: " << setw(2) << i << setw(12) << abs_ev << setw(12)
-               << ang_ev << setw(12) << log(abs_ev) / m_period << setw(12)
-               << ang_ev / m_period;
+        evlout << "EV: " << std::setw(2) << i << std::setw(12) << abs_ev
+               << std::setw(12) << ang_ev << std::setw(12)
+               << log(abs_ev) / m_period << std::setw(12) << ang_ev / m_period;
 
         if (resid != NekConstants::kNekUnsetDouble)
         {
-            evlout << setw(12) << resid;
+            evlout << std::setw(12) << resid;
         }
-        evlout << endl;
+        evlout << std::endl;
     }
     else
     {
@@ -314,20 +315,20 @@ void DriverArnoldi::WriteEvs(ostream &evlout, const int i,
             sign = 1.0;
         }
 
-        evlout << "EV: " << setw(2) << i << setw(14) << sign * re_ev << setw(14)
-               << sign * im_ev;
+        evlout << "EV: " << std::setw(2) << i << std::setw(14) << sign * re_ev
+               << std::setw(14) << sign * im_ev;
 
         if (DumpInverse)
         {
-            evlout << setw(14) << sign * re_ev * invmag + m_realShift
-                   << setw(14) << sign * im_ev * invmag + m_imagShift;
+            evlout << std::setw(14) << sign * re_ev * invmag + m_realShift
+                   << std::setw(14) << sign * im_ev * invmag + m_imagShift;
         }
 
         if (resid != NekConstants::kNekUnsetDouble)
         {
-            evlout << setw(12) << resid;
+            evlout << std::setw(12) << resid;
         }
-        evlout << endl;
+        evlout << std::endl;
     }
 }
 
@@ -339,8 +340,8 @@ void DriverArnoldi::GetMaskInfo(
     std::set<int> &unselectedVariables)
 {
     selectedDomains.clear();
-    string domain("SelectEVCalcDomain0");
-    string condition("C0");
+    std::string domain("SelectEVCalcDomain0");
+    std::string condition("C0");
     for (size_t i = 0; i < 10; ++i)
     {
         domain[domain.size() - 1] = '0' + i;
@@ -365,7 +366,7 @@ void DriverArnoldi::GetMaskInfo(
         }
     }
     unselectedVariables.clear();
-    string funName("SelectEVCalcVariables");
+    std::string funName("SelectEVCalcVariables");
     std::vector<std::string> variables = m_session->GetVariables();
     for (size_t v = 0; v < m_nfields; ++v)
     {

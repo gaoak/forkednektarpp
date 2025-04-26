@@ -37,8 +37,6 @@
 
 #include <LibUtilities/BasicUtils/ParseUtils.h>
 
-using namespace std;
-
 namespace Nektar::SolverUtils
 {
 
@@ -76,7 +74,7 @@ void ForcingAbsorption::v_InitObject(
     const TiXmlElement *funcNameElmt = pForce->FirstChildElement("REFFLOW");
     if (funcNameElmt)
     {
-        string funcName = funcNameElmt->GetText();
+        std::string funcName = funcNameElmt->GetText();
         ASSERTL0(m_session->DefinesFunction(funcName),
                  "Function '" + funcName + "' not defined.");
         m_Refflow = Array<OneD, Array<OneD, NekDouble>>(m_NumVariable);
@@ -118,7 +116,7 @@ void ForcingAbsorption::CalcAbsorption(
     ASSERTL0(funcNameElmt,
              "Requires COEFF tag, specifying function "
              "name which prescribes absorption layer coefficient.");
-    string funcName = funcNameElmt->GetText();
+    std::string funcName = funcNameElmt->GetText();
     ASSERTL0(m_session->DefinesFunction(funcName),
              "Function '" + funcName + "' not defined.");
 

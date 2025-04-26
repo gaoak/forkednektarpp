@@ -37,8 +37,6 @@
 
 #include <boost/algorithm/string/predicate.hpp>
 
-using namespace std;
-
 namespace Nektar::GlobalMapping
 {
 
@@ -115,8 +113,8 @@ void Mapping::v_InitObject(
     const TiXmlElement *timeDep = pMapping->FirstChildElement("TIMEDEPENDENT");
     if (timeDep)
     {
-        string sTimeDep = timeDep->GetText();
-        m_timeDependent = (boost::iequals(sTimeDep, "true")) ||
+        std::string sTimeDep = timeDep->GetText();
+        m_timeDependent      = (boost::iequals(sTimeDep, "true")) ||
                           (boost::iequals(sTimeDep, "yes"));
     }
     else
@@ -125,7 +123,7 @@ void Mapping::v_InitObject(
     }
 
     // Load coordinates
-    string fieldNames[3]             = {"x", "y", "z"};
+    std::string fieldNames[3]        = {"x", "y", "z"};
     const TiXmlElement *funcNameElmt = pMapping->FirstChildElement("COORDS");
     if (funcNameElmt)
     {
@@ -174,7 +172,7 @@ void Mapping::v_InitObject(
 
     // Load coordinate velocity if they are defined,
     //      otherwise use zero to make it general
-    string velFieldNames[3]             = {"vx", "vy", "vz"};
+    std::string velFieldNames[3]        = {"vx", "vy", "vz"};
     const TiXmlElement *velFuncNameElmt = pMapping->FirstChildElement("VEL");
     if (velFuncNameElmt)
     {
@@ -270,7 +268,7 @@ MappingSharedPtr Mapping::Load(
     if (!m_init)
     {
         TiXmlElement *vMapping = nullptr;
-        string vType;
+        std::string vType;
         if (pSession->DefinesElement("Nektar/Mapping"))
         {
             vMapping    = pSession->GetElement("Nektar/Mapping");
@@ -320,9 +318,9 @@ void Mapping::Output(LibUtilities::FieldMetaDataMap &fieldMetaDataMap,
         }
         else
         {
-            int expdim           = m_fields[0]->GetGraph()->GetMeshDimension();
-            string fieldNames[3] = {"x", "y", "z"};
-            string velFieldNames[3] = {"vx", "vy", "vz"};
+            int expdim = m_fields[0]->GetGraph()->GetMeshDimension();
+            std::string fieldNames[3]    = {"x", "y", "z"};
+            std::string velFieldNames[3] = {"vx", "vy", "vz"};
 
             std::vector<LibUtilities::FieldDefinitionsSharedPtr> FieldDef =
                 m_fields[0]->GetFieldDefinitions();
@@ -459,7 +457,7 @@ void Mapping::EvaluateFunction(
             }
             else
             {
-                cout << "Field " + pFieldName + " not found." << endl;
+                std::cout << "Field " + pFieldName + " not found." << std::endl;
             }
         }
         pFields[0]->BwdTrans(vCoeffs, pArray);
@@ -1211,8 +1209,8 @@ void Mapping::v_UpdateMapping(
     if (m_fromFunction)
     {
         std::string s_FieldStr;
-        string fieldNames[3]    = {"x", "y", "z"};
-        string velFieldNames[3] = {"vx", "vy", "vz"};
+        std::string fieldNames[3]    = {"x", "y", "z"};
+        std::string velFieldNames[3] = {"vx", "vy", "vz"};
         // Check if function from session file defines each component
         //      and evaluate them, otherwise there is no need to update
         //          coords

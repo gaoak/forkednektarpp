@@ -37,13 +37,12 @@
 #include <LibUtilities/BasicUtils/Timer.h>
 #include <SolverUtils/DriverStandard.h>
 
-using namespace std;
-
 namespace Nektar::SolverUtils
 {
-string DriverStandard::className = GetDriverFactory().RegisterCreatorFunction(
-    "Standard", DriverStandard::create);
-string DriverStandard::driverLookupId =
+std::string DriverStandard::className =
+    GetDriverFactory().RegisterCreatorFunction("Standard",
+                                               DriverStandard::create);
+std::string DriverStandard::driverLookupId =
     LibUtilities::SessionReader::RegisterEnumValue("Driver", "Standard", 0);
 
 /**
@@ -59,7 +58,7 @@ DriverStandard::DriverStandard(
 /**
  *
  */
-void DriverStandard::v_InitObject(ostream &out)
+void DriverStandard::v_InitObject(std::ostream &out)
 {
     Driver::v_InitObject(out);
 }
@@ -67,7 +66,7 @@ void DriverStandard::v_InitObject(ostream &out)
 /**
  *
  */
-void DriverStandard::v_Execute(ostream &out)
+void DriverStandard::v_Execute(std::ostream &out)
 
 {
     Nektar::LibUtilities::Timer timer;
@@ -87,9 +86,9 @@ void DriverStandard::v_Execute(ostream &out)
     if (m_comm->GetRank() == 0)
     {
         CPUtime = timer.Elapsed().count();
-        cout << "-------------------------------------------" << endl;
-        cout << "Total Computation Time = " << CPUtime << "s" << endl;
-        cout << "-------------------------------------------" << endl;
+        std::cout << "-------------------------------------------" << std::endl;
+        std::cout << "Total Computation Time = " << CPUtime << "s" << std::endl;
+        std::cout << "-------------------------------------------" << std::endl;
     }
 
     // Evaluate and output computation time and solution accuracy.
@@ -110,9 +109,9 @@ void DriverStandard::v_Execute(ostream &out)
         if (m_comm->GetRank() == 0)
         {
             out << "L 2 error (variable " << m_equ[0]->GetVariable(i)
-                << ") : " << vL2Error << endl;
+                << ") : " << vL2Error << std::endl;
             out << "L inf error (variable " << m_equ[0]->GetVariable(i)
-                << ") : " << vLinfError << endl;
+                << ") : " << vLinfError << std::endl;
         }
     }
 }

@@ -39,15 +39,13 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/split.hpp>
 
-using namespace std;
-
 namespace Nektar::SolverUtils
 {
 
-string DriverSteadyState::className =
+std::string DriverSteadyState::className =
     GetDriverFactory().RegisterCreatorFunction("SteadyState",
                                                DriverSteadyState::create);
-string DriverSteadyState::driverLookupId =
+std::string DriverSteadyState::driverLookupId =
     LibUtilities::SessionReader::RegisterEnumValue("Driver", "SteadyState", 0);
 
 /**
@@ -63,7 +61,7 @@ DriverSteadyState::DriverSteadyState(
 /**
  *
  */
-void DriverSteadyState::v_InitObject(ostream &out)
+void DriverSteadyState::v_InitObject(std::ostream &out)
 {
     DriverModifiedArnoldi::v_InitObject(out);
 }
@@ -71,8 +69,7 @@ void DriverSteadyState::v_InitObject(ostream &out)
 /**
  *
  */
-void DriverSteadyState::v_Execute(ostream &out)
-
+void DriverSteadyState::v_Execute(std::ostream &out)
 {
     // With a loop over "DoSolve", this Driver implements the
     // "encapsulated" Selective Frequency Damping method(SFD)
@@ -146,10 +143,10 @@ void DriverSteadyState::v_Execute(ostream &out)
     // Evaluate optimum SFD parameters if dominent EV given by xml file
     if (GrowthRateEV != 0.0 && FrequencyEV != 0.0)
     {
-        cout << "Besed on the dominant EV given in the xml file,"
-             << "a 1D model is used to evaluate the optumum parameters"
-             << "of the SFD method:" << endl;
-        complex<NekDouble> EV = polar(exp(GrowthRateEV), FrequencyEV);
+        std::cout << "Besed on the dominant EV given in the xml file,"
+                  << "a 1D model is used to evaluate the optumum parameters"
+                  << "of the SFD method:" << std::endl;
+        std::complex<NekDouble> EV = std::polar(exp(GrowthRateEV), FrequencyEV);
         GradientDescentMethod(EV, m_X, m_Delta);
     }
 
@@ -160,7 +157,8 @@ void DriverSteadyState::v_Execute(ostream &out)
     // m_steps is set to 1. Then "m_equ[m_nequ - 1]->DoSolve()" will run
     // for only one time step
     m_equ[m_nequ - 1]->SetSteps(1);
-    ofstream m_file("ConvergenceHistory.txt", ios::out | ios::trunc);
+    std::ofstream m_file("ConvergenceHistory.txt",
+                         std::ios::out | std::ios::trunc);
 
     Array<OneD, Array<OneD, NekDouble>> q0(NumVar_SFD);
     Array<OneD, Array<OneD, NekDouble>> q1(NumVar_SFD);
@@ -188,7 +186,7 @@ void DriverSteadyState::v_Execute(ostream &out)
     totalTime                   = 0.0;
     FlowPartiallyConverged      = false;
 
-    while (max(Diff_q_qBar, Diff_q1_q0) > TOL)
+    while (std::max(Diff_q_qBar, Diff_q1_q0) > TOL)
     {
         /// Call the Navier-Stokes solver for one time step
         m_equ[m_nequ - 1]->DoSolve();
@@ -223,10 +221,11 @@ void DriverSteadyState::v_Execute(ostream &out)
                 {
                     if (m_comm->GetRank() == 0)
                     {
-                        cout << "\n\t The SFD method is converging: we compute "
-                             << "stability analysis using the 'partially "
-                             << "converged' steady state as base flow:\n"
-                             << endl;
+                        std::cout
+                            << "\n\t The SFD method is converging: we compute "
+                            << "stability analysis using the 'partially "
+                            << "converged' steady state as base flow:\n"
+                            << std::endl;
                     }
 
                     m_equ[m_nequ - 1]->Checkpoint_BaseFlow(m_Check_BaseFlow);
@@ -261,9 +260,9 @@ void DriverSteadyState::v_Execute(ostream &out)
                 {
                     if (m_comm->GetRank() == 0)
                     {
-                        cout << "\n\t We compute stability analysis using"
-                             << " the current flow field as base flow:\n"
-                             << endl;
+                        std::cout << "\n\t We compute stability analysis using"
+                                  << " the current flow field as base flow:\n"
+                                  << std::endl;
                     }
 
                     m_equ[m_nequ - 1]->Checkpoint_BaseFlow(m_Check_BaseFlow);
@@ -317,9 +316,9 @@ void DriverSteadyState::v_Execute(ostream &out)
         if (m_comm->GetRank() == 0)
         {
             out << "L 2 error (variable " << m_equ[m_nequ - 1]->GetVariable(j)
-                << ") : " << vL2Error << endl;
+                << ") : " << vL2Error << std::endl;
             out << "L inf error (variable " << m_equ[m_nequ - 1]->GetVariable(j)
-                << ") : " << vLinfError << endl;
+                << ") : " << vLinfError << std::endl;
         }
     }
 }
@@ -374,10 +373,10 @@ void DriverSteadyState::ComputeOptimization()
     // used in DriverArnoldi.cpp)
     ReadEVfile(m_kdim, growthEV, frequencyEV);
 
-    cout << "\n\tgrowthEV = " << growthEV << endl;
-    cout << "\tfrequencyEV = " << frequencyEV << endl;
+    std::cout << "\n\tgrowthEV = " << growthEV << std::endl;
+    std::cout << "\tfrequencyEV = " << frequencyEV << std::endl;
 
-    complex<NekDouble> ApproxEV = polar(exp(growthEV), frequencyEV);
+    std::complex<NekDouble> ApproxEV = std::polar(exp(growthEV), frequencyEV);
 
     NekDouble X_new     = m_X;
     NekDouble Delta_new = m_Delta;
@@ -395,11 +394,11 @@ void DriverSteadyState::ComputeOptimization()
  * end Delta which give the minimum eigenlavue of the SFD problem applied to
  * the scalar case u(n+1) = \alpha*u(n).
  */
-void DriverSteadyState::GradientDescentMethod(const complex<NekDouble> &alpha,
-                                              NekDouble &X_output,
-                                              NekDouble &Delta_output)
+void DriverSteadyState::GradientDescentMethod(
+    const std::complex<NekDouble> &alpha, NekDouble &X_output,
+    NekDouble &Delta_output)
 {
-    cout << "\n\tWe enter the Gradient Descent Method [...]" << endl;
+    std::cout << "\n\tWe enter the Gradient Descent Method [...]" << std::endl;
     bool OptParmFound     = false;
     bool Descending       = true;
     NekDouble X_input     = X_output;
@@ -465,10 +464,12 @@ void DriverSteadyState::GradientDescentMethod(const complex<NekDouble> &alpha,
 
         if (abs(F0 - F1) < dx)
         {
-            cout << "\tThe Gradient Descent Method has converged!" << endl;
+            std::cout << "\tThe Gradient Descent Method has converged!"
+                      << std::endl;
             EvalEV_ScalarSFD(X_output, Delta_output, alpha, F1);
-            cout << "\n\tThe updated parameters are: X_tilde = " << X_output
-                 << " and Delta_tilde = " << Delta_output << endl;
+            std::cout << "\n\tThe updated parameters are: X_tilde = "
+                      << X_output << " and Delta_tilde = " << Delta_output
+                      << std::endl;
             OptParmFound = true;
         }
     }
@@ -480,12 +481,12 @@ void DriverSteadyState::GradientDescentMethod(const complex<NekDouble> &alpha,
  */
 void DriverSteadyState::EvalEV_ScalarSFD(const NekDouble &X_input,
                                          const NekDouble &Delta_input,
-                                         const complex<NekDouble> &alpha,
+                                         const std::complex<NekDouble> &alpha,
                                          NekDouble &MaxEV)
 {
-    NekDouble A11 =
-        (1.0 + X_input * Delta_input * exp(-(X_input + 1.0 / Delta_input))) /
-        (1.0 + X_input * Delta_input);
+    NekDouble A11 = (1.0 + X_input * Delta_input *
+                               std::exp(-(X_input + 1.0 / Delta_input))) /
+                    (1.0 + X_input * Delta_input);
     NekDouble A12 =
         (X_input * Delta_input -
          X_input * Delta_input * exp(-(X_input + 1.0 / Delta_input))) /
@@ -496,24 +497,24 @@ void DriverSteadyState::EvalEV_ScalarSFD(const NekDouble &X_input,
         (X_input * Delta_input + 1.0 * exp(-(X_input + 1.0 / Delta_input))) /
         (1.0 + X_input * Delta_input);
 
-    complex<NekDouble> B11 = alpha;
-    NekDouble B12          = 0.0;
-    NekDouble B21          = 0.0;
-    NekDouble B22          = 1.0;
+    std::complex<NekDouble> B11 = alpha;
+    NekDouble B12               = 0.0;
+    NekDouble B21               = 0.0;
+    NekDouble B22               = 1.0;
 
-    complex<NekDouble> a = A11 * B11 + A12 * B21;
-    NekDouble b          = A11 * B12 + A12 * B22;
-    complex<NekDouble> c = A21 * B11 + A22 * B21;
-    NekDouble d          = A21 * B12 + A22 * B22;
+    std::complex<NekDouble> a = A11 * B11 + A12 * B21;
+    NekDouble b               = A11 * B12 + A12 * B22;
+    std::complex<NekDouble> c = A21 * B11 + A22 * B21;
+    NekDouble d               = A21 * B12 + A22 * B22;
 
-    complex<NekDouble> delt     = sqrt((a - d) * (a - d) + 4.0 * b * c);
-    complex<NekDouble> lambda_1 = 0.5 * (a + d + delt);
-    complex<NekDouble> lambda_2 = 0.5 * (a + d - delt);
+    std::complex<NekDouble> delt     = sqrt((a - d) * (a - d) + 4.0 * b * c);
+    std::complex<NekDouble> lambda_1 = 0.5 * (a + d + delt);
+    std::complex<NekDouble> lambda_2 = 0.5 * (a + d - delt);
 
     NekDouble NORM_1 = abs(lambda_1);
     NekDouble NORM_2 = abs(lambda_2);
 
-    MaxEV = max(NORM_1, NORM_2);
+    MaxEV = std::max(NORM_1, NORM_2);
 }
 
 /**
@@ -557,14 +558,14 @@ void DriverSteadyState::ReadEVfile(int &KrylovSubspaceDim, NekDouble &growthEV,
 
         // go back to the beginning of the file
         EVfile.clear();
-        EVfile.seekg(0, ios::beg);
+        EVfile.seekg(0, std::ios::beg);
 
         // We now want to go to the line where the most unstable eigenlavue was
         // written
         for (int i = 0; i < (NumLinesInFile - KrylovSubspaceDim); ++i)
         {
             std::getline(EVfile, line);
-            cout << "Discard line: " << line << endl;
+            std::cout << "Discard line: " << line << std::endl;
         }
 
         std::vector<std::string> tokens;
@@ -580,7 +581,8 @@ void DriverSteadyState::ReadEVfile(int &KrylovSubspaceDim, NekDouble &growthEV,
     }
     else
     {
-        cout << "An error occurred when opening the .evl file" << endl;
+        std::cout << "An error occurred when opening the .evl file"
+                  << std::endl;
     }
     EVfile.close();
 }
@@ -621,16 +623,17 @@ void DriverSteadyState::ConvergenceHistory(
 
     if (m_comm->GetRank() == 0)
     {
-        cout << "SFD - Step: " << left << m_stepCounter + 1
-             << ";\tTime: " << left << m_equ[m_nequ - 1]->GetTime()
-             << ";\tCPU time = " << left << cpuTime << " s"
-             << ";\tTot time = " << left << totalTime << " s"
-             << ";\tX = " << left << m_X << ";\tDelta = " << left << m_Delta
-             << ";\t|q-qBar|inf = " << left << MaxNormDiff_q_qBar << endl;
+        std::cout << "SFD - Step: " << std::left << m_stepCounter + 1
+                  << ";\tTime: " << std::left << m_equ[m_nequ - 1]->GetTime()
+                  << ";\tCPU time = " << std::left << cpuTime << " s"
+                  << ";\tTot time = " << std::left << totalTime << " s"
+                  << ";\tX = " << std::left << m_X << ";\tDelta = " << std::left
+                  << m_Delta << ";\t|q-qBar|inf = " << std::left
+                  << MaxNormDiff_q_qBar << std::endl;
         std::ofstream m_file("ConvergenceHistory.txt", std::ios_base::app);
         m_file << m_stepCounter + 1 << "\t" << m_equ[m_nequ - 1]->GetTime()
                << "\t" << totalTime << "\t" << MaxNormDiff_q_qBar << "\t"
-               << MaxNormDiff_q1_q0 << endl;
+               << MaxNormDiff_q1_q0 << std::endl;
         m_file.close();
     }
 
@@ -643,24 +646,25 @@ void DriverSteadyState::ConvergenceHistory(
  */
 void DriverSteadyState::PrintSummarySFD()
 {
-    cout << "\n====================================="
-            "=================================="
-         << endl;
-    cout << "Parameters for the SFD method:" << endl;
-    cout << "\tControl Coefficient: X = " << m_X << endl;
-    cout << "\tFilter Width: Delta = " << m_Delta << endl;
-    cout << "The simulation is stopped when |q-qBar|inf < " << TOL << endl;
+    std::cout << "\n====================================="
+                 "=================================="
+              << std::endl;
+    std::cout << "Parameters for the SFD method:" << std::endl;
+    std::cout << "\tControl Coefficient: X = " << m_X << std::endl;
+    std::cout << "\tFilter Width: Delta = " << m_Delta << std::endl;
+    std::cout << "The simulation is stopped when |q-qBar|inf < " << TOL
+              << std::endl;
     if (m_EvolutionOperator == eAdaptiveSFD)
     {
-        cout << "\nWe use the adaptive SFD method:" << endl;
-        cout << "  The parameters are updated every " << AdaptiveTime
-             << " time units;" << endl;
-        cout << "  until |q-qBar|inf becomes smaller than " << AdaptiveTOL
-             << endl;
+        std::cout << "\nWe use the adaptive SFD method:" << std::endl;
+        std::cout << "  The parameters are updated every " << AdaptiveTime
+                  << " time units;" << std::endl;
+        std::cout << "  until |q-qBar|inf becomes smaller than " << AdaptiveTOL
+                  << std::endl;
     }
-    cout << "====================================="
-            "==================================\n"
-         << endl;
+    std::cout << "====================================="
+                 "==================================\n"
+              << std::endl;
 }
 
 } // namespace Nektar::SolverUtils

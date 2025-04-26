@@ -37,8 +37,6 @@
 namespace Nektar::SolverUtils
 {
 
-using namespace std;
-
 CouplingFactory &GetCouplingFactory()
 {
     static CouplingFactory instance;
@@ -120,19 +118,20 @@ void Coupling::v_Init()
     if (session->GetComm()->GetRank() == 0 &&
         session->DefinesCmdLineArgument("verbose") && m_config.size() > 0)
     {
-        cout << "Coupling Config:" << endl;
+        std::cout << "Coupling Config:" << std::endl;
         CouplingConfigMap::iterator x;
         for (x = m_config.begin(); x != m_config.end(); ++x)
         {
-            cout << "\t" << x->first << " = '" << x->second << "'" << endl;
+            std::cout << "\t" << x->first << " = '" << x->second << "'"
+                      << std::endl;
         }
     }
 }
 
-vector<int> Coupling::GenerateVariableMapping(vector<string> &vars,
-                                              vector<string> &transVars)
+std::vector<int> Coupling::GenerateVariableMapping(
+    std::vector<std::string> &vars, std::vector<std::string> &transVars)
 {
-    vector<int> transToVars;
+    std::vector<int> transToVars;
     Array<OneD, Array<OneD, NekDouble>> sendField(transVars.size());
     for (int i = 0; i < transVars.size(); ++i)
     {

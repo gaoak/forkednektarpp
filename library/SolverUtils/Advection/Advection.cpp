@@ -46,37 +46,6 @@ AdvectionFactory &GetAdvectionFactory()
     return instance;
 }
 
-/**
- * @param   pSession            Session configuration data.
- * @param   pFields             Array of ExpList objects.
- */
-void Advection::InitObject(const LibUtilities::SessionReaderSharedPtr pSession,
-                           Array<OneD, MultiRegions::ExpListSharedPtr> pFields)
-{
-    v_InitObject(pSession, pFields);
-}
-
-/**
- * @param   nConvectiveFields   Number of velocity components.
- * @param   pFields             Expansion lists for scalar fields.
- * @param   pAdvVel             Advection velocity.
- * @param   pInarray            Scalar data to advect.
- * @param   pOutarray           Advected scalar data.
- * @param   pTime               Simulation time.
- */
-void Advection::Advect(
-    const int nConvectiveFields,
-    const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
-    const Array<OneD, Array<OneD, NekDouble>> &pAdvVel,
-    const Array<OneD, Array<OneD, NekDouble>> &pInarray,
-    Array<OneD, Array<OneD, NekDouble>> &pOutarray, const NekDouble &pTime,
-    const Array<OneD, Array<OneD, NekDouble>> &pFwd,
-    const Array<OneD, Array<OneD, NekDouble>> &pBwd)
-{
-    v_Advect(nConvectiveFields, pFields, pAdvVel, pInarray, pOutarray, pTime,
-             pFwd, pBwd);
-}
-
 template <typename DataType, typename TypeNekBlkMatSharedPtr>
 void Advection::AddTraceJacToMat(
     const int nConvectiveFields, const int nSpaceDim,

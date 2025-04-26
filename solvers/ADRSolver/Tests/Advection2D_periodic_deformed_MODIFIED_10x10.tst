@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <test>
-    <description>2D unsteady FRDG advection MODIFIED, P=6, periodic bcs, deformed elements</description>
+    <description>2D unsteady advection MODIFIED, P=6, periodic bcs, deformed elements</description>
     <executable>ADRSolver</executable>
     <parameters>Advection2D_periodic_deformed_MODIFIED_10x10.xml</parameters>
     <files>

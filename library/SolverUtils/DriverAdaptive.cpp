@@ -45,14 +45,13 @@
 #include <StdRegions/StdTetExp.h>
 #include <StdRegions/StdTriExp.h>
 
-using namespace std;
-
 namespace Nektar::SolverUtils
 {
 
-string DriverAdaptive::className = GetDriverFactory().RegisterCreatorFunction(
-    "Adaptive", DriverAdaptive::create);
-string DriverAdaptive::driverLookupId =
+std::string DriverAdaptive::className =
+    GetDriverFactory().RegisterCreatorFunction("Adaptive",
+                                               DriverAdaptive::create);
+std::string DriverAdaptive::driverLookupId =
     LibUtilities::SessionReader::RegisterEnumValue("Driver", "Adaptive", 0);
 
 /**
@@ -68,14 +67,7 @@ DriverAdaptive::DriverAdaptive(
 /**
  *
  */
-DriverAdaptive::~DriverAdaptive()
-{
-}
-
-/**
- *
- */
-void DriverAdaptive::v_InitObject(ostream &out)
+void DriverAdaptive::v_InitObject(std::ostream &out)
 {
     Driver::v_InitObject(out);
 }
@@ -83,7 +75,7 @@ void DriverAdaptive::v_InitObject(ostream &out)
 /**
  *
  */
-void DriverAdaptive::v_Execute(ostream &out)
+void DriverAdaptive::v_Execute(std::ostream &out)
 {
     Nektar::LibUtilities::Timer timer;
     NekDouble CPUtime;
@@ -146,7 +138,7 @@ void DriverAdaptive::v_Execute(ostream &out)
             m_equ[0]->UpdateFields();
 
         // Determine the change to be applied in the order
-        map<int, int> deltaP;
+        std::map<int, int> deltaP;
         int offset = 0;
         for (int n = 0; n < nExp; n++)
         {
@@ -407,9 +399,9 @@ void DriverAdaptive::v_Execute(ostream &out)
     if (m_comm->GetRank() == 0)
     {
         CPUtime = timer.Elapsed().count();
-        cout << "-------------------------------------------" << endl;
-        cout << "Total Computation Time = " << CPUtime << "s" << endl;
-        cout << "-------------------------------------------" << endl;
+        std::cout << "-------------------------------------------" << std::endl;
+        std::cout << "Total Computation Time = " << CPUtime << "s" << std::endl;
+        std::cout << "-------------------------------------------" << std::endl;
     }
 
     // Evaluate and output computation time and solution accuracy.
@@ -430,9 +422,9 @@ void DriverAdaptive::v_Execute(ostream &out)
         if (m_comm->GetRank() == 0)
         {
             out << "L 2 error (variable " << m_equ[0]->GetVariable(i)
-                << ") : " << vL2Error << endl;
+                << ") : " << vL2Error << std::endl;
             out << "L inf error (variable " << m_equ[0]->GetVariable(i)
-                << ") : " << vLinfError << endl;
+                << ") : " << vLinfError << std::endl;
         }
     }
 }
@@ -445,7 +437,8 @@ void DriverAdaptive::v_Execute(ostream &out)
  * @param deltaP  Map of polynomial order expansions
  */
 void DriverAdaptive::ReplaceExpansion(
-    Array<OneD, MultiRegions::ExpListSharedPtr> &fields, map<int, int> deltaP)
+    Array<OneD, MultiRegions::ExpListSharedPtr> &fields,
+    std::map<int, int> deltaP)
 {
     int nExp, nDim;
     int expdim = m_equ[0]->UpdateFields()[0]->GetGraph()->GetMeshDimension();

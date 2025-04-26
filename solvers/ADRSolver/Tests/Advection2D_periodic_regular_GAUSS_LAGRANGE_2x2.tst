@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <test>
-    <description>2D unsteady FRDG advection GAUSS_LAGRANGE, P=15, periodic bcs, regular elements</description>
+    <description>2D unsteady advection GAUSS_LAGRANGE, P=15, periodic bcs, regular elements</description>
     <executable>ADRSolver</executable>
     <parameters>Advection2D_periodic_regular_GAUSS_LAGRANGE_2x2.xml</parameters>
     <files>

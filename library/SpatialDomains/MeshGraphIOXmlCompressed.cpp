@@ -51,7 +51,6 @@
 #include <boost/iostreams/copy.hpp>
 #include <boost/iostreams/filter/zlib.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
-#include <boost/make_shared.hpp>
 
 #include <tinyxml.h>
 using namespace std;

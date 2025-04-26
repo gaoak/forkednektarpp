@@ -42,8 +42,6 @@
 namespace Nektar::SolverUtils
 {
 
-using namespace std;
-
 std::string CouplingFile::className =
     GetCouplingFactory().RegisterCreatorFunction("File", CouplingFile::create,
                                                  "File Coupling");
@@ -53,10 +51,6 @@ CouplingFile::CouplingFile(MultiRegions::ExpListSharedPtr field)
 {
     m_config["RECEIVEFUNCTION"] = "CouplingIn";
     m_config["SENDFILENAME"]    = "CouplingOut_%14.8E.pts";
-}
-
-CouplingFile::~CouplingFile()
-{
 }
 
 void CouplingFile::v_Init()
@@ -74,7 +68,7 @@ void CouplingFile::v_Init()
 void CouplingFile::v_Send(
     const int step, const NekDouble time,
     const Array<OneD, const Array<OneD, NekDouble>> &field,
-    vector<string> &varNames)
+    std::vector<std::string> &varNames)
 {
     if (m_nSendVars < 1 || m_sendSteps < 1)
     {
@@ -90,10 +84,11 @@ void CouplingFile::v_Send(
     if (m_evalField->GetComm()->GetRank() == 0 &&
         m_evalField->GetSession()->DefinesCmdLineArgument("verbose"))
     {
-        cout << "sending fields at i = " << step << ", t = " << time << endl;
+        std::cout << "sending fields at i = " << step << ", t = " << time
+                  << std::endl;
     }
 
-    vector<int> sendVarsToVars =
+    std::vector<int> sendVarsToVars =
         GenerateVariableMapping(varNames, m_sendFieldNames);
 
 #if (defined _WIN32 && _MSC_VER < 1900)
@@ -127,14 +122,14 @@ void CouplingFile::v_Send(
             3, m_sendFieldNames, pts);
     // we first write to a temp file and rename this to make sure the
     // receiver doesnt try to read it before we finished writing
-    string tmpFn = filename + ".tmp";
+    std::string tmpFn = filename + ".tmp";
     ptsIO.Write(tmpFn, sPts);
     fs::rename(tmpFn, filename);
 }
 
 void CouplingFile::v_Receive(const int step, const NekDouble time,
                              Array<OneD, Array<OneD, NekDouble>> &field,
-                             vector<string> &varNames)
+                             std::vector<std::string> &varNames)
 {
     if (m_nRecvVars < 1 || m_recvSteps < 1)
     {
@@ -150,10 +145,11 @@ void CouplingFile::v_Receive(const int step, const NekDouble time,
     if (m_evalField->GetComm()->GetRank() == 0 &&
         m_evalField->GetSession()->DefinesCmdLineArgument("verbose"))
     {
-        cout << "receiving fields at i = " << step << ", t = " << time << endl;
+        std::cout << "receiving fields at i = " << step << ", t = " << time
+                  << std::endl;
     }
 
-    string filename = m_evalField->GetSession()->GetFunctionFilename(
+    std::string filename = m_evalField->GetSession()->GetFunctionFilename(
         m_config["RECEIVEFUNCTION"], m_recvFieldNames[0]);
 
 #if (defined _WIN32 && _MSC_VER < 1900)
@@ -177,7 +173,7 @@ void CouplingFile::v_Receive(const int step, const NekDouble time,
     Array<OneD, Array<OneD, NekDouble>> recvFields(m_nRecvVars);
     m_inputFunction->Evaluate(m_recvFieldNames, recvFields, time);
 
-    vector<int> recvVarsToVars =
+    std::vector<int> recvVarsToVars =
         GenerateVariableMapping(varNames, m_recvFieldNames);
     ASSERTL1(m_nRecvVars == recvVarsToVars.size(), "field size mismatch");
     for (int i = 0; i < recvVarsToVars.size(); ++i)

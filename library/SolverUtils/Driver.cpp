@@ -35,8 +35,6 @@
 #include <SolverUtils/Driver.h>
 #include <SpatialDomains/MeshGraphIO.h>
 
-using namespace std;
-
 namespace Nektar::SolverUtils
 {
 
@@ -81,7 +79,7 @@ Driver::Driver(const LibUtilities::SessionReaderSharedPtr pSession,
 /**
  *
  */
-void Driver::v_InitObject(ostream &out)
+void Driver::v_InitObject(std::ostream &out)
 {
     try
     {
@@ -204,7 +202,7 @@ void Driver::v_InitObject(ostream &out)
     catch (int e)
     {
         ASSERTL0(e == -1, "No such class class defined.");
-        out << "An error occurred during driver initialisation." << endl;
+        out << "An error occurred during driver initialisation." << std::endl;
     }
 }
 

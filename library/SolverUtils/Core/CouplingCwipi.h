@@ -50,6 +50,8 @@ class CouplingCwipi : public Coupling
 {
 
 public:
+    friend class MemoryManager<CouplingCwipi>;
+
     static std::string className;
 
     /// Creates an instance of this class
@@ -60,10 +62,6 @@ public:
         p->Init();
         return p;
     }
-
-    SOLVER_UTILS_EXPORT CouplingCwipi(MultiRegions::ExpListSharedPtr field);
-
-    SOLVER_UTILS_EXPORT ~CouplingCwipi() override;
 
     SOLVER_UTILS_EXPORT void SendCallback(
         Array<OneD, Array<OneD, NekDouble>> &interpField,
@@ -123,6 +121,10 @@ protected:
     std::shared_ptr<
         FieldUtils::Interpolator<std::vector<MultiRegions::ExpListSharedPtr>>>
         m_extrapInterpolator;
+
+    SOLVER_UTILS_EXPORT CouplingCwipi(MultiRegions::ExpListSharedPtr field);
+
+    SOLVER_UTILS_EXPORT ~CouplingCwipi() override;
 
     SOLVER_UTILS_EXPORT void v_Init() override;
 

@@ -39,7 +39,6 @@ using namespace std;
 #include "ProcessVortexInducedVelocity.h"
 #include <LibUtilities/BasicUtils/ParseUtils.h>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
-#include <boost/core/ignore_unused.hpp>
 
 namespace Nektar::FieldUtils
 {

@@ -34,7 +34,6 @@
 
 #include <GlobalMapping/MappingGeneral.h>
 #include <MultiRegions/ExpList.h>
-#include <iomanip>
 
 namespace Nektar::GlobalMapping
 {
@@ -61,9 +60,6 @@ MappingGeneral::MappingGeneral(
 {
 }
 
-/**
- *
- */
 void MappingGeneral::v_InitObject(
     const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
     const TiXmlElement *pMapping)

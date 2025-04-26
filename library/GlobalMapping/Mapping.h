@@ -35,16 +35,22 @@
 #ifndef NEKTAR_GLOBALMAPPING_MAPPING
 #define NEKTAR_GLOBALMAPPING_MAPPING
 
-#include <string>
-
 #include <GlobalMapping/GlobalMappingDeclspec.h>
+#include <LibUtilities/BasicUtils/FieldIO.h>
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
+#include <LibUtilities/BasicUtils/SessionReader.h>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
-#include <MultiRegions/ExpList.h>
+
+// Forward declaration
+namespace Nektar::MultiRegions
+{
+class ExpList;
+typedef std::shared_ptr<ExpList> ExpListSharedPtr;
+} // namespace Nektar::MultiRegions
 
 namespace Nektar::GlobalMapping
 {
-//  Forward declaration
+// Forward declaration
 class Mapping;
 
 /// A shared pointer to a Mapping object

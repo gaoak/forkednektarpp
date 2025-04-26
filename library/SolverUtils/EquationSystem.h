@@ -79,23 +79,41 @@ public:
     SOLVER_UTILS_EXPORT virtual ~EquationSystem();
 
     /// Initialises the members of this object.
-    SOLVER_UTILS_EXPORT inline void InitObject(bool DeclareField = true);
+    SOLVER_UTILS_EXPORT inline void InitObject(bool DeclareField = true)
+    {
+        v_InitObject(DeclareField);
+    }
 
     /// Perform any initialisation necessary before solving the problem.
     SOLVER_UTILS_EXPORT inline void DoInitialise(
-        bool dumpInitialConditions = true);
+        bool dumpInitialConditions = true)
+    {
+        v_DoInitialise(dumpInitialConditions);
+    }
 
     /// Solve the problem.
-    SOLVER_UTILS_EXPORT inline void DoSolve();
+    SOLVER_UTILS_EXPORT inline void DoSolve()
+    {
+        v_DoSolve();
+    }
 
     /// Transform from coefficient to physical space.
-    SOLVER_UTILS_EXPORT inline void TransCoeffToPhys();
+    SOLVER_UTILS_EXPORT inline void TransCoeffToPhys()
+    {
+        v_TransCoeffToPhys();
+    }
 
     /// Transform from physical to coefficient space.
-    SOLVER_UTILS_EXPORT inline void TransPhysToCoeff();
+    SOLVER_UTILS_EXPORT inline void TransPhysToCoeff()
+    {
+        v_TransPhysToCoeff();
+    }
 
     /// Perform output operations after solve.
-    SOLVER_UTILS_EXPORT inline void Output();
+    SOLVER_UTILS_EXPORT inline void Output()
+    {
+        v_Output();
+    }
 
     /// Get Session name
     SOLVER_UTILS_EXPORT std::string GetSessionName()
@@ -121,17 +139,26 @@ public:
     }
 
     /// Get pressure field if available
-    SOLVER_UTILS_EXPORT MultiRegions::ExpListSharedPtr GetPressure();
+    SOLVER_UTILS_EXPORT MultiRegions::ExpListSharedPtr GetPressure()
+    {
+        return v_GetPressure();
+    }
 
     SOLVER_UTILS_EXPORT inline void ExtraFldOutput(
         std::vector<Array<OneD, NekDouble>> &fieldcoeffs,
-        std::vector<std::string> &variables);
+        std::vector<std::string> &variables)
+    {
+        v_ExtraFldOutput(fieldcoeffs, variables);
+    }
 
     /// Print a summary of parameters and solver characteristics.
     SOLVER_UTILS_EXPORT inline void PrintSummary(std::ostream &out);
 
     /// Set parameter m_lambda
-    SOLVER_UTILS_EXPORT inline void SetLambda(NekDouble lambda);
+    SOLVER_UTILS_EXPORT inline void SetLambda(NekDouble lambda)
+    {
+        m_lambda = lambda;
+    }
 
     /// Get a SessionFunction by name
     SOLVER_UTILS_EXPORT SessionFunctionSharedPtr
@@ -143,17 +170,26 @@ public:
     /// Initialise the data in the dependent fields.
     SOLVER_UTILS_EXPORT inline void SetInitialConditions(
         NekDouble initialtime = 0.0, bool dumpInitialConditions = true,
-        const int domain = 0);
+        const int domain = 0)
+    {
+        v_SetInitialConditions(initialtime, dumpInitialConditions, domain);
+    }
 
     /// Evaluates an exact solution
     SOLVER_UTILS_EXPORT inline void EvaluateExactSolution(
-        int field, Array<OneD, NekDouble> &outfield, const NekDouble time);
+        int field, Array<OneD, NekDouble> &outfield, const NekDouble time)
+    {
+        v_EvaluateExactSolution(field, outfield, time);
+    }
 
     /// Compute the L2 error between fields and a given exact
     /// solution.
     SOLVER_UTILS_EXPORT NekDouble
     L2Error(unsigned int field, const Array<OneD, NekDouble> &exactsoln,
-            bool Normalised = false);
+            bool Normalised = false)
+    {
+        return v_L2Error(field, exactsoln, Normalised);
+    }
 
     /// Compute the L2 error of the fields
     SOLVER_UTILS_EXPORT inline NekDouble L2Error(unsigned int field,
@@ -165,13 +201,19 @@ public:
     /// Linf error computation
     SOLVER_UTILS_EXPORT NekDouble
     LinfError(unsigned int field,
-              const Array<OneD, NekDouble> &exactsoln = NullNekDouble1DArray);
+              const Array<OneD, NekDouble> &exactsoln = NullNekDouble1DArray)
+    {
+        return v_LinfError(field, exactsoln);
+    }
 
     /// Compute the H1 error between fields and a given exact
     /// solution.
     SOLVER_UTILS_EXPORT NekDouble
     H1Error(unsigned int field, const Array<OneD, NekDouble> &exactsoln,
-            bool Normalised = false);
+            bool Normalised = false)
+    {
+        return v_H1Error(field, exactsoln, Normalised);
+    }
 
     /// Compute error (L2 and L_inf) over an larger set of quadrature
     /// points return [L2 Linf]
@@ -233,39 +275,98 @@ public:
     UpdateFieldMetaDataMap();
 
     /// Return final time
-    SOLVER_UTILS_EXPORT inline NekDouble GetTime();
+    SOLVER_UTILS_EXPORT inline NekDouble GetTime()
+    {
+        return m_time;
+    }
 
-    SOLVER_UTILS_EXPORT inline int GetNcoeffs();
+    SOLVER_UTILS_EXPORT inline int GetNcoeffs()
+    {
+        return m_fields[0]->GetNcoeffs();
+    }
 
-    SOLVER_UTILS_EXPORT inline int GetNcoeffs(const int eid);
+    SOLVER_UTILS_EXPORT inline int GetNcoeffs(const int eid)
+    {
+        return m_fields[0]->GetNcoeffs(eid);
+    }
 
-    SOLVER_UTILS_EXPORT inline int GetNumExpModes();
+    SOLVER_UTILS_EXPORT inline int GetNumExpModes()
+    {
+        return m_graph->GetExpansionInfo()
+            .begin()
+            ->second->m_basisKeyVector[0]
+            .GetNumModes();
+    }
 
-    SOLVER_UTILS_EXPORT inline const Array<OneD, int> GetNumExpModesPerExp();
+    SOLVER_UTILS_EXPORT inline const Array<OneD, int> GetNumExpModesPerExp()
+    {
+        return m_fields[0]->EvalBasisNumModesMaxPerExp();
+    }
 
-    SOLVER_UTILS_EXPORT inline int GetNvariables();
+    SOLVER_UTILS_EXPORT inline int GetNvariables()
+    {
+        return m_session->GetVariables().size();
+    }
 
-    SOLVER_UTILS_EXPORT inline const std::string GetVariable(unsigned int i);
+    SOLVER_UTILS_EXPORT inline const std::string GetVariable(unsigned int i)
+    {
+        return m_session->GetVariable(i);
+    }
 
-    SOLVER_UTILS_EXPORT inline int GetTraceTotPoints();
+    SOLVER_UTILS_EXPORT inline int GetTraceTotPoints()
+    {
+        return GetTraceNpoints();
+    }
 
-    SOLVER_UTILS_EXPORT inline int GetTraceNpoints();
+    SOLVER_UTILS_EXPORT inline int GetTraceNpoints()
+    {
+        return m_fields[0]->GetTrace()->GetNpoints();
+    }
 
-    SOLVER_UTILS_EXPORT inline int GetExpSize();
+    SOLVER_UTILS_EXPORT inline int GetExpSize()
+    {
+        return m_fields[0]->GetExpSize();
+    }
 
-    SOLVER_UTILS_EXPORT inline int GetPhys_Offset(int n);
+    SOLVER_UTILS_EXPORT inline int GetPhys_Offset(int n)
+    {
+        return m_fields[0]->GetPhys_Offset(n);
+    }
 
-    SOLVER_UTILS_EXPORT inline int GetCoeff_Offset(int n);
+    SOLVER_UTILS_EXPORT inline int GetCoeff_Offset(int n)
+    {
+        return m_fields[0]->GetCoeff_Offset(n);
+    }
 
-    SOLVER_UTILS_EXPORT inline int GetTotPoints();
+    SOLVER_UTILS_EXPORT inline int GetTotPoints()
+    {
+        return m_fields[0]->GetNpoints();
+    }
 
-    SOLVER_UTILS_EXPORT inline int GetTotPoints(int n);
+    SOLVER_UTILS_EXPORT inline int GetTotPoints(int n)
+    {
+        return m_fields[0]->GetTotPoints(n);
+    }
 
-    SOLVER_UTILS_EXPORT inline int GetNpoints();
+    SOLVER_UTILS_EXPORT inline int GetNpoints()
+    {
+        return m_fields[0]->GetNpoints();
+    }
 
-    SOLVER_UTILS_EXPORT inline int GetSteps();
+    SOLVER_UTILS_EXPORT inline int GetSteps()
+    {
+        return m_steps;
+    }
 
-    SOLVER_UTILS_EXPORT inline NekDouble GetTimeStep();
+    SOLVER_UTILS_EXPORT inline void SetSteps(const int steps)
+    {
+        m_steps = steps;
+    }
+
+    SOLVER_UTILS_EXPORT inline NekDouble GetTimeStep()
+    {
+        return m_timestep;
+    }
 
     SOLVER_UTILS_EXPORT inline void CopyFromPhysField(
         const int i, Array<OneD, NekDouble> &output);
@@ -275,8 +376,6 @@ public:
 
     SOLVER_UTILS_EXPORT inline Array<OneD, NekDouble> &UpdatePhysField(
         const int i);
-
-    SOLVER_UTILS_EXPORT inline void SetSteps(const int steps);
 
     SOLVER_UTILS_EXPORT void ZeroPhysFields();
 
@@ -348,7 +447,10 @@ public:
     SOLVER_UTILS_EXPORT void SetBoundaryConditions(NekDouble time);
 
     /// Identify if operator is negated in DoSolve
-    SOLVER_UTILS_EXPORT bool NegatedOp();
+    SOLVER_UTILS_EXPORT bool NegatedOp()
+    {
+        return v_NegatedOp();
+    }
 
 protected:
     /// Communicator
@@ -542,119 +644,6 @@ private:
 };
 
 /**
- * This is the second part of the two-phase initialisation process.
- * Calls to virtual functions will correctly resolve to the derived class
- * during this phase of the construction.
- */
-inline void EquationSystem::InitObject(bool DeclareField)
-{
-    v_InitObject(DeclareField);
-}
-
-/**
- * This allows initialisation of the solver which cannot be completed
- * during object construction (such as setting of initial conditions).
- *
- * Public interface routine to virtual function implementation.
- */
-inline void EquationSystem::DoInitialise(bool dumpInitialConditions)
-{
-    v_DoInitialise(dumpInitialConditions);
-}
-
-/**
- * Performs the transformation from coefficient to physical space.
- *
- * Public interface routine to virtual function implementation.
- */
-inline void EquationSystem::TransCoeffToPhys(void)
-{
-    v_TransCoeffToPhys();
-}
-
-/**
- * Performs the transformation from physical to coefficient space.
- *
- * Public interface routine to virtual function implementation.
- */
-inline void EquationSystem::TransPhysToCoeff(void)
-{
-    v_TransPhysToCoeff();
-}
-
-/**
- * Performs the actual solve.
- *
- * Public interface routine to virtual function implementation.
- */
-inline void EquationSystem::DoSolve(void)
-{
-    v_DoSolve();
-}
-
-/**
- * Perform output operations after solve.
- */
-inline void EquationSystem::Output(void)
-{
-    v_Output();
-}
-
-/**
- * L_inf Error computation
- * Public interface routine to virtual function implementation.
- */
-inline NekDouble EquationSystem::LinfError(
-    unsigned int field, const Array<OneD, NekDouble> &exactsoln)
-{
-    return v_LinfError(field, exactsoln);
-}
-
-/**
- * L_2 Error computation
- * Public interface routine to virtual function implementation.
- */
-inline NekDouble EquationSystem::L2Error(
-    unsigned int field, const Array<OneD, NekDouble> &exactsoln,
-    bool Normalised)
-{
-    return v_L2Error(field, exactsoln, Normalised);
-}
-
-/**
- * H_1 Error computation
- * Public interface routine to virtual function implementation.
- */
-inline NekDouble EquationSystem::H1Error(
-    unsigned int field, const Array<OneD, NekDouble> &exactsoln,
-    bool Normalised)
-{
-    return v_H1Error(field, exactsoln, Normalised);
-}
-
-/**
- * Get Pressure field if available
- */
-inline MultiRegions::ExpListSharedPtr EquationSystem::GetPressure(void)
-{
-    return v_GetPressure();
-}
-
-/**
- * Append the coefficients and name of variables with solver specific
- * extra variables
- *
- * @param fieldcoeffs     Vector with coefficients
- * @param variables       Vector with name of variables
- */
-inline void EquationSystem::ExtraFldOutput(
-    std::vector<Array<OneD, NekDouble>> &fieldcoeffs,
-    std::vector<std::string> &variables)
-{
-    v_ExtraFldOutput(fieldcoeffs, variables);
-}
-
-/**
  * Prints a summary of variables and problem parameters.
  *
  * Public interface routine to virtual function implementation.
@@ -685,129 +674,10 @@ inline void EquationSystem::PrintSummary(std::ostream &out)
     }
 }
 
-inline void EquationSystem::SetLambda(NekDouble lambda)
-{
-    m_lambda = lambda;
-}
-
-inline void EquationSystem::SetInitialConditions(NekDouble initialtime,
-                                                 bool dumpInitialConditions,
-                                                 const int domain)
-{
-    v_SetInitialConditions(initialtime, dumpInitialConditions, domain);
-}
-
-/// Evaluates an exact solution
-inline void EquationSystem::EvaluateExactSolution(
-    int field, Array<OneD, NekDouble> &outfield, const NekDouble time)
-{
-    v_EvaluateExactSolution(field, outfield, time);
-}
-
-/// Identify if operator is negated in DoSolve
-inline bool EquationSystem::NegatedOp(void)
-{
-    return v_NegatedOp();
-}
-
 inline Array<OneD, MultiRegions::ExpListSharedPtr> &EquationSystem::
     UpdateFields(void)
 {
     return m_fields;
-}
-
-/// Return time
-inline NekDouble EquationSystem::GetTime()
-{
-    return m_time;
-}
-
-inline int EquationSystem::GetNcoeffs(void)
-{
-    return m_fields[0]->GetNcoeffs();
-}
-
-inline int EquationSystem::GetNcoeffs(const int eid)
-{
-    return m_fields[0]->GetNcoeffs(eid);
-}
-
-inline int EquationSystem::GetNumExpModes(void)
-{
-    return m_graph->GetExpansionInfo()
-        .begin()
-        ->second->m_basisKeyVector[0]
-        .GetNumModes();
-}
-
-inline const Array<OneD, int> EquationSystem::GetNumExpModesPerExp(void)
-{
-    return m_fields[0]->EvalBasisNumModesMaxPerExp();
-}
-
-inline int EquationSystem::GetNvariables(void)
-{
-    return m_session->GetVariables().size();
-}
-
-inline const std::string EquationSystem::GetVariable(unsigned int i)
-{
-    return m_session->GetVariable(i);
-}
-
-inline int EquationSystem::GetTraceTotPoints(void)
-{
-    return GetTraceNpoints();
-}
-
-inline int EquationSystem::GetTraceNpoints(void)
-{
-    return m_fields[0]->GetTrace()->GetNpoints();
-}
-
-inline int EquationSystem::GetExpSize(void)
-{
-    return m_fields[0]->GetExpSize();
-}
-
-inline int EquationSystem::GetPhys_Offset(int n)
-{
-    return m_fields[0]->GetPhys_Offset(n);
-}
-
-inline int EquationSystem::GetCoeff_Offset(int n)
-{
-    return m_fields[0]->GetCoeff_Offset(n);
-}
-
-inline int EquationSystem::GetTotPoints(void)
-{
-    return m_fields[0]->GetNpoints();
-}
-
-inline int EquationSystem::GetTotPoints(int n)
-{
-    return m_fields[0]->GetTotPoints(n);
-}
-
-inline int EquationSystem::GetNpoints(void)
-{
-    return m_fields[0]->GetNpoints();
-}
-
-inline int EquationSystem::GetSteps(void)
-{
-    return m_steps;
-}
-
-inline NekDouble EquationSystem::GetTimeStep(void)
-{
-    return m_timestep;
-}
-
-inline void EquationSystem::SetSteps(const int steps)
-{
-    m_steps = steps;
 }
 
 inline void EquationSystem::CopyFromPhysField(const int i,

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <test>
-    <description>Euler, LE simulation, BCs from file, FRHU, SEM, parallel</description>
+    <description>Euler, LE simulation, BCs from file, SEM, parallel</description>
     <executable>CompressibleFlowSolver</executable>
     <parameters>--use-scotch RAE5240_BSF_LE_bcsfromfile_par.xml</parameters>
     <processes>2</processes>

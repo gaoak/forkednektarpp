@@ -38,15 +38,13 @@
 #include <MultiRegions/ContField.h>
 #include <SolverUtils/DriverModifiedArnoldi.h>
 
-using namespace std;
-
 namespace Nektar::SolverUtils
 {
 
-string DriverModifiedArnoldi::className =
+std::string DriverModifiedArnoldi::className =
     GetDriverFactory().RegisterCreatorFunction("ModifiedArnoldi",
                                                DriverModifiedArnoldi::create);
-string DriverModifiedArnoldi::driverLookupId =
+std::string DriverModifiedArnoldi::driverLookupId =
     LibUtilities::SessionReader::RegisterEnumValue("Driver", "ModifiedArnoldi",
                                                    0);
 
@@ -63,7 +61,7 @@ DriverModifiedArnoldi::DriverModifiedArnoldi(
 /**
  *
  */
-void DriverModifiedArnoldi::v_InitObject(ostream &out)
+void DriverModifiedArnoldi::v_InitObject(std::ostream &out)
 {
     DriverArnoldi::v_InitObject(out);
 
@@ -72,7 +70,7 @@ void DriverModifiedArnoldi::v_InitObject(ostream &out)
     // Print session parameters
     if (m_comm->GetRank() == 0)
     {
-        out << "\tArnoldi solver type    : Modified Arnoldi" << endl;
+        out << "\tArnoldi solver type    : Modified Arnoldi" << std::endl;
     }
 
     DriverArnoldi::ArnoldiSummary(out);
@@ -89,7 +87,7 @@ void DriverModifiedArnoldi::v_InitObject(ostream &out)
 /**
  *
  */
-void DriverModifiedArnoldi::v_Execute(ostream &out)
+void DriverModifiedArnoldi::v_Execute(std::ostream &out)
 {
     int i             = 0;
     int j             = 0;
@@ -97,7 +95,7 @@ void DriverModifiedArnoldi::v_Execute(ostream &out)
     int ntot          = m_nfields * nm;
     int converged     = 0;
     NekDouble resnorm = 0.0;
-    ofstream evlout;
+    std::ofstream evlout;
     std::string evlFile = m_session->GetSessionName() + ".evl";
 
     if (m_comm->GetRank() == 0)
@@ -136,7 +134,8 @@ void DriverModifiedArnoldi::v_Execute(ostream &out)
     {
         if (m_comm->GetRank() == 0)
         {
-            out << "\tInital vector       : specified in input file " << endl;
+            out << "\tInital vector       : specified in input file "
+                << std::endl;
         }
         m_equ[0]->SetInitialConditions(0.0, false);
 
@@ -146,7 +145,7 @@ void DriverModifiedArnoldi::v_Execute(ostream &out)
     {
         if (m_comm->GetRank() == 0)
         {
-            out << "\tInital vector       : random  " << endl;
+            out << "\tInital vector       : random  " << std::endl;
         }
 
         NekDouble eps = 0.0001;
@@ -176,7 +175,7 @@ void DriverModifiedArnoldi::v_Execute(ostream &out)
     EV_update(Kseq[1], Kseq[0]);
     if (m_comm->GetRank() == 0)
     {
-        out << "Iteration: " << 0 << endl;
+        out << "Iteration: " << 0 << std::endl;
     }
 
     // Normalise first vector in sequence
@@ -231,7 +230,7 @@ void DriverModifiedArnoldi::v_Execute(ostream &out)
                             evlout, resid0);
         if (i >= m_nvec)
         {
-            converged = max(converged, 0);
+            converged = std::max(converged, 0);
         }
         else
         {
@@ -241,7 +240,7 @@ void DriverModifiedArnoldi::v_Execute(ostream &out)
         if (m_comm->GetRank() == 0)
         {
             out << "Iteration: " << i << " (residual : " << resid0 << ")"
-                << endl;
+                << std::endl;
         }
     }
 
@@ -300,7 +299,7 @@ void DriverModifiedArnoldi::v_Execute(ostream &out)
             if (m_comm->GetRank() == 0)
             {
                 out << "Iteration: " << i << " (residual : " << resid0 << ")"
-                    << endl;
+                    << std::endl;
             }
         }
     }
@@ -318,15 +317,15 @@ void DriverModifiedArnoldi::v_Execute(ostream &out)
         if (m_comm->GetRank() == 0)
         {
             out << "L 2 error (variable " << m_equ[0]->GetVariable(j)
-                << ") : " << vL2Error << endl;
+                << ") : " << vL2Error << std::endl;
             out << "L inf error (variable " << m_equ[0]->GetVariable(j)
-                << ") : " << vLinfError << endl;
+                << ") : " << vLinfError << std::endl;
         }
     }
 
     // Process eigenvectors and write out.
     m_nvec = converged;
-    EV_post(Tseq, Kseqcopy, ntot, min(--i, m_kdim), m_nvec, zvec, wr, wi,
+    EV_post(Tseq, Kseqcopy, ntot, std::min(--i, m_kdim), m_nvec, zvec, wr, wi,
             converged);
 
     WARNINGL0(m_imagShift == 0, "Complex Shift applied. "
@@ -454,7 +453,7 @@ int DriverModifiedArnoldi::EV_test(const int itrn, const int kdim,
                                    Array<OneD, NekDouble> &wr,
                                    Array<OneD, NekDouble> &wi,
                                    const NekDouble resnorm, int nvec,
-                                   ofstream &evlout, NekDouble &resid0)
+                                   std::ofstream &evlout, NekDouble &resid0)
 {
     int idone = 0;
     // NekDouble period = 0.1;
@@ -483,18 +482,18 @@ int DriverModifiedArnoldi::EV_test(const int itrn, const int kdim,
     if (m_comm->GetRank() == 0)
     {
         evlout << "-- Iteration = " << itrn << ", H(k+1, k) = " << resnorm
-               << endl;
+               << std::endl;
         evlout.precision(4);
-        evlout.setf(ios::scientific, ios::floatfield);
+        evlout.setf(std::ios::scientific, std::ios::floatfield);
         if (m_timeSteppingAlgorithm)
         {
             evlout << "        Magnitude   Angle       Growth      "
-                   << "Frequency   Residual" << endl;
+                   << "Frequency   Residual" << std::endl;
         }
         else
         {
             evlout << "        Real        Imaginary   inverse real  "
-                   << "inverse imag  Residual" << endl;
+                   << "inverse imag  Residual" << std::endl;
         }
 
         for (int i = 0; i < kdim; i++)
@@ -578,7 +577,7 @@ void DriverModifiedArnoldi::EV_post(Array<OneD, Array<OneD, NekDouble>> &Tseq,
 
             if (m_comm->GetRank() == 0)
             {
-                WriteEvs(cout, j, wr[j], wi[j]);
+                WriteEvs(std::cout, j, wr[j], wi[j]);
             }
             WriteFld(file, Kseq[j]);
             if (m_useMask)
@@ -649,7 +648,7 @@ void DriverModifiedArnoldi::EV_big(Array<OneD, Array<OneD, NekDouble>> &bvecs,
         {
             if (m_session->GetComm()->GetRank() == 0)
             {
-                cout << "eigenvalue " << i << ": real mode" << endl;
+                std::cout << "eigenvalue " << i << ": real mode" << std::endl;
             }
             norm = Blas::Ddot(ntot, &btmp[i][0], 1, &btmp[i][0], 1);
             m_comm->AllReduce(norm, Nektar::LibUtilities::ReduceSum);
@@ -668,8 +667,8 @@ void DriverModifiedArnoldi::EV_big(Array<OneD, Array<OneD, NekDouble>> &bvecs,
         {
             if (m_session->GetComm()->GetRank() == 0)
             {
-                cout << "eigenvalues " << i << ", " << i + 1
-                     << ": complex modes" << endl;
+                std::cout << "eigenvalues " << i << ", " << i + 1
+                          << ": complex modes" << std::endl;
             }
             norm = Blas::Ddot(ntot, &btmp[i][0], 1, &btmp[i][0], 1);
             norm += Blas::Ddot(ntot, &btmp[i + 1][0], 1, &btmp[i + 1][0], 1);

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <test>
-    <description>2D unsteady FRDG advection GLL_LAGRANGE, P=10, homogeneous Dirichlet bcs, deformed elements</description>
+    <description>2D unsteady advection GLL_LAGRANGE, P=10, homogeneous Dirichlet bcs, deformed elements</description>
     <executable>ADRSolver</executable>
     <parameters>Advection2D_ISO_deformed_GLL_LAGRANGE_3x3.xml</parameters>
     <files>

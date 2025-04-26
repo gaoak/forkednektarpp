@@ -34,8 +34,6 @@
 
 #include <SolverUtils/DriverArpack.h>
 
-using namespace std;
-
 namespace Nektar::SolverUtils
 {
 
@@ -77,7 +75,7 @@ DriverArpack::DriverArpack(const LibUtilities::SessionReaderSharedPtr pSession,
 /**
  *
  */
-void DriverArpack::v_InitObject(ostream &out)
+void DriverArpack::v_InitObject(std::ostream &out)
 {
     DriverArnoldi::v_InitObject(out);
 
@@ -98,11 +96,11 @@ void DriverArpack::v_InitObject(ostream &out)
     m_equ[0]->PrintSummary(out);
 
     // Print session parameters
-    out << "\tArnoldi solver type    : Arpack" << endl;
+    out << "\tArnoldi solver type    : Arpack" << std::endl;
     out << "\tArpack problem type    : ";
     out << ArpackProblemTypeTrans[m_session->GetSolverInfoAsEnum<int>(
                "ArpackProblemType")]
-        << endl;
+        << std::endl;
     DriverArnoldi::ArnoldiSummary(out);
 
     // Initialization
@@ -118,7 +116,7 @@ void DriverArpack::v_InitObject(ostream &out)
 /**
  *
  */
-void DriverArpack::v_Execute(ostream &out)
+void DriverArpack::v_Execute(std::ostream &out)
 
 {
     Array<OneD, NekDouble> tmpworkd;
@@ -152,13 +150,13 @@ void DriverArpack::v_Execute(ostream &out)
 
     if (m_session->DefinesFunction("InitialConditions"))
     {
-        out << "\tInital vector       : input file  " << endl;
+        out << "\tInital vector       : input file  " << std::endl;
         info = 1;
         CopyFieldToArnoldiArray(resid);
     }
     else
     {
-        out << "\tInital vector       : random  " << endl;
+        out << "\tInital vector       : random  " << std::endl;
         info = 0;
     }
 
@@ -207,7 +205,7 @@ void DriverArpack::v_Execute(ostream &out)
             .c_str();
 
     std::string name = m_session->GetSessionName() + ".evl";
-    ofstream pFile(name.c_str());
+    std::ofstream pFile(name.c_str());
 
     ido = 0; // At the first call must be initialisedat 0
 
@@ -225,22 +223,22 @@ void DriverArpack::v_Execute(ostream &out)
 
         if (!((cycle - 1) % m_kdim) && (cycle > m_kdim) && (ido != 2))
         {
-            pFile << "Krylov spectrum at iteration: " << cycle << endl;
+            pFile << "Krylov spectrum at iteration: " << cycle << std::endl;
 
             if (m_timeSteppingAlgorithm)
             {
                 pFile << "EV  Magnitude   Angle       Growth      Frequency   "
                          "Residual"
-                      << endl;
+                      << std::endl;
             }
             else
             {
                 pFile << "EV  Real        Imaginary   inverse real  inverse "
                          "imag  Residual"
-                      << endl;
+                      << std::endl;
             }
 
-            out << endl;
+            out << std::endl;
             for (int k = 0; k < m_kdim; ++k)
             {
                 // write m_kdim eigs to screen
@@ -277,7 +275,7 @@ void DriverArpack::v_Execute(ostream &out)
 
                 if (!(cycle % m_infosteps))
                 {
-                    out << endl;
+                    out << std::endl;
                     m_equ[0]->Output();
                 }
 
@@ -310,7 +308,8 @@ void DriverArpack::v_Execute(ostream &out)
         }
     }
 
-    out << endl << "Converged in " << iparam[8] << " iterations" << endl;
+    out << std::endl
+        << "Converged in " << iparam[8] << " iterations" << std::endl;
 
     ASSERTL0(info >= 0, " Error with Dnaupd");
 
@@ -362,14 +361,15 @@ void DriverArpack::v_Execute(ostream &out)
     Array<OneD, MultiRegions::ExpListSharedPtr> fields =
         m_equ[0]->UpdateFields();
 
-    out << "Converged Eigenvalues: " << nconv << endl;
-    pFile << "Converged Eigenvalues: " << nconv << endl;
+    out << "Converged Eigenvalues: " << nconv << std::endl;
+    pFile << "Converged Eigenvalues: " << nconv << std::endl;
 
     if (m_timeSteppingAlgorithm)
     {
-        out << "         Magnitude   Angle       Growth      Frequency" << endl;
+        out << "         Magnitude   Angle       Growth      Frequency"
+            << std::endl;
         pFile << "         Magnitude   Angle       Growth      Frequency"
-              << endl;
+              << std::endl;
         for (int i = 0; i < nconv; ++i)
         {
             WriteEvs(out, i, dr[i], di[i]);
@@ -382,8 +382,8 @@ void DriverArpack::v_Execute(ostream &out)
     }
     else
     {
-        out << "         Real        Imaginary " << endl;
-        pFile << "         Real        Imaginary " << endl;
+        out << "         Real        Imaginary " << std::endl;
+        pFile << "         Real        Imaginary " << std::endl;
         for (int i = 0; i < nconv; ++i)
         {
             WriteEvs(out, i, dr[i], di[i], NekConstants::kNekUnsetDouble,
@@ -409,9 +409,9 @@ void DriverArpack::v_Execute(ostream &out)
         if (m_comm->GetRank() == 0)
         {
             out << "L 2 error (variable " << m_equ[0]->GetVariable(j)
-                << ") : " << vL2Error << endl;
+                << ") : " << vL2Error << std::endl;
             out << "L inf error (variable " << m_equ[0]->GetVariable(j)
-                << ") : " << vLinfError << endl;
+                << ") : " << vLinfError << std::endl;
         }
     }
 }

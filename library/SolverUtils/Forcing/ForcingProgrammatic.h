@@ -91,7 +91,7 @@ protected:
 private:
     ForcingProgrammatic(const LibUtilities::SessionReaderSharedPtr &pSession,
                         const std::weak_ptr<EquationSystem> &pEquation);
-    ~ForcingProgrammatic(void) override{};
+    ~ForcingProgrammatic(void) override = default;
 };
 
 } // namespace Nektar::SolverUtils

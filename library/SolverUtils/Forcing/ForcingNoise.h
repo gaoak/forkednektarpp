@@ -81,7 +81,7 @@ protected:
 private:
     ForcingNoise(const LibUtilities::SessionReaderSharedPtr &pSession,
                  const std::weak_ptr<EquationSystem> &pEquation);
-    ~ForcingNoise(void) override{};
+    ~ForcingNoise(void) override = default;
 
     int m_index;
     int m_updateFreq;

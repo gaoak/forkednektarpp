@@ -628,8 +628,8 @@ void ProcessBL::BoundaryLayer3D()
 
     // Map which takes element ID to face on surface. This enables
     // splitting to occur in either y-direction of the prism.
-    unordered_map<int, int> splitEls;
-    unordered_map<int, int>::iterator sIt;
+    std::unordered_map<int, int> splitEls;
+    std::unordered_map<int, int>::iterator sIt;
 
     // Set up maps which takes an edge (in nektar++ ordering) and return
     // their offset and stride in the 3d array of collapsed quadrature
@@ -854,8 +854,8 @@ void ProcessBL::BoundaryLayer3D()
     // generated along that edge when a prism is split, and is used to avoid
     // generation of duplicate vertices. It is stored as an unordered map for
     // speed.
-    unordered_map<int, vector<NodeSharedPtr>> edgeMap;
-    unordered_map<int, vector<NodeSharedPtr>>::iterator eIt;
+    std::unordered_map<int, vector<NodeSharedPtr>> edgeMap;
+    std::unordered_map<int, vector<NodeSharedPtr>>::iterator eIt;
 
     string surf = m_config["surf"].as<string>();
     if (surf.size() == 0)

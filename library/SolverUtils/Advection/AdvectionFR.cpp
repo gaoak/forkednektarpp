@@ -85,6 +85,8 @@ void AdvectionFR::v_InitObject(
     LibUtilities::SessionReaderSharedPtr pSession,
     Array<OneD, MultiRegions::ExpListSharedPtr> pFields)
 {
+    WARNINGL0(false, "FR is deprecated, use DG instead");
+
     Advection::v_InitObject(pSession, pFields);
     SetupMetrics(pSession, pFields);
     SetupCFunctions(pSession, pFields);

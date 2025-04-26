@@ -139,17 +139,15 @@ the Sutherland's law and $k$ is the thermal conductivity.
 \subsection{Numerical discretisation}
 In Nektar++ the spatial discretisation of the Euler and of the Navier-Stokes
 equations is projected in the polynomial space via a discontinuous projection.
-Specifically we make use either of the discontinuous Galerkin (DG) method
-or the Flux Reconstruction (FR) approach.
-In both the approaches the physical domain $\Omega$ is divided into a mesh
+Specifically we make use of the discontinuous Galerkin (DG) method.
+The physical domain $\Omega$ is divided into a mesh
 of $N$ non-overlapping elements $\Omega_{e}$ and the solution is allowed
 to be discontinuous at the boundary between two adjacent elements.
 Since the Euler as well as the Navier-Stokes equations are defined locally
 (on each element of the computational domain), it is necessary to define
 a term to couple the elements of the spatial discretisation in order to allow
 information to propagate across the domain. This term, called numerical
-interface flux, naturally arises from the discontinuous Galerkin formulation
-as well as from the Flux Reconstruction approach.
+interface flux, naturally arises from the discontinuous Galerkin formulation.
 
 For the advection term it is common to solve a Riemann problem at each
 interface of the computational domain through exact or approximated Riemann
@@ -168,8 +166,7 @@ Newton method, the accuracy of the method may come at high computational
 cost. The approximated Riemann solvers are simplifications of the exact solver.
 
 Concerning the diffusion term, the coupling between the elements can be achieved
-by using local discontinuous Galerkin (LDG) approach, interior penalty method or
-five different FR diffusion terms.
+by using local discontinuous Galerkin (LDG) approach or interior penalty method.
 
 The boundary conditions are also implemented by exploiting the numerical
 interface fluxes just mentioned.
@@ -325,11 +322,6 @@ Under this section it is possible to set the solver information.
   \item \inltt{AdvectionType} is the advection operator we want to use.
     \begin{itemize}
       \item \inltt{WeakDG} (classical DG in weak form).
-      \item \inltt{FRDG} (Flux-Reconstruction recovering nodal DG scheme).
-      \item \inltt{FRSD} (Flux-Reconstruction recovering a spectral difference (SD) scheme).
-      \item \inltt{FRHU} (Flux-Reconstruction recovering Huynh (G2) scheme).
-      \item \inltt{FRcmin} (Flux-Reconstruction with $c = c_{min}$).
-      \item \inltt{FRcinf} (Flux-Reconstruction with $c = \infty$).
     \end{itemize}
     Note that only \inltt{WeakDG} is fully supported, the other operators work
     only with quadrilateral elements ($2D$ or $2.5D$).
@@ -342,11 +334,6 @@ Under this section it is possible to set the solver information.
       and proportional to an optional parameter \inltt{LDGNSc11} which is by default
       set to one; proportionality to polynomial order can be manually imposed by setting
       the parameter \inltt{LDGNSc11} equal to $p^2$).
-      \item \inltt{LFRDGNS} (Flux-Reconstruction recovering nodal DG scheme).
-      \item \inltt{LFRSDNS} (Flux-Reconstruction recovering a spectral difference (SD) scheme).
-      \item \inltt{LFRHUNS} (Flux-Reconstruction recovering Huynh (G2) scheme).
-      \item \inltt{LFRcminNS} (Flux-Reconstruction with $c = c_{min}$).
-      \item \inltt{LFRcinfNS} (Flux-Reconstruction with $c = \infty$).
       \item \inltt{InteriorPenalty} (Symmetric interior penalty method).
     \end{itemize}
     Note that only \inltt{LDGNS} and \inltt{InteriorPenalty} are fully supported, the other operators work only

@@ -114,7 +114,7 @@ private:
     bool m_homogeneous;
     ForcingAbsorption(const LibUtilities::SessionReaderSharedPtr &pSession,
                       const std::weak_ptr<EquationSystem> &pEquation);
-    ~ForcingAbsorption(void) override{};
+    ~ForcingAbsorption(void) override = default;
 
     void CalcAbsorption(
         const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,

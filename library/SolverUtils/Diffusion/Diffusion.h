@@ -136,11 +136,18 @@ typedef std::function<void(Array<OneD, Array<OneD, NekDouble>> &)>
 class Diffusion
 {
 public:
-    SOLVER_UTILS_EXPORT virtual ~Diffusion(){};
-
     SOLVER_UTILS_EXPORT void InitObject(
         LibUtilities::SessionReaderSharedPtr pSession,
-        Array<OneD, MultiRegions::ExpListSharedPtr> pFields);
+        Array<OneD, MultiRegions::ExpListSharedPtr> pFields)
+    {
+        v_InitObject(pSession, pFields);
+
+        // Div curl storage
+        int nPts        = pFields[0]->GetTotPoints();
+        m_divVel        = Array<OneD, NekDouble>(nPts, 0.0);
+        m_divVelSquare  = Array<OneD, NekDouble>(nPts, 0.0);
+        m_curlVelSquare = Array<OneD, NekDouble>(nPts, 0.0);
+    }
 
     SOLVER_UTILS_EXPORT void Diffuse(
         const std::size_t nConvectiveFields,
@@ -359,6 +366,8 @@ protected:
     DiffusionSymmFluxCons m_FunctorSymmetricfluxCons;
     Array<OneD, Array<OneD, NekDouble>> m_gridVelocityTrace;
     NekDouble m_time = 0.0;
+
+    SOLVER_UTILS_EXPORT virtual ~Diffusion() = default;
 
     SOLVER_UTILS_EXPORT virtual void v_InitObject(
         LibUtilities::SessionReaderSharedPtr pSession,

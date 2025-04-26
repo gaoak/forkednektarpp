@@ -173,13 +173,6 @@ void UnsteadySystem::v_InitObject(bool DeclareField)
 }
 
 /**
- * Destructor for the class UnsteadyAdvection.
- */
-UnsteadySystem::~UnsteadySystem()
-{
-}
-
-/**
  * @brief Returns the maximum time estimator for CFL control.
  */
 NekDouble UnsteadySystem::MaxTimeStepEstimator()

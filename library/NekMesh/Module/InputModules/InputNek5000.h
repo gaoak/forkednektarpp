@@ -36,8 +36,6 @@
 #define UTILITIES_NEKMESH_INPUTNEK
 
 #include <algorithm>
-#include <boost/unordered_map.hpp>
-#include <boost/unordered_set.hpp>
 
 #include <NekMesh/MeshElements/Triangle.h>
 #include <NekMesh/Module/Module.h>

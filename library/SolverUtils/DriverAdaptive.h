@@ -68,7 +68,7 @@ protected:
         const SpatialDomains::MeshGraphSharedPtr pGraph);
 
     /// Destructor
-    SOLVER_UTILS_EXPORT ~DriverAdaptive() override;
+    SOLVER_UTILS_EXPORT ~DriverAdaptive() override = default;
 
     /// Virtual function for initialisation implementation.
     SOLVER_UTILS_EXPORT void v_InitObject(

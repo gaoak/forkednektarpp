@@ -46,6 +46,8 @@ class CouplingFile : public Coupling
 {
 
 public:
+    friend class MemoryManager<CouplingFile>;
+
     static std::string className;
 
     /// Creates an instance of this class
@@ -58,11 +60,11 @@ public:
         return p;
     }
 
+protected:
     SOLVER_UTILS_EXPORT CouplingFile(MultiRegions::ExpListSharedPtr field);
 
-    SOLVER_UTILS_EXPORT ~CouplingFile() override;
+    SOLVER_UTILS_EXPORT ~CouplingFile() override = default;
 
-protected:
     SOLVER_UTILS_EXPORT void v_Init() override;
 
     SOLVER_UTILS_EXPORT void v_Send(

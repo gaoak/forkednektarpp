@@ -48,7 +48,6 @@
 #include <SolverUtils/Filters/FilterInterfaces.hpp>
 #include <SolverUtils/Forcing/ForcingMovingReferenceFrame.h>
 #include <boost/format.hpp>
-using namespace std;
 
 namespace Nektar::SolverUtils
 {
@@ -335,7 +334,7 @@ void ForcingMovingReferenceFrame::LoadParameters(const TiXmlElement *pForce)
 
     // OutputFile
     const TiXmlElement *mssgTag = pForce->FirstChildElement("OutputFile");
-    string filename;
+    std::string filename;
     if (mssgTag)
     {
         filename = mssgTag->GetText();
@@ -356,13 +355,13 @@ void ForcingMovingReferenceFrame::LoadParameters(const TiXmlElement *pForce)
         {
             m_outputStream
                 << "Variables = t, x, ux, ax, y, uy, ay, theta, omega, domega"
-                << endl;
+                << std::endl;
         }
         else if (m_spacedim == 3)
         {
             m_outputStream << "Variables = t, x, ux, ax, y, uy, ay, z, uz, az, "
                               "theta, omega, domega"
-                           << endl;
+                           << std::endl;
         }
     }
 
@@ -599,7 +598,7 @@ void ForcingMovingReferenceFrame::UpdateFrameVelocity(
                            << boost::format("%25.19e") % m_body.vel[2][i]
                            << " ";
         }
-        m_outputStream << endl;
+        m_outputStream << std::endl;
     }
     // extract values and transform to body frame
     for (int i = 0; i < m_spacedim; ++i)

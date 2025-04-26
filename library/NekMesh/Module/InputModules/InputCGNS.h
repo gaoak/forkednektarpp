@@ -69,20 +69,20 @@ private:
     void SetupElements();
     void ResetNodes(vector<NodeSharedPtr> &Vnodes,
                     Array<OneD, vector<int>> &ElementFaces,
-                    unordered_map<int, vector<int>> &FaceNodes,
+                    std::unordered_map<int, vector<int>> &FaceNodes,
                     vector<pair<ElementType_t, vector<int>>> &elemInfo,
                     vector<int> &VolumeElems);
 
-    Array<OneD, int> SortFaceNodes(vector<NodeSharedPtr> &Vnodes,
-                                   vector<int> &ElementFaces,
-                                   unordered_map<int, vector<int>> &FaceNodes);
+    Array<OneD, int> SortFaceNodes(
+        vector<NodeSharedPtr> &Vnodes, vector<int> &ElementFaces,
+        std::unordered_map<int, vector<int>> &FaceNodes);
 
     void GenElement2D(vector<NodeSharedPtr> &VertNodes, vector<int> elemNodes,
                       ElementType_t elemType, int nComposite, bool DoOrient);
 
     void GenElement3D(vector<NodeSharedPtr> &VertNodes, vector<int> elemNodes,
                       vector<int> &ElementFaces,
-                      unordered_map<int, vector<int>> &FaceNodes,
+                      std::unordered_map<int, vector<int>> &FaceNodes,
                       ElementType_t elemType, int nComposite, bool DoOrient);
 
     vector<int> CGNSReordering(LibUtilities::ShapeType shapeType, int order);
@@ -91,7 +91,7 @@ private:
                                    vector<int> &FaceNodes);
 
     void ReadFaces(vector<pair<ElementType_t, vector<int>>> &elemInfo,
-                   unordered_map<int, vector<int>> &FaceNodes,
+                   std::unordered_map<int, vector<int>> &FaceNodes,
                    Array<OneD, vector<int>> &ElementFaces,
                    vector<int> &BoundaryElems, vector<int> &VolumeElems);
 
@@ -107,7 +107,7 @@ private:
 
     void PyramidShielding(vector<NodeSharedPtr> &Vnodes,
                           Array<OneD, vector<int>> &ElementFaces,
-                          unordered_map<int, vector<int>> &FaceNodes,
+                          std::unordered_map<int, vector<int>> &FaceNodes,
                           vector<pair<ElementType_t, vector<int>>> &elemInfo,
                           vector<int> &VolumeElems, vector<int> &NodeReordering,
                           int pyraElemIdx);
@@ -117,7 +117,7 @@ private:
                                vector<vector<int>> GlobTriFaces,
                                vector<NodeSharedPtr> &Vnodes,
                                Array<OneD, vector<int>> &ElementFaces,
-                               unordered_map<int, vector<int>> &FaceNodes,
+                               std::unordered_map<int, vector<int>> &FaceNodes,
                                vector<int> &NodeReordering, int &revNodeid);
 
     int m_fileIndex;
@@ -127,9 +127,9 @@ private:
     vector<double> m_y; // y-coordinates from CGNS file
     vector<double> m_z; // z-coordinates from CGNS file
 
-    unordered_map<ElementType_t, vector<int>> m_orderingMap;
+    std::unordered_map<ElementType_t, vector<int>> m_orderingMap;
 
-    unordered_map<LibUtilities::ShapeType, vector<vector<int>>>
+    std::unordered_map<LibUtilities::ShapeType, vector<vector<int>>>
         m_shapeType2LocElemNodes{
             // Gives the ordering of the nodes for each face for each shape
             // type.

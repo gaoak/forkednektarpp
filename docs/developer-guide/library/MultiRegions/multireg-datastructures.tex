@@ -21,7 +21,7 @@ We consider a {\em field} to be the representation of a function over a (sub--)d
 that are {\em connected} (that is, they form a contiguous region in space).   We think of the region of space as being tiled by elements
 over which expansions are build.  If we consider a MultiRegion field to be a collection of these expansions with no constraints on their
 continuity, we arrive at the DisContField family of class definitions (which vary by dimension).  For the currently available solvers within
-{\nek}, this level of field is used for the solution of PDEs via the discontinuous Galerkin (dG) and Flux-Reconstruction (FR) methods.
+{\nek}, this level of field is used for the solution of PDEs via the discontinuous Galerkin (dG) method.
 If we consider a function as a collection of expansion in which we require continuity (in {\nek}, only $C^0$ continuity), then we employ
 a further derived class called ContField (which again varies by dimension).  For the currently available solvers
 within {\nek}, this level of field is used for the solution of PDEs via the continuous Galerkin (cG) method.

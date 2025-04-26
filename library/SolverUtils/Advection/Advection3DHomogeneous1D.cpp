@@ -37,8 +37,6 @@
 #include <iomanip>
 #include <iostream>
 
-using namespace std;
-
 namespace Nektar::SolverUtils
 {
 std::string Advection3DHomogeneous1D::type[] = {
@@ -70,8 +68,8 @@ Advection3DHomogeneous1D::Advection3DHomogeneous1D(std::string advType)
 {
     // Strip trailing string "3DHomogeneous1D" to determine 2D advection
     // type, and create an advection object for the plane.
-    string advName = advType.substr(0, advType.length() - 15);
-    m_planeAdv     = GetAdvectionFactory().CreateInstance(advName, advName);
+    std::string advName = advType.substr(0, advType.length() - 15);
+    m_planeAdv = GetAdvectionFactory().CreateInstance(advName, advName);
 }
 
 /**
@@ -109,8 +107,8 @@ void Advection3DHomogeneous1D::v_InitObject(
     m_planeCounter = 0;
 
     // Override Riemann solver scalar and vector callbacks.
-    map<string, RSScalarFuncType> scalars = m_riemann->GetScalars();
-    map<string, RSVecFuncType> vectors    = m_riemann->GetVectors();
+    std::map<std::string, RSScalarFuncType> scalars = m_riemann->GetScalars();
+    std::map<std::string, RSVecFuncType> vectors    = m_riemann->GetVectors();
 
     for (auto &it1 : scalars)
     {

@@ -39,7 +39,6 @@
 #include <SolverUtils/SolverUtilsDeclspec.h>
 #include <SpatialDomains/Movement/Movement.h>
 #include <SpatialDomains/Movement/Zones.h>
-#include <boost/core/ignore_unused.hpp>
 
 namespace Nektar::SolverUtils
 {

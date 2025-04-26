@@ -59,9 +59,6 @@ MappingXYofZ::MappingXYofZ(
 {
 }
 
-/**
- *
- */
 void MappingXYofZ::v_InitObject(
     const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
     const TiXmlElement *pMapping)

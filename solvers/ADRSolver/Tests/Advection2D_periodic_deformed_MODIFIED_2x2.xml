@@ -71,7 +71,7 @@
         <SOLVERINFO>
             <I PROPERTY="EQTYPE"                VALUE="UnsteadyAdvection"   />
             <I PROPERTY="Projection"            VALUE="DisContinuous"       />
-            <I PROPERTY="AdvectionType"         VALUE="FRDG"                />
+            <I PROPERTY="AdvectionType"         VALUE="WeakDG"              />
             <I PROPERTY="UpwindType"            VALUE="Upwind"              />
         </SOLVERINFO>
 

@@ -82,6 +82,8 @@ void DiffusionLFR::v_InitObject(
     LibUtilities::SessionReaderSharedPtr pSession,
     Array<OneD, MultiRegions::ExpListSharedPtr> pFields)
 {
+    WARNINGL0(false, "LFR is deprecated, use LDG instead");
+
     m_session = pSession;
     SetupMetrics(pSession, pFields);
     SetupCFunctions(pSession, pFields);

@@ -35,13 +35,7 @@
 #ifndef NEKTAR_GLOBALMAPPING_MAPPINGGENERAL
 #define NEKTAR_GLOBALMAPPING_MAPPINGGENERAL
 
-#include <string>
-
-#include <GlobalMapping/GlobalMappingDeclspec.h>
 #include <GlobalMapping/Mapping.h>
-#include <LibUtilities/BasicUtils/NekFactory.hpp>
-#include <LibUtilities/BasicUtils/SharedArray.hpp>
-#include <MultiRegions/ExpList.h>
 
 namespace Nektar::GlobalMapping
 {
@@ -68,12 +62,6 @@ public:
     static std::string className;
 
 protected:
-    // Functions and variables to calculate the terms
-    //      of the metric tensor and of the Christoffel symbols
-    void CalculateMetricTerms();
-
-    void CalculateChristoffel();
-
     Array<OneD, Array<OneD, NekDouble>> m_metricTensor;
     Array<OneD, Array<OneD, NekDouble>> m_invMetricTensor;
     Array<OneD, Array<OneD, NekDouble>> m_deriv;
@@ -125,6 +113,12 @@ protected:
         Array<OneD, Array<OneD, NekDouble>> &outarray) override;
 
     GLOBAL_MAPPING_EXPORT void v_UpdateGeomInfo() override;
+
+    // Functions and variables to calculate the terms
+    //      of the metric tensor and of the Christoffel symbols
+    void CalculateMetricTerms();
+
+    void CalculateChristoffel();
 
 private:
 };

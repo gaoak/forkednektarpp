@@ -81,6 +81,8 @@ void DiffusionLFRNS::v_InitObject(
     LibUtilities::SessionReaderSharedPtr pSession,
     Array<OneD, MultiRegions::ExpListSharedPtr> pFields)
 {
+    WARNINGL0(false, "LFRNS is deprecated, use LDGNS instead");
+
     m_session = pSession;
     m_session->LoadParameter("Gamma", m_gamma, 1.4);
     m_session->LoadParameter("GasConstant", m_gasConstant, 287.058);

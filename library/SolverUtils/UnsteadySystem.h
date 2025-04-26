@@ -47,7 +47,7 @@ class UnsteadySystem : public EquationSystem, public SolverUtils::ALEHelper
 {
 public:
     /// Destructor
-    SOLVER_UTILS_EXPORT ~UnsteadySystem() override;
+    SOLVER_UTILS_EXPORT ~UnsteadySystem() override = default;
 
     /// Calculate the larger time-step mantaining the problem stable.
     SOLVER_UTILS_EXPORT NekDouble

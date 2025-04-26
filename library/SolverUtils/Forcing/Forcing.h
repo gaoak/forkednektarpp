@@ -70,20 +70,22 @@ SOLVER_UTILS_EXPORT ForcingFactory &GetForcingFactory();
 class Forcing
 {
 public:
-    SOLVER_UTILS_EXPORT virtual ~Forcing()
-    {
-    }
-
     /// Initialise the forcing object
     SOLVER_UTILS_EXPORT void InitObject(
         const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
-        const unsigned int &pNumForcingFields, const TiXmlElement *pForce);
+        const unsigned int &pNumForcingFields, const TiXmlElement *pForce)
+    {
+        v_InitObject(pFields, pNumForcingFields, pForce);
+    }
 
     /// Apply the forcing
     SOLVER_UTILS_EXPORT void Apply(
         const Array<OneD, MultiRegions::ExpListSharedPtr> &fields,
         const Array<OneD, Array<OneD, NekDouble>> &inarray,
-        Array<OneD, Array<OneD, NekDouble>> &outarray, const NekDouble &time);
+        Array<OneD, Array<OneD, NekDouble>> &outarray, const NekDouble &time)
+    {
+        v_Apply(fields, inarray, outarray, time);
+    }
 
     /// Change the advection velocity before applying the forcing.
     /// For example, subtracting the frame velocity from the
@@ -91,13 +93,19 @@ public:
     SOLVER_UTILS_EXPORT void PreApply(
         const Array<OneD, MultiRegions::ExpListSharedPtr> &fields,
         const Array<OneD, Array<OneD, NekDouble>> &inarray,
-        Array<OneD, Array<OneD, NekDouble>> &outarray, const NekDouble &time);
+        Array<OneD, Array<OneD, NekDouble>> &outarray, const NekDouble &time)
+    {
+        v_PreApply(fields, inarray, outarray, time);
+    }
 
     /// Apply the forcing
     SOLVER_UTILS_EXPORT void ApplyCoeff(
         const Array<OneD, MultiRegions::ExpListSharedPtr> &fields,
         const Array<OneD, Array<OneD, NekDouble>> &inarray,
-        Array<OneD, Array<OneD, NekDouble>> &outarray, const NekDouble &time);
+        Array<OneD, Array<OneD, NekDouble>> &outarray, const NekDouble &time)
+    {
+        v_ApplyCoeff(fields, inarray, outarray, time);
+    }
 
     SOLVER_UTILS_EXPORT static std::vector<ForcingSharedPtr> Load(
         const LibUtilities::SessionReaderSharedPtr &pSession,
@@ -127,6 +135,8 @@ protected:
     SOLVER_UTILS_EXPORT Forcing(
         const LibUtilities::SessionReaderSharedPtr &pSession,
         const std::weak_ptr<EquationSystem> &pEquation);
+
+    SOLVER_UTILS_EXPORT virtual ~Forcing() = default;
 
     SOLVER_UTILS_EXPORT virtual void v_InitObject(
         const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,

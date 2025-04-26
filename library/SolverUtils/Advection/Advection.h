@@ -80,12 +80,13 @@ typedef std::function<void(const Array<OneD, Array<OneD, NekDouble>> &,
 class Advection
 {
 public:
-    SOLVER_UTILS_EXPORT virtual ~Advection(){};
-
     /// Interface function to initialise the advection object.
     SOLVER_UTILS_EXPORT void InitObject(
         LibUtilities::SessionReaderSharedPtr pSession,
-        Array<OneD, MultiRegions::ExpListSharedPtr> pFields);
+        Array<OneD, MultiRegions::ExpListSharedPtr> pFields)
+    {
+        v_InitObject(pSession, pFields);
+    }
 
     /// Interface function to advect the vector field.
     SOLVER_UTILS_EXPORT void Advect(
@@ -97,7 +98,11 @@ public:
         const Array<OneD, Array<OneD, NekDouble>> &pFwd =
             NullNekDoubleArrayOfArray,
         const Array<OneD, Array<OneD, NekDouble>> &pBwd =
-            NullNekDoubleArrayOfArray);
+            NullNekDoubleArrayOfArray)
+    {
+        v_Advect(nConvectiveFields, fields, advVel, inarray, outarray, time,
+                 pFwd, pBwd);
+    }
 
     /**
      * @brief Set the flux vector callback function.
@@ -163,6 +168,8 @@ public:
         Array<OneD, DNekMatSharedPtr> &TraceJacBwd);
 
 protected:
+    SOLVER_UTILS_EXPORT virtual ~Advection() = default;
+
     /// Callback function to the flux vector (set when advection is in
     /// conservative form).
     AdvectionFluxVecCB m_fluxVector;

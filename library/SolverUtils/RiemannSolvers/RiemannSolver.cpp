@@ -53,8 +53,6 @@
         dest[2] = v1[2] - v2[2];                                               \
     }
 
-using namespace std;
-
 namespace Nektar::SolverUtils
 {
 /**

@@ -58,10 +58,6 @@ class Coupling
 public:
     typedef std::map<std::string, std::string> CouplingConfigMap;
 
-    SOLVER_UTILS_EXPORT virtual ~Coupling()
-    {
-    }
-
     SOLVER_UTILS_EXPORT inline void Init()
     {
         v_Init();
@@ -119,6 +115,8 @@ protected:
     int m_recvSteps;
 
     SOLVER_UTILS_EXPORT Coupling(MultiRegions::ExpListSharedPtr field);
+
+    SOLVER_UTILS_EXPORT virtual ~Coupling() = default;
 
     SOLVER_UTILS_EXPORT virtual void v_Init();
 

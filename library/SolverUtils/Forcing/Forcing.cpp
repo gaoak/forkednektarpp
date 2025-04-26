@@ -35,10 +35,9 @@
 #include <FieldUtils/Interpolator.h>
 #include <SolverUtils/Forcing/Forcing.h>
 
-using namespace std;
-
 namespace Nektar::SolverUtils
 {
+
 ForcingFactory &GetForcingFactory()
 {
     static ForcingFactory instance;
@@ -49,34 +48,6 @@ Forcing::Forcing(const LibUtilities::SessionReaderSharedPtr &pSession,
                  const std::weak_ptr<EquationSystem> &pEquation)
     : m_session(pSession), m_equ(pEquation)
 {
-}
-
-void Forcing::InitObject(
-    const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
-    const unsigned int &pNumForcingFields, const TiXmlElement *pForce)
-{
-    v_InitObject(pFields, pNumForcingFields, pForce);
-}
-
-/**
- * @param   fields      Expansion lists corresponding to input arrays
- * @param   inarray     u^n from previous timestep
- * @param   outarray    output array to append forcing to
- */
-void Forcing::Apply(const Array<OneD, MultiRegions::ExpListSharedPtr> &fields,
-                    const Array<OneD, Array<OneD, NekDouble>> &inarray,
-                    Array<OneD, Array<OneD, NekDouble>> &outarray,
-                    const NekDouble &time)
-{
-    v_Apply(fields, inarray, outarray, time);
-}
-
-void Forcing::PreApply(
-    const Array<OneD, MultiRegions::ExpListSharedPtr> &fields,
-    const Array<OneD, Array<OneD, NekDouble>> &inarray,
-    Array<OneD, Array<OneD, NekDouble>> &outarray, const NekDouble &time)
-{
-    v_PreApply(fields, inarray, outarray, time);
 }
 
 void Forcing::v_PreApply(
@@ -100,28 +71,15 @@ void Forcing::v_PreApply(
 }
 
 /**
- * @param   fields      Expansion lists corresponding to input arrays
- * @param   inarray     u^n from previous timestep
- * @param   outarray    output array to append forcing to
- */
-void Forcing::ApplyCoeff(
-    const Array<OneD, MultiRegions::ExpListSharedPtr> &fields,
-    const Array<OneD, Array<OneD, NekDouble>> &inarray,
-    Array<OneD, Array<OneD, NekDouble>> &outarray, const NekDouble &time)
-{
-    v_ApplyCoeff(fields, inarray, outarray, time);
-}
-
-/**
  *
  */
-vector<ForcingSharedPtr> Forcing::Load(
+std::vector<ForcingSharedPtr> Forcing::Load(
     const LibUtilities::SessionReaderSharedPtr &pSession,
     const std::weak_ptr<EquationSystem> &pEquation,
     const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
     const unsigned int &pNumForcingFields)
 {
-    vector<ForcingSharedPtr> vForceList;
+    std::vector<ForcingSharedPtr> vForceList;
 
     if (!pSession->DefinesElement("Nektar/Forcing"))
     {
@@ -140,7 +98,7 @@ vector<ForcingSharedPtr> Forcing::Load(
         TiXmlElement *vForce = vForcing->FirstChildElement("FORCE");
         while (vForce)
         {
-            string vType = vForce->Attribute("TYPE");
+            std::string vType = vForce->Attribute("TYPE");
 
             TiXmlElement *vForceParam = vForce;
             LibUtilities::SessionReader::GetXMLElementTimeLevel(

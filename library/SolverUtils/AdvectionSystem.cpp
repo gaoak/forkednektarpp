@@ -50,13 +50,6 @@ AdvectionSystem::AdvectionSystem(
 /**
  *
  */
-AdvectionSystem::~AdvectionSystem()
-{
-}
-
-/**
- *
- */
 void AdvectionSystem::v_InitObject(bool DeclareField)
 {
     UnsteadySystem::v_InitObject(DeclareField);

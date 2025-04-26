@@ -31,12 +31,11 @@
 // Description: Body forcing
 //
 ///////////////////////////////////////////////////////////////////////////////
+
 #include <boost/algorithm/string.hpp>
 
 #include <MultiRegions/ExpList.h>
 #include <SolverUtils/Forcing/ForcingBody.h>
-
-using namespace std;
 
 namespace Nektar::SolverUtils
 {
@@ -111,19 +110,19 @@ void ForcingBody::v_InitObject(
         varIndex[m_session->GetVariable(i)] = i;
         if (m_session->DefinesFunction(m_funcName, m_session->GetVariable(i)))
         {
-            m_eqnEvars[i] = vector<int>();
+            m_eqnEvars[i] = std::vector<int>();
         }
     }
     m_hasEvars = false;
     for (auto &it : m_eqnEvars)
     {
-        string varStr = m_session->GetVariable(it.first);
+        std::string varStr = m_session->GetVariable(it.first);
         if (LibUtilities::eFunctionTypeExpression ==
             m_session->GetFunctionType(m_funcName, varStr))
         {
             LibUtilities::EquationSharedPtr eqn =
                 m_session->GetFunction(m_funcName, varStr);
-            string vlist = eqn->GetVlist();
+            std::string vlist = eqn->GetVlist();
             if (!boost::iequals(vlist, "x y z t"))
             {
                 // Coupled forcing

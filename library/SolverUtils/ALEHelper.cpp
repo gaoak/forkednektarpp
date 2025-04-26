@@ -40,15 +40,15 @@ namespace Nektar::SolverUtils
 {
 
 void ALEHelper::v_ALEInitObject(
-    int spaceDim, Array<OneD, MultiRegions::ExpListSharedPtr> &fields)
+    [[maybe_unused]] int spaceDim,
+    [[maybe_unused]] Array<OneD, MultiRegions::ExpListSharedPtr> &fields)
 {
-    boost::ignore_unused(spaceDim, fields);
 }
 
-void ALEHelper::InitObject(int spaceDim,
-                           Array<OneD, MultiRegions::ExpListSharedPtr> &fields)
+void ALEHelper::InitObject(
+    [[maybe_unused]] int spaceDim,
+    [[maybe_unused]] Array<OneD, MultiRegions::ExpListSharedPtr> &fields)
 {
-    boost::ignore_unused(spaceDim, fields);
     // Create ALE objects for each interface zone
     if (fields[0]->GetGraph() !=
         nullptr) // homogeneous graphs are missing the graph data
@@ -129,11 +129,10 @@ void ALEHelper::v_ALEPreMultiplyMass(
    calculation.
 */
 void ALEHelper::ALEDoElmtInvMass(
-    Array<OneD, Array<OneD, NekDouble>> &traceNormals,
-    Array<OneD, Array<OneD, NekDouble>> &fields, NekDouble time)
+    [[maybe_unused]] Array<OneD, Array<OneD, NekDouble>> &traceNormals,
+    Array<OneD, Array<OneD, NekDouble>> &fields,
+    [[maybe_unused]] NekDouble time)
 {
-    boost::ignore_unused(time, traceNormals);
-
     // @TODO: Look at geometric factor and junk only what is needed
     // @TODO: Look at collections and see if they offer a speed up
     for (int i = 0; i < m_fieldsALE.size(); ++i)
@@ -298,10 +297,10 @@ ALEFixed::ALEFixed(SpatialDomains::ZoneBaseShPtr zone)
 }
 
 void ALEFixed::v_UpdateGridVel(
-    NekDouble time, Array<OneD, MultiRegions::ExpListSharedPtr> &fields,
-    Array<OneD, Array<OneD, NekDouble>> &gridVelocity)
+    [[maybe_unused]] NekDouble time,
+    [[maybe_unused]] Array<OneD, MultiRegions::ExpListSharedPtr> &fields,
+    [[maybe_unused]] Array<OneD, Array<OneD, NekDouble>> &gridVelocity)
 {
-    boost::ignore_unused(time, fields, gridVelocity);
 }
 
 ALETranslate::ALETranslate(SpatialDomains::ZoneBaseShPtr zone)
@@ -310,11 +309,10 @@ ALETranslate::ALETranslate(SpatialDomains::ZoneBaseShPtr zone)
 }
 
 void ALETranslate::v_UpdateGridVel(
-    NekDouble time, Array<OneD, MultiRegions::ExpListSharedPtr> &fields,
+    [[maybe_unused]] NekDouble time,
+    Array<OneD, MultiRegions::ExpListSharedPtr> &fields,
     Array<OneD, Array<OneD, NekDouble>> &gridVelocity)
 {
-    boost::ignore_unused(time);
-
     auto vel = m_zone->GetVel(time);
     auto exp = fields[0]->GetExp();
 
@@ -342,11 +340,10 @@ ALERotate::ALERotate(SpatialDomains::ZoneBaseShPtr zone)
 }
 
 void ALERotate::v_UpdateGridVel(
-    NekDouble time, Array<OneD, MultiRegions::ExpListSharedPtr> &fields,
-    Array<OneD, Array<OneD, NekDouble>> &gridVelocity)
+    [[maybe_unused]] NekDouble time,
+    [[maybe_unused]] Array<OneD, MultiRegions::ExpListSharedPtr> &fields,
+    [[maybe_unused]] Array<OneD, Array<OneD, NekDouble>> &gridVelocity)
 {
-    boost::ignore_unused(time, fields, gridVelocity);
-
     auto angVel = m_zone->GetAngularVel(time);
     auto axis   = m_zone->GetAxis();
     auto origin = m_zone->GetOrigin();

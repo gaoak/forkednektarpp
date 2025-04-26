@@ -96,7 +96,7 @@ private:
     ForcingBody(const LibUtilities::SessionReaderSharedPtr &pSession,
                 const std::weak_ptr<EquationSystem> &pEquation);
 
-    ~ForcingBody(void) override{};
+    ~ForcingBody(void) override = default;
 
     void Update(const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
                 const Array<OneD, Array<OneD, NekDouble>> &inarray,

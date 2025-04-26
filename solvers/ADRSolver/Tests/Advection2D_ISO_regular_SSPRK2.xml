@@ -70,7 +70,7 @@
 
         <PARAMETERS>
             <P> FinTime         = 1.0               </P>
-            <P> TimeStep        = 0.002             </P>
+            <P> TimeStep        = 0.001             </P>
             <P> NumSteps        = FinTime/TimeStep  </P>
             <P> IO_CheckSteps   = 100000            </P>
             <P> IO_InfoSteps    = 100000            </P>
@@ -81,7 +81,7 @@
         <SOLVERINFO>
             <I PROPERTY="EQTYPE"                VALUE="UnsteadyAdvection"   />
             <I PROPERTY="Projection"            VALUE="DisContinuous"       />
-            <I PROPERTY="AdvectionType"         VALUE="FRSD"                />
+            <I PROPERTY="AdvectionType"         VALUE="WeakDG"              />
             <I PROPERTY="UpwindType"            VALUE="Upwind"              />
         </SOLVERINFO>
 

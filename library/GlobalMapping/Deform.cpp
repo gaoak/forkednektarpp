@@ -32,19 +32,13 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <string>
-
 #include <GlobalMapping/Deform.h>
-#include <LibUtilities/BasicConst/NektarUnivTypeDefs.hpp>
 #include <LibUtilities/Foundations/Interp.h>
 #include <LocalRegions/Expansion3D.h>
 #include <MultiRegions/ExpList.h>
-#include <SpatialDomains/MeshGraph.h>
 #include <StdRegions/StdNodalTriExp.h>
 #include <StdRegions/StdQuadExp.h>
 #include <StdRegions/StdSegExp.h>
-
-using namespace std;
 
 namespace Nektar::GlobalMapping
 {
@@ -69,7 +63,7 @@ void UpdateGeometry(SpatialDomains::MeshGraphSharedPtr graph,
     int i, j, k, l, dim;
 
     // Sets to hold IDs of updated vertices to avoid duplicating effort.
-    set<int> updatedVerts, updatedEdges, updatedFaces;
+    std::set<int> updatedVerts, updatedEdges, updatedFaces;
 
     dim = graph->GetSpaceDimension();
     Array<OneD, Array<OneD, NekDouble>> phys(dim);
@@ -233,7 +227,7 @@ void UpdateGeometry(SpatialDomains::MeshGraphSharedPtr graph,
 
                 // Now interpolate face onto a more reasonable set of
                 // points.
-                int nq = max(nq0, nq1);
+                int nq = std::max(nq0, nq1);
                 if (!modal)
                 {
                     nq--;

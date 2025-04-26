@@ -34,7 +34,6 @@
 
 #include <iomanip>
 #include <iostream>
-using namespace std;
 
 #include <SolverUtils/Diffusion/Diffusion3DHomogeneous1D.h>
 
