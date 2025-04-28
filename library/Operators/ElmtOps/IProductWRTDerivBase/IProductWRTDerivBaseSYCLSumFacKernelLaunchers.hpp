@@ -189,6 +189,13 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
+    ASSERTL0(shmemsize * sizeof(TData) <=
+                 GetDeviceProperties::SharedMemoryPerBlock(),
+             "Shared memory available is " +
+                 std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
+                 "bytes, requested " +
+                 std::to_string(shmemsize * sizeof(TData)) + " bytes");
+
     Q.submit([=](sycl::handler &cgh) {
         sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
         cgh.parallel_for(
@@ -233,6 +240,13 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
+    ASSERTL0(shmemsize * sizeof(TData) <=
+                 GetDeviceProperties::SharedMemoryPerBlock(),
+             "Shared memory available is " +
+                 std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
+                 "bytes, requested " +
+                 std::to_string(shmemsize * sizeof(TData)) + " bytes");
+
     Q.submit([=](sycl::handler &cgh) {
         sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
         cgh.parallel_for(
@@ -274,6 +288,13 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
             nq0, nq1, nq2, nm0, nm1, nm2);
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+
+    ASSERTL0(shmemsize * sizeof(TData) <=
+                 GetDeviceProperties::SharedMemoryPerBlock(),
+             "Shared memory available is " +
+                 std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
+                 "bytes, requested " +
+                 std::to_string(shmemsize * sizeof(TData)) + " bytes");
 
     Q.submit([=](sycl::handler &cgh) {
         sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
@@ -322,6 +343,13 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
             nq0, nq1, nq2, nm0, nm1, nm2);
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+
+    ASSERTL0(shmemsize * sizeof(TData) <=
+                 GetDeviceProperties::SharedMemoryPerBlock(),
+             "Shared memory available is " +
+                 std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
+                 "bytes, requested " +
+                 std::to_string(shmemsize * sizeof(TData)) + " bytes");
 
     Q.submit([=](sycl::handler &cgh) {
         sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);

@@ -90,7 +90,7 @@
         std::cerr << hipGetErrorString(err) << std::endl;                      \
     }
 #elif defined(NEKTAR_ENABLE_SYCL)
-#include "Operators/Utils/SYCLQueue.hpp"
+#include "Operators/Common/SYCLQueue.hpp"
 #endif
 
 #if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)

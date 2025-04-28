@@ -36,6 +36,7 @@
 
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
 
+#include "Operators/Common/DeviceProperties.hpp"
 #include "Operators/Common/Spaces.hpp"
 
 #include "Operators/ElmtOps/BwdTrans/BwdTransDeviceSumFacKernels.hpp"
@@ -592,11 +593,7 @@ NEK_DEVICE_INLINE static void ApplyMetric1DSumFacQPKernel(
     TData *__restrict__ bwd, TData *out, const TData lambda,
     const TthreadBlock &threadBlock)
 {
-    unsigned int dfsize = 1u;
-    if constexpr (DEFORMED)
-    {
-        dfsize *= nq0;
-    }
+    const unsigned int dfsize = DEFORMED ? nq0 : 1u;
 
     TData metric[3];
     if constexpr (!DEFORMED)
@@ -701,12 +698,8 @@ NEK_DEVICE_INLINE static void ApplyMetric2DSumFacQPKernel(
     TData *out1, TData *metric, const TData lambda,
     const TthreadBlock &threadBlock)
 {
-    const unsigned int nqTot = nq0 * nq1;
-    unsigned int dfsize      = 1u;
-    if constexpr (DEFORMED)
-    {
-        dfsize *= nqTot;
-    }
+    const unsigned int nqTot  = nq0 * nq1;
+    const unsigned int dfsize = DEFORMED ? nqTot : 1u;
 
     const unsigned int idx0   = getLocalIdx(threadBlock);
     const unsigned int stride = getLocalRange(threadBlock);
@@ -845,12 +838,8 @@ NEK_DEVICE_INLINE static void ApplyMetric3DSumFacQPKernel(
 {
     constexpr unsigned int ncoord = 3u;
 
-    const unsigned int nqTot = nq0 * nq1 * nq2;
-    unsigned int dfsize      = 1u;
-    if constexpr (DEFORMED)
-    {
-        dfsize *= nqTot;
-    }
+    const unsigned int nqTot  = nq0 * nq1 * nq2;
+    const unsigned int dfsize = DEFORMED ? nqTot : 1u;
 
     const unsigned int idx0   = getLocalIdx(threadBlock);
     const unsigned int stride = getLocalRange(threadBlock);
@@ -987,14 +976,9 @@ NEK_DEVICE_INLINE static void Helmholtz1DKernel(
     TData *__restrict__ out, TData *__restrict__ wsp, const TData lambda,
     TData *__restrict__ shmemptr, const TthreadBlock &threadBlock)
 {
-    const unsigned int ndf = ncoord;
-    unsigned int dfsize    = 1u;
-    unsigned int jacsize   = 1u;
-    if constexpr (DEFORMED)
-    {
-        dfsize *= nq0;
-        jacsize *= nq0;
-    }
+    const unsigned int ndf     = ncoord;
+    const unsigned int dfsize  = DEFORMED ? nq0 : 1u;
+    const unsigned int jacsize = DEFORMED ? nq0 : 1u;
 
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
@@ -1072,15 +1056,10 @@ NEK_DEVICE_INLINE static void Helmholtz2DKernel(
     [[maybe_unused]] TData *__restrict__ wsp, const TData lambda,
     TData *__restrict__ shmemptr, const TthreadBlock &threadBlock)
 {
-    const unsigned int ndf   = 2 * ncoord;
-    const unsigned int nqTot = nq0 * nq1;
-    unsigned int dfsize      = 1u;
-    unsigned int jacsize     = 1u;
-    if constexpr (DEFORMED)
-    {
-        dfsize *= nqTot;
-        jacsize *= nqTot;
-    }
+    const unsigned int ndf     = 2 * ncoord;
+    const unsigned int nqTot   = nq0 * nq1;
+    const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
+    const unsigned int jacsize = DEFORMED ? nqTot : 1u;
 
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
@@ -1344,13 +1323,8 @@ NEK_DEVICE_INLINE static void Helmholtz3DKernel(
 {
     constexpr unsigned int ndf = 9u;
     const unsigned int nqTot   = nq0 * nq1 * nq2;
-    unsigned int dfsize        = 1u;
-    unsigned int jacsize       = 1u;
-    if constexpr (DEFORMED)
-    {
-        dfsize *= nqTot;
-        jacsize *= nqTot;
-    }
+    const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
+    const unsigned int jacsize = DEFORMED ? nqTot : 1u;
 
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {

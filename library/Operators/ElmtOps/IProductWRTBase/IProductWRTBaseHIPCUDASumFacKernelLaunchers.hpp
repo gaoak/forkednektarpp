@@ -232,6 +232,12 @@ NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
+    ASSERTL0(shmemsize == 0 ||
+                 shmemsize <= GetDeviceProperties::SharedMemoryPerBlock(),
+             "Shared memory available is " +
+                 std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
+                 "bytes, requested " + std::to_string(shmemsize) + " bytes");
+
     IProductWRTBase2DKernelLauncher<SHAPE_TYPE, Implementation, SCALE, APPEND,
                                     DEFORMED>
         <<<gridsize, blocksize, shmemsize>>>(nm0, nm1, nmTot, nq0, nq1, nelmt,
@@ -261,6 +267,12 @@ NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
     const unsigned int blocksize =
         GetDeviceBlockSize<Implementation>(nq0 * nq1);
     const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
+
+    ASSERTL0(shmemsize == 0 ||
+                 shmemsize <= GetDeviceProperties::SharedMemoryPerBlock(),
+             "Shared memory available is " +
+                 std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
+                 "bytes, requested " + std::to_string(shmemsize) + " bytes");
 
     IProductWRTBase2DKernelLauncher<SHAPE_TYPE, Implementation, SCALE, APPEND,
                                     DEFORMED, nm0, nm1, nmTot, nq0, nq1>
@@ -292,6 +304,12 @@ NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
+    ASSERTL0(shmemsize == 0 ||
+                 shmemsize <= GetDeviceProperties::SharedMemoryPerBlock(),
+             "Shared memory available is " +
+                 std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
+                 "bytes, requested " + std::to_string(shmemsize) + " bytes");
+
     IProductWRTBase3DKernelLauncher<SHAPE_TYPE, Implementation, SCALE, APPEND,
                                     DEFORMED>
         <<<gridsize, blocksize, shmemsize>>>(
@@ -321,6 +339,12 @@ NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
             nq0, nq1, nq2, nm0, nm1, nm2);
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+
+    ASSERTL0(shmemsize == 0 ||
+                 shmemsize <= GetDeviceProperties::SharedMemoryPerBlock(),
+             "Shared memory available is " +
+                 std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
+                 "bytes, requested " + std::to_string(shmemsize) + " bytes");
 
     IProductWRTBase3DKernelLauncher<SHAPE_TYPE, Implementation, SCALE, APPEND,
                                     DEFORMED, nm0, nm1, nm2, nmTot, nq0, nq1,
