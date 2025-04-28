@@ -36,6 +36,7 @@
 
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
 
+#include "Operators/Common/DeviceProperties.hpp"
 #include "Operators/Common/Spaces.hpp"
 
 #include "Operators/ElmtOps/BwdTrans/BwdTransDeviceSumFacKernels.hpp"
@@ -145,11 +146,7 @@ NEK_DEVICE_INLINE static void Mass1DKernel(
     [[maybe_unused]] TData *__restrict__ shmemptr,
     const TthreadBlock &threadBlock)
 {
-    unsigned int jacsize = 1u;
-    if constexpr (DEFORMED)
-    {
-        jacsize *= nq0;
-    }
+    const unsigned int jacsize = DEFORMED ? nq0 : 1u;
 
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
@@ -225,12 +222,8 @@ NEK_DEVICE_INLINE static void Mass2DKernel(
     [[maybe_unused]] TData *__restrict__ shmemptr,
     const TthreadBlock &threadBlock)
 {
-    const unsigned int nqTot = nq0 * nq1;
-    unsigned int jacsize     = 1u;
-    if constexpr (DEFORMED)
-    {
-        jacsize *= nqTot;
-    }
+    const unsigned int nqTot   = nq0 * nq1;
+    const unsigned int jacsize = DEFORMED ? nqTot : 1u;
 
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
@@ -420,12 +413,8 @@ NEK_DEVICE_INLINE static void Mass3DKernel(
     [[maybe_unused]] TData *__restrict__ shmemptr,
     const TthreadBlock &threadBlock)
 {
-    const unsigned int nqTot = nq0 * nq1 * nq2;
-    unsigned int jacsize     = 1u;
-    if constexpr (DEFORMED)
-    {
-        jacsize *= nqTot;
-    }
+    const unsigned int nqTot   = nq0 * nq1 * nq2;
+    const unsigned int jacsize = DEFORMED ? nqTot : 1u;
 
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {

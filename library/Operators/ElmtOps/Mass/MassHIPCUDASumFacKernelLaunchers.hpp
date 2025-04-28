@@ -223,6 +223,12 @@ NEK_FORCE_INLINE static void Mass2DKernel(
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
+    ASSERTL0(shmemsize == 0 ||
+                 shmemsize <= GetDeviceProperties::SharedMemoryPerBlock(),
+             "Shared memory available is " +
+                 std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
+                 "bytes, requested " + std::to_string(shmemsize) + " bytes");
+
     Mass2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>
         <<<gridsize, blocksize, shmemsize>>>(
             nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0,
@@ -248,6 +254,12 @@ NEK_FORCE_INLINE static void Mass2DKernel(
         MassSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1, nm0, nm1);
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+
+    ASSERTL0(shmemsize == 0 ||
+                 shmemsize <= GetDeviceProperties::SharedMemoryPerBlock(),
+             "Shared memory available is " +
+                 std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
+                 "bytes, requested " + std::to_string(shmemsize) + " bytes");
 
     Mass2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED, nm0, nm1, nmTot,
                          nq0, nq1><<<gridsize, blocksize, shmemsize>>>(
@@ -278,6 +290,12 @@ NEK_FORCE_INLINE static void Mass3DKernel(
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
+    ASSERTL0(shmemsize == 0 ||
+                 shmemsize <= GetDeviceProperties::SharedMemoryPerBlock(),
+             "Shared memory available is " +
+                 std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
+                 "bytes, requested " + std::to_string(shmemsize) + " bytes");
+
     Mass3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>
         <<<gridsize, blocksize, shmemsize>>>(
             nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0,
@@ -307,6 +325,12 @@ NEK_FORCE_INLINE static void Mass3DKernel(
                             nq0, nq1, nq2, nm0, nm1, nm2);
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+
+    ASSERTL0(shmemsize == 0 ||
+                 shmemsize <= GetDeviceProperties::SharedMemoryPerBlock(),
+             "Shared memory available is " +
+                 std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
+                 "bytes, requested " + std::to_string(shmemsize) + " bytes");
 
     Mass3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED, nm0, nm1, nm2,
                          nmTot, nq0, nq1, nq2>

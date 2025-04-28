@@ -40,7 +40,7 @@
 #elif defined(NEKTAR_ENABLE_HIP)
 #include "Operators/NekBlas/hipBlasHandle.hpp"
 #elif defined(NEKTAR_ENABLE_SYCL)
-#include "Operators/Utils/SYCLQueue.hpp"
+#include "Operators/Common/SYCLQueue.hpp"
 #endif
 
 struct blasHandle

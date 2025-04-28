@@ -36,6 +36,7 @@
 
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
 
+#include "Operators/Common/DeviceProperties.hpp"
 #include "Operators/Common/Spaces.hpp"
 
 namespace Nektar::Operators::detail
@@ -2269,11 +2270,7 @@ NEK_DEVICE_INLINE static void IProductWRTBase1DKernel(
     [[maybe_unused]] TData *__restrict__ shmemptr,
     const TthreadBlock &threadBlock)
 {
-    unsigned int jacsize = 1u;
-    if constexpr (DEFORMED)
-    {
-        jacsize *= nq0;
-    }
+    const unsigned int jacsize = DEFORMED ? nq0 : 1u;
 
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
@@ -2345,12 +2342,8 @@ NEK_DEVICE_INLINE static void IProductWRTBase2DKernel(
     [[maybe_unused]] TData *__restrict__ shmemptr,
     const TthreadBlock &threadBlock)
 {
-    const unsigned int nqTot = nq0 * nq1;
-    unsigned int jacsize     = 1u;
-    if constexpr (DEFORMED)
-    {
-        jacsize *= nqTot;
-    }
+    const unsigned int nqTot   = nq0 * nq1;
+    const unsigned int jacsize = DEFORMED ? nqTot : 1u;
 
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
@@ -2505,12 +2498,8 @@ NEK_DEVICE_INLINE static void IProductWRTBase3DKernel(
     [[maybe_unused]] TData *__restrict__ shmemptr,
     const TthreadBlock &threadBlock)
 {
-    const unsigned int nqTot = nq0 * nq1 * nq2;
-    unsigned int jacsize     = 1u;
-    if constexpr (DEFORMED)
-    {
-        jacsize *= nqTot;
-    }
+    const unsigned int nqTot   = nq0 * nq1 * nq2;
+    const unsigned int jacsize = DEFORMED ? nqTot : 1u;
 
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {

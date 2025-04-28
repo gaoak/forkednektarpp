@@ -450,6 +450,7 @@ ENDMACRO()
 # Common header file.
 SET(OPERATORS_HEADERS
     Common/Operator.hpp
+    Common/DeviceProperties.hpp
     ElmtOps/OperatorElmt.hpp
     NekBlas/NekBlas.hpp 
     )
@@ -457,6 +458,7 @@ SET(OPERATORS_HEADERS
 # Common source file.
 SET(OPERATORS_SOURCES
     Common/Operator.cpp
+    Common/DeviceProperties.cpp
     ElmtOps/OperatorElmt.cpp
     NekBlas/blas.cpp
     )
@@ -517,12 +519,12 @@ ELSEIF(NEKTAR_ENABLE_HIP)
 ELSEIF(NEKTAR_ENABLE_SYCL)
     SET(OPERATORS_HEADERS
       ${OPERATORS_HEADERS}
-      Utils/SYCLQueue.hpp
+      Common/SYCLQueue.hpp
     )
 
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
-      Utils/SYCLQueue.cpp
+      Common/SYCLQueue.cpp
       NekBlas/syclBlas.cpp
     )
 

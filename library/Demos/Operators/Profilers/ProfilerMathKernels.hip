@@ -150,7 +150,7 @@ int main(void)
 {
     // Print GPU properties
     hipDeviceProp_t prop;
-    hipGetDeviceProperties(&prop, 0);
+    CHECK_HIPCUDA_ERROR(hipGetDeviceProperties(&prop, 0));
     std::cout << "--------------------------------" << std::endl;
     std::cout << "Device Properties " << std::endl;
     std::cout << "--------------------------------" << std::endl;

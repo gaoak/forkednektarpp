@@ -36,6 +36,7 @@
 
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
 
+#include "Operators/Common/DeviceProperties.hpp"
 #include "Operators/Common/Spaces.hpp"
 
 // get hold of memory sizing and routines related to collocation Helmholtz ops
@@ -166,14 +167,9 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction1DKernel(
     TData *__restrict__ wsp, const TData lambda, TData *__restrict__ shmemptr,
     const TthreadBlock &threadBlock)
 {
-    const unsigned int ndf = ncoord;
-    unsigned int dfsize    = 1u;
-    unsigned int jacsize   = 1u;
-    if constexpr (DEFORMED)
-    {
-        dfsize *= nq0;
-        jacsize *= nq0;
-    }
+    const unsigned int ndf     = ncoord;
+    const unsigned int dfsize  = DEFORMED ? nq0 : 1u;
+    const unsigned int jacsize = DEFORMED ? nq0 : 1u;
 
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
@@ -256,15 +252,10 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction2DKernel(
     [[maybe_unused]] TData *__restrict__ wsp, const TData lambda,
     TData *__restrict__ shmemptr, const TthreadBlock &threadBlock)
 {
-    const unsigned int ndf   = 2 * ncoord;
-    const unsigned int nqTot = nq0 * nq1;
-    unsigned int dfsize      = 1u;
-    unsigned int jacsize     = 1u;
-    if constexpr (DEFORMED)
-    {
-        dfsize *= nqTot;
-        jacsize *= nqTot;
-    }
+    const unsigned int ndf     = 2 * ncoord;
+    const unsigned int nqTot   = nq0 * nq1;
+    const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
+    const unsigned int jacsize = DEFORMED ? nqTot : 1u;
 
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
@@ -535,13 +526,8 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction3DKernel(
 {
     constexpr unsigned int ndf = 9u;
     const unsigned int nqTot   = nq0 * nq1 * nq2;
-    unsigned int dfsize        = 1u;
-    unsigned int jacsize       = 1u;
-    if constexpr (DEFORMED)
-    {
-        dfsize *= nqTot;
-        jacsize *= nqTot;
-    }
+    const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
+    const unsigned int jacsize = DEFORMED ? nqTot : 1u;
 
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
