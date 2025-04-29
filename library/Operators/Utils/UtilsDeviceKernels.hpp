@@ -39,57 +39,67 @@ namespace Nektar
 
 #if (defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)) ||                    \
     (defined(NEKTAR_ENABLE_HIP) && defined(__HIPCC__)) ||                      \
-    defined(NEKTAR_ENABLE_SYCL)
+    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
 template <typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void interleaveKernel(const unsigned int VectorWidth,
+                                               const unsigned int numMetaBlocks,
                                                const unsigned int npts,
                                                TData *buffer, TData *inout,
                                                const TthreadBlock &threadBlock)
 {
-    const unsigned int metaBlock = getBlockIdx(threadBlock);
-    const unsigned int offset    = npts * VectorWidth * metaBlock;
-
     const unsigned int idx0   = getLocalIdx(threadBlock);
     const unsigned int stride = getLocalRange(threadBlock);
 
-    for (unsigned int idx = idx0; idx < npts * VectorWidth; idx += stride)
+    for (unsigned int metaBlock = getBlockIdx(threadBlock);
+         metaBlock < numMetaBlocks; metaBlock += getBlockRange(threadBlock))
     {
-        buffer[offset + idx] = inout[offset + idx];
-    }
+        TData *bufferptr = buffer + npts * VectorWidth * metaBlock;
+        TData *inoutptr  = inout + npts * VectorWidth * metaBlock;
 
-    localBarrier(threadBlock);
+        for (unsigned int idx = idx0; idx < npts * VectorWidth; idx += stride)
+        {
+            bufferptr[idx] = inoutptr[idx];
+        }
 
-    for (unsigned int idx = idx0; idx < npts * VectorWidth; idx += stride)
-    {
-        unsigned int vecElem = idx % VectorWidth;
-        unsigned int iElem   = idx / VectorWidth;
-        inout[offset + idx]  = buffer[offset + vecElem * npts + iElem];
+        localBarrier(threadBlock);
+
+        for (unsigned int idx = idx0; idx < npts * VectorWidth; idx += stride)
+        {
+            unsigned int vecElem = idx % VectorWidth;
+            unsigned int iElem   = idx / VectorWidth;
+            inoutptr[idx]        = bufferptr[vecElem * npts + iElem];
+        }
     }
 }
 
 template <typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void deInterleaveKernel(
-    const unsigned int VectorWidth, const unsigned int npts, TData *buffer,
-    TData *inout, const TthreadBlock &threadBlock)
+    const unsigned int VectorWidth, const unsigned int numMetaBlocks,
+    const unsigned int npts, TData *buffer, TData *inout,
+    const TthreadBlock &threadBlock)
 {
-    const unsigned int metaBlock = getBlockIdx(threadBlock);
-    const unsigned int offset    = npts * VectorWidth * metaBlock;
-
     const unsigned int idx0   = getLocalIdx(threadBlock);
     const unsigned int stride = getLocalRange(threadBlock);
 
-    for (unsigned int idx = idx0; idx < npts * VectorWidth; idx += stride)
+    for (unsigned int metaBlock = getBlockIdx(threadBlock);
+         metaBlock < numMetaBlocks; metaBlock += getBlockRange(threadBlock))
     {
-        buffer[offset + idx] = inout[offset + idx];
-    }
+        TData *bufferptr = buffer + npts * VectorWidth * metaBlock;
+        TData *inoutptr  = inout + npts * VectorWidth * metaBlock;
 
-    localBarrier(threadBlock);
+        for (unsigned int idx = idx0; idx < npts * VectorWidth; idx += stride)
+        {
+            bufferptr[idx] = inoutptr[idx];
+        }
 
-    for (unsigned int idx = idx0; idx < npts * VectorWidth; idx += stride)
-    {
-        unsigned int vecElem = idx / npts;
-        unsigned int iElem   = idx % npts;
-        inout[offset + idx]  = buffer[offset + iElem * VectorWidth + vecElem];
+        localBarrier(threadBlock);
+
+        for (unsigned int idx = idx0; idx < npts * VectorWidth; idx += stride)
+        {
+            unsigned int vecElem = idx / npts;
+            unsigned int iElem   = idx % npts;
+            inoutptr[idx]        = bufferptr[iElem * VectorWidth + vecElem];
+        }
     }
 }
 
@@ -128,11 +138,7 @@ NEK_DEVICE_INLINE static void BuildInterleaveMapKernel(
             offset + groupOffset + idx;
     }
 }
-#endif
 
-#if (defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)) ||                    \
-    (defined(NEKTAR_ENABLE_HIP) && defined(__HIPCC__)) ||                      \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
 template <bool APPEND = false, bool TRANSPOSE = false, typename TData>
 NEK_DEVICE_INLINE static void MatVecKernel(const unsigned int ilane,
                                            const unsigned int nmTot,

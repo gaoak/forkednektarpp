@@ -46,21 +46,10 @@ interleave(const unsigned int numMetaBlocks, const unsigned int npts,
            TData *inout)
 {
     const unsigned int metaBlockSize = npts * VectorWidth;
-    std::vector<TData> wsp(metaBlockSize);
+    std::vector<TData> buffer(metaBlockSize);
 
-    for (unsigned int metaBlock = 0; metaBlock < numMetaBlocks; ++metaBlock)
-    {
-        std::copy(inout, inout + metaBlockSize, wsp.data());
-
-        for (unsigned int idx = 0; idx < npts; ++idx)
-        {
-            for (unsigned int vecElem = 0; vecElem < VectorWidth; ++vecElem)
-            {
-                inout[idx * VectorWidth + vecElem] = wsp[vecElem * npts + idx];
-            }
-        }
-        inout += metaBlockSize;
-    }
+    interleaveKernel(VectorWidth, numMetaBlocks, npts, buffer.data(), inout,
+                     deviceOnHostBlock1D());
 }
 
 template <typename ExecSpace, typename TData>
@@ -70,21 +59,10 @@ deInterleave(const unsigned int VectorWidth, const unsigned int numMetaBlocks,
              const unsigned int npts, TData *inout)
 {
     const unsigned int metaBlockSize = npts * VectorWidth;
-    std::vector<TData> wsp(metaBlockSize);
+    std::vector<TData> buffer(metaBlockSize);
 
-    for (unsigned int metaBlock = 0; metaBlock < numMetaBlocks; ++metaBlock)
-    {
-        std::copy(inout, inout + metaBlockSize, wsp.data());
-
-        for (unsigned int idx = 0; idx < npts; ++idx)
-        {
-            for (unsigned int vecElem = 0; vecElem < VectorWidth; ++vecElem)
-            {
-                inout[vecElem * npts + idx] = wsp[idx * VectorWidth + vecElem];
-            }
-        }
-        inout += metaBlockSize;
-    }
+    deInterleaveKernel(VectorWidth, numMetaBlocks, npts, buffer.data(), inout,
+                       deviceOnHostBlock1D());
 }
 
 template <typename ExecSpace>

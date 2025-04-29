@@ -41,27 +41,34 @@ namespace Nektar
 {
 
 template <typename TData>
-__global__ void interleaveKernel(const unsigned int VectorWidth,
-                                 const unsigned int npts, TData *buffer,
-                                 TData *inout)
+__global__ void interleaveKernelLauncher(const unsigned int VectorWidth,
+                                         const unsigned int numMetaBlocks,
+                                         const unsigned int npts, TData *buffer,
+                                         TData *inout,
+                                         const hipcudaBlock1D &threadBlock)
 {
-    interleaveKernel(VectorWidth, npts, buffer, inout, hipcudaBlock1D());
+    interleaveKernel(VectorWidth, numMetaBlocks, npts, buffer, inout,
+                     threadBlock);
 }
 
 template <typename TData>
-__global__ void deInterleaveKernel(const unsigned int VectorWidth,
-                                   const unsigned int npts, TData *buffer,
-                                   TData *inout)
+__global__ void deInterleaveKernelLauncher(const unsigned int VectorWidth,
+                                           const unsigned int numMetaBlocks,
+                                           const unsigned int npts,
+                                           TData *buffer, TData *inout,
+                                           const hipcudaBlock1D &threadBlock)
 {
-    deInterleaveKernel(VectorWidth, npts, buffer, inout, hipcudaBlock1D());
+    deInterleaveKernel(VectorWidth, numMetaBlocks, npts, buffer, inout,
+                       threadBlock);
 }
 
 template <typename TData>
-__global__ void BuildInterleaveMapKernel(const unsigned int npts,
-                                         const unsigned int newVecWidth,
-                                         const unsigned int offset,
-                                         TData *deInterleaveMapPtr,
-                                         TData *interleaveMapPtr, TData *buffer)
+__global__ void BuildInterleaveMapKernelLauncher(const unsigned int npts,
+                                                 const unsigned int newVecWidth,
+                                                 const unsigned int offset,
+                                                 TData *deInterleaveMapPtr,
+                                                 TData *interleaveMapPtr,
+                                                 TData *buffer)
 {
     BuildInterleaveMapKernel(npts, newVecWidth, offset, deInterleaveMapPtr,
                              interleaveMapPtr, buffer, hipcudaBlock1D());
@@ -75,7 +82,7 @@ interleave(const unsigned int numMetaBlocks, const unsigned int npts,
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = numMetaBlocks;
-    const unsigned int bufferSize =
+    const size_t bufferSize =
         sizeof(TData) * VectorWidth * numMetaBlocks * npts;
 
     TData *buffer;
@@ -84,7 +91,8 @@ interleave(const unsigned int numMetaBlocks, const unsigned int npts,
 #elif defined(NEKTAR_ENABLE_HIP)
     CHECK_HIPCUDA_ERROR(hipMalloc(&buffer, bufferSize));
 #endif
-    interleaveKernel<<<gridSize, blockSize>>>(VectorWidth, npts, buffer, inout);
+    interleaveKernelLauncher<<<gridSize, blockSize>>>(
+        VectorWidth, numMetaBlocks, npts, buffer, inout, hipcudaBlock1D());
     CHECK_LAST_HIPCUDA_ERROR();
 #if defined(NEKTAR_ENABLE_CUDA)
     CHECK_HIPCUDA_ERROR(cudaFree(buffer));
@@ -101,7 +109,7 @@ deInterleave(const unsigned int VectorWidth, const unsigned int numMetaBlocks,
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = numMetaBlocks;
-    const unsigned int bufferSize =
+    const size_t bufferSize =
         sizeof(TData) * VectorWidth * numMetaBlocks * npts;
 
     TData *buffer;
@@ -110,8 +118,8 @@ deInterleave(const unsigned int VectorWidth, const unsigned int numMetaBlocks,
 #elif defined(NEKTAR_ENABLE_HIP)
     CHECK_HIPCUDA_ERROR(hipMalloc(&buffer, bufferSize));
 #endif
-    deInterleaveKernel<<<gridSize, blockSize>>>(VectorWidth, npts, buffer,
-                                                inout);
+    deInterleaveKernelLauncher<<<gridSize, blockSize>>>(
+        VectorWidth, numMetaBlocks, npts, buffer, inout, hipcudaBlock1D());
     CHECK_LAST_HIPCUDA_ERROR();
 #if defined(NEKTAR_ENABLE_CUDA)
     CHECK_HIPCUDA_ERROR(cudaFree(buffer));
@@ -129,8 +137,7 @@ BuildInterleaveMap(const unsigned int numMetaBlocks, const unsigned int npts,
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = numMetaBlocks;
-    const unsigned int bufferSize =
-        sizeof(int) * newVecWidth * numMetaBlocks * npts;
+    const size_t bufferSize = sizeof(int) * newVecWidth * numMetaBlocks * npts;
 
     int *buffer;
 #if defined(NEKTAR_ENABLE_CUDA)
@@ -138,9 +145,9 @@ BuildInterleaveMap(const unsigned int numMetaBlocks, const unsigned int npts,
 #elif defined(NEKTAR_ENABLE_HIP)
     CHECK_HIPCUDA_ERROR(hipMalloc(&buffer, bufferSize));
 #endif
-    BuildInterleaveMapKernel<<<gridSize, blockSize>>>(npts, newVecWidth, offset,
-                                                      deInterleaveMapPtr,
-                                                      interleaveMapPtr, buffer);
+    BuildInterleaveMapKernelLauncher<<<gridSize, blockSize>>>(
+        npts, newVecWidth, offset, deInterleaveMapPtr, interleaveMapPtr,
+        buffer);
     CHECK_LAST_HIPCUDA_ERROR();
 #if defined(NEKTAR_ENABLE_CUDA)
     CHECK_HIPCUDA_ERROR(cudaFree(buffer));

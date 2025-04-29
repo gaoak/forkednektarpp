@@ -60,6 +60,7 @@
             std::cerr << "CUDA Runtime Error at: " << __FILE__ << ":"          \
                       << __LINE__ << std::endl;                                \
             std::cerr << cudaGetErrorString(err) << std::endl;                 \
+            exit(0);                                                           \
         }                                                                      \
     }
 #define CHECK_HIPCUDA_ERROR(err)                                               \
@@ -68,6 +69,7 @@
         std::cerr << "CUDA Runtime Error at: " << __FILE__ << ":" << __LINE__  \
                   << std::endl;                                                \
         std::cerr << cudaGetErrorString(err) << std::endl;                     \
+        exit(0);                                                               \
     }
 #elif defined(NEKTAR_ENABLE_HIP)
 #include <hip/hip_runtime.h>
@@ -80,6 +82,7 @@
             std::cerr << "HIP Runtime Error at: " << __FILE__ << ":"           \
                       << __LINE__ << std::endl;                                \
             std::cerr << hipGetErrorString(err) << std::endl;                  \
+            exit(0);                                                           \
         }                                                                      \
     }
 #define CHECK_HIPCUDA_ERROR(err)                                               \
@@ -88,6 +91,7 @@
         std::cerr << "HIP Runtime Error at: " << __FILE__ << ":" << __LINE__   \
                   << std::endl;                                                \
         std::cerr << hipGetErrorString(err) << std::endl;                      \
+        exit(0);                                                               \
     }
 #elif defined(NEKTAR_ENABLE_SYCL)
 #include "Operators/Common/SYCLQueue.hpp"
