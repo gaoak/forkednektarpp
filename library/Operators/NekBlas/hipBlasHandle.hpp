@@ -46,6 +46,7 @@
             std::cerr << "hipBLAS error encountered: \""                       \
                       << hipblasStatusToString(status) << "\" at " << __FILE__ \
                       << ':' << __LINE__ << std::endl;                         \
+            exit(0);                                                           \
         }                                                                      \
     }
 

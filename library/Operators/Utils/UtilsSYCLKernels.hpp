@@ -49,15 +49,16 @@ interleave(const unsigned int numMetaBlocks, const unsigned int npts,
 
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = numMetaBlocks;
+    const size_t bufferSize      = VectorWidth * numMetaBlocks * npts;
 
-    TData *buffer = sycl::malloc_device<TData>(
-        VectorWidth * numMetaBlocks * npts, SYCLQueue::GetInstance());
+    TData *buffer =
+        sycl::malloc_device<TData>(bufferSize, SYCLQueue::GetInstance());
 
     Q.submit([=](sycl::handler &cgh) {
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
                          [=](sycl::nd_item<1> item_ct1) {
-                             interleaveKernel(VectorWidth, npts, buffer, inout,
-                                              item_ct1);
+                             interleaveKernel(VectorWidth, numMetaBlocks, npts,
+                                              buffer, inout, item_ct1);
                          });
     });
 
@@ -74,15 +75,16 @@ deInterleave(const unsigned int VectorWidth, const unsigned int numMetaBlocks,
 
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = numMetaBlocks;
+    const size_t bufferSize      = VectorWidth * numMetaBlocks * npts;
 
-    TData *buffer = sycl::malloc_device<TData>(
-        VectorWidth * numMetaBlocks * npts, SYCLQueue::GetInstance());
+    TData *buffer =
+        sycl::malloc_device<TData>(bufferSize, SYCLQueue::GetInstance());
 
     Q.submit([=](sycl::handler &cgh) {
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
                          [=](sycl::nd_item<1> item_ct1) {
-                             deInterleaveKernel(VectorWidth, npts, buffer,
-                                                inout, item_ct1);
+                             deInterleaveKernel(VectorWidth, numMetaBlocks,
+                                                npts, buffer, inout, item_ct1);
                          });
     });
 
@@ -100,9 +102,10 @@ BuildInterleaveMap(const unsigned int numMetaBlocks, const unsigned int npts,
 
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = numMetaBlocks;
+    const size_t bufferSize      = newVecWidth * numMetaBlocks * npts;
 
-    int *buffer = sycl::malloc_device<int>(newVecWidth * numMetaBlocks * npts,
-                                           SYCLQueue::GetInstance());
+    int *buffer =
+        sycl::malloc_device<int>(bufferSize, SYCLQueue::GetInstance());
 
     Q.submit([=](sycl::handler &cgh) {
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
@@ -112,6 +115,8 @@ BuildInterleaveMap(const unsigned int numMetaBlocks, const unsigned int npts,
                                  interleaveMapPtr, buffer, item_ct1);
                          });
     });
+
+    sycl::free(buffer, SYCLQueue::GetInstance());
 }
 
 } // namespace Nektar

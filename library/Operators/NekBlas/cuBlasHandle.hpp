@@ -47,6 +47,7 @@
             std::cerr << "cuBLAS error encountered: \""                        \
                       << cublasGetStatusString(status) << "\" at " << __FILE__ \
                       << ':' << __LINE__ << std::endl;                         \
+            exit(0);                                                           \
         }                                                                      \
     }
 
