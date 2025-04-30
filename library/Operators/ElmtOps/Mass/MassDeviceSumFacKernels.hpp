@@ -50,7 +50,11 @@ template <typename Implementation>
 inline unsigned int MassSharedMemorySize(
     const unsigned int nq0, [[maybe_unused]] const unsigned int nm0)
 {
-    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+    {
+        return 0;
+    }
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
         return nq0 + nq0;
     }
@@ -66,7 +70,11 @@ inline unsigned int MassSharedMemorySize(const unsigned int nq0,
                                          const unsigned int nm0,
                                          const unsigned int nm1)
 {
-    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+    {
+        return 0;
+    }
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
         const unsigned int nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
@@ -82,10 +90,7 @@ inline unsigned int MassSharedMemorySize(const unsigned int nq0,
             return nm0 * nq0 + nmTot * nq1 + nmTot + nq0 * nq1 + nm0 * nq1;
         }
     }
-    else
-    {
-        return 0;
-    }
+
     return 0;
 }
 
@@ -94,7 +99,11 @@ inline unsigned int MassSharedMemorySize(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2)
 {
-    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+    {
+        return 0;
+    }
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
         const unsigned int nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
@@ -129,10 +138,7 @@ inline unsigned int MassSharedMemorySize(
                    nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2;
         }
     }
-    else
-    {
-        return 0;
-    }
+
     return 0;
 }
 

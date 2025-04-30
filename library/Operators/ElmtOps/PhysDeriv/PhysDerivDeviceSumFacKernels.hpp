@@ -63,10 +63,8 @@ inline constexpr unsigned int PhysDerivSharedMemorySize(const unsigned int nq0,
     {
         return nq0 * nq1;
     }
-    else
-    {
-        return 0;
-    }
+
+    return 0;
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation>
@@ -99,10 +97,8 @@ inline constexpr unsigned int PhysDerivSharedMemorySize(const unsigned int nq0,
     {
         return nq0 * nq1 * nq2;
     }
-    else
-    {
-        return 0;
-    }
+
+    return 0;
 }
 
 template <bool DEFORMED, typename TData>
@@ -752,14 +748,11 @@ NEK_DEVICE_INLINE static void PhysDeriv1DKernel(
         unsigned int e = getGlobalIdx(threadBlock);
         while (e < nelmt)
         {
-            const unsigned int ilane    = e % warpsize;
-            const unsigned int iwarp    = e / warpsize;
-            const unsigned int dfoffset = ndf * dfsize * warpsize * iwarp;
-            const unsigned int offset   = nq0 * warpsize * iwarp;
-
-            const TData *dfptr = df + dfoffset;
-            const TData *inptr = in + offset;
-            TData *outptr      = out + offset;
+            const unsigned int ilane = e % warpsize;
+            const unsigned int iwarp = e / warpsize;
+            const TData *dfptr       = df + ndf * dfsize * warpsize * iwarp;
+            const TData *inptr       = in + nq0 * warpsize * iwarp;
+            TData *outptr            = out + nq0 * warpsize * iwarp;
             PhysDeriv1DSumFacKernel<DEFORMED>(ilane, ncoord, nq0, nelmt, D0,
                                               dfptr, inptr, outptr);
             e += getGlobalRange(threadBlock);
@@ -770,12 +763,9 @@ NEK_DEVICE_INLINE static void PhysDeriv1DKernel(
         unsigned int e = getBlockIdx(threadBlock);
         while (e < nelmt)
         {
-            const unsigned int dfoffset = ndf * dfsize * e;
-            const unsigned int offset   = nq0 * e;
-
-            const TData *dfptr = df + dfoffset;
-            const TData *inptr = in + offset;
-            TData *outptr      = out + offset;
+            const TData *dfptr = df + ndf * dfsize * e;
+            const TData *inptr = in + nq0 * e;
+            TData *outptr      = out + nq0 * e;
             PhysDeriv1DSumFacQPKernel<DEFORMED>(ncoord, nq0, nelmt, D0, dfptr,
                                                 inptr, outptr, threadBlock);
             e += getBlockRange(threadBlock);
@@ -831,14 +821,11 @@ NEK_DEVICE_INLINE static void PhysDeriv2DKernel(
         unsigned int e = getGlobalIdx(threadBlock);
         while (e < nelmt)
         {
-            const unsigned int ilane    = e % warpsize;
-            const unsigned int iwarp    = e / warpsize;
-            const unsigned int dfoffset = ndf * dfsize * warpsize * iwarp;
-            const unsigned int offset   = nqTot * warpsize * iwarp;
-
-            const TData *dfptr = df + dfoffset;
-            const TData *inptr = in + offset;
-            TData *outptr      = out + offset;
+            const unsigned int ilane = e % warpsize;
+            const unsigned int iwarp = e / warpsize;
+            const TData *dfptr       = df + ndf * dfsize * warpsize * iwarp;
+            const TData *inptr       = in + nqTot * warpsize * iwarp;
+            TData *outptr            = out + nqTot * warpsize * iwarp;
             PhysDeriv2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
                 ilane, ncoord, nq0, nq1, nelmt, D0, D1, s_f0, s_f1, dfptr,
                 inptr, outptr);
@@ -854,12 +841,9 @@ NEK_DEVICE_INLINE static void PhysDeriv2DKernel(
         unsigned int e = getBlockIdx(threadBlock);
         while (e < nelmt)
         {
-            const unsigned int dfoffset = ndf * dfsize * e;
-            const unsigned int offset   = nqTot * e;
-
-            const TData *dfptr = df + dfoffset;
-            const TData *inptr = in + offset;
-            TData *outptr      = out + offset;
+            const TData *dfptr = df + ndf * dfsize * e;
+            const TData *inptr = in + nqTot * e;
+            TData *outptr      = out + nqTot * e;
 
             // Copy to shared memory.
             for (unsigned int idx = idx0; idx < nqTot; idx += stride)
@@ -979,14 +963,11 @@ NEK_DEVICE_INLINE static void PhysDeriv3DKernel(
         unsigned int e = getGlobalIdx(threadBlock);
         while (e < nelmt)
         {
-            const unsigned int ilane    = e % warpsize;
-            const unsigned int iwarp    = e / warpsize;
-            const unsigned int dfoffset = ndf * dfsize * warpsize * iwarp;
-            const unsigned int offset   = nqTot * warpsize * iwarp;
-
-            const TData *dfptr = df + dfoffset;
-            const TData *inptr = in + offset;
-            TData *outptr      = out + offset;
+            const unsigned int ilane = e % warpsize;
+            const unsigned int iwarp = e / warpsize;
+            const TData *dfptr       = df + ndf * dfsize * warpsize * iwarp;
+            const TData *inptr       = in + nqTot * warpsize * iwarp;
+            TData *outptr            = out + nqTot * warpsize * iwarp;
             PhysDeriv3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
                 ilane, nq0, nq1, nq2, nelmt, D0, D1, D2, s_f0, s_f1, s_f1m,
                 s_f2, dfptr, inptr, outptr);
@@ -1002,12 +983,9 @@ NEK_DEVICE_INLINE static void PhysDeriv3DKernel(
         unsigned int e = getBlockIdx(threadBlock);
         while (e < nelmt)
         {
-            const unsigned int dfoffset = ndf * dfsize * e;
-            const unsigned int offset   = nqTot * e;
-
-            const TData *dfptr = df + dfoffset;
-            const TData *inptr = in + offset;
-            TData *outptr      = out + offset;
+            const TData *dfptr = df + ndf * dfsize * e;
+            const TData *inptr = in + nqTot * e;
+            TData *outptr      = out + nqTot * e;
 
             // Copy to shared memory.
             for (unsigned int idx = idx0; idx < nqTot; idx += stride)

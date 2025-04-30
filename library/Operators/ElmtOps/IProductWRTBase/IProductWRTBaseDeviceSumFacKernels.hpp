@@ -47,12 +47,18 @@ template <typename Implementation>
 inline unsigned int IProductWRTBaseSharedMemorySize(
     const unsigned int nq0, [[maybe_unused]] const unsigned int nm0)
 {
-    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+    {
+        return 0;
+    }
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
         return nq0;
     }
-
-    return 0;
+    else
+    {
+        return 0;
+    }
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation>
@@ -61,7 +67,11 @@ inline unsigned int IProductWRTBaseSharedMemorySize(const unsigned int nq0,
                                                     const unsigned int nm0,
                                                     const unsigned int nm1)
 {
-    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+    {
+        return 0;
+    }
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
@@ -88,7 +98,11 @@ inline unsigned int IProductWRTBaseSharedMemorySize(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2)
 {
-    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+    {
+        return 0;
+    }
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {

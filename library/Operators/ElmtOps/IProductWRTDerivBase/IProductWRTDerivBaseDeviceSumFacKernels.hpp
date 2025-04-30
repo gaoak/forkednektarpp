@@ -54,9 +54,13 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
     {
         return 0;
     }
-    else
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
         return nq0;
+    }
+    else
+    {
+        return 0;
     }
 }
 
@@ -78,7 +82,7 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(const unsigned int nq0,
             return nq0 + nq1;
         }
     }
-    else
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
@@ -97,6 +101,7 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(const unsigned int nq0,
             return nm0 * nq0 + nmTot * nq1 + 3 * nq0 * nq1 + nm0 * nq1 + nmTot;
         }
     }
+
     return 0;
 }
 
@@ -126,7 +131,7 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
             return nq0 + nq1 + nq2;
         }
     }
-    else
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
@@ -176,6 +181,7 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
                    nm0 * nq1 * nq2 + nm0 * nm1 * nq2;
         }
     }
+
     return 0;
 }
 
