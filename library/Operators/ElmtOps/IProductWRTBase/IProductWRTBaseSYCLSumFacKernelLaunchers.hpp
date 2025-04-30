@@ -112,6 +112,8 @@ NEK_FORCE_INLINE static void IProductWRTBase1DKernel(
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nq0);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
+    GetDeviceProperties::CheckSharedMemoryUsage(sizeof(TData) * shmemsize);
+
     Q.submit([=](sycl::handler &cgh) {
         sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
         cgh.parallel_for(sycl::nd_range<1>(gridsize * blocksize, blocksize),
@@ -143,6 +145,8 @@ NEK_FORCE_INLINE static void IProductWRTBase1DKernel(
         IProductWRTBaseSharedMemorySize<Implementation>(nq0, nm0);
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nq0);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+
+    GetDeviceProperties::CheckSharedMemoryUsage(sizeof(TData) * shmemsize);
 
     Q.submit([=](sycl::handler &cgh) {
         sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
@@ -180,12 +184,7 @@ NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
-    ASSERTL0(shmemsize * sizeof(TData) <=
-                 GetDeviceProperties::SharedMemoryPerBlock(),
-             "Shared memory available is " +
-                 std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
-                 "bytes, requested " +
-                 std::to_string(shmemsize * sizeof(TData)) + " bytes");
+    GetDeviceProperties::CheckSharedMemoryUsage(sizeof(TData) * shmemsize);
 
     Q.submit([&](sycl::handler &cgh) {
         sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
@@ -230,12 +229,7 @@ NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
-    ASSERTL0(shmemsize * sizeof(TData) <=
-                 GetDeviceProperties::SharedMemoryPerBlock(),
-             "Shared memory available is " +
-                 std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
-                 "bytes, requested " +
-                 std::to_string(shmemsize * sizeof(TData)) + " bytes");
+    GetDeviceProperties::CheckSharedMemoryUsage(sizeof(TData) * shmemsize);
 
     Q.submit([&](sycl::handler &cgh) {
         sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
@@ -277,12 +271,7 @@ NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
-    ASSERTL0(shmemsize * sizeof(TData) <=
-                 GetDeviceProperties::SharedMemoryPerBlock(),
-             "Shared memory available is " +
-                 std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
-                 "bytes, requested " +
-                 std::to_string(shmemsize * sizeof(TData)) + " bytes");
+    GetDeviceProperties::CheckSharedMemoryUsage(sizeof(TData) * shmemsize);
 
     Q.submit([&](sycl::handler &cgh) {
         sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
@@ -329,12 +318,7 @@ NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
-    ASSERTL0(shmemsize * sizeof(TData) <=
-                 GetDeviceProperties::SharedMemoryPerBlock(),
-             "Shared memory available is " +
-                 std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
-                 "bytes, requested " +
-                 std::to_string(shmemsize * sizeof(TData)) + " bytes");
+    GetDeviceProperties::CheckSharedMemoryUsage(sizeof(TData) * shmemsize);
 
     Q.submit([&](sycl::handler &cgh) {
         sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);

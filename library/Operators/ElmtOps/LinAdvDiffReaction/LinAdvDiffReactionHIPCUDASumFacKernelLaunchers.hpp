@@ -211,6 +211,8 @@ NEK_FORCE_INLINE static void LinAdvDiffReaction1DKernel(
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nq0);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
     LinAdvDiffReaction1DKernelLauncher<Implementation, DEFORMED>
         <<<gridsize, blocksize, shmemsize>>>(
             ncoord, nm0, nq0, nelmt, basis0, D0, w0, df, jac, coeff, advVel0,
@@ -231,6 +233,8 @@ NEK_FORCE_INLINE static void LinAdvDiffReaction1DKernel(
         sizeof(TData) * HelmholtzSharedMemorySize<Implementation>(nq0, nm0);
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nq0);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
     LinAdvDiffReaction1DKernelLauncher<Implementation, DEFORMED, nm0, nq0>
         <<<gridsize, blocksize, shmemsize>>>(ncoord, nelmt, basis0, D0, w0, df,
@@ -260,11 +264,7 @@ NEK_FORCE_INLINE static void LinAdvDiffReaction2DKernel(
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
-    ASSERTL0(shmemsize == 0 ||
-                 shmemsize <= GetDeviceProperties::SharedMemoryPerBlock(),
-             "Shared memory available is " +
-                 std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
-                 "bytes, requested " + std::to_string(shmemsize) + " bytes");
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
     LinAdvDiffReaction2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>
         <<<gridsize, blocksize, shmemsize>>>(
@@ -296,11 +296,7 @@ NEK_FORCE_INLINE static void LinAdvDiffReaction2DKernel(
         GetDeviceBlockSize<Implementation>(nq0 * nq1);
     const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
 
-    ASSERTL0(shmemsize == 0 ||
-                 shmemsize <= GetDeviceProperties::SharedMemoryPerBlock(),
-             "Shared memory available is " +
-                 std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
-                 "bytes, requested " + std::to_string(shmemsize) + " bytes");
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
     LinAdvDiffReaction2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED,
                                        nm0, nm1, nmTot, nq0, nq1>
@@ -335,11 +331,7 @@ NEK_FORCE_INLINE static void LinAdvDiffReaction3DKernel(
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
-    ASSERTL0(shmemsize == 0 ||
-                 shmemsize <= GetDeviceProperties::SharedMemoryPerBlock(),
-             "Shared memory available is " +
-                 std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
-                 "bytes, requested " + std::to_string(shmemsize) + " bytes");
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
     LinAdvDiffReaction3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>
         <<<gridsize, blocksize, shmemsize>>>(
@@ -374,11 +366,7 @@ NEK_FORCE_INLINE static void LinAdvDiffReaction3DKernel(
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
-    ASSERTL0(shmemsize == 0 ||
-                 shmemsize <= GetDeviceProperties::SharedMemoryPerBlock(),
-             "Shared memory available is " +
-                 std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
-                 "bytes, requested " + std::to_string(shmemsize) + " bytes");
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
     LinAdvDiffReaction3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED,
                                        nm0, nm1, nm2, nmTot, nq0, nq1, nq2>

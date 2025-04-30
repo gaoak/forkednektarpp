@@ -59,7 +59,17 @@ public:
         return prop[id].totalGlobalMem;
     }
 
-    static void CheckGlobalMemoryUsage(size_t memsize)
+    static void CheckSharedMemoryUsage(const size_t shmemsize)
+    {
+        ASSERTL0(
+            shmemsize == 0 ||
+                shmemsize <= GetDeviceProperties::SharedMemoryPerBlock(),
+            "Shared memory available is " +
+                std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
+                "bytes, requested " + std::to_string(shmemsize) + " bytes");
+    }
+
+    static void CheckGlobalMemoryUsage(const size_t memsize)
     {
         ASSERTL0(memsize <= GetDeviceProperties::TotalGlobalMemory(),
                  "Insufficient global memory, requested " +
@@ -71,7 +81,7 @@ public:
 private:
     static std::unordered_map<int, cudaDeviceProp> prop;
 
-    static void FetchDeviceProperties(int id)
+    static void FetchDeviceProperties(const int id)
     {
         if (prop.find(id) == prop.end())
         {
@@ -101,7 +111,17 @@ public:
         return prop[id].totalGlobalMem;
     }
 
-    static void CheckGlobalMemoryUsage(size_t memsize)
+    static void CheckSharedMemoryUsage(const size_t shmemsize)
+    {
+        ASSERTL0(
+            shmemsize == 0 ||
+                shmemsize <= GetDeviceProperties::SharedMemoryPerBlock(),
+            "Shared memory available is " +
+                std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
+                "bytes, requested " + std::to_string(shmemsize) + " bytes");
+    }
+
+    static void CheckGlobalMemoryUsage(const size_t memsize)
     {
         ASSERTL0(memsize <= GetDeviceProperties::TotalGlobalMemory(),
                  "Insufficient global memory, requested " +
@@ -113,7 +133,7 @@ public:
 private:
     static std::unordered_map<int, hipDeviceProp_t> prop;
 
-    static void FetchDeviceProperties(int id)
+    static void FetchDeviceProperties(const int id)
     {
         if (prop.find(id) == prop.end())
         {
@@ -139,7 +159,17 @@ public:
         return m_totalGlobalMemory[0];
     }
 
-    static void CheckGlobalMemoryUsage(size_t memsize)
+    static void CheckSharedMemoryUsage(const size_t shmemsize)
+    {
+        ASSERTL0(
+            shmemsize == 0 ||
+                shmemsize <= GetDeviceProperties::SharedMemoryPerBlock(),
+            "Shared memory available is " +
+                std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
+                "bytes, requested " + std::to_string(shmemsize) + " bytes");
+    }
+
+    static void CheckGlobalMemoryUsage(const size_t memsize)
     {
         ASSERTL0(memsize <= GetDeviceProperties::TotalGlobalMemory(),
                  "Insufficient global memory, requested " +
@@ -152,7 +182,7 @@ private:
     static std::unordered_map<int, size_t> m_sharedMemoryPerBlock;
     static std::unordered_map<int, size_t> m_totalGlobalMemory;
 
-    static void FetchDeviceProperties(int id)
+    static void FetchDeviceProperties(const int id)
     {
         if (m_totalGlobalMemory.find(id) == m_totalGlobalMemory.end())
         {

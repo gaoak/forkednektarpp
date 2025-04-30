@@ -186,6 +186,8 @@ NEK_FORCE_INLINE static void IProductWRTBase1DKernel(
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nq0);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
     IProductWRTBase1DKernelLauncher<Implementation, SCALE, APPEND, DEFORMED>
         <<<gridsize, blocksize, shmemsize>>>(nm0, nq0, nelmt, basis0, w0, jac,
                                              in, out, scale, hipcudaBlock1D());
@@ -204,6 +206,8 @@ NEK_FORCE_INLINE static void IProductWRTBase1DKernel(
         IProductWRTBaseSharedMemorySize<Implementation>(nq0, nm0);
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nq0);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
     IProductWRTBase1DKernelLauncher<Implementation, SCALE, APPEND, DEFORMED,
                                     nm0, nq0>
@@ -232,11 +236,7 @@ NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
-    ASSERTL0(shmemsize == 0 ||
-                 shmemsize <= GetDeviceProperties::SharedMemoryPerBlock(),
-             "Shared memory available is " +
-                 std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
-                 "bytes, requested " + std::to_string(shmemsize) + " bytes");
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
     IProductWRTBase2DKernelLauncher<SHAPE_TYPE, Implementation, SCALE, APPEND,
                                     DEFORMED>
@@ -268,11 +268,7 @@ NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
         GetDeviceBlockSize<Implementation>(nq0 * nq1);
     const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
 
-    ASSERTL0(shmemsize == 0 ||
-                 shmemsize <= GetDeviceProperties::SharedMemoryPerBlock(),
-             "Shared memory available is " +
-                 std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
-                 "bytes, requested " + std::to_string(shmemsize) + " bytes");
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
     IProductWRTBase2DKernelLauncher<SHAPE_TYPE, Implementation, SCALE, APPEND,
                                     DEFORMED, nm0, nm1, nmTot, nq0, nq1>
@@ -304,11 +300,7 @@ NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
-    ASSERTL0(shmemsize == 0 ||
-                 shmemsize <= GetDeviceProperties::SharedMemoryPerBlock(),
-             "Shared memory available is " +
-                 std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
-                 "bytes, requested " + std::to_string(shmemsize) + " bytes");
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
     IProductWRTBase3DKernelLauncher<SHAPE_TYPE, Implementation, SCALE, APPEND,
                                     DEFORMED>
@@ -340,11 +332,7 @@ NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
-    ASSERTL0(shmemsize == 0 ||
-                 shmemsize <= GetDeviceProperties::SharedMemoryPerBlock(),
-             "Shared memory available is " +
-                 std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
-                 "bytes, requested " + std::to_string(shmemsize) + " bytes");
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
     IProductWRTBase3DKernelLauncher<SHAPE_TYPE, Implementation, SCALE, APPEND,
                                     DEFORMED, nm0, nm1, nm2, nmTot, nq0, nq1,
