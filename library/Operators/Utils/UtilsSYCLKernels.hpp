@@ -51,6 +51,7 @@ interleave(const unsigned int numMetaBlocks, const unsigned int npts,
     const unsigned int gridSize  = numMetaBlocks;
     const size_t bufferSize      = VectorWidth * numMetaBlocks * npts;
 
+    GetDeviceProperties::CheckGlobalMemoryUsage(sizeof(TData) * bufferSize);
     TData *buffer =
         sycl::malloc_device<TData>(bufferSize, SYCLQueue::GetInstance());
 
@@ -77,6 +78,7 @@ deInterleave(const unsigned int VectorWidth, const unsigned int numMetaBlocks,
     const unsigned int gridSize  = numMetaBlocks;
     const size_t bufferSize      = VectorWidth * numMetaBlocks * npts;
 
+    GetDeviceProperties::CheckGlobalMemoryUsage(sizeof(TData) * bufferSize);
     TData *buffer =
         sycl::malloc_device<TData>(bufferSize, SYCLQueue::GetInstance());
 
@@ -104,6 +106,7 @@ BuildInterleaveMap(const unsigned int numMetaBlocks, const unsigned int npts,
     const unsigned int gridSize  = numMetaBlocks;
     const size_t bufferSize      = newVecWidth * numMetaBlocks * npts;
 
+    GetDeviceProperties::CheckGlobalMemoryUsage(sizeof(int) * bufferSize);
     int *buffer =
         sycl::malloc_device<int>(bufferSize, SYCLQueue::GetInstance());
 

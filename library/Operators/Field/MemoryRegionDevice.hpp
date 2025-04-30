@@ -124,7 +124,7 @@ public:
     {
         if (this->m_device != nullptr)
         {
-            deviceFree(this->m_device, this->m_device_rank);
+            deviceFree(this->m_device, this->m_size, this->m_device_rank);
             this->m_device       = nullptr;
             this->m_device_valid = false;
         }

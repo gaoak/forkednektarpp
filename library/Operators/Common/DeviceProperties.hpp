@@ -36,11 +36,14 @@
 
 #include <Operators/Common/Spaces.hpp>
 
+#include <LibUtilities/BasicUtils/ErrorUtil.hpp>
+#include <unordered_map>
+
 #if defined(NEKTAR_ENABLE_CUDA)
 class GetDeviceProperties
 {
 public:
-    static unsigned int SharedMemoryPerBlock(void)
+    static const size_t &SharedMemoryPerBlock(void)
     {
         int id = -1;
         CHECK_HIPCUDA_ERROR(cudaGetDevice(&id));
@@ -48,7 +51,7 @@ public:
         return prop[id].sharedMemPerBlock;
     }
 
-    static unsigned int TotalGlobalMemory(void)
+    static size_t &TotalGlobalMemory(void)
     {
         int id = -1;
         CHECK_HIPCUDA_ERROR(cudaGetDevice(&id));
@@ -56,17 +59,23 @@ public:
         return prop[id].totalGlobalMem;
     }
 
+    static void CheckGlobalMemoryUsage(size_t memsize)
+    {
+        ASSERTL0(memsize <= GetDeviceProperties::TotalGlobalMemory(),
+                 "Insufficient global memory, requested " +
+                     std::to_string(memsize) + " bytes, remains " +
+                     std::to_string(GetDeviceProperties::TotalGlobalMemory()) +
+                     " bytes");
+    }
+
 private:
-    static std::vector<cudaDeviceProp> prop;
+    static std::unordered_map<int, cudaDeviceProp> prop;
 
     static void FetchDeviceProperties(int id)
     {
-        if (prop.size() <= id)
+        if (prop.find(id) == prop.end())
         {
-            while (prop.size() <= id)
-            {
-                prop.push_back(cudaDeviceProp{});
-            }
+            prop.emplace(id, cudaDeviceProp{});
             CHECK_HIPCUDA_ERROR(cudaGetDeviceProperties(&prop[id], id));
         }
     }
@@ -76,7 +85,7 @@ private:
 class GetDeviceProperties
 {
 public:
-    static unsigned int SharedMemoryPerBlock(void)
+    static const size_t &SharedMemoryPerBlock(void)
     {
         int id = -1;
         CHECK_HIPCUDA_ERROR(hipGetDevice(&id));
@@ -84,7 +93,7 @@ public:
         return prop[id].sharedMemPerBlock;
     }
 
-    static unsigned int TotalGlobalMemory(void)
+    static size_t &TotalGlobalMemory(void)
     {
         int id = -1;
         CHECK_HIPCUDA_ERROR(hipGetDevice(&id));
@@ -92,17 +101,23 @@ public:
         return prop[id].totalGlobalMem;
     }
 
+    static void CheckGlobalMemoryUsage(size_t memsize)
+    {
+        ASSERTL0(memsize <= GetDeviceProperties::TotalGlobalMemory(),
+                 "Insufficient global memory, requested " +
+                     std::to_string(memsize) + " bytes, remains " +
+                     std::to_string(GetDeviceProperties::TotalGlobalMemory()) +
+                     " bytes");
+    }
+
 private:
-    static std::vector<hipDeviceProp_t> prop;
+    static std::unordered_map<int, hipDeviceProp_t> prop;
 
     static void FetchDeviceProperties(int id)
     {
-        if (prop.size() <= id)
+        if (prop.find(id) == prop.end())
         {
-            while (prop.size() <= id)
-            {
-                prop.push_back(hipDeviceProp_t{});
-            }
+            prop.emplace(id, hipDeviceProp_t{});
             CHECK_HIPCUDA_ERROR(hipGetDeviceProperties(&prop[id], id));
         }
     }
@@ -112,18 +127,42 @@ private:
 class GetDeviceProperties
 {
 public:
-    static unsigned int SharedMemoryPerBlock(void)
+    static const size_t &SharedMemoryPerBlock(void)
     {
-        static auto device =
-            SYCLQueue::GetInstance().get_info<sycl::info::queue::device>();
-        return device.get_info<sycl::info::device::local_mem_size>();
+        FetchDeviceProperties(0);
+        return m_sharedMemoryPerBlock[0];
     }
 
-    static unsigned int TotalGlobalMemory(void)
+    static size_t &TotalGlobalMemory(void)
     {
-        static auto device =
-            SYCLQueue::GetInstance().get_info<sycl::info::queue::device>();
-        return device.get_info<sycl::info::device::global_mem_size>();
+        FetchDeviceProperties(0);
+        return m_totalGlobalMemory[0];
+    }
+
+    static void CheckGlobalMemoryUsage(size_t memsize)
+    {
+        ASSERTL0(memsize <= GetDeviceProperties::TotalGlobalMemory(),
+                 "Insufficient global memory, requested " +
+                     std::to_string(memsize) + " bytes, remains " +
+                     std::to_string(GetDeviceProperties::TotalGlobalMemory()) +
+                     " bytes");
+    }
+
+private:
+    static std::unordered_map<int, size_t> m_sharedMemoryPerBlock;
+    static std::unordered_map<int, size_t> m_totalGlobalMemory;
+
+    static void FetchDeviceProperties(int id)
+    {
+        if (m_totalGlobalMemory.find(id) == m_totalGlobalMemory.end())
+        {
+            auto device =
+                SYCLQueue::GetInstance().get_info<sycl::info::queue::device>();
+            m_totalGlobalMemory.emplace(
+                id, device.get_info<sycl::info::device::global_mem_size>());
+            m_sharedMemoryPerBlock.emplace(
+                id, device.get_info<sycl::info::device::local_mem_size>());
+        }
     }
 }; // namespace GetDeviceProperties
 

@@ -86,6 +86,7 @@ interleave(const unsigned int numMetaBlocks, const unsigned int npts,
         sizeof(TData) * VectorWidth * numMetaBlocks * npts;
 
     TData *buffer;
+    GetDeviceProperties::CheckGlobalMemoryUsage(bufferSize);
 #if defined(NEKTAR_ENABLE_CUDA)
     CHECK_HIPCUDA_ERROR(cudaMalloc(&buffer, bufferSize));
 #elif defined(NEKTAR_ENABLE_HIP)
@@ -113,6 +114,7 @@ deInterleave(const unsigned int VectorWidth, const unsigned int numMetaBlocks,
         sizeof(TData) * VectorWidth * numMetaBlocks * npts;
 
     TData *buffer;
+    GetDeviceProperties::CheckGlobalMemoryUsage(bufferSize);
 #if defined(NEKTAR_ENABLE_CUDA)
     CHECK_HIPCUDA_ERROR(cudaMalloc(&buffer, bufferSize));
 #elif defined(NEKTAR_ENABLE_HIP)
@@ -140,6 +142,7 @@ BuildInterleaveMap(const unsigned int numMetaBlocks, const unsigned int npts,
     const size_t bufferSize = sizeof(int) * newVecWidth * numMetaBlocks * npts;
 
     int *buffer;
+    GetDeviceProperties::CheckGlobalMemoryUsage(bufferSize);
 #if defined(NEKTAR_ENABLE_CUDA)
     CHECK_HIPCUDA_ERROR(cudaMalloc(&buffer, bufferSize));
 #elif defined(NEKTAR_ENABLE_HIP)

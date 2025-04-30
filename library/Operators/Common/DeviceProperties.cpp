@@ -35,7 +35,10 @@
 #include <Operators/Common/DeviceProperties.hpp>
 
 #if defined(NEKTAR_ENABLE_CUDA)
-std::vector<cudaDeviceProp> GetDeviceProperties::prop;
+std::unordered_map<int, cudaDeviceProp> GetDeviceProperties::prop;
 #elif defined(NEKTAR_ENABLE_HIP)
-std::vector<hipDeviceProp_t> GetDeviceProperties::prop;
+std::unordered_map<int, hipDeviceProp_t> GetDeviceProperties::prop;
+#elif defined(NEKTAR_ENABLE_SYCL)
+std::unordered_map<int, size_t> GetDeviceProperties::m_sharedMemoryPerBlock;
+std::unordered_map<int, size_t> GetDeviceProperties::m_totalGlobalMemory;
 #endif

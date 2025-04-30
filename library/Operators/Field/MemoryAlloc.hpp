@@ -34,6 +34,7 @@
 
 #pragma once
 
+#include "Operators/Common/DeviceProperties.hpp"
 #include "Operators/Common/Spaces.hpp"
 
 namespace Nektar
@@ -54,8 +55,8 @@ struct DeviceToDevice
 };
 
 template <typename TData>
-void hostMallocPinned(TData *&src, const unsigned int size,
-                      [[maybe_unused]] const unsigned int alignment)
+void hostMallocPinned(TData *&src, const size_t size,
+                      [[maybe_unused]] const size_t alignment)
 {
     if (size > 0)
     {
@@ -79,20 +80,26 @@ void hostMallocPinned(TData *&src, const unsigned int size,
 }
 
 template <typename TData>
-void deviceMalloc(TData *&src, const unsigned int size,
-                  [[maybe_unused]] const unsigned int device_rank)
+void deviceMalloc(TData *&src, const size_t size,
+                  [[maybe_unused]] const size_t device_rank)
 {
     if (size > 0)
     {
 #if defined(NEKTAR_ENABLE_CUDA)
         CHECK_HIPCUDA_ERROR(cudaSetDevice(device_rank));
+        GetDeviceProperties::CheckGlobalMemoryUsage(size * sizeof(TData));
         CHECK_HIPCUDA_ERROR(cudaMalloc((void **)&src, size * sizeof(TData)));
+        GetDeviceProperties::TotalGlobalMemory() -= size * sizeof(TData);
 #elif defined(NEKTAR_ENABLE_HIP)
         CHECK_HIPCUDA_ERROR(hipSetDevice(device_rank));
+        GetDeviceProperties::CheckGlobalMemoryUsage(size * sizeof(TData));
         CHECK_HIPCUDA_ERROR(hipMalloc((void **)&src, size * sizeof(TData)));
+        GetDeviceProperties::TotalGlobalMemory() -= size * sizeof(TData);
 #elif defined(NEKTAR_ENABLE_SYCL)
+        GetDeviceProperties::CheckGlobalMemoryUsage(size * sizeof(TData));
         sycl::queue &Q = SYCLQueue::GetInstance();
         src            = sycl::malloc_device<TData>(size, Q);
+        GetDeviceProperties::TotalGlobalMemory() -= size * sizeof(TData);
 #else
         src = (TData *)malloc(size * sizeof(TData));
 #endif
@@ -104,7 +111,7 @@ void deviceMalloc(TData *&src, const unsigned int size,
 }
 
 template <typename TData>
-void hostFreePinned(TData *&src, [[maybe_unused]] const unsigned int alignment)
+void hostFreePinned(TData *&src, [[maybe_unused]] const size_t alignment)
 {
     if (src == nullptr)
     {
@@ -126,7 +133,8 @@ void hostFreePinned(TData *&src, [[maybe_unused]] const unsigned int alignment)
 }
 
 template <typename TData>
-void deviceFree(TData *&src, [[maybe_unused]] const unsigned int device_rank)
+void deviceFree(TData *&src, [[maybe_unused]] const size_t size,
+                [[maybe_unused]] const size_t device_rank)
 {
     if (src == nullptr)
     {
@@ -136,12 +144,15 @@ void deviceFree(TData *&src, [[maybe_unused]] const unsigned int device_rank)
 #if defined(NEKTAR_ENABLE_CUDA)
     CHECK_HIPCUDA_ERROR(cudaSetDevice(device_rank));
     CHECK_HIPCUDA_ERROR(cudaFree(src));
+    GetDeviceProperties::TotalGlobalMemory() += size * sizeof(TData);
 #elif defined(NEKTAR_ENABLE_HIP)
     CHECK_HIPCUDA_ERROR(hipSetDevice(device_rank));
     CHECK_HIPCUDA_ERROR(hipFree(src));
+    GetDeviceProperties::TotalGlobalMemory() += size * sizeof(TData);
 #elif defined(NEKTAR_ENABLE_SYCL)
     sycl::queue &Q = SYCLQueue::GetInstance();
     sycl::free(src, Q);
+    GetDeviceProperties::TotalGlobalMemory() += size * sizeof(TData);
 #else
     free(src);
 #endif
@@ -150,8 +161,8 @@ void deviceFree(TData *&src, [[maybe_unused]] const unsigned int device_rank)
 }
 
 template <typename TData>
-void deviceMemset(TData *dst, const int val, const unsigned int size,
-                  [[maybe_unused]] const unsigned int device_rank)
+void deviceMemset(TData *dst, const int val, const size_t size,
+                  [[maybe_unused]] const size_t device_rank)
 {
     if (size == 0)
     {
@@ -173,8 +184,8 @@ void deviceMemset(TData *dst, const int val, const unsigned int size,
 }
 
 template <typename TData>
-void deviceFill(TData *dst, const TData val, const unsigned int size,
-                [[maybe_unused]] const unsigned int device_rank)
+void deviceFill(TData *dst, const TData val, const size_t size,
+                [[maybe_unused]] const size_t device_rank)
 {
     if (size == 0)
     {
@@ -196,8 +207,8 @@ void deviceFill(TData *dst, const TData val, const unsigned int size,
 }
 
 template <typename MemCopy, typename TData>
-void deviceMemcpy(TData *dst, const TData *src, const unsigned int size,
-                  [[maybe_unused]] const unsigned int device_rank)
+void deviceMemcpy(TData *dst, const TData *src, const size_t size,
+                  [[maybe_unused]] const size_t device_rank)
 {
     if (size == 0)
     {

@@ -276,8 +276,12 @@ parallel_reduce(const unsigned int begin, const unsigned int end,
 
     if (syclBuffer == nullptr)
     {
+        GetDeviceProperties::CheckGlobalMemoryUsage(sizeof(TData) *
+                                                    (gridSize + 1));
         syclBuffer = (void *)sycl::malloc_device<TData>(
             gridSize + 1, SYCLQueue::GetInstance());
+        GetDeviceProperties::TotalGlobalMemory() -=
+            sizeof(TData) * (gridSize + 1);
     }
 
     TData *buffer = (TData *)syclBuffer;
