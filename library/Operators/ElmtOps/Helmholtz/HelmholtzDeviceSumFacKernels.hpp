@@ -55,7 +55,7 @@ inline unsigned int HelmholtzSharedMemorySize(
     {
         return 0;
     }
-    else
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
         return 4 * nq0;
     }
@@ -79,7 +79,7 @@ inline unsigned int HelmholtzSharedMemorySize(const unsigned int nq0,
             return nq0 + nq1;
         }
     }
-    else
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
@@ -100,6 +100,7 @@ inline unsigned int HelmholtzSharedMemorySize(const unsigned int nq0,
                    nmTot;
         }
     }
+
     return 0;
 }
 
@@ -129,7 +130,7 @@ inline unsigned int HelmholtzSharedMemorySize(
             return nq0 + nq1 + nq2;
         }
     }
-    else
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
@@ -165,6 +166,7 @@ inline unsigned int HelmholtzSharedMemorySize(
                    nm0 * nq1 * nq2 + nm0 * nm1 * nq2 + 9;
         }
     }
+
     return 0;
 }
 

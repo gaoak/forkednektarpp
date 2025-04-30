@@ -111,12 +111,12 @@ public:
     MemoryRegion<TData> Create(const JacobianKey<TData> &jacobianKey,
                                const unsigned int alignment)
     {
-        auto vector_width = NektarSpaces::vector_width<TData>::value;
+        const auto vector_width = NektarSpaces::vector_width<TData>::value;
 
-        auto exp_idx          = jacobianKey.m_exp_idx;
-        auto interleave_width = jacobianKey.m_interleave_width;
-        auto num_elements     = jacobianKey.m_num_elements;
-        auto num_elmt_groups =
+        const auto exp_idx          = jacobianKey.m_exp_idx;
+        const auto interleave_width = jacobianKey.m_interleave_width;
+        const auto num_elements     = jacobianKey.m_num_elements;
+        const auto num_elmt_groups =
             ((num_elements + vector_width - 1) / vector_width) * vector_width /
             interleave_width;
 
@@ -125,16 +125,16 @@ public:
         // Deformed geometry.
         if (expPtr->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed)
         {
+            const auto memsize =
+                num_elmt_groups * interleave_width * expPtr->GetTotPoints();
             Array<OneD, Array<OneD, NekDouble>> jacArray(interleave_width);
-            auto jac = MemoryRegion<TData>::Create(
-                num_elmt_groups * interleave_width * expPtr->GetTotPoints(),
-                alignment);
+            auto jac = MemoryRegion<TData>::Create(memsize, alignment);
             auto jacptr =
                 jac.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
             // Loop over chunks.
-            for (unsigned int chunk = 0, el = 0, jac_id = 0;
-                 chunk < num_elmt_groups; ++chunk)
+            for (unsigned int chunk = 0, el = 0; chunk < num_elmt_groups;
+                 ++chunk)
             {
                 for (unsigned int i = 0; i < interleave_width; ++i, ++el)
                 {
@@ -153,10 +153,9 @@ public:
 
                 for (unsigned int pt = 0; pt < expPtr->GetTotPoints(); ++pt)
                 {
-                    for (unsigned int i = 0; i < interleave_width;
-                         ++i, ++jac_id)
+                    for (unsigned int i = 0; i < interleave_width; ++i)
                     {
-                        jacptr[jac_id] = jacArray[i][pt];
+                        *(jacptr++) = jacArray[i][pt];
                     }
                 }
             }
@@ -199,62 +198,62 @@ public:
     MemoryRegion<TData> Create(const DerivFactorKey<TData> &derivFactorKey,
                                const unsigned int alignment)
     {
-        auto vector_width = NektarSpaces::vector_width<TData>::value;
+        const auto vector_width = NektarSpaces::vector_width<TData>::value;
 
-        auto exp_idx          = derivFactorKey.m_exp_idx;
-        auto interleave_width = derivFactorKey.m_interleave_width;
-        auto num_elements     = derivFactorKey.m_num_elements;
-        auto transpose        = derivFactorKey.m_transpose;
-        auto num_elmt_groups =
+        const auto exp_idx          = derivFactorKey.m_exp_idx;
+        const auto interleave_width = derivFactorKey.m_interleave_width;
+        const auto num_elements     = derivFactorKey.m_num_elements;
+        const auto transpose        = derivFactorKey.m_transpose;
+        const auto num_elmt_groups =
             ((num_elements + vector_width - 1) / vector_width) * vector_width /
             interleave_width;
 
-        auto expPtr         = m_expansionList->GetExp(exp_idx);
-        unsigned int nDim   = expPtr->GetShapeDimension();
-        unsigned int nCoord = expPtr->GetCoordim();
+        auto expPtr               = m_expansionList->GetExp(exp_idx);
+        const unsigned int nDim   = expPtr->GetShapeDimension();
+        const unsigned int nCoord = expPtr->GetCoordim();
 
-        unsigned int range1 =
+        const unsigned int range1 =
             transpose ? nDim * nCoord : expPtr->GetTotPoints();
-        unsigned int range2 =
+        const unsigned int range2 =
             transpose ? expPtr->GetTotPoints() : nDim * nCoord;
 
         // Deformed geometry.
         if (expPtr->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed)
         {
             // Allocate memory and get pointer.
-            auto df = MemoryRegion<TData>::Create(
-                num_elmt_groups * interleave_width * expPtr->GetTotPoints() *
-                    nDim * nCoord,
-                alignment);
+            const auto memsize = num_elmt_groups * interleave_width *
+                                 expPtr->GetTotPoints() * nDim * nCoord;
+            auto df = MemoryRegion<TData>::Create(memsize, alignment);
             auto dfptr =
                 df.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
             // Loop over chunks.
-            for (unsigned int chunk = 0, el = 0, df_id = 0;
-                 chunk < num_elmt_groups; ++chunk)
+            for (unsigned int chunk = 0, el = 0; chunk < num_elmt_groups;
+                 ++chunk)
             {
                 for (unsigned int index1 = 0; index1 < range1; ++index1)
                 {
                     for (unsigned int index2 = 0; index2 < range2; ++index2)
                     {
-                        for (unsigned int i = 0; i < interleave_width;
-                             ++i, ++df_id)
+                        for (unsigned int i = 0; i < interleave_width; ++i)
                         {
                             if (el + i < num_elements)
                             {
-                                unsigned int d  = transpose ? index1 : index2;
-                                unsigned int pt = transpose ? index2 : index1;
+                                const unsigned int d =
+                                    transpose ? index1 : index2;
+                                const unsigned int pt =
+                                    transpose ? index2 : index1;
 
                                 auto &tmp =
                                     m_expansionList->GetExp(exp_idx + el + i)
                                         ->GetMetricInfo()
                                         ->GetDerivFactors(
                                             expPtr->GetPointsKeys());
-                                dfptr[df_id] = tmp[d][pt];
+                                *(dfptr++) = tmp[d][pt];
                             }
                             else
                             {
-                                dfptr[df_id] = 0.0;
+                                *(dfptr++) = 0.0;
                             }
                         }
                     }
@@ -274,12 +273,12 @@ public:
                 df.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
             // Loop over chunks.
-            for (unsigned int chunk = 0, el = 0, df_id = 0;
-                 chunk < num_elmt_groups; ++chunk)
+            for (unsigned int chunk = 0, el = 0; chunk < num_elmt_groups;
+                 ++chunk)
             {
                 for (unsigned int d = 0; d < nDim * nCoord; ++d)
                 {
-                    for (unsigned int i = 0; i < interleave_width; ++i, ++df_id)
+                    for (unsigned int i = 0; i < interleave_width; ++i)
                     {
                         if (el + i < num_elements)
                         {
@@ -287,11 +286,11 @@ public:
                                 m_expansionList->GetExp(exp_idx + el + i)
                                     ->GetMetricInfo()
                                     ->GetDerivFactors(expPtr->GetPointsKeys());
-                            dfptr[df_id] = tmp[d][0];
+                            *(dfptr++) = tmp[d][0];
                         }
                         else
                         {
-                            dfptr[df_id] = 0.0;
+                            *(dfptr++) = 0.0;
                         }
                     }
                 }

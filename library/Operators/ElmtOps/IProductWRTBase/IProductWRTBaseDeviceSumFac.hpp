@@ -244,12 +244,11 @@ protected:
         }
     }
 
-    unsigned int GetWorkspaceSize(LibUtilities::ShapeType shapeType,
-                                  unsigned int nElmts,
-                                  [[maybe_unused]] unsigned int nq0,
-                                  unsigned int nq1, unsigned int nq2,
-                                  [[maybe_unused]] unsigned int nm0,
-                                  unsigned int nm1, unsigned int nm2)
+    unsigned int GetWorkspaceSize(
+        const LibUtilities::ShapeType shapeType, const unsigned int nElmts,
+        [[maybe_unused]] const unsigned int nq0, const unsigned int nq1,
+        const unsigned int nq2, [[maybe_unused]] const unsigned int nm0,
+        const unsigned int nm1, const unsigned int nm2)
     {
         unsigned int wspsize = 0;
 
@@ -300,13 +299,12 @@ protected:
         return wspsize;
     }
 
-    MemoryRegion<TData> SetWorkspace(LibUtilities::ShapeType shapeType,
-                                     unsigned int nElmts, unsigned int nq0,
-                                     unsigned int nq1, unsigned int nq2,
-                                     unsigned int nm0, unsigned int nm1,
-                                     unsigned int nm2)
+    MemoryRegion<TData> SetWorkspace(
+        const LibUtilities::ShapeType shapeType, const unsigned int nElmts,
+        const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+        const unsigned int nm0, const unsigned int nm1, const unsigned int nm2)
     {
-        unsigned int wspsize =
+        auto wspsize =
             GetWorkspaceSize(shapeType, nElmts, nq0, nq1, nq2, nm0, nm1, nm2);
 
         return MemoryRegion<TData>::Create(wspsize, ExecSpace::alignment);
