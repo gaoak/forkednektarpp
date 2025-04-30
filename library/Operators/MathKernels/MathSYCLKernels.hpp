@@ -659,8 +659,12 @@ reduceSumKernel(const unsigned int nsize, const TData *x, TData *out)
 
     if (syclBuffer == nullptr)
     {
+        GetDeviceProperties::CheckGlobalMemoryUsage(sizeof(TData) *
+                                                    (gridSize + 1));
         syclBuffer = (void *)sycl::malloc_device<TData>(
             gridSize + 1, SYCLQueue::GetInstance());
+        GetDeviceProperties::TotalGlobalMemory() -=
+            sizeof(TData) * (gridSize + 1);
     }
 
     TData *buffer = (TData *)syclBuffer;
@@ -680,8 +684,12 @@ reduceMaxKernel(const unsigned int nsize, const TData *x, TData *out)
 
     if (syclBuffer == nullptr)
     {
+        GetDeviceProperties::CheckGlobalMemoryUsage(sizeof(TData) *
+                                                    (gridSize + 1));
         syclBuffer = (void *)sycl::malloc_device<TData>(
             gridSize + 1, SYCLQueue::GetInstance());
+        GetDeviceProperties::TotalGlobalMemory() -=
+            sizeof(TData) * (gridSize + 1);
     }
 
     TData *buffer = (TData *)syclBuffer;
@@ -701,8 +709,12 @@ reduceMinKernel(const unsigned int nsize, const TData *x, TData *out)
 
     if (syclBuffer == nullptr)
     {
+        GetDeviceProperties::CheckGlobalMemoryUsage(sizeof(TData) *
+                                                    (gridSize + 1));
         syclBuffer = (void *)sycl::malloc_device<TData>(
             gridSize + 1, SYCLQueue::GetInstance());
+        GetDeviceProperties::TotalGlobalMemory() -=
+            sizeof(TData) * (gridSize + 1);
     }
 
     TData *buffer = (TData *)syclBuffer;
@@ -722,8 +734,12 @@ ddotKernel(const unsigned int nsize, const TData *x, const TData *y, TData *out)
 
     if (syclBuffer == nullptr)
     {
+        GetDeviceProperties::CheckGlobalMemoryUsage(sizeof(TData) *
+                                                    (gridSize + 1));
         syclBuffer = (void *)sycl::malloc_device<TData>(
             gridSize + 1, SYCLQueue::GetInstance());
+        GetDeviceProperties::TotalGlobalMemory() -=
+            sizeof(TData) * (gridSize + 1);
     }
 
     TData *buffer = (TData *)syclBuffer;
@@ -743,8 +759,12 @@ l1normKernel(const unsigned int nsize, const TData *x, TData *out)
 
     if (syclBuffer == nullptr)
     {
+        GetDeviceProperties::CheckGlobalMemoryUsage(sizeof(TData) *
+                                                    (gridSize + 1));
         syclBuffer = (void *)sycl::malloc_device<TData>(
             gridSize + 1, SYCLQueue::GetInstance());
+        GetDeviceProperties::TotalGlobalMemory() -=
+            sizeof(TData) * (gridSize + 1);
     }
 
     TData *buffer = (TData *)syclBuffer;
@@ -764,8 +784,12 @@ l2normKernel(const unsigned int nsize, const TData *x, TData *out)
 
     if (syclBuffer == nullptr)
     {
+        GetDeviceProperties::CheckGlobalMemoryUsage(sizeof(TData) *
+                                                    (gridSize + 1));
         syclBuffer = (void *)sycl::malloc_device<TData>(
             gridSize + 1, SYCLQueue::GetInstance());
+        GetDeviceProperties::TotalGlobalMemory() -=
+            sizeof(TData) * (gridSize + 1);
     }
 
     TData *buffer = (TData *)syclBuffer;
@@ -786,8 +810,12 @@ lpnormKernel(const unsigned int nsize, const unsigned int p, const TData *x,
 
     if (syclBuffer == nullptr)
     {
+        GetDeviceProperties::CheckGlobalMemoryUsage(sizeof(TData) *
+                                                    (gridSize + 1));
         syclBuffer = (void *)sycl::malloc_device<TData>(
             gridSize + 1, SYCLQueue::GetInstance());
+        GetDeviceProperties::TotalGlobalMemory() -=
+            sizeof(TData) * (gridSize + 1);
     }
 
     TData *buffer = (TData *)syclBuffer;
@@ -807,8 +835,12 @@ linfnormKernel(const unsigned int nsize, const TData *x, TData *out)
 
     if (syclBuffer == nullptr)
     {
+        GetDeviceProperties::CheckGlobalMemoryUsage(sizeof(TData) *
+                                                    (gridSize + 1));
         syclBuffer = (void *)sycl::malloc_device<TData>(
             gridSize + 1, SYCLQueue::GetInstance());
+        GetDeviceProperties::TotalGlobalMemory() -=
+            sizeof(TData) * (gridSize + 1);
     }
 
     TData *buffer = (TData *)syclBuffer;

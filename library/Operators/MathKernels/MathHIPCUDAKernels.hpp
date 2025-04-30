@@ -1101,11 +1101,13 @@ reduceSumKernel(const unsigned int nsize, const TData *x, TData *out)
     if (hipcudaBuffer == nullptr)
     {
         const unsigned int hipcudaBufferSize = sizeof(TData) * (gridSize + 1);
+        GetDeviceProperties::CheckGlobalMemoryUsage(hipcudaBufferSize);
 #if defined(NEKTAR_ENABLE_CUDA)
         CHECK_HIPCUDA_ERROR(cudaMalloc(&hipcudaBuffer, hipcudaBufferSize));
 #elif defined(NEKTAR_ENABLE_HIP)
         CHECK_HIPCUDA_ERROR(hipMalloc(&hipcudaBuffer, hipcudaBufferSize));
 #endif
+        GetDeviceProperties::TotalGlobalMemory() -= hipcudaBufferSize;
     }
 
     TData *buffer = (TData *)hipcudaBuffer;
@@ -1134,11 +1136,13 @@ reduceMaxKernel(const unsigned int nsize, const TData *x, TData *out)
     if (hipcudaBuffer == nullptr)
     {
         const unsigned int hipcudaBufferSize = sizeof(TData) * (gridSize + 1);
+        GetDeviceProperties::CheckGlobalMemoryUsage(hipcudaBufferSize);
 #if defined(NEKTAR_ENABLE_CUDA)
         CHECK_HIPCUDA_ERROR(cudaMalloc(&hipcudaBuffer, hipcudaBufferSize));
 #elif defined(NEKTAR_ENABLE_HIP)
         CHECK_HIPCUDA_ERROR(hipMalloc(&hipcudaBuffer, hipcudaBufferSize));
 #endif
+        GetDeviceProperties::TotalGlobalMemory() -= hipcudaBufferSize;
     }
 
     TData *buffer = (TData *)hipcudaBuffer;
@@ -1167,11 +1171,13 @@ reduceMinKernel(const unsigned int nsize, const TData *x, TData *out)
     if (hipcudaBuffer == nullptr)
     {
         const unsigned int hipcudaBufferSize = sizeof(TData) * (gridSize + 1);
+        GetDeviceProperties::CheckGlobalMemoryUsage(hipcudaBufferSize);
 #if defined(NEKTAR_ENABLE_CUDA)
         CHECK_HIPCUDA_ERROR(cudaMalloc(&hipcudaBuffer, hipcudaBufferSize));
 #elif defined(NEKTAR_ENABLE_HIP)
         CHECK_HIPCUDA_ERROR(hipMalloc(&hipcudaBuffer, hipcudaBufferSize));
 #endif
+        GetDeviceProperties::TotalGlobalMemory() -= hipcudaBufferSize;
     }
 
     TData *buffer = (TData *)hipcudaBuffer;
@@ -1200,11 +1206,13 @@ ddotKernel(const unsigned int nsize, const TData *x, const TData *y, TData *out)
     if (hipcudaBuffer == nullptr)
     {
         const unsigned int hipcudaBufferSize = sizeof(TData) * (gridSize + 1);
+        GetDeviceProperties::CheckGlobalMemoryUsage(hipcudaBufferSize);
 #if defined(NEKTAR_ENABLE_CUDA)
         CHECK_HIPCUDA_ERROR(cudaMalloc(&hipcudaBuffer, hipcudaBufferSize));
 #elif defined(NEKTAR_ENABLE_HIP)
         CHECK_HIPCUDA_ERROR(hipMalloc(&hipcudaBuffer, hipcudaBufferSize));
 #endif
+        GetDeviceProperties::TotalGlobalMemory() -= hipcudaBufferSize;
     }
 
     TData *buffer = (TData *)hipcudaBuffer;
@@ -1233,11 +1241,13 @@ l1normKernel(const unsigned int nsize, const TData *x, TData *out)
     if (hipcudaBuffer == nullptr)
     {
         const unsigned int hipcudaBufferSize = sizeof(TData) * (gridSize + 1);
+        GetDeviceProperties::CheckGlobalMemoryUsage(hipcudaBufferSize);
 #if defined(NEKTAR_ENABLE_CUDA)
         CHECK_HIPCUDA_ERROR(cudaMalloc(&hipcudaBuffer, hipcudaBufferSize));
 #elif defined(NEKTAR_ENABLE_HIP)
         CHECK_HIPCUDA_ERROR(hipMalloc(&hipcudaBuffer, hipcudaBufferSize));
 #endif
+        GetDeviceProperties::TotalGlobalMemory() -= hipcudaBufferSize;
     }
 
     TData *buffer = (TData *)hipcudaBuffer;
@@ -1266,11 +1276,13 @@ l2normKernel(const unsigned int nsize, const TData *x, TData *out)
     if (hipcudaBuffer == nullptr)
     {
         const unsigned int hipcudaBufferSize = sizeof(TData) * (gridSize + 1);
+        GetDeviceProperties::CheckGlobalMemoryUsage(hipcudaBufferSize);
 #if defined(NEKTAR_ENABLE_CUDA)
         CHECK_HIPCUDA_ERROR(cudaMalloc(&hipcudaBuffer, hipcudaBufferSize));
 #elif defined(NEKTAR_ENABLE_HIP)
         CHECK_HIPCUDA_ERROR(hipMalloc(&hipcudaBuffer, hipcudaBufferSize));
 #endif
+        GetDeviceProperties::TotalGlobalMemory() -= hipcudaBufferSize;
     }
 
     TData *buffer = (TData *)hipcudaBuffer;
@@ -1300,11 +1312,13 @@ lpnormKernel(const unsigned int nsize, const unsigned int p, const TData *x,
     if (hipcudaBuffer == nullptr)
     {
         const unsigned int hipcudaBufferSize = sizeof(TData) * (gridSize + 1);
+        GetDeviceProperties::CheckGlobalMemoryUsage(hipcudaBufferSize);
 #if defined(NEKTAR_ENABLE_CUDA)
         CHECK_HIPCUDA_ERROR(cudaMalloc(&hipcudaBuffer, hipcudaBufferSize));
 #elif defined(NEKTAR_ENABLE_HIP)
         CHECK_HIPCUDA_ERROR(hipMalloc(&hipcudaBuffer, hipcudaBufferSize));
 #endif
+        GetDeviceProperties::TotalGlobalMemory() -= hipcudaBufferSize;
     }
 
     TData *buffer = (TData *)hipcudaBuffer;
@@ -1333,11 +1347,13 @@ linfnormKernel(const unsigned int nsize, const TData *x, TData *out)
     if (hipcudaBuffer == nullptr)
     {
         const unsigned int hipcudaBufferSize = sizeof(TData) * (gridSize + 1);
+        GetDeviceProperties::CheckGlobalMemoryUsage(hipcudaBufferSize);
 #if defined(NEKTAR_ENABLE_CUDA)
         CHECK_HIPCUDA_ERROR(cudaMalloc(&hipcudaBuffer, hipcudaBufferSize));
 #elif defined(NEKTAR_ENABLE_HIP)
         CHECK_HIPCUDA_ERROR(hipMalloc(&hipcudaBuffer, hipcudaBufferSize));
 #endif
+        GetDeviceProperties::TotalGlobalMemory() -= hipcudaBufferSize;
     }
 
     TData *buffer = (TData *)hipcudaBuffer;

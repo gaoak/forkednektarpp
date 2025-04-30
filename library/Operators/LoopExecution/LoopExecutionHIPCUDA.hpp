@@ -247,11 +247,13 @@ parallel_reduce(const unsigned int begin, const unsigned int end,
     if (hipcudaBuffer == nullptr)
     {
         const unsigned int hipcudaBufferSize = sizeof(TData) * (gridSize + 1);
+        GetDeviceProperties::CheckGlobalMemoryUsage(hipcudaBufferSize);
 #if defined(NEKTAR_ENABLE_CUDA)
         CHECK_HIPCUDA_ERROR(cudaMalloc(&hipcudaBuffer, hipcudaBufferSize));
 #elif defined(NEKTAR_ENABLE_HIP)
         CHECK_HIPCUDA_ERROR(hipMalloc(&hipcudaBuffer, hipcudaBufferSize));
 #endif
+        GetDeviceProperties::TotalGlobalMemory() -= hipcudaBufferSize;
     }
 
     TData *buffer = (TData *)hipcudaBuffer;
