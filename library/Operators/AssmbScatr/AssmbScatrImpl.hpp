@@ -139,7 +139,7 @@ protected:
         {
             // Determine shape and type of the element.
             auto &localblock = local.GetBlocks()[blk];
-            auto nElmts      = localblock.GetNumElements();
+            auto nelmt       = localblock.GetNumElements();
             auto ncoeff      = localblock.GetNumData();
 
             // Initialize pointer.
@@ -147,19 +147,19 @@ protected:
 
             if (m_signChange && signChange)
             {
-                AssembleKernel<ExecSpace>(ncoeff * nElmts, mapPtr, signPtr,
+                AssembleKernel<ExecSpace>(ncoeff * nelmt, mapPtr, signPtr,
                                           localPtr, globalPtr);
             }
             else
             {
-                AssembleKernel<ExecSpace>(ncoeff * nElmts, mapPtr, localPtr,
+                AssembleKernel<ExecSpace>(ncoeff * nelmt, mapPtr, localPtr,
                                           globalPtr);
             }
 
             // Increment pointers for the next element type.
             localPtr += localblock.size();
-            mapPtr += ncoeff * nElmts;
-            signPtr += ncoeff * nElmts;
+            mapPtr += ncoeff * nelmt;
+            signPtr += ncoeff * nelmt;
         }
 
         // TODO: Universal assembly on device.
@@ -193,7 +193,7 @@ protected:
         {
             // Determine shape and type of the element.
             auto &block = local.GetBlocks()[blk];
-            auto nElmts = block.GetNumElements();
+            auto nelmt  = block.GetNumElements();
             auto ncoeff = block.GetNumData();
 
             // Initialize pointer.
@@ -201,18 +201,18 @@ protected:
 
             if (m_signChange)
             {
-                GlobalToLocalKernel<ExecSpace>(ncoeff * nElmts, mapPtr, signPtr,
+                GlobalToLocalKernel<ExecSpace>(ncoeff * nelmt, mapPtr, signPtr,
                                                globalPtr, localPtr);
             }
             else
             {
-                GlobalToLocalKernel<ExecSpace>(ncoeff * nElmts, mapPtr,
+                GlobalToLocalKernel<ExecSpace>(ncoeff * nelmt, mapPtr,
                                                globalPtr, localPtr);
             }
 
             // Increment pointers for the next element type.
-            mapPtr += ncoeff * nElmts;
-            signPtr += ncoeff * nElmts;
+            mapPtr += ncoeff * nelmt;
+            signPtr += ncoeff * nelmt;
         }
     }
 };

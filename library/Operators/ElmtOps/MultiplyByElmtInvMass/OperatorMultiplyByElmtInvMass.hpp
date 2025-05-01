@@ -122,13 +122,13 @@ public:
             const auto nmTot = exp->GetNcoeffs();
             const auto deformed =
                 exp->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed;
-            const auto nElmts = block.GetNumElements();
+            const auto nelmt = block.GetNumElements();
 
             if (deformed)
             {
-                dmat.resize(nElmts * nmTot * nmTot);
+                dmat.resize(nelmt * nmTot * nmTot);
                 auto dmatptr = dmat.data();
-                for (unsigned int e = 0; e < nElmts; ++e)
+                for (unsigned int e = 0; e < nelmt; ++e)
                 {
                     const auto exp =
                         expansionList->GetExp(block.GetExpIdx() + e);

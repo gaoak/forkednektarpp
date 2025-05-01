@@ -320,7 +320,7 @@ protected:
     }
 
     unsigned int GetWorkspaceSize(
-        const LibUtilities::ShapeType shapeType, const unsigned int nElmts,
+        const LibUtilities::ShapeType shapeType, const unsigned int nelmt,
         [[maybe_unused]] const unsigned int ncoord,
         [[maybe_unused]] const unsigned int nq0, const unsigned int nq1,
         const unsigned int nq2, [[maybe_unused]] const unsigned int nm0,
@@ -330,66 +330,66 @@ protected:
 
         if (shapeType == LibUtilities::Seg)
         {
-            wspsize = (1 + ncoord) * nq0 * nElmts;
+            wspsize = (1 + ncoord) * nq0 * nelmt;
         }
         else if (shapeType == LibUtilities::Quad)
         {
-            wspsize = ((1 + ncoord) * nq0 * nq1 + nq1) * nElmts;
+            wspsize = ((1 + ncoord) * nq0 * nq1 + nq1) * nelmt;
         }
         else if (shapeType == LibUtilities::Tri)
         {
-            wspsize = ((1 + ncoord) * nq0 * nq1 + std::max(nq1, nm0)) * nElmts;
+            wspsize = ((1 + ncoord) * nq0 * nq1 + std::max(nq1, nm0)) * nelmt;
         }
         else if (shapeType == LibUtilities::NodalTri)
         {
             wspsize = ((1 + ncoord) * nq0 * nq1 + std::max(nq1, nm0) +
                        nm0 * (nm0 + 1) / 2) *
-                      nElmts;
+                      nelmt;
         }
         else if (shapeType == LibUtilities::Hex)
         {
-            wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2) * nElmts;
+            wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2) * nelmt;
         }
         else if (shapeType == LibUtilities::Tet)
         {
-            wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2 + nm2) * nElmts;
+            wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2 + nm2) * nelmt;
         }
         else if (shapeType == LibUtilities::NodalTet)
         {
             wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2 + nm2 +
                        nm0 * (nm0 + 1) * (nm0 + 2) / 6) *
-                      nElmts;
+                      nelmt;
         }
         else if (shapeType == LibUtilities::Prism)
         {
             wspsize = (4 * nq0 * nq1 * nq2 + std::max(nq1 * nq2, nm0 * nm1) +
                        std::max(nq2, nm0) + nm1) *
-                      nElmts;
+                      nelmt;
         }
         else if (shapeType == LibUtilities::NodalPrism)
         {
             wspsize = (4 * nq0 * nq1 * nq2 + std::max(nq1 * nq2, nm0 * nm1) +
                        std::max(nq2, nm0) + nm1 + nm0 * (nm0 + 1) * nm0 / 2) *
-                      nElmts;
+                      nelmt;
         }
         else if (shapeType == LibUtilities::Pyr)
         {
             wspsize = (4 * nq0 * nq1 * nq2 + std::max(nq1 * nq2, nm0 * nm1) +
                        std::max(nq2, nm0)) *
-                      nElmts;
+                      nelmt;
         }
 
         return wspsize;
     }
 
     MemoryRegion<TData> SetWorkspace(
-        const LibUtilities::ShapeType shapeType, const unsigned int nElmts,
+        const LibUtilities::ShapeType shapeType, const unsigned int nelmt,
         const unsigned int ncoord, const unsigned int nq0,
         const unsigned int nq1, const unsigned int nq2, const unsigned int nm0,
         const unsigned int nm1, const unsigned int nm2)
     {
-        auto wspsize = GetWorkspaceSize(shapeType, nElmts, ncoord, nq0, nq1,
-                                        nq2, nm0, nm1, nm2);
+        auto wspsize = GetWorkspaceSize(shapeType, nelmt, ncoord, nq0, nq1, nq2,
+                                        nm0, nm1, nm2);
 
         return MemoryRegion<TData>::Create(wspsize, ExecSpace::alignment);
     }
@@ -433,7 +433,7 @@ protected:
         const auto nm0 = m_nm[0];
         const auto nq0 = m_nq[0];
 
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Fetch Jacobian and deriv factors.
         constexpr bool transpose =
@@ -461,8 +461,8 @@ protected:
         {
             if (m_wsp.size() == 0)
             {
-                m_wsp = SetWorkspace(SHAPE_TYPE, nElmtsPad, m_coordDim, nq0, 0,
-                                     0, nm0, 0, 0);
+                m_wsp = SetWorkspace(SHAPE_TYPE, nelmt, m_coordDim, nq0, 0, 0,
+                                     nm0, 0, 0);
             }
         }
 
@@ -476,12 +476,12 @@ protected:
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
                 (TData *)inptr);
 
             // LinAdvDiffReaction kernel.
             LinAdvDiffReaction1DKernel<ExecSpace, Implementation, DEFORMED>(
-                m_coordDim, nm0, nq0, nElmtsPad, m_B[0], m_D[0], m_W[0], dfptr,
+                m_coordDim, nm0, nq0, nelmt, m_B[0], m_D[0], m_W[0], dfptr,
                 jacptr, diffptr, advVelptr, inptr, outptr, wspptr,
                 this->m_lambda);
 
@@ -501,7 +501,7 @@ protected:
     void Operator1D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Fetch Jacobian and deriv factors.
         constexpr bool transpose =
@@ -529,8 +529,8 @@ protected:
         {
             if (m_wsp.size() == 0)
             {
-                m_wsp = SetWorkspace(SHAPE_TYPE, nElmtsPad, m_coordDim, nq0, 0,
-                                     0, nm0, 0, 0);
+                m_wsp = SetWorkspace(SHAPE_TYPE, nelmt, m_coordDim, nq0, 0, 0,
+                                     nm0, 0, 0);
             }
         }
 
@@ -544,13 +544,13 @@ protected:
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
                 (TData *)inptr);
 
             // LinAdvDiffReaction kernel.
             LinAdvDiffReaction1DKernel<ExecSpace, Implementation, DEFORMED, nm0,
                                        nq0>(
-                m_coordDim, nElmtsPad, m_B[0], m_D[0], m_W[0], dfptr, jacptr,
+                m_coordDim, nelmt, m_B[0], m_D[0], m_W[0], dfptr, jacptr,
                 diffptr, advVelptr, inptr, outptr, wspptr, this->m_lambda);
 
             // Increment pointers.
@@ -577,7 +577,7 @@ protected:
 
         const auto nqTot = nq0 * nq1;
 
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Fetch Jacobian and deriv factors.
         constexpr bool transpose =
@@ -599,15 +599,15 @@ protected:
 
         // Initialize advVel pointers.
         auto advVelptr  = m_advVel;
-        auto advVelSize = nElmtsPad * nqTot;
+        auto advVelSize = nelmt * nqTot;
 
         // Set workspace.
         if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
         {
             if (m_wsp.size() == 0)
             {
-                m_wsp = SetWorkspace(SHAPE_TYPE, nElmtsPad, m_coordDim, nq0,
-                                     nq1, 0, nm0, nm1, 0);
+                m_wsp = SetWorkspace(SHAPE_TYPE, nelmt, m_coordDim, nq0, nq1, 0,
+                                     nm0, nm1, 0);
             }
         }
 
@@ -621,15 +621,15 @@ protected:
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
                 (TData *)inptr);
 
             // LinAdvDiffReaction kernel.
             LinAdvDiffReaction2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                        DEFORMED>(
-                m_coordDim, nm0, nm1, nq0, nq1, nElmtsPad, m_isModified,
-                m_index[0], m_B[0], m_B[1], m_D[0], m_D[1], m_W[0], m_W[1],
-                m_f[0], m_f[1], m_nodToMod, dfptr, jacptr, diffptr, advVelptr,
+                m_coordDim, nm0, nm1, nq0, nq1, nelmt, m_isModified, m_index[0],
+                m_B[0], m_B[1], m_D[0], m_D[1], m_W[0], m_W[1], m_f[0], m_f[1],
+                m_nodToMod, dfptr, jacptr, diffptr, advVelptr,
                 advVelptr + advVelSize, inptr, outptr, wspptr, this->m_lambda);
 
             // Increment pointers.
@@ -652,7 +652,7 @@ protected:
         // Shape size.
         constexpr auto nqTot = nq0 * nq1;
 
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Fetch Jacobian and deriv factors.
         constexpr bool transpose =
@@ -674,15 +674,15 @@ protected:
 
         // Initialize advVel pointers.
         auto advVelptr  = m_advVel;
-        auto advVelSize = nElmtsPad * nqTot;
+        auto advVelSize = nelmt * nqTot;
 
         // Set workspace.
         if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
         {
             if (m_wsp.size() == 0)
             {
-                m_wsp = SetWorkspace(SHAPE_TYPE, nElmtsPad, m_coordDim, nq0,
-                                     nq1, 0, nm0, nm1, 0);
+                m_wsp = SetWorkspace(SHAPE_TYPE, nelmt, m_coordDim, nq0, nq1, 0,
+                                     nm0, nm1, 0);
             }
         }
 
@@ -696,13 +696,13 @@ protected:
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
                 (TData *)inptr);
 
             // LinAdvDiffReaction kernel.
             LinAdvDiffReaction2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                        DEFORMED, nm0, nm1, nq0, nq1>(
-                m_coordDim, nElmtsPad, m_isModified, m_index[0], m_B[0], m_B[1],
+                m_coordDim, nelmt, m_isModified, m_index[0], m_B[0], m_B[1],
                 m_D[0], m_D[1], m_W[0], m_W[1], m_f[0], m_f[1], m_nodToMod,
                 dfptr, jacptr, diffptr, advVelptr, advVelptr + advVelSize,
                 inptr, outptr, wspptr, this->m_lambda);
@@ -733,7 +733,7 @@ protected:
 
         const auto nqTot = nq0 * nq1 * nq2;
 
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Fetch Jacobian and deriv factors.
         constexpr bool transpose =
@@ -755,15 +755,15 @@ protected:
 
         // Initialize advVel pointers.
         auto advVelptr  = m_advVel;
-        auto advVelSize = nElmtsPad * nqTot;
+        auto advVelSize = nelmt * nqTot;
 
         // Set workspace.
         if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
         {
             if (m_wsp.size() == 0)
             {
-                m_wsp = SetWorkspace(SHAPE_TYPE, nElmtsPad, 3, nq0, nq1, nq2,
-                                     nm0, nm1, nm2);
+                m_wsp = SetWorkspace(SHAPE_TYPE, nelmt, 3, nq0, nq1, nq2, nm0,
+                                     nm1, nm2);
             }
         }
 
@@ -777,18 +777,18 @@ protected:
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
                 (TData *)inptr);
 
             // LinAdvDiffReaction kernel.
             LinAdvDiffReaction3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                        DEFORMED>(
-                nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, m_isModified,
-                m_index[0], m_index[1], m_index[2], m_index[3], m_B[0], m_B[1],
-                m_B[2], m_D[0], m_D[1], m_D[2], m_W[0], m_W[1], m_W[2], m_f[0],
-                m_f[1], m_f[2], m_f[3], m_nodToMod, dfptr, jacptr, diffptr,
-                advVelptr, advVelptr + advVelSize, advVelptr + 2 * advVelSize,
-                inptr, outptr, wspptr, this->m_lambda);
+                nm0, nm1, nm2, nq0, nq1, nq2, nelmt, m_isModified, m_index[0],
+                m_index[1], m_index[2], m_index[3], m_B[0], m_B[1], m_B[2],
+                m_D[0], m_D[1], m_D[2], m_W[0], m_W[1], m_W[2], m_f[0], m_f[1],
+                m_f[2], m_f[3], m_nodToMod, dfptr, jacptr, diffptr, advVelptr,
+                advVelptr + advVelSize, advVelptr + 2 * advVelSize, inptr,
+                outptr, wspptr, this->m_lambda);
 
             // Increment pointers.
             inptr += inblock.size();
@@ -809,7 +809,7 @@ protected:
     {
         constexpr auto nqTot = nq0 * nq1 * nq2;
 
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Fetch Jacobian and deriv factors.
         constexpr bool transpose =
@@ -831,15 +831,15 @@ protected:
 
         // Initialize advVel pointers.
         auto advVelptr  = m_advVel;
-        auto advVelSize = nElmtsPad * nqTot;
+        auto advVelSize = nelmt * nqTot;
 
         // Set workspace.
         if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
         {
             if (m_wsp.size() == 0)
             {
-                m_wsp = SetWorkspace(SHAPE_TYPE, nElmtsPad, 3, nq0, nq1, nq2,
-                                     nm0, nm1, nm2);
+                m_wsp = SetWorkspace(SHAPE_TYPE, nelmt, 3, nq0, nq1, nq2, nm0,
+                                     nm1, nm2);
             }
         }
 
@@ -853,13 +853,13 @@ protected:
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
                 (TData *)inptr);
 
             // LinAdvDiffReaction kernel.
             LinAdvDiffReaction3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                        DEFORMED, nm0, nm1, nm2, nq0, nq1, nq2>(
-                nElmtsPad, m_isModified, m_index[0], m_index[1], m_index[2],
+                nelmt, m_isModified, m_index[0], m_index[1], m_index[2],
                 m_index[3], m_B[0], m_B[1], m_B[2], m_D[0], m_D[1], m_D[2],
                 m_W[0], m_W[1], m_W[2], m_f[0], m_f[1], m_f[2], m_f[3],
                 m_nodToMod, dfptr, jacptr, diffptr, advVelptr,

@@ -104,7 +104,7 @@ protected:
     void v_Apply(BlockAccessor<TData> &inblock,
                  BlockAccessor<TData> &outblock) override
     {
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -122,7 +122,7 @@ protected:
                 (TData *)inptr);
 
             // Perform matrix-matrix multiply.
-            Blas::Gemm('N', 'N', m_nqTot, nElmtsPad, m_nmTot, 1.0, m_matptr,
+            Blas::Gemm('N', 'N', m_nqTot, nelmt, m_nmTot, 1.0, m_matptr,
                        m_nqTot, inptr, m_nmTot, 0.0, outptr, m_nqTot);
 
             // Increment pointers.

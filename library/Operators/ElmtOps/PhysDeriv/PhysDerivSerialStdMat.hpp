@@ -100,7 +100,7 @@ protected:
     void v_Apply(BlockAccessor<TData> &inblock,
                  BlockAccessor<TData> &outblock) override
     {
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -116,7 +116,7 @@ protected:
         // Allocate storate.
         if (m_deriv.size() == 0)
         {
-            m_deriv = std::vector<TData>(m_dimension * m_nqTot * nElmtsPad);
+            m_deriv = std::vector<TData>(m_dimension * m_nqTot * nelmt);
         }
 
         // Get workspace pointer.
@@ -134,9 +134,9 @@ protected:
             // Perform matrix-matrix multiply.
             for (unsigned int d = 0; d < m_dimension; ++d)
             {
-                Blas::Gemm('N', 'N', m_nqTot, nElmtsPad, m_nqTot, 1.0,
+                Blas::Gemm('N', 'N', m_nqTot, nelmt, m_nqTot, 1.0,
                            m_matptr + d * m_nqTot * m_nqTot, m_nqTot, inptr,
-                           m_nqTot, 0.0, derivptr + d * m_nqTot * nElmtsPad,
+                           m_nqTot, 0.0, derivptr + d * m_nqTot * nelmt,
                            m_nqTot);
             }
 
@@ -144,14 +144,14 @@ protected:
             if (m_isDeformed)
             {
                 MultiplyByDerivFactorKernel<true>(m_nqTot, m_coordDim,
-                                                  m_dimension, nElmtsPad, dfptr,
+                                                  m_dimension, nelmt, dfptr,
                                                   derivptr, outptr);
             }
             else
             {
                 MultiplyByDerivFactorKernel<false>(m_nqTot, m_coordDim,
-                                                   m_dimension, nElmtsPad,
-                                                   dfptr, derivptr, outptr);
+                                                   m_dimension, nelmt, dfptr,
+                                                   derivptr, outptr);
             }
 
             // Increment pointer.

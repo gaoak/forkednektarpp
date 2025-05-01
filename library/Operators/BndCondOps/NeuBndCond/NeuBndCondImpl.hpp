@@ -91,8 +91,8 @@ public:
         {
             const auto &block = blocks[blk];
             const auto ncoeff = block.GetNumData();
-            const auto nElmts = block.GetNumElements();
-            bound += nElmts * ncoeff;
+            const auto nelmt  = block.GetNumElements();
+            bound += nelmt * ncoeff;
             blockBound[blk] = bound;
         }
 

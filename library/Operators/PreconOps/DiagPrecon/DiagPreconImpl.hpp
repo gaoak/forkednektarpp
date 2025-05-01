@@ -156,14 +156,14 @@ protected:
             auto &actionblock  = action.GetBlocks()[blk];
             auto &diagblock    = locdiag.GetBlocks()[blk];
             const auto nmTot   = unitvecblock.GetNumData();
-            const auto nElmts  = unitvecblock.GetNumElements();
+            const auto nelmt   = unitvecblock.GetNumElements();
 
             for (unsigned int mode = 0; mode < nmTot; ++mode)
             {
                 // Set ith term in unit vector to be 1.
                 auto unitptr =
                     unitvecblock.template GetPtr<MemSpace, WriteOnly>();
-                SetDiagonalKernel<ExecSpace>(nmTot, nElmts, mode, 1.0, unitptr);
+                SetDiagonalKernel<ExecSpace>(nmTot, nelmt, mode, 1.0, unitptr);
 
                 // Apply the operator to unit vector and store in the
                 // action field.
@@ -174,12 +174,12 @@ protected:
                 // the ith diagonal.
                 auto actptr = actionblock.template GetPtr<MemSpace, ReadOnly>();
                 auto diagptr = diagblock.template GetPtr<MemSpace, WriteOnly>();
-                CopyDiagonalKernel<ExecSpace>(nmTot, nElmts, mode, actptr,
+                CopyDiagonalKernel<ExecSpace>(nmTot, nelmt, mode, actptr,
                                               diagptr);
 
                 // Reset the ith term in the unit vector to be 0.
                 unitptr = unitvecblock.template GetPtr<MemSpace, WriteOnly>();
-                SetDiagonalKernel<ExecSpace>(nmTot, nElmts, mode, 0.0, unitptr);
+                SetDiagonalKernel<ExecSpace>(nmTot, nelmt, mode, 0.0, unitptr);
             }
         }
 
