@@ -239,7 +239,7 @@ protected:
         // Shape size.
         const auto nq0 = m_nq[0];
 
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Fetch deriv factors data.
         constexpr bool transpose =
@@ -259,12 +259,12 @@ protected:
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
                 (TData *)inptr);
 
             // Calculate derivative.
             PhysDeriv1DKernel<ExecSpace, Implementation, DEFORMED>(
-                m_coordDim, nq0, nElmtsPad, m_D[0], dfptr, inptr, outptr);
+                m_coordDim, nq0, nelmt, m_D[0], dfptr, inptr, outptr);
 
             // Increment pointers.
             inptr += inblock.size();
@@ -282,7 +282,7 @@ protected:
     void Operator1D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Fetch deriv factors data.
         constexpr bool transpose =
@@ -302,12 +302,12 @@ protected:
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
                 (TData *)inptr);
 
             // Calculate derivative.
             PhysDeriv1DKernel<ExecSpace, Implementation, DEFORMED, coordDim,
-                              nq0>(nElmtsPad, m_D[0], dfptr, inptr, outptr);
+                              nq0>(nelmt, m_D[0], dfptr, inptr, outptr);
 
             // Increment pointers.
             inptr += inblock.size();
@@ -328,7 +328,7 @@ protected:
         const auto nq0 = m_nq[0];
         const auto nq1 = m_nq[1];
 
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Fetch deriv factors data.
         constexpr bool transpose =
@@ -348,12 +348,12 @@ protected:
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
                 (TData *)inptr);
 
             // Calculate derivative.
             PhysDeriv2DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
-                m_coordDim, nq0, nq1, nElmtsPad, m_D[0], m_D[1], m_f[0], m_f[1],
+                m_coordDim, nq0, nq1, nelmt, m_D[0], m_D[1], m_f[0], m_f[1],
                 dfptr, inptr, outptr);
 
             // Increment pointers.
@@ -372,7 +372,7 @@ protected:
     void Operator2D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Fetch deriv factors data.
         constexpr bool transpose =
@@ -392,14 +392,13 @@ protected:
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
                 (TData *)inptr);
 
             // Calculate derivative.
             PhysDeriv2DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED,
-                              coordDim, nq0, nq1>(nElmtsPad, m_D[0], m_D[1],
-                                                  m_f[0], m_f[1], dfptr, inptr,
-                                                  outptr);
+                              coordDim, nq0, nq1>(nelmt, m_D[0], m_D[1], m_f[0],
+                                                  m_f[1], dfptr, inptr, outptr);
 
             // Increment pointers.
             inptr += inblock.size();
@@ -421,7 +420,7 @@ protected:
         const auto nq1 = m_nq[1];
         const auto nq2 = m_nq[2];
 
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Fetch deriv factors data.
         constexpr bool transpose =
@@ -441,13 +440,13 @@ protected:
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
                 (TData *)inptr);
 
             // Calculate derivative.
             PhysDeriv3DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
-                nq0, nq1, nq2, nElmtsPad, m_D[0], m_D[1], m_D[2], m_f[0],
-                m_f[1], m_f[2], m_f[3], dfptr, inptr, outptr);
+                nq0, nq1, nq2, nelmt, m_D[0], m_D[1], m_D[2], m_f[0], m_f[1],
+                m_f[2], m_f[3], dfptr, inptr, outptr);
 
             // Increment pointers.
             inptr += inblock.size();
@@ -465,7 +464,7 @@ protected:
     void Operator3D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Fetch deriv factors data.
         constexpr bool transpose =
@@ -485,12 +484,12 @@ protected:
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
                 (TData *)inptr);
 
             // Calculate derivative.
             PhysDeriv3DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED,
-                              nq0, nq1, nq2>(nElmtsPad, m_D[0], m_D[1], m_D[2],
+                              nq0, nq1, nq2>(nelmt, m_D[0], m_D[1], m_D[2],
                                              m_f[0], m_f[1], m_f[2], m_f[3],
                                              dfptr, inptr, outptr);
 

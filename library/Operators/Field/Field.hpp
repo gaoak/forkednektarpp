@@ -228,19 +228,19 @@ std::vector<BlockAttributes> GetBlockAttributes(
     size_t num_elements = 1;
     size_t ndata        = state == FieldState::Phys ? expPtr->GetTotPoints()
                                                     : expPtr->GetNcoeffs();
-    for (int d = 0; d < expPtr->GetNumBases(); d++)
+    for (size_t d = 0; d < expPtr->GetNumBases(); d++)
     {
         prevbasisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
     }
     prevIsDeformed = expPtr->GetMetricInfo()->GetGtype();
 
     // loop over elements
-    for (int i = 1; i < explist->GetNumElmts(); i++)
+    for (size_t i = 1; i < explist->GetNumElmts(); i++)
     {
         expPtr = explist->GetExp(i);
 
         // fetch basiskeys of current element
-        for (int d = 0; d < expPtr->GetNumBases(); d++)
+        for (size_t d = 0; d < expPtr->GetNumBases(); d++)
         {
             thisbasisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
         }

@@ -108,7 +108,7 @@ protected:
     {
         auto handle = NekHandle<ExecSpace>::GetInstance();
 
-        const auto nElmts = inblock.GetNumElements();
+        const auto nelmt = inblock.GetNumElements();
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -135,7 +135,7 @@ protected:
                 NekGemmStridedBatched(
                     handle, "N", "N", m_nmTot, 1, m_nmTot, alpha, dmatptr,
                     m_nmTot, m_nmTot * m_nmTot, inptr, m_nmTot, m_nmTot, beta,
-                    outptr, m_nmTot, m_nmTot, nElmts);
+                    outptr, m_nmTot, m_nmTot, nelmt);
 
                 // Increment pointer.
                 inptr += inblock.size();
@@ -159,12 +159,12 @@ protected:
                     (TData *)inptr);
 
                 // Perform matrix-matrix multiply.
-                NekGemm(handle, "N", "N", m_nmTot, nElmts, m_nmTot, alpha,
+                NekGemm(handle, "N", "N", m_nmTot, nelmt, m_nmTot, alpha,
                         m_matptr, m_nmTot, inptr, m_nmTot, beta, outptr,
                         m_nmTot);
 
                 // Divide by Jacobian.
-                DivideByJacobianKernel<ExecSpace>(nElmts, m_nmTot, jacptr,
+                DivideByJacobianKernel<ExecSpace>(nelmt, m_nmTot, jacptr,
                                                   outptr);
 
                 // Increment pointer.

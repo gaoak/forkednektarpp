@@ -209,7 +209,7 @@ protected:
     }
 
     unsigned int GetWorkspaceSize(const LibUtilities::ShapeType shapeType,
-                                  const unsigned int nElmts,
+                                  const unsigned int nelmt,
                                   [[maybe_unused]] const unsigned int nm0,
                                   const unsigned int nm1,
                                   const unsigned int nm2)
@@ -220,7 +220,7 @@ protected:
             (shapeType == LibUtilities::Tri) ||
             (shapeType == LibUtilities::NodalTri))
         {
-            wspsize = nm1 * nElmts;
+            wspsize = nm1 * nelmt;
         }
         else if ((shapeType == LibUtilities::Hex) ||
                  (shapeType == LibUtilities::Tet) ||
@@ -229,19 +229,19 @@ protected:
                  (shapeType == LibUtilities::NodalPrism) ||
                  (shapeType == LibUtilities::Pyr))
         {
-            wspsize = (nm1 * nm2 + nm2) * nElmts;
+            wspsize = (nm1 * nm2 + nm2) * nelmt;
         }
 
         return wspsize;
     }
 
     MemoryRegion<TData> SetWorkspace(const LibUtilities::ShapeType shapeType,
-                                     const unsigned int nElmts,
+                                     const unsigned int nelmt,
                                      const unsigned int nm0,
                                      const unsigned int nm1,
                                      const unsigned int nm2)
     {
-        auto wspsize = GetWorkspaceSize(shapeType, nElmts, nm0, nm1, nm2);
+        auto wspsize = GetWorkspaceSize(shapeType, nelmt, nm0, nm1, nm2);
 
         return MemoryRegion<TData>::Create(wspsize, ExecSpace::alignment);
     }
@@ -284,7 +284,7 @@ protected:
         const auto nm0 = m_nm[0];
         const auto nq0 = m_nq[0];
 
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -297,12 +297,12 @@ protected:
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
                 (TData *)inptr);
 
             // BwdTrans kernel.
-            BwdTrans1DKernel<ExecSpace, Implementation>(nm0, nq0, nElmtsPad,
-                                                        m_B[0], inptr, outptr);
+            BwdTrans1DKernel<ExecSpace, Implementation>(nm0, nq0, nelmt, m_B[0],
+                                                        inptr, outptr);
 
             // Increment pointer.
             inptr += inblock.size();
@@ -319,7 +319,7 @@ protected:
     void Operator1D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -332,12 +332,12 @@ protected:
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
                 (TData *)inptr);
 
             // BwdTrans kernel.
             BwdTrans1DKernel<ExecSpace, Implementation, nm0, nq0>(
-                nElmtsPad, m_B[0], inptr, outptr);
+                nelmt, m_B[0], inptr, outptr);
 
             // Increment pointer.
             inptr += inblock.size();
@@ -360,7 +360,7 @@ protected:
         const auto nq0 = m_nq[0];
         const auto nq1 = m_nq[1];
 
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -373,8 +373,7 @@ protected:
         {
             if (m_wsp.size() == 0)
             {
-                m_wsp =
-                    SetWorkspace(LibUtilities::Quad, nElmtsPad, nm0, nm1, 0);
+                m_wsp = SetWorkspace(LibUtilities::Quad, nelmt, nm0, nm1, 0);
             }
         }
 
@@ -390,12 +389,12 @@ protected:
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
                 (TData *)inptr);
 
             // BwdTrans kernel.
             BwdTrans2DKernel<LibUtilities::Quad, ExecSpace, Implementation>(
-                nm0, nm1, nq0, nq1, nElmtsPad, false, m_B[0], m_B[1], nodToMod,
+                nm0, nm1, nq0, nq1, nelmt, false, m_B[0], m_B[1], nodToMod,
                 inptr, outptr, wspptr);
 
             // Increment pointer.
@@ -414,7 +413,7 @@ protected:
     void Operator2D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -427,8 +426,7 @@ protected:
         {
             if (m_wsp.size() == 0)
             {
-                m_wsp =
-                    SetWorkspace(LibUtilities::Quad, nElmtsPad, nm0, nm1, 0);
+                m_wsp = SetWorkspace(LibUtilities::Quad, nelmt, nm0, nm1, 0);
             }
         }
 
@@ -444,12 +442,12 @@ protected:
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
                 (TData *)inptr);
 
             // BwdTrans kernel.
             BwdTrans2DKernel<LibUtilities::Quad, ExecSpace, Implementation, nm0,
-                             nm1, nq0, nq1>(nElmtsPad, false, m_B[0], m_B[1],
+                             nm1, nq0, nq1>(nelmt, false, m_B[0], m_B[1],
                                             nodToMod, inptr, outptr, wspptr);
 
             // Increment pointer.
@@ -475,7 +473,7 @@ protected:
         const auto nq1 = m_nq[1];
         const auto nq2 = m_nq[2];
 
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -488,8 +486,7 @@ protected:
         {
             if (m_wsp.size() == 0)
             {
-                m_wsp =
-                    SetWorkspace(LibUtilities::Hex, nElmtsPad, nm0, nm1, nm2);
+                m_wsp = SetWorkspace(LibUtilities::Hex, nelmt, nm0, nm1, nm2);
             }
         }
 
@@ -505,14 +502,13 @@ protected:
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
                 (TData *)inptr);
 
             // BwdTrans kernel.
             BwdTrans3DKernel<LibUtilities::Hex, ExecSpace, Implementation>(
-                nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, false, nullptr,
-                nullptr, m_B[0], m_B[1], m_B[2], nodToMod, inptr, outptr,
-                wspptr);
+                nm0, nm1, nm2, nq0, nq1, nq2, nelmt, false, nullptr, nullptr,
+                m_B[0], m_B[1], m_B[2], nodToMod, inptr, outptr, wspptr);
 
             // Increment pointer.
             inptr += inblock.size();
@@ -530,7 +526,7 @@ protected:
     void Operator3D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -543,8 +539,7 @@ protected:
         {
             if (m_wsp.size() == 0)
             {
-                m_wsp =
-                    SetWorkspace(LibUtilities::Hex, nElmtsPad, nm0, nm1, nm2);
+                m_wsp = SetWorkspace(LibUtilities::Hex, nelmt, nm0, nm1, nm2);
             }
         }
 
@@ -560,13 +555,13 @@ protected:
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
                 (TData *)inptr);
 
             // BwdTrans kernel.
             BwdTrans3DKernel<LibUtilities::Hex, ExecSpace, Implementation, nm0,
                              nm1, nm2, nq0, nq1, nq2>(
-                nElmtsPad, false, nullptr, nullptr, m_B[0], m_B[1], m_B[2],
+                nelmt, false, nullptr, nullptr, m_B[0], m_B[1], m_B[2],
                 nodToMod, inptr, outptr, wspptr);
 
             // Increment pointer.

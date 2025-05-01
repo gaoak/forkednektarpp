@@ -82,11 +82,11 @@ protected:
     void v_Apply(BlockAccessor<TData> &inblock,
                  BlockAccessor<TData> &outblock) override
     {
-        unsigned int CompSize = inblock.GetNumComponents();
+        auto CompSize = inblock.GetNumComponents();
 
         // Initialise bwd storage space if not for correct number of components.
-        unsigned int size = inblock.GetNumElementsWithPadding() *
-                            this->m_exp->GetTotPoints() * CompSize;
+        auto size = inblock.GetNumElementsWithPadding() *
+                    this->m_exp->GetTotPoints() * CompSize;
         if (this->m_bwd.size() != size)
         {
             this->m_bwd = MemoryRegion<TData>::Create("Mass bwd", size,

@@ -109,7 +109,7 @@ protected:
     void v_Apply(BlockAccessor<TData> &inblock,
                  BlockAccessor<TData> &outblock) override
     {
-        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -125,7 +125,7 @@ protected:
         // Allocate storate.
         if (m_wsp.size() == 0)
         {
-            m_wsp = std::vector<TData>(m_dimension * nElmtsPad * m_nqTot);
+            m_wsp = std::vector<TData>(m_dimension * nelmt * m_nqTot);
         }
 
         // Get workspace pointer.
@@ -143,17 +143,17 @@ protected:
             // Multiply by jacobian.
             if (m_isDeformed)
             {
-                MultiplyByJacobianKernel<true>(m_nqTot, nElmtsPad, jacptr,
-                                               inptr, wspptr);
+                MultiplyByJacobianKernel<true>(m_nqTot, nelmt, jacptr, inptr,
+                                               wspptr);
             }
             else
             {
-                MultiplyByJacobianKernel<false>(m_nqTot, nElmtsPad, jacptr,
-                                                inptr, wspptr);
+                MultiplyByJacobianKernel<false>(m_nqTot, nelmt, jacptr, inptr,
+                                                wspptr);
             }
 
             // Perform matrix-matrix multiply.
-            Blas::Gemm('N', 'N', m_nmTot, nElmtsPad, m_nqTot, this->m_scale,
+            Blas::Gemm('N', 'N', m_nmTot, nelmt, m_nqTot, this->m_scale,
                        m_matptr, m_nmTot, wspptr, m_nqTot, 0.0, outptr,
                        m_nmTot);
 

@@ -65,9 +65,9 @@ public:
         for (auto &block : blocks)
         {
             const auto ncoeff    = block.GetNumData();
-            const auto nElmts    = block.GetNumElements();
+            const auto nelmt     = block.GetNumElements();
             const auto nPadElmts = block.GetNumPaddingElements();
-            for (unsigned int e = 0; e < nElmts; e++)
+            for (unsigned int e = 0; e < nelmt; e++)
             {
                 for (unsigned int n = 0; n < ncoeff; n++)
                 {
