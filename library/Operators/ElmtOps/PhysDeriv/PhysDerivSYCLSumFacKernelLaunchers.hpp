@@ -156,12 +156,7 @@ NEK_FORCE_INLINE static void PhysDeriv2DKernel(
         GetDeviceBlockSize<Implementation>(nq0 * nq1);
     const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
 
-    ASSERTL0(shmemsize * sizeof(TData) <=
-                 GetDeviceProperties::SharedMemoryPerBlock(),
-             "Shared memory available is " +
-                 std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
-                 "bytes, requested " +
-                 std::to_string(shmemsize * sizeof(TData)) + " bytes");
+    GetDeviceProperties::CheckSharedMemoryUsage(sizeof(TData) * shmemsize);
 
     Q.submit([=](sycl::handler &cgh) {
         sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
@@ -199,12 +194,7 @@ NEK_FORCE_INLINE static void PhysDeriv2DKernel(const unsigned int nelmt,
         GetDeviceBlockSize<Implementation>(nq0 * nq1);
     const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
 
-    ASSERTL0(shmemsize * sizeof(TData) <=
-                 GetDeviceProperties::SharedMemoryPerBlock(),
-             "Shared memory available is " +
-                 std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
-                 "bytes, requested " +
-                 std::to_string(shmemsize * sizeof(TData)) + " bytes");
+    GetDeviceProperties::CheckSharedMemoryUsage(sizeof(TData) * shmemsize);
 
     Q.submit([=](sycl::handler &cgh) {
         sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
@@ -238,12 +228,7 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel(
         GetDeviceBlockSize<Implementation>(nq0 * nq1 * nq2);
     const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
 
-    ASSERTL0(shmemsize * sizeof(TData) <=
-                 GetDeviceProperties::SharedMemoryPerBlock(),
-             "Shared memory available is " +
-                 std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
-                 "bytes, requested " +
-                 std::to_string(shmemsize * sizeof(TData)) + " bytes");
+    GetDeviceProperties::CheckSharedMemoryUsage(sizeof(TData) * shmemsize);
 
     Q.submit([=](sycl::handler &cgh) {
         sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
@@ -280,12 +265,7 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel(
         GetDeviceBlockSize<Implementation>(nq0 * nq1 * nq2);
     const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
 
-    ASSERTL0(shmemsize * sizeof(TData) <=
-                 GetDeviceProperties::SharedMemoryPerBlock(),
-             "Shared memory available is " +
-                 std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
-                 "bytes, requested " +
-                 std::to_string(shmemsize * sizeof(TData)) + " bytes");
+    GetDeviceProperties::CheckSharedMemoryUsage(sizeof(TData) * shmemsize);
 
     Q.submit([=](sycl::handler &cgh) {
         sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);

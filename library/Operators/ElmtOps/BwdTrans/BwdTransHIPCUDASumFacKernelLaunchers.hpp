@@ -160,6 +160,8 @@ NEK_FORCE_INLINE static void BwdTrans1DKernel(const unsigned int nm0,
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nq0);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
     BwdTrans1DKernelLauncher<Implementation>
         <<<gridsize, blocksize, shmemsize>>>(nm0, nq0, nelmt, basis0, in, out,
                                              hipcudaBlock1D());
@@ -177,6 +179,8 @@ NEK_FORCE_INLINE static void BwdTrans1DKernel(const unsigned int nelmt,
         sizeof(TData) * BwdTransSharedMemorySize<Implementation>(nq0, nm0);
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nq0);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
     BwdTrans1DKernelLauncher<Implementation, nm0, nq0>
         <<<gridsize, blocksize, shmemsize>>>(nelmt, basis0, in, out,
@@ -201,11 +205,7 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
-    ASSERTL0(shmemsize == 0 ||
-                 shmemsize <= GetDeviceProperties::SharedMemoryPerBlock(),
-             "Shared memory available is " +
-                 std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
-                 "bytes, requested " + std::to_string(shmemsize) + " bytes");
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
     BwdTrans2DKernelLauncher<SHAPE_TYPE, Implementation>
         <<<gridsize, blocksize, shmemsize>>>(
@@ -232,11 +232,7 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(
         GetDeviceBlockSize<Implementation>(nq0 * nq1);
     const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
 
-    ASSERTL0(shmemsize == 0 ||
-                 shmemsize <= GetDeviceProperties::SharedMemoryPerBlock(),
-             "Shared memory available is " +
-                 std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
-                 "bytes, requested " + std::to_string(shmemsize) + " bytes");
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
     BwdTrans2DKernelLauncher<SHAPE_TYPE, Implementation, nm0, nm1, nmTot, nq0,
                              nq1><<<gridsize, blocksize, shmemsize>>>(
@@ -264,11 +260,7 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
-    ASSERTL0(shmemsize == 0 ||
-                 shmemsize <= GetDeviceProperties::SharedMemoryPerBlock(),
-             "Shared memory available is " +
-                 std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
-                 "bytes, requested " + std::to_string(shmemsize) + " bytes");
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
     BwdTrans3DKernelLauncher<SHAPE_TYPE, Implementation>
         <<<gridsize, blocksize, shmemsize>>>(
@@ -297,11 +289,7 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
-    ASSERTL0(shmemsize == 0 ||
-                 shmemsize <= GetDeviceProperties::SharedMemoryPerBlock(),
-             "Shared memory available is " +
-                 std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
-                 "bytes, requested " + std::to_string(shmemsize) + " bytes");
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
     BwdTrans3DKernelLauncher<SHAPE_TYPE, Implementation, nm0, nm1, nm2, nmTot,
                              nq0, nq1, nq2><<<gridsize, blocksize, shmemsize>>>(

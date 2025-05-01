@@ -189,11 +189,7 @@ NEK_FORCE_INLINE static void PhysDeriv2DKernel(
         GetDeviceBlockSize<Implementation>(nq0 * nq1);
     const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
 
-    ASSERTL0(shmemsize == 0 ||
-                 shmemsize <= GetDeviceProperties::SharedMemoryPerBlock(),
-             "Shared memory available is " +
-                 std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
-                 "bytes, requested " + std::to_string(shmemsize) + " bytes");
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
     PhysDeriv2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>
         <<<gridsize, blocksize, shmemsize>>>(ncoord, nq0, nq1, nelmt, D0, D1,
@@ -219,11 +215,7 @@ NEK_FORCE_INLINE static void PhysDeriv2DKernel(const unsigned int nelmt,
         GetDeviceBlockSize<Implementation>(nq0 * nq1);
     const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
 
-    ASSERTL0(shmemsize == 0 ||
-                 shmemsize <= GetDeviceProperties::SharedMemoryPerBlock(),
-             "Shared memory available is " +
-                 std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
-                 "bytes, requested " + std::to_string(shmemsize) + " bytes");
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
     PhysDeriv2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED, ncoord, nq0,
                               nq1><<<gridsize, blocksize, shmemsize>>>(
@@ -247,11 +239,7 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel(
         GetDeviceBlockSize<Implementation>(nq0 * nq1 * nq2);
     const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
 
-    ASSERTL0(shmemsize == 0 ||
-                 shmemsize <= GetDeviceProperties::SharedMemoryPerBlock(),
-             "Shared memory available is " +
-                 std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
-                 "bytes, requested " + std::to_string(shmemsize) + " bytes");
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
     PhysDeriv3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>
         <<<gridsize, blocksize, shmemsize>>>(nq0, nq1, nq2, nelmt, D0, D1, D2,
@@ -276,11 +264,7 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel(
         GetDeviceBlockSize<Implementation>(nq0 * nq1 * nq2);
     const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
 
-    ASSERTL0(shmemsize == 0 ||
-                 shmemsize <= GetDeviceProperties::SharedMemoryPerBlock(),
-             "Shared memory available is " +
-                 std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
-                 "bytes, requested " + std::to_string(shmemsize) + " bytes");
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
     PhysDeriv3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED, nq0, nq1,
                               nq2><<<gridsize, blocksize, shmemsize>>>(
