@@ -64,7 +64,7 @@ public:
     SPATIAL_DOMAINS_EXPORT TriGeom(
         const int id, const SegGeomSharedPtr edges[],
         const CurveSharedPtr curve = CurveSharedPtr());
-    SPATIAL_DOMAINS_EXPORT ~TriGeom() override;
+    SPATIAL_DOMAINS_EXPORT ~TriGeom() override = default;
 
     /// Get the orientation of face1.
     SPATIAL_DOMAINS_EXPORT static const int kNedges = 3;

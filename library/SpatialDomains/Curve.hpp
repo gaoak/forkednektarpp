@@ -47,12 +47,12 @@ struct Curve
     {
     }
 
+    /// Points along the curve.
+    std::vector<PointGeomSharedPtr> m_points;
     /// ID of the edge or face that is curved
     int m_curveID;
     /// Points distribution of this curve.
     LibUtilities::PointsType m_ptype;
-    /// Points along the curve.
-    std::vector<PointGeomSharedPtr> m_points;
 };
 
 typedef std::shared_ptr<Curve> CurveSharedPtr;

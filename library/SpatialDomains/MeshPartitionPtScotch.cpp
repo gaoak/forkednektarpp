@@ -65,10 +65,6 @@ MeshPartitionPtScotch::MeshPartitionPtScotch(
     m_parallel = true;
 }
 
-MeshPartitionPtScotch::~MeshPartitionPtScotch()
-{
-}
-
 void MeshPartitionPtScotch::v_PartitionGraphImpl(
     int &nVerts, [[maybe_unused]] int &nVertConds, Array<OneD, int> &xadj,
     Array<OneD, int> &adjcy, Array<OneD, int> &vertWgt,

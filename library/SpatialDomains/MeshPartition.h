@@ -32,6 +32,7 @@
 //
 //
 ////////////////////////////////////////////////////////////////////////////////
+
 #ifndef NEKTAR_SPATIALDOMAINS_MESHPARTITION_H
 #define NEKTAR_SPATIALDOMAINS_MESHPARTITION_H
 
@@ -65,12 +66,6 @@ class MeshPartition
 {
 
 public:
-    MeshPartition(const LibUtilities::SessionReaderSharedPtr session,
-                  LibUtilities::CommSharedPtr comm, int meshDim,
-                  std::map<int, MeshEntity> element,
-                  CompositeDescriptor compMap);
-    virtual ~MeshPartition();
-
     SPATIAL_DOMAINS_EXPORT void PartitionMesh(int nParts, bool shared = false,
                                               bool overlapping = false,
                                               int nLocal       = 0);
@@ -148,6 +143,12 @@ protected:
     bool m_weightDofs;
     bool m_shared;
     bool m_parallel;
+
+    MeshPartition(const LibUtilities::SessionReaderSharedPtr session,
+                  LibUtilities::CommSharedPtr comm, int meshDim,
+                  std::map<int, MeshEntity> element,
+                  CompositeDescriptor compMap);
+    virtual ~MeshPartition() = default;
 
     void ReadExpansions();
     void ReadConditions();

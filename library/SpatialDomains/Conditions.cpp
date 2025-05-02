@@ -38,8 +38,6 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <tinyxml.h>
 
-using namespace std;
-
 namespace Nektar::SpatialDomains
 {
 /**
@@ -52,14 +50,6 @@ BoundaryConditions::BoundaryConditions(
 
 {
     Read(m_session->GetElement("Nektar/Conditions"));
-}
-
-BoundaryConditions::BoundaryConditions(void)
-{
-}
-
-BoundaryConditions::~BoundaryConditions(void)
-{
 }
 
 /**
@@ -371,8 +361,7 @@ void BoundaryConditions::ReadBoundaryConditions(TiXmlElement *conditions)
         }
 
         ASSERTL0(m_boundaryRegions.count(boundaryRegionID) == 1,
-                 "Boundary region " +
-                     boost::lexical_cast<string>(boundaryRegionID) +
+                 "Boundary region " + std::to_string(boundaryRegionID) +
                      " not found");
 
         // Find the communicator that belongs to this ID
@@ -728,7 +717,7 @@ void BoundaryConditions::ReadBoundaryConditions(TiXmlElement *conditions)
                     if (attr)
                     {
                         std::string userDefined;
-                        vector<unsigned int> periodicBndRegionIndex;
+                        std::vector<unsigned int> periodicBndRegionIndex;
                         while (attr)
                         {
                             attrName = attr->Name();

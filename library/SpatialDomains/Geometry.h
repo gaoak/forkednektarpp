@@ -80,8 +80,7 @@ class Geometry
 public:
     SPATIAL_DOMAINS_EXPORT Geometry();
     SPATIAL_DOMAINS_EXPORT Geometry(int coordim);
-
-    SPATIAL_DOMAINS_EXPORT virtual ~Geometry();
+    SPATIAL_DOMAINS_EXPORT virtual ~Geometry() = default;
 
     //---------------------------------------
     // Helper functions

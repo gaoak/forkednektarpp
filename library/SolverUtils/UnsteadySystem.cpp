@@ -745,7 +745,7 @@ void UnsteadySystem::CheckForRestartTime(NekDouble &time, int &nchk)
     }
     if (m_session->DefinesCmdLineArgument("set-start-chknumber"))
     {
-        nchk = boost::lexical_cast<int>(
+        nchk = std::stoi(
             m_session->GetCmdLineArgument<std::string>("set-start-chknumber"));
     }
     ASSERTL0(time >= 0 && nchk >= 0,

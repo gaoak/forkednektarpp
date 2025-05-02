@@ -32,6 +32,7 @@
 //
 //
 ////////////////////////////////////////////////////////////////////////////////
+
 #ifndef NEKTAR_SPATIALDOMAINS_POINTGEOM_H
 #define NEKTAR_SPATIALDOMAINS_POINTGEOM_H
 
@@ -46,7 +47,6 @@ namespace Nektar::SpatialDomains
 class PointGeom;
 class SegGeom;
 
-// shorthand for boost pointer
 typedef std::shared_ptr<PointGeom> PointGeomSharedPtr;
 typedef std::map<int, PointGeomSharedPtr> PointGeomMap;
 
@@ -60,7 +60,7 @@ public:
                                      NekDouble x, NekDouble y, NekDouble z);
     SPATIAL_DOMAINS_EXPORT PointGeom(const PointGeom &T);
 
-    SPATIAL_DOMAINS_EXPORT ~PointGeom() override;
+    SPATIAL_DOMAINS_EXPORT ~PointGeom() override = default;
 
     SPATIAL_DOMAINS_EXPORT int GetVid()
     {

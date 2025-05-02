@@ -31,6 +31,7 @@
 // Description: PtScotch partitioner interface
 //
 ///////////////////////////////////////////////////////////////////////////////
+
 #ifndef NEKTAR_SPATIALDOMAINS_MESHPARTITIONPTSCOTCH_H
 #define NEKTAR_SPATIALDOMAINS_MESHPARTITIONPTSCOTCH_H
 
@@ -43,6 +44,8 @@ namespace Nektar::SpatialDomains
 class MeshPartitionPtScotch : public MeshPartition
 {
 public:
+    friend class MemoryManager<MeshPartitionPtScotch>;
+
     /// Creates an instance of this class
     static MeshPartitionSharedPtr create(
         const LibUtilities::SessionReaderSharedPtr session,
@@ -57,13 +60,14 @@ public:
     static std::string className;
     static std::string cmdSwitch;
 
+protected:
     MeshPartitionPtScotch(const LibUtilities::SessionReaderSharedPtr session,
                           LibUtilities::CommSharedPtr comm, int meshDim,
                           std::map<int, MeshEntity> element,
                           CompositeDescriptor compMap);
-    ~MeshPartitionPtScotch() override;
 
-protected:
+    ~MeshPartitionPtScotch() override = default;
+
     void v_PartitionGraphImpl(int &nVerts, int &nVertConds,
                               Nektar::Array<Nektar::OneD, int> &xadj,
                               Nektar::Array<Nektar::OneD, int> &adjcy,
@@ -73,6 +77,7 @@ protected:
                               int &nparts, int &volume,
                               Nektar::Array<Nektar::OneD, int> &part) final;
 };
+
 } // namespace Nektar::SpatialDomains
 
 #endif

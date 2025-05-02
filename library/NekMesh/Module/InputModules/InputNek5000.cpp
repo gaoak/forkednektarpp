@@ -571,9 +571,9 @@ void InputNek5000::Process()
                 }
 
                 std::string periodicInStr =
-                    "[" + boost::lexical_cast<string>(periodicInId) + "]";
+                    "[" + std::to_string(periodicInId) + "]";
                 std::string periodicOutStr =
-                    "[" + boost::lexical_cast<string>(periodicOutId) + "]";
+                    "[" + std::to_string(periodicOutId) + "]";
 
                 for (i = 0; i < m_mesh->m_fields.size() - 1; ++i)
                 {

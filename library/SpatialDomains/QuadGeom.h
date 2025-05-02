@@ -32,6 +32,7 @@
 //
 //
 ////////////////////////////////////////////////////////////////////////////////
+
 #ifndef NEKTAR_SPATIALDOMAINS_QUADGEOM_H
 #define NEKTAR_SPATIALDOMAINS_QUADGEOM_H
 
@@ -59,7 +60,7 @@ public:
     SPATIAL_DOMAINS_EXPORT QuadGeom(
         const int id, const SegGeomSharedPtr edges[],
         const CurveSharedPtr curve = CurveSharedPtr());
-    SPATIAL_DOMAINS_EXPORT ~QuadGeom() override;
+    SPATIAL_DOMAINS_EXPORT ~QuadGeom() override = default;
 
     /// Get the orientation of face1.
     SPATIAL_DOMAINS_EXPORT static StdRegions::Orientation GetFaceOrientation(

@@ -109,7 +109,7 @@ void ProcessAddCompositeID::v_Process(po::variables_map &vm)
         }
 
         WARNINGL0(compid != -1, "Failed to find composite ID for element: " +
-                                    boost::lexical_cast<string>(n));
+                                    std::to_string(n));
 
         // Fill element with the value of the index
         int npts = elmt->GetTotPoints();

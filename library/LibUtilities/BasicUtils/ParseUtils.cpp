@@ -195,9 +195,9 @@ bool ParseUtils::GenerateVariableVector(
         int v = -1;
         try
         {
-            v = boost::lexical_cast<int>(s);
+            v = std::stoi(s);
         }
-        catch (const boost::bad_lexical_cast &)
+        catch (...)
         {
             auto index = find(variables.begin(), variables.end(), s);
             v          = index - variables.begin();

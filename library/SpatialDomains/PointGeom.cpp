@@ -40,6 +40,7 @@
 
 namespace Nektar::SpatialDomains
 {
+
 PointGeom::PointGeom() : NekPoint<NekDouble>(0.0, 0.0, 0.0)
 {
     m_shapeType = LibUtilities::ePoint;
@@ -64,10 +65,6 @@ PointGeom::PointGeom(const PointGeom &T)
     m_shapeType = T.m_shapeType;
     m_globalID  = T.m_globalID;
     m_coordim   = T.m_coordim;
-}
-
-PointGeom::~PointGeom()
-{
 }
 
 void PointGeom::GetCoords(NekDouble &x, NekDouble &y, NekDouble &z)

@@ -65,7 +65,7 @@ void ProcessSurfDistance::v_Process(po::variables_map &vm)
     int surf   = m_config["bnd"].as<int>();
     int expdim = m_f->m_graph->GetMeshDimension();
 
-    ASSERTL0(surf >= 0, "Invalid surface " + boost::lexical_cast<string>(surf));
+    ASSERTL0(surf >= 0, "Invalid surface " + std::to_string(surf));
 
     int nfields = m_f->m_variables.size();
     m_f->m_variables.push_back("dist");

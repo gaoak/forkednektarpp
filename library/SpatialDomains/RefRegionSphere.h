@@ -56,8 +56,7 @@ public:
                                            std::vector<unsigned int> numModes,
                                            std::vector<unsigned int> numPoints);
     /// Destructor
-    SPATIAL_DOMAINS_EXPORT ~RefRegionSphere() override;
-    /// Check if vertex is inside the surface region
+    SPATIAL_DOMAINS_EXPORT ~RefRegionSphere() override = default;
 
 protected:
     SPATIAL_DOMAINS_EXPORT bool v_Contains(

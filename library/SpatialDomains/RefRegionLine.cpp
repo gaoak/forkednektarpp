@@ -34,8 +34,6 @@
 
 #include <SpatialDomains/RefRegionLine.h>
 
-using namespace std;
-
 namespace Nektar::SpatialDomains
 {
 
@@ -45,10 +43,6 @@ RefRegionLine::RefRegionLine(const unsigned int coordim, NekDouble radius,
                              std::vector<unsigned int> numModes,
                              std::vector<unsigned int> numPoints)
     : RefRegion(coordim, radius, coord1, coord2, numModes, numPoints)
-{
-}
-
-RefRegionLine::~RefRegionLine()
 {
 }
 

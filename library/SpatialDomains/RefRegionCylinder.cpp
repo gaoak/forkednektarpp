@@ -34,8 +34,6 @@
 
 #include <SpatialDomains/RefRegionCylinder.h>
 
-using namespace std;
-
 namespace Nektar::SpatialDomains
 {
 
@@ -46,10 +44,6 @@ RefRegionCylinder::RefRegionCylinder(const unsigned int coordim,
                                      std::vector<unsigned int> numModes,
                                      std::vector<unsigned int> numPoints)
     : RefRegion(coordim, radius, coord1, coord2, numModes, numPoints)
-{
-}
-
-RefRegionCylinder::~RefRegionCylinder()
 {
 }
 

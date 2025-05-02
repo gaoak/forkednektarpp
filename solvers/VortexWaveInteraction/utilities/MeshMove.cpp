@@ -47,7 +47,6 @@
 #include <MultiRegions/ContField.h>
 #include <MultiRegions/ExpList.h>
 #include <SpatialDomains/MeshGraphIO.h>
-#include <boost/lexical_cast.hpp>
 #include <tinyxml.h>
 
 using namespace std;

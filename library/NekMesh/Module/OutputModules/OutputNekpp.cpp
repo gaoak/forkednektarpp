@@ -174,7 +174,7 @@ void OutputNekpp::Process()
         ModuleSharedPtr module = GetModuleFactory().CreateInstance(
             ModuleKey(eProcessModule, "varopti"), m_mesh);
         module->RegisterConfig("hyperelastic", "");
-        module->RegisterConfig("numthreads", boost::lexical_cast<string>(np));
+        module->RegisterConfig("numthreads", std::to_string(np));
 
         try
         {
@@ -806,7 +806,7 @@ void OutputNekpp::TransferDomain(MeshGraphSharedPtr graph)
             {
                 list += ",";
             }
-            list += boost::lexical_cast<string>(it.second->m_id);
+            list += std::to_string(it.second->m_id);
 
             SpatialDomains::CompositeMap fullDomain;
             graph->GetCompositeList(list, fullDomain);

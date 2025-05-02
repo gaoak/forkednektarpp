@@ -33,6 +33,7 @@
 //
 //
 ////////////////////////////////////////////////////////////////////////////////
+
 #ifndef NEKTAR_SPATIALDOMAINS_INTERFACEINTERPOLATION_H
 #define NEKTAR_SPATIALDOMAINS_INTERFACEINTERPOLATION_H
 

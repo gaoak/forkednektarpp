@@ -55,7 +55,7 @@ public:
         std::vector<unsigned int> numModes,
         std::vector<unsigned int> numPoints);
     /// Destructor
-    SPATIAL_DOMAINS_EXPORT ~RefRegionCylinder() override;
+    SPATIAL_DOMAINS_EXPORT ~RefRegionCylinder() override = default;
 
 protected:
     /// Check if vertex is inside the surface region

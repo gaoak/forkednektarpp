@@ -138,7 +138,7 @@ AssemblyMap::AssemblyMap(const LibUtilities::SessionReaderSharedPtr &pSession,
 
     if (pSession->DefinesGlobalSysSolnInfo(variable, "SuccessiveRHS"))
     {
-        m_successiveRHS = boost::lexical_cast<int>(
+        m_successiveRHS = std::stoi(
             pSession->GetGlobalSysSolnInfo(variable, "SuccessiveRHS").c_str());
     }
     else

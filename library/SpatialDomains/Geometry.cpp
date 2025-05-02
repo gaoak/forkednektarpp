@@ -65,13 +65,6 @@ Geometry::Geometry(const int coordim)
 }
 
 /**
- * @brief Default destructor.
- */
-Geometry::~Geometry()
-{
-}
-
-/**
  * @brief Check to see if a geometric factor has already been created that
  * contains the same regular information.
  *
@@ -90,30 +83,6 @@ GeomFactorsSharedPtr Geometry::ValidateRegGeomFactor(
 {
     GeomFactorsSharedPtr returnval = geomFactor;
 
-/// \todo should this '#if 0' statement be removed?
-#if 0
-    bool found = false;
-    if (geomFactor->GetGtype() == eRegular)
-    {
-        for (GeomFactorsVectorIter iter = m_regGeomFactorsManager.begin();
-             iter != m_regGeomFactorsManager.end();
-             ++iter)
-        {
-            if (**iter == *geomFactor)
-            {
-                returnval = *iter;
-                found = true;
-                break;
-            }
-        }
-
-        if (!found)
-        {
-            m_regGeomFactorsManager.push_back(geomFactor);
-            returnval = geomFactor;
-        }
-    }
-#endif
     return returnval;
 }
 

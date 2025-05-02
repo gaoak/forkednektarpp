@@ -709,7 +709,7 @@ void OutputTecplotBinary::v_WriteTecplotZone(std::ofstream &outfile)
 
         // Write same name as preplot
         int rank        = m_f->m_comm->GetSpaceComm()->GetRank();
-        string zonename = "ZONE " + boost::lexical_cast<string>(rank);
+        string zonename = "ZONE " + std::to_string(rank);
         WriteStream(outfile, zonename);
 
         WriteStream(outfile, -1);  // No parent zone

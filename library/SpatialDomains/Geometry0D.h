@@ -32,6 +32,7 @@
 //
 //
 ////////////////////////////////////////////////////////////////////////////////
+
 #ifndef NEKTAR_SPATIALDOMAINS_GEOMETRY0D_H
 #define NEKTAR_SPATIALDOMAINS_GEOMETRY0D_H
 
@@ -42,7 +43,6 @@ namespace Nektar::SpatialDomains
 {
 class Geometry0D;
 
-// shorthand for boost pointer
 typedef std::shared_ptr<Geometry0D> Geometry0DSharedPtr;
 typedef std::vector<Geometry0DSharedPtr> Geometry0DVector;
 typedef std::vector<Geometry0DSharedPtr>::iterator Geometry0DVectorIter;
@@ -53,7 +53,7 @@ class Geometry0D : public Geometry
 public:
     SPATIAL_DOMAINS_EXPORT Geometry0D();
     SPATIAL_DOMAINS_EXPORT Geometry0D(const int coordim);
-    SPATIAL_DOMAINS_EXPORT ~Geometry0D() override;
+    SPATIAL_DOMAINS_EXPORT ~Geometry0D() override = default;
 
     SPATIAL_DOMAINS_EXPORT static const int kDim = 0;
 

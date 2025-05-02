@@ -49,7 +49,7 @@ class HexGeom : public Geometry3D
 public:
     SPATIAL_DOMAINS_EXPORT HexGeom();
     SPATIAL_DOMAINS_EXPORT HexGeom(int id, const QuadGeomSharedPtr faces[]);
-    SPATIAL_DOMAINS_EXPORT ~HexGeom() override;
+    SPATIAL_DOMAINS_EXPORT ~HexGeom() override = default;
 
     SPATIAL_DOMAINS_EXPORT static const int kNverts  = 8;
     SPATIAL_DOMAINS_EXPORT static const int kNedges  = 12;
@@ -83,6 +83,7 @@ private:
 
 typedef std::shared_ptr<HexGeom> HexGeomSharedPtr;
 typedef std::map<int, HexGeomSharedPtr> HexGeomMap;
+
 } // namespace Nektar::SpatialDomains
 
 #endif

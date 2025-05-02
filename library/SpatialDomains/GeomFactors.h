@@ -84,7 +84,7 @@ public:
                                                   const GeomFactors &rhs);
 
     /// Destructor.
-    SPATIAL_DOMAINS_EXPORT ~GeomFactors();
+    SPATIAL_DOMAINS_EXPORT ~GeomFactors() = default;
 
     /// Return the derivative of the mapping with respect to the
     /// reference coordinates,

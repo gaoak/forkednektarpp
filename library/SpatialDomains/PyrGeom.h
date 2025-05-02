@@ -46,7 +46,7 @@ class PyrGeom : public Geometry3D
 public:
     SPATIAL_DOMAINS_EXPORT PyrGeom();
     SPATIAL_DOMAINS_EXPORT PyrGeom(int id, const Geometry2DSharedPtr faces[]);
-    SPATIAL_DOMAINS_EXPORT ~PyrGeom() override;
+    SPATIAL_DOMAINS_EXPORT ~PyrGeom() override = default;
 
     SPATIAL_DOMAINS_EXPORT static const int kNverts  = 5;
     SPATIAL_DOMAINS_EXPORT static const int kNedges  = 8;
@@ -74,6 +74,7 @@ private:
 
 typedef std::shared_ptr<PyrGeom> PyrGeomSharedPtr;
 typedef std::map<int, PyrGeomSharedPtr> PyrGeomMap;
+
 } // namespace Nektar::SpatialDomains
 
 #endif // NEKTAR_SPATIALDOMAINS_PYRGEOM_H

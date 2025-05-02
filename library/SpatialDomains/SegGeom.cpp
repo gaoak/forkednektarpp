@@ -156,10 +156,6 @@ SegGeomSharedPtr SegGeom::GenerateOneSpaceDimGeom(void)
     return returnval;
 }
 
-SegGeom::~SegGeom()
-{
-}
-
 LibUtilities::ShapeType SegGeom::v_GetShapeType() const
 {
     return LibUtilities::eSegment;

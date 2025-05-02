@@ -41,8 +41,6 @@
 #include <SpatialDomains/SegGeom.h>
 #include <iomanip>
 
-using namespace std;
-
 namespace Nektar::SpatialDomains
 {
 
@@ -54,10 +52,6 @@ Geometry3D::Geometry3D(const int coordim) : Geometry(coordim)
 {
     ASSERTL0(m_coordim > 2,
              "Coordinate dimension should be at least 3 for a 3D geometry.");
-}
-
-Geometry3D::~Geometry3D()
-{
 }
 
 //---------------------------------------
@@ -355,11 +349,12 @@ void Geometry3D::NewtonIterationForLocCoord(
 
             ss << "Reached MaxIterations (" << MaxIterations
                << ") in Newton iteration ";
-            ss << "Init value (" << setprecision(4) << init0 << "," << init1
-               << "," << init2 << ") ";
+            ss << "Init value (" << std::setprecision(4) << init0 << ","
+               << init1 << "," << init2 << ") ";
             ss << "Fin  value (" << Lcoords[0] << "," << Lcoords[1] << ","
                << Lcoords[2] << ") ";
-            ss << "Resid = " << resid << " Tolerance = " << sqrt(ScaledTol);
+            ss << "Resid = " << resid
+               << " Tolerance = " << std::sqrt(ScaledTol);
 
             WARNINGL1(cnt < MaxIterations, ss.str());
         }
@@ -541,7 +536,7 @@ Geometry1DSharedPtr Geometry3D::v_GetEdge(int i) const
 {
     ASSERTL2(i >= 0 && i <= m_edges.size() - 1,
              "Edge ID must be between 0 and " +
-                 boost::lexical_cast<string>(m_edges.size() - 1));
+                 std::to_string(m_edges.size() - 1));
     return m_edges[i];
 }
 
@@ -555,7 +550,7 @@ inline StdRegions::Orientation Geometry3D::v_GetEorient(const int i) const
 {
     ASSERTL2(i >= 0 && i <= m_edges.size() - 1,
              "Edge ID must be between 0 and " +
-                 boost::lexical_cast<string>(m_edges.size() - 1));
+                 std::to_string(m_edges.size() - 1));
     return m_eorient[i];
 }
 
@@ -563,7 +558,7 @@ StdRegions::Orientation Geometry3D::v_GetForient(const int i) const
 {
     ASSERTL2(i >= 0 && i <= m_faces.size() - 1,
              "Face ID must be between 0 and " +
-                 boost::lexical_cast<string>(m_faces.size() - 1));
+                 std::to_string(m_faces.size() - 1));
     return m_forient[i];
 }
 

@@ -287,7 +287,7 @@ void GlobalLinSysIterativeFull::v_SolveLinearSystem(
         if (pSession->DefinesGlobalSysSolnInfo(variable,
                                                "NekLinSysMaxIterations"))
         {
-            sysKey.m_NekLinSysMaxIterations = boost::lexical_cast<int>(
+            sysKey.m_NekLinSysMaxIterations = std::stoi(
                 pSession
                     ->GetGlobalSysSolnInfo(variable, "NekLinSysMaxIterations")
                     .c_str());
@@ -300,7 +300,7 @@ void GlobalLinSysIterativeFull::v_SolveLinearSystem(
 
         if (pSession->DefinesGlobalSysSolnInfo(variable, "LinSysMaxStorage"))
         {
-            sysKey.m_LinSysMaxStorage = boost::lexical_cast<int>(
+            sysKey.m_LinSysMaxStorage = std::stoi(
                 pSession->GetGlobalSysSolnInfo(variable, "LinSysMaxStorage")
                     .c_str());
         }
@@ -312,7 +312,7 @@ void GlobalLinSysIterativeFull::v_SolveLinearSystem(
 
         if (pSession->DefinesGlobalSysSolnInfo(variable, "GMRESMaxHessMatBand"))
         {
-            sysKey.m_KrylovMaxHessMatBand = boost::lexical_cast<int>(
+            sysKey.m_KrylovMaxHessMatBand = std::stoi(
                 pSession->GetGlobalSysSolnInfo(variable, "GMRESMaxHessMatBand")
                     .c_str());
         }

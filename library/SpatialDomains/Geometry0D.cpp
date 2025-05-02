@@ -32,6 +32,7 @@
 //
 //
 ////////////////////////////////////////////////////////////////////////////////
+
 #include <SpatialDomains/Geometry0D.h>
 
 namespace Nektar::SpatialDomains
@@ -42,10 +43,6 @@ Geometry0D::Geometry0D() : Geometry()
 }
 
 Geometry0D::Geometry0D(const int coordim) : Geometry(coordim)
-{
-}
-
-Geometry0D::~Geometry0D()
 {
 }
 

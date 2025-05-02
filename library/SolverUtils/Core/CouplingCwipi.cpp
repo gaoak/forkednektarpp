@@ -233,7 +233,7 @@ void CouplingCwipi::ReadConfig(LibUtilities::SessionReaderSharedPtr session)
 
 void CouplingCwipi::SetupReceive()
 {
-    int oversamp = boost::lexical_cast<int>(m_config["OVERSAMPLE"]);
+    int oversamp = std::stoi(m_config["OVERSAMPLE"]);
 
     SpatialDomains::MeshGraphSharedPtr recvGraph =
         SpatialDomains::MeshGraphIO::Read(m_evalField->GetSession());

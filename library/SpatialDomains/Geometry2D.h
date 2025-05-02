@@ -51,7 +51,6 @@ class Geometry2D;
 class PointGeom;
 class SegGeom;
 
-// shorthand for boost pointer
 typedef std::shared_ptr<PointGeom> PointGeomSharedPtr;
 typedef std::shared_ptr<Geometry0D> Geometry0DSharedPtr;
 typedef std::shared_ptr<Geometry1D> Geometry1DSharedPtr;
@@ -67,9 +66,10 @@ class Geometry2D : public Geometry
 public:
     SPATIAL_DOMAINS_EXPORT Geometry2D();
     SPATIAL_DOMAINS_EXPORT Geometry2D(const int coordim, CurveSharedPtr curve);
-    SPATIAL_DOMAINS_EXPORT ~Geometry2D() override;
+    SPATIAL_DOMAINS_EXPORT ~Geometry2D() override = default;
 
     SPATIAL_DOMAINS_EXPORT static const int kDim = 2;
+
     SPATIAL_DOMAINS_EXPORT CurveSharedPtr GetCurve()
     {
         return m_curve;

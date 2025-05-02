@@ -39,8 +39,6 @@
 #include <SpatialDomains/SegGeom.h>
 #include <StdRegions/StdPrismExp.h>
 
-using namespace std;
-
 namespace Nektar::SpatialDomains
 {
 
@@ -76,10 +74,6 @@ PrismGeom::PrismGeom(int id, const Geometry2DSharedPtr faces[])
     SetUpLocalVertices();
     SetUpEdgeOrientation();
     SetUpFaceOrientation();
-}
-
-PrismGeom::~PrismGeom()
-{
 }
 
 int PrismGeom::v_GetDir(const int faceidx, const int facedir) const
@@ -207,8 +201,8 @@ void PrismGeom::SetUpLocalEdges()
             {
                 if (m_faces[0]->GetEid(i) == m_faces[f]->GetEid(j))
                 {
-                    edge =
-                        dynamic_pointer_cast<SegGeom>((m_faces[0])->GetEdge(i));
+                    edge = std::dynamic_pointer_cast<SegGeom>(
+                        (m_faces[0])->GetEdge(i));
                     m_edges.push_back(edge);
                     check++;
                 }
@@ -241,7 +235,8 @@ void PrismGeom::SetUpLocalEdges()
         {
             if ((m_faces[1])->GetEid(i) == (m_faces[4])->GetEid(j))
             {
-                edge = dynamic_pointer_cast<SegGeom>((m_faces[1])->GetEdge(i));
+                edge = std::dynamic_pointer_cast<SegGeom>(
+                    (m_faces[1])->GetEdge(i));
                 m_edges.push_back(edge);
                 check++;
             }
@@ -273,8 +268,8 @@ void PrismGeom::SetUpLocalEdges()
             {
                 if ((m_faces[f])->GetEid(i) == (m_faces[f + 1])->GetEid(j))
                 {
-                    edge =
-                        dynamic_pointer_cast<SegGeom>((m_faces[f])->GetEdge(i));
+                    edge = std::dynamic_pointer_cast<SegGeom>(
+                        (m_faces[f])->GetEdge(i));
                     m_edges.push_back(edge);
                     check++;
                 }
@@ -307,7 +302,8 @@ void PrismGeom::SetUpLocalEdges()
         {
             if ((m_faces[2])->GetEid(i) == (m_faces[4])->GetEid(j))
             {
-                edge = dynamic_pointer_cast<SegGeom>((m_faces[2])->GetEdge(i));
+                edge = std::dynamic_pointer_cast<SegGeom>(
+                    (m_faces[2])->GetEdge(i));
                 m_edges.push_back(edge);
                 check++;
             }
@@ -699,11 +695,9 @@ void PrismGeom::SetUpFaceOrientation()
             ASSERTL0(
                 orientation < StdRegions::eDir1FwdDir2_Dir2FwdDir1,
                 "Orientation of triangular face (id = " +
-                    boost::lexical_cast<string>(m_faces[f]->GetGlobalID()) +
-                    ") is inconsistent with face " +
-                    boost::lexical_cast<string>(f) +
-                    " of prism element (id = " +
-                    boost::lexical_cast<string>(m_globalID) +
+                    std::to_string(m_faces[f]->GetGlobalID()) +
+                    ") is inconsistent with face " + std::to_string(f) +
+                    " of prism element (id = " + std::to_string(m_globalID) +
                     ") since Dir2 is aligned with Dir1. Mesh setup "
                     "needs investigation");
         }
@@ -743,20 +737,20 @@ void PrismGeom::v_Setup()
  */
 void PrismGeom::SetUpXmap()
 {
-    vector<int> tmp;
+    std::vector<int> tmp;
     int order0, order1;
 
     if (m_forient[0] < 9)
     {
         tmp.push_back(m_faces[0]->GetXmap()->GetTraceNcoeffs(0));
         tmp.push_back(m_faces[0]->GetXmap()->GetTraceNcoeffs(2));
-        order0 = *max_element(tmp.begin(), tmp.end());
+        order0 = *std::max_element(tmp.begin(), tmp.end());
     }
     else
     {
         tmp.push_back(m_faces[0]->GetXmap()->GetTraceNcoeffs(1));
         tmp.push_back(m_faces[0]->GetXmap()->GetTraceNcoeffs(3));
-        order0 = *max_element(tmp.begin(), tmp.end());
+        order0 = *std::max_element(tmp.begin(), tmp.end());
     }
 
     if (m_forient[0] < 9)
@@ -765,7 +759,7 @@ void PrismGeom::SetUpXmap()
         tmp.push_back(m_faces[0]->GetXmap()->GetTraceNcoeffs(1));
         tmp.push_back(m_faces[0]->GetXmap()->GetTraceNcoeffs(3));
         tmp.push_back(m_faces[2]->GetXmap()->GetTraceNcoeffs(2));
-        order1 = *max_element(tmp.begin(), tmp.end());
+        order1 = *std::max_element(tmp.begin(), tmp.end());
     }
     else
     {
@@ -773,7 +767,7 @@ void PrismGeom::SetUpXmap()
         tmp.push_back(m_faces[0]->GetXmap()->GetTraceNcoeffs(0));
         tmp.push_back(m_faces[0]->GetXmap()->GetTraceNcoeffs(2));
         tmp.push_back(m_faces[2]->GetXmap()->GetTraceNcoeffs(2));
-        order1 = *max_element(tmp.begin(), tmp.end());
+        order1 = *std::max_element(tmp.begin(), tmp.end());
     }
 
     tmp.clear();
@@ -783,7 +777,7 @@ void PrismGeom::SetUpXmap()
     tmp.push_back(m_faces[1]->GetXmap()->GetTraceNcoeffs(2));
     tmp.push_back(m_faces[3]->GetXmap()->GetTraceNcoeffs(1));
     tmp.push_back(m_faces[3]->GetXmap()->GetTraceNcoeffs(2));
-    int order2 = *max_element(tmp.begin(), tmp.end());
+    int order2 = *std::max_element(tmp.begin(), tmp.end());
 
     const LibUtilities::BasisKey A(
         LibUtilities::eModified_A, order0,

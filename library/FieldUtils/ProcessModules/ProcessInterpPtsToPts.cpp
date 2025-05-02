@@ -36,8 +36,6 @@
 #include <string>
 using namespace std;
 
-#include <boost/lexical_cast.hpp>
-
 #include <FieldUtils/Interpolator.h>
 #include <LibUtilities/BasicUtils/CsvIO.h>
 #include <LibUtilities/BasicUtils/ParseUtils.h>

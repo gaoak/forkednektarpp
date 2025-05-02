@@ -44,6 +44,7 @@
 
 namespace Nektar::SpatialDomains
 {
+
 class SegGeom;
 typedef std::shared_ptr<SegGeom> SegGeomSharedPtr;
 typedef std::map<int, SegGeomSharedPtr> SegGeomMap;
@@ -60,7 +61,7 @@ public:
 
     SPATIAL_DOMAINS_EXPORT SegGeomSharedPtr GenerateOneSpaceDimGeom(void);
 
-    SPATIAL_DOMAINS_EXPORT ~SegGeom() override;
+    SPATIAL_DOMAINS_EXPORT ~SegGeom() override = default;
 
     SPATIAL_DOMAINS_EXPORT static StdRegions::Orientation GetEdgeOrientation(
         const SegGeom &edge1, const SegGeom &edge2);
@@ -94,6 +95,7 @@ private:
 
     void SetUpXmap();
 };
+
 } // namespace Nektar::SpatialDomains
 
 #endif // NEKTAR_SPATIALDOMAINS_SEGGEOM_H

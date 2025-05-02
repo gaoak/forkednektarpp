@@ -163,10 +163,9 @@ void OutputFileBase::v_Process(po::variables_map &vm)
 
             for (int i = 0; i < m_f->m_bndRegionsToWrite.size(); ++i)
             {
-                string outname =
-                    name + "_b" +
-                    boost::lexical_cast<string>(m_f->m_bndRegionsToWrite[i]) +
-                    "." + ext;
+                string outname = name + "_b" +
+                                 std::to_string(m_f->m_bndRegionsToWrite[i]) +
+                                 "." + ext;
 
                 if (!WriteFile(outname, vm))
                 {

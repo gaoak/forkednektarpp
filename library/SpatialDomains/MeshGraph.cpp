@@ -64,21 +64,11 @@
 
 #include <boost/geometry/geometry.hpp>
 #include <boost/geometry/index/rtree.hpp>
-namespace bg = boost::geometry;
 
-using namespace std;
+namespace bg = boost::geometry;
 
 namespace Nektar::SpatialDomains
 {
-
-/**
- * Returns an instance of the MeshGraph factory, held as a singleton.
- */
-MeshGraphFactory &GetMeshGraphFactory()
-{
-    static MeshGraphFactory instance;
-    return instance;
-}
 
 struct MeshGraph::GeomRTree
 {
@@ -98,6 +88,15 @@ struct MeshGraph::GeomRTree
     }
 };
 
+/**
+ * Returns an instance of the MeshGraph factory, held as a singleton.
+ */
+MeshGraphFactory &GetMeshGraphFactory()
+{
+    static MeshGraphFactory instance;
+    return instance;
+}
+
 MeshGraph::MeshGraph()
 {
     m_boundingBoxTree =
@@ -105,9 +104,6 @@ MeshGraph::MeshGraph()
     m_movement = std::make_shared<Movement>();
 }
 
-/**
- *
- */
 MeshGraph::~MeshGraph()
 {
 }
@@ -537,7 +533,7 @@ void MeshGraph::GetCompositeList(const std::string &compositeStr,
                                  CompositeMap &compositeVector) const
 {
     // Parse the composites into a list.
-    vector<unsigned int> seqVector;
+    std::vector<unsigned int> seqVector;
     bool parseGood =
         ParseUtils::GenerateSeqVector(compositeStr.c_str(), seqVector);
 
@@ -546,8 +542,8 @@ void MeshGraph::GetCompositeList(const std::string &compositeStr,
         (std::string("Unable to read composite index range: ") + compositeStr)
             .c_str());
 
-    vector<unsigned int> addedVector; // Vector of those composites already
-                                      // added to compositeVector;
+    std::vector<unsigned int> addedVector; // Vector of those composites already
+                                           // added to compositeVector;
     for (auto iter = seqVector.begin(); iter != seqVector.end(); ++iter)
     {
         // Only add a new one if it does not already exist in vector.
@@ -630,8 +626,7 @@ ExpansionInfoShPtr MeshGraph::GetExpansionInfo(GeometrySharedPtr geom,
 
     auto iter = expansionMap->find(geom->GetGlobalID());
     ASSERTL1(iter != expansionMap->end(),
-             "Could not find expansion " +
-                 boost::lexical_cast<string>(geom->GetGlobalID()) +
+             "Could not find expansion " + std::to_string(geom->GetGlobalID()) +
                  " in expansion for variable " + variable);
     return iter->second;
 }
@@ -1452,7 +1447,7 @@ void MeshGraph::SetExpansionInfoToEvenlySpacedPoints(int npoints)
                 {
                     npts = bkeyold.GetNumModes();
                 }
-                npts = max(npts, 2);
+                npts = std::max(npts, 2);
 
                 const LibUtilities::PointsKey pkey(
                     npts, LibUtilities::ePolyEvenlySpaced);
@@ -2675,21 +2670,22 @@ std::string MeshGraph::GetCompositeString(CompositeSharedPtr comp)
 
     // Create a map that gets around the issue of mapping faces -> F and edges
     // -> E inside the tag.
-    map<LibUtilities::ShapeType, pair<string, string>> compMap;
-    compMap[LibUtilities::ePoint]         = make_pair("V", "V");
-    compMap[LibUtilities::eSegment]       = make_pair("S", "E");
-    compMap[LibUtilities::eQuadrilateral] = make_pair("Q", "F");
-    compMap[LibUtilities::eTriangle]      = make_pair("T", "F");
-    compMap[LibUtilities::eTetrahedron]   = make_pair("A", "A");
-    compMap[LibUtilities::ePyramid]       = make_pair("P", "P");
-    compMap[LibUtilities::ePrism]         = make_pair("R", "R");
-    compMap[LibUtilities::eHexahedron]    = make_pair("H", "H");
+    std::map<LibUtilities::ShapeType, std::pair<std::string, std::string>>
+        compMap;
+    compMap[LibUtilities::ePoint]         = std::make_pair("V", "V");
+    compMap[LibUtilities::eSegment]       = std::make_pair("S", "E");
+    compMap[LibUtilities::eQuadrilateral] = std::make_pair("Q", "F");
+    compMap[LibUtilities::eTriangle]      = std::make_pair("T", "F");
+    compMap[LibUtilities::eTetrahedron]   = std::make_pair("A", "A");
+    compMap[LibUtilities::ePyramid]       = std::make_pair("P", "P");
+    compMap[LibUtilities::ePrism]         = std::make_pair("R", "R");
+    compMap[LibUtilities::eHexahedron]    = std::make_pair("H", "H");
 
-    stringstream s;
+    std::stringstream s;
 
     GeometrySharedPtr firstGeom = comp->m_geomVec[0];
     int shapeDim                = firstGeom->GetShapeDim();
-    string tag                  = (shapeDim < m_meshDimension)
+    std::string tag             = (shapeDim < m_meshDimension)
                                       ? compMap[firstGeom->GetShapeType()].second
                                       : compMap[firstGeom->GetShapeType()].first;
 
@@ -2839,7 +2835,7 @@ void MeshGraph::ReadRefinementInfo()
                 ASSERTL0(idStr, "REF was not defined in REFINEMENT section "
                                 "of input");
 
-                unsigned id = boost::lexical_cast<unsigned int>(idStr);
+                unsigned id = std::stoul(idStr);
 
                 // Extract Radius
                 const char *radiusStr = refinement->Attribute("RADIUS");
@@ -2948,7 +2944,7 @@ void MeshGraph::ReadRefinementInfo()
                     }
                     else
                     {
-                        n_modesRef = boost::lexical_cast<int>(numModesStr);
+                        n_modesRef = std::stoi(numModesStr);
                     }
                     nModesVector.push_back(n_modesRef);
                     nPointsVector.clear(); // No points.
@@ -3044,7 +3040,7 @@ void MeshGraph::ReadExpansionInfo()
 
             // Collect all composites of the domain to control which
             // composites are defined for each variable.
-            map<int, bool> domainCompList;
+            std::map<int, bool> domainCompList;
             for (auto &d : m_domain)
             {
                 for (auto &c : d.second)
@@ -3052,7 +3048,7 @@ void MeshGraph::ReadExpansionInfo()
                     domainCompList[c.first] = false;
                 }
             }
-            map<std::string, map<int, bool>> fieldDomainCompList;
+            std::map<std::string, std::map<int, bool>> fieldDomainCompList;
 
             while (expansion)
             {
@@ -3065,7 +3061,7 @@ void MeshGraph::ReadExpansionInfo()
                 std::string compositeListStr =
                     compositeStr.substr(beg + 1, end - beg - 1);
 
-                map<int, CompositeSharedPtr> compositeVector;
+                std::map<int, CompositeSharedPtr> compositeVector;
                 GetCompositeList(compositeListStr, compositeVector);
 
                 // Extract Fields if any
@@ -3141,7 +3137,8 @@ void MeshGraph::ReadExpansionInfo()
                                              "variable '" +
                                                  fieldStrings[i] +
                                                  "' is already setup for C[" +
-                                                 to_string(c->first) + "].");
+                                                 std::to_string(c->first) +
+                                                 "].");
                                 }
                             }
                             expansionMap =
@@ -3183,7 +3180,8 @@ void MeshGraph::ReadExpansionInfo()
                             {
                                 ASSERTL0(false, "Default expansion already "
                                                 "defined for C[" +
-                                                    to_string(c->first) + "].");
+                                                    std::to_string(c->first) +
+                                                    "].");
                             }
                         }
                         expansionMap =
@@ -3238,7 +3236,7 @@ void MeshGraph::ReadExpansionInfo()
                     }
                     else
                     {
-                        num_modes = boost::lexical_cast<int>(nummodesStr);
+                        num_modes = std::stoi(nummodesStr);
                     }
 
                     m_useExpansionType = true;
@@ -3258,7 +3256,7 @@ void MeshGraph::ReadExpansionInfo()
                         basisTypeStr.c_str(), basisStrings);
                     ASSERTL0(valid,
                              "Unable to correctly parse the basis types.");
-                    for (vector<std::string>::size_type i = 0;
+                    for (std::vector<std::string>::size_type i = 0;
                          i < basisStrings.size(); i++)
                     {
                         valid = false;
@@ -3305,7 +3303,7 @@ void MeshGraph::ReadExpansionInfo()
                                                        pointsStrings);
                     ASSERTL0(valid,
                              "Unable to correctly parse the points types.");
-                    for (vector<std::string>::size_type i = 0;
+                    for (std::vector<std::string>::size_type i = 0;
                          i < pointsStrings.size(); i++)
                     {
                         valid = false;
@@ -3355,8 +3353,8 @@ void MeshGraph::ReadExpansionInfo()
                 const char *refIDsStr = expansion->Attribute("REFIDS");
                 if (refIDsStr)
                 {
-                    vector<NekDouble> refIDsVector;
-                    string refIDsString = refIDsStr;
+                    std::vector<NekDouble> refIDsVector;
+                    std::string refIDsString = refIDsStr;
                     bool valid =
                         ParseUtils::GenerateVector(refIDsString, refIDsVector);
                     ASSERTL0(valid, "Unable to correctly parse the ids "
@@ -3456,13 +3454,14 @@ void MeshGraph::ReadExpansionInfo()
                                  f->first +
                                  "' in composite "
                                  "C[" +
-                                 to_string(c->first) + "].")
+                                 std::to_string(c->first) + "].")
                                     .c_str());
                         }
                         ASSERTL0(c->second, "There is no expansion defined for "
                                             "variable '" +
                                                 f->first + "' in C[" +
-                                                to_string(c->first) + "].");
+                                                std::to_string(c->first) +
+                                                "].");
                     }
                 }
             }
@@ -3528,7 +3527,7 @@ void MeshGraph::ReadExpansionInfo()
 
             // Collect all composites of the domain to control which
             // composites are defined for each variable.
-            map<int, bool> domainCompList;
+            std::map<int, bool> domainCompList;
             for (auto &d : m_domain)
             {
                 for (auto &c : d.second)
@@ -3536,7 +3535,7 @@ void MeshGraph::ReadExpansionInfo()
                     domainCompList[c.first] = false;
                 }
             }
-            map<std::string, map<int, bool>> fieldDomainCompList;
+            std::map<std::string, std::map<int, bool>> fieldDomainCompList;
 
             while (expansion)
             {
@@ -3549,7 +3548,7 @@ void MeshGraph::ReadExpansionInfo()
                 std::string compositeListStr =
                     compositeStr.substr(beg + 1, end - beg - 1);
 
-                map<int, CompositeSharedPtr> compositeVector;
+                std::map<int, CompositeSharedPtr> compositeVector;
                 GetCompositeList(compositeListStr, compositeVector);
 
                 // Extract Fields if any
@@ -3625,7 +3624,8 @@ void MeshGraph::ReadExpansionInfo()
                                              "variable '" +
                                                  fieldStrings[i] +
                                                  "' is already setup for C[" +
-                                                 to_string(c->first) + "].");
+                                                 std::to_string(c->first) +
+                                                 "].");
                                 }
                             }
                             expansionMap =
@@ -3667,7 +3667,8 @@ void MeshGraph::ReadExpansionInfo()
                             {
                                 ASSERTL0(false, "Default expansion already "
                                                 "defined for C[" +
-                                                    to_string(c->first) + "].");
+                                                    std::to_string(c->first) +
+                                                    "].");
                             }
                         }
                         expansionMap =
@@ -3715,7 +3716,7 @@ void MeshGraph::ReadExpansionInfo()
                     }
                     else
                     {
-                        num_modes_x = boost::lexical_cast<int>(nummodesStr);
+                        num_modes_x = std::stoi(nummodesStr);
                     }
                 }
 
@@ -3748,7 +3749,7 @@ void MeshGraph::ReadExpansionInfo()
                     }
                     else
                     {
-                        num_modes_y = boost::lexical_cast<int>(nummodesStr);
+                        num_modes_y = std::stoi(nummodesStr);
                     }
                 }
 
@@ -3781,7 +3782,7 @@ void MeshGraph::ReadExpansionInfo()
                     }
                     else
                     {
-                        num_modes_z = boost::lexical_cast<int>(nummodesStr);
+                        num_modes_z = std::stoi(nummodesStr);
                     }
                 }
 
@@ -3855,13 +3856,14 @@ void MeshGraph::ReadExpansionInfo()
                                  f->first +
                                  "' in composite "
                                  "C[" +
-                                 to_string(c->first) + "].")
+                                 std::to_string(c->first) + "].")
                                     .c_str());
                         }
                         ASSERTL0(c->second, "There is no expansion defined for "
                                             "variable '" +
                                                 f->first + "' in C[" +
-                                                to_string(c->first) + "].");
+                                                std::to_string(c->first) +
+                                                "].");
                     }
                 }
             }
@@ -3915,12 +3917,13 @@ void MeshGraph::ReadExpansionInfo()
             // This has to use the XML reader since we are treating the already
             // parsed XML as a standard FLD file.
             std::shared_ptr<LibUtilities::FieldIOXml> f =
-                make_shared<LibUtilities::FieldIOXml>(m_session->GetComm(),
-                                                      false);
+                std::make_shared<LibUtilities::FieldIOXml>(m_session->GetComm(),
+                                                           false);
             f->ImportFieldDefs(
                 LibUtilities::XmlDataSource::create(m_session->GetDocument()),
                 fielddefs, true);
-            cout << "    Number of elements: " << fielddefs.size() << endl;
+            std::cout << "    Number of elements: " << fielddefs.size()
+                      << std::endl;
             SetExpansionInfo(fielddefs);
         }
         else if (expType == "F")
@@ -3951,8 +3954,8 @@ GeometryLinkSharedPtr MeshGraph::GetElementsFromEdge(Geometry1DSharedPtr edge)
     // Need to iterate through vectors because there may be multiple
     // occurrences.
 
-    GeometryLinkSharedPtr ret =
-        GeometryLinkSharedPtr(new vector<pair<GeometrySharedPtr, int>>);
+    GeometryLinkSharedPtr ret = GeometryLinkSharedPtr(
+        new std::vector<std::pair<GeometrySharedPtr, int>>);
 
     TriGeomSharedPtr triGeomShPtr;
     QuadGeomSharedPtr quadGeomShPtr;
@@ -3975,7 +3978,7 @@ GeometryLinkSharedPtr MeshGraph::GetElementsFromEdge(Geometry1DSharedPtr edge)
                             if (triGeomShPtr->GetEdge(i)->GetGlobalID() ==
                                 edge->GetGlobalID())
                             {
-                                ret->push_back(make_pair(triGeomShPtr, i));
+                                ret->push_back(std::make_pair(triGeomShPtr, i));
                                 break;
                             }
                         }
@@ -3987,7 +3990,8 @@ GeometryLinkSharedPtr MeshGraph::GetElementsFromEdge(Geometry1DSharedPtr edge)
                             if (quadGeomShPtr->GetEdge(i)->GetGlobalID() ==
                                 edge->GetGlobalID())
                             {
-                                ret->push_back(make_pair(quadGeomShPtr, i));
+                                ret->push_back(
+                                    std::make_pair(quadGeomShPtr, i));
                                 break;
                             }
                         }
@@ -4030,14 +4034,14 @@ void MeshGraph::PopulateFaceToElMap(Geometry3DSharedPtr element, int kNfaces)
 
         if (it == m_faceToElMap.end())
         {
-            GeometryLinkSharedPtr tmp =
-                GeometryLinkSharedPtr(new vector<pair<GeometrySharedPtr, int>>);
-            tmp->push_back(make_pair(element, i));
+            GeometryLinkSharedPtr tmp = GeometryLinkSharedPtr(
+                new std::vector<std::pair<GeometrySharedPtr, int>>);
+            tmp->push_back(std::make_pair(element, i));
             m_faceToElMap[faceId] = tmp;
         }
         else
         {
-            it->second->push_back(make_pair(element, i));
+            it->second->push_back(std::make_pair(element, i));
         }
     }
 }
@@ -4155,7 +4159,7 @@ CompositeDescriptor MeshGraph::CreateCompositeDescriptor()
 
     for (auto &comp : m_meshComposites)
     {
-        std::pair<LibUtilities::ShapeType, vector<int>> tmp;
+        std::pair<LibUtilities::ShapeType, std::vector<int>> tmp;
         tmp.first = comp.second->m_geomVec[0]->GetShapeType();
 
         tmp.second.resize(comp.second->m_geomVec.size());

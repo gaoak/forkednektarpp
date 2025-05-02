@@ -103,13 +103,6 @@ GeomFactors::GeomFactors(const GeomFactors &S)
 }
 
 /**
- *
- */
-GeomFactors::~GeomFactors()
-{
-}
-
-/**
  * Member data equivalence is tested in the following order: shape type,
  * expansion dimension, coordinate dimension and coordinates.
  */

@@ -55,10 +55,6 @@ MeshPartitionMetis::MeshPartitionMetis(
 {
 }
 
-MeshPartitionMetis::~MeshPartitionMetis()
-{
-}
-
 void MeshPartitionMetis::v_PartitionGraphImpl(
     int &nVerts, int &nVertConds, Nektar::Array<Nektar::OneD, int> &xadj,
     Nektar::Array<Nektar::OneD, int> &adjcy,

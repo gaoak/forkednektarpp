@@ -44,6 +44,8 @@ namespace Nektar::SpatialDomains
 class MeshPartitionMetis : public MeshPartition
 {
 public:
+    friend class MemoryManager<MeshPartitionMetis>;
+
     /// Creates an instance of this class
     static MeshPartitionSharedPtr create(
         const LibUtilities::SessionReaderSharedPtr session,
@@ -58,13 +60,13 @@ public:
     static std::string className;
     static std::string cmdSwitch;
 
+protected:
     MeshPartitionMetis(const LibUtilities::SessionReaderSharedPtr session,
                        LibUtilities::CommSharedPtr comm, int meshDim,
                        std::map<int, MeshEntity> element,
                        CompositeDescriptor compMap);
-    ~MeshPartitionMetis() override;
+    ~MeshPartitionMetis() override = default;
 
-protected:
     void v_PartitionGraphImpl(int &nVerts, int &nVertConds,
                               Nektar::Array<Nektar::OneD, int> &xadj,
                               Nektar::Array<Nektar::OneD, int> &adjcy,

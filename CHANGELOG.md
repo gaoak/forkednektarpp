@@ -32,6 +32,9 @@ v5.8.0
 - Remove some boost include in favor of C++17 build-in features (!2097)
 - Various tidy-up in SolverUtils (!2100)
 - Use forward declaration in header files for GlobalMapping (!2099)
+- Remove dummy `APESolver` executable. (!2119)
+- Tidy use of boost_lexical_cast (!2109)
+- Tidy-up SpatialDomains (!2120)
 
 **CI**
 - Fix CubeAllElements performance test tolerance (!1943)

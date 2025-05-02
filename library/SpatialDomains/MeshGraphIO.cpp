@@ -36,8 +36,6 @@
 #include <SpatialDomains/MeshGraph.h>
 #include <SpatialDomains/MeshGraphIO.h>
 
-using namespace std;
-
 namespace Nektar::SpatialDomains
 {
 
@@ -233,7 +231,7 @@ CompositeDescriptor MeshGraphIO::CreateCompositeDescriptor()
 
     for (auto &comp : *meshComposites)
     {
-        std::pair<LibUtilities::ShapeType, vector<int>> tmp;
+        std::pair<LibUtilities::ShapeType, std::vector<int>> tmp;
         tmp.first = comp.second->m_geomVec[0]->GetShapeType();
 
         tmp.second.resize(comp.second->m_geomVec.size());
@@ -260,21 +258,22 @@ std::string MeshGraphIO::GetCompositeString(CompositeSharedPtr comp)
 
     // Create a map that gets around the issue of mapping faces -> F and edges
     // -> E inside the tag.
-    map<LibUtilities::ShapeType, pair<string, string>> compMap;
-    compMap[LibUtilities::ePoint]         = make_pair("V", "V");
-    compMap[LibUtilities::eSegment]       = make_pair("S", "E");
-    compMap[LibUtilities::eQuadrilateral] = make_pair("Q", "F");
-    compMap[LibUtilities::eTriangle]      = make_pair("T", "F");
-    compMap[LibUtilities::eTetrahedron]   = make_pair("A", "A");
-    compMap[LibUtilities::ePyramid]       = make_pair("P", "P");
-    compMap[LibUtilities::ePrism]         = make_pair("R", "R");
-    compMap[LibUtilities::eHexahedron]    = make_pair("H", "H");
+    std::map<LibUtilities::ShapeType, std::pair<std::string, std::string>>
+        compMap;
+    compMap[LibUtilities::ePoint]         = std::make_pair("V", "V");
+    compMap[LibUtilities::eSegment]       = std::make_pair("S", "E");
+    compMap[LibUtilities::eQuadrilateral] = std::make_pair("Q", "F");
+    compMap[LibUtilities::eTriangle]      = std::make_pair("T", "F");
+    compMap[LibUtilities::eTetrahedron]   = std::make_pair("A", "A");
+    compMap[LibUtilities::ePyramid]       = std::make_pair("P", "P");
+    compMap[LibUtilities::ePrism]         = std::make_pair("R", "R");
+    compMap[LibUtilities::eHexahedron]    = std::make_pair("H", "H");
 
-    stringstream s;
+    std::stringstream s;
 
     GeometrySharedPtr firstGeom = comp->m_geomVec[0];
     int shapeDim                = firstGeom->GetShapeDim();
-    string tag                  = (shapeDim < m_meshGraph->GetMeshDimension())
+    std::string tag             = (shapeDim < m_meshGraph->GetMeshDimension())
                                       ? compMap[firstGeom->GetShapeType()].second
                                       : compMap[firstGeom->GetShapeType()].first;
 

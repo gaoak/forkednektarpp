@@ -1033,8 +1033,7 @@ void DisContField::FindPeriodicTraces(
                 }
 
                 ASSERTL0(it.second->size() == 1,
-                         "Boundary region " +
-                             boost::lexical_cast<string>(region1ID) +
+                         "Boundary region " + std::to_string(region1ID) +
                              " should only contain 1 composite.");
 
                 vector<unsigned int> tmpOrder;
@@ -1281,8 +1280,8 @@ void DisContField::FindPeriodicTraces(
                 SpatialDomains::CompositeSharedPtr c[2];
                 const int id1    = cIt.first;
                 const int id2    = cIt.second;
-                std::string id1s = boost::lexical_cast<string>(id1);
-                std::string id2s = boost::lexical_cast<string>(id2);
+                std::string id1s = std::to_string(id1);
+                std::string id2s = std::to_string(id2);
 
                 if (compMap.count(id1) > 0)
                 {
@@ -1600,8 +1599,7 @@ void DisContField::FindPeriodicTraces(
 
                 // Check the region only contains a single composite.
                 ASSERTL0(it.second->size() == 1,
-                         "Boundary region " +
-                             boost::lexical_cast<string>(region1ID) +
+                         "Boundary region " + std::to_string(region1ID) +
                              " should only contain 1 composite.");
 
                 // From this identify composites by looking at the original
@@ -2082,8 +2080,8 @@ void DisContField::FindPeriodicTraces(
                 SpatialDomains::CompositeSharedPtr c[2];
                 const int id1    = cIt.first;
                 const int id2    = cIt.second;
-                std::string id1s = boost::lexical_cast<string>(id1);
-                std::string id2s = boost::lexical_cast<string>(id2);
+                std::string id1s = std::to_string(id1);
+                std::string id2s = std::to_string(id2);
 
                 if (compMap.count(id1) > 0)
                 {
@@ -2241,7 +2239,7 @@ void DisContField::FindPeriodicTraces(
                                 o == StdRegions::eDir1FwdDir1_Dir2FwdDir2 ||
                                     o == StdRegions::eDir1BwdDir1_Dir2FwdDir2,
                                 "Unsupported face orientation for face " +
-                                    boost::lexical_cast<string>(ids[i]));
+                                    std::to_string(ids[i]));
                         }
 
                         // Look up vertices for this face.
@@ -2392,13 +2390,13 @@ void DisContField::FindPeriodicTraces(
 
                 ASSERTL0(allCompPairs.count(faceId) > 0,
                          "Unable to find matching periodic face. faceId = " +
-                             boost::lexical_cast<string>(faceId));
+                             std::to_string(faceId));
 
                 int perFaceId = allCompPairs[faceId];
 
                 // check to see if periodic boundary is rotated
                 ASSERTL1((rotComp.size() == 0) || fIdToCompId.count(faceId) > 0,
-                         "Face " + boost::lexical_cast<string>(faceId) +
+                         "Face " + std::to_string(faceId) +
                              " not found in fIdtoCompId map");
                 if (rotComp.count(fIdToCompId[faceId]))
                 {

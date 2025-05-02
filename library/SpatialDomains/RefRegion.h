@@ -58,7 +58,7 @@ public:
                                      std::vector<unsigned int> numModes,
                                      std::vector<unsigned int> numPoints);
     /// Destructor
-    SPATIAL_DOMAINS_EXPORT virtual ~RefRegion();
+    SPATIAL_DOMAINS_EXPORT virtual ~RefRegion() = default;
 
     /// Pure virtual fuction
     SPATIAL_DOMAINS_EXPORT virtual bool v_Contains(
@@ -77,10 +77,6 @@ public:
     }
 
 protected:
-    /// Dimension of the coordinate (space dimension)
-    unsigned int m_coordim;
-    /// Radius of the surface region
-    NekDouble m_radius;
     /// Coordinate 1
     std::vector<NekDouble> m_coord1;
     /// Coordinate 2
@@ -89,6 +85,10 @@ protected:
     std::vector<unsigned int> m_numModes;
     /// Number of quadrature points
     std::vector<unsigned int> m_numPoints;
+    /// Radius of the surface region
+    NekDouble m_radius;
+    /// Dimension of the coordinate (space dimension)
+    unsigned int m_coordim;
 };
 
 } // namespace Nektar::SpatialDomains

@@ -66,7 +66,7 @@ class Geometry3D : public Geometry
 public:
     SPATIAL_DOMAINS_EXPORT Geometry3D();
     SPATIAL_DOMAINS_EXPORT Geometry3D(const int coordim);
-    SPATIAL_DOMAINS_EXPORT ~Geometry3D() override;
+    SPATIAL_DOMAINS_EXPORT ~Geometry3D() override = default;
 
     //---------------------------------------
     // Helper functions

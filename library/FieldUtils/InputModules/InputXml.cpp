@@ -216,28 +216,27 @@ void InputXml::v_Process(po::variables_map &vm)
     if (vm.count("part-only"))
     {
         cmdArgs.push_back("--part-only");
-        cmdArgs.push_back(
-            boost::lexical_cast<string>(vm["part-only"].as<int>()));
+        cmdArgs.push_back(std::to_string(vm["part-only"].as<int>()));
     }
 
     if (vm.count("part-only-overlapping"))
     {
         cmdArgs.push_back("--part-only-overlapping");
         cmdArgs.push_back(
-            boost::lexical_cast<string>(vm["part-only-overlapping"].as<int>()));
+            std::to_string(vm["part-only-overlapping"].as<int>()));
     }
 
     if (vm.count("npz"))
     {
         cmdArgs.push_back("--npz");
-        cmdArgs.push_back(boost::lexical_cast<string>(vm["npz"].as<int>()));
+        cmdArgs.push_back(std::to_string(vm["npz"].as<int>()));
     }
 
     // Parallel-in-time
     if (vm.count("npt"))
     {
         cmdArgs.push_back("--npt");
-        cmdArgs.push_back(boost::lexical_cast<string>(vm["npt"].as<int>()));
+        cmdArgs.push_back(std::to_string(vm["npt"].as<int>()));
     }
 
     int argc          = cmdArgs.size();

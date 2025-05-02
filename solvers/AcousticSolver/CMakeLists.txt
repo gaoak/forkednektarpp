@@ -21,7 +21,6 @@ IF( NEKTAR_SOLVER_ACOUSTIC )
 )
 
     ADD_SOLVER_EXECUTABLE(AcousticSolver SOURCES ${AcousticSolverSource})
-    ADD_NEKTAR_EXECUTABLE(APESolver COMPONENT AcousticSolver SOURCES ./APESolver.cpp)
 
     IF(NEKTAR_BUILD_SOLVER_LIBS)
         MESSAGE(WARNING, "Solver library build not set up for AcousticSolver - skipping.")

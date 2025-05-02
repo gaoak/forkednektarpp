@@ -54,10 +54,6 @@ MeshPartitionScotch::MeshPartitionScotch(
 {
 }
 
-MeshPartitionScotch::~MeshPartitionScotch()
-{
-}
-
 void MeshPartitionScotch::v_PartitionGraphImpl(
     int &nVerts, [[maybe_unused]] int &nVertConds,
     Nektar::Array<Nektar::OneD, int> &xadj,

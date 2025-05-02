@@ -285,7 +285,7 @@ void PreconditionerJacobi::v_BuildPreconditioner()
 
     if (session->DefinesGlobalSysSolnInfo(var, "JacobiIterations"))
     {
-        m_niter = boost::lexical_cast<int>(
+        m_niter = std::stoi(
             session->GetGlobalSysSolnInfo(var, "JacobiIterations").c_str());
     }
     else

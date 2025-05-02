@@ -117,8 +117,6 @@ struct MeshCurvedInfo
 
 struct MeshCurvedPts
 {
-    NekInt64 id; /// id of this Point set
-
     /// Mapping to access the pts value. Given a 'ptoffset'
     /// value the npoints subsquent values provide the
     /// indexing on how to obtain the MeshVertex structure
@@ -130,13 +128,15 @@ struct MeshCurvedPts
     /// A list of MeshVertex entities containing the x,y,z
     /// values of unique points used in the curved entitites.
     std::vector<MeshVertex> pts;
+
+    NekInt64 id; /// id of this Point set
 };
 
 struct MeshEntity
 {
+    std::vector<unsigned int> list;
     int id;
     int origId;
-    std::vector<unsigned int> list;
     bool ghost;
 };
 } // namespace Nektar::SpatialDomains

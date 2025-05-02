@@ -557,13 +557,10 @@ find %{buildroot}/%{python3_sitearch}/openmpi/NekPy/ -name *.so -exec chrpath -r
 ## Solvers
 %files acoustic-solver
 %{_bindir}/AcousticSolver
-%{_bindir}/APESolver
 %files openmpi-acoustic-solver
 %{_libdir}/openmpi/bin/AcousticSolver
-%{_libdir}/openmpi/bin/APESolver
 %files mpich-acoustic-solver
 %{_libdir}/mpich/bin/AcousticSolver
-%{_libdir}/mpich/bin/APESolver
 
 %files adr-solver
 %{_bindir}/ADRSolver

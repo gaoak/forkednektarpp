@@ -45,8 +45,7 @@ namespace Nektar::SpatialDomains
 class MeshGraphIOHDF5 : public MeshGraphIO
 {
 public:
-    MeshGraphIOHDF5()           = default;
-    ~MeshGraphIOHDF5() override = default;
+    friend class MemoryManager<MeshGraphIOHDF5>;
 
     static MeshGraphIOSharedPtr create()
     {
@@ -57,6 +56,9 @@ public:
 
 protected:
     TiXmlElement *m_xmlGeom{};
+
+    MeshGraphIOHDF5()           = default;
+    ~MeshGraphIOHDF5() override = default;
 
     // some of these functions are going to be virtual because they will be
     // inherited by the XmlCompressed version

@@ -147,8 +147,8 @@ bool AcousticSystem::v_PreIntegrate(int step)
             {
                 phys[m_fields.size() + m_bfNames.size() + f + i] =
                     x->GetForces()[i];
-                varNames.push_back("F_" + boost::lexical_cast<std::string>(f) +
-                                   "_" + m_session->GetVariable(i));
+                varNames.push_back("F_" + std::to_string(f) + "_" +
+                                   m_session->GetVariable(i));
             }
             f++;
         }
@@ -570,8 +570,8 @@ void AcousticSystem::v_ExtraFldOutput(
     {
         for (int i = 0; i < x->GetForces().size(); ++i)
         {
-            variables.push_back("F_" + boost::lexical_cast<std::string>(f) +
-                                "_" + m_session->GetVariable(i));
+            variables.push_back("F_" + std::to_string(f) + "_" +
+                                m_session->GetVariable(i));
             Array<OneD, NekDouble> tmpC(GetNcoeffs());
             m_fields[0]->FwdTrans(x->GetForces()[i], tmpC);
             fieldcoeffs.push_back(tmpC);

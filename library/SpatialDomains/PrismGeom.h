@@ -47,7 +47,7 @@ class PrismGeom : public Geometry3D
 public:
     SPATIAL_DOMAINS_EXPORT PrismGeom();
     SPATIAL_DOMAINS_EXPORT PrismGeom(int id, const Geometry2DSharedPtr faces[]);
-    SPATIAL_DOMAINS_EXPORT ~PrismGeom() override;
+    SPATIAL_DOMAINS_EXPORT ~PrismGeom() override = default;
 
     SPATIAL_DOMAINS_EXPORT static const int kNverts  = 6;
     SPATIAL_DOMAINS_EXPORT static const int kNedges  = 9;
@@ -81,6 +81,7 @@ private:
 
 typedef std::shared_ptr<PrismGeom> PrismGeomSharedPtr;
 typedef std::map<int, PrismGeomSharedPtr> PrismGeomMap;
+
 } // namespace Nektar::SpatialDomains
 
 #endif // NEKTAR_SPATIALDOMAINS_PRISMGEOM_H

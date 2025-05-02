@@ -41,8 +41,6 @@
 #include <SpatialDomains/SegGeom.h>
 #include <StdRegions/StdQuadExp.h>
 
-using namespace std;
-
 namespace Nektar::SpatialDomains
 {
 
@@ -98,16 +96,12 @@ QuadGeom::QuadGeom(const QuadGeom &in) : Geometry2D(in)
     }
 }
 
-QuadGeom::~QuadGeom()
-{
-}
-
 void QuadGeom::SetUpXmap()
 {
-    int order0 = max(m_edges[0]->GetXmap()->GetBasis(0)->GetNumModes(),
-                     m_edges[2]->GetXmap()->GetBasis(0)->GetNumModes());
-    int order1 = max(m_edges[1]->GetXmap()->GetBasis(0)->GetNumModes(),
-                     m_edges[3]->GetXmap()->GetBasis(0)->GetNumModes());
+    int order0 = std::max(m_edges[0]->GetXmap()->GetBasis(0)->GetNumModes(),
+                          m_edges[2]->GetXmap()->GetBasis(0)->GetNumModes());
+    int order1 = std::max(m_edges[1]->GetXmap()->GetBasis(0)->GetNumModes(),
+                          m_edges[3]->GetXmap()->GetBasis(0)->GetNumModes());
 
     const LibUtilities::BasisKey B0(
         LibUtilities::eModified_A, order0,
@@ -408,14 +402,14 @@ void QuadGeom::v_FillGeom()
             ASSERTL0(nEdgePts * nEdgePts == npts,
                      "NUMPOINTS should be a square number in"
                      " quadrilteral " +
-                         boost::lexical_cast<string>(m_globalID));
+                         std::to_string(m_globalID));
 
             for (i = 0; i < kNedges; ++i)
             {
                 ASSERTL0(m_edges[i]->GetXmap()->GetNcoeffs() == nEdgePts,
                          "Number of edge points does not correspond to "
                          "number of face points in quadrilateral " +
-                             boost::lexical_cast<string>(m_globalID));
+                             std::to_string(m_globalID));
             }
 
             for (i = 0; i < m_coordim; ++i)

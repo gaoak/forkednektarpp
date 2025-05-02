@@ -32,6 +32,7 @@
 //
 //
 ////////////////////////////////////////////////////////////////////////////////
+
 #ifndef NEKTAR_SPATIALDOMAINS_BOUNDARYCONDITIONS_H
 #define NEKTAR_SPATIALDOMAINS_BOUNDARYCONDITIONS_H
 
@@ -63,12 +64,12 @@ struct BoundaryConditionBase
         BoundaryConditionType type,
         const std::string &userDefined   = std::string("NoUserDefined"),
         LibUtilities::CommSharedPtr comm = LibUtilities::CommSharedPtr())
-        : m_boundaryConditionType(type), m_userDefined(userDefined),
-          m_isTimeDependent(false), m_comm(comm)
+        : m_comm(comm), m_userDefined(userDefined),
+          m_boundaryConditionType(type), m_isTimeDependent(false)
     {
     }
 
-    virtual ~BoundaryConditionBase(){};
+    virtual ~BoundaryConditionBase() = default;
 
     BoundaryConditionType GetBoundaryConditionType() const
     {
@@ -106,10 +107,10 @@ struct BoundaryConditionBase
     }
 
 protected:
-    BoundaryConditionType m_boundaryConditionType;
-    std::string m_userDefined;
-    bool m_isTimeDependent;
     LibUtilities::CommSharedPtr m_comm;
+    std::string m_userDefined;
+    BoundaryConditionType m_boundaryConditionType;
+    bool m_isTimeDependent;
 };
 
 struct DirichletBoundaryCondition : public BoundaryConditionBase
@@ -228,8 +229,8 @@ public:
         const LibUtilities::SessionReaderSharedPtr &pSession,
         const MeshGraphSharedPtr &meshGraph);
 
-    SPATIAL_DOMAINS_EXPORT BoundaryConditions(void);
-    SPATIAL_DOMAINS_EXPORT ~BoundaryConditions(void);
+    SPATIAL_DOMAINS_EXPORT BoundaryConditions(void)  = default;
+    SPATIAL_DOMAINS_EXPORT ~BoundaryConditions(void) = default;
 
     const BoundaryRegionCollection &GetBoundaryRegions(void) const
     {
@@ -280,7 +281,6 @@ protected:
 private:
     /// Read segments (and general MeshGraph) given TiXmlDocument.
     void Read(TiXmlElement *conditions);
-
     void ReadBoundaryRegions(TiXmlElement *regions);
     void ReadBoundaryConditions(TiXmlElement *conditions);
     void CreateBoundaryComms();

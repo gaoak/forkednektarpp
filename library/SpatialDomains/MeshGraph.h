@@ -528,6 +528,7 @@ protected:
     std::unique_ptr<GeomRTree> m_boundingBoxTree;
     MovementSharedPtr m_movement;
 };
+
 typedef std::shared_ptr<MeshGraph> MeshGraphSharedPtr;
 typedef LibUtilities::NekFactory<std::string, MeshGraph> MeshGraphFactory;
 

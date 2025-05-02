@@ -48,8 +48,6 @@
 
 #include <tinyxml.h>
 
-using namespace std;
-
 namespace Nektar::SpatialDomains
 {
 
@@ -110,7 +108,7 @@ void MeshGraphIOXml::v_PartitionMesh(
         bool haveScotch = GetMeshPartitionFactory().ModuleExists("Scotch");
         bool haveMetis  = GetMeshPartitionFactory().ModuleExists("Metis");
 
-        string partitionerName = "Scotch";
+        std::string partitionerName = "Scotch";
         if (!haveScotch && haveMetis)
         {
             partitionerName = "Metis";
@@ -161,12 +159,12 @@ void MeshGraphIOXml::v_PartitionMesh(
                 partitioner->PartitionMesh(nParts, true, true);
             }
 
-            vector<set<unsigned int>> elmtIDs;
-            vector<unsigned int> parts(nParts);
+            std::vector<std::set<unsigned int>> elmtIDs;
+            std::vector<unsigned int> parts(nParts);
             for (int i = 0; i < nParts; ++i)
             {
-                vector<unsigned int> elIDs;
-                set<unsigned int> tmp;
+                std::vector<unsigned int> elIDs;
+                std::set<unsigned int> tmp;
                 partitioner->GetElementIDs(i, elIDs);
                 tmp.insert(elIDs.begin(), elIDs.end());
                 elmtIDs.push_back(tmp);
@@ -194,7 +192,7 @@ void MeshGraphIOXml::v_PartitionMesh(
 
             if (session->GetSharedFilesystem())
             {
-                vector<unsigned int> keys, vals;
+                std::vector<unsigned int> keys, vals;
                 int i;
 
                 if (isRoot)
@@ -215,12 +213,12 @@ void MeshGraphIOXml::v_PartitionMesh(
 
                     partitioner->PartitionMesh(nParts, true);
 
-                    vector<set<unsigned int>> elmtIDs;
-                    vector<unsigned int> parts(nParts);
+                    std::vector<std::set<unsigned int>> elmtIDs;
+                    std::vector<unsigned int> parts(nParts);
                     for (i = 0; i < nParts; ++i)
                     {
-                        vector<unsigned int> elIDs;
-                        set<unsigned int> tmp;
+                        std::vector<unsigned int> elIDs;
+                        std::set<unsigned int> tmp;
                         partitioner->GetElementIDs(i, elIDs);
                         tmp.insert(elIDs.begin(), elIDs.end());
                         elmtIDs.push_back(tmp);
@@ -309,7 +307,7 @@ void MeshGraphIOXml::v_PartitionMesh(
 
                     for (int i = 0; i < keys.size(); ++i)
                     {
-                        vector<unsigned int> tmp(vals[i]);
+                        std::vector<unsigned int> tmp(vals[i]);
                         comm->Bcast(tmp, 0);
                         m_compOrder[keys[i]] = tmp;
                     }
@@ -327,7 +325,7 @@ void MeshGraphIOXml::v_PartitionMesh(
                     }
                     for (int i = 0; i < keys.size(); ++i)
                     {
-                        vector<unsigned int> tmp(vals[i]);
+                        std::vector<unsigned int> tmp(vals[i]);
                         comm->Bcast(tmp, 0);
                         m_bndRegOrder[keys[i]] = tmp;
                     }
@@ -353,9 +351,9 @@ void MeshGraphIOXml::v_PartitionMesh(
 
                 partitioner->PartitionMesh(nParts, false);
 
-                vector<unsigned int> parts(1), tmp;
+                std::vector<unsigned int> parts(1), tmp;
                 parts[0] = commMesh->GetRank();
-                vector<set<unsigned int>> elIDs(1);
+                std::vector<std::set<unsigned int>> elIDs(1);
                 partitioner->GetElementIDs(parts[0], tmp);
                 elIDs[0].insert(tmp.begin(), tmp.end());
 
@@ -841,7 +839,7 @@ void MeshGraphIOXml::v_ReadCurves()
                      "Number of points specificed by attribute "
                      "NUMPOINTS is different from number of points "
                      "in list (edgeid = " +
-                         boost::lexical_cast<string>(edgeid));
+                         std::to_string(edgeid));
 
             curvedEdges[edgeid] = curve;
 
@@ -1002,7 +1000,7 @@ void MeshGraphIOXml::ReadDomain()
 
             // Read the domain composites.
             // Parse the composites into a list.
-            map<int, CompositeSharedPtr> unrollDomain;
+            std::map<int, CompositeSharedPtr> unrollDomain;
             m_meshGraph->GetCompositeList(indxStr, unrollDomain);
             domain[indx] = unrollDomain;
 
@@ -1040,7 +1038,7 @@ void MeshGraphIOXml::ReadDomain()
 
         // Read the domain composites.
         // Parse the composites into a list.
-        map<int, CompositeSharedPtr> fullDomain;
+        std::map<int, CompositeSharedPtr> fullDomain;
         m_meshGraph->GetCompositeList(indxStr, fullDomain);
         domain[0] = fullDomain;
 
@@ -1621,7 +1619,8 @@ void MeshGraphIOXml::v_ReadElements3D()
                     else if (face->GetShapeType() == LibUtilities::eTriangle)
                     {
                         ASSERTL0(Ntfaces < kNtfaces, errorstring.str().c_str());
-                        tfaces[Ntfaces++] = static_pointer_cast<TriGeom>(face);
+                        tfaces[Ntfaces++] =
+                            std::static_pointer_cast<TriGeom>(face);
                     }
                     else if (face->GetShapeType() ==
                              LibUtilities::eQuadrilateral)
@@ -1693,14 +1692,16 @@ void MeshGraphIOXml::v_ReadElements3D()
                     else if (face->GetShapeType() == LibUtilities::eTriangle)
                     {
                         ASSERTL0(Ntfaces < kNtfaces, errorstring.str().c_str());
-                        faces[Nfaces++] = static_pointer_cast<TriGeom>(face);
+                        faces[Nfaces++] =
+                            std::static_pointer_cast<TriGeom>(face);
                         Ntfaces++;
                     }
                     else if (face->GetShapeType() ==
                              LibUtilities::eQuadrilateral)
                     {
                         ASSERTL0(Nqfaces < kNqfaces, errorstring.str().c_str());
-                        faces[Nfaces++] = static_pointer_cast<QuadGeom>(face);
+                        faces[Nfaces++] =
+                            std::static_pointer_cast<QuadGeom>(face);
                         Nqfaces++;
                     }
                 }
@@ -1846,8 +1847,6 @@ void MeshGraphIOXml::v_ReadElements3D()
                     else if (face->GetShapeType() == LibUtilities::eTriangle)
                     {
                         ASSERTL0(Ntfaces < kNtfaces, errorstring.str().c_str());
-                        // tfaces[Ntfaces++] =
-                        // boost::static_pointer_cast<TriGeom>(face);
                     }
                     else if (face->GetShapeType() ==
                              LibUtilities::eQuadrilateral)
@@ -2036,7 +2035,7 @@ void MeshGraphIOXml::ResolveGeomRef1D(const std::string &prevToken,
 
         std::string indxStr = token.substr(indxBeg, indxEnd - indxBeg + 1);
 
-        typedef vector<unsigned int> SeqVectorType;
+        typedef std::vector<unsigned int> SeqVectorType;
         SeqVectorType seqVector;
 
         if (!ParseUtils::GenerateSeqVector(indxStr.c_str(), seqVector))
@@ -2295,7 +2294,7 @@ void MeshGraphIOXml::ResolveGeomRef3D(const std::string &prevToken,
 
         // All composites must be of the same dimension.  This map makes things
         // clean to compare.
-        map<char, int> typeMap;
+        std::map<char, int> typeMap;
         typeMap['V'] = 1; // Vertex
         typeMap['E'] = 1; // Edge
         typeMap['T'] = 2; // Triangle
@@ -2516,8 +2515,8 @@ void MeshGraphIOXml::v_WriteVertices(TiXmlElement *geomTag, PointGeomMap &verts)
 
     for (auto &i : verts)
     {
-        stringstream s;
-        s << scientific << setprecision(8) << (*i.second)(0) << " "
+        std::stringstream s;
+        s << std::scientific << std::setprecision(8) << (*i.second)(0) << " "
           << (*i.second)(1) << " " << (*i.second)(2);
         TiXmlElement *v = new TiXmlElement("V");
         v->SetAttribute("ID", i.second->GetGlobalID());
@@ -2534,11 +2533,11 @@ void MeshGraphIOXml::v_WriteEdges(TiXmlElement *geomTag, SegGeomMap &edges)
 
     TiXmlElement *edgeTag =
         new TiXmlElement(meshDimension == 1 ? "ELEMENT" : "EDGE");
-    string tag = meshDimension == 1 ? "S" : "E";
+    std::string tag = meshDimension == 1 ? "S" : "E";
 
     for (auto &i : edges)
     {
-        stringstream s;
+        std::stringstream s;
         SegGeomSharedPtr seg = i.second;
         s << seg->GetVid(0) << " " << seg->GetVid(1);
         TiXmlElement *e = new TiXmlElement(tag);
@@ -2552,11 +2551,11 @@ void MeshGraphIOXml::v_WriteEdges(TiXmlElement *geomTag, SegGeomMap &edges)
 
 void MeshGraphIOXml::v_WriteTris(TiXmlElement *faceTag, TriGeomMap &tris)
 {
-    string tag = "T";
+    std::string tag = "T";
 
     for (auto &i : tris)
     {
-        stringstream s;
+        std::stringstream s;
         TriGeomSharedPtr tri = i.second;
         s << tri->GetEid(0) << " " << tri->GetEid(1) << " " << tri->GetEid(2);
         TiXmlElement *t = new TiXmlElement(tag);
@@ -2568,11 +2567,11 @@ void MeshGraphIOXml::v_WriteTris(TiXmlElement *faceTag, TriGeomMap &tris)
 
 void MeshGraphIOXml::v_WriteQuads(TiXmlElement *faceTag, QuadGeomMap &quads)
 {
-    string tag = "Q";
+    std::string tag = "Q";
 
     for (auto &i : quads)
     {
-        stringstream s;
+        std::stringstream s;
         QuadGeomSharedPtr quad = i.second;
         s << quad->GetEid(0) << " " << quad->GetEid(1) << " " << quad->GetEid(2)
           << " " << quad->GetEid(3);
@@ -2585,11 +2584,11 @@ void MeshGraphIOXml::v_WriteQuads(TiXmlElement *faceTag, QuadGeomMap &quads)
 
 void MeshGraphIOXml::v_WriteHexs(TiXmlElement *elmtTag, HexGeomMap &hexs)
 {
-    string tag = "H";
+    std::string tag = "H";
 
     for (auto &i : hexs)
     {
-        stringstream s;
+        std::stringstream s;
         HexGeomSharedPtr hex = i.second;
         s << hex->GetFid(0) << " " << hex->GetFid(1) << " " << hex->GetFid(2)
           << " " << hex->GetFid(3) << " " << hex->GetFid(4) << " "
@@ -2603,11 +2602,11 @@ void MeshGraphIOXml::v_WriteHexs(TiXmlElement *elmtTag, HexGeomMap &hexs)
 
 void MeshGraphIOXml::v_WritePrisms(TiXmlElement *elmtTag, PrismGeomMap &pris)
 {
-    string tag = "R";
+    std::string tag = "R";
 
     for (auto &i : pris)
     {
-        stringstream s;
+        std::stringstream s;
         PrismGeomSharedPtr prism = i.second;
         s << prism->GetFid(0) << " " << prism->GetFid(1) << " "
           << prism->GetFid(2) << " " << prism->GetFid(3) << " "
@@ -2621,11 +2620,11 @@ void MeshGraphIOXml::v_WritePrisms(TiXmlElement *elmtTag, PrismGeomMap &pris)
 
 void MeshGraphIOXml::v_WritePyrs(TiXmlElement *elmtTag, PyrGeomMap &pyrs)
 {
-    string tag = "P";
+    std::string tag = "P";
 
     for (auto &i : pyrs)
     {
-        stringstream s;
+        std::stringstream s;
         PyrGeomSharedPtr pyr = i.second;
         s << pyr->GetFid(0) << " " << pyr->GetFid(1) << " " << pyr->GetFid(2)
           << " " << pyr->GetFid(3) << " " << pyr->GetFid(4) << " ";
@@ -2638,11 +2637,11 @@ void MeshGraphIOXml::v_WritePyrs(TiXmlElement *elmtTag, PyrGeomMap &pyrs)
 
 void MeshGraphIOXml::v_WriteTets(TiXmlElement *elmtTag, TetGeomMap &tets)
 {
-    string tag = "A";
+    std::string tag = "A";
 
     for (auto &i : tets)
     {
-        stringstream s;
+        std::stringstream s;
         TetGeomSharedPtr tet = i.second;
         s << tet->GetFid(0) << " " << tet->GetFid(1) << " " << tet->GetFid(2)
           << " " << tet->GetFid(3) << " ";
@@ -2664,13 +2663,13 @@ void MeshGraphIOXml::v_WriteCurves(TiXmlElement *geomTag, CurveMap &edges,
     {
         CurveSharedPtr curve = curveIt->second;
         TiXmlElement *c      = new TiXmlElement("E");
-        stringstream s;
+        std::stringstream s;
         s.precision(8);
 
         for (int j = 0; j < curve->m_points.size(); ++j)
         {
             SpatialDomains::PointGeomSharedPtr p = curve->m_points[j];
-            s << scientific << (*p)(0) << " " << (*p)(1) << " " << (*p)(2)
+            s << std::scientific << (*p)(0) << " " << (*p)(1) << " " << (*p)(2)
               << "   ";
         }
 
@@ -2686,13 +2685,13 @@ void MeshGraphIOXml::v_WriteCurves(TiXmlElement *geomTag, CurveMap &edges,
     {
         CurveSharedPtr curve = curveIt->second;
         TiXmlElement *c      = new TiXmlElement("F");
-        stringstream s;
+        std::stringstream s;
         s.precision(8);
 
         for (int j = 0; j < curve->m_points.size(); ++j)
         {
             SpatialDomains::PointGeomSharedPtr p = curve->m_points[j];
-            s << scientific << (*p)(0) << " " << (*p)(1) << " " << (*p)(2)
+            s << std::scientific << (*p)(0) << " " << (*p)(1) << " " << (*p)(2)
               << "   ";
         }
 
@@ -2738,12 +2737,12 @@ void MeshGraphIOXml::WriteDomain(TiXmlElement *geomTag,
 {
     TiXmlElement *domTag = new TiXmlElement("DOMAIN");
 
-    vector<unsigned int> idxList;
+    std::vector<unsigned int> idxList;
     for (auto &domain : domainMap)
     {
         TiXmlElement *c = new TiXmlElement("D");
         idxList.clear();
-        stringstream s;
+        std::stringstream s;
         s << " "
           << "C"
           << "[";
@@ -2775,8 +2774,7 @@ void MeshGraphIOXml::WriteDefaultExpansion(TiXmlElement *root)
         {
             TiXmlElement *exp = new TiXmlElement("E");
             exp->SetAttribute("COMPOSITE",
-                              "C[" + boost::lexical_cast<string>(it->first) +
-                                  "]");
+                              "C[" + std::to_string(it->first) + "]");
             exp->SetAttribute("NUMMODES", 4);
             exp->SetAttribute("TYPE", "MODIFIED");
             exp->SetAttribute("FIELDS", "u");
@@ -2869,9 +2867,9 @@ void MeshGraphIOXml::v_WriteGeometry(
     doc.SaveFile(outfilename);
 }
 
-void MeshGraphIOXml::WriteXMLGeometry(std::string outname,
-                                      vector<set<unsigned int>> elements,
-                                      vector<unsigned int> partitions)
+void MeshGraphIOXml::WriteXMLGeometry(
+    std::string outname, std::vector<std::set<unsigned int>> elements,
+    std::vector<unsigned int> partitions)
 {
     // so in theory this function is used by the mesh partitioner
     // giving instructions on how to write out a paritioned mesh.
@@ -2882,7 +2880,7 @@ void MeshGraphIOXml::WriteXMLGeometry(std::string outname,
 
     // this is xml so we are going to write a directory with lots of
     // xml files
-    string dirname = outname + "_xml";
+    std::string dirname = outname + "_xml";
     fs::path pdirname(dirname);
 
     if (!fs::is_directory(dirname))
@@ -2956,7 +2954,7 @@ void MeshGraphIOXml::WriteXMLGeometry(std::string outname,
         CurveMap localCurveEdge;
         CurveMap localCurveFace;
 
-        vector<set<unsigned int>> entityIds(4);
+        std::vector<std::set<unsigned int>> entityIds(4);
         entityIds[meshDimension] = elements[i];
 
         switch (meshDimension)
@@ -3182,7 +3180,7 @@ void MeshGraphIOXml::WriteXMLGeometry(std::string outname,
 
         WriteComposites(geomTag, localComp, localCompLabels);
 
-        map<int, CompositeMap> domain;
+        std::map<int, CompositeMap> domain;
         for (auto &j : localComp)
         {
             for (auto &dom : globalDomain)
@@ -3240,7 +3238,7 @@ void MeshGraphIOXml::WriteXMLGeometry(std::string outname,
                     std::vector<unsigned int> vSeq;
                     ParseUtils::GenerateSeqVector(vSeqStr.c_str(), vSeq);
 
-                    vector<unsigned int> idxList;
+                    std::vector<unsigned int> idxList;
 
                     for (unsigned int i = 0; i < vSeq.size(); ++i)
                     {

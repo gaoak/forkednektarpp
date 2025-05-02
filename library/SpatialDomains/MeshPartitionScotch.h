@@ -49,6 +49,8 @@ namespace Nektar::SpatialDomains
 class MeshPartitionScotch : public MeshPartition
 {
 public:
+    friend class MemoryManager<MeshPartitionScotch>;
+
     /// Creates an instance of this class
     static MeshPartitionSharedPtr create(
         const LibUtilities::SessionReaderSharedPtr session,
@@ -63,13 +65,13 @@ public:
     static std::string className;
     static std::string cmdSwitch;
 
+protected:
     MeshPartitionScotch(const LibUtilities::SessionReaderSharedPtr session,
                         LibUtilities::CommSharedPtr comm, int meshDim,
                         std::map<int, MeshEntity> element,
                         CompositeDescriptor compMap);
-    ~MeshPartitionScotch() override;
+    ~MeshPartitionScotch() override = default;
 
-protected:
     void v_PartitionGraphImpl(int &nVerts, int &nVertConds,
                               Nektar::Array<Nektar::OneD, int> &xadj,
                               Nektar::Array<Nektar::OneD, int> &adjcy,

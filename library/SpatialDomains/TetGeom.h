@@ -47,7 +47,7 @@ class TetGeom : public Geometry3D
 public:
     SPATIAL_DOMAINS_EXPORT TetGeom();
     SPATIAL_DOMAINS_EXPORT TetGeom(int id, const TriGeomSharedPtr faces[]);
-    SPATIAL_DOMAINS_EXPORT ~TetGeom() override;
+    SPATIAL_DOMAINS_EXPORT ~TetGeom() override = default;
 
     SPATIAL_DOMAINS_EXPORT static const int kNverts  = 4;
     SPATIAL_DOMAINS_EXPORT static const int kNedges  = 6;

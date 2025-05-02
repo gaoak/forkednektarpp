@@ -512,8 +512,7 @@ void PreconditionerBlock::BlockPreconditionerCG()
 
             // Get mesh ID from global ID number.
             ASSERTL1(gidMeshIds[i].count(gIt.first) > 0,
-                     "Unable to find global ID " +
-                         boost::lexical_cast<string>(gIt.first) +
+                     "Unable to find global ID " + std::to_string(gIt.first) +
                          " inside map");
             meshVertId = gidMeshIds[i][gIt.first];
 
@@ -567,7 +566,7 @@ void PreconditionerBlock::BlockPreconditionerCG()
             ASSERTL1(gidDofs[i].count(gIt.first) > 0,
                      "Unable to find number of degrees of freedom for "
                      "global ID " +
-                         boost::lexical_cast<string>(gIt.first));
+                         std::to_string(gIt.first));
 
             // Check for non-zero DoF count
             if (gidDofs[i][gIt.first])

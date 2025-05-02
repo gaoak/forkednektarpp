@@ -130,9 +130,8 @@ void ProcessInnerProduct::v_Process(po::variables_map &vm)
         string bodystr = fromfld.substr(0, end);
         for (int i = 0; i < multiFldIds.size(); ++i)
         {
-            string infile = bodystr + "_" +
-                            boost::lexical_cast<string>(multiFldIds[i]) +
-                            endstr;
+            string infile =
+                bodystr + "_" + std::to_string(multiFldIds[i]) + endstr;
             fromfiles.push_back(infile);
         }
     }

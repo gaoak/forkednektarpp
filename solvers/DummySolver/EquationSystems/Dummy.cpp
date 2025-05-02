@@ -155,8 +155,8 @@ bool Dummy::v_PreIntegrate(int step)
             for (int i = 0; i < x->GetForces().size(); ++i)
             {
                 phys[m_fields.size() + f + i] = x->GetForces()[i];
-                varNames.push_back("F_" + boost::lexical_cast<std::string>(f) +
-                                   "_" + m_session->GetVariable(i));
+                varNames.push_back("F_" + std::to_string(f) + "_" +
+                                   m_session->GetVariable(i));
             }
             f++;
         }
@@ -243,12 +243,12 @@ void Dummy::v_Output()
             if (m_comm->TreatAsRankZero())
             {
                 std::cout << "L 2 error (variable "
-                          << "F_" + boost::lexical_cast<std::string>(f) + "_" +
+                          << "F_" + std::to_string(f) + "_" +
                                  m_session->GetVariable(i)
                           << ") : " << l2err << std::endl;
 
                 std::cout << "L inf error (variable "
-                          << "F_" + boost::lexical_cast<std::string>(f) + "_" +
+                          << "F_" + std::to_string(f) + "_" +
                                  m_session->GetVariable(i)
                           << ") : " << linferr << std::endl;
             }

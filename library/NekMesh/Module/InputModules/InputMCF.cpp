@@ -454,7 +454,7 @@ void InputMCF::Process()
 
     m_mesh->m_expDim   = 3;
     m_mesh->m_spaceDim = 3;
-    m_mesh->m_nummode  = boost::lexical_cast<int>(m_order) + 1;
+    m_mesh->m_nummode  = std::stoi(m_order) + 1;
 
     ModuleSharedPtr module;
 
@@ -672,7 +672,7 @@ void InputMCF::Process()
         module->SetLogger(m_log);
         module->RegisterConfig("hyperelastic", "");
         module->RegisterConfig("maxiter", "10");
-        module->RegisterConfig("numthreads", boost::lexical_cast<string>(np));
+        module->RegisterConfig("numthreads", std::to_string(np));
 
         try
         {
@@ -699,8 +699,7 @@ void InputMCF::Process()
         module->SetLogger(m_log);
         module->RegisterConfig("layers", m_bllayers);
         module->RegisterConfig("surf", m_blsurfs);
-        module->RegisterConfig("nq",
-                               boost::lexical_cast<string>(m_mesh->m_nummode));
+        module->RegisterConfig("nq", std::to_string(m_mesh->m_nummode));
         module->RegisterConfig("r", m_blprog);
 
         try

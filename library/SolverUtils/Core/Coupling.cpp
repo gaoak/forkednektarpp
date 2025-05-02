@@ -112,8 +112,8 @@ void Coupling::v_Init()
     ParseUtils::GenerateVector(m_config["SENDVARIABLES"], m_sendFieldNames);
     m_nSendVars = m_sendFieldNames.size();
 
-    m_recvSteps = boost::lexical_cast<int>(m_config["RECEIVESTEPS"]);
-    m_sendSteps = boost::lexical_cast<int>(m_config["SENDSTEPS"]);
+    m_recvSteps = std::stoi(m_config["RECEIVESTEPS"]);
+    m_sendSteps = std::stoi(m_config["SENDSTEPS"]);
 
     if (session->GetComm()->GetRank() == 0 &&
         session->DefinesCmdLineArgument("verbose") && m_config.size() > 0)

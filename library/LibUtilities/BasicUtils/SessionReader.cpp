@@ -1221,10 +1221,10 @@ EquationSharedPtr SessionReader::GetFunction(const std::string &pName,
     bool wildcard = it3 != it1->second.end();
 
     // Check function is defined somewhere
-    ASSERTL0(specific || wildcard,
-             "No such variable " + pVariable + " in domain " +
-                 boost::lexical_cast<string>(pDomain) +
-                 " defined for function " + pName + " in session file.");
+    ASSERTL0(specific || wildcard, "No such variable " + pVariable +
+                                       " in domain " + std::to_string(pDomain) +
+                                       " defined for function " + pName +
+                                       " in session file.");
 
     // If not specific, must be wildcard
     if (!specific)
@@ -1271,10 +1271,10 @@ enum FunctionType SessionReader::GetFunctionType(const std::string &pName,
     bool wildcard = it3 != it1->second.end();
 
     // Check function is defined somewhere
-    ASSERTL0(specific || wildcard,
-             "No such variable " + pVariable + " in domain " +
-                 boost::lexical_cast<string>(pDomain) +
-                 " defined for function " + pName + " in session file.");
+    ASSERTL0(specific || wildcard, "No such variable " + pVariable +
+                                       " in domain " + std::to_string(pDomain) +
+                                       " defined for function " + pName +
+                                       " in session file.");
 
     // If not specific, must be wildcard
     if (!specific)
@@ -1319,10 +1319,10 @@ std::string SessionReader::GetFunctionFilename(const std::string &pName,
     bool wildcard = it3 != it1->second.end();
 
     // Check function is defined somewhere
-    ASSERTL0(specific || wildcard,
-             "No such variable " + pVariable + " in domain " +
-                 boost::lexical_cast<string>(pDomain) +
-                 " defined for function " + pName + " in session file.");
+    ASSERTL0(specific || wildcard, "No such variable " + pVariable +
+                                       " in domain " + std::to_string(pDomain) +
+                                       " defined for function " + pName +
+                                       " in session file.");
 
     // If not specific, must be wildcard
     if (!specific)
@@ -1367,10 +1367,10 @@ std::string SessionReader::GetFunctionFilenameVariable(
     bool wildcard = it3 != it1->second.end();
 
     // Check function is defined somewhere
-    ASSERTL0(specific || wildcard,
-             "No such variable " + pVariable + " in domain " +
-                 boost::lexical_cast<string>(pDomain) +
-                 " defined for function " + pName + " in session file.");
+    ASSERTL0(specific || wildcard, "No such variable " + pVariable +
+                                       " in domain " + std::to_string(pDomain) +
+                                       " defined for function " + pName +
+                                       " in session file.");
 
     // If not specific, must be wildcard
     if (!specific)
@@ -2020,7 +2020,7 @@ void SessionReader::ReadTimeIntScheme(TiXmlElement *conditions)
              "Empty text inside ORDER tag in TIMEINTEGRATIONSCHEME.");
     try
     {
-        m_timeIntScheme.order = boost::lexical_cast<unsigned int>(orderStr);
+        m_timeIntScheme.order = std::stol(orderStr);
     }
     catch (...)
     {
@@ -2140,7 +2140,7 @@ void SessionReader::ReadVariables(TiXmlElement *conditions)
 
             ASSERTL0(varChild, "Unable to read variable definition body for "
                                "variable with ID " +
-                                   boost::lexical_cast<string>(i) +
+                                   std::to_string(i) +
                                    " in XML element: \n\t'" + tagcontent.str() +
                                    "'");
             std::string variableName = varChild->ToText()->ValueStr();
@@ -2150,7 +2150,7 @@ void SessionReader::ReadVariables(TiXmlElement *conditions)
 
             ASSERTL0(std::find(m_variables.begin(), m_variables.end(),
                                variableName) == m_variables.end(),
-                     "Variable with ID " + boost::lexical_cast<string>(i) +
+                     "Variable with ID " + std::to_string(i) +
                          " in XML element \n\t'" + tagcontent.str() +
                          "'\nhas already been defined.");
 

@@ -481,9 +481,8 @@ void UnsteadyAdvection::v_GenerateSummary(SolverUtils::SummaryList &s)
     }
 }
 
-bool UnsteadyAdvection::v_PreIntegrate(int step)
+bool UnsteadyAdvection::v_PreIntegrate([[maybe_unused]] int step)
 {
-    boost::ignore_unused(step);
     return false;
 }
 

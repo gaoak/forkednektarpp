@@ -592,12 +592,9 @@ void InputSem::Process()
                         in->field.push_back(m_mesh->m_fields[j]);
                         out->field.push_back(m_mesh->m_fields[j]);
                         in->value.push_back(
-                            "[" +
-                            boost::lexical_cast<string>(periodicTagId + 1) +
-                            "]");
+                            "[" + std::to_string(periodicTagId + 1) + "]");
                         out->value.push_back(
-                            "[" + boost::lexical_cast<string>(periodicTagId) +
-                            "]");
+                            "[" + std::to_string(periodicTagId) + "]");
                     }
                     in->m_composite.push_back(periodicTagId + 1);
                     out->m_composite.push_back(periodicTagId + 2);

@@ -33,6 +33,7 @@
 //               non-conformal geometry using the Movement object
 //
 ////////////////////////////////////////////////////////////////////////////////
+
 #ifndef NEKTAR_SPATIALDOMAINS_MOVEMENT_H
 #define NEKTAR_SPATIALDOMAINS_MOVEMENT_H
 

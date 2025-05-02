@@ -31,6 +31,7 @@
 //  Description:
 //
 ////////////////////////////////////////////////////////////////////////////////
+
 #ifndef NEKTAR_SPATIALDOMAINS_MGIOXMLCOMP_H
 #define NEKTAR_SPATIALDOMAINS_MGIOXMLCOMP_H
 
@@ -42,13 +43,7 @@ namespace Nektar::SpatialDomains
 class MeshGraphIOXmlCompressed : public MeshGraphIOXml
 {
 public:
-    MeshGraphIOXmlCompressed()
-    {
-    }
-
-    ~MeshGraphIOXmlCompressed() override
-    {
-    }
+    friend class MemoryManager<MeshGraphIOXmlCompressed>;
 
     static MeshGraphIOSharedPtr create()
     {
@@ -58,6 +53,9 @@ public:
     static std::string className;
 
 protected:
+    MeshGraphIOXmlCompressed()           = default;
+    ~MeshGraphIOXmlCompressed() override = default;
+
     void v_ReadVertices() override;
     void v_ReadCurves() override;
 

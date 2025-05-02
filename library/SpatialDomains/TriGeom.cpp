@@ -41,8 +41,6 @@
 #include <SpatialDomains/GeomFactors.h>
 #include <SpatialDomains/SegGeom.h>
 
-using namespace std;
-
 namespace Nektar::SpatialDomains
 {
 
@@ -95,10 +93,6 @@ TriGeom::TriGeom(const TriGeom &in) : Geometry2D(in)
     {
         m_eorient[i] = in.m_eorient[i];
     }
-}
-
-TriGeom::~TriGeom()
-{
 }
 
 NekDouble TriGeom::v_GetCoord(const int i,
@@ -334,7 +328,7 @@ void TriGeom::v_FillGeom()
             ASSERTL0(nEdgePts * (nEdgePts + 1) / 2 == N,
                      "NUMPOINTS should be a triangle number for"
                      " triangle curved face " +
-                         boost::lexical_cast<string>(m_globalID));
+                         std::to_string(m_globalID));
 
             // Sanity check 1: are curved vertices consistent with
             // triangle vertices?
@@ -361,7 +355,7 @@ void TriGeom::v_FillGeom()
                 ASSERTL0(edgeCurve->m_points.size() == nEdgePts,
                          "Number of edge points does not correspond "
                          "to number of face points in triangle " +
-                             boost::lexical_cast<string>(m_globalID));
+                             std::to_string(m_globalID));
 
                 const int offset  = 3 + i * (nEdgePts - 2);
                 NekDouble maxDist = 0.0;
@@ -417,7 +411,7 @@ void TriGeom::v_FillGeom()
             const LibUtilities::BasisKey T1(LibUtilities::eOrtho_B, nEdgePts,
                                             P1);
             Array<OneD, NekDouble> phys(
-                max(nEdgePts * nEdgePts, m_xmap->GetTotPoints()));
+                std::max(nEdgePts * nEdgePts, m_xmap->GetTotPoints()));
             Array<OneD, NekDouble> tmp(nEdgePts * nEdgePts);
 
             for (i = 0; i < m_coordim; ++i)
@@ -457,14 +451,14 @@ void TriGeom::v_FillGeom()
             ASSERTL0(nEdgePts * nEdgePts == npts,
                      "NUMPOINTS should be a square number for"
                      " triangle " +
-                         boost::lexical_cast<string>(m_globalID));
+                         std::to_string(m_globalID));
 
             for (i = 0; i < kNedges; ++i)
             {
                 ASSERTL0(m_edges[i]->GetXmap()->GetNcoeffs() == nEdgePts,
                          "Number of edge points does not correspond to "
                          "number of face points in triangle " +
-                             boost::lexical_cast<string>(m_globalID));
+                             std::to_string(m_globalID));
             }
 
             for (i = 0; i < m_coordim; ++i)
@@ -556,9 +550,9 @@ void TriGeom::v_Setup()
 void TriGeom::SetUpXmap()
 {
     int order0 = m_edges[0]->GetXmap()->GetBasis(0)->GetNumModes();
-    int order1 =
-        max(order0, max(m_edges[1]->GetXmap()->GetBasis(0)->GetNumModes(),
-                        m_edges[2]->GetXmap()->GetBasis(0)->GetNumModes()));
+    int order1 = std::max(
+        order0, std::max(m_edges[1]->GetXmap()->GetBasis(0)->GetNumModes(),
+                         m_edges[2]->GetXmap()->GetBasis(0)->GetNumModes()));
 
     const LibUtilities::BasisKey B0(
         LibUtilities::eModified_A, order0,

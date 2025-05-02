@@ -48,7 +48,6 @@ typedef std::shared_ptr<MeshGraphIO> MeshGraphIOSharedPtr;
 class MeshGraphIO
 {
 public:
-    SPATIAL_DOMAINS_EXPORT MeshGraphIO()          = default;
     SPATIAL_DOMAINS_EXPORT virtual ~MeshGraphIO() = default;
 
     SPATIAL_DOMAINS_EXPORT static MeshGraphSharedPtr Read(
@@ -95,6 +94,8 @@ protected:
     BndRegionOrdering m_bndRegOrder;
 
     std::string GetCompositeString(CompositeSharedPtr comp);
+
+    SPATIAL_DOMAINS_EXPORT MeshGraphIO() = default;
 
     SPATIAL_DOMAINS_EXPORT virtual void v_WriteGeometry(
         const std::string &outfilename, bool defaultExp = false,

@@ -862,8 +862,8 @@ void Generator2D::PeriodicPrep()
         }
 
         vector<unsigned> data(2);
-        data[0] = boost::lexical_cast<unsigned>(tmp[0]);
-        data[1] = boost::lexical_cast<unsigned>(tmp[1]);
+        data[0] = std::stol(tmp[0]);
+        data[1] = std::stol(tmp[1]);
 
         for (int i = 0; i < 1; ++i)
         {

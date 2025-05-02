@@ -50,7 +50,6 @@
                   << std::endl;                                                \
     }
 
-using namespace std;
 using namespace Nektar::LibUtilities;
 
 namespace Nektar::SpatialDomains
@@ -399,16 +398,16 @@ void MeshGraphIOHDF5::v_PartitionMesh(
             // Open metadata dataset
             H5::DataSetSharedPtr data    = mesh->OpenDataSet(ds);
             H5::DataSpaceSharedPtr space = data->GetSpace();
-            vector<hsize_t> dims         = space->GetDims();
+            std::vector<hsize_t> dims    = space->GetDims();
 
             H5::DataSetSharedPtr mdata    = maps->OpenDataSet(ds);
             H5::DataSpaceSharedPtr mspace = mdata->GetSpace();
-            vector<hsize_t> mdims         = mspace->GetDims();
+            std::vector<hsize_t> mdims    = mspace->GetDims();
 
             // TODO: This could perhaps be done more intelligently; reads all
             // IDs for the top-level elements so that we can construct the dual
             // graph of the mesh.
-            vector<int> tmpElmts, tmpIds;
+            std::vector<int> tmpElmts, tmpIds;
             mdata->Read(tmpIds, mspace, readPL);
             data->Read(tmpElmts, space, readPL);
 
@@ -495,7 +494,7 @@ void MeshGraphIOHDF5::v_PartitionMesh(
         // Create partitioner. Default partitioner to use is PtScotch. Use
         // ParMetis as default if it is installed. Override default with
         // command-line flags if they are set.
-        string partitionerName =
+        std::string partitionerName =
             commMesh->GetSize() > 1 ? "PtScotch" : "Scotch";
         if (GetMeshPartitionFactory().ModuleExists("ParMetis"))
         {
@@ -936,19 +935,19 @@ void MeshGraphIOHDF5::ReadGeometryData(
     // Open mesh dataset
     H5::DataSetSharedPtr data    = m_mesh->OpenDataSet(dataSet);
     H5::DataSpaceSharedPtr space = data->GetSpace();
-    vector<hsize_t> dims         = space->GetDims();
+    std::vector<hsize_t> dims    = space->GetDims();
 
     // Open metadata dataset
     H5::DataSetSharedPtr mdata    = m_maps->OpenDataSet(dataSet);
     H5::DataSpaceSharedPtr mspace = mdata->GetSpace();
-    vector<hsize_t> mdims         = mspace->GetDims();
+    std::vector<hsize_t> mdims    = mspace->GetDims();
 
     ASSERTL0(mdims[0] == dims[0], "map and data set lengths do not match");
 
     const int nGeomData = GetGeomDataDim(geomMap);
 
     // Read all IDs
-    vector<int> allIds;
+    std::vector<int> allIds;
     mdata->Read(allIds, mspace);
 
     // Selective reading; clear data space range so that we can select certain
@@ -995,12 +994,12 @@ void MeshGraphIOHDF5::ReadCurveMap(CurveMap &curveMap, std::string dsName,
     H5::DataSpaceSharedPtr idSpace = idData->GetSpace();
 
     // Read all IDs and clear data space.
-    vector<int> ids, newIds;
+    std::vector<int> ids, newIds;
     idData->Read(ids, idSpace);
     curveSpace->ClearRange();
 
     // Search IDs to figure out which curves to read.
-    vector<hsize_t> curveSel;
+    std::vector<hsize_t> curveSel;
 
     int cnt = 0;
     for (auto &id : ids)
@@ -1030,7 +1029,7 @@ void MeshGraphIOHDF5::ReadCurveMap(CurveMap &curveMap, std::string dsName,
     }
 
     // Now read curve map and read data.
-    vector<int> curveInfo;
+    std::vector<int> curveInfo;
     curveSpace->SetSelection(curveSel.size() / 2, curveSel);
     curveData->Read(curveInfo, curveSpace, m_readPL);
 
@@ -1077,7 +1076,7 @@ void MeshGraphIOHDF5::ReadCurveMap(CurveMap &curveMap, std::string dsName,
     nodeSpace->ClearRange();
     nodeSpace->SetSelection(curveSel.size() / 2, curveSel);
 
-    vector<NekDouble> nodeRawData;
+    std::vector<NekDouble> nodeRawData;
     nodeData->Read(nodeRawData, nodeSpace, m_readPL);
 
     // Go back and populate data from nodes.
@@ -1102,11 +1101,11 @@ void MeshGraphIOHDF5::ReadDomain()
 
     if (m_inFormatVersion == 1)
     {
-        map<int, CompositeSharedPtr> fullDomain;
+        std::map<int, CompositeSharedPtr> fullDomain;
         H5::DataSetSharedPtr dst     = m_mesh->OpenDataSet("DOMAIN");
         H5::DataSpaceSharedPtr space = dst->GetSpace();
 
-        vector<string> data;
+        std::vector<std::string> data;
         dst->ReadVectorString(data, space, m_readPL);
         m_meshGraph->GetCompositeList(data[0], fullDomain);
         domain[0] = fullDomain;
@@ -1118,7 +1117,7 @@ void MeshGraphIOHDF5::ReadDomain()
     H5::DataSetSharedPtr dst     = m_mesh->OpenDataSet("DOMAIN");
     H5::DataSpaceSharedPtr space = dst->GetSpace();
 
-    vector<string> data;
+    std::vector<std::string> data;
     dst->ReadVectorString(data, space, m_readPL);
     for (auto &dIt : data)
     {
@@ -1129,7 +1128,7 @@ void MeshGraphIOHDF5::ReadDomain()
     H5::DataSetSharedPtr mdata    = m_maps->OpenDataSet("DOMAIN");
     H5::DataSpaceSharedPtr mspace = mdata->GetSpace();
 
-    vector<int> ids;
+    std::vector<int> ids;
     mdata->Read(ids, mspace);
 
     for (int i = 0; i < ids.size(); ++i)
@@ -1150,39 +1149,39 @@ void MeshGraphIOHDF5::ReadComposites()
     HexGeomMap &hexGeoms         = m_meshGraph->GetAllHexGeoms();
     CompositeMap &meshComposites = m_meshGraph->GetComposites();
 
-    string nm = "COMPOSITE";
+    std::string nm = "COMPOSITE";
 
     H5::DataSetSharedPtr data    = m_mesh->OpenDataSet(nm);
     H5::DataSpaceSharedPtr space = data->GetSpace();
-    vector<hsize_t> dims         = space->GetDims();
+    std::vector<hsize_t> dims    = space->GetDims();
 
-    vector<string> comps;
+    std::vector<std::string> comps;
     data->ReadVectorString(comps, space);
 
     H5::DataSetSharedPtr mdata    = m_maps->OpenDataSet(nm);
     H5::DataSpaceSharedPtr mspace = mdata->GetSpace();
-    vector<hsize_t> mdims         = mspace->GetDims();
+    std::vector<hsize_t> mdims    = mspace->GetDims();
 
-    vector<int> ids;
+    std::vector<int> ids;
     mdata->Read(ids, mspace);
 
     auto &graph_compOrder = m_meshGraph->GetCompositeOrdering();
     for (int i = 0; i < dims[0]; i++)
     {
-        string compStr = comps[i];
+        std::string compStr = comps[i];
 
         char type;
-        istringstream strm(compStr);
+        std::istringstream strm(compStr);
 
         strm >> type;
 
         CompositeSharedPtr comp = MemoryManager<Composite>::AllocateSharedPtr();
 
-        string::size_type indxBeg = compStr.find_first_of('[') + 1;
-        string::size_type indxEnd = compStr.find_last_of(']') - 1;
+        std::string::size_type indxBeg = compStr.find_first_of('[') + 1;
+        std::string::size_type indxEnd = compStr.find_last_of(']') - 1;
 
-        string indxStr = compStr.substr(indxBeg, indxEnd - indxBeg + 1);
-        vector<unsigned int> seqVector;
+        std::string indxStr = compStr.substr(indxBeg, indxEnd - indxBeg + 1);
+        std::vector<unsigned int> seqVector;
 
         ParseUtils::GenerateSeqVector(indxStr, seqVector);
         m_compOrder[ids[i]]     = seqVector;
@@ -1324,36 +1323,36 @@ CompositeDescriptor MeshGraphIOHDF5::CreateCompositeDescriptor(
 {
     CompositeDescriptor ret;
 
-    string nm = "COMPOSITE";
+    std::string nm = "COMPOSITE";
 
     H5::DataSetSharedPtr data    = m_mesh->OpenDataSet(nm);
     H5::DataSpaceSharedPtr space = data->GetSpace();
-    vector<hsize_t> dims         = space->GetDims();
+    std::vector<hsize_t> dims    = space->GetDims();
 
-    vector<string> comps;
+    std::vector<std::string> comps;
     data->ReadVectorString(comps, space);
 
     H5::DataSetSharedPtr mdata    = m_maps->OpenDataSet(nm);
     H5::DataSpaceSharedPtr mspace = mdata->GetSpace();
-    vector<hsize_t> mdims         = mspace->GetDims();
+    std::vector<hsize_t> mdims    = mspace->GetDims();
 
-    vector<int> ids;
+    std::vector<int> ids;
     mdata->Read(ids, mspace);
 
     for (int i = 0; i < dims[0]; i++)
     {
-        string compStr = comps[i];
+        std::string compStr = comps[i];
 
         char type;
-        istringstream strm(compStr);
+        std::istringstream strm(compStr);
 
         strm >> type;
 
-        string::size_type indxBeg = compStr.find_first_of('[') + 1;
-        string::size_type indxEnd = compStr.find_last_of(']') - 1;
+        std::string::size_type indxBeg = compStr.find_first_of('[') + 1;
+        std::string::size_type indxEnd = compStr.find_last_of(']') - 1;
 
-        string indxStr = compStr.substr(indxBeg, indxEnd - indxBeg + 1);
-        vector<unsigned int> seqVector;
+        std::string indxStr = compStr.substr(indxBeg, indxEnd - indxBeg + 1);
+        std::vector<unsigned int> seqVector;
         ParseUtils::GenerateSeqVector(indxStr, seqVector);
 
         LibUtilities::ShapeType shapeType = eNoShapeType;
@@ -1455,8 +1454,8 @@ void MeshGraphIOHDF5::WriteGeometryMap(
     }
 
     // Construct a map storing IDs
-    vector<int> idMap(nGeom);
-    vector<DataType> data(nGeom * nGeomData);
+    std::vector<int> idMap(nGeom);
+    std::vector<DataType> data(nGeom * nGeomData);
 
     int cnt1 = 0, cnt2 = 0;
     for (auto &it : geomMap)
@@ -1471,9 +1470,9 @@ void MeshGraphIOHDF5::WriteGeometryMap(
         cnt2 += nGeomData;
     }
 
-    vector<hsize_t> dims     = {static_cast<hsize_t>(nGeom),
-                                static_cast<hsize_t>(nGeomData)};
-    H5::DataTypeSharedPtr tp = H5::DataType::OfObject(data[0]);
+    std::vector<hsize_t> dims = {static_cast<hsize_t>(nGeom),
+                                 static_cast<hsize_t>(nGeomData)};
+    H5::DataTypeSharedPtr tp  = H5::DataType::OfObject(data[0]);
     H5::DataSpaceSharedPtr ds =
         std::shared_ptr<H5::DataSpace>(new H5::DataSpace(dims));
     H5::DataSetSharedPtr dst = m_mesh->CreateDataSet(datasetName, tp, ds);
@@ -1490,7 +1489,7 @@ void MeshGraphIOHDF5::WriteCurveMap(CurveMap &curves, std::string dsName,
                                     MeshCurvedPts &curvedPts, int &ptOffset,
                                     int &newIdx)
 {
-    vector<int> data, map;
+    std::vector<int> data, map;
 
     // Compile curve data.
     for (auto &c : curves)
@@ -1513,8 +1512,8 @@ void MeshGraphIOHDF5::WriteCurveMap(CurveMap &curves, std::string dsName,
     }
 
     // Write data.
-    vector<hsize_t> dims     = {data.size() / 3, 3};
-    H5::DataTypeSharedPtr tp = H5::DataType::OfObject(data[0]);
+    std::vector<hsize_t> dims = {data.size() / 3, 3};
+    H5::DataTypeSharedPtr tp  = H5::DataType::OfObject(data[0]);
     H5::DataSpaceSharedPtr ds =
         std::shared_ptr<H5::DataSpace>(new H5::DataSpace(dims));
     H5::DataSetSharedPtr dst = m_mesh->CreateDataSet(dsName, tp, ds);
@@ -1529,7 +1528,7 @@ void MeshGraphIOHDF5::WriteCurveMap(CurveMap &curves, std::string dsName,
 
 void MeshGraphIOHDF5::WriteCurvePoints(MeshCurvedPts &curvedPts)
 {
-    vector<double> vertData(curvedPts.pts.size() * 3);
+    std::vector<double> vertData(curvedPts.pts.size() * 3);
 
     int cnt = 0;
     for (auto &pt : curvedPts.pts)
@@ -1539,8 +1538,8 @@ void MeshGraphIOHDF5::WriteCurvePoints(MeshCurvedPts &curvedPts)
         vertData[cnt++] = pt.z;
     }
 
-    vector<hsize_t> dims     = {curvedPts.pts.size(), 3};
-    H5::DataTypeSharedPtr tp = H5::DataType::OfObject(vertData[0]);
+    std::vector<hsize_t> dims = {curvedPts.pts.size(), 3};
+    H5::DataTypeSharedPtr tp  = H5::DataType::OfObject(vertData[0]);
     H5::DataSpaceSharedPtr ds =
         std::shared_ptr<H5::DataSpace>(new H5::DataSpace(dims));
     H5::DataSetSharedPtr dst = m_mesh->CreateDataSet("CURVE_NODES", tp, ds);
@@ -1549,12 +1548,12 @@ void MeshGraphIOHDF5::WriteCurvePoints(MeshCurvedPts &curvedPts)
 
 void MeshGraphIOHDF5::WriteComposites(CompositeMap &composites)
 {
-    vector<string> comps;
+    std::vector<std::string> comps;
 
     // dont need location map only a id map
     // will filter the composites per parition on read, its easier
     // composites do not need to be written in paralell.
-    vector<int> c_map;
+    std::vector<int> c_map;
 
     for (auto &cIt : composites)
     {
@@ -1583,8 +1582,8 @@ void MeshGraphIOHDF5::WriteDomain(std::map<int, CompositeMap> &domain)
     // dont need location map only a id map
     // will filter the composites per parition on read, its easier
     // composites do not need to be written in paralell.
-    vector<int> d_map;
-    std::vector<vector<unsigned int>> idxList;
+    std::vector<int> d_map;
+    std::vector<std::vector<unsigned int>> idxList;
 
     int cnt = 0;
     for (auto &dIt : domain)
@@ -1599,8 +1598,8 @@ void MeshGraphIOHDF5::WriteDomain(std::map<int, CompositeMap> &domain)
         d_map.push_back(dIt.first);
     }
 
-    stringstream domString;
-    vector<string> doms;
+    std::stringstream domString;
+    std::vector<std::string> doms;
     for (auto &cIt : idxList)
     {
         doms.push_back(ParseUtils::GenerateSeqString(cIt));
@@ -1634,10 +1633,10 @@ void MeshGraphIOHDF5::v_WriteGeometry(
     CompositeMap &meshComposites = m_meshGraph->GetComposites();
     auto domain                  = m_meshGraph->GetDomain();
 
-    vector<string> tmp;
+    std::vector<std::string> tmp;
     boost::split(tmp, outfilename, boost::is_any_of("."));
-    string filenameXml  = tmp[0] + ".xml";
-    string filenameHdf5 = tmp[0] + ".nekg";
+    std::string filenameXml  = tmp[0] + ".xml";
+    std::string filenameHdf5 = tmp[0] + ".nekg";
 
     //////////////////
     // XML part
@@ -1652,7 +1651,7 @@ void MeshGraphIOHDF5::v_WriteGeometry(
 
     if (fs::exists(filenameXml.c_str()))
     {
-        ifstream file(filenameXml.c_str());
+        std::ifstream file(filenameXml.c_str());
         file >> (*doc);
         TiXmlHandle docHandle(doc);
         root = docHandle.FirstChildElement("NEKTAR").Element();
@@ -1688,9 +1687,8 @@ void MeshGraphIOHDF5::v_WriteGeometry(
                 m_meshGraph->GetMeshDimension())
             {
                 TiXmlElement *exp = new TiXmlElement("E");
-                exp->SetAttribute(
-                    "COMPOSITE",
-                    "C[" + boost::lexical_cast<string>(it->first) + "]");
+                exp->SetAttribute("COMPOSITE",
+                                  "C[" + std::to_string(it->first) + "]");
                 exp->SetAttribute("NUMMODES", 4);
                 exp->SetAttribute("TYPE", "MODIFIED");
                 exp->SetAttribute("FIELDS", "u");

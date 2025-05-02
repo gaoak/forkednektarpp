@@ -616,8 +616,7 @@ int main(int argc, char *argv[])
                 module.second = string("info");
                 mod           = GetModuleFactory().CreateInstance(module, f);
 
-                mod->RegisterConfig("nparts",
-                                    boost::lexical_cast<string>(nParts));
+                mod->RegisterConfig("nparts", std::to_string(nParts));
                 mod->SetDefaults();
 
                 if (f->m_writeBndFld)

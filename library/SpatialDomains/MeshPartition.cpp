@@ -96,10 +96,6 @@ MeshPartition::MeshPartition(const LibUtilities::SessionReaderSharedPtr session,
     }
 }
 
-MeshPartition::~MeshPartition()
-{
-}
-
 void MeshPartition::PartitionMesh(int nParts, bool shared, bool overlapping,
                                   [[maybe_unused]] int nLocal)
 {

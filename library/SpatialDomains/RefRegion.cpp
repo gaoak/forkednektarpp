@@ -47,12 +47,8 @@ RefRegion::RefRegion(const unsigned int coordim, NekDouble radius,
                      std::vector<NekDouble> coord2,
                      std::vector<unsigned int> numModes,
                      std::vector<unsigned int> numPoints)
-    : m_coordim(coordim), m_radius(radius), m_coord1(coord1), m_coord2(coord2),
-      m_numModes(numModes), m_numPoints(numPoints)
-{
-}
-
-RefRegion::~RefRegion()
+    : m_coord1(coord1), m_coord2(coord2), m_numModes(numModes),
+      m_numPoints(numPoints), m_radius(radius), m_coordim(coordim)
 {
 }
 

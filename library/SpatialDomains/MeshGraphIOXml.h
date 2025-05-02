@@ -31,6 +31,7 @@
 //  Description:
 //
 ////////////////////////////////////////////////////////////////////////////////
+
 #ifndef NEKTAR_SPATIALDOMAINS_MGIOXML_H
 #define NEKTAR_SPATIALDOMAINS_MGIOXML_H
 
@@ -43,13 +44,7 @@ namespace Nektar::SpatialDomains
 class MeshGraphIOXml : public MeshGraphIO
 {
 public:
-    MeshGraphIOXml()
-    {
-    }
-
-    ~MeshGraphIOXml() override
-    {
-    }
+    friend class MemoryManager<MeshGraphIOXml>;
 
     SPATIAL_DOMAINS_EXPORT void WriteXMLGeometry(
         std::string outname, std::vector<std::set<unsigned int>> elements,
@@ -64,6 +59,9 @@ public:
 
 protected:
     TiXmlElement *m_xmlGeom{};
+
+    MeshGraphIOXml()           = default;
+    ~MeshGraphIOXml() override = default;
 
     // some of these functions are going to be virtual because they will be
     // inherited by the XmlCompressed version

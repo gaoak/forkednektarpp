@@ -34,8 +34,6 @@
 
 #include <SpatialDomains/RefRegionParallelogram.h>
 
-using namespace std;
-
 namespace Nektar::SpatialDomains
 {
 
@@ -44,10 +42,6 @@ RefRegionParallelogram::RefRegionParallelogram(
     std::vector<NekDouble> coord2, std::vector<unsigned int> numModes,
     std::vector<unsigned int> numPoints)
     : RefRegion(coordim, radius, coord1, coord2, numModes, numPoints)
-{
-}
-
-RefRegionParallelogram::~RefRegionParallelogram()
 {
 }
 

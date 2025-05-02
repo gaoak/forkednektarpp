@@ -32,6 +32,7 @@
 //
 //
 ////////////////////////////////////////////////////////////////////////////////
+
 #ifndef NEKTAR_SPATIALDOMAINS_GEOMETRY1D_H
 #define NEKTAR_SPATIALDOMAINS_GEOMETRY1D_H
 
@@ -54,7 +55,7 @@ class Geometry1D : public Geometry
 public:
     SPATIAL_DOMAINS_EXPORT Geometry1D();
     SPATIAL_DOMAINS_EXPORT Geometry1D(const int coordim);
-    SPATIAL_DOMAINS_EXPORT ~Geometry1D() override;
+    SPATIAL_DOMAINS_EXPORT ~Geometry1D() override = default;
 
     SPATIAL_DOMAINS_EXPORT static const int kDim = 1;
 

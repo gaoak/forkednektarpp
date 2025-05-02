@@ -68,7 +68,7 @@ void ForcingNoise::v_InitObject(
     if (freqElmt)
     {
         std::string freqValue = freqElmt->GetText();
-        m_updateFreq          = boost::lexical_cast<int>(freqValue);
+        m_updateFreq          = std::stoi(freqValue);
     }
     else
     {
@@ -80,7 +80,7 @@ void ForcingNoise::v_InitObject(
     if (stepsElmt)
     {
         std::string stepsValue = stepsElmt->GetText();
-        m_numSteps             = boost::lexical_cast<int>(stepsValue);
+        m_numSteps             = std::stoi(stepsValue);
     }
     else
     {

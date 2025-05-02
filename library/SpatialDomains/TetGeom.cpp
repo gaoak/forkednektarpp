@@ -38,8 +38,6 @@
 #include <SpatialDomains/SegGeom.h>
 #include <StdRegions/StdTetExp.h>
 
-using namespace std;
-
 namespace Nektar::SpatialDomains
 {
 const unsigned int TetGeom::VertexEdgeConnectivity[4][3] = {
@@ -73,10 +71,6 @@ TetGeom::TetGeom(int id, const TriGeomSharedPtr faces[])
     SetUpLocalVertices();
     SetUpEdgeOrientation();
     SetUpFaceOrientation();
-}
-
-TetGeom::~TetGeom()
-{
 }
 
 int TetGeom::v_GetDir(const int faceidx, const int facedir) const
@@ -145,7 +139,8 @@ void TetGeom::SetUpLocalEdges()
         {
             if ((m_faces[0])->GetEid(i) == (m_faces[faceConnected])->GetEid(0))
             {
-                edge = dynamic_pointer_cast<SegGeom>((m_faces[0])->GetEdge(i));
+                edge = std::dynamic_pointer_cast<SegGeom>(
+                    (m_faces[0])->GetEdge(i));
                 m_edges.push_back(edge);
                 check++;
             }
@@ -178,7 +173,8 @@ void TetGeom::SetUpLocalEdges()
         {
             if ((m_faces[1])->GetEid(i) == (m_faces[3])->GetEid(j))
             {
-                edge = dynamic_pointer_cast<SegGeom>((m_faces[1])->GetEdge(i));
+                edge = std::dynamic_pointer_cast<SegGeom>(
+                    (m_faces[1])->GetEdge(i));
                 m_edges.push_back(edge);
                 check++;
             }
@@ -211,7 +207,7 @@ void TetGeom::SetUpLocalEdges()
                 if ((m_faces[faceConnected])->GetEid(i) ==
                     (m_faces[faceConnected + 1])->GetEid(j))
                 {
-                    edge = dynamic_pointer_cast<SegGeom>(
+                    edge = std::dynamic_pointer_cast<SegGeom>(
                         (m_faces[faceConnected])->GetEdge(i));
                     m_edges.push_back(edge);
                     check++;
@@ -560,10 +556,9 @@ void TetGeom::SetUpFaceOrientation()
 
         ASSERTL0(orientation < StdRegions::eDir1FwdDir2_Dir2FwdDir1,
                  "Orientation of triangular face (id = " +
-                     boost::lexical_cast<string>(m_faces[f]->GetGlobalID()) +
-                     ") is inconsistent with face " +
-                     boost::lexical_cast<string>(f) + " of tet element (id = " +
-                     boost::lexical_cast<string>(m_globalID) +
+                     std::to_string(m_faces[f]->GetGlobalID()) +
+                     ") is inconsistent with face " + std::to_string(f) +
+                     " of tet element (id = " + std::to_string(m_globalID) +
                      ") since Dir2 is aligned with Dir1. Mesh setup "
                      "needs investigation");
 
@@ -653,15 +648,15 @@ void TetGeom::v_GenGeomFactors()
  */
 void TetGeom::SetUpXmap()
 {
-    vector<int> tmp;
+    std::vector<int> tmp;
     tmp.push_back(m_faces[0]->GetXmap()->GetTraceNcoeffs(0));
-    int order0 = *max_element(tmp.begin(), tmp.end());
+    int order0 = *std::max_element(tmp.begin(), tmp.end());
 
     tmp.clear();
     tmp.push_back(order0);
     tmp.push_back(m_faces[0]->GetXmap()->GetTraceNcoeffs(1));
     tmp.push_back(m_faces[0]->GetXmap()->GetTraceNcoeffs(2));
-    int order1 = *max_element(tmp.begin(), tmp.end());
+    int order1 = *std::max_element(tmp.begin(), tmp.end());
 
     tmp.clear();
     tmp.push_back(order0);
@@ -669,7 +664,7 @@ void TetGeom::SetUpXmap()
     tmp.push_back(m_faces[1]->GetXmap()->GetTraceNcoeffs(1));
     tmp.push_back(m_faces[1]->GetXmap()->GetTraceNcoeffs(2));
     tmp.push_back(m_faces[3]->GetXmap()->GetTraceNcoeffs(1));
-    int order2 = *max_element(tmp.begin(), tmp.end());
+    int order2 = *std::max_element(tmp.begin(), tmp.end());
 
     const LibUtilities::BasisKey A(
         LibUtilities::eModified_A, order0,

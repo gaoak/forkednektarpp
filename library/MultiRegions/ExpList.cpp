@@ -5837,8 +5837,7 @@ SpatialDomains::BoundaryConditionShPtr ExpList::GetBoundaryCondition(
 {
     auto collectionIter = collection.find(regionId);
     ASSERTL1(collectionIter != collection.end(),
-             "Unable to locate collection " +
-                 boost::lexical_cast<string>(regionId));
+             "Unable to locate collection " + std::to_string(regionId));
 
     const SpatialDomains::BoundaryConditionMapShPtr bndCondMap =
         (*collectionIter).second;

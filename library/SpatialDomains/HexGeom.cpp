@@ -39,8 +39,6 @@
 #include <SpatialDomains/SegGeom.h>
 #include <StdRegions/StdHexExp.h>
 
-using namespace std;
-
 namespace Nektar::SpatialDomains
 {
 
@@ -79,10 +77,6 @@ HexGeom::HexGeom(int id, const QuadGeomSharedPtr faces[])
     SetUpLocalVertices();
     SetUpEdgeOrientation();
     SetUpFaceOrientation();
-}
-
-HexGeom::~HexGeom()
-{
 }
 
 void HexGeom::v_GenGeomFactors()
@@ -570,10 +564,10 @@ void HexGeom::SetUpFaceOrientation()
             faceBaxis_length += pow(faceBaxis[i], 2);
         }
 
-        elementAaxis_length = sqrt(elementAaxis_length);
-        elementBaxis_length = sqrt(elementBaxis_length);
-        faceAaxis_length    = sqrt(faceAaxis_length);
-        faceBaxis_length    = sqrt(faceBaxis_length);
+        elementAaxis_length = std::sqrt(elementAaxis_length);
+        elementBaxis_length = std::sqrt(elementBaxis_length);
+        faceAaxis_length    = std::sqrt(faceAaxis_length);
+        faceBaxis_length    = std::sqrt(faceBaxis_length);
 
         // Calculate the inner product of both the A-axis
         // (i.e. Elemental A axis and face A axis)
@@ -732,7 +726,7 @@ void HexGeom::SetUpXmap()
 {
     // Determine necessary order for standard region. This can almost certainly
     // be simplified but works for now!
-    vector<int> tmp1;
+    std::vector<int> tmp1;
 
     if (m_forient[0] < 9)
     {
@@ -756,7 +750,7 @@ void HexGeom::SetUpXmap()
         tmp1.push_back(m_faces[5]->GetXmap()->GetTraceNcoeffs(3));
     }
 
-    int order0 = *max_element(tmp1.begin(), tmp1.end());
+    int order0 = *std::max_element(tmp1.begin(), tmp1.end());
 
     tmp1.clear();
 
@@ -782,7 +776,7 @@ void HexGeom::SetUpXmap()
         tmp1.push_back(m_faces[5]->GetXmap()->GetTraceNcoeffs(2));
     }
 
-    int order1 = *max_element(tmp1.begin(), tmp1.end());
+    int order1 = *std::max_element(tmp1.begin(), tmp1.end());
 
     tmp1.clear();
 
@@ -808,7 +802,7 @@ void HexGeom::SetUpXmap()
         tmp1.push_back(m_faces[3]->GetXmap()->GetTraceNcoeffs(2));
     }
 
-    int order2 = *max_element(tmp1.begin(), tmp1.end());
+    int order2 = *std::max_element(tmp1.begin(), tmp1.end());
 
     const LibUtilities::BasisKey A(
         LibUtilities::eModified_A, order0,

@@ -40,8 +40,6 @@
 
 #include <iomanip>
 
-using namespace std;
-
 namespace Nektar::SpatialDomains
 {
 
@@ -54,10 +52,6 @@ Geometry2D::Geometry2D(const int coordim, CurveSharedPtr curve)
 {
     ASSERTL0(m_coordim > 1,
              "Coordinate dimension should be at least 2 for a 2D geometry");
-}
-
-Geometry2D::~Geometry2D()
-{
 }
 
 int Geometry2D::v_AllLeftCheck(const Array<OneD, const NekDouble> &gloCoord)
@@ -297,12 +291,13 @@ void Geometry2D::NewtonIterationForLocCoord(
 
             ss << "Reached MaxIterations (" << MaxIterations
                << ") in Newton iteration ";
-            ss << "Init value (" << setprecision(4) << init0 << "," << init1
-               << ","
+            ss << "Init value (" << std::setprecision(4) << init0 << ","
+               << init1 << ","
                << ") ";
             ss << "Fin  value (" << Lcoords[0] << "," << Lcoords[1] << ","
                << ") ";
-            ss << "Resid = " << resid << " Tolerance = " << sqrt(ScaledTol);
+            ss << "Resid = " << resid
+               << " Tolerance = " << std::sqrt(ScaledTol);
 
             WARNINGL1(cnt < MaxIterations, ss.str());
         }
