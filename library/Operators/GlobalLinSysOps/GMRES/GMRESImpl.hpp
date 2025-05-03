@@ -97,12 +97,12 @@ public:
         m_rowComm = contfield->GetSession()->GetComm()->GetRowComm();
 
         // Allocate array storage.
-        m_hes   = Array<OneD, Array<OneD, TData>>(m_LinSysMaxStorage);
-        m_upper = Array<OneD, Array<OneD, TData>>(m_LinSysMaxStorage);
+        m_hes   = std::vector<std::vector<TData>>(m_LinSysMaxStorage);
+        m_upper = std::vector<std::vector<TData>>(m_LinSysMaxStorage);
         for (size_t nd = 0; nd < m_LinSysMaxStorage; nd++)
         {
-            m_hes[nd]   = Array<OneD, TData>(m_LinSysMaxStorage + 1, 0.0);
-            m_upper[nd] = Array<OneD, TData>(m_LinSysMaxStorage + 1, 0.0);
+            m_hes[nd]   = std::vector<TData>(m_LinSysMaxStorage + 1, 0.0);
+            m_upper[nd] = std::vector<TData>(m_LinSysMaxStorage + 1, 0.0);
         }
 
         // Restarted Gmres(m) process.
@@ -138,8 +138,8 @@ protected:
     Field<TData, FieldState::Coeff> m_solution;
     Field<TData, FieldState::Coeff> m_V1;
     std::vector<Field<TData, FieldState::Coeff>> m_Vtotal;
-    Array<OneD, Array<OneD, TData>> m_hes;
-    Array<OneD, Array<OneD, TData>> m_upper;
+    std::vector<std::vector<TData>> m_hes;
+    std::vector<std::vector<TData>> m_upper;
 
     TData m_rhs_magnitude = NekConstants::kNekUnsetDouble;
     TData m_prec_factor;
@@ -236,17 +236,17 @@ protected:
     {
         // Allocate array storage.
         // Residual
-        Array<OneD, TData> eta(m_LinSysMaxStorage + 1, 0.0);
+        std::vector<TData> eta(m_LinSysMaxStorage + 1, 0.0);
         // Givens rotation c
-        Array<OneD, TData> cs(m_LinSysMaxStorage, 0.0);
+        std::vector<TData> cs(m_LinSysMaxStorage, 0.0);
         // Givens rotation s
-        Array<OneD, TData> sn(m_LinSysMaxStorage, 0.0);
+        std::vector<TData> sn(m_LinSysMaxStorage, 0.0);
         // Total coefficients, just for check
-        Array<OneD, TData> y_total(m_LinSysMaxStorage, 0.0);
+        std::vector<TData> y_total(m_LinSysMaxStorage, 0.0);
         // Search direction order
-        Array<OneD, int> id(m_LinSysMaxStorage, 0);
-        Array<OneD, int> id_start(m_LinSysMaxStorage, 0);
-        Array<OneD, int> id_end(m_LinSysMaxStorage, 0);
+        std::vector<int> id(m_LinSysMaxStorage, 0);
+        std::vector<int> id_start(m_LinSysMaxStorage, 0);
+        std::vector<int> id_end(m_LinSysMaxStorage, 0);
 
         // Set the fields to zero.
         out.template Initialize<MemSpace>(0);
@@ -343,7 +343,7 @@ protected:
                     1, ExecSpace::alignment, eDeviceOnly));
             }
             m_Vtotal[nd + 1].template Initialize<MemSpace>(0);
-            Vmath::Zero(m_LinSysMaxStorage + 1, m_hes[nd], 1);
+            std::fill_n(m_hes[nd].data(), m_LinSysMaxStorage + 1, 0.0);
             auto &V1 = m_NekLinSysRightPrecon ? m_V1 : m_Vtotal[nd];
             auto &V2 = m_Vtotal[nd + 1];
             auto &h1 = m_hes[nd];
@@ -366,7 +366,7 @@ protected:
                 starttem = starttem - 1;
             }
 
-            Vmath::Vcopy(m_LinSysMaxStorage + 1, h1.data(), 1, h2.data(), 1);
+            std::copy_n(h1.data(), m_LinSysMaxStorage + 1, h2.data());
             DoGivensRotation(starttem, endtem, cs, sn, h2, eta);
 
             eps = eta[nd + 1] * eta[nd + 1];
@@ -414,7 +414,7 @@ protected:
                    Field<TData, FieldState::Coeff> &w,
                    Field<TData, FieldState::Coeff> &wk,
                    Field<TData, FieldState::Coeff> &V1,
-                   Field<TData, FieldState::Coeff> &V2, Array<OneD, TData> &h)
+                   Field<TData, FieldState::Coeff> &V2, std::vector<TData> &h)
     {
         // Apply lhs.
         this->m_lhs->Apply(V1, w);
@@ -447,8 +447,8 @@ protected:
 
     // QR factorization through Givens rotation -> Put into a helper class
     void DoGivensRotation(const int starttem, const int endtem,
-                          Array<OneD, TData> &c, Array<OneD, TData> &s,
-                          Array<OneD, TData> &h, Array<OneD, TData> &eta)
+                          std::vector<TData> &c, std::vector<TData> &s,
+                          std::vector<TData> &h, std::vector<TData> &eta)
     {
         TData temp_dbl;
         TData dd;
@@ -493,8 +493,8 @@ protected:
         eta[idtem]  = temp_dbl;
     }
 
-    void DoBackward(const int n, Array<OneD, Array<OneD, TData>> &A,
-                    const Array<OneD, const TData> &b, Array<OneD, TData> &y)
+    void DoBackward(const int n, const std::vector<std::vector<TData>> &A,
+                    const std::vector<TData> &b, std::vector<TData> &y)
     {
         TData sum;
         y[n - 1] = b[n - 1] / A[n - 1][n - 1];
