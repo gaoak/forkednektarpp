@@ -654,8 +654,8 @@ protected:
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
         constexpr auto nqTot = nq0 * nq1;
 
-        constexpr unsigned ndf = 4;
-        unsigned int dfSize    = 1;
+        constexpr unsigned int ndf = 4;
+        unsigned int dfSize        = 1;
         if constexpr (DEFORMED)
         {
             dfSize *= nqTot;

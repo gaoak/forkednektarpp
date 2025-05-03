@@ -80,9 +80,9 @@ NEK_DEVICE_INLINE void Helmholtz2DKernel(
 
 // Size based template version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, signed int nm0, unsigned int nm1, unsigned int nm2,
-          unsigned nmTot, unsigned int nq0, unsigned int nq1, unsigned int nq2,
-          typename TData>
+          bool DEFORMED, unsigned int nm0, unsigned int nm1, unsigned int nm2,
+          unsigned int nmTot, unsigned int nq0, unsigned int nq1,
+          unsigned int nq2, typename TData>
 NEK_DEVICE_INLINE void Helmholtz3DKernel(
     const unsigned int nelmt, const bool isModified,
     const unsigned int *__restrict__ index0,

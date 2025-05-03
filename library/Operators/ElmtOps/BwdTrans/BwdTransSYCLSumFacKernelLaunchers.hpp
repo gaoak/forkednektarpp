@@ -55,7 +55,7 @@ NEK_DEVICE_INLINE void BwdTrans1DKernel(const unsigned int nelmt,
 
 // Size based template version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          unsigned int nm0, unsigned int nm1, const unsigned nmTot,
+          unsigned int nm0, unsigned int nm1, unsigned int nmTot,
           unsigned int nq0, unsigned int nq1, typename TData>
 NEK_DEVICE_INLINE void BwdTrans2DKernel(
     const unsigned int nelmt, const bool isModified,
@@ -72,7 +72,7 @@ NEK_DEVICE_INLINE void BwdTrans2DKernel(
 // Size based template version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           unsigned int nm0, unsigned int nm1, unsigned int nm2,
-          const unsigned int nmTot, unsigned int nq0, unsigned int nq1,
+          unsigned int nmTot, unsigned int nq0, unsigned int nq1,
           unsigned int nq2, typename TData>
 NEK_DEVICE_INLINE void BwdTrans3DKernel(
     const unsigned int nelmt, const bool isModified, const unsigned int *index0,

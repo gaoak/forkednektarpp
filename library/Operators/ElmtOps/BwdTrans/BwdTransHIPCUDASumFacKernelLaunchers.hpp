@@ -72,7 +72,7 @@ __global__ void BwdTrans1DKernelLauncher(const unsigned int nelmt,
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TData>
 __global__ void BwdTrans2DKernelLauncher(
-    const unsigned int nm0, const unsigned int nm1, const unsigned nmTot,
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const bool isModified, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ nodToMod,
@@ -88,7 +88,7 @@ __global__ void BwdTrans2DKernelLauncher(
 
 // Size based template version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          unsigned int nm0, unsigned int nm1, const unsigned nmTot,
+          unsigned int nm0, unsigned int nm1, unsigned int nmTot,
           unsigned int nq0, unsigned int nq1, typename TData>
 __global__ void BwdTrans2DKernelLauncher(
     const unsigned int nelmt, const bool isModified,
@@ -128,7 +128,7 @@ __global__ void BwdTrans3DKernelLauncher(
 // Size based template version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           unsigned int nm0, unsigned int nm1, unsigned int nm2,
-          const unsigned int nmTot, unsigned int nq0, unsigned int nq1,
+          unsigned int nmTot, unsigned int nq0, unsigned int nq1,
           unsigned int nq2, typename TData>
 __global__ void BwdTrans3DKernelLauncher(
     const unsigned int nelmt, const bool isModified, const unsigned int *index0,
