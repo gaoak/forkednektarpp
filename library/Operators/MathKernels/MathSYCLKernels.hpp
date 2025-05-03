@@ -57,8 +57,8 @@ negKernel(const unsigned int nsize, const TData *x, TData *y)
     Q.submit([=](sycl::handler &cgh) {
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
                          [=](sycl::nd_item<1> indx) {
-                             unsigned int idx0 = indx.get_global_id(0);
-                             unsigned stride   = indx.get_global_range(0);
+                             unsigned int idx0   = indx.get_global_id(0);
+                             unsigned int stride = indx.get_global_range(0);
 
                              for (unsigned int idx = idx0; idx < nsize;
                                   idx += stride)
@@ -81,8 +81,8 @@ addKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
     Q.submit([=](sycl::handler &cgh) {
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
                          [=](sycl::nd_item<1> indx) {
-                             unsigned int idx0 = indx.get_global_id(0);
-                             unsigned stride   = indx.get_global_range(0);
+                             unsigned int idx0   = indx.get_global_id(0);
+                             unsigned int stride = indx.get_global_range(0);
 
                              for (unsigned int idx = idx0; idx < nsize;
                                   idx += stride)
@@ -105,8 +105,8 @@ subKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
     Q.submit([=](sycl::handler &cgh) {
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
                          [=](sycl::nd_item<1> indx) {
-                             unsigned int idx0 = indx.get_global_id(0);
-                             unsigned stride   = indx.get_global_range(0);
+                             unsigned int idx0   = indx.get_global_id(0);
+                             unsigned int stride = indx.get_global_range(0);
 
                              for (unsigned int idx = idx0; idx < nsize;
                                   idx += stride)
@@ -129,8 +129,8 @@ mulKernel(const unsigned int nsize, const TData alpha, const TData *x, TData *y)
     Q.submit([=](sycl::handler &cgh) {
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
                          [=](sycl::nd_item<1> indx) {
-                             unsigned int idx0 = indx.get_global_id(0);
-                             unsigned stride   = indx.get_global_range(0);
+                             unsigned int idx0   = indx.get_global_id(0);
+                             unsigned int stride = indx.get_global_range(0);
 
                              for (unsigned int idx = idx0; idx < nsize;
                                   idx += stride)
@@ -153,8 +153,8 @@ mulKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
     Q.submit([=](sycl::handler &cgh) {
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
                          [=](sycl::nd_item<1> indx) {
-                             unsigned int idx0 = indx.get_global_id(0);
-                             unsigned stride   = indx.get_global_range(0);
+                             unsigned int idx0   = indx.get_global_id(0);
+                             unsigned int stride = indx.get_global_range(0);
 
                              for (unsigned int idx = idx0; idx < nsize;
                                   idx += stride)
@@ -177,8 +177,8 @@ divKernel(const unsigned int nsize, const TData alpha, const TData *x, TData *y)
     Q.submit([=](sycl::handler &cgh) {
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
                          [=](sycl::nd_item<1> indx) {
-                             unsigned int idx0 = indx.get_global_id(0);
-                             unsigned stride   = indx.get_global_range(0);
+                             unsigned int idx0   = indx.get_global_id(0);
+                             unsigned int stride = indx.get_global_range(0);
 
                              for (unsigned int idx = idx0; idx < nsize;
                                   idx += stride)
@@ -201,8 +201,8 @@ divKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
     Q.submit([=](sycl::handler &cgh) {
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
                          [=](sycl::nd_item<1> indx) {
-                             unsigned int idx0 = indx.get_global_id(0);
-                             unsigned stride   = indx.get_global_range(0);
+                             unsigned int idx0   = indx.get_global_id(0);
+                             unsigned int stride = indx.get_global_range(0);
 
                              for (unsigned int idx = idx0; idx < nsize;
                                   idx += stride)
@@ -226,8 +226,8 @@ daxpyKernel(const unsigned int nsize, const TData alpha, const TData *x,
     Q.submit([=](sycl::handler &cgh) {
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
                          [=](sycl::nd_item<1> indx) {
-                             unsigned int idx0 = indx.get_global_id(0);
-                             unsigned stride   = indx.get_global_range(0);
+                             unsigned int idx0   = indx.get_global_id(0);
+                             unsigned int stride = indx.get_global_range(0);
 
                              for (unsigned int idx = idx0; idx < nsize;
                                   idx += stride)
