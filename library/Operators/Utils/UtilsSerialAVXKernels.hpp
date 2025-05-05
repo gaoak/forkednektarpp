@@ -137,11 +137,11 @@ NEK_FORCE_INLINE static void MatVecKernel(const unsigned int n,
                                           const simd_type *Mat,
                                           const simd_type *in, simd_type *out)
 {
-    for (int i = 0, cnt = 0; i < n; ++i)
+    for (unsigned int i = 0, cnt = 0; i < n; ++i)
     {
         simd_type i_sum = 0.0;
 
-        for (int j = 0; j < n; ++j, ++cnt)
+        for (unsigned int j = 0; j < n; ++j, ++cnt)
         {
             i_sum.fma(Mat[cnt], in[j]);
         }

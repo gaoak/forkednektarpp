@@ -85,9 +85,9 @@ public:
         // Compute block bound.
         auto blocks =
             GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
-        std::vector<int> blockBound(blocks.size());
-        int bound = 0;
-        for (int blk = 0; blk < blocks.size(); ++blk)
+        std::vector<unsigned int> blockBound(blocks.size());
+        unsigned int bound = 0;
+        for (unsigned int blk = 0; blk < blocks.size(); ++blk)
         {
             const auto &block = blocks[blk];
             const auto ncoeff = block.GetNumData();
@@ -98,7 +98,7 @@ public:
 
         // Collecting boundary coefficients.
         std::vector<TData> bndcoeff(m_nBndCoeff);
-        std::vector<int> index(m_nBndCoeff);
+        std::vector<unsigned int> index(m_nBndCoeff);
         unsigned int bndcnt = 0, cnt = 0;
         for (unsigned int i = 0; i < bndCondExpansions.size(); ++i)
         {
@@ -123,9 +123,9 @@ public:
 
         // Compute number of bndcoeff per block.
         std::vector<TData> bndCoeffBlock;
-        std::vector<int> mapBlock;
+        std::vector<unsigned int> mapBlock;
         std::vector<TData> signBlock;
-        int i = 0, blk = 0, offset = 0, nbndCoeffBlock = 0;
+        unsigned int i = 0, blk = 0, offset = 0, nbndCoeffBlock = 0;
         while (blk < blocks.size())
         {
             if (i == m_nBndCoeff || map[index[i]] >= blockBound[blk])
@@ -134,9 +134,9 @@ public:
                 m_bndCoeff.push_back(
                     MemoryRegion<TData>::template FromVector<MemSpace, TData>(
                         bndCoeffBlock, ExecSpace::alignment));
-                m_map.push_back(
-                    MemoryRegion<int>::template FromVector<MemSpace, int>(
-                        mapBlock, ExecSpace::alignment));
+                m_map.push_back(MemoryRegion<unsigned int>::template FromVector<
+                                MemSpace, unsigned int>(mapBlock,
+                                                        ExecSpace::alignment));
                 if (m_signChange)
                 {
                     m_sign.push_back(
@@ -177,7 +177,7 @@ public:
     }
 
 protected:
-    std::vector<MemoryRegion<int>> m_map;
+    std::vector<MemoryRegion<unsigned int>> m_map;
     std::vector<MemoryRegion<TData>> m_sign;
     std::vector<MemoryRegion<TData>> m_bndCoeff;
     std::vector<unsigned int> m_nBndCoeffBlock;

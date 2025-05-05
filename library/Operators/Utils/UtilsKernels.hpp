@@ -51,8 +51,9 @@
  * @tparam  alignment            Memory alignment to use.
  */
 template <typename ExecSpace, unsigned int interleave_width, typename TData>
-void ReshapeStorage(const int curr_interleave_width, const int numElmt,
-                    const int ndata, TData *inoutptr)
+void ReshapeStorage(const unsigned int curr_interleave_width,
+                    const unsigned int numElmt, const unsigned int ndata,
+                    TData *inoutptr)
 {
     if (curr_interleave_width != interleave_width)
     {

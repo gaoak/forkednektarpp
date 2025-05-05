@@ -63,7 +63,8 @@ public:
     }
 
 protected:
-    void v_SetAdvVel(const int nVel, const Array<OneD, NekDouble> &Vel) override
+    void v_SetAdvVel(const unsigned int nVel,
+                     const Array<OneD, NekDouble> &Vel) override
     {
         // Set up a physBlockAttributes which will be
         std::vector<BlockAttributes> physBlockAttributes =

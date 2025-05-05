@@ -63,7 +63,7 @@
 
 /* start of included switch statement */
 {
-    const int nq0 = m_basisKeys[0].GetNumPoints();
+    const unsigned int nq0 = m_basisKeys[0].GetNumPoints();
     switch (nq0)
     {
         BOOST_PP_FOR((MIN1D, MAX1D), LEV1TEST, LEV1UPDATE, OPERATOR1D);
