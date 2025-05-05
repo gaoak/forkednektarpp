@@ -86,7 +86,7 @@ public:
             GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
         std::vector<int> blockBound(blocks.size());
         int bound = 0;
-        for (int blk = 0; blk < blocks.size(); ++blk)
+        for (unsigned int blk = 0; blk < blocks.size(); ++blk)
         {
             const auto &block = blocks[blk];
             const auto ncoeff = block.GetNumData();

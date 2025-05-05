@@ -36,8 +36,8 @@
 
 if (dimension == 1)
 {
-    const int nm0 = m_basisKeys[0].GetNumModes();
-    const int nq0 = m_basisKeys[0].GetNumPoints();
+    const unsigned int nm0 = m_basisKeys[0].GetNumModes();
+    const unsigned int nq0 = m_basisKeys[0].GetNumPoints();
     switch (nm0)
     {
         /*
@@ -63,10 +63,10 @@ if (dimension == 1)
 }
 else if (dimension == 2)
 {
-    const int nm0 = m_basisKeys[0].GetNumModes();
-    const int nq0 = m_basisKeys[0].GetNumPoints();
-    const int nm1 = m_basisKeys[1].GetNumModes();
-    const int nq1 = m_basisKeys[1].GetNumPoints();
+    const unsigned int nm0 = m_basisKeys[0].GetNumModes();
+    const unsigned int nq0 = m_basisKeys[0].GetNumPoints();
+    const unsigned int nm1 = m_basisKeys[1].GetNumModes();
+    const unsigned int nq1 = m_basisKeys[1].GetNumPoints();
     switch (shapeType)
     {
         case LibUtilities::eTriangle:
@@ -102,12 +102,12 @@ else if (dimension == 2)
 }
 else
 {
-    const int nm0 = m_basisKeys[0].GetNumModes();
-    const int nm1 = m_basisKeys[1].GetNumModes();
-    const int nm2 = m_basisKeys[2].GetNumModes();
-    const int nq0 = m_basisKeys[0].GetNumPoints();
-    const int nq1 = m_basisKeys[1].GetNumPoints();
-    const int nq2 = m_basisKeys[2].GetNumPoints();
+    const unsigned int nm0 = m_basisKeys[0].GetNumModes();
+    const unsigned int nm1 = m_basisKeys[1].GetNumModes();
+    const unsigned int nm2 = m_basisKeys[2].GetNumModes();
+    const unsigned int nq0 = m_basisKeys[0].GetNumPoints();
+    const unsigned int nq1 = m_basisKeys[1].GetNumPoints();
+    const unsigned int nq2 = m_basisKeys[2].GetNumPoints();
     switch (shapeType)
     {
         case LibUtilities::eHexahedron:

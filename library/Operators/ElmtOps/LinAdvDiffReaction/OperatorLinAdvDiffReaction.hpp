@@ -146,7 +146,7 @@ public:
         }
     }
 
-    void SetAdvVel(const int nVel, const Array<OneD, NekDouble> &Vel)
+    void SetAdvVel(const unsigned int nVel, const Array<OneD, NekDouble> &Vel)
     {
         v_SetAdvVel(nVel, Vel);
     }
@@ -182,7 +182,7 @@ protected:
         }
     }
 
-    virtual void v_SetAdvVel(const int nVel,
+    virtual void v_SetAdvVel(const unsigned int nVel,
                              const Array<OneD, NekDouble> &Vel) = 0;
 };
 

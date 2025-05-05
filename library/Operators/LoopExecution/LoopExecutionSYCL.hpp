@@ -80,7 +80,8 @@ NEK_DEVICE_INLINE
 template <typename ExecSpace, typename Functor>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-parallel_for(const int begin, const int end, const Functor &functor)
+parallel_for(const unsigned int begin, const unsigned int end,
+             const Functor &functor)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = ((end - begin) + blockSize - 1u) / blockSize;

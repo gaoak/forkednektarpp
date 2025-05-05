@@ -137,7 +137,7 @@ public:
                         {
                             const auto z = basis->GetZ();
                             const auto w = basis->GetW();
-                            for (int i = 0; i < ndata; ++i)
+                            for (unsigned int i = 0; i < ndata; ++i)
                             {
                                 wTmp[i] = 0.5 * (1 - z[i]) * w[i];
                             }
@@ -160,7 +160,7 @@ public:
                         {
                             const auto z = basis->GetZ();
                             const auto w = basis->GetW();
-                            for (int i = 0; i < ndata; ++i)
+                            for (unsigned int i = 0; i < ndata; ++i)
                             {
                                 wTmp[i] = 0.25 * (1 - z[i]) * w[i];
                             }
@@ -169,7 +169,7 @@ public:
                         {
                             const auto z = basis->GetZ();
                             const auto w = basis->GetW();
-                            for (int i = 0; i < ndata; ++i)
+                            for (unsigned int i = 0; i < ndata; ++i)
                             {
                                 wTmp[i] = 0.25 * (1 - z[i]) * (1 - z[i]) * w[i];
                             }
@@ -218,7 +218,7 @@ public:
                 const auto z = basis->GetZ();
                 Array<OneD, NekDouble> Tmp(z.size());
 
-                for (int i = 0; i < z.size(); ++i)
+                for (unsigned int i = 0; i < z.size(); ++i)
                 {
                     Tmp[i] = 0.5 * (1.0 + z[i]);
                 }
@@ -233,7 +233,7 @@ public:
                 auto n       = z.size();
                 Array<OneD, NekDouble> Tmp(n);
 
-                for (int i = 0; i < n; ++i)
+                for (unsigned int i = 0; i < n; ++i)
                 {
                     Tmp[i] = 2 / (1.0 - z[i]);
                 }

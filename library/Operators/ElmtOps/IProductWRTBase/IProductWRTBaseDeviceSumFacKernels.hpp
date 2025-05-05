@@ -744,7 +744,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacKernel(
 
         // increment mode in case order1!=order2
 #pragma unroll
-        for (int q = nm1 - p; q < nm2 - p; ++q)
+        for (unsigned int q = nm1 - p; q < nm2 - p; ++q)
         {
             mode2 += nm2 - p - q;
         }
@@ -899,7 +899,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacKernel(
 
         // increment mode in case order1!=order2
 #pragma unroll
-        for (int q = nm1 - p; q < nm2 - p; ++q)
+        for (unsigned int q = nm1 - p; q < nm2 - p; ++q)
         {
             mode2 += nm2 - p - q;
         }
@@ -1021,7 +1021,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacKernel(
                 wsp1[warpsize * k + ilane] = sum_k;
             }
 
-            for (int r = 0u; r < nm2 - p; ++r, ++mode_pqr)
+            for (unsigned int r = 0u; r < nm2 - p; ++r, ++mode_pqr)
             {
                 unsigned int mode_pr = (2u * nm2 - p + 1u) * p / 2u;
 
@@ -1148,7 +1148,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacKernel(
                 wsp1[warpsize * k + ilane] = sum_k;
             }
 
-            for (int r = 0u; r < nm2 - p; ++r, ++mode_pqr)
+            for (unsigned int r = 0u; r < nm2 - p; ++r, ++mode_pqr)
             {
                 unsigned int mode_pr = (2u * nm2 - p + 1u) * p / 2u;
 
@@ -1343,7 +1343,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacKernel(
 
         // increment mode in case order1!=order2
 #pragma unroll
-        for (int q = nm1; q < nm2; ++q)
+        for (unsigned int q = nm1; q < nm2; ++q)
         {
             mode2 += nm2 - q;
         }
@@ -1508,7 +1508,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacKernel(
 
         // increment mode in case order1!=order2
 #pragma unroll
-        for (int q = nm1; q < nm2; ++q)
+        for (unsigned int q = nm1; q < nm2; ++q)
         {
             mode2 += nm2 - q;
         }

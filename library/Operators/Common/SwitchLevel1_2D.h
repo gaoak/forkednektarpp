@@ -65,8 +65,8 @@
 
 /* start of included switch statement */
 {
-    const int nq0 = m_basisKeys[0].GetNumPoints();
-    const int nq1 = m_basisKeys[1].GetNumPoints();
+    const unsigned int nq0 = m_basisKeys[0].GetNumPoints();
+    const unsigned int nq1 = m_basisKeys[1].GetNumPoints();
     switch (shapeType)
     {
         case LibUtilities::eTriangle:

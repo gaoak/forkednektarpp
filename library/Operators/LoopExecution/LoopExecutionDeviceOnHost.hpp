@@ -78,9 +78,10 @@ NEK_DEVICE_INLINE
 template <typename ExecSpace, typename Functor>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-parallel_for(const int begin, const int end, const Functor &functor)
+parallel_for(const unsigned int begin, const unsigned int end,
+             const Functor &functor)
 {
-    for (int i = begin; i < end; ++i)
+    for (unsigned int i = begin; i < end; ++i)
     {
         functor(i);
     }
@@ -107,7 +108,7 @@ parallel_reduce(const unsigned int begin, const unsigned int end,
         red = std::numeric_limits<TData>::max();
     }
 
-    for (int i = begin; i < end; ++i)
+    for (unsigned int i = begin; i < end; ++i)
     {
         functor(i, red);
     }

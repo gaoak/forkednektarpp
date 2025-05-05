@@ -57,9 +57,9 @@ public:
         auto robinBCInfo = this->m_expansionList->GetRobinBCInfo();
 
         // Set mapping to skip over padding elements
-        int i = 0, j = 0;
+        unsigned int i = 0, j = 0;
 
-        std::vector<int> alignmentMap(expansionList->GetNcoeffs());
+        std::vector<unsigned int> alignmentMap(expansionList->GetNcoeffs());
         auto blocks =
             GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
         for (auto &block : blocks)
