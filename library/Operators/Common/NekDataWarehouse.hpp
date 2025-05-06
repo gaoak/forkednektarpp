@@ -119,7 +119,7 @@ public:
                 auto dataCreator =
                     std::static_pointer_cast<typename DataKey::creator>(
                         it->second);
-                auto mr = dataCreator->template Create<MemSpace, TData>(
+                auto mr = dataCreator->template Create<MemSpace>(
                     dataKey, ExecSpace::alignment);
                 it2->second.emplace(
                     idKey,
