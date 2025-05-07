@@ -170,12 +170,12 @@ protected:
         }
 
         // GMRES with restart.
-        m_totalIterations    = 0;
-        bool converged       = false;
-        TData eps            = 0.0;
-        const bool truncted  = (m_KrylovMaxHessMatBand > 0);
-        const int maxrestart = m_NekLinSysMaxIterations / m_LinSysMaxStorage;
-        for (int nrestart = 0; nrestart < maxrestart; ++nrestart)
+        m_totalIterations       = 0;
+        bool converged          = false;
+        TData eps               = 0.0;
+        const bool truncted     = (m_KrylovMaxHessMatBand > 0);
+        const size_t maxrestart = m_NekLinSysMaxIterations / m_LinSysMaxStorage;
+        for (size_t nrestart = 0; nrestart < maxrestart; ++nrestart)
         {
             const bool restart = (nrestart > 0);
             auto conv          = DoGmresRestart(restart, truncted, in, out);
@@ -244,9 +244,9 @@ protected:
         // Total coefficients, just for check
         std::vector<TData> y_total(m_LinSysMaxStorage, 0.0);
         // Search direction order
-        std::vector<int> id(m_LinSysMaxStorage, 0);
-        std::vector<int> id_start(m_LinSysMaxStorage, 0);
-        std::vector<int> id_end(m_LinSysMaxStorage, 0);
+        std::vector<size_t> id(m_LinSysMaxStorage, 0);
+        std::vector<size_t> id_start(m_LinSysMaxStorage, 0);
+        std::vector<size_t> id_end(m_LinSysMaxStorage, 0);
 
         // Set the fields to zero.
         out.template Initialize<MemSpace>(0);
@@ -300,14 +300,13 @@ protected:
         eta[0] = sqrt(eps);
 
         // Give an order for the entries in Hessenburg matrix.
-        for (int nd = 0; nd < m_LinSysMaxStorage; ++nd)
+        for (size_t nd = 0; nd < m_LinSysMaxStorage; ++nd)
         {
-            id[nd]       = nd;
-            id_end[nd]   = nd + 1;
-            int starttem = id_end[nd] - m_KrylovMaxHessMatBand;
-            if (truncted && starttem > 0)
+            id[nd]     = nd;
+            id_end[nd] = nd + 1;
+            if (truncted && id_end[nd] > m_KrylovMaxHessMatBand)
             {
-                id_start[nd] = starttem;
+                id_start[nd] = id_end[nd] - m_KrylovMaxHessMatBand;
             }
             else
             {
@@ -332,8 +331,8 @@ protected:
         }
 
         bool converged = false;
-        int nswp       = 0;
-        for (int nd = 0; nd < m_LinSysMaxStorage; ++nd)
+        size_t nswp    = 0;
+        for (size_t nd = 0; nd < m_LinSysMaxStorage; ++nd)
         {
             if (m_Vtotal.size() == nd + 1)
             {
@@ -392,7 +391,7 @@ protected:
 
         // Calculate output y_total*V_total.
         m_solution.template Initialize<MemSpace>(0);
-        for (int i = 0; i < nswp; ++i)
+        for (size_t i = 0; i < nswp; ++i)
         {
             daxpy<ExecSpace>(y_total[i], m_Vtotal[i], m_solution, m_solution);
         }
@@ -410,7 +409,7 @@ protected:
     }
 
     // Arnoldi Subroutine
-    void DoArnoldi(const int starttem, const int endtem,
+    void DoArnoldi(const size_t starttem, const size_t endtem,
                    Field<TData, FieldState::Coeff> &w,
                    Field<TData, FieldState::Coeff> &wk,
                    Field<TData, FieldState::Coeff> &V1,
@@ -429,7 +428,7 @@ protected:
         mul<ExecSpace>(std::sqrt(m_prec_factor), w, w);
 
         // Modified Gram-Schmidt.
-        for (int i = starttem; i < endtem; ++i)
+        for (size_t i = starttem; i < endtem; ++i)
         {
             m_assmbScatrOp->Apply(m_Vtotal[i], wk, true);
             ddot<ExecSpace>(w, wk, &h[i]);
@@ -446,20 +445,20 @@ protected:
     }
 
     // QR factorization through Givens rotation -> Put into a helper class
-    void DoGivensRotation(const int starttem, const int endtem,
+    void DoGivensRotation(const size_t starttem, const size_t endtem,
                           std::vector<TData> &c, std::vector<TData> &s,
                           std::vector<TData> &h, std::vector<TData> &eta)
     {
         TData temp_dbl;
         TData dd;
         TData hh;
-        int idtem = endtem - 1;
+        size_t idtem = endtem - 1;
         // The starttem and endtem are beginning and ending order of Givens
         // rotation They usually equal to the beginning position and ending
         // position of Hessenburg matrix But sometimes starttem will change,
         // like if it is initial 0 and becomes nonzero because previous Givens
         // rotation See Yu Pan's User Guide
-        for (int i = starttem; i < idtem; ++i)
+        for (size_t i = starttem; i < idtem; ++i)
         {
             temp_dbl = c[i] * h[i] - s[i] * h[i + 1];
             h[i + 1] = s[i] * h[i] + c[i] * h[i + 1];
@@ -493,15 +492,15 @@ protected:
         eta[idtem]  = temp_dbl;
     }
 
-    void DoBackward(const int n, const std::vector<std::vector<TData>> &A,
+    void DoBackward(const size_t n, const std::vector<std::vector<TData>> &A,
                     const std::vector<TData> &b, std::vector<TData> &y)
     {
         TData sum;
         y[n - 1] = b[n - 1] / A[n - 1][n - 1];
-        for (int i = n - 2; i > -1; --i)
+        for (size_t i = n - 2; i + 1 > 0; --i)
         {
             sum = b[i];
-            for (int j = i + 1; j < n; ++j)
+            for (size_t j = i + 1; j < n; ++j)
             {
                 sum -= y[j] * A[j][i];
             }

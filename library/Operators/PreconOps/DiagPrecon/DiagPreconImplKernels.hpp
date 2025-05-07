@@ -40,7 +40,7 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename TData>
-void SetDiagonalKernel(const unsigned int nmTot, const unsigned int nelmt,
+void SetDiagonalKernel(const unsigned int nmTot, const size_t nelmt,
                        const unsigned int mode, const TData val, TData *outptr)
 {
     Nektar::parallel_for<ExecSpace>(
@@ -49,7 +49,7 @@ void SetDiagonalKernel(const unsigned int nmTot, const unsigned int nelmt,
 }
 
 template <typename ExecSpace, typename TData>
-void CopyDiagonalKernel(const unsigned int nmTot, const unsigned int nelmt,
+void CopyDiagonalKernel(const unsigned int nmTot, const size_t nelmt,
                         const unsigned int mode, const TData *inptr,
                         TData *outptr)
 {

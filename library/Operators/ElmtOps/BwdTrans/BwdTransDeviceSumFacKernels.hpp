@@ -1039,7 +1039,7 @@ NEK_DEVICE_INLINE static void BwdTransPyrSumFacQPKernel(
 
 template <typename Implementation, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void BwdTrans1DKernel(
-    const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
+    const unsigned int nm0, const unsigned int nq0, const size_t nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ in,
     TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ shmemptr,
     const TthreadBlock &threadBlock)
@@ -1049,20 +1049,20 @@ NEK_DEVICE_INLINE static void BwdTrans1DKernel(
         constexpr unsigned int warpsize =
             NektarSpaces::vector_width<TData>::value;
 
-        unsigned int e = getGlobalIdx(threadBlock);
+        size_t e = getGlobalIdx(threadBlock);
         while (e < nelmt)
         {
-            const unsigned int ilane = e % warpsize;
-            const unsigned int iwarp = e / warpsize;
-            const TData *inptr       = in + nm0 * warpsize * iwarp;
-            TData *outptr            = out + nq0 * warpsize * iwarp;
+            const size_t ilane = e % warpsize;
+            const size_t iwarp = e / warpsize;
+            const TData *inptr = in + nm0 * warpsize * iwarp;
+            TData *outptr      = out + nq0 * warpsize * iwarp;
             BwdTransSegSumFacKernel(ilane, nm0, nq0, basis0, inptr, outptr);
             e += getGlobalRange(threadBlock);
         }
     }
     else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
-        unsigned int e = getBlockIdx(threadBlock);
+        size_t e = getBlockIdx(threadBlock);
         while (e < nelmt)
         {
             const TData *inptr = in + nm0 * e;
@@ -1078,7 +1078,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void BwdTrans2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
-    const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
+    const unsigned int nq0, const unsigned int nq1, const size_t nelmt,
     const bool isModified, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ nodToMod,
     const TData *__restrict__ in, TData *__restrict__ out,
@@ -1093,13 +1093,13 @@ NEK_DEVICE_INLINE static void BwdTrans2DKernel(
         constexpr unsigned int warpsize =
             NektarSpaces::vector_width<TData>::value;
 
-        unsigned int e = getGlobalIdx(threadBlock);
+        size_t e = getGlobalIdx(threadBlock);
         while (e < nelmt)
         {
-            const unsigned int ilane = e % warpsize;
-            const unsigned int iwarp = e / warpsize;
-            const TData *inptr       = in + nmTot * warpsize * iwarp;
-            TData *outptr            = out + nqTot * warpsize * iwarp;
+            const size_t ilane = e % warpsize;
+            const size_t iwarp = e / warpsize;
+            const TData *inptr = in + nmTot * warpsize * iwarp;
+            TData *outptr      = out + nqTot * warpsize * iwarp;
             if constexpr (SHAPE_TYPE == LibUtilities::Quad)
             {
                 TData *wspptr = wsp + nm1 * warpsize * iwarp;
@@ -1159,7 +1159,7 @@ NEK_DEVICE_INLINE static void BwdTrans2DKernel(
             s_basis1[idx] = basis1[idx];
         }
 
-        unsigned int e = getBlockIdx(threadBlock);
+        size_t e = getBlockIdx(threadBlock);
         while (e < nelmt)
         {
             const TData *inptr = in + nmTot * e;
@@ -1204,7 +1204,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_INLINE static void BwdTrans3DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
+    const unsigned int nq2, const size_t nelmt, const bool isModified,
     [[maybe_unused]] const unsigned int *__restrict__ index0,
     [[maybe_unused]] const unsigned int *__restrict__ index1,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
@@ -1221,13 +1221,13 @@ NEK_DEVICE_INLINE static void BwdTrans3DKernel(
         constexpr unsigned int warpsize =
             NektarSpaces::vector_width<TData>::value;
 
-        unsigned int e = getGlobalIdx(threadBlock);
+        size_t e = getGlobalIdx(threadBlock); // use size_t to prevent overflow
         while (e < nelmt)
         {
-            const unsigned int ilane = e % warpsize;
-            const unsigned int iwarp = e / warpsize;
-            const TData *inptr       = in + nmTot * warpsize * iwarp;
-            TData *outptr            = out + nqTot * warpsize * iwarp;
+            const size_t ilane = e % warpsize;
+            const size_t iwarp = e / warpsize;
+            const TData *inptr = in + nmTot * warpsize * iwarp;
+            TData *outptr      = out + nqTot * warpsize * iwarp;
             if constexpr (SHAPE_TYPE == LibUtilities::Hex)
             {
                 TData *wsp0 = wsp + nm1 * nm2 * warpsize * iwarp;
@@ -1355,7 +1355,7 @@ NEK_DEVICE_INLINE static void BwdTrans3DKernel(
             s_basis2[idx] = basis2[idx];
         }
 
-        unsigned int e = getBlockIdx(threadBlock);
+        size_t e = getBlockIdx(threadBlock); // use size_t to prevent overflow
         while (e < nelmt)
         {
             const TData *inptr = in + nmTot * e;

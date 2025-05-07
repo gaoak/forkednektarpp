@@ -128,7 +128,7 @@ public:
             {
                 dmat.resize(nelmt * nmTot * nmTot);
                 auto dmatptr = dmat.data();
-                for (unsigned int e = 0; e < nelmt; ++e)
+                for (size_t e = 0; e < nelmt; ++e)
                 {
                     const auto exp =
                         expansionList->GetExp(block.GetExpIdx() + e);

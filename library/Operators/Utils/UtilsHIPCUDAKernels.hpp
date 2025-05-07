@@ -42,7 +42,7 @@ namespace Nektar
 
 template <typename TData>
 __global__ void interleaveKernelLauncher(const unsigned int VectorWidth,
-                                         const unsigned int numMetaBlocks,
+                                         size_t numMetaBlocks,
                                          const unsigned int npts, TData *buffer,
                                          TData *inout,
                                          const hipcudaBlock1D &threadBlock)
@@ -53,7 +53,7 @@ __global__ void interleaveKernelLauncher(const unsigned int VectorWidth,
 
 template <typename TData>
 __global__ void deInterleaveKernelLauncher(const unsigned int VectorWidth,
-                                           const unsigned int numMetaBlocks,
+                                           size_t numMetaBlocks,
                                            const unsigned int npts,
                                            TData *buffer, TData *inout,
                                            const hipcudaBlock1D &threadBlock)
@@ -77,8 +77,7 @@ __global__ void BuildInterleaveMapKernelLauncher(const unsigned int npts,
 template <unsigned int VectorWidth, typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-interleave(const unsigned int numMetaBlocks, const unsigned int npts,
-           TData *inout)
+interleave(size_t numMetaBlocks, const unsigned int npts, TData *inout)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = numMetaBlocks;
@@ -105,7 +104,7 @@ interleave(const unsigned int numMetaBlocks, const unsigned int npts,
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-deInterleave(const unsigned int VectorWidth, const unsigned int numMetaBlocks,
+deInterleave(const unsigned int VectorWidth, size_t numMetaBlocks,
              const unsigned int npts, TData *inout)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
@@ -133,7 +132,7 @@ deInterleave(const unsigned int VectorWidth, const unsigned int numMetaBlocks,
 template <typename ExecSpace>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-BuildInterleaveMap(const unsigned int numMetaBlocks, const unsigned int npts,
+BuildInterleaveMap(size_t numMetaBlocks, const unsigned int npts,
                    const unsigned int newVecWidth, const unsigned int offset,
                    int *deInterleaveMapPtr, int *interleaveMapPtr)
 {

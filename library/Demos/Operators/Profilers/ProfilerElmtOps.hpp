@@ -100,7 +100,7 @@ void GetExpectedResults(const std::string &opName,
     }
     else if (opName == "PhysDeriv")
     {
-        for (unsigned int d = 0; d < outArrays.size(); d++)
+        for (size_t d = 0; d < outArrays.size(); d++)
         {
             expList->PhysDeriv(d, inArr, outArrays[d]);
         }
@@ -125,14 +125,13 @@ void GetExpectedResults(const std::string &opName,
 template <typename TData, FieldState stateOut>
 void ReshapeToScalar(Field<TData, stateOut> &in)
 {
-    for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
+    for (size_t blk = 0; blk < in.GetBlocks().size(); ++blk)
     {
         auto &block = in.GetBlocks()[blk];
         TData *inptr =
             block.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
-        unsigned int numElmtsPad =
-            block.GetNumElements() + block.GetNumPaddingElements();
-        for (unsigned int component = 0; component < in.GetNumComponents();
+        auto numElmtsPad = block.GetNumElementsWithPadding();
+        for (size_t component = 0; component < in.GetNumComponents();
              component++)
         {
             ReshapeStorage<NektarSpaces::Serial, 1>(
@@ -153,19 +152,19 @@ void PrintBlockInfo(const MultiRegions::ExpListSharedPtr &expList,
                     std::vector<NekDouble> &rankL1Err)
 {
     auto comm                 = expList->GetComm();
-    unsigned int nrank        = comm->GetSize();
-    auto rankBlockNum         = std::vector<unsigned int>(1, blocks.size());
-    auto rankBlockNumDofs     = std::vector<unsigned int>(blocks.size(), 0);
-    auto rankBlockNumData     = std::vector<unsigned int>(blocks.size(), 0);
-    auto rankBlockNumElmts    = std::vector<unsigned int>(blocks.size(), 0);
-    auto rankBlockNumPaddings = std::vector<unsigned int>(blocks.size(), 0);
-    auto rankNumDofs          = std::vector<unsigned int>(1, 0);
-    auto rankNumElmts         = std::vector<unsigned int>(1, 0);
-    auto rankNumPaddings      = std::vector<unsigned int>(1, 0);
-    auto rankGeomTypes        = std::vector<unsigned int>(1, 0);
+    size_t nrank              = comm->GetSize();
+    auto rankBlockNum         = std::vector<size_t>(1, blocks.size());
+    auto rankBlockNumDofs     = std::vector<size_t>(blocks.size(), 0);
+    auto rankBlockNumData     = std::vector<size_t>(blocks.size(), 0);
+    auto rankBlockNumElmts    = std::vector<size_t>(blocks.size(), 0);
+    auto rankBlockNumPaddings = std::vector<size_t>(blocks.size(), 0);
+    auto rankNumDofs          = std::vector<size_t>(1, 0);
+    auto rankNumElmts         = std::vector<size_t>(1, 0);
+    auto rankNumPaddings      = std::vector<size_t>(1, 0);
+    auto rankGeomTypes        = std::vector<size_t>(1, 0);
 
     // Collect total information for each rank.
-    for (unsigned int i = 0, expId = 0; i < blocks.size(); ++i)
+    for (size_t i = 0, expId = 0; i < blocks.size(); ++i)
     {
         rankBlockNumDofs[i]  = blocks[i].size();
         rankBlockNumData[i]  = blocks[i].GetNumData();
@@ -231,7 +230,7 @@ void PrintBlockInfo(const MultiRegions::ExpListSharedPtr &expList,
 
         if (verbose)
         {
-            for (unsigned int rank = 0, cnt = 0; rank < nrank; rank++)
+            for (size_t rank = 0, cnt = 0; rank < nrank; rank++)
             {
                 // Print block information in a table like format.
                 // | BlockId | #Elements | #Paddings | #Points | BlockSize |
@@ -248,7 +247,7 @@ void PrintBlockInfo(const MultiRegions::ExpListSharedPtr &expList,
                           << std::setw(10) << "" << std::setw(12) << ""
                           << std::setfill(' ') << std::endl;
 
-                for (unsigned int i = 0; i < allRankBlockNum[rank]; ++i, ++cnt)
+                for (size_t i = 0; i < allRankBlockNum[rank]; ++i, ++cnt)
                 {
                     std::cout << std::setw(10) << i << std::setw(12)
                               << allRankBlockNumElmts[cnt] << std::setw(12)
@@ -278,7 +277,7 @@ void PrintBlockInfo(const MultiRegions::ExpListSharedPtr &expList,
                   << std::setw(12) << "#Paddings" << std::setw(12) << "#DoFs"
                   << std::setw(12) << "Gtype" << std::setw(16) << "L1 error"
                   << std::endl;
-        for (unsigned int rank = 0; rank < nrank; rank++)
+        for (size_t rank = 0; rank < nrank; rank++)
         {
             std::cout << std::setw(10) << rank << std::setw(12)
                       << allRankNumElmts[rank] << std::setw(12)
@@ -300,16 +299,16 @@ void PrintProfileResult(const CommSharedPtr comm,
                         const std::vector<BlockAttributes> &outblocks)
 {
     // Collect elapsed time and compute the max, min, and average.
-    unsigned int nrank  = comm->GetSize();
-    auto rankNumInDofs  = std::vector<unsigned int>(1, 0);
-    auto rankNumOutDofs = std::vector<unsigned int>(1, 0);
+    size_t nrank        = comm->GetSize();
+    auto rankNumInDofs  = std::vector<size_t>(1, 0);
+    auto rankNumOutDofs = std::vector<size_t>(1, 0);
 
     // Collect total information for each rank.
-    for (unsigned int i = 0; i < inblocks.size(); ++i)
+    for (size_t i = 0; i < inblocks.size(); ++i)
     {
         rankNumInDofs[0] += inblocks[i].size();
     }
-    for (unsigned int i = 0; i < outblocks.size(); ++i)
+    for (size_t i = 0; i < outblocks.size(); ++i)
     {
         rankNumOutDofs[0] += outblocks[i].size();
     }
@@ -332,9 +331,9 @@ void PrintProfileResult(const CommSharedPtr comm,
         // to total dofs divided by the total (min/ave/max) elapsed time.
         NekDouble inThroughput  = 0.0;
         NekDouble outThroughput = 0.0;
-        unsigned int totInDofs  = 0;
-        unsigned int totOutDofs = 0;
-        for (unsigned int rank = 0; rank < nrank; rank++)
+        size_t totInDofs        = 0;
+        size_t totOutDofs       = 0;
+        for (size_t rank = 0; rank < nrank; rank++)
         {
             inThroughput += allRankNumInDofs[rank] / allRankElapsed[rank];
             outThroughput += allRankNumOutDofs[rank] / allRankElapsed[rank];
@@ -362,8 +361,9 @@ void PrintProfileResult(const CommSharedPtr comm,
 // Different operator may have different input/output attributes (FieldState,
 // or number of components). We must provided all these information.
 template <class Op, FieldState stateIn, FieldState stateOut, typename TData>
-void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
-                    const int nIn = 1, const int nOut = 1, const int nComp = 1)
+void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
+                    const unsigned int Ntest, const unsigned int nIn = 1,
+                    const unsigned int nOut = 1, const unsigned int nComp = 1)
 {
     // Timer.
     Timer timer;
@@ -395,7 +395,7 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
     }
 
     // Set alignment.
-    unsigned int alignment = Nektar::GetExecSpaceAlignment(execName);
+    size_t alignment = Nektar::GetExecSpaceAlignment(execName);
 
     // Create blocks.
     auto blocks_in  = GetBlockAttributes<TData>(stateIn, expList);
@@ -409,13 +409,13 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
 
     // Initialize the in field to random non-zeros: 1 2 3 4 ...
     auto inblk = in.GetBlocks();
-    for (unsigned int i = 0; i < inblk.size(); ++i)
+    for (size_t i = 0; i < inblk.size(); ++i)
     {
         auto inptr =
             inblk[i].template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-        for (unsigned int n = 0; n < nIn * nComp; n++)
+        for (size_t n = 0; n < nIn * nComp; n++)
         {
-            for (unsigned int j = 0; j < inblk[i].size(); ++j)
+            for (size_t j = 0; j < inblk[i].size(); ++j)
             {
                 inptr[j] = (j + (n + 1.0)) / inblk.size();
             }
@@ -428,11 +428,11 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
     Array<OneD, NekDouble> outArr = out.template ToArray<NekDouble>();
     Array<OneD, Array<OneD, NekDouble>> inArrays(nIn);
     Array<OneD, Array<OneD, NekDouble>> outArrays(nOut);
-    for (unsigned int d = 0; d < nIn; d++)
+    for (size_t d = 0; d < nIn; d++)
     {
         inArrays[d] = inArr + d * inArr.size() / nIn / nComp;
     }
-    for (unsigned int d = 0; d < nOut; d++)
+    for (size_t d = 0; d < nOut; d++)
     {
         outArrays[d] = outArr + d * outArr.size() / nOut / nComp;
     }
@@ -442,7 +442,7 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
 
     // Warm-up : fill the cache and memory, and let core temperature/freq
     // stabilized.
-    for (unsigned int i = 0; i < Ntest / 2; ++i)
+    for (size_t i = 0; i < Ntest / 2; ++i)
     {
         oper->Apply(in, out);
     }
@@ -463,7 +463,7 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
     timer.Start();
     LIKWID_MARKER_START(tag.c_str());
 
-    for (unsigned int i = 0; i < Ntest; ++i)
+    for (size_t i = 0; i < Ntest; ++i)
     {
         oper->Apply(in, out);
     }
@@ -504,7 +504,7 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
     // reasonable to have some mismatched values (e.g., > 1e-4)
     ReshapeToScalar(out);
     Array<OneD, NekDouble> tmpArr = out.template ToArray<NekDouble>();
-    for (unsigned int i = 0, cnt = 0; i < tmpArr.size(); ++i)
+    for (size_t i = 0, cnt = 0; i < tmpArr.size(); ++i)
     {
         if (opName == "LinAdvDiffReaction")
         {

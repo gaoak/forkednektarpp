@@ -173,7 +173,7 @@ inline unsigned int HelmholtzSharedMemorySize(
 template <bool DEFORMED, typename TData>
 NEK_DEVICE_INLINE static void ApplyMetric1DSumFacKernel(
     const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
-    const unsigned int insize, const TData *__restrict__ w0,
+    const size_t insize, const TData *__restrict__ w0,
     const TData *__restrict__ df, const TData *__restrict__ jac,
     const TData *__restrict__ diffCoeff, const TData *__restrict__ in,
     TData *__restrict__ bwd, TData *out, const TData lambda)
@@ -277,9 +277,8 @@ NEK_DEVICE_INLINE static void ApplyMetric1DSumFacKernel(
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 NEK_DEVICE_INLINE static void ApplyMetric2DSumFacKernel(
     const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
-    const unsigned int nq1, const unsigned int insize,
-    const TData *__restrict__ w0, const TData *__restrict__ w1,
-    [[maybe_unused]] const TData *__restrict__ f0,
+    const unsigned int nq1, const size_t insize, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, [[maybe_unused]] const TData *__restrict__ f0,
     [[maybe_unused]] const TData *__restrict__ f1, const TData *__restrict__ df,
     const TData *__restrict__ jac, const TData *__restrict__ diffCoeff,
     const TData *__restrict__ in, TData *__restrict__ bwd,
@@ -425,9 +424,9 @@ NEK_DEVICE_INLINE static void ApplyMetric2DSumFacKernel(
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 NEK_DEVICE_INLINE static void ApplyMetric3DSumFacKernel(
     const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int insize,
-    const TData *__restrict__ w0, const TData *__restrict__ w1,
-    const TData *__restrict__ w2, [[maybe_unused]] const TData *__restrict__ f0,
+    const unsigned int nq2, const size_t insize, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ w2,
+    [[maybe_unused]] const TData *__restrict__ f0,
     [[maybe_unused]] const TData *__restrict__ f1,
     [[maybe_unused]] const TData *__restrict__ f1m,
     [[maybe_unused]] const TData *__restrict__ f2, const TData *__restrict__ df,
@@ -971,7 +970,7 @@ template <typename Implementation, bool DEFORMED, typename TthreadBlock,
           typename TData>
 NEK_DEVICE_INLINE static void Helmholtz1DKernel(
     const unsigned int ncoord, const unsigned int nm0, const unsigned int nq0,
-    const unsigned int nelmt, const TData *__restrict__ basis0,
+    const size_t nelmt, const TData *__restrict__ basis0,
     const TData *__restrict__ D0, const TData *__restrict__ w0,
     const TData *__restrict__ df, const TData *__restrict__ jac,
     const TData *__restrict__ coeff, const TData *__restrict__ in,
@@ -987,12 +986,12 @@ NEK_DEVICE_INLINE static void Helmholtz1DKernel(
         constexpr unsigned int warpsize =
             NektarSpaces::vector_width<TData>::value;
 
-        unsigned int e = getGlobalIdx(threadBlock);
+        size_t e = getGlobalIdx(threadBlock);
         while (e < nelmt)
         {
-            const unsigned int ilane = e % warpsize;
-            const unsigned int iwarp = e / warpsize;
-            const TData *dfptr       = df + ndf * dfsize * warpsize * iwarp;
+            const size_t ilane = e % warpsize;
+            const size_t iwarp = e / warpsize;
+            const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
             const TData *jacptr =
                 DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
             const TData *inptr = in + nm0 * warpsize * iwarp;
@@ -1016,7 +1015,7 @@ NEK_DEVICE_INLINE static void Helmholtz1DKernel(
         TData *bwd   = shmemptr;
         TData *deriv = bwd + nq0;
 
-        unsigned int e = getBlockIdx(threadBlock);
+        size_t e = getBlockIdx(threadBlock);
         while (e < nelmt)
         {
             const TData *dfptr  = df + ndf * dfsize * e;
@@ -1046,7 +1045,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_INLINE static void Helmholtz2DKernel(
     const unsigned int ncoord, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nelmt, const bool isModified,
+    const size_t nelmt, const bool isModified,
     [[maybe_unused]] const unsigned int *__restrict__ index0,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ D0, const TData *__restrict__ D1,
@@ -1094,12 +1093,12 @@ NEK_DEVICE_INLINE static void Helmholtz2DKernel(
             localBarrier(threadBlock);
         }
 
-        unsigned int e = getGlobalIdx(threadBlock);
+        size_t e = getGlobalIdx(threadBlock);
         while (e < nelmt)
         {
-            const unsigned int ilane = e % warpsize;
-            const unsigned int iwarp = e / warpsize;
-            const TData *dfptr       = df + ndf * dfsize * warpsize * iwarp;
+            const size_t ilane = e % warpsize;
+            const size_t iwarp = e / warpsize;
+            const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
             const TData *jacptr =
                 DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
             const TData *inptr = in + nmTot * warpsize * iwarp;
@@ -1216,7 +1215,7 @@ NEK_DEVICE_INLINE static void Helmholtz2DKernel(
             s_basis1[idx] = basis1[idx];
         }
 
-        unsigned int e = getBlockIdx(threadBlock);
+        size_t e = getBlockIdx(threadBlock);
         while (e < nelmt)
         {
             const TData *dfptr  = df + ndf * dfsize * e;
@@ -1305,7 +1304,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_INLINE static void Helmholtz3DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
+    const unsigned int nq2, const size_t nelmt, const bool isModified,
     [[maybe_unused]] const unsigned int *__restrict__ index0,
     [[maybe_unused]] const unsigned int *__restrict__ index1,
     [[maybe_unused]] const unsigned int *__restrict__ index2,
@@ -1409,12 +1408,12 @@ NEK_DEVICE_INLINE static void Helmholtz3DKernel(
             localBarrier(threadBlock);
         }
 
-        unsigned int e = getGlobalIdx(threadBlock);
+        size_t e = getGlobalIdx(threadBlock); // use size_t to prevent overflow
         while (e < nelmt)
         {
-            const unsigned int ilane = e % warpsize;
-            const unsigned int iwarp = e / warpsize;
-            const TData *dfptr       = df + ndf * dfsize * warpsize * iwarp;
+            const size_t ilane = e % warpsize;
+            const size_t iwarp = e / warpsize;
+            const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
             const TData *jacptr =
                 DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
             const TData *inptr = in + nmTot * warpsize * iwarp;
@@ -1675,7 +1674,7 @@ NEK_DEVICE_INLINE static void Helmholtz3DKernel(
             s_basis2[idx] = basis2[idx];
         }
 
-        unsigned int e = getBlockIdx(threadBlock);
+        size_t e = getBlockIdx(threadBlock); // use size_t to prevent overflow
         while (e < nelmt)
         {
             const TData *dfptr  = df + ndf * dfsize * e;

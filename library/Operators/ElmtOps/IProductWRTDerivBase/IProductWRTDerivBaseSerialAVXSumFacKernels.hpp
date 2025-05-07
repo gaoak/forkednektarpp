@@ -42,7 +42,7 @@ template <bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void StdAlignDerivBase1D(
     const unsigned int nq0, const unsigned int indim, const simd_type *df_ptr,
     std::vector<simd_type, tinysimd::allocator<simd_type>> &df_tmp,
-    const unsigned int inSize, const simd_type *in, simd_type *out)
+    const size_t insize, const simd_type *in, simd_type *out)
 {
     // Calculate dxi/dx in[0] + dxi/dy in[1] + dxi/dz in[2]
     if constexpr (!DEFORMED)
@@ -77,7 +77,7 @@ NEK_FORCE_INLINE static void StdAlignDerivBase1D(
         simd_type sum = 0.0;
         for (unsigned int d = 0; d < indim; ++d)
         {
-            simd_type inval = in[d * inSize + i]; // possibly large stride
+            simd_type inval = in[d * insize + i]; // possibly large stride
             sum.fma(inval, df_tmp[d]);
         }
         out[i] = sum;

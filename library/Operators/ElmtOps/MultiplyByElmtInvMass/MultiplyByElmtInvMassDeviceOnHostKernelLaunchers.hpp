@@ -44,10 +44,10 @@ template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                             void>::type
-    DivideByJacobianKernel(const unsigned int nelmt, const unsigned int nmTot,
+    DivideByJacobianKernel(const size_t nelmt, const unsigned int nmTot,
                            const TData *jacptr, TData *outptr)
 {
-    const unsigned int nsize = nelmt * nmTot;
+    const size_t nsize = nelmt * nmTot;
 
     DivideByJacobianKernel<>(nsize, nmTot, jacptr, outptr,
                              deviceOnHostBlock1D());

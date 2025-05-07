@@ -45,8 +45,8 @@ template <typename ExecSpace, typename Implementation, bool DEFORMED,
           typename TData>
 NEK_FORCE_INLINE static void IProductWRTDerivBase1DKernel(
     const unsigned int ncoord, const unsigned int nm0, const unsigned int nq0,
-    const unsigned int nelmt, const TData *dbasis0, const TData *w0,
-    const TData *df, const TData *jac, const TData *in, TData *out, TData *wsp)
+    const size_t nelmt, const TData *dbasis0, const TData *w0, const TData *df,
+    const TData *jac, const TData *in, TData *out, TData *wsp)
 {
     const unsigned int shmemsize =
         IProductWRTDerivBaseSharedMemorySize<Implementation>(nq0, nm0);
@@ -61,7 +61,7 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase1DKernel(
 template <typename ExecSpace, typename Implementation, bool DEFORMED,
           unsigned int nm0, unsigned int nq0, typename TData>
 NEK_FORCE_INLINE static void IProductWRTDerivBase1DKernel(
-    const unsigned int ncoord, const unsigned int nelmt, const TData *dbasis0,
+    const unsigned int ncoord, const size_t nelmt, const TData *dbasis0,
     const TData *w0, const TData *df, const TData *jac, const TData *in,
     TData *out, TData *wsp)
 {
@@ -79,7 +79,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           typename Implementation, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
     const unsigned int ncoord, const unsigned int nm0, const unsigned int nm1,
-    const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
+    const unsigned int nq0, const unsigned int nq1, const size_t nelmt,
     const bool isModified, const unsigned int *index0, const TData *basis0,
     const TData *basis1, const TData *D0, const TData *D1, const TData *w0,
     const TData *w1, const TData *f0, const TData *f1, const TData *nodToMod,
@@ -103,7 +103,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           typename Implementation, bool DEFORMED, unsigned int nm0,
           unsigned int nm1, unsigned int nq0, unsigned int nq1, typename TData>
 NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
-    const unsigned int ncoord, const unsigned int nelmt, const bool isModified,
+    const unsigned int ncoord, const size_t nelmt, const bool isModified,
     const unsigned int *index0, const TData *basis0, const TData *basis1,
     const TData *D0, const TData *D1, const TData *w0, const TData *w1,
     const TData *f0, const TData *f1, const TData *nodToMod, const TData *df,
@@ -128,7 +128,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
 NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const unsigned int nelmt, const bool isModified, const unsigned int *index0,
+    const size_t nelmt, const bool isModified, const unsigned int *index0,
     const unsigned int *index1, const unsigned int *index2, const TData *basis0,
     const TData *basis1, const TData *basis2, const TData *D0, const TData *D1,
     const TData *D2, const TData *w0, const TData *w1, const TData *w2,
@@ -155,7 +155,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           unsigned int nm1, unsigned int nm2, unsigned int nq0,
           unsigned int nq1, unsigned int nq2, typename TData>
 NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
-    const unsigned int nelmt, const bool isModified, const unsigned int *index0,
+    const size_t nelmt, const bool isModified, const unsigned int *index0,
     const unsigned int *index1, const unsigned int *index2, const TData *basis0,
     const TData *basis1, const TData *basis2, const TData *D0, const TData *D1,
     const TData *D2, const TData *w0, const TData *w1, const TData *w2,
