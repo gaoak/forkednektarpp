@@ -208,13 +208,12 @@ protected:
         }
     }
 
-    unsigned int GetWorkspaceSize(const LibUtilities::ShapeType shapeType,
-                                  const unsigned int nelmt,
-                                  [[maybe_unused]] const unsigned int nm0,
-                                  const unsigned int nm1,
-                                  const unsigned int nm2)
+    size_t GetWorkspaceSize(const LibUtilities::ShapeType shapeType,
+                            const size_t nelmt,
+                            [[maybe_unused]] const unsigned int nm0,
+                            const unsigned int nm1, const unsigned int nm2)
     {
-        unsigned int wspsize = 0;
+        size_t wspsize = 0;
 
         if ((shapeType == LibUtilities::Quad) ||
             (shapeType == LibUtilities::Tri) ||
@@ -236,8 +235,7 @@ protected:
     }
 
     MemoryRegion<TData> SetWorkspace(const LibUtilities::ShapeType shapeType,
-                                     const unsigned int nelmt,
-                                     const unsigned int nm0,
+                                     const size_t nelmt, const unsigned int nm0,
                                      const unsigned int nm1,
                                      const unsigned int nm2)
     {

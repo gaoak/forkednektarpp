@@ -44,16 +44,16 @@ namespace Nektar::Operators::detail
 
 template <typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void DivideByJacobianKernel(
-    const unsigned int nsize, const unsigned int nmTot,
+    const size_t nsize, const unsigned int nmTot,
     const TData *__restrict__ jacptr, TData *__restrict__ outptr,
     const TthreadBlock &threadBlock)
 {
-    const unsigned int idx0   = getGlobalIdx(threadBlock);
-    const unsigned int stride = getGlobalRange(threadBlock);
+    const size_t idx0   = getGlobalIdx(threadBlock);
+    const size_t stride = getGlobalRange(threadBlock);
 
-    for (unsigned int idx = idx0; idx < nsize; idx += stride)
+    for (size_t idx = idx0; idx < nsize; idx += stride)
     {
-        unsigned int e = idx / nmTot;
+        size_t e = idx / nmTot;
         outptr[idx] /= jacptr[e];
     }
 }

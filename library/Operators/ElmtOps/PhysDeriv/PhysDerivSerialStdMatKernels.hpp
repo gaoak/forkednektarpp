@@ -37,7 +37,7 @@
 template <bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void MultiplyByDerivFactorKernel(
     const unsigned int nqTot, const unsigned int ncoord,
-    const unsigned int dimension, const unsigned int nelmt, const TData *dfptr,
+    const unsigned int dimension, const size_t nelmt, const TData *dfptr,
     const TData *inptr, TData *outptr)
 {
     const auto ndf = ncoord * dimension;
@@ -47,13 +47,13 @@ NEK_FORCE_INLINE static void MultiplyByDerivFactorKernel(
         for (unsigned int k = 0; k < ncoord; k++)
         {
             TData *ptr = outptr + k * nqTot * nelmt;
-            for (unsigned int i = 0; i < nelmt * nqTot; i++)
+            for (size_t i = 0; i < nelmt * nqTot; i++)
             {
                 ptr[i] = dfptr[ndf * i + k * dimension] * inptr[i];
             }
             for (unsigned int d = 1; d < dimension; d++)
             {
-                for (unsigned int i = 0; i < nelmt * nqTot; i++)
+                for (size_t i = 0; i < nelmt * nqTot; i++)
                 {
                     ptr[i] += dfptr[ndf * i + k * dimension + d] *
                               inptr[i + d * nqTot * nelmt];
@@ -63,7 +63,7 @@ NEK_FORCE_INLINE static void MultiplyByDerivFactorKernel(
     }
     else
     {
-        for (unsigned int e = 0; e < nelmt; e++)
+        for (size_t e = 0; e < nelmt; e++)
         {
             for (unsigned int k = 0; k < ncoord; k++)
             {

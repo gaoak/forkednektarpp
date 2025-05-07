@@ -42,7 +42,7 @@ namespace Nektar
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
 template <typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void interleaveKernel(const unsigned int VectorWidth,
-                                               const unsigned int numMetaBlocks,
+                                               const size_t numMetaBlocks,
                                                const unsigned int npts,
                                                TData *buffer, TData *inout,
                                                const TthreadBlock &threadBlock)
@@ -50,8 +50,8 @@ NEK_DEVICE_INLINE static void interleaveKernel(const unsigned int VectorWidth,
     const unsigned int idx0   = getLocalIdx(threadBlock);
     const unsigned int stride = getLocalRange(threadBlock);
 
-    for (unsigned int metaBlock = getBlockIdx(threadBlock);
-         metaBlock < numMetaBlocks; metaBlock += getBlockRange(threadBlock))
+    for (size_t metaBlock = getBlockIdx(threadBlock); metaBlock < numMetaBlocks;
+         metaBlock += getBlockRange(threadBlock))
     {
         TData *bufferptr = buffer + npts * VectorWidth * metaBlock;
         TData *inoutptr  = inout + npts * VectorWidth * metaBlock;
@@ -74,15 +74,15 @@ NEK_DEVICE_INLINE static void interleaveKernel(const unsigned int VectorWidth,
 
 template <typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void deInterleaveKernel(
-    const unsigned int VectorWidth, const unsigned int numMetaBlocks,
+    const unsigned int VectorWidth, const size_t numMetaBlocks,
     const unsigned int npts, TData *buffer, TData *inout,
     const TthreadBlock &threadBlock)
 {
     const unsigned int idx0   = getLocalIdx(threadBlock);
     const unsigned int stride = getLocalRange(threadBlock);
 
-    for (unsigned int metaBlock = getBlockIdx(threadBlock);
-         metaBlock < numMetaBlocks; metaBlock += getBlockRange(threadBlock))
+    for (size_t metaBlock = getBlockIdx(threadBlock); metaBlock < numMetaBlocks;
+         metaBlock += getBlockRange(threadBlock))
     {
         TData *bufferptr = buffer + npts * VectorWidth * metaBlock;
         TData *inoutptr  = inout + npts * VectorWidth * metaBlock;

@@ -36,21 +36,21 @@
 
 template <bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void MultiplyByJacobianKernel(const unsigned int nqTot,
-                                                      const unsigned int nelmt,
+                                                      const size_t nelmt,
                                                       const TData *jacptr,
                                                       const TData *inptr,
                                                       TData *outptr)
 {
     if constexpr (DEFORMED)
     {
-        for (unsigned int i = 0; i < nelmt * nqTot; ++i)
+        for (size_t i = 0; i < nelmt * nqTot; ++i)
         {
             outptr[i] = jacptr[i] * inptr[i];
         }
     }
     else
     {
-        for (unsigned int e = 0; e < nelmt; ++e)
+        for (size_t e = 0; e < nelmt; ++e)
         {
             for (unsigned int i = 0; i < nqTot; ++i)
             {

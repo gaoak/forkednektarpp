@@ -37,7 +37,7 @@
 template <bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void MultiplyByJacobianAndDerivFactorKernel(
     const unsigned int nqTot, const unsigned int ncoord,
-    const unsigned int dimension, const unsigned int nelmt, const TData *jacptr,
+    const unsigned int dimension, const size_t nelmt, const TData *jacptr,
     const TData *dfptr, const TData *inptr, TData *outptr)
 {
     const auto ndf = ncoord * dimension;
@@ -47,20 +47,20 @@ NEK_FORCE_INLINE static void MultiplyByJacobianAndDerivFactorKernel(
         for (unsigned int d = 0; d < dimension; d++)
         {
             TData *ptr = outptr + d * nqTot * nelmt;
-            for (unsigned int i = 0; i < nelmt * nqTot; i++)
+            for (size_t i = 0; i < nelmt * nqTot; i++)
             {
                 ptr[i] = dfptr[ndf * i + d] * inptr[i];
             }
             for (unsigned int k = 1; k < ncoord; ++k)
             {
-                for (unsigned int i = 0; i < nelmt * nqTot; i++)
+                for (size_t i = 0; i < nelmt * nqTot; i++)
                 {
                     ptr[i] += dfptr[ndf * i + k * dimension + d] *
                               inptr[i + k * nqTot * nelmt];
                 }
             }
 
-            for (unsigned int i = 0; i < nelmt * nqTot; i++)
+            for (size_t i = 0; i < nelmt * nqTot; i++)
             {
                 ptr[i] *= jacptr[i];
             }
@@ -68,7 +68,7 @@ NEK_FORCE_INLINE static void MultiplyByJacobianAndDerivFactorKernel(
     }
     else
     {
-        for (unsigned int e = 0; e < nelmt; e++)
+        for (size_t e = 0; e < nelmt; e++)
         {
             for (unsigned int d = 0; d < dimension; d++)
             {

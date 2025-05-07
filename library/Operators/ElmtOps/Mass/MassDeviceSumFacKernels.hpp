@@ -145,7 +145,7 @@ inline unsigned int MassSharedMemorySize(
 template <typename Implementation, bool DEFORMED, typename TthreadBlock,
           typename TData>
 NEK_DEVICE_INLINE static void Mass1DKernel(
-    const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
+    const unsigned int nm0, const unsigned int nq0, const size_t nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ w0,
     const TData *__restrict__ jac, const TData *__restrict__ in,
     TData *__restrict__ out, TData *__restrict__ wsp,
@@ -159,11 +159,11 @@ NEK_DEVICE_INLINE static void Mass1DKernel(
         constexpr unsigned int warpsize =
             NektarSpaces::vector_width<TData>::value;
 
-        unsigned int e = getGlobalIdx(threadBlock);
+        size_t e = getGlobalIdx(threadBlock);
         while (e < nelmt)
         {
-            const unsigned int ilane = e % warpsize;
-            const unsigned int iwarp = e / warpsize;
+            const size_t ilane = e % warpsize;
+            const size_t iwarp = e / warpsize;
             const TData *jacptr =
                 DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
             const TData *inptr = in + nm0 * warpsize * iwarp;
@@ -183,7 +183,7 @@ NEK_DEVICE_INLINE static void Mass1DKernel(
         const unsigned int idx0   = getLocalIdx(threadBlock);
         const unsigned int stride = getLocalRange(threadBlock);
 
-        unsigned int e = getBlockIdx(threadBlock);
+        size_t e = getBlockIdx(threadBlock);
         while (e < nelmt)
         {
             const TData *jacptr = jac + jacsize * e;
@@ -217,7 +217,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void Mass2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
-    const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
+    const unsigned int nq0, const unsigned int nq1, const size_t nelmt,
     const bool isModified,
     [[maybe_unused]] const unsigned int *__restrict__ index0,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
@@ -236,11 +236,11 @@ NEK_DEVICE_INLINE static void Mass2DKernel(
         constexpr unsigned int warpsize =
             NektarSpaces::vector_width<TData>::value;
 
-        unsigned int e = getGlobalIdx(threadBlock);
+        size_t e = getGlobalIdx(threadBlock);
         while (e < nelmt)
         {
-            const unsigned int ilane = e % warpsize;
-            const unsigned int iwarp = e / warpsize;
+            const size_t ilane = e % warpsize;
+            const size_t iwarp = e / warpsize;
             const TData *jacptr =
                 DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
             const TData *inptr = in + nmTot * warpsize * iwarp;
@@ -320,7 +320,7 @@ NEK_DEVICE_INLINE static void Mass2DKernel(
             s_basis1[idx] = basis1[idx];
         }
 
-        unsigned int e = getBlockIdx(threadBlock);
+        size_t e = getBlockIdx(threadBlock);
         while (e < nelmt)
         {
             const TData *jacptr = jac + jacsize * e;
@@ -405,7 +405,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_INLINE static void Mass3DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
+    const unsigned int nq2, const size_t nelmt, const bool isModified,
     [[maybe_unused]] const unsigned int *__restrict__ index0,
     [[maybe_unused]] const unsigned int *__restrict__ index1,
     [[maybe_unused]] const unsigned int *__restrict__ index2,
@@ -427,11 +427,11 @@ NEK_DEVICE_INLINE static void Mass3DKernel(
         constexpr unsigned int warpsize =
             NektarSpaces::vector_width<TData>::value;
 
-        unsigned int e = getGlobalIdx(threadBlock);
+        size_t e = getGlobalIdx(threadBlock); // use size_t to prevent overflow
         while (e < nelmt)
         {
-            const unsigned int ilane = e % warpsize;
-            const unsigned int iwarp = e / warpsize;
+            const size_t ilane = e % warpsize;
+            const size_t iwarp = e / warpsize;
             const TData *jacptr =
                 DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
             const TData *inptr = in + nmTot * warpsize * iwarp;
@@ -620,7 +620,7 @@ NEK_DEVICE_INLINE static void Mass3DKernel(
             s_basis2[idx] = basis2[idx];
         }
 
-        unsigned int e = getBlockIdx(threadBlock);
+        size_t e = getBlockIdx(threadBlock); // use size_t to prevent overflow
         while (e < nelmt)
         {
             const TData *jacptr = jac + jacsize * e;

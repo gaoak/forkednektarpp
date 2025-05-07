@@ -42,7 +42,7 @@ namespace Nektar::Operators::detail
 // Size based template version.
 template <typename Implementation, bool DEFORMED, unsigned int ncoord,
           unsigned int nq0, typename TData>
-NEK_DEVICE_INLINE void PhysDeriv1DKernel(const unsigned int nelmt,
+NEK_DEVICE_INLINE void PhysDeriv1DKernel(const size_t nelmt,
                                          const TData *__restrict__ D0,
                                          const TData *__restrict__ df,
                                          const TData *__restrict__ in,
@@ -58,7 +58,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, unsigned int ncoord, unsigned int nq0,
           unsigned int nq1, typename TData>
 NEK_DEVICE_INLINE void PhysDeriv2DKernel(
-    const unsigned int nelmt, const TData *__restrict__ D0,
+    const size_t nelmt, const TData *__restrict__ D0,
     const TData *__restrict__ D1, const TData *__restrict__ f0,
     const TData *__restrict__ f1, const TData *__restrict__ df,
     const TData *__restrict__ in, TData *__restrict__ out,
@@ -74,7 +74,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, unsigned int nq0, unsigned int nq1, unsigned int nq2,
           typename TData>
 NEK_DEVICE_INLINE void PhysDeriv3DKernel(
-    const unsigned int nelmt, const TData *__restrict__ D0,
+    const size_t nelmt, const TData *__restrict__ D0,
     const TData *__restrict__ D1, const TData *__restrict__ D2,
     const TData *__restrict__ f0, const TData *__restrict__ f1,
     const TData *__restrict__ f1m, const TData *__restrict__ f2,
@@ -93,7 +93,7 @@ template <typename ExecSpace, typename Implementation, bool DEFORMED,
           typename TData>
 NEK_FORCE_INLINE static void PhysDeriv1DKernel(const unsigned int ncoord,
                                                const unsigned int nq0,
-                                               const unsigned int nelmt,
+                                               const size_t nelmt,
                                                const TData *D0, const TData *df,
                                                const TData *in, TData *out)
 {
@@ -115,7 +115,7 @@ NEK_FORCE_INLINE static void PhysDeriv1DKernel(const unsigned int ncoord,
 // Size based template version.
 template <typename ExecSpace, typename Implementation, bool DEFORMED,
           unsigned int ncoord, unsigned int nq0, typename TData>
-NEK_FORCE_INLINE static void PhysDeriv1DKernel(const unsigned int nelmt,
+NEK_FORCE_INLINE static void PhysDeriv1DKernel(const size_t nelmt,
                                                const TData *D0, const TData *df,
                                                const TData *in, TData *out)
 {
@@ -145,7 +145,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           typename Implementation, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv2DKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nelmt, const TData *D0, const TData *D1, const TData *f0,
+    const size_t nelmt, const TData *D0, const TData *D1, const TData *f0,
     const TData *f1, const TData *df, const TData *in, TData *out)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
@@ -176,7 +176,7 @@ NEK_FORCE_INLINE static void PhysDeriv2DKernel(
 template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           typename Implementation, bool DEFORMED, unsigned int ncoord,
           unsigned int nq0, unsigned int nq1, typename TData>
-NEK_FORCE_INLINE static void PhysDeriv2DKernel(const unsigned int nelmt,
+NEK_FORCE_INLINE static void PhysDeriv2DKernel(const size_t nelmt,
                                                const TData *D0, const TData *D1,
                                                const TData *f0, const TData *f1,
                                                const TData *df, const TData *in,
@@ -216,7 +216,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           typename Implementation, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const unsigned int nelmt, const TData *D0, const TData *D1, const TData *D2,
+    const size_t nelmt, const TData *D0, const TData *D1, const TData *D2,
     const TData *f0, const TData *f1, const TData *f1m, const TData *f2,
     const TData *df, const TData *in, TData *out)
 {
@@ -249,7 +249,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           typename Implementation, bool DEFORMED, unsigned int nq0,
           unsigned int nq1, unsigned int nq2, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv3DKernel(
-    const unsigned int nelmt, const TData *D0, const TData *D1, const TData *D2,
+    const size_t nelmt, const TData *D0, const TData *D1, const TData *D2,
     const TData *f0, const TData *f1, const TData *f1m, const TData *f2,
     const TData *df, const TData *in, TData *out)
 {

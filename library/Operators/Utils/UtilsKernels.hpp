@@ -52,7 +52,7 @@
  */
 template <typename ExecSpace, unsigned int interleave_width, typename TData>
 void ReshapeStorage(const unsigned int curr_interleave_width,
-                    const unsigned int numElmt, const unsigned int ndata,
+                    const size_t numElmt, const unsigned int ndata,
                     TData *inoutptr)
 {
     if (curr_interleave_width != interleave_width)
@@ -78,7 +78,7 @@ void ReshapeStorage(const unsigned int curr_interleave_width,
     }
 }
 
-/// A generic function to reshuffle the map, based on the given interleave or
+/*/// A generic function to reshuffle the map, based on the given interleave or
 /// deinterleave map.
 template <typename ExecSpace>
 void ReshuffleMap(MemoryRegion<int> &deInterleaveMap, MemoryRegion<int> &map)
@@ -103,7 +103,7 @@ void ReshuffleMap(MemoryRegion<int> &deInterleaveMap, MemoryRegion<int> &map)
         0, map.size(), NEKTAR_LAMBDA(unsigned int i) {
             mapPtr[i] = deInterleaveMapPtr[tempPtr[i]];
         });
-}
+}*/
 
 // TODO: Need single block version
 /*/// A generic function to build the interleave map for a given field.

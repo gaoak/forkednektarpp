@@ -42,10 +42,10 @@ NEK_FORCE_INLINE static
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                             void>::type
-    DivideByJacobianKernel(const unsigned int nelmt, const unsigned int nmTot,
+    DivideByJacobianKernel(const size_t nelmt, const unsigned int nmTot,
                            const TData *jacptr, TData *outptr)
 {
-    for (unsigned int e = 0; e < nelmt; e++)
+    for (size_t e = 0; e < nelmt; e++)
     {
         for (unsigned int i = 0; i < nmTot; i++)
         {

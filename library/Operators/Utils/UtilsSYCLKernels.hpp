@@ -42,8 +42,7 @@ namespace Nektar
 template <unsigned int VectorWidth, typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-interleave(const unsigned int numMetaBlocks, const unsigned int npts,
-           TData *inout)
+interleave(size_t numMetaBlocks, const unsigned int npts, TData *inout)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
 
@@ -69,7 +68,7 @@ interleave(const unsigned int numMetaBlocks, const unsigned int npts,
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-deInterleave(const unsigned int VectorWidth, const unsigned int numMetaBlocks,
+deInterleave(const unsigned int VectorWidth, size_t numMetaBlocks,
              const unsigned int npts, TData *inout)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
@@ -96,7 +95,7 @@ deInterleave(const unsigned int VectorWidth, const unsigned int numMetaBlocks,
 template <typename ExecSpace>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-BuildInterleaveMap(const unsigned int numMetaBlocks, const unsigned int npts,
+BuildInterleaveMap(size_t numMetaBlocks, const unsigned int npts,
                    const unsigned int newVecWidth, const unsigned int offset,
                    int *deInterleaveMapPtr, int *interleaveMapPtr)
 {

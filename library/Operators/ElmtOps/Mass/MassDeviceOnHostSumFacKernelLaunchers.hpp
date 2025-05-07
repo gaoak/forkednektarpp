@@ -45,7 +45,7 @@ template <typename ExecSpace, typename Implementation, bool DEFORMED,
           typename TData>
 NEK_FORCE_INLINE static void Mass1DKernel(const unsigned int nm0,
                                           const unsigned int nq0,
-                                          const unsigned int nelmt,
+                                          const size_t nelmt,
                                           const TData *basis0, const TData *w0,
                                           const TData *jac, TData *wsp,
                                           const TData *in, TData *out)
@@ -62,7 +62,7 @@ NEK_FORCE_INLINE static void Mass1DKernel(const unsigned int nm0,
 // Size based template version.
 template <typename ExecSpace, typename Implementation, bool DEFORMED,
           unsigned int nm0, unsigned int nq0, typename TData>
-NEK_FORCE_INLINE static void Mass1DKernel(const unsigned int nelmt,
+NEK_FORCE_INLINE static void Mass1DKernel(const size_t nelmt,
                                           const TData *basis0, const TData *w0,
                                           const TData *jac, TData *wsp,
                                           const TData *in, TData *out)
@@ -81,7 +81,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           typename Implementation, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void Mass2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
-    const unsigned int nq1, const unsigned int nelmt, const bool isModified,
+    const unsigned int nq1, const size_t nelmt, const bool isModified,
     const unsigned int *index0, const TData *basis0, const TData *basis1,
     const TData *w0, const TData *w1, const TData *nodToMod, const TData *jac,
     TData *wsp, const TData *in, TData *out)
@@ -103,7 +103,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           typename Implementation, bool DEFORMED, unsigned int nm0,
           unsigned int nm1, unsigned int nq0, unsigned int nq1, typename TData>
 NEK_FORCE_INLINE static void Mass2DKernel(
-    const unsigned int nelmt, const bool isModified, const unsigned int *index0,
+    const size_t nelmt, const bool isModified, const unsigned int *index0,
     const TData *basis0, const TData *basis1, const TData *w0, const TData *w1,
     const TData *nodToMod, const TData *jac, TData *wsp, const TData *in,
     TData *out)
@@ -126,7 +126,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
 NEK_FORCE_INLINE static void Mass3DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const unsigned int nelmt, const bool isModified, const unsigned int *index0,
+    const size_t nelmt, const bool isModified, const unsigned int *index0,
     const unsigned int *index1, const unsigned int *index2,
     const unsigned int *index3, const TData *basis0, const TData *basis1,
     const TData *basis2, const TData *w0, const TData *w1, const TData *w2,
@@ -152,7 +152,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           unsigned int nm1, unsigned int nm2, unsigned int nq0,
           unsigned int nq1, unsigned int nq2, typename TData>
 NEK_FORCE_INLINE static void Mass3DKernel(
-    const unsigned int nelmt, const bool isModified, const unsigned int *index0,
+    const size_t nelmt, const bool isModified, const unsigned int *index0,
     const unsigned int *index1, const unsigned int *index2,
     const unsigned int *index3, const TData *basis0, const TData *basis1,
     const TData *basis2, const TData *w0, const TData *w1, const TData *w2,
