@@ -61,9 +61,9 @@ public:
         Array<OneD, double> fce(fixt_explist->GetTotPoints());
         fixt_explist->GetCoords(x, y, z);
 
-        if (fixt_explist->GetSession()->DefinesFunction("Forcing"))
+        if (session->DefinesFunction("Forcing"))
         {
-            auto func = fixt_explist->GetSession()->GetFunction("Forcing", 0);
+            auto func = session->GetFunction("Forcing", 0);
             func->Evaluate(x, y, z, fce);
         }
 
@@ -80,7 +80,7 @@ public:
                 for (unsigned int phys = 0; phys < block.GetNumData();
                      ++phys, ++cnt)
                 {
-                    if (fixt_explist->GetSession()->DefinesFunction("Forcing"))
+                    if (session->DefinesFunction("Forcing"))
                     {
                         inptr[cnt] = *(fceptr++);
                     }

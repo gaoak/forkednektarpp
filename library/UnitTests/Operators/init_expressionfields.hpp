@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: init_diagpreconfields.hpp
+// File: init_expressionfields.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,24 +34,19 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/ElmtOps/Helmholtz/OperatorHelmholtz.hpp"
-#include "Operators/PreconOps/DiagPrecon/OperatorDiagPrecon.hpp"
-
-#include <MultiRegions/GlobalLinSys.h>
-#include <MultiRegions/Preconditioner.h>
+#include "Operators/ElmtOps/Expression/OperatorExpression.hpp"
 
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
-using namespace Nektar::MultiRegions;
 using namespace Nektar;
 
-class DiagPreconField
-    : public InitFields<double, FieldState::Coeff, FieldState::Coeff,
+class ExpressionField
+    : public InitFields<double, FieldState::Phys, FieldState::Phys,
                         MultiRegions::ContField>
 {
 public:
-    DiagPreconField()
-        : InitFields<double, FieldState::Coeff, FieldState::Coeff,
+    ExpressionField()
+        : InitFields<double, FieldState::Phys, FieldState::Phys,
                      MultiRegions::ContField>()
     {
     }
@@ -63,14 +58,18 @@ public:
             auto &block = fixt_in->GetBlocks()[blk];
             auto inptr =
                 block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-            for (unsigned int el = 0, cnt = 0; el < block.GetNumElements();
-                 ++el)
+            for (unsigned int nc = 0; nc < fixt_in->GetNumComponents(); ++nc)
             {
-                for (unsigned int coeff = 0; coeff < block.GetNumData();
-                     ++coeff, ++cnt)
+                for (unsigned int el = 0, cnt = 0; el < block.GetNumElements();
+                     ++el)
                 {
-                    inptr[cnt] = 1.0;
+                    for (unsigned int phys = 0; phys < block.GetNumData();
+                         ++phys, ++cnt)
+                    {
+                        inptr[cnt] = 1.0;
+                    }
                 }
+                inptr += block.size();
             }
         }
         ExpectedSolution();
@@ -78,37 +77,53 @@ public:
 
     void RunTestCase()
     {
-        auto HelmholtzOp  = OperatorHelmholtz<double>::Create(fixt_explist);
-        auto DiagPreconOp = OperatorDiagPrecon<double>::Create(fixt_explist);
-        HelmholtzOp->SetLambda(1.0);
-        DiagPreconOp->Configure(HelmholtzOp);
-        DiagPreconOp->Apply(*fixt_in, *fixt_out);
+        auto ExprOp =
+            OperatorExpression<double>::Create(fixt_explist, "Forcing");
+        ExprOp->Apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution()
     {
-        // Calculate expected result from Nektar++
-        Array<OneD, double> incoeffs = fixt_in->ToArray();
-        Array<OneD, double> outcoeffs(fixt_explist->GetNcoeffs(), 0.0);
-        StdRegions::ConstFactorMap factors;
-        factors[StdRegions::eFactorLambda] =
-            session->DefinesParameter("Lambda")
-                ? session->GetParameter("Lambda")
-                : 1.0;
-        auto map = fixt_explist->GetLocalToGlobalMap();
-        GlobalLinSysKey key(StdRegions::eHelmholtz, map, factors);
-        auto globalSys = GetGlobalLinSysFactory().CreateInstance(
-            "IterativeFull", key, fixt_explist, map);
-        auto precond =
-            GetPreconFactory().CreateInstance("Diagonal", globalSys, map);
-        precond->BuildPreconditioner();
-        precond->DoPreconditioner(incoeffs, outcoeffs, true);
-        fixt_expected->CopyArray<NektarSpaces::HostSpace>(outcoeffs);
+        // Get number of variables and quadrature points
+        auto nVariables = session->GetVariables().size();
+        auto nphys      = fixt_explist->GetTotPoints();
+
+        // Initialise array storage for forcing evaluation
+        Array<OneD, double> fce(nVariables * nphys);
+
+        // Get coordinate data for function evaluation
+        Array<OneD, double> x(nphys);
+        Array<OneD, double> y(nphys);
+        Array<OneD, double> z(nphys);
+        fixt_explist->GetCoords(x, y, z);
+
+        // Add forcing to fixt_in
+        Array<OneD, double> inphys = fixt_in->ToArray();
+
+        // Evaluate function from session file
+        if (session->DefinesFunction("Forcing"))
+        {
+            // Evaluate function for each component
+            for (unsigned int i = 0; i < nVariables; ++i)
+            {
+                // Create reference to storage per variable
+                Array<OneD, double> fce_var = fce + i * nphys;
+
+                // Get and evaluate function
+                auto func = session->GetFunction("Forcing", i);
+                func->Evaluate(x, y, z, fce_var);
+
+                // Append to input data
+                Vmath::Vadd(nphys, inphys + i * nphys, 1, fce_var, 1, fce_var,
+                            1);
+            }
+            fixt_expected->CopyArray<NektarSpaces::HostSpace>(fce);
+        }
     }
 };
 
 #define TEST(type, filename)                                                   \
-    class type : public DiagPreconField                                        \
+    class type : public ExpressionField                                        \
     {                                                                          \
     public:                                                                    \
         type()                                                                 \
@@ -119,9 +134,7 @@ public:
 
 TEST(Helmholtz1D_Seg, "run/Helmholtz1D_P8.xml")
 
-TEST(Helmholtz2D_Tri_Quad, "run/Helmholtz2D_varP.xml")
-
-TEST(Helmholtz2D_AllBCs, "run/Helmholtz2D_P7_AllBCs.xml")
+TEST(Helmholtz2D_Tri_Quad, "run/Helmholtz2D_P7_AllBCs.xml")
 
 TEST(Helmholtz3D_Hex, "run/Helmholtz3D_Hex_Heterogeneous.xml")
 
@@ -130,3 +143,5 @@ TEST(Helmholtz3D_Prism, "run/Helmholtz3D_Prism_VarP.xml")
 TEST(Helmholtz3D_Pyr, "run/Helmholtz3D_Pyr_VarP.xml")
 
 TEST(Helmholtz3D_Tet, "run/Helmholtz3D_Tet_VarP.xml")
+
+TEST(Helmholtz3D_3C, "run/Helmholtz3D_Hex_multicomponent.xml")

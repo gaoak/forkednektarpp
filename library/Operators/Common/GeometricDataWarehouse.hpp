@@ -97,6 +97,32 @@ private:
     bool m_transpose;
 };
 
+template <typename TData> class CoordKey : public BaseKey
+{
+    friend class GeometricDataCreator;
+
+public:
+    using creator = GeometricDataCreator;
+    typedef TData value_type;
+
+    ~CoordKey() override = default;
+
+    CoordKey(const size_t exp_idx, const size_t interleave_width,
+             const size_t num_elements, const bool transpose)
+        : m_exp_idx(exp_idx), m_interleave_width(interleave_width),
+          m_num_elements(num_elements), m_transpose(transpose)
+    {
+        hash_combine(m_hash, m_exp_idx, m_interleave_width, m_num_elements,
+                     m_transpose, typeid(value_type).name(), "CoordKey");
+    }
+
+private:
+    size_t m_exp_idx;
+    size_t m_interleave_width;
+    size_t m_num_elements;
+    bool m_transpose;
+};
+
 class GeometricDataCreator : public DataCreatorClass
 {
 public:
@@ -291,6 +317,70 @@ public:
 
             return df;
         }
+    }
+
+    template <typename MemSpace, typename TData>
+    MemoryRegion<TData> Create(const CoordKey<TData> &coordKey,
+                               const size_t alignment)
+    {
+        auto vector_width = NektarSpaces::vector_width<TData>::value;
+
+        auto exp_idx          = coordKey.m_exp_idx;
+        auto interleave_width = coordKey.m_interleave_width;
+        auto num_elements     = coordKey.m_num_elements;
+        auto transpose        = coordKey.m_transpose;
+        auto num_elmt_groups =
+            ((num_elements + vector_width - 1) / vector_width) * vector_width /
+            interleave_width;
+
+        auto expPtr     = m_expansionList->GetExp(exp_idx);
+        const auto nDim = expPtr->GetShapeDimension();
+
+        const auto range1 = transpose ? nDim : expPtr->GetTotPoints();
+        const auto range2 = transpose ? expPtr->GetTotPoints() : nDim;
+
+        // Allocate memory and get pointer.
+        const auto memsize =
+            num_elmt_groups * interleave_width * expPtr->GetTotPoints() * nDim;
+        auto crds = MemoryRegion<TData>::Create(memsize, alignment);
+        auto crdptr =
+            crds.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+
+        // Loop over chunks.
+        for (size_t chunk = 0, el = 0, crd_id = 0; chunk < num_elmt_groups;
+             ++chunk)
+        {
+            // Loop over component or points
+            for (unsigned int index1 = 0; index1 < range1; ++index1)
+            {
+                // Loop over points or components
+                for (unsigned int index2 = 0; index2 < range2; ++index2)
+                {
+                    // Loop over interleave width
+                    for (size_t i = 0; i < interleave_width; ++i, ++crd_id)
+                    {
+                        // Check for padding
+                        if (el + i < num_elements)
+                        {
+                            const auto d  = transpose ? index1 : index2;
+                            const auto pt = transpose ? index2 : index1;
+
+                            auto tmp = m_expansionList->GetExp(exp_idx + el + i)
+                                           ->GetCoords();
+                            crdptr[crd_id] = tmp[d][pt];
+                        }
+                        else
+                        {
+                            crdptr[crd_id] = 0.0;
+                        }
+                    }
+                }
+            }
+
+            el += interleave_width;
+        }
+
+        return crds;
     }
 
     inline static const std::string m_name = "GeometricDataCreator";

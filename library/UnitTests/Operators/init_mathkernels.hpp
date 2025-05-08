@@ -76,7 +76,7 @@ public:
         Array<OneD, double> fce(fixt_explist->GetTotPoints());
         fixt_explist->GetCoords(x, y, z);
 
-        auto func1 = fixt_explist->GetSession()->GetFunction("Forcing", 0);
+        auto func1 = session->GetFunction("Forcing", 0);
         func1->Evaluate(x, y, z, fce);
         auto ptr = fce.data();
         for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
@@ -89,8 +89,7 @@ public:
             ptr += size;
         }
 
-        auto func2 =
-            fixt_explist->GetSession()->GetFunction("ExactSolution", 0);
+        auto func2 = session->GetFunction("ExactSolution", 0);
         func2->Evaluate(x, y, z, fce);
         ptr = fce.data();
         for (unsigned int blk = 0; blk < fixt_in2->GetBlocks().size(); ++blk)

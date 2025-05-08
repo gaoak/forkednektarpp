@@ -13,12 +13,13 @@
 # NullPrecon             Nodepend - Seg, Quad, etc
 # PhysDeriv              Nodepend - Seg, Quad, etc
 # PhysInterp1D           Nodepend - Seg, Quad, etc
+# Expression             Nodepend - Helmholtz1D_Seg, etc.
 
 # These tests may require an individual  cpp.in file
-# DiagPrecon             creaate operator - Helmholtz - Helmholtz1D_Seg, etc.
+# DiagPrecon             create operator - Helmholtz - Helmholtz1D_Seg, etc.
 
-# FwdTrans               creaate operator - DiagPrecon - Helmholtz1D_Seg, etc.
-# HelmSolve              creaate operator - DiagPrecon - Helmholtz1D_Seg, etc.
+# FwdTrans               create operator - DiagPrecon - Helmholtz1D_Seg, etc.
+# HelmSolve              create operator - DiagPrecon - Helmholtz1D_Seg, etc.
 
 # Dirichlet              only output - Nodepend - Helmholtz1D_Seg, etc.
 # Neumann                only output - Nodepend - Helmholtz1D_Seg, etc.
@@ -87,6 +88,8 @@ ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_serial_sumfac
 # Serial generic
 ADD_NEKTAR_EXECUTABLE(test_multiplybyelmtinvmass_serial_generic
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_multiplybyelmtinvmass_serial_generic.cpp)
+ADD_NEKTAR_EXECUTABLE(test_expression_serial_generic
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_expression_serial_generic.cpp)
 
 # AVX SumFac
 IF (${NEKTAR_ENABLE_SIMD_AVX2} OR ${NEKTAR_ENABLE_SIMD_AVX512})
@@ -254,6 +257,7 @@ SET_UNIT_TEST(LinAdvDiffReaction_serial_sumfac test_linadvdiffreaction_serial_su
 
 # Serial generic
 SET_UNIT_TEST(MultiplyByElmtInvMass_serial_generic test_multiplybyelmtinvmass_serial_generic FALSE)
+SET_UNIT_TEST(expression_serial_generic test_expression_serial_generic FALSE)
 
 # AVX SumFac
 IF (NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)

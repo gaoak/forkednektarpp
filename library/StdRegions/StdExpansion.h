@@ -629,6 +629,26 @@ public:
         v_GetCoords(coords_1, coords_2, coords_3);
     }
 
+    /*
+     * This function is a wrapper around the original GetCoords function however
+     * enables a return value of type array.
+     *
+     * Returns a three-dimensional array with coordinates of each DoF of the
+     * expansion.
+     */
+    Array<OneD, Array<OneD, NekDouble>> GetCoords()
+    {
+        Array<OneD, Array<OneD, NekDouble>> coords(3);
+        for (int i = 0; i < GetCoordim(); i++)
+        {
+            coords[i] = Array<OneD, NekDouble>(GetTotPoints());
+        }
+
+        v_GetCoords(coords[0], coords[1], coords[2]);
+
+        return coords;
+    }
+
     /** \brief given the coordinates of a point of the element in the
      *  local collapsed coordinate system, this function calculates the
      *  physical coordinates of the point
