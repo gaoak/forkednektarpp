@@ -123,7 +123,7 @@ fi
 
 # Custom Python executable
 if [[ $PYTHON_EXECUTABLE != "" ]]; then
-    CMAKEARGS+=("-DPython_EXECUTABLE=${PYTHON_EXECUTABLE}")
+    CMAKEARGS+=("-DPython3_EXECUTABLE=${PYTHON_EXECUTABLE}")
 fi
 
 rm -rf build && mkdir -p build && (cd build && cmake -G 'Unix Makefiles' "${CMAKEARGS[@]}" ..)

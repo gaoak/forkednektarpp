@@ -304,7 +304,7 @@ void ProcessJac::Process()
                 continue;
             }
             GetBoundaryCoordinate(el[i], output_file, detail);
-            NekInt sum_enum =
+            int32_t sum_enum =
                 ElementID + Jac + type + CoordX + CoordY + NeighborElID;
             if (detail)
             {
@@ -385,7 +385,7 @@ void ProcessJac::GetBoundaryCoordinate(const ElementSharedPtr &el,
     {
         case 2:
         {
-            NekInt space = ElementID + Jac + type;
+            int32_t space = ElementID + Jac + type;
             std::vector<EdgeSharedPtr> B_edge; // Boundary edge
             for (auto &edge : el->GetEdgeList())
             {
@@ -434,7 +434,7 @@ void ProcessJac::GetBoundaryCoordinate(const ElementSharedPtr &el,
         }
         case 3:
         {
-            NekInt space = ElementID + Jac + type + Boundary_face_ID;
+            int32_t space = ElementID + Jac + type + Boundary_face_ID;
             std::vector<FaceSharedPtr> B_face; // Boundary face
             for (auto &face : el->GetFaceList())
             {
@@ -517,7 +517,7 @@ bool ProcessJac::GetCompositeName(const ElementSharedPtr &el,
 {
     std::vector<ElementSharedPtr> el_1 =
         m_mesh->m_element[m_mesh->m_expDim - 1];
-    NekInt NumFaceEdge = 0;
+    int32_t NumFaceEdge = 0;
     if (m_mesh->m_expDim == 2)
     {
         NumFaceEdge = el->GetEdgeList().size();
@@ -537,8 +537,8 @@ bool ProcessJac::GetCompositeName(const ElementSharedPtr &el,
         {
             continue;
         }
-        NekInt el_1_ID = el_1[el->GetBoundaryLink(k)]->GetId();
-        std::vector<std::pair<NekInt, NekInt>> comps;
+        int32_t el_1_ID = el_1[el->GetBoundaryLink(k)]->GetId();
+        std::vector<std::pair<int32_t, int32_t>> comps;
         for (auto it : m_mesh->m_composite)
         {
             comps.push_back(
@@ -546,7 +546,7 @@ bool ProcessJac::GetCompositeName(const ElementSharedPtr &el,
         }
         std::sort(
             comps.begin(), comps.end(),
-            [&](std::pair<NekInt, NekInt> a, std::pair<NekInt, NekInt> b) {
+            [&](std::pair<int32_t, int32_t> a, std::pair<int32_t, int32_t> b) {
                 return a.second < b.second;
             });
         for (int i = 0; i < m_mesh->m_composite.size(); ++i)
@@ -571,7 +571,7 @@ bool ProcessJac::GetCompositeName(const ElementSharedPtr &el,
 }
 void ProcessJac::GetHistogram(const Array<OneD, NekDouble> &histo)
 {
-    NekInt maxsize = histo.size();
+    int32_t maxsize = histo.size();
     std::cout << std::string(100, '=') << "\n";
     std::cout << std::endl;
     Array<OneD, NekDouble> HistoLog(maxsize, 0.0);

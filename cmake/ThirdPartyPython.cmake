@@ -7,35 +7,14 @@
 ########################################################################
 
 IF (NEKTAR_BUILD_PYTHON)
-    IF (NOT DEFINED NEKTAR_PYTHON_EXECUTABLE)
-        SET(NEKTAR_PYTHON_EXECUTABLE "" CACHE INTERNAL "")
-    ENDIF()
+    FIND_PACKAGE(Python3 COMPONENTS Interpreter Development REQUIRED)
 
-    # If someone is using a newer variable name (from FindPython.cmake), set
-    # this instead to the older variable name from PythonInterp.
-    IF (DEFINED Python_EXECUTABLE)
-        SET(PYTHON_EXECUTABLE ${Python_EXECUTABLE} CACHE INTERNAL "")
-    ENDIF()
-
-    IF (NOT PYTHON_EXECUTABLE STREQUAL NEKTAR_PYTHON_EXECUTABLE)
-        unset(PYTHON_INCLUDE_DIR CACHE)
-        unset(PYTHON_LIBRARY CACHE)
-        unset(PYTHON_LIBRARY_DEBUG CACHE)
-        unset(PYTHON_LIBRARIES CACHE)
-        unset(PYTHONLIBS_VERSION_STRING CACHE)
-        unset(BOOST_PYTHON_LIB CACHE)
-        unset(BOOST_NUMPY_LIB CACHE)
-    ENDIF()
-
-    FIND_PACKAGE(PythonInterp REQUIRED)
-    FIND_PACKAGE(PythonLibsNew REQUIRED)
-
-    INCLUDE_DIRECTORIES(${PYTHON_INCLUDE_DIRS})
+    INCLUDE_DIRECTORIES(${Python3_INCLUDE_DIRS})
     ADD_DEFINITIONS(-DWITH_PYTHON)
 
     MESSAGE(STATUS "Searching for Python:")
-    MESSAGE(STATUS "-- Found interpreter: ${PYTHON_EXECUTABLE}")
-    MESSAGE(STATUS "-- Found development library: ${PYTHON_LIBRARIES}")
+    MESSAGE(STATUS "-- Found interpreter: ${Python3_EXECUTABLE}")
+    MESSAGE(STATUS "-- Found development library: ${Python3_LIBRARIES}")
 
     # Build directory for binary installations
     SET(NEKPY_BASE_DIR "${CMAKE_BINARY_DIR}/python" CACHE INTERNAL "")
@@ -48,17 +27,17 @@ IF (NEKTAR_BUILD_PYTHON)
 
     ADD_CUSTOM_TARGET(nekpy-install-user
         DEPENDS _MultiRegions
-        COMMAND ${PYTHON_EXECUTABLE} -m pip install --user .
+        COMMAND ${Python3_EXECUTABLE} -m pip install --user .
         WORKING_DIRECTORY ${NEKPY_BASE_DIR})
 
     ADD_CUSTOM_TARGET(nekpy-install-dev
         DEPENDS _MultiRegions
-        COMMAND ${PYTHON_EXECUTABLE} -m pip install --user -e .
+        COMMAND ${Python3_EXECUTABLE} -m pip install --user -e .
         WORKING_DIRECTORY ${NEKPY_BASE_DIR})
 
     ADD_CUSTOM_TARGET(nekpy-install-system
         DEPENDS _MultiRegions
-        COMMAND ${PYTHON_EXECUTABLE} -m pip install .
+        COMMAND ${Python3_EXECUTABLE} -m pip install .
         WORKING_DIRECTORY ${NEKPY_BASE_DIR})
 
     EXTERNALPROJECT_ADD(

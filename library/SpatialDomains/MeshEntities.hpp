@@ -44,13 +44,13 @@ namespace Nektar::SpatialDomains
 // bit machines. All Structs (with the exception of
 // MeshCurvedPts) are therefore aligned to 8 byte blocks.
 //
-// Note the MeshCurvedPts are exported as a list of NekInt64
+// Note the MeshCurvedPts are exported as a list of int64_t
 // and MeshVetexs and so the struct does not comply with the
 // above.
 
 struct MeshVertex
 {
-    NekInt64 id;
+    int64_t id;
     NekDouble x;
     NekDouble y;
     NekDouble z;
@@ -58,61 +58,61 @@ struct MeshVertex
 
 struct MeshEdge
 {
-    NekInt64 id;
-    NekInt64 v0;
-    NekInt64 v1;
+    int64_t id;
+    int64_t v0;
+    int64_t v1;
 };
 
 struct MeshTri
 {
-    NekInt64 id;
-    NekInt64 e[3];
+    int64_t id;
+    int64_t e[3];
 };
 
 struct MeshQuad
 {
-    NekInt64 id;
-    NekInt64 e[4];
+    int64_t id;
+    int64_t e[4];
 };
 
 struct MeshTet
 {
-    NekInt64 id;
-    NekInt64 f[4];
+    int64_t id;
+    int64_t f[4];
 };
 
 struct MeshPyr
 {
-    NekInt64 id;
-    NekInt64 f[5];
+    int64_t id;
+    int64_t f[5];
 };
 
 struct MeshPrism
 {
-    NekInt64 id;
-    NekInt64 f[5];
+    int64_t id;
+    int64_t f[5];
 };
 
 struct MeshHex
 {
-    NekInt64 id;
-    NekInt64 f[6];
+    int64_t id;
+    int64_t f[6];
 };
 
 struct MeshCurvedInfo
 {
-    NekInt64 id;       /// Id of this curved information
-    NekInt64 entityid; /// The entity id corresponding to the global edge/curve
-    NekInt64 npoints;  /// The number of points in this curved entity.
-    NekInt64 ptid; /// the id of point data map (currently always 0 since we are
-                   /// using just one set).
-    NekInt64 ptoffset; /// point offset of data entry for this curve
+    int64_t id;       /// Id of this curved information
+    int64_t entityid; /// The entity id corresponding to the global edge/curve
+    int64_t npoints;  /// The number of points in this curved entity.
+    int64_t ptid; /// the id of point data map (currently always 0 since we are
+                  /// using just one set).
+    int64_t ptoffset; /// point offset of data entry for this curve
 
     // An int (instead of a PointsType) defining the point
     // type from a PointsKey enum list. Since that we are
     // using a memory aligned structure which is suitable for
     // 32 and 64 bit machines.
-    NekInt64 ptype;
+    int64_t ptype;
 };
 
 struct MeshCurvedPts
@@ -123,13 +123,13 @@ struct MeshCurvedPts
     /// definiting the actually x,y,z values of each point in
     /// the curved entity. i.e. a list of edge values are found from
     //// pts[index[ptoffset +i] ]  0 <= i < npoints;
-    std::vector<NekInt64> index; /// mapping to access pts value.
+    std::vector<int64_t> index; /// mapping to access pts value.
 
     /// A list of MeshVertex entities containing the x,y,z
     /// values of unique points used in the curved entitites.
     std::vector<MeshVertex> pts;
 
-    NekInt64 id; /// id of this Point set
+    int64_t id; /// id of this Point set
 };
 
 struct MeshEntity

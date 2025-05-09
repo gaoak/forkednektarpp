@@ -743,6 +743,7 @@ macos-full-arm-build-and-test:
   variables:
     BUILD_TYPE: "full"
     BUILD_DEVICEONHOST: "on"
+    PYTHON_EXECUTABLE: /opt/local/bin/python
   needs: []
 
 macos-default-arm-warnings:

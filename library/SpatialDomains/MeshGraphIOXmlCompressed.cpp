@@ -357,7 +357,7 @@ void MeshGraphIOXmlCompressed::v_ReadCurves()
         }
         else if (boost::iequals(entitytype, "DATAPOINTS"))
         {
-            NekInt id;
+            int32_t id;
             ASSERTL0(x->Attribute("ID", &id),
                      "Failed to get ID from PTS section");
             cpts.id = id;

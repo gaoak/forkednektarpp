@@ -178,8 +178,8 @@ private:
     bool m_isH1d;
     bool m_hasPlane0;
     bool m_isH2d;
-    NekInt m_spacedim;
-    NekInt m_expdim;
+    int32_t m_spacedim;
+    int32_t m_expdim;
     unsigned int m_index;
     unsigned int m_outputFrequency;
 

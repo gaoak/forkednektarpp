@@ -436,7 +436,7 @@ int main(int argc, char *argv[])
                 // Python test.
                 if (cmd.m_pythonTest)
                 {
-                    command += "@PYTHON_EXECUTABLE@ ";
+                    command += "@Python3_EXECUTABLE@ ";
                 }
 
                 std::string pathString = LibUtilities::PortablePath(execPath);

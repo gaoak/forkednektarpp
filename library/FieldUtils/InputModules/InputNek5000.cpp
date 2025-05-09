@@ -166,10 +166,10 @@ void InputNek5000::v_Process([[maybe_unused]] po::variables_map &vm)
     }
 
     // Read element IDs
-    NekUInt32 maxID = 0, minID = numeric_limits<NekUInt32>::max();
-    for (NekUInt32 i = 0; i < nBlocks; ++i)
+    uint32_t maxID = 0, minID = numeric_limits<uint32_t>::max();
+    for (uint32_t i = 0; i < nBlocks; ++i)
     {
-        NekUInt32 blockNum;
+        uint32_t blockNum;
         file.read((char *)&blockNum, 4);
         if (byteSwap)
         {

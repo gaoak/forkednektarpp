@@ -80,7 +80,7 @@ protected:
     void TransformVector(std::vector<Array<OneD, NekDouble>> &data);
 
 private:
-    NekInt m_spacedim;
+    int32_t m_spacedim;
     std::vector<NekDouble> m_origin;
     std::vector<NekDouble> m_theta;
     std::vector<NekDouble> m_pivot;

@@ -95,7 +95,7 @@ protected:
     struct STLobject
     {
         // Number of triangles
-        NekUInt32 numTri;
+        uint32_t numTri;
         // Triangles definition
         Array<OneD, triangle> triangles;
     };

@@ -1,4 +1,4 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 3.10)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.12)
 SET(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build,
 options are: None(CMAKE_CXX_FLAGS or CMAKE_C_FLAGS used) Debug Release
 RelWithDebInfo MinSizeRel.")
@@ -13,9 +13,28 @@ INCLUDE(NektarSIMD)
 
 PROJECT(Nektar++ C CXX)
 
-# Defer to use _ROOT variables to avoid Zlib warning
-IF (POLICY CMP0074)
-    CMAKE_POLICY(SET CMP0074 OLD)
+# Defer to newer treatment of DOWNLOAD_EXTRACT_TIMESTAMP, but this was only
+# introduced in CMake 3.24 onwards.
+IF (POLICY CMP0135)
+    CMAKE_POLICY(SET CMP0135 NEW)
+ENDIF()
+
+# CMake 3.25+ prefers the use of variables like Boost_ROOT vs. BOOST_ROOT so as
+# to maintain consistency between package names and variables. For now we ignore
+# this since many platforms do not have this modern of a CMake.
+IF (POLICY CMP0144)
+    CMAKE_POLICY(SET CMP0144 OLD)
+ENDIF()
+
+# As of CMake 3.30, FindBoost is removed. However for now we retain the old
+# behaviour to maintain backward compatibility.
+IF (POLICY CMP0167)
+    CMAKE_POLICY(SET CMP0167 OLD)
+ENDIF()
+
+# Defer to older treatment of INSTALL DESTINATION paths.
+IF (POLICY CMP0177)
+    CMAKE_POLICY(SET CMP0177 OLD)
 ENDIF()
 
 # Nektar++ requires C++17.

@@ -43,12 +43,12 @@ namespace Nektar
 typedef double NekDouble;
 typedef float NekSingle;
 
-typedef std::int32_t NekInt;
-typedef std::int32_t NekInt32;
-typedef std::int64_t NekInt64;
-typedef std::uint32_t NekUInt;
-typedef std::uint32_t NekUInt32;
-typedef std::uint64_t NekUInt64;
+typedef std::int32_t int32_t;
+typedef std::int32_t int32_t;
+typedef std::int64_t int64_t;
+typedef std::uint32_t uint32_t;
+typedef std::uint32_t uint32_t;
+typedef std::uint64_t uint64_t;
 
 struct OneD
 {

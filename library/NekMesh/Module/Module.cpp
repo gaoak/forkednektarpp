@@ -703,15 +703,15 @@ void Module::ReorderPrisms(PerMap &perFaces)
                 // Determine which of the three vertices on the 'other'
                 // face corresponds to the highest ID - this signifies
                 // the singular point of the line of prisms.
-                std::vector<std::pair<NekInt, NekInt>> tmp;
+                std::vector<std::pair<int32_t, int32_t>> tmp;
                 for (int j = 0; j < 3; ++j)
                 {
                     tmp.push_back(
                         std::make_pair(j, nodes[prismTris[o][j]]->m_id));
                 }
                 std::sort(tmp.begin(), tmp.end(),
-                          [&](std::pair<NekInt, NekInt> a,
-                              std::pair<NekInt, NekInt> b) {
+                          [&](std::pair<int32_t, int32_t> a,
+                              std::pair<int32_t, int32_t> b) {
                               return a.second < b.second;
                           });
 

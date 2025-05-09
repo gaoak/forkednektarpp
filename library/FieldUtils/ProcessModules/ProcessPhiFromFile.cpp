@@ -159,7 +159,7 @@ ProcessPhiFromFile::STLobject ProcessPhiFromFile::ReadSTL(string filename)
 
     // Read triangle data
     out.triangles = Array<OneD, triangle>(out.numTri);
-    for (NekUInt32 i = 0; i < out.numTri; ++i)
+    for (uint32_t i = 0; i < out.numTri; ++i)
     {
         // Read normal vector
         triangle tmpTri;

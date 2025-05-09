@@ -71,7 +71,7 @@ protected:
     int m_intOrder;
     std::string m_convectiveType;
     /// Array checking whether GlobalLinSys needs to be unset
-    Array<OneD, NekInt> m_unsetGlobalLinSys;
+    Array<OneD, int32_t> m_unsetGlobalLinSys;
 
     VCSImplicit(const LibUtilities::SessionReaderSharedPtr &pSession,
                 const SpatialDomains::MeshGraphSharedPtr &pGraph);
@@ -118,7 +118,7 @@ protected:
 
     // Function to check whether UnsetGlobalLinSys has to be called
     // at i-th call of LinearAdvectionDiffusionReactionSolve in SolveViscous
-    void CheckUnsetGlobalLinSys(Array<OneD, NekInt> &unsetGlobalLinSys);
+    void CheckUnsetGlobalLinSys(Array<OneD, int32_t> &unsetGlobalLinSys);
 
 private:
 };

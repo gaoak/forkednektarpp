@@ -204,7 +204,7 @@ void VCSImplicit::v_DoInitialise(bool dumpInitialConditions)
     // Check whether multiple or single GlobalLinSys are
     // required and when to delete them
     // Initialise to always reset GlobalLinSys
-    m_unsetGlobalLinSys = Array<OneD, NekInt>(m_velocity.size(), 1);
+    m_unsetGlobalLinSys = Array<OneD, int32_t>(m_velocity.size(), 1);
     CheckUnsetGlobalLinSys(m_unsetGlobalLinSys);
 
     // Check skew-symmetric advection operator
@@ -544,7 +544,8 @@ void VCSImplicit::AddImplicitSkewSymAdvection(StdRegions::VarCoeffMap varcoeffs,
     varcoeffs[StdRegions::eVarCoeffMass] = divAdvVel;
 }
 
-void VCSImplicit::CheckUnsetGlobalLinSys(Array<OneD, NekInt> &unsetGlobalLinSys)
+void VCSImplicit::CheckUnsetGlobalLinSys(
+    Array<OneD, int32_t> &unsetGlobalLinSys)
 {
     // Loop over all convected Fields (excludes pressure)
     for (int i = 0; i < m_nConvectiveFields; ++i)

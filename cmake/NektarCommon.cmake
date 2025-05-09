@@ -326,7 +326,7 @@ MACRO(ADD_NEKPY_LIBRARY name)
         LIBRARY_OUTPUT_DIRECTORY ${NEKPY_BASE_DIR}/NekPy/${name})
 
     # Add target link libraries.
-    TARGET_LINK_LIBRARIES(_${name} ${PYTHON_LIBRARIES})
+    TARGET_LINK_LIBRARIES(_${name} ${Python3_LIBRARIES})
 
     # Make sure we build/install pybind11
     ADD_DEPENDENCIES(_${name} pybind11)

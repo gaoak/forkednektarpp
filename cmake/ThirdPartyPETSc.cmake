@@ -110,7 +110,7 @@ IF (NEKTAR_USE_PETSC)
                 OMPI_FC=${CMAKE_Fortran_COMPILER}
                 OMPI_CC=${CMAKE_C_COMPILER}
                 OMPI_CXX=${CMAKE_CXX_COMPILER}
-                ${PYTHON_EXECUTABLE} ./configure
+                ${Python3_EXECUTABLE} ./configure
                 MAKEFLAGS=$MAKEFLAGS
                 CFLAGS="-w"
                 CXXFLAGS="-w"
