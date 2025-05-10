@@ -42,25 +42,25 @@ NEK_FORCE_INLINE static
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                             void>::type
-    RobBndCond1DKernel(const unsigned int nsize, const unsigned int *offsetPtr,
-                       const TData *matPtr, const unsigned int *mapPtr,
+    RobBndCond1DKernel(const size_t nsize, const size_t *offsetPtr,
+                       const TData *matPtr, const size_t *mapPtr,
                        const TData *incoeffPtr, TData *coeffPtr)
 {
     if constexpr (negflag)
     {
-        for (unsigned int i = 0; i < nsize; i++)
+        for (size_t i = 0; i < nsize; i++)
         {
-            unsigned int offset = offsetPtr[i];
-            unsigned int map    = mapPtr[i];
+            size_t offset = offsetPtr[i];
+            size_t map    = mapPtr[i];
             coeffPtr[offset + map] -= matPtr[i] * incoeffPtr[offset + map];
         }
     }
     else
     {
-        for (unsigned int i = 0; i < nsize; i++)
+        for (size_t i = 0; i < nsize; i++)
         {
-            unsigned int offset = offsetPtr[i];
-            unsigned int map    = mapPtr[i];
+            size_t offset = offsetPtr[i];
+            size_t map    = mapPtr[i];
             coeffPtr[offset + map] += matPtr[i] * incoeffPtr[offset + map];
         }
     }
@@ -71,25 +71,24 @@ NEK_FORCE_INLINE static
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                             void>::type
-    RobBndCond2DKernel(const unsigned int nmaxcoeff, const unsigned int nsize,
-                       const unsigned int *ncoeffPtr,
-                       const unsigned int *offsetPtr,
-                       const unsigned int *matOffsetPtr,
-                       const unsigned int *mapOffsetPtr, const TData *matPtr,
-                       const unsigned int *mapPtr, const int *signPtr,
-                       const TData *incoeffPtr, TData *coeffPtr)
+    RobBndCond2DKernel(const unsigned int nmaxcoeff, const size_t nsize,
+                       const unsigned int *ncoeffPtr, const size_t *offsetPtr,
+                       const size_t *matOffsetPtr, const size_t *mapOffsetPtr,
+                       const TData *matPtr, const size_t *mapPtr,
+                       const int *signPtr, const TData *incoeffPtr,
+                       TData *coeffPtr)
 {
     std::vector<TData> vEdgeCoeffs(nmaxcoeff);
-    for (unsigned int j = 0; j < nsize; j++)
+    for (size_t j = 0; j < nsize; j++)
     {
-        const unsigned int ncoeff    = ncoeffPtr[j];
-        const unsigned int offset    = offsetPtr[j];
-        const unsigned int matOffset = matOffsetPtr[j];
-        const unsigned int mapOffset = mapOffsetPtr[j];
+        const unsigned int ncoeff = ncoeffPtr[j];
+        const size_t offset       = offsetPtr[j];
+        const size_t matOffset    = matOffsetPtr[j];
+        const size_t mapOffset    = mapOffsetPtr[j];
 
         for (unsigned int i = 0; i < ncoeff; i++)
         {
-            const unsigned int index = mapOffset + i;
+            const size_t index = mapOffset + i;
             vEdgeCoeffs[i] =
                 incoeffPtr[offset + mapPtr[index]] * signPtr[index];
         }
@@ -102,7 +101,7 @@ NEK_FORCE_INLINE static
                 tmp += matPtr[matOffset + ncoeff * k + i] * vEdgeCoeffs[k];
             }
 
-            const unsigned int index = mapOffset + i;
+            const size_t index = mapOffset + i;
             if constexpr (negflag)
             {
                 coeffPtr[offset + mapPtr[index]] -= tmp * signPtr[index];

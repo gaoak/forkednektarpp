@@ -79,9 +79,9 @@ public:
     }
 
 private:
-    static std::unordered_map<int, cudaDeviceProp> prop;
+    static std::unordered_map<unsigned int, cudaDeviceProp> prop;
 
-    static void FetchDeviceProperties(const int id)
+    static void FetchDeviceProperties(const unsigned int id)
     {
         if (prop.find(id) == prop.end())
         {
@@ -131,9 +131,9 @@ public:
     }
 
 private:
-    static std::unordered_map<int, hipDeviceProp_t> prop;
+    static std::unordered_map<unsigned int, hipDeviceProp_t> prop;
 
-    static void FetchDeviceProperties(const int id)
+    static void FetchDeviceProperties(const unsigned int id)
     {
         if (prop.find(id) == prop.end())
         {
@@ -179,10 +179,10 @@ public:
     }
 
 private:
-    static std::unordered_map<int, size_t> m_sharedMemoryPerBlock;
-    static std::unordered_map<int, size_t> m_totalGlobalMemory;
+    static std::unordered_map<unsigned int, size_t> m_sharedMemoryPerBlock;
+    static std::unordered_map<unsigned int, size_t> m_totalGlobalMemory;
 
-    static void FetchDeviceProperties(const int id)
+    static void FetchDeviceProperties(const unsigned int id)
     {
         if (m_totalGlobalMemory.find(id) == m_totalGlobalMemory.end())
         {

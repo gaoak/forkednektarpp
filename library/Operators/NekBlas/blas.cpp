@@ -40,10 +40,9 @@
 template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, blasHandle>, void>::type NekGemm(
     [[maybe_unused]] THandle handle, std::string transposeA,
-    std::string transposeB, const unsigned int M, const unsigned int N,
-    const unsigned int K, const TData alpha, const TData *a,
-    const unsigned int lda, const TData *b, const unsigned int ldb,
-    const TData beta, TData *c, const unsigned int ldc)
+    std::string transposeB, const size_t M, const size_t N, const size_t K,
+    const TData alpha, const TData *a, const size_t lda, const TData *b,
+    const size_t ldb, const TData beta, TData *c, const size_t ldc)
 {
     auto transA = *transposeA.c_str();
     auto transB = *transposeB.c_str();
@@ -54,18 +53,17 @@ typename std::enable_if<std::is_same_v<THandle, blasHandle>, void>::type NekGemm
 template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, blasHandle>, void>::type
 NekGemmStridedBatched([[maybe_unused]] THandle handle, std::string transposeA,
-                      std::string transposeB, const unsigned int M,
-                      const unsigned int N, const unsigned int K,
-                      const TData alpha, const TData *a, const unsigned int lda,
-                      const unsigned int strideA, const TData *b,
-                      const unsigned int ldb, const unsigned int strideB,
-                      const TData beta, TData *c, const unsigned int ldc,
-                      const unsigned int strideC, const unsigned int batchSize)
+                      std::string transposeB, const size_t M, const size_t N,
+                      const size_t K, const TData alpha, const TData *a,
+                      const size_t lda, const size_t strideA, const TData *b,
+                      const size_t ldb, const size_t strideB, const TData beta,
+                      TData *c, const size_t ldc, const size_t strideC,
+                      const size_t batchSize)
 {
     auto transA = *transposeA.c_str();
     auto transB = *transposeB.c_str();
 
-    for (unsigned int i = 0; i < batchSize; i++)
+    for (size_t i = 0; i < batchSize; i++)
     {
         Blas::Gemm(transA, transB, M, N, K, alpha, a + strideA * i, lda,
                    b + strideB * i, ldb, beta, c + strideC * i, ldc);
@@ -74,31 +72,26 @@ NekGemmStridedBatched([[maybe_unused]] THandle handle, std::string transposeA,
 
 template void NekGemm<blasHandle, float>(
     blasHandle handle, std::string transposeA, std::string transposeB,
-    const unsigned int M, const unsigned int N, const unsigned int K,
-    const float alpha, const float *a, const unsigned int lda, const float *b,
-    const unsigned int ldb, const float beta, float *c, const unsigned int ldc);
+    const size_t M, const size_t N, const size_t K, const float alpha,
+    const float *a, const size_t lda, const float *b, const size_t ldb,
+    const float beta, float *c, const size_t ldc);
 
 template void NekGemm<blasHandle, double>(
     blasHandle handle, std::string transposeA, std::string transposeB,
-    const unsigned int M, const unsigned int N, const unsigned int K,
-    const double alpha, const double *a, const unsigned int lda,
-    const double *b, const unsigned int ldb, const double beta, double *c,
-    const unsigned int ldc);
+    const size_t M, const size_t N, const size_t K, const double alpha,
+    const double *a, const size_t lda, const double *b, const size_t ldb,
+    const double beta, double *c, const size_t ldc);
 
 template void NekGemmStridedBatched<blasHandle, float>(
     blasHandle handle, std::string transposeA, std::string transposeB,
-    const unsigned int M, const unsigned int N, const unsigned int K,
-    const float alpha, const float *a, const unsigned int lda,
-    const unsigned int strideA, const float *b, const unsigned int ldb,
-    const unsigned int strideB, const float beta, float *c,
-    const unsigned int ldc, const unsigned int strideC,
-    const unsigned int batchSize);
+    const size_t M, const size_t N, const size_t K, const float alpha,
+    const float *a, const size_t lda, const size_t strideA, const float *b,
+    const size_t ldb, const size_t strideB, const float beta, float *c,
+    const size_t ldc, const size_t strideC, const size_t batchSize);
 
 template void NekGemmStridedBatched<blasHandle, double>(
     blasHandle handle, std::string transposeA, std::string transposeB,
-    const unsigned int M, const unsigned int N, const unsigned int K,
-    const double alpha, const double *a, const unsigned int lda,
-    const unsigned int strideA, const double *b, const unsigned int ldb,
-    const unsigned int strideB, const double beta, double *c,
-    const unsigned int ldc, const unsigned int strideC,
-    const unsigned int batchSize);
+    const size_t M, const size_t N, const size_t K, const double alpha,
+    const double *a, const size_t lda, const size_t strideA, const double *b,
+    const size_t ldb, const size_t strideB, const double beta, double *c,
+    const size_t ldc, const size_t strideC, const size_t batchSize);

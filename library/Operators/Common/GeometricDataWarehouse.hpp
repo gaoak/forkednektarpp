@@ -56,10 +56,10 @@ public:
 
     ~JacobianKey() override = default;
 
-    JacobianKey(const size_t exp_idx, const size_t interleave_width,
+    JacobianKey(const size_t exp_idx, const unsigned int interleave_width,
                 const size_t num_elements)
-        : m_exp_idx(exp_idx), m_interleave_width(interleave_width),
-          m_num_elements(num_elements)
+        : m_exp_idx(exp_idx), m_num_elements(num_elements),
+          m_interleave_width(interleave_width)
     {
         hash_combine(m_hash, m_exp_idx, m_interleave_width, m_num_elements,
                      typeid(value_type).name(), "JacobianKey");
@@ -67,8 +67,8 @@ public:
 
 private:
     size_t m_exp_idx;
-    size_t m_interleave_width;
     size_t m_num_elements;
+    unsigned int m_interleave_width;
 };
 
 template <typename TData> class DerivFactorKey : public BaseKey
@@ -81,10 +81,10 @@ public:
 
     ~DerivFactorKey() override = default;
 
-    DerivFactorKey(const size_t exp_idx, const size_t interleave_width,
+    DerivFactorKey(const size_t exp_idx, const unsigned int interleave_width,
                    const size_t num_elements, const bool transpose)
-        : m_exp_idx(exp_idx), m_interleave_width(interleave_width),
-          m_num_elements(num_elements), m_transpose(transpose)
+        : m_exp_idx(exp_idx), m_num_elements(num_elements),
+          m_interleave_width(interleave_width), m_transpose(transpose)
     {
         hash_combine(m_hash, m_exp_idx, m_interleave_width, m_num_elements,
                      m_transpose, typeid(value_type).name(), "DerivFactorKey");
@@ -92,8 +92,8 @@ public:
 
 private:
     size_t m_exp_idx;
-    size_t m_interleave_width;
     size_t m_num_elements;
+    unsigned int m_interleave_width;
     bool m_transpose;
 };
 
@@ -107,10 +107,10 @@ public:
 
     ~CoordKey() override = default;
 
-    CoordKey(const size_t exp_idx, const size_t interleave_width,
+    CoordKey(const size_t exp_idx, const unsigned int interleave_width,
              const size_t num_elements, const bool transpose)
-        : m_exp_idx(exp_idx), m_interleave_width(interleave_width),
-          m_num_elements(num_elements), m_transpose(transpose)
+        : m_exp_idx(exp_idx), m_num_elements(num_elements),
+          m_interleave_width(interleave_width), m_transpose(transpose)
     {
         hash_combine(m_hash, m_exp_idx, m_interleave_width, m_num_elements,
                      m_transpose, typeid(value_type).name(), "CoordKey");
@@ -118,8 +118,8 @@ public:
 
 private:
     size_t m_exp_idx;
-    size_t m_interleave_width;
     size_t m_num_elements;
+    unsigned int m_interleave_width;
     bool m_transpose;
 };
 
@@ -160,7 +160,7 @@ public:
             // Loop over chunks.
             for (size_t chunk = 0, el = 0; chunk < num_elmt_groups; ++chunk)
             {
-                for (size_t i = 0; i < interleave_width; ++i, ++el)
+                for (unsigned int i = 0; i < interleave_width; ++i, ++el)
                 {
                     if (el < num_elements)
                     {
@@ -177,7 +177,7 @@ public:
 
                 for (unsigned int pt = 0; pt < expPtr->GetTotPoints(); ++pt)
                 {
-                    for (size_t i = 0; i < interleave_width; ++i)
+                    for (unsigned int i = 0; i < interleave_width; ++i)
                     {
                         *(jacptr++) = jacArray[i][pt];
                     }
@@ -197,7 +197,7 @@ public:
             // Loop over chunks.
             for (size_t chunk = 0, el = 0; chunk < num_elmt_groups; ++chunk)
             {
-                for (size_t i = 0; i < interleave_width; ++i, ++el)
+                for (unsigned int i = 0; i < interleave_width; ++i, ++el)
                 {
                     if (el < num_elements)
                     {
@@ -255,7 +255,7 @@ public:
                 {
                     for (unsigned int index2 = 0; index2 < range2; ++index2)
                     {
-                        for (size_t i = 0; i < interleave_width; ++i)
+                        for (unsigned int i = 0; i < interleave_width; ++i)
                         {
                             if (el + i < num_elements)
                             {
@@ -295,7 +295,7 @@ public:
             {
                 for (unsigned int d = 0; d < nDim * nCoord; ++d)
                 {
-                    for (size_t i = 0; i < interleave_width; ++i)
+                    for (unsigned int i = 0; i < interleave_width; ++i)
                     {
                         if (el + i < num_elements)
                         {
@@ -357,7 +357,8 @@ public:
                 for (unsigned int index2 = 0; index2 < range2; ++index2)
                 {
                     // Loop over interleave width
-                    for (size_t i = 0; i < interleave_width; ++i, ++crd_id)
+                    for (unsigned int i = 0; i < interleave_width;
+                         ++i, ++crd_id)
                     {
                         // Check for padding
                         if (el + i < num_elements)

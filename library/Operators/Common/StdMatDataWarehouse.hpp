@@ -123,7 +123,7 @@ public:
 
     template <typename MemSpace, typename TData>
     MemoryRegion<TData> Create(const StdMatKey<TData> &stdMatKey,
-                               const unsigned int alignment)
+                               const size_t alignment)
     {
         using namespace Nektar::LibUtilities;
         using namespace Nektar::StdRegions;

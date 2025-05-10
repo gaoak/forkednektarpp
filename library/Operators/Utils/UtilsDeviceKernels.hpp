@@ -103,7 +103,7 @@ NEK_DEVICE_INLINE static void deInterleaveKernel(
     }
 }
 
-template <typename TthreadBlock, typename TData>
+/*template <typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void BuildInterleaveMapKernel(
     const unsigned int npts, const unsigned int newVecWidth,
     const unsigned int offset, TData *deInterleaveMapPtr,
@@ -137,7 +137,7 @@ NEK_DEVICE_INLINE static void BuildInterleaveMapKernel(
         interleaveMapPtr[deInterleaveMapPtr[groupOffset + idx]] =
             offset + groupOffset + idx;
     }
-}
+}*/
 
 template <bool APPEND = false, bool TRANSPOSE = false, typename TData>
 NEK_DEVICE_INLINE static void MatVecKernel(const unsigned int ilane,

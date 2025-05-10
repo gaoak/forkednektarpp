@@ -97,7 +97,7 @@ public:
 
     template <typename MemSpace, typename TData>
     MemoryRegion<TData> Create(const BasisDataKey<TData> &basisDataKey,
-                               const unsigned int alignment)
+                               const size_t alignment)
     {
         const auto basis =
             LibUtilities::BasisManager()[basisDataKey.m_basisKey];
@@ -271,7 +271,7 @@ public:
 
     ~VandemondeKey() override = default;
 
-    VandemondeKey(const VandemondeDataType dataType, const unsigned int exp_idx)
+    VandemondeKey(const VandemondeDataType dataType, const size_t exp_idx)
         : m_dataType(dataType), m_exp_idx(exp_idx)
     {
         hash_combine(m_hash, m_dataType, m_exp_idx, typeid(value_type).name(),
@@ -280,7 +280,7 @@ public:
 
 private:
     VandemondeDataType m_dataType;
-    unsigned int m_exp_idx;
+    size_t m_exp_idx;
 };
 
 class VandemondeDataCreator : public DataCreatorClass
@@ -294,7 +294,7 @@ public:
 
     template <typename MemSpace, typename TData>
     MemoryRegion<TData> Create(const VandemondeKey<TData> &vandemondeKey,
-                               const unsigned int alignment)
+                               const size_t alignment)
     {
         auto exp_idx = vandemondeKey.m_exp_idx;
         auto expPtr  = m_expansionList->GetExp(exp_idx);

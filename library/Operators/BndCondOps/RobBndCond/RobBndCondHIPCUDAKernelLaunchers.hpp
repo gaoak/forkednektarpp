@@ -41,11 +41,13 @@ namespace Nektar::Operators::detail
 {
 
 template <bool negflag, typename TData>
-__global__ void RobBndCond1DKernelLauncher(
-    const unsigned int nsize, const unsigned int *__restrict__ offsetPtr,
-    const TData *__restrict__ matPtr, const unsigned int *__restrict__ mapPtr,
-    const TData *__restrict__ incoeffPtr, TData *__restrict__ coeffPtr,
-    const hipcudaBlock1D &threadBlock)
+__global__ void RobBndCond1DKernelLauncher(const size_t nsize,
+                                           const size_t *__restrict__ offsetPtr,
+                                           const TData *__restrict__ matPtr,
+                                           const size_t *__restrict__ mapPtr,
+                                           const TData *__restrict__ incoeffPtr,
+                                           TData *__restrict__ coeffPtr,
+                                           const hipcudaBlock1D &threadBlock)
 {
     RobBndCond1DKernel<negflag>(nsize, offsetPtr, matPtr, mapPtr, incoeffPtr,
                                 coeffPtr, threadBlock);
@@ -53,13 +55,13 @@ __global__ void RobBndCond1DKernelLauncher(
 
 template <bool negflag, typename TData>
 __global__ void RobBndCond2DKernelLauncher(
-    const unsigned int nsize, const unsigned int *__restrict__ ncoeffPtr,
-    const unsigned int *__restrict__ offsetPtr,
-    const unsigned int *__restrict__ matOffsetPtr,
-    const unsigned int *__restrict__ mapOffsetPtr,
-    const TData *__restrict__ matPtr, const unsigned int *__restrict__ mapPtr,
-    const int *__restrict__ signPtr, const TData *__restrict__ incoeffPtr,
-    TData *__restrict__ coeffPtr, const hipcudaBlock1D &threadBlock)
+    const size_t nsize, const unsigned int *__restrict__ ncoeffPtr,
+    const size_t *__restrict__ offsetPtr,
+    const size_t *__restrict__ matOffsetPtr,
+    const size_t *__restrict__ mapOffsetPtr, const TData *__restrict__ matPtr,
+    const size_t *__restrict__ mapPtr, const int *__restrict__ signPtr,
+    const TData *__restrict__ incoeffPtr, TData *__restrict__ coeffPtr,
+    const hipcudaBlock1D &threadBlock)
 {
     extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
@@ -73,8 +75,8 @@ template <typename ExecSpace, bool negflag, typename TData>
 NEK_FORCE_INLINE static
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                             void>::type
-    RobBndCond1DKernel(const unsigned int nsize, const unsigned int *offsetPtr,
-                       const TData *matPtr, const unsigned int *mapPtr,
+    RobBndCond1DKernel(const size_t nsize, const size_t *offsetPtr,
+                       const TData *matPtr, const size_t *mapPtr,
                        const TData *incoeffPtr, TData *coeffPtr)
 {
     const unsigned int blockSize = NektarSpaces::vector_width<TData>::value;
@@ -90,13 +92,12 @@ template <typename ExecSpace, bool negflag, typename TData>
 NEK_FORCE_INLINE static
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                             void>::type
-    RobBndCond2DKernel(const unsigned int nmaxcoeff, const unsigned int nsize,
-                       const unsigned int *ncoeffPtr,
-                       const unsigned int *offsetPtr,
-                       const unsigned int *matOffsetPtr,
-                       const unsigned int *mapOffsetPtr, const TData *matPtr,
-                       const unsigned int *mapPtr, const int *signPtr,
-                       const TData *incoeffPtr, TData *coeffPtr)
+    RobBndCond2DKernel(const unsigned int nmaxcoeff, const size_t nsize,
+                       const unsigned int *ncoeffPtr, const size_t *offsetPtr,
+                       const size_t *matOffsetPtr, const size_t *mapOffsetPtr,
+                       const TData *matPtr, const size_t *mapPtr,
+                       const int *signPtr, const TData *incoeffPtr,
+                       TData *coeffPtr)
 {
     const unsigned int blockSize = NektarSpaces::vector_width<TData>::value;
     const unsigned int gridSize  = nsize;

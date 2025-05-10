@@ -1452,7 +1452,6 @@ NEK_DEVICE_INLINE static void Helmholtz3DKernel(
                               nq1 * nq2 * warpsize * iwarp;
                 TData *wsp1 = wsp + (nmTot + 4 * nqTot + nq1 * nq2) * nelmt +
                               std::max(nq2, nm0) * warpsize * iwarp;
-
                 MatVecKernel(ilane, nmTot, nodToMod, inptr, in1ptr);
                 BwdTransTetSumFacKernel(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
                                         isModified, basis0, basis1, basis2,
@@ -1480,7 +1479,6 @@ NEK_DEVICE_INLINE static void Helmholtz3DKernel(
                     (nmTot + 4 * nqTot + std::max(nq1 * nq2, nm0 * nm1)) *
                         nelmt +
                     std::max(nq2, nm0) * warpsize * iwarp;
-
                 MatVecKernel(ilane, nmTot, nodToMod, inptr, in1ptr);
                 BwdTransPrismSumFacKernel(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
                                           isModified, basis0, basis1, basis2,
@@ -1690,6 +1688,7 @@ NEK_DEVICE_INLINE static void Helmholtz3DKernel(
             }
             else
             {
+                // Copy to shared memory.
                 for (unsigned int idx = idx0; idx < nmTot; idx += stride)
                 {
                     tmp[idx] = inptr[idx];

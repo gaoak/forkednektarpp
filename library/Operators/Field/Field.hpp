@@ -50,7 +50,8 @@ class BlockAttributes
 public:
     BlockAttributes(const size_t exp_idx, const size_t num_elements,
                     const size_t num_elements_with_padding,
-                    const size_t num_data, const size_t interleave_width)
+                    const unsigned int num_data,
+                    const unsigned int interleave_width)
         : m_exp_idx(exp_idx), m_num_elements(num_elements),
           m_num_elements_with_padding(num_elements_with_padding),
           m_num_data(num_data), m_size(num_elements_with_padding * num_data),
@@ -61,7 +62,7 @@ public:
     BlockAttributes(const BlockAttributes &) = default;
 
     template <typename TData>
-    void SetInterleaveWidth(const size_t interleave_width)
+    void SetInterleaveWidth(const unsigned interleave_width)
     {
         if (interleave_width != 1)
         {
@@ -91,7 +92,7 @@ public:
         return m_num_elements_with_padding;
     }
 
-    size_t GetNumData(void) const
+    unsigned int GetNumData(void) const
     {
         return m_num_data;
     }
@@ -101,7 +102,7 @@ public:
         return m_size;
     }
 
-    size_t GetInterleaveWidth(void) const
+    unsigned int GetInterleaveWidth(void) const
     {
         return m_interleave_width;
     }
@@ -120,9 +121,9 @@ private:
     const size_t m_exp_idx;
     const size_t m_num_elements;
     const size_t m_num_elements_with_padding;
-    const size_t m_num_data;
+    const unsigned int m_num_data;
     const size_t m_size;
-    size_t m_interleave_width;
+    unsigned int m_interleave_width;
 };
 
 template <typename TData> class BlockAccessor : public BlockAttributes
@@ -130,17 +131,17 @@ template <typename TData> class BlockAccessor : public BlockAttributes
 public:
     BlockAccessor(const BlockAttributes blockAttr,
                   MemoryRegion<TData> &memory_region,
-                  const size_t num_components, const size_t offset)
+                  const unsigned int num_components, const size_t offset)
         : BlockAttributes(blockAttr), m_memory_region(memory_region),
           m_num_components(num_components), m_offset(offset)
     {
     }
 
     BlockAccessor(const size_t exp_idx, const size_t num_elements,
-                  const size_t num_elements_with_padding, const size_t num_data,
-                  const size_t interleave_width,
+                  const size_t num_elements_with_padding,
+                  const unsigned int num_data, const unsigned interleave_width,
                   MemoryRegion<TData> &memory_region,
-                  const size_t num_components, const size_t offset)
+                  const unsigned int num_components, const size_t offset)
         : BlockAttributes(exp_idx, num_elements, num_elements_with_padding,
                           num_data, interleave_width),
           m_memory_region(memory_region), m_num_components(num_components),
@@ -173,9 +174,9 @@ public:
     /**
      * @brief Gets the device rank of the memory region block.
      *
-     * @return size_t
+     * @return unsigned int
      */
-    size_t GetDeviceRank() const
+    unsigned int GetDeviceRank() const
     {
         return m_memory_region.GetDeviceRank();
     }
@@ -183,17 +184,17 @@ public:
     /**
      * @brief Gets the number of components.
      *
-     * @return size_t
+     * @return unsigned int
      */
-    size_t GetNumComponents() const
+    unsigned int GetNumComponents() const
     {
         return m_num_components;
     }
 
 private:
     MemoryRegion<TData> &m_memory_region;
-    size_t m_num_components = 0;
-    size_t m_offset         = 0;
+    unsigned int m_num_components = 0;
+    size_t m_offset               = 0;
 };
 
 /**
@@ -210,9 +211,9 @@ private:
 template <typename TData>
 std::vector<BlockAttributes> GetBlockAttributes(
     FieldState state, const MultiRegions::ExpListSharedPtr explist,
-    const size_t interleave_width = 1)
+    const unsigned interleave_width = 1)
 {
-    size_t vector_width = NektarSpaces::vector_width<TData>::value;
+    auto vector_width = NektarSpaces::vector_width<TData>::value;
 
     std::vector<BlockAttributes> blockAttr;
 
@@ -226,9 +227,9 @@ std::vector<BlockAttributes> GetBlockAttributes(
 
     size_t exp_idx      = 0;
     size_t num_elements = 1;
-    size_t ndata        = state == FieldState::Phys ? expPtr->GetTotPoints()
+    unsigned int ndata  = state == FieldState::Phys ? expPtr->GetTotPoints()
                                                     : expPtr->GetNcoeffs();
-    for (size_t d = 0; d < expPtr->GetNumBases(); d++)
+    for (unsigned int d = 0; d < expPtr->GetNumBases(); d++)
     {
         prevbasisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
     }
@@ -240,7 +241,7 @@ std::vector<BlockAttributes> GetBlockAttributes(
         expPtr = explist->GetExp(i);
 
         // fetch basiskeys of current element
-        for (size_t d = 0; d < expPtr->GetNumBases(); d++)
+        for (unsigned int d = 0; d < expPtr->GetNumBases(); d++)
         {
             thisbasisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
         }
@@ -388,7 +389,7 @@ public:
         const std::vector<std::string> components, const size_t alignment,
         const MemAllocType &memAllocType = eHostDevice)
     {
-        size_t num_device = 1;
+        unsigned int num_device = 1;
         auto field =
             Field(name, components, alignment, num_device, memAllocType);
 
@@ -431,10 +432,10 @@ public:
      */
     static Field<TData, TState> Create(
         const std::string name, const std::vector<BlockAttributes> blockAttr,
-        const int nvar, const size_t alignment,
+        const unsigned int nvar, const size_t alignment,
         const MemAllocType &memAllocType = eHostDevice)
     {
-        size_t num_device = 1;
+        unsigned int num_device = 1;
         auto field = Field(name, nvar, alignment, num_device, memAllocType);
 
         SetBlockToMemoryRegionMapping(field, blockAttr);
@@ -454,7 +455,7 @@ public:
      * @return Field<TData, TState>
      */
     static Field<TData, TState> Create(
-        const std::vector<BlockAttributes> blockAttr, const int nvar,
+        const std::vector<BlockAttributes> blockAttr, const unsigned int nvar,
         const size_t alignment, const MemAllocType &memAllocType = eHostDevice)
     {
         return Field<TData, TState>::Create("", blockAttr, nvar, alignment,
@@ -469,7 +470,7 @@ public:
         std::vector<size_t> offset(field.m_num_device, 0);
         std::vector<size_t> size(field.m_num_device, 0);
         size_t hsize = 0;
-        for (size_t blk = 0; blk < blockAttr.size(); ++blk)
+        for (unsigned int blk = 0; blk < blockAttr.size(); ++blk)
         {
             // Set one-to-one MemoryRegion to device mapping.
             auto mr    = blk % field.m_num_device;
@@ -497,7 +498,7 @@ public:
         }
 
         auto hsrc = field.m_host;
-        for (size_t mr = 0; mr < field.m_num_device; ++mr)
+        for (unsigned int mr = 0; mr < field.m_num_device; ++mr)
         {
             // Create memory region.
             auto device_rank = mr;
@@ -518,7 +519,7 @@ public:
         }
 #else
         size_t hsize = 0;
-        for (size_t blk = 0; blk < blockAttr.size(); ++blk)
+        for (unsigned int blk = 0; blk < blockAttr.size(); ++blk)
         {
             // Set one-to-one block to MemoryRegion mapping.
             auto nsize = blockAttr[blk].size() * field.GetNumComponents();
@@ -541,7 +542,7 @@ public:
         }
 
         auto hsrc = field.m_host;
-        for (size_t blk = 0; blk < blockAttr.size(); ++blk)
+        for (unsigned int blk = 0; blk < blockAttr.size(); ++blk)
         {
             // Create memory region.
             auto device_rank = blk % field.m_num_device;
@@ -562,7 +563,7 @@ public:
             }
         }
 #endif
-        for (size_t blk = 0; blk < blockAttr.size(); ++blk)
+        for (unsigned int blk = 0; blk < blockAttr.size(); ++blk)
         {
             field.m_block_accessors.push_back(BlockAccessor(
                 blockAttr[blk],
@@ -577,7 +578,7 @@ public:
      */
     template <typename MemSpace> void Initialize(const TData val)
     {
-        for (size_t mr = 0; mr < m_memory_regions.size(); ++mr)
+        for (unsigned int mr = 0; mr < m_memory_regions.size(); ++mr)
         {
             m_memory_regions[mr].template Initialize<MemSpace>(val);
         }
@@ -591,7 +592,7 @@ public:
     template <typename MemSpace, typename TDataOut = TData>
     MemoryRegion<TDataOut> ToMemoryRegion()
     {
-        size_t compSize = 0;
+        unsigned int compSize = 0;
         for (auto &block : this->GetBlocks())
         {
             compSize += block.GetNumData() * block.GetNumElements();
@@ -602,7 +603,7 @@ public:
 
         // Copy the data from the input field
         auto dst = mr.template GetPtr<MemSpace, WriteOnly>();
-        for (size_t blk = 0; blk < this->GetBlocks().size(); ++blk)
+        for (unsigned int blk = 0; blk < this->GetBlocks().size(); ++blk)
         {
             auto nSize  = this->GetBlocks()[blk].size();
             auto nElmts = this->GetBlocks()[blk].GetNumElements();
@@ -639,7 +640,7 @@ public:
     template <typename TDataOut = TData, class Alloc = std::allocator<TDataOut>>
     std::vector<TDataOut, Alloc> ToVector()
     {
-        size_t compSize = 0;
+        unsigned int compSize = 0;
         for (auto &block : this->GetBlocks())
         {
             compSize += block.GetNumData() * block.GetNumElements();
@@ -649,7 +650,7 @@ public:
 
         // Copy the data from the input field.
         auto dst = array.data();
-        for (size_t blk = 0; blk < this->GetBlocks().size(); ++blk)
+        for (unsigned int blk = 0; blk < this->GetBlocks().size(); ++blk)
         {
             auto src =
                 this->GetBlocks()[blk]
@@ -677,7 +678,7 @@ public:
     template <typename TDataOut = TData>
     Nektar::Array<Nektar::OneD, TDataOut> ToArray()
     {
-        size_t compSize = 0;
+        unsigned int compSize = 0;
         for (auto &block : this->GetBlocks())
         {
             compSize += block.GetNumData() * block.GetNumElements();
@@ -688,7 +689,7 @@ public:
 
         // Copy the data from the input field.
         auto dst = array.data();
-        for (size_t blk = 0; blk < this->GetBlocks().size(); ++blk)
+        for (unsigned int blk = 0; blk < this->GetBlocks().size(); ++blk)
         {
             auto src =
                 this->GetBlocks()[blk]
@@ -737,12 +738,12 @@ public:
             NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
         }
 
-        for (size_t mr = 0; mr < m_memory_regions.size(); ++mr)
+        for (unsigned int mr = 0; mr < m_memory_regions.size(); ++mr)
         {
             m_memory_regions[mr].template Copy<MemSpace>(
                 field.m_memory_regions[mr]);
         }
-        for (size_t blk = 0; blk < m_block_accessors.size(); ++blk)
+        for (unsigned int blk = 0; blk < m_block_accessors.size(); ++blk)
         {
             m_block_accessors[blk].template SetInterleaveWidth<TData>(
                 field.m_block_accessors[blk].GetInterleaveWidth());
@@ -823,9 +824,9 @@ public:
     /**
      * @brief Gets the number of the memory region.
      *
-     * @return size_t
+     * @return unsigned int
      */
-    size_t GetNumMemorRegion() const
+    unsigned int GetNumMemorRegion() const
     {
         return m_memory_regions.size();
     }
@@ -838,7 +839,7 @@ public:
     size_t size() const
     {
         size_t nSize = 0;
-        for (size_t blk = 0; blk < m_block_accessors.size(); ++blk)
+        for (unsigned int blk = 0; blk < m_block_accessors.size(); ++blk)
         {
             nSize += m_block_accessors[blk].size();
         }
@@ -858,9 +859,9 @@ public:
     /**
      * @brief Gets the number of components for a vector field.
      *
-     * @return size_t
+     * @return unsigned int
      */
-    size_t GetNumComponents() const
+    unsigned int GetNumComponents() const
     {
         return m_var_names.size();
     }
@@ -876,8 +877,9 @@ private:
      * @param nvar         - Number of components.
      * @param memAllocType - [eHostDevice, eDeviceOnly, ePinned].
      */
-    Field(const std::string name, const int nvar, const size_t alignment,
-          const size_t num_device, const MemAllocType &memAllocType)
+    Field(const std::string name, const unsigned int nvar,
+          const size_t alignment, const unsigned int num_device,
+          const MemAllocType &memAllocType)
         : m_name(name), m_var_names(nvar), m_alignment(alignment),
           m_num_device(num_device), m_memAllocType(memAllocType)
     {
@@ -892,7 +894,7 @@ private:
      * @param memAllocType - [eHostDevice, eDeviceOnly, ePinned].
      */
     Field(const std::string name, const std::vector<std::string> components,
-          const size_t alignment, const size_t num_device,
+          const size_t alignment, const unsigned int num_device,
           const MemAllocType &memAllocType)
         : m_name(name), m_var_names(components), m_alignment(alignment),
           m_num_device(num_device), m_memAllocType(memAllocType)
@@ -916,7 +918,7 @@ private:
             compSize += block.GetNumData() * block.GetNumElements();
         }
 
-        for (size_t blk = 0; blk < this->GetBlocks().size(); ++blk)
+        for (unsigned int blk = 0; blk < this->GetBlocks().size(); ++blk)
         {
             auto offset = m_blk_to_mr_offset[blk];
             auto nSize  = this->GetBlocks()[blk].size();
@@ -936,9 +938,9 @@ private:
     // Member variables:
     std::string m_name;
     std::vector<std::string> m_var_names;
-    TData *m_host       = nullptr;
-    size_t m_alignment  = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
-    size_t m_num_device = 1;
+    TData *m_host             = nullptr;
+    size_t m_alignment        = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+    unsigned int m_num_device = 1;
     std::vector<BlockAccessor<TData>> m_block_accessors;
     std::vector<MemoryRegion<TData>> m_memory_regions;
     std::vector<size_t> m_blk_to_mr_offset;

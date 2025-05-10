@@ -60,8 +60,7 @@ public:
                 block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
             for (unsigned int nc = 0; nc < fixt_in->GetNumComponents(); ++nc)
             {
-                for (unsigned int el = 0, cnt = 0; el < block.GetNumElements();
-                     ++el)
+                for (size_t el = 0, cnt = 0; el < block.GetNumElements(); ++el)
                 {
                     for (unsigned int phys = 0; phys < block.GetNumData();
                          ++phys, ++cnt)

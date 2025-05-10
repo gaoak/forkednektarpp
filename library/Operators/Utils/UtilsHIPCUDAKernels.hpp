@@ -62,7 +62,7 @@ __global__ void deInterleaveKernelLauncher(const unsigned int VectorWidth,
                        threadBlock);
 }
 
-template <typename TData>
+/*template <typename TData>
 __global__ void BuildInterleaveMapKernelLauncher(const unsigned int npts,
                                                  const unsigned int newVecWidth,
                                                  const unsigned int offset,
@@ -72,7 +72,7 @@ __global__ void BuildInterleaveMapKernelLauncher(const unsigned int npts,
 {
     BuildInterleaveMapKernel(npts, newVecWidth, offset, deInterleaveMapPtr,
                              interleaveMapPtr, buffer, hipcudaBlock1D());
-}
+}*/
 
 template <unsigned int VectorWidth, typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
@@ -129,7 +129,7 @@ deInterleave(const unsigned int VectorWidth, size_t numMetaBlocks,
 #endif
 }
 
-template <typename ExecSpace>
+/*template <typename ExecSpace>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 BuildInterleaveMap(size_t numMetaBlocks, const unsigned int npts,
@@ -156,7 +156,7 @@ BuildInterleaveMap(size_t numMetaBlocks, const unsigned int npts,
 #elif defined(NEKTAR_ENABLE_HIP)
     CHECK_HIPCUDA_ERROR(hipFree(buffer));
 #endif
-}
+}*/
 
 } // namespace Nektar
 

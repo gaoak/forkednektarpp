@@ -81,10 +81,10 @@ NEK_DEVICE_INLINE
 }
 
 template <typename Functor>
-__global__ void parallel_for(const unsigned int begin, const unsigned int end,
+__global__ void parallel_for(const size_t begin, const size_t end,
                              const Functor functor)
 {
-    unsigned int i = begin + blockDim.x * blockIdx.x + threadIdx.x;
+    size_t i = begin + blockDim.x * blockIdx.x + threadIdx.x;
 
     while (i < end)
     {
@@ -94,9 +94,8 @@ __global__ void parallel_for(const unsigned int begin, const unsigned int end,
 }
 
 template <typename TData, typename Functor>
-__global__ void reduceSumKernel(const unsigned int begin,
-                                const unsigned int end, TData *buffer,
-                                const Functor functor)
+__global__ void reduceSumKernel(const size_t begin, const size_t end,
+                                TData *buffer, const Functor functor)
 {
     // Implementation based on reduce7 of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
@@ -115,8 +114,7 @@ __global__ void reduceSumKernel(const unsigned int begin,
 
     block.sync();
 
-    for (unsigned int tid = begin + grid.thread_rank(); tid < end;
-         tid += grid.size())
+    for (size_t tid = begin + grid.thread_rank(); tid < end; tid += grid.size())
     {
         functor(tid, v);
     }
@@ -136,9 +134,8 @@ __global__ void reduceSumKernel(const unsigned int begin,
 }
 
 template <typename TData, typename Functor>
-__global__ void reduceMaxKernel(const unsigned int begin,
-                                const unsigned int end, TData *buffer,
-                                const Functor functor)
+__global__ void reduceMaxKernel(const size_t begin, const size_t end,
+                                TData *buffer, const Functor functor)
 {
     // Implementation based on reduce7 of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
@@ -158,8 +155,7 @@ __global__ void reduceMaxKernel(const unsigned int begin,
 
     block.sync();
 
-    for (unsigned int tid = begin + grid.thread_rank(); tid < end;
-         tid += grid.size())
+    for (size_t tid = begin + grid.thread_rank(); tid < end; tid += grid.size())
     {
         functor(tid, v);
     }
@@ -178,9 +174,8 @@ __global__ void reduceMaxKernel(const unsigned int begin,
 }
 
 template <typename TData, typename Functor>
-__global__ void reduceMinKernel(const unsigned int begin,
-                                const unsigned int end, TData *buffer,
-                                const Functor functor)
+__global__ void reduceMinKernel(const size_t begin, const size_t end,
+                                TData *buffer, const Functor functor)
 {
     // Implementation based on reduce7 of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
@@ -200,8 +195,7 @@ __global__ void reduceMinKernel(const unsigned int begin,
 
     block.sync();
 
-    for (unsigned int tid = begin + grid.thread_rank(); tid < end;
-         tid += grid.size())
+    for (size_t tid = begin + grid.thread_rank(); tid < end; tid += grid.size())
     {
         functor(tid, v);
     }
@@ -223,8 +217,7 @@ __global__ void reduceMinKernel(const unsigned int begin,
 template <typename ExecSpace, typename Functor>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-parallel_for(const unsigned int begin, const unsigned int end,
-             const Functor &functor)
+parallel_for(const size_t begin, const size_t end, const Functor &functor)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = ((end - begin) + blockSize - 1u) / blockSize;
@@ -236,8 +229,8 @@ parallel_for(const unsigned int begin, const unsigned int end,
 template <typename ExecSpace, typename Reduction, typename Functor>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-parallel_reduce(const unsigned int begin, const unsigned int end,
-                const Functor &functor, typename Reduction::value_type *out)
+parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
+                typename Reduction::value_type *out)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -263,9 +256,8 @@ parallel_reduce(const unsigned int begin, const unsigned int end,
         reduceSumKernel<<<gridSize, blockSize>>>(begin, end, buffer, functor);
         CHECK_LAST_HIPCUDA_ERROR();
         reduceSumKernel<<<1, gridSize>>>(
-            0, gridSize, out, [=] __device__(const unsigned int i, TData &ans) {
-                ans += buffer[i];
-            });
+            0, gridSize, out,
+            [=] __device__(const size_t i, TData &ans) { ans += buffer[i]; });
         CHECK_LAST_HIPCUDA_ERROR();
     }
     else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMax<TData>>)
@@ -273,7 +265,7 @@ parallel_reduce(const unsigned int begin, const unsigned int end,
         reduceMaxKernel<<<gridSize, blockSize>>>(begin, end, buffer, functor);
         CHECK_LAST_HIPCUDA_ERROR();
         reduceMaxKernel<<<1, gridSize>>>(
-            0, gridSize, out, [=] __device__(const unsigned int i, TData &ans) {
+            0, gridSize, out, [=] __device__(const size_t i, TData &ans) {
                 ans = max(ans, buffer[i]);
             });
         CHECK_LAST_HIPCUDA_ERROR();
@@ -283,7 +275,7 @@ parallel_reduce(const unsigned int begin, const unsigned int end,
         reduceMinKernel<<<gridSize, blockSize>>>(begin, end, buffer, functor);
         CHECK_LAST_HIPCUDA_ERROR();
         reduceMinKernel<<<1, gridSize>>>(
-            0, gridSize, out, [=] __device__(const unsigned int i, TData &ans) {
+            0, gridSize, out, [=] __device__(const size_t i, TData &ans) {
                 ans = min(ans, buffer[i]);
             });
         CHECK_LAST_HIPCUDA_ERROR();

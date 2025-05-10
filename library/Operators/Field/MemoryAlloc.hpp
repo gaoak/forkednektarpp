@@ -81,7 +81,7 @@ void hostMallocPinned(TData *&src, const size_t size,
 
 template <typename TData>
 void deviceMalloc(TData *&src, const size_t size,
-                  [[maybe_unused]] const size_t device_rank)
+                  [[maybe_unused]] const unsigned int device_rank)
 {
     if (size > 0)
     {
@@ -134,7 +134,7 @@ void hostFreePinned(TData *&src, [[maybe_unused]] const size_t alignment)
 
 template <typename TData>
 void deviceFree(TData *&src, [[maybe_unused]] const size_t size,
-                [[maybe_unused]] const size_t device_rank)
+                [[maybe_unused]] const unsigned int device_rank)
 {
     if (src == nullptr)
     {
@@ -162,7 +162,7 @@ void deviceFree(TData *&src, [[maybe_unused]] const size_t size,
 
 template <typename TData>
 void deviceMemset(TData *dst, const int val, const size_t size,
-                  [[maybe_unused]] const size_t device_rank)
+                  [[maybe_unused]] const unsigned int device_rank)
 {
     if (size == 0)
     {
@@ -185,7 +185,7 @@ void deviceMemset(TData *dst, const int val, const size_t size,
 
 template <typename TData>
 void deviceFill(TData *dst, const TData val, const size_t size,
-                [[maybe_unused]] const size_t device_rank)
+                [[maybe_unused]] const unsigned int device_rank)
 {
     if (size == 0)
     {
@@ -208,7 +208,7 @@ void deviceFill(TData *dst, const TData val, const size_t size,
 
 template <typename MemCopy, typename TData>
 void deviceMemcpy(TData *dst, const TData *src, const size_t size,
-                  [[maybe_unused]] const size_t device_rank)
+                  [[maybe_unused]] const unsigned int device_rank)
 {
     if (size == 0)
     {

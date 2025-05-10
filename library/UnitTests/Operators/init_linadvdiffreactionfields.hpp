@@ -59,8 +59,7 @@ public:
 
             for (unsigned int nc = 0; nc < fixt_in->GetNumComponents(); ++nc)
             {
-                for (unsigned int el = 0, cnt = 0; el < block.GetNumElements();
-                     ++el)
+                for (size_t el = 0, cnt = 0; el < block.GetNumElements(); ++el)
                 {
                     for (unsigned int coeff = 0; coeff < block.GetNumData();
                          ++coeff, ++cnt)
@@ -88,15 +87,15 @@ public:
     void ExpectedSolution()
     {
         // Calculate expected result from Nektar++
-        int compSize = fixt_in->GetNumComponents();
-        int ncoeffs  = fixt_explist->GetNcoeffs();
-        int nphys    = fixt_explist->GetTotPoints();
+        unsigned int compSize = fixt_in->GetNumComponents();
+        size_t ncoeffs        = fixt_explist->GetNcoeffs();
+        size_t nphys          = fixt_explist->GetTotPoints();
         Array<OneD, double> tmp;
 
         // set advection velocity
         m_dim = fixt_explist->GetCoordim(0);
         m_vel = Array<OneD, double>(nphys * m_dim, 1.0);
-        for (int d = 1; d < m_dim; ++d)
+        for (unsigned int d = 1; d < m_dim; ++d)
         {
             Vmath::Fill(nphys, d + 1.0, tmp = m_vel + d * nphys, 1);
             // Vmath::Fill(nphys, 0.0, tmp = m_vel + d * nphys, 1);
@@ -111,23 +110,23 @@ public:
             StdRegions::eVarCoeffVelX, StdRegions::eVarCoeffVelY,
             StdRegions::eVarCoeffVelZ};
 
-        for (int i = 0; i < compSize; ++i)
+        for (unsigned int i = 0; i < compSize; ++i)
         {
-            unsigned int e          = 0;
-            unsigned int offset     = i * ncoeffs;
-            unsigned int physoffset = 0;
+            size_t e          = 0;
+            size_t offset     = i * ncoeffs;
+            size_t physoffset = 0;
 
             for (const auto &block : fixt_expected->GetBlocks())
             {
                 auto nmTot    = fixt_explist->GetExp(e)->GetNcoeffs();
                 auto nphysloc = fixt_explist->GetExp(e)->GetTotPoints();
 
-                for (unsigned int el = 0; el < block.GetNumElements(); ++el)
+                for (size_t el = 0; el < block.GetNumElements(); ++el)
                 {
                     // Restrict varcoeffs to size of element
                     StdRegions::VarCoeffMap varcoeffs;
 
-                    for (int d = 0; d < m_dim; ++d)
+                    for (unsigned int d = 0; d < m_dim; ++d)
                     {
                         varcoeffs[velCoeffType[d]] =
                             m_vel + d * nphys + physoffset;
@@ -150,7 +149,7 @@ public:
     }
 
 private:
-    int m_dim;
+    unsigned int m_dim;
     double m_lambda;
     Array<OneD, double> m_vel;
 };

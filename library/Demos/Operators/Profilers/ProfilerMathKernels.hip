@@ -46,7 +46,7 @@ using namespace Nektar::LibUtilities;
 using vec_t = tinysimd::simd<double>;
 
 template <typename TData, bool warmup = false>
-void ProfilerReduction(const unsigned int size)
+void ProfilerReduction(const size_t size)
 {
     // Initialization.
     Timer timer;
@@ -55,7 +55,7 @@ void ProfilerReduction(const unsigned int size)
     auto y    = MemoryRegion<TData>::Create("y", size, vec_t::alignment);
     auto xptr = x.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
     auto yptr = y.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-    for (unsigned int i = 0; i < size; i++)
+    for (size_t i = 0; i < size; i++)
     {
         xptr[i] = i % 13 + (0.2 + 0.00001 * (i % (100191)));
         yptr[i] = i % 42 + (0.1 + 0.00008 * (i % (280516)));
@@ -97,7 +97,7 @@ void ProfilerReduction(const unsigned int size)
 }
 
 template <typename TData, bool warmup = false>
-void ProfilerDaxpy(const unsigned int size)
+void ProfilerDaxpy(const size_t size)
 {
     // Initialization.
     Timer timer;
@@ -107,7 +107,7 @@ void ProfilerDaxpy(const unsigned int size)
     auto z    = MemoryRegion<TData>::Create("z", size, vec_t::alignment);
     auto xptr = x.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
     auto yptr = y.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-    for (unsigned int i = 0; i < size; i++)
+    for (size_t i = 0; i < size; i++)
     {
         xptr[i] = i % 13 + (0.2 + 0.00001 * (i % (100191)));
         yptr[i] = i % 42 + (0.1 + 0.00008 * (i % (280516)));

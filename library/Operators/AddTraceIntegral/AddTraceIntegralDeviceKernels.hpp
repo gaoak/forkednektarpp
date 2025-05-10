@@ -44,16 +44,16 @@ namespace Nektar::Operators::detail
 
 template <typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void AddTraceIntegralKernel(
-    const unsigned int nsize, const int *__restrict__ traceCoeffsToElmtMapPtr,
+    const size_t nsize, const size_t *__restrict__ traceCoeffsToElmtMapPtr,
     const int *__restrict__ traceCoeffsToElmtSignPtr,
-    const int *__restrict__ traceCoeffsToElmtTracePtr,
+    const size_t *__restrict__ traceCoeffsToElmtTracePtr,
     const TData *__restrict__ tracePtr, TData *__restrict__ outptr,
     const TthreadBlock &threadBlock)
 {
-    const unsigned int idx0   = getGlobalIdx(threadBlock);
-    const unsigned int stride = getGlobalRange(threadBlock);
+    const size_t idx0   = getGlobalIdx(threadBlock);
+    const size_t stride = getGlobalRange(threadBlock);
 
-    for (unsigned int idx = idx0; idx < nsize; idx += stride)
+    for (size_t idx = idx0; idx < nsize; idx += stride)
     {
         TData *const ptr = outptr + traceCoeffsToElmtMapPtr[idx];
         const TData val  = traceCoeffsToElmtSignPtr[idx] *

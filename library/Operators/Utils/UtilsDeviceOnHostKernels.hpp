@@ -42,8 +42,7 @@ namespace Nektar
 template <unsigned int VectorWidth, typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-interleave(const unsigned int numMetaBlocks, const unsigned int npts,
-           TData *inout)
+interleave(const size_t numMetaBlocks, const unsigned int npts, TData *inout)
 {
     const unsigned int metaBlockSize = npts * VectorWidth;
     std::vector<TData> buffer(metaBlockSize);
@@ -55,7 +54,7 @@ interleave(const unsigned int numMetaBlocks, const unsigned int npts,
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-deInterleave(const unsigned int VectorWidth, const unsigned int numMetaBlocks,
+deInterleave(const unsigned int VectorWidth, const size_t numMetaBlocks,
              const unsigned int npts, TData *inout)
 {
     const unsigned int metaBlockSize = npts * VectorWidth;
@@ -65,7 +64,7 @@ deInterleave(const unsigned int VectorWidth, const unsigned int numMetaBlocks,
                        deviceOnHostBlock1D());
 }
 
-template <typename ExecSpace>
+/*template <typename ExecSpace>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 BuildInterleaveMap(const unsigned int numMetaBlocks, const unsigned int npts,
@@ -100,7 +99,7 @@ BuildInterleaveMap(const unsigned int numMetaBlocks, const unsigned int npts,
         deInterleaveMapPtr += MetaBlockSize;
         count += MetaBlockSize;
     }
-}
+}*/
 
 } // namespace Nektar
 

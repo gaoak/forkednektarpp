@@ -67,7 +67,7 @@ public:
      * @param memAllocType - [eHostDevice, ePinned]
      */
     MemoryRegionDevice(const std::string name, const size_t size,
-                       const size_t alignment, const size_t device_rank,
+                       const size_t alignment, const unsigned int device_rank,
                        const MemAllocType &memAllocType)
         : MemoryRegionHost<TData>(name, size, alignment, device_rank,
                                   memAllocType)
@@ -87,7 +87,7 @@ public:
      * @param device_rank - device (GPU) rank id
      */
     MemoryRegionDevice(const std::string name, TData *h_src, const size_t size,
-                       const size_t alignment, const size_t device_rank)
+                       const size_t alignment, const unsigned int device_rank)
         : MemoryRegionHost<TData>(name, h_src, size, alignment, device_rank)
     {
     }

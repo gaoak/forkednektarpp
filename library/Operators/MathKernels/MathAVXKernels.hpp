@@ -52,12 +52,12 @@ namespace Nektar
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                                void>::type
-negKernel(const unsigned int nsize, const TData *x, TData *y)
+negKernel(const size_t nsize, const TData *x, TData *y)
 {
     using namespace tinysimd;
     using simd_t = simd<TData>;
 
-    unsigned int cnt = nsize;
+    size_t cnt = nsize;
     // Vectorized loop unroll 4x
     while (cnt >= 4 * simd_t::width)
     {
@@ -142,12 +142,12 @@ negKernel(const unsigned int nsize, const TData *x, TData *y)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                                void>::type
-addKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
+addKernel(const size_t nsize, const TData *x, const TData *y, TData *z)
 {
     using namespace tinysimd;
     using simd_t = simd<TData>;
 
-    unsigned int cnt = nsize;
+    size_t cnt = nsize;
     // Vectorized loop unroll 4x
     while (cnt >= 4 * simd_t::width)
     {
@@ -248,12 +248,12 @@ addKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                                void>::type
-subKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
+subKernel(const size_t nsize, const TData *x, const TData *y, TData *z)
 {
     using namespace tinysimd;
     using simd_t = simd<TData>;
 
-    unsigned int cnt = nsize;
+    size_t cnt = nsize;
     // Vectorized loop unroll 4x
     while (cnt >= 4 * simd_t::width)
     {
@@ -354,7 +354,7 @@ subKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                                void>::type
-mulKernel(const unsigned int nsize, const TData alpha, const TData *x, TData *y)
+mulKernel(const size_t nsize, const TData alpha, const TData *x, TData *y)
 {
     using namespace tinysimd;
     using simd_t = simd<TData>;
@@ -362,7 +362,7 @@ mulKernel(const unsigned int nsize, const TData alpha, const TData *x, TData *y)
     simd_t aChunk;
     aChunk.broadcast(alpha);
 
-    unsigned int cnt = nsize;
+    size_t cnt = nsize;
     // Vectorized loop unroll 4x
     while (cnt >= 4 * simd_t::width)
     {
@@ -447,12 +447,12 @@ mulKernel(const unsigned int nsize, const TData alpha, const TData *x, TData *y)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                                void>::type
-mulKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
+mulKernel(const size_t nsize, const TData *x, const TData *y, TData *z)
 {
     using namespace tinysimd;
     using simd_t = simd<TData>;
 
-    unsigned int cnt = nsize;
+    size_t cnt = nsize;
     // Vectorized loop unroll 4x
     while (cnt >= 4 * simd_t::width)
     {
@@ -553,7 +553,7 @@ mulKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                                void>::type
-divKernel(const unsigned int nsize, const TData alpha, const TData *x, TData *y)
+divKernel(const size_t nsize, const TData alpha, const TData *x, TData *y)
 {
     using namespace tinysimd;
     using simd_t = simd<TData>;
@@ -561,7 +561,7 @@ divKernel(const unsigned int nsize, const TData alpha, const TData *x, TData *y)
     simd_t aChunk;
     aChunk.broadcast(alpha);
 
-    unsigned int cnt = nsize;
+    size_t cnt = nsize;
     // Vectorized loop unroll 4x
     while (cnt >= 4 * simd_t::width)
     {
@@ -646,12 +646,12 @@ divKernel(const unsigned int nsize, const TData alpha, const TData *x, TData *y)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                                void>::type
-divKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
+divKernel(const size_t nsize, const TData *x, const TData *y, TData *z)
 {
     using namespace tinysimd;
     using simd_t = simd<TData>;
 
-    unsigned int cnt = nsize;
+    size_t cnt = nsize;
     // Vectorized loop unroll 4x
     while (cnt >= 4 * simd_t::width)
     {
@@ -752,13 +752,13 @@ divKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                                void>::type
-daxpyKernel(const unsigned int nsize, const TData alpha, const TData *x,
+daxpyKernel(const size_t nsize, const TData alpha, const TData *x,
             const TData *y, TData *z)
 {
     using namespace tinysimd;
     using simd_t = simd<TData>;
 
-    unsigned int cnt = nsize;
+    size_t cnt = nsize;
     // Vectorized loop unroll 4x
     while (cnt >= 4 * simd_t::width)
     {
@@ -859,12 +859,12 @@ daxpyKernel(const unsigned int nsize, const TData alpha, const TData *x,
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                                void>::type
-reduceSumKernel(const unsigned int nsize, const TData *x, TData *out)
+reduceSumKernel(const size_t nsize, const TData *x, TData *out)
 {
     using namespace tinysimd;
     using simd_t = simd<TData>;
 
-    unsigned int cnt = nsize;
+    size_t cnt     = nsize;
     simd_t yChunk0 = 0, yChunk1 = 0, yChunk2 = 0, yChunk3 = 0;
     alignas(simd_t::alignment) typename simd_t::scalarArray tmp;
 
@@ -953,12 +953,12 @@ reduceSumKernel(const unsigned int nsize, const TData *x, TData *out)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                                void>::type
-reduceMaxKernel(const unsigned int nsize, const TData *x, TData *out)
+reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
 {
     using namespace tinysimd;
     using simd_t = simd<TData>;
 
-    unsigned int cnt = nsize;
+    size_t cnt     = nsize;
     simd_t yChunk0 = 0, yChunk1 = 0, yChunk2 = 0, yChunk3 = 0;
     alignas(simd_t::alignment) typename simd_t::scalarArray tmp;
 
@@ -1047,12 +1047,12 @@ reduceMaxKernel(const unsigned int nsize, const TData *x, TData *out)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                                void>::type
-reduceMinKernel(const unsigned int nsize, const TData *x, TData *out)
+reduceMinKernel(const size_t nsize, const TData *x, TData *out)
 {
     using namespace tinysimd;
     using simd_t = simd<TData>;
 
-    unsigned int cnt = nsize;
+    size_t cnt     = nsize;
     simd_t yChunk0 = 0, yChunk1 = 0, yChunk2 = 0, yChunk3 = 0;
     alignas(simd_t::alignment) typename simd_t::scalarArray tmp;
 
@@ -1141,12 +1141,12 @@ reduceMinKernel(const unsigned int nsize, const TData *x, TData *out)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                                void>::type
-ddotKernel(const unsigned int nsize, const TData *x, const TData *y, TData *out)
+ddotKernel(const size_t nsize, const TData *x, const TData *y, TData *out)
 {
     using namespace tinysimd;
     using simd_t = simd<TData>;
 
-    unsigned int cnt = nsize;
+    size_t cnt     = nsize;
     simd_t zChunk0 = 0, zChunk1 = 0, zChunk2 = 0, zChunk3 = 0;
     alignas(simd_t::alignment) typename simd_t::scalarArray tmp;
 
@@ -1252,12 +1252,12 @@ ddotKernel(const unsigned int nsize, const TData *x, const TData *y, TData *out)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                                void>::type
-l1normKernel(const unsigned int nsize, const TData *x, TData *out)
+l1normKernel(const size_t nsize, const TData *x, TData *out)
 {
     using namespace tinysimd;
     using simd_t = simd<TData>;
 
-    unsigned int cnt = nsize;
+    size_t cnt     = nsize;
     simd_t yChunk0 = 0, yChunk1 = 0, yChunk2 = 0, yChunk3 = 0;
     alignas(simd_t::alignment) typename simd_t::scalarArray tmp;
 
@@ -1346,12 +1346,12 @@ l1normKernel(const unsigned int nsize, const TData *x, TData *out)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                                void>::type
-l2normKernel(const unsigned int nsize, const TData *x, TData *out)
+l2normKernel(const size_t nsize, const TData *x, TData *out)
 {
     using namespace tinysimd;
     using simd_t = simd<TData>;
 
-    unsigned int cnt = nsize;
+    size_t cnt     = nsize;
     simd_t yChunk0 = 0, yChunk1 = 0, yChunk2 = 0, yChunk3 = 0;
     alignas(simd_t::alignment) typename simd_t::scalarArray tmp;
 
@@ -1440,7 +1440,7 @@ l2normKernel(const unsigned int nsize, const TData *x, TData *out)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                                void>::type
-lpnormKernel(const unsigned int nsize, const unsigned int p, const TData *x,
+lpnormKernel(const size_t nsize, const unsigned int p, const TData *x,
              TData *out)
 {
     // TODO: SIMD/AVX
@@ -1453,12 +1453,12 @@ lpnormKernel(const unsigned int nsize, const unsigned int p, const TData *x,
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                                void>::type
-linfnormKernel(const unsigned int nsize, const TData *x, TData *out)
+linfnormKernel(const size_t nsize, const TData *x, TData *out)
 {
     using namespace tinysimd;
     using simd_t = simd<TData>;
 
-    unsigned int cnt = nsize;
+    size_t cnt     = nsize;
     simd_t yChunk0 = 0, yChunk1 = 0, yChunk2 = 0, yChunk3 = 0;
     alignas(simd_t::alignment) typename simd_t::scalarArray tmp;
 

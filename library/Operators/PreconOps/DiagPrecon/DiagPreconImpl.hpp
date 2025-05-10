@@ -100,8 +100,8 @@ protected:
     MemoryRegion<TData> m_glodiag;
     MemoryRegion<TData> m_wk;
 
-    unsigned int m_nGlobal;
-    unsigned int m_nDir;
+    size_t m_nGlobal;
+    size_t m_nDir;
 
     void v_Apply(Field<TData, FieldState::Coeff> &in,
                  Field<TData, FieldState::Coeff> &out) override

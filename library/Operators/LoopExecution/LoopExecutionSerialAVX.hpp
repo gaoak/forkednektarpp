@@ -82,10 +82,9 @@ inline
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                             void>::type
-    parallel_for(const unsigned int begin, const unsigned int end,
-                 const Functor &functor)
+    parallel_for(const size_t begin, const size_t end, const Functor &functor)
 {
-    for (unsigned int i = begin; i < end; ++i)
+    for (size_t i = begin; i < end; ++i)
     {
         functor(i);
     }
@@ -96,7 +95,7 @@ inline
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                             void>::type
-    parallel_reduce(const unsigned int begin, const unsigned int end,
+    parallel_reduce(const size_t begin, const size_t end,
                     const Functor &functor, typename Reduction::value_type &red)
 {
     using TData = typename Reduction::value_type;
@@ -114,7 +113,7 @@ inline
         red = std::numeric_limits<TData>::max();
     }
 
-    for (unsigned int i = begin; i < end; ++i)
+    for (size_t i = begin; i < end; ++i)
     {
         functor(i, red);
     }

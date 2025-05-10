@@ -59,8 +59,7 @@ public:
 
             for (unsigned int nc = 0; nc < fixt_in->GetNumComponents(); ++nc)
             {
-                for (unsigned int el = 0, cnt = 0; el < block.GetNumElements();
-                     ++el)
+                for (size_t el = 0, cnt = 0; el < block.GetNumElements(); ++el)
                 {
                     for (unsigned int phys = 0; phys < block.GetNumData();
                          ++phys, ++cnt)
@@ -84,15 +83,15 @@ public:
 
     void ExpectedSolution(double scale)
     {
-        int compSize = fixt_in->GetNumComponents();
-        int nphys    = fixt_explist->GetTotPoints();
-        int nphys1D  = fixt_explist->Get1DScaledTotPoints(scale);
+        unsigned int compSize = fixt_in->GetNumComponents();
+        size_t nphys          = fixt_explist->GetTotPoints();
+        size_t nphys1D        = fixt_explist->Get1DScaledTotPoints(scale);
 
         // Calculate expected result from Nektar++
         Array<OneD, double> inphys = fixt_in->ToArray();
         Array<OneD, double> outphys(compSize * nphys1D), tmp;
 
-        for (int i = 0; i < compSize; ++i)
+        for (unsigned int i = 0; i < compSize; ++i)
         {
             fixt_explist->PhysInterp1DScaled(scale, inphys + i * nphys,
                                              tmp = outphys + i * nphys1D);

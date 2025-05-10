@@ -412,10 +412,10 @@ NEK_DEVICE_INLINE static void SumDerivTensor3DKernel(
 
 template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void PhysDeriv1DSumFacQPKernel(
-    const unsigned int ncoord, const unsigned int nq0,
-    const unsigned int outsize, const TData *__restrict__ D0,
-    const TData *__restrict__ df, const TData *__restrict__ in,
-    TData *__restrict__ out, const TthreadBlock &threadBlock)
+    const unsigned int ncoord, const unsigned int nq0, const size_t outsize,
+    const TData *__restrict__ D0, const TData *__restrict__ df,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    const TthreadBlock &threadBlock)
 {
     const unsigned int dfsize = DEFORMED ? nq0 : 1u;
 
@@ -481,7 +481,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void PhysDeriv2DSumFacQPKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int outsize, const TData *__restrict__ D0,
+    const size_t outsize, const TData *__restrict__ D0,
     const TData *__restrict__ D1, const TData *__restrict__ f0,
     const TData *__restrict__ f1, const TData *__restrict__ df,
     const TData *__restrict__ in, TData *__restrict__ out,
@@ -587,7 +587,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void PhysDeriv3DSumFacQPKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const unsigned int outsize, const TData *__restrict__ D0,
+    const size_t outsize, const TData *__restrict__ D0,
     const TData *__restrict__ D1, const TData *__restrict__ D2,
     const TData *__restrict__ f0, const TData *__restrict__ f1,
     const TData *__restrict__ f1m, const TData *__restrict__ f2,

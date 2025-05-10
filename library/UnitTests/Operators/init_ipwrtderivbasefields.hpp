@@ -52,8 +52,8 @@ public:
     void SetTestCase()
     {
         // expect coordim components for each input dimension
-        int coordim  = fixt_explist->GetCoordim(0);
-        int compSize = fixt_in->GetNumComponents() / coordim;
+        unsigned int coordim  = fixt_explist->GetCoordim(0);
+        unsigned int compSize = fixt_in->GetNumComponents() / coordim;
 
         for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
         {
@@ -65,8 +65,8 @@ public:
             {
                 for (unsigned int k = 0; k < coordim; k++)
                 {
-                    for (unsigned int el = 0, cnt = 0;
-                         el < block.GetNumElements(); ++el)
+                    for (size_t el = 0, cnt = 0; el < block.GetNumElements();
+                         ++el)
                     {
                         for (unsigned int phys = 0; phys < block.GetNumData();
                              ++phys, ++cnt)
@@ -91,21 +91,21 @@ public:
     void ExpectedSolution()
     {
         // Calculate expected result from Nektar++
-        int ncoeffs = fixt_explist->GetNcoeffs();
-        int nphys   = fixt_explist->GetTotPoints();
-        int coordim = fixt_explist->GetCoordim(0);
+        size_t ncoeffs       = fixt_explist->GetNcoeffs();
+        size_t nphys         = fixt_explist->GetTotPoints();
+        unsigned int coordim = fixt_explist->GetCoordim(0);
 
         // expect coordim components for each input dimension
-        int compSize = fixt_in->GetNumComponents() / coordim;
+        unsigned int compSize = fixt_in->GetNumComponents() / coordim;
 
         Array<OneD, double> inphys = fixt_in->ToArray();
         Array<OneD, double> outcoeffs(ncoeffs * compSize, 0.0), tmp;
         Array<OneD, Array<OneD, double>> inphysarray(coordim);
 
-        for (int i = 0; i < compSize; ++i)
+        for (unsigned int i = 0; i < compSize; ++i)
         {
             inphysarray[0] = inphys + i * nphys * coordim;
-            for (int j = 1; j < coordim; ++j)
+            for (unsigned int j = 1; j < coordim; ++j)
             {
                 inphysarray[j] = inphysarray[j - 1] + nphys;
             }

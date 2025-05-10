@@ -57,8 +57,7 @@ public:
                 block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
             for (unsigned int nc = 0; nc < fixt_in->GetNumComponents(); ++nc)
             {
-                for (unsigned int el = 0, cnt = 0; el < block.GetNumElements();
-                     ++el)
+                for (size_t el = 0, cnt = 0; el < block.GetNumElements(); ++el)
                 {
                     for (unsigned int coeff = 0; coeff < block.GetNumData();
                          ++coeff, ++cnt)
@@ -81,13 +80,13 @@ public:
     void ExpectedSolution()
     {
         // Calculate expected result from Nektar++
-        int compSize                 = fixt_in->GetNumComponents();
-        int ncoeffs                  = fixt_explist->GetNcoeffs();
-        int nphys                    = fixt_explist->GetTotPoints();
+        unsigned int compSize        = fixt_in->GetNumComponents();
+        size_t ncoeffs               = fixt_explist->GetNcoeffs();
+        size_t nphys                 = fixt_explist->GetTotPoints();
         Array<OneD, double> incoeffs = fixt_in->ToArray();
         Array<OneD, double> outphys(compSize * nphys);
         Array<OneD, NekDouble> tmp;
-        for (int i = 0; i < compSize; ++i)
+        for (unsigned int i = 0; i < compSize; ++i)
         {
             fixt_explist->BwdTrans(incoeffs + i * ncoeffs,
                                    tmp = outphys + i * nphys);

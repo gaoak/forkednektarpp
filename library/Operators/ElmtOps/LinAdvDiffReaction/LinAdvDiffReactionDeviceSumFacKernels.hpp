@@ -183,7 +183,6 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction1DKernel(
             const size_t iwarp = e / warpsize;
             const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
             const TData *jacptr =
-
                 DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
             const TData *inptr = in + nm0 * warpsize * iwarp;
             TData *outptr      = out + nm0 * warpsize * iwarp;
@@ -396,7 +395,7 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction2DKernel(
         TData *deriv1   = deriv0 + nqTot;
         TData *s_wsp0   = deriv + ncoord * nqTot;
         TData *s_basis0 = s_wsp0 + offset;
-        TData *s_basis1 = s_basis0 + nm0 * nq0;
+        TData *s_basis1 = s_basis0 + nmode0 * nq0;
 
         // Copy to shared memory.
         const unsigned int idx0   = getLocalIdx(threadBlock);
@@ -431,9 +430,9 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction2DKernel(
                 {
                     tmp[idx] = inptr[idx];
                 }
-            }
 
-            localBarrier(threadBlock);
+                localBarrier(threadBlock);
+            }
 
             if constexpr (SHAPE_TYPE == LibUtilities::Quad)
             {
@@ -638,7 +637,6 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction3DKernel(
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
             {
-
                 TData *wsp0 =
                     wsp + 4 * nqTot * nelmt + nq1 * nq2 * warpsize * iwarp;
                 TData *wsp1 = wsp + (4 * nqTot + nq1 * nq2) * nelmt +
@@ -661,7 +659,6 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction3DKernel(
                                         in1ptr, bwd, wsp0, wsp1);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
-
             {
                 TData *wsp0 = wsp + 4 * nqTot * nelmt +
                               std::max(nq1 * nq2, nm0 * nm1) * warpsize * iwarp;
@@ -737,7 +734,6 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction3DKernel(
             {
                 TData *out1ptr =
                     wsp + 4 * nqTot * nelmt + nmTot * warpsize * iwarp;
-
                 TData *wsp0 = wsp + (nmTot + 4 * nqTot) * nelmt +
                               nq1 * nq2 * warpsize * iwarp;
                 TData *wsp1 = wsp + (nmTot + 4 * nqTot + nq1 * nq2) * nelmt +
@@ -747,7 +743,6 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction3DKernel(
                     (nmTot + 4 * nqTot + nq1 * nq2 + std::max(nq2, nm0)) *
                         nelmt +
                     nm2 * warpsize * iwarp;
-
                 IProductWRTBaseTetSumFacKernel<false, false, DEFORMED>(
                     ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
                     basis1, basis2, bwd, out1ptr, wsp0, wsp1, wsp2, (TData)1.0);

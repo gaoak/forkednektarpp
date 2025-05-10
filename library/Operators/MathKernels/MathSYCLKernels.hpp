@@ -48,7 +48,7 @@ namespace Nektar
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-negKernel(const unsigned int nsize, const TData *x, TData *y)
+negKernel(const size_t nsize, const TData *x, TData *y)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -57,11 +57,10 @@ negKernel(const unsigned int nsize, const TData *x, TData *y)
     Q.submit([=](sycl::handler &cgh) {
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
                          [=](sycl::nd_item<1> indx) {
-                             unsigned int idx0   = indx.get_global_id(0);
-                             unsigned int stride = indx.get_global_range(0);
+                             size_t idx0   = indx.get_global_id(0);
+                             size_t stride = indx.get_global_range(0);
 
-                             for (unsigned int idx = idx0; idx < nsize;
-                                  idx += stride)
+                             for (size_t idx = idx0; idx < nsize; idx += stride)
                              {
                                  y[idx] = -x[idx];
                              }
@@ -72,7 +71,7 @@ negKernel(const unsigned int nsize, const TData *x, TData *y)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-addKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
+addKernel(const size_t nsize, const TData *x, const TData *y, TData *z)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -81,11 +80,10 @@ addKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
     Q.submit([=](sycl::handler &cgh) {
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
                          [=](sycl::nd_item<1> indx) {
-                             unsigned int idx0   = indx.get_global_id(0);
-                             unsigned int stride = indx.get_global_range(0);
+                             size_t idx0   = indx.get_global_id(0);
+                             size_t stride = indx.get_global_range(0);
 
-                             for (unsigned int idx = idx0; idx < nsize;
-                                  idx += stride)
+                             for (size_t idx = idx0; idx < nsize; idx += stride)
                              {
                                  z[idx] = x[idx] + y[idx];
                              }
@@ -96,7 +94,7 @@ addKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-subKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
+subKernel(const size_t nsize, const TData *x, const TData *y, TData *z)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -105,11 +103,10 @@ subKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
     Q.submit([=](sycl::handler &cgh) {
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
                          [=](sycl::nd_item<1> indx) {
-                             unsigned int idx0   = indx.get_global_id(0);
-                             unsigned int stride = indx.get_global_range(0);
+                             size_t idx0   = indx.get_global_id(0);
+                             size_t stride = indx.get_global_range(0);
 
-                             for (unsigned int idx = idx0; idx < nsize;
-                                  idx += stride)
+                             for (size_t idx = idx0; idx < nsize; idx += stride)
                              {
                                  z[idx] = x[idx] - y[idx];
                              }
@@ -120,7 +117,7 @@ subKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-mulKernel(const unsigned int nsize, const TData alpha, const TData *x, TData *y)
+mulKernel(const size_t nsize, const TData alpha, const TData *x, TData *y)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -129,11 +126,10 @@ mulKernel(const unsigned int nsize, const TData alpha, const TData *x, TData *y)
     Q.submit([=](sycl::handler &cgh) {
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
                          [=](sycl::nd_item<1> indx) {
-                             unsigned int idx0   = indx.get_global_id(0);
-                             unsigned int stride = indx.get_global_range(0);
+                             size_t idx0   = indx.get_global_id(0);
+                             size_t stride = indx.get_global_range(0);
 
-                             for (unsigned int idx = idx0; idx < nsize;
-                                  idx += stride)
+                             for (size_t idx = idx0; idx < nsize; idx += stride)
                              {
                                  y[idx] = alpha * x[idx];
                              }
@@ -144,7 +140,7 @@ mulKernel(const unsigned int nsize, const TData alpha, const TData *x, TData *y)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-mulKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
+mulKernel(const size_t nsize, const TData *x, const TData *y, TData *z)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -153,11 +149,10 @@ mulKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
     Q.submit([=](sycl::handler &cgh) {
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
                          [=](sycl::nd_item<1> indx) {
-                             unsigned int idx0   = indx.get_global_id(0);
-                             unsigned int stride = indx.get_global_range(0);
+                             size_t idx0   = indx.get_global_id(0);
+                             size_t stride = indx.get_global_range(0);
 
-                             for (unsigned int idx = idx0; idx < nsize;
-                                  idx += stride)
+                             for (size_t idx = idx0; idx < nsize; idx += stride)
                              {
                                  z[idx] = x[idx] * y[idx];
                              }
@@ -168,7 +163,7 @@ mulKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-divKernel(const unsigned int nsize, const TData alpha, const TData *x, TData *y)
+divKernel(const size_t nsize, const TData alpha, const TData *x, TData *y)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -177,11 +172,10 @@ divKernel(const unsigned int nsize, const TData alpha, const TData *x, TData *y)
     Q.submit([=](sycl::handler &cgh) {
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
                          [=](sycl::nd_item<1> indx) {
-                             unsigned int idx0   = indx.get_global_id(0);
-                             unsigned int stride = indx.get_global_range(0);
+                             size_t idx0   = indx.get_global_id(0);
+                             size_t stride = indx.get_global_range(0);
 
-                             for (unsigned int idx = idx0; idx < nsize;
-                                  idx += stride)
+                             for (size_t idx = idx0; idx < nsize; idx += stride)
                              {
                                  y[idx] = alpha / x[idx];
                              }
@@ -192,7 +186,7 @@ divKernel(const unsigned int nsize, const TData alpha, const TData *x, TData *y)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-divKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
+divKernel(const size_t nsize, const TData *x, const TData *y, TData *z)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -201,11 +195,10 @@ divKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
     Q.submit([=](sycl::handler &cgh) {
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
                          [=](sycl::nd_item<1> indx) {
-                             unsigned int idx0   = indx.get_global_id(0);
-                             unsigned int stride = indx.get_global_range(0);
+                             size_t idx0   = indx.get_global_id(0);
+                             size_t stride = indx.get_global_range(0);
 
-                             for (unsigned int idx = idx0; idx < nsize;
-                                  idx += stride)
+                             for (size_t idx = idx0; idx < nsize; idx += stride)
                              {
                                  z[idx] = x[idx] / y[idx];
                              }
@@ -216,7 +209,7 @@ divKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-daxpyKernel(const unsigned int nsize, const TData alpha, const TData *x,
+daxpyKernel(const size_t nsize, const TData alpha, const TData *x,
             const TData *y, TData *z)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
@@ -226,11 +219,10 @@ daxpyKernel(const unsigned int nsize, const TData alpha, const TData *x,
     Q.submit([=](sycl::handler &cgh) {
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
                          [=](sycl::nd_item<1> indx) {
-                             unsigned int idx0   = indx.get_global_id(0);
-                             unsigned int stride = indx.get_global_range(0);
+                             size_t idx0   = indx.get_global_id(0);
+                             size_t stride = indx.get_global_range(0);
 
-                             for (unsigned int idx = idx0; idx < nsize;
-                                  idx += stride)
+                             for (size_t idx = idx0; idx < nsize; idx += stride)
                              {
                                  z[idx] = alpha * x[idx] + y[idx];
                              }
@@ -240,7 +232,7 @@ daxpyKernel(const unsigned int nsize, const TData alpha, const TData *x,
 
 template <typename TData>
 void reduceSumKernel(const unsigned int gridSize, const unsigned int blockSize,
-                     const unsigned int nsize, const TData *x, TData *out)
+                     const size_t nsize, const TData *x, TData *out)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
@@ -249,8 +241,8 @@ void reduceSumKernel(const unsigned int gridSize, const unsigned int blockSize,
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
-                const unsigned int lid = indx.get_local_id(0);
-                unsigned int gid       = indx.get_global_id(0);
+                const size_t lid = indx.get_local_id(0);
+                size_t gid       = indx.get_global_id(0);
 
                 if (lid == 0)
                 {
@@ -290,7 +282,7 @@ void reduceSumKernel(const unsigned int gridSize, const unsigned int blockSize,
 
 template <typename TData>
 void reduceMaxKernel(const unsigned int gridSize, const unsigned int blockSize,
-                     const unsigned int nsize, const TData *x, TData *out)
+                     const size_t nsize, const TData *x, TData *out)
 {
     constexpr TData min = std::numeric_limits<TData>::min();
 
@@ -301,8 +293,8 @@ void reduceMaxKernel(const unsigned int gridSize, const unsigned int blockSize,
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
-                const unsigned int lid = indx.get_local_id(0);
-                unsigned int gid       = indx.get_global_id(0);
+                const size_t lid = indx.get_local_id(0);
+                size_t gid       = indx.get_global_id(0);
 
                 if (lid == 0)
                 {
@@ -343,7 +335,7 @@ void reduceMaxKernel(const unsigned int gridSize, const unsigned int blockSize,
 
 template <typename TData>
 void reduceMinKernel(const unsigned int gridSize, const unsigned int blockSize,
-                     const unsigned int nsize, const TData *x, TData *out)
+                     const size_t nsize, const TData *x, TData *out)
 {
     constexpr TData max = std::numeric_limits<TData>::max();
 
@@ -354,8 +346,8 @@ void reduceMinKernel(const unsigned int gridSize, const unsigned int blockSize,
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
-                const unsigned int lid = indx.get_local_id(0);
-                unsigned int gid       = indx.get_global_id(0);
+                const size_t lid = indx.get_local_id(0);
+                size_t gid       = indx.get_global_id(0);
 
                 if (lid == 0)
                 {
@@ -396,8 +388,7 @@ void reduceMinKernel(const unsigned int gridSize, const unsigned int blockSize,
 
 template <typename TData>
 void ddotKernel(const unsigned int gridSize, const unsigned int blockSize,
-                const unsigned int nsize, const TData *x, const TData *y,
-                TData *out)
+                const size_t nsize, const TData *x, const TData *y, TData *out)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
@@ -406,8 +397,8 @@ void ddotKernel(const unsigned int gridSize, const unsigned int blockSize,
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
-                const unsigned int lid = indx.get_local_id(0);
-                unsigned int gid       = indx.get_global_id(0);
+                const size_t lid = indx.get_local_id(0);
+                size_t gid       = indx.get_global_id(0);
 
                 if (lid == 0)
                 {
@@ -447,7 +438,7 @@ void ddotKernel(const unsigned int gridSize, const unsigned int blockSize,
 
 template <typename TData>
 void l1normKernel(const unsigned int gridSize, const unsigned int blockSize,
-                  const unsigned int nsize, const TData *x, TData *out)
+                  const size_t nsize, const TData *x, TData *out)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
@@ -456,8 +447,8 @@ void l1normKernel(const unsigned int gridSize, const unsigned int blockSize,
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
-                const unsigned int lid = indx.get_local_id(0);
-                unsigned int gid       = indx.get_global_id(0);
+                const size_t lid = indx.get_local_id(0);
+                size_t gid       = indx.get_global_id(0);
 
                 if (lid == 0)
                 {
@@ -497,7 +488,7 @@ void l1normKernel(const unsigned int gridSize, const unsigned int blockSize,
 
 template <typename TData>
 void l2normKernel(const unsigned int gridSize, const unsigned int blockSize,
-                  const unsigned int nsize, const TData *x, TData *out)
+                  const size_t nsize, const TData *x, TData *out)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
@@ -506,8 +497,8 @@ void l2normKernel(const unsigned int gridSize, const unsigned int blockSize,
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
-                const unsigned int lid = indx.get_local_id(0);
-                unsigned int gid       = indx.get_global_id(0);
+                const size_t lid = indx.get_local_id(0);
+                size_t gid       = indx.get_global_id(0);
 
                 if (lid == 0)
                 {
@@ -547,8 +538,7 @@ void l2normKernel(const unsigned int gridSize, const unsigned int blockSize,
 
 template <typename TData>
 void lpnormKernel(const unsigned int gridSize, const unsigned int blockSize,
-                  const unsigned int nsize, const int p, const TData *x,
-                  TData *out)
+                  const size_t nsize, const int p, const TData *x, TData *out)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
@@ -557,8 +547,8 @@ void lpnormKernel(const unsigned int gridSize, const unsigned int blockSize,
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
-                const unsigned int lid = indx.get_local_id(0);
-                unsigned int gid       = indx.get_global_id(0);
+                const size_t lid = indx.get_local_id(0);
+                size_t gid       = indx.get_global_id(0);
 
                 if (lid == 0)
                 {
@@ -598,7 +588,7 @@ void lpnormKernel(const unsigned int gridSize, const unsigned int blockSize,
 
 template <typename TData>
 void linfnormKernel(const unsigned int gridSize, const unsigned int blockSize,
-                    const unsigned int nsize, const TData *x, TData *out)
+                    const size_t nsize, const TData *x, TData *out)
 {
     constexpr TData min = std::numeric_limits<TData>::min();
 
@@ -609,8 +599,8 @@ void linfnormKernel(const unsigned int gridSize, const unsigned int blockSize,
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
-                const unsigned int lid = indx.get_local_id(0);
-                unsigned int gid       = indx.get_global_id(0);
+                const size_t lid = indx.get_local_id(0);
+                size_t gid       = indx.get_global_id(0);
 
                 if (lid == 0)
                 {
@@ -652,7 +642,7 @@ void linfnormKernel(const unsigned int gridSize, const unsigned int blockSize,
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-reduceSumKernel(const unsigned int nsize, const TData *x, TData *out)
+reduceSumKernel(const size_t nsize, const TData *x, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -677,7 +667,7 @@ reduceSumKernel(const unsigned int nsize, const TData *x, TData *out)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-reduceMaxKernel(const unsigned int nsize, const TData *x, TData *out)
+reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -702,7 +692,7 @@ reduceMaxKernel(const unsigned int nsize, const TData *x, TData *out)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-reduceMinKernel(const unsigned int nsize, const TData *x, TData *out)
+reduceMinKernel(const size_t nsize, const TData *x, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -727,7 +717,7 @@ reduceMinKernel(const unsigned int nsize, const TData *x, TData *out)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-ddotKernel(const unsigned int nsize, const TData *x, const TData *y, TData *out)
+ddotKernel(const size_t nsize, const TData *x, const TData *y, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -752,7 +742,7 @@ ddotKernel(const unsigned int nsize, const TData *x, const TData *y, TData *out)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-l1normKernel(const unsigned int nsize, const TData *x, TData *out)
+l1normKernel(const size_t nsize, const TData *x, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -777,7 +767,7 @@ l1normKernel(const unsigned int nsize, const TData *x, TData *out)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-l2normKernel(const unsigned int nsize, const TData *x, TData *out)
+l2normKernel(const size_t nsize, const TData *x, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -802,7 +792,7 @@ l2normKernel(const unsigned int nsize, const TData *x, TData *out)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-lpnormKernel(const unsigned int nsize, const unsigned int p, const TData *x,
+lpnormKernel(const size_t nsize, const unsigned int p, const TData *x,
              TData *out)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
@@ -828,7 +818,7 @@ lpnormKernel(const unsigned int nsize, const unsigned int p, const TData *x,
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-linfnormKernel(const unsigned int nsize, const TData *x, TData *out)
+linfnormKernel(const size_t nsize, const TData *x, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;

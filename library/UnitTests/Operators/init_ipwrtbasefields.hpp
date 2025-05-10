@@ -59,8 +59,7 @@ public:
 
             for (unsigned int nc = 0; nc < fixt_in->GetNumComponents(); ++nc)
             {
-                for (unsigned int el = 0, cnt = 0; el < block.GetNumElements();
-                     ++el)
+                for (size_t el = 0, cnt = 0; el < block.GetNumElements(); ++el)
                 {
                     for (unsigned int phys = 0; phys < block.GetNumData();
                          ++phys, ++cnt)
@@ -84,14 +83,14 @@ public:
     void ExpectedSolution()
     {
         // Calculate expected result from Nektar++
-        int compSize = fixt_in->GetNumComponents();
-        int ncoeffs  = fixt_explist->GetNcoeffs();
-        int nphys    = fixt_explist->GetTotPoints();
+        unsigned int compSize = fixt_in->GetNumComponents();
+        size_t ncoeffs        = fixt_explist->GetNcoeffs();
+        size_t nphys          = fixt_explist->GetTotPoints();
 
         Array<OneD, double> inphys = fixt_in->ToArray();
         Array<OneD, double> outcoeffs(compSize * ncoeffs);
         Array<OneD, NekDouble> tmp;
-        for (int i = 0; i < compSize; ++i)
+        for (unsigned int i = 0; i < compSize; ++i)
         {
             fixt_explist->IProductWRTBase(inphys + i * nphys,
                                           tmp = outcoeffs + i * ncoeffs);
