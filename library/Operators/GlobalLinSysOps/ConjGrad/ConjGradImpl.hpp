@@ -126,7 +126,7 @@ protected:
     std::vector<TData> m_vExchange;
 
     TData m_tol;
-    size_t m_maxIter;
+    unsigned int m_maxIter;
 
     void v_Apply(Field<TData, FieldState::Coeff> &in,
                  Field<TData, FieldState::Coeff> &out) override
@@ -137,7 +137,7 @@ protected:
         m_q_A.template Initialize<MemSpace>(0);
 
         // Convergence parameters.
-        size_t totalIterations = 0;
+        unsigned int totalIterations = 0;
         TData rhsMagnitude, mu, eps;
         TData alpha, beta, rho, rho_new;
 

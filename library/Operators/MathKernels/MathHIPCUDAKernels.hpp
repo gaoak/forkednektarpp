@@ -179,111 +179,110 @@ __device__ inline double2 operator+(const double2 &a, const double &b)
 }
 
 template <typename TData>
-__global__ void negKernel(const unsigned int nsize, const TData *x, TData *y)
+__global__ void negKernel(const size_t nsize, const TData *x, TData *y)
 {
-    unsigned int idx0   = blockDim.x * blockIdx.x + threadIdx.x;
-    unsigned int stride = blockDim.x * gridDim.x;
+    size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
+    size_t stride = blockDim.x * gridDim.x;
 
-    for (unsigned int idx = idx0; idx < nsize; idx += stride)
+    for (size_t idx = idx0; idx < nsize; idx += stride)
     {
         y[idx] = -x[idx];
     }
 }
 
 template <typename TData>
-__global__ void addKernel(const unsigned int nsize, const TData *x,
-                          const TData *y, TData *z)
+__global__ void addKernel(const size_t nsize, const TData *x, const TData *y,
+                          TData *z)
 {
-    unsigned int idx0   = blockDim.x * blockIdx.x + threadIdx.x;
-    unsigned int stride = blockDim.x * gridDim.x;
+    size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
+    size_t stride = blockDim.x * gridDim.x;
 
-    for (unsigned int idx = idx0; idx < nsize; idx += stride)
+    for (size_t idx = idx0; idx < nsize; idx += stride)
     {
         z[idx] = x[idx] + y[idx];
     }
 }
 
 template <typename TData>
-__global__ void subKernel(const unsigned int nsize, const TData *x,
-                          const TData *y, TData *z)
+__global__ void subKernel(const size_t nsize, const TData *x, const TData *y,
+                          TData *z)
 {
-    unsigned int idx0   = blockDim.x * blockIdx.x + threadIdx.x;
-    unsigned int stride = blockDim.x * gridDim.x;
+    size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
+    size_t stride = blockDim.x * gridDim.x;
 
-    for (unsigned int idx = idx0; idx < nsize; idx += stride)
+    for (size_t idx = idx0; idx < nsize; idx += stride)
     {
         z[idx] = x[idx] - y[idx];
     }
 }
 
 template <typename TData>
-__global__ void mulKernel(const unsigned int nsize, const TData alpha,
-                          const TData *x, TData *y)
+__global__ void mulKernel(const size_t nsize, const TData alpha, const TData *x,
+                          TData *y)
 {
-    unsigned int idx0   = blockDim.x * blockIdx.x + threadIdx.x;
-    unsigned int stride = blockDim.x * gridDim.x;
+    size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
+    size_t stride = blockDim.x * gridDim.x;
 
-    for (unsigned int idx = idx0; idx < nsize; idx += stride)
+    for (size_t idx = idx0; idx < nsize; idx += stride)
     {
         y[idx] = alpha * x[idx];
     }
 }
 
 template <typename TData>
-__global__ void mulKernel(const unsigned int nsize, const TData *x,
-                          const TData *y, TData *z)
+__global__ void mulKernel(const size_t nsize, const TData *x, const TData *y,
+                          TData *z)
 {
-    unsigned int idx0   = blockDim.x * blockIdx.x + threadIdx.x;
-    unsigned int stride = blockDim.x * gridDim.x;
+    size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
+    size_t stride = blockDim.x * gridDim.x;
 
-    for (unsigned int idx = idx0; idx < nsize; idx += stride)
+    for (size_t idx = idx0; idx < nsize; idx += stride)
     {
         z[idx] = x[idx] * y[idx];
     }
 }
 
 template <typename TData>
-__global__ void divKernel(const unsigned int nsize, const TData alpha,
-                          const TData *x, TData *y)
+__global__ void divKernel(const size_t nsize, const TData alpha, const TData *x,
+                          TData *y)
 {
-    unsigned int idx0   = blockDim.x * blockIdx.x + threadIdx.x;
-    unsigned int stride = blockDim.x * gridDim.x;
+    size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
+    size_t stride = blockDim.x * gridDim.x;
 
-    for (unsigned int idx = idx0; idx < nsize; idx += stride)
+    for (size_t idx = idx0; idx < nsize; idx += stride)
     {
         y[idx] = alpha / x[idx];
     }
 }
 
 template <typename TData>
-__global__ void divKernel(const unsigned int nsize, const TData *x,
-                          const TData *y, TData *z)
+__global__ void divKernel(const size_t nsize, const TData *x, const TData *y,
+                          TData *z)
 {
-    unsigned int idx0   = blockDim.x * blockIdx.x + threadIdx.x;
-    unsigned int stride = blockDim.x * gridDim.x;
+    size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
+    size_t stride = blockDim.x * gridDim.x;
 
-    for (unsigned int idx = idx0; idx < nsize; idx += stride)
+    for (size_t idx = idx0; idx < nsize; idx += stride)
     {
         z[idx] = x[idx] / y[idx];
     }
 }
 
 template <typename TData>
-__global__ void daxpyKernel(const unsigned int nsize, const TData alpha,
+__global__ void daxpyKernel(const size_t nsize, const TData alpha,
                             const TData *x, const TData *y, TData *z)
 {
-    unsigned int idx0   = blockDim.x * blockIdx.x + threadIdx.x;
-    unsigned int stride = blockDim.x * gridDim.x;
+    size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
+    size_t stride = blockDim.x * gridDim.x;
 
-    for (unsigned int idx = idx0; idx < nsize; idx += stride)
+    for (size_t idx = idx0; idx < nsize; idx += stride)
     {
         z[idx] = alpha * x[idx] + y[idx];
     }
 }
 
 template <typename TData, bool vl = true>
-__global__ void reduceSumKernel(const unsigned int nsize, const TData *x,
-                                TData *out)
+__global__ void reduceSumKernel(const size_t nsize, const TData *x, TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
@@ -306,7 +305,7 @@ __global__ void reduceSumKernel(const unsigned int nsize, const TData *x,
     if constexpr (vl && std::is_same_v<TData, float>)
     {
         float4 v4 = {0.0f, 0.0f, 0.0f, 0.0f}; // use v4 to read global memory
-        for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
+        for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
              tid += grid.size())
         {
             v4 += reinterpret_cast<const float4 *>(x)[tid];
@@ -316,7 +315,7 @@ __global__ void reduceSumKernel(const unsigned int nsize, const TData *x,
     else if constexpr (vl && std::is_same_v<TData, double>)
     {
         double2 v2 = {0.0, 0.0}; // use v2 to read global memory
-        for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
+        for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
              tid += grid.size())
         {
             v2 += reinterpret_cast<const double2 *>(x)[tid];
@@ -325,8 +324,7 @@ __global__ void reduceSumKernel(const unsigned int nsize, const TData *x,
     }
     else
     {
-        for (unsigned int tid = grid.thread_rank(); tid < nsize;
-             tid += grid.size())
+        for (size_t tid = grid.thread_rank(); tid < nsize; tid += grid.size())
         {
             v += x[tid];
         }
@@ -337,7 +335,7 @@ __global__ void reduceSumKernel(const unsigned int nsize, const TData *x,
     {
         if (grid.thread_rank() < nsize % vecsize)
         {
-            unsigned int tid = nsize - 1u - grid.thread_rank();
+            size_t tid = nsize - 1u - grid.thread_rank();
             v += x[tid];
         }
     }
@@ -370,8 +368,7 @@ __global__ void reduceSumKernel(const unsigned int nsize, const TData *x,
 }
 
 template <typename TData, bool vl = true>
-__global__ void reduceMaxKernel(const unsigned int nsize, const TData *x,
-                                TData *out)
+__global__ void reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
@@ -394,7 +391,7 @@ __global__ void reduceMaxKernel(const unsigned int nsize, const TData *x,
 
     if constexpr (vl && std::is_same_v<TData, float>)
     {
-        for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
+        for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
              tid += grid.size())
         {
             const float4 v4 = reinterpret_cast<const float4 *>(x)[tid];
@@ -403,7 +400,7 @@ __global__ void reduceMaxKernel(const unsigned int nsize, const TData *x,
     }
     else if constexpr (vl && std::is_same_v<TData, double>)
     {
-        for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
+        for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
              tid += grid.size())
         {
             const double2 v2 = reinterpret_cast<const double2 *>(x)[tid];
@@ -412,8 +409,7 @@ __global__ void reduceMaxKernel(const unsigned int nsize, const TData *x,
     }
     else
     {
-        for (unsigned int tid = grid.thread_rank(); tid < nsize;
-             tid += grid.size())
+        for (size_t tid = grid.thread_rank(); tid < nsize; tid += grid.size())
         {
             v = max(v, x[tid]);
         }
@@ -424,8 +420,8 @@ __global__ void reduceMaxKernel(const unsigned int nsize, const TData *x,
     {
         if (grid.thread_rank() < nsize % vecsize)
         {
-            unsigned int tid = nsize - 1u - grid.thread_rank();
-            v                = max(v, x[tid]);
+            size_t tid = nsize - 1u - grid.thread_rank();
+            v          = max(v, x[tid]);
         }
     }
 
@@ -456,8 +452,7 @@ __global__ void reduceMaxKernel(const unsigned int nsize, const TData *x,
 }
 
 template <typename TData, bool vl = true>
-__global__ void reduceMinKernel(const unsigned int nsize, const TData *x,
-                                TData *out)
+__global__ void reduceMinKernel(const size_t nsize, const TData *x, TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
@@ -480,7 +475,7 @@ __global__ void reduceMinKernel(const unsigned int nsize, const TData *x,
 
     if constexpr (vl && std::is_same_v<TData, float>)
     {
-        for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
+        for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
              tid += grid.size())
         {
             const float4 v4 = reinterpret_cast<const float4 *>(x)[tid];
@@ -489,7 +484,7 @@ __global__ void reduceMinKernel(const unsigned int nsize, const TData *x,
     }
     else if constexpr (vl && std::is_same_v<TData, double>)
     {
-        for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
+        for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
              tid += grid.size())
         {
             const double2 v2 = reinterpret_cast<const double2 *>(x)[tid];
@@ -498,8 +493,7 @@ __global__ void reduceMinKernel(const unsigned int nsize, const TData *x,
     }
     else
     {
-        for (unsigned int tid = grid.thread_rank(); tid < nsize;
-             tid += grid.size())
+        for (size_t tid = grid.thread_rank(); tid < nsize; tid += grid.size())
         {
             v = min(v, x[tid]);
         }
@@ -510,8 +504,8 @@ __global__ void reduceMinKernel(const unsigned int nsize, const TData *x,
     {
         if (grid.thread_rank() < nsize % vecsize)
         {
-            unsigned int tid = nsize - 1u - grid.thread_rank();
-            v                = min(v, x[tid]);
+            size_t tid = nsize - 1u - grid.thread_rank();
+            v          = min(v, x[tid]);
         }
     }
 
@@ -542,8 +536,8 @@ __global__ void reduceMinKernel(const unsigned int nsize, const TData *x,
 }
 
 template <typename TData, bool vl = true>
-__global__ void ddotKernel(const unsigned int nsize, const TData *x,
-                           const TData *y, TData *out)
+__global__ void ddotKernel(const size_t nsize, const TData *x, const TData *y,
+                           TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
@@ -566,7 +560,7 @@ __global__ void ddotKernel(const unsigned int nsize, const TData *x,
     if constexpr (vl && std::is_same_v<TData, float>)
     {
         float4 v4 = {0.0f, 0.0f, 0.0f, 0.0f}; // use v4 to read global memory
-        for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
+        for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
              tid += grid.size())
         {
             const float4 x4 = reinterpret_cast<const float4 *>(x)[tid];
@@ -578,7 +572,7 @@ __global__ void ddotKernel(const unsigned int nsize, const TData *x,
     else if constexpr (vl && std::is_same_v<TData, double>)
     {
         double2 v2 = {0.0, 0.0}; // use v2 to read global memory
-        for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
+        for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
              tid += grid.size())
         {
             const double2 x2 = reinterpret_cast<const double2 *>(x)[tid];
@@ -589,8 +583,7 @@ __global__ void ddotKernel(const unsigned int nsize, const TData *x,
     }
     else
     {
-        for (unsigned int tid = grid.thread_rank(); tid < nsize;
-             tid += grid.size())
+        for (size_t tid = grid.thread_rank(); tid < nsize; tid += grid.size())
         {
             v += x[tid] * y[tid];
         }
@@ -601,7 +594,7 @@ __global__ void ddotKernel(const unsigned int nsize, const TData *x,
     {
         if (grid.thread_rank() < nsize % vecsize)
         {
-            unsigned int tid = nsize - 1u - grid.thread_rank();
+            size_t tid = nsize - 1u - grid.thread_rank();
             v += x[tid] * y[tid];
         }
     }
@@ -634,8 +627,7 @@ __global__ void ddotKernel(const unsigned int nsize, const TData *x,
 }
 
 template <typename TData, bool vl = true>
-__global__ void l1normKernel(const unsigned int nsize, const TData *x,
-                             TData *out)
+__global__ void l1normKernel(const size_t nsize, const TData *x, TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
@@ -658,7 +650,7 @@ __global__ void l1normKernel(const unsigned int nsize, const TData *x,
     if constexpr (vl && std::is_same_v<TData, float>)
     {
         float4 v4 = {0.0f, 0.0f, 0.0f, 0.0f}; // use v4 to read global memory
-        for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
+        for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
              tid += grid.size())
         {
             const float4 tmp = reinterpret_cast<const float4 *>(x)[tid];
@@ -669,7 +661,7 @@ __global__ void l1normKernel(const unsigned int nsize, const TData *x,
     else if constexpr (vl && std::is_same_v<TData, double>)
     {
         double2 v2 = {0.0, 0.0}; // use v2 to read global memory
-        for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
+        for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
              tid += grid.size())
         {
             const double2 tmp = reinterpret_cast<const double2 *>(x)[tid];
@@ -679,8 +671,7 @@ __global__ void l1normKernel(const unsigned int nsize, const TData *x,
     }
     else
     {
-        for (unsigned int tid = grid.thread_rank(); tid < nsize;
-             tid += grid.size())
+        for (size_t tid = grid.thread_rank(); tid < nsize; tid += grid.size())
         {
             v += abs(x[tid]);
         }
@@ -691,7 +682,7 @@ __global__ void l1normKernel(const unsigned int nsize, const TData *x,
     {
         if (grid.thread_rank() < nsize % vecsize)
         {
-            unsigned int tid = nsize - 1u - grid.thread_rank();
+            size_t tid = nsize - 1u - grid.thread_rank();
             v += abs(x[tid]);
         }
     }
@@ -724,8 +715,7 @@ __global__ void l1normKernel(const unsigned int nsize, const TData *x,
 }
 
 template <typename TData, bool vl = true>
-__global__ void l2normKernel(const unsigned int nsize, const TData *x,
-                             TData *out)
+__global__ void l2normKernel(const size_t nsize, const TData *x, TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
@@ -748,7 +738,7 @@ __global__ void l2normKernel(const unsigned int nsize, const TData *x,
     if constexpr (vl && std::is_same_v<TData, float>)
     {
         float4 v4 = {0.0f, 0.0f, 0.0f, 0.0f}; // use v4 to read global memory
-        for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
+        for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
              tid += grid.size())
         {
             const float4 tmp = reinterpret_cast<const float4 *>(x)[tid];
@@ -759,7 +749,7 @@ __global__ void l2normKernel(const unsigned int nsize, const TData *x,
     else if constexpr (vl && std::is_same_v<TData, double>)
     {
         double2 v2 = {0.0, 0.0}; // use v2 to read global memory
-        for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
+        for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
              tid += grid.size())
         {
             const double2 tmp = reinterpret_cast<const double2 *>(x)[tid];
@@ -769,8 +759,7 @@ __global__ void l2normKernel(const unsigned int nsize, const TData *x,
     }
     else
     {
-        for (unsigned int tid = grid.thread_rank(); tid < nsize;
-             tid += grid.size())
+        for (size_t tid = grid.thread_rank(); tid < nsize; tid += grid.size())
         {
             v += x[tid] * x[tid];
         }
@@ -781,7 +770,7 @@ __global__ void l2normKernel(const unsigned int nsize, const TData *x,
     {
         if (grid.thread_rank() < nsize % vecsize)
         {
-            unsigned int tid = nsize - 1u - grid.thread_rank();
+            size_t tid = nsize - 1u - grid.thread_rank();
             v += x[tid] * x[tid];
         }
     }
@@ -814,7 +803,7 @@ __global__ void l2normKernel(const unsigned int nsize, const TData *x,
 }
 
 template <typename TData, bool vl = true>
-__global__ void lpnormKernel(const unsigned int nsize, const int p,
+__global__ void lpnormKernel(const size_t nsize, const unsigned int p,
                              const TData *x, TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
@@ -838,7 +827,7 @@ __global__ void lpnormKernel(const unsigned int nsize, const int p,
     if constexpr (vl && std::is_same_v<TData, float>)
     {
         float4 v4 = {0.0f, 0.0f, 0.0f, 0.0f}; // use v4 to read global memory
-        for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
+        for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
              tid += grid.size())
         {
             const float4 tmp = reinterpret_cast<const float4 *>(x)[tid];
@@ -850,7 +839,7 @@ __global__ void lpnormKernel(const unsigned int nsize, const int p,
     else if constexpr (vl && std::is_same_v<TData, double>)
     {
         double2 v2 = {0.0, 0.0}; // use v2 to read global memory
-        for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
+        for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
              tid += grid.size())
         {
             const double2 tmp = reinterpret_cast<const double2 *>(x)[tid];
@@ -860,8 +849,7 @@ __global__ void lpnormKernel(const unsigned int nsize, const int p,
     }
     else
     {
-        for (unsigned int tid = grid.thread_rank(); tid < nsize;
-             tid += grid.size())
+        for (size_t tid = grid.thread_rank(); tid < nsize; tid += grid.size())
         {
             v += pow(abs(x[tid]), p);
         }
@@ -872,7 +860,7 @@ __global__ void lpnormKernel(const unsigned int nsize, const int p,
     {
         if (grid.thread_rank() < nsize % vecsize)
         {
-            unsigned int tid = nsize - 1u - grid.thread_rank();
+            size_t tid = nsize - 1u - grid.thread_rank();
             v += pow(abs(x[tid]), p);
         }
     }
@@ -905,8 +893,7 @@ __global__ void lpnormKernel(const unsigned int nsize, const int p,
 }
 
 template <typename TData, bool vl = true>
-__global__ void linfnormKernel(const unsigned int nsize, const TData *x,
-                               TData *out)
+__global__ void linfnormKernel(const size_t nsize, const TData *x, TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
@@ -929,7 +916,7 @@ __global__ void linfnormKernel(const unsigned int nsize, const TData *x,
 
     if constexpr (vl && std::is_same_v<TData, float>)
     {
-        for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
+        for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
              tid += grid.size())
         {
             const float4 v4 = reinterpret_cast<const float4 *>(x)[tid];
@@ -939,7 +926,7 @@ __global__ void linfnormKernel(const unsigned int nsize, const TData *x,
     }
     else if constexpr (vl && std::is_same_v<TData, double>)
     {
-        for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
+        for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
              tid += grid.size())
         {
             const double2 v2 = reinterpret_cast<const double2 *>(x)[tid];
@@ -948,8 +935,7 @@ __global__ void linfnormKernel(const unsigned int nsize, const TData *x,
     }
     else
     {
-        for (unsigned int tid = grid.thread_rank(); tid < nsize;
-             tid += grid.size())
+        for (size_t tid = grid.thread_rank(); tid < nsize; tid += grid.size())
         {
             v = max(v, abs(x[tid]));
         }
@@ -960,8 +946,8 @@ __global__ void linfnormKernel(const unsigned int nsize, const TData *x,
     {
         if (grid.thread_rank() < nsize % vecsize)
         {
-            unsigned int tid = nsize - 1u - grid.thread_rank();
-            v                = max(v, abs(x[tid]));
+            size_t tid = nsize - 1u - grid.thread_rank();
+            v          = max(v, abs(x[tid]));
         }
     }
 
@@ -996,7 +982,7 @@ __global__ void linfnormKernel(const unsigned int nsize, const TData *x,
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-negKernel(const unsigned int nsize, const TData *x, TData *y)
+negKernel(const size_t nsize, const TData *x, TData *y)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -1008,7 +994,7 @@ negKernel(const unsigned int nsize, const TData *x, TData *y)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-addKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
+addKernel(const size_t nsize, const TData *x, const TData *y, TData *z)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -1020,7 +1006,7 @@ addKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-subKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
+subKernel(const size_t nsize, const TData *x, const TData *y, TData *z)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -1032,7 +1018,7 @@ subKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-mulKernel(const unsigned int nsize, const TData alpha, const TData *x, TData *y)
+mulKernel(const size_t nsize, const TData alpha, const TData *x, TData *y)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -1044,7 +1030,7 @@ mulKernel(const unsigned int nsize, const TData alpha, const TData *x, TData *y)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-mulKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
+mulKernel(const size_t nsize, const TData *x, const TData *y, TData *z)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -1056,7 +1042,7 @@ mulKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-divKernel(const unsigned int nsize, const TData alpha, const TData *x, TData *y)
+divKernel(const size_t nsize, const TData alpha, const TData *x, TData *y)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -1068,7 +1054,7 @@ divKernel(const unsigned int nsize, const TData alpha, const TData *x, TData *y)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-divKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
+divKernel(const size_t nsize, const TData *x, const TData *y, TData *z)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -1080,7 +1066,7 @@ divKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-daxpyKernel(const unsigned int nsize, const TData alpha, const TData *x,
+daxpyKernel(const size_t nsize, const TData alpha, const TData *x,
             const TData *y, TData *z)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
@@ -1093,7 +1079,7 @@ daxpyKernel(const unsigned int nsize, const TData alpha, const TData *x,
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-reduceSumKernel(const unsigned int nsize, const TData *x, TData *out)
+reduceSumKernel(const size_t nsize, const TData *x, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -1128,7 +1114,7 @@ reduceSumKernel(const unsigned int nsize, const TData *x, TData *out)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-reduceMaxKernel(const unsigned int nsize, const TData *x, TData *out)
+reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -1163,7 +1149,7 @@ reduceMaxKernel(const unsigned int nsize, const TData *x, TData *out)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-reduceMinKernel(const unsigned int nsize, const TData *x, TData *out)
+reduceMinKernel(const size_t nsize, const TData *x, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -1198,7 +1184,7 @@ reduceMinKernel(const unsigned int nsize, const TData *x, TData *out)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-ddotKernel(const unsigned int nsize, const TData *x, const TData *y, TData *out)
+ddotKernel(const size_t nsize, const TData *x, const TData *y, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -1233,7 +1219,7 @@ ddotKernel(const unsigned int nsize, const TData *x, const TData *y, TData *out)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-l1normKernel(const unsigned int nsize, const TData *x, TData *out)
+l1normKernel(const size_t nsize, const TData *x, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -1268,7 +1254,7 @@ l1normKernel(const unsigned int nsize, const TData *x, TData *out)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-l2normKernel(const unsigned int nsize, const TData *x, TData *out)
+l2normKernel(const size_t nsize, const TData *x, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -1303,7 +1289,7 @@ l2normKernel(const unsigned int nsize, const TData *x, TData *out)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-lpnormKernel(const unsigned int nsize, const unsigned int p, const TData *x,
+lpnormKernel(const size_t nsize, const unsigned int p, const TData *x,
              TData *out)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
@@ -1339,7 +1325,7 @@ lpnormKernel(const unsigned int nsize, const unsigned int p, const TData *x,
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-linfnormKernel(const unsigned int nsize, const TData *x, TData *out)
+linfnormKernel(const size_t nsize, const TData *x, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;

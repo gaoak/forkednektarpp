@@ -57,9 +57,9 @@ public:
         auto robinBCInfo = this->m_expansionList->GetRobinBCInfo();
 
         // Set mapping to skip over padding elements
-        unsigned int i = 0, j = 0;
+        size_t i = 0, j = 0;
 
-        std::vector<unsigned int> alignmentMap(expansionList->GetNcoeffs());
+        std::vector<size_t> alignmentMap(expansionList->GetNcoeffs());
         auto blocks =
             GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
         for (auto &block : blocks)
@@ -67,7 +67,7 @@ public:
             const auto ncoeff    = block.GetNumData();
             const auto nelmt     = block.GetNumElements();
             const auto nPadElmts = block.GetNumPaddingElements();
-            for (unsigned int e = 0; e < nelmt; e++)
+            for (size_t e = 0; e < nelmt; e++)
             {
                 for (unsigned int n = 0; n < ncoeff; n++)
                 {
@@ -102,9 +102,9 @@ public:
 
             // Initialize data
             std::vector<TData> mat(m_nBndEdge);
-            std::vector<unsigned int> map(m_nBndEdge);
-            std::vector<unsigned int> offset(m_nBndEdge, 0u);
-            unsigned int i = 0;
+            std::vector<size_t> map(m_nBndEdge);
+            std::vector<size_t> offset(m_nBndEdge, 0u);
+            size_t i = 0;
             for (auto &r : robinBCInfo)
             {
                 auto n      = r.first;
@@ -124,16 +124,17 @@ public:
 
             m_mat = MemoryRegion<TData>::template FromVector<MemSpace, TData>(
                 mat, ExecSpace::alignment);
-            m_map = MemoryRegion<unsigned int>::template FromVector<
-                MemSpace, unsigned int>(map, ExecSpace::alignment);
-            m_offset = MemoryRegion<unsigned int>::template FromVector<
-                MemSpace, unsigned int>(offset, ExecSpace::alignment);
+            m_map = MemoryRegion<size_t>::template FromVector<MemSpace, size_t>(
+                map, ExecSpace::alignment);
+            m_offset =
+                MemoryRegion<size_t>::template FromVector<MemSpace, size_t>(
+                    offset, ExecSpace::alignment);
         }
         else if (expansionList->GetExp(0)->GetShapeDimension() == 2)
         {
             // Determine size
-            unsigned int matSize = 0;
-            unsigned int mapSize = 0;
+            size_t matSize = 0;
+            size_t mapSize = 0;
             for (auto &r : robinBCInfo)
             {
                 auto n      = r.first;
@@ -162,13 +163,13 @@ public:
 
             // Initialize data
             std::vector<TData> mat(matSize);
-            std::vector<unsigned int> map(mapSize);
+            std::vector<size_t> map(mapSize);
             std::vector<int> sign(mapSize);
             std::vector<unsigned int> nEdgeCoeff(m_nBndEdge, 0u);
-            std::vector<unsigned int> offset(m_nBndEdge, 0u);
-            std::vector<unsigned int> matOffset(m_nBndEdge, 0u);
-            std::vector<unsigned int> mapOffset(m_nBndEdge, 0u);
-            unsigned int i = 0;
+            std::vector<size_t> offset(m_nBndEdge, 0u);
+            std::vector<size_t> matOffset(m_nBndEdge, 0u);
+            std::vector<size_t> mapOffset(m_nBndEdge, 0u);
+            size_t i = 0;
             for (auto &r : robinBCInfo)
             {
                 auto n      = r.first;
@@ -183,7 +184,7 @@ public:
                     auto ncoeff     = edgeExp->GetNcoeffs();
 
                     // Initialize map and sign array
-                    Array<OneD, unsigned int> tmpMap(ncoeff);
+                    Array<OneD, unsigned int> tmpMap(ncoeff); // size_t
                     Array<OneD, int> tmpSign(ncoeff);
                     expPtr->GetTraceToElementMap(edgeid, tmpMap, tmpSign,
                                                  orient);
@@ -219,18 +220,21 @@ public:
 
             m_mat = MemoryRegion<TData>::template FromVector<MemSpace, TData>(
                 mat, ExecSpace::alignment);
-            m_map = MemoryRegion<unsigned int>::template FromVector<
-                MemSpace, unsigned int>(map, ExecSpace::alignment);
+            m_map = MemoryRegion<size_t>::template FromVector<MemSpace, size_t>(
+                map, ExecSpace::alignment);
             m_sign = MemoryRegion<int>::template FromVector<MemSpace, int>(
                 sign, ExecSpace::alignment);
             m_nEdgeCoeff = MemoryRegion<unsigned int>::template FromVector<
                 MemSpace, unsigned int>(nEdgeCoeff, ExecSpace::alignment);
-            m_offset = MemoryRegion<unsigned int>::template FromVector<
-                MemSpace, unsigned int>(offset, ExecSpace::alignment);
-            m_matOffset = MemoryRegion<unsigned int>::template FromVector<
-                MemSpace, unsigned int>(matOffset, ExecSpace::alignment);
-            m_mapOffset = MemoryRegion<unsigned int>::template FromVector<
-                MemSpace, unsigned int>(mapOffset, ExecSpace::alignment);
+            m_offset =
+                MemoryRegion<size_t>::template FromVector<MemSpace, size_t>(
+                    offset, ExecSpace::alignment);
+            m_matOffset =
+                MemoryRegion<size_t>::template FromVector<MemSpace, size_t>(
+                    matOffset, ExecSpace::alignment);
+            m_mapOffset =
+                MemoryRegion<size_t>::template FromVector<MemSpace, size_t>(
+                    mapOffset, ExecSpace::alignment);
         }
         else if (expansionList->GetExp(0)->GetShapeDimension() == 3)
         {
@@ -258,15 +262,15 @@ public:
 
 protected:
     MemoryRegion<TData> m_mat;
-    MemoryRegion<unsigned int> m_map;
+    MemoryRegion<size_t> m_map;
     MemoryRegion<int> m_sign;
     MemoryRegion<unsigned int> m_nEdgeCoeff;
-    MemoryRegion<unsigned int> m_offset;
-    MemoryRegion<unsigned int> m_matOffset;
-    MemoryRegion<unsigned int> m_mapOffset;
+    MemoryRegion<size_t> m_offset;
+    MemoryRegion<size_t> m_matOffset;
+    MemoryRegion<size_t> m_mapOffset;
 
     unsigned int m_nmaxcoeff = 0;
-    unsigned int m_nBndEdge  = 0;
+    size_t m_nBndEdge        = 0;
 
     void v_Apply(Field<TData, FieldState::Coeff> &in,
                  Field<TData, FieldState::Coeff> &out,

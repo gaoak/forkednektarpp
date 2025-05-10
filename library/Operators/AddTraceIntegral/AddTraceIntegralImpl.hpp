@@ -79,8 +79,8 @@ public:
         // Compute block bound.
         auto traceBlocks = GetBlockAttributes<TData>(FieldState::Coeff,
                                                      expansionList->GetTrace());
-        std::vector<int> traceBlockBound(traceBlocks.size());
-        int traceBound = 0;
+        std::vector<size_t> traceBlockBound(traceBlocks.size());
+        size_t traceBound = 0;
         for (unsigned int blk = 0; blk < traceBlocks.size(); ++blk)
         {
             const auto &block = traceBlocks[blk];
@@ -92,8 +92,8 @@ public:
 
         auto blocks =
             GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
-        std::vector<int> blockBound(blocks.size());
-        int bound = 0;
+        std::vector<size_t> blockBound(blocks.size());
+        size_t bound = 0;
         for (unsigned int blk = 0; blk < blocks.size(); ++blk)
         {
             const auto &block = blocks[blk];
@@ -103,11 +103,11 @@ public:
             blockBound[blk] = bound;
         }
 
-        std::vector<std::tuple<int, int, int>> traceToTraceReordered(
+        std::vector<std::tuple<size_t, size_t, size_t>> traceToTraceReordered(
             m_nFwdBwdCoeffs);
         if (m_nFwdBwdCoeffs > 0)
         {
-            for (int i = 0; i < m_nFwdBwdCoeffs; i++)
+            for (size_t i = 0; i < m_nFwdBwdCoeffs; i++)
             {
                 traceToTraceReordered[i] = std::make_tuple(
                     TraceCoeffsToElmtMap[i], TraceCoeffsToElmtTrace[i],
@@ -115,27 +115,29 @@ public:
             }
             std::sort(std::begin(traceToTraceReordered),
                       std::end(traceToTraceReordered),
-                      [](std::tuple<int, int, int> const &t1,
-                         std::tuple<int, int, int> const &t2) {
+                      [](std::tuple<size_t, size_t, size_t> const &t1,
+                         std::tuple<size_t, size_t, size_t> const &t2) {
                           return std::get<1>(t1) < std::get<1>(t2);
                       });
         }
 
         // Assign map to memory region.
-        std::vector<int> nFwdBwdCoeffsBlock(blocks.size(), 0);
-        std::vector<std::vector<int>> traceCoeffsToElmtMapBlock(blocks.size());
-        std::vector<std::vector<int>> traceCoeffsToElmtTraceBlock(
+        std::vector<size_t> nFwdBwdCoeffsBlock(blocks.size(), 0);
+        std::vector<std::vector<size_t>> traceCoeffsToElmtMapBlock(
+            blocks.size());
+        std::vector<std::vector<size_t>> traceCoeffsToElmtTraceBlock(
             blocks.size());
         std::vector<std::vector<int>> traceCoeffsToElmtSignBlock(blocks.size());
         m_nFwdBwdCoeffsBlock =
-            std::vector<std::vector<int>>(traceBlocks.size());
+            std::vector<std::vector<size_t>>(traceBlocks.size());
         m_traceCoeffsToElmtMap =
-            std::vector<std::vector<MemoryRegion<int>>>(traceBlocks.size());
+            std::vector<std::vector<MemoryRegion<size_t>>>(traceBlocks.size());
         m_traceCoeffsToElmtTrace =
-            std::vector<std::vector<MemoryRegion<int>>>(traceBlocks.size());
+            std::vector<std::vector<MemoryRegion<size_t>>>(traceBlocks.size());
         m_traceCoeffsToElmtSign =
             std::vector<std::vector<MemoryRegion<int>>>(traceBlocks.size());
-        int i = 0, blk0 = 0, blk1 = 0, offset0 = 0, offset1 = 0;
+        unsigned int blk0 = 0, blk1 = 0;
+        size_t i = 0, offset0 = 0, offset1 = 0;
         while (blk1 < traceBlocks.size())
         {
             if (i == m_nFwdBwdCoeffs ||
@@ -149,14 +151,16 @@ public:
                 for (auto &traceCoeffsToElmtMap : traceCoeffsToElmtMapBlock)
                 {
                     m_traceCoeffsToElmtMap[blk1].push_back(
-                        MemoryRegion<int>::template FromVector<MemSpace, int>(
+                        MemoryRegion<size_t>::template FromVector<MemSpace,
+                                                                  size_t>(
                             traceCoeffsToElmtMap, ExecSpace::alignment));
                     traceCoeffsToElmtMap.clear();
                 }
                 for (auto &traceCoeffsToElmtTrace : traceCoeffsToElmtTraceBlock)
                 {
                     m_traceCoeffsToElmtTrace[blk1].push_back(
-                        MemoryRegion<int>::template FromVector<MemSpace, int>(
+                        MemoryRegion<size_t>::template FromVector<MemSpace,
+                                                                  size_t>(
                             traceCoeffsToElmtTrace, ExecSpace::alignment));
                     traceCoeffsToElmtTrace.clear();
                 }
@@ -209,11 +213,11 @@ public:
 protected:
     std::shared_ptr<OperatorIProductWRTBase<TData>> m_IProductWRTBaseOp;
     Field<TData, FieldState::Coeff> m_trace;
-    std::vector<std::vector<MemoryRegion<int>>> m_traceCoeffsToElmtMap;
-    std::vector<std::vector<MemoryRegion<int>>> m_traceCoeffsToElmtTrace;
+    std::vector<std::vector<MemoryRegion<size_t>>> m_traceCoeffsToElmtMap;
+    std::vector<std::vector<MemoryRegion<size_t>>> m_traceCoeffsToElmtTrace;
     std::vector<std::vector<MemoryRegion<int>>> m_traceCoeffsToElmtSign;
-    std::vector<std::vector<int>> m_nFwdBwdCoeffsBlock;
-    int m_nFwdBwdCoeffs;
+    std::vector<std::vector<size_t>> m_nFwdBwdCoeffsBlock;
+    size_t m_nFwdBwdCoeffs;
 
     void v_Apply(Field<TData, FieldState::Phys> &in,
                  Field<TData, FieldState::Coeff> &out) override

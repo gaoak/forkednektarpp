@@ -92,7 +92,7 @@ deInterleave(const unsigned int VectorWidth, size_t numMetaBlocks,
     sycl::free(buffer, SYCLQueue::GetInstance());
 }
 
-template <typename ExecSpace>
+/*template <typename ExecSpace>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 BuildInterleaveMap(size_t numMetaBlocks, const unsigned int npts,
@@ -119,7 +119,7 @@ BuildInterleaveMap(size_t numMetaBlocks, const unsigned int npts,
     });
 
     sycl::free(buffer, SYCLQueue::GetInstance());
-}
+}*/
 
 } // namespace Nektar
 

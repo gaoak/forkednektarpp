@@ -80,8 +80,7 @@ NEK_DEVICE_INLINE
 template <typename ExecSpace, typename Functor>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-parallel_for(const unsigned int begin, const unsigned int end,
-             const Functor &functor)
+parallel_for(const size_t begin, const size_t end, const Functor &functor)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = ((end - begin) + blockSize - 1u) / blockSize;
@@ -90,7 +89,7 @@ parallel_for(const unsigned int begin, const unsigned int end,
     Q.submit([=](sycl::handler &cgh) {
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
                          [=](sycl::nd_item<1> indx) {
-                             unsigned int i = begin + indx.get_global_id(0);
+                             size_t i = begin + indx.get_global_id(0);
 
                              while (i < end)
                              {
@@ -107,8 +106,8 @@ parallel_for(const unsigned int begin, const unsigned int end,
 
 template <typename TData, typename Functor>
 void reduceSumKernel(const unsigned int gridSize, const unsigned int blockSize,
-                     const unsigned int begin, const unsigned int end,
-                     TData *buffer, const Functor &functor)
+                     const size_t begin, const size_t end, TData *buffer,
+                     const Functor &functor)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
@@ -117,8 +116,8 @@ void reduceSumKernel(const unsigned int gridSize, const unsigned int blockSize,
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
-                const unsigned int lid = indx.get_local_id(0);
-                unsigned int gid       = begin + indx.get_global_id(0);
+                const size_t lid = indx.get_local_id(0);
+                size_t gid       = begin + indx.get_global_id(0);
 
                 if (lid == 0)
                 {
@@ -158,8 +157,8 @@ void reduceSumKernel(const unsigned int gridSize, const unsigned int blockSize,
 
 template <typename TData, typename Functor>
 void reduceMaxKernel(const unsigned int gridSize, const unsigned int blockSize,
-                     const unsigned int begin, const unsigned int end,
-                     TData *buffer, const Functor &functor)
+                     const size_t begin, const size_t end, TData *buffer,
+                     const Functor &functor)
 {
     constexpr TData min = std::numeric_limits<TData>::min();
 
@@ -170,8 +169,8 @@ void reduceMaxKernel(const unsigned int gridSize, const unsigned int blockSize,
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
-                const unsigned int lid = indx.get_local_id(0);
-                unsigned int gid       = begin + indx.get_global_id(0);
+                const size_t lid = indx.get_local_id(0);
+                size_t gid       = begin + indx.get_global_id(0);
 
                 if (lid == 0)
                 {
@@ -212,8 +211,8 @@ void reduceMaxKernel(const unsigned int gridSize, const unsigned int blockSize,
 
 template <typename TData, typename Functor>
 void reduceMinKernel(const unsigned int gridSize, const unsigned int blockSize,
-                     const unsigned int begin, const unsigned int end,
-                     TData *buffer, const Functor &functor)
+                     const size_t begin, const size_t end, TData *buffer,
+                     const Functor &functor)
 {
     constexpr TData max = std::numeric_limits<TData>::max();
 
@@ -224,8 +223,8 @@ void reduceMinKernel(const unsigned int gridSize, const unsigned int blockSize,
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
-                const unsigned int lid = indx.get_local_id(0);
-                unsigned int gid       = begin + indx.get_global_id(0);
+                const size_t lid = indx.get_local_id(0);
+                size_t gid       = begin + indx.get_global_id(0);
 
                 if (lid == 0)
                 {
@@ -267,8 +266,8 @@ void reduceMinKernel(const unsigned int gridSize, const unsigned int blockSize,
 template <typename ExecSpace, typename Reduction, typename Functor>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-parallel_reduce(const unsigned int begin, const unsigned int end,
-                const Functor &functor, typename Reduction::value_type *out)
+parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
+                typename Reduction::value_type *out)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -290,15 +289,14 @@ parallel_reduce(const unsigned int begin, const unsigned int end,
     if constexpr (std::is_same_v<Reduction, Nektar::ReduceSum<TData>>)
     {
         reduceSumKernel(gridSize, blockSize, begin, end, buffer, functor);
-        reduceSumKernel(
-            1, gridSize, 0, gridSize, out,
-            [=](const unsigned int i, TData &ans) { ans += buffer[i]; });
+        reduceSumKernel(1, gridSize, 0, gridSize, out,
+                        [=](const size_t i, TData &ans) { ans += buffer[i]; });
     }
     else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMax<TData>>)
     {
         reduceMaxKernel(gridSize, blockSize, begin, end, buffer, functor);
         reduceMaxKernel(1, gridSize, 0, gridSize, out,
-                        [=](const unsigned int i, TData &ans) {
+                        [=](const size_t i, TData &ans) {
                             ans = sycl::max(ans, buffer[i]);
                         });
     }
@@ -306,7 +304,7 @@ parallel_reduce(const unsigned int begin, const unsigned int end,
     {
         reduceMinKernel(gridSize, blockSize, begin, end, buffer, functor);
         reduceMinKernel(1, gridSize, 0, gridSize, out,
-                        [=](const unsigned int i, TData &ans) {
+                        [=](const size_t i, TData &ans) {
                             ans = sycl::min(ans, buffer[i]);
                         });
     }

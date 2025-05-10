@@ -66,7 +66,7 @@ public:
         m_signChange             = assmbMap->GetSignChange();
 
         // Compute number boundary coefficients
-        for (unsigned int i = 0; i < bndCondExpansions.size(); ++i)
+        for (size_t i = 0; i < bndCondExpansions.size(); ++i)
         {
             if (bndConditions[i]->GetBoundaryConditionType() ==
                 SpatialDomains::eDirichlet)
@@ -84,8 +84,8 @@ public:
         // Compute block bound.
         auto blocks =
             GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
-        std::vector<int> blockBound(blocks.size());
-        int bound = 0;
+        std::vector<size_t> blockBound(blocks.size());
+        size_t bound = 0;
         for (unsigned int blk = 0; blk < blocks.size(); ++blk)
         {
             const auto &block = blocks[blk];
@@ -97,9 +97,9 @@ public:
 
         // Collecting boundary coefficients.
         std::vector<TData> bndcoeff(m_nBndCoeff);
-        std::vector<int> index(m_nBndCoeff);
-        unsigned int bndcnt = 0, cnt = 0;
-        for (unsigned int i = 0; i < bndCondExpansions.size(); ++i)
+        std::vector<size_t> index(m_nBndCoeff);
+        size_t bndcnt = 0, cnt = 0;
+        for (size_t i = 0; i < bndCondExpansions.size(); ++i)
         {
             auto nBndExpCoeff = bndCondExpansions[i]->GetNcoeffs();
 
@@ -119,33 +119,34 @@ public:
         }
 
         // Sort boundary coefficients by increasing order of "map[index[i]]".
-        std::vector<std::tuple<int, int, double>> mapReordered;
-        for (int i = 0; i < m_nBndCoeff; i++)
+        std::vector<std::tuple<size_t, size_t, double>> mapReordered;
+        for (size_t i = 0; i < m_nBndCoeff; i++)
         {
             mapReordered.push_back(
                 std::make_tuple(i, map[index[i]], bndcoeff[i]));
         }
         std::sort(std::begin(mapReordered), std::end(mapReordered),
-                  [](std::tuple<int, int, double> const &t1,
-                     std::tuple<int, int, double> const &t2) {
+                  [](std::tuple<size_t, size_t, double> const &t1,
+                     std::tuple<size_t, size_t, double> const &t2) {
                       return std::tie(std::get<1>(t1), std::get<0>(t1)) <
                              std::tie(std::get<1>(t2), std::get<0>(t2));
                   });
 
         // local dir dofs.
         m_localDirSize = assmbMap->GetCopyLocalDirDofs().size();
-        std::vector<std::tuple<int, int, double>> locReordered(m_localDirSize);
+        std::vector<std::tuple<size_t, size_t, double>> locReordered(
+            m_localDirSize);
         if (m_localDirSize > 0)
         {
-            unsigned int cnt = 0;
+            size_t cnt = 0;
             for (auto &it : assmbMap->GetCopyLocalDirDofs())
             {
                 locReordered[cnt] = it;
                 cnt++;
             }
             std::sort(std::begin(locReordered), std::end(locReordered),
-                      [](std::tuple<int, int, double> const &t1,
-                         std::tuple<int, int, double> const &t2) {
+                      [](std::tuple<size_t, size_t, double> const &t1,
+                         std::tuple<size_t, size_t, double> const &t2) {
                           return std::tie(std::get<1>(t1), std::get<0>(t1)) <
                                  std::tie(std::get<1>(t2), std::get<0>(t2));
                       });
@@ -156,7 +157,7 @@ public:
         std::vector<int> parDirBndSignReordered(m_nParDirBndSignSize);
         if (m_nParDirBndSignSize > 0)
         {
-            unsigned int cnt = 0;
+            size_t cnt = 0;
             for (auto &it : parallelDirBndSign)
             {
                 parDirBndSignReordered[cnt] = it;
@@ -164,14 +165,15 @@ public:
             }
             std::sort(std::begin(parDirBndSignReordered),
                       std::end(parDirBndSignReordered),
-                      [](const int t1, const int t2) { return t1 < t2; });
+                      [](const size_t t1, const size_t t2) { return t1 < t2; });
         }
 
         // Split bndcoeff per block.
         std::vector<TData> bndCoeffBlock;
-        std::vector<int> mapBlock;
+        std::vector<size_t> mapBlock;
         std::vector<TData> signBlock;
-        int i = 0, blk = 0, offset = 0, nbndCoeffBlock = 0;
+        unsigned int blk = 0;
+        size_t i = 0, offset = 0, nbndCoeffBlock = 0;
         while (blk < blocks.size())
         {
             if (i == m_nBndCoeff ||
@@ -182,7 +184,7 @@ public:
                     MemoryRegion<TData>::template FromVector<MemSpace, TData>(
                         bndCoeffBlock, ExecSpace::alignment));
                 m_map.push_back(
-                    MemoryRegion<int>::template FromVector<MemSpace, int>(
+                    MemoryRegion<size_t>::template FromVector<MemSpace, size_t>(
                         mapBlock, ExecSpace::alignment));
                 if (m_signChange)
                 {
@@ -215,19 +217,19 @@ public:
         // Split locReordered per block.
         if (m_localDirSize > 0)
         {
-            std::vector<unsigned int> nLocCoeffBlock(blocks.size(), 0);
-            std::vector<std::vector<int>> locid0Block(blocks.size());
-            std::vector<std::vector<int>> locid1Block(blocks.size());
+            std::vector<size_t> nLocCoeffBlock(blocks.size(), 0);
+            std::vector<std::vector<size_t>> locid0Block(blocks.size());
+            std::vector<std::vector<size_t>> locid1Block(blocks.size());
             std::vector<std::vector<TData>> locsignBlock(blocks.size());
-            m_nLocCoeffBlock =
-                std::vector<std::vector<unsigned int>>(blocks.size());
+            m_nLocCoeffBlock = std::vector<std::vector<size_t>>(blocks.size());
             m_locid0 =
-                std::vector<std::vector<MemoryRegion<int>>>(blocks.size());
+                std::vector<std::vector<MemoryRegion<size_t>>>(blocks.size());
             m_locid1 =
-                std::vector<std::vector<MemoryRegion<int>>>(blocks.size());
+                std::vector<std::vector<MemoryRegion<size_t>>>(blocks.size());
             m_locsign =
                 std::vector<std::vector<MemoryRegion<TData>>>(blocks.size());
-            int i = 0, blk0 = 0, blk1 = 0, offset0 = 0, offset1 = 0;
+            unsigned int blk0 = 0, blk1 = 0;
+            size_t i = 0, offset0 = 0, offset1 = 0;
             while (blk1 < blocks.size())
             {
                 if (i == m_localDirSize ||
@@ -241,16 +243,16 @@ public:
                     for (auto &locid0 : locid0Block)
                     {
                         m_locid0[blk1].push_back(
-                            MemoryRegion<int>::template FromVector<MemSpace,
-                                                                   int>(
+                            MemoryRegion<size_t>::template FromVector<MemSpace,
+                                                                      size_t>(
                                 locid0, ExecSpace::alignment));
                         locid0.clear();
                     }
                     for (auto &locid1 : locid1Block)
                     {
                         m_locid1[blk1].push_back(
-                            MemoryRegion<int>::template FromVector<MemSpace,
-                                                                   int>(
+                            MemoryRegion<size_t>::template FromVector<MemSpace,
+                                                                      size_t>(
                                 locid1, ExecSpace::alignment));
                         locid1.clear();
                     }
@@ -327,20 +329,20 @@ public:
     }
 
 protected:
-    std::vector<MemoryRegion<int>> m_map;
+    std::vector<MemoryRegion<size_t>> m_map;
     std::vector<MemoryRegion<TData>> m_sign;
     std::vector<MemoryRegion<TData>> m_bndCoeff;
-    std::vector<unsigned int> m_nBndCoeffBlock;
+    std::vector<size_t> m_nBndCoeffBlock;
     std::vector<MemoryRegion<int>> m_parDirBndSign;
-    std::vector<unsigned int> m_nParDirBndSignBlock;
-    std::vector<std::vector<MemoryRegion<int>>> m_locid0;
-    std::vector<std::vector<MemoryRegion<int>>> m_locid1;
+    std::vector<size_t> m_nParDirBndSignBlock;
+    std::vector<std::vector<MemoryRegion<size_t>>> m_locid0;
+    std::vector<std::vector<MemoryRegion<size_t>>> m_locid1;
     std::vector<std::vector<MemoryRegion<TData>>> m_locsign;
-    std::vector<std::vector<unsigned int>> m_nLocCoeffBlock;
+    std::vector<std::vector<size_t>> m_nLocCoeffBlock;
 
-    unsigned int m_nBndCoeff          = 0;
-    unsigned int m_nParDirBndSignSize = 0;
-    unsigned int m_localDirSize       = 0;
+    size_t m_nBndCoeff          = 0;
+    size_t m_nParDirBndSignSize = 0;
+    size_t m_localDirSize       = 0;
     bool m_signChange;
 
     void v_Apply(Field<TData, FieldState::Coeff> &inout) override

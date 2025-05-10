@@ -264,7 +264,7 @@ namespace Nektar
 {
 
 // Helper function
-[[maybe_unused]] static unsigned int GetExecSpaceAlignment(
+[[maybe_unused]] static size_t GetExecSpaceAlignment(
     const std::string &execspace)
 {
     if (execspace == "AVX")
@@ -302,13 +302,13 @@ NEK_DEVICE_INLINE static unsigned int getLocalRange(
     return blockDim.x;
 }
 
-NEK_DEVICE_INLINE static unsigned int getGlobalIdx(
+NEK_DEVICE_INLINE static size_t getGlobalIdx(
     [[maybe_unused]] const hipcudaBlock1D &threadBlock)
 {
     return blockDim.x * blockIdx.x + threadIdx.x;
 }
 
-NEK_DEVICE_INLINE static unsigned int getGlobalRange(
+NEK_DEVICE_INLINE static size_t getGlobalRange(
     [[maybe_unused]] const hipcudaBlock1D &threadBlock)
 {
     return gridDim.x * blockDim.x;
@@ -661,13 +661,13 @@ NEK_DEVICE_INLINE static unsigned int getLocalRange(
     return threadBlock.get_local_range(0);
 }
 
-NEK_DEVICE_INLINE static unsigned int getGlobalIdx(
+NEK_DEVICE_INLINE static size_t getGlobalIdx(
     [[maybe_unused]] const sycl::nd_item<1> &threadBlock)
 {
     return threadBlock.get_global_id(0);
 }
 
-NEK_DEVICE_INLINE static unsigned int getGlobalRange(
+NEK_DEVICE_INLINE static size_t getGlobalRange(
     [[maybe_unused]] const sycl::nd_item<1> &threadBlock)
 {
     return threadBlock.get_global_range(0);
@@ -846,13 +846,13 @@ NEK_DEVICE_INLINE static unsigned int getLocalRange(
     return 1;
 }
 
-NEK_DEVICE_INLINE static unsigned int getGlobalIdx(
+NEK_DEVICE_INLINE static size_t getGlobalIdx(
     [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
 {
     return 0;
 }
 
-NEK_DEVICE_INLINE static unsigned int getGlobalRange(
+NEK_DEVICE_INLINE static size_t getGlobalRange(
     [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
 {
     return 1;

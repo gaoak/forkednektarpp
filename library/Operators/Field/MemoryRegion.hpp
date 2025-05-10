@@ -191,7 +191,7 @@ public:
      */
     static MemoryRegion<TData> Create(
         const std::string name, const size_t size, const size_t alignment,
-        const size_t device_rank         = 0,
+        const unsigned int device_rank   = 0,
         const MemAllocType &memAllocType = eHostDevice)
     {
         auto mr = MemoryRegion();
@@ -217,7 +217,8 @@ public:
      * @return MemoryRegion<TData>
      */
     static MemoryRegion<TData> Create(
-        const size_t size, const size_t alignment, const size_t device_rank = 0,
+        const size_t size, const size_t alignment,
+        const unsigned int device_rank   = 0,
         const MemAllocType &memAllocType = eHostDevice)
     {
         return MemoryRegion<TData>::Create("", size, alignment, device_rank,
@@ -238,7 +239,7 @@ public:
               class Alloc = std::allocator<TDataIn>>
     static MemoryRegion<TData> FromVector(
         const std::string name, std::vector<TDataIn, Alloc> const &array,
-        const size_t alignment, const size_t device_rank = 0)
+        const size_t alignment, const unsigned int device_rank = 0)
     {
         auto mr = MemoryRegion<TData>::Create(name, array.size(), alignment,
                                               device_rank);
@@ -259,7 +260,7 @@ public:
               class Alloc = std::allocator<TDataIn>>
     static MemoryRegion<TData> FromVector(
         std::vector<TDataIn, Alloc> const &array, const size_t alignment,
-        const size_t device_rank = 0)
+        const unsigned int device_rank = 0)
     {
         return MemoryRegion<TData>::template FromVector<MemSpace, TDataIn>(
             "", array, alignment, device_rank);
@@ -280,7 +281,7 @@ public:
     static MemoryRegion<TData> FromArray(
         const std::string name,
         Nektar::Array<Nektar::OneD, TDataIn> const &array,
-        const size_t alignment, const size_t device_rank = 0)
+        const size_t alignment, const unsigned int device_rank = 0)
     {
         auto mr = MemoryRegion<TData>::Create(name, array.size(), alignment,
                                               device_rank);
@@ -300,7 +301,7 @@ public:
     template <typename MemSpace, typename TDataIn>
     static MemoryRegion<TData> FromArray(
         Nektar::Array<Nektar::OneD, TDataIn> const &array,
-        const size_t alignment, const size_t device_rank = 0)
+        const size_t alignment, const unsigned int device_rank = 0)
     {
         return MemoryRegion<TData>::template FromArray<MemSpace, TDataIn>(
             "", array, alignment, device_rank);
@@ -499,7 +500,7 @@ public:
      * @brief Get the storage device rank.
      *
      */
-    size_t GetDeviceRank() const
+    unsigned int GetDeviceRank() const
     {
         if (m_storage == nullptr)
         {
@@ -558,11 +559,9 @@ private:
      *
      * @return MemoryRegion<TData>
      */
-    static MemoryRegion<TData> CreateFromHostPtr(const std::string name,
-                                                 TData *h_src,
-                                                 const size_t size,
-                                                 const size_t alignment,
-                                                 const size_t device_rank = 0)
+    static MemoryRegion<TData> CreateFromHostPtr(
+        const std::string name, TData *h_src, const size_t size,
+        const size_t alignment, const unsigned int device_rank = 0)
     {
         auto mr = MemoryRegion();
 
@@ -586,10 +585,9 @@ private:
      *
      * @return MemoryRegion<TData>
      */
-    static MemoryRegion<TData> CreateFromHostPtr(TData *h_src,
-                                                 const size_t size,
-                                                 const size_t alignment,
-                                                 const size_t device_rank = 0)
+    static MemoryRegion<TData> CreateFromHostPtr(
+        TData *h_src, const size_t size, const size_t alignment,
+        const unsigned int device_rank = 0)
     {
         return MemoryRegion<TData>::CreateFromHostPtr("", h_src, size,
                                                       alignment, device_rank);

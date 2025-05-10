@@ -356,11 +356,10 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase3DSumFacKernel(
 
 template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void StdAlignDerivBase1DSumFacQPKernel(
-    const unsigned int ncoord, const unsigned int nq0,
-    const unsigned int insize, const TData *__restrict__ w0,
-    const TData *__restrict__ df, const TData *__restrict__ jac,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    const TthreadBlock &threadBlock)
+    const unsigned int ncoord, const unsigned int nq0, const size_t insize,
+    const TData *__restrict__ w0, const TData *__restrict__ df,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, const TthreadBlock &threadBlock)
 {
     const unsigned int dfsize = DEFORMED ? nq0 : 1u;
 
@@ -394,7 +393,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void StdAlignDerivBase2DSumFacQPKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int insize, const TData *__restrict__ w0,
+    const size_t insize, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ f0,
     const TData *__restrict__ f1, const TData *__restrict__ df,
     const TData *__restrict__ jac, const TData *__restrict__ in,
@@ -452,7 +451,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void StdAlignDerivBase3DSumFacQPKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const unsigned int insize, const TData *__restrict__ w0,
+    const size_t insize, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ w2,
     const TData *__restrict__ f0, const TData *__restrict__ f1,
     const TData *__restrict__ f1m, const TData *__restrict__ f2,

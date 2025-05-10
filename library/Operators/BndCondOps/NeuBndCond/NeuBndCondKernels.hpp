@@ -42,21 +42,20 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename TData>
-void NeuBndCondKernel(const unsigned int bndExpSize, const unsigned int *mapPtr,
+void NeuBndCondKernel(const size_t bndExpSize, const size_t *mapPtr,
                       const TData *inptr, TData *outptr)
 {
     Nektar::parallel_for<ExecSpace>(
         0u, bndExpSize,
-        NEKTAR_LAMBDA(const unsigned int i) { outptr[mapPtr[i]] += inptr[i]; });
+        NEKTAR_LAMBDA(const size_t i) { outptr[mapPtr[i]] += inptr[i]; });
 }
 
 template <typename ExecSpace, typename TData>
-void NeuBndCondKernel(const unsigned int bndExpSize, const TData *signPtr,
-                      const unsigned int *mapPtr, const TData *inptr,
-                      TData *outptr)
+void NeuBndCondKernel(const size_t bndExpSize, const TData *signPtr,
+                      const size_t *mapPtr, const TData *inptr, TData *outptr)
 {
     Nektar::parallel_for<ExecSpace>(
-        0u, bndExpSize, NEKTAR_LAMBDA(const unsigned int i) {
+        0u, bndExpSize, NEKTAR_LAMBDA(const size_t i) {
             outptr[mapPtr[i]] += signPtr[i] * inptr[i];
         });
 }

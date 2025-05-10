@@ -218,16 +218,16 @@ public:
 
         if (scale_out != 1.0)
         {
-            int eid = 0;
+            size_t eid = 0;
             for (unsigned int blk = 0; blk < blocks_in.size(); ++blk)
             {
                 auto expPtr = fixt_explist->GetExp(eid);
 
-                int npts0 = expPtr->GetNumPoints(0);
-                int ndata = 1;
-                for (int d = 0; d < expPtr->GetNumBases(); ++d)
+                unsigned int npts0 = expPtr->GetNumPoints(0);
+                unsigned int ndata = 1;
+                for (unsigned int d = 0; d < expPtr->GetNumBases(); ++d)
                 {
-                    int npts = expPtr->GetNumPoints(d);
+                    unsigned int npts = expPtr->GetNumPoints(d);
                     ndata *= (npts0 - npts == 1) ? (int)(npts0 * scale_out - 1)
                                                  : (int)(npts * scale_out);
                 }
@@ -312,12 +312,12 @@ public:
                 return false;
             }
 
-            unsigned int MisMatchcnt = 0, total = 0;
+            size_t MisMatchcnt = 0, total = 0;
 
             for (unsigned int component = 0;
                  component < fixt_out->GetNumComponents(); ++component)
             {
-                for (unsigned int el = 0;
+                for (size_t el = 0;
                      el < fixt_out->GetBlocks()[blk].GetNumElements(); ++el)
                 {
                     for (unsigned int pts = 0;
@@ -326,7 +326,7 @@ public:
                         if (std::isnan(*outptr) || std::isinf(*outptr) ||
                             std::abs(*outptr - *expptr) > tol)
                         {
-                            printf("%04u %04u %20.16f %20.16f %20.16f\n", el,
+                            printf("%04lu %04u %20.16f %20.16f %20.16f\n", el,
                                    pts, *outptr, *expptr,
                                    std::abs(*outptr - *expptr));
                             MisMatchcnt++;
@@ -370,7 +370,7 @@ public:
             auto &block = in.GetBlocks()[blk];
             double *inptr =
                 block.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
-            unsigned int numElmtsPad =
+            size_t numElmtsPad =
                 block.GetNumElements() + block.GetNumPaddingElements();
             for (unsigned int component = 0; component < in.GetNumComponents();
                  component++)
@@ -390,7 +390,7 @@ protected:
     Field<TData, stateOut> *fixt_out      = nullptr;
     Field<TData, stateOut> *fixt_expected = nullptr;
     std::shared_ptr<TExpList> fixt_explist{nullptr};
-    unsigned int alignment;
+    size_t alignment;
     LibUtilities::SessionReaderSharedPtr session;
     std::string testModule{STRVX(BOOST_TEST_MODULE)};
 };

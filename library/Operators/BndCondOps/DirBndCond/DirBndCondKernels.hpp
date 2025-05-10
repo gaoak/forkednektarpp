@@ -40,41 +40,40 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename TData>
-void DirBndCondKernel(const unsigned int nsize, const int *mapPtr,
+void DirBndCondKernel(const size_t nsize, const size_t *mapPtr,
                       const TData *inptr, TData *outptr)
 {
     Nektar::parallel_for<ExecSpace>(
         0u, nsize,
-        NEKTAR_LAMBDA(const unsigned int i) { outptr[mapPtr[i]] = inptr[i]; });
+        NEKTAR_LAMBDA(const size_t i) { outptr[mapPtr[i]] = inptr[i]; });
 }
 
 template <typename ExecSpace, typename TData>
-void DirBndCondKernel(const unsigned int nsize, const TData *signPtr,
-                      const int *mapPtr, const TData *inptr, TData *outptr)
+void DirBndCondKernel(const size_t nsize, const TData *signPtr,
+                      const size_t *mapPtr, const TData *inptr, TData *outptr)
 {
     Nektar::parallel_for<ExecSpace>(
-        0u, nsize, NEKTAR_LAMBDA(const unsigned int i) {
+        0u, nsize, NEKTAR_LAMBDA(const size_t i) {
             outptr[mapPtr[i]] = signPtr[i] * inptr[i];
         });
 }
 
 template <typename ExecSpace, typename TData>
-void ParallelDirBndSignKernel(const unsigned int nsize, const int *signPtr,
+void ParallelDirBndSignKernel(const size_t nsize, const int *signPtr,
                               TData *outptr)
 {
     Nektar::parallel_for<ExecSpace>(
-        0u, nsize,
-        NEKTAR_LAMBDA(const unsigned int i) { outptr[signPtr[i]] *= -1; });
+        0u, nsize, NEKTAR_LAMBDA(const size_t i) { outptr[signPtr[i]] *= -1; });
 }
 
 template <typename ExecSpace, typename TData>
-void LocalDirBndCondKernel(const unsigned int nsize, const int *id0Ptr,
-                           const int *id1Ptr, const TData *signPtr,
+void LocalDirBndCondKernel(const size_t nsize, const size_t *id0Ptr,
+                           const size_t *id1Ptr, const TData *signPtr,
                            const TData *inptr, TData *outptr)
 {
     // Note: inptr and outptr might alias each other.
     Nektar::parallel_for<ExecSpace>(
-        0u, nsize, NEKTAR_LAMBDA(const unsigned int i) {
+        0u, nsize, NEKTAR_LAMBDA(const size_t i) {
             outptr[id0Ptr[i]] = inptr[id1Ptr[i]] * signPtr[i];
         });
 }

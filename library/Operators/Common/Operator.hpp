@@ -188,17 +188,19 @@ NEK_FORCE_INLINE static constexpr unsigned int GetDeviceBlockSize(
 
 template <typename Implementation>
 NEK_FORCE_INLINE static constexpr unsigned int GetDeviceGridSize(
-    const unsigned int nelmt)
+    const size_t nelmt)
 {
+    size_t maxGridSize = 2147483647;
+
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
         constexpr unsigned int blocksize =
             NektarSpaces::Device::defaultBlockSize;
-        return std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
+        return std::min((nelmt + blocksize - 1u) / blocksize, maxGridSize);
     }
     else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
-        return std::min(nelmt, 2147483647u);
+        return std::min(nelmt, maxGridSize);
     }
     else
     {

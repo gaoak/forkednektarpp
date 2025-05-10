@@ -88,74 +88,69 @@ public:
 template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, blasHandle>, void>::type NekGemm(
     THandle handle, std::string transposeA, std::string transposeB,
-    const unsigned int M, const unsigned int N, const unsigned int K,
-    const TData alpha, const TData *a, const unsigned int lda, const TData *b,
-    const unsigned int ldb, const TData beta, TData *c, const unsigned int ldc);
+    const size_t M, const size_t N, const size_t K, const TData alpha,
+    const TData *a, const size_t lda, const TData *b, const size_t ldb,
+    const TData beta, TData *c, const size_t ldc);
 #if defined(NEKTAR_ENABLE_CUDA)
 template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, cublasHandle_t>, void>::type NekGemm(
     THandle handle, std::string transposeA, std::string transposeB,
-    const unsigned int M, const unsigned int N, const unsigned int K,
-    const TData alpha, const TData *a, const unsigned int lda, const TData *b,
-    const unsigned int ldb, const TData beta, TData *c, const unsigned int ldc);
+    const size_t M, const size_t N, const size_t K, const TData alpha,
+    const TData *a, const size_t lda, const TData *b, const size_t ldb,
+    const TData beta, TData *c, const size_t ldc);
 #elif defined(NEKTAR_ENABLE_HIP)
 template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, hipblasHandle_t>, void>::type
 NekGemm(THandle handle, std::string transposeA, std::string transposeB,
-        const unsigned int M, const unsigned int N, const unsigned int K,
-        const TData alpha, const TData *a, const unsigned int lda,
-        const TData *b, const unsigned int ldb, const TData beta, TData *c,
-        const unsigned int ldc);
+        const size_t M, const size_t N, const size_t K, const TData alpha,
+        const TData *a, const size_t lda, const TData *b, const size_t ldb,
+        const TData beta, TData *c, const size_t ldc);
 #elif defined(NEKTAR_ENABLE_SYCL)
 template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, sycl::queue>, void>::type NekGemm(
     THandle handle, std::string transposeA, std::string transposeB,
-    const unsigned int M, const unsigned int N, const unsigned int K,
-    const TData alpha, const TData *a, const unsigned int lda, const TData *b,
-    const unsigned int ldb, const TData beta, TData *c, const unsigned int ldc);
+    const size_t M, const size_t N, const size_t K, const TData alpha,
+    const TData *a, const size_t lda, const TData *b, const size_t ldb,
+    const TData beta, TData *c, const size_t ldc);
 #endif
 
 template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, blasHandle>, void>::type
 NekGemmStridedBatched(THandle handle, std::string transposeA,
-                      std::string transposeB, const unsigned int M,
-                      const unsigned int N, const unsigned int K,
-                      const TData alpha, const TData *a, const unsigned int lda,
-                      const unsigned int strideA, const TData *b,
-                      const unsigned int ldb, const unsigned int strideB,
-                      const TData beta, TData *c, const unsigned int ldc,
-                      const unsigned int strideC, const unsigned int batchSize);
+                      std::string transposeB, const size_t M, const size_t N,
+                      const size_t K, const TData alpha, const TData *a,
+                      const size_t lda, const size_t strideA, const TData *b,
+                      const size_t ldb, const size_t strideB, const TData beta,
+                      TData *c, const size_t ldc, const size_t strideC,
+                      const size_t batchSize);
 #if defined(NEKTAR_ENABLE_CUDA)
 template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, cublasHandle_t>, void>::type
 NekGemmStridedBatched(THandle handle, std::string transposeA,
-                      std::string transposeB, const unsigned int M,
-                      const unsigned int N, const unsigned int K,
-                      const TData alpha, const TData *a, const unsigned int lda,
-                      const unsigned int strideA, const TData *b,
-                      const unsigned int ldb, const unsigned int strideB,
-                      const TData beta, TData *c, const unsigned int ldc,
-                      const unsigned int strideC, const unsigned int batchSize);
+                      std::string transposeB, const size_t M, const size_t N,
+                      const size_t K, const TData alpha, const TData *a,
+                      const size_t lda, const size_t strideA, const TData *b,
+                      const size_t ldb, const size_t strideB, const TData beta,
+                      TData *c, const size_t ldc, const size_t strideC,
+                      const size_t batchSize);
 #elif defined(NEKTAR_ENABLE_HIP)
 template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, hipblasHandle_t>, void>::type
 NekGemmStridedBatched(THandle handle, std::string transposeA,
-                      std::string transposeB, const unsigned int M,
-                      const unsigned int N, const unsigned int K,
-                      const TData alpha, const TData *a, const unsigned int lda,
-                      const unsigned int strideA, const TData *b,
-                      const unsigned int ldb, const unsigned int strideB,
-                      const TData beta, TData *c, const unsigned int ldc,
-                      const unsigned int strideC, const unsigned int batchSize);
+                      std::string transposeB, const size_t M, const size_t N,
+                      const size_t K, const TData alpha, const TData *a,
+                      const size_t lda, const size_t strideA, const TData *b,
+                      const size_t ldb, const size_t strideB, const TData beta,
+                      TData *c, const size_t ldc, const size_t strideC,
+                      const size_t batchSize);
 #elif defined(NEKTAR_ENABLE_SYCL)
 template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, sycl::queue>, void>::type
 NekGemmStridedBatched(THandle handle, std::string transposeA,
-                      std::string transposeB, const unsigned int M,
-                      const unsigned int N, const unsigned int K,
-                      const TData alpha, const TData *a, const unsigned int lda,
-                      const unsigned int strideA, const TData *b,
-                      const unsigned int ldb, const unsigned int strideB,
-                      const TData beta, TData *c, const unsigned int ldc,
-                      const unsigned int strideC, const unsigned int batchSize);
+                      std::string transposeB, const size_t M, const size_t N,
+                      const size_t K, const TData alpha, const TData *a,
+                      const size_t lda, const size_t strideA, const TData *b,
+                      const size_t ldb, const size_t strideB, const TData beta,
+                      TData *c, const size_t ldc, const size_t strideC,
+                      const size_t batchSize);
 #endif

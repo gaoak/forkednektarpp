@@ -44,10 +44,10 @@ template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                             void>::type
-    AddTraceIntegralKernel(const unsigned int nsize,
-                           const int *traceCoeffsToElmtMapPtr,
+    AddTraceIntegralKernel(const size_t nsize,
+                           const size_t *traceCoeffsToElmtMapPtr,
                            const int *traceCoeffsToElmtSignPtr,
-                           const int *traceCoeffsToElmtTracePtr,
+                           const size_t *traceCoeffsToElmtTracePtr,
                            const TData *tracePtr, TData *outptr)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
@@ -71,10 +71,10 @@ template <typename ExecSpace>
 NEK_FORCE_INLINE static
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                             void>::type
-    ReOrderMapKernel([[maybe_unused]] const unsigned int nsize,
-                     [[maybe_unused]] int *traceCoeffsToElmtMapPtr,
+    ReOrderMapKernel([[maybe_unused]] const size_t nsize,
+                     [[maybe_unused]] size_t *traceCoeffsToElmtMapPtr,
                      [[maybe_unused]] int *traceCoeffsToElmtSignPtr,
-                     [[maybe_unused]] int *traceCoeffsToElmtTracePtr)
+                     [[maybe_unused]] size_t *traceCoeffsToElmtTracePtr)
 {
 }
 

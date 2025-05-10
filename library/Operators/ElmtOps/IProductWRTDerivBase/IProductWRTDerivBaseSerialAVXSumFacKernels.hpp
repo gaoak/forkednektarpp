@@ -89,7 +89,7 @@ NEK_FORCE_INLINE static void StdAlignDerivBase2D(
     const unsigned int nq0, const unsigned int nq1, const unsigned int indim,
     const simd_type *df_Ptr,
     std::vector<simd_type, tinysimd::allocator<simd_type>> &df_tmp,
-    const unsigned int inoffset, const simd_type *inptr, simd_type *out[2],
+    const size_t inoffset, const simd_type *inptr, simd_type *out[2],
     [[maybe_unused]] const simd_type *Fac0,
     [[maybe_unused]] const simd_type *Fac1, const simd_type *jac_Ptr,
     const simd_type *w0, const simd_type *w1)
@@ -182,7 +182,7 @@ NEK_FORCE_INLINE static void StdAlignDerivBase3D(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const simd_type *df_Ptr,
     std::vector<simd_type, tinysimd::allocator<simd_type>> &df_tmp,
-    const unsigned int inoffset, [[maybe_unused]] const simd_type *Fac0,
+    const size_t inoffset, [[maybe_unused]] const simd_type *Fac0,
     [[maybe_unused]] const simd_type *Fac1,
     [[maybe_unused]] const simd_type *Fac1a,
     [[maybe_unused]] const simd_type *Fac2, const simd_type *jac_Ptr,

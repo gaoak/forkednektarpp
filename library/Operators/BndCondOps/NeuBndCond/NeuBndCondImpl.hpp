@@ -65,7 +65,7 @@ public:
         m_signChange            = assmbMap->GetSignChange();
 
         // Compute number boundary coefficients.
-        for (unsigned int i = 0; i < bndCondExpansions.size(); ++i)
+        for (size_t i = 0; i < bndCondExpansions.size(); ++i)
         {
             if (bndConditions[i]->GetBoundaryConditionType() ==
                     SpatialDomains::eNeumann ||
@@ -85,8 +85,8 @@ public:
         // Compute block bound.
         auto blocks =
             GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
-        std::vector<unsigned int> blockBound(blocks.size());
-        unsigned int bound = 0;
+        std::vector<size_t> blockBound(blocks.size());
+        size_t bound = 0;
         for (unsigned int blk = 0; blk < blocks.size(); ++blk)
         {
             const auto &block = blocks[blk];
@@ -98,9 +98,9 @@ public:
 
         // Collecting boundary coefficients.
         std::vector<TData> bndcoeff(m_nBndCoeff);
-        std::vector<unsigned int> index(m_nBndCoeff);
-        unsigned int bndcnt = 0, cnt = 0;
-        for (unsigned int i = 0; i < bndCondExpansions.size(); ++i)
+        std::vector<size_t> index(m_nBndCoeff);
+        size_t bndcnt = 0, cnt = 0;
+        for (size_t i = 0; i < bndCondExpansions.size(); ++i)
         {
             auto nBndExpCoeff = bndCondExpansions[i]->GetNcoeffs();
 
@@ -123,9 +123,10 @@ public:
 
         // Compute number of bndcoeff per block.
         std::vector<TData> bndCoeffBlock;
-        std::vector<unsigned int> mapBlock;
+        std::vector<size_t> mapBlock;
         std::vector<TData> signBlock;
-        unsigned int i = 0, blk = 0, offset = 0, nbndCoeffBlock = 0;
+        unsigned int blk = 0;
+        size_t i = 0, offset = 0, nbndCoeffBlock = 0;
         while (blk < blocks.size())
         {
             if (i == m_nBndCoeff || map[index[i]] >= blockBound[blk])
@@ -134,9 +135,9 @@ public:
                 m_bndCoeff.push_back(
                     MemoryRegion<TData>::template FromVector<MemSpace, TData>(
                         bndCoeffBlock, ExecSpace::alignment));
-                m_map.push_back(MemoryRegion<unsigned int>::template FromVector<
-                                MemSpace, unsigned int>(mapBlock,
-                                                        ExecSpace::alignment));
+                m_map.push_back(
+                    MemoryRegion<size_t>::template FromVector<MemSpace, size_t>(
+                        mapBlock, ExecSpace::alignment));
                 if (m_signChange)
                 {
                     m_sign.push_back(
@@ -177,11 +178,11 @@ public:
     }
 
 protected:
-    std::vector<MemoryRegion<unsigned int>> m_map;
+    std::vector<MemoryRegion<size_t>> m_map;
     std::vector<MemoryRegion<TData>> m_sign;
     std::vector<MemoryRegion<TData>> m_bndCoeff;
-    std::vector<unsigned int> m_nBndCoeffBlock;
-    unsigned int m_nBndCoeff = 0;
+    std::vector<size_t> m_nBndCoeffBlock;
+    size_t m_nBndCoeff = 0;
     bool m_signChange;
 
     void v_Apply(Field<TData, FieldState::Coeff> &inout) override

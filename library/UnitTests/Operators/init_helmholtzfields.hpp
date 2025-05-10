@@ -58,8 +58,7 @@ public:
                 block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
             for (unsigned int nc = 0; nc < fixt_in->GetNumComponents(); ++nc)
             {
-                for (unsigned int el = 0, cnt = 0; el < block.GetNumElements();
-                     ++el)
+                for (size_t el = 0, cnt = 0; el < block.GetNumElements(); ++el)
                 {
                     for (unsigned int coeff = 0; coeff < block.GetNumData();
                          ++coeff, ++cnt)
@@ -83,8 +82,8 @@ public:
     void ExpectedSolution()
     {
         // Calculate expected result from Nektar++
-        int compSize = fixt_in->GetNumComponents();
-        int ncoeffs  = fixt_explist->GetNcoeffs();
+        unsigned int compSize = fixt_in->GetNumComponents();
+        size_t ncoeffs        = fixt_explist->GetNcoeffs();
 
         m_lambda = 1.0;
 
@@ -94,14 +93,14 @@ public:
         Array<OneD, double> outcoeffs(compSize * ncoeffs);
         Array<OneD, double> tmp;
 
-        for (int i = 0; i < compSize; ++i)
+        for (unsigned int i = 0; i < compSize; ++i)
         {
-            unsigned int e      = 0;
-            unsigned int offset = i * ncoeffs;
+            size_t e      = 0;
+            size_t offset = i * ncoeffs;
             for (const auto &block : fixt_expected->GetBlocks())
             {
                 auto nmTot = fixt_explist->GetExp(e)->GetNcoeffs();
-                for (unsigned int el = 0; el < block.GetNumElements(); ++el)
+                for (size_t el = 0; el < block.GetNumElements(); ++el)
                 {
                     StdRegions::StdMatrixKey mkey(
                         StdRegions::eHelmholtz,

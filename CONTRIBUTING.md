@@ -331,9 +331,12 @@ changes are required before merging.
 - Put spaces after `if`, `while`, etc., but not after function names (see the
   example above).
 - Use `unsigned int` for small non-negative integer quantities such as number 
-  (or index) of modes, quadrature, dimension, etc.
+  (or index) of modes, quadrature, dimension, components, variables, blocks, 
+  memory region, vector/interleave width, etc.
 - Use `size_t` for large non-negative integer quantities such as number 
-  (or index) of elements, total degree of freedoms, etc.
+  (or index) of elements, group elements, total degree of freedoms, global offset, 
+  etc., or for size parameter of general functions (e.g. blas) and memory allocation 
+  (e.g. alignment)
 
 
 ### Variables and naming

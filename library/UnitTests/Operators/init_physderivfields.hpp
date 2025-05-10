@@ -71,7 +71,7 @@ public:
             Vmath::Fill(totpoints, 1.0, z, 1);
         }
 
-        unsigned int el = 0, exp_pts = 0;
+        size_t el = 0, exp_pts = 0;
         for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
         {
             auto &block = fixt_in->GetBlocks()[blk];
@@ -80,8 +80,7 @@ public:
 
             for (unsigned int nc = 0; nc < fixt_in->GetNumComponents(); ++nc)
             {
-                for (unsigned int e = 0, cnt = 0; e < block.GetNumElements();
-                     ++e)
+                for (size_t e = 0, cnt = 0; e < block.GetNumElements(); ++e)
                 {
                     // set M[3] to the point in the zero direction
                     // otherwise to the points in the basis direction if
@@ -95,8 +94,9 @@ public:
                         M[i] = fixt_explist->GetExp(el)->GetNumPoints(i);
                     }
 
-                    for (unsigned int phys = 0, pts = exp_pts;
-                         phys < block.GetNumData(); ++phys, ++pts, ++cnt)
+                    size_t pts = exp_pts;
+                    for (unsigned int phys = 0; phys < block.GetNumData();
+                         ++phys, ++pts, ++cnt)
                     {
                         double tmp = 0.0;
                         for (unsigned int i = 0; i < M[0] / 2; i++)
@@ -124,13 +124,13 @@ public:
     void NektarSolution()
     {
         // Calculate expected result from Nektar++
-        int compSize               = fixt_in->GetNumComponents();
-        int nphys                  = fixt_explist->GetTotPoints();
-        int coordim                = fixt_explist->GetCoordim(0);
+        unsigned int compSize      = fixt_in->GetNumComponents();
+        size_t nphys               = fixt_explist->GetTotPoints();
+        unsigned int coordim       = fixt_explist->GetCoordim(0);
         Array<OneD, double> inphys = fixt_in->ToArray();
         Array<OneD, double> outphys(compSize * coordim * nphys);
 
-        for (int i = 0; i < compSize; ++i)
+        for (unsigned int i = 0; i < compSize; ++i)
         {
             Array<OneD, double> outphys0 = outphys + i * nphys * coordim;
             Array<OneD, double> outphys1 = outphys0 + nphys;

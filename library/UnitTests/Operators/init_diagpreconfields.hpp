@@ -63,8 +63,7 @@ public:
             auto &block = fixt_in->GetBlocks()[blk];
             auto inptr =
                 block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-            for (unsigned int el = 0, cnt = 0; el < block.GetNumElements();
-                 ++el)
+            for (size_t el = 0, cnt = 0; el < block.GetNumElements(); ++el)
             {
                 for (unsigned int coeff = 0; coeff < block.GetNumData();
                      ++coeff, ++cnt)

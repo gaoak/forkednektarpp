@@ -237,10 +237,10 @@ protected:
                                       inblock.GetNumElements(), false)));
 
         // Get interleave parameter.
-        const unsigned int interleave_width = inblock.GetInterleaveWidth();
-        const auto width_ratio              = (interleave_width == 1)
-                                                  ? 1
-                                                  : interleave_width / m_implInterleaveWidth;
+        const auto interleave_width = inblock.GetInterleaveWidth();
+        const auto width_ratio      = (interleave_width == 1)
+                                          ? 1
+                                          : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
 
@@ -268,7 +268,7 @@ protected:
         {
             auto dfptr = dfptr_init;
 
-            for (unsigned int e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -325,10 +325,10 @@ protected:
                                       inblock.GetNumElements(), false)));
 
         // Get interleave parameter.
-        const unsigned int interleave_width = inblock.GetInterleaveWidth();
-        const auto width_ratio              = (interleave_width == 1)
-                                                  ? 1
-                                                  : interleave_width / m_implInterleaveWidth;
+        const auto interleave_width = inblock.GetInterleaveWidth();
+        const auto width_ratio      = (interleave_width == 1)
+                                          ? 1
+                                          : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
 
@@ -353,7 +353,7 @@ protected:
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             auto dfptr = dfptr_init;
-            for (unsigned int e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -412,10 +412,10 @@ protected:
                                       inblock.GetNumElements(), false)));
 
         // Get interleave parameter.
-        const unsigned int interleave_width = inblock.GetInterleaveWidth();
-        const auto width_ratio              = (interleave_width == 1)
-                                                  ? 1
-                                                  : interleave_width / m_implInterleaveWidth;
+        const auto interleave_width = inblock.GetInterleaveWidth();
+        const auto width_ratio      = (interleave_width == 1)
+                                          ? 1
+                                          : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
 
@@ -440,7 +440,7 @@ protected:
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             auto dfptr = dfptr_init;
-            for (unsigned int e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -498,10 +498,10 @@ protected:
                                       inblock.GetNumElements(), false)));
 
         // Get interleave parameter.
-        const unsigned int interleave_width = inblock.GetInterleaveWidth();
-        const auto width_ratio              = (interleave_width == 1)
-                                                  ? 1
-                                                  : interleave_width / m_implInterleaveWidth;
+        const auto interleave_width = inblock.GetInterleaveWidth();
+        const auto width_ratio      = (interleave_width == 1)
+                                          ? 1
+                                          : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
 
@@ -526,7 +526,7 @@ protected:
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             auto dfptr = dfptr_init;
-            for (unsigned int e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -587,10 +587,10 @@ protected:
                                       inblock.GetNumElements(), false)));
 
         // Get interleave parameter.
-        const unsigned int interleave_width = inblock.GetInterleaveWidth();
-        const auto width_ratio              = (interleave_width == 1)
-                                                  ? 1
-                                                  : interleave_width / m_implInterleaveWidth;
+        const auto interleave_width = inblock.GetInterleaveWidth();
+        const auto width_ratio      = (interleave_width == 1)
+                                          ? 1
+                                          : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
 
@@ -621,7 +621,7 @@ protected:
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             auto dfptr = dfptr_init;
-            for (unsigned int e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -679,10 +679,10 @@ protected:
                                       inblock.GetNumElements(), false)));
 
         // Get interleave parameter.
-        const unsigned int interleave_width = inblock.GetInterleaveWidth();
-        const auto width_ratio              = (interleave_width == 1)
-                                                  ? 1
-                                                  : interleave_width / m_implInterleaveWidth;
+        const auto interleave_width = inblock.GetInterleaveWidth();
+        const auto width_ratio      = (interleave_width == 1)
+                                          ? 1
+                                          : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
 
@@ -713,7 +713,7 @@ protected:
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             auto dfptr = dfptr_init;
-            for (unsigned int e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)

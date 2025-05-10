@@ -92,7 +92,7 @@ public:
 
     template <typename MemSpace>
     MemoryRegion<value_type> Create(const ModeIndexKey &modeIndexKey,
-                                    const unsigned int alignment)
+                                    const size_t alignment)
     {
         const auto shapeType = modeIndexKey.m_shapeType;
 

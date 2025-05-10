@@ -68,7 +68,7 @@ public:
      * @param memAllocType - [eHostDevice, ePinned]
      */
     MemoryRegionHost(const std::string name, const size_t size,
-                     const size_t alignment, const size_t device_rank,
+                     const size_t alignment, const unsigned int device_rank,
                      const MemAllocType &memAllocType)
     {
         m_owned        = true;
@@ -93,7 +93,7 @@ public:
      * @param device_rank - device (GPU) rank id
      */
     MemoryRegionHost(const std::string name, TData *h_src, const size_t size,
-                     const size_t alignment, const size_t device_rank)
+                     const size_t alignment, const unsigned int device_rank)
     {
         m_owned       = false;
         m_initialize  = false;

@@ -44,13 +44,13 @@ NEK_FORCE_INLINE static
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                             void>::type
-    AddTraceIntegralKernel(const unsigned int nsize,
-                           const int *traceCoeffsToElmtMapPtr,
+    AddTraceIntegralKernel(const size_t nsize,
+                           const size_t *traceCoeffsToElmtMapPtr,
                            const int *traceCoeffsToElmtSignPtr,
-                           const int *traceCoeffsToElmtTracePtr,
+                           const size_t *traceCoeffsToElmtTracePtr,
                            const TData *tracePtr, TData *outptr)
 {
-    for (unsigned int i = 0; i < nsize; i++)
+    for (size_t i = 0; i < nsize; i++)
     {
         outptr[traceCoeffsToElmtMapPtr[i]] +=
             traceCoeffsToElmtSignPtr[i] *
@@ -63,28 +63,28 @@ NEK_FORCE_INLINE static
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                             void>::type
-    ReOrderMapKernel(const unsigned int nsize, int *traceCoeffsToElmtMapPtr,
+    ReOrderMapKernel(const size_t nsize, size_t *traceCoeffsToElmtMapPtr,
                      int *traceCoeffsToElmtSignPtr,
-                     int *traceCoeffsToElmtTracePtr)
+                     size_t *traceCoeffsToElmtTracePtr)
 {
     // sort the trace map and get the permutation
-    std::vector<int> permutation(nsize);
+    std::vector<size_t> permutation(nsize);
     std::iota(permutation.begin(), permutation.end(), 0);
-    std::sort(permutation.begin(), permutation.end(), [&](int i, int j) {
+    std::sort(permutation.begin(), permutation.end(), [&](size_t i, size_t j) {
         return traceCoeffsToElmtTracePtr[i] < traceCoeffsToElmtTracePtr[j];
     });
     // apply the permutation to the map and sign
-    std::vector<int> tempMap(nsize);
+    std::vector<size_t> tempMap(nsize);
     std::vector<int> tempSign(nsize);
-    std::vector<int> tempTrace(nsize);
-    for (unsigned int i = 0; i < nsize; i++)
+    std::vector<size_t> tempTrace(nsize);
+    for (size_t i = 0; i < nsize; i++)
     {
         tempMap[i]   = traceCoeffsToElmtMapPtr[permutation[i]];
         tempSign[i]  = traceCoeffsToElmtSignPtr[permutation[i]];
         tempTrace[i] = traceCoeffsToElmtTracePtr[permutation[i]];
     }
     // copy back to the original map and sign
-    for (unsigned int i = 0; i < nsize; i++)
+    for (size_t i = 0; i < nsize; i++)
     {
         traceCoeffsToElmtMapPtr[i]   = tempMap[i];
         traceCoeffsToElmtSignPtr[i]  = tempSign[i];

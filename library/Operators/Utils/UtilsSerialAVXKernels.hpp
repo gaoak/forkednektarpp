@@ -44,13 +44,13 @@ inline
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                             void>::type
-    interleave(const unsigned int numMetaBlocks, const unsigned int npts,
+    interleave(const size_t numMetaBlocks, const unsigned int npts,
                TData *inout)
 {
     const unsigned int metaBlockSize = npts * VectorWidth;
     std::vector<TData> wsp(metaBlockSize);
 
-    for (unsigned int metaBlock = 0; metaBlock < numMetaBlocks; ++metaBlock)
+    for (size_t metaBlock = 0; metaBlock < numMetaBlocks; ++metaBlock)
     {
         std::copy(inout, inout + metaBlockSize, wsp.data());
 
@@ -70,14 +70,13 @@ inline
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                             void>::type
-    deInterleave(const unsigned int VectorWidth,
-                 const unsigned int numMetaBlocks, const unsigned int npts,
-                 TData *inout)
+    deInterleave(const unsigned int VectorWidth, const size_t numMetaBlocks,
+                 const unsigned int npts, TData *inout)
 {
     const unsigned int metaBlockSize = npts * VectorWidth;
     std::vector<TData> wsp(metaBlockSize);
 
-    for (unsigned int metaBlock = 0; metaBlock < numMetaBlocks; ++metaBlock)
+    for (size_t metaBlock = 0; metaBlock < numMetaBlocks; ++metaBlock)
     {
         std::copy(inout, inout + metaBlockSize, wsp.data());
 
@@ -92,7 +91,7 @@ inline
     }
 }
 
-template <typename ExecSpace>
+/*template <typename ExecSpace>
 inline
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
@@ -130,7 +129,7 @@ inline
         deInterleaveMapPtr += MetaBlockSize;
         count += MetaBlockSize;
     }
-}
+}*/
 
 template <typename simd_type>
 NEK_FORCE_INLINE static void MatVecKernel(const unsigned int n,
