@@ -39,16 +39,16 @@
 namespace Nektar
 {
 
-template <unsigned int VectorWidth, typename ExecSpace, typename TData>
+template <unsigned int interleaveWidth, typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-interleave(size_t numMetaBlocks, const unsigned int npts, TData *inout)
+interleave(size_t numElmtGroups, const unsigned int npts, TData *inout)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
 
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = numMetaBlocks;
-    const size_t bufferSize      = VectorWidth * numMetaBlocks * npts;
+    const unsigned int gridSize  = numElmtGroups;
+    const size_t bufferSize      = interleaveWidth * numElmtGroups * npts;
 
     GetDeviceProperties::CheckGlobalMemoryUsage(sizeof(TData) * bufferSize);
     TData *buffer =
@@ -57,8 +57,8 @@ interleave(size_t numMetaBlocks, const unsigned int npts, TData *inout)
     Q.submit([=](sycl::handler &cgh) {
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
                          [=](sycl::nd_item<1> item_ct1) {
-                             interleaveKernel(VectorWidth, numMetaBlocks, npts,
-                                              buffer, inout, item_ct1);
+                             interleaveKernel(interleaveWidth, numElmtGroups,
+                                              npts, buffer, inout, item_ct1);
                          });
     });
 
@@ -68,14 +68,14 @@ interleave(size_t numMetaBlocks, const unsigned int npts, TData *inout)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-deInterleave(const unsigned int VectorWidth, size_t numMetaBlocks,
+deInterleave(const unsigned int interleaveWidth, size_t numElmtGroups,
              const unsigned int npts, TData *inout)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
 
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = numMetaBlocks;
-    const size_t bufferSize      = VectorWidth * numMetaBlocks * npts;
+    const unsigned int gridSize  = numElmtGroups;
+    const size_t bufferSize      = interleaveWidth * numElmtGroups * npts;
 
     GetDeviceProperties::CheckGlobalMemoryUsage(sizeof(TData) * bufferSize);
     TData *buffer =
@@ -84,42 +84,13 @@ deInterleave(const unsigned int VectorWidth, size_t numMetaBlocks,
     Q.submit([=](sycl::handler &cgh) {
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
                          [=](sycl::nd_item<1> item_ct1) {
-                             deInterleaveKernel(VectorWidth, numMetaBlocks,
+                             deInterleaveKernel(interleaveWidth, numElmtGroups,
                                                 npts, buffer, inout, item_ct1);
                          });
     });
 
     sycl::free(buffer, SYCLQueue::GetInstance());
 }
-
-/*template <typename ExecSpace>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-BuildInterleaveMap(size_t numMetaBlocks, const unsigned int npts,
-                   const unsigned int newVecWidth, const unsigned int offset,
-                   int *deInterleaveMapPtr, int *interleaveMapPtr)
-{
-    sycl::queue &Q = SYCLQueue::GetInstance();
-
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = numMetaBlocks;
-    const size_t bufferSize      = newVecWidth * numMetaBlocks * npts;
-
-    GetDeviceProperties::CheckGlobalMemoryUsage(sizeof(int) * bufferSize);
-    int *buffer =
-        sycl::malloc_device<int>(bufferSize, SYCLQueue::GetInstance());
-
-    Q.submit([=](sycl::handler &cgh) {
-        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
-                         [=](sycl::nd_item<1> item_ct1) {
-                             BuildInterleaveMapKernel(
-                                 npts, newVecWidth, offset, deInterleaveMapPtr,
-                                 interleaveMapPtr, buffer, item_ct1);
-                         });
-    });
-
-    sycl::free(buffer, SYCLQueue::GetInstance());
-}*/
 
 } // namespace Nektar
 

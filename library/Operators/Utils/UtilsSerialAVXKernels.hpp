@@ -39,29 +39,30 @@
 namespace Nektar
 {
 
-template <unsigned int VectorWidth, typename ExecSpace, typename TData>
+template <unsigned int interleaveWidth, typename ExecSpace, typename TData>
 inline
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                             void>::type
-    interleave(const size_t numMetaBlocks, const unsigned int npts,
+    interleave(const size_t numElmtGroups, const unsigned int npts,
                TData *inout)
 {
-    const unsigned int metaBlockSize = npts * VectorWidth;
-    std::vector<TData> wsp(metaBlockSize);
+    const unsigned int elmtGroupSize = npts * interleaveWidth;
+    std::vector<TData> wsp(elmtGroupSize);
 
-    for (size_t metaBlock = 0; metaBlock < numMetaBlocks; ++metaBlock)
+    for (size_t e = 0; e < numElmtGroups; ++e)
     {
-        std::copy(inout, inout + metaBlockSize, wsp.data());
+        std::copy(inout, inout + elmtGroupSize, wsp.data());
 
         for (unsigned int idx = 0; idx < npts; ++idx)
         {
-            for (unsigned int vecElem = 0; vecElem < VectorWidth; ++vecElem)
+            for (unsigned int vecElem = 0; vecElem < interleaveWidth; ++vecElem)
             {
-                inout[idx * VectorWidth + vecElem] = wsp[vecElem * npts + idx];
+                inout[idx * interleaveWidth + vecElem] =
+                    wsp[vecElem * npts + idx];
             }
         }
-        inout += metaBlockSize;
+        inout += elmtGroupSize;
     }
 }
 
@@ -70,66 +71,27 @@ inline
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                             void>::type
-    deInterleave(const unsigned int VectorWidth, const size_t numMetaBlocks,
+    deInterleave(const unsigned int interleaveWidth, const size_t numElmtGroups,
                  const unsigned int npts, TData *inout)
 {
-    const unsigned int metaBlockSize = npts * VectorWidth;
-    std::vector<TData> wsp(metaBlockSize);
+    const unsigned int elmtGroupSize = npts * interleaveWidth;
+    std::vector<TData> wsp(elmtGroupSize);
 
-    for (size_t metaBlock = 0; metaBlock < numMetaBlocks; ++metaBlock)
+    for (size_t e = 0; e < numElmtGroups; ++e)
     {
-        std::copy(inout, inout + metaBlockSize, wsp.data());
+        std::copy(inout, inout + elmtGroupSize, wsp.data());
 
         for (unsigned int idx = 0; idx < npts; ++idx)
         {
-            for (unsigned int vecElem = 0; vecElem < VectorWidth; ++vecElem)
+            for (unsigned int vecElem = 0; vecElem < interleaveWidth; ++vecElem)
             {
-                inout[vecElem * npts + idx] = wsp[idx * VectorWidth + vecElem];
+                inout[vecElem * npts + idx] =
+                    wsp[idx * interleaveWidth + vecElem];
             }
         }
-        inout += metaBlockSize;
+        inout += elmtGroupSize;
     }
 }
-
-/*template <typename ExecSpace>
-inline
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
-                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                            void>::type
-    BuildInterleaveMap(const unsigned int numMetaBlocks,
-                       const unsigned int npts, const unsigned int newVecWidth,
-                       const unsigned int offset, int *deInterleaveMapPtr,
-                       int *interleaveMapPtr)
-{
-    auto MetaBlockSize = newVecWidth * npts;
-    std::vector<int> tmp(MetaBlockSize);
-    unsigned int count = offset;
-
-    for (unsigned int metaBlock = 0; metaBlock < numMetaBlocks; ++metaBlock)
-    {
-        // assign count+0, count+1, count+2, count+3, count+4, ....
-        for (unsigned int i = 0; i < MetaBlockSize; i++)
-        {
-            tmp[i] = count + i;
-        }
-        // get the deinterleave map
-        for (unsigned int n = 0; n < npts; n++)
-        {
-            for (unsigned int vecElem = 0; vecElem < newVecWidth; ++vecElem)
-            {
-                deInterleaveMapPtr[n * newVecWidth + vecElem] =
-                    tmp[vecElem * npts + n];
-            }
-        }
-        // get the interleave map
-        for (unsigned int i = 0; i < MetaBlockSize; i++)
-        {
-            interleaveMapPtr[deInterleaveMapPtr[i]] = count + i;
-        }
-        deInterleaveMapPtr += MetaBlockSize;
-        count += MetaBlockSize;
-    }
-}*/
 
 template <typename simd_type>
 NEK_FORCE_INLINE static void MatVecKernel(const unsigned int n,

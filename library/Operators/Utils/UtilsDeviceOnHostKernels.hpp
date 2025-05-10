@@ -39,67 +39,30 @@
 namespace Nektar
 {
 
-template <unsigned int VectorWidth, typename ExecSpace, typename TData>
+template <unsigned int interleaveWidth, typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-interleave(const size_t numMetaBlocks, const unsigned int npts, TData *inout)
+interleave(const size_t numElmtGroups, const unsigned int npts, TData *inout)
 {
-    const unsigned int metaBlockSize = npts * VectorWidth;
-    std::vector<TData> buffer(metaBlockSize);
+    const unsigned int elmtGroupSize = npts * interleaveWidth;
+    std::vector<TData> buffer(elmtGroupSize);
 
-    interleaveKernel(VectorWidth, numMetaBlocks, npts, buffer.data(), inout,
+    interleaveKernel(interleaveWidth, numElmtGroups, npts, buffer.data(), inout,
                      deviceOnHostBlock1D());
 }
 
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-deInterleave(const unsigned int VectorWidth, const size_t numMetaBlocks,
+deInterleave(const unsigned int interleaveWidth, const size_t numElmtGroups,
              const unsigned int npts, TData *inout)
 {
-    const unsigned int metaBlockSize = npts * VectorWidth;
-    std::vector<TData> buffer(metaBlockSize);
+    const unsigned int elmtGroupSize = npts * interleaveWidth;
+    std::vector<TData> buffer(elmtGroupSize);
 
-    deInterleaveKernel(VectorWidth, numMetaBlocks, npts, buffer.data(), inout,
-                       deviceOnHostBlock1D());
+    deInterleaveKernel(interleaveWidth, numElmtGroups, npts, buffer.data(),
+                       inout, deviceOnHostBlock1D());
 }
-
-/*template <typename ExecSpace>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-BuildInterleaveMap(const unsigned int numMetaBlocks, const unsigned int npts,
-                   const unsigned int newVecWidth, const unsigned int offset,
-                   int *deInterleaveMapPtr, int *interleaveMapPtr)
-{
-    auto MetaBlockSize = newVecWidth * npts;
-    std::vector<int> tmp(MetaBlockSize);
-    unsigned int count = offset;
-
-    for (unsigned int metaBlock = 0; metaBlock < numMetaBlocks; ++metaBlock)
-    {
-        // assign count+0, count+1, count+2, count+3, count+4, ....
-        for (unsigned int i = 0; i < MetaBlockSize; i++)
-        {
-            tmp[i] = count + i;
-        }
-        // get the deinterleave map
-        for (unsigned int n = 0; n < npts; n++)
-        {
-            for (unsigned int vecElem = 0; vecElem < newVecWidth; ++vecElem)
-            {
-                deInterleaveMapPtr[n * newVecWidth + vecElem] =
-                    tmp[vecElem * npts + n];
-            }
-        }
-        // get the interleave map
-        for (unsigned int i = 0; i < MetaBlockSize; i++)
-        {
-            interleaveMapPtr[deInterleaveMapPtr[i]] = count + i;
-        }
-        deInterleaveMapPtr += MetaBlockSize;
-        count += MetaBlockSize;
-    }
-}*/
 
 } // namespace Nektar
 
