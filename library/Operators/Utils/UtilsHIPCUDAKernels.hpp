@@ -41,48 +41,36 @@ namespace Nektar
 {
 
 template <typename TData>
-__global__ void interleaveKernelLauncher(const unsigned int VectorWidth,
-                                         size_t numMetaBlocks,
+__global__ void interleaveKernelLauncher(const unsigned int interleaveWidth,
+                                         size_t numElmtGroups,
                                          const unsigned int npts, TData *buffer,
                                          TData *inout,
                                          const hipcudaBlock1D &threadBlock)
 {
-    interleaveKernel(VectorWidth, numMetaBlocks, npts, buffer, inout,
+    interleaveKernel(interleaveWidth, numElmtGroups, npts, buffer, inout,
                      threadBlock);
 }
 
 template <typename TData>
-__global__ void deInterleaveKernelLauncher(const unsigned int VectorWidth,
-                                           size_t numMetaBlocks,
+__global__ void deInterleaveKernelLauncher(const unsigned int interleaveWidth,
+                                           size_t numElmtGroups,
                                            const unsigned int npts,
                                            TData *buffer, TData *inout,
                                            const hipcudaBlock1D &threadBlock)
 {
-    deInterleaveKernel(VectorWidth, numMetaBlocks, npts, buffer, inout,
+    deInterleaveKernel(interleaveWidth, numElmtGroups, npts, buffer, inout,
                        threadBlock);
 }
 
-/*template <typename TData>
-__global__ void BuildInterleaveMapKernelLauncher(const unsigned int npts,
-                                                 const unsigned int newVecWidth,
-                                                 const unsigned int offset,
-                                                 TData *deInterleaveMapPtr,
-                                                 TData *interleaveMapPtr,
-                                                 TData *buffer)
-{
-    BuildInterleaveMapKernel(npts, newVecWidth, offset, deInterleaveMapPtr,
-                             interleaveMapPtr, buffer, hipcudaBlock1D());
-}*/
-
-template <unsigned int VectorWidth, typename ExecSpace, typename TData>
+template <unsigned int interleaveWidth, typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-interleave(size_t numMetaBlocks, const unsigned int npts, TData *inout)
+interleave(size_t numElmtGroups, const unsigned int npts, TData *inout)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = numMetaBlocks;
+    const unsigned int gridSize  = numElmtGroups;
     const size_t bufferSize =
-        sizeof(TData) * VectorWidth * numMetaBlocks * npts;
+        sizeof(TData) * interleaveWidth * numElmtGroups * npts;
 
     TData *buffer;
     GetDeviceProperties::CheckGlobalMemoryUsage(bufferSize);
@@ -92,7 +80,7 @@ interleave(size_t numMetaBlocks, const unsigned int npts, TData *inout)
     CHECK_HIPCUDA_ERROR(hipMalloc(&buffer, bufferSize));
 #endif
     interleaveKernelLauncher<<<gridSize, blockSize>>>(
-        VectorWidth, numMetaBlocks, npts, buffer, inout, hipcudaBlock1D());
+        interleaveWidth, numElmtGroups, npts, buffer, inout, hipcudaBlock1D());
     CHECK_LAST_HIPCUDA_ERROR();
 #if defined(NEKTAR_ENABLE_CUDA)
     CHECK_HIPCUDA_ERROR(cudaFree(buffer));
@@ -104,13 +92,13 @@ interleave(size_t numMetaBlocks, const unsigned int npts, TData *inout)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-deInterleave(const unsigned int VectorWidth, size_t numMetaBlocks,
+deInterleave(const unsigned int interleaveWidth, size_t numElmtGroups,
              const unsigned int npts, TData *inout)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = numMetaBlocks;
+    const unsigned int gridSize  = numElmtGroups;
     const size_t bufferSize =
-        sizeof(TData) * VectorWidth * numMetaBlocks * npts;
+        sizeof(TData) * interleaveWidth * numElmtGroups * npts;
 
     TData *buffer;
     GetDeviceProperties::CheckGlobalMemoryUsage(bufferSize);
@@ -120,7 +108,7 @@ deInterleave(const unsigned int VectorWidth, size_t numMetaBlocks,
     CHECK_HIPCUDA_ERROR(hipMalloc(&buffer, bufferSize));
 #endif
     deInterleaveKernelLauncher<<<gridSize, blockSize>>>(
-        VectorWidth, numMetaBlocks, npts, buffer, inout, hipcudaBlock1D());
+        interleaveWidth, numElmtGroups, npts, buffer, inout, hipcudaBlock1D());
     CHECK_LAST_HIPCUDA_ERROR();
 #if defined(NEKTAR_ENABLE_CUDA)
     CHECK_HIPCUDA_ERROR(cudaFree(buffer));
@@ -128,35 +116,6 @@ deInterleave(const unsigned int VectorWidth, size_t numMetaBlocks,
     CHECK_HIPCUDA_ERROR(hipFree(buffer));
 #endif
 }
-
-/*template <typename ExecSpace>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-BuildInterleaveMap(size_t numMetaBlocks, const unsigned int npts,
-                   const unsigned int newVecWidth, const unsigned int offset,
-                   int *deInterleaveMapPtr, int *interleaveMapPtr)
-{
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = numMetaBlocks;
-    const size_t bufferSize = sizeof(int) * newVecWidth * numMetaBlocks * npts;
-
-    int *buffer;
-    GetDeviceProperties::CheckGlobalMemoryUsage(bufferSize);
-#if defined(NEKTAR_ENABLE_CUDA)
-    CHECK_HIPCUDA_ERROR(cudaMalloc(&buffer, bufferSize));
-#elif defined(NEKTAR_ENABLE_HIP)
-    CHECK_HIPCUDA_ERROR(hipMalloc(&buffer, bufferSize));
-#endif
-    BuildInterleaveMapKernelLauncher<<<gridSize, blockSize>>>(
-        npts, newVecWidth, offset, deInterleaveMapPtr, interleaveMapPtr,
-        buffer);
-    CHECK_LAST_HIPCUDA_ERROR();
-#if defined(NEKTAR_ENABLE_CUDA)
-    CHECK_HIPCUDA_ERROR(cudaFree(buffer));
-#elif defined(NEKTAR_ENABLE_HIP)
-    CHECK_HIPCUDA_ERROR(hipFree(buffer));
-#endif
-}*/
 
 } // namespace Nektar
 
