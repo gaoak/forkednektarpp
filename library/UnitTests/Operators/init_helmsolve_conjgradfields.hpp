@@ -120,6 +120,12 @@ public:
                 }
             }
         }
+
+        // Get lambda from session or default to 10.0
+        m_lambda = session->DefinesParameter("Lambda")
+                       ? session->GetParameter("Lambda")
+                       : 10.0;
+
         ExpectedSolution();
     }
 
@@ -128,9 +134,9 @@ public:
         auto HelmSolveOp  = OperatorHelmSolve<double>::Create(fixt_explist);
         auto DiagPreconOp = OperatorDiagPrecon<double>::Create(fixt_explist);
         auto ConjGradOp   = OperatorConjGrad<double>::Create(fixt_explist);
+        HelmSolveOp->SetLambda(m_lambda);
         HelmSolveOp->SetLinearSolver(ConjGradOp);
         HelmSolveOp->SetPrecon(DiagPreconOp);
-        HelmSolveOp->SetLambda(1.0);
         HelmSolveOp->Apply(*fixt_in, *fixt_out);
     }
 
@@ -140,13 +146,13 @@ public:
         Array<OneD, double> inphys = fixt_in->ToArray();
         Array<OneD, double> outcoeffs(fixt_explist->GetNcoeffs(), 0.0);
         StdRegions::ConstFactorMap factors;
-        factors[StdRegions::eFactorLambda] =
-            session->DefinesParameter("Lambda")
-                ? session->GetParameter("Lambda")
-                : 1.0;
+        factors[StdRegions::eFactorLambda] = m_lambda;
         fixt_explist->HelmSolve(inphys, outcoeffs, factors);
         fixt_expected->CopyArray<NektarSpaces::HostSpace>(outcoeffs);
     }
+
+protected:
+    double m_lambda;
 };
 
 #define TEST(type, filename)                                                   \

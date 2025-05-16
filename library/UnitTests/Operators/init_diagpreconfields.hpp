@@ -72,6 +72,12 @@ public:
                 }
             }
         }
+
+        // Get lambda from session or default to 10.0
+        m_lambda = session->DefinesParameter("Lambda")
+                       ? session->GetParameter("Lambda")
+                       : 10.0;
+
         ExpectedSolution();
     }
 
@@ -79,7 +85,7 @@ public:
     {
         auto HelmholtzOp  = OperatorHelmholtz<double>::Create(fixt_explist);
         auto DiagPreconOp = OperatorDiagPrecon<double>::Create(fixt_explist);
-        HelmholtzOp->SetLambda(1.0);
+        HelmholtzOp->SetLambda(m_lambda);
         DiagPreconOp->Configure(HelmholtzOp);
         DiagPreconOp->Apply(*fixt_in, *fixt_out);
     }
@@ -89,11 +95,10 @@ public:
         // Calculate expected result from Nektar++
         Array<OneD, double> incoeffs = fixt_in->ToArray();
         Array<OneD, double> outcoeffs(fixt_explist->GetNcoeffs(), 0.0);
+
         StdRegions::ConstFactorMap factors;
-        factors[StdRegions::eFactorLambda] =
-            session->DefinesParameter("Lambda")
-                ? session->GetParameter("Lambda")
-                : 1.0;
+        factors[StdRegions::eFactorLambda] = m_lambda;
+
         auto map = fixt_explist->GetLocalToGlobalMap();
         GlobalLinSysKey key(StdRegions::eHelmholtz, map, factors);
         auto globalSys = GetGlobalLinSysFactory().CreateInstance(
@@ -104,6 +109,9 @@ public:
         precond->DoPreconditioner(incoeffs, outcoeffs, true);
         fixt_expected->CopyArray<NektarSpaces::HostSpace>(outcoeffs);
     }
+
+private:
+    double m_lambda;
 };
 
 #define TEST(type, filename)                                                   \

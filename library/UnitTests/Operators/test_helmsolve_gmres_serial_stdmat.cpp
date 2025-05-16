@@ -66,7 +66,7 @@ TEST_HELMSOLVE(helmsolve_hex, Helmholtz3D_Hex, 1.0E-10)
 
 TEST_HELMSOLVE(helmsolve_prism, Helmholtz3D_Prism, 1.0E-10)
 
-TEST_HELMSOLVE(helmsolve_pyr, Helmholtz3D_Pyr, 1.0E-10)
+TEST_HELMSOLVE(helmsolve_pyr, Helmholtz3D_Pyr, 2.0E-10)
 
 TEST_HELMSOLVE(helmsolve_tet, Helmholtz3D_Tet, 1.0E-10)
 

@@ -71,6 +71,11 @@ public:
             }
         }
 
+        // Get lambda from session or default to 10.0
+        m_lambda = session->DefinesParameter("Lambda")
+                       ? session->GetParameter("Lambda")
+                       : 10.0;
+
         ExpectedSolution();
     }
 
@@ -101,7 +106,6 @@ public:
             // Vmath::Fill(nphys, 0.0, tmp = m_vel + d * nphys, 1);
         }
 
-        m_lambda = 1.0;
         StdRegions::FactorMap factors;
         factors[StdRegions::eFactorLambda] = m_lambda;
         Array<OneD, double> incoeffs       = fixt_in->ToArray();

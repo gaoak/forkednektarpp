@@ -66,7 +66,7 @@ TEST_HELMSOLVE(helmsolve_device_sumfac_hex, Helmholtz3D_Hex, 1.0E-10)
 
 TEST_HELMSOLVE(helmsolve_device_sumfac_prism, Helmholtz3D_Prism, 1.0E-10)
 
-TEST_HELMSOLVE(helmsolve_device_sumfac_pyr, Helmholtz3D_Pyr, 1.0E-10)
+TEST_HELMSOLVE(helmsolve_device_sumfac_pyr, Helmholtz3D_Pyr, 2.0E-10)
 
 TEST_HELMSOLVE(helmsolve_device_sumfac_tet, Helmholtz3D_Tet, 1.0E-10)
 

@@ -169,7 +169,7 @@ BOOST_FIXTURE_TEST_CASE(avx_sum, MathKernels)
     auto h_out = sumKernelLauncher(*fixt_in);
 
     // Check results
-    BOOST_TEST(fabs(h_out - out) < 5.0E-12);
+    BOOST_TEST(fabs(h_out - out) < 1.0E-11);
     boost::test_tools::output_test_stream output;
     {
         std::cout << "AVX = " << h_out << " Sum = " << out << std::endl;

@@ -384,6 +384,11 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
     auto tag             = opName + execName + implName + dataType;
 
     // Check if addition configure is required.
+    if (opName == "Helmholtz")
+    {
+        std::dynamic_pointer_cast<OperatorHelmholtz<TData>>(oper)->SetLambda(
+            1.0);
+    }
     if (opName == "LinAdvDiffReaction")
     {
         Array<OneD, NekDouble> vel(expList->GetCoordim(0) *
