@@ -66,13 +66,13 @@ public:
         this->v_Apply(inblock, outblock);
     }
 
-    void SetLambda(TData lambda)
+    void SetLambda(const TData &lambda)
     {
-        m_lambda = lambda;
+        this->v_SetLambda(lambda);
     }
 
 protected:
-    TData m_lambda = 1.0;
+    TData m_lambda;
 
     BlockOperatorHelmholtz(const LocalRegions::ExpansionSharedPtr &exp,
                            NekDataWarehouseSharedPtr dataWarehouse)
@@ -84,6 +84,8 @@ protected:
 
     virtual void v_Apply(BlockAccessor<TData> &inblock,
                          BlockAccessor<TData> &outblock) = 0;
+
+    virtual void v_SetLambda(const TData &lambda) = 0;
 };
 
 // Helmholtz base class
@@ -136,9 +138,11 @@ public:
         {
             this->m_blockOperator[blk]->SetLambda(lambda);
         }
+        m_isSetLambda = true;
     }
 
 protected:
+    bool m_isSetLambda = false;
     std::vector<std::shared_ptr<BlockOperatorHelmholtz<TData>>> m_blockOperator;
 
     OperatorHelmholtz(const MultiRegions::ExpListSharedPtr &expansionList)
@@ -154,6 +158,10 @@ protected:
     {
         ASSERTL1(in.GetNumComponents() == out.GetNumComponents(),
                  "Number of input and output components differ");
+
+        ASSERTL1(m_isSetLambda,
+                 "m_lambda has not been set."
+                 "Set the value with SetLambda() before calling Apply().");
 
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < m_blockOperator.size(); ++blk)

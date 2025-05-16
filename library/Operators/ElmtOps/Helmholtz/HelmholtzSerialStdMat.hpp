@@ -193,6 +193,14 @@ protected:
             }
         }
     }
+
+    void v_SetLambda(const TData &lambda) override
+    {
+        this->m_lambda = lambda;
+
+        // Update IProductWRTBase operator
+        m_IProductWRTBaseOp->SetScale(lambda);
+    }
 };
 
 } // namespace Nektar::Operators::detail

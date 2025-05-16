@@ -89,7 +89,7 @@
         </SOLVERINFO>
 
         <PARAMETERS>
-            <P> Lambda    = 1 </P>
+            <P> Lambda    = 10 </P>
             <P> IterativeSolverTolerance = 1e-14 </P>
         </PARAMETERS>
 

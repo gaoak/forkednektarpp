@@ -77,7 +77,7 @@ public:
     }
 
 protected:
-    TData m_lambda = 1.0;
+    TData m_lambda;
 
     BlockOperatorLinAdvDiffReaction(const LocalRegions::ExpansionSharedPtr &exp,
                                     NekDataWarehouseSharedPtr dataWarehouse)
@@ -144,14 +144,18 @@ public:
         {
             this->m_blockOperator[blk]->SetLambda(lambda);
         }
+        m_isSetLambda = true;
     }
 
     void SetAdvVel(const unsigned int nVel, const Array<OneD, NekDouble> &Vel)
     {
         v_SetAdvVel(nVel, Vel);
+        m_isSetAdvVel = true;
     }
 
 protected:
+    bool m_isSetLambda = false;
+    bool m_isSetAdvVel = false;
     std::vector<std::shared_ptr<BlockOperatorLinAdvDiffReaction<TData>>>
         m_blockOperator;
     Field<TData, FieldState::Phys> m_advVel;
@@ -170,6 +174,14 @@ protected:
     {
         ASSERTL1(in.GetNumComponents() == out.GetNumComponents(),
                  "Number of input and output components differ");
+
+        ASSERTL1(m_isSetLambda,
+                 "m_lambda has not been set."
+                 "Set the value with SetLambda() before calling Apply().");
+
+        ASSERTL1(m_isSetAdvVel,
+                 "m_advVel has not been set."
+                 "Set the value with SetAdvVel() before calling Apply().");
 
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < m_blockOperator.size(); ++blk)

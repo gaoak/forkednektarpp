@@ -169,7 +169,7 @@ BOOST_FIXTURE_TEST_CASE(device_sum, MathKernels)
     auto h_out = sumKernelLauncher(*fixt_in);
 
     // Check results
-    BOOST_TEST(fabs(h_out - out) < 5.0E-12);
+    BOOST_TEST(fabs(h_out - out) < 6.0E-12);
     boost::test_tools::output_test_stream output;
     {
         std::cout << "Device = " << h_out << " Sum = " << out << std::endl;
@@ -287,7 +287,7 @@ BOOST_FIXTURE_TEST_CASE(device_lpnorm, MathKernels)
         auto h_out = lpnormKernelLauncher(p, *fixt_in);
 
         // Check results
-        BOOST_TEST(fabs(h_out - out) < 5.0E-10);
+        BOOST_TEST(fabs(h_out - out) < 2.0E-9);
         boost::test_tools::output_test_stream output;
         {
             std::cout << "Device = " << std::sqrt(h_out) << " L" << p

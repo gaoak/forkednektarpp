@@ -69,6 +69,12 @@ public:
                 inptr += block.size();
             }
         }
+
+        // Get lambda from session or default to 10.0
+        m_lambda = session->DefinesParameter("Lambda")
+                       ? session->GetParameter("Lambda")
+                       : 10.0;
+
         ExpectedSolution();
     }
 
@@ -85,11 +91,10 @@ public:
         unsigned int compSize = fixt_in->GetNumComponents();
         size_t ncoeffs        = fixt_explist->GetNcoeffs();
 
-        m_lambda = 1.0;
-
         StdRegions::FactorMap factors;
         factors[StdRegions::eFactorLambda] = m_lambda;
-        Array<OneD, double> incoeffs       = fixt_in->ToArray();
+
+        Array<OneD, double> incoeffs = fixt_in->ToArray();
         Array<OneD, double> outcoeffs(compSize * ncoeffs);
         Array<OneD, double> tmp;
 

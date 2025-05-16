@@ -305,6 +305,12 @@ protected:
         }
     }
 
+    // Nothing to do for DeviceSumFac
+    void v_SetLambda(const TData &lambda) override
+    {
+        this->m_lambda = lambda;
+    }
+
     size_t GetWorkspaceSize(const LibUtilities::ShapeType shapeType,
                             const size_t nelmt,
                             [[maybe_unused]] const unsigned int ncoord,

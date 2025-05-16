@@ -259,6 +259,12 @@ protected:
         }
     }
 
+    // Nothing to do for SerialAVXSumFac
+    void v_SetLambda(const TData &lambda) override
+    {
+        this->m_lambda = lambda;
+    }
+
     void SegBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
 
