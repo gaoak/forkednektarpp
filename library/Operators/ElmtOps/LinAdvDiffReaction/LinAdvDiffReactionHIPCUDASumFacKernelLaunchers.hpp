@@ -291,9 +291,8 @@ NEK_FORCE_INLINE static void LinAdvDiffReaction2DKernel(
     const unsigned int shmemsize =
         sizeof(TData) * HelmholtzSharedMemorySize<SHAPE_TYPE, Implementation>(
                             nq0, nq1, nm0, nm1);
-    const unsigned int blocksize =
-        GetDeviceBlockSize<Implementation>(nq0 * nq1);
-    const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
+    const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
+    const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
     GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 

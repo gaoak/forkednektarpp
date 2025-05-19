@@ -99,13 +99,13 @@ NEK_FORCE_INLINE static
                        const int *signPtr, const TData *incoeffPtr,
                        TData *coeffPtr)
 {
+    const unsigned int shmemsize = sizeof(TData) * nmaxcoeff;
     const unsigned int blockSize = NektarSpaces::vector_width<TData>::value;
     const unsigned int gridSize  = nsize;
 
-    RobBndCond2DKernelLauncher<negflag>
-        <<<gridSize, blockSize, sizeof(TData) * nmaxcoeff>>>(
-            nsize, ncoeffPtr, offsetPtr, matOffsetPtr, mapOffsetPtr, matPtr,
-            mapPtr, signPtr, incoeffPtr, coeffPtr, hipcudaBlock1D());
+    RobBndCond2DKernelLauncher<negflag><<<gridSize, blockSize, shmemsize>>>(
+        nsize, ncoeffPtr, offsetPtr, matOffsetPtr, mapOffsetPtr, matPtr, mapPtr,
+        signPtr, incoeffPtr, coeffPtr, hipcudaBlock1D());
     CHECK_LAST_HIPCUDA_ERROR();
 }
 

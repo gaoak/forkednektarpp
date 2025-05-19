@@ -151,19 +151,21 @@ NEK_FORCE_INLINE static void PhysDeriv2DKernel(
     sycl::queue &Q = SYCLQueue::GetInstance();
 
     const unsigned int shmemsize =
+        sizeof(TData) *
         PhysDerivSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1);
     const unsigned int blocksize =
         GetDeviceBlockSize<Implementation>(nq0 * nq1);
     const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
 
-    GetDeviceProperties::CheckSharedMemoryUsage(sizeof(TData) * shmemsize);
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
     Q.submit([=](sycl::handler &cgh) {
-        sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
+        sycl::local_accessor<unsigned char, 1> shmem(sycl::range<1>(shmemsize),
+                                                     cgh);
         cgh.parallel_for(
             sycl::nd_range<1>(gridsize * blocksize, blocksize),
             [=](sycl::nd_item<1> item_ct1) {
-                TData *shmemptr = &shmem[0];
+                TData *shmemptr = (TData *)&shmem[0];
 #pragma forceinline
                 PhysDeriv2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
                     ncoord, nq0, nq1, nelmt, D0, D1, f0, f1, df, in, out,
@@ -189,18 +191,20 @@ NEK_FORCE_INLINE static void PhysDeriv2DKernel(const size_t nelmt,
     sycl::queue &Q = SYCLQueue::GetInstance();
 
     const unsigned int shmemsize =
+        sizeof(TData) *
         PhysDerivSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1);
     const unsigned int blocksize =
         GetDeviceBlockSize<Implementation>(nq0 * nq1);
     const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
 
-    GetDeviceProperties::CheckSharedMemoryUsage(sizeof(TData) * shmemsize);
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
     Q.submit([=](sycl::handler &cgh) {
-        sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
+        sycl::local_accessor<unsigned char, 1> shmem(sycl::range<1>(shmemsize),
+                                                     cgh);
         cgh.parallel_for(sycl::nd_range<1>(gridsize * blocksize, blocksize),
                          [=](sycl::nd_item<1> item_ct1) {
-                             TData *shmemptr = &shmem[0];
+                             TData *shmemptr = (TData *)&shmem[0];
 #pragma forceinline
                              PhysDeriv2DKernel<SHAPE_TYPE, Implementation,
                                                DEFORMED, ncoord, nq0, nq1>(
@@ -223,19 +227,21 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel(
     sycl::queue &Q = SYCLQueue::GetInstance();
 
     const unsigned int shmemsize =
+        sizeof(TData) *
         PhysDerivSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1, nq2);
     const unsigned int blocksize =
         GetDeviceBlockSize<Implementation>(nq0 * nq1 * nq2);
     const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
 
-    GetDeviceProperties::CheckSharedMemoryUsage(sizeof(TData) * shmemsize);
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
     Q.submit([=](sycl::handler &cgh) {
-        sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
+        sycl::local_accessor<unsigned char, 1> shmem(sycl::range<1>(shmemsize),
+                                                     cgh);
         cgh.parallel_for(
             sycl::nd_range<1>(gridsize * blocksize, blocksize),
             [=](sycl::nd_item<1> item_ct1) {
-                TData *shmemptr = &shmem[0];
+                TData *shmemptr = (TData *)&shmem[0];
 #pragma forceinline
                 PhysDeriv3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
                     nq0, nq1, nq2, nelmt, D0, D1, D2, f0, f1, f1m, f2, df, in,
@@ -260,18 +266,20 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel(
     sycl::queue &Q = SYCLQueue::GetInstance();
 
     const unsigned int shmemsize =
+        sizeof(TData) *
         PhysDerivSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1, nq2);
     const unsigned int blocksize =
         GetDeviceBlockSize<Implementation>(nq0 * nq1 * nq2);
     const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
 
-    GetDeviceProperties::CheckSharedMemoryUsage(sizeof(TData) * shmemsize);
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
     Q.submit([=](sycl::handler &cgh) {
-        sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
+        sycl::local_accessor<unsigned char, 1> shmem(sycl::range<1>(shmemsize),
+                                                     cgh);
         cgh.parallel_for(sycl::nd_range<1>(gridsize * blocksize, blocksize),
                          [=](sycl::nd_item<1> item_ct1) {
-                             TData *shmemptr = &shmem[0];
+                             TData *shmemptr = (TData *)&shmem[0];
 #pragma forceinline
                              PhysDeriv3DKernel<SHAPE_TYPE, Implementation,
                                                DEFORMED, nq0, nq1, nq2>(

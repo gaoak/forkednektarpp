@@ -245,7 +245,6 @@ NEK_FORCE_INLINE static void Mass2DKernel(
     const TData *basis0, const TData *basis1, const TData *w0, const TData *w1,
     const TData *nodToMod, const TData *jac, TData *wsp, const TData *in,
     TData *out)
-
 {
     const unsigned int nmTot =
         LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
@@ -276,7 +275,6 @@ NEK_FORCE_INLINE static void Mass3DKernel(
     const TData *basis2, const TData *w0, const TData *w1, const TData *w2,
     const TData *nodToMod, const TData *jac, TData *wsp, const TData *in,
     TData *out)
-
 {
     const unsigned int nmTot =
         LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
@@ -308,7 +306,6 @@ NEK_FORCE_INLINE static void Mass3DKernel(
     const TData *basis2, const TData *w0, const TData *w1, const TData *w2,
     const TData *nodToMod, const TData *jac, TData *wsp, const TData *in,
     TData *out)
-
 {
     const unsigned int nmTot =
         LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);

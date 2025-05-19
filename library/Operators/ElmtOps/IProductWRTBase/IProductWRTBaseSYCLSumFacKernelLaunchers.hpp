@@ -108,17 +108,19 @@ NEK_FORCE_INLINE static void IProductWRTBase1DKernel(
     sycl::queue &Q = SYCLQueue::GetInstance();
 
     const unsigned int shmemsize =
+        sizeof(TData) *
         IProductWRTBaseSharedMemorySize<Implementation>(nq0, nm0);
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nq0);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
-    GetDeviceProperties::CheckSharedMemoryUsage(sizeof(TData) * shmemsize);
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
     Q.submit([=](sycl::handler &cgh) {
-        sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
+        sycl::local_accessor<unsigned char, 1> shmem(sycl::range<1>(shmemsize),
+                                                     cgh);
         cgh.parallel_for(sycl::nd_range<1>(gridsize * blocksize, blocksize),
                          [=](sycl::nd_item<1> item_ct1) {
-                             TData *shmemptr = &shmem[0];
+                             TData *shmemptr = (TData *)&shmem[0];
 #pragma forceinline
                              IProductWRTBase1DKernel<Implementation, SCALE,
                                                      APPEND, DEFORMED>(
@@ -142,18 +144,20 @@ NEK_FORCE_INLINE static void IProductWRTBase1DKernel(
     sycl::queue &Q = SYCLQueue::GetInstance();
 
     const unsigned int shmemsize =
+        sizeof(TData) *
         IProductWRTBaseSharedMemorySize<Implementation>(nq0, nm0);
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nq0);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
-    GetDeviceProperties::CheckSharedMemoryUsage(sizeof(TData) * shmemsize);
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
     Q.submit([=](sycl::handler &cgh) {
-        sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
+        sycl::local_accessor<unsigned char, 1> shmem(sycl::range<1>(shmemsize),
+                                                     cgh);
         cgh.parallel_for(
             sycl::nd_range<1>(gridsize * blocksize, blocksize),
             [=](sycl::nd_item<1> item_ct1) {
-                TData *shmemptr = &shmem[0];
+                TData *shmemptr = (TData *)&shmem[0];
 #pragma forceinline
                 IProductWRTBase1DKernel<Implementation, SCALE, APPEND, DEFORMED,
                                         nm0, nq0>(
@@ -179,18 +183,20 @@ NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
     const unsigned int nmTot =
         LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
     const unsigned int shmemsize =
+        sizeof(TData) *
         IProductWRTBaseSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1,
                                                                     nm0, nm1);
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
-    GetDeviceProperties::CheckSharedMemoryUsage(sizeof(TData) * shmemsize);
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
     Q.submit([&](sycl::handler &cgh) {
-        sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
+        sycl::local_accessor<unsigned char, 1> shmem(sycl::range<1>(shmemsize),
+                                                     cgh);
         cgh.parallel_for(sycl::nd_range<1>(gridsize * blocksize, blocksize),
                          [=](sycl::nd_item<1> item_ct1) {
-                             TData *shmemptr = &shmem[0];
+                             TData *shmemptr = (TData *)&shmem[0];
 #pragma forceinline
                              IProductWRTBase2DKernel<SHAPE_TYPE, Implementation,
                                                      SCALE, APPEND, DEFORMED>(
@@ -224,18 +230,20 @@ NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
     const unsigned int nmTot =
         LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
     const unsigned int shmemsize =
+        sizeof(TData) *
         IProductWRTBaseSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1,
                                                                     nm0, nm1);
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
-    GetDeviceProperties::CheckSharedMemoryUsage(sizeof(TData) * shmemsize);
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
     Q.submit([&](sycl::handler &cgh) {
-        sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
+        sycl::local_accessor<unsigned char, 1> shmem(sycl::range<1>(shmemsize),
+                                                     cgh);
         cgh.parallel_for(sycl::nd_range<1>(gridsize * blocksize, blocksize),
                          [=](sycl::nd_item<1> item_ct1) {
-                             TData *shmemptr = &shmem[0];
+                             TData *shmemptr = (TData *)&shmem[0];
 #pragma forceinline
                              IProductWRTBase2DKernel<SHAPE_TYPE, Implementation,
                                                      SCALE, APPEND, DEFORMED,
@@ -266,18 +274,20 @@ NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
     const unsigned int nmTot =
         LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
     const unsigned int shmemsize =
+        sizeof(TData) *
         IProductWRTBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
             nq0, nq1, nq2, nm0, nm1, nm2);
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
-    GetDeviceProperties::CheckSharedMemoryUsage(sizeof(TData) * shmemsize);
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
     Q.submit([&](sycl::handler &cgh) {
-        sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
+        sycl::local_accessor<unsigned char, 1> shmem(sycl::range<1>(shmemsize),
+                                                     cgh);
         cgh.parallel_for(sycl::nd_range<1>(gridsize * blocksize, blocksize),
                          [=](sycl::nd_item<1> item_ct1) {
-                             TData *shmemptr = &shmem[0];
+                             TData *shmemptr = (TData *)&shmem[0];
 #pragma forceinline
                              IProductWRTBase3DKernel<SHAPE_TYPE, Implementation,
                                                      SCALE, APPEND, DEFORMED>(
@@ -313,19 +323,21 @@ NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
     const unsigned int nmTot =
         LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
     const unsigned int shmemsize =
+        sizeof(TData) *
         IProductWRTBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
             nq0, nq1, nq2, nm0, nm1, nm2);
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
-    GetDeviceProperties::CheckSharedMemoryUsage(sizeof(TData) * shmemsize);
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
     Q.submit([&](sycl::handler &cgh) {
-        sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
+        sycl::local_accessor<unsigned char, 1> shmem(sycl::range<1>(shmemsize),
+                                                     cgh);
         cgh.parallel_for(
             sycl::nd_range<1>(gridsize * blocksize, blocksize),
             [=](sycl::nd_item<1> item_ct1) {
-                TData *shmemptr = &shmem[0];
+                TData *shmemptr = (TData *)&shmem[0];
 #pragma forceinline
                 IProductWRTBase3DKernel<SHAPE_TYPE, Implementation, SCALE,
                                         APPEND, DEFORMED, nm0, nm1, nm2, nmTot,
