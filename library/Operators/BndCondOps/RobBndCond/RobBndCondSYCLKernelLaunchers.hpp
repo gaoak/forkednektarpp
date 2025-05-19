@@ -74,15 +74,17 @@ NEK_FORCE_INLINE static
                        const int *signPtr, const TData *incoeffPtr,
                        TData *coeffPtr)
 {
+    const unsigned int shmemsize = sizeof(TData) * nmaxcoeff;
     const unsigned int blockSize = NektarSpaces::vector_width<TData>::value;
     const unsigned int gridSize  = nsize;
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-        sycl::local_accessor<TData, 1> shmem(sycl::range<1>(nmaxcoeff), cgh);
+        sycl::local_accessor<unsigned char, 1> shmem(sycl::range<1>(shmemsize),
+                                                     cgh);
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
                          [=](sycl::nd_item<1> item_ct1) {
-                             TData *shmemptr = &shmem[0];
+                             TData *shmemptr = (TData *)&shmem[0];
 #pragma forceinline
                              RobBndCond2DKernel<negflag>(
                                  nsize, ncoeffPtr, offsetPtr, matOffsetPtr,

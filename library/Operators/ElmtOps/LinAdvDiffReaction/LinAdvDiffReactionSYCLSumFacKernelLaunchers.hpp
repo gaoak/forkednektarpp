@@ -123,18 +123,19 @@ NEK_FORCE_INLINE static void LinAdvDiffReaction1DKernel(
     sycl::queue &Q = SYCLQueue::GetInstance();
 
     const unsigned int shmemsize =
-        HelmholtzSharedMemorySize<Implementation>(nq0, nm0);
+        sizeof(TData) * HelmholtzSharedMemorySize<Implementation>(nq0, nm0);
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nq0);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
-    GetDeviceProperties::CheckSharedMemoryUsage(sizeof(TData) * shmemsize);
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
     Q.submit([=](sycl::handler &cgh) {
-        sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
+        sycl::local_accessor<unsigned char, 1> shmem(sycl::range<1>(shmemsize),
+                                                     cgh);
         cgh.parallel_for(
             sycl::nd_range<1>(gridsize * blocksize, blocksize),
             [=](sycl::nd_item<1> item_ct1) {
-                TData *shmemptr = &shmem[0];
+                TData *shmemptr = (TData *)&shmem[0];
 #pragma forceinline
                 LinAdvDiffReaction1DKernel<Implementation, DEFORMED>(
                     ncoord, nm0, nq0, nelmt, basis0, D0, w0, df, jac, coeff,
@@ -160,18 +161,19 @@ NEK_FORCE_INLINE static void LinAdvDiffReaction1DKernel(
     sycl::queue &Q = SYCLQueue::GetInstance();
 
     const unsigned int shmemsize =
-        HelmholtzSharedMemorySize<Implementation>(nq0, nm0);
+        sizeof(TData) * HelmholtzSharedMemorySize<Implementation>(nq0, nm0);
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nq0);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
-    GetDeviceProperties::CheckSharedMemoryUsage(sizeof(TData) * shmemsize);
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
     Q.submit([=](sycl::handler &cgh) {
-        sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
+        sycl::local_accessor<unsigned char, 1> shmem(sycl::range<1>(shmemsize),
+                                                     cgh);
         cgh.parallel_for(
             sycl::nd_range<1>(gridsize * blocksize, blocksize),
             [=](sycl::nd_item<1> item_ct1) {
-                TData *shmemptr = &shmem[0];
+                TData *shmemptr = (TData *)&shmem[0];
 #pragma forceinline
                 LinAdvDiffReaction1DKernel<Implementation, DEFORMED, nm0, nq0>(
                     ncoord, nelmt, basis0, D0, w0, df, jac, coeff, advVel0, in,
@@ -199,19 +201,20 @@ NEK_FORCE_INLINE static void LinAdvDiffReaction2DKernel(
     const unsigned int nmTot =
         LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
     const unsigned int shmemsize =
-        HelmholtzSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1, nm0,
-                                                              nm1);
+        sizeof(TData) * HelmholtzSharedMemorySize<SHAPE_TYPE, Implementation>(
+                            nq0, nq1, nm0, nm1);
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
-    GetDeviceProperties::CheckSharedMemoryUsage(sizeof(TData) * shmemsize);
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
     Q.submit([=](sycl::handler &cgh) {
-        sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
+        sycl::local_accessor<unsigned char, 1> shmem(sycl::range<1>(shmemsize),
+                                                     cgh);
         cgh.parallel_for(
             sycl::nd_range<1>(gridsize * blocksize, blocksize),
             [=](sycl::nd_item<1> item_ct1) {
-                TData *shmemptr = &shmem[0];
+                TData *shmemptr = (TData *)&shmem[0];
 #pragma forceinline
                 LinAdvDiffReaction2DKernel<SHAPE_TYPE, Implementation,
                                            DEFORMED>(
@@ -248,19 +251,20 @@ NEK_FORCE_INLINE static void LinAdvDiffReaction2DKernel(
     constexpr unsigned int nmTot =
         LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
     const unsigned int shmemsize =
-        HelmholtzSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1, nm0,
-                                                              nm1);
+        sizeof(TData) * HelmholtzSharedMemorySize<SHAPE_TYPE, Implementation>(
+                            nq0, nq1, nm0, nm1);
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
-    GetDeviceProperties::CheckSharedMemoryUsage(sizeof(TData) * shmemsize);
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
     Q.submit([=](sycl::handler &cgh) {
-        sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
+        sycl::local_accessor<unsigned char, 1> shmem(sycl::range<1>(shmemsize),
+                                                     cgh);
         cgh.parallel_for(
             sycl::nd_range<1>(gridsize * blocksize, blocksize),
             [=](sycl::nd_item<1> item_ct1) {
-                TData *shmemptr = &shmem[0];
+                TData *shmemptr = (TData *)&shmem[0];
 #pragma forceinline
                 LinAdvDiffReaction2DKernel<SHAPE_TYPE, Implementation, DEFORMED,
                                            nm0, nm1, nmTot, nq0, nq1>(
@@ -293,19 +297,20 @@ NEK_FORCE_INLINE static void LinAdvDiffReaction3DKernel(
     const unsigned int nmTot =
         LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
     const unsigned int shmemsize =
-        HelmholtzSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1, nq2,
-                                                              nm0, nm1, nm2);
+        sizeof(TData) * HelmholtzSharedMemorySize<SHAPE_TYPE, Implementation>(
+                            nq0, nq1, nq2, nm0, nm1, nm2);
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
-    GetDeviceProperties::CheckSharedMemoryUsage(sizeof(TData) * shmemsize);
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
     Q.submit([=](sycl::handler &cgh) {
-        sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
+        sycl::local_accessor<unsigned char, 1> shmem(sycl::range<1>(shmemsize),
+                                                     cgh);
         cgh.parallel_for(
             sycl::nd_range<1>(gridsize * blocksize, blocksize),
             [=](sycl::nd_item<1> item_ct1) {
-                TData *shmemptr = &shmem[0];
+                TData *shmemptr = (TData *)&shmem[0];
 #pragma forceinline
                 LinAdvDiffReaction3DKernel<SHAPE_TYPE, Implementation,
                                            DEFORMED>(
@@ -346,19 +351,20 @@ NEK_FORCE_INLINE static void LinAdvDiffReaction3DKernel(
     constexpr unsigned int nmTot =
         LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
     const unsigned int shmemsize =
-        HelmholtzSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1, nq2,
-                                                              nm0, nm1, nm2);
+        sizeof(TData) * HelmholtzSharedMemorySize<SHAPE_TYPE, Implementation>(
+                            nq0, nq1, nq2, nm0, nm1, nm2);
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
-    GetDeviceProperties::CheckSharedMemoryUsage(sizeof(TData) * shmemsize);
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
     Q.submit([=](sycl::handler &cgh) {
-        sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
+        sycl::local_accessor<unsigned char, 1> shmem(sycl::range<1>(shmemsize),
+                                                     cgh);
         cgh.parallel_for(
             sycl::nd_range<1>(gridsize * blocksize, blocksize),
             [=](sycl::nd_item<1> item_ct1) {
-                TData *shmemptr = &shmem[0];
+                TData *shmemptr = (TData *)&shmem[0];
 #pragma forceinline
                 LinAdvDiffReaction3DKernel<SHAPE_TYPE, Implementation, DEFORMED,
                                            nm0, nm1, nm2, nmTot, nq0, nq1, nq2>(
