@@ -124,7 +124,8 @@ public:
     {
         if (this->m_device != nullptr)
         {
-            deviceFree(this->m_device, this->m_size, this->m_device_rank);
+            deviceFree(this->m_device, this->m_size * sizeof(TData),
+                       this->m_alignment, this->m_device_rank);
             this->m_device       = nullptr;
             this->m_device_valid = false;
         }
@@ -179,15 +180,15 @@ protected:
         {
             if (this->m_memAllocType == ePinned)
             {
-                hostMallocPinned(this->m_host, this->m_size, this->m_alignment);
+                hostMallocPinned(this->m_host, this->m_size * sizeof(TData),
+                                 this->m_alignment);
                 std::memset((void *)this->m_host, 0,
                             this->m_size * sizeof(TData));
             }
             else
             {
-                this->m_host = static_cast<TData *>(
-                    ::operator new[](this->m_size * sizeof(TData),
-                                     std::align_val_t(this->m_alignment)));
+                hostMalloc(this->m_host, this->m_size * sizeof(TData),
+                           this->m_alignment);
                 std::memset((void *)this->m_host, 0,
                             this->m_size * sizeof(TData));
             }
@@ -235,8 +236,10 @@ protected:
     {
         if (this->m_device == nullptr)
         {
-            deviceMalloc(this->m_device, this->m_size, this->m_device_rank);
-            deviceMemset(this->m_device, 0, this->m_size, this->m_device_rank);
+            deviceMalloc(this->m_device, this->m_size * sizeof(TData),
+                         this->m_alignment, this->m_device_rank);
+            deviceMemset(this->m_device, 0, this->m_size * sizeof(TData),
+                         this->m_device_rank);
         }
 
         this->m_device_valid = true;
@@ -271,8 +274,10 @@ protected:
     {
         if (this->m_device == nullptr)
         {
-            deviceMalloc(this->m_device, this->m_size, this->m_device_rank);
-            deviceMemset(this->m_device, 0, this->m_size, this->m_device_rank);
+            deviceMalloc(this->m_device, this->m_size * sizeof(TData),
+                         this->m_alignment, this->m_device_rank);
+            deviceMemset(this->m_device, 0, this->m_size * sizeof(TData),
+                         this->m_device_rank);
         }
 
         auto size = (count == 0) ? this->m_size : count;
@@ -285,7 +290,7 @@ protected:
         {
             if (val == TData(0))
             {
-                deviceMemset(dst, 0, size, this->m_device_rank);
+                deviceMemset(dst, 0, size * sizeof(TData), this->m_device_rank);
             }
             // Nonzero value
             else
@@ -315,13 +320,16 @@ protected:
     {
         if (this->m_device == nullptr)
         {
-            deviceMalloc(this->m_device, this->m_size, this->m_device_rank);
-            deviceMemset(this->m_device, 0, this->m_size, this->m_device_rank);
+            deviceMalloc(this->m_device, this->m_size * sizeof(TData),
+                         this->m_alignment, this->m_device_rank);
+            deviceMemset(this->m_device, 0, this->m_size * sizeof(TData),
+                         this->m_device_rank);
         }
 
         TData *dst = this->m_device + offset;
 
-        deviceMemcpy<HostToDevice>(dst, src, size, this->m_device_rank);
+        deviceMemcpy<HostToDevice>(dst, src, size * sizeof(TData),
+                                   this->m_device_rank);
 
         this->m_host_valid   = false;
         this->m_device_valid = true;
@@ -348,14 +356,16 @@ protected:
 
             if (this->m_device == nullptr)
             {
-                deviceMalloc(this->m_device, this->m_size, this->m_device_rank);
+                deviceMalloc(this->m_device, this->m_size * sizeof(TData),
+                             this->m_alignment, this->m_device_rank);
             }
 
             // Make sure the host data is valid. It might not be.
             if (this->m_host_valid)
             {
                 deviceMemcpy<HostToDevice>(this->m_device, this->m_host,
-                                           this->m_size, this->m_device_rank);
+                                           this->m_size * sizeof(TData),
+                                           this->m_device_rank);
                 this->m_device_valid = true;
             }
             // No data on the host so assume the device data is being
@@ -390,14 +400,13 @@ protected:
             {
                 if (this->m_memAllocType == ePinned)
                 {
-                    hostMallocPinned(this->m_host, this->m_size,
+                    hostMallocPinned(this->m_host, this->m_size * sizeof(TData),
                                      this->m_alignment);
                 }
                 else
                 {
-                    this->m_host = static_cast<TData *>(
-                        ::operator new[](this->m_size * sizeof(TData),
-                                         std::align_val_t(this->m_alignment)));
+                    hostMalloc(this->m_host, this->m_size * sizeof(TData),
+                               this->m_alignment);
                 }
             }
 
@@ -405,7 +414,8 @@ protected:
             if (this->m_device_valid)
             {
                 deviceMemcpy<DeviceToHost>(this->m_host, this->m_device,
-                                           this->m_size, this->m_device_rank);
+                                           this->m_size * sizeof(TData),
+                                           this->m_device_rank);
                 this->m_host_valid = true;
             }
             // No data on the device so assume the host data is being

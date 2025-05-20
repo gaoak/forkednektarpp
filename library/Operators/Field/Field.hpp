@@ -303,7 +303,7 @@ public:
             }
             else
             {
-                operator delete[](m_host, std::align_val_t(m_alignment));
+                hostFree(m_host, m_alignment);
             }
         }
         m_host = nullptr;
@@ -487,13 +487,13 @@ public:
         // Allocate contiguous memory on the host.
         if (field.m_memAllocType == eHostDevice)
         {
-            field.m_host = static_cast<TData *>(::operator new[](
-                hsize * sizeof(TData), std::align_val_t(field.m_alignment)));
+            hostMalloc(field.m_host, hsize * sizeof(TData), field.m_alignment);
             std::memset((void *)field.m_host, 0, hsize * sizeof(TData));
         }
         else if (field.m_memAllocType == ePinned)
         {
-            hostMallocPinned(field.m_host, hsize, field.m_alignment);
+            hostMallocPinned(field.m_host, hsize * sizeof(TData),
+                             field.m_alignment);
             std::memset((void *)field.m_host, 0, hsize * sizeof(TData));
         }
 
@@ -531,13 +531,13 @@ public:
         // Allocate contiguous memory on the host.
         if (field.m_memAllocType == eHostDevice)
         {
-            field.m_host = static_cast<TData *>(::operator new[](
-                hsize * sizeof(TData), std::align_val_t(field.m_alignment)));
+            hostMalloc(field.m_host, hsize * sizeof(TData), field.m_alignment);
             std::memset((void *)field.m_host, 0, hsize * sizeof(TData));
         }
         else if (field.m_memAllocType == ePinned)
         {
-            hostMallocPinned(field.m_host, hsize, field.m_alignment);
+            hostMallocPinned(field.m_host, hsize * sizeof(TData),
+                             field.m_alignment);
             std::memset((void *)field.m_host, 0, hsize * sizeof(TData));
         }
 
@@ -621,7 +621,8 @@ public:
                                                   NektarSpaces::DeviceSpace>)
                 {
                     deviceMemcpy<DeviceToDevice>(dst + n * compSize, src,
-                                                 nElmts * nPts, device_rank);
+                                                 nElmts * nPts * sizeof(TData),
+                                                 device_rank);
                 }
                 src += nSize;
             }

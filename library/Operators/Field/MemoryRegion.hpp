@@ -358,7 +358,7 @@ public:
         }
         else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
         {
-            deviceMemcpy<DeviceToDevice>(dst, src, this->size(),
+            deviceMemcpy<DeviceToDevice>(dst, src, this->size() * sizeof(TData),
                                          this->GetDeviceRank());
         }
     }
