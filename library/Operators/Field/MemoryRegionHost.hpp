@@ -118,7 +118,7 @@ public:
         : m_owned(rhs.m_owned), m_host(rhs.m_host), m_size(rhs.m_size),
           m_alignment(rhs.m_alignment), m_host_valid(rhs.m_host_valid),
           m_initialize(rhs.m_initialize), m_device_rank(rhs.m_device_rank),
-          m_name(rhs.m_name), m_memAllocType(rhs.memAllocType)
+          m_name(rhs.m_name), m_memAllocType(rhs.m_memAllocType)
     {
         rhs.m_owned        = true;
         rhs.m_host         = nullptr;
