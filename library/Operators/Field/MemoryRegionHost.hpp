@@ -78,6 +78,9 @@ public:
         m_alignment    = alignment;
         m_device_rank  = device_rank;
         m_memAllocType = memAllocType;
+
+        m_host       = nullptr;
+        m_host_valid = false;
     }
 
     /**
@@ -115,7 +118,7 @@ public:
         : m_owned(rhs.m_owned), m_host(rhs.m_host), m_size(rhs.m_size),
           m_alignment(rhs.m_alignment), m_host_valid(rhs.m_host_valid),
           m_initialize(rhs.m_initialize), m_device_rank(rhs.m_device_rank),
-          m_name(rhs.m_name)
+          m_name(rhs.m_name), m_memAllocType(rhs.memAllocType)
     {
         rhs.m_owned        = true;
         rhs.m_host         = nullptr;
@@ -142,7 +145,7 @@ public:
             }
             else
             {
-                operator delete[](m_host, std::align_val_t(m_alignment));
+                hostFree(m_host, m_alignment);
             }
         }
 
@@ -238,13 +241,12 @@ protected:
         {
             if (m_memAllocType == ePinned)
             {
-                hostMallocPinned(m_host, m_size, m_alignment);
+                hostMallocPinned(m_host, m_size * sizeof(TData), m_alignment);
                 std::memset((void *)m_host, 0, m_size * sizeof(TData));
             }
             else
             {
-                m_host = static_cast<TData *>(::operator new[](
-                    m_size * sizeof(TData), std::align_val_t(m_alignment)));
+                hostMalloc(m_host, m_size * sizeof(TData), m_alignment);
                 std::memset((void *)m_host, 0, m_size * sizeof(TData));
             }
         }
@@ -352,13 +354,12 @@ protected:
         {
             if (m_memAllocType == ePinned)
             {
-                hostMallocPinned(m_host, m_size, m_alignment);
+                hostMallocPinned(m_host, m_size * sizeof(TData), m_alignment);
                 std::memset((void *)m_host, 0, m_size * sizeof(TData));
             }
             else
             {
-                m_host = static_cast<TData *>(::operator new[](
-                    m_size * sizeof(TData), std::align_val_t(m_alignment)));
+                hostMalloc(m_host, m_size * sizeof(TData), m_alignment);
                 std::memset((void *)m_host, 0, m_size * sizeof(TData));
             }
         }
@@ -404,13 +405,12 @@ protected:
         {
             if (m_memAllocType == ePinned)
             {
-                hostMallocPinned(m_host, m_size, m_alignment);
+                hostMallocPinned(m_host, m_size * sizeof(TData), m_alignment);
                 std::memset((void *)m_host, 0, m_size * sizeof(TData));
             }
             else
             {
-                m_host = static_cast<TData *>(::operator new[](
-                    m_size * sizeof(TData), std::align_val_t(m_alignment)));
+                hostMalloc(m_host, m_size * sizeof(TData), m_alignment);
                 std::memset((void *)m_host, 0, m_size * sizeof(TData));
             }
         }

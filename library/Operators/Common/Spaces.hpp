@@ -267,7 +267,11 @@ namespace Nektar
 [[maybe_unused]] static size_t GetExecSpaceAlignment(
     const std::string &execspace)
 {
-    if (execspace == "AVX")
+    if (execspace == "Serial")
+    {
+        return NektarSpaces::Serial::alignment;
+    }
+    else if (execspace == "AVX")
     {
         return NektarSpaces::AVX::alignment;
     }

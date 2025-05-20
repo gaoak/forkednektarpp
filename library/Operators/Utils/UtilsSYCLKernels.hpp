@@ -48,11 +48,12 @@ interleave(size_t numElmtGroups, const unsigned int npts, TData *inout)
 
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = numElmtGroups;
-    const size_t bufferSize      = interleaveWidth * numElmtGroups * npts;
+    const size_t bufferSize =
+        sizeof(TData) * interleaveWidth * numElmtGroups * npts;
 
-    GetDeviceProperties::CheckGlobalMemoryUsage(sizeof(TData) * bufferSize);
+    GetDeviceProperties::CheckGlobalMemoryUsage(bufferSize);
     TData *buffer =
-        sycl::malloc_device<TData>(bufferSize, SYCLQueue::GetInstance());
+        (TData *)sycl::malloc_device(bufferSize, SYCLQueue::GetInstance());
 
     Q.submit([=](sycl::handler &cgh) {
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
@@ -75,11 +76,12 @@ deInterleave(const unsigned int interleaveWidth, size_t numElmtGroups,
 
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = numElmtGroups;
-    const size_t bufferSize      = interleaveWidth * numElmtGroups * npts;
+    const size_t bufferSize =
+        sizeof(TData) * interleaveWidth * numElmtGroups * npts;
 
-    GetDeviceProperties::CheckGlobalMemoryUsage(sizeof(TData) * bufferSize);
+    GetDeviceProperties::CheckGlobalMemoryUsage(bufferSize);
     TData *buffer =
-        sycl::malloc_device<TData>(bufferSize, SYCLQueue::GetInstance());
+        (TData *)sycl::malloc_device(bufferSize, SYCLQueue::GetInstance());
 
     Q.submit([=](sycl::handler &cgh) {
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
