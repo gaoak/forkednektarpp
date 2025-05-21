@@ -98,7 +98,8 @@ public:
     /**
      * @brief No copy method
      */
-    MemoryRegion(const MemoryRegion &) = delete;
+    MemoryRegion(const MemoryRegion &)            = delete;
+    MemoryRegion &operator=(const MemoryRegion &) = delete;
 
     /**
      * @brief Destructor for a MemoryRegion object.

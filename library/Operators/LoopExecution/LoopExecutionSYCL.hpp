@@ -98,10 +98,6 @@ parallel_for(const size_t begin, const size_t end, const Functor &functor)
                              }
                          });
     });
-
-#if defined(SYCL_ENABLE_SERIAL)
-    Q.wait();
-#endif
 }
 
 template <typename TData, typename Functor>
