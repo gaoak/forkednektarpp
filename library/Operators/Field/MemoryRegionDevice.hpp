@@ -112,7 +112,8 @@ public:
      * @param host - MemoryRegionHost to move from
      */
     MemoryRegionDevice(MemoryRegionHost<TData> &&host)
-        : MemoryRegionHost<TData>(std::move(host))
+        : MemoryRegionHost<TData>(std::move(host)), m_device(nullptr),
+          m_device_valid(false)
     {
     }
 

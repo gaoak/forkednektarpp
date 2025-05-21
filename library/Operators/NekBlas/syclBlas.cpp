@@ -51,10 +51,6 @@ typename std::enable_if<std::is_same_v<THandle, sycl::queue>, void>::type NekGem
                                       : oneapi::mkl::transpose::T;
     blas::column_major::gemm(queue, transA, transB, M, N, K, alpha, a, lda, b,
                              ldb, beta, c, ldc);
-
-#if defined(SYCL_ENABLE_SERIAL)
-    queue.wait();
-#endif
 }
 
 template <typename THandle, typename TData>
@@ -74,10 +70,6 @@ NekGemmStridedBatched(THandle queue, std::string transposeA,
     blas::column_major::gemm_batch(queue, transA, transB, M, N, K, alpha, a,
                                    lda, strideA, b, ldb, strideB, beta, c, ldc,
                                    strideC, batchSize);
-
-#if defined(SYCL_ENABLE_SERIAL)
-    queue.wait();
-#endif
 }
 
 template void NekGemm<sycl::queue, float>(

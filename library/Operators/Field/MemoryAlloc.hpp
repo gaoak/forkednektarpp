@@ -54,8 +54,8 @@ struct DeviceToDevice
 };
 
 template <typename TData>
-void hostMalloc(TData *&src, const size_t size,
-                [[maybe_unused]] const size_t alignment)
+inline void hostMalloc(TData *&src, const size_t size,
+                       [[maybe_unused]] const size_t alignment)
 {
     if (size > 0)
     {
@@ -69,8 +69,8 @@ void hostMalloc(TData *&src, const size_t size,
 }
 
 template <typename TData>
-void hostMallocPinned(TData *&src, const size_t size,
-                      [[maybe_unused]] const size_t alignment)
+inline void hostMallocPinned(TData *&src, const size_t size,
+                             [[maybe_unused]] const size_t alignment)
 {
     if (size > 0)
     {
@@ -93,9 +93,9 @@ void hostMallocPinned(TData *&src, const size_t size,
 }
 
 template <typename TData>
-void deviceMalloc(TData *&src, const size_t size,
-                  [[maybe_unused]] const size_t alignment,
-                  [[maybe_unused]] const unsigned int device_rank)
+inline void deviceMalloc(TData *&src, const size_t size,
+                         [[maybe_unused]] const size_t alignment,
+                         [[maybe_unused]] const unsigned int device_rank)
 {
     if (size > 0)
     {
@@ -126,7 +126,7 @@ void deviceMalloc(TData *&src, const size_t size,
 }
 
 template <typename TData>
-void hostFree(TData *&src, [[maybe_unused]] const size_t alignment)
+inline void hostFree(TData *&src, [[maybe_unused]] const size_t alignment)
 {
     if (src == nullptr)
     {
@@ -139,7 +139,7 @@ void hostFree(TData *&src, [[maybe_unused]] const size_t alignment)
 }
 
 template <typename TData>
-void hostFreePinned(TData *&src, [[maybe_unused]] const size_t alignment)
+inline void hostFreePinned(TData *&src, [[maybe_unused]] const size_t alignment)
 {
     if (src == nullptr)
     {
@@ -152,6 +152,7 @@ void hostFreePinned(TData *&src, [[maybe_unused]] const size_t alignment)
     CHECK_HIPCUDA_ERROR(hipFreeHost(src));
 #elif defined(NEKTAR_ENABLE_SYCL)
     sycl::queue &Q = SYCLQueue::GetInstance();
+    Q.wait();
     sycl::free(src, Q);
 #else
     operator delete[](src, std::align_val_t(alignment));
@@ -161,9 +162,9 @@ void hostFreePinned(TData *&src, [[maybe_unused]] const size_t alignment)
 }
 
 template <typename TData>
-void deviceFree(TData *&src, [[maybe_unused]] const size_t size,
-                [[maybe_unused]] const size_t alignment,
-                [[maybe_unused]] const unsigned int device_rank)
+inline void deviceFree(TData *&src, [[maybe_unused]] const size_t size,
+                       [[maybe_unused]] const size_t alignment,
+                       [[maybe_unused]] const unsigned int device_rank)
 {
     if (src == nullptr)
     {
@@ -180,6 +181,7 @@ void deviceFree(TData *&src, [[maybe_unused]] const size_t size,
     GetDeviceProperties::TotalGlobalMemory() += size;
 #elif defined(NEKTAR_ENABLE_SYCL)
     sycl::queue &Q = SYCLQueue::GetInstance();
+    Q.wait();
     sycl::free(src, Q);
     GetDeviceProperties::TotalGlobalMemory() += size;
 #else
@@ -190,8 +192,8 @@ void deviceFree(TData *&src, [[maybe_unused]] const size_t size,
 }
 
 template <typename TData>
-void deviceMemset(TData *dst, const int val, const size_t size,
-                  [[maybe_unused]] const unsigned int device_rank)
+inline void deviceMemset(TData *dst, const int val, const size_t size,
+                         [[maybe_unused]] const unsigned int device_rank)
 {
     if (size == 0)
     {
@@ -206,15 +208,15 @@ void deviceMemset(TData *dst, const int val, const size_t size,
     CHECK_HIPCUDA_ERROR(hipMemset((void *)dst, val, size));
 #elif defined(NEKTAR_ENABLE_SYCL)
     sycl::queue &Q = SYCLQueue::GetInstance();
-    Q.memset((void *)dst, val, size).wait();
+    Q.memset((void *)dst, val, size);
 #else
     memset((void *)dst, val, size);
 #endif
 }
 
 template <typename TData>
-void deviceFill(TData *dst, const TData val, const size_t size,
-                [[maybe_unused]] const unsigned int device_rank)
+inline void deviceFill(TData *dst, const TData val, const size_t size,
+                       [[maybe_unused]] const unsigned int device_rank)
 {
     if (size == 0)
     {
@@ -229,15 +231,15 @@ void deviceFill(TData *dst, const TData val, const size_t size,
     thrust::fill(dst, dst + size, val);
 #elif defined(NEKTAR_ENABLE_SYCL)
     sycl::queue &Q = SYCLQueue::GetInstance();
-    Q.fill(dst, val, size).wait();
+    Q.fill(dst, val, size);
 #else
     std::fill(dst, dst + size, val);
 #endif
 }
 
 template <typename MemCopy, typename TData>
-void deviceMemcpy(TData *dst, const TData *src, const size_t size,
-                  [[maybe_unused]] const unsigned int device_rank)
+inline void deviceMemcpy(TData *dst, const TData *src, const size_t size,
+                         [[maybe_unused]] const unsigned int device_rank)
 {
     if (size == 0)
     {
