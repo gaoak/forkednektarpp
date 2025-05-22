@@ -34,6 +34,7 @@
 
 #pragma once
 
+#include <LibUtilities/Foundations/Interp.h>
 #include <StdRegions/StdHexExp.h>
 #include <StdRegions/StdNodalPrismExp.h>
 #include <StdRegions/StdNodalTetExp.h>
@@ -63,7 +64,8 @@ enum StdMatType
     ePhysDerivStdMat             = 2,
     eIProductWRTBaseStdMat       = 3,
     eIProductWRTDerivBaseStdMat  = 4,
-    eMultiplyByElmtInvMassStdMat = 5,
+    ePhysInterpStdMat            = 5,
+    eMultiplyByElmtInvMassStdMat = 6,
 };
 
 class StdMatDataCreator;
@@ -81,9 +83,10 @@ public:
     StdMatKey(
         const std::vector<LibUtilities::BasisKey> basisKeys,
         const LibUtilities::ShapeType shapeType, const StdMatType stdMatType,
-        const LibUtilities::PointsType nodalType = LibUtilities::eNoPointsType)
+        const LibUtilities::PointsType nodalType = LibUtilities::eNoPointsType,
+        const std::vector<unsigned int> nq = std::vector<unsigned int>(3, 1))
         : m_basisKeys(basisKeys), m_shapeType(shapeType),
-          m_stdMatType(stdMatType), m_nodalType(nodalType)
+          m_stdMatType(stdMatType), m_nodalType(nodalType), m_nq(nq)
     {
         if (m_basisKeys.size() > 2)
         {
@@ -91,7 +94,7 @@ public:
                          m_basisKeys[2].GetBasisType(),
                          m_basisKeys[2].GetPointsKey().GetNumPoints(),
                          m_basisKeys[2].GetPointsKey().GetPointsType(),
-                         m_basisKeys[2].GetPointsKey().GetFactor());
+                         m_basisKeys[2].GetPointsKey().GetFactor(), m_nq[2]);
         }
         if (m_basisKeys.size() > 1)
         {
@@ -99,13 +102,13 @@ public:
                          m_basisKeys[1].GetBasisType(),
                          m_basisKeys[1].GetPointsKey().GetNumPoints(),
                          m_basisKeys[1].GetPointsKey().GetPointsType(),
-                         m_basisKeys[1].GetPointsKey().GetFactor());
+                         m_basisKeys[1].GetPointsKey().GetFactor(), m_nq[1]);
         }
         hash_combine(
             m_hash, m_basisKeys[0].GetNumModes(), m_basisKeys[0].GetBasisType(),
             m_basisKeys[0].GetPointsKey().GetNumPoints(),
             m_basisKeys[0].GetPointsKey().GetPointsType(),
-            m_basisKeys[0].GetPointsKey().GetFactor(), m_shapeType,
+            m_basisKeys[0].GetPointsKey().GetFactor(), m_nq[0], m_shapeType,
             m_stdMatType, m_nodalType, typeid(value_type).name(), "StdMatKey");
     }
 
@@ -114,6 +117,7 @@ private:
     LibUtilities::ShapeType m_shapeType;
     StdMatType m_stdMatType;
     LibUtilities::PointsType m_nodalType;
+    std::vector<unsigned int> m_nq;
 };
 
 class StdMatDataCreator : public DataCreatorClass
@@ -132,6 +136,7 @@ public:
         const auto bkey       = stdMatKey.m_basisKeys;
         const auto stdMatType = stdMatKey.m_stdMatType;
         const auto nodaltype  = stdMatKey.m_nodalType;
+        const auto &nq        = stdMatKey.m_nq;
 
         StdExpansion *stdExp = nullptr;
 
@@ -265,6 +270,76 @@ public:
                         tmp[i] = 1.0;
                         stdExp->IProductWRTDerivBase(
                             d, tmp, t = mat + d * nmTot * nqTot + i * nmTot);
+                    }
+                }
+
+                return MemoryRegion<TData>::template FromArray<MemSpace>(
+                    mat, alignment);
+            }
+            break;
+            case ePhysInterpStdMat:
+            {
+                const auto nmTot = stdExp->GetTotPoints();
+                const auto nqTot =
+                    std::accumulate(nq.begin(), nq.end(), 1, std::multiplies());
+                Array<OneD, NekDouble> tmp(nmTot), t;
+                Array<OneD, NekDouble> mat(nmTot * nqTot);
+                for (unsigned int i = 0; i < nmTot; ++i)
+                {
+                    Vmath::Zero(nmTot, tmp, 1);
+                    tmp[i] = 1.0;
+
+                    if (stdExp->GetShapeDimension() == 1)
+                    {
+                        // In keys
+                        const LibUtilities::PointsKey &inkey0 =
+                            stdExp->GetBasis(0)->GetPointsKey();
+
+                        // Out keys
+                        const LibUtilities::PointsKey outkey0(
+                            nq[0], stdExp->GetBasis(0)->GetPointsType());
+
+                        LibUtilities::Interp1D(inkey0, tmp, outkey0,
+                                               t = mat + i * nqTot);
+                    }
+                    else if (stdExp->GetShapeDimension() == 2)
+                    {
+                        // In keys
+                        const LibUtilities::PointsKey &inkey0 =
+                            stdExp->GetBasis(0)->GetPointsKey();
+                        const LibUtilities::PointsKey &inkey1 =
+                            stdExp->GetBasis(1)->GetPointsKey();
+
+                        // Out keys
+                        const LibUtilities::PointsKey outkey0(
+                            nq[0], stdExp->GetBasis(0)->GetPointsType());
+                        const LibUtilities::PointsKey outkey1(
+                            nq[1], stdExp->GetBasis(1)->GetPointsType());
+
+                        LibUtilities::Interp2D(inkey0, inkey1, tmp, outkey0,
+                                               outkey1, t = mat + i * nqTot);
+                    }
+                    else if (stdExp->GetShapeDimension() == 3)
+                    {
+                        // In keys
+                        const LibUtilities::PointsKey &inkey0 =
+                            stdExp->GetBasis(0)->GetPointsKey();
+                        const LibUtilities::PointsKey &inkey1 =
+                            stdExp->GetBasis(1)->GetPointsKey();
+                        const LibUtilities::PointsKey &inkey2 =
+                            stdExp->GetBasis(2)->GetPointsKey();
+
+                        // Out keys
+                        const LibUtilities::PointsKey outkey0(
+                            nq[0], stdExp->GetBasis(0)->GetPointsType());
+                        const LibUtilities::PointsKey outkey1(
+                            nq[1], stdExp->GetBasis(1)->GetPointsType());
+                        const LibUtilities::PointsKey outkey2(
+                            nq[2], stdExp->GetBasis(2)->GetPointsType());
+
+                        LibUtilities::Interp3D(inkey0, inkey1, inkey2, tmp,
+                                               outkey0, outkey1, outkey2,
+                                               t = mat + i * nqTot);
                     }
                 }
 

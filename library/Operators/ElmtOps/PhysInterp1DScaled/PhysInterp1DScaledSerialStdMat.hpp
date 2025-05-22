@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: IProductWRTDerivBaseSerialStdMat.hpp
+// File: PhysInterp1DScaledSerialStdMat.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,25 +34,23 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/IProductWRTDerivBase/OperatorIProductWRTDerivBase.hpp"
+#include "Operators/ElmtOps/PhysInterp1DScaled/OperatorPhysInterp1DScaled.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
-
-#include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseSerialStdMatKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename Implementation, typename TData>
-class BlockOperatorIProductWRTDerivBaseImpl
-    : public BlockOperatorIProductWRTDerivBase<TData>
+class BlockOperatorPhysInterp1DScaledImpl
+    : public BlockOperatorPhysInterp1DScaled<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    BlockOperatorIProductWRTDerivBaseImpl(
+    BlockOperatorPhysInterp1DScaledImpl(
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse)
-        : BlockOperatorIProductWRTDerivBase<TData>(exp, dataWarehouse)
+        : BlockOperatorPhysInterp1DScaled<TData>(exp, dataWarehouse)
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -60,24 +58,26 @@ public:
             exp->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed;
         m_dimension = exp->GetShapeDimension();
         m_coordDim  = exp->GetCoordim();
-        m_nmTot     = exp->GetNcoeffs();
-        m_nqTot     = exp->GetTotPoints();
 
-        // Fetch matrix.
-        std::vector<LibUtilities::BasisKey> basisKeys(
+        // Flag for collapsed coordinate correction.
+        m_isModified = (exp->GetBasisType(0) == LibUtilities::eModified_A);
+
+        for (unsigned int d = 0; d < m_dimension; d++)
+        {
+            m_nm.push_back(exp->GetNumPoints(d));
+        }
+
+        // Fetch basis key.
+        m_basisKeys = std::vector<LibUtilities::BasisKey>(
             m_dimension, LibUtilities::NullBasisKey);
         for (unsigned int d = 0; d < m_dimension; d++)
         {
-            basisKeys[d] = exp->GetBasis(d)->GetBasisKey();
+            m_basisKeys[d] = exp->GetBasis(d)->GetBasisKey();
         }
 
-        LibUtilities::PointsType nodalType =
-            (exp->IsNodalNonTensorialExp())
-                ? exp->GetNodalPointsKey().GetPointsType()
-                : LibUtilities::eNoPointsType;
-
-        m_matptr = dataWarehouse->template GetData<ExecSpace>(StdMatKey<TData>(
-            basisKeys, m_shapeType, eIProductWRTDerivBaseStdMat, nodalType));
+        m_nodalType = (exp->IsNodalNonTensorialExp())
+                          ? exp->GetNodalPointsKey().GetPointsType()
+                          : LibUtilities::eNoPointsType;
     }
 
     // className - for BlockOperatorFactory
@@ -88,21 +88,25 @@ public:
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse)
     {
-        return std::make_unique<BlockOperatorIProductWRTDerivBaseImpl<
+        return std::make_unique<BlockOperatorPhysInterp1DScaledImpl<
             ExecSpace, Implementation, TData>>(exp, dataWarehouse);
     }
 
 protected:
     static constexpr unsigned int m_implInterleaveWidth = 1;
 
+    std::vector<LibUtilities::BasisKey> m_basisKeys;
     LibUtilities::ShapeType m_shapeType;
+    LibUtilities::PointsType m_nodalType;
     bool m_isDeformed;
+    bool m_isModified;
     unsigned int m_dimension;
     unsigned int m_coordDim;
     unsigned int m_nmTot;
     unsigned int m_nqTot;
+    std::vector<unsigned int> m_nm;
+    std::vector<unsigned int> m_nq;
     const TData *m_matptr;
-    std::vector<TData> m_wsp;
 
     void v_Apply(BlockAccessor<TData> &inblock,
                  BlockAccessor<TData> &outblock) override
@@ -113,79 +117,71 @@ protected:
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto outptr = this->m_append
-                          ? outblock.template GetPtr<MemSpace, ReadWrite>()
-                          : outblock.template GetPtr<MemSpace, WriteOnly>();
-
-        // Fetch Jacobian and deriv factors.
-        auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
-            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                               inblock.GetNumElements()));
-        auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
-            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                  inblock.GetNumElements(), false));
-
-        // Allocate storate.
-        if (m_wsp.size() == 0)
-        {
-            m_wsp = std::vector<TData>(m_dimension * nelmt * m_nqTot);
-        }
-
-        // Get workspace pointer.
-        auto wspptr = m_wsp.data();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
+        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            for (unsigned int d = 0; d < m_coordDim; ++d)
-            {
-                ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                    inblock.GetInterleaveWidth(),
-                    inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
-                    (TData *)inptr + d * inblock.size());
-            }
-            if (this->m_append)
-            {
-                ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                    outblock.GetInterleaveWidth(),
-                    outblock.GetNumElementsWithPadding(), outblock.GetNumData(),
-                    outptr);
-            }
-
-            // Multiply by derivative factor and Jacobian.
-            if (m_isDeformed)
-            {
-                MultiplyByJacobianAndDerivFactorKernel<true>(
-                    m_nqTot, m_coordDim, m_dimension, nelmt, jacptr, dfptr,
-                    inptr, wspptr);
-            }
-            else
-            {
-                MultiplyByJacobianAndDerivFactorKernel<false>(
-                    m_nqTot, m_coordDim, m_dimension, nelmt, jacptr, dfptr,
-                    inptr, wspptr);
-            }
+            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                inblock.GetInterleaveWidth(),
+                inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
+                (TData *)inptr);
 
             // Perform matrix-matrix multiply.
-            for (unsigned int d = 0; d < m_dimension; d++)
-            {
-                TData *ptr = wspptr + d * nelmt * m_nqTot;
-
-                TData alpha = (d != 0 || this->m_append);
-                Blas::Gemm('N', 'N', m_nmTot, nelmt, m_nqTot, 1.0,
-                           m_matptr + d * m_nqTot * m_nmTot, m_nmTot, ptr,
-                           m_nqTot, alpha, outptr, m_nmTot);
-            }
+            Blas::Gemm('N', 'N', m_nqTot, nelmt, m_nmTot, 1.0, m_matptr,
+                       m_nqTot, inptr, m_nmTot, 0.0, outptr, m_nqTot);
 
             // Increment pointers.
-            inptr += m_coordDim * inblock.size();
+            inptr += inblock.size();
             outptr += outblock.size();
         }
 
         // Set to new interleave width.
         inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+    }
+
+    void v_SetScaleFactor(TData scale) override
+    {
+        this->m_scale = scale;
+        m_nq.clear();
+        for (unsigned int d = 0; d < m_dimension; d++)
+        {
+            // Fetch element size.
+            if (d == 0)
+            {
+                const auto nq0 = this->m_scale * m_nm[0];
+                m_nq.push_back(nq0);
+            }
+            else if (d == 1)
+            {
+                // if delta between nm0 and nm1 is 1 then keep this delta
+                // for new poitns to capitalise on switch templating
+                const auto nq1 =
+                    (m_nm[0] - m_nm[1] == 1)
+                        ? (unsigned int)(this->m_scale * m_nm[0]) - 1
+                        : (unsigned int)(this->m_scale * m_nm[1]);
+                m_nq.push_back(nq1);
+            }
+            else if (d == 2)
+            {
+                const auto nq2 =
+                    (m_nm[0] - m_nm[2] == 1)
+                        ? (unsigned int)(this->m_scale * m_nm[0]) - 1
+                        : (unsigned int)(this->m_scale * m_nm[2]);
+                m_nq.push_back(nq2);
+            }
+        }
+
+        m_nmTot =
+            std::accumulate(m_nm.begin(), m_nm.end(), 1, std::multiplies());
+        m_nqTot =
+            std::accumulate(m_nq.begin(), m_nq.end(), 1, std::multiplies());
+
+        m_matptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+            StdMatKey<TData>(m_basisKeys, m_shapeType, ePhysInterpStdMat,
+                             m_nodalType, m_nq));
     }
 };
 

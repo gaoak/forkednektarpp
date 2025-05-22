@@ -16,7 +16,7 @@ IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABL
 ENDIF()
 
 # Set implementation types.
-SET(Implementations StdMat SumFac SumFacQP Generic)
+SET(ElmtOpImpl StdMat SumFac SumFacQP Generic)
 
 # Shape types for seperate code compilation.
 SET(Shapes Seg Tri NodalTri Quad Hex Pyr Prism NodalPrism Tet NodalTet)
@@ -80,13 +80,12 @@ MACRO(ADD_OPERATOR dir)
 
             # Get the source and header files for this operator,
             # execution space, and implementation.
-            SET(CURRENT_HEADERS ${name}_${ExecSpace}_${Impl}_HEADERS)
-            SET(CURRENT_SOURCES ${name}_${ExecSpace}_${Impl}_SOURCES)
+            SET(CURRENT_HEADERS ${name}_${ExecSpace}_HEADERS)
+            SET(CURRENT_SOURCES ${name}_${ExecSpace}_SOURCES)
                 
-            # Get the headers matching the name, execution space, and
-            # Implementation (specific and kernel).
+            # Get the headers matching the name and execution space
             FILE(GLOB ${CURRENT_HEADERS} RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-                ${dir}/${name}${ExecSpace}${Impl}*.hpp)
+                ${dir}/${name}${ExecSpace}*.hpp)
 
             # Found a impl header.
             IF(EXISTS "${dir}/${name}Impl.hpp")
@@ -285,7 +284,7 @@ MACRO(ADD_ELMT_OPERATOR dir)
         ENDIF()
 
         # Loop through each possible implementation.
-        FOREACH (Impl IN LISTS Implementations)
+        FOREACH (Impl IN LISTS ElmtOpImpl)
 
             UNSET(IMPL_HEADER)
 
