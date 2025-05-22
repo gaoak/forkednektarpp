@@ -63,6 +63,8 @@ interleave(size_t numElmtGroups, const unsigned int npts, TData *inout)
                          });
     });
 
+    Q.wait(); // synchronization is required before freeing memory
+
     sycl::free(buffer, SYCLQueue::GetInstance());
 }
 
@@ -90,6 +92,8 @@ deInterleave(const unsigned int interleaveWidth, size_t numElmtGroups,
                                                 npts, buffer, inout, item_ct1);
                          });
     });
+
+    Q.wait(); // synchronization is required before freeing memory
 
     sycl::free(buffer, SYCLQueue::GetInstance());
 }

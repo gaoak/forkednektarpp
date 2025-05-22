@@ -149,6 +149,11 @@ struct vector_width
 {
     static constexpr unsigned int value = 32u;
 };
+#elif defined(SYCL_ENABLE_SERIAL)
+struct vector_width
+{
+    static constexpr unsigned int value = 16u;
+};
 #else
 struct vector_width
 {

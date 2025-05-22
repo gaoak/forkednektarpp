@@ -66,7 +66,7 @@ public:
                 shmemsize <= GetDeviceProperties::SharedMemoryPerBlock(),
             "Shared memory available is " +
                 std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
-                "bytes, requested " + std::to_string(shmemsize) + " bytes");
+                " bytes, requested " + std::to_string(shmemsize) + " bytes");
     }
 
     static void CheckGlobalMemoryUsage(const size_t memsize)
@@ -118,7 +118,7 @@ public:
                 shmemsize <= GetDeviceProperties::SharedMemoryPerBlock(),
             "Shared memory available is " +
                 std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
-                "bytes, requested " + std::to_string(shmemsize) + " bytes");
+                " bytes, requested " + std::to_string(shmemsize) + " bytes");
     }
 
     static void CheckGlobalMemoryUsage(const size_t memsize)
@@ -166,7 +166,7 @@ public:
                 shmemsize <= GetDeviceProperties::SharedMemoryPerBlock(),
             "Shared memory available is " +
                 std::to_string(GetDeviceProperties::SharedMemoryPerBlock()) +
-                "bytes, requested " + std::to_string(shmemsize) + " bytes");
+                " bytes, requested " + std::to_string(shmemsize) + " bytes");
     }
 
     static void CheckGlobalMemoryUsage(const size_t memsize)
