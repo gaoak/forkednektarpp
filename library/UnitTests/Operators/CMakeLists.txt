@@ -64,6 +64,8 @@ ADD_NEKTAR_EXECUTABLE(test_nullprecon_serial_stdmat
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_nullprecon_serial_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_physderiv_serial_stdmat
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_serial_stdmat.cpp)
+ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_serial_stdmat
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_serial_stdmat.cpp)
 
 # Serial SumFac
 ADD_NEKTAR_EXECUTABLE(test_addtraceintegral_serial_sumfac
@@ -243,6 +245,7 @@ SET_UNIT_TEST(Mass_serial_stdmat test_mass_serial_stdmat FALSE)
 SET_UNIT_TEST(Neumann_serial_stdmat test_neumann_serial_stdmat FALSE)
 SET_UNIT_TEST(NullPrecon_serial_stdmat test_nullprecon_serial_stdmat FALSE)
 SET_UNIT_TEST(PhysDeriv_serial_stdmat test_physderiv_serial_stdmat FALSE)
+SET_UNIT_TEST(PhysInterp1DScaled_serial_stdmat test_physinterp1dscaled_serial_stdmat FALSE)
 
 # Serial SumFac
 SET_UNIT_TEST(AddTraceIntegral_serial_sumfac test_addtraceintegral_serial_sumfac FALSE)

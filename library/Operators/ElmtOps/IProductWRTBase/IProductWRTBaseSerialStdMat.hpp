@@ -71,11 +71,10 @@ public:
             basisKeys[d] = exp->GetBasis(d)->GetBasisKey();
         }
 
-        LibUtilities::PointsType nodalType = LibUtilities::eNoPointsType;
-        if (exp->IsNodalNonTensorialExp())
-        {
-            nodalType = exp->GetNodalPointsKey().GetPointsType();
-        }
+        LibUtilities::PointsType nodalType =
+            (exp->IsNodalNonTensorialExp())
+                ? exp->GetNodalPointsKey().GetPointsType()
+                : LibUtilities::eNoPointsType;
 
         m_matptr = dataWarehouse->template GetData<ExecSpace>(StdMatKey<TData>(
             basisKeys, m_shapeType, eIProductWRTBaseStdMat, nodalType));

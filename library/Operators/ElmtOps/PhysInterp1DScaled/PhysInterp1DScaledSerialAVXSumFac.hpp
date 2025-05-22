@@ -70,7 +70,6 @@ public:
 
         for (unsigned int d = 0; d < m_dimension; d++)
         {
-            // Fetch element size.
             m_nm.push_back(exp->GetNumPoints(d));
         }
     }
