@@ -45,10 +45,8 @@ typename std::enable_if<std::is_same_v<THandle, sycl::queue>, void>::type NekGem
     const TData *a, const size_t lda, const TData *b, const size_t ldb,
     const TData beta, TData *c, const size_t ldc)
 {
-    auto transA = (transposeA == "N") ? oneapi::mkl::transpose::N
-                                      : oneapi::mkl::transpose::T;
-    auto transB = (transposeB == "N") ? oneapi::mkl::transpose::N
-                                      : oneapi::mkl::transpose::T;
+    auto transA = (transposeA == "N") ? transpose::N : transpose::T;
+    auto transB = (transposeB == "N") ? transpose::N : transpose::T;
     blas::column_major::gemm(queue, transA, transB, M, N, K, alpha, a, lda, b,
                              ldb, beta, c, ldc);
 }
@@ -63,10 +61,8 @@ NekGemmStridedBatched(THandle queue, std::string transposeA,
                       TData *c, const size_t ldc, const size_t strideC,
                       const size_t batchSize)
 {
-    auto transA = (transposeA == "N") ? oneapi::mkl::transpose::N
-                                      : oneapi::mkl::transpose::T;
-    auto transB = (transposeB == "N") ? oneapi::mkl::transpose::N
-                                      : oneapi::mkl::transpose::T;
+    auto transA = (transposeA == "N") ? transpose::N : transpose::T;
+    auto transB = (transposeB == "N") ? transpose::N : transpose::T;
     blas::column_major::gemm_batch(queue, transA, transB, M, N, K, alpha, a,
                                    lda, strideA, b, ldb, strideB, beta, c, ldc,
                                    strideC, batchSize);

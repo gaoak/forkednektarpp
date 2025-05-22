@@ -180,7 +180,7 @@ NEK_DEVICE_INLINE static void ApplyMetric1DSumFacKernel(
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
-    TData metric[3];
+    TData metric[3] = {0.0};
     if constexpr (!DEFORMED)
     {
         if (diffCoeff)
@@ -289,7 +289,7 @@ NEK_DEVICE_INLINE static void ApplyMetric2DSumFacKernel(
     const unsigned int ndf   = 2 * ncoord;
     const unsigned int nqTot = nq0 * nq1;
 
-    TData metric[6];
+    TData metric[6] = {0.0};
     if constexpr (!DEFORMED)
     {
         if (diffCoeff)
@@ -442,7 +442,7 @@ NEK_DEVICE_INLINE static void ApplyMetric3DSumFacKernel(
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
 
-    TData metric[9];
+    TData metric[9] = {0.0};
     if constexpr (!DEFORMED)
     {
         if (diffCoeff)
@@ -596,7 +596,7 @@ NEK_DEVICE_INLINE static void ApplyMetric1DSumFacQPKernel(
 {
     const unsigned int dfsize = DEFORMED ? nq0 : 1u;
 
-    TData metric[3];
+    TData metric[3] = {0.0};
     if constexpr (!DEFORMED)
     {
         if (diffCoeff)

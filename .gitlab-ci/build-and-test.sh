@@ -75,6 +75,9 @@ elif [[ $BUILD_TYPE == "full" ]]; then
         # Load Intel compiler module for SYCL support on Linux
         [[ $OS_VERSION != "macos" ]] && module load intel/compiler intel/mkl
 
+        # Change SYCL environment variable
+        export CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE=64K
+
         # Enable SYCL in CMake configuration
         CMAKEARGS+=("-DNEKTAR_ENABLE_SYCL:STRING=Default")
     elif [[ $BUILD_SYCL == "CUDA" ]]; then
