@@ -97,6 +97,8 @@ Note:
 - For MI325, please use `gfxzzz=gfx942` 
 
 ### SYCL (Default)
+    export CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE=64K
+
     cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
              -DNEKTAR_ENABLE_SYCL=Default \
              -DCMAKE_CXX_COMPILER="/path-to-intel-compiler/bin/icpx" 
