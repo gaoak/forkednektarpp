@@ -149,10 +149,10 @@ struct vector_width
 {
     static constexpr unsigned int value = 32u;
 };
-#elif defined(SYCL_ENABLE_SERIAL)
+#elif defined(SYCL_ENABLE_CPU)
 struct vector_width
 {
-    static constexpr unsigned int value = 16u;
+    static constexpr unsigned int value = 64u;
 };
 #else
 struct vector_width
@@ -212,9 +212,9 @@ struct Device
 #elif defined(SYCL_ENABLE_INTEL)
     static constexpr unsigned int defaultBlockSize = 128u;
     static constexpr unsigned int maximumBlockSize = 1024u;
-#elif defined(SYCL_ENABLE_SERIAL)
-    static constexpr unsigned int defaultBlockSize = 16u;
-    static constexpr unsigned int maximumBlockSize = 16u;
+#elif defined(SYCL_ENABLE_CPU)
+    static constexpr unsigned int defaultBlockSize = 256u;
+    static constexpr unsigned int maximumBlockSize = 1024u;
 #else
     static constexpr unsigned int defaultBlockSize = 1u;
     static constexpr unsigned int maximumBlockSize = 1u;

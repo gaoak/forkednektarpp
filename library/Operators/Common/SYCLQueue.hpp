@@ -49,10 +49,13 @@ class SYCLQueue
 public:
     static sycl::queue &GetInstance()
     {
-        /** @todo: Add device selection logic */
         if (!queue)
         {
-            queue = new sycl::queue(sycl::default_selector_v,
+#if defined(SYCL_ENABLE_CPU)
+            queue = new sycl::queue(sycl::cpu_selector_v,
+#else
+            queue = new sycl::queue(sycl::gpu_selector_v,
+#endif
                                     sycl::property::queue::in_order());
         }
 
