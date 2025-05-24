@@ -171,7 +171,8 @@ int main(int argc, char *argv[])
         printf("  Peak Memory Bandwidth (GB/s): %f\n",
                2.0 * prop.memoryClockRate * (prop.memoryBusWidth / 8) / 1.0e6);
         printf("  Number of multiprocessors: %d\n", prop.multiProcessorCount);
-#elif defined(NEKTAR_ENABLE_SYCL)
+#elif defined(NEKTAR_ENABLE_SYCL) && !defined(SYCL_ENABLE_CPU) &&              \
+    defined(__INTEL_LLVM_COMPILER)
         auto device =
             SYCLQueue::GetInstance().get_info<sycl::info::queue::device>();
         std::cout << "--------------------------------" << std::endl;
@@ -198,6 +199,20 @@ int main(int argc, char *argv[])
                         sycl::ext::intel::info::device::memory_bus_width>() /
                     8) /
                    1.0e3);
+        printf("  Number of multiprocessors: %d\n",
+               device.get_info<sycl::info::device::max_compute_units>());
+#elif defined(NEKTAR_ENABLE_SYCL)
+        auto device =
+            SYCLQueue::GetInstance().get_info<sycl::info::queue::device>();
+        std::cout << "--------------------------------" << std::endl;
+        std::cout << "Device Properties " << std::endl;
+        std::cout << "--------------------------------" << std::endl;
+        printf("  Device name: %s\n",
+               device.get_info<sycl::info::device::name>().c_str());
+        printf("  Total Global Memory (bytes): %ld\n",
+               device.get_info<sycl::info::device::global_mem_size>());
+        printf("  Shared Memory per Block (bytes): %ld\n",
+               device.get_info<sycl::info::device::local_mem_size>());
         printf("  Number of multiprocessors: %d\n",
                device.get_info<sycl::info::device::max_compute_units>());
 #endif
