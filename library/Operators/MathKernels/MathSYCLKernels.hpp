@@ -50,21 +50,10 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 negKernel(const size_t nsize, const TData *x, TData *y)
 {
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
-
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
-                         [=](sycl::nd_item<1> indx) {
-                             size_t idx0   = indx.get_global_id(0);
-                             size_t stride = indx.get_global_range(0);
-
-                             for (size_t idx = idx0; idx < nsize; idx += stride)
-                             {
-                                 y[idx] = -x[idx];
-                             }
-                         });
+        cgh.parallel_for(sycl::range<1>(nsize),
+                         [=](sycl::id<1> indx) { y[indx] = -x[indx]; });
     });
 }
 
@@ -73,21 +62,11 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 addKernel(const size_t nsize, const TData *x, const TData *y, TData *z)
 {
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
-
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
-                         [=](sycl::nd_item<1> indx) {
-                             size_t idx0   = indx.get_global_id(0);
-                             size_t stride = indx.get_global_range(0);
-
-                             for (size_t idx = idx0; idx < nsize; idx += stride)
-                             {
-                                 z[idx] = x[idx] + y[idx];
-                             }
-                         });
+        cgh.parallel_for(sycl::range<1>(nsize), [=](sycl::id<1> indx) {
+            z[indx] = x[indx] + y[indx];
+        });
     });
 }
 
@@ -96,21 +75,11 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 subKernel(const size_t nsize, const TData *x, const TData *y, TData *z)
 {
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
-
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
-                         [=](sycl::nd_item<1> indx) {
-                             size_t idx0   = indx.get_global_id(0);
-                             size_t stride = indx.get_global_range(0);
-
-                             for (size_t idx = idx0; idx < nsize; idx += stride)
-                             {
-                                 z[idx] = x[idx] - y[idx];
-                             }
-                         });
+        cgh.parallel_for(sycl::range<1>(nsize), [=](sycl::id<1> indx) {
+            z[indx] = x[indx] - y[indx];
+        });
     });
 }
 
@@ -119,21 +88,10 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 mulKernel(const size_t nsize, const TData alpha, const TData *x, TData *y)
 {
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
-
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
-                         [=](sycl::nd_item<1> indx) {
-                             size_t idx0   = indx.get_global_id(0);
-                             size_t stride = indx.get_global_range(0);
-
-                             for (size_t idx = idx0; idx < nsize; idx += stride)
-                             {
-                                 y[idx] = alpha * x[idx];
-                             }
-                         });
+        cgh.parallel_for(sycl::range<1>(nsize),
+                         [=](sycl::id<1> indx) { y[indx] = alpha * x[indx]; });
     });
 }
 
@@ -142,21 +100,11 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 mulKernel(const size_t nsize, const TData *x, const TData *y, TData *z)
 {
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
-
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
-                         [=](sycl::nd_item<1> indx) {
-                             size_t idx0   = indx.get_global_id(0);
-                             size_t stride = indx.get_global_range(0);
-
-                             for (size_t idx = idx0; idx < nsize; idx += stride)
-                             {
-                                 z[idx] = x[idx] * y[idx];
-                             }
-                         });
+        cgh.parallel_for(sycl::range<1>(nsize), [=](sycl::id<1> indx) {
+            z[indx] = x[indx] * y[indx];
+        });
     });
 }
 
@@ -165,21 +113,10 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 divKernel(const size_t nsize, const TData alpha, const TData *x, TData *y)
 {
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
-
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
-                         [=](sycl::nd_item<1> indx) {
-                             size_t idx0   = indx.get_global_id(0);
-                             size_t stride = indx.get_global_range(0);
-
-                             for (size_t idx = idx0; idx < nsize; idx += stride)
-                             {
-                                 y[idx] = alpha / x[idx];
-                             }
-                         });
+        cgh.parallel_for(sycl::range<1>(nsize),
+                         [=](sycl::id<1> indx) { y[indx] = alpha / x[indx]; });
     });
 }
 
@@ -188,21 +125,11 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 divKernel(const size_t nsize, const TData *x, const TData *y, TData *z)
 {
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
-
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
-                         [=](sycl::nd_item<1> indx) {
-                             size_t idx0   = indx.get_global_id(0);
-                             size_t stride = indx.get_global_range(0);
-
-                             for (size_t idx = idx0; idx < nsize; idx += stride)
-                             {
-                                 z[idx] = x[idx] / y[idx];
-                             }
-                         });
+        cgh.parallel_for(sycl::range<1>(nsize), [=](sycl::id<1> indx) {
+            z[indx] = x[indx] / y[indx];
+        });
     });
 }
 
@@ -212,21 +139,11 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 daxpyKernel(const size_t nsize, const TData alpha, const TData *x,
             const TData *y, TData *z)
 {
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
-
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
-                         [=](sycl::nd_item<1> indx) {
-                             size_t idx0   = indx.get_global_id(0);
-                             size_t stride = indx.get_global_range(0);
-
-                             for (size_t idx = idx0; idx < nsize; idx += stride)
-                             {
-                                 z[idx] = alpha * x[idx] + y[idx];
-                             }
-                         });
+        cgh.parallel_for(sycl::range<1>(nsize), [=](sycl::id<1> indx) {
+            z[indx] = alpha * x[indx] + y[indx];
+        });
     });
 }
 

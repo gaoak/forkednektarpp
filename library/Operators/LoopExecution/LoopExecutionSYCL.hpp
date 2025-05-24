@@ -82,21 +82,10 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 parallel_for(const size_t begin, const size_t end, const Functor &functor)
 {
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = ((end - begin) + blockSize - 1u) / blockSize;
-
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
-                         [=](sycl::nd_item<1> indx) {
-                             size_t i = begin + indx.get_global_id(0);
-
-                             while (i < end)
-                             {
-                                 functor(i);
-                                 i += indx.get_global_range(0);
-                             }
-                         });
+        cgh.parallel_for(sycl::range<1>(end - begin),
+                         [=](sycl::id<1> indx) { functor(begin + indx); });
     });
 }
 
