@@ -335,11 +335,39 @@ NEK_DEVICE_INLINE static unsigned int getBlockRange(
     return gridDim.x;
 }
 
+NEK_DEVICE_INLINE static unsigned int getWarpIdx(
+    [[maybe_unused]] const hipcudaBlock1D &threadBlock)
+{
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<double>::value;
+    return getGlobalIdx(threadBlock) / warpsize;
+}
+
 NEK_DEVICE_INLINE static unsigned int getLaneIdx(
     [[maybe_unused]] const hipcudaBlock1D &threadBlock)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<double>::value;
-    return threadIdx.x % warpsize;
+    return getLocalIdx(threadBlock) % warpsize;
+}
+
+template <typename T> __device__ __inline__ T getBit(T mask, T lane)
+{
+#if defined(__CUDACC__)
+    static_assert(std::is_same_v<T, unsigned int>, "Mask must be unsigned int");
+#elif defined(__HIPCC__)
+    static_assert(std::is_same_v<T, size_t>, "Mask must be size_t");
+#endif
+
+    // Shift the bit corresponding to the lane index completely to
+    // the right and check if its value is 0 or 1.
+    // e.g.: mask = 0b1001100010101110
+    //                    ^
+    //                    |
+    //                   lane bit
+    //       mask = 0b0000000000010011
+    //        shift right ---------> ^
+    //                               |
+    //                   check last bit value (0 or 1)
+    return (mask >> lane) & 0x00000001;
 }
 
 NEK_DEVICE_INLINE float atomicMax(float *address, float val)
@@ -694,10 +722,37 @@ NEK_DEVICE_INLINE static unsigned int getBlockRange(
     return threadBlock.get_group_range(0);
 }
 
+NEK_DEVICE_INLINE static unsigned int getWarpIdx(
+    [[maybe_unused]] const sycl::nd_item<1> &threadBlock)
+{
+    return threadBlock.get_sub_group().get_group_id();
+}
+
 NEK_DEVICE_INLINE static unsigned int getLaneIdx(
     [[maybe_unused]] const sycl::nd_item<1> &threadBlock)
 {
     return threadBlock.get_sub_group().get_local_id();
+}
+
+template <typename T> NEK_DEVICE_INLINE T getBit(T mask, T lane)
+{
+#if defined(SYCL_ENABLE_CUDA)
+    static_assert(std::is_same_v<T, unsigned int>, "Mask must be unsigned int");
+#elif defined(SYCL_ENABLE_HIP)
+    static_assert(std::is_same_v<T, size_t>, "Mask must be size_t");
+#endif
+
+    // Shift the bit corresponding to the lane index completely to
+    // the right and check if its value is 0 or 1.
+    // e.g.: mask = 0b1001100010101110
+    //                    ^
+    //                    |
+    //                   lane bit
+    //       mask = 0b0000000000010011
+    //        shift right ---------> ^
+    //                               |
+    //                   check last bit value (0 or 1)
+    return (mask >> lane) & 0x00000001;
 }
 
 template <typename Scope, typename TData>
