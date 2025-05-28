@@ -239,12 +239,17 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase2DSumFacKernel(
             const unsigned int dfindex =
                 DEFORMED ? ndf * warpsize * cnt_ji + ilane : ilane;
 
-            TData sum1 = 0.0, sum2 = 0.0;
-            for (unsigned int d = 0; d < ncoord; ++d)
+            TData tmp  = in[index];
+            TData sum1 = df[0u * warpsize + dfindex] * tmp;
+            TData sum2 = df[1u * warpsize + dfindex] * tmp;
+            tmp        = in[insize * nqTot + index];
+            sum1 += df[2u * warpsize + dfindex] * tmp;
+            sum2 += df[3u * warpsize + dfindex] * tmp;
+            if (ncoord == 3u)
             {
-                TData tmp = in[d * insize * nqTot + index];
-                sum1 += df[(2u * d) * warpsize + dfindex] * tmp;
-                sum2 += df[(2u * d + 1u) * warpsize + dfindex] * tmp;
+                tmp = in[2u * insize * nqTot + index];
+                sum1 += df[4u * warpsize + dfindex] * tmp;
+                sum2 += df[5u * warpsize + dfindex] * tmp;
             }
 
             TData tmpQ = w0[i] * w1[j];
@@ -287,8 +292,7 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase3DSumFacKernel(
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
-    constexpr unsigned int ncoord = 3u;
-    constexpr unsigned int ndf    = 9u;
+    constexpr unsigned int ndf = 9u;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
 
@@ -302,14 +306,18 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase3DSumFacKernel(
                 const unsigned int dfindex =
                     DEFORMED ? ndf * warpsize * cnt_kji + ilane : ilane;
 
-                TData sum1 = 0.0, sum2 = 0.0, sum3 = 0.0;
-                for (unsigned int d = 0u; d < ncoord; ++d)
-                {
-                    TData tmp = in[d * insize * nqTot + index];
-                    sum1 += df[(3u * d) * warpsize + dfindex] * tmp;
-                    sum2 += df[(3u * d + 1u) * warpsize + dfindex] * tmp;
-                    sum3 += df[(3u * d + 2u) * warpsize + dfindex] * tmp;
-                }
+                TData tmp  = in[index];
+                TData sum1 = df[0u * warpsize + dfindex] * tmp;
+                TData sum2 = df[1u * warpsize + dfindex] * tmp;
+                TData sum3 = df[2u * warpsize + dfindex] * tmp;
+                tmp        = in[insize * nqTot + index];
+                sum1 += df[3u * warpsize + dfindex] * tmp;
+                sum2 += df[4u * warpsize + dfindex] * tmp;
+                sum3 += df[5u * warpsize + dfindex] * tmp;
+                tmp = in[2u * insize * nqTot + index];
+                sum1 += df[6u * warpsize + dfindex] * tmp;
+                sum2 += df[7u * warpsize + dfindex] * tmp;
+                sum3 += df[8u * warpsize + dfindex] * tmp;
 
                 TData tmpQ = w0[i] * w1[j] * w2[k];
                 if constexpr (DEFORMED)
@@ -412,12 +420,17 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase2DSumFacQPKernel(
         const unsigned int j       = idx / nq0;
         const unsigned int dfindex = DEFORMED ? idx : 0;
 
-        TData sum1 = 0.0, sum2 = 0.0;
-        for (unsigned int d = 0u; d < ncoord; ++d)
+        TData tmp  = in[idx];
+        TData sum1 = df[0u * dfsize + dfindex] * tmp;
+        TData sum2 = df[1u * dfsize + dfindex] * tmp;
+        tmp        = in[insize * nqTot + idx];
+        sum1 += df[2u * dfsize + dfindex] * tmp;
+        sum2 += df[3u * dfsize + dfindex] * tmp;
+        if (ncoord == 3u)
         {
-            TData tmp = in[d * insize * nqTot + idx];
-            sum1 += df[(2u * d) * dfsize + dfindex] * tmp;
-            sum2 += df[(2u * d + 1u) * dfsize + dfindex] * tmp;
+            tmp = in[2u * insize * nqTot + idx];
+            sum1 += df[4u * dfsize + dfindex] * tmp;
+            sum2 += df[5u * dfsize + dfindex] * tmp;
         }
 
         TData tmpQ = w0[i] * w1[j];
@@ -460,8 +473,6 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase3DSumFacQPKernel(
     TData *__restrict__ out1, TData *__restrict__ out2,
     const TthreadBlock &threadBlock)
 {
-    constexpr unsigned int ncoord = 3u;
-
     const unsigned int nqTot  = nq0 * nq1 * nq2;
     const unsigned int dfsize = DEFORMED ? nqTot : 1u;
 
@@ -475,14 +486,18 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase3DSumFacQPKernel(
         const unsigned int k       = idx / (nq0 * nq1);
         const unsigned int dfindex = DEFORMED ? idx : 0;
 
-        TData sum1 = 0.0, sum2 = 0.0, sum3 = 0.0;
-        for (unsigned int d = 0u; d < ncoord; ++d)
-        {
-            TData tmp = in[d * insize * nqTot + idx];
-            sum1 += df[(3u * d) * dfsize + dfindex] * tmp;
-            sum2 += df[(3u * d + 1u) * dfsize + dfindex] * tmp;
-            sum3 += df[(3u * d + 2u) * dfsize + dfindex] * tmp;
-        }
+        TData tmp  = in[idx];
+        TData sum1 = df[0u * dfsize + dfindex] * tmp;
+        TData sum2 = df[1u * dfsize + dfindex] * tmp;
+        TData sum3 = df[2u * dfsize + dfindex] * tmp;
+        tmp        = in[insize * nqTot + idx];
+        sum1 += df[3u * dfsize + dfindex] * tmp;
+        sum2 += df[4u * dfsize + dfindex] * tmp;
+        sum3 += df[5u * dfsize + dfindex] * tmp;
+        tmp = in[2u * insize * nqTot + idx];
+        sum1 += df[6u * dfsize + dfindex] * tmp;
+        sum2 += df[7u * dfsize + dfindex] * tmp;
+        sum3 += df[8u * dfsize + dfindex] * tmp;
 
         TData tmpQ = w0[i] * w1[j] * w2[k];
         if constexpr (DEFORMED)
