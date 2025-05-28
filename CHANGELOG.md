@@ -38,6 +38,7 @@ v5.8.0
 - Remove NekInt, NekInt32, NekInt64, NekUInt, NekUInt32, NekUInt64 typedef (!2123)
 - Fix CMake warnings related to modern policy changes (!2129)
 - Add support for unsigned int in SessionReader parameters (!2127)
+- Put in check for variable p diagonal preconditioner (2132)
 
 **CI**
 - Fix CubeAllElements performance test tolerance (!1943)
@@ -45,6 +46,7 @@ v5.8.0
 - remove CI image tag when dockerhub deploy completes (!1960)
 - Use recursive strategy for submodule (!1997)
 - cleanup CI environment images after packaging (!1991)
+- Update Fedora test environments to Fedora 40 (!1993)
 
 **NekMesh**
 - Add high-order pyramid and prism support from gmsh (!1956)

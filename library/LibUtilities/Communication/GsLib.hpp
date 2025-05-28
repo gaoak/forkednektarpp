@@ -188,7 +188,7 @@ extern "C"
  * @return GSLib data structure containing mapping information.
  */
 static inline gs_data *Init(
-    [[maybe_unused]] const Nektar::Array<OneD, long> pId,
+    [[maybe_unused]] const Nektar::Array<OneD, long> &pId,
     [[maybe_unused]] const LibUtilities::CommSharedPtr &pComm,
     [[maybe_unused]] bool verbose = true)
 {
@@ -223,7 +223,7 @@ static inline gs_data *Init(
  * be included only once.
  */
 static inline void Unique(
-    [[maybe_unused]] const Nektar::Array<OneD, long> pId,
+    [[maybe_unused]] const Nektar::Array<OneD, long> &pId,
     [[maybe_unused]] const LibUtilities::CommSharedPtr &pComm)
 {
 #ifdef NEKTAR_USE_MPI

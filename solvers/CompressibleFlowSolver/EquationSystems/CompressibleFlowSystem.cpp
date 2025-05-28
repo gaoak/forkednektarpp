@@ -458,8 +458,8 @@ void CompressibleFlowSystem::GetFluxVector(
     for (size_t p = 0; p < nPts; ++p)
     {
         // local storage
-        std::array<NekDouble, maxFld> fieldTmp;
-        std::array<NekDouble, maxVel> velocity;
+        std::array<NekDouble, maxFld> fieldTmp = {0};
+        std::array<NekDouble, maxVel> velocity = {0};
 
         // rearrenge and load data
         for (size_t f = 0; f < nVariables; ++f)

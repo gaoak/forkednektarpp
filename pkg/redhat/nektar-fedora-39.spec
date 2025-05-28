@@ -8,22 +8,25 @@ Source0:        https://gitlab.nektar.info/nektar/nektar/-/archive/v%{version}/n
 URL:            https://www.nektar.info/
 Requires:       libnektar++ = %{version}
 BuildRequires:  arpack-devel
+BuildRequires:  bison
 BuildRequires:  blas-devel
 BuildRequires:  boost-devel
 BuildRequires:  chrpath
 BuildRequires:  cmake
 BuildRequires:  fftw-devel
+BuildRequires:  flex
 BuildRequires:  gcc-c++
 BuildRequires:  gcc-gfortran
 BuildRequires:  lapack-devel
 BuildRequires:  libXmu-devel
 BuildRequires:  make
 BuildRequires:  opencascade-devel
+BuildRequires:  patch
 #BuildRequires:  petsc-devel
 BuildRequires:  python3-devel
 BuildRequires:  python3-pip
 BuildRequires:  python3-setuptools
-BuildRequires:  scotch-devel
+#BuildRequires:  scotch-devel
 BuildRequires:  tetgen-devel
 BuildRequires:  tinyxml-devel
 BuildRequires:  zlib-devel

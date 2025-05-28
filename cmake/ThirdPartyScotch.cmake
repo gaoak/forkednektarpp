@@ -105,6 +105,7 @@ IF (NEKTAR_USE_SCOTCH)
                 "CLIBFLAGS=-fPIC"
                 "CCP=${SCOTCH_C_COMPILER}"
                 "CCD=${SCOTCH_C_COMPILER}"
+                "YACC=bison -pscotchyy -y -b y -Wno-yacc"
                 ${SCOTCH_BUILD_TARGET}
             INSTALL_COMMAND $(MAKE) -C ${SCOTCH_SRC}
                 prefix=${TPDIST} install

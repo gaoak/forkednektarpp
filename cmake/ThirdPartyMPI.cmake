@@ -23,6 +23,8 @@ IF( NEKTAR_USE_MPI )
     SET(MPI_BUILTIN OFF CACHE INTERNAL
         "Determines whether MPI is built into the compiler")
     IF (NOT "${HAVE_MPI_H}" OR NOT "${HAVE_MPI_SEND}")
+        # Enable version detection to identify if MPICH or OPENMPI
+        SET(MPI_DETERMINE_LIBRARY_VERSION YES)
         FIND_PACKAGE(MPI REQUIRED)
 
         INCLUDE_DIRECTORIES(SYSTEM ${MPI_CXX_INCLUDE_PATH} )
@@ -44,6 +46,14 @@ IF( NEKTAR_USE_MPI )
 	MARK_AS_ADVANCED(MPIEXEC)
 	MARK_AS_ADVANCED(MPIEXEC_NUMPROC_FLAG)
 	UNSET(HAVE_APRUN CACHE)
+    ENDIF()
+
+    # Add compiler definition for MPI type. This is needed by the Tester
+    # when defining the hostfile to ensure it is formatted correctly.
+    IF ("${MPI_CXX_LIBRARY_VERSION_STRING}" MATCHES "MPICH")
+	    ADD_DEFINITIONS(-DNEKTAR_MPI_TYPE=1)
+    ELSE()
+	    ADD_DEFINITIONS(-DNEKTAR_MPI_TYPE=0)
     ENDIF()
 
     ADD_DEFINITIONS(-DNEKTAR_USE_MPI)
