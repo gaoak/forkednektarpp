@@ -957,32 +957,27 @@ NEK_DEVICE_INLINE static void BwdTransPyrSumFacQPKernel(
         mode_pqr -= (p - 1u) * p * (2u * p - 1u) / 6u;
         mode_pqr /= 2u;
 
+        const unsigned ulimit = (q < p) ? nm2 - p : nm2 - q;
+
         if (q < p)
         {
             mode_pqr += q * (nm2 - p);
-            mode2 += mode_pqr;
-            TData tmp = 0.0;
-#pragma unroll
-            for (unsigned int r = 0u; r < nm2 - p; ++r, ++mode2, ++mode_pqr)
-            {
-                tmp += in[mode_pqr] * basis2[mode2 * nq2 + k];
-            }
-            wsp0[idx] = tmp;
         }
         else
         {
             mode_pqr += p * (nm2 - p);
             mode_pqr += ((2u * (nm2 - p) - (q - p) + 1u) * (q - p)) / 2u;
-            mode2 += mode_pqr;
-
-            TData tmp = 0.0;
-#pragma unroll
-            for (unsigned int r = 0u; r < nm2 - q; ++r, ++mode2, ++mode_pqr)
-            {
-                tmp += in[mode_pqr] * basis2[mode2 * nq2 + k];
-            }
-            wsp0[idx] = tmp;
         }
+
+        mode2 += mode_pqr;
+
+        TData tmp = 0.0;
+#pragma unroll
+        for (unsigned int r = 0u; r < ulimit; ++r, ++mode2, ++mode_pqr)
+        {
+            tmp += in[mode_pqr] * basis2[mode2 * nq2 + k];
+        }
+        wsp0[idx] = tmp;
     }
 
     localBarrier(threadBlock);
