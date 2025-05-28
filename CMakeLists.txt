@@ -315,8 +315,6 @@ IF (NEKTAR_BUILD_REDESIGN)
         ELSE()
             INCLUDE(NektarCUDA)
         ENDIF()
-
-        SET(BOOST_MIN_VERSION "1.76.0")
     ENDIF ()
 
     IF (NEKTAR_ENABLE_HIP)
