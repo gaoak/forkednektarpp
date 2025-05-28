@@ -59,9 +59,11 @@ __global__ void Helmholtz1DKernelLauncher(
 }
 
 // Size based template version.
-template <typename Implementation, bool DEFORMED, unsigned int nm0,
-          unsigned int nq0, typename TData>
-__global__ void Helmholtz1DKernelLauncher(
+template <
+    typename Implementation, bool DEFORMED, unsigned int nm0, unsigned int nq0,
+    typename TData,
+    unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(nq0)>
+__global__ void __launch_bounds__(maxThreadPerBlock) Helmholtz1DKernelLauncher(
     const unsigned int ncoord, const size_t nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ D0,
     const TData *__restrict__ w0, const TData *__restrict__ df,
@@ -105,8 +107,10 @@ __global__ void Helmholtz2DKernelLauncher(
 // Size based template version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, unsigned int nm0, unsigned int nm1, unsigned int nmTot,
-          unsigned int nq0, unsigned int nq1, typename TData>
-__global__ void Helmholtz2DKernelLauncher(
+          unsigned int nq0, unsigned int nq1, typename TData,
+          unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(
+              LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1))>
+__global__ void __launch_bounds__(maxThreadPerBlock) Helmholtz2DKernelLauncher(
     const unsigned int ncoord, const size_t nelmt, const bool isModified,
     const unsigned int *__restrict__ index0, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ D0,
@@ -162,8 +166,10 @@ __global__ void Helmholtz3DKernelLauncher(
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, unsigned int nm0, unsigned int nm1, unsigned int nm2,
           unsigned int nmTot, unsigned int nq0, unsigned int nq1,
-          unsigned int nq2, typename TData>
-__global__ void Helmholtz3DKernelLauncher(
+          unsigned int nq2, typename TData,
+          unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(
+              LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2))>
+__global__ void __launch_bounds__(maxThreadPerBlock) Helmholtz3DKernelLauncher(
     const size_t nelmt, const bool isModified,
     const unsigned int *__restrict__ index0,
     const unsigned int *__restrict__ index1,

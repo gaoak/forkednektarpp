@@ -54,13 +54,15 @@ __global__ void BwdTrans1DKernelLauncher(
 }
 
 // Size based template version.
-template <typename Implementation, unsigned int nm0, unsigned int nq0,
-          typename TData>
-__global__ void BwdTrans1DKernelLauncher(const size_t nelmt,
-                                         const TData *__restrict__ basis0,
-                                         const TData *__restrict__ in,
-                                         TData *__restrict__ out,
-                                         const hipcudaBlock1D &threadBlock)
+template <
+    typename Implementation, unsigned int nm0, unsigned int nq0, typename TData,
+    unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(nq0)>
+__global__ void __launch_bounds__(maxThreadPerBlock)
+    BwdTrans1DKernelLauncher(const size_t nelmt,
+                             const TData *__restrict__ basis0,
+                             const TData *__restrict__ in,
+                             TData *__restrict__ out,
+                             const hipcudaBlock1D &threadBlock)
 {
     extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
@@ -89,12 +91,17 @@ __global__ void BwdTrans2DKernelLauncher(
 // Size based template version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           unsigned int nm0, unsigned int nm1, unsigned int nmTot,
-          unsigned int nq0, unsigned int nq1, typename TData>
-__global__ void BwdTrans2DKernelLauncher(
-    const size_t nelmt, const bool isModified, const TData *__restrict__ basis0,
-    const TData *__restrict__ basis1, const TData *__restrict__ nodToMod,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp, const hipcudaBlock1D &threadBlock)
+          unsigned int nq0, unsigned int nq1, typename TData,
+          unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(
+              LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1))>
+__global__ void __launch_bounds__(maxThreadPerBlock)
+    BwdTrans2DKernelLauncher(const size_t nelmt, const bool isModified,
+                             const TData *__restrict__ basis0,
+                             const TData *__restrict__ basis1,
+                             const TData *__restrict__ nodToMod,
+                             const TData *__restrict__ in,
+                             TData *__restrict__ out, TData *__restrict__ wsp,
+                             const hipcudaBlock1D &threadBlock)
 {
     extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
@@ -128,8 +135,10 @@ __global__ void BwdTrans3DKernelLauncher(
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           unsigned int nm0, unsigned int nm1, unsigned int nm2,
           unsigned int nmTot, unsigned int nq0, unsigned int nq1,
-          unsigned int nq2, typename TData>
-__global__ void BwdTrans3DKernelLauncher(
+          unsigned int nq2, typename TData,
+          unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(
+              LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2))>
+__global__ void __launch_bounds__(maxThreadPerBlock) BwdTrans3DKernelLauncher(
     const size_t nelmt, const bool isModified, const unsigned int *index0,
     const unsigned int *index1, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ basis2,

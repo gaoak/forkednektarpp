@@ -53,14 +53,16 @@ __global__ void PhysDeriv1DKernelLauncher(
 }
 
 // Size based template version.
-template <typename Implementation, bool DEFORMED, unsigned int ncoord,
-          unsigned int nq0, typename TData>
-__global__ void PhysDeriv1DKernelLauncher(const size_t nelmt,
-                                          const TData *__restrict__ D0,
-                                          const TData *__restrict__ df,
-                                          const TData *__restrict__ in,
-                                          TData *__restrict__ out,
-                                          const hipcudaBlock1D &threadBlock)
+template <
+    typename Implementation, bool DEFORMED, unsigned int ncoord,
+    unsigned int nq0, typename TData/*,
+    unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(nq0)*/>
+__global__ void /*__launch_bounds__(maxThreadPerBlock)*/
+    PhysDeriv1DKernelLauncher(const size_t nelmt, const TData *__restrict__ D0,
+                              const TData *__restrict__ df,
+                              const TData *__restrict__ in,
+                              TData *__restrict__ out,
+                              const hipcudaBlock1D &threadBlock)
 {
     PhysDeriv1DKernel<Implementation, DEFORMED>(ncoord, nq0, nelmt, D0, df, in,
                                                 out, threadBlock);
@@ -87,13 +89,18 @@ __global__ void PhysDeriv2DKernelLauncher(
 // Size based template version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, unsigned int ncoord, unsigned int nq0,
-          unsigned int nq1, typename TData>
-__global__ void PhysDeriv2DKernelLauncher(
-    const size_t nelmt, const TData *__restrict__ D0,
-    const TData *__restrict__ D1, const TData *__restrict__ f0,
-    const TData *__restrict__ f1, const TData *__restrict__ df,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    const hipcudaBlock1D &threadBlock)
+          unsigned int nq1, typename TData/*,
+          unsigned int maxThreadPerBlock =
+              GetDeviceBlockSize<Implementation>(nq0 *nq1)*/>
+__global__ void /*__launch_bounds__(maxThreadPerBlock)*/
+    PhysDeriv2DKernelLauncher(const size_t nelmt, const TData *__restrict__ D0,
+                              const TData *__restrict__ D1,
+                              const TData *__restrict__ f0,
+                              const TData *__restrict__ f1,
+                              const TData *__restrict__ df,
+                              const TData *__restrict__ in,
+                              TData *__restrict__ out,
+                              const hipcudaBlock1D &threadBlock)
 {
     extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
@@ -124,8 +131,10 @@ __global__ void PhysDeriv3DKernelLauncher(
 // Size based template version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, unsigned int nq0, unsigned int nq1, unsigned int nq2,
-          typename TData>
-__global__ void PhysDeriv3DKernelLauncher(
+          typename TData/*,
+          unsigned int maxThreadPerBlock =
+              GetDeviceBlockSize<Implementation>(nq0 *nq1 *nq2)*/>
+__global__ void /*__launch_bounds__(maxThreadPerBlock)*/ PhysDeriv3DKernelLauncher(
     const size_t nelmt, const TData *__restrict__ D0,
     const TData *__restrict__ D1, const TData *__restrict__ D2,
     const TData *__restrict__ f0, const TData *__restrict__ f1,
