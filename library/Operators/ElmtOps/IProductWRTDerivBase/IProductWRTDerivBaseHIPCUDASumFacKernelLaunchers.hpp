@@ -58,14 +58,17 @@ __global__ void IProductWRTDerivBase1DKernelLauncher(
 }
 
 // Size based template version.
-template <typename Implementation, bool DEFORMED, unsigned int nm0,
-          unsigned int nq0, typename TData>
-__global__ void IProductWRTDerivBase1DKernelLauncher(
-    const unsigned int ncoord, const size_t nelmt,
-    const TData *__restrict__ dbasis0, const TData *__restrict__ w0,
-    const TData *__restrict__ df, const TData *__restrict__ jac,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp, const hipcudaBlock1D &threadBlock)
+template <
+    typename Implementation, bool DEFORMED, unsigned int nm0, unsigned int nq0,
+    typename TData,
+    unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(nq0)>
+__global__ void __launch_bounds__(maxThreadPerBlock)
+    IProductWRTDerivBase1DKernelLauncher(
+        const unsigned int ncoord, const size_t nelmt,
+        const TData *__restrict__ dbasis0, const TData *__restrict__ w0,
+        const TData *__restrict__ df, const TData *__restrict__ jac,
+        const TData *__restrict__ in, TData *__restrict__ out,
+        TData *__restrict__ wsp, const hipcudaBlock1D &threadBlock)
 {
     extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
@@ -101,17 +104,21 @@ __global__ void IProductWRTDerivBase2DKernelLauncher(
 // Size based template version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, unsigned int nm0, unsigned int nm1, unsigned int nmTot,
-          unsigned int nq0, unsigned int nq1, typename TData>
-__global__ void IProductWRTDerivBase2DKernelLauncher(
-    const unsigned int ncoord, const size_t nelmt, const bool isModified,
-    const unsigned int *__restrict__ index0, const TData *__restrict__ basis0,
-    const TData *__restrict__ basis1, const TData *__restrict__ D0,
-    const TData *__restrict__ D1, const TData *__restrict__ w0,
-    const TData *__restrict__ w1, const TData *__restrict__ f0,
-    const TData *__restrict__ f1, const TData *__restrict__ nodToMod,
-    const TData *__restrict__ df, const TData *__restrict__ jac,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp, const hipcudaBlock1D &threadBlock)
+          unsigned int nq0, unsigned int nq1, typename TData,
+          unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(
+              LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1))>
+__global__ void __launch_bounds__(maxThreadPerBlock)
+    IProductWRTDerivBase2DKernelLauncher(
+        const unsigned int ncoord, const size_t nelmt, const bool isModified,
+        const unsigned int *__restrict__ index0,
+        const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+        const TData *__restrict__ D0, const TData *__restrict__ D1,
+        const TData *__restrict__ w0, const TData *__restrict__ w1,
+        const TData *__restrict__ f0, const TData *__restrict__ f1,
+        const TData *__restrict__ nodToMod, const TData *__restrict__ df,
+        const TData *__restrict__ jac, const TData *__restrict__ in,
+        TData *__restrict__ out, TData *__restrict__ wsp,
+        const hipcudaBlock1D &threadBlock)
 {
     extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
@@ -154,22 +161,25 @@ __global__ void IProductWRTDerivBase3DKernelLauncher(
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, unsigned int nm0, unsigned int nm1, unsigned int nm2,
           unsigned int nmTot, unsigned int nq0, unsigned int nq1,
-          unsigned int nq2, typename TData>
-__global__ void IProductWRTDerivBase3DKernelLauncher(
-    const size_t nelmt, const bool isModified,
-    const unsigned int *__restrict__ index0,
-    const unsigned int *__restrict__ index1,
-    const unsigned int *__restrict__ index2, const TData *__restrict__ basis0,
-    const TData *__restrict__ basis1, const TData *__restrict__ basis2,
-    const TData *__restrict__ D0, const TData *__restrict__ D1,
-    const TData *__restrict__ D2, const TData *__restrict__ w0,
-    const TData *__restrict__ w1, const TData *__restrict__ w2,
-    const TData *__restrict__ f0, const TData *__restrict__ f1,
-    const TData *__restrict__ f1m, const TData *__restrict__ f2,
-    const TData *__restrict__ nodToMod, const TData *__restrict__ df,
-    const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ wsp,
-    const hipcudaBlock1D &threadBlock)
+          unsigned int nq2, typename TData,
+          unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(
+              LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2))>
+__global__ void __launch_bounds__(maxThreadPerBlock)
+    IProductWRTDerivBase3DKernelLauncher(
+        const size_t nelmt, const bool isModified,
+        const unsigned int *__restrict__ index0,
+        const unsigned int *__restrict__ index1,
+        const unsigned int *__restrict__ index2,
+        const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+        const TData *__restrict__ basis2, const TData *__restrict__ D0,
+        const TData *__restrict__ D1, const TData *__restrict__ D2,
+        const TData *__restrict__ w0, const TData *__restrict__ w1,
+        const TData *__restrict__ w2, const TData *__restrict__ f0,
+        const TData *__restrict__ f1, const TData *__restrict__ f1m,
+        const TData *__restrict__ f2, const TData *__restrict__ nodToMod,
+        const TData *__restrict__ df, const TData *__restrict__ jac,
+        const TData *__restrict__ in, TData *__restrict__ out,
+        TData *__restrict__ wsp, const hipcudaBlock1D &threadBlock)
 {
     extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
