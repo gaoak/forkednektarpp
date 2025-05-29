@@ -377,19 +377,34 @@ NEK_DEVICE_INLINE static void ApplyMetric2DSumFacKernel(
             }
 
             TData sum1 = 0.0, sum2 = 0.0;
-            for (unsigned int d = 0; d < ncoord; ++d)
+            if (diffCoeff)
             {
-                TData tmp = in[d * insize * nqTot + index];
-
-                if (diffCoeff)
+                TData tmp = in[index];
+                sum1 += metric[0u] * tmp;
+                sum2 += metric[1u] * tmp;
+                tmp = in[insize * nqTot + index];
+                sum1 += metric[2u] * tmp;
+                sum2 += metric[3u] * tmp;
+                if (ncoord == 3u)
                 {
-                    sum1 += metric[2u * d] * tmp;
-                    sum2 += metric[2u * d + 1u] * tmp;
+                    tmp = in[2u * insize * nqTot + index];
+                    sum1 += metric[4u] * tmp;
+                    sum2 += metric[5u] * tmp;
                 }
-                else
+            }
+            else
+            {
+                TData tmp = in[index];
+                sum1 += df[0u * warpsize + dfindex] * tmp;
+                sum2 += df[1u * warpsize + dfindex] * tmp;
+                tmp = in[insize * nqTot + index];
+                sum1 += df[2u * warpsize + dfindex] * tmp;
+                sum2 += df[3u * warpsize + dfindex] * tmp;
+                if (ncoord == 3u)
                 {
-                    sum1 += df[(2u * d) * warpsize + dfindex] * tmp;
-                    sum2 += df[(2u * d + 1u) * warpsize + dfindex] * tmp;
+                    tmp = in[2u * insize * nqTot + index];
+                    sum1 += df[4u * warpsize + dfindex] * tmp;
+                    sum2 += df[5u * warpsize + dfindex] * tmp;
                 }
             }
 
@@ -437,8 +452,7 @@ NEK_DEVICE_INLINE static void ApplyMetric3DSumFacKernel(
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
-    constexpr unsigned int ncoord = 3u;
-    constexpr unsigned int ndf    = 9u;
+    constexpr unsigned int ndf = 9u;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
 
@@ -522,22 +536,35 @@ NEK_DEVICE_INLINE static void ApplyMetric3DSumFacKernel(
                 }
 
                 TData sum1 = 0.0, sum2 = 0.0, sum3 = 0.0;
-                for (unsigned int d = 0u; d < ncoord; ++d)
+                if (diffCoeff)
                 {
-                    TData tmp = in[d * insize * nqTot + index];
-
-                    if (diffCoeff)
-                    {
-                        sum1 += metric[3u * d] * tmp;
-                        sum2 += metric[3u * d + 1u] * tmp;
-                        sum3 += metric[3u * d + 2u] * tmp;
-                    }
-                    else
-                    {
-                        sum1 += df[(3u * d) * warpsize + dfindex] * tmp;
-                        sum2 += df[(3u * d + 1u) * warpsize + dfindex] * tmp;
-                        sum3 += df[(3u * d + 2u) * warpsize + dfindex] * tmp;
-                    }
+                    TData tmp = in[index];
+                    sum1 += metric[0u] * tmp;
+                    sum2 += metric[1u] * tmp;
+                    sum3 += metric[2u] * tmp;
+                    tmp = in[insize * nqTot + index];
+                    sum1 += metric[3u] * tmp;
+                    sum2 += metric[4u] * tmp;
+                    sum3 += metric[5u] * tmp;
+                    tmp = in[2u * insize * nqTot + index];
+                    sum1 += metric[6u] * tmp;
+                    sum2 += metric[7u] * tmp;
+                    sum3 += metric[8u] * tmp;
+                }
+                else
+                {
+                    TData tmp = in[index];
+                    sum1 += df[0u * warpsize + dfindex] * tmp;
+                    sum2 += df[1u * warpsize + dfindex] * tmp;
+                    sum3 += df[2u * warpsize + dfindex] * tmp;
+                    tmp = in[insize * nqTot + index];
+                    sum1 += df[3u * warpsize + dfindex] * tmp;
+                    sum2 += df[4u * warpsize + dfindex] * tmp;
+                    sum3 += df[5u * warpsize + dfindex] * tmp;
+                    tmp = in[2u * insize * nqTot + index];
+                    sum1 += df[6u * warpsize + dfindex] * tmp;
+                    sum2 += df[7u * warpsize + dfindex] * tmp;
+                    sum3 += df[8u * warpsize + dfindex] * tmp;
                 }
 
                 TData tmpQ = w0[i] * w1[j] * w2[k];
@@ -779,19 +806,34 @@ NEK_DEVICE_INLINE static void ApplyMetric2DSumFacQPKernel(
         }
 
         TData sum1 = 0.0, sum2 = 0.0;
-        for (unsigned int d = 0u; d < ncoord; ++d)
+        if (diffCoeff)
         {
-            TData tmp = in[d * insize * nqTot + idx];
-
-            if (diffCoeff)
+            TData tmp = in[idx];
+            sum1 += metric[0u] * tmp;
+            sum2 += metric[1u] * tmp;
+            tmp = in[insize * nqTot + idx];
+            sum1 += metric[2u] * tmp;
+            sum2 += metric[3u] * tmp;
+            if (ncoord == 3u)
             {
-                sum1 += metric[2u * d] * tmp;
-                sum2 += metric[2u * d + 1u] * tmp;
+                tmp = in[2u * insize * nqTot + idx];
+                sum1 += metric[4u] * tmp;
+                sum2 += metric[5u] * tmp;
             }
-            else
+        }
+        else
+        {
+            TData tmp = in[idx];
+            sum1 += df[0u * dfsize + dfindex] * tmp;
+            sum2 += df[1u * dfsize + dfindex] * tmp;
+            tmp = in[insize * nqTot + idx];
+            sum1 += df[2u * dfsize + dfindex] * tmp;
+            sum2 += df[3u * dfsize + dfindex] * tmp;
+            if (ncoord == 3u)
             {
-                sum1 += df[(2u * d) * dfsize + dfindex] * tmp;
-                sum2 += df[(2u * d + 1u) * dfsize + dfindex] * tmp;
+                tmp = in[2u * insize * nqTot + idx];
+                sum1 += df[4u * dfsize + dfindex] * tmp;
+                sum2 += df[5u * dfsize + dfindex] * tmp;
             }
         }
 
@@ -837,8 +879,6 @@ NEK_DEVICE_INLINE static void ApplyMetric3DSumFacQPKernel(
     TData *__restrict__ bwd, TData *out0, TData *out1, TData *out2,
     TData *metric, const TData lambda, const TthreadBlock &threadBlock)
 {
-    constexpr unsigned int ncoord = 3u;
-
     const unsigned int nqTot  = nq0 * nq1 * nq2;
     const unsigned int dfsize = DEFORMED ? nqTot : 1u;
 
@@ -903,22 +943,35 @@ NEK_DEVICE_INLINE static void ApplyMetric3DSumFacQPKernel(
         }
 
         TData sum1 = 0.0, sum2 = 0.0, sum3 = 0.0;
-        for (unsigned int d = 0u; d < ncoord; ++d)
+        if (diffCoeff)
         {
-            TData tmp = in[d * insize * nqTot + idx];
-
-            if (diffCoeff)
-            {
-                sum1 += metric[3u * d] * tmp;
-                sum2 += metric[3u * d + 1u] * tmp;
-                sum3 += metric[3u * d + 2u] * tmp;
-            }
-            else
-            {
-                sum1 += df[(3u * d) * dfsize + dfindex] * tmp;
-                sum2 += df[(3u * d + 1u) * dfsize + dfindex] * tmp;
-                sum3 += df[(3u * d + 2u) * dfsize + dfindex] * tmp;
-            }
+            TData tmp = in[idx];
+            sum1 += metric[0u] * tmp;
+            sum2 += metric[1u] * tmp;
+            sum3 += metric[2u] * tmp;
+            tmp = in[insize * nqTot + idx];
+            sum1 += metric[3u] * tmp;
+            sum2 += metric[4u] * tmp;
+            sum3 += metric[5u] * tmp;
+            tmp = in[2u * insize * nqTot + idx];
+            sum1 += metric[6u] * tmp;
+            sum2 += metric[7u] * tmp;
+            sum3 += metric[8u] * tmp;
+        }
+        else
+        {
+            TData tmp = in[idx];
+            sum1 += df[0u * dfsize + dfindex] * tmp;
+            sum2 += df[1u * dfsize + dfindex] * tmp;
+            sum3 += df[2u * dfsize + dfindex] * tmp;
+            tmp = in[insize * nqTot + idx];
+            sum1 += df[3u * dfsize + dfindex] * tmp;
+            sum2 += df[4u * dfsize + dfindex] * tmp;
+            sum3 += df[5u * dfsize + dfindex] * tmp;
+            tmp = in[2u * insize * nqTot + idx];
+            sum1 += df[6u * dfsize + dfindex] * tmp;
+            sum2 += df[7u * dfsize + dfindex] * tmp;
+            sum3 += df[8u * dfsize + dfindex] * tmp;
         }
 
         TData tmpQ = w0[i] * w1[j] * w2[k];

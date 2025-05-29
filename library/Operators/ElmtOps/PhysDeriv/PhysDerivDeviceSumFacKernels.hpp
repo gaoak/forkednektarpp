@@ -208,11 +208,15 @@ NEK_DEVICE_INLINE static void PhysDeriv2DSumFacKernel(
             }
 
             // Multiply by derivative factors.
-            for (unsigned int d = 0u; d < ncoord; d++)
+            out[index] = d0 * df[0u * warpsize + dfindex] +
+                         d1 * df[1u * warpsize + dfindex];
+            out[outsize * nqTot + index] = d0 * df[2u * warpsize + dfindex] +
+                                           d1 * df[3u * warpsize + dfindex];
+            if (ncoord == 3u)
             {
-                out[d * outsize * nqTot + index] =
-                    d0 * df[(2u * d) * warpsize + dfindex] +
-                    d1 * df[(2u * d + 1u) * warpsize + dfindex];
+                out[2u * outsize * nqTot + index] =
+                    d0 * df[4u * warpsize + dfindex] +
+                    d1 * df[5u * warpsize + dfindex];
             }
         }
     }
@@ -273,8 +277,7 @@ NEK_DEVICE_INLINE static void PhysDeriv3DSumFacKernel(
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
-    constexpr unsigned int ncoord = 3u;
-    constexpr unsigned int ndf    = 9u;
+    constexpr unsigned int ndf = 9u;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
 
@@ -341,13 +344,17 @@ NEK_DEVICE_INLINE static void PhysDeriv3DSumFacKernel(
                 }
 
                 // Multiply by derivative factors.
-                for (unsigned int d = 0u; d < ncoord; d++)
-                {
-                    out[d * outsize * nqTot + index] =
-                        d0 * df[(3u * d) * warpsize + dfindex] +
-                        d1 * df[(3u * d + 1u) * warpsize + dfindex] +
-                        d2 * df[(3u * d + 2u) * warpsize + dfindex];
-                }
+                out[index] = d0 * df[0u * warpsize + dfindex] +
+                             d1 * df[1u * warpsize + dfindex] +
+                             d2 * df[2u * warpsize + dfindex];
+                out[outsize * nqTot + index] =
+                    d0 * df[3u * warpsize + dfindex] +
+                    d1 * df[4u * warpsize + dfindex] +
+                    d2 * df[5u * warpsize + dfindex];
+                out[2u * outsize * nqTot + index] =
+                    d0 * df[6u * warpsize + dfindex] +
+                    d1 * df[7u * warpsize + dfindex] +
+                    d2 * df[8u * warpsize + dfindex];
             }
         }
     }
@@ -525,11 +532,14 @@ NEK_DEVICE_INLINE static void PhysDeriv2DSumFacQPKernel(
         }
 
         // Multiply by derivative factors.
-        for (unsigned int d = 0u; d < ncoord; d++)
+        out[idx] =
+            d0 * df[0u * dfsize + dfindex] + d1 * df[1u * dfsize + dfindex];
+        out[outsize * nqTot + idx] =
+            d0 * df[2u * dfsize + dfindex] + d1 * df[3u * dfsize + dfindex];
+        if (ncoord == 3u)
         {
-            out[d * outsize * nqTot + idx] =
-                d0 * df[(2u * d) * dfsize + dfindex] +
-                d1 * df[(2u * d + 1u) * dfsize + dfindex];
+            out[2u * outsize * nqTot + idx] =
+                d0 * df[4u * dfsize + dfindex] + d1 * df[5u * dfsize + dfindex];
         }
     }
 
@@ -594,8 +604,6 @@ NEK_DEVICE_INLINE static void PhysDeriv3DSumFacQPKernel(
     const TData *__restrict__ df, const TData *__restrict__ in,
     TData *__restrict__ out, const TthreadBlock &threadBlock)
 {
-    constexpr unsigned int ncoord = 3u;
-
     const unsigned int nqTot  = nq0 * nq1 * nq2;
     const unsigned int dfsize = DEFORMED ? nqTot : 1u;
 
@@ -659,13 +667,15 @@ NEK_DEVICE_INLINE static void PhysDeriv3DSumFacQPKernel(
         }
 
         // Multiply by derivative factors.
-        for (unsigned int d = 0u; d < ncoord; d++)
-        {
-            out[d * outsize * nqTot + idx] =
-                d0 * df[(3u * d) * dfsize + dfindex] +
-                d1 * df[(3u * d + 1u) * dfsize + dfindex] +
-                d2 * df[(3u * d + 2u) * dfsize + dfindex];
-        }
+        out[idx] = d0 * df[0u * dfsize + dfindex] +
+                   d1 * df[1u * dfsize + dfindex] +
+                   d2 * df[2u * dfsize + dfindex];
+        out[outsize * nqTot + idx] = d0 * df[3u * dfsize + dfindex] +
+                                     d1 * df[4u * dfsize + dfindex] +
+                                     d2 * df[5u * dfsize + dfindex];
+        out[2u * outsize * nqTot + idx] = d0 * df[6u * dfsize + dfindex] +
+                                          d1 * df[7u * dfsize + dfindex] +
+                                          d2 * df[8u * dfsize + dfindex];
     }
 
     localBarrier(threadBlock);
