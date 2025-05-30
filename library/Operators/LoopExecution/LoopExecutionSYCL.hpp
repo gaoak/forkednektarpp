@@ -254,8 +254,14 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
                 typename Reduction::value_type *out)
 {
+#if defined(USE_SYCL_BUILTIN_REDUCER)
+    const unsigned int gridSize = NektarSpaces::Device::maximumBlockSize;
+#else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+#endif
+
+    sycl::queue &Q = SYCLQueue::GetInstance();
 
     using TData = typename Reduction::value_type;
 
@@ -263,8 +269,7 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
     {
         const unsigned int syclBufferSize = sizeof(TData) * (gridSize + 1);
         GetDeviceProperties::CheckGlobalMemoryUsage(syclBufferSize);
-        syclBuffer =
-            sycl::malloc_device(syclBufferSize, SYCLQueue::GetInstance());
+        syclBuffer = sycl::malloc_device(syclBufferSize, Q);
         GetDeviceProperties::TotalGlobalMemory() -= syclBufferSize;
     }
 
@@ -272,27 +277,63 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
     TData *d_out  = (TData *)syclBuffer + gridSize;
     if constexpr (std::is_same_v<Reduction, Nektar::ReduceSum<TData>>)
     {
+#if defined(USE_SYCL_BUILTIN_REDUCER)
+        Q.parallel_for(
+            sycl::range<1>(end - begin),
+            sycl::reduction(
+                d_out, sycl::plus<>(),
+                sycl::property_list{
+                    sycl::property::reduction::initialize_to_identity{}}),
+            [=](sycl::id<1> indx, auto &reducer) {
+                reducer.combine(functor(begin + indx));
+            });
+#else
         reduceSumKernel(gridSize, blockSize, begin, end, buffer, functor);
         reduceSumKernel(1, gridSize, 0, gridSize, out,
-                        [=](const size_t i, TData &ans) { ans += buffer[i]; });
+                         [=](const size_t i, TData &ans) { ans += buffer[i]; });
+#endif
     }
     else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMax<TData>>)
     {
+#if defined(USE_SYCL_BUILTIN_REDUCER)
+        Q.parallel_for(
+            sycl::range<1>(end - begin),
+            sycl::reduction(
+                d_out, sycl::maximum<>(),
+                sycl::property_list{
+                    sycl::property::reduction::initialize_to_identity{}}),
+            [=](sycl::id<1> indx, auto &reducer) {
+                reducer.combine(functor(begin + indx));
+            });
+#else
         reduceMaxKernel(gridSize, blockSize, begin, end, buffer, functor);
         reduceMaxKernel(1, gridSize, 0, gridSize, out,
-                        [=](const size_t i, TData &ans) {
+                         [=](const size_t i, TData &ans) {
                             ans = sycl::max(ans, buffer[i]);
                         });
+#endif
     }
     else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMin<TData>>)
     {
+#if defined(USE_SYCL_BUILTIN_REDUCER)
+        Q.parallel_for(
+            sycl::range<1>(end - begin),
+            sycl::reduction(
+                d_out, sycl::minimum<>(),
+                sycl::property_list{
+                    sycl::property::reduction::initialize_to_identity{}}),
+            [=](sycl::id<1> indx, auto &reducer) {
+                reducer.combine(functor(begin + indx));
+            });
+#else
         reduceMinKernel(gridSize, blockSize, begin, end, buffer, functor);
         reduceMinKernel(1, gridSize, 0, gridSize, out,
-                        [=](const size_t i, TData &ans) {
+                         [=](const size_t i, TData &ans) {
                             ans = sycl::min(ans, buffer[i]);
                         });
+#endif
     }
-    SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
+    Q.memcpy(out, d_out, sizeof(TData)).wait();
 }
 
 } // namespace Nektar
