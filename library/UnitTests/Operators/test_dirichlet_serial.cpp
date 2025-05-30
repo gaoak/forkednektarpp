@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_neumann_serial_stdmat.cpp
+// File: test_dirichlet_serial.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,18 +32,18 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestNeumann
+#define BOOST_TEST_MODULE TestDirichletSerial
 
-#include "init_neumannfields.hpp"
+#include "init_dirichletfields.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
 #include <memory>
 
-#define TEST_NEUMANN(test_name, test, tol)                                     \
+#define TEST_DIRICHLET(test_name, test, tol)                                   \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        Configure("Serial", "StdMat");                                         \
+        Configure("Serial");                                                   \
         SetTestCase();                                                         \
         RunTestCase();                                                         \
         boost::test_tools::output_test_stream output;                          \
@@ -52,18 +52,18 @@
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestNeumann)
+BOOST_AUTO_TEST_SUITE(TestDirichletSerial)
 
-TEST_NEUMANN(neumann1d_seg, Helmholtz1D_Seg, 1.0E-12)
+TEST_DIRICHLET(dirichlet1d_serial_seg, Helmholtz1D_Seg, 1.0E-12)
 
-TEST_NEUMANN(neumann2d_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-12)
+TEST_DIRICHLET(dirichlet2d_serial_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-12)
 
-TEST_NEUMANN(neumann3d_hex, Helmholtz3D_Hex, 1.0E-12)
+TEST_DIRICHLET(dirichlet3d_serial_hex, Helmholtz3D_Hex, 1.0E-12)
 
-TEST_NEUMANN(neumann3d_prism, Helmholtz3D_Prism, 1.0E-12)
+TEST_DIRICHLET(dirichlet3d_serial_prism, Helmholtz3D_Prism, 1.0E-12)
 
-TEST_NEUMANN(neumann3d_pyr, Helmholtz3D_Pyr, 1.0E-12)
+TEST_DIRICHLET(dirichlet3d_serial_pyr, Helmholtz3D_Pyr, 1.0E-12)
 
-TEST_NEUMANN(neumann3d_tet, Helmholtz3D_Tet, 1.0E-12)
+TEST_DIRICHLET(dirichlet3d_serial_tet, Helmholtz3D_Tet, 1.0E-12)
 
 BOOST_AUTO_TEST_SUITE_END()

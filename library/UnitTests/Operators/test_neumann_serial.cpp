@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_neumann_device_sumfac.cpp
+// File: test_neumann_serial.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestNeumannDevice
+#define BOOST_TEST_MODULE TestNeumannSerial
 
 #include "init_neumannfields.hpp"
 
@@ -43,7 +43,7 @@
 #define TEST_NEUMANN(test_name, test, tol)                                     \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        Configure("Device", "SumFac");                                         \
+        Configure("Serial");                                                   \
         SetTestCase();                                                         \
         RunTestCase();                                                         \
         boost::test_tools::output_test_stream output;                          \
@@ -52,18 +52,18 @@
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestNeumann)
+BOOST_AUTO_TEST_SUITE(TestNeumannSerial)
 
-TEST_NEUMANN(neumann1d_device_seg, Helmholtz1D_Seg, 1.0E-12)
+TEST_NEUMANN(neumann1d_serial_seg, Helmholtz1D_Seg, 1.0E-12)
 
-TEST_NEUMANN(neumann2d_device_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-12)
+TEST_NEUMANN(neumann2d_serial_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-12)
 
-TEST_NEUMANN(neumann3d_device_hex, Helmholtz3D_Hex, 1.0E-12)
+TEST_NEUMANN(neumann3d_serial_hex, Helmholtz3D_Hex, 1.0E-12)
 
-TEST_NEUMANN(neumann3d_device_prism, Helmholtz3D_Prism, 1.0E-12)
+TEST_NEUMANN(neumann3d_serial_prism, Helmholtz3D_Prism, 1.0E-12)
 
-TEST_NEUMANN(neumann3d_device_pyr, Helmholtz3D_Pyr, 1.0E-12)
+TEST_NEUMANN(neumann3d_serial_pyr, Helmholtz3D_Pyr, 1.0E-12)
 
-TEST_NEUMANN(neumann3d_device_tet, Helmholtz3D_Tet, 1.0E-12)
+TEST_NEUMANN(neumann3d_serial_tet, Helmholtz3D_Tet, 1.0E-12)
 
 BOOST_AUTO_TEST_SUITE_END()

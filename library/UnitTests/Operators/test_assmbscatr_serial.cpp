@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_assmbscatr_serial_stdmat.cpp
+// File: test_assmbscatr_serial.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestAssmbScatr
+#define BOOST_TEST_MODULE TestAssmbScatrSerial
 
 #include "init_assmbscatrfields.hpp"
 
@@ -43,7 +43,7 @@
 #define TEST_ASSMBSCATR(test_name, test, tol)                                  \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        Configure("Serial", "StdMat");                                         \
+        Configure("Serial");                                                   \
         SetTestCase();                                                         \
         RunTestCase();                                                         \
         boost::test_tools::output_test_stream output;                          \
@@ -52,7 +52,7 @@
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestAssmbScatr)
+BOOST_AUTO_TEST_SUITE(TestAssmbScatrSerial)
 
 TEST_ASSMBSCATR(assmbscatr_serial_quad, Quad, 1.0E-12)
 

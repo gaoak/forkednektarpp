@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_assmbscatr_device_sumfac.cpp
+// File: test_neumann_device.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,18 +32,18 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestAssmbScatrDevice
+#define BOOST_TEST_MODULE TestNeumannDevice
 
-#include "init_assmbscatrfields.hpp"
+#include "init_neumannfields.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
 #include <memory>
 
-#define TEST_ASSMBSCATR(test_name, test, tol)                                  \
+#define TEST_NEUMANN(test_name, test, tol)                                     \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        Configure("Device", "SumFac");                                         \
+        Configure("Device");                                                   \
         SetTestCase();                                                         \
         RunTestCase();                                                         \
         boost::test_tools::output_test_stream output;                          \
@@ -52,41 +52,18 @@
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestAssmbScatrDevice)
+BOOST_AUTO_TEST_SUITE(TestNeumann)
 
-TEST_ASSMBSCATR(assmbscatr_device_quad, Quad, 1.0E-12)
+TEST_NEUMANN(neumann1d_device_seg, Helmholtz1D_Seg, 1.0E-12)
 
-TEST_ASSMBSCATR(assmbscatr_device_quad_sem, QuadSEM, 1.0E-12)
+TEST_NEUMANN(neumann2d_device_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-12)
 
-TEST_ASSMBSCATR(assmbscatr_device_quad_varp, QuadVarP, 1.0E-12)
+TEST_NEUMANN(neumann3d_device_hex, Helmholtz3D_Hex, 1.0E-12)
 
-TEST_ASSMBSCATR(assmbscatr_device_tri, Tri, 1.0E-12)
+TEST_NEUMANN(neumann3d_device_prism, Helmholtz3D_Prism, 1.0E-12)
 
-TEST_ASSMBSCATR(assmbscatr_device_tri_varp, TriVarP, 1.0E-12)
+TEST_NEUMANN(neumann3d_device_pyr, Helmholtz3D_Pyr, 1.0E-12)
 
-TEST_ASSMBSCATR(assmbscatr_device_square_all_elements, SquareAllElements,
-                1.0E-12)
-
-TEST_ASSMBSCATR(assmbscatr_device_hex, Hex, 1.0E-12)
-
-TEST_ASSMBSCATR(assmbscatr_device_hex_sem, HexSEM, 1.0E-12)
-
-TEST_ASSMBSCATR(assmbscatr_device_hex_varp, HexVarP, 1.0E-12)
-
-TEST_ASSMBSCATR(assmbscatr_device_prism, Prism, 1.0E-12)
-
-TEST_ASSMBSCATR(assmbscatr_device_prism_varp, PrismVarP, 1.0E-12)
-
-TEST_ASSMBSCATR(assmbscatr_device_pyr, Pyr, 1.0E-12)
-
-TEST_ASSMBSCATR(assmbscatr_device_pyr_varp, PyrVarP, 1.0E-12)
-
-TEST_ASSMBSCATR(assmbscatr_device_tet, Tet, 1.0E-12)
-
-TEST_ASSMBSCATR(assmbscatr_device_tet_varp, TetVarP, 1.0E-12)
-
-TEST_ASSMBSCATR(assmbscatr_device_cube_prism_hex, CubePrismHex, 1.0E-12)
-
-TEST_ASSMBSCATR(assmbscatr_device_cube_all_elements, CubeAllElements, 1.0E-12)
+TEST_NEUMANN(neumann3d_device_tet, Helmholtz3D_Tet, 1.0E-12)
 
 BOOST_AUTO_TEST_SUITE_END()
