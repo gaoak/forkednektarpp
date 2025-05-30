@@ -210,9 +210,11 @@ int main(int argc, char *argv[])
         printf("  Device name: %s\n",
                device.get_info<sycl::info::device::name>().c_str());
         printf("  Total Global Memory (bytes): %ld\n",
-               device.get_info<sycl::info::device::global_mem_size>());
+               (long unsigned)
+                   device.get_info<sycl::info::device::global_mem_size>());
         printf("  Shared Memory per Block (bytes): %ld\n",
-               device.get_info<sycl::info::device::local_mem_size>());
+               (long unsigned)
+                   device.get_info<sycl::info::device::local_mem_size>());
         printf("  Number of multiprocessors: %d\n",
                device.get_info<sycl::info::device::max_compute_units>());
 #endif

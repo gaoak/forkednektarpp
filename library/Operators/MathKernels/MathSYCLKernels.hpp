@@ -561,23 +561,38 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 reduceSumKernel(const size_t nsize, const TData *x, TData *out)
 {
+#if defined(USE_SYCL_BUILTIN_REDUCER)
+    const unsigned int gridSize = NektarSpaces::Device::maximumBlockSize;
+#else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+#endif
+
+    sycl::queue &Q = SYCLQueue::GetInstance();
 
     if (syclBuffer == nullptr)
     {
         const unsigned int syclBufferSize = sizeof(TData) * (gridSize + 1);
         GetDeviceProperties::CheckGlobalMemoryUsage(syclBufferSize);
-        syclBuffer =
-            sycl::malloc_device(syclBufferSize, SYCLQueue::GetInstance());
+        syclBuffer = sycl::malloc_device(syclBufferSize, Q);
         GetDeviceProperties::TotalGlobalMemory() -= syclBufferSize;
     }
 
     TData *buffer = (TData *)syclBuffer;
     TData *d_out  = buffer + gridSize;
+#if defined(USE_SYCL_BUILTIN_REDUCER)
+    Q.parallel_for(
+        sycl::range<1>(nsize),
+        sycl::reduction(
+            d_out, sycl::plus<>(),
+            sycl::property_list{
+                sycl::property::reduction::initialize_to_identity{}}),
+        [=](sycl::id<1> indx, auto &reducer) { reducer += x[indx]; });
+#else
     reduceSumKernel(gridSize, blockSize, nsize, x, buffer);
     reduceSumKernel(1, gridSize, gridSize, buffer, d_out);
-    SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
+#endif
+    Q.memcpy(out, d_out, sizeof(TData)).wait();
 }
 
 template <typename ExecSpace, typename TData>
@@ -585,23 +600,38 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
 {
+#if defined(USE_SYCL_BUILTIN_REDUCER)
+    const unsigned int gridSize = NektarSpaces::Device::maximumBlockSize;
+#else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+#endif
+
+    sycl::queue &Q = SYCLQueue::GetInstance();
 
     if (syclBuffer == nullptr)
     {
         const unsigned int syclBufferSize = sizeof(TData) * (gridSize + 1);
         GetDeviceProperties::CheckGlobalMemoryUsage(syclBufferSize);
-        syclBuffer =
-            sycl::malloc_device(syclBufferSize, SYCLQueue::GetInstance());
+        syclBuffer = sycl::malloc_device(syclBufferSize, Q);
         GetDeviceProperties::TotalGlobalMemory() -= syclBufferSize;
     }
 
     TData *buffer = (TData *)syclBuffer;
     TData *d_out  = buffer + gridSize;
+#if defined(USE_SYCL_BUILTIN_REDUCER)
+    Q.parallel_for(
+        sycl::range<1>(nsize),
+        sycl::reduction(
+            d_out, sycl::maximum<>(),
+            sycl::property_list{
+                sycl::property::reduction::initialize_to_identity{}}),
+        [=](sycl::id<1> indx, auto &reducer) { reducer.combine(x[indx]); });
+#else
     reduceMaxKernel(gridSize, blockSize, nsize, x, buffer);
     reduceMaxKernel(1, gridSize, gridSize, buffer, d_out);
-    SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
+#endif
+    Q.memcpy(out, d_out, sizeof(TData)).wait();
 }
 
 template <typename ExecSpace, typename TData>
@@ -609,23 +639,38 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 reduceMinKernel(const size_t nsize, const TData *x, TData *out)
 {
+#if defined(USE_SYCL_BUILTIN_REDUCER)
+    const unsigned int gridSize = NektarSpaces::Device::maximumBlockSize;
+#else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+#endif
+
+    sycl::queue &Q = SYCLQueue::GetInstance();
 
     if (syclBuffer == nullptr)
     {
         const unsigned int syclBufferSize = sizeof(TData) * (gridSize + 1);
         GetDeviceProperties::CheckGlobalMemoryUsage(syclBufferSize);
-        syclBuffer =
-            sycl::malloc_device(syclBufferSize, SYCLQueue::GetInstance());
+        syclBuffer = sycl::malloc_device(syclBufferSize, Q);
         GetDeviceProperties::TotalGlobalMemory() -= syclBufferSize;
     }
 
     TData *buffer = (TData *)syclBuffer;
     TData *d_out  = buffer + gridSize;
+#if defined(USE_SYCL_BUILTIN_REDUCER)
+    Q.parallel_for(
+        sycl::range<1>(nsize),
+        sycl::reduction(
+            d_out, sycl::minimum<>(),
+            sycl::property_list{
+                sycl::property::reduction::initialize_to_identity{}}),
+        [=](sycl::id<1> indx, auto &reducer) { reducer.combine(x[indx]); });
+#else
     reduceMinKernel(gridSize, blockSize, nsize, x, buffer);
     reduceMinKernel(1, gridSize, gridSize, buffer, d_out);
-    SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
+#endif
+    Q.memcpy(out, d_out, sizeof(TData)).wait();
 }
 
 template <typename ExecSpace, typename TData>
@@ -633,23 +678,38 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 ddotKernel(const size_t nsize, const TData *x, const TData *y, TData *out)
 {
+#if defined(USE_SYCL_BUILTIN_REDUCER)
+    const unsigned int gridSize = NektarSpaces::Device::maximumBlockSize;
+#else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+#endif
+
+    sycl::queue &Q = SYCLQueue::GetInstance();
 
     if (syclBuffer == nullptr)
     {
         const unsigned int syclBufferSize = sizeof(TData) * (gridSize + 1);
         GetDeviceProperties::CheckGlobalMemoryUsage(syclBufferSize);
-        syclBuffer =
-            sycl::malloc_device(syclBufferSize, SYCLQueue::GetInstance());
+        syclBuffer = sycl::malloc_device(syclBufferSize, Q);
         GetDeviceProperties::TotalGlobalMemory() -= syclBufferSize;
     }
 
     TData *buffer = (TData *)syclBuffer;
     TData *d_out  = buffer + gridSize;
+#if defined(USE_SYCL_BUILTIN_REDUCER)
+    Q.parallel_for(
+        sycl::range<1>(nsize),
+        sycl::reduction(
+            d_out, sycl::plus<>(),
+            sycl::property_list{
+                sycl::property::reduction::initialize_to_identity{}}),
+        [=](sycl::id<1> indx, auto &reducer) { reducer += x[indx] * y[indx]; });
+#else
     ddotKernel(gridSize, blockSize, nsize, x, y, buffer);
     reduceSumKernel(1, gridSize, gridSize, buffer, d_out);
-    SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
+#endif
+    Q.memcpy(out, d_out, sizeof(TData)).wait();
 }
 
 template <typename ExecSpace, typename TData>
@@ -657,23 +717,40 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 l1normKernel(const size_t nsize, const TData *x, TData *out)
 {
+#if defined(USE_SYCL_BUILTIN_REDUCER)
+    const unsigned int gridSize = NektarSpaces::Device::maximumBlockSize;
+#else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+#endif
+
+    sycl::queue &Q = SYCLQueue::GetInstance();
 
     if (syclBuffer == nullptr)
     {
         const unsigned int syclBufferSize = sizeof(TData) * (gridSize + 1);
         GetDeviceProperties::CheckGlobalMemoryUsage(syclBufferSize);
-        syclBuffer =
-            sycl::malloc_device(syclBufferSize, SYCLQueue::GetInstance());
+        syclBuffer = sycl::malloc_device(syclBufferSize, Q);
         GetDeviceProperties::TotalGlobalMemory() -= syclBufferSize;
     }
 
     TData *buffer = (TData *)syclBuffer;
     TData *d_out  = buffer + gridSize;
+#if defined(USE_SYCL_BUILTIN_REDUCER)
+    Q.parallel_for(
+        sycl::range<1>(nsize),
+        sycl::reduction(
+            d_out, sycl::plus<>(),
+            sycl::property_list{
+                sycl::property::reduction::initialize_to_identity{}}),
+        [=](sycl::id<1> indx, auto &reducer) {
+            reducer += sycl::fabs(x[indx]);
+        });
+#else
     l1normKernel(gridSize, blockSize, nsize, x, buffer);
     reduceSumKernel(1, gridSize, gridSize, buffer, d_out);
-    SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
+#endif
+    Q.memcpy(out, d_out, sizeof(TData)).wait();
 }
 
 template <typename ExecSpace, typename TData>
@@ -681,48 +758,79 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 l2normKernel(const size_t nsize, const TData *x, TData *out)
 {
+#if defined(USE_SYCL_BUILTIN_REDUCER)
+    const unsigned int gridSize = NektarSpaces::Device::maximumBlockSize;
+#else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+#endif
+
+    sycl::queue &Q = SYCLQueue::GetInstance();
 
     if (syclBuffer == nullptr)
     {
         const unsigned int syclBufferSize = sizeof(TData) * (gridSize + 1);
         GetDeviceProperties::CheckGlobalMemoryUsage(syclBufferSize);
-        syclBuffer =
-            sycl::malloc_device(syclBufferSize, SYCLQueue::GetInstance());
+        syclBuffer = sycl::malloc_device(syclBufferSize, Q);
         GetDeviceProperties::TotalGlobalMemory() -= syclBufferSize;
     }
 
     TData *buffer = (TData *)syclBuffer;
     TData *d_out  = buffer + gridSize;
+#if defined(USE_SYCL_BUILTIN_REDUCER)
+    Q.parallel_for(
+        sycl::range<1>(nsize),
+        sycl::reduction(
+            d_out, sycl::plus<>(),
+            sycl::property_list{
+                sycl::property::reduction::initialize_to_identity{}}),
+        [=](sycl::id<1> indx, auto &reducer) { reducer += x[indx] * x[indx]; });
+#else
     l2normKernel(gridSize, blockSize, nsize, x, buffer);
     reduceSumKernel(1, gridSize, gridSize, buffer, d_out);
-    SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
+#endif
+    Q.memcpy(out, d_out, sizeof(TData)).wait();
 }
 
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-lpnormKernel(const size_t nsize, const unsigned int p, const TData *x,
-             TData *out)
+lpnormKernel(const size_t nsize, const int p, const TData *x, TData *out)
 {
+#if defined(USE_SYCL_BUILTIN_REDUCER)
+    const unsigned int gridSize = NektarSpaces::Device::maximumBlockSize;
+#else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+#endif
+
+    sycl::queue &Q = SYCLQueue::GetInstance();
 
     if (syclBuffer == nullptr)
     {
         const unsigned int syclBufferSize = sizeof(TData) * (gridSize + 1);
         GetDeviceProperties::CheckGlobalMemoryUsage(syclBufferSize);
-        syclBuffer =
-            sycl::malloc_device(syclBufferSize, SYCLQueue::GetInstance());
+        syclBuffer = sycl::malloc_device(syclBufferSize, Q);
         GetDeviceProperties::TotalGlobalMemory() -= syclBufferSize;
     }
 
     TData *buffer = (TData *)syclBuffer;
     TData *d_out  = buffer + gridSize;
+#if defined(USE_SYCL_BUILTIN_REDUCER)
+    Q.parallel_for(
+        sycl::range<1>(nsize),
+        sycl::reduction(
+            d_out, sycl::plus<>(),
+            sycl::property_list{
+                sycl::property::reduction::initialize_to_identity{}}),
+        [=](sycl::id<1> indx, auto &reducer) {
+            reducer += sycl::pown(sycl::fabs(x[indx]), p);
+        });
+#else
     lpnormKernel(gridSize, blockSize, nsize, p, x, buffer);
     reduceSumKernel(1, gridSize, gridSize, buffer, d_out);
-    SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
+#endif
+    Q.memcpy(out, d_out, sizeof(TData)).wait();
 }
 
 template <typename ExecSpace, typename TData>
@@ -730,23 +838,40 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 linfnormKernel(const size_t nsize, const TData *x, TData *out)
 {
+#if defined(USE_SYCL_BUILTIN_REDUCER)
+    const unsigned int gridSize = NektarSpaces::Device::maximumBlockSize;
+#else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+#endif
+
+    sycl::queue &Q = SYCLQueue::GetInstance();
 
     if (syclBuffer == nullptr)
     {
         const unsigned int syclBufferSize = sizeof(TData) * (gridSize + 1);
         GetDeviceProperties::CheckGlobalMemoryUsage(syclBufferSize);
-        syclBuffer =
-            sycl::malloc_device(syclBufferSize, SYCLQueue::GetInstance());
+        syclBuffer = sycl::malloc_device(syclBufferSize, Q);
         GetDeviceProperties::TotalGlobalMemory() -= syclBufferSize;
     }
 
     TData *buffer = (TData *)syclBuffer;
     TData *d_out  = buffer + gridSize;
+#if defined(USE_SYCL_BUILTIN_REDUCER)
+    Q.parallel_for(
+        sycl::range<1>(nsize),
+        sycl::reduction(
+            d_out, sycl::maximum<>(),
+            sycl::property_list{
+                sycl::property::reduction::initialize_to_identity{}}),
+        [=](sycl::id<1> indx, auto &reducer) {
+            reducer.combine(sycl::fabs(x[indx]));
+        });
+#else
     linfnormKernel(gridSize, blockSize, nsize, x, buffer);
     reduceMaxKernel(1, gridSize, gridSize, buffer, d_out);
-    SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
+#endif
+    Q.memcpy(out, d_out, sizeof(TData)).wait();
 }
 
 } // namespace Nektar
