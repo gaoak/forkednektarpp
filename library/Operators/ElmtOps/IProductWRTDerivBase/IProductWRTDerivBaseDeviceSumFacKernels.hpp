@@ -697,7 +697,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase2DKernel(
                     ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1,
                     deriv, out1ptr, wsp0, (TData)1.0);
 
-                // multiply by transpose  notToMod to transform coeffs
+                // Multiply by transpose notToMod to transform coeffs.
                 MatVecKernel<false, true>(ilane, nmTot, nodToMod, out1ptr,
                                           outptr);
             }
@@ -776,7 +776,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase2DKernel(
                     s_basis0, s_basis1, deriv, s_out1ptr, s_wsp0, (TData)1.0,
                     threadBlock);
 
-                // multiply by transpose nodToMod to convert coeffs
+                // Multiply by transpose notToMod to transform coeffs.
                 MatVecQPKernel<false, true>(nmTot, nodToMod, s_out1ptr, outptr,
                                             threadBlock);
             }
@@ -931,12 +931,9 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
                     wsp + 4 * nqTot * nelmt + nq1 * nq2 * warpsize * iwarp;
                 TData *wsp1 = wsp + (4 * nqTot + nq1 * nq2) * nelmt +
                               nq2 * warpsize * iwarp;
-                TData *prod = wsp + (4 * nqTot + nq1 * nq2 + nq2) * nelmt +
-                              nm2 * warpsize * iwarp;
                 IProductWRTBaseTetSumFacKernel<false, false, DEFORMED>(
                     ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
-                    basis1, basis2, deriv, outptr, wsp0, wsp1, prod,
-                    (TData)1.0);
+                    basis1, basis2, deriv, outptr, wsp0, wsp1, (TData)1.0);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
             {
@@ -946,15 +943,11 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
                               nq1 * nq2 * warpsize * iwarp;
                 TData *wsp1 = wsp + (4 * nqTot + nq1 * nq2 + nmTot) * nelmt +
                               nq2 * warpsize * iwarp;
-                TData *prod = wsp +
-                              (4 * nqTot + nq1 * nq2 + nq2 + nmTot) * nelmt +
-                              nm2 * warpsize * iwarp;
                 IProductWRTBaseTetSumFacKernel<false, false, DEFORMED>(
                     ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
-                    basis1, basis2, deriv, out1ptr, wsp0, wsp1, prod,
-                    (TData)1.0);
+                    basis1, basis2, deriv, out1ptr, wsp0, wsp1, (TData)1.0);
 
-                // multiply by transpose  notToMod to transform coeffs
+                // Multiply by transpose notToMod to transform coeffs.
                 MatVecKernel<false, true>(ilane, nmTot, nodToMod, out1ptr,
                                           outptr);
             }
@@ -964,12 +957,9 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
                     wsp + 4 * nqTot * nelmt + nq1 * nq2 * warpsize * iwarp;
                 TData *wsp1 = wsp + (4 * nqTot + nq1 * nq2) * nelmt +
                               nq2 * warpsize * iwarp;
-                TData *wsp2 = wsp + (4 * nqTot + nq1 * nq2 + nq2) * nelmt +
-                              nm1 * warpsize * iwarp;
                 IProductWRTBasePrismSumFacKernel<false, false, DEFORMED>(
                     ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
-                    basis1, basis2, deriv, outptr, wsp0, wsp1, wsp2,
-                    (TData)1.0);
+                    basis1, basis2, deriv, outptr, wsp0, wsp1, (TData)1.0);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism)
             {
@@ -979,15 +969,11 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
                               nq1 * nq2 * warpsize * iwarp;
                 TData *wsp1 = wsp + (4 * nqTot + nq1 * nq2 + nmTot) * nelmt +
                               nq2 * warpsize * iwarp;
-                TData *wsp2 = wsp +
-                              (4 * nqTot + nq1 * nq2 + nq2 + nmTot) * nelmt +
-                              nm1 * warpsize * iwarp;
                 IProductWRTBasePrismSumFacKernel<false, false, DEFORMED>(
                     ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
-                    basis1, basis2, deriv, out1ptr, wsp0, wsp1, wsp2,
-                    (TData)1.0);
+                    basis1, basis2, deriv, out1ptr, wsp0, wsp1, (TData)1.0);
 
-                // multiply by transpose  notToMod to transform coeffs
+                // Multiply by transpose notToMod to transform coeffs.
                 MatVecKernel<false, true>(ilane, nmTot, nodToMod, out1ptr,
                                           outptr);
             }
@@ -1108,7 +1094,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
                     index0, index1, index2, s_basis0, s_basis1, s_basis2, deriv,
                     s_out1ptr, s_wsp0, s_wsp1, (TData)1.0, threadBlock);
 
-                // multiply by transpose nodToMod to convert coeffs
+                // Multiply by transpose notToMod to transform coeffs.
                 MatVecQPKernel<false, true>(nmTot, nodToMod, s_out1ptr, outptr,
                                             threadBlock);
             }
@@ -1126,7 +1112,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
                     index0, index1, index2, s_basis0, s_basis1, s_basis2, deriv,
                     s_out1ptr, s_wsp0, s_wsp1, (TData)1.0, threadBlock);
 
-                // multiply by transpose nodToMod to convert coeffs
+                // Multiply by transpose notToMod to transform coeffs.
                 MatVecQPKernel<false, true>(nmTot, nodToMod, s_out1ptr, outptr,
                                             threadBlock);
             }

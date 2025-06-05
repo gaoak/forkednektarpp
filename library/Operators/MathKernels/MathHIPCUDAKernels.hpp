@@ -395,7 +395,8 @@ __global__ void reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
              tid += grid.size())
         {
             const float4 v4 = reinterpret_cast<const float4 *>(x)[tid];
-            v               = max(v, max(max(v4.x, v4.y), max(v4.z, v4.w)));
+            v               = std::max(v,
+                                       std::max(std::max(v4.x, v4.y), std::max(v4.z, v4.w)));
         }
     }
     else if constexpr (vl && std::is_same_v<TData, double>)
@@ -404,14 +405,14 @@ __global__ void reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
              tid += grid.size())
         {
             const double2 v2 = reinterpret_cast<const double2 *>(x)[tid];
-            v                = max(v, max(v2.x, v2.y));
+            v                = std::max(v, std::max(v2.x, v2.y));
         }
     }
     else
     {
         for (size_t tid = grid.thread_rank(); tid < nsize; tid += grid.size())
         {
-            v = max(v, x[tid]);
+            v = std::max(v, x[tid]);
         }
     }
 
@@ -421,24 +422,24 @@ __global__ void reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
         if (grid.thread_rank() < nsize % vecsize)
         {
             size_t tid = nsize - 1u - grid.thread_rank();
-            v          = max(v, x[tid]);
+            v          = std::max(v, x[tid]);
         }
     }
 
     warp.sync();
 #if defined(NEKTAR_ENABLE_CUDA)
-    v = max(v, warp.shfl_down(v, 16)); // |
-    v = max(v, warp.shfl_down(v, 8));  // | warp level
-    v = max(v, warp.shfl_down(v, 4));  // | reduce here
-    v = max(v, warp.shfl_down(v, 2));  // |
-    v = max(v, warp.shfl_down(v, 1));  // |
+    v = std::max(v, warp.shfl_down(v, 16)); // |
+    v = std::max(v, warp.shfl_down(v, 8));  // | warp level
+    v = std::max(v, warp.shfl_down(v, 4));  // | reduce here
+    v = std::max(v, warp.shfl_down(v, 2));  // |
+    v = std::max(v, warp.shfl_down(v, 1));  // |
 #elif defined(NEKTAR_ENABLE_HIP)
-    v = max(v, warp.shfl_down(v, 32)); // |
-    v = max(v, warp.shfl_down(v, 16)); // |
-    v = max(v, warp.shfl_down(v, 8));  // | warp level
-    v = max(v, warp.shfl_down(v, 4));  // | reduce here
-    v = max(v, warp.shfl_down(v, 2));  // |
-    v = max(v, warp.shfl_down(v, 1));  // |
+    v = std::max(v, warp.shfl_down(v, 32)); // |
+    v = std::max(v, warp.shfl_down(v, 16)); // |
+    v = std::max(v, warp.shfl_down(v, 8));  // | warp level
+    v = std::max(v, warp.shfl_down(v, 4));  // | reduce here
+    v = std::max(v, warp.shfl_down(v, 2));  // |
+    v = std::max(v, warp.shfl_down(v, 1));  // |
 #endif
 
     if (warp.thread_rank() == 0)
@@ -479,7 +480,8 @@ __global__ void reduceMinKernel(const size_t nsize, const TData *x, TData *out)
              tid += grid.size())
         {
             const float4 v4 = reinterpret_cast<const float4 *>(x)[tid];
-            v               = min(v, min(min(v4.x, v4.y), min(v4.z, v4.w)));
+            v               = std::min(v,
+                                       std::min(std::min(v4.x, v4.y), std::min(v4.z, v4.w)));
         }
     }
     else if constexpr (vl && std::is_same_v<TData, double>)
@@ -488,14 +490,14 @@ __global__ void reduceMinKernel(const size_t nsize, const TData *x, TData *out)
              tid += grid.size())
         {
             const double2 v2 = reinterpret_cast<const double2 *>(x)[tid];
-            v                = min(v, min(v2.x, v2.y));
+            v                = std::min(v, std::min(v2.x, v2.y));
         }
     }
     else
     {
         for (size_t tid = grid.thread_rank(); tid < nsize; tid += grid.size())
         {
-            v = min(v, x[tid]);
+            v = std::min(v, x[tid]);
         }
     }
 
@@ -505,24 +507,24 @@ __global__ void reduceMinKernel(const size_t nsize, const TData *x, TData *out)
         if (grid.thread_rank() < nsize % vecsize)
         {
             size_t tid = nsize - 1u - grid.thread_rank();
-            v          = min(v, x[tid]);
+            v          = std::min(v, x[tid]);
         }
     }
 
     warp.sync();
 #if defined(NEKTAR_ENABLE_CUDA)
-    v = min(v, warp.shfl_down(v, 16)); // |
-    v = min(v, warp.shfl_down(v, 8));  // | warp level
-    v = min(v, warp.shfl_down(v, 4));  // | reduce here
-    v = min(v, warp.shfl_down(v, 2));  // |
-    v = min(v, warp.shfl_down(v, 1));  // |
+    v = std::min(v, warp.shfl_down(v, 16)); // |
+    v = std::min(v, warp.shfl_down(v, 8));  // | warp level
+    v = std::min(v, warp.shfl_down(v, 4));  // | reduce here
+    v = std::min(v, warp.shfl_down(v, 2));  // |
+    v = std::min(v, warp.shfl_down(v, 1));  // |
 #elif defined(NEKTAR_ENABLE_HIP)
-    v = min(v, warp.shfl_down(v, 32)); // |
-    v = min(v, warp.shfl_down(v, 16)); // |
-    v = min(v, warp.shfl_down(v, 8));  // | warp level
-    v = min(v, warp.shfl_down(v, 4));  // | reduce here
-    v = min(v, warp.shfl_down(v, 2));  // |
-    v = min(v, warp.shfl_down(v, 1));  // |
+    v = std::min(v, warp.shfl_down(v, 32)); // |
+    v = std::min(v, warp.shfl_down(v, 16)); // |
+    v = std::min(v, warp.shfl_down(v, 8));  // | warp level
+    v = std::min(v, warp.shfl_down(v, 4));  // | reduce here
+    v = std::min(v, warp.shfl_down(v, 2));  // |
+    v = std::min(v, warp.shfl_down(v, 1));  // |
 #endif
 
     if (warp.thread_rank() == 0)
@@ -654,7 +656,8 @@ __global__ void l1normKernel(const size_t nsize, const TData *x, TData *out)
              tid += grid.size())
         {
             const float4 tmp = reinterpret_cast<const float4 *>(x)[tid];
-            v4 += make_float4(abs(tmp.x), abs(tmp.y), abs(tmp.z), abs(tmp.w));
+            v4 += make_float4(std::abs(tmp.x), std::abs(tmp.y), std::abs(tmp.z),
+                              std::abs(tmp.w));
         }
         v = v4.x + v4.y + v4.z + v4.w; // accumulate thread sums in v
     }
@@ -665,7 +668,7 @@ __global__ void l1normKernel(const size_t nsize, const TData *x, TData *out)
              tid += grid.size())
         {
             const double2 tmp = reinterpret_cast<const double2 *>(x)[tid];
-            v2 += make_double2(abs(tmp.x), abs(tmp.y));
+            v2 += make_double2(std::abs(tmp.x), std::abs(tmp.y));
         }
         v = v2.x + v2.y; // accumulate thread sums in v
     }
@@ -673,7 +676,7 @@ __global__ void l1normKernel(const size_t nsize, const TData *x, TData *out)
     {
         for (size_t tid = grid.thread_rank(); tid < nsize; tid += grid.size())
         {
-            v += abs(x[tid]);
+            v += std::abs(x[tid]);
         }
     }
 
@@ -683,7 +686,7 @@ __global__ void l1normKernel(const size_t nsize, const TData *x, TData *out)
         if (grid.thread_rank() < nsize % vecsize)
         {
             size_t tid = nsize - 1u - grid.thread_rank();
-            v += abs(x[tid]);
+            v += std::abs(x[tid]);
         }
     }
 
@@ -831,8 +834,9 @@ __global__ void lpnormKernel(const size_t nsize, const unsigned int p,
              tid += grid.size())
         {
             const float4 tmp = reinterpret_cast<const float4 *>(x)[tid];
-            v4 += make_float4(pow(abs(tmp.x), p), pow(abs(tmp.y), p),
-                              pow(abs(tmp.z), p), pow(abs(tmp.w), p));
+            v4 += make_float4(
+                std::pow(std::abs(tmp.x), p), std::pow(std::abs(tmp.y), p),
+                std::pow(std::abs(tmp.z), p), std::pow(std::abs(tmp.w), p));
         }
         v = v4.x + v4.y + v4.z + v4.w; // accumulate thread sums in v
     }
@@ -843,7 +847,8 @@ __global__ void lpnormKernel(const size_t nsize, const unsigned int p,
              tid += grid.size())
         {
             const double2 tmp = reinterpret_cast<const double2 *>(x)[tid];
-            v2 += make_double2(pow(abs(tmp.x), p), pow(abs(tmp.y), p));
+            v2 += make_double2(std::pow(std::abs(tmp.x), p),
+                               std::pow(std::abs(tmp.y), p));
         }
         v = v2.x + v2.y; // accumulate thread sums in v
     }
@@ -851,7 +856,7 @@ __global__ void lpnormKernel(const size_t nsize, const unsigned int p,
     {
         for (size_t tid = grid.thread_rank(); tid < nsize; tid += grid.size())
         {
-            v += pow(abs(x[tid]), p);
+            v += std::pow(std::abs(x[tid]), p);
         }
     }
 
@@ -861,7 +866,7 @@ __global__ void lpnormKernel(const size_t nsize, const unsigned int p,
         if (grid.thread_rank() < nsize % vecsize)
         {
             size_t tid = nsize - 1u - grid.thread_rank();
-            v += pow(abs(x[tid]), p);
+            v += std::pow(std::abs(x[tid]), p);
         }
     }
 
@@ -920,8 +925,8 @@ __global__ void linfnormKernel(const size_t nsize, const TData *x, TData *out)
              tid += grid.size())
         {
             const float4 v4 = reinterpret_cast<const float4 *>(x)[tid];
-            v               = max(v,
-                                  max(max(abs(v4.x), abs(v4.y)), max(abs(v4.z), abs(v4.w))));
+            v = std::max(v, std::max(std::max(std::abs(v4.x), std::abs(v4.y)),
+                                     std::max(std::abs(v4.z), std::abs(v4.w))));
         }
     }
     else if constexpr (vl && std::is_same_v<TData, double>)
@@ -930,14 +935,14 @@ __global__ void linfnormKernel(const size_t nsize, const TData *x, TData *out)
              tid += grid.size())
         {
             const double2 v2 = reinterpret_cast<const double2 *>(x)[tid];
-            v                = max(v, max(abs(v2.x), abs(v2.y)));
+            v = std::max(v, std::max(std::abs(v2.x), std::abs(v2.y)));
         }
     }
     else
     {
         for (size_t tid = grid.thread_rank(); tid < nsize; tid += grid.size())
         {
-            v = max(v, abs(x[tid]));
+            v = std::max(v, std::abs(x[tid]));
         }
     }
 
@@ -947,24 +952,24 @@ __global__ void linfnormKernel(const size_t nsize, const TData *x, TData *out)
         if (grid.thread_rank() < nsize % vecsize)
         {
             size_t tid = nsize - 1u - grid.thread_rank();
-            v          = max(v, abs(x[tid]));
+            v          = std::max(v, std::abs(x[tid]));
         }
     }
 
     warp.sync();
 #if defined(NEKTAR_ENABLE_CUDA)
-    v = max(v, warp.shfl_down(v, 16)); // |
-    v = max(v, warp.shfl_down(v, 8));  // | warp level
-    v = max(v, warp.shfl_down(v, 4));  // | reduce here
-    v = max(v, warp.shfl_down(v, 2));  // |
-    v = max(v, warp.shfl_down(v, 1));  // |
+    v = std::max(v, warp.shfl_down(v, 16)); // |
+    v = std::max(v, warp.shfl_down(v, 8));  // | warp level
+    v = std::max(v, warp.shfl_down(v, 4));  // | reduce here
+    v = std::max(v, warp.shfl_down(v, 2));  // |
+    v = std::max(v, warp.shfl_down(v, 1));  // |
 #elif defined(NEKTAR_ENABLE_HIP)
-    v = max(v, warp.shfl_down(v, 32)); // |
-    v = max(v, warp.shfl_down(v, 16)); // |
-    v = max(v, warp.shfl_down(v, 8));  // | warp level
-    v = max(v, warp.shfl_down(v, 4));  // | reduce here
-    v = max(v, warp.shfl_down(v, 2));  // |
-    v = max(v, warp.shfl_down(v, 1));  // |
+    v = std::max(v, warp.shfl_down(v, 32)); // |
+    v = std::max(v, warp.shfl_down(v, 16)); // |
+    v = std::max(v, warp.shfl_down(v, 8));  // | warp level
+    v = std::max(v, warp.shfl_down(v, 4));  // | reduce here
+    v = std::max(v, warp.shfl_down(v, 2));  // |
+    v = std::max(v, warp.shfl_down(v, 1));  // |
 #endif
 
     if (warp.thread_rank() == 0)

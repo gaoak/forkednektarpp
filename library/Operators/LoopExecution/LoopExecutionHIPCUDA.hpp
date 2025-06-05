@@ -161,11 +161,11 @@ __global__ void reduceMaxKernel(const size_t begin, const size_t end,
     }
 
     warp.sync();
-    v = max(v, warp.shfl_down(v, 16)); // |
-    v = max(v, warp.shfl_down(v, 8));  // | warp level
-    v = max(v, warp.shfl_down(v, 4));  // | reduce here
-    v = max(v, warp.shfl_down(v, 2));  // |
-    v = max(v, warp.shfl_down(v, 1));  // |
+    v = std::max(v, warp.shfl_down(v, 16)); // |
+    v = std::max(v, warp.shfl_down(v, 8));  // | warp level
+    v = std::max(v, warp.shfl_down(v, 4));  // | reduce here
+    v = std::max(v, warp.shfl_down(v, 2));  // |
+    v = std::max(v, warp.shfl_down(v, 1));  // |
 
     if (warp.thread_rank() == 0)
     {
@@ -201,11 +201,11 @@ __global__ void reduceMinKernel(const size_t begin, const size_t end,
     }
 
     warp.sync();
-    v = min(v, warp.shfl_down(v, 16)); // |
-    v = min(v, warp.shfl_down(v, 8));  // | warp level
-    v = min(v, warp.shfl_down(v, 4));  // | reduce here
-    v = min(v, warp.shfl_down(v, 2));  // |
-    v = min(v, warp.shfl_down(v, 1));  // |
+    v = std::min(v, warp.shfl_down(v, 16)); // |
+    v = std::min(v, warp.shfl_down(v, 8));  // | warp level
+    v = std::min(v, warp.shfl_down(v, 4));  // | reduce here
+    v = std::min(v, warp.shfl_down(v, 2));  // |
+    v = std::min(v, warp.shfl_down(v, 1));  // |
 
     if (warp.thread_rank() == 0)
     {
@@ -266,7 +266,7 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
         CHECK_LAST_HIPCUDA_ERROR();
         reduceMaxKernel<<<1, gridSize>>>(
             0, gridSize, out, [=] __device__(const size_t i, TData &ans) {
-                ans = max(ans, buffer[i]);
+                ans = std::max(ans, buffer[i]);
             });
         CHECK_LAST_HIPCUDA_ERROR();
     }
@@ -276,7 +276,7 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
         CHECK_LAST_HIPCUDA_ERROR();
         reduceMinKernel<<<1, gridSize>>>(
             0, gridSize, out, [=] __device__(const size_t i, TData &ans) {
-                ans = min(ans, buffer[i]);
+                ans = std::min(ans, buffer[i]);
             });
         CHECK_LAST_HIPCUDA_ERROR();
     }

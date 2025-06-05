@@ -1336,7 +1336,7 @@ l1normKernel(const size_t nsize, const TData *x, TData *out)
     // spillover loop
     while (cnt)
     {
-        *out += abs(*x);
+        *out += std::abs(*x);
         // update pointers
         ++x;
         --cnt;

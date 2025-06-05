@@ -63,7 +63,7 @@ NEK_DEVICE_INLINE
                             void>::type
     atomic_max(TData *const dest, const TData val)
 {
-    *dest = max(*dest, val);
+    *dest = std::max(*dest, val);
 }
 
 template <typename ExecSpace, typename Scope, typename TData>
@@ -72,7 +72,7 @@ NEK_DEVICE_INLINE
                             void>::type
     atomic_min(TData *const dest, const TData val)
 {
-    *dest = min(*dest, val);
+    *dest = std::min(*dest, val);
 }
 
 template <typename ExecSpace, typename Functor>
