@@ -400,34 +400,33 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacKernel(
     // With contributions from every quadrature point
     if (isModified)
     {
-        TData iprod_01 = 0.0;
+        TData prod = 0.0;
         for (unsigned int j = 0u, cnt_ji = 0u; j < nq1; ++j)
         {
-            TData tmp = w1[j] * basis1[nq1 + j];
-            if constexpr (!DEFORMED)
-            {
-                tmp *= jac[0];
-            }
-
 #pragma unroll
             for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
             {
-                TData prod = in[warpsize * cnt_ji + ilane] * tmp * w0[i];
                 if constexpr (DEFORMED)
                 {
-                    prod *= jac[warpsize * cnt_ji + ilane];
+                    prod += in[warpsize * cnt_ji + ilane] * w0[i] * w1[j] *
+                            basis1[nq1 + j] * basis0[nq0 + i] *
+                            jac[warpsize * cnt_ji + ilane];
                 }
-                iprod_01 += prod * basis0[nq0 + i];
+                else
+                {
+                    prod += in[warpsize * cnt_ji + ilane] * w0[i] * w1[j] *
+                            basis1[nq1 + j] * basis0[nq0 + i] * jac[0];
+                }
             }
         }
 
         if constexpr (SCALE)
         {
-            out[warpsize + ilane] += iprod_01 * scale;
+            out[warpsize + ilane] += prod * scale;
         }
         else
         {
-            out[warpsize + ilane] += iprod_01;
+            out[warpsize + ilane] += prod;
         }
     }
 }
@@ -485,24 +484,24 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacKernel(
     // With contributions from every quadrature point
     if (isModified)
     {
-        TData iprod_01 = 0.0;
+        TData prod = 0.0;
         for (unsigned int j = 0u, cnt_ji = 0u; j < nq1; ++j)
         {
 #pragma unroll
             for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
             {
-                TData prod = in[warpsize * cnt_ji + ilane] * basis1[nq1 + j];
-                iprod_01 += prod * basis0[nq0 + i];
+                prod += in[warpsize * cnt_ji + ilane] * basis1[nq1 + j] *
+                        basis0[nq0 + i];
             }
         }
 
         if constexpr (SCALE)
         {
-            out[warpsize + ilane] += iprod_01 * scale;
+            out[warpsize + ilane] += prod * scale;
         }
         else
         {
-            out[warpsize + ilane] += iprod_01;
+            out[warpsize + ilane] += prod;
         }
     }
 }
@@ -671,7 +670,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacKernel(
     const TData *__restrict__ w1, const TData *__restrict__ w2,
     const TData *__restrict__ jac, const TData *__restrict__ in,
     TData *__restrict__ out, TData *__restrict__ wsp0, TData *__restrict__ wsp1,
-    TData *__restrict__ prod, const TData scale)
+    const TData scale)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -753,54 +752,65 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacKernel(
     // Add correction for collapsed coordinate.
     if (isModified)
     {
-#pragma unroll
-        for (unsigned int r = 0u; r < nm2; ++r)
+        constexpr unsigned int NM2_MAX = 4;
+        TData prod[NM2_MAX - 2]        = {0.0};
+        TData topVert                  = 0;
+        TData bottomVert               = 0;
+
+        TData jac0;
+        if constexpr (!DEFORMED)
         {
-            prod[warpsize * r + ilane] = 0.0;
+            jac0 = jac[0];
         }
 
         for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
         {
-            TData tmpQ2 = w2[k];
-            if constexpr (!DEFORMED)
-            {
-                tmpQ2 *= jac[0];
-            }
-
             for (unsigned int j = 0u; j < nq1; ++j)
             {
-                TData tmpQ1 = tmpQ2 * w1[j];
                 for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
                 {
                     const unsigned int index = warpsize * cnt_kji + ilane;
 
                     // Store jac * quadrature weight
-                    TData tmpQ = tmpQ1 * w0[i];
+                    TData tmp = w0[i] * w1[j] * w2[k];
                     if constexpr (DEFORMED)
                     {
-                        tmpQ *= jac[index];
+                        tmp *= jac[index];
+                    }
+                    else
+                    {
+                        tmp *= jac0;
                     }
 
                     // top vertex
-                    TData tmp = basis0[i] * basis1[nq1 + j];
-                    tmp += basis0[nq0 + i] * basis1[j];
-                    tmp += basis0[nq0 + i] * basis1[nq1 + j];
-                    tmp *= basis2[nq2 + k];
-                    tmp *= in[index] * tmpQ;
-                    prod[warpsize * (nm2 - 1) + ilane] += tmp;
+                    topVert += (basis0[i] * basis1[nq1 + j] +
+                                basis0[nq0 + i] * basis1[j] +
+                                basis0[nq0 + i] * basis1[nq1 + j]) *
+                               basis2[nq2 + k] * in[index] * tmp;
 
                     // bottom vertex
-                    tmp = basis0[nq0 + i] * basis1[nq1 + j] * basis2[k] *
-                          in[index] * tmpQ;
-                    prod[ilane] += tmp;
+                    bottomVert += basis0[nq0 + i] * basis1[nq1 + j] *
+                                  basis2[k] * in[index] * tmp;
 
                     // singular edge
-#pragma unroll
-                    for (unsigned int r = 1u; r < nm2 - 1u; ++r)
+                    tmp *= basis1[nq1 + j] * basis0[nq0 + i] * in[index];
+                    for (unsigned int r = 1u;
+                         r < std::min(NM2_MAX - 1u, nm2 - 1u); ++r)
                     {
-                        tmp = basis2[(r + 1) * nq2 + k] * basis1[nq1 + j] *
-                              basis0[nq0 + i] * in[index] * tmpQ;
-                        prod[warpsize * r + ilane] += tmp;
+                        prod[r - 1] += basis2[(r + 1) * nq2 + k] * tmp;
+                    }
+                    for (unsigned int r = NM2_MAX - 1u; r < nm2 - 1u; ++r)
+                    {
+                        if constexpr (SCALE)
+                        {
+                            out[warpsize * (nm2 + r) + ilane] +=
+                                basis2[(r + 1) * nq2 + k] * tmp * scale;
+                        }
+                        else
+                        {
+                            out[warpsize * (nm2 + r) + ilane] +=
+                                basis2[(r + 1) * nq2 + k] * tmp;
+                        }
                     }
                 }
             }
@@ -808,21 +818,20 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacKernel(
 
         if constexpr (SCALE)
         {
-            out[warpsize + ilane] += prod[warpsize * (nm2 - 1) + ilane] * scale;
-#pragma unroll
-            for (unsigned int r = 0u; r < nm2 - 1u; ++r)
+            out[warpsize + ilane] += topVert * scale;
+            out[warpsize * nm2 + ilane] += bottomVert * scale;
+            for (unsigned int r = 1u; r < std::min(NM2_MAX - 1u, nm2 - 1u); ++r)
             {
-                out[warpsize * (nm2 + r) + ilane] +=
-                    prod[warpsize * r + ilane] * scale;
+                out[warpsize * (nm2 + r) + ilane] += prod[r - 1] * scale;
             }
         }
         else
         {
-            out[warpsize + ilane] += prod[warpsize * (nm2 - 1) + ilane];
-#pragma unroll
-            for (unsigned int r = 0u; r < nm2 - 1u; ++r)
+            out[warpsize + ilane] += topVert;
+            out[warpsize * nm2 + ilane] += bottomVert;
+            for (unsigned int r = 1u; r < std::min(NM2_MAX - 1u, nm2 - 1u); ++r)
             {
-                out[warpsize * (nm2 + r) + ilane] += prod[warpsize * r + ilane];
+                out[warpsize * (nm2 + r) + ilane] += prod[r - 1];
             }
         }
     }
@@ -836,7 +845,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacKernel(
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ basis2, const TData *__restrict__ in,
     TData *__restrict__ out, TData *__restrict__ wsp0, TData *__restrict__ wsp1,
-    TData *__restrict__ prod, const TData scale)
+    const TData scale)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -908,11 +917,10 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacKernel(
     // Add correction for collapsed coordinate.
     if (isModified)
     {
-        for (unsigned int r = 0u; r < nm2; ++r)
-        {
-            prod[warpsize * r + ilane] = 0.0;
-        }
-
+        constexpr unsigned int NM2_MAX = 4;
+        TData prod[NM2_MAX - 2]        = {0.0};
+        TData topVert                  = 0;
+        TData bottomVert               = 0;
         for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
         {
             for (unsigned int j = 0u; j < nq1; ++j)
@@ -922,24 +930,34 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacKernel(
                     const unsigned int index = warpsize * cnt_kji + ilane;
 
                     // top vertex
-                    TData tmp = basis0[i] * basis1[nq1 + j];
-                    tmp += basis0[nq0 + i] * basis1[j];
-                    tmp += basis0[nq0 + i] * basis1[nq1 + j];
-                    tmp *= basis2[nq2 + k];
-                    tmp *= in[index];
-                    prod[warpsize * (nm2 - 1) + ilane] += tmp;
+                    topVert += (basis0[i] * basis1[nq1 + j] +
+                                basis0[nq0 + i] * basis1[j] +
+                                basis0[nq0 + i] * basis1[nq1 + j]) *
+                               basis2[nq2 + k] * in[index];
 
                     // bottom vertex
-                    prod[ilane] += basis0[nq0 + i] * basis1[nq1 + j] *
-                                   basis2[k] * in[index];
+                    bottomVert += basis0[nq0 + i] * basis1[nq1 + j] *
+                                  basis2[k] * in[index];
 
                     // singular edge
-#pragma unroll
-                    for (unsigned int r = 1u; r < nm2 - 1u; ++r)
+                    TData tmp = basis1[nq1 + j] * basis0[nq0 + i] * in[index];
+                    for (unsigned int r = 1u;
+                         r < std::min(NM2_MAX - 1u, nm2 - 1u); ++r)
                     {
-                        prod[warpsize * r + ilane] +=
-                            basis2[(r + 1) * nq2 + k] * basis1[nq1 + j] *
-                            basis0[nq0 + i] * in[index];
+                        prod[r - 1] += basis2[(r + 1) * nq2 + k] * tmp;
+                    }
+                    for (unsigned int r = NM2_MAX - 1; r < nm2 - 1u; ++r)
+                    {
+                        if constexpr (SCALE)
+                        {
+                            out[warpsize * (nm2 + r) + ilane] +=
+                                basis2[(r + 1) * nq2 + k] * tmp;
+                        }
+                        else
+                        {
+                            out[warpsize * (nm2 + r) + ilane] +=
+                                basis2[(r + 1) * nq2 + k] * tmp;
+                        }
                     }
                 }
             }
@@ -947,21 +965,20 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacKernel(
 
         if constexpr (SCALE)
         {
-            out[warpsize + ilane] += prod[warpsize * (nm2 - 1) + ilane] * scale;
-#pragma unroll
-            for (unsigned int r = 0u; r < nm2 - 1u; ++r)
+            out[warpsize + ilane] += topVert * scale;
+            out[warpsize * nm2 + ilane] += bottomVert * scale;
+            for (unsigned int r = 1u; r < std::min(NM2_MAX - 1u, nm2 - 1u); ++r)
             {
-                out[warpsize * (nm2 + r) + ilane] +=
-                    prod[warpsize * r + ilane] * scale;
+                out[warpsize * (nm2 + r) + ilane] += prod[r - 1] * scale;
             }
         }
         else
         {
-            out[warpsize + ilane] += prod[warpsize * (nm2 - 1) + ilane];
-#pragma unroll
-            for (unsigned int r = 0u; r < nm2 - 1u; ++r)
+            out[warpsize + ilane] += topVert;
+            out[warpsize * nm2 + ilane] += bottomVert;
+            for (unsigned int r = 1u; r < std::min(NM2_MAX - 1u, nm2 - 1u); ++r)
             {
-                out[warpsize * (nm2 + r) + ilane] += prod[warpsize * r + ilane];
+                out[warpsize * (nm2 + r) + ilane] += prod[r - 1];
             }
         }
     }
@@ -977,7 +994,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacKernel(
     const TData *__restrict__ w1, const TData *__restrict__ w2,
     const TData *__restrict__ jac, const TData *__restrict__ in,
     TData *__restrict__ out, TData *__restrict__ wsp0, TData *__restrict__ wsp1,
-    TData *__restrict__ wsp2, const TData scale)
+    const TData scale)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -1053,53 +1070,64 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacKernel(
     // Add correction for collapsed coordinate.
     if (isModified)
     {
-        for (unsigned int q = 0u; q < nm1; ++q)
+        constexpr unsigned int NM1_MAX = 4;
+        TData prod[NM1_MAX]            = {0.0};
+
+        TData jac0;
+        if constexpr (!DEFORMED)
         {
-            wsp2[warpsize * q + ilane] = 0.0;
+            jac0 = jac[0];
         }
 
         for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
         {
-            TData k_weight = w2[k];
-            if constexpr (!DEFORMED)
-            {
-                k_weight *= jac[0];
-            }
-
             for (unsigned int j = 0u; j < nq1; ++j)
             {
-                TData kj_weight = k_weight * w1[j];
                 for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
                 {
-                    TData prod = kj_weight * basis2[nq2 + k] * basis0[nq0 + i] *
-                                 w0[i] * in[warpsize * cnt_kji + ilane];
+                    const unsigned int index = warpsize * cnt_kji + ilane;
+
+                    TData tmp = basis2[nq2 + k] * basis0[nq0 + i] * w0[i] *
+                                w1[j] * w2[k] * in[index];
                     if constexpr (DEFORMED)
                     {
-                        prod *= jac[warpsize * cnt_kji + ilane];
+                        tmp *= jac[index];
+                    }
+                    else
+                    {
+                        tmp *= jac0;
                     }
 
-#pragma unroll
-                    for (unsigned int q = 0u; q < nm1; ++q)
+                    for (unsigned int q = 0u; q < std::min(NM1_MAX, nm1); ++q)
                     {
-                        wsp2[warpsize * q + ilane] +=
-                            prod * basis1[q * nq1 + j];
+                        prod[q] += tmp * basis1[q * nq1 + j];
+                    }
+                    for (unsigned int q = NM1_MAX; q < nm1; ++q)
+                    {
+                        if constexpr (SCALE)
+                        {
+                            out[warpsize * (nm2 * q + 1u) + ilane] +=
+                                tmp * basis1[q * nq1 + j] * scale;
+                        }
+                        else
+                        {
+                            out[warpsize * (nm2 * q + 1u) + ilane] +=
+                                tmp * basis1[q * nq1 + j];
+                        }
                     }
                 }
             }
         }
 
-#pragma unroll
-        for (unsigned int q = 0u; q < nm1; ++q)
+        for (unsigned int q = 0u; q < std::min(NM1_MAX, nm1); ++q)
         {
             if constexpr (SCALE)
             {
-                out[warpsize * (nm2 * q + 1u) + ilane] +=
-                    wsp2[warpsize * q + ilane] * scale;
+                out[warpsize * (nm2 * q + 1u) + ilane] += prod[q] * scale;
             }
             else
             {
-                out[warpsize * (nm2 * q + 1u) + ilane] +=
-                    wsp2[warpsize * q + ilane];
+                out[warpsize * (nm2 * q + 1u) + ilane] += prod[q];
             }
         }
     }
@@ -1113,7 +1141,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacKernel(
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ basis2, const TData *__restrict__ in,
     TData *__restrict__ out, TData *__restrict__ wsp0, TData *__restrict__ wsp1,
-    TData *__restrict__ wsp2, const TData scale)
+    const TData scale)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -1180,11 +1208,8 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacKernel(
     // Add correction for collapsed coordinate.
     if (isModified)
     {
-#pragma unroll
-        for (unsigned int q = 0u; q < nm1; ++q)
-        {
-            wsp2[warpsize * q + ilane] = 0.0;
-        }
+        constexpr unsigned int NM1_MAX = 4;
+        TData prod[NM1_MAX]            = {0.0};
 
         for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
         {
@@ -1192,30 +1217,39 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacKernel(
             {
                 for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
                 {
-                    TData prod = basis2[nq2 + k] * basis0[nq0 + i] *
-                                 in[warpsize * cnt_kji + ilane];
-#pragma unroll
-                    for (unsigned int q = 0u; q < nm1; ++q)
+                    const unsigned int index = warpsize * cnt_kji + ilane;
+
+                    TData tmp = basis2[nq2 + k] * basis0[nq0 + i] * in[index];
+                    for (unsigned int q = 0u; q < std::min(NM1_MAX, nm1); ++q)
                     {
-                        wsp2[warpsize * q + ilane] +=
-                            prod * basis1[q * nq1 + j];
+                        prod[q] += tmp * basis1[q * nq1 + j];
+                    }
+                    for (unsigned int q = NM1_MAX; q < nm1; ++q)
+                    {
+                        if constexpr (SCALE)
+                        {
+                            out[warpsize * (nm2 * q + 1u) + ilane] +=
+                                tmp * basis1[q * nq1 + j] * scale;
+                        }
+                        else
+                        {
+                            out[warpsize * (nm2 * q + 1u) + ilane] +=
+                                tmp * basis1[q * nq1 + j];
+                        }
                     }
                 }
             }
         }
 
-#pragma unroll
-        for (unsigned int q = 0u; q < nm1; ++q)
+        for (unsigned int q = 0u; q < std::min(NM1_MAX, nm1); ++q)
         {
             if constexpr (SCALE)
             {
-                out[warpsize * (nm2 * q + 1u) + ilane] +=
-                    wsp2[warpsize * q + ilane] * scale;
+                out[warpsize * (nm2 * q + 1u) + ilane] += prod[q] * scale;
             }
             else
             {
-                out[warpsize * (nm2 * q + 1u) + ilane] +=
-                    wsp2[warpsize * q + ilane];
+                out[warpsize * (nm2 * q + 1u) + ilane] += prod[q];
             }
         }
     }
@@ -1353,39 +1387,43 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacKernel(
     if (isModified)
     {
         TData prod = 0.0;
+
+        TData jac0;
+        if constexpr (!DEFORMED)
+        {
+            jac0 = jac[0];
+        }
+
         for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
         {
-            TData tmpQ2 = w2[k];
-            if constexpr (!DEFORMED)
-            {
-                tmpQ2 *= jac[0];
-            }
-
             for (unsigned int j = 0u; j < nq1; ++j)
             {
-                TData tmpQ1 = tmpQ2 * w1[j];
 #pragma unroll
                 for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
                 {
+                    const unsigned int index = warpsize * cnt_kji + ilane;
+
                     // Store jac * quadrature weight
-                    TData tmpQ = tmpQ1 * w0[i];
+                    TData tmp = w0[i] * w1[j] * w2[k];
                     if constexpr (DEFORMED)
                     {
-                        tmpQ *= jac[warpsize * cnt_kji + ilane];
+                        tmp *= jac[index];
+                    }
+                    else
+                    {
+                        tmp *= jac0;
                     }
 
                     // top vertex
-                    TData tmp = basis0[i] * basis1[nq1 + j];
-                    tmp += basis0[nq0 + i] * basis1[j];
-                    tmp += basis0[nq0 + i] * basis1[nq1 + j];
-                    tmp *= basis2[nq2 + k];
-                    tmp *= in[warpsize * cnt_kji + ilane] * tmpQ;
-                    prod += tmp;
+                    prod += (basis0[i] * basis1[nq1 + j] +
+                             basis0[nq0 + i] * basis1[j] +
+                             basis0[nq0 + i] * basis1[nq1 + j]) *
+                            basis2[nq2 + k] * in[index] * tmp;
                 }
             }
         }
 
-        // add to existing entry
+        // Add to existing entry.
         if constexpr (SCALE)
         {
             out[warpsize + ilane] += prod * scale;
@@ -1526,17 +1564,15 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacKernel(
                 for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
                 {
                     // top vertex
-                    TData tmp = basis0[i] * basis1[nq1 + j];
-                    tmp += basis0[nq0 + i] * basis1[j];
-                    tmp += basis0[nq0 + i] * basis1[nq1 + j];
-                    tmp *= basis2[nq2 + k];
-                    tmp *= in[warpsize * cnt_kji + ilane];
-                    prod += tmp;
+                    prod += (basis0[i] * basis1[nq1 + j] +
+                             basis0[nq0 + i] * basis1[j] +
+                             basis0[nq0 + i] * basis1[nq1 + j]) *
+                            basis2[nq2 + k] * in[warpsize * cnt_kji + ilane];
                 }
             }
         }
 
-        // add to existing entry
+        // Add to existing entry.
         if constexpr (SCALE)
         {
             out[warpsize + ilane] += prod * scale;
@@ -1915,14 +1951,13 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacQPKernel(
                 const unsigned int k = idx / (nq0 * nq1);
 
                 // top vertex
-                TData tmp = basis0[i] * basis1[nq1 + j];
-                tmp += basis0[nq0 + i] * basis1[j];
-                tmp += basis0[nq0 + i] * basis1[nq1 + j];
-                tmp *= basis2[nq2 + k];
-                prod[nm2 - 1u] += in[idx] * tmp;
+                prod[nm2 - 1u] +=
+                    (basis0[i] * basis1[nq1 + j] + basis0[nq0 + i] * basis1[j] +
+                     basis0[nq0 + i] * basis1[nq1 + j]) *
+                    basis2[nq2 + k] * in[idx];
 
                 // singular edge
-                tmp = basis1[nq1 + j] * basis0[nq0 + i] * in[idx];
+                TData tmp = basis1[nq1 + j] * basis0[nq0 + i] * in[idx];
 #pragma unroll
                 for (unsigned int r = 1u; r < nm2 - 1u; ++r)
                 {
@@ -1964,11 +1999,10 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacQPKernel(
                 const unsigned int k = idx / (nq0 * nq1);
 
                 // top vertex
-                TData tmp = basis0[i] * basis1[nq1 + j];
-                tmp += basis0[nq0 + i] * basis1[j];
-                tmp += basis0[nq0 + i] * basis1[nq1 + j];
-                tmp *= basis2[nq2 + k];
-                prod0 += in[idx] * tmp;
+                prod0 +=
+                    (basis0[i] * basis1[nq1 + j] + basis0[nq0 + i] * basis1[j] +
+                     basis0[nq0 + i] * basis1[nq1 + j]) *
+                    basis2[nq2 + k] * in[idx];
 
                 // bottom vertex
                 prod1 +=
@@ -2256,11 +2290,9 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacQPKernel(
             const unsigned int k = idx / (nq0 * nq1);
 
             // top vertex
-            TData tmp = basis0[i] * basis1[nq1 + j];
-            tmp += basis0[nq0 + i] * basis1[j];
-            tmp += basis0[nq0 + i] * basis1[nq1 + j];
-            tmp *= basis2[nq2 + k];
-            prod += in[idx] * tmp;
+            prod += (basis0[i] * basis1[nq1 + j] + basis0[nq0 + i] * basis1[j] +
+                     basis0[nq0 + i] * basis1[nq1 + j]) *
+                    basis2[nq2 + k] * in[idx];
         }
 
         if constexpr (SCALE)
@@ -2396,7 +2428,7 @@ NEK_DEVICE_INLINE static void IProductWRTBase2DKernel(
                     ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1, w0,
                     w1, jacptr, inptr, out1ptr, wspptr, scale);
 
-                // multiply by transpose  notToMod to transform coeffs
+                // Multiply by transpose notToMod to transform coeffs.
                 MatVecKernel<APPEND, true>(ilane, nmTot, nodToMod, out1ptr,
                                            outptr);
             }
@@ -2483,7 +2515,7 @@ NEK_DEVICE_INLINE static void IProductWRTBase2DKernel(
                     s_basis0, s_basis1, s_wsp0, s_out1ptr, s_wsp1, scale,
                     threadBlock);
 
-                // multiply by transpose nodToMod to convert coeffs
+                // Multiply by transpose notToMod to transform coeffs.
                 MatVecQPKernel<APPEND, true>(nmTot, nodToMod, s_out1ptr, outptr,
                                              threadBlock);
             }
@@ -2541,12 +2573,10 @@ NEK_DEVICE_INLINE static void IProductWRTBase3DKernel(
             {
                 TData *wsp0 = wsp + nq1 * nq2 * warpsize * iwarp;
                 TData *wsp1 = wsp + nq1 * nq2 * nelmt + nq2 * warpsize * iwarp;
-                TData *prod =
-                    wsp + (nq1 * nq2 + nq2) * nelmt + nm2 * warpsize * iwarp;
                 IProductWRTBaseTetSumFacKernel<SCALE, APPEND, DEFORMED>(
                     ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
                     basis1, basis2, w0, w1, w2, jacptr, inptr, outptr, wsp0,
-                    wsp1, prod, scale);
+                    wsp1, scale);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
             {
@@ -2556,15 +2586,12 @@ NEK_DEVICE_INLINE static void IProductWRTBase3DKernel(
                     wsp + nmTot * nelmt + nq1 * nq2 * warpsize * iwarp;
                 TData *wsp1 = wsp + nmTot * nelmt + nq1 * nq2 * nelmt +
                               nq2 * warpsize * iwarp;
-                TData *prod = wsp + nmTot * nelmt + (nq1 * nq2 + nq2) * nelmt +
-                              nm2 * warpsize * iwarp;
-
                 IProductWRTBaseTetSumFacKernel<SCALE, APPEND, DEFORMED>(
                     ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
                     basis1, basis2, w0, w1, w2, jacptr, inptr, out1ptr, wsp0,
-                    wsp1, prod, scale);
+                    wsp1, scale);
 
-                // multiply by transpose  notToMod to transform coeffs
+                // Multiply by transpose notToMod to transform coeffs.
                 MatVecKernel<APPEND, true>(ilane, nmTot, nodToMod, out1ptr,
                                            outptr);
             }
@@ -2572,12 +2599,10 @@ NEK_DEVICE_INLINE static void IProductWRTBase3DKernel(
             {
                 TData *wsp0 = wsp + nq1 * nq2 * warpsize * iwarp;
                 TData *wsp1 = wsp + nq1 * nq2 * nelmt + nq2 * warpsize * iwarp;
-                TData *wsp2 =
-                    wsp + (nq1 * nq2 + nq2) * nelmt + nm1 * warpsize * iwarp;
                 IProductWRTBasePrismSumFacKernel<SCALE, APPEND, DEFORMED>(
                     ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
                     basis1, basis2, w0, w1, w2, jacptr, inptr, outptr, wsp0,
-                    wsp1, wsp2, scale);
+                    wsp1, scale);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism)
             {
@@ -2586,14 +2611,12 @@ NEK_DEVICE_INLINE static void IProductWRTBase3DKernel(
                     wsp + nmTot * nelmt + nq1 * nq2 * warpsize * iwarp;
                 TData *wsp1 = wsp + nmTot * nelmt + nq1 * nq2 * nelmt +
                               nq2 * warpsize * iwarp;
-                TData *wsp2 = wsp + nmTot * nelmt + (nq1 * nq2 + nq2) * nelmt +
-                              nm1 * warpsize * iwarp;
                 IProductWRTBasePrismSumFacKernel<SCALE, APPEND, DEFORMED>(
                     ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
                     basis1, basis2, w0, w1, w2, jacptr, inptr, out1ptr, wsp0,
-                    wsp1, wsp2, scale);
+                    wsp1, scale);
 
-                // multiply by transpose  notToMod to transform coeffs
+                // Multiply by transpose notToMod to transform coeffs.
                 MatVecKernel<APPEND, true>(ilane, nmTot, nodToMod, out1ptr,
                                            outptr);
             }
@@ -2723,7 +2746,7 @@ NEK_DEVICE_INLINE static void IProductWRTBase3DKernel(
                     index0, index1, index2, s_basis0, s_basis1, s_basis2,
                     s_wsp0, s_out1ptr, s_wsp1, s_wsp2, scale, threadBlock);
 
-                // multiply by transpose nodToMod to convert coeffs
+                // Multiply by transpose notToMod to transform coeffs.
                 MatVecQPKernel<APPEND, true>(nmTot, nodToMod, s_out1ptr, outptr,
                                              threadBlock);
             }
@@ -2741,7 +2764,7 @@ NEK_DEVICE_INLINE static void IProductWRTBase3DKernel(
                     index0, index1, index2, s_basis0, s_basis1, s_basis2,
                     s_wsp0, s_out1ptr, s_wsp1, s_wsp2, scale, threadBlock);
 
-                // multiply by transpose nodToMod to convert coeffs
+                // Multiply by transpose notToMod to transform coeffs.
                 MatVecQPKernel<APPEND, true>(nmTot, nodToMod, s_out1ptr, outptr,
                                              threadBlock);
             }

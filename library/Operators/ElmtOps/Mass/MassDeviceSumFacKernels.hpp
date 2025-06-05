@@ -276,7 +276,8 @@ NEK_DEVICE_INLINE static void Mass2DKernel(
                 IProductWRTBaseTriSumFacKernel<false, false, DEFORMED>(
                     ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1, w0,
                     w1, jacptr, bwd, modes, wsp0, (TData)1.0);
-                // multiply by transpose  notToMod to transform coeffs
+
+                // Multiply by transpose notToMod to transform coeffs.
                 MatVecKernel<false, true>(ilane, nmTot, nodToMod, modes,
                                           outptr);
             }
@@ -390,7 +391,8 @@ NEK_DEVICE_INLINE static void Mass2DKernel(
                     nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0,
                     s_basis0, s_basis1, bwd, tmp, s_wsp0, (TData)1.0,
                     threadBlock);
-                // multiply by transpose nodToMod to convert coeffs
+
+                // Multiply by transpose notToMod to transform coeffs.
                 MatVecQPKernel<false, true>(nmTot, nodToMod, tmp, outptr,
                                             threadBlock);
             }
@@ -456,16 +458,13 @@ NEK_DEVICE_INLINE static void Mass3DKernel(
                     wsp + nqTot * nelmt + nq1 * nq2 * warpsize * iwarp;
                 TData *wsp1 = wsp + (nqTot + nq1 * nq2) * nelmt +
                               std::max(nq2, nm0) * warpsize * iwarp;
-                TData *wsp2 = wsp +
-                              (nqTot + nq1 * nq2 + std::max(nq2, nm0)) * nelmt +
-                              nm2 * warpsize * iwarp;
                 BwdTransTetSumFacKernel(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
                                         isModified, basis0, basis1, basis2,
                                         inptr, bwd, wsp0, wsp1);
                 IProductWRTBaseTetSumFacKernel<false, false, DEFORMED>(
                     ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
                     basis1, basis2, w0, w1, w2, jacptr, bwd, outptr, wsp0, wsp1,
-                    wsp2, (TData)1.0);
+                    (TData)1.0);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
             {
@@ -474,11 +473,6 @@ NEK_DEVICE_INLINE static void Mass3DKernel(
                               nq1 * nq2 * warpsize * iwarp;
                 TData *wsp1 = wsp + (nqTot + nq1 * nq2 + nmTot) * nelmt +
                               std::max(nq2, nm0) * warpsize * iwarp;
-                TData *wsp2 =
-                    wsp +
-                    (nqTot + nq1 * nq2 + std::max(nq2, nm0) + nmTot) * nelmt +
-                    nm2 * warpsize * iwarp;
-
                 MatVecKernel(ilane, nmTot, nodToMod, inptr, modes);
                 BwdTransTetSumFacKernel(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
                                         isModified, basis0, basis1, basis2,
@@ -486,8 +480,9 @@ NEK_DEVICE_INLINE static void Mass3DKernel(
                 IProductWRTBaseTetSumFacKernel<false, false, DEFORMED>(
                     ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
                     basis1, basis2, w0, w1, w2, jacptr, bwd, modes, wsp0, wsp1,
-                    wsp2, (TData)1.0);
-                // multiply by transpose  notToMod to transform coeffs
+                    (TData)1.0);
+
+                // Multiply by transpose notToMod to transform coeffs.
                 MatVecKernel<false, true>(ilane, nmTot, nodToMod, modes,
                                           outptr);
             }
@@ -498,18 +493,13 @@ NEK_DEVICE_INLINE static void Mass3DKernel(
                 TData *wsp1 = wsp +
                               (nqTot + std::max(nq1 * nq2, nm0 * nm1)) * nelmt +
                               std::max(nq2, nm0) * warpsize * iwarp;
-                TData *wsp2 = wsp +
-                              (nqTot + std::max(nq1 * nq2, nm0 * nm1) +
-                               std::max(nq2, nm0)) *
-                                  nelmt +
-                              nm1 * warpsize * iwarp;
                 BwdTransPrismSumFacKernel(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
                                           isModified, basis0, basis1, basis2,
                                           inptr, bwd, wsp0, wsp1);
                 IProductWRTBasePrismSumFacKernel<false, false, DEFORMED>(
                     ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
                     basis1, basis2, w0, w1, w2, jacptr, bwd, outptr, wsp0, wsp1,
-                    wsp2, (TData)1.0);
+                    (TData)1.0);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism)
             {
@@ -520,11 +510,6 @@ NEK_DEVICE_INLINE static void Mass3DKernel(
                     wsp +
                     (nqTot + nmTot + std::max(nq1 * nq2, nm0 * nm1)) * nelmt +
                     std::max(nq2, nm0) * warpsize * iwarp;
-                TData *wsp2 = wsp +
-                              (nqTot + nmTot + std::max(nq1 * nq2, nm0 * nm1) +
-                               std::max(nq2, nm0)) *
-                                  nelmt +
-                              nm1 * warpsize * iwarp;
                 MatVecKernel(ilane, nmTot, nodToMod, inptr, modes);
                 BwdTransPrismSumFacKernel(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
                                           isModified, basis0, basis1, basis2,
@@ -532,8 +517,9 @@ NEK_DEVICE_INLINE static void Mass3DKernel(
                 IProductWRTBasePrismSumFacKernel<false, false, DEFORMED>(
                     ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
                     basis1, basis2, w0, w1, w2, jacptr, bwd, modes, wsp0, wsp1,
-                    wsp2, (TData)1.0);
-                // multiply by transpose  notToMod to transform coeffs
+                    (TData)1.0);
+
+                // Multiply by transpose notToMod to transform coeffs.
                 MatVecKernel<false, true>(ilane, nmTot, nodToMod, modes,
                                           outptr);
             }
@@ -709,7 +695,8 @@ NEK_DEVICE_INLINE static void Mass3DKernel(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
                     index0, index1, index2, s_basis0, s_basis1, s_basis2, bwd,
                     tmp, s_wsp1, s_wsp0, (TData)1.0, threadBlock);
-                // multiply by transpose nodToMod to convert coeffs
+
+                // Multiply by transpose notToMod to transform coeffs.
                 MatVecQPKernel<false, true>(nmTot, nodToMod, tmp, outptr,
                                             threadBlock);
             }
@@ -726,7 +713,8 @@ NEK_DEVICE_INLINE static void Mass3DKernel(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
                     index0, index1, index2, s_basis0, s_basis1, s_basis2, bwd,
                     tmp, s_wsp1, s_wsp0, (TData)1.0, threadBlock);
-                // multiply by transpose nodToMod to convert coeffs
+
+                // Multiply by transpose notToMod to transform coeffs.
                 MatVecQPKernel<false, true>(nmTot, nodToMod, tmp, outptr,
                                             threadBlock);
             }

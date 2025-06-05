@@ -317,7 +317,8 @@ protected:
                             [[maybe_unused]] const unsigned int nq0,
                             const unsigned int nq1, const unsigned int nq2,
                             [[maybe_unused]] const unsigned int nm0,
-                            const unsigned int nm1, const unsigned int nm2)
+                            const unsigned int nm1,
+                            [[maybe_unused]] const unsigned int nm2)
     {
         size_t wspsize = 0;
 
@@ -345,24 +346,24 @@ protected:
         }
         else if (shapeType == LibUtilities::Tet)
         {
-            wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2 + nm2) * nelmt;
+            wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2) * nelmt;
         }
         else if (shapeType == LibUtilities::NodalTet)
         {
-            wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2 + nm2 +
+            wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2 +
                        nm0 * (nm0 + 1) * (nm0 + 2) / 6) *
                       nelmt;
         }
         else if (shapeType == LibUtilities::Prism)
         {
             wspsize = (4 * nq0 * nq1 * nq2 + std::max(nq1 * nq2, nm0 * nm1) +
-                       std::max(nq2, nm0) + nm1) *
+                       std::max(nq2, nm0)) *
                       nelmt;
         }
         else if (shapeType == LibUtilities::NodalPrism)
         {
             wspsize = (4 * nq0 * nq1 * nq2 + std::max(nq1 * nq2, nm0 * nm1) +
-                       std::max(nq2, nm0) + nm1 + nm0 * (nm0 + 1) * nm0 / 2) *
+                       std::max(nq2, nm0) + nm0 * (nm0 + 1) * nm0 / 2) *
                       nelmt;
         }
         else if (shapeType == LibUtilities::Pyr)

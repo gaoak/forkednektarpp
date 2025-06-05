@@ -473,7 +473,7 @@ protected:
             c[idtem] = 1.0;
             s[idtem] = 0.0;
         }
-        else if (abs(hh) > abs(dd))
+        else if (std::abs(hh) > std::abs(dd))
         {
             temp_dbl = -dd / hh;
             s[idtem] = 1.0 / sqrt(1.0 + temp_dbl * temp_dbl);
