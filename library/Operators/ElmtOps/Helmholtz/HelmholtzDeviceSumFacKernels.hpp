@@ -411,7 +411,7 @@ NEK_DEVICE_INLINE static void ApplyMetric2DSumFacKernel(
             TData tmpQ = w0[i] * w1[j];
             if constexpr (DEFORMED)
             {
-                tmpQ *= jac[warpsize * cnt_ji + ilane];
+                tmpQ *= jac[index];
             }
             else
             {
@@ -570,7 +570,7 @@ NEK_DEVICE_INLINE static void ApplyMetric3DSumFacKernel(
                 TData tmpQ = w0[i] * w1[j] * w2[k];
                 if constexpr (DEFORMED)
                 {
-                    tmpQ *= jac[warpsize * cnt_kji + ilane];
+                    tmpQ *= jac[index];
                 }
                 else
                 {

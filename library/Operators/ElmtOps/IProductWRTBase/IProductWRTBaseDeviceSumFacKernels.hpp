@@ -406,16 +406,17 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacKernel(
 #pragma unroll
             for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
             {
+                const unsigned int index = warpsize * (nq0 * j + i) + ilane;
+
                 if constexpr (DEFORMED)
                 {
-                    prod += in[warpsize * cnt_ji + ilane] * w0[i] * w1[j] *
-                            basis1[nq1 + j] * basis0[nq0 + i] *
-                            jac[warpsize * cnt_ji + ilane];
+                    prod += in[index] * w0[i] * w1[j] * basis1[nq1 + j] *
+                            basis0[nq0 + i] * jac[index];
                 }
                 else
                 {
-                    prod += in[warpsize * cnt_ji + ilane] * w0[i] * w1[j] *
-                            basis1[nq1 + j] * basis0[nq0 + i] * jac[0];
+                    prod += in[index] * w0[i] * w1[j] * basis1[nq1 + j] *
+                            basis0[nq0 + i] * jac[0];
                 }
             }
         }
