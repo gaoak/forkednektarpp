@@ -305,7 +305,6 @@ protected:
         }
     }
 
-    // Nothing to do for DeviceSumFac
     void v_SetLambda(const TData &lambda) override
     {
         this->m_lambda = lambda;

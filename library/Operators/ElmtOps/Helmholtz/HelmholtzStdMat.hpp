@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: HelmholtzSerialStdMat.hpp
+// File: HelmholtzStdMat.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -41,6 +41,8 @@
 #include "Operators/ElmtOps/IProductWRTDerivBase/OperatorIProductWRTDerivBase.hpp"
 #include "Operators/ElmtOps/PhysDeriv/OperatorPhysDeriv.hpp"
 
+#include "Operators/ElmtOps/Helmholtz/HelmholtzStdMatKernels.hpp"
+
 namespace Nektar::Operators::detail
 {
 
@@ -57,16 +59,16 @@ public:
               "Helmholtz diffCoeff", exp->GetCoordim() * exp->GetCoordim(),
               ExecSpace::alignment))
     {
-        auto nCoord = this->m_exp->GetCoordim();
+        auto ncoord = this->m_exp->GetCoordim();
 
         m_diffCoeff.template Initialize<MemSpace>(0);
 
         TData *diffCoeff =
             m_diffCoeff.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
 
-        for (unsigned int d = 0; d < nCoord; d++)
+        for (unsigned int d = 0; d < ncoord; d++)
         {
-            diffCoeff[d * nCoord + d] = 1.0; // temporary solution
+            diffCoeff[d * ncoord + d] = 1.0; // temporary solution
         }
 
         this->m_BwdTransOp = BlockOperatorBwdTrans<TData>::Create(
@@ -115,7 +117,7 @@ protected:
                  BlockAccessor<TData> &outblock) override
     {
         auto CompSize = inblock.GetNumComponents();
-        auto nCoords  = this->m_exp->GetCoordim();
+        auto ncoords  = this->m_exp->GetCoordim();
 
         // initialise bwd storage space if not for correct number of components
         auto size = inblock.GetNumElementsWithPadding() *
@@ -125,7 +127,7 @@ protected:
             this->m_bwd   = MemoryRegion<TData>::Create("Helmholtz bwd", size,
                                                         ExecSpace::alignment);
             this->m_deriv = MemoryRegion<TData>::Create(
-                "Helmholtz deriv", size * nCoords, ExecSpace::alignment);
+                "Helmholtz deriv", size * ncoords, ExecSpace::alignment);
         }
 
         auto bwd = BlockAccessor(inblock.GetExpIdx(), inblock.GetNumElements(),
@@ -135,7 +137,7 @@ protected:
         auto deriv = BlockAccessor(
             inblock.GetExpIdx(), inblock.GetNumElements(),
             inblock.GetNumElementsWithPadding(), this->m_exp->GetTotPoints(), 1,
-            this->m_deriv, CompSize * nCoords, 0);
+            this->m_deriv, CompSize * ncoords, 0);
 
         // Step 1: BwdTrans.
         this->m_BwdTransOp->Apply(inblock, bwd);
@@ -163,35 +165,13 @@ protected:
         auto derivPtr = deriv.template GetPtr<MemSpace, ReadWrite>();
 
         // Determine shape and type of the element.
-        auto nCoord = this->m_exp->GetCoordim();
+        const auto ncoord = this->m_exp->GetCoordim();
+        const auto nelmt  = deriv.GetNumElementsWithPadding();
+        const auto nqTot  = deriv.GetNumData();
+        const auto ncomp  = deriv.GetNumComponents() / ncoord;
 
-        auto store = std::vector<Array<OneD, TData>>(nCoord);
-
-        // Loop over components.
-        for (unsigned int nc = 0; nc < deriv.GetNumComponents(); ++nc)
-        {
-            // Multiply by diffusion coefficient.
-            for (unsigned int d = 0; d < nCoord; d++)
-            {
-                store[d] = Array<OneD, TData>(deriv.size());
-
-                Vmath::Smul(deriv.size(), diffCoeffPtr[d * nCoord], derivPtr, 1,
-                            store[d].data(), 1);
-
-                for (unsigned int l = 1; l < nCoord; l++)
-                {
-                    Vmath::Svtvp(deriv.size(), diffCoeffPtr[d * nCoord + l],
-                                 derivPtr + l * deriv.size(), 1,
-                                 store[d].data(), 1, store[d].data(), 1);
-                }
-            }
-
-            for (unsigned int d = 0; d < nCoord; d++)
-            {
-                Vmath::Vcopy(deriv.size(), store[d].data(), 1,
-                             derivPtr + d * deriv.size(), 1);
-            }
-        }
+        MultiplyByDiffusionCoeff<ExecSpace>(nelmt, nqTot, ncoord, ncomp,
+                                            diffCoeffPtr, derivPtr);
     }
 
     void v_SetLambda(const TData &lambda) override

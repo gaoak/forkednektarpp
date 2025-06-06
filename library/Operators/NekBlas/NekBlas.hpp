@@ -136,31 +136,6 @@ NekGemmStridedBatched(THandle handle, std::string transposeA,
                       const size_t batchSize);
 
 template <typename THandle, typename TData>
-typename std::enable_if<std::is_same_v<THandle, blasHandle>, void>::type
-NekGemmBatched(THandle handle, std::string transposeA, std::string transposeB,
-               const size_t M, const size_t N, const size_t K,
-               const TData alpha, const TData *const Aarray[], const size_t lda,
-               const TData *const Barray[], const size_t ldb, const TData beta,
-               TData *const Carray[], const size_t ldc,
-               const size_t batchCount);
-template <typename THandle, typename TData>
-#if defined(NEKTAR_ENABLE_CUDA)
-typename std::enable_if<std::is_same_v<THandle, cublasHandle_t>, void>::type
-#elif defined(NEKTAR_ENABLE_HIP)
-typename std::enable_if<std::is_same_v<THandle, hipblasHandle_t>, void>::type
-#elif defined(NEKTAR_ENABLE_SYCL)
-typename std::enable_if<std::is_same_v<THandle, sycl::queue>, void>::type
-#else
-typename std::enable_if<std::is_same_v<THandle, std::nullptr_t>, void>::type
-#endif
-NekGemmBatched(THandle handle, std::string transposeA, std::string transposeB,
-               const size_t M, const size_t N, const size_t K,
-               const TData alpha, const TData *const Aarray[], const size_t lda,
-               const TData *const Barray[], const size_t ldb, const TData beta,
-               TData *const Carray[], const size_t ldc,
-               const size_t batchCount);
-
-template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, blasHandle>, void>::type NekGemv(
     THandle handle, std::string transpose, const size_t M, const size_t N,
     const TData alpha, const TData *a, const size_t lda, const TData *x,

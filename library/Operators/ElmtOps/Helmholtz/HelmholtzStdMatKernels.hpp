@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: IProductWRTBaseSerialStdMatKernels.hpp
+// File: HelmholtzStdMatKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,28 +34,35 @@
 
 #pragma once
 
-template <bool DEFORMED, typename TData>
-NEK_FORCE_INLINE static void MultiplyByJacobianKernel(const unsigned int nqTot,
-                                                      const size_t nelmt,
-                                                      const TData *jacptr,
-                                                      const TData *inptr,
-                                                      TData *outptr)
+#include "Operators/LoopExecution/LoopExecution.hpp"
+
+template <typename ExecSpace, typename TData>
+NEK_FORCE_INLINE static void MultiplyByDiffusionCoeff(
+    const size_t nelmt, const unsigned int nqTot, const unsigned int ncoord,
+    const unsigned int ncomp, const TData *diffCoeff, TData *inout)
 {
-    if constexpr (DEFORMED)
+    const auto nsize = nelmt * nqTot;
+    for (unsigned int nc = 0; nc < ncomp; ++nc)
     {
-        for (size_t i = 0; i < nelmt * nqTot; ++i)
-        {
-            outptr[i] = jacptr[i] * inptr[i];
-        }
-    }
-    else
-    {
-        for (size_t e = 0; e < nelmt; ++e)
-        {
-            for (unsigned int i = 0; i < nqTot; ++i)
-            {
-                outptr[e * nqTot + i] = jacptr[e] * inptr[e * nqTot + i];
-            }
-        }
+        // Multiply by diffusion coefficient.
+        Nektar::parallel_for<ExecSpace>(
+            0, nsize, NEKTAR_LAMBDA(const size_t idx) {
+                TData tmp[3];
+                for (unsigned int d = 0; d < ncoord; d++)
+                {
+                    tmp[d] = diffCoeff[d * ncoord] * inout[idx];
+                    for (unsigned int l = 1; l < ncoord; l++)
+                    {
+                        tmp[d] +=
+                            diffCoeff[d * ncoord + l] * inout[l * nsize + idx];
+                    }
+                }
+
+                for (unsigned int d = 0; d < ncoord; d++)
+                {
+                    inout[d * nsize + idx] = tmp[d];
+                }
+            });
+        inout += ncoord * nsize;
     }
 }

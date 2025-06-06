@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: PhysDerivSerialStdMatKernels.hpp
+// File: IProductWRTBaseStdMatKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,55 +34,57 @@
 
 #pragma once
 
-template <bool DEFORMED, typename TData>
-NEK_FORCE_INLINE static void MultiplyByDerivFactorKernel(
-    const unsigned int nqTot, const unsigned int ncoord,
-    const unsigned int dimension, const size_t nelmt, const TData *dfptr,
-    const TData *inptr, TData *outptr)
-{
-    const auto ndf = ncoord * dimension;
+#include "Operators/LoopExecution/LoopExecution.hpp"
 
+template <typename ExecSpace, bool DEFORMED, typename TData>
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                            void>::type
+    MultiplyByJacobianKernel(const unsigned int nqTot, const size_t nelmt,
+                             const TData *jacptr, const TData *inptr,
+                             TData *outptr)
+{
     if constexpr (DEFORMED)
     {
-        for (unsigned int k = 0; k < ncoord; k++)
+        for (size_t i = 0; i < nelmt * nqTot; ++i)
         {
-            TData *ptr = outptr + k * nqTot * nelmt;
-            for (size_t i = 0; i < nelmt * nqTot; i++)
-            {
-                ptr[i] = dfptr[ndf * i + k * dimension] * inptr[i];
-            }
-            for (unsigned int d = 1; d < dimension; d++)
-            {
-                for (size_t i = 0; i < nelmt * nqTot; i++)
-                {
-                    ptr[i] += dfptr[ndf * i + k * dimension + d] *
-                              inptr[i + d * nqTot * nelmt];
-                }
-            }
+            outptr[i] = jacptr[i] * inptr[i];
         }
     }
     else
     {
-        for (size_t e = 0; e < nelmt; e++)
+        for (size_t e = 0; e < nelmt; ++e)
         {
-            for (unsigned int k = 0; k < ncoord; k++)
+            for (unsigned int i = 0; i < nqTot; ++i)
             {
-                TData *ptr = outptr + k * nqTot * nelmt;
-                for (unsigned int i = 0; i < nqTot; i++)
-                {
-                    ptr[nqTot * e + i] =
-                        dfptr[ndf * e + k * dimension] * inptr[nqTot * e + i];
-                }
-                for (unsigned int d = 1; d < dimension; d++)
-                {
-                    for (unsigned int i = 0; i < nqTot; i++)
-                    {
-                        ptr[nqTot * e + i] +=
-                            dfptr[ndf * e + k * dimension + d] *
-                            inptr[nqTot * e + i + d * nqTot * nelmt];
-                    }
-                }
+                outptr[e * nqTot + i] = jacptr[e] * inptr[e * nqTot + i];
             }
         }
+    }
+}
+
+template <typename ExecSpace, bool DEFORMED, typename TData>
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                            void>::type
+    MultiplyByJacobianKernel(const unsigned int nqTot, const size_t nelmt,
+                             const TData *jacptr, const TData *inptr,
+                             TData *outptr)
+{
+    if constexpr (DEFORMED)
+    {
+        Nektar::parallel_for<ExecSpace>(
+            0, nelmt * nqTot, NEKTAR_LAMBDA(const size_t idx) {
+                outptr[idx] = jacptr[idx] * inptr[idx];
+            });
+    }
+    else
+    {
+        Nektar::parallel_for<ExecSpace>(
+            0, nelmt * nqTot, NEKTAR_LAMBDA(const size_t idx) {
+                size_t e    = idx / nqTot;
+                outptr[idx] = jacptr[e] * inptr[idx];
+            });
     }
 }

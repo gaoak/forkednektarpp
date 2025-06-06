@@ -149,8 +149,8 @@ IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABL
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_multiplybyelmtinvmass_device_generic.cpp)
 ENDIF()
 
-# CUDA StdMat
-IF(NEKTAR_ENABLE_CUDA)
+# Device StdMat
+IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABLE_DEVICEONHOST)
     ADD_NEKTAR_EXECUTABLE(test_bwdtrans_device_stdmat
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_device_stdmat.cpp)
     ADD_NEKTAR_EXECUTABLE(test_helmholtz_device_stdmat
@@ -163,6 +163,8 @@ IF(NEKTAR_ENABLE_CUDA)
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_device_stdmat.cpp)
     ADD_NEKTAR_EXECUTABLE(test_physderiv_device_stdmat
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_device_stdmat.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_device_stdmat
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_device_stdmat.cpp)
 ENDIF()
 
 # Device SumFac
@@ -328,14 +330,17 @@ IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABL
     ENDIF()
 ENDIF()
 
-# CUDA StdMat
-IF(NEKTAR_ENABLE_CUDA)
-    SET_UNIT_TEST(BwdTrans_device_stdmat test_bwdtrans_device_stdmat FALSE)
-    SET_UNIT_TEST(IProductWRTBase_device_stdmat test_ipwrtbase_device_stdmat FALSE)
-    SET_UNIT_TEST(IProductWRTDerivBase_device_stdmat test_ipwrtderivbase_device_stdmat FALSE)
-    SET_UNIT_TEST(PhysDeriv_device_stdmat test_physderiv_device_stdmat FALSE)
-    SET_UNIT_TEST(Mass_device_stdmat test_mass_device_stdmat FALSE)
-    SET_UNIT_TEST(Helmholtz_device_stdmat test_helmholtz_device_stdmat FALSE)
+# Device StdMat
+IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABLE_DEVICEONHOST)
+    IF(NOT NEKTAR_ENABLE_SYCL STREQUAL "CUDA")
+        SET_UNIT_TEST(BwdTrans_device_stdmat test_bwdtrans_device_stdmat FALSE)
+        SET_UNIT_TEST(IProductWRTBase_device_stdmat test_ipwrtbase_device_stdmat FALSE)
+        SET_UNIT_TEST(IProductWRTDerivBase_device_stdmat test_ipwrtderivbase_device_stdmat FALSE)
+        SET_UNIT_TEST(PhysDeriv_device_stdmat test_physderiv_device_stdmat FALSE)
+        SET_UNIT_TEST(Mass_device_stdmat test_mass_device_stdmat FALSE)
+        SET_UNIT_TEST(Helmholtz_device_stdmat test_helmholtz_device_stdmat FALSE)
+        SET_UNIT_TEST(PhysInterp1DScaled_device_stdmat test_physinterp1dscaled_device_stdmat FALSE)
+    ENDIF()
 ENDIF()
 
 # Device SumFac
