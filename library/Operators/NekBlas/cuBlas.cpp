@@ -85,31 +85,6 @@ NekGemmStridedBatched(THandle handle, std::string transposeA,
 }
 
 template <typename THandle, typename TData>
-typename std::enable_if<std::is_same_v<THandle, cublasHandle_t>, void>::type
-NekGemmBatched(THandle handle, std::string transposeA, std::string transposeB,
-               const size_t M, const size_t N, const size_t K,
-               const TData alpha, const TData *const Aarray[], const size_t lda,
-               const TData *const Barray[], const size_t ldb, const TData beta,
-               TData *const Carray[], const size_t ldc, const size_t batchCount)
-{
-    auto transA = (transposeA == "N") ? CUBLAS_OP_N : CUBLAS_OP_T;
-    auto transB = (transposeB == "N") ? CUBLAS_OP_N : CUBLAS_OP_T;
-
-    if constexpr (std::is_same_v<TData, float>)
-    {
-        CUBLAS_CHECK(cublasSgemmBatched(handle, transA, transB, M, N, K, &alpha,
-                                        Aarray, lda, Barray, ldb, &beta, Carray,
-                                        ldc, batchCount));
-    }
-    else if constexpr (std::is_same_v<TData, double>)
-    {
-        CUBLAS_CHECK(cublasDgemmBatched(handle, transA, transB, M, N, K, &alpha,
-                                        Aarray, lda, Barray, ldb, &beta, Carray,
-                                        ldc, batchCount));
-    }
-}
-
-template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, cublasHandle_t>, void>::type NekGemv(
     THandle handle, std::string transpose, const size_t M, const size_t N,
     const TData alpha, const TData *a, const size_t lda, const TData *x,
@@ -179,20 +154,6 @@ template void NekGemmStridedBatched<cublasHandle_t, double>(
     const double *a, const size_t lda, const size_t strideA, const double *b,
     const size_t ldb, const size_t strideB, const double beta, double *c,
     const size_t ldc, const size_t strideC, const size_t batchSize);
-
-template void NekGemmBatched<cublasHandle_t, float>(
-    cublasHandle_t handle, std::string transposeA, std::string transposeB,
-    const size_t M, const size_t N, const size_t K, const float alpha,
-    const float *const Aarray[], const size_t lda, const float *const Barray[],
-    const size_t ldb, const float beta, float *const Carray[], const size_t ldc,
-    const size_t batchCount);
-
-template void NekGemmBatched<cublasHandle_t, double>(
-    cublasHandle_t handle, std::string transposeA, std::string transposeB,
-    const size_t M, const size_t N, const size_t K, const double alpha,
-    const double *const Aarray[], const size_t lda,
-    const double *const Barray[], const size_t ldb, const double beta,
-    double *const Carray[], const size_t ldc, const size_t batchCount);
 
 template void NekGemv<cublasHandle_t, float>(
     cublasHandle_t handle, std::string transpose, const size_t M,

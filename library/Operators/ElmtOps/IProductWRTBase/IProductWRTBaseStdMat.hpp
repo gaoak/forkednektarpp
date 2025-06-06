@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: PhysDerivCUDAStdMat.cuh
+// File: IProductWRTBaseStdMat.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,26 +34,26 @@
 
 #pragma once
 
-#include <StdRegions/StdExpansion.h>
-
-#include "Operators/ElmtOps/PhysDeriv/OperatorPhysDeriv.hpp"
+#include "Operators/ElmtOps/IProductWRTBase/OperatorIProductWRTBase.hpp"
 #include "Operators/NekBlas/NekBlas.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
-#include "Operators/ElmtOps/PhysDeriv/PhysDerivCUDASumFacCUBLASHelper.cuh"
+#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseStdMatKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename Implementation, typename TData>
-class BlockOperatorPhysDerivImpl : public BlockOperatorPhysDeriv<TData>
+class BlockOperatorIProductWRTBaseImpl
+    : public BlockOperatorIProductWRTBase<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    BlockOperatorPhysDerivImpl(const LocalRegions::ExpansionSharedPtr &exp,
-                               NekDataWarehouseSharedPtr dataWarehouse)
-        : BlockOperatorPhysDeriv<TData>(exp, dataWarehouse)
+    BlockOperatorIProductWRTBaseImpl(
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse)
+        : BlockOperatorIProductWRTBase<TData>(exp, dataWarehouse)
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -71,8 +71,14 @@ public:
         {
             basisKeys[d] = exp->GetBasis(d)->GetBasisKey();
         }
-        m_matptr = dataWarehouse->template GetData<ExecSpace>(
-            StdMatKey<TData>(basisKeys, m_shapeType, ePhysDerivStdMat));
+
+        LibUtilities::PointsType nodalType =
+            (exp->IsNodalNonTensorialExp())
+                ? exp->GetNodalPointsKey().GetPointsType()
+                : LibUtilities::eNoPointsType;
+
+        m_matptr = dataWarehouse->template GetData<ExecSpace>(StdMatKey<TData>(
+            basisKeys, m_shapeType, eIProductWRTBaseStdMat, nodalType));
     }
 
     // className - for BlockOperatorFactory
@@ -84,7 +90,7 @@ public:
         NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
-            BlockOperatorPhysDerivImpl<ExecSpace, Implementation, TData>>(
+            BlockOperatorIProductWRTBaseImpl<ExecSpace, Implementation, TData>>(
             exp, dataWarehouse);
     }
 
@@ -98,12 +104,14 @@ protected:
     unsigned int m_nmTot;
     unsigned int m_nqTot;
     const TData *m_matptr;
-    MemoryRegion<TData> m_deriv;
+    MemoryRegion<TData> m_wsp;
 
     void v_Apply(BlockAccessor<TData> &inblock,
                  BlockAccessor<TData> &outblock) override
     {
-        const auto nElmts = inblock.GetNumElements();
+        auto handle = NekHandle<ExecSpace>::GetInstance();
+
+        const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -111,51 +119,51 @@ protected:
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Fetch cuBLAS handle.
-        cublasHandle_t handle = cuBlasHandle::GetInstance();
-
-        // Fetch derivative factor.
-        auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
-            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                  inblock.GetNumElements(), false));
+        // Fetch Jacobian.
+        auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
+                               inblock.GetNumElements()));
 
         // Allocate storate.
-        size_t derivsize = m_dimension * nElmts * m_nqTot;
-
-        if (m_deriv.size() == 0)
+        if (m_wsp.size() == 0)
         {
-            m_deriv = MemoryRegion<TData>::template Create(
-                derivsize, ExecSpace::alignment);
+            m_wsp = MemoryRegion<TData>::Create(m_dimension * nelmt * m_nqTot,
+                                                ExecSpace::alignment);
         }
 
         // Get workspace pointer.
-        auto derivPtr = std::is_same_v<Implementation, Operators::StdMat>
-                            ? m_deriv.template GetPtr<MemSpace, WriteOnly>()
-                            : nullptr;
+        auto wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
-            auto dfptr = dfptr_init;
-
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
                 inblock.GetInterleaveWidth(),
                 inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
                 (TData *)inptr);
 
-            NekGemmStridedBatched(handle, "N", "N", m_nqTot, nElmts, m_nqTot,
-                                  1.0, m_matptr, m_nqTot, m_nqTot * m_nqTot,
-                                  inptr, m_nqTot, 0, 0.0, derivPtr, m_nqTot,
-                                  m_nqTot * nElmts, m_dimension);
+            // Multiply by jacobian.
+            if (m_isDeformed)
+            {
+                MultiplyByJacobianKernel<ExecSpace, true>(
+                    m_nqTot, nelmt, jacptr, inptr, wspptr);
+            }
+            else
+            {
+                MultiplyByJacobianKernel<ExecSpace, false>(
+                    m_nqTot, nelmt, jacptr, inptr, wspptr);
+            }
 
-            ApplyDerivFactor<ExecSpace>(m_coordDim, m_dimension, m_nqTot,
-                                        nElmts, outblock.size(), dfptr,
-                                        derivPtr, outptr, m_isDeformed);
+            // Perform matrix-matrix multiply.
+            TData alpha = this->m_scale;
+            TData beta  = 0.0;
+            NekGemm(handle, "N", "N", m_nmTot, nelmt, m_nqTot, alpha, m_matptr,
+                    m_nmTot, wspptr, m_nqTot, beta, outptr, m_nmTot);
 
-            // Increment pointer.
+            // Increment pointers.
             inptr += inblock.size();
-            outptr += m_coordDim * outblock.size();
+            outptr += outblock.size();
         }
 
         // Set to new interleave width.

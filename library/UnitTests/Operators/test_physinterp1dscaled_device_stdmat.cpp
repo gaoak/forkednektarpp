@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_physinterp1dscaled_serial_stdmat.cpp
+// File: test_physinterp1dscaled_device_stdmat.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -55,53 +55,53 @@
 
 BOOST_AUTO_TEST_SUITE(TestPhysInterp1DScaledSerialStdMat)
 
-TEST_PHYSINTERP1DSCALED(physinterp1d_serial_stdmat_seg, Seg, 1.0E-12)
+TEST_PHYSINTERP1DSCALED(physinterp1d_device_stdmat_seg, Seg, 1.0E-12)
 
-TEST_PHYSINTERP1DSCALED(physinterp1d_serial_stdmat_seg_sem, SegSEM, 1.0E-12)
+TEST_PHYSINTERP1DSCALED(physinterp1d_device_stdmat_seg_sem, SegSEM, 1.0E-12)
 
-TEST_PHYSINTERP1DSCALED(physinterp1d_serial_stdmat_tri, Tri, 1.0E-12)
+TEST_PHYSINTERP1DSCALED(physinterp1d_device_stdmat_tri, Tri, 1.0E-12)
 
-TEST_PHYSINTERP1DSCALED(physinterp1d_serial_stdmat_tri_varp, TriVarP, 1.0E-12)
+TEST_PHYSINTERP1DSCALED(physinterp1d_device_stdmat_tri_varp, TriVarP, 1.0E-12)
 
-TEST_PHYSINTERP1DSCALED(physinterp1d_serial_stdmat_tri_nodal, TriNodal, 1.0E-12)
+TEST_PHYSINTERP1DSCALED(physinterp1d_device_stdmat_tri_nodal, TriNodal, 1.0E-12)
 
-TEST_PHYSINTERP1DSCALED(physinterp1d_serial_stdmat_quad, Quad, 1.0E-12)
+TEST_PHYSINTERP1DSCALED(physinterp1d_device_stdmat_quad, Quad, 1.0E-12)
 
-TEST_PHYSINTERP1DSCALED(physinterp1d_serial_stdmat_quad_varp, QuadVarP, 1.0E-12)
+TEST_PHYSINTERP1DSCALED(physinterp1d_device_stdmat_quad_varp, QuadVarP, 1.0E-12)
 
-TEST_PHYSINTERP1DSCALED(physinterp1d_serial_stdmat_quad_sem, QuadSEM, 1.0E-12)
+TEST_PHYSINTERP1DSCALED(physinterp1d_device_stdmat_quad_sem, QuadSEM, 1.0E-12)
 
-TEST_PHYSINTERP1DSCALED(physinterp1d_serial_stdmat_square_all_elements,
+TEST_PHYSINTERP1DSCALED(physinterp1d_device_stdmat_square_all_elements,
                         SquareAllElements, 1.0E-12)
 
-TEST_PHYSINTERP1DSCALED(physinterp1d_serial_stdmat_tet, Tet, 1.0E-12)
+TEST_PHYSINTERP1DSCALED(physinterp1d_device_stdmat_tet, Tet, 1.0E-12)
 
-TEST_PHYSINTERP1DSCALED(physinterp1d_serial_stdmat_tet_varp, TetVarP, 1.0E-12)
+TEST_PHYSINTERP1DSCALED(physinterp1d_device_stdmat_tet_varp, TetVarP, 1.0E-12)
 
-TEST_PHYSINTERP1DSCALED(physinterp1d_serial_stdmat_tet_nodal, TetNodal, 1.0E-12)
+TEST_PHYSINTERP1DSCALED(physinterp1d_device_stdmat_tet_nodal, TetNodal, 1.0E-12)
 
-TEST_PHYSINTERP1DSCALED(physinterp1d_serial_stdmat_pyr, Pyr, 1.0E-12)
+TEST_PHYSINTERP1DSCALED(physinterp1d_device_stdmat_pyr, Pyr, 1.0E-12)
 
-TEST_PHYSINTERP1DSCALED(physinterp1d_serial_stdmat_pyr_varp, PyrVarP, 1.0E-12)
+TEST_PHYSINTERP1DSCALED(physinterp1d_device_stdmat_pyr_varp, PyrVarP, 1.0E-12)
 
-TEST_PHYSINTERP1DSCALED(physinterp1d_serial_stdmat_prism, Prism, 1.0E-12)
+TEST_PHYSINTERP1DSCALED(physinterp1d_device_stdmat_prism, Prism, 1.0E-12)
 
-TEST_PHYSINTERP1DSCALED(physinterp1d_serial_stdmat_prism_varp, PrismVarP,
+TEST_PHYSINTERP1DSCALED(physinterp1d_device_stdmat_prism_varp, PrismVarP,
                         1.0E-12)
 
-TEST_PHYSINTERP1DSCALED(physinterp1d_serial_stdmat_prism_nodal, PrismNodal,
+TEST_PHYSINTERP1DSCALED(physinterp1d_device_stdmat_prism_nodal, PrismNodal,
                         1.0E-12)
 
-TEST_PHYSINTERP1DSCALED(physinterp1d_serial_stdmat_hex, Hex, 1.0E-12)
+TEST_PHYSINTERP1DSCALED(physinterp1d_device_stdmat_hex, Hex, 1.0E-12)
 
-TEST_PHYSINTERP1DSCALED(physinterp1d_serial_stdmat_hex_varp, HexVarP, 1.0E-12)
+TEST_PHYSINTERP1DSCALED(physinterp1d_device_stdmat_hex_varp, HexVarP, 1.0E-12)
 
-TEST_PHYSINTERP1DSCALED(physinterp1d_serial_stdmat_hex_sem, HexSEM, 1.0E-12)
+TEST_PHYSINTERP1DSCALED(physinterp1d_device_stdmat_hex_sem, HexSEM, 1.0E-12)
 
-TEST_PHYSINTERP1DSCALED(physinterp1d_serial_stdmat_cube_prism_hex, CubePrismHex,
+TEST_PHYSINTERP1DSCALED(physinterp1d_device_stdmat_cube_prism_hex, CubePrismHex,
                         1.0E-12)
 
-TEST_PHYSINTERP1DSCALED(physinterp1d_serial_stdmat_cube_all_elements,
+TEST_PHYSINTERP1DSCALED(physinterp1d_device_stdmat_cube_all_elements,
                         CubeAllElements, 1.0E-12)
 
 BOOST_AUTO_TEST_SUITE_END()

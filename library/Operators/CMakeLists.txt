@@ -402,14 +402,6 @@ MACRO(ADD_ELMT_OPERATOR dir)
                     ENDIF()
 
                 # ----------------- ADDED FOR CUBLAS IMPLEMENTATION -----------------#
-                # Found a CUDA StdMat header.
-                ELSEIF((EXISTS "${dir}/${name}CUDAStdMat.cuh") AND NEKTAR_ENABLE_CUDA AND
-                    ("${ExecSpace}" STREQUAL "Device") AND ("${Impl}" STREQUAL "StdMat"))
-                    FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                        "${dir}/${name}CUDAStdMat.cuh")
-                    SET(IMPL_HEADER "#include \"${include_file}\"")
-                    MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
-
                 # Found a CUDA SumFacCUBLAS header.
                 ELSEIF((EXISTS "${dir}/${name}CUDASumFacCUBLAS.cuh") AND NEKTAR_ENABLE_CUDA AND
                     ("${ExecSpace}" STREQUAL "Device") AND ("${Impl}" STREQUAL "SumFacCUBLAS"))
