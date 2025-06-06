@@ -43,6 +43,8 @@
 #include "Operators/Common/SYCLQueue.hpp"
 #endif
 
+#include "Operators/Common/Spaces.hpp"
+
 struct blasHandle
 {
 };
@@ -91,28 +93,20 @@ typename std::enable_if<std::is_same_v<THandle, blasHandle>, void>::type NekGemm
     const size_t M, const size_t N, const size_t K, const TData alpha,
     const TData *a, const size_t lda, const TData *b, const size_t ldb,
     const TData beta, TData *c, const size_t ldc);
+template <typename THandle, typename TData>
 #if defined(NEKTAR_ENABLE_CUDA)
-template <typename THandle, typename TData>
-typename std::enable_if<std::is_same_v<THandle, cublasHandle_t>, void>::type NekGemm(
-    THandle handle, std::string transposeA, std::string transposeB,
-    const size_t M, const size_t N, const size_t K, const TData alpha,
-    const TData *a, const size_t lda, const TData *b, const size_t ldb,
-    const TData beta, TData *c, const size_t ldc);
+typename std::enable_if<std::is_same_v<THandle, cublasHandle_t>, void>::type
 #elif defined(NEKTAR_ENABLE_HIP)
-template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, hipblasHandle_t>, void>::type
+#elif defined(NEKTAR_ENABLE_SYCL)
+typename std::enable_if<std::is_same_v<THandle, sycl::queue>, void>::type
+#else
+typename std::enable_if<std::is_same_v<THandle, std::nullptr_t>, void>::type
+#endif
 NekGemm(THandle handle, std::string transposeA, std::string transposeB,
         const size_t M, const size_t N, const size_t K, const TData alpha,
         const TData *a, const size_t lda, const TData *b, const size_t ldb,
         const TData beta, TData *c, const size_t ldc);
-#elif defined(NEKTAR_ENABLE_SYCL)
-template <typename THandle, typename TData>
-typename std::enable_if<std::is_same_v<THandle, sycl::queue>, void>::type NekGemm(
-    THandle handle, std::string transposeA, std::string transposeB,
-    const size_t M, const size_t N, const size_t K, const TData alpha,
-    const TData *a, const size_t lda, const TData *b, const size_t ldb,
-    const TData beta, TData *c, const size_t ldc);
-#endif
 
 template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, blasHandle>, void>::type
@@ -123,29 +117,16 @@ NekGemmStridedBatched(THandle handle, std::string transposeA,
                       const size_t ldb, const size_t strideB, const TData beta,
                       TData *c, const size_t ldc, const size_t strideC,
                       const size_t batchSize);
+template <typename THandle, typename TData>
 #if defined(NEKTAR_ENABLE_CUDA)
-template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, cublasHandle_t>, void>::type
-NekGemmStridedBatched(THandle handle, std::string transposeA,
-                      std::string transposeB, const size_t M, const size_t N,
-                      const size_t K, const TData alpha, const TData *a,
-                      const size_t lda, const size_t strideA, const TData *b,
-                      const size_t ldb, const size_t strideB, const TData beta,
-                      TData *c, const size_t ldc, const size_t strideC,
-                      const size_t batchSize);
 #elif defined(NEKTAR_ENABLE_HIP)
-template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, hipblasHandle_t>, void>::type
-NekGemmStridedBatched(THandle handle, std::string transposeA,
-                      std::string transposeB, const size_t M, const size_t N,
-                      const size_t K, const TData alpha, const TData *a,
-                      const size_t lda, const size_t strideA, const TData *b,
-                      const size_t ldb, const size_t strideB, const TData beta,
-                      TData *c, const size_t ldc, const size_t strideC,
-                      const size_t batchSize);
 #elif defined(NEKTAR_ENABLE_SYCL)
-template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, sycl::queue>, void>::type
+#else
+typename std::enable_if<std::is_same_v<THandle, std::nullptr_t>, void>::type
+#endif
 NekGemmStridedBatched(THandle handle, std::string transposeA,
                       std::string transposeB, const size_t M, const size_t N,
                       const size_t K, const TData alpha, const TData *a,
@@ -153,4 +134,72 @@ NekGemmStridedBatched(THandle handle, std::string transposeA,
                       const size_t ldb, const size_t strideB, const TData beta,
                       TData *c, const size_t ldc, const size_t strideC,
                       const size_t batchSize);
+
+template <typename THandle, typename TData>
+typename std::enable_if<std::is_same_v<THandle, blasHandle>, void>::type
+NekGemmBatched(THandle handle, std::string transposeA, std::string transposeB,
+               const size_t M, const size_t N, const size_t K,
+               const TData alpha, const TData *const Aarray[], const size_t lda,
+               const TData *const Barray[], const size_t ldb, const TData beta,
+               TData *const Carray[], const size_t ldc,
+               const size_t batchCount);
+template <typename THandle, typename TData>
+#if defined(NEKTAR_ENABLE_CUDA)
+typename std::enable_if<std::is_same_v<THandle, cublasHandle_t>, void>::type
+#elif defined(NEKTAR_ENABLE_HIP)
+typename std::enable_if<std::is_same_v<THandle, hipblasHandle_t>, void>::type
+#elif defined(NEKTAR_ENABLE_SYCL)
+typename std::enable_if<std::is_same_v<THandle, sycl::queue>, void>::type
+#else
+typename std::enable_if<std::is_same_v<THandle, std::nullptr_t>, void>::type
 #endif
+NekGemmBatched(THandle handle, std::string transposeA, std::string transposeB,
+               const size_t M, const size_t N, const size_t K,
+               const TData alpha, const TData *const Aarray[], const size_t lda,
+               const TData *const Barray[], const size_t ldb, const TData beta,
+               TData *const Carray[], const size_t ldc,
+               const size_t batchCount);
+
+template <typename THandle, typename TData>
+typename std::enable_if<std::is_same_v<THandle, blasHandle>, void>::type NekGemv(
+    THandle handle, std::string transpose, const size_t M, const size_t N,
+    const TData alpha, const TData *a, const size_t lda, const TData *x,
+    const size_t incx, const TData beta, TData *y, const size_t incy);
+template <typename THandle, typename TData>
+#if defined(NEKTAR_ENABLE_CUDA)
+typename std::enable_if<std::is_same_v<THandle, cublasHandle_t>, void>::type
+#elif defined(NEKTAR_ENABLE_HIP)
+typename std::enable_if<std::is_same_v<THandle, hipblasHandle_t>, void>::type
+#elif defined(NEKTAR_ENABLE_SYCL)
+typename std::enable_if<std::is_same_v<THandle, sycl::queue>, void>::type
+#else
+typename std::enable_if<std::is_same_v<THandle, std::nullptr_t>, void>::type
+#endif
+NekGemv(THandle handle, std::string transpose, const size_t M, const size_t N,
+        const TData alpha, const TData *a, const size_t lda, const TData *x,
+        const size_t incx, const TData beta, TData *y, const size_t incy);
+
+template <typename THandle, typename TData>
+typename std::enable_if<std::is_same_v<THandle, blasHandle>, void>::type
+NekGemvStridedBatched(THandle handle, std::string transpose, const size_t M,
+                      const size_t N, const TData alpha, const TData *a,
+                      const size_t lda, const size_t strideA, const TData *x,
+                      const size_t incx, const size_t strideX, const TData beta,
+                      TData *y, const size_t incy, const size_t strideY,
+                      const size_t batchSize);
+template <typename THandle, typename TData>
+#if defined(NEKTAR_ENABLE_CUDA)
+typename std::enable_if<std::is_same_v<THandle, cublasHandle_t>, void>::type
+#elif defined(NEKTAR_ENABLE_HIP)
+typename std::enable_if<std::is_same_v<THandle, hipblasHandle_t>, void>::type
+#elif defined(NEKTAR_ENABLE_SYCL)
+typename std::enable_if<std::is_same_v<THandle, sycl::queue>, void>::type
+#else
+typename std::enable_if<std::is_same_v<THandle, std::nullptr_t>, void>::type
+#endif
+NekGemvStridedBatched(THandle handle, std::string transpose, const size_t M,
+                      const size_t N, const TData alpha, const TData *a,
+                      const size_t lda, const size_t strideA, const TData *x,
+                      const size_t incx, const size_t strideX, const TData beta,
+                      TData *y, const size_t incy, const size_t strideY,
+                      const size_t batchSize);

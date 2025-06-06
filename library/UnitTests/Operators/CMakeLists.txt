@@ -149,6 +149,22 @@ IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABL
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_multiplybyelmtinvmass_device_generic.cpp)
 ENDIF()
 
+# CUDA StdMat
+IF(NEKTAR_ENABLE_CUDA)
+    ADD_NEKTAR_EXECUTABLE(test_bwdtrans_device_stdmat
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_device_stdmat.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_helmholtz_device_stdmat
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_device_stdmat.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_device_stdmat
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_device_stdmat.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_device_stdmat
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_device_stdmat.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_mass_device_stdmat
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_device_stdmat.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_physderiv_device_stdmat
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_device_stdmat.cpp)
+ENDIF()
+
 # Device SumFac
 IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABLE_DEVICEONHOST)
     #ADD_NEKTAR_EXECUTABLE(test_addtraceintegral_device_sumfac
@@ -211,6 +227,18 @@ IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABL
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_device_sumfac_qp.cpp)
     ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_device_sumfac_qp
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_device_sumfac_qp.cpp)
+ENDIF()
+
+# CUDA SumFacCUBLAS
+IF(NEKTAR_ENABLE_CUDA)
+    ADD_NEKTAR_EXECUTABLE(test_bwdtrans_device_sumfac_cublas
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_device_sumfac_cublas.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_device_sumfac_cublas
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_device_sumfac_cublas.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_device_sumfac_cublas
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_device_sumfac_cublas.cpp)
+ADD_NEKTAR_EXECUTABLE(test_physderiv_device_sumfac_cublas
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_device_sumfac_cublas.cpp)
 ENDIF()
 
 # Macro
@@ -300,6 +328,16 @@ IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABL
     ENDIF()
 ENDIF()
 
+# CUDA StdMat
+IF(NEKTAR_ENABLE_CUDA)
+    SET_UNIT_TEST(BwdTrans_device_stdmat test_bwdtrans_device_stdmat FALSE)
+    SET_UNIT_TEST(IProductWRTBase_device_stdmat test_ipwrtbase_device_stdmat FALSE)
+    SET_UNIT_TEST(IProductWRTDerivBase_device_stdmat test_ipwrtderivbase_device_stdmat FALSE)
+    SET_UNIT_TEST(PhysDeriv_device_stdmat test_physderiv_device_stdmat FALSE)
+    SET_UNIT_TEST(Mass_device_stdmat test_mass_device_stdmat FALSE)
+    SET_UNIT_TEST(Helmholtz_device_stdmat test_helmholtz_device_stdmat FALSE)
+ENDIF()
+
 # Device SumFac
 IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABLE_DEVICEONHOST)
     #SET_UNIT_TEST(AddTraceIntegral_device_sumfac test_addtraceintegral_device_sumfac FALSE)
@@ -348,6 +386,14 @@ IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABL
     SET_UNIT_TEST(PhysDeriv_device_sumfac_qp test_physderiv_device_sumfac_qp FALSE)
     SET_UNIT_TEST(PhysInterp1DScaled_device_sumfac_qp test_physinterp1dscaled_device_sumfac_qp FALSE)
     SET_UNIT_TEST(LinAdvDiffReaction_device_sumfac_qp test_linadvdiffreaction_device_sumfac_qp FALSE)
+ENDIF()
+
+# CUDA SumFacCUBLAS
+IF(NEKTAR_ENABLE_CUDA)
+    SET_UNIT_TEST(BwdTrans_device_sumfac_cublas test_bwdtrans_device_sumfac_cublas FALSE)
+    SET_UNIT_TEST(IProductWRTBase_device_sumfac_cublas test_ipwrtbase_device_sumfac_cublas FALSE)
+    SET_UNIT_TEST(IProductWRTDerivBase_device_sumfac_cublas test_ipwrtderivbase_device_sumfac_cublas FALSE)
+    SET_UNIT_TEST(PhysDeriv_device_sumfac_cublas test_physderiv_device_sumfac_cublas FALSE)
 ENDIF()
 
 # Copy XML file to build directory

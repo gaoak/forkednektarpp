@@ -37,6 +37,7 @@
 #include <cstddef>
 #include <limits>
 
+#include "Operators/Common/DeviceProperties.hpp"
 #include "Operators/Common/Spaces.hpp"
 
 namespace Nektar
