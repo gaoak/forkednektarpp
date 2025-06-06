@@ -16,7 +16,7 @@ IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABL
 ENDIF()
 
 # Set implementation types.
-SET(ElmtOpImpl StdMat SumFac SumFacQP Generic)
+SET(ElmtOpImpl StdMat SumFac SumFacCUBLAS SumFacQP Generic)
 
 # Shape types for seperate code compilation.
 SET(Shapes Seg Tri NodalTri Quad Hex Pyr Prism NodalPrism Tet NodalTet)
@@ -290,8 +290,8 @@ MACRO(ADD_ELMT_OPERATOR dir)
 
             # These combinations do/should not exist.
             IF(("${ExecSpace}" STREQUAL "Serial" AND "${Impl}" STREQUAL "SumFacQP") OR
-               ("${ExecSpace}" STREQUAL "AVX" AND "${Impl}" STREQUAL "StdMat") OR
-               ("${ExecSpace}" STREQUAL "Device" AND "${Impl}" STREQUAL "StdMat") )
+               ("${ExecSpace}" STREQUAL "Serial" AND "${Impl}" STREQUAL "SumFacCUBLAS") OR
+               ("${ExecSpace}" STREQUAL "AVX" AND "${Impl}" STREQUAL "StdMat") )
                 CONTINUE()
             ENDIF()
 
@@ -400,6 +400,24 @@ MACRO(ADD_ELMT_OPERATOR dir)
                     ELSE()
                         MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
                     ENDIF()
+
+                # ----------------- ADDED FOR CUBLAS IMPLEMENTATION -----------------#
+                # Found a CUDA StdMat header.
+                ELSEIF((EXISTS "${dir}/${name}CUDAStdMat.cuh") AND NEKTAR_ENABLE_CUDA AND
+                    ("${ExecSpace}" STREQUAL "Device") AND ("${Impl}" STREQUAL "StdMat"))
+                    FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                        "${dir}/${name}CUDAStdMat.cuh")
+                    SET(IMPL_HEADER "#include \"${include_file}\"")
+                    MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
+
+                # Found a CUDA SumFacCUBLAS header.
+                ELSEIF((EXISTS "${dir}/${name}CUDASumFacCUBLAS.cuh") AND NEKTAR_ENABLE_CUDA AND
+                    ("${ExecSpace}" STREQUAL "Device") AND ("${Impl}" STREQUAL "SumFacCUBLAS"))
+                    FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                        "${dir}/${name}CUDASumFacCUBLAS.cuh")
+                    SET(IMPL_HEADER "#include \"${include_file}\"")
+                    MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
+                # -------------------------------------------------------------------#
 
                 # Found a generic header.
                 ELSEIF(EXISTS "${dir}/${name}DeviceGeneric.hpp" AND ("${ExecSpace}" STREQUAL "Device") AND ("${Impl}" STREQUAL "Generic"))

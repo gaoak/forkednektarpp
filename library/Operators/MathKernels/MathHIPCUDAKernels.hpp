@@ -204,6 +204,27 @@ __global__ void addKernel(const size_t nsize, const TData *x, const TData *y,
 }
 
 template <typename TData>
+__global__ void sumNMatrixKernel(const size_t nsize, const size_t n,
+                                 const TData *x, TData *y)
+{
+    size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
+    size_t stride = blockDim.x * gridDim.x;
+
+    for (size_t idx = idx0; idx < nsize; idx += stride)
+    {
+
+        TData sum = TData(0);
+
+        for (int i = 0; i < n; i++)
+        {
+            sum += x[idx + i * nsize];
+        }
+
+        y[idx] = sum;
+    }
+}
+
+template <typename TData>
 __global__ void subKernel(const size_t nsize, const TData *x, const TData *y,
                           TData *z)
 {
@@ -1005,6 +1026,18 @@ addKernel(const size_t nsize, const TData *x, const TData *y, TData *z)
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     addKernel<<<gridSize, blockSize>>>(nsize, x, y, z);
+    CHECK_LAST_HIPCUDA_ERROR();
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
+sumNMatrixKernel(const size_t nsize, const size_t n, const TData *x, TData *y)
+{
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+
+    sumNMatrixKernel<<<gridSize, blockSize>>>(nsize, n, x, y);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
