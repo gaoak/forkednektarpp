@@ -59,13 +59,14 @@ namespace Nektar::Operators
 
 enum StdMatType
 {
-    eNoStdMat                    = 0,
-    eBwdTransStdMat              = 1,
-    ePhysDerivStdMat             = 2,
-    eIProductWRTBaseStdMat       = 3,
-    eIProductWRTDerivBaseStdMat  = 4,
-    ePhysInterpStdMat            = 5,
-    eMultiplyByElmtInvMassStdMat = 6,
+    eNoStdMat                       = 0,
+    eBwdTransStdMat                 = 1,
+    ePhysDerivStdMat                = 2,
+    eIProductWRTBaseStdMat          = 3,
+    eIProductWRTBaseStdMatTranspose = 4,
+    eIProductWRTDerivBaseStdMat     = 5,
+    ePhysInterpStdMat               = 6,
+    eMultiplyByElmtInvMassStdMat    = 7,
 };
 
 class StdMatDataCreator;
@@ -252,6 +253,23 @@ public:
                     Vmath::Zero(nqTot, tmp, 1);
                     tmp[i] = 1.0;
                     stdExp->IProductWRTBase(tmp, t = mat + i * nmTot);
+                }
+
+                return MemoryRegion<TData>::template FromArray<MemSpace>(
+                    mat, alignment);
+            }
+            break;
+            case eIProductWRTBaseStdMatTranspose:
+            {
+                Array<OneD, NekDouble> tmp(nqTot), t(nmTot);
+                Array<OneD, NekDouble> mat(nmTot * nqTot);
+                for (unsigned int i = 0; i < nqTot; ++i)
+                {
+                    Vmath::Zero(nqTot, tmp, 1);
+                    tmp[i] = 1.0;
+                    stdExp->IProductWRTBase(tmp, t);
+                    // copy to mat with stride nqTot
+                    Vmath::Vcopy(nmTot, &t[0], 1, &mat[i], nqTot);
                 }
 
                 return MemoryRegion<TData>::template FromArray<MemSpace>(

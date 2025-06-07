@@ -77,6 +77,19 @@ ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_serial_stdmat
 ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_serial_stdmat
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_serial_stdmat.cpp)
 
+IF (${NEKTAR_ENABLE_SIMD_AVX2} OR ${NEKTAR_ENABLE_SIMD_AVX512})
+    ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_serial_stdmatxsmm
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_serial_stdmatxsmm.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_serial_stdmatxsmm
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_serial_stdmatxsmm.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_bwdtrans_serial_stdmatxsmm
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_serial_stdmatxsmm.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_mass_serial_stdmatxsmm
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_serial_stdmatxsmm.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_physderiv_serial_stdmatxsmm
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_serial_stdmatxsmm.cpp)
+ENDIF()
+
 # Serial SumFac
 ADD_NEKTAR_EXECUTABLE(test_addtraceintegral_serial_sumfac
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral_serial_sumfac.cpp)
@@ -294,6 +307,14 @@ SET_UNIT_TEST(NullPrecon_serial_stdmat test_nullprecon_serial_stdmat FALSE)
 SET_UNIT_TEST(PhysDeriv_serial_stdmat test_physderiv_serial_stdmat FALSE)
 SET_UNIT_TEST(PhysInterp1DScaled_serial_stdmat test_physinterp1dscaled_serial_stdmat FALSE)
 SET_UNIT_TEST(LinAdvDiffReaction_serial_stdmat test_linadvdiffreaction_serial_stdmat FALSE)
+
+IF (${NEKTAR_ENABLE_SIMD_AVX2} OR ${NEKTAR_ENABLE_SIMD_AVX512})
+    SET_UNIT_TEST(BwdTrans_serial_stdmatxsmm test_bwdtrans_serial_stdmatxsmm FALSE)
+    SET_UNIT_TEST(IProductWRTBase_serial_stdmatxsmm test_ipwrtbase_serial_stdmatxsmm FALSE)
+    SET_UNIT_TEST(IProductWRTDerivBase_serial_stdmatxsmm test_ipwrtderivbase_serial_stdmatxsmm FALSE)
+    SET_UNIT_TEST(Mass_serial_stdmatxsmm test_mass_serial_stdmatxsmm FALSE)
+    SET_UNIT_TEST(PhysDeriv_serial_stdmatxsmm test_physderiv_serial_stdmatxsmm FALSE)
+ENDIF()
 
 # Serial SumFac
 SET_UNIT_TEST(AddTraceIntegral_serial_sumfac test_addtraceintegral_serial_sumfac FALSE)
