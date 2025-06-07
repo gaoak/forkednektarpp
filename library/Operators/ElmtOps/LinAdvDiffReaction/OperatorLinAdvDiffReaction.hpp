@@ -68,7 +68,7 @@ public:
 
     void SetLambda(TData lambda)
     {
-        m_lambda = lambda;
+        this->v_SetLambda(lambda);
     }
 
     void SetAdvVel(const unsigned int nVel, BlockAccessor<TData> &Vel)
@@ -89,6 +89,8 @@ protected:
 
     virtual void v_Apply(BlockAccessor<TData> &inblock,
                          BlockAccessor<TData> &outblock) = 0;
+
+    virtual void v_SetLambda(const TData &lambda) = 0;
 
     virtual void v_SetAdvVel(const unsigned int nVel,
                              BlockAccessor<TData> &Vel) = 0;

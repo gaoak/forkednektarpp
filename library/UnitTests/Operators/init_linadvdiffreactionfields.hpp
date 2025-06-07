@@ -76,6 +76,17 @@ public:
                        ? session->GetParameter("Lambda")
                        : 10.0;
 
+        // Set advection velocity
+        size_t nphys = fixt_explist->GetTotPoints();
+        m_dim        = fixt_explist->GetCoordim(0);
+        m_vel        = Array<OneD, double>(nphys * m_dim, 0.0);
+        Array<OneD, double> tmp;
+        for (unsigned int d = 1; d < m_dim; ++d)
+        {
+            Vmath::Fill(nphys, d + 1.0, tmp = m_vel + d * nphys, 1);
+            // Vmath::Fill(nphys, 0.0, tmp = m_vel + d * nphys, 1);
+        }
+
         ExpectedSolution();
     }
 
@@ -96,15 +107,6 @@ public:
         size_t ncoeffs        = fixt_explist->GetNcoeffs();
         size_t nphys          = fixt_explist->GetTotPoints();
         Array<OneD, double> tmp;
-
-        // set advection velocity
-        m_dim = fixt_explist->GetCoordim(0);
-        m_vel = Array<OneD, double>(nphys * m_dim, 1.0);
-        for (unsigned int d = 1; d < m_dim; ++d)
-        {
-            Vmath::Fill(nphys, d + 1.0, tmp = m_vel + d * nphys, 1);
-            // Vmath::Fill(nphys, 0.0, tmp = m_vel + d * nphys, 1);
-        }
 
         StdRegions::FactorMap factors;
         factors[StdRegions::eFactorLambda] = m_lambda;
