@@ -17,6 +17,9 @@ ENDIF()
 
 # Set implementation types.
 SET(ElmtOpImpl StdMat SumFac SumFacCUBLAS SumFacQP Generic)
+IF(NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
+    SET(ElmtOpImpl ${ElmtOpImpl} StdMatXSMM )
+ENDIF()
 
 # Shape types for seperate code compilation.
 SET(Shapes Seg Tri NodalTri Quad Hex Pyr Prism NodalPrism Tet NodalTet)
@@ -291,7 +294,9 @@ MACRO(ADD_ELMT_OPERATOR dir)
             # These combinations do/should not exist.
             IF(("${ExecSpace}" STREQUAL "Serial" AND "${Impl}" STREQUAL "SumFacQP") OR
                ("${ExecSpace}" STREQUAL "Serial" AND "${Impl}" STREQUAL "SumFacCUBLAS") OR
-               ("${ExecSpace}" STREQUAL "AVX" AND "${Impl}" STREQUAL "StdMat") )
+               ("${ExecSpace}" STREQUAL "AVX" AND "${Impl}" STREQUAL "StdMat") OR
+               ("${ExecSpace}" STREQUAL "AVX" AND "${Impl}" STREQUAL "StdMatXSMM") OR
+               ("${ExecSpace}" STREQUAL "Device" AND "${Impl}" STREQUAL "StdMatXSMM") )
                 CONTINUE()
             ENDIF()
 
@@ -336,6 +341,14 @@ MACRO(ADD_ELMT_OPERATOR dir)
                     ("${ExecSpace}" STREQUAL "Serial") AND ("${Impl}" STREQUAL "StdMat"))
                     FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
                         "${dir}/${name}SerialStdMat.hpp")
+                    SET(IMPL_HEADER "#include \"${include_file}\"")
+                    MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
+
+                # Found a Serial StdMatXSMM header.
+                ELSEIF((EXISTS "${dir}/${name}SerialStdMatXSMM.hpp") AND
+                ("${ExecSpace}" STREQUAL "Serial") AND ("${Impl}" STREQUAL "StdMatXSMM"))
+                    FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                        "${dir}/${name}SerialStdMatXSMM.hpp")
                     SET(IMPL_HEADER "#include \"${include_file}\"")
                     MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
 
@@ -388,7 +401,7 @@ MACRO(ADD_ELMT_OPERATOR dir)
                     MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
 
                 # Found a Device SumFac header.
-                ELSEIF(EXISTS "${dir}/${name}DeviceSumFac.hpp" AND ("${ExecSpace}" STREQUAL "Device") AND 
+                ELSEIF(EXISTS "${dir}/${name}DeviceSumFac.hpp" AND ("${ExecSpace}" STREQUAL "Device") AND
                     ("${Impl}" STREQUAL "SumFac" OR "${Impl}" STREQUAL "SumFacQP"))
                     FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
                         "${dir}/${name}DeviceSumFac.hpp")
@@ -461,7 +474,7 @@ SET(OPERATORS_HEADERS
     Common/Operator.hpp
     Common/DeviceProperties.hpp
     ElmtOps/OperatorElmt.hpp
-    NekBlas/NekBlas.hpp 
+    NekBlas/NekBlas.hpp
     )
 
 # Common source file.
@@ -492,8 +505,14 @@ ENDFOREACH()
 SET(OPERATORS_DEPENDS
     MultiRegions)
 
+# AVX specific file
+IF(NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
+    SET(OPERATORS_HEADERS
+            ${OPERATORS_HEADERS}
+            Utils/LibXSMMDispatchWrapper.hpp
+    )
 # CUDA specific file
-IF(NEKTAR_ENABLE_CUDA)
+ELSEIF(NEKTAR_ENABLE_CUDA)
     SET(OPERATORS_HEADERS
       ${OPERATORS_HEADERS}
        NekBlas/cuBlasHandle.hpp
@@ -555,6 +574,12 @@ ADD_NEKTAR_LIBRARY(Operators
     DEPENDS ${OPERATORS_DEPENDS}
     SUMMARY "Nektar++ Operators library"
     DESCRIPTION "This library provides classes related to operators for Nektar++.")
+
+#LIBXSMM
+IF(NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
+    TARGET_LINK_LIBRARIES(Operators LINK_PRIVATE ${LIBXSMM_LIBRARY})
+    ADD_DEPENDENCIES(Operators libxsmm-1.17)
+ENDIF()
 
 INSTALL(DIRECTORY ./
   DESTINATION ${NEKTAR_INCLUDE_DIR}/Operators

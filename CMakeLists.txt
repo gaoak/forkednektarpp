@@ -303,6 +303,9 @@ IF (NEKTAR_BUILD_REDESIGN)
     OPTION(NEKTAR_ENABLE_DEVICEONHOST "Enable DEVICEONHOST execution" OFF)
     MARK_AS_ADVANCED(NEKTAR_ENABLE_DEVICEONHOST)
 
+    IF (NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
+        INCLUDE (ThirdPartyLibXSMM)
+    ENDIF()
     # All device libraries should be found first as other Thirdparty
     # libraries may depend on them (Currently not the case).
     IF (NEKTAR_ENABLE_CUDA)
