@@ -74,6 +74,8 @@ ADD_NEKTAR_EXECUTABLE(test_physderiv_serial_stdmat
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_serial_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_serial_stdmat
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_serial_stdmat.cpp)
+ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_serial_stdmat
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_serial_stdmat.cpp)
 
 # Serial SumFac
 ADD_NEKTAR_EXECUTABLE(test_addtraceintegral_serial_sumfac
@@ -165,6 +167,8 @@ IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABL
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_device_stdmat.cpp)
     ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_device_stdmat
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_device_stdmat.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_device_stdmat
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_device_stdmat.cpp)
 ENDIF()
 
 # Device SumFac
@@ -289,6 +293,7 @@ SET_UNIT_TEST(Mass_serial_stdmat test_mass_serial_stdmat FALSE)
 SET_UNIT_TEST(NullPrecon_serial_stdmat test_nullprecon_serial_stdmat FALSE)
 SET_UNIT_TEST(PhysDeriv_serial_stdmat test_physderiv_serial_stdmat FALSE)
 SET_UNIT_TEST(PhysInterp1DScaled_serial_stdmat test_physinterp1dscaled_serial_stdmat FALSE)
+SET_UNIT_TEST(LinAdvDiffReaction_serial_stdmat test_linadvdiffreaction_serial_stdmat FALSE)
 
 # Serial SumFac
 SET_UNIT_TEST(AddTraceIntegral_serial_sumfac test_addtraceintegral_serial_sumfac FALSE)
@@ -340,6 +345,7 @@ IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABL
         SET_UNIT_TEST(Mass_device_stdmat test_mass_device_stdmat FALSE)
         SET_UNIT_TEST(Helmholtz_device_stdmat test_helmholtz_device_stdmat FALSE)
         SET_UNIT_TEST(PhysInterp1DScaled_device_stdmat test_physinterp1dscaled_device_stdmat FALSE)
+        SET_UNIT_TEST(LinAdvDiffReaction_device_stdmat test_linadvdiffreaction_device_stdmat FALSE)
     ENDIF()
 ENDIF()
 

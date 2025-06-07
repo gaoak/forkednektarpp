@@ -307,16 +307,23 @@ protected:
         }
     }
 
+    void v_SetLambda(const TData &lambda) override
+    {
+        this->m_lambda = lambda;
+    }
+
     void v_SetAdvVel(const unsigned int nVel,
                      BlockAccessor<TData> &advVel) override
     {
-        this->m_advVel = advVel.template GetPtr<MemSpace, ReadWrite>();
+        auto interleaveWidth = advVel.GetInterleaveWidth();
+        this->m_advVel       = advVel.template GetPtr<MemSpace, ReadWrite>();
         for (unsigned int n = 0; n < nVel; n++)
         {
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                1, advVel.GetNumElementsWithPadding(), advVel.GetNumData(),
-                this->m_advVel + n * advVel.size());
+                interleaveWidth, advVel.GetNumElementsWithPadding(),
+                advVel.GetNumData(), this->m_advVel + n * advVel.size());
         }
+        advVel.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 
     size_t GetWorkspaceSize(const LibUtilities::ShapeType shapeType,
