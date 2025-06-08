@@ -43,4 +43,6 @@ std::unordered_map<unsigned int, size_t>
     GetDeviceProperties::m_sharedMemoryPerBlock;
 std::unordered_map<unsigned int, size_t>
     GetDeviceProperties::m_totalGlobalMemory;
+std::unordered_map<unsigned int, unsigned int>
+    GetDeviceProperties::m_numMultiProcessors;
 #endif

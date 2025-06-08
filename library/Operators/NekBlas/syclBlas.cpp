@@ -34,9 +34,14 @@
 
 #include "Operators/Common/Spaces.hpp"
 #include "Operators/NekBlas/NekBlas.hpp"
-#include "oneapi/mkl.hpp"
 
+#if __has_include("oneapi/math.hpp")
+#include "oneapi/math.hpp"
+using namespace oneapi::math;
+#elif __has_include("oneapi/mkl.hpp")
+#include "oneapi/mkl.hpp"
 using namespace oneapi::mkl;
+#endif
 
 template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, sycl::queue>, void>::type NekGemm(
