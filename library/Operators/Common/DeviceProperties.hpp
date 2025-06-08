@@ -59,6 +59,14 @@ public:
         return prop[id].totalGlobalMem;
     }
 
+    static const int &NumMultiProcessors(void)
+    {
+        int id = -1;
+        CHECK_HIPCUDA_ERROR(cudaGetDevice(&id));
+        FetchDeviceProperties(id);
+        return prop[id].multiProcessorCount;
+    }
+
     static void CheckSharedMemoryUsage(const size_t shmemsize)
     {
         ASSERTL0(
@@ -111,6 +119,14 @@ public:
         return prop[id].totalGlobalMem;
     }
 
+    static const int &NumMultiProcessors(void)
+    {
+        int id = -1;
+        CHECK_HIPCUDA_ERROR(hipGetDevice(&id));
+        FetchDeviceProperties(id);
+        return prop[id].multiProcessorCount;
+    }
+
     static void CheckSharedMemoryUsage(const size_t shmemsize)
     {
         ASSERTL0(
@@ -159,6 +175,12 @@ public:
         return m_totalGlobalMemory[0];
     }
 
+    static const unsigned &NumMultiProcessors(void)
+    {
+        FetchDeviceProperties(0);
+        return m_numMultiProcessors[0];
+    }
+
     static void CheckSharedMemoryUsage(const size_t shmemsize)
     {
         ASSERTL0(
@@ -181,6 +203,7 @@ public:
 private:
     static std::unordered_map<unsigned int, size_t> m_sharedMemoryPerBlock;
     static std::unordered_map<unsigned int, size_t> m_totalGlobalMemory;
+    static std::unordered_map<unsigned int, unsigned int> m_numMultiProcessors;
 
     static void FetchDeviceProperties(const unsigned int id)
     {
@@ -192,6 +215,8 @@ private:
                 id, device.get_info<sycl::info::device::global_mem_size>());
             m_sharedMemoryPerBlock.emplace(
                 id, device.get_info<sycl::info::device::local_mem_size>());
+            m_numMultiProcessors.emplace(
+                id, device.get_info<sycl::info::device::max_compute_units>());
         }
     }
 }; // namespace GetDeviceProperties
