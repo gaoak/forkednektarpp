@@ -290,7 +290,8 @@ protected:
 
                 // IProduct Kernel.
                 IProduct1DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                    nm0, nq0, inptr, m_B[0], m_W[0], jacptr, outptr);
+                    nm0, nq0, inptr, m_B[0], m_W[0], jacptr, outptr,
+                    this->m_scale);
 
                 // Increment pointers for the next elmt group.
                 inptr += nqTot;
@@ -358,7 +359,8 @@ protected:
 
                 // IProduct Kernel.
                 IProduct1DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                    nm0, nq0, inptr, m_B[0], m_W[0], jacptr, outptr);
+                    nm0, nq0, inptr, m_B[0], m_W[0], jacptr, outptr,
+                    this->m_scale);
 
                 // Increment pointers for the next elmt group.
                 inptr += nqTot;
@@ -439,7 +441,7 @@ protected:
                 IProduct2DKernel<SHAPE_TYPE, false, false, DEFORMED>(
                     nm0, nm1, nq0, nq1, m_isModified, inptr, m_B[0], m_B[1],
                     m_W[0], m_W[1], m_nodToModTrans, jacptr, wsp0.data(),
-                    outptr, 1.0);
+                    outptr, this->m_scale);
 
                 // Increment pointers for the next elmt group.
                 inptr += nqTot;
@@ -515,7 +517,7 @@ protected:
                 IProduct2DKernel<SHAPE_TYPE, false, false, DEFORMED>(
                     nm0, nm1, nq0, nq1, m_isModified, inptr, m_B[0], m_B[1],
                     m_W[0], m_W[1], m_nodToModTrans, jacptr, wsp0.data(),
-                    outptr, 1.0);
+                    outptr, this->m_scale);
 
                 // Increment pointers for the next elmt group.
                 inptr += nqTot;
@@ -599,7 +601,8 @@ protected:
                 IProduct3DKernel<SHAPE_TYPE, false, false, DEFORMED>(
                     nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, inptr, m_B[0],
                     m_B[1], m_B[2], m_W[0], m_W[1], m_W[2], m_nodToModTrans,
-                    jacptr, wsp0.data(), wsp1.data(), wsp2.data(), outptr, 1.0);
+                    jacptr, wsp0.data(), wsp1.data(), wsp2.data(), outptr,
+                    this->m_scale);
 
                 // Increment pointers for the next elmt group.
                 inptr += nqTot;
@@ -678,7 +681,8 @@ protected:
                 IProduct3DKernel<SHAPE_TYPE, false, false, DEFORMED>(
                     nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, inptr, m_B[0],
                     m_B[1], m_B[2], m_W[0], m_W[1], m_W[2], m_nodToModTrans,
-                    jacptr, wsp0.data(), wsp1.data(), wsp2.data(), outptr, 1.0);
+                    jacptr, wsp0.data(), wsp1.data(), wsp2.data(), outptr,
+                    this->m_scale);
 
                 // Increment pointers for the next elmt group.
                 inptr += nqTot;
