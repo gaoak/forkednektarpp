@@ -147,16 +147,16 @@ protected:
             if (m_isDeformed)
             {
                 MultiplyByJacobianKernel<ExecSpace, true>(
-                    m_nqTot, nelmt, jacptr, inptr, wspptr);
+                    m_nqTot, nelmt, jacptr, inptr, wspptr, this->m_scale);
             }
             else
             {
                 MultiplyByJacobianKernel<ExecSpace, false>(
-                    m_nqTot, nelmt, jacptr, inptr, wspptr);
+                    m_nqTot, nelmt, jacptr, inptr, wspptr, this->m_scale);
             }
 
             // Perform matrix-matrix multiply.
-            TData alpha = this->m_scale;
+            TData alpha = 1.0;
             TData beta  = 0.0;
             NekGemm(handle, "N", "N", m_nmTot, nelmt, m_nqTot, alpha, m_matptr,
                     m_nmTot, wspptr, m_nqTot, beta, outptr, m_nmTot);

@@ -43,13 +43,13 @@ NEK_FORCE_INLINE static
                             void>::type
     MultiplyByJacobianKernel(const unsigned int nqTot, const size_t nelmt,
                              const TData *jacptr, const TData *inptr,
-                             TData *outptr)
+                             TData *outptr, const TData scale = 1.0)
 {
     if constexpr (DEFORMED)
     {
         for (size_t i = 0; i < nelmt * nqTot; ++i)
         {
-            outptr[i] = jacptr[i] * inptr[i];
+            outptr[i] = scale * jacptr[i] * inptr[i];
         }
     }
     else
@@ -58,7 +58,8 @@ NEK_FORCE_INLINE static
         {
             for (unsigned int i = 0; i < nqTot; ++i)
             {
-                outptr[e * nqTot + i] = jacptr[e] * inptr[e * nqTot + i];
+                outptr[e * nqTot + i] =
+                    scale * jacptr[e] * inptr[e * nqTot + i];
             }
         }
     }
@@ -70,13 +71,13 @@ NEK_FORCE_INLINE static
                             void>::type
     MultiplyByJacobianKernel(const unsigned int nqTot, const size_t nelmt,
                              const TData *jacptr, const TData *inptr,
-                             TData *outptr)
+                             TData *outptr, const TData scale = 1.0)
 {
     if constexpr (DEFORMED)
     {
         Nektar::parallel_for<ExecSpace>(
             0, nelmt * nqTot, NEKTAR_LAMBDA(const size_t idx) {
-                outptr[idx] = jacptr[idx] * inptr[idx];
+                outptr[idx] = scale * jacptr[idx] * inptr[idx];
             });
     }
     else
@@ -84,7 +85,7 @@ NEK_FORCE_INLINE static
         Nektar::parallel_for<ExecSpace>(
             0, nelmt * nqTot, NEKTAR_LAMBDA(const size_t idx) {
                 size_t e    = idx / nqTot;
-                outptr[idx] = jacptr[e] * inptr[idx];
+                outptr[idx] = scale * jacptr[e] * inptr[idx];
             });
     }
 }
