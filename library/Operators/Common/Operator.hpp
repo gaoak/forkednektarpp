@@ -182,11 +182,12 @@ NEK_FORCE_INLINE static constexpr unsigned int GetDeviceBlockSize(
 {
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
-        return NektarSpaces::Device::defaultBlockSize;
+        constexpr auto warpsize = NektarSpaces::vector_width<double>::value;
+        return warpsize;
     }
     else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
-        auto warpsize = NektarSpaces::vector_width<double>::value;
+        constexpr auto warpsize = NektarSpaces::vector_width<double>::value;
         return std::min(((blockSize + warpsize - 1u) / warpsize) * warpsize,
                         NektarSpaces::Device::defaultBlockSize);
     }
@@ -204,9 +205,8 @@ NEK_FORCE_INLINE static constexpr unsigned int GetDeviceGridSize(
 
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
-        constexpr unsigned int blocksize =
-            NektarSpaces::Device::defaultBlockSize;
-        return std::min((nelmt + blocksize - 1u) / blocksize, maxGridSize);
+        constexpr auto warpsize = NektarSpaces::vector_width<double>::value;
+        return std::min((nelmt + warpsize - 1u) / warpsize, maxGridSize);
     }
     else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
