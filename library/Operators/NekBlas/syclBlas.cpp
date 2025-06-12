@@ -73,6 +73,34 @@ NekGemmStridedBatched(THandle queue, std::string transposeA,
                                    strideC, batchSize);
 }
 
+template <typename THandle, typename TData>
+typename std::enable_if<std::is_same_v<THandle, sycl::queue>, void>::type NekGemv(
+    THandle handle, std::string transpose, const size_t M, const size_t N,
+    const TData alpha, const TData *a, const size_t lda, const TData *x,
+    const size_t incx, const TData beta, TData *y, const size_t incy)
+{
+    auto trans = (transpose == "N") ? transpose::N : transpose::T;
+
+    blas::column_major::gemv(handle, trans, M, N, alpha, a, lda, x, incx, beta,
+                             y, incy);
+}
+
+template <typename THandle, typename TData>
+typename std::enable_if<std::is_same_v<THandle, sycl::queue>, void>::type
+NekGemvStridedBatched(THandle handle, std::string transpose, const size_t M,
+                      const size_t N, const TData alpha, const TData *a,
+                      const size_t lda, const size_t strideA, const TData *x,
+                      const size_t incx, const size_t strideX, const TData beta,
+                      TData *y, const size_t incy, const size_t strideY,
+                      const size_t batchSize)
+{
+    auto trans = (transpose == "N") ? transpose::N : transpose::T;
+
+    blas::column_major::gemv_batch(handle, trans, M, N, alpha, a, lda, strideA,
+                                   x, incx, strideX, beta, y, incy, strideY,
+                                   batchSize);
+}
+
 template void NekGemm<sycl::queue, float>(
     sycl::queue queue, std::string transposeA, std::string transposeB,
     const size_t M, const size_t N, const size_t K, const float alpha,
@@ -98,3 +126,25 @@ template void NekGemmStridedBatched<sycl::queue, double>(
     const double *a, const size_t lda, const size_t strideA, const double *b,
     const size_t ldb, const size_t strideB, const double beta, double *c,
     const size_t ldc, const size_t strideC, const size_t batchSize);
+
+template void NekGemv<sycl::queue, float>(
+    sycl::queue handle, std::string transpose, const size_t M, const size_t N,
+    const float alpha, const float *a, const size_t lda, const float *x,
+    const size_t incx, const float beta, float *y, const size_t incy);
+
+template void NekGemv<sycl::queue, double>(
+    sycl::queue handle, std::string transpose, const size_t M, const size_t N,
+    const double alpha, const double *a, const size_t lda, const double *x,
+    const size_t incx, const double beta, double *y, const size_t incy);
+
+template void NekGemvStridedBatched<sycl::queue, float>(
+    sycl::queue handle, std::string transpose, const size_t M, const size_t N,
+    const float alpha, const float *a, const size_t lda, const size_t strideA,
+    const float *x, const size_t incx, const size_t strideX, const float beta,
+    float *y, const size_t incy, const size_t strideY, const size_t batchSize);
+
+template void NekGemvStridedBatched<sycl::queue, double>(
+    sycl::queue handle, std::string transpose, const size_t M, const size_t N,
+    const double alpha, const double *a, const size_t lda, const size_t strideA,
+    const double *x, const size_t incx, const size_t strideX, const double beta,
+    double *y, const size_t incy, const size_t strideY, const size_t batchSize);

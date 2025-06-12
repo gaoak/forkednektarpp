@@ -70,6 +70,36 @@ NekGemmStridedBatched([[maybe_unused]] THandle handle, std::string transposeA,
     }
 }
 
+template <typename THandle, typename TData>
+typename std::enable_if<std::is_same_v<THandle, blasHandle>, void>::type NekGemv(
+    [[maybe_unused]] THandle handle, std::string transpose, const size_t M,
+    const size_t N, const TData alpha, const TData *a, const size_t lda,
+    const TData *x, const size_t incx, const TData beta, TData *y,
+    const size_t incy)
+{
+    auto trans = *transpose.c_str();
+
+    Blas::Gemv(trans, M, N, alpha, a, lda, x, incx, beta, y, incy);
+}
+
+template <typename THandle, typename TData>
+typename std::enable_if<std::is_same_v<THandle, blasHandle>, void>::type
+NekGemvStridedBatched([[maybe_unused]] THandle handle, std::string transpose,
+                      const size_t M, const size_t N, const TData alpha,
+                      const TData *a, const size_t lda, const size_t strideA,
+                      const TData *x, const size_t incx, const size_t strideX,
+                      const TData beta, TData *y, const size_t incy,
+                      const size_t strideY, const size_t batchSize)
+{
+    auto trans = *transpose.c_str();
+
+    for (size_t i = 0; i < batchSize; i++)
+    {
+        Blas::Gemv(trans, M, N, alpha, a + strideA * i, lda, x + strideX * i,
+                   incx, beta, y + strideY * i, incy);
+    }
+}
+
 template void NekGemm<blasHandle, float>(
     blasHandle handle, std::string transposeA, std::string transposeB,
     const size_t M, const size_t N, const size_t K, const float alpha,
@@ -95,3 +125,25 @@ template void NekGemmStridedBatched<blasHandle, double>(
     const double *a, const size_t lda, const size_t strideA, const double *b,
     const size_t ldb, const size_t strideB, const double beta, double *c,
     const size_t ldc, const size_t strideC, const size_t batchSize);
+
+template void NekGemv<blasHandle, float>(
+    blasHandle handle, std::string transpose, const size_t M, const size_t N,
+    const float alpha, const float *a, const size_t lda, const float *x,
+    const size_t incx, const float beta, float *y, const size_t incy);
+
+template void NekGemv<blasHandle, double>(
+    blasHandle handle, std::string transpose, const size_t M, const size_t N,
+    const double alpha, const double *a, const size_t lda, const double *x,
+    const size_t incx, const double beta, double *y, const size_t incy);
+
+template void NekGemvStridedBatched<blasHandle, float>(
+    blasHandle handle, std::string transpose, const size_t M, const size_t N,
+    const float alpha, const float *a, const size_t lda, const size_t strideA,
+    const float *x, const size_t incx, const size_t strideX, const float beta,
+    float *y, const size_t incy, const size_t strideY, const size_t batchSize);
+
+template void NekGemvStridedBatched<blasHandle, double>(
+    blasHandle handle, std::string transpose, const size_t M, const size_t N,
+    const double alpha, const double *a, const size_t lda, const size_t strideA,
+    const double *x, const size_t incx, const size_t strideX, const double beta,
+    double *y, const size_t incy, const size_t strideY, const size_t batchSize);
