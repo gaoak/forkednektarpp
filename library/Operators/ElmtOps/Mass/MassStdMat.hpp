@@ -35,9 +35,10 @@
 #pragma once
 
 #include "Operators/ElmtOps/Mass/OperatorMass.hpp"
+#include "Operators/NekBlas/NekBlas.hpp"
+#include "Operators/Utils/UtilsKernels.hpp"
 
-#include "Operators/ElmtOps/BwdTrans/OperatorBwdTrans.hpp"
-#include "Operators/ElmtOps/IProductWRTBase/OperatorIProductWRTBase.hpp"
+#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseStdMatKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -45,6 +46,9 @@ namespace Nektar::Operators::detail
 template <typename ExecSpace, typename Implementation, typename TData>
 class BlockOperatorMassImpl : public BlockOperatorMass<TData>
 {
+    using simd_t =
+        typename simd_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                              TData>::type;
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
@@ -52,12 +56,47 @@ public:
                           NekDataWarehouseSharedPtr dataWarehouse)
         : BlockOperatorMass<TData>(exp, dataWarehouse)
     {
-        this->m_BwdTransOp = BlockOperatorBwdTrans<TData>::Create(
-            this->m_exp, this->m_dataWarehouse, ExecSpace::name,
-            Implementation::name);
-        this->m_IProductWRTBaseOp = BlockOperatorIProductWRTBase<TData>::Create(
-            this->m_exp, this->m_dataWarehouse, ExecSpace::name,
-            Implementation::name);
+        // Determine shape and type of the element.
+        m_shapeType = exp->DetShapeType();
+        m_isDeformed =
+            exp->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed;
+        m_dimension = exp->GetShapeDimension();
+        m_coordDim  = exp->GetCoordim();
+        m_nmTot     = exp->GetNcoeffs();
+        m_nqTot     = exp->GetTotPoints();
+
+        // Fetch matrix.
+        std::vector<LibUtilities::BasisKey> basisKeys(
+            m_dimension, LibUtilities::NullBasisKey);
+        for (unsigned int d = 0; d < m_dimension; d++)
+        {
+            basisKeys[d] = exp->GetBasis(d)->GetBasisKey();
+        }
+
+        LibUtilities::PointsType nodalType =
+            (exp->IsNodalNonTensorialExp())
+                ? exp->GetNodalPointsKey().GetPointsType()
+                : LibUtilities::eNoPointsType;
+
+        // Specialization for AVX/libXSMM
+        if constexpr (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
+        {
+            m_bwdmat = dataWarehouse->template GetData<ExecSpace>(
+                StdMatKey<TData>(basisKeys, m_shapeType,
+                                 eBwdTransStdMatTranspose, nodalType));
+            m_ipbmat = dataWarehouse->template GetData<ExecSpace>(
+                StdMatKey<TData>(basisKeys, m_shapeType,
+                                 eIProductWRTBaseStdMatTranspose, nodalType));
+        }
+        else
+        {
+            m_bwdmat =
+                dataWarehouse->template GetData<ExecSpace>(StdMatKey<TData>(
+                    basisKeys, m_shapeType, eBwdTransStdMat, nodalType));
+            m_ipbmat =
+                dataWarehouse->template GetData<ExecSpace>(StdMatKey<TData>(
+                    basisKeys, m_shapeType, eIProductWRTBaseStdMat, nodalType));
+        }
     }
 
     // className - for BlockOperatorFactory
@@ -74,35 +113,177 @@ public:
     }
 
 protected:
-    MemoryRegion<TData> m_bwd;
+    static constexpr unsigned int m_implInterleaveWidth = simd_t::width;
 
-    std::shared_ptr<BlockOperatorBwdTrans<TData>> m_BwdTransOp;
-    std::shared_ptr<BlockOperatorIProductWRTBase<TData>> m_IProductWRTBaseOp;
+    LibUtilities::ShapeType m_shapeType;
+    bool m_isDeformed;
+    unsigned int m_dimension;
+    unsigned int m_coordDim;
+    unsigned int m_nmTot;
+    unsigned int m_nqTot;
+    const TData *m_bwdmat;
+    const TData *m_ipbmat;
+    MemoryRegion<TData> m_bwd;
 
     void v_Apply(BlockAccessor<TData> &inblock,
                  BlockAccessor<TData> &outblock) override
     {
-        auto CompSize = inblock.GetNumComponents();
+        auto handle = NekHandle<ExecSpace>::GetInstance();
 
-        // Initialise bwd storage space if not for correct number of components.
-        auto size = inblock.GetNumElementsWithPadding() *
-                    this->m_exp->GetTotPoints() * CompSize;
-        if (this->m_bwd.size() != size)
+        const auto nelmt = inblock.GetNumElementsWithPadding();
+
+        // Initialize pointers.
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+
+        // Fetch Jacobian.
+        auto jacptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
+                               inblock.GetNumElements()));
+
+        // Specialization for AVX/libXSMM
+        if constexpr (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
         {
-            this->m_bwd = MemoryRegion<TData>::Create("Mass bwd", size,
-                                                      ExecSpace::alignment);
+            // Get interleave parameter.
+            const auto interleave_width = inblock.GetInterleaveWidth();
+            const auto width_ratio =
+                (interleave_width == 1)
+                    ? 1
+                    : interleave_width / m_implInterleaveWidth;
+            const auto chunkSize =
+                std::max(m_implInterleaveWidth, interleave_width);
+
+            // Allocate storage.
+            if (m_bwd.size() == 0)
+            {
+                m_bwd = MemoryRegion<TData>::Create(simd_t::width * m_nqTot,
+                                                    ExecSpace::alignment);
+            }
+
+            // Get workspace pointer.
+            auto bwdptr = m_bwd.template GetPtr<MemSpace, WriteOnly>();
+
+            for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+            {
+                auto jacptr = jacptr_init;
+
+                TData alpha  = 1.0;
+                TData beta   = 0.0;
+                int flags    = 0;
+                int prefetch = LIBXSMM_PREFETCH_NONE;
+
+                // Dispatch kernel.
+                auto bwd_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
+                    static_cast<int>(simd_t::width), static_cast<int>(m_nqTot),
+                    static_cast<int>(m_nmTot), alpha, beta, flags, prefetch);
+                auto ipb_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
+                    static_cast<int>(simd_t::width), static_cast<int>(m_nmTot),
+                    static_cast<int>(m_nqTot), alpha, beta, flags, prefetch);
+
+                for (size_t e = 0; e < nelmt / simd_t::width; ++e)
+                {
+                    // Reshape, if necessary.
+                    if (e % width_ratio == 0)
+                    {
+                        ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                            interleave_width, chunkSize, m_nmTot,
+                            (TData *)inptr);
+                    }
+
+                    // Step 1: BwdTrans
+                    // Perform matrix-matrix multiply.
+                    bwd_kernel(inptr, m_bwdmat, bwdptr);
+
+                    // Step 2: IProduct
+                    // Multiply by jacobian.
+                    if (m_isDeformed)
+                    {
+                        MultiplyByJacobianKernel<ExecSpace, true>(
+                            m_nqTot, 1,
+                            reinterpret_cast<const simd_t *>(jacptr),
+                            reinterpret_cast<const simd_t *>(bwdptr),
+                            reinterpret_cast<simd_t *>(bwdptr), 1.0);
+                        jacptr += m_nqTot * simd_t::width;
+                    }
+                    else
+                    {
+                        MultiplyByJacobianKernel<ExecSpace, false>(
+                            m_nqTot, 1,
+                            reinterpret_cast<const simd_t *>(jacptr),
+                            reinterpret_cast<const simd_t *>(bwdptr),
+                            reinterpret_cast<simd_t *>(bwdptr), 1.0);
+                        jacptr += simd_t::width;
+                    }
+
+                    // Perform matrix-matrix multiply.
+                    ipb_kernel(bwdptr, m_ipbmat, outptr);
+
+                    // Increment pointers.
+                    inptr += m_nmTot * simd_t::width;
+                    outptr += m_nmTot * simd_t::width;
+                }
+            }
+        }
+        else
+        {
+            // Allocate storage.
+            if (m_bwd.size() == 0)
+            {
+                m_bwd = MemoryRegion<TData>::Create(nelmt * m_nqTot,
+                                                    ExecSpace::alignment);
+            }
+
+            // Get workspace pointer.
+            auto bwdptr = m_bwd.template GetPtr<MemSpace, WriteOnly>();
+
+            for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+            {
+                auto jacptr = jacptr_init;
+
+                TData alpha = 1.0;
+                TData beta  = 0.0;
+
+                // Reshape, if necessary.
+                ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                    inblock.GetInterleaveWidth(),
+                    inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
+                    (TData *)inptr);
+
+                // Step 1: BwdTrans
+                // Perform matrix-matrix multiply.
+                NekGemm(handle, "N", "N", m_nqTot, nelmt, m_nmTot, alpha,
+                        m_bwdmat, m_nqTot, inptr, m_nmTot, beta, bwdptr,
+                        m_nqTot);
+
+                // Step 2: IProduct
+                // Multiply by jacobian.
+                if (m_isDeformed)
+                {
+                    MultiplyByJacobianKernel<ExecSpace, true>(
+                        m_nqTot, nelmt, jacptr, bwdptr, bwdptr, 1.0);
+                }
+                else
+                {
+                    MultiplyByJacobianKernel<ExecSpace, false>(
+                        m_nqTot, nelmt, jacptr, bwdptr, bwdptr, 1.0);
+                }
+
+                // Perform matrix-matrix multiply.
+                NekGemm(handle, "N", "N", m_nmTot, nelmt, m_nqTot, alpha,
+                        m_ipbmat, m_nmTot, bwdptr, m_nqTot, beta, outptr,
+                        m_nmTot);
+
+                // Increment pointers.
+                inptr += inblock.size();
+                outptr += outblock.size();
+            }
         }
 
-        auto bwd = BlockAccessor(inblock.GetExpIdx(), inblock.GetNumElements(),
-                                 inblock.GetNumElementsWithPadding(),
-                                 this->m_exp->GetTotPoints(), 1, this->m_bwd,
-                                 CompSize, 0);
-
-        // Step 1: BwdTrans.
-        this->m_BwdTransOp->Apply(inblock, bwd);
-
-        // Step 2: Inner product for mass matrix operation.
-        this->m_IProductWRTBaseOp->Apply(bwd, outblock);
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 };
 

@@ -44,6 +44,9 @@ namespace Nektar::Operators::detail
 template <typename ExecSpace, typename Implementation, typename TData>
 class BlockOperatorBwdTransImpl : public BlockOperatorBwdTrans<TData>
 {
+    using simd_t =
+        typename simd_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                              TData>::type;
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
@@ -73,8 +76,19 @@ public:
                 ? exp->GetNodalPointsKey().GetPointsType()
                 : LibUtilities::eNoPointsType;
 
-        m_matptr = dataWarehouse->template GetData<ExecSpace>(StdMatKey<TData>(
-            basisKeys, m_shapeType, eBwdTransStdMat, nodalType));
+        // Specialization for AVX/libXSMM
+        if constexpr (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
+        {
+            m_matptr = dataWarehouse->template GetData<ExecSpace>(
+                StdMatKey<TData>(basisKeys, m_shapeType,
+                                 eBwdTransStdMatTranspose, nodalType));
+        }
+        else
+        {
+            m_matptr =
+                dataWarehouse->template GetData<ExecSpace>(StdMatKey<TData>(
+                    basisKeys, m_shapeType, eBwdTransStdMat, nodalType));
+        }
     }
 
     // className - for BlockOperatorFactory
@@ -91,7 +105,7 @@ public:
     }
 
 protected:
-    static constexpr unsigned int m_implInterleaveWidth = 1;
+    static constexpr unsigned int m_implInterleaveWidth = simd_t::width;
 
     LibUtilities::ShapeType m_shapeType;
     bool m_isDeformed;
@@ -114,24 +128,71 @@ protected:
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Loop over components.
-        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+        // Specialization for AVX/libXSMM
+        if constexpr (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
         {
-            // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(),
-                inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
-                (TData *)inptr);
+            // Get interleave parameter.
+            const auto interleave_width = inblock.GetInterleaveWidth();
+            const auto width_ratio =
+                (interleave_width == 1)
+                    ? 1
+                    : interleave_width / m_implInterleaveWidth;
+            const auto chunkSize =
+                std::max(m_implInterleaveWidth, interleave_width);
 
-            // Perform matrix-matrix multiply.
-            TData alpha = 1.0;
-            TData beta  = 0.0;
-            NekGemm(handle, "N", "N", m_nqTot, nelmt, m_nmTot, alpha, m_matptr,
-                    m_nqTot, inptr, m_nmTot, beta, outptr, m_nqTot);
+            for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+            {
+                TData alpha  = 1.0;
+                TData beta   = 0.0;
+                int flags    = 0;
+                int prefetch = LIBXSMM_PREFETCH_NONE;
 
-            // Increment pointers.
-            inptr += inblock.size();
-            outptr += outblock.size();
+                // Dispatch kernel.
+                auto gemm_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
+                    static_cast<int>(simd_t::width), static_cast<int>(m_nqTot),
+                    static_cast<int>(m_nmTot), alpha, beta, flags, prefetch);
+
+                for (size_t e = 0; e < nelmt / simd_t::width; ++e)
+                {
+                    // Reshape, if necessary.
+                    if (e % width_ratio == 0)
+                    {
+                        ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                            interleave_width, chunkSize, m_nmTot,
+                            (TData *)inptr);
+                    }
+
+                    // Perform matrix-matrix multiply.
+                    gemm_kernel(inptr, m_matptr, outptr);
+
+                    // Increment pointers.
+                    inptr += m_nmTot * simd_t::width;
+                    outptr += m_nqTot * simd_t::width;
+                }
+            }
+        }
+        else
+        {
+            for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+            {
+                TData alpha = 1.0;
+                TData beta  = 0.0;
+
+                // Reshape, if necessary.
+                ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                    inblock.GetInterleaveWidth(),
+                    inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
+                    (TData *)inptr);
+
+                // Perform matrix-matrix multiply.
+                NekGemm(handle, "N", "N", m_nqTot, nelmt, m_nmTot, alpha,
+                        m_matptr, m_nqTot, inptr, m_nmTot, beta, outptr,
+                        m_nqTot);
+
+                // Increment pointers.
+                inptr += inblock.size();
+                outptr += outblock.size();
+            }
         }
 
         // Set to new interleave width.

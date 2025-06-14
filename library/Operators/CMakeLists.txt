@@ -17,9 +17,6 @@ ENDIF()
 
 # Set implementation types.
 SET(ElmtOpImpl StdMat SumFac SumFacCUBLAS SumFacQP Generic)
-IF(NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
-    SET(ElmtOpImpl ${ElmtOpImpl} StdMatXSMM )
-ENDIF()
 
 # Shape types for seperate code compilation.
 SET(Shapes Seg Tri NodalTri Quad Hex Pyr Prism NodalPrism Tet NodalTet)
@@ -293,10 +290,9 @@ MACRO(ADD_ELMT_OPERATOR dir)
 
             # These combinations do/should not exist.
             IF(("${ExecSpace}" STREQUAL "Serial" AND "${Impl}" STREQUAL "SumFacQP") OR
+               ("${ExecSpace}" STREQUAL "AVX" AND "${Impl}" STREQUAL "SumFacQP") OR
                ("${ExecSpace}" STREQUAL "Serial" AND "${Impl}" STREQUAL "SumFacCUBLAS") OR
-               ("${ExecSpace}" STREQUAL "AVX" AND "${Impl}" STREQUAL "StdMat") OR
-               ("${ExecSpace}" STREQUAL "AVX" AND "${Impl}" STREQUAL "StdMatXSMM") OR
-               ("${ExecSpace}" STREQUAL "Device" AND "${Impl}" STREQUAL "StdMatXSMM") )
+               ("${ExecSpace}" STREQUAL "AVX" AND "${Impl}" STREQUAL "SumFacCUBLAS"))
                 CONTINUE()
             ENDIF()
 
@@ -341,14 +337,6 @@ MACRO(ADD_ELMT_OPERATOR dir)
                     ("${ExecSpace}" STREQUAL "Serial") AND ("${Impl}" STREQUAL "StdMat"))
                     FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
                         "${dir}/${name}SerialStdMat.hpp")
-                    SET(IMPL_HEADER "#include \"${include_file}\"")
-                    MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
-
-                # Found a Serial StdMatXSMM header.
-                ELSEIF((EXISTS "${dir}/${name}SerialStdMatXSMM.hpp") AND
-                ("${ExecSpace}" STREQUAL "Serial") AND ("${Impl}" STREQUAL "StdMatXSMM"))
-                    FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                        "${dir}/${name}SerialStdMatXSMM.hpp")
                     SET(IMPL_HEADER "#include \"${include_file}\"")
                     MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
 
@@ -508,8 +496,13 @@ SET(OPERATORS_DEPENDS
 # AVX specific file
 IF(NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
     SET(OPERATORS_HEADERS
-            ${OPERATORS_HEADERS}
-            Utils/LibXSMMDispatchWrapper.hpp
+      ${OPERATORS_HEADERS}
+      NekBlas/LibXSMMDispatchWrapper.hpp
+    )
+
+    SET(OPERATORS_SOURCES
+      ${OPERATORS_SOURCES}
+      NekBlas/libxsmm.cpp
     )
 # CUDA specific file
 ELSEIF(NEKTAR_ENABLE_CUDA)

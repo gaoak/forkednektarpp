@@ -66,6 +66,8 @@ ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_serial_stdmat
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_serial_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_serial_stdmat
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_serial_stdmat.cpp)
+ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_serial_stdmat
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_serial_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_mass_serial_stdmat
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_serial_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_nullprecon_serial_stdmat
@@ -74,41 +76,46 @@ ADD_NEKTAR_EXECUTABLE(test_physderiv_serial_stdmat
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_serial_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_serial_stdmat
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_serial_stdmat.cpp)
-ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_serial_stdmat
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_serial_stdmat.cpp)
-
-IF (${NEKTAR_ENABLE_SIMD_AVX2} OR ${NEKTAR_ENABLE_SIMD_AVX512})
-    ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_serial_stdmatxsmm
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_serial_stdmatxsmm.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_serial_stdmatxsmm
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_serial_stdmatxsmm.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_bwdtrans_serial_stdmatxsmm
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_serial_stdmatxsmm.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_mass_serial_stdmatxsmm
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_serial_stdmatxsmm.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_physderiv_serial_stdmatxsmm
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_serial_stdmatxsmm.cpp)
-ENDIF()
 
 # Serial SumFac
 ADD_NEKTAR_EXECUTABLE(test_addtraceintegral_serial_sumfac
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral_serial_sumfac.cpp)
 ADD_NEKTAR_EXECUTABLE(test_bwdtrans_serial_sumfac
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_serial_sumfac.cpp)
+ADD_NEKTAR_EXECUTABLE(test_helmholtz_serial_sumfac
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_serial_sumfac.cpp)
 ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_serial_sumfac
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_serial_sumfac.cpp)
 ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_serial_sumfac
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_serial_sumfac.cpp)
 ADD_NEKTAR_EXECUTABLE(test_mass_serial_sumfac
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_serial_sumfac.cpp)
-ADD_NEKTAR_EXECUTABLE(test_helmholtz_serial_sumfac
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_serial_sumfac.cpp)
 ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_serial_sumfac
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_serial_sumfac.cpp)
 ADD_NEKTAR_EXECUTABLE(test_physderiv_serial_sumfac
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_serial_sumfac.cpp)
 ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_serial_sumfac
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_serial_sumfac.cpp)
+
+# AVX StdMat
+IF (${NEKTAR_ENABLE_SIMD_AVX2} OR ${NEKTAR_ENABLE_SIMD_AVX512})
+    ADD_NEKTAR_EXECUTABLE(test_bwdtrans_avx_stdmat
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_avx_stdmat.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_helmholtz_avx_stdmat
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_avx_stdmat.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_avx_stdmat
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_avx_stdmat.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_avx_stdmat
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_avx_stdmat.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_avx_stdmat
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_avx_stdmat.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_mass_avx_stdmat
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_avx_stdmat.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_physderiv_avx_stdmat
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_avx_stdmat.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_avx_stdmat
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_avx_stdmat.cpp)
+ENDIF()
 
 # AVX SumFac
 IF (${NEKTAR_ENABLE_SIMD_AVX2} OR ${NEKTAR_ENABLE_SIMD_AVX512})
@@ -118,18 +125,18 @@ IF (${NEKTAR_ENABLE_SIMD_AVX2} OR ${NEKTAR_ENABLE_SIMD_AVX512})
             COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_math_avx.cpp MathAVXKernelsLauncher.cpp)
     ADD_NEKTAR_EXECUTABLE(test_bwdtrans_avx_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_avx_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_helmholtz_avx_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_avx_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_avx_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_avx_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_avx_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_avx_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_avx_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_avx_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_mass_avx_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_avx_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_physderiv_avx_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_avx_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_helmholtz_avx_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_avx_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_avx_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_avx_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_avx_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_avx_sumfac.cpp)
 ENDIF()
@@ -174,14 +181,14 @@ IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABL
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_device_stdmat.cpp)
     ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_device_stdmat
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_device_stdmat.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_device_stdmat
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_device_stdmat.cpp)
     ADD_NEKTAR_EXECUTABLE(test_mass_device_stdmat
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_device_stdmat.cpp)
     ADD_NEKTAR_EXECUTABLE(test_physderiv_device_stdmat
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_device_stdmat.cpp)
     ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_device_stdmat
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_device_stdmat.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_device_stdmat
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_device_stdmat.cpp)
 ENDIF()
 
 # Device SumFac
@@ -204,6 +211,8 @@ IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABL
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_device_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_device_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_device_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_device_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_device_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_mass_device_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_device_sumfac.cpp)
     #ADD_NEKTAR_EXECUTABLE(test_nullprecon_device_sumfac
@@ -212,8 +221,6 @@ IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABL
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_device_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_device_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_device_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_device_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_device_sumfac.cpp)
 ENDIF()
 
 # Device SumFacQP
@@ -236,6 +243,8 @@ IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABL
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_device_sumfac_qp.cpp)
     ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_device_sumfac_qp
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_device_sumfac_qp.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_device_sumfac_qp
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_device_sumfac_qp.cpp)
     ADD_NEKTAR_EXECUTABLE(test_mass_device_sumfac_qp
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_device_sumfac_qp.cpp)
     ADD_NEKTAR_EXECUTABLE(test_nullprecon_device_sumfac_qp
@@ -244,8 +253,6 @@ IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABL
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_device_sumfac_qp.cpp)
     ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_device_sumfac_qp
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_device_sumfac_qp.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_device_sumfac_qp
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_device_sumfac_qp.cpp)
 ENDIF()
 
 # CUDA SumFacCUBLAS
@@ -302,43 +309,47 @@ SET_UNIT_TEST(HelmSolve_gmres_serial_stdmat test_helmsolve_gmres_serial_stdmat F
 #ENDIF()
 SET_UNIT_TEST(IProductWRTBase_serial_stdmat test_ipwrtbase_serial_stdmat FALSE)
 SET_UNIT_TEST(IProductWRTDerivBase_serial_stdmat test_ipwrtderivbase_serial_stdmat FALSE)
+SET_UNIT_TEST(LinAdvDiffReaction_serial_stdmat test_linadvdiffreaction_serial_stdmat FALSE)
 SET_UNIT_TEST(Mass_serial_stdmat test_mass_serial_stdmat FALSE)
 SET_UNIT_TEST(NullPrecon_serial_stdmat test_nullprecon_serial_stdmat FALSE)
 SET_UNIT_TEST(PhysDeriv_serial_stdmat test_physderiv_serial_stdmat FALSE)
 SET_UNIT_TEST(PhysInterp1DScaled_serial_stdmat test_physinterp1dscaled_serial_stdmat FALSE)
-SET_UNIT_TEST(LinAdvDiffReaction_serial_stdmat test_linadvdiffreaction_serial_stdmat FALSE)
-
-IF (${NEKTAR_ENABLE_SIMD_AVX2} OR ${NEKTAR_ENABLE_SIMD_AVX512})
-    SET_UNIT_TEST(BwdTrans_serial_stdmatxsmm test_bwdtrans_serial_stdmatxsmm FALSE)
-    SET_UNIT_TEST(IProductWRTBase_serial_stdmatxsmm test_ipwrtbase_serial_stdmatxsmm FALSE)
-    SET_UNIT_TEST(IProductWRTDerivBase_serial_stdmatxsmm test_ipwrtderivbase_serial_stdmatxsmm FALSE)
-    SET_UNIT_TEST(Mass_serial_stdmatxsmm test_mass_serial_stdmatxsmm FALSE)
-    SET_UNIT_TEST(PhysDeriv_serial_stdmatxsmm test_physderiv_serial_stdmatxsmm FALSE)
-ENDIF()
 
 # Serial SumFac
 SET_UNIT_TEST(AddTraceIntegral_serial_sumfac test_addtraceintegral_serial_sumfac FALSE)
 SET_UNIT_TEST(BwdTrans_serial_sumfac test_bwdtrans_serial_sumfac FALSE)
+SET_UNIT_TEST(Helmholtz_serial_sumfac test_helmholtz_serial_sumfac FALSE)
 SET_UNIT_TEST(IProductWRTBase_serial_sumfac test_ipwrtbase_serial_sumfac FALSE)
 SET_UNIT_TEST(IProductWRTDerivBase_serial_sumfac test_ipwrtderivbase_serial_sumfac FALSE)
+SET_UNIT_TEST(LinAdvDiffReaction_serial_sumfac test_linadvdiffreaction_serial_sumfac FALSE)
 SET_UNIT_TEST(Mass_serial_sumfac test_mass_serial_sumfac FALSE)
 SET_UNIT_TEST(PhysDeriv_serial_sumfac test_physderiv_serial_sumfac FALSE)
-SET_UNIT_TEST(Helmholtz_serial_sumfac test_helmholtz_serial_sumfac FALSE)
 SET_UNIT_TEST(PhysInterp1DScaled_serial_sumfac test_physinterp1dscaled_serial_sumfac FALSE)
-SET_UNIT_TEST(LinAdvDiffReaction_serial_sumfac test_linadvdiffreaction_serial_sumfac FALSE)
+
+# AVX StdMat
+IF (${NEKTAR_ENABLE_SIMD_AVX2} OR ${NEKTAR_ENABLE_SIMD_AVX512})
+    SET_UNIT_TEST(BwdTrans_avx_stdmat test_bwdtrans_avx_stdmat FALSE)
+    SET_UNIT_TEST(Helmholtz_avx_stdmat test_helmholtz_avx_stdmat FALSE)
+    SET_UNIT_TEST(IProductWRTBase_avx_stdmat test_ipwrtbase_avx_stdmat FALSE)
+    SET_UNIT_TEST(IProductWRTDerivBase_avx_stdmat test_ipwrtderivbase_avx_stdmat FALSE)
+    SET_UNIT_TEST(LinAdvDiffReaction_avx_stdmat test_linadvdiffreaction_avx_stdmat FALSE)
+    SET_UNIT_TEST(Mass_avx_stdmat test_mass_avx_stdmat FALSE)
+    SET_UNIT_TEST(PhysDeriv_avx_stdmat test_physderiv_avx_stdmat FALSE)
+    SET_UNIT_TEST(PhysInterp1DScaled_avx_stdmat test_physinterp1dscaled_avx_stdmat FALSE)
+ENDIF()
 
 # AVX SumFac
 IF (NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
     #SET_UNIT_TEST(AddTraceIntegral_avx_sumfac test_addtraceintegral_avx_sumfac FALSE)
     SET_UNIT_TEST(Math_avx test_math_avx FALSE)
     SET_UNIT_TEST(BwdTrans_avx_sumfac test_bwdtrans_avx_sumfac FALSE)
+    SET_UNIT_TEST(Helmholtz_avx_sumfac test_helmholtz_avx_sumfac FALSE)
     SET_UNIT_TEST(IProductWRTBase_avx_sumfac test_ipwrtbase_avx_sumfac FALSE)
     SET_UNIT_TEST(IProductWRTDerivBase_avx_sumfac test_ipwrtderivbase_avx_sumfac FALSE)
+    SET_UNIT_TEST(LinAdvDiffReaction_avx_sumfac test_linadvdiffreaction_avx_sumfac FALSE)
     SET_UNIT_TEST(Mass_avx_sumfac test_mass_avx_sumfac FALSE)
     SET_UNIT_TEST(PhysDeriv_avx_sumfac test_physderiv_avx_sumfac FALSE)
-    SET_UNIT_TEST(Helmholtz_avx_sumfac test_helmholtz_avx_sumfac FALSE)
     SET_UNIT_TEST(PhysInterp1DScaled_avx_sumfac test_physinterp1dscaled_avx_sumfac FALSE)
-    SET_UNIT_TEST(LinAdvDiffReaction_avx_sumfac test_linadvdiffreaction_avx_sumfac FALSE)
 ENDIF()
 
 # Device
@@ -360,13 +371,13 @@ ENDIF()
 IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABLE_DEVICEONHOST)
     IF(NOT NEKTAR_ENABLE_SYCL STREQUAL "CUDA")
         SET_UNIT_TEST(BwdTrans_device_stdmat test_bwdtrans_device_stdmat FALSE)
+        SET_UNIT_TEST(Helmholtz_device_stdmat test_helmholtz_device_stdmat FALSE)
         SET_UNIT_TEST(IProductWRTBase_device_stdmat test_ipwrtbase_device_stdmat FALSE)
         SET_UNIT_TEST(IProductWRTDerivBase_device_stdmat test_ipwrtderivbase_device_stdmat FALSE)
+        SET_UNIT_TEST(LinAdvDiffReaction_device_stdmat test_linadvdiffreaction_device_stdmat FALSE)
         SET_UNIT_TEST(PhysDeriv_device_stdmat test_physderiv_device_stdmat FALSE)
         SET_UNIT_TEST(Mass_device_stdmat test_mass_device_stdmat FALSE)
-        SET_UNIT_TEST(Helmholtz_device_stdmat test_helmholtz_device_stdmat FALSE)
         SET_UNIT_TEST(PhysInterp1DScaled_device_stdmat test_physinterp1dscaled_device_stdmat FALSE)
-        SET_UNIT_TEST(LinAdvDiffReaction_device_stdmat test_linadvdiffreaction_device_stdmat FALSE)
     ENDIF()
 ENDIF()
 
@@ -388,11 +399,11 @@ IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABL
     #ENDIF()
     SET_UNIT_TEST(IProductWRTBase_device_sumfac test_ipwrtbase_device_sumfac FALSE)
     SET_UNIT_TEST(IProductWRTDerivBase_device_sumfac test_ipwrtderivbase_device_sumfac FALSE)
+    SET_UNIT_TEST(LinAdvDiffReaction_device_sumfac test_linadvdiffreaction_device_sumfac FALSE)
     SET_UNIT_TEST(Mass_device_sumfac test_mass_device_sumfac FALSE)
     #SET_UNIT_TEST(NullPrecon_device_sumfac test_nullprecon_device_sumfac FALSE)
     SET_UNIT_TEST(PhysDeriv_device_sumfac test_physderiv_device_sumfac FALSE)
     SET_UNIT_TEST(PhysInterp1DScaled_device_sumfac test_physinterp1dscaled_device_sumfac FALSE)
-    SET_UNIT_TEST(LinAdvDiffReaction_device_sumfac test_linadvdiffreaction_device_sumfac FALSE)
 ENDIF()
 
 # Device SumFacQP
@@ -413,11 +424,11 @@ IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABL
     #ENDIF()
     SET_UNIT_TEST(IProductWRTBase_device_sumfac_qp test_ipwrtbase_device_sumfac_qp FALSE)
     SET_UNIT_TEST(IProductWRTDerivBase_device_sumfac_qp test_ipwrtderivbase_device_sumfac_qp FALSE)
+    SET_UNIT_TEST(LinAdvDiffReaction_device_sumfac_qp test_linadvdiffreaction_device_sumfac_qp FALSE)
     SET_UNIT_TEST(Mass_device_sumfac_qp test_mass_device_sumfac_qp FALSE)
     SET_UNIT_TEST(NullPrecon_device_sumfac_qp test_nullprecon_device_sumfac_qp FALSE)
     SET_UNIT_TEST(PhysDeriv_device_sumfac_qp test_physderiv_device_sumfac_qp FALSE)
     SET_UNIT_TEST(PhysInterp1DScaled_device_sumfac_qp test_physinterp1dscaled_device_sumfac_qp FALSE)
-    SET_UNIT_TEST(LinAdvDiffReaction_device_sumfac_qp test_linadvdiffreaction_device_sumfac_qp FALSE)
 ENDIF()
 
 # CUDA SumFacCUBLAS
