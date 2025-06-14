@@ -36,14 +36,14 @@
 
 #include "Operators/LoopExecution/LoopExecution.hpp"
 
-template <typename ExecSpace, bool DEFORMED, typename TData>
+template <typename ExecSpace, bool DEFORMED, typename TData, typename TScalar>
 NEK_FORCE_INLINE static
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                             void>::type
     MultiplyByJacobianKernel(const unsigned int nqTot, const size_t nelmt,
                              const TData *jacptr, const TData *inptr,
-                             TData *outptr, const TData scale = 1.0)
+                             TData *outptr, const TScalar scale)
 {
     if constexpr (DEFORMED)
     {
@@ -71,7 +71,7 @@ NEK_FORCE_INLINE static
                             void>::type
     MultiplyByJacobianKernel(const unsigned int nqTot, const size_t nelmt,
                              const TData *jacptr, const TData *inptr,
-                             TData *outptr, const TData scale = 1.0)
+                             TData *outptr, const TData scale)
 {
     if constexpr (DEFORMED)
     {

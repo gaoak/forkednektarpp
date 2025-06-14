@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_ipwrtderivbase_serial_stdmatxsmm.cpp
+// File: test_ipwrtderivbase_avx_stdmat.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestIProductWRTDerivBase
+#define BOOST_TEST_MODULE TestIProductWRTDerivBaseAVXStdMat
 
 #include "init_ipwrtderivbasefields.hpp"
 
@@ -43,7 +43,7 @@
 #define TEST_IPWRTDERIVBASE(test_name, test, dim, tol)                         \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        Configure("Serial", "StdMatXSMM", 2 * dim, 2);                         \
+        Configure("AVX", "StdMat", 2 * dim, 2);                                \
         SetTestCase();                                                         \
         RunTestCase();                                                         \
         boost::test_tools::output_test_stream output;                          \
@@ -52,49 +52,49 @@
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestIProductWRTDerivBase)
+BOOST_AUTO_TEST_SUITE(TestIProductWRTDerivBaseAVXStdMat)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_serial_seg, Seg, 1, 1.0E-12)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_avx_stdmat_seg, Seg, 1, 1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_serial_seg_sem, SegSEM, 1, 1.0E-12)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_avx_stdmat_seg_sem, SegSEM, 1, 1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_serial_quad, Quad, 2, 1.0E-12)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_avx_stdmat_quad, Quad, 2, 1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_serial_quad_sem, QuadSEM, 2, 1.0E-12)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_avx_stdmat_quad_sem, QuadSEM, 2, 1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_serial_quad_varp, QuadVarP, 2, 1.0E-12)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_avx_stdmat_quad_varp, QuadVarP, 2, 1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_serial_tri, Tri, 2, 1.0E-12)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_avx_stdmat_tri, Tri, 2, 1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_serial_tri_varp, TriVarP, 2, 1.0E-12)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_avx_stdmat_tri_varp, TriVarP, 2, 1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_serial_tri_nodal, TriNodal, 2, 1.0E-12)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_avx_stdmat_tri_nodal, TriNodal, 2, 1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_serial_square_all_elements,
+TEST_IPWRTDERIVBASE(ipwrtderivbase_avx_stdmat_square_all_elements,
                     SquareAllElements, 2, 1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_serial_hex, Hex, 3, 1.0E-12)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_avx_stdmat_hex, Hex, 3, 1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_serial_hex_sem, HexSEM, 3, 1.0E-12)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_avx_stdmat_hex_sem, HexSEM, 3, 1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_serial_hex_varp, HexVarP, 3, 1.0E-12)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_avx_stdmat_hex_varp, HexVarP, 3, 1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_serial_prism, Prism, 3, 1.0E-12)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_avx_stdmat_prism, Prism, 3, 1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_serial_prism_varp, PrismVarP, 3, 1.0E-12)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_avx_stdmat_prism_varp, PrismVarP, 3, 1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_serial_pyr, Pyr, 3, 1.0E-12)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_avx_stdmat_pyr, Pyr, 3, 1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_serial_pyr_varp, PyrVarP, 3, 1.0E-12)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_avx_stdmat_pyr_varp, PyrVarP, 3, 1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_serial_tet, Tet, 3, 1.0E-12)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_avx_stdmat_tet, Tet, 3, 1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_serial_tet_varp, TetVarP, 3, 1.0E-12)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_avx_stdmat_tet_varp, TetVarP, 3, 1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_serial_cube_prism_hex, CubePrismHex, 3,
+TEST_IPWRTDERIVBASE(ipwrtderivbase_avx_stdmat_cube_prism_hex, CubePrismHex, 3,
                     1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_serial_cube_all_elements, CubeAllElements, 3,
-                    1.0E-12)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_avx_stdmat_cube_all_elements,
+                    CubeAllElements, 3, 1.0E-12)
 
 BOOST_AUTO_TEST_SUITE_END()

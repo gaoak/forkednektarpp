@@ -59,14 +59,17 @@ namespace Nektar::Operators
 
 enum StdMatType
 {
-    eNoStdMat                       = 0,
-    eBwdTransStdMat                 = 1,
-    ePhysDerivStdMat                = 2,
-    eIProductWRTBaseStdMat          = 3,
-    eIProductWRTBaseStdMatTranspose = 4,
-    eIProductWRTDerivBaseStdMat     = 5,
-    ePhysInterpStdMat               = 6,
-    eMultiplyByElmtInvMassStdMat    = 7,
+    eNoStdMat                            = 0,
+    eBwdTransStdMat                      = 1,
+    eBwdTransStdMatTranspose             = 2,
+    ePhysDerivStdMat                     = 3,
+    ePhysDerivStdMatTranspose            = 4,
+    eIProductWRTBaseStdMat               = 5,
+    eIProductWRTBaseStdMatTranspose      = 6,
+    eIProductWRTDerivBaseStdMat          = 7,
+    eIProductWRTDerivBaseStdMatTranspose = 8,
+    ePhysInterpStdMat                    = 9,
+    eMultiplyByElmtInvMassStdMat         = 10,
 };
 
 class StdMatDataCreator;
@@ -225,6 +228,23 @@ public:
                     mat, alignment);
             }
             break;
+            case eBwdTransStdMatTranspose:
+            {
+                Array<OneD, NekDouble> tmp(nmTot), t(nqTot);
+                Array<OneD, NekDouble> mat(nmTot * nqTot);
+                for (unsigned int i = 0; i < nmTot; ++i)
+                {
+                    Vmath::Zero(nmTot, tmp, 1);
+                    tmp[i] = 1.0;
+                    stdExp->BwdTrans(tmp, t);
+                    // copy to mat with stride nmTot
+                    Vmath::Vcopy(nqTot, &t[0], 1, &mat[i], nmTot);
+                }
+
+                return MemoryRegion<TData>::template FromArray<MemSpace>(
+                    mat, alignment);
+            }
+            break;
             case ePhysDerivStdMat:
             {
                 Array<OneD, NekDouble> tmp(nqTot), t;
@@ -237,6 +257,27 @@ public:
                         tmp[i] = 1.0;
                         stdExp->PhysDeriv(
                             d, tmp, t = mat + d * nqTot * nqTot + i * nqTot);
+                    }
+                }
+
+                return MemoryRegion<TData>::template FromArray<MemSpace>(
+                    mat, alignment);
+            }
+            break;
+            case ePhysDerivStdMatTranspose:
+            {
+                Array<OneD, NekDouble> tmp(nqTot), t(nqTot);
+                Array<OneD, NekDouble> mat(dimension * nqTot * nqTot);
+                for (unsigned int d = 0; d < dimension; ++d)
+                {
+                    for (unsigned int i = 0; i < nqTot; ++i)
+                    {
+                        Vmath::Zero(nqTot, tmp, 1);
+                        tmp[i] = 1.0;
+                        stdExp->PhysDeriv(d, tmp, t);
+                        // copy to mat with stride nqTot
+                        Vmath::Vcopy(nqTot, &t[0], 1,
+                                     &mat[i + d * nqTot * nqTot], nqTot);
                     }
                 }
 
@@ -288,6 +329,27 @@ public:
                         tmp[i] = 1.0;
                         stdExp->IProductWRTDerivBase(
                             d, tmp, t = mat + d * nmTot * nqTot + i * nmTot);
+                    }
+                }
+
+                return MemoryRegion<TData>::template FromArray<MemSpace>(
+                    mat, alignment);
+            }
+            break;
+            case eIProductWRTDerivBaseStdMatTranspose:
+            {
+                Array<OneD, NekDouble> tmp(nqTot), t(nmTot);
+                Array<OneD, NekDouble> mat(dimension * nmTot * nqTot);
+                for (unsigned int d = 0; d < dimension; ++d)
+                {
+                    for (unsigned int i = 0; i < nqTot; ++i)
+                    {
+                        Vmath::Zero(nqTot, tmp, 1);
+                        tmp[i] = 1.0;
+                        stdExp->IProductWRTDerivBase(d, tmp, t);
+                        // copy to mat with stride nqTot
+                        Vmath::Vcopy(nmTot, &t[0], 1,
+                                     &mat[i + d * nmTot * nqTot], nqTot);
                     }
                 }
 

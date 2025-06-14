@@ -36,7 +36,7 @@
 
 #include "Operators/LoopExecution/LoopExecution.hpp"
 
-template <typename ExecSpace, bool DEFORMED, typename TData>
+/*template <typename ExecSpace, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
@@ -93,9 +93,129 @@ NEK_FORCE_INLINE static
             }
         }
     }
+}*/
+
+// In-place version
+template <typename ExecSpace, bool DEFORMED, typename TData>
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial>,
+                            void>::type
+    MultiplyByDerivFactorKernel(const unsigned int nqTot,
+                                const unsigned int ncoord,
+                                const unsigned int dimension,
+                                const size_t nelmt, const size_t insize,
+                                const size_t outsize, const TData *dfptr,
+                                const TData *inptr, TData *outptr)
+{
+    const auto ndf   = ncoord * dimension;
+    const auto nsize = nqTot * nelmt;
+
+    TData tmp[3];
+    if constexpr (DEFORMED)
+    {
+        for (size_t idx = 0; idx < nsize; idx++)
+        {
+            for (unsigned int k = 0; k < ncoord; k++)
+            {
+                tmp[k] = dfptr[ndf * idx + k * dimension] * inptr[idx];
+                for (unsigned int d = 1; d < dimension; d++)
+                {
+                    tmp[k] += dfptr[ndf * idx + k * dimension + d] *
+                              inptr[d * insize + idx];
+                }
+            }
+            for (unsigned int k = 0; k < ncoord; k++)
+            {
+                outptr[k * outsize + idx] = tmp[k];
+            }
+        }
+    }
+    else
+    {
+        for (size_t e = 0; e < nelmt; e++)
+        {
+            for (unsigned int i = 0; i < nqTot; i++)
+            {
+                for (unsigned int k = 0; k < ncoord; k++)
+                {
+                    tmp[k] =
+                        dfptr[ndf * e + k * dimension] * inptr[nqTot * e + i];
+                    for (unsigned int d = 1; d < dimension; d++)
+                    {
+                        tmp[k] += dfptr[ndf * e + k * dimension + d] *
+                                  inptr[nqTot * e + i + d * insize];
+                    }
+                }
+                for (unsigned int k = 0; k < ncoord; k++)
+                {
+                    outptr[k * outsize + nqTot * e + i] = tmp[k];
+                }
+            }
+        }
+    }
 }
 
+// In-place version
 template <typename ExecSpace, bool DEFORMED, typename TData>
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                            void>::type
+    MultiplyByDerivFactorKernel(const unsigned int nqTot,
+                                const unsigned int ncoord,
+                                const unsigned int dimension,
+                                const size_t nelmt, const size_t insize,
+                                const size_t outsize, const TData *dfptr,
+                                const TData *inptr, TData *outptr)
+{
+    const auto ndf   = ncoord * dimension;
+    const auto nsize = nqTot * nelmt;
+
+    TData tmp[3];
+    if constexpr (DEFORMED)
+    {
+        for (size_t idx = 0; idx < nsize; idx++)
+        {
+            for (unsigned int k = 0; k < ncoord; k++)
+            {
+                tmp[k] = dfptr[ndf * idx + k * dimension] * inptr[idx];
+                for (unsigned int d = 1; d < dimension; d++)
+                {
+                    tmp[k].fma(dfptr[ndf * idx + k * dimension + d],
+                               inptr[d * insize + idx]);
+                }
+            }
+            for (unsigned int k = 0; k < ncoord; k++)
+            {
+                outptr[k * outsize + idx] = tmp[k];
+            }
+        }
+    }
+    else
+    {
+        for (size_t e = 0; e < nelmt; e++)
+        {
+            for (unsigned int i = 0; i < nqTot; i++)
+            {
+                for (unsigned int k = 0; k < ncoord; k++)
+                {
+                    tmp[k] =
+                        dfptr[ndf * e + k * dimension] * inptr[nqTot * e + i];
+                    for (unsigned int d = 1; d < dimension; d++)
+                    {
+                        tmp[k].fma(dfptr[ndf * e + k * dimension + d],
+                                   inptr[nqTot * e + i + d * insize]);
+                    }
+                }
+                for (unsigned int k = 0; k < ncoord; k++)
+                {
+                    outptr[k * outsize + nqTot * e + i] = tmp[k];
+                }
+            }
+        }
+    }
+}
+
+/*template <typename ExecSpace, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                             void>::type
@@ -142,6 +262,67 @@ NEK_FORCE_INLINE static
                                inptr[idx + d * nsize];
                     }
                     outptr[k * nsize + idx] = tmp;
+                }
+            });
+    }
+}*/
+
+template <typename ExecSpace, bool DEFORMED, typename TData>
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                            void>::type
+    MultiplyByDerivFactorKernel(const unsigned int nqTot,
+                                const unsigned int ncoord,
+                                const unsigned int dimension,
+                                const size_t nelmt, const size_t insize,
+                                const size_t outsize, const TData *dfptr,
+                                const TData *inptr, TData *outptr)
+{
+    const auto ndf   = ncoord * dimension;
+    const auto nsize = nqTot * nelmt;
+
+    if constexpr (DEFORMED)
+    {
+        Nektar::parallel_for<ExecSpace>(
+            0, nsize, NEKTAR_LAMBDA(const size_t idx) {
+                size_t e = idx / nqTot;
+                TData tmp[3];
+                for (unsigned int k = 0; k < ncoord; k++)
+                {
+                    tmp[k] = dfptr[(ndf - 1) * nqTot * e +
+                                   nqTot * (k * dimension) + idx] *
+                             inptr[idx];
+                    for (unsigned int d = 1; d < dimension; d++)
+                    {
+                        tmp[k] += dfptr[(ndf - 1) * nqTot * e +
+                                        nqTot * (k * dimension + d) + idx] *
+                                  inptr[idx + d * insize];
+                    }
+                }
+                for (unsigned int k = 0; k < ncoord; k++)
+                {
+                    outptr[k * outsize + idx] = tmp[k];
+                }
+            });
+    }
+    else
+    {
+        Nektar::parallel_for<ExecSpace>(
+            0, nsize, NEKTAR_LAMBDA(const size_t idx) {
+                size_t e = idx / nqTot;
+                TData tmp[3];
+                for (unsigned int k = 0; k < ncoord; k++)
+                {
+                    tmp[k] = dfptr[(ndf * e + k * dimension)] * inptr[idx];
+                    for (unsigned int d = 1; d < dimension; d++)
+                    {
+                        tmp[k] += dfptr[(ndf * e + k * dimension + d)] *
+                                  inptr[idx + d * insize];
+                    }
+                }
+                for (unsigned int k = 0; k < ncoord; k++)
+                {
+                    outptr[k * outsize + idx] = tmp[k];
                 }
             });
     }

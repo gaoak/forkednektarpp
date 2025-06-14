@@ -101,11 +101,6 @@ struct StdMat
     static inline const std::string name = "StdMat";
 };
 
-struct StdMatXSMM
-{
-    static constexpr char name[] = "StdMatXSMM";
-};
-
 struct SumFac
 {
     static inline const std::string name = "SumFac";

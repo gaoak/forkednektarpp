@@ -35,6 +35,9 @@
 #pragma once
 
 #include <string>
+
+#include "Operators/NekBlas/LibXSMMDispatchWrapper.hpp"
+
 #if defined(NEKTAR_ENABLE_CUDA)
 #include "Operators/NekBlas/cuBlasHandle.hpp"
 #elif defined(NEKTAR_ENABLE_HIP)
@@ -49,6 +52,10 @@ struct blasHandle
 {
 };
 
+struct xsmmHandle
+{
+};
+
 template <typename ExecSpace> class NekHandle
 {
 public:
@@ -58,7 +65,16 @@ public:
     }
 };
 
-#if defined(NEKTAR_ENABLE_CUDA)
+#if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
+template <> class NekHandle<NektarSpaces::AVX>
+{
+public:
+    static xsmmHandle GetInstance(void)
+    {
+        return xsmmHandle();
+    }
+};
+#elif defined(NEKTAR_ENABLE_CUDA)
 template <> class NekHandle<NektarSpaces::Device>
 {
 public:
@@ -94,7 +110,9 @@ typename std::enable_if<std::is_same_v<THandle, blasHandle>, void>::type NekGemm
     const TData *a, const size_t lda, const TData *b, const size_t ldb,
     const TData beta, TData *c, const size_t ldc);
 template <typename THandle, typename TData>
-#if defined(NEKTAR_ENABLE_CUDA)
+#if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
+typename std::enable_if<std::is_same_v<THandle, xsmmHandle>, void>::type
+#elif defined(NEKTAR_ENABLE_CUDA)
 typename std::enable_if<std::is_same_v<THandle, cublasHandle_t>, void>::type
 #elif defined(NEKTAR_ENABLE_HIP)
 typename std::enable_if<std::is_same_v<THandle, hipblasHandle_t>, void>::type
@@ -118,7 +136,9 @@ NekGemmStridedBatched(THandle handle, std::string transposeA,
                       TData *c, const size_t ldc, const size_t strideC,
                       const size_t batchSize);
 template <typename THandle, typename TData>
-#if defined(NEKTAR_ENABLE_CUDA)
+#if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
+typename std::enable_if<std::is_same_v<THandle, xsmmHandle>, void>::type
+#elif defined(NEKTAR_ENABLE_CUDA)
 typename std::enable_if<std::is_same_v<THandle, cublasHandle_t>, void>::type
 #elif defined(NEKTAR_ENABLE_HIP)
 typename std::enable_if<std::is_same_v<THandle, hipblasHandle_t>, void>::type
@@ -141,7 +161,9 @@ typename std::enable_if<std::is_same_v<THandle, blasHandle>, void>::type NekGemv
     const TData alpha, const TData *a, const size_t lda, const TData *x,
     const size_t incx, const TData beta, TData *y, const size_t incy);
 template <typename THandle, typename TData>
-#if defined(NEKTAR_ENABLE_CUDA)
+#if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
+typename std::enable_if<std::is_same_v<THandle, xsmmHandle>, void>::type
+#elif defined(NEKTAR_ENABLE_CUDA)
 typename std::enable_if<std::is_same_v<THandle, cublasHandle_t>, void>::type
 #elif defined(NEKTAR_ENABLE_HIP)
 typename std::enable_if<std::is_same_v<THandle, hipblasHandle_t>, void>::type
@@ -163,7 +185,9 @@ NekGemvStridedBatched(THandle handle, std::string transpose, const size_t M,
                       TData *y, const size_t incy, const size_t strideY,
                       const size_t batchSize);
 template <typename THandle, typename TData>
-#if defined(NEKTAR_ENABLE_CUDA)
+#if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
+typename std::enable_if<std::is_same_v<THandle, xsmmHandle>, void>::type
+#elif defined(NEKTAR_ENABLE_CUDA)
 typename std::enable_if<std::is_same_v<THandle, cublasHandle_t>, void>::type
 #elif defined(NEKTAR_ENABLE_HIP)
 typename std::enable_if<std::is_same_v<THandle, hipblasHandle_t>, void>::type

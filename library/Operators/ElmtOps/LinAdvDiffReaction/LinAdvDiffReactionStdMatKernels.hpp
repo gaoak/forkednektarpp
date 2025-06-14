@@ -40,55 +40,68 @@
 
 template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
-                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial>,
                             void>::type
     AddAdvectionKernels(const size_t nelmt, const unsigned int nqTot,
-                        const unsigned int ncoord, const unsigned int ncomp,
-                        const TData *advVel, const TData *deriv, TData *out,
-                        const TData scale)
+                        const unsigned int ncoord, const size_t advelsize,
+                        const size_t derivsize, const TData *advVel,
+                        const TData *deriv, TData *out, const TData scale)
 {
     const auto nsize = nelmt * nqTot;
-    for (unsigned int nc = 0; nc < ncomp; ++nc)
+    for (size_t idx = 0; idx < nsize; idx++)
+    {
+        out[idx] *= scale;
+    }
+    for (unsigned int d = 0; d < ncoord; d++)
     {
         for (size_t idx = 0; idx < nsize; idx++)
         {
-            out[idx] *= scale;
+            out[idx] +=
+                advVel[d * advelsize + idx] * deriv[d * derivsize + idx];
         }
-        for (unsigned int d = 0; d < ncoord; d++)
-        {
-            for (size_t idx = 0; idx < nsize; idx++)
-            {
-                out[idx] += advVel[d * nsize + idx] * deriv[d * nsize + idx];
-            }
-        }
-        deriv += ncoord * nsize;
-        out += nsize;
     }
 }
 
+template <typename ExecSpace, typename TData, typename TScalar>
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                            void>::type
+    AddAdvectionKernels(const size_t nelmt, const unsigned int nqTot,
+                        const unsigned int ncoord, const size_t advelsize,
+                        const size_t derivsize, const TData *advVel,
+                        const TData *deriv, TData *out, const TScalar scale)
+{
+    const auto nsize = nelmt * nqTot;
+    for (size_t idx = 0; idx < nsize; idx++)
+    {
+        out[idx] *= scale;
+    }
+    for (unsigned int d = 0; d < ncoord; d++)
+    {
+        for (size_t idx = 0; idx < nsize; idx++)
+        {
+            out[idx].fma(advVel[d * advelsize + idx],
+                         deriv[d * derivsize + idx]);
+        }
+    }
+}
 template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                             void>::type
     AddAdvectionKernels(const size_t nelmt, const unsigned int nqTot,
-                        const unsigned int ncoord, const unsigned int ncomp,
-                        const TData *advVel, const TData *deriv, TData *out,
-                        const TData scale)
+                        const unsigned int ncoord, const size_t advelsize,
+                        const size_t derivsize, const TData *advVel,
+                        const TData *deriv, TData *out, const TData scale)
 {
     const auto nsize = nelmt * nqTot;
-    for (unsigned int nc = 0; nc < ncomp; ++nc)
-    {
-        Nektar::parallel_for<ExecSpace>(
-            0, nsize, NEKTAR_LAMBDA(const size_t idx) {
-                TData tmp = 0.0;
-                for (unsigned int d = 0; d < ncoord; d++)
-                {
-                    tmp += advVel[d * nsize + idx] * deriv[d * nsize + idx];
-                }
-                out[idx] = scale * out[idx] + tmp;
-            });
-        deriv += ncoord * nsize;
-        out += nsize;
-    }
+    Nektar::parallel_for<ExecSpace>(
+        0, nsize, NEKTAR_LAMBDA(const size_t idx) {
+            TData tmp = 0.0;
+            for (unsigned int d = 0; d < ncoord; d++)
+            {
+                tmp += advVel[d * advelsize + idx] * deriv[d * derivsize + idx];
+            }
+            out[idx] = scale * out[idx] + tmp;
+        });
 }

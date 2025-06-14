@@ -47,6 +47,9 @@ template <typename ExecSpace, typename Implementation, typename TData>
 class BlockOperatorIProductWRTDerivBaseImpl
     : public BlockOperatorIProductWRTDerivBase<TData>
 {
+    using simd_t =
+        typename simd_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                              TData>::type;
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
@@ -77,8 +80,20 @@ public:
                 ? exp->GetNodalPointsKey().GetPointsType()
                 : LibUtilities::eNoPointsType;
 
-        m_matptr = dataWarehouse->template GetData<ExecSpace>(StdMatKey<TData>(
-            basisKeys, m_shapeType, eIProductWRTDerivBaseStdMat, nodalType));
+        // Specialization for AVX/libXSMM
+        if constexpr (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
+        {
+            m_matptr =
+                dataWarehouse->template GetData<ExecSpace>(StdMatKey<TData>(
+                    basisKeys, m_shapeType,
+                    eIProductWRTDerivBaseStdMatTranspose, nodalType));
+        }
+        else
+        {
+            m_matptr = dataWarehouse->template GetData<ExecSpace>(
+                StdMatKey<TData>(basisKeys, m_shapeType,
+                                 eIProductWRTDerivBaseStdMat, nodalType));
+        }
     }
 
     // className - for BlockOperatorFactory
@@ -94,7 +109,7 @@ public:
     }
 
 protected:
-    static constexpr unsigned int m_implInterleaveWidth = 1;
+    static constexpr unsigned int m_implInterleaveWidth = simd_t::width;
 
     LibUtilities::ShapeType m_shapeType;
     bool m_isDeformed;
@@ -123,71 +138,187 @@ protected:
         // Fetch Jacobian and deriv factors.
         constexpr bool transpose =
             std::is_same_v<ExecSpace, NektarSpaces::Device>;
-        auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto jacptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
-        auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), transpose));
 
-        // Allocate storate.
-        if (m_wsp.size() == 0)
+        // Specialization for AVX/libXSMM
+        if constexpr (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
         {
-            m_wsp = MemoryRegion<TData>::Create(m_dimension * nelmt * m_nqTot,
-                                                ExecSpace::alignment);
+            // Get interleave parameter.
+            const auto interleave_width = inblock.GetInterleaveWidth();
+            const auto width_ratio =
+                (interleave_width == 1)
+                    ? 1
+                    : interleave_width / m_implInterleaveWidth;
+            const auto chunkSize =
+                std::max(m_implInterleaveWidth, interleave_width);
+
+            // Allocate storage.
+            if (m_wsp.size() == 0)
+            {
+                m_wsp = MemoryRegion<TData>::Create(m_dimension *
+                                                        simd_t::width * m_nqTot,
+                                                    ExecSpace::alignment);
+            }
+
+            // Get workspace pointer.
+            auto wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
+
+            const auto insize  = m_nqTot * (nelmt / simd_t::width);
+            const auto wspsize = m_nqTot;
+            for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
+            {
+                auto jacptr = jacptr_init;
+                auto dfptr  = dfptr_init;
+
+                TData alpha  = 1.0;
+                TData beta   = 1.0;
+                int flags    = 0;
+                int prefetch = LIBXSMM_PREFETCH_NONE;
+
+                // Dispatch kernel.
+                auto gemm_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
+                    static_cast<int>(simd_t::width), static_cast<int>(m_nmTot),
+                    static_cast<int>(m_nqTot), alpha, beta, flags, prefetch);
+
+                for (size_t e = 0; e < nelmt / simd_t::width; ++e)
+                {
+                    // Reshape, if necessary.
+                    if (e % width_ratio == 0)
+                    {
+                        for (unsigned int d = 0; d < m_coordDim; ++d)
+                        {
+                            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                                inblock.GetInterleaveWidth(), chunkSize,
+                                inblock.GetNumData(),
+                                (TData *)inptr + d * inblock.size());
+                        }
+                        if (this->m_append)
+                        {
+                            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                                outblock.GetInterleaveWidth(), chunkSize,
+                                outblock.GetNumData(), outptr);
+                        }
+                    }
+
+                    // Multiply by derivative factor and Jacobian.
+                    if (m_isDeformed)
+                    {
+                        MultiplyByJacobianAndDerivFactorKernel<ExecSpace, true>(
+                            m_nqTot, m_coordDim, m_dimension, 1, insize,
+                            wspsize, reinterpret_cast<const simd_t *>(jacptr),
+                            reinterpret_cast<const simd_t *>(dfptr),
+                            reinterpret_cast<const simd_t *>(inptr),
+                            reinterpret_cast<simd_t *>(wspptr));
+                        jacptr += m_nqTot * simd_t::width;
+                        dfptr +=
+                            m_coordDim * m_dimension * m_nqTot * simd_t::width;
+                    }
+                    else
+                    {
+                        MultiplyByJacobianAndDerivFactorKernel<ExecSpace,
+                                                               false>(
+                            m_nqTot, m_coordDim, m_dimension, 1, insize,
+                            wspsize, reinterpret_cast<const simd_t *>(jacptr),
+                            reinterpret_cast<const simd_t *>(dfptr),
+                            reinterpret_cast<const simd_t *>(inptr),
+                            reinterpret_cast<simd_t *>(wspptr));
+                        jacptr += simd_t::width;
+                        dfptr += m_coordDim * m_dimension * simd_t::width;
+                    }
+
+                    // Perform matrix-matrix multiply.
+                    if (!this->m_append)
+                    {
+                        for (unsigned int q = 0; q < m_nmTot; ++q)
+                        {
+                            reinterpret_cast<simd_t *>(outptr)[q] = 0.0;
+                        }
+                    }
+
+                    for (unsigned int d = 0; d < m_dimension; d++)
+                    {
+                        gemm_kernel(wspptr + d * simd_t::width * m_nqTot,
+                                    m_matptr + d * m_nqTot * m_nmTot, outptr);
+                    }
+
+                    // Increment pointers.
+                    inptr += m_nqTot * simd_t::width;
+                    outptr += m_nmTot * simd_t::width;
+                }
+                inptr += (m_coordDim - 1) * inblock.size();
+            }
         }
-
-        // Get workspace pointer.
-        auto wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
-
-        // Loop over components.
-        for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
+        else
         {
-            // Reshape, if necessary.
-            for (unsigned int d = 0; d < m_coordDim; ++d)
+            // Allocate storage.
+            if (m_wsp.size() == 0)
             {
-                ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                    inblock.GetInterleaveWidth(),
-                    inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
-                    (TData *)inptr + d * inblock.size());
-            }
-            if (this->m_append)
-            {
-                ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                    outblock.GetInterleaveWidth(),
-                    outblock.GetNumElementsWithPadding(), outblock.GetNumData(),
-                    outptr);
+                m_wsp = MemoryRegion<TData>::Create(
+                    m_dimension * nelmt * m_nqTot, ExecSpace::alignment);
             }
 
-            // Multiply by derivative factor and Jacobian.
-            if (m_isDeformed)
-            {
-                MultiplyByJacobianAndDerivFactorKernel<ExecSpace, true>(
-                    m_nqTot, m_coordDim, m_dimension, nelmt, jacptr, dfptr,
-                    inptr, wspptr);
-            }
-            else
-            {
-                MultiplyByJacobianAndDerivFactorKernel<ExecSpace, false>(
-                    m_nqTot, m_coordDim, m_dimension, nelmt, jacptr, dfptr,
-                    inptr, wspptr);
-            }
+            // Get workspace pointer.
+            auto wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
 
-            // Perform matrix-matrix multiply.
-            for (unsigned int d = 0; d < m_dimension; d++)
+            const auto insize  = m_nqTot * nelmt;
+            const auto wspsize = m_nqTot * nelmt;
+            for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
             {
-                TData *ptr = wspptr + d * nelmt * m_nqTot;
+                auto jacptr = jacptr_init;
+                auto dfptr  = dfptr_init;
 
-                TData alpha = 1.0;
-                TData beta  = (d != 0 || this->m_append);
-                NekGemm(handle, "N", "N", m_nmTot, nelmt, m_nqTot, alpha,
-                        m_matptr + d * m_nqTot * m_nmTot, m_nmTot, ptr, m_nqTot,
-                        beta, outptr, m_nmTot);
+                // Reshape, if necessary.
+                for (unsigned int d = 0; d < m_coordDim; ++d)
+                {
+                    ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                        inblock.GetInterleaveWidth(),
+                        inblock.GetNumElementsWithPadding(),
+                        inblock.GetNumData(),
+                        (TData *)inptr + d * inblock.size());
+                }
+                if (this->m_append)
+                {
+                    ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                        outblock.GetInterleaveWidth(),
+                        outblock.GetNumElementsWithPadding(),
+                        outblock.GetNumData(), outptr);
+                }
+
+                // Multiply by derivative factor and Jacobian.
+                if (m_isDeformed)
+                {
+                    MultiplyByJacobianAndDerivFactorKernel<ExecSpace, true>(
+                        m_nqTot, m_coordDim, m_dimension, nelmt, insize,
+                        wspsize, jacptr, dfptr, inptr, wspptr);
+                }
+                else
+                {
+                    MultiplyByJacobianAndDerivFactorKernel<ExecSpace, false>(
+                        m_nqTot, m_coordDim, m_dimension, nelmt, insize,
+                        wspsize, jacptr, dfptr, inptr, wspptr);
+                }
+
+                // Perform matrix-matrix multiply.
+                for (unsigned int d = 0; d < m_dimension; d++)
+                {
+                    TData alpha = 1.0;
+                    TData beta  = (d != 0 || this->m_append);
+
+                    NekGemm(handle, "N", "N", m_nmTot, nelmt, m_nqTot, alpha,
+                            m_matptr + d * m_nqTot * m_nmTot, m_nmTot,
+                            wspptr + d * nelmt * m_nqTot, m_nqTot, beta, outptr,
+                            m_nmTot);
+                }
+
+                // Increment pointers.
+                inptr += m_coordDim * inblock.size();
+                outptr += outblock.size();
             }
-
-            // Increment pointers.
-            inptr += m_coordDim * inblock.size();
-            outptr += outblock.size();
         }
 
         // Set to new interleave width.
