@@ -175,10 +175,10 @@ protected:
                 auto jacptr = jacptr_init;
                 auto dfptr  = dfptr_init;
 
-                TData alpha  = 1.0;
-                TData beta   = 1.0;
-                int flags    = 0;
-                int prefetch = LIBXSMM_PREFETCH_NONE;
+                const TData alpha  = 1.0;
+                const TData beta   = 1.0;
+                const int flags    = 0;
+                const int prefetch = LIBXSMM_PREFETCH_NONE;
 
                 // Dispatch kernel.
                 auto gemm_kernel = LibxsmmDispatchWrapper<TData>::dispatch(

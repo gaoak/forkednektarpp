@@ -66,6 +66,99 @@ NEK_FORCE_INLINE static
     }
 }
 
+template <typename ExecSpace, bool DEFORMED, typename TData>
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial>,
+                            void>::type
+    ApplyMetricKernel(const unsigned int nqTot, const unsigned int ncoord,
+                      const unsigned int dimension, const size_t nelmt,
+                      const size_t insize, const size_t outsize,
+                      const TData *diffCoeff, const TData *jacptr,
+                      const TData *dfptr, const TData *inptr, TData *outptr)
+{
+    const auto ndf   = ncoord * dimension;
+    const auto nsize = nqTot * nelmt;
+
+    TData tmp[3], metric[9];
+    if constexpr (DEFORMED)
+    {
+        for (size_t idx = 0; idx < nsize; idx++)
+        {
+            // Compute metric.
+            for (unsigned int d = 0; d < dimension; d++)
+            {
+                for (unsigned int k = 0; k < ncoord; ++k)
+                {
+                    metric[d * ncoord + k] =
+                        dfptr[ndf * idx + d] * diffCoeff[k];
+                    for (unsigned int l = 1; l < ncoord; ++l)
+                    {
+                        metric[d * ncoord + k] +=
+                            dfptr[ndf * idx + l * dimension + d] *
+                            diffCoeff[l * ncoord + k];
+                    }
+                }
+            }
+
+            // Apply metric.
+            for (unsigned int d = 0; d < dimension; d++)
+            {
+                tmp[d] = metric[d * ncoord] * inptr[idx];
+                for (unsigned int k = 1; k < ncoord; ++k)
+                {
+                    tmp[d] += metric[d * ncoord + k] * inptr[k * insize + idx];
+                }
+            }
+
+            // Write.
+            for (unsigned int d = 0; d < dimension; d++)
+            {
+                outptr[d * outsize + idx] = tmp[d] * jacptr[idx];
+            }
+        }
+    }
+    else
+    {
+        for (size_t e = 0; e < nelmt; e++)
+        {
+            // Compute metric.
+            for (unsigned int d = 0; d < dimension; d++)
+            {
+                for (unsigned int k = 0; k < ncoord; ++k)
+                {
+                    metric[d * ncoord + k] = dfptr[ndf * e + d] * diffCoeff[k];
+                    for (unsigned int l = 1; l < ncoord; ++l)
+                    {
+                        metric[d * ncoord + k] +=
+                            dfptr[ndf * e + l * dimension + d] *
+                            diffCoeff[l * ncoord + k];
+                    }
+                }
+            }
+
+            for (unsigned int i = 0; i < nqTot; i++)
+            {
+                // Apply metric.
+                for (unsigned int d = 0; d < dimension; d++)
+                {
+                    tmp[d] = metric[d * ncoord] * inptr[nqTot * e + i];
+                    for (unsigned int k = 1; k < ncoord; ++k)
+                    {
+                        tmp[d] += metric[d * ncoord + k] *
+                                  inptr[nqTot * e + i + k * insize];
+                    }
+                }
+
+                // Write.
+                for (unsigned int d = 0; d < dimension; d++)
+                {
+                    outptr[d * outsize + nqTot * e + i] = tmp[d] * jacptr[e];
+                }
+            }
+        }
+    }
+}
+
 template <typename ExecSpace, typename TData, typename TScalar>
 NEK_FORCE_INLINE static
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
@@ -92,6 +185,99 @@ NEK_FORCE_INLINE static
         for (unsigned int d = 0; d < ncoord; d++)
         {
             inout[d * outsize + idx] = tmp[d];
+        }
+    }
+}
+
+template <typename ExecSpace, bool DEFORMED, typename TData, typename TScalar>
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                            void>::type
+    ApplyMetricKernel(const unsigned int nqTot, const unsigned int ncoord,
+                      const unsigned int dimension, const size_t nelmt,
+                      const size_t insize, const size_t outsize,
+                      const TScalar *diffCoeff, const TData *jacptr,
+                      const TData *dfptr, const TData *inptr, TData *outptr)
+{
+    const auto ndf   = ncoord * dimension;
+    const auto nsize = nqTot * nelmt;
+
+    TData tmp[3], metric[9];
+    if constexpr (DEFORMED)
+    {
+        for (size_t idx = 0; idx < nsize; idx++)
+        {
+            // Compute metric.
+            for (unsigned int d = 0; d < dimension; d++)
+            {
+                for (unsigned int k = 0; k < ncoord; ++k)
+                {
+                    metric[d * ncoord + k] =
+                        dfptr[ndf * idx + d] * diffCoeff[k];
+                    for (unsigned int l = 1; l < ncoord; ++l)
+                    {
+                        metric[d * ncoord + k].fma(
+                            dfptr[ndf * idx + l * dimension + d],
+                            diffCoeff[l * ncoord + k]);
+                    }
+                }
+            }
+
+            // Apply metric.
+            for (unsigned int d = 0; d < dimension; d++)
+            {
+                tmp[d] = metric[d * ncoord] * inptr[idx];
+                for (unsigned int k = 1; k < ncoord; ++k)
+                {
+                    tmp[d].fma(metric[d * ncoord + k], inptr[k * insize + idx]);
+                }
+            }
+
+            // Write.
+            for (unsigned int d = 0; d < dimension; d++)
+            {
+                outptr[d * outsize + idx] = tmp[d] * jacptr[idx];
+            }
+        }
+    }
+    else
+    {
+        for (size_t e = 0; e < nelmt; e++)
+        {
+            // Compute metric.
+            for (unsigned int d = 0; d < dimension; d++)
+            {
+                for (unsigned int k = 0; k < ncoord; ++k)
+                {
+                    metric[d * ncoord + k] = dfptr[ndf * e + d] * diffCoeff[k];
+                    for (unsigned int l = 1; l < ncoord; ++l)
+                    {
+                        metric[d * ncoord + k].fma(
+                            dfptr[ndf * e + l * dimension + d],
+                            diffCoeff[l * ncoord + k]);
+                    }
+                }
+            }
+
+            for (unsigned int i = 0; i < nqTot; i++)
+            {
+                // Apply metric.
+                for (unsigned int d = 0; d < dimension; d++)
+                {
+                    tmp[d] = metric[d * ncoord] * inptr[nqTot * e + i];
+                    for (unsigned int k = 1; k < ncoord; ++k)
+                    {
+                        tmp[d].fma(metric[d * ncoord + k],
+                                   inptr[nqTot * e + i + k * insize]);
+                    }
+                }
+
+                // Write.
+                for (unsigned int d = 0; d < dimension; d++)
+                {
+                    outptr[d * outsize + nqTot * e + i] = tmp[d] * jacptr[e];
+                }
+            }
         }
     }
 }
@@ -125,4 +311,99 @@ NEK_FORCE_INLINE static
                 inout[d * outsize + idx] = tmp[d];
             }
         });
+}
+
+template <typename ExecSpace, bool DEFORMED, typename TData>
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                            void>::type
+    ApplyMetricKernel(const unsigned int nqTot, const unsigned int ncoord,
+                      const unsigned int dimension, const size_t nelmt,
+                      const size_t insize, const size_t outsize,
+                      const TData *diffCoeff, const TData *jacptr,
+                      const TData *dfptr, const TData *inptr, TData *outptr)
+{
+    const auto ndf   = ncoord * dimension;
+    const auto nsize = nqTot * nelmt;
+
+    if constexpr (DEFORMED)
+    {
+        Nektar::parallel_for<ExecSpace>(
+            0, nsize, NEKTAR_LAMBDA(const size_t idx) {
+                size_t e = idx / nqTot;
+                size_t i = idx % nqTot;
+                TData tmp[3], metric[9] = {0.0};
+
+                // Compute metric.
+                for (unsigned int d = 0; d < dimension; d++)
+                {
+                    for (unsigned int k = 0; k < ncoord; ++k)
+                    {
+                        for (unsigned int l = 0; l < ncoord; ++l)
+                        {
+                            metric[d * ncoord + k] +=
+                                dfptr[ndf * nqTot * e +
+                                      (l * dimension + d) * nqTot + i] *
+                                diffCoeff[l * ncoord + k];
+                        }
+                    }
+                }
+
+                // Apply metric.
+                for (unsigned int d = 0; d < dimension; d++)
+                {
+                    tmp[d] = metric[d * ncoord] * inptr[idx];
+                    for (unsigned int k = 1; k < ncoord; ++k)
+                    {
+                        tmp[d] +=
+                            metric[d * ncoord + k] * inptr[idx + k * insize];
+                    }
+                }
+
+                // Write.
+                for (unsigned int d = 0; d < dimension; d++)
+                {
+                    outptr[d * outsize + idx] = tmp[d] * jacptr[idx];
+                }
+            });
+    }
+    else
+    {
+        Nektar::parallel_for<ExecSpace>(
+            0, nsize, NEKTAR_LAMBDA(const size_t idx) {
+                size_t e = idx / nqTot;
+                TData tmp[3], metric[9] = {0.0};
+
+                // Compute metric.
+                for (unsigned int d = 0; d < dimension; d++)
+                {
+                    for (unsigned int k = 0; k < ncoord; ++k)
+                    {
+                        for (unsigned int l = 0; l < ncoord; ++l)
+                        {
+                            metric[d * ncoord + k] +=
+                                dfptr[(ndf * e + l * dimension + d)] *
+                                diffCoeff[l * ncoord + k];
+                        }
+                    }
+                }
+
+                // Apply metric.
+                for (unsigned int d = 0; d < dimension; d++)
+                {
+                    tmp[d] = metric[d * ncoord] * inptr[idx];
+                    for (unsigned int k = 1; k < ncoord; ++k)
+                    {
+                        tmp[d] +=
+                            metric[d * ncoord + k] * inptr[idx + k * insize];
+                    }
+                }
+
+                // Write.
+                for (unsigned int d = 0; d < dimension; d++)
+                {
+                    outptr[d * outsize + idx] = tmp[d] * jacptr[e];
+                }
+            });
+    }
 }
