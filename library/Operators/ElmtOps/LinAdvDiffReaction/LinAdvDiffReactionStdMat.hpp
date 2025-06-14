@@ -183,8 +183,8 @@ protected:
         auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), transpose));
-        TData *diffCoeffPtr =
-            this->m_diffCoeff.template GetPtr<MemSpace, ReadWrite>();
+        auto diffCoeffPtr =
+            this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
 
         // Specialization for AVX/libXSMM
         if constexpr (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
@@ -219,8 +219,8 @@ protected:
                 auto jacptr = jacptr_init;
                 auto dfptr  = dfptr_init;
 
-                int flags    = 0;
-                int prefetch = LIBXSMM_PREFETCH_NONE;
+                const int flags    = 0;
+                const int prefetch = LIBXSMM_PREFETCH_NONE;
 
                 // Dispatch kernel.
                 auto bwd_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
@@ -305,18 +305,14 @@ protected:
                     // Perform matrix-matrix multiply.
                     ipb_kernel(bwdptr, m_ipbmat, outptr);
 
-                    // Step 5: Multiply by diffusion coefficient
-                    MultiplyByDiffusionCoeff<ExecSpace>(
-                        1, m_nqTot, m_coordDim, derivsize, diffCoeffPtr,
-                        reinterpret_cast<simd_t *>(derivptr));
-
-                    // Step 6: IProductWRTDerivBase
-                    // Multiply by derivative factor and Jacobian.
+                    // Step 5: Multiply by diffusion coefficient, derivative
+                    // factor and Jacobian.
                     if (m_isDeformed)
                     {
-                        MultiplyByJacobianAndDerivFactorKernel<ExecSpace, true>(
+                        ApplyMetricKernel<ExecSpace, true>(
                             m_nqTot, m_coordDim, m_dimension, 1, derivsize,
-                            derivsize, reinterpret_cast<const simd_t *>(jacptr),
+                            derivsize, diffCoeffPtr,
+                            reinterpret_cast<const simd_t *>(jacptr),
                             reinterpret_cast<const simd_t *>(dfptr),
                             reinterpret_cast<const simd_t *>(derivptr),
                             reinterpret_cast<simd_t *>(derivptr));
@@ -326,10 +322,10 @@ protected:
                     }
                     else
                     {
-                        MultiplyByJacobianAndDerivFactorKernel<ExecSpace,
-                                                               false>(
+                        ApplyMetricKernel<ExecSpace, false>(
                             m_nqTot, m_coordDim, m_dimension, 1, derivsize,
-                            derivsize, reinterpret_cast<const simd_t *>(jacptr),
+                            derivsize, diffCoeffPtr,
+                            reinterpret_cast<const simd_t *>(jacptr),
                             reinterpret_cast<const simd_t *>(dfptr),
                             reinterpret_cast<const simd_t *>(derivptr),
                             reinterpret_cast<simd_t *>(derivptr));
@@ -337,6 +333,7 @@ protected:
                         dfptr += m_coordDim * m_dimension * simd_t::width;
                     }
 
+                    // Step 6: IProductWRTDerivBase
                     // Perform matrix-matrix multiply.
                     for (unsigned int d = 0; d < m_dimension; d++)
                     {
