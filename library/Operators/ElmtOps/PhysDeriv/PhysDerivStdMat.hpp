@@ -148,15 +148,12 @@ protected:
             {
                 auto dfptr = dfptr_init;
 
-                const TData alpha  = 1.0;
-                const TData beta   = 0.0;
-                const int flags    = 0;
-                const int prefetch = LIBXSMM_PREFETCH_NONE;
+                const TData alpha = 1.0;
+                const TData beta  = 0.0;
 
                 // Dispatch kernel.
                 auto gemm_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
-                    static_cast<int>(simd_t::width), static_cast<int>(m_nqTot),
-                    static_cast<int>(m_nqTot), alpha, beta, flags, prefetch);
+                    simd_t::width, m_nqTot, m_nqTot, alpha, beta);
 
                 for (size_t e = 0; e < nelmt / simd_t::width; ++e)
                 {

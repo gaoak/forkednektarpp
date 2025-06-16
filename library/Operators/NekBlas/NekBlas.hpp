@@ -36,7 +36,7 @@
 
 #include <string>
 
-#include "Operators/NekBlas/LibXSMMDispatchWrapper.hpp"
+#include "Operators/NekBlas/libXSMMDispatchWrapper.hpp"
 
 #if defined(NEKTAR_ENABLE_CUDA)
 #include "Operators/NekBlas/cuBlasHandle.hpp"
