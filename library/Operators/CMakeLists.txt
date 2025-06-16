@@ -497,12 +497,12 @@ SET(OPERATORS_DEPENDS
 IF(NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
     SET(OPERATORS_HEADERS
       ${OPERATORS_HEADERS}
-      NekBlas/LibXSMMDispatchWrapper.hpp
+      NekBlas/libXSMMDispatchWrapper.hpp
     )
 
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
-      NekBlas/libxsmm.cpp
+      NekBlas/libXSMM.cpp
     )
 # CUDA specific file
 ELSEIF(NEKTAR_ENABLE_CUDA)

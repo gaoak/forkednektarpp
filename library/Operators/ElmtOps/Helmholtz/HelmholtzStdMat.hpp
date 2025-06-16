@@ -213,22 +213,15 @@ protected:
                 auto jacptr = jacptr_init;
                 auto dfptr  = dfptr_init;
 
-                const int flags    = 0;
-                const int prefetch = LIBXSMM_PREFETCH_NONE;
-
                 // Dispatch kernel.
                 auto bwd_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
-                    static_cast<int>(simd_t::width), static_cast<int>(m_nqTot),
-                    static_cast<int>(m_nmTot), 1.0, 0.0, flags, prefetch);
+                    simd_t::width, m_nqTot, m_nmTot, 1.0, 0.0);
                 auto ipb_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
-                    static_cast<int>(simd_t::width), static_cast<int>(m_nmTot),
-                    static_cast<int>(m_nqTot), 1.0, 0.0, flags, prefetch);
+                    simd_t::width, m_nmTot, m_nqTot, 1.0, 0.0);
                 auto deriv_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
-                    static_cast<int>(simd_t::width), static_cast<int>(m_nqTot),
-                    static_cast<int>(m_nqTot), 1.0, 0.0, flags, prefetch);
+                    simd_t::width, m_nqTot, m_nqTot, 1.0, 0.0);
                 auto ipd_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
-                    static_cast<int>(simd_t::width), static_cast<int>(m_nmTot),
-                    static_cast<int>(m_nqTot), 1.0, 1.0, flags, prefetch);
+                    simd_t::width, m_nmTot, m_nqTot, 1.0, 1.0);
 
                 for (size_t e = 0; e < nelmt / simd_t::width; ++e)
                 {

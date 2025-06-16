@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: libxsmm.cpp
+// File: libXSMM.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -36,18 +36,20 @@
 #include "Operators/NekBlas/NekBlas.hpp"
 
 #include "LibUtilities/BasicUtils/ErrorUtil.hpp"
-#include "Operators/NekBlas/LibXSMMDispatchWrapper.hpp"
+#include "libxsmm.h"
 
 template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, xsmmHandle>, void>::type NekGemm(
     [[maybe_unused]] THandle handle, std::string transposeA,
     std::string transposeB, const size_t M, const size_t N, const size_t K,
-    const TData alpha, const TData *a, [[maybe_unused]] const size_t lda,
-    const TData *b, [[maybe_unused]] const size_t ldb, const TData beta,
-    TData *c, [[maybe_unused]] const size_t ldc)
+    const TData alpha, const TData *a, const size_t lda, const TData *b,
+    const size_t ldb, const TData beta, TData *c, const size_t ldc)
 {
     ASSERTL0(transposeA == "N" && transposeB == "N",
              "libxsmm: matrix tranpose is not supported");
+    ASSERTL0(alpha == 1.0, "libxsmm: alpha must be equal to 1.0");
+    ASSERTL0(beta == 0.0 || beta == 1.0,
+             "libxsmm: beta must be equal to 0.0 or 1.0");
     if (alpha != 1.0)
     {
         ASSERTL0(beta == 0.0,
@@ -55,14 +57,11 @@ typename std::enable_if<std::is_same_v<THandle, xsmmHandle>, void>::type NekGemm
     }
 
     // Dispatch kernel.
-    const double alpha0 = 1.0;
-    const int flags     = 0;
-    const int prefetch  = LIBXSMM_PREFETCH_NONE;
-
-    auto gemm_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
-        static_cast<int>(M), static_cast<int>(N), static_cast<int>(K), alpha0,
-        beta, flags, prefetch);
-    gemm_kernel(a, b, c);
+    int lda0 = static_cast<int>(lda);
+    int ldb0 = static_cast<int>(ldb);
+    int ldc0 = static_cast<int>(ldc);
+    libxsmm_gemm(nullptr, nullptr, M, N, K, &alpha, a, &lda0, b, &ldb0, &beta,
+                 c, &ldc0);
     if (alpha != 1.0 && beta == 0.0)
     {
         for (size_t i = 0; i < M * N; i++)
@@ -77,14 +76,16 @@ typename std::enable_if<std::is_same_v<THandle, xsmmHandle>, void>::type
 NekGemmStridedBatched([[maybe_unused]] THandle handle, std::string transposeA,
                       std::string transposeB, const size_t M, const size_t N,
                       const size_t K, const TData alpha, const TData *a,
-                      [[maybe_unused]] const size_t lda, const size_t strideA,
-                      const TData *b, [[maybe_unused]] const size_t ldb,
-                      const size_t strideB, const TData beta, TData *c,
-                      [[maybe_unused]] const size_t ldc, const size_t strideC,
+                      const size_t lda, const size_t strideA, const TData *b,
+                      const size_t ldb, const size_t strideB, const TData beta,
+                      TData *c, const size_t ldc, const size_t strideC,
                       const size_t batchSize)
 {
     ASSERTL0(transposeA == "N" && transposeB == "N",
              "libxsmm: matrix tranpose is not supported");
+    ASSERTL0(alpha == 1.0, "libxsmm: alpha must be equal to 1.0");
+    ASSERTL0(beta == 0.0 || beta == 1.0,
+             "libxsmm: beta must be equal to 0.0 or 1.0");
     if (alpha != 1.0)
     {
         ASSERTL0(beta == 0.0,
@@ -92,16 +93,13 @@ NekGemmStridedBatched([[maybe_unused]] THandle handle, std::string transposeA,
     }
 
     // Dispatch kernel.
-    const double alpha0 = 1.0;
-    const int flags     = 0;
-    const int prefetch  = LIBXSMM_PREFETCH_NONE;
-
-    auto gemm_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
-        static_cast<int>(M), static_cast<int>(N), static_cast<int>(K), alpha0,
-        beta, flags, prefetch);
+    int lda0 = static_cast<int>(lda);
+    int ldb0 = static_cast<int>(ldb);
+    int ldc0 = static_cast<int>(ldc);
     for (size_t i = 0; i < batchSize; i++)
     {
-        gemm_kernel(a + strideA * i, b + +strideB * i, c + strideC * i);
+        libxsmm_gemm(nullptr, nullptr, M, N, K, &alpha, a + strideA * i, &lda0,
+                     b + strideB * i, &ldb0, &beta, c + strideC * i, &ldc0);
         if (alpha != 1.0 && beta == 0.0)
         {
             for (size_t j = 0; j < M * N; j++)
