@@ -127,6 +127,18 @@ ADD_NEKTAR_LIBRARY(MultiRegions
 # MultiRegions uses additional routines from GSMPI
 IF( NEKTAR_USE_MPI )
     TARGET_LINK_LIBRARIES(MultiRegions LINK_PRIVATE ${GSMPI_LIBRARY} ${XXT_LIBRARY})
+
+    # If compiling Scotch, we are building a static library so we do
+    # not want to propagate the dependency in the link interface
+    IF (NEKTAR_USE_SCOTCH AND THIRDPARTY_BUILD_SCOTCH)
+        TARGET_LINK_LIBRARIES(MultiRegions LINK_PRIVATE
+            ${PTSCOTCH_LIBRARY} ${PTSCOTCHERR_LIBRARY})
+    ENDIF()
+ELSE (NEKTAR_USE_MPI )
+    IF (NEKTAR_USE_SCOTCH AND THIRDPARTY_BUILD_SCOTCH)
+        TARGET_LINK_LIBRARIES(MultiRegions LINK_PRIVATE
+            ${SCOTCH_LIBRARY} ${SCOTCHERR_LIBRARY})
+    ENDIF()
 ENDIF( NEKTAR_USE_MPI )
 
 IF( NEKTAR_USE_PETSC )

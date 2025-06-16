@@ -856,8 +856,8 @@ win10-mpi-default-build-and-test:
 # Images are tagged with both :latest and the short SHA commit, so that the
 # correct image version can be grabbed from the container registry.
 .dockerhub_build_template: &dockerhub_build_template
-  image: docker:stable
   <<: *execution-conditions
+  image: docker:stable
   script:
     - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
     - IMAGE=$CI_REGISTRY_IMAGE/${image_name}
@@ -871,8 +871,8 @@ win10-mpi-default-build-and-test:
 # Docker Hub test template, which runs an image from the gitlab container
 # registry on a particular SHA commit.
 .dockerhub-test-template: &dockerhub_test_template
-  image: ${CI_REGISTRY_IMAGE}/${image_name}:$CI_COMMIT_SHORT_SHA
   <<: *execution-conditions
+  image: ${CI_REGISTRY_IMAGE}/${image_name}:$CI_COMMIT_SHORT_SHA
   stage: package-test
   script:
     - mpirun -n 3 IncNavierStokesSolver $CI_PROJECT_DIR/solvers/IncNavierStokesSolver/Tests/ChanFlow_m3_par.xml
@@ -914,6 +914,7 @@ win10-mpi-default-build-and-test:
 
 # This cleans up the local temporary image if not deploying
 .dockerhub-cleanup-template: &dockerhub_cleanup_template
+  <<: *execution-conditions
   image: docker:stable
   stage: cleanup
 #  except:

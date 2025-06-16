@@ -47,6 +47,7 @@ v5.8.0
 - Use recursive strategy for submodule (!1997)
 - cleanup CI environment images after packaging (!1991)
 - Update Fedora test environments to Fedora 40 (!1993)
+- Fix broken Fedora packaging library dependency (!2160)
 
 **NekMesh**
 - Add high-order pyramid and prism support from gmsh (!1956)

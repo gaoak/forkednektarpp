@@ -101,13 +101,24 @@ ENDIF()
 
 IF (NEKTAR_USE_SCOTCH)
     IF (NEKTAR_USE_MPI)
-        TARGET_LINK_LIBRARIES(SpatialDomains LINK_PUBLIC
-        ${PTSCOTCH_LIBRARY} ${PTSCOTCHERR_LIBRARY})
+        # If compiling Scotch, we are building a static library so we do
+        # not want to propagate the dependency in the link interface
+        IF (THIRDPARTY_BUILD_SCOTCH)
+            TARGET_LINK_LIBRARIES(SpatialDomains LINK_PRIVATE
+                ${PTSCOTCH_LIBRARY} ${PTSCOTCHERR_LIBRARY})
+        ELSE()
+            TARGET_LINK_LIBRARIES(SpatialDomains LINK_PUBLIC
+                ${PTSCOTCH_LIBRARY} ${PTSCOTCHERR_LIBRARY})
+        ENDIF()
     ELSE ()
-
-    # Scotch
-    TARGET_LINK_LIBRARIES(SpatialDomains LINK_PUBLIC
-        ${SCOTCH_LIBRARY} ${SCOTCHERR_LIBRARY})
+        # Scotch
+        IF (THIRDPARTY_BUILD_SCOTCH)
+            TARGET_LINK_LIBRARIES(SpatialDomains LINK_PRIVATE
+                ${SCOTCH_LIBRARY} ${SCOTCHERR_LIBRARY})
+        ELSE()
+            TARGET_LINK_LIBRARIES(SpatialDomains LINK_PUBLIC
+                ${SCOTCH_LIBRARY} ${SCOTCHERR_LIBRARY})
+        ENDIF()
     ENDIF()
     ADD_DEPENDENCIES(SpatialDomains scotch-6.0.4)
 ENDIF()
