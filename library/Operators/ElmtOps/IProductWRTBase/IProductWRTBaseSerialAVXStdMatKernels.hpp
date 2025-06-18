@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: libXSMMDispatchWrapper.hpp
+// File: IProductWRTBaseSerialAVXStdMatKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,60 +34,27 @@
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/ErrorUtil.hpp"
-
-#if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
-#include "libxsmm.h"
-#else
-#define LIBXSMM_PREFETCH_NONE 0
-template <typename TData> class libxsmm_mmfunction
+template <typename ExecSpace, bool DEFORMED, typename TData, typename TScalar>
+NEK_FORCE_INLINE static void MultiplyByJacobianKernel(
+    const unsigned int nqTot, const size_t nelmt, const TData *jacptr,
+    const TData *inptr, TData *outptr, const TScalar scale)
 {
-public:
-    libxsmm_mmfunction([[maybe_unused]] const int flag, const int m,
-                       const int n, const int k, const TData alpha,
-                       const TData beta, [[maybe_unused]] const int prefetch)
-        : m(m), n(n), k(k), alpha(alpha), beta(beta)
+    if constexpr (DEFORMED)
     {
-    }
-
-    void operator()(const TData *a, const TData *b, TData *c)
-    {
-        for (int j = 0; j < n; j++)
+        for (size_t i = 0; i < nelmt * nqTot; ++i)
         {
-            for (int i = 0; i < m; i++)
+            outptr[i] = scale * jacptr[i] * inptr[i];
+        }
+    }
+    else
+    {
+        for (size_t e = 0; e < nelmt; ++e)
+        {
+            for (unsigned int i = 0; i < nqTot; ++i)
             {
-                TData tmp = 0.0;
-                for (int l = 0; l < k; l++)
-                {
-                    tmp += a[i + l * m] * b[l + j * k];
-                }
-                c[i + j * m] = alpha * tmp + beta * c[i + j * m];
+                outptr[e * nqTot + i] =
+                    scale * jacptr[e] * inptr[e * nqTot + i];
             }
         }
     }
-
-private:
-    int m;
-    int n;
-    int k;
-    TData alpha;
-    TData beta;
-};
-#endif
-
-template <typename TData> struct LibxsmmDispatchWrapper
-{
-    using KernelFunc = libxsmm_mmfunction<TData>;
-
-    static inline KernelFunc dispatch(
-        const int m, const int n, const int k, const TData alpha,
-        const TData beta, const int flags = 0,
-        const int prefetch = LIBXSMM_PREFETCH_NONE)
-    {
-        ASSERTL0(alpha == 1.0, "libxsmm: alpha must be equal to 1.0");
-        ASSERTL0(beta == 0.0 || beta == 1.0,
-                 "libxsmm: beta must be equal to 0.0 or 1.0");
-
-        return KernelFunc(flags, m, n, k, alpha, beta, prefetch);
-    }
-};
+}

@@ -34,8 +34,6 @@
 
 #pragma once
 
-#include "Operators/Common/Spaces.hpp"
-
 namespace Nektar
 {
 

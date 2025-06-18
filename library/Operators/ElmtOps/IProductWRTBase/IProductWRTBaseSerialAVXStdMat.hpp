@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: IProductWRTBaseStdMat.hpp
+// File: IProductWRTBaseSerialAVXStdMat.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -38,7 +38,7 @@
 #include "Operators/NekBlas/NekBlas.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
-#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseStdMatKernels.hpp"
+#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseSerialAVXStdMatKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -80,19 +80,9 @@ public:
                 ? exp->GetNodalPointsKey().GetPointsType()
                 : LibUtilities::eNoPointsType;
 
-        // Specialization for AVX/libXSMM
-        if constexpr (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
-        {
-            m_matptr = dataWarehouse->template GetData<ExecSpace>(
-                StdMatKey<TData>(basisKeys, m_shapeType,
-                                 eIProductWRTBaseStdMatTranspose, nodalType));
-        }
-        else
-        {
-            m_matptr =
-                dataWarehouse->template GetData<ExecSpace>(StdMatKey<TData>(
-                    basisKeys, m_shapeType, eIProductWRTBaseStdMat, nodalType));
-        }
+        m_matptr = dataWarehouse->template GetData<ExecSpace>(
+            StdMatKey<TData>(basisKeys, m_shapeType,
+                             eIProductWRTBaseStdMatTranspose, nodalType));
     }
 
     // className - for BlockOperatorFactory
@@ -123,10 +113,6 @@ protected:
     void v_Apply(BlockAccessor<TData> &inblock,
                  BlockAccessor<TData> &outblock) override
     {
-        auto handle = NekHandle<ExecSpace>::GetInstance();
-
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
@@ -138,129 +124,72 @@ protected:
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
 
-        // Specialization for AVX/libXSMM
-        if constexpr (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
+        // Get interleave parameter.
+        const auto interleave_width = inblock.GetInterleaveWidth();
+        const auto width_ratio      = (interleave_width == 1)
+                                          ? 1
+                                          : interleave_width / m_implInterleaveWidth;
+        const auto chunkSize =
+            std::max(m_implInterleaveWidth, interleave_width);
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+
+        // Allocate storage.
+        if (m_wsp.size() == 0)
         {
-            // Get interleave parameter.
-            const auto interleave_width = inblock.GetInterleaveWidth();
-            const auto width_ratio =
-                (interleave_width == 1)
-                    ? 1
-                    : interleave_width / m_implInterleaveWidth;
-            const auto chunkSize =
-                std::max(m_implInterleaveWidth, interleave_width);
-
-            // Allocate storage.
-            if (m_wsp.size() == 0)
-            {
-                m_wsp = MemoryRegion<TData>::Create(simd_t::width * m_nqTot,
-                                                    ExecSpace::alignment);
-            }
-
-            // Get workspace pointer.
-            auto wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
-
-            for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
-            {
-                auto jacptr = jacptr_init;
-
-                const TData alpha = 1.0;
-                const TData beta  = 0.0;
-
-                // Dispatch kernel.
-                auto gemm_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
-                    simd_t::width, m_nmTot, m_nqTot, alpha, beta);
-
-                for (size_t e = 0; e < nelmt / simd_t::width; ++e)
-                {
-                    // Reshape, if necessary.
-                    if (e % width_ratio == 0)
-                    {
-                        ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                            interleave_width, chunkSize, m_nqTot,
-                            (TData *)inptr);
-                    }
-
-                    // Multiply by jacobian.
-                    if (m_isDeformed)
-                    {
-                        MultiplyByJacobianKernel<ExecSpace, true>(
-                            m_nqTot, 1,
-                            reinterpret_cast<const simd_t *>(jacptr),
-                            reinterpret_cast<const simd_t *>(inptr),
-                            reinterpret_cast<simd_t *>(wspptr), this->m_scale);
-                        jacptr += m_nqTot * simd_t::width;
-                    }
-                    else
-                    {
-                        MultiplyByJacobianKernel<ExecSpace, false>(
-                            m_nqTot, 1,
-                            reinterpret_cast<const simd_t *>(jacptr),
-                            reinterpret_cast<const simd_t *>(inptr),
-                            reinterpret_cast<simd_t *>(wspptr), this->m_scale);
-                        jacptr += simd_t::width;
-                    }
-
-                    // Perform matrix-matrix multiply.
-                    gemm_kernel(wspptr, m_matptr, outptr);
-
-                    // Increment pointers.
-                    inptr += m_nqTot * simd_t::width;
-                    outptr += m_nmTot * simd_t::width;
-                }
-            }
+            m_wsp = MemoryRegion<TData>::Create(simd_t::width * m_nqTot,
+                                                ExecSpace::alignment);
         }
-        else
+
+        // Get workspace pointer.
+        auto wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
+
+        // Loop over components.
+        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
-            // Allocate storage.
-            if (m_wsp.size() == 0)
+            auto jacptr = jacptr_init;
+
+            // Dispatch kernel.
+            auto gemm_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
+                simd_t::width, m_nmTot, m_nqTot, 1.0, 0.0);
+
+            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
-                m_wsp = MemoryRegion<TData>::Create(nelmt * m_nqTot,
-                                                    ExecSpace::alignment);
-            }
-
-            // Get workspace pointer.
-            auto wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
-
-            for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
-            {
-                auto jacptr = jacptr_init;
-
-                const TData alpha = 1.0;
-                const TData beta  = 0.0;
-
                 // Reshape, if necessary.
-                ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                    inblock.GetInterleaveWidth(),
-                    inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
-                    (TData *)inptr);
+                if (e % width_ratio == 0)
+                {
+                    ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                        interleave_width, chunkSize, m_nqTot, (TData *)inptr);
+                }
 
                 // Multiply by jacobian.
                 if (m_isDeformed)
                 {
                     MultiplyByJacobianKernel<ExecSpace, true>(
-                        m_nqTot, nelmt, jacptr, inptr, wspptr, this->m_scale);
+                        m_nqTot, 1, reinterpret_cast<const simd_t *>(jacptr),
+                        reinterpret_cast<const simd_t *>(inptr),
+                        reinterpret_cast<simd_t *>(wspptr), this->m_scale);
+                    jacptr += m_nqTot * simd_t::width;
                 }
                 else
                 {
                     MultiplyByJacobianKernel<ExecSpace, false>(
-                        m_nqTot, nelmt, jacptr, inptr, wspptr, this->m_scale);
+                        m_nqTot, 1, reinterpret_cast<const simd_t *>(jacptr),
+                        reinterpret_cast<const simd_t *>(inptr),
+                        reinterpret_cast<simd_t *>(wspptr), this->m_scale);
+                    jacptr += simd_t::width;
                 }
 
                 // Perform matrix-matrix multiply.
-                NekGemm(handle, "N", "N", m_nmTot, nelmt, m_nqTot, alpha,
-                        m_matptr, m_nmTot, wspptr, m_nqTot, beta, outptr,
-                        m_nmTot);
+                gemm_kernel(wspptr, m_matptr, outptr);
 
                 // Increment pointers.
-                inptr += inblock.size();
-                outptr += outblock.size();
+                inptr += m_nqTot * simd_t::width;
+                outptr += m_nmTot * simd_t::width;
             }
         }
-
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 };
 
