@@ -372,6 +372,14 @@ MACRO(ADD_ELMT_OPERATOR dir)
                     SET(IMPL_HEADER "#include \"${include_file}\"")
                     MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
 
+                # Found a Serial/AVX StdMat header.
+                ELSEIF((EXISTS "${dir}/${name}SerialAVXStdMat.hpp") AND
+                    ("${ExecSpace}" STREQUAL "Serial" OR "${ExecSpace}" STREQUAL "AVX") AND ("${Impl}" STREQUAL "StdMat"))
+                    FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                        "${dir}/${name}SerialAVXStdMat.hpp")
+                    SET(IMPL_HEADER "#include \"${include_file}\"")
+                    MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
+
                 # Found a Serial/AVX SumFac header.
                 ELSEIF((EXISTS "${dir}/${name}SerialAVXSumFac.hpp") AND
                     ("${ExecSpace}" STREQUAL "Serial" OR "${ExecSpace}" STREQUAL "AVX") AND ("${Impl}" STREQUAL "SumFac"))
@@ -385,6 +393,13 @@ MACRO(ADD_ELMT_OPERATOR dir)
                     ("${ExecSpace}" STREQUAL "Serial" OR "${ExecSpace}" STREQUAL "AVX") AND ("${Impl}" STREQUAL "Generic"))
                     FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
                         "${dir}/${name}SerialAVXGeneric.hpp")
+                    SET(IMPL_HEADER "#include \"${include_file}\"")
+                    MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
+
+                # Found a Device StdMat header.
+                ELSEIF(EXISTS "${dir}/${name}DeviceStdMat.hpp" AND ("${ExecSpace}" STREQUAL "Device") AND ("${Impl}" STREQUAL "StdMat"))
+                    FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                        "${dir}/${name}DeviceStdMat.hpp")
                     SET(IMPL_HEADER "#include \"${include_file}\"")
                     MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
 

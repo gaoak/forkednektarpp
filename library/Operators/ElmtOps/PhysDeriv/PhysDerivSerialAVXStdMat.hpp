@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: BwdTransStdMat.hpp
+// File: PhysDerivSerialAVXStdMat.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,15 +34,17 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/BwdTrans/OperatorBwdTrans.hpp"
+#include "Operators/ElmtOps/PhysDeriv/OperatorPhysDeriv.hpp"
 #include "Operators/NekBlas/NekBlas.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
+
+#include "Operators/ElmtOps/PhysDeriv/PhysDerivSerialAVXStdMatKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename Implementation, typename TData>
-class BlockOperatorBwdTransImpl : public BlockOperatorBwdTrans<TData>
+class BlockOperatorPhysDerivImpl : public BlockOperatorPhysDeriv<TData>
 {
     using simd_t =
         typename simd_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
@@ -50,9 +52,9 @@ class BlockOperatorBwdTransImpl : public BlockOperatorBwdTrans<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    BlockOperatorBwdTransImpl(const LocalRegions::ExpansionSharedPtr &exp,
-                              NekDataWarehouseSharedPtr dataWarehouse)
-        : BlockOperatorBwdTrans<TData>(exp, dataWarehouse)
+    BlockOperatorPhysDerivImpl(const LocalRegions::ExpansionSharedPtr &exp,
+                               NekDataWarehouseSharedPtr dataWarehouse)
+        : BlockOperatorPhysDeriv<TData>(exp, dataWarehouse)
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -71,24 +73,8 @@ public:
             basisKeys[d] = exp->GetBasis(d)->GetBasisKey();
         }
 
-        LibUtilities::PointsType nodalType =
-            (exp->IsNodalNonTensorialExp())
-                ? exp->GetNodalPointsKey().GetPointsType()
-                : LibUtilities::eNoPointsType;
-
-        // Specialization for AVX/libXSMM
-        if constexpr (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
-        {
-            m_matptr = dataWarehouse->template GetData<ExecSpace>(
-                StdMatKey<TData>(basisKeys, m_shapeType,
-                                 eBwdTransStdMatTranspose, nodalType));
-        }
-        else
-        {
-            m_matptr =
-                dataWarehouse->template GetData<ExecSpace>(StdMatKey<TData>(
-                    basisKeys, m_shapeType, eBwdTransStdMat, nodalType));
-        }
+        m_matptr = dataWarehouse->template GetData<ExecSpace>(StdMatKey<TData>(
+            basisKeys, m_shapeType, ePhysDerivStdMatTranspose));
     }
 
     // className - for BlockOperatorFactory
@@ -100,7 +86,7 @@ public:
         NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
-            BlockOperatorBwdTransImpl<ExecSpace, Implementation, TData>>(
+            BlockOperatorPhysDerivImpl<ExecSpace, Implementation, TData>>(
             exp, dataWarehouse);
     }
 
@@ -118,83 +104,81 @@ protected:
     void v_Apply(BlockAccessor<TData> &inblock,
                  BlockAccessor<TData> &outblock) override
     {
-        auto handle = NekHandle<ExecSpace>::GetInstance();
-
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Specialization for AVX/libXSMM
-        if constexpr (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
-        {
-            // Get interleave parameter.
-            const auto interleave_width = inblock.GetInterleaveWidth();
-            const auto width_ratio =
-                (interleave_width == 1)
-                    ? 1
-                    : interleave_width / m_implInterleaveWidth;
-            const auto chunkSize =
-                std::max(m_implInterleaveWidth, interleave_width);
+        // Fetch derivative factor.
+        auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
+                                  inblock.GetNumElements(), false));
 
-            for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
-            {
-                const TData alpha = 1.0;
-                const TData beta  = 0.0;
-
-                // Dispatch kernel.
-                auto gemm_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
-                    simd_t::width, m_nqTot, m_nmTot, alpha, beta);
-
-                for (size_t e = 0; e < nelmt / simd_t::width; ++e)
-                {
-                    // Reshape, if necessary.
-                    if (e % width_ratio == 0)
-                    {
-                        ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                            interleave_width, chunkSize, m_nmTot,
-                            (TData *)inptr);
-                    }
-
-                    // Perform matrix-matrix multiply.
-                    gemm_kernel(inptr, m_matptr, outptr);
-
-                    // Increment pointers.
-                    inptr += m_nmTot * simd_t::width;
-                    outptr += m_nqTot * simd_t::width;
-                }
-            }
-        }
-        else
-        {
-            for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
-            {
-                const TData alpha = 1.0;
-                const TData beta  = 0.0;
-
-                // Reshape, if necessary.
-                ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                    inblock.GetInterleaveWidth(),
-                    inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
-                    (TData *)inptr);
-
-                // Perform matrix-matrix multiply.
-                NekGemm(handle, "N", "N", m_nqTot, nelmt, m_nmTot, alpha,
-                        m_matptr, m_nqTot, inptr, m_nmTot, beta, outptr,
-                        m_nqTot);
-
-                // Increment pointers.
-                inptr += inblock.size();
-                outptr += outblock.size();
-            }
-        }
+        // Get interleave parameter.
+        const auto interleave_width = inblock.GetInterleaveWidth();
+        const auto width_ratio      = (interleave_width == 1)
+                                          ? 1
+                                          : interleave_width / m_implInterleaveWidth;
+        const auto chunkSize =
+            std::max(m_implInterleaveWidth, interleave_width);
 
         // Set to new interleave width.
         inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+
+        // Loop over components.
+        const auto outsize = m_nqTot * inblock.GetNumElmtGroups();
+        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+        {
+            auto dfptr = dfptr_init;
+
+            // Dispatch kernel.
+            auto gemm_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
+                simd_t::width, m_nqTot, m_nqTot, 1.0, 0.0);
+
+            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            {
+                // Reshape, if necessary.
+                if (e % width_ratio == 0)
+                {
+                    ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                        interleave_width, chunkSize, m_nqTot, (TData *)inptr);
+                }
+
+                // Perform matrix-matrix multiply.
+                for (unsigned int d = 0; d < m_dimension; d++)
+                {
+                    gemm_kernel(inptr, m_matptr + d * m_nqTot * m_nqTot,
+                                outptr + d * outblock.size());
+                }
+
+                // Multiply by derivative factor.
+                if (m_isDeformed)
+                {
+                    MultiplyByDerivFactorKernel<ExecSpace, true>(
+                        m_nqTot, m_coordDim, m_dimension, 1, outsize, outsize,
+                        reinterpret_cast<const simd_t *>(dfptr),
+                        reinterpret_cast<const simd_t *>(outptr),
+                        reinterpret_cast<simd_t *>(outptr));
+                    dfptr += m_coordDim * m_dimension * m_nqTot * simd_t::width;
+                }
+                else
+                {
+                    MultiplyByDerivFactorKernel<ExecSpace, false>(
+                        m_nqTot, m_coordDim, m_dimension, 1, outsize, outsize,
+                        reinterpret_cast<const simd_t *>(dfptr),
+                        reinterpret_cast<const simd_t *>(outptr),
+                        reinterpret_cast<simd_t *>(outptr));
+                    dfptr += m_coordDim * m_dimension * simd_t::width;
+                }
+
+                // Increment pointer.
+                inptr += m_nqTot * simd_t::width;
+                outptr += m_nqTot * simd_t::width;
+            }
+            outptr += (m_coordDim - 1) * outblock.size();
+        }
     }
 };
 

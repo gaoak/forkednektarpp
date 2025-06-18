@@ -32,7 +32,6 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Operators/Common/Spaces.hpp"
 #include "Operators/NekBlas/NekBlas.hpp"
 
 #include "LibUtilities/BasicUtils/ErrorUtil.hpp"
