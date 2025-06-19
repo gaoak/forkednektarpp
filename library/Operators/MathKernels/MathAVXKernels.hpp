@@ -599,8 +599,8 @@ divKernel(const size_t nsize, const TData alpha, const TData *x, TData *y)
         xChunk1.load(x + simd_t::width, is_aligned);
 
         // y = alpha / x
-        simd_t yChunk0 = aChunk / yChunk0;
-        simd_t yChunk1 = aChunk / yChunk1;
+        simd_t yChunk0 = aChunk / xChunk0;
+        simd_t yChunk1 = aChunk / xChunk1;
 
         // store
         yChunk0.store(y, is_aligned);
@@ -620,7 +620,7 @@ divKernel(const size_t nsize, const TData alpha, const TData *x, TData *y)
         xChunk.load(x, is_aligned);
 
         // y = alpha / x
-        simd_t yChunk = aChunk / yChunk;
+        simd_t yChunk = aChunk / xChunk;
 
         // store
         yChunk.store(y, is_aligned);
