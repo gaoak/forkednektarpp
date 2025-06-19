@@ -192,6 +192,53 @@ void mul(const TData alpha, MemoryRegion<TData> &x, MemoryRegion<TData> &y)
     mulKernel<ExecSpace>(nsize, alpha, xptr, yptr);
 }
 
+template <typename ExecSpace, typename TData, FieldState TFieldState>
+void mul(const TData alpha, Field<TData, TFieldState> &x,
+         Field<TData, TFieldState> &y)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    if (x.size() != y.size())
+    {
+        std::stringstream msg;
+
+        msg << "MathKernel::div - Memory size mismatch between Field";
+        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+    }
+
+    for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
+    {
+        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
+        auto size = x.GetBlocks()[blk].size() * x.GetNumComponents();
+        mulKernel<ExecSpace>(size, alpha, xptr, yptr);
+    }
+}
+
+template <typename ExecSpace, typename TData, FieldState TFieldState>
+void mul(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
+         Field<TData, TFieldState> &z)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    if (x.size() != y.size() && y.size() != z.size())
+    {
+        std::stringstream msg;
+
+        msg << "MathKernel::div - Memory size mismatch between Field";
+        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+    }
+
+    for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
+    {
+        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        auto zptr = z.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
+        auto size = x.GetBlocks()[blk].size() * x.GetNumComponents();
+        mulKernel<ExecSpace>(size, xptr, yptr, zptr);
+    }
+}
+
 template <typename ExecSpace, typename TData>
 void mul(MemoryRegion<TData> &x, MemoryRegion<TData> &y, MemoryRegion<TData> &z)
 {
@@ -341,53 +388,6 @@ void daxpy(const TData alpha, MemoryRegion<TData> &x, MemoryRegion<TData> &y,
     auto yptr  = y.template GetPtr<MemSpace, ReadOnly>();
     auto zptr  = z.template GetPtr<MemSpace, WriteOnly>();
     daxpyKernel<ExecSpace>(nsize, alpha, xptr, yptr, zptr);
-}
-
-template <typename ExecSpace, typename TData, FieldState TFieldState>
-void mul(const TData alpha, Field<TData, TFieldState> &x,
-         Field<TData, TFieldState> &y)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    if (x.size() != y.size())
-    {
-        std::stringstream msg;
-
-        msg << "MathKernel::div - Memory size mismatch between Field";
-        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
-    }
-
-    for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
-    {
-        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
-        auto size = x.GetBlocks()[blk].size() * x.GetNumComponents();
-        mulKernel<ExecSpace>(size, alpha, xptr, yptr);
-    }
-}
-
-template <typename ExecSpace, typename TData, FieldState TFieldState>
-void mul(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
-         Field<TData, TFieldState> &z)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    if (x.size() != y.size() && y.size() != z.size())
-    {
-        std::stringstream msg;
-
-        msg << "MathKernel::div - Memory size mismatch between Field";
-        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
-    }
-
-    for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
-    {
-        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto zptr = z.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
-        auto size = x.GetBlocks()[blk].size() * x.GetNumComponents();
-        mulKernel<ExecSpace>(size, xptr, yptr, zptr);
-    }
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
@@ -545,22 +545,13 @@ void l1norm(Field<TData, TFieldState> &x, TData *out)
 }
 
 template <typename ExecSpace, typename TData>
-void l1norm(MemoryRegion<TData> &x, MemoryRegion<TData> &y, TData *out)
+void l1norm(MemoryRegion<TData> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
-    if (x.size() != y.size())
-    {
-        std::stringstream msg;
-
-        msg << "MathKernel::l1norm - Memory size mismatch between Field";
-        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
-    }
-
     auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
-    auto yptr  = y.template GetPtr<MemSpace, ReadOnly>();
     auto nsize = x.size();
-    l1normKernel<ExecSpace>(nsize, xptr, yptr, out);
+    l1normKernel<ExecSpace>(nsize, xptr, out);
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
@@ -583,22 +574,13 @@ void l2norm(Field<TData, TFieldState> &x, TData *out)
 }
 
 template <typename ExecSpace, typename TData>
-void l2norm(MemoryRegion<TData> &x, MemoryRegion<TData> &y, TData *out)
+void l2norm(MemoryRegion<TData> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
-    if (x.size() != y.size())
-    {
-        std::stringstream msg;
-
-        msg << "MathKernel::l1norm - Memory size mismatch between Field";
-        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
-    }
-
     auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
-    auto yptr  = y.template GetPtr<MemSpace, ReadOnly>();
     auto nsize = x.size();
-    l2normKernel<ExecSpace>(nsize, xptr, yptr, out);
+    l2normKernel<ExecSpace>(nsize, xptr, out);
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
@@ -621,23 +603,13 @@ void lpnorm(const unsigned int p, Field<TData, TFieldState> &x, TData *out)
 }
 
 template <typename ExecSpace, typename TData>
-void lpnorm(const unsigned int p, MemoryRegion<TData> &x,
-            MemoryRegion<TData> &y, TData *out)
+void lpnorm(const unsigned int p, MemoryRegion<TData> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
-    if (x.size() != y.size())
-    {
-        std::stringstream msg;
-
-        msg << "MathKernel::l1norm - Memory size mismatch between Field";
-        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
-    }
-
     auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
-    auto yptr  = y.template GetPtr<MemSpace, ReadOnly>();
     auto nsize = x.size();
-    lpnormKernel<ExecSpace>(nsize, p, xptr, yptr, out);
+    lpnormKernel<ExecSpace>(nsize, p, xptr, out);
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
@@ -660,22 +632,13 @@ void linfnorm(Field<TData, TFieldState> &x, TData *out)
 }
 
 template <typename ExecSpace, typename TData>
-void linfnorm(MemoryRegion<TData> &x, MemoryRegion<TData> &y, TData *out)
+void linfnorm(MemoryRegion<TData> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
-    if (x.size() != y.size())
-    {
-        std::stringstream msg;
-
-        msg << "MathKernel::l1norm - Memory size mismatch between Field";
-        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
-    }
-
     auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
-    auto yptr  = y.template GetPtr<MemSpace, ReadOnly>();
     auto nsize = x.size();
-    linfnormKernel<ExecSpace>(nsize, xptr, yptr, out);
+    linfnormKernel<ExecSpace>(nsize, xptr, out);
 }
 
 } // namespace Nektar
