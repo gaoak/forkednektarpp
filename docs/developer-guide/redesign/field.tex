@@ -403,35 +403,28 @@ static MemoryRegion<TData> CreateFromHostPtr(const std::string name,
 }
 \end{lstlisting}
 
-Within \lstinline[style=C++Style]!CreateFromHostPtr!, specialized \lstinline[style=C++Style]!MemoryRegionHost! and \lstinline[style=C++Style]!MemoryRegionDevice! constructor are used: 
+Within \lstinline[style=C++Style]!CreateFromHostPtr!, specialized \lstinline[style=C++Style]!MemoryStorage! constructor is used: 
 \begin{lstlisting}[style=C++Style]
-    MemoryRegionHost(const std::string name, TData *h_src, const size_t size,
-                     const size_t alignment, const size_t device_rank)
-    {
-        m_owned       = false;
-        m_size        = size;
-        m_alignment   = alignment;
-        m_initialize  = false;
-        m_device_rank = device_rank;
-        m_name        = name;
+MemoryStorage(const std::string name, TData *h_src, const size_t size,
+              const size_t alignment, const unsigned int device_rank)
+{
+    m_owned       = false;
+    m_name        = name;
+    m_size        = size;
+    m_alignment   = alignment;
+    m_device_rank = device_rank;
 
-        m_host       = h_src;
-        m_host_valid = true;
-    }
+    m_host         = h_src;
+    m_device       = nullptr;
+    m_host_valid   = true;
+    m_device_valid = false;
+}
 \end{lstlisting}
 
-\begin{lstlisting}[style=C++Style]
-    MemoryRegionDevice(const std::string name, TData *h_src, const size_t size,
-                       const size_t alignment, const size_t device_rank)
-        : MemoryRegionHost<TData>(name, h_src, size, alignment, device_rank)
-    {
-    }
-\end{lstlisting}
-
-Those specialized constructors simply borrow a host pointer, without additional host memory allocation. The \lstinline[style=C++Style]!Field! object conserves ownership of the memory and no host memory is deallocated during \lstinline[style=C++Style]!MemoryRegionHost! object destruction
+This specialized constructor simply borrows a host pointer, without additional host memory allocation. The \lstinline[style=C++Style]!Field! object conserves ownership of the memory and no host memory is deallocated during \lstinline[style=C++Style]!MemoryStorage! object destruction
 
 \begin{lstlisting}[style=C++Style]
-virtual ~MemoryRegionHost()
+~MemoryStorage()
 {
     if (m_host && m_owned)
     {
@@ -444,12 +437,12 @@ virtual ~MemoryRegionHost()
 
 Instead, the host memory is deallocated by the \lstinline[style=C++Style]!Field! object destructor, as the later has ownership of the host memory.
 \begin{lstlisting}[style=C++Style]
-    ~Field()
+~Field()
+{
+    if (m_host)
     {
-        if (m_host)
-        {
-            operator delete[](m_host, std::align_val_t(m_alignment));
-        }
-        m_host = nullptr;
+        operator delete[](m_host, std::align_val_t(m_alignment));
     }
+    m_host = nullptr;
+}
 \end{lstlisting}

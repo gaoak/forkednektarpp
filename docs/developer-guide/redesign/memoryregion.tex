@@ -13,15 +13,13 @@ Note: Multi-device capabilities are not yet fully implemented.
 \section{MemoryRegion}
 \subsection{Description}
 \lstinline[style=C++Style]!MemoryRegion! is a templated class
-containing a pointer to a \lstinline[style=C++Style]!MemoryRegionDevice!
-class. The \lstinline[style=C++Style]!MemoryRegionHost! base
-class and its \lstinline[style=C++Style]!MemoryRegionDevice! derived
-class should never be used directly. Instead the
+containing a pointer to a \lstinline[style=C++Style]!MemoryStorage!
+class. The \lstinline[style=C++Style]!MemoryStorage! class should 
+never be used directly. Instead the
 \lstinline[style=C++Style]!MemoryRegion! class should be used as a
 higher level memory management object encapsulating the
-functionalities of both the
-\lstinline[style=C++Style]!MemoryRegionHost! base class and the
-\lstinline[style=C++Style]!MemoryRegionDevice! derived class. The
+functionalities of the
+\lstinline[style=C++Style]!MemoryStorage! class. The
 \lstinline[style=C++Style]!MemoryRegion! class has a default
 constructor and a default destructor but no copy constructor and only
 move semantics is allowed after object instantiation.
@@ -33,7 +31,7 @@ template <typename TData> class MemoryRegion
 
     MemoryRegion() = default; // Default removes implicit moves
     MemoryRegion(const MemoryRegion &) = delete;
-    virtual ~MemoryRegion() = default; // Default removes implicit moves
+    ~MemoryRegion() = default; // Default removes implicit moves
 
     ...
 
@@ -41,7 +39,7 @@ protected:
     ...
 
     // Member variables:
-    std::unique_ptr<MemoryRegionDevice<TData>> m_storage = nullptr;
+    std::unique_ptr<MemoryStorage<TData>> m_storage = nullptr;
 };
 \end{lstlisting}
 
@@ -152,11 +150,11 @@ The \lstinline[style=C++Style]!WriteOnly! memory access qualifier prevents a cop
 
 The \lstinline[style=C++Style]!ReadWrite! memory access qualifier should be used when the data is both modified on the requested memory space and read access is necessary. Memory copy occurs only if necessary. The requested memory space is then marked as valid while the opposite memory space is marked as invalid. Memory copy will occur if the data is subsequently requested on the opposite memory space.
 
-\section{MemoryRegionHost}
-\lstinline[style=C++Style]!MemoryRegionHost! is a templated base class designed to manage the memory allocation/deallocation on the host side. As a base class, it also contains provision for host-to-device and device-to-host memory synchronization. As mentionned previously, the \lstinline[style=C++Style]!MemoryRegionHost! base class shall never be used directly and should only be accessed through the \lstinline[style=C++Style]!MemoryRegion! class. As such, the \lstinline[style=C++Style]!MemoryRegionHost! base class is made to be a \lstinline[style=C++Style]!friend! of the \lstinline[style=C++Style]!MemoryRegion! class and all its member functions (except constructor/destructor) and variables are made protected. The member variables of the  \lstinline[style=C++Style]!MemoryRegionHost! base class are:
+\section{MemoryStorage}
+\lstinline[style=C++Style]!MemoryStorage! is a templated class designed to manage the memory allocation/deallocation on the host side. As mentionned previously, the \lstinline[style=C++Style]!MemoryStorage! class shall never be used directly and should only be accessed through the \lstinline[style=C++Style]!MemoryRegion! class. As such, the \lstinline[style=C++Style]!MemoryStorage! class is made to be a \lstinline[style=C++Style]!friend! of the \lstinline[style=C++Style]!MemoryRegion! class and all its member functions (except constructor/destructor) and variables are made protected. The member variables of the  \lstinline[style=C++Style]!MemoryStorage! class are:
 
 \begin{lstlisting}[style=C++Style]
-template <typename TData> class MemoryRegionHost
+template <typename TData> class MemoryStorage
 {
     friend class MemoryRegion<TData>;                                               
 
@@ -165,94 +163,61 @@ protected:
 
     ...
 
-
     bool m_owned = true; // Flag indicating if the host pointer is owned
                          // by the current object.
-    TData *m_host      = nullptr;
+    TData *m_host      = nullptr; /// < Host memory pointer
+    TData *m_device    = nullptr; ///< Device memory pointer
     size_t m_size      = 0;
     size_t m_alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
 
-    bool m_host_valid = false;    // Flag indicating that the host data is valid
-    bool m_initialize = true;     // Flag indicating that the data needs
-                                  // to be initialize and is needed for
-                                  // host device transfers.
+    bool m_host_valid    = false; // Flag indicating that the host data is valid
+    bool m_device_valid  = false; ///< Flag indicating the device data is valid
     size_t m_device_rank = 0;     // Index indicating device ID.
-    std::string m_name{""}; 
+    std::string m_name{""};
+    MemAllocType m_memAllocType{eHostDevice};
 };
 \end{lstlisting}
 
-The \lstinline[style=C++Style]!MemoryRegionHost! templated base class does not have neither a default nor a copy constructors. As well, the assignment operator has been deleted and only move semantics is allowed once the \lstinline[style=C++Style]!MemoryRegionHost! object has been created.
+The \lstinline[style=C++Style]!MemoryStorage! templated class does not have neither a default nor a copy constructors. As well, the assignment operator has been deleted and only move semantics is allowed once the \lstinline[style=C++Style]!MemoryStorage! object has been created.
 
 \begin{lstlisting}[style=C++Style]
-MemoryRegionHost()                                       = delete;
-MemoryRegionHost(const MemoryRegionHost &rhs)            = delete;
-MemoryRegionHost &operator=(const MemoryRegionHost &rhs) = delete;
+MemoryStorage()                                    = delete;
+MemoryStorage(const MemoryStorage &rhs)            = delete;
+MemoryStorage &operator=(const MemoryStorage &rhs) = delete;
 \end{lstlisting}
 
-The \lstinline[style=C++Style]!MemoryRegionHost! templated base class has a custom constructor allowing provision to allocate a contiguous memory chunk on the host with a specified \lstinline[style=C++Style]!alignment! and number of elements \lstinline[style=C++Style]!size! of type \lstinline[style=C++Style]!TData!. However, the requested memory is not allocated during construction, but allocated only if a host memory access is requested.
+The \lstinline[style=C++Style]!MemoryStorage! templated class has a custom constructor allowing provision to allocate a contiguous memory chunk with a specified \lstinline[style=C++Style]!alignment! and number of elements \lstinline[style=C++Style]!size! of type \lstinline[style=C++Style]!TData!. However, the requested memory is not allocated during construction, but allocated only if a memory access is requested.
 
 \begin{lstlisting}[style=C++Style]
-MemoryRegionHost(const std::string name, const size_t size,
-                 const size_t alignment, const size_t device_rank)
+MemoryStorage(const std::string name, const size_t size,
+              const size_t alignment, const unsigned int device_rank,
+              const MemAllocType &memAllocType)
 {
-    m_owned       = true;
-    m_size        = size;
-    m_alignment   = alignment;
-    m_initialize  = true;
-    m_device_rank = device_rank;
-    m_name        = name;
+    m_owned        = true;
+    m_name         = name;
+    m_size         = size;
+    m_alignment    = alignment;
+    m_device_rank  = device_rank;
+    m_memAllocType = memAllocType;
+
+    m_host         = nullptr;
+    m_device       = nullptr;
+    m_host_valid   = false;
+    m_device_valid = false;
 }
 \end{lstlisting}
 
-\section{MemoryRegionDevice}
-\lstinline[style=C++Style]!MemoryRegionDevice! is a templated derived class designed to manage the memory allocation/deallocation on both the host and device sides.
-It contains the following additional protected member variables:
+The \lstinline[style=C++Style]!MemoryStorage! class has member functions responsible of host-to-device and device-to-memory copy. Memory copy is only performed if necessary by keeping track of when the data is modified on either the host or the device with the member variables \lstinline[style=C++Style]!m_host_valid! and \lstinline[style=C++Style]!m_device_valid!.
 
 \begin{lstlisting}[style=C++Style]
-template <typename TData> class MemoryRegionDevice
-{
-    friend class MemoryRegion<TData>;
-
-    ...
-protected:
-
-    ...
-
-    // Member variables:
-    TData *m_device     = nullptr; ///< Device memory pointer
-    bool m_device_valid = false;   ///< Flag indicating the device data is valid
-};
-\end{lstlisting}
-
-Similarly to the base class, the \lstinline[style=C++Style]!MemoryRegionDevice! templated derive class does not have neither a default nor a copy constructors and the assignment operator has been deleted
-
-\begin{lstlisting}[style=C++Style]
-MemoryRegionDevice()                                         = delete;
-MemoryRegionDevice(const MemoryRegionDevice &rhs)            = delete;
-MemoryRegionDevice &operator=(const MemoryRegionDevice &rhs) = delete;
-\end{lstlisting}
-
-The \lstinline[style=C++Style]!MemoryRegionDevice! templated derive class has a custom constructor allowing provision to allocate a contiguous memory chunk on both the host and the device with a specified \lstinline[style=C++Style]!alignment! and number of elements \lstinline[style=C++Style]!size! of type \lstinline[style=C++Style]!TData!. Again, memory is not allocated during construction, but only when a device memory access is requested.
-
-\begin{lstlisting}[style=C++Style]
-MemoryRegionDevice(const std::string name, const size_t size,
-                   const size_t alignment, const size_t device_rank)
-    : MemoryRegionHost<TData>(name, size, alignment, device_rank)
-{
-}
-\end{lstlisting}
-
-The \lstinline[style=C++Style]!MemoryRegionDevice! has member functions responsible of host-to-device and device-to-memory copy. Memory copy is only performed if necessary by keeping track of when the data is modified on either the host or the device with the member variables \lstinline[style=C++Style]!m_host_valid! and \lstinline[style=C++Style]!m_device_valid!.
-
-\begin{lstlisting}[style=C++Style]
-void HostToDeviceCopy(void) override
+void HostToDeviceCopy(void)
 {     
     ...
 }
 \end{lstlisting}
 
 \begin{lstlisting}[style=C++Style]
-void DeviceToHostCopy(void) override
+void DeviceToHostCopy(void)
 {  
     ...
 }
