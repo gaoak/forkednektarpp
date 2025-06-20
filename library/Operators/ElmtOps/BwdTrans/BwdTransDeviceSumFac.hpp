@@ -92,7 +92,7 @@ public:
             const bool indexing =
                 ((m_shapeType == LibUtilities::Tet ||
                   m_shapeType == LibUtilities::NodalTet) &&
-                 std::is_same_v<Implementation, Operators::SumFacQP>);
+                 std::is_same_v<Implementation, Operators::SumFacTOP>);
 
             m_index.push_back(
                 indexing ? this->m_dataWarehouse->template GetData<ExecSpace>(

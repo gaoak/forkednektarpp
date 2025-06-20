@@ -1,8 +1,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: LinAdvDiffReactionDeviceSumFac@Shape@.cpp
+// File: MassDeviceSumFacTOP@Shape@.cpp
 //
-// For more information, please see: http://www.nektar.info
+// For more informatioxn, please see: http://www.nektar.info
 //
 // The MIT License
 //
@@ -36,17 +36,16 @@
 #include "Common/SwitchLevel2Defs.h"
 // Update this include file to the appropriate operator class definition if
 // using for another operator
-#include "ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionDeviceSumFac.hpp"
+#include "ElmtOps/Mass/MassDeviceSumFac.hpp"
 
 namespace Nektar::Operators::detail
 {
 // clang-format off
 
 // Update the operator class name if reusing this file i.e. OperatorXXXBaseImpl
-// and ensure the ExecSpace is consistent
 template <>
-void BlockOperatorLinAdvDiffReactionImpl<NektarSpaces::@ExecSpace@,
-                                    Operators::SumFacQP, @TData@>::@Shape@Block
+void BlockOperatorMassImpl<NektarSpaces::@ExecSpace@, Operators::SumFacTOP,
+                                      @TData@>::@Shape@Block
                 (BlockAccessor<@TData@> &input, BlockAccessor<@TData@> &output)
 {
     // The following will use predefined code found in the Operators/Common

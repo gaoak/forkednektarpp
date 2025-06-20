@@ -62,7 +62,7 @@
  *              and Device
  *      --opImpl=StdMat
  *              specify the implementation. Possible values are: StdMat, SumFac,
- *              and SumFacQP
+ *              and SumFacTOP
  *      -P Ntest=100
  *              number of repeated runs for each operator. Usually a operator
  *              takes very short time to finish, so we need to repeat it many

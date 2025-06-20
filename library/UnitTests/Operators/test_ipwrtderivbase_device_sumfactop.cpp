@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_ipwrtderivbase_device_sumfac_qp.cpp
+// File: test_ipwrtderivbase_device_sumfactop.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -43,7 +43,7 @@
 #define TEST_IPWRTDERIVBASE(test_name, test, dim, tol)                         \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        Configure("Device", "SumFacQP", 2 * dim, 2);                           \
+        Configure("Device", "SumFacTOP", 2 * dim, 2);                          \
         SetTestCase();                                                         \
         RunTestCase();                                                         \
         boost::test_tools::output_test_stream output;                          \
@@ -54,61 +54,61 @@
 
 BOOST_AUTO_TEST_SUITE(TestIProductWRTDerivBaseDevice)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfac_qp_seg, Seg, 1, 1.0E-12)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfactop_seg, Seg, 1, 1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfac_qp_seg_sem, SegSEM, 1, 1.0E-12)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfactop_seg_sem, SegSEM, 1, 1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfac_qp_quad, Quad, 2, 1.0E-12)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfactop_quad, Quad, 2, 1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfac_qp_quad_sem, QuadSEM, 2,
+TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfactop_quad_sem, QuadSEM, 2,
                     1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfac_qp_quad_varp, QuadVarP, 2,
+TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfactop_quad_varp, QuadVarP, 2,
                     1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfac_qp_tri, Tri, 2, 1.0E-12)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfactop_tri, Tri, 2, 1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfac_qp_tri_varp, TriVarP, 2,
+TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfactop_tri_varp, TriVarP, 2,
                     1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfac_qp_tri_nodal, TriNodal, 2,
+TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfactop_tri_nodal, TriNodal, 2,
                     1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfac_qp_square_all_elements,
+TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfactop_square_all_elements,
                     SquareAllElements, 2, 1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfac_qp_hex, Hex, 3, 1.0E-12)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfactop_hex, Hex, 3, 1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfac_qp_hex_sem, HexSEM, 3, 1.0E-12)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfactop_hex_sem, HexSEM, 3, 1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfac_qp_hex_varp, HexVarP, 3,
+TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfactop_hex_varp, HexVarP, 3,
                     1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfac_qp_prism, Prism, 3, 1.0E-12)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfactop_prism, Prism, 3, 1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfac_qp_prism_varp, PrismVarP, 3,
+TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfactop_prism_varp, PrismVarP, 3,
                     1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfac_qp_prism_nodal, PrismNodal, 3,
+TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfactop_prism_nodal, PrismNodal, 3,
                     1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfac_qp_pyr, Pyr, 3, 1.0E-12)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfactop_pyr, Pyr, 3, 1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfac_qp_pyr_varp, PyrVarP, 3,
+TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfactop_pyr_varp, PyrVarP, 3,
                     1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfac_qp_tet, Tet, 3, 1.0E-12)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfactop_tet, Tet, 3, 1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfac_qp_tet_varp, TetVarP, 3,
+TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfactop_tet_varp, TetVarP, 3,
                     1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfac_qp_tet_nodal, TetNodal, 3,
+TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfactop_tet_nodal, TetNodal, 3,
                     1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfac_qp_cube_prism_hex,
+TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfactop_cube_prism_hex,
                     CubePrismHex, 3, 1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfac_qp_cube_all_elements,
+TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfactop_cube_all_elements,
                     CubeAllElements, 3, 1.0E-12)
 
 BOOST_AUTO_TEST_SUITE_END()

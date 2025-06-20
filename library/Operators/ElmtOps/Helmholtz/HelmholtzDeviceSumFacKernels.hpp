@@ -55,7 +55,7 @@ inline unsigned int HelmholtzSharedMemorySize(
     {
         return 0;
     }
-    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacTOP>)
     {
         return 4 * nq0;
     }
@@ -79,7 +79,7 @@ inline unsigned int HelmholtzSharedMemorySize(const unsigned int nq0,
             return nq0 + nq1;
         }
     }
-    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacTOP>)
     {
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
@@ -130,7 +130,7 @@ inline unsigned int HelmholtzSharedMemorySize(
             return nq0 + nq1 + nq2;
         }
     }
-    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacTOP>)
     {
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
@@ -613,7 +613,7 @@ NEK_DEVICE_INLINE static void ApplyMetric3DSumFacKernel(
 }
 
 template <bool DEFORMED, typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void ApplyMetric1DSumFacQPKernel(
+NEK_DEVICE_INLINE static void ApplyMetric1DSumFacTOPKernel(
     const unsigned int ncoord, const unsigned int nq0,
     const unsigned int insize, const TData *__restrict__ w0,
     const TData *__restrict__ df, const TData *__restrict__ jac,
@@ -716,7 +716,7 @@ NEK_DEVICE_INLINE static void ApplyMetric1DSumFacQPKernel(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void ApplyMetric2DSumFacQPKernel(
+NEK_DEVICE_INLINE static void ApplyMetric2DSumFacTOPKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
     const unsigned int insize, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ f0,
@@ -868,7 +868,7 @@ NEK_DEVICE_INLINE static void ApplyMetric2DSumFacQPKernel(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void ApplyMetric3DSumFacQPKernel(
+NEK_DEVICE_INLINE static void ApplyMetric3DSumFacTOPKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int insize, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ w2,
@@ -1063,7 +1063,7 @@ NEK_DEVICE_INLINE static void Helmholtz1DKernel(
             e += getGlobalRange(threadBlock);
         }
     }
-    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacTOP>)
     {
         TData *bwd   = shmemptr;
         TData *deriv = bwd + nq0;
@@ -1076,16 +1076,16 @@ NEK_DEVICE_INLINE static void Helmholtz1DKernel(
             const TData *inptr  = in + nm0 * e;
             TData *outptr       = out + nm0 * e;
 
-            BwdTransSegSumFacQPKernel(nm0, nq0, basis0, inptr, bwd,
-                                      threadBlock);
-            PhysDeriv1DSumFacQPKernel<DEFORMED>(ncoord, nq0, 1, D0, dfptr, bwd,
-                                                deriv, threadBlock);
-            ApplyMetric1DSumFacQPKernel<DEFORMED>(ncoord, nq0, 1, w0, dfptr,
-                                                  jacptr, coeff, deriv, bwd,
-                                                  deriv, lambda, threadBlock);
+            BwdTransSegSumFacTOPKernel(nm0, nq0, basis0, inptr, bwd,
+                                       threadBlock);
+            PhysDeriv1DSumFacTOPKernel<DEFORMED>(ncoord, nq0, 1, D0, dfptr, bwd,
+                                                 deriv, threadBlock);
+            ApplyMetric1DSumFacTOPKernel<DEFORMED>(ncoord, nq0, 1, w0, dfptr,
+                                                   jacptr, coeff, deriv, bwd,
+                                                   deriv, lambda, threadBlock);
             SumDerivTensor1DQPKernel<true, DEFORMED>(nq0, D0, deriv, bwd,
                                                      threadBlock);
-            IProductWRTBaseSegSumFacQPKernel<false, false, DEFORMED>(
+            IProductWRTBaseSegSumFacTOPKernel<false, false, DEFORMED>(
                 nm0, nq0, basis0, bwd, outptr, (TData)1.0, threadBlock);
 
             e += getBlockRange(threadBlock);
@@ -1228,7 +1228,7 @@ NEK_DEVICE_INLINE static void Helmholtz2DKernel(
             e += getGlobalRange(threadBlock);
         }
     }
-    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacTOP>)
     {
         unsigned int offset = 0, nmode0 = 0, nmode1 = 0;
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
@@ -1294,31 +1294,31 @@ NEK_DEVICE_INLINE static void Helmholtz2DKernel(
 
             if constexpr (SHAPE_TYPE == LibUtilities::Quad)
             {
-                BwdTransQuadSumFacQPKernel(nm0, nm1, nq0, nq1, nqTot, s_basis0,
-                                           s_basis1, tmp, bwd, s_wsp0,
-                                           threadBlock);
+                BwdTransQuadSumFacTOPKernel(nm0, nm1, nq0, nq1, nqTot, s_basis0,
+                                            s_basis1, tmp, bwd, s_wsp0,
+                                            threadBlock);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
                                SHAPE_TYPE == LibUtilities::NodalTri)
             {
-                BwdTransTriSumFacQPKernel(nm0, nm1, nq0, nq1, nqTot, isModified,
-                                          s_basis0, s_basis1, tmp, bwd, s_wsp0,
-                                          threadBlock);
+                BwdTransTriSumFacTOPKernel(nm0, nm1, nq0, nq1, nqTot,
+                                           isModified, s_basis0, s_basis1, tmp,
+                                           bwd, s_wsp0, threadBlock);
             }
 
-            PhysDeriv2DSumFacQPKernel<SHAPE_TYPE, DEFORMED>(
+            PhysDeriv2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
                 ncoord, nq0, nq1, 1, D0, D1, f0, f1, dfptr, bwd, deriv,
                 threadBlock);
             if constexpr (DEFORMED)
             {
                 TData dmetric[6];
-                ApplyMetric2DSumFacQPKernel<SHAPE_TYPE, DEFORMED>(
+                ApplyMetric2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
                     ncoord, nq0, nq1, 1, w0, w1, f0, f1, dfptr, jacptr, coeff,
                     deriv, bwd, deriv0, deriv1, dmetric, lambda, threadBlock);
             }
             else
             {
-                ApplyMetric2DSumFacQPKernel<SHAPE_TYPE, DEFORMED>(
+                ApplyMetric2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
                     ncoord, nq0, nq1, 1, w0, w1, f0, f1, dfptr, jacptr, coeff,
                     deriv, bwd, deriv0, deriv1, metric, lambda, threadBlock);
             }
@@ -1326,20 +1326,20 @@ NEK_DEVICE_INLINE static void Helmholtz2DKernel(
                                                      deriv1, bwd, threadBlock);
             if constexpr (SHAPE_TYPE == LibUtilities::Quad)
             {
-                IProductWRTBaseQuadSumFacQPKernel<false, false, DEFORMED>(
+                IProductWRTBaseQuadSumFacTOPKernel<false, false, DEFORMED>(
                     nm0, nm1, nmTot, nq0, nq1, nqTot, s_basis0, s_basis1, bwd,
                     outptr, s_wsp0, (TData)1.0, threadBlock);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
             {
-                IProductWRTBaseTriSumFacQPKernel<false, false, DEFORMED>(
+                IProductWRTBaseTriSumFacTOPKernel<false, false, DEFORMED>(
                     nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0,
                     s_basis0, s_basis1, bwd, outptr, s_wsp0, (TData)1.0,
                     threadBlock);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
             {
-                IProductWRTBaseTriSumFacQPKernel<false, false, DEFORMED>(
+                IProductWRTBaseTriSumFacTOPKernel<false, false, DEFORMED>(
                     nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0,
                     s_basis0, s_basis1, bwd, tmp, s_wsp0, (TData)1.0,
                     threadBlock);
@@ -1639,7 +1639,7 @@ NEK_DEVICE_INLINE static void Helmholtz3DKernel(
             e += getGlobalRange(threadBlock);
         }
     }
-    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacTOP>)
     {
         unsigned int offset0 = 0, offset1 = 0, nmode0 = 0, nmode1 = 0,
                      nmode2 = 0;
@@ -1737,45 +1737,45 @@ NEK_DEVICE_INLINE static void Helmholtz3DKernel(
 
             if constexpr (SHAPE_TYPE == LibUtilities::Hex)
             {
-                BwdTransHexSumFacQPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
-                                          s_basis0, s_basis1, s_basis2, tmp,
-                                          bwd, s_wsp0, s_wsp1, threadBlock);
+                BwdTransHexSumFacTOPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
+                                           s_basis0, s_basis1, s_basis2, tmp,
+                                           bwd, s_wsp0, s_wsp1, threadBlock);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
                                SHAPE_TYPE == LibUtilities::NodalTet)
             {
-                BwdTransTetSumFacQPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
-                                          isModified, index0, index3, s_basis0,
-                                          s_basis1, s_basis2, tmp, bwd, s_wsp0,
-                                          s_wsp1, threadBlock);
+                BwdTransTetSumFacTOPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
+                                           isModified, index0, index3, s_basis0,
+                                           s_basis1, s_basis2, tmp, bwd, s_wsp0,
+                                           s_wsp1, threadBlock);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
                                SHAPE_TYPE == LibUtilities::NodalPrism)
             {
-                BwdTransPrismSumFacQPKernel(
+                BwdTransPrismSumFacTOPKernel(
                     nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, s_basis0,
                     s_basis1, s_basis2, tmp, bwd, s_wsp0, s_wsp1, threadBlock);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
             {
-                BwdTransPyrSumFacQPKernel(
+                BwdTransPyrSumFacTOPKernel(
                     nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, s_basis0,
                     s_basis1, s_basis2, tmp, bwd, s_wsp0, s_wsp1, threadBlock);
             }
-            PhysDeriv3DSumFacQPKernel<SHAPE_TYPE, DEFORMED>(
+            PhysDeriv3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
                 nq0, nq1, nq2, 1, D0, D1, D2, f0, f1, f1m, f2, dfptr, bwd,
                 deriv, threadBlock);
             if constexpr (DEFORMED)
             {
                 TData dmetric[9];
-                ApplyMetric3DSumFacQPKernel<SHAPE_TYPE, DEFORMED>(
+                ApplyMetric3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
                     nq0, nq1, nq2, 1, w0, w1, w2, f0, f1, f1m, f2, dfptr,
                     jacptr, coeff, deriv, bwd, deriv0, deriv1, deriv2, dmetric,
                     lambda, threadBlock);
             }
             else
             {
-                ApplyMetric3DSumFacQPKernel<SHAPE_TYPE, DEFORMED>(
+                ApplyMetric3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
                     nq0, nq1, nq2, 1, w0, w1, w2, f0, f1, f1m, f2, dfptr,
                     jacptr, coeff, deriv, bwd, deriv0, deriv1, deriv2, metric,
                     lambda, threadBlock);
@@ -1785,21 +1785,21 @@ NEK_DEVICE_INLINE static void Helmholtz3DKernel(
                                                      bwd, threadBlock);
             if constexpr (SHAPE_TYPE == LibUtilities::Hex)
             {
-                IProductWRTBaseHexSumFacQPKernel<false, false, DEFORMED>(
+                IProductWRTBaseHexSumFacTOPKernel<false, false, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, s_basis0,
                     s_basis1, s_basis2, bwd, outptr, s_wsp0, s_wsp1, (TData)1.0,
                     threadBlock);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
             {
-                IProductWRTBaseTetSumFacQPKernel<false, false, DEFORMED>(
+                IProductWRTBaseTetSumFacTOPKernel<false, false, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
                     index0, index1, index2, s_basis0, s_basis1, s_basis2, bwd,
                     outptr, s_wsp1, s_wsp0, (TData)1.0, threadBlock);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
             {
-                IProductWRTBaseTetSumFacQPKernel<false, false, DEFORMED>(
+                IProductWRTBaseTetSumFacTOPKernel<false, false, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
                     index0, index1, index2, s_basis0, s_basis1, s_basis2, bwd,
                     tmp, s_wsp1, s_wsp0, (TData)1.0, threadBlock);
@@ -1810,14 +1810,14 @@ NEK_DEVICE_INLINE static void Helmholtz3DKernel(
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
             {
-                IProductWRTBasePrismSumFacQPKernel<false, false, DEFORMED>(
+                IProductWRTBasePrismSumFacTOPKernel<false, false, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
                     index0, index1, index2, s_basis0, s_basis1, s_basis2, bwd,
                     outptr, s_wsp1, s_wsp0, (TData)1.0, threadBlock);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism)
             {
-                IProductWRTBasePrismSumFacQPKernel<false, false, DEFORMED>(
+                IProductWRTBasePrismSumFacTOPKernel<false, false, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
                     index0, index1, index2, s_basis0, s_basis1, s_basis2, bwd,
                     tmp, s_wsp1, s_wsp0, (TData)1.0, threadBlock);
@@ -1828,7 +1828,7 @@ NEK_DEVICE_INLINE static void Helmholtz3DKernel(
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
             {
-                IProductWRTBasePyrSumFacQPKernel<false, false, DEFORMED>(
+                IProductWRTBasePyrSumFacTOPKernel<false, false, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
                     index0, index1, s_basis0, s_basis1, s_basis2, bwd, outptr,
                     s_wsp1, s_wsp0, (TData)1.0, threadBlock);

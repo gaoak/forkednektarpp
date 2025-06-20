@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_helmsolve_conjgrad_device_sumfac_qp.cpp
+// File: test_bwdtrans_device_sumfactop.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,18 +32,18 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestHelmSolveConjGradDevice
+#define BOOST_TEST_MODULE TestBwdTransDevice
 
-#include "init_helmsolve_conjgradfields.hpp"
+#include "init_bwdtransfields.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
 #include <memory>
 
-#define TEST_HELMSOLVE(test_name, test, tol)                                   \
+#define TEST_BWDTRANS(test_name, test, tol)                                    \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        Configure("Device", "SumFacQP");                                       \
+        Configure("Device", "SumFacTOP", 2, 2);                                \
         SetTestCase();                                                         \
         RunTestCase();                                                         \
         boost::test_tools::output_test_stream output;                          \
@@ -52,24 +52,52 @@
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestHelmSolveConjGradDevice)
+BOOST_AUTO_TEST_SUITE(TestBwdTransDevice)
 
-#if !defined(NEKTAR_USE_MPI)
-TEST_HELMSOLVE(helmsolve_device_sumfac_qp_seg, Helmholtz1D_Seg, 1.0E-12)
-#endif
+TEST_BWDTRANS(bwdtrans_device_sumfactop_seg, Seg, 1.0E-12)
 
-TEST_HELMSOLVE(helmsolve_device_sumfac_qp_tri_quad, Helmholtz2D_Tri_Quad,
-               1.0E-12)
+TEST_BWDTRANS(bwdtrans_device_sumfactop_seg_sem, SegSEM, 1.0E-12)
 
-// TEST_HELMSOLVE(helmsolve_device_sumfac_qp_all_bcs,
-// Helmholtz2D_AllBCs, 1.0E-12)
+TEST_BWDTRANS(bwdtrans_device_sumfactop_quad, Quad, 1.0E-12)
 
-TEST_HELMSOLVE(helmsolve_device_sumfac_qp_hex, Helmholtz3D_Hex, 1.0E-10)
+TEST_BWDTRANS(bwdtrans_device_sumfactop_quad_sem, QuadSEM, 1.0E-12)
 
-TEST_HELMSOLVE(helmsolve_device_sumfac_qp_prism, Helmholtz3D_Prism, 1.0E-10)
+TEST_BWDTRANS(bwdtrans_device_sumfactop_quad_varp, QuadVarP, 1.0E-12)
 
-TEST_HELMSOLVE(helmsolve_device_sumfac_qp_pyr, Helmholtz3D_Pyr, 1.0E-10)
+TEST_BWDTRANS(bwdtrans_device_sumfactop_tri, Tri, 1.0E-12)
 
-TEST_HELMSOLVE(helmsolve_device_sumfac_qp_tet, Helmholtz3D_Tet, 1.0E-10)
+TEST_BWDTRANS(bwdtrans_device_sumfactop_tri_varp, TriVarP, 1.0E-12)
+
+TEST_BWDTRANS(bwdtrans_device_sumfactop_tri_nodal, TriNodal, 1.0E-12)
+
+TEST_BWDTRANS(bwdtrans_device_sumfactop_square_all_elements, SquareAllElements,
+              1.0E-12)
+
+TEST_BWDTRANS(bwdtrans_device_sumfactop_hex, Hex, 1.0E-12)
+
+TEST_BWDTRANS(bwdtrans_device_sumfactop_hex_sem, HexSEM, 1.0E-12)
+
+TEST_BWDTRANS(bwdtrans_device_sumfactop_hex_varp, HexVarP, 1.0E-12)
+
+TEST_BWDTRANS(bwdtrans_device_sumfactop_prism, Prism, 1.0E-12)
+
+TEST_BWDTRANS(bwdtrans_device_sumfactop_prism_varp, PrismVarP, 1.0E-12)
+
+TEST_BWDTRANS(bwdtrans_device_sumfactop_prism_nodal, PrismNodal, 1.0E-12)
+
+TEST_BWDTRANS(bwdtrans_device_sumfactop_pyr, Pyr, 1.0E-12)
+
+TEST_BWDTRANS(bwdtrans_device_sumfactop_pyr_varp, PyrVarP, 1.0E-12)
+
+TEST_BWDTRANS(bwdtrans_device_sumfactop_tet, Tet, 1.0E-12)
+
+TEST_BWDTRANS(bwdtrans_device_sumfactop_tet_varp, TetVarP, 1.0E-12)
+
+TEST_BWDTRANS(bwdtrans_device_sumfactop_tet_nodal, TetNodal, 1.0E-12)
+
+TEST_BWDTRANS(bwdtrans_device_sumfactop_cube_prism_hex, CubePrismHex, 1.0E-12)
+
+TEST_BWDTRANS(bwdtrans_device_sumfactop_cube_all_elements, CubeAllElements,
+              1.0E-12)
 
 BOOST_AUTO_TEST_SUITE_END()

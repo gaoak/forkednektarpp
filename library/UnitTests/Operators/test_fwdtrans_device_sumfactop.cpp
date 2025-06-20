@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_mass_device_sumfac_qp.cpp
+// File: test_fwdtrans_device_sumfactop.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,18 +32,18 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestMassDevice
+#define BOOST_TEST_MODULE TestFwdTransDevice
 
-#include "init_massfields.hpp"
+#include "init_fwdtransfields.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
 #include <memory>
 
-#define TEST_MASS(test_name, test, tol)                                        \
+#define TEST_FWDTRANS(test_name, test, tol)                                    \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        Configure("Device", "SumFacQP", 2, 2);                                 \
+        Configure("Device", "SumFacTOP");                                      \
         SetTestCase();                                                         \
         RunTestCase();                                                         \
         boost::test_tools::output_test_stream output;                          \
@@ -52,50 +52,22 @@
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestMassDevice)
+BOOST_AUTO_TEST_SUITE(TestFwdTransDevice)
 
-TEST_MASS(mass_device_sumfac_qp_seg, Seg, 1.0E-12)
+#if !defined(NEKTAR_USE_MPI)
+TEST_FWDTRANS(fwdtrans_device_sumfactop_seg, Helmholtz1D_Seg, 1.0E-12)
+#endif
 
-TEST_MASS(mass_device_sumfac_qp_seg_sem, SegSEM, 1.0E-12)
+TEST_FWDTRANS(fwdtrans_device_sumfactop_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-08)
 
-TEST_MASS(mass_device_sumfac_qp_quad, Quad, 1.0E-12)
+// TEST_FWDTRANS(fwdtrans_device_sumfactop_all_bcs, Helmholtz2D_AllBCs, 1.0E-08)
 
-TEST_MASS(mass_device_sumfac_qp_quad_sem, QuadSEM, 1.0E-12)
+TEST_FWDTRANS(fwdtrans_device_sumfactop_hex, Helmholtz3D_Hex, 1.0E-08)
 
-TEST_MASS(mass_device_sumfac_qp_quad_varp, QuadVarP, 1.0E-12)
+TEST_FWDTRANS(fwdtrans_device_sumfactop_prism, Helmholtz3D_Prism, 1.0E-08)
 
-TEST_MASS(mass_device_sumfac_qp_tri, Tri, 1.0E-12)
+TEST_FWDTRANS(fwdtrans_device_sumfactop_pyr, Helmholtz3D_Pyr, 1.0E-08)
 
-TEST_MASS(mass_device_sumfac_qp_tri_varp, TriVarP, 1.0E-12)
-
-TEST_MASS(mass_device_sumfac_qp_tri_nodal, TriNodal, 1.0E-12)
-
-TEST_MASS(mass_device_sumfac_qp_square_all_elements, SquareAllElements, 1.0E-12)
-
-TEST_MASS(mass_device_sumfac_qp_hex, Hex, 1.0E-12)
-
-TEST_MASS(mass_device_sumfac_qp_hex_sem, HexSEM, 1.0E-12)
-
-TEST_MASS(mass_device_sumfac_qp_hex_varp, HexVarP, 1.0E-12)
-
-TEST_MASS(mass_device_sumfac_qp_prism, Prism, 1.0E-12)
-
-TEST_MASS(mass_device_sumfac_qp_prism_varp, PrismVarP, 1.0E-12)
-
-TEST_MASS(mass_device_sumfac_qp_prism_nodal, PrismNodal, 1.0E-12)
-
-TEST_MASS(mass_device_sumfac_qp_pyr, Pyr, 1.0E-12)
-
-TEST_MASS(mass_device_sumfac_qp_pyr_varp, PyrVarP, 1.0E-12)
-
-TEST_MASS(mass_device_sumfac_qp_tet, Tet, 1.0E-12)
-
-TEST_MASS(mass_device_sumfac_qp_tet_varp, TetVarP, 1.0E-12)
-
-TEST_MASS(mass_device_sumfac_qp_tet_nodal, TetNodal, 1.0E-12)
-
-TEST_MASS(mass_device_sumfac_qp_cube_prism_hex, CubePrismHex, 1.0E-12)
-
-TEST_MASS(mass_device_sumfac_qp_cube_all_elements, CubeAllElements, 1.0E-12)
+TEST_FWDTRANS(fwdtrans_device_sumfactop_tet, Helmholtz3D_Tet, 1.0E-08)
 
 BOOST_AUTO_TEST_SUITE_END()

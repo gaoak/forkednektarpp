@@ -1,8 +1,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: IProductWRTDerivBaseDeviceSumFacQP@Shape@.cpp
+// File: HelmholtzDeviceSumFac@Shape@.cpp
 //
-// For more informatioxn, please see: http://www.nektar.info
+// For more information, please see: http://www.nektar.info
 //
 // The MIT License
 //
@@ -36,15 +36,16 @@
 #include "Common/SwitchLevel2Defs.h"
 // Update this include file to the appropriate operator class definition if
 // using for another operator
-#include "ElmtOps/IProductWRTBase/IProductWRTBaseDeviceSumFac.hpp"
+#include "ElmtOps/Helmholtz/HelmholtzDeviceSumFac.hpp"
 
 namespace Nektar::Operators::detail
 {
 // clang-format off
 
 // Update the operator class name if reusing this file i.e. OperatorXXXBaseImpl
+// and ensure the ExecSpace is consistent
 template <>
-void BlockOperatorIProductWRTBaseImpl<NektarSpaces::@ExecSpace@, Operators::SumFacQP,
+void BlockOperatorHelmholtzImpl<NektarSpaces::@ExecSpace@, Operators::SumFacTOP,
                                       @TData@>::@Shape@Block
                 (BlockAccessor<@TData@> &input, BlockAccessor<@TData@> &output)
 {

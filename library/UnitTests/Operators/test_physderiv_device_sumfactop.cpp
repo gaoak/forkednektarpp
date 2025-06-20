@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_helmsolve_gmres_device_sumfac_qp.cpp
+// File: test_physderiv_device_sumfactop.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,18 +32,18 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestHelmSolveGMRESDevice
+#define BOOST_TEST_MODULE TestPhysDerivDevice
 
-#include "init_helmsolve_gmresfields.hpp"
+#include "init_physderivfields.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
 #include <memory>
 
-#define TEST_HELMSOLVE(test_name, test, tol)                                   \
+#define TEST_PHYSDERIV(test_name, test, dim, tol)                              \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        Configure("Device", "SumFacQP");                                       \
+        Configure("Device", "SumFacTOP", 2, 2 * dim);                          \
         SetTestCase();                                                         \
         RunTestCase();                                                         \
         boost::test_tools::output_test_stream output;                          \
@@ -52,24 +52,51 @@
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestHelmSolveGMRESDevice)
+BOOST_AUTO_TEST_SUITE(TestPhysDerivDevice)
 
-#if !defined(NEKTAR_USE_MPI)
-TEST_HELMSOLVE(helmsolve_device_sumfac_qp_seg, Helmholtz1D_Seg, 1.0E-12)
-#endif
+TEST_PHYSDERIV(physderiv_device_seg, Seg, 1, 1.0E-12)
 
-TEST_HELMSOLVE(helmsolve_device_sumfac_qp_tri_quad, Helmholtz2D_Tri_Quad,
-               1.0E-10)
+TEST_PHYSDERIV(physderiv_device_seg_sem, SegSEM, 1, 1.0E-12)
 
-// TEST_HELMSOLVE(helmsolve_device_sumfac_qp_all_bcs,
-// Helmholtz2D_AllBCs, 1.0E-10)
+TEST_PHYSDERIV(physderiv_device_quad, Quad, 2, 1.0E-12)
 
-TEST_HELMSOLVE(helmsolve_device_sumfac_qp_hex, Helmholtz3D_Hex, 1.0E-10)
+TEST_PHYSDERIV(physderiv_device_quad_sem, QuadSEM, 2, 1.0E-12)
 
-TEST_HELMSOLVE(helmsolve_device_sumfac_qp_prism, Helmholtz3D_Prism, 1.0E-10)
+TEST_PHYSDERIV(physderiv_device_quad_varp, QuadVarP, 2, 1.0E-12)
 
-TEST_HELMSOLVE(helmsolve_device_sumfac_qp_pyr, Helmholtz3D_Pyr, 2.0E-10)
+TEST_PHYSDERIV(physderiv_device_tri, Tri, 2, 1.0E-12)
 
-TEST_HELMSOLVE(helmsolve_device_sumfac_qp_tet, Helmholtz3D_Tet, 1.0E-10)
+TEST_PHYSDERIV(physderiv_device_tri_varp, TriVarP, 2, 1.0E-12)
+
+TEST_PHYSDERIV(physderiv_device_tri_nodal, TriNodal, 2, 1.0E-12)
+
+TEST_PHYSDERIV(physderiv_device_square_all_elements, SquareAllElements, 2,
+               1.0E-12)
+
+TEST_PHYSDERIV(physderiv_device_hex, Hex, 3, 1.0E-12)
+
+TEST_PHYSDERIV(physderiv_device_hex_sem, HexSEM, 3, 1.0E-12)
+
+TEST_PHYSDERIV(physderiv_device_hex_varp, HexVarP, 3, 1.0E-12)
+
+TEST_PHYSDERIV(physderiv_device_prism, Prism, 3, 1.0E-12)
+
+TEST_PHYSDERIV(physderiv_device_prism_varp, PrismVarP, 3, 2.0E-12)
+
+TEST_PHYSDERIV(physderiv_device_prism_nodal, PrismNodal, 3, 2.0E-12)
+
+TEST_PHYSDERIV(physderiv_device_pyr, Pyr, 3, 1.0E-12)
+
+TEST_PHYSDERIV(physderiv_device_pyr_varp, PyrVarP, 3, 1.0E-12)
+
+TEST_PHYSDERIV(physderiv_device_tet, Tet, 3, 1.0E-12)
+
+TEST_PHYSDERIV(physderiv_device_tet_varp, TetVarP, 3, 1.0E-12)
+
+TEST_PHYSDERIV(physderiv_device_tet_nodal, TetNodal, 3, 1.0E-12)
+
+TEST_PHYSDERIV(physderiv_device_cube_prism_hex, CubePrismHex, 3, 1.0E-12)
+
+TEST_PHYSDERIV(physderiv_device_cube_all_elements, CubeAllElements, 3, 1.0E-12)
 
 BOOST_AUTO_TEST_SUITE_END()

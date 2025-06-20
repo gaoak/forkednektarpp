@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: HelmholtzDeviceSumFac@Shape@.cpp
+// File: LinAdvDiffReactionDeviceSumFac@Shape@.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -36,7 +36,7 @@
 #include "Common/SwitchLevel2Defs.h"
 // Update this include file to the appropriate operator class definition if
 // using for another operator
-#include "ElmtOps/Helmholtz/HelmholtzDeviceSumFac.hpp"
+#include "ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionDeviceSumFac.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -45,8 +45,8 @@ namespace Nektar::Operators::detail
 // Update the operator class name if reusing this file i.e. OperatorXXXBaseImpl
 // and ensure the ExecSpace is consistent
 template <>
-void BlockOperatorHelmholtzImpl<NektarSpaces::@ExecSpace@, Operators::SumFacQP,
-                                      @TData@>::@Shape@Block
+void BlockOperatorLinAdvDiffReactionImpl<NektarSpaces::@ExecSpace@,
+                                    Operators::SumFacTOP, @TData@>::@Shape@Block
                 (BlockAccessor<@TData@> &input, BlockAccessor<@TData@> &output)
 {
     // The following will use predefined code found in the Operators/Common
