@@ -38,7 +38,7 @@
 #include <LibUtilities/BasicUtils/MiscUtils.hpp>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 
-#include "Operators/Field/MemoryRegionDevice.hpp"
+#include "Operators/Field/MemoryStorage.hpp"
 
 /**
  * @brief Possible states for Field data.
@@ -200,7 +200,7 @@ public:
         ASSERTL0((memAllocType == eHostDevice) || (memAllocType == ePinned),
                  "Unknown memAllocType option");
 
-        mr.m_storage = std::make_unique<MemoryRegionDevice<TData>>(
+        mr.m_storage = std::make_unique<MemoryStorage<TData>>(
             name, size, alignment, device_rank, memAllocType);
 
         return mr;
@@ -324,14 +324,7 @@ public:
                      "MemoryRegion::Initialize - Storage has not allocated.");
         }
 
-        if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
-        {
-            m_storage->MemoryRegionHost<TData>::Initialize(val, count, offset);
-        }
-        else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
-        {
-            m_storage->Initialize(val, count, offset);
-        }
+        m_storage->template Initialize<MemSpace>(val, count, offset);
     }
 
     /**
@@ -566,7 +559,7 @@ private:
     {
         auto mr = MemoryRegion();
 
-        mr.m_storage = std::make_unique<MemoryRegionDevice<TData>>(
+        mr.m_storage = std::make_unique<MemoryStorage<TData>>(
             name, h_src, size, alignment, device_rank);
 
         return mr;
@@ -614,36 +607,19 @@ private:
                 "MemoryRegion::CopyFromHostPtr - Storage has not allocated.");
         }
 
-        if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
+        if constexpr (std::is_same_v<TDataIn, TData>)
         {
-            if constexpr (std::is_same_v<TDataIn, TData>)
-            {
-                m_storage->MemoryRegionHost<TData>::CopyFromHostPtr(src, size,
-                                                                    offset);
-            }
-            else
-            {
-                std::vector<TData> tmp(size);
-                std::copy(src, src + size, tmp.data());
-                m_storage->MemoryRegionHost<TData>::CopyFromHostPtr(
-                    tmp.data(), size, offset);
-            }
+            m_storage->template CopyFromHostPtr<MemSpace>(src, size, offset);
         }
-        else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
+        else
         {
-            if constexpr (std::is_same_v<TDataIn, TData>)
-            {
-                m_storage->CopyFromHostPtr(src, size, offset);
-            }
-            else
-            {
-                std::vector<TData> tmp(size);
-                std::copy(src, src + size, tmp.data());
-                m_storage->CopyFromHostPtr(tmp.data(), size, offset);
-            }
+            std::vector<TData> tmp(size);
+            std::copy(src, src + size, tmp.data());
+            m_storage->template CopyFromHostPtr<MemSpace>(tmp.data(), size,
+                                                          offset);
         }
     }
 
     // Member variables:
-    std::unique_ptr<MemoryRegionDevice<TData>> m_storage = nullptr;
+    std::unique_ptr<MemoryStorage<TData>> m_storage = nullptr;
 };
