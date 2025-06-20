@@ -243,7 +243,7 @@ protected:
 
         // Fetch deriv factors data.
         constexpr bool transpose =
-            std::is_same_v<Implementation, Operators::SumFacQP>;
+            std::is_same_v<Implementation, Operators::SumFacTOP>;
         auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), transpose));
@@ -286,7 +286,7 @@ protected:
 
         // Fetch deriv factors data.
         constexpr bool transpose =
-            std::is_same_v<Implementation, Operators::SumFacQP>;
+            std::is_same_v<Implementation, Operators::SumFacTOP>;
         auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), transpose));
@@ -332,7 +332,7 @@ protected:
 
         // Fetch deriv factors data.
         constexpr bool transpose =
-            std::is_same_v<Implementation, Operators::SumFacQP>;
+            std::is_same_v<Implementation, Operators::SumFacTOP>;
         auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), transpose));
@@ -376,7 +376,7 @@ protected:
 
         // Fetch deriv factors data.
         constexpr bool transpose =
-            std::is_same_v<Implementation, Operators::SumFacQP>;
+            std::is_same_v<Implementation, Operators::SumFacTOP>;
         auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), transpose));
@@ -424,7 +424,7 @@ protected:
 
         // Fetch deriv factors data.
         constexpr bool transpose =
-            std::is_same_v<Implementation, Operators::SumFacQP>;
+            std::is_same_v<Implementation, Operators::SumFacTOP>;
         auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), transpose));
@@ -468,7 +468,7 @@ protected:
 
         // Fetch deriv factors data.
         constexpr bool transpose =
-            std::is_same_v<Implementation, Operators::SumFacQP>;
+            std::is_same_v<Implementation, Operators::SumFacTOP>;
         auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), transpose));

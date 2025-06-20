@@ -1,8 +1,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: MassDeviceSumFacQP@Shape@.cpp
+// File: IProductWRTDerivBaseDeviceSumFacTOP@Shape@.cpp
 //
-// For more informatioxn, please see: http://www.nektar.info
+// For more information, please see: http://www.nektar.info
 //
 // The MIT License
 //
@@ -36,7 +36,7 @@
 #include "Common/SwitchLevel2Defs.h"
 // Update this include file to the appropriate operator class definition if
 // using for another operator
-#include "ElmtOps/Mass/MassDeviceSumFac.hpp"
+#include "ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseDeviceSumFac.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -44,7 +44,7 @@ namespace Nektar::Operators::detail
 
 // Update the operator class name if reusing this file i.e. OperatorXXXBaseImpl
 template <>
-void BlockOperatorMassImpl<NektarSpaces::@ExecSpace@, Operators::SumFacQP,
+void BlockOperatorIProductWRTDerivBaseImpl<NektarSpaces::@ExecSpace@, Operators::SumFacTOP,
                                       @TData@>::@Shape@Block
                 (BlockAccessor<@TData@> &input, BlockAccessor<@TData@> &output)
 {

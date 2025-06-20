@@ -51,7 +51,7 @@ inline unsigned int BwdTransSharedMemorySize(const unsigned int nq0,
     {
         return 0;
     }
-    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacTOP>)
     {
         return nm0 + nm0 * nq0;
     }
@@ -74,7 +74,7 @@ inline unsigned int BwdTransSharedMemorySize(const unsigned int nq0,
     {
         return 0;
     }
-    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacTOP>)
     {
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
@@ -108,7 +108,7 @@ inline unsigned int BwdTransSharedMemorySize(
     {
         return 0;
     }
-    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacTOP>)
     {
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
@@ -546,7 +546,7 @@ NEK_DEVICE_INLINE static void BwdTransPyrSumFacKernel(
 }
 
 template <typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void BwdTransSegSumFacQPKernel(
+NEK_DEVICE_INLINE static void BwdTransSegSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nq0,
     const TData *__restrict__ basis0, const TData *__restrict__ in,
     TData *__restrict__ out, const TthreadBlock &threadBlock)
@@ -569,7 +569,7 @@ NEK_DEVICE_INLINE static void BwdTransSegSumFacQPKernel(
 }
 
 template <typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void BwdTransQuadSumFacQPKernel(
+NEK_DEVICE_INLINE static void BwdTransQuadSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nqTot,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
@@ -617,7 +617,7 @@ NEK_DEVICE_INLINE static void BwdTransQuadSumFacQPKernel(
 }
 
 template <typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void BwdTransTriSumFacQPKernel(
+NEK_DEVICE_INLINE static void BwdTransTriSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nqTot, const bool isModified,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
@@ -672,7 +672,7 @@ NEK_DEVICE_INLINE static void BwdTransTriSumFacQPKernel(
 }
 
 template <typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void BwdTransHexSumFacQPKernel(
+NEK_DEVICE_INLINE static void BwdTransHexSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nqTot, const TData *__restrict__ basis0,
@@ -743,7 +743,7 @@ NEK_DEVICE_INLINE static void BwdTransHexSumFacQPKernel(
 }
 
 template <typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void BwdTransTetSumFacQPKernel(
+NEK_DEVICE_INLINE static void BwdTransTetSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nqTot, const bool isModified,
@@ -848,7 +848,7 @@ NEK_DEVICE_INLINE static void BwdTransTetSumFacQPKernel(
 }
 
 template <typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void BwdTransPrismSumFacQPKernel(
+NEK_DEVICE_INLINE static void BwdTransPrismSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nqTot, const bool isModified,
@@ -932,7 +932,7 @@ NEK_DEVICE_INLINE static void BwdTransPrismSumFacQPKernel(
 }
 
 template <typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void BwdTransPyrSumFacQPKernel(
+NEK_DEVICE_INLINE static void BwdTransPyrSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nqTot, const bool isModified,
@@ -1055,15 +1055,15 @@ NEK_DEVICE_INLINE static void BwdTrans1DKernel(
             e += getGlobalRange(threadBlock);
         }
     }
-    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacTOP>)
     {
         size_t e = getBlockIdx(threadBlock);
         while (e < nelmt)
         {
             const TData *inptr = in + nm0 * e;
             TData *outptr      = out + nq0 * e;
-            BwdTransSegSumFacQPKernel(nm0, nq0, basis0, inptr, outptr,
-                                      threadBlock);
+            BwdTransSegSumFacTOPKernel(nm0, nq0, basis0, inptr, outptr,
+                                       threadBlock);
             e += getBlockRange(threadBlock);
         }
     }
@@ -1118,7 +1118,7 @@ NEK_DEVICE_INLINE static void BwdTrans2DKernel(
             e += getGlobalRange(threadBlock);
         }
     }
-    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacTOP>)
     {
         unsigned int offset{0}, nmode0{0}, nmode1{0};
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
@@ -1177,16 +1177,16 @@ NEK_DEVICE_INLINE static void BwdTrans2DKernel(
 
             if constexpr (SHAPE_TYPE == LibUtilities::Quad)
             {
-                BwdTransQuadSumFacQPKernel(nm0, nm1, nq0, nq1, nqTot, s_basis0,
-                                           s_basis1, s_wsp0, outptr, s_wsp1,
-                                           threadBlock);
+                BwdTransQuadSumFacTOPKernel(nm0, nm1, nq0, nq1, nqTot, s_basis0,
+                                            s_basis1, s_wsp0, outptr, s_wsp1,
+                                            threadBlock);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
                                SHAPE_TYPE == LibUtilities::NodalTri)
             {
-                BwdTransTriSumFacQPKernel(nm0, nm1, nq0, nq1, nqTot, isModified,
-                                          s_basis0, s_basis1, s_wsp0, outptr,
-                                          s_wsp1, threadBlock);
+                BwdTransTriSumFacTOPKernel(nm0, nm1, nq0, nq1, nqTot,
+                                           isModified, s_basis0, s_basis1,
+                                           s_wsp0, outptr, s_wsp1, threadBlock);
             }
 
             e += getBlockRange(threadBlock);
@@ -1286,7 +1286,7 @@ NEK_DEVICE_INLINE static void BwdTrans3DKernel(
             e += getGlobalRange(threadBlock);
         }
     }
-    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacTOP>)
     {
         unsigned int offset0{0}, offset1{0}, nmode0{0}, nmode1{0}, nmode2{0};
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
@@ -1374,32 +1374,32 @@ NEK_DEVICE_INLINE static void BwdTrans3DKernel(
 
             if constexpr (SHAPE_TYPE == LibUtilities::Hex)
             {
-                BwdTransHexSumFacQPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
-                                          s_basis0, s_basis1, s_basis2, s_wsp0,
-                                          outptr, s_wsp1, s_wsp2, threadBlock);
+                BwdTransHexSumFacTOPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
+                                           s_basis0, s_basis1, s_basis2, s_wsp0,
+                                           outptr, s_wsp1, s_wsp2, threadBlock);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
                                SHAPE_TYPE == LibUtilities::NodalTet)
             {
-                BwdTransTetSumFacQPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
-                                          isModified, index0, index1, s_basis0,
-                                          s_basis1, s_basis2, s_wsp0, outptr,
-                                          s_wsp1, s_wsp2, threadBlock);
+                BwdTransTetSumFacTOPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
+                                           isModified, index0, index1, s_basis0,
+                                           s_basis1, s_basis2, s_wsp0, outptr,
+                                           s_wsp1, s_wsp2, threadBlock);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
                                SHAPE_TYPE == LibUtilities::NodalPrism)
             {
-                BwdTransPrismSumFacQPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
-                                            isModified, s_basis0, s_basis1,
-                                            s_basis2, s_wsp0, outptr, s_wsp1,
-                                            s_wsp2, threadBlock);
+                BwdTransPrismSumFacTOPKernel(nm0, nm1, nm2, nq0, nq1, nq2,
+                                             nqTot, isModified, s_basis0,
+                                             s_basis1, s_basis2, s_wsp0, outptr,
+                                             s_wsp1, s_wsp2, threadBlock);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
             {
-                BwdTransPyrSumFacQPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
-                                          isModified, s_basis0, s_basis1,
-                                          s_basis2, s_wsp0, outptr, s_wsp1,
-                                          s_wsp2, threadBlock);
+                BwdTransPyrSumFacTOPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
+                                           isModified, s_basis0, s_basis1,
+                                           s_basis2, s_wsp0, outptr, s_wsp1,
+                                           s_wsp2, threadBlock);
             }
 
             e += getBlockRange(threadBlock);

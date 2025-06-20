@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: PhysDerivDeviceSumFacQP@Shape@.cpp
+// File: BwdTransDeviceSumFacTOP@Shape@.cpp
 //
 // For more informatioxn, please see: http://www.nektar.info
 //
@@ -29,15 +29,14 @@
 // DEALINGS IN THE SOFTWARE.
 //
 // Description: Cmake configuration for boilerplate code to generate block
-// operator code wrapped in a 1 level switch statement with Coord as
-// templates too
+// operator code wrapped in a 2 level switch statement
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Common/SwitchLevel1Defs.h"
+#include "Common/SwitchLevel2Defs.h"
 // Update this include file to the appropriate operator class definition if
 // using for another operator
-#include "ElmtOps/PhysDeriv/PhysDerivDeviceSumFac.hpp"
+#include "ElmtOps/BwdTrans/BwdTransDeviceSumFac.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -45,7 +44,7 @@ namespace Nektar::Operators::detail
 
 // Update the operator class name if reusing this file i.e. OperatorXXXBaseImpl
 template <>
-void BlockOperatorPhysDerivImpl<NektarSpaces::@ExecSpace@, Operators::SumFacQP,
+void BlockOperatorBwdTransImpl<NektarSpaces::@ExecSpace@, Operators::SumFacTOP,
                                       @TData@>::@Shape@Block
                 (BlockAccessor<@TData@> &input, BlockAccessor<@TData@> &output)
 {
@@ -60,7 +59,7 @@ void BlockOperatorPhysDerivImpl<NektarSpaces::@ExecSpace@, Operators::SumFacQP,
     // option in the compile line.
     
 #define SHAPE_TYPE_@Shape@
-#include "@CMAKE_CURRENT_BINARY_DIR@/BlockOpSwitch1DCoordsCode@Shape@.h"
+#include "@CMAKE_CURRENT_BINARY_DIR@/BlockOpSwitchCode@Shape@.h"
 
 }
 // clang-format on

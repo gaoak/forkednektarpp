@@ -59,7 +59,7 @@ inline constexpr unsigned int PhysDerivSharedMemorySize(const unsigned int nq0,
             return nq0 + nq1;
         }
     }
-    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacTOP>)
     {
         return nq0 * nq1;
     }
@@ -93,7 +93,7 @@ inline constexpr unsigned int PhysDerivSharedMemorySize(const unsigned int nq0,
             return nq0 + nq1 + nq2;
         }
     }
-    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacTOP>)
     {
         return nq0 * nq1 * nq2;
     }
@@ -418,7 +418,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor3DKernel(
 }
 
 template <bool DEFORMED, typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void PhysDeriv1DSumFacQPKernel(
+NEK_DEVICE_INLINE static void PhysDeriv1DSumFacTOPKernel(
     const unsigned int ncoord, const unsigned int nq0, const size_t outsize,
     const TData *__restrict__ D0, const TData *__restrict__ df,
     const TData *__restrict__ in, TData *__restrict__ out,
@@ -486,7 +486,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor1DQPKernel(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void PhysDeriv2DSumFacQPKernel(
+NEK_DEVICE_INLINE static void PhysDeriv2DSumFacTOPKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
     const size_t outsize, const TData *__restrict__ D0,
     const TData *__restrict__ D1, const TData *__restrict__ f0,
@@ -595,7 +595,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor2DQPKernel(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void PhysDeriv3DSumFacQPKernel(
+NEK_DEVICE_INLINE static void PhysDeriv3DSumFacTOPKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const size_t outsize, const TData *__restrict__ D0,
     const TData *__restrict__ D1, const TData *__restrict__ D2,
@@ -767,7 +767,7 @@ NEK_DEVICE_INLINE static void PhysDeriv1DKernel(
             e += getGlobalRange(threadBlock);
         }
     }
-    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacTOP>)
     {
         size_t e = getBlockIdx(threadBlock);
         while (e < nelmt)
@@ -775,8 +775,8 @@ NEK_DEVICE_INLINE static void PhysDeriv1DKernel(
             const TData *dfptr = df + ndf * dfsize * e;
             const TData *inptr = in + nq0 * e;
             TData *outptr      = out + nq0 * e;
-            PhysDeriv1DSumFacQPKernel<DEFORMED>(ncoord, nq0, nelmt, D0, dfptr,
-                                                inptr, outptr, threadBlock);
+            PhysDeriv1DSumFacTOPKernel<DEFORMED>(ncoord, nq0, nelmt, D0, dfptr,
+                                                 inptr, outptr, threadBlock);
             e += getBlockRange(threadBlock);
         }
     }
@@ -841,7 +841,7 @@ NEK_DEVICE_INLINE static void PhysDeriv2DKernel(
             e += getGlobalRange(threadBlock);
         }
     }
-    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacTOP>)
     {
         TData *s_wsp0             = shmemptr;
         const unsigned int idx0   = getLocalIdx(threadBlock);
@@ -862,7 +862,7 @@ NEK_DEVICE_INLINE static void PhysDeriv2DKernel(
 
             localBarrier(threadBlock);
 
-            PhysDeriv2DSumFacQPKernel<SHAPE_TYPE, DEFORMED>(
+            PhysDeriv2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
                 ncoord, nq0, nq1, nelmt, D0, D1, f0, f1, dfptr, s_wsp0, outptr,
                 threadBlock);
 
@@ -983,7 +983,7 @@ NEK_DEVICE_INLINE static void PhysDeriv3DKernel(
             e += getGlobalRange(threadBlock);
         }
     }
-    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacTOP>)
     {
         TData *s_wsp0             = shmemptr;
         const unsigned int idx0   = getLocalIdx(threadBlock);
@@ -1004,7 +1004,7 @@ NEK_DEVICE_INLINE static void PhysDeriv3DKernel(
 
             localBarrier(threadBlock);
 
-            PhysDeriv3DSumFacQPKernel<SHAPE_TYPE, DEFORMED>(
+            PhysDeriv3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
                 nq0, nq1, nq2, nelmt, D0, D1, D2, f0, f1, f1m, f2, dfptr,
                 s_wsp0, outptr, threadBlock);
 

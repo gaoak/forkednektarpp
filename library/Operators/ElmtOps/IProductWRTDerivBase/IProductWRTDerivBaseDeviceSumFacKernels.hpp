@@ -54,7 +54,7 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
     {
         return 0;
     }
-    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacTOP>)
     {
         return nq0;
     }
@@ -82,7 +82,7 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(const unsigned int nq0,
             return nq0 + nq1;
         }
     }
-    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacTOP>)
     {
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
@@ -131,7 +131,7 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
             return nq0 + nq1 + nq2;
         }
     }
-    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacTOP>)
     {
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
@@ -363,7 +363,7 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase3DSumFacKernel(
 }
 
 template <bool DEFORMED, typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void StdAlignDerivBase1DSumFacQPKernel(
+NEK_DEVICE_INLINE static void StdAlignDerivBase1DSumFacTOPKernel(
     const unsigned int ncoord, const unsigned int nq0, const size_t insize,
     const TData *__restrict__ w0, const TData *__restrict__ df,
     const TData *__restrict__ jac, const TData *__restrict__ in,
@@ -399,7 +399,7 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase1DSumFacQPKernel(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void StdAlignDerivBase2DSumFacQPKernel(
+NEK_DEVICE_INLINE static void StdAlignDerivBase2DSumFacTOPKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
     const size_t insize, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ f0,
@@ -462,7 +462,7 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase2DSumFacQPKernel(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void StdAlignDerivBase3DSumFacQPKernel(
+NEK_DEVICE_INLINE static void StdAlignDerivBase3DSumFacTOPKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const size_t insize, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ w2,
@@ -579,7 +579,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase1DKernel(
             e += getGlobalRange(threadBlock);
         }
     }
-    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacTOP>)
     {
         TData *deriv = shmemptr;
 
@@ -591,10 +591,10 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase1DKernel(
             const TData *inptr  = in + nq0 * e;
             TData *outptr       = out + nm0 * e;
 
-            StdAlignDerivBase1DSumFacQPKernel<DEFORMED>(ncoord, nq0, nelmt, w0,
-                                                        dfptr, jacptr, inptr,
-                                                        deriv, threadBlock);
-            IProductWRTBaseSegSumFacQPKernel<false, false, DEFORMED>(
+            StdAlignDerivBase1DSumFacTOPKernel<DEFORMED>(ncoord, nq0, nelmt, w0,
+                                                         dfptr, jacptr, inptr,
+                                                         deriv, threadBlock);
+            IProductWRTBaseSegSumFacTOPKernel<false, false, DEFORMED>(
                 nm0, nq0, dbasis0, deriv, outptr, (TData)1.0, threadBlock);
 
             e += getBlockRange(threadBlock);
@@ -704,7 +704,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase2DKernel(
             e += getGlobalRange(threadBlock);
         }
     }
-    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacTOP>)
     {
         unsigned int offset = 0, nmode0 = 0, nmode1 = 0;
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
@@ -751,27 +751,27 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase2DKernel(
             const TData *inptr  = in + nqTot * e;
             TData *outptr       = out + nmTot * e;
 
-            StdAlignDerivBase2DSumFacQPKernel<SHAPE_TYPE, DEFORMED>(
+            StdAlignDerivBase2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
                 ncoord, nq0, nq1, nelmt, w0, w1, f0, f1, dfptr, jacptr, inptr,
                 deriv0, deriv1, threadBlock);
             SumDerivTensor2DQPKernel<false, DEFORMED>(
                 nq0, nq1, D0, D1, deriv0, deriv1, deriv, threadBlock);
             if constexpr (SHAPE_TYPE == LibUtilities::Quad)
             {
-                IProductWRTBaseQuadSumFacQPKernel<false, false, DEFORMED>(
+                IProductWRTBaseQuadSumFacTOPKernel<false, false, DEFORMED>(
                     nm0, nm1, nmTot, nq0, nq1, nqTot, s_basis0, s_basis1, deriv,
                     outptr, s_wsp0, (TData)1.0, threadBlock);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
             {
-                IProductWRTBaseTriSumFacQPKernel<false, false, DEFORMED>(
+                IProductWRTBaseTriSumFacTOPKernel<false, false, DEFORMED>(
                     nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0,
                     s_basis0, s_basis1, deriv, outptr, s_wsp0, (TData)1.0,
                     threadBlock);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
             {
-                IProductWRTBaseTriSumFacQPKernel<false, false, DEFORMED>(
+                IProductWRTBaseTriSumFacTOPKernel<false, false, DEFORMED>(
                     nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0,
                     s_basis0, s_basis1, deriv, s_out1ptr, s_wsp0, (TData)1.0,
                     threadBlock);
@@ -990,7 +990,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
             e += getGlobalRange(threadBlock);
         }
     }
-    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacTOP>)
     {
         unsigned int offset0 = 0, offset1 = 0, nmode0 = 0, nmode1 = 0,
                      nmode2 = 0;
@@ -1067,7 +1067,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
             const TData *inptr  = in + nqTot * e;
             TData *outptr       = out + nmTot * e;
 
-            StdAlignDerivBase3DSumFacQPKernel<SHAPE_TYPE, DEFORMED>(
+            StdAlignDerivBase3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
                 nq0, nq1, nq2, nelmt, w0, w1, w2, f0, f1, f1m, f2, dfptr,
                 jacptr, inptr, deriv0, deriv1, deriv2, threadBlock);
             SumDerivTensor3DQPKernel<false, DEFORMED>(nq0, nq1, nq2, D0, D1, D2,
@@ -1075,21 +1075,21 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
                                                       deriv, threadBlock);
             if constexpr (SHAPE_TYPE == LibUtilities::Hex)
             {
-                IProductWRTBaseHexSumFacQPKernel<false, false, DEFORMED>(
+                IProductWRTBaseHexSumFacTOPKernel<false, false, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, s_basis0,
                     s_basis1, s_basis2, deriv, outptr, s_wsp0, s_wsp1,
                     (TData)1.0, threadBlock);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
             {
-                IProductWRTBaseTetSumFacQPKernel<false, false, DEFORMED>(
+                IProductWRTBaseTetSumFacTOPKernel<false, false, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
                     index0, index1, index2, s_basis0, s_basis1, s_basis2, deriv,
                     outptr, s_wsp0, s_wsp1, (TData)1.0, threadBlock);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
             {
-                IProductWRTBaseTetSumFacQPKernel<false, false, DEFORMED>(
+                IProductWRTBaseTetSumFacTOPKernel<false, false, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
                     index0, index1, index2, s_basis0, s_basis1, s_basis2, deriv,
                     s_out1ptr, s_wsp0, s_wsp1, (TData)1.0, threadBlock);
@@ -1100,14 +1100,14 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
             {
-                IProductWRTBasePrismSumFacQPKernel<false, false, DEFORMED>(
+                IProductWRTBasePrismSumFacTOPKernel<false, false, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
                     index0, index1, index2, s_basis0, s_basis1, s_basis2, deriv,
                     outptr, s_wsp0, s_wsp1, (TData)1.0, threadBlock);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism)
             {
-                IProductWRTBasePrismSumFacQPKernel<false, false, DEFORMED>(
+                IProductWRTBasePrismSumFacTOPKernel<false, false, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
                     index0, index1, index2, s_basis0, s_basis1, s_basis2, deriv,
                     s_out1ptr, s_wsp0, s_wsp1, (TData)1.0, threadBlock);
@@ -1118,7 +1118,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
             {
-                IProductWRTBasePyrSumFacQPKernel<false, false, DEFORMED>(
+                IProductWRTBasePyrSumFacTOPKernel<false, false, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
                     index0, index1, s_basis0, s_basis1, s_basis2, deriv, outptr,
                     s_wsp0, s_wsp1, (TData)1.0, threadBlock);

@@ -16,7 +16,7 @@ IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABL
 ENDIF()
 
 # Set implementation types.
-SET(ElmtOpImpl StdMat SumFac SumFacCUBLAS SumFacQP Generic)
+SET(ElmtOpImpl StdMat SumFac SumFacCUBLAS SumFacTOP Generic)
 
 # Shape types for seperate code compilation.
 SET(Shapes Seg Tri NodalTri Quad Hex Pyr Prism NodalPrism Tet NodalTet)
@@ -262,11 +262,11 @@ MACRO(ADD_ELMT_OPERATOR dir)
                     ENDFOREACH()
                 ENDFOREACH()
             ENDIF()
-            IF(EXISTS "${dir}/${name}DeviceSumFacQPBlockOp.cpp.in")
+            IF(EXISTS "${dir}/${name}DeviceSumFacTOPBlockOp.cpp.in")
                 FOREACH (TData IN LISTS DataTypes)
-                    SET(ShapeConfigName "${dir}/${name}DeviceSumFacQPBlockOp.cpp.in")
+                    SET(ShapeConfigName "${dir}/${name}DeviceSumFacTOPBlockOp.cpp.in")
                     FOREACH (Shape IN LISTS Shapes)
-                        SET(ShapeName ${name}${ExecSpaceName}SumFacQP${TData}${Shape}.${SOURCE_EXT})
+                        SET(ShapeName ${name}${ExecSpaceName}SumFacTOP${TData}${Shape}.${SOURCE_EXT})
                         MESSAGE("Generating shape cpp file: " "${ShapeName}")
                         CONFIGURE_FILE(${ShapeConfigName} ${ShapeName})
                         SET(CPP_SHAPE_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/${ShapeName}")
@@ -289,8 +289,8 @@ MACRO(ADD_ELMT_OPERATOR dir)
             UNSET(IMPL_HEADER)
 
             # These combinations do/should not exist.
-            IF(("${ExecSpace}" STREQUAL "Serial" AND "${Impl}" STREQUAL "SumFacQP") OR
-               ("${ExecSpace}" STREQUAL "AVX" AND "${Impl}" STREQUAL "SumFacQP") OR
+            IF(("${ExecSpace}" STREQUAL "Serial" AND "${Impl}" STREQUAL "SumFacTOP") OR
+               ("${ExecSpace}" STREQUAL "AVX" AND "${Impl}" STREQUAL "SumFacTOP") OR
                ("${ExecSpace}" STREQUAL "Serial" AND "${Impl}" STREQUAL "SumFacCUBLAS") OR
                ("${ExecSpace}" STREQUAL "AVX" AND "${Impl}" STREQUAL "SumFacCUBLAS"))
                 CONTINUE()
@@ -405,7 +405,7 @@ MACRO(ADD_ELMT_OPERATOR dir)
 
                 # Found a Device SumFac header.
                 ELSEIF(EXISTS "${dir}/${name}DeviceSumFac.hpp" AND ("${ExecSpace}" STREQUAL "Device") AND
-                    ("${Impl}" STREQUAL "SumFac" OR "${Impl}" STREQUAL "SumFacQP"))
+                    ("${Impl}" STREQUAL "SumFac" OR "${Impl}" STREQUAL "SumFacTOP"))
                     FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
                         "${dir}/${name}DeviceSumFac.hpp")
                     SET(IMPL_HEADER "#include \"${include_file}\"")

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_nullprecon_device_sumfac_qp.cpp
+// File: test_helmsolve_gmres_device_sumfactop.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,18 +32,18 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestNullPreconDevice
+#define BOOST_TEST_MODULE TestHelmSolveGMRESDevice
 
-#include "init_nullpreconfields.hpp"
+#include "init_helmsolve_gmresfields.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
 #include <memory>
 
-#define TEST_NULLPRECON(test_name, test, tol)                                  \
+#define TEST_HELMSOLVE(test_name, test, tol)                                   \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        Configure("Device", "SumFacQP");                                       \
+        Configure("Device", "SumFacTOP");                                      \
         SetTestCase();                                                         \
         RunTestCase();                                                         \
         boost::test_tools::output_test_stream output;                          \
@@ -52,19 +52,24 @@
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestNullPreconDevice)
+BOOST_AUTO_TEST_SUITE(TestHelmSolveGMRESDevice)
 
-TEST_NULLPRECON(nullprecon_device_sumfac_qp_seg, Helmholtz1D_Seg, 1.0E-15)
+#if !defined(NEKTAR_USE_MPI)
+TEST_HELMSOLVE(helmsolve_device_sumfactop_seg, Helmholtz1D_Seg, 1.0E-12)
+#endif
 
-TEST_NULLPRECON(nullprecon_device_sumfac_qp_tri_quad, Helmholtz2D_Tri_Quad,
-                1.0E-15)
+TEST_HELMSOLVE(helmsolve_device_sumfactop_tri_quad, Helmholtz2D_Tri_Quad,
+               1.0E-10)
 
-TEST_NULLPRECON(nullprecon_device_sumfac_qp_hex, Helmholtz3D_Hex, 1.0E-15)
+// TEST_HELMSOLVE(helmsolve_device_sumfactop_all_bcs,
+// Helmholtz2D_AllBCs, 1.0E-10)
 
-TEST_NULLPRECON(nullprecon_device_sumfac_qp_prism, Helmholtz3D_Prism, 1.0E-15)
+TEST_HELMSOLVE(helmsolve_device_sumfactop_hex, Helmholtz3D_Hex, 1.0E-10)
 
-TEST_NULLPRECON(nullprecon_device_sumfac_qp_pyr, Helmholtz3D_Pyr, 1.0E-15)
+TEST_HELMSOLVE(helmsolve_device_sumfactop_prism, Helmholtz3D_Prism, 1.0E-10)
 
-TEST_NULLPRECON(nullprecon_device_sumfac_qp_tet, Helmholtz3D_Tet, 1.0E-15)
+TEST_HELMSOLVE(helmsolve_device_sumfactop_pyr, Helmholtz3D_Pyr, 2.0E-10)
+
+TEST_HELMSOLVE(helmsolve_device_sumfactop_tet, Helmholtz3D_Tet, 1.0E-10)
 
 BOOST_AUTO_TEST_SUITE_END()

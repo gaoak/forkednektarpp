@@ -111,9 +111,9 @@ struct SumFacCUBLAS
     static constexpr char name[] = "SumFacCUBLAS";
 };
 
-struct SumFacQP
+struct SumFacTOP
 {
-    static inline const std::string name = "SumFacQP";
+    static inline const std::string name = "SumFacTOP";
 };
 
 struct Generic
@@ -180,7 +180,7 @@ NEK_FORCE_INLINE static constexpr unsigned int GetDeviceBlockSize(
         constexpr auto warpsize = NektarSpaces::vector_width<double>::value;
         return warpsize;
     }
-    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacTOP>)
     {
         constexpr auto warpsize = NektarSpaces::vector_width<double>::value;
         return std::min(((blockSize + warpsize - 1u) / warpsize) * warpsize,
@@ -203,7 +203,7 @@ NEK_FORCE_INLINE static constexpr unsigned int GetDeviceGridSize(
         constexpr auto warpsize = NektarSpaces::vector_width<double>::value;
         return std::min((nelmt + warpsize - 1u) / warpsize, maxGridSize);
     }
-    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacTOP>)
     {
         return std::min(nelmt, maxGridSize);
     }

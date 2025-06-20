@@ -51,7 +51,7 @@ inline unsigned int IProductWRTBaseSharedMemorySize(
     {
         return 0;
     }
-    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacTOP>)
     {
         return nq0;
     }
@@ -71,7 +71,7 @@ inline unsigned int IProductWRTBaseSharedMemorySize(const unsigned int nq0,
     {
         return 0;
     }
-    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacTOP>)
     {
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
@@ -102,7 +102,7 @@ inline unsigned int IProductWRTBaseSharedMemorySize(
     {
         return 0;
     }
-    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacTOP>)
     {
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
@@ -1587,7 +1587,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacKernel(
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TthreadBlock,
           typename TData>
-NEK_DEVICE_INLINE static void IProductWRTBaseSegSumFacQPKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseSegSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nq0,
     const TData *__restrict__ basis0, const TData *__restrict__ in,
     TData *__restrict__ out, const TData scale, const TthreadBlock &threadBlock)
@@ -1624,7 +1624,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseSegSumFacQPKernel(
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TthreadBlock,
           typename TData>
-NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacQPKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacTOPKernel(
     const unsigned int nm0, [[maybe_unused]] const unsigned int nm1,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     [[maybe_unused]] const unsigned int nqTot, const TData *__restrict__ basis0,
@@ -1685,7 +1685,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacQPKernel(
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TthreadBlock,
           typename TData>
-NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacQPKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacTOPKernel(
     const unsigned int nm0, [[maybe_unused]] const unsigned int nm1,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nqTot, const bool isModified,
@@ -1770,7 +1770,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacQPKernel(
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TthreadBlock,
           typename TData>
-NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacQPKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1,
     [[maybe_unused]] const unsigned int nm2, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
@@ -1853,7 +1853,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacQPKernel(
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TthreadBlock,
           typename TData>
-NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacQPKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nqTot, const bool isModified,
@@ -2049,7 +2049,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacQPKernel(
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TthreadBlock,
           typename TData>
-NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacQPKernel(
+NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nqTot, const bool isModified,
@@ -2198,7 +2198,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacQPKernel(
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TthreadBlock,
           typename TData>
-NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacQPKernel(
+NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nqTot, const bool isModified,
@@ -2366,7 +2366,7 @@ NEK_DEVICE_INLINE static void IProductWRTBase1DKernel(
 
             localBarrier(threadBlock);
 
-            IProductWRTBaseSegSumFacQPKernel<SCALE, APPEND, DEFORMED>(
+            IProductWRTBaseSegSumFacTOPKernel<SCALE, APPEND, DEFORMED>(
                 nm0, nq0, basis0, s_wsp0, outptr, scale, threadBlock);
             e += getBlockRange(threadBlock);
         }
@@ -2436,7 +2436,7 @@ NEK_DEVICE_INLINE static void IProductWRTBase2DKernel(
             e += getGlobalRange(threadBlock);
         }
     }
-    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacTOP>)
     {
         unsigned int offset = 0, nmode0 = 0, nmode1 = 0;
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
@@ -2498,20 +2498,20 @@ NEK_DEVICE_INLINE static void IProductWRTBase2DKernel(
 
             if constexpr (SHAPE_TYPE == LibUtilities::Quad)
             {
-                IProductWRTBaseQuadSumFacQPKernel<SCALE, APPEND, DEFORMED>(
+                IProductWRTBaseQuadSumFacTOPKernel<SCALE, APPEND, DEFORMED>(
                     nm0, nm1, nmTot, nq0, nq1, nqTot, s_basis0, s_basis1,
                     s_wsp0, outptr, s_wsp1, scale, threadBlock);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
             {
-                IProductWRTBaseTriSumFacQPKernel<SCALE, APPEND, DEFORMED>(
+                IProductWRTBaseTriSumFacTOPKernel<SCALE, APPEND, DEFORMED>(
                     nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0,
                     s_basis0, s_basis1, s_wsp0, outptr, s_wsp1, scale,
                     threadBlock);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
             {
-                IProductWRTBaseTriSumFacQPKernel<SCALE, false, DEFORMED>(
+                IProductWRTBaseTriSumFacTOPKernel<SCALE, false, DEFORMED>(
                     nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0,
                     s_basis0, s_basis1, s_wsp0, s_out1ptr, s_wsp1, scale,
                     threadBlock);
@@ -2633,7 +2633,7 @@ NEK_DEVICE_INLINE static void IProductWRTBase3DKernel(
             e += getGlobalRange(threadBlock);
         }
     }
-    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacTOP>)
     {
         unsigned int offset0 = 0, offset1 = 0, nmode0 = 0, nmode1 = 0,
                      nmode2 = 0;
@@ -2728,21 +2728,21 @@ NEK_DEVICE_INLINE static void IProductWRTBase3DKernel(
 
             if constexpr (SHAPE_TYPE == LibUtilities::Hex)
             {
-                IProductWRTBaseHexSumFacQPKernel<SCALE, APPEND, DEFORMED>(
+                IProductWRTBaseHexSumFacTOPKernel<SCALE, APPEND, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, s_basis0,
                     s_basis1, s_basis2, s_wsp0, outptr, s_wsp1, s_wsp2, scale,
                     threadBlock);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
             {
-                IProductWRTBaseTetSumFacQPKernel<SCALE, APPEND, DEFORMED>(
+                IProductWRTBaseTetSumFacTOPKernel<SCALE, APPEND, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
                     index0, index1, index2, s_basis0, s_basis1, s_basis2,
                     s_wsp0, outptr, s_wsp1, s_wsp2, scale, threadBlock);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
             {
-                IProductWRTBaseTetSumFacQPKernel<SCALE, APPEND, DEFORMED>(
+                IProductWRTBaseTetSumFacTOPKernel<SCALE, APPEND, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
                     index0, index1, index2, s_basis0, s_basis1, s_basis2,
                     s_wsp0, s_out1ptr, s_wsp1, s_wsp2, scale, threadBlock);
@@ -2753,14 +2753,14 @@ NEK_DEVICE_INLINE static void IProductWRTBase3DKernel(
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
             {
-                IProductWRTBasePrismSumFacQPKernel<SCALE, APPEND, DEFORMED>(
+                IProductWRTBasePrismSumFacTOPKernel<SCALE, APPEND, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
                     index0, index1, index2, s_basis0, s_basis1, s_basis2,
                     s_wsp0, outptr, s_wsp1, s_wsp2, scale, threadBlock);
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism)
             {
-                IProductWRTBasePrismSumFacQPKernel<SCALE, APPEND, DEFORMED>(
+                IProductWRTBasePrismSumFacTOPKernel<SCALE, APPEND, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
                     index0, index1, index2, s_basis0, s_basis1, s_basis2,
                     s_wsp0, s_out1ptr, s_wsp1, s_wsp2, scale, threadBlock);
@@ -2771,7 +2771,7 @@ NEK_DEVICE_INLINE static void IProductWRTBase3DKernel(
             }
             else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
             {
-                IProductWRTBasePyrSumFacQPKernel<SCALE, APPEND, DEFORMED>(
+                IProductWRTBasePyrSumFacTOPKernel<SCALE, APPEND, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
                     index0, index1, s_basis0, s_basis1, s_basis2, s_wsp0,
                     outptr, s_wsp1, s_wsp2, scale, threadBlock);

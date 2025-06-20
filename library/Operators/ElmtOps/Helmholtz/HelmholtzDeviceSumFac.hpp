@@ -112,7 +112,7 @@ public:
             const bool indexing =
                 (m_shapeType == LibUtilities::Tri ||
                  m_shapeType == LibUtilities::NodalTri) &&
-                std::is_same_v<Implementation, Operators::SumFacQP>;
+                std::is_same_v<Implementation, Operators::SumFacTOP>;
             m_index.push_back(
                 indexing ? this->m_dataWarehouse->template GetData<ExecSpace>(
                                ModeIndexKey(m_shapeType, m_nm[0], m_nm[1], 0))
@@ -138,14 +138,14 @@ public:
             const bool indexingTet =
                 (m_shapeType == LibUtilities::Tet ||
                  m_shapeType == LibUtilities::NodalTet) &&
-                std::is_same_v<Implementation, Operators::SumFacQP>;
+                std::is_same_v<Implementation, Operators::SumFacTOP>;
             const bool indexingPrism =
                 (m_shapeType == LibUtilities::Prism ||
                  m_shapeType == LibUtilities::NodalPrism) &&
-                std::is_same_v<Implementation, Operators::SumFacQP>;
+                std::is_same_v<Implementation, Operators::SumFacTOP>;
             const bool indexingPyr =
                 m_shapeType == LibUtilities::Pyr &&
-                std::is_same_v<Implementation, Operators::SumFacQP>;
+                std::is_same_v<Implementation, Operators::SumFacTOP>;
             m_index.push_back(
                 (indexingTet || indexingPrism || indexingPyr)
                     ? this->m_dataWarehouse->template GetData<ExecSpace>(
@@ -178,7 +178,7 @@ public:
         TData *diffCoeff =
             m_diffCoeff.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
 
-        if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
+        if constexpr (std::is_same_v<Implementation, Operators::SumFacTOP>)
         {
             for (unsigned int d = 0; d < m_coordDim; d++)
             {
@@ -430,7 +430,7 @@ protected:
 
         // Fetch Jacobian and deriv factors.
         constexpr bool transpose =
-            std::is_same_v<Implementation, Operators::SumFacQP>;
+            std::is_same_v<Implementation, Operators::SumFacTOP>;
         auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
@@ -494,7 +494,7 @@ protected:
 
         // Fetch Jacobian and deriv factors.
         constexpr bool transpose =
-            std::is_same_v<Implementation, Operators::SumFacQP>;
+            std::is_same_v<Implementation, Operators::SumFacTOP>;
         auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
@@ -564,7 +564,7 @@ protected:
 
         // Fetch Jacobian and deriv factors.
         constexpr bool transpose =
-            std::is_same_v<Implementation, Operators::SumFacQP>;
+            std::is_same_v<Implementation, Operators::SumFacTOP>;
         auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
@@ -631,7 +631,7 @@ protected:
 
         // Fetch Jacobian and deriv factors.
         constexpr bool transpose =
-            std::is_same_v<Implementation, Operators::SumFacQP>;
+            std::is_same_v<Implementation, Operators::SumFacTOP>;
         auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
@@ -705,7 +705,7 @@ protected:
 
         // Fetch Jacobian and deriv factors.
         constexpr bool transpose =
-            std::is_same_v<Implementation, Operators::SumFacQP>;
+            std::is_same_v<Implementation, Operators::SumFacTOP>;
         auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
@@ -773,7 +773,7 @@ protected:
 
         // Fetch Jacobian and deriv factors.
         constexpr bool transpose =
-            std::is_same_v<Implementation, Operators::SumFacQP>;
+            std::is_same_v<Implementation, Operators::SumFacTOP>;
         auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
