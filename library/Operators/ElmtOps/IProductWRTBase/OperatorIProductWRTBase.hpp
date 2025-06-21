@@ -34,57 +34,10 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/OperatorElmt.hpp"
+#include "Operators/ElmtOps/IProductWRTBase/BlockOperatorIProductWRTBase.hpp"
 
 namespace Nektar::Operators
 {
-
-template <typename TData>
-class BlockOperatorIProductWRTBase : public BlockOperator<TData>
-{
-public:
-    static std::shared_ptr<BlockOperatorIProductWRTBase<TData>> Create(
-        const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
-        std::string implStr)
-    {
-        return BlockOperator<TData>::template Create<
-            BlockOperatorIProductWRTBase<TData>>(exp, dataWarehouse, execStr,
-                                                 implStr);
-    }
-
-    static inline const std::string name = "BlockIProductWRTBase";
-
-    void Apply(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
-    {
-        this->v_Apply(inblock, outblock);
-    }
-
-    void operator()(BlockAccessor<TData> &inblock,
-                    BlockAccessor<TData> &outblock)
-    {
-        this->v_Apply(inblock, outblock);
-    }
-
-    void SetScale(TData scale)
-    {
-        m_scale = scale;
-    }
-
-protected:
-    TData m_scale = 1.0;
-
-    BlockOperatorIProductWRTBase(const LocalRegions::ExpansionSharedPtr &exp,
-                                 NekDataWarehouseSharedPtr dataWarehouse)
-        : BlockOperator<TData>(exp, dataWarehouse)
-    {
-    }
-
-    ~BlockOperatorIProductWRTBase() override = default;
-
-    virtual void v_Apply(BlockAccessor<TData> &inblock,
-                         BlockAccessor<TData> &outblock) = 0;
-};
 
 // IProductWRTBase base class
 // Defines the apply operator to enforce apply parameter types

@@ -34,60 +34,10 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/OperatorElmt.hpp"
+#include "Operators/ElmtOps/Expression/BlockOperatorExpression.hpp"
 
 namespace Nektar::Operators
 {
-
-template <typename TData>
-class BlockOperatorExpression : public BlockOperator<TData>
-{
-public:
-    static std::shared_ptr<BlockOperatorExpression<TData>> Create(
-        const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
-        std::string implStr)
-    {
-        return BlockOperator<TData>::template Create<
-            BlockOperatorExpression<TData>>(exp, dataWarehouse, execStr,
-                                            implStr);
-    }
-
-    static inline const std::string name = "BlockExpression";
-
-    void Apply(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
-    {
-        this->v_Apply(inblock, outblock);
-    }
-
-    void operator()(BlockAccessor<TData> &inblock,
-                    BlockAccessor<TData> &outblock)
-    {
-        this->v_Apply(inblock, outblock);
-    }
-
-    void SetExpressions(std::vector<LibUtilities::EquationSharedPtr> &exprs)
-    {
-        v_SetExpressions(exprs);
-    }
-
-protected:
-    std::vector<LibUtilities::EquationSharedPtr> m_expressions;
-
-    BlockOperatorExpression(const LocalRegions::ExpansionSharedPtr &exp,
-                            NekDataWarehouseSharedPtr dataWarehouse)
-        : BlockOperator<TData>(exp, dataWarehouse)
-    {
-    }
-
-    ~BlockOperatorExpression() override = default;
-
-    virtual void v_Apply(BlockAccessor<TData> &inblock,
-                         BlockAccessor<TData> &outblock) = 0;
-
-    virtual void v_SetExpressions(
-        std::vector<LibUtilities::EquationSharedPtr> &exprs) = 0;
-};
 
 // Expression base class
 // Defines the apply operator to enforce apply parameter types

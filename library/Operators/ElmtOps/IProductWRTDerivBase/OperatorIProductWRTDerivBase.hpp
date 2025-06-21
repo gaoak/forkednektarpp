@@ -34,58 +34,10 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/OperatorElmt.hpp"
+#include "Operators/ElmtOps/IProductWRTDerivBase/BlockOperatorIProductWRTDerivBase.hpp"
 
 namespace Nektar::Operators
 {
-
-template <typename TData>
-class BlockOperatorIProductWRTDerivBase : public BlockOperator<TData>
-{
-public:
-    static std::shared_ptr<BlockOperatorIProductWRTDerivBase<TData>> Create(
-        const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
-        std::string implStr)
-    {
-        return BlockOperator<TData>::template Create<
-            BlockOperatorIProductWRTDerivBase<TData>>(exp, dataWarehouse,
-                                                      execStr, implStr);
-    }
-
-    static inline const std::string name = "BlockIProductWRTDerivBase";
-
-    void Apply(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
-    {
-        this->v_Apply(inblock, outblock);
-    }
-
-    void operator()(BlockAccessor<TData> &inblock,
-                    BlockAccessor<TData> &outblock)
-    {
-        this->v_Apply(inblock, outblock);
-    }
-
-    void SetAppend(bool append)
-    {
-        m_append = append;
-    }
-
-protected:
-    bool m_append = false;
-
-    BlockOperatorIProductWRTDerivBase(
-        const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse)
-        : BlockOperator<TData>(exp, dataWarehouse)
-    {
-    }
-
-    ~BlockOperatorIProductWRTDerivBase() override = default;
-
-    virtual void v_Apply(BlockAccessor<TData> &inblock,
-                         BlockAccessor<TData> &outblock) = 0;
-};
 
 // IProductWRTDerivBase base class
 // Defines the apply operator to enforce apply parameter types

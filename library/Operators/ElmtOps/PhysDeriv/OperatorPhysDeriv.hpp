@@ -34,50 +34,10 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/OperatorElmt.hpp"
+#include "Operators/ElmtOps/PhysDeriv/BlockOperatorPhysDeriv.hpp"
 
 namespace Nektar::Operators
 {
-
-template <typename TData>
-class BlockOperatorPhysDeriv : public BlockOperator<TData>
-{
-public:
-    static std::shared_ptr<BlockOperatorPhysDeriv<TData>> Create(
-        const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
-        std::string implStr)
-    {
-        return BlockOperator<TData>::template Create<
-            BlockOperatorPhysDeriv<TData>>(exp, dataWarehouse, execStr,
-                                           implStr);
-    }
-
-    static inline const std::string name = "BlockPhysDeriv";
-
-    void Apply(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
-    {
-        this->v_Apply(inblock, outblock);
-    }
-
-    void operator()(BlockAccessor<TData> &inblock,
-                    BlockAccessor<TData> &outblock)
-    {
-        this->v_Apply(inblock, outblock);
-    }
-
-protected:
-    BlockOperatorPhysDeriv(const LocalRegions::ExpansionSharedPtr &exp,
-                           NekDataWarehouseSharedPtr dataWarehouse)
-        : BlockOperator<TData>(exp, dataWarehouse)
-    {
-    }
-
-    ~BlockOperatorPhysDeriv() override = default;
-
-    virtual void v_Apply(BlockAccessor<TData> &inblock,
-                         BlockAccessor<TData> &outblock) = 0;
-};
 
 // PhysDeriv base class
 // Defines the apply operator to enforce apply parameter types
