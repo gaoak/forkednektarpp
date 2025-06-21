@@ -34,21 +34,21 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/Expression/OperatorExpression.hpp"
+#include "Operators/ElmtOps/Expression/ExpressionOp.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename Implementation, typename TData>
-class BlockOperatorExpressionImpl : public BlockOperatorExpression<TData>
+class ExpressionBlockOpImpl : public ExpressionBlockOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    BlockOperatorExpressionImpl(const LocalRegions::ExpansionSharedPtr &exp,
-                                NekDataWarehouseSharedPtr dataWarehouse)
-        : BlockOperatorExpression<TData>(exp, dataWarehouse)
+    ExpressionBlockOpImpl(const LocalRegions::ExpansionSharedPtr &exp,
+                          NekDataWarehouseSharedPtr dataWarehouse)
+        : ExpressionBlockOp<TData>(exp, dataWarehouse)
     {
         // Determine shape and type of the element.
         m_dimension = exp->GetShapeDimension();
@@ -65,7 +65,7 @@ public:
         NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
-            BlockOperatorExpressionImpl<ExecSpace, Implementation, TData>>(
+            ExpressionBlockOpImpl<ExecSpace, Implementation, TData>>(
             exp, dataWarehouse);
     }
 

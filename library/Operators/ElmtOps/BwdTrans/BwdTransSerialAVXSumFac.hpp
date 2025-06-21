@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/BwdTrans/OperatorBwdTrans.hpp"
+#include "Operators/ElmtOps/BwdTrans/BwdTransOp.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/BwdTrans/BwdTransSerialAVXSumFacKernels.hpp"
@@ -43,7 +43,7 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename Implementation, typename TData>
-class BlockOperatorBwdTransImpl : public BlockOperatorBwdTrans<TData>
+class BwdTransBlockOpImpl : public BwdTransBlockOp<TData>
 {
     using simd_t =
         typename simd_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
@@ -51,9 +51,9 @@ class BlockOperatorBwdTransImpl : public BlockOperatorBwdTrans<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    BlockOperatorBwdTransImpl(const LocalRegions::ExpansionSharedPtr &exp,
-                              NekDataWarehouseSharedPtr dataWarehouse)
-        : BlockOperatorBwdTrans<TData>(exp, dataWarehouse)
+    BwdTransBlockOpImpl(const LocalRegions::ExpansionSharedPtr &exp,
+                        NekDataWarehouseSharedPtr dataWarehouse)
+        : BwdTransBlockOp<TData>(exp, dataWarehouse)
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -99,7 +99,7 @@ public:
         NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
-            BlockOperatorBwdTransImpl<ExecSpace, Implementation, TData>>(
+            BwdTransBlockOpImpl<ExecSpace, Implementation, TData>>(
             exp, dataWarehouse);
     }
 

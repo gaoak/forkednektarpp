@@ -34,9 +34,9 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/GlobalLinSysOps/ConjGrad/OperatorConjGrad.hpp"
-#include "Operators/GlobalLinSysOps/HelmSolve/OperatorHelmSolve.hpp"
-#include "Operators/PreconOps/DiagPrecon/OperatorDiagPrecon.hpp"
+#include "Operators/GlobalLinSysOps/ConjGrad/ConjGradOp.hpp"
+#include "Operators/GlobalLinSysOps/HelmSolve/HelmSolveOp.hpp"
+#include "Operators/PreconOps/DiagPrecon/DiagPreconOp.hpp"
 
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
@@ -131,13 +131,13 @@ public:
 
     void RunTestCase()
     {
-        auto HelmSolveOp  = OperatorHelmSolve<double>::Create(fixt_explist);
-        auto DiagPreconOp = OperatorDiagPrecon<double>::Create(fixt_explist);
-        auto ConjGradOp   = OperatorConjGrad<double>::Create(fixt_explist);
-        HelmSolveOp->SetLambda(m_lambda);
-        HelmSolveOp->SetLinearSolver(ConjGradOp);
-        HelmSolveOp->SetPrecon(DiagPreconOp);
-        HelmSolveOp->Apply(*fixt_in, *fixt_out);
+        auto op       = HelmSolveOp<double>::Create(fixt_explist);
+        auto precon   = DiagPreconOp<double>::Create(fixt_explist);
+        auto linsolve = ConjGradOp<double>::Create(fixt_explist);
+        op->SetLambda(m_lambda);
+        op->SetLinearSolver(linsolve);
+        op->SetPrecon(precon);
+        op->Apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution()

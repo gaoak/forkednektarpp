@@ -34,7 +34,7 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/ElmtOps/BwdTrans/OperatorBwdTrans.hpp"
+#include "Operators/ElmtOps/BwdTrans/BwdTransOp.hpp"
 
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
@@ -73,8 +73,8 @@ public:
 
     void RunTestCase()
     {
-        auto BwdTransOp = OperatorBwdTrans<double>::Create(fixt_explist);
-        BwdTransOp->Apply(*fixt_in, *fixt_out);
+        auto op = BwdTransOp<double>::Create(fixt_explist);
+        op->Apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution()

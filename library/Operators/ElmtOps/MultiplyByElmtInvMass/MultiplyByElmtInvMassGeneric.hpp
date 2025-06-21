@@ -37,7 +37,7 @@
 
 #include <LocalRegions/Expansion.h>
 
-#include "Operators/ElmtOps/MultiplyByElmtInvMass/OperatorMultiplyByElmtInvMass.hpp"
+#include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp"
 #include "Operators/NekBlas/NekBlas.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
@@ -48,16 +48,16 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename Implementation, typename TData>
-class BlockOperatorMultiplyByElmtInvMassImpl
-    : public BlockOperatorMultiplyByElmtInvMass<TData>
+class MultiplyByElmtInvMassBlockOpImpl
+    : public MultiplyByElmtInvMassBlockOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    BlockOperatorMultiplyByElmtInvMassImpl(
+    MultiplyByElmtInvMassBlockOpImpl(
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse)
-        : BlockOperatorMultiplyByElmtInvMass<TData>(exp, dataWarehouse)
+        : MultiplyByElmtInvMassBlockOp<TData>(exp, dataWarehouse)
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -87,8 +87,9 @@ public:
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse)
     {
-        return std::make_unique<BlockOperatorMultiplyByElmtInvMassImpl<
-            ExecSpace, Implementation, TData>>(exp, dataWarehouse);
+        return std::make_unique<
+            MultiplyByElmtInvMassBlockOpImpl<ExecSpace, Implementation, TData>>(
+            exp, dataWarehouse);
     }
 
 protected:

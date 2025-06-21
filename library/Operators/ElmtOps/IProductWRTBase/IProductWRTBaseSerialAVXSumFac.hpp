@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/IProductWRTBase/OperatorIProductWRTBase.hpp"
+#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseSerialAVXSumFacKernels.hpp"
@@ -43,8 +43,7 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename Implementation, typename TData>
-class BlockOperatorIProductWRTBaseImpl
-    : public BlockOperatorIProductWRTBase<TData>
+class IProductWRTBaseBlockOpImpl : public IProductWRTBaseBlockOp<TData>
 {
     using simd_t =
         typename simd_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
@@ -52,10 +51,9 @@ class BlockOperatorIProductWRTBaseImpl
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    BlockOperatorIProductWRTBaseImpl(
-        const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse)
-        : BlockOperatorIProductWRTBase<TData>(exp, dataWarehouse)
+    IProductWRTBaseBlockOpImpl(const LocalRegions::ExpansionSharedPtr &exp,
+                               NekDataWarehouseSharedPtr dataWarehouse)
+        : IProductWRTBaseBlockOp<TData>(exp, dataWarehouse)
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -106,7 +104,7 @@ public:
         NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
-            BlockOperatorIProductWRTBaseImpl<ExecSpace, Implementation, TData>>(
+            IProductWRTBaseBlockOpImpl<ExecSpace, Implementation, TData>>(
             exp, dataWarehouse);
     }
 

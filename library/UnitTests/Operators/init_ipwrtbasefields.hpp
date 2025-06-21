@@ -34,7 +34,7 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/ElmtOps/IProductWRTBase/OperatorIProductWRTBase.hpp"
+#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp"
 
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
@@ -75,9 +75,8 @@ public:
 
     void RunTestCase()
     {
-        auto IProductWRTBaseOp =
-            OperatorIProductWRTBase<double>::Create(fixt_explist);
-        IProductWRTBaseOp->Apply(*fixt_in, *fixt_out);
+        auto op = IProductWRTBaseOp<double>::Create(fixt_explist);
+        op->Apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution()

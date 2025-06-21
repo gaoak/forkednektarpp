@@ -34,7 +34,7 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/AddTraceIntegral/OperatorAddTraceIntegral.hpp"
+#include "Operators/AddTraceIntegral/AddTraceIntegralOp.hpp"
 
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
@@ -95,9 +95,8 @@ public:
 
     void RunTestCase()
     {
-        auto AddTraceIntegralOp =
-            OperatorAddTraceIntegral<double>::Create(fixt_explist);
-        AddTraceIntegralOp->Apply(*fixt_in, *fixt_out);
+        auto op = AddTraceIntegralOp<double>::Create(fixt_explist);
+        op->Apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution()

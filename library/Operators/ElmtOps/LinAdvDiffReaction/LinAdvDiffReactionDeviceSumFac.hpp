@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/LinAdvDiffReaction/OperatorLinAdvDiffReaction.hpp"
+#include "Operators/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionOp.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionDeviceSumFacKernels.hpp"
@@ -43,16 +43,14 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename Implementation, typename TData>
-class BlockOperatorLinAdvDiffReactionImpl
-    : public BlockOperatorLinAdvDiffReaction<TData>
+class LinAdvDiffReactionBlockOpImpl : public LinAdvDiffReactionBlockOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    BlockOperatorLinAdvDiffReactionImpl(
-        const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse)
-        : BlockOperatorLinAdvDiffReaction<TData>(exp, dataWarehouse),
+    LinAdvDiffReactionBlockOpImpl(const LocalRegions::ExpansionSharedPtr &exp,
+                                  NekDataWarehouseSharedPtr dataWarehouse)
+        : LinAdvDiffReactionBlockOp<TData>(exp, dataWarehouse),
           m_diffCoeff(MemoryRegion<TData>::Create(
               "LinAdvDiffReaction diffCoeff",
               exp->GetCoordim() * exp->GetCoordim(), ExecSpace::alignment))
@@ -209,8 +207,9 @@ public:
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse)
     {
-        return std::make_unique<BlockOperatorLinAdvDiffReactionImpl<
-            ExecSpace, Implementation, TData>>(exp, dataWarehouse);
+        return std::make_unique<
+            LinAdvDiffReactionBlockOpImpl<ExecSpace, Implementation, TData>>(
+            exp, dataWarehouse);
     }
 
 protected:

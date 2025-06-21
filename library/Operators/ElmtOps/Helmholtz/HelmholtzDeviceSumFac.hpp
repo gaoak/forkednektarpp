@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/Helmholtz/OperatorHelmholtz.hpp"
+#include "Operators/ElmtOps/Helmholtz/HelmholtzOp.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/Helmholtz/HelmholtzDeviceSumFacKernels.hpp"
@@ -43,14 +43,14 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename Implementation, typename TData>
-class BlockOperatorHelmholtzImpl : public BlockOperatorHelmholtz<TData>
+class HelmholtzBlockOpImpl : public HelmholtzBlockOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    BlockOperatorHelmholtzImpl(const LocalRegions::ExpansionSharedPtr &exp,
-                               NekDataWarehouseSharedPtr dataWarehouse)
-        : BlockOperatorHelmholtz<TData>(exp, dataWarehouse),
+    HelmholtzBlockOpImpl(const LocalRegions::ExpansionSharedPtr &exp,
+                         NekDataWarehouseSharedPtr dataWarehouse)
+        : HelmholtzBlockOp<TData>(exp, dataWarehouse),
           m_diffCoeff(MemoryRegion<TData>::Create(
               "Helmholtz diffCoeff", exp->GetCoordim() * exp->GetCoordim(),
               ExecSpace::alignment))
@@ -208,7 +208,7 @@ public:
         NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
-            BlockOperatorHelmholtzImpl<ExecSpace, Implementation, TData>>(
+            HelmholtzBlockOpImpl<ExecSpace, Implementation, TData>>(
             exp, dataWarehouse);
     }
 

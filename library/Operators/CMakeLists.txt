@@ -88,12 +88,12 @@ MACRO(ADD_OPERATOR dir)
                 ${dir}/${name}${ExecSpace}*.hpp)
 
             # Found a impl header.
-            IF(EXISTS "${dir}/${name}Impl.hpp")
+            IF(EXISTS "${dir}/${name}OpImpl.hpp")
                 FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                    "${dir}/${name}Impl.hpp")
+                    "${dir}/${name}OpImpl.hpp")
                 SET(IMPL_HEADER "#include \"${include_file}\"")
                 # Found a general kernel
-                IF(EXISTS "${dir}/${name}ImplKernels.hpp" )
+                IF(EXISTS "${dir}/${name}Kernels.hpp" )
                     MESSAGE("Adding operator with a ${ExecSpace} implementation: " "${FactoryDeclName}")
                 # Found a specific kernel
                 ELSEIF(EXISTS "${dir}/${name}${ExecSpace}Kernels.hpp")
@@ -102,7 +102,7 @@ MACRO(ADD_OPERATOR dir)
                     ("${ExecSpace}" STREQUAL "AVX" AND EXISTS "${dir}/${name}SerialAVXKernels.hpp"))
                     MESSAGE("Adding operator with a ${ExecSpace} implementation: " "${FactoryDeclName}")
                 # No kernel found
-                ELSEIF(NOT EXISTS "${dir}/${name}ImplKernels.hpp" AND
+                ELSEIF(NOT EXISTS "${dir}/${name}Kernels.hpp" AND
                     NOT EXISTS "${dir}/${name}SerialKernels.hpp" AND
                     NOT EXISTS "${dir}/${name}AVXKernels.hpp" AND
                     NOT EXISTS "${dir}/${name}SerialAVXKernels.hpp" AND
@@ -476,7 +476,7 @@ ENDMACRO()
 SET(OPERATORS_HEADERS
     Common/Operator.hpp
     Common/DeviceProperties.hpp
-    ElmtOps/OperatorElmt.hpp
+    ElmtOps/BlockOperator.hpp
     NekBlas/NekBlas.hpp
     )
 
@@ -484,7 +484,7 @@ SET(OPERATORS_HEADERS
 SET(OPERATORS_SOURCES
     Common/Operator.cpp
     Common/DeviceProperties.cpp
-    ElmtOps/OperatorElmt.cpp
+    ElmtOps/BlockOperator.cpp
     NekBlas/blas.cpp
     )
 

@@ -34,7 +34,7 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/ElmtOps/PhysDeriv/OperatorPhysDeriv.hpp"
+#include "Operators/ElmtOps/PhysDeriv/PhysDerivOp.hpp"
 
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
@@ -50,8 +50,8 @@ public:
 
     void RunTestCase()
     {
-        auto PhysDerivOp = OperatorPhysDeriv<double>::Create(fixt_explist);
-        PhysDerivOp->Apply(*fixt_in, *fixt_out);
+        auto op = PhysDerivOp<double>::Create(fixt_explist);
+        op->Apply(*fixt_in, *fixt_out);
     }
     void SetTestCase()
     {

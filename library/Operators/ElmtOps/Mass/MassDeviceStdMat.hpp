@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/Mass/OperatorMass.hpp"
+#include "Operators/ElmtOps/Mass/MassOp.hpp"
 #include "Operators/NekBlas/NekBlas.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
@@ -44,14 +44,14 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename Implementation, typename TData>
-class BlockOperatorMassImpl : public BlockOperatorMass<TData>
+class MassBlockOpImpl : public MassBlockOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    BlockOperatorMassImpl(const LocalRegions::ExpansionSharedPtr &exp,
-                          NekDataWarehouseSharedPtr dataWarehouse)
-        : BlockOperatorMass<TData>(exp, dataWarehouse)
+    MassBlockOpImpl(const LocalRegions::ExpansionSharedPtr &exp,
+                    NekDataWarehouseSharedPtr dataWarehouse)
+        : MassBlockOp<TData>(exp, dataWarehouse)
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -90,8 +90,8 @@ public:
         NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
-            BlockOperatorMassImpl<ExecSpace, Implementation, TData>>(
-            exp, dataWarehouse);
+            MassBlockOpImpl<ExecSpace, Implementation, TData>>(exp,
+                                                               dataWarehouse);
     }
 
 protected:

@@ -34,7 +34,7 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/BndCondOps/NeuBndCond/OperatorNeuBndCond.hpp"
+#include "Operators/BndCondOps/NeuBndCond/NeuBndCondOp.hpp"
 
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
@@ -60,15 +60,14 @@ public:
 
     void RunTestCase()
     {
-        auto NeuBndCondOp = OperatorNeuBndCond<double>::Create(fixt_explist);
-        NeuBndCondOp->Apply(*fixt_out);
+        auto op = NeuBndCondOp<double>::Create(fixt_explist);
+        op->Apply(*fixt_out);
     }
 
     void ExpectedSolution()
     {
-        auto NeuBndCondOp =
-            OperatorNeuBndCond<double>::Create(fixt_explist, "Serial");
-        NeuBndCondOp->Apply(*fixt_expected);
+        auto op = NeuBndCondOp<double>::Create(fixt_explist, "Serial");
+        op->Apply(*fixt_expected);
     }
 };
 

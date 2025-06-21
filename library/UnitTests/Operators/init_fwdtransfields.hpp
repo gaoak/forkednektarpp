@@ -34,9 +34,9 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/GlobalLinSysOps/ConjGrad/OperatorConjGrad.hpp"
-#include "Operators/GlobalLinSysOps/FwdTrans/OperatorFwdTrans.hpp"
-#include "Operators/PreconOps/DiagPrecon/OperatorDiagPrecon.hpp"
+#include "Operators/GlobalLinSysOps/ConjGrad/ConjGradOp.hpp"
+#include "Operators/GlobalLinSysOps/FwdTrans/FwdTransOp.hpp"
+#include "Operators/PreconOps/DiagPrecon/DiagPreconOp.hpp"
 
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
@@ -125,12 +125,12 @@ public:
 
     void RunTestCase()
     {
-        auto FwdTransOp   = OperatorFwdTrans<double>::Create(fixt_explist);
-        auto DiagPreconOp = OperatorDiagPrecon<double>::Create(fixt_explist);
-        auto ConjGradOp   = OperatorConjGrad<double>::Create(fixt_explist);
-        FwdTransOp->SetLinearSolver(ConjGradOp);
-        FwdTransOp->SetPrecon(DiagPreconOp);
-        FwdTransOp->Apply(*fixt_in, *fixt_out);
+        auto op       = FwdTransOp<double>::Create(fixt_explist);
+        auto precon   = DiagPreconOp<double>::Create(fixt_explist);
+        auto linsolve = ConjGradOp<double>::Create(fixt_explist);
+        op->SetLinearSolver(linsolve);
+        op->SetPrecon(precon);
+        op->Apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution()

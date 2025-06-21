@@ -34,7 +34,7 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/ElmtOps/Expression/OperatorExpression.hpp"
+#include "Operators/ElmtOps/Expression/ExpressionOp.hpp"
 
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
@@ -76,9 +76,8 @@ public:
 
     void RunTestCase()
     {
-        auto ExprOp =
-            OperatorExpression<double>::Create(fixt_explist, "Forcing");
-        ExprOp->Apply(*fixt_in, *fixt_out);
+        auto op = ExpressionOp<double>::Create(fixt_explist, "Forcing");
+        op->Apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution()

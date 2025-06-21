@@ -34,7 +34,7 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/AssmbScatr/OperatorAssmbScatr.hpp"
+#include "Operators/AssmbScatr/AssmbScatrOp.hpp"
 
 #include <LibUtilities/LinearAlgebra/NekLinSysIter.h>
 #include <MultiRegions/ContField.h>
@@ -75,8 +75,8 @@ public:
 
     void RunTestCase()
     {
-        auto AssmbScatrOp = OperatorAssmbScatr<double>::Create(fixt_explist);
-        AssmbScatrOp->Apply(*fixt_in, *fixt_out);
+        auto op = AssmbScatrOp<double>::Create(fixt_explist);
+        op->Apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution()

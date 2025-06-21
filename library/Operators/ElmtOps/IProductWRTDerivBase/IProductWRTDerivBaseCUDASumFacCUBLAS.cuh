@@ -36,7 +36,7 @@
 
 #include <StdRegions/StdExpansion.h>
 
-#include "Operators/ElmtOps/IProductWRTDerivBase/OperatorIProductWRTDerivBase.hpp"
+#include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseOp.hpp"
 #include "Operators/MathKernels/MathKernels.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
@@ -47,16 +47,15 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename Implementation, typename TData>
-class BlockOperatorIProductWRTDerivBaseImpl
-    : public BlockOperatorIProductWRTDerivBase<TData>
+class IProductWRTDerivBaseBlockOpImpl
+    : public IProductWRTDerivBaseBlockOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    BlockOperatorIProductWRTDerivBaseImpl(
-        const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse)
-        : BlockOperatorIProductWRTDerivBase<TData>(exp, dataWarehouse)
+    IProductWRTDerivBaseBlockOpImpl(const LocalRegions::ExpansionSharedPtr &exp,
+                                    NekDataWarehouseSharedPtr dataWarehouse)
+        : IProductWRTDerivBaseBlockOp<TData>(exp, dataWarehouse)
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -139,8 +138,9 @@ public:
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse)
     {
-        return std::make_unique<BlockOperatorIProductWRTDerivBaseImpl<
-            ExecSpace, Implementation, TData>>(exp, dataWarehouse);
+        return std::make_unique<
+            IProductWRTDerivBaseBlockOpImpl<ExecSpace, Implementation, TData>>(
+            exp, dataWarehouse);
     }
 
 protected:

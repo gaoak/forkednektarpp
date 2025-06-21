@@ -34,7 +34,7 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/PreconOps/NullPrecon/OperatorNullPrecon.hpp"
+#include "Operators/PreconOps/NullPrecon/NullPreconOp.hpp"
 
 #include <MultiRegions/GlobalLinSys.h>
 #include <MultiRegions/Preconditioner.h>
@@ -76,8 +76,8 @@ public:
 
     void RunTestCase()
     {
-        auto NullPreconOp = OperatorNullPrecon<double>::Create(fixt_explist);
-        NullPreconOp->Apply(*fixt_in, *fixt_out);
+        auto op = NullPreconOp<double>::Create(fixt_explist);
+        op->Apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution()

@@ -34,7 +34,7 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/ElmtOps/PhysInterp1DScaled/OperatorPhysInterp1DScaled.hpp"
+#include "Operators/ElmtOps/PhysInterp1DScaled/PhysInterp1DScaledOp.hpp"
 
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
@@ -75,10 +75,9 @@ public:
 
     void RunTestCase(const double scale)
     {
-        auto PhysInterp1DOp =
-            OperatorPhysInterp1DScaled<double>::Create(fixt_explist);
-        PhysInterp1DOp->SetScaleFactor(scale);
-        PhysInterp1DOp->Apply(*fixt_in, *fixt_out);
+        auto op = PhysInterp1DScaledOp<double>::Create(fixt_explist);
+        op->SetScaleFactor(scale);
+        op->Apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution(double scale)
