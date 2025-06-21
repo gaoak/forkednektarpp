@@ -34,7 +34,7 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/ElmtOps/LinAdvDiffReaction/OperatorLinAdvDiffReaction.hpp"
+#include "Operators/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionOp.hpp"
 
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
@@ -92,7 +92,7 @@ public:
 
     void RunTestCase()
     {
-        auto LinADR = OperatorLinAdvDiffReaction<double>::Create(fixt_explist);
+        auto LinADR = LinAdvDiffReactionOp<double>::Create(fixt_explist);
 
         // seem to have the negative definitio of lambda implemented currently
         LinADR->SetLambda(-1.0 * m_lambda);

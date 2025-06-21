@@ -34,8 +34,8 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/ElmtOps/Helmholtz/OperatorHelmholtz.hpp"
-#include "Operators/PreconOps/DiagPrecon/OperatorDiagPrecon.hpp"
+#include "Operators/ElmtOps/Helmholtz/HelmholtzOp.hpp"
+#include "Operators/PreconOps/DiagPrecon/DiagPreconOp.hpp"
 
 #include <MultiRegions/GlobalLinSys.h>
 #include <MultiRegions/Preconditioner.h>
@@ -83,11 +83,11 @@ public:
 
     void RunTestCase()
     {
-        auto HelmholtzOp  = OperatorHelmholtz<double>::Create(fixt_explist);
-        auto DiagPreconOp = OperatorDiagPrecon<double>::Create(fixt_explist);
-        HelmholtzOp->SetLambda(m_lambda);
-        DiagPreconOp->Configure(HelmholtzOp);
-        DiagPreconOp->Apply(*fixt_in, *fixt_out);
+        auto op     = HelmholtzOp<double>::Create(fixt_explist);
+        auto precon = DiagPreconOp<double>::Create(fixt_explist);
+        op->SetLambda(m_lambda);
+        precon->Configure(op);
+        precon->Apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution()

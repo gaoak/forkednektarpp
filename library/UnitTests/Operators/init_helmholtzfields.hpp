@@ -34,7 +34,7 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/ElmtOps/Helmholtz/OperatorHelmholtz.hpp"
+#include "Operators/ElmtOps/Helmholtz/HelmholtzOp.hpp"
 
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
@@ -80,9 +80,9 @@ public:
 
     void RunTestCase()
     {
-        auto HelmholtzOp = OperatorHelmholtz<double>::Create(fixt_explist);
-        HelmholtzOp->SetLambda(m_lambda);
-        HelmholtzOp->Apply(*fixt_in, *fixt_out);
+        auto op = HelmholtzOp<double>::Create(fixt_explist);
+        op->SetLambda(m_lambda);
+        op->Apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution()

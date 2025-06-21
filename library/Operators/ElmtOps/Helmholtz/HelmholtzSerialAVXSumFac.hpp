@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/Helmholtz/OperatorHelmholtz.hpp"
+#include "Operators/ElmtOps/Helmholtz/HelmholtzOp.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/Helmholtz/HelmholtzSerialAVXSumFacKernels.hpp"
@@ -43,7 +43,7 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename Implementation, typename TData>
-class BlockOperatorHelmholtzImpl : public BlockOperatorHelmholtz<TData>
+class HelmholtzBlockOpImpl : public HelmholtzBlockOp<TData>
 {
     using simd_t =
         typename simd_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
@@ -51,9 +51,9 @@ class BlockOperatorHelmholtzImpl : public BlockOperatorHelmholtz<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    BlockOperatorHelmholtzImpl(const LocalRegions::ExpansionSharedPtr &exp,
-                               NekDataWarehouseSharedPtr dataWarehouse)
-        : BlockOperatorHelmholtz<TData>(exp, dataWarehouse)
+    HelmholtzBlockOpImpl(const LocalRegions::ExpansionSharedPtr &exp,
+                         NekDataWarehouseSharedPtr dataWarehouse)
+        : HelmholtzBlockOp<TData>(exp, dataWarehouse)
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -157,7 +157,7 @@ public:
         NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
-            BlockOperatorHelmholtzImpl<ExecSpace, Implementation, TData>>(
+            HelmholtzBlockOpImpl<ExecSpace, Implementation, TData>>(
             exp, dataWarehouse);
     }
 

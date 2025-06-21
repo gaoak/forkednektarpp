@@ -34,7 +34,7 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/BndCondOps/DirBndCond/OperatorDirBndCond.hpp"
+#include "Operators/BndCondOps/DirBndCond/DirBndCondOp.hpp"
 
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
@@ -58,8 +58,8 @@ public:
 
     void RunTestCase()
     {
-        auto DirBndCondOp = OperatorDirBndCond<double>::Create(fixt_explist);
-        DirBndCondOp->Apply(*fixt_out);
+        auto op = DirBndCondOp<double>::Create(fixt_explist);
+        op->Apply(*fixt_out);
     }
 
     void ExpectedSolution()

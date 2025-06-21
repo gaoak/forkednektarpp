@@ -34,7 +34,7 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/ElmtOps/Mass/OperatorMass.hpp"
+#include "Operators/ElmtOps/Mass/MassOp.hpp"
 
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
@@ -74,8 +74,8 @@ public:
 
     void RunTestCase()
     {
-        auto MassOp = OperatorMass<double>::Create(fixt_explist);
-        MassOp->Apply(*fixt_in, *fixt_out);
+        auto op = MassOp<double>::Create(fixt_explist);
+        op->Apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution()

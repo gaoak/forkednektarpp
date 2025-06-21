@@ -45,7 +45,7 @@ namespace Nektar::Operators::detail
 // Update the operator class name if reusing this file i.e. OperatorXXXBaseImpl
 // and ensure the ExecSpace is consistent
 template <>
-void BlockOperatorHelmholtzImpl<NektarSpaces::@ExecSpace@, Operators::SumFac,
+void HelmholtzBlockOpImpl<NektarSpaces::@ExecSpace@, Operators::SumFac,
                                       @TData@>::@Shape@Block
                 (BlockAccessor<@TData@> &input, BlockAccessor<@TData@> &output)
 {

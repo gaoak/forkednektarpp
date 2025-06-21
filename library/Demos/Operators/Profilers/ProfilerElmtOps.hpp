@@ -36,14 +36,14 @@
 #include <iomanip>
 #include <iostream>
 
-#include <Operators/ElmtOps/BwdTrans/OperatorBwdTrans.hpp>
-#include <Operators/ElmtOps/Helmholtz/OperatorHelmholtz.hpp>
-#include <Operators/ElmtOps/IProductWRTBase/OperatorIProductWRTBase.hpp>
-#include <Operators/ElmtOps/IProductWRTDerivBase/OperatorIProductWRTDerivBase.hpp>
-#include <Operators/ElmtOps/LinAdvDiffReaction/OperatorLinAdvDiffReaction.hpp>
-#include <Operators/ElmtOps/Mass/OperatorMass.hpp>
-#include <Operators/ElmtOps/MultiplyByElmtInvMass/OperatorMultiplyByElmtInvMass.hpp>
-#include <Operators/ElmtOps/PhysDeriv/OperatorPhysDeriv.hpp>
+#include <Operators/ElmtOps/BwdTrans/BwdTransOp.hpp>
+#include <Operators/ElmtOps/Helmholtz/HelmholtzOp.hpp>
+#include <Operators/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp>
+#include <Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseOp.hpp>
+#include <Operators/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionOp.hpp>
+#include <Operators/ElmtOps/Mass/MassOp.hpp>
+#include <Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp>
+#include <Operators/ElmtOps/PhysDeriv/PhysDerivOp.hpp>
 #include <Operators/Field/Field.hpp>
 #include <Operators/LoopExecution/LoopExecution.hpp>
 #include <Operators/MathKernels/MathKernels.hpp>
@@ -386,18 +386,17 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
     // Check if addition configure is required.
     if (opName == "Helmholtz")
     {
-        std::dynamic_pointer_cast<OperatorHelmholtz<TData>>(oper)->SetLambda(
-            1.0);
+        std::dynamic_pointer_cast<HelmholtzOp<TData>>(oper)->SetLambda(1.0);
     }
     if (opName == "LinAdvDiffReaction")
     {
         Array<OneD, NekDouble> vel(expList->GetCoordim(0) *
                                        (size_t)expList->GetNpoints(),
                                    1.0); // prevent overflow
-        std::dynamic_pointer_cast<OperatorLinAdvDiffReaction<TData>>(oper)
-            ->SetLambda(-1.0);
-        std::dynamic_pointer_cast<OperatorLinAdvDiffReaction<TData>>(oper)
-            ->SetAdvVel(expList->GetCoordim(0), vel);
+        std::dynamic_pointer_cast<LinAdvDiffReactionOp<TData>>(oper)->SetLambda(
+            -1.0);
+        std::dynamic_pointer_cast<LinAdvDiffReactionOp<TData>>(oper)->SetAdvVel(
+            expList->GetCoordim(0), vel);
     }
 
     // Set alignment.

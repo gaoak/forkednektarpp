@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/PhysInterp1DScaled/OperatorPhysInterp1DScaled.hpp"
+#include "Operators/ElmtOps/PhysInterp1DScaled/PhysInterp1DScaledOp.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/PhysInterp1DScaled/PhysInterp1DScaledDeviceSumFacKernels.hpp"
@@ -43,16 +43,14 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename Implementation, typename TData>
-class BlockOperatorPhysInterp1DScaledImpl
-    : public BlockOperatorPhysInterp1DScaled<TData>
+class PhysInterp1DScaledBlockOpImpl : public PhysInterp1DScaledBlockOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    BlockOperatorPhysInterp1DScaledImpl(
-        const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse)
-        : BlockOperatorPhysInterp1DScaled<TData>(exp, dataWarehouse)
+    PhysInterp1DScaledBlockOpImpl(const LocalRegions::ExpansionSharedPtr &exp,
+                                  NekDataWarehouseSharedPtr dataWarehouse)
+        : PhysInterp1DScaledBlockOp<TData>(exp, dataWarehouse)
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -78,8 +76,9 @@ public:
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse)
     {
-        return std::make_unique<BlockOperatorPhysInterp1DScaledImpl<
-            ExecSpace, Implementation, TData>>(exp, dataWarehouse);
+        return std::make_unique<
+            PhysInterp1DScaledBlockOpImpl<ExecSpace, Implementation, TData>>(
+            exp, dataWarehouse);
     }
 
 protected:

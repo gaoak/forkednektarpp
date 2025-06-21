@@ -39,7 +39,7 @@
 #include "Operators/Common/DeviceProperties.hpp"
 #include "Operators/Common/Spaces.hpp"
 
-// get hold of memory sizing and routines related to collocation Helmholtz ops
+// get hold of memory sizing and routines related to collocation Helmholtz op
 #include "Operators/ElmtOps/Helmholtz/HelmholtzDeviceSumFacKernels.hpp"
 
 namespace Nektar::Operators::detail

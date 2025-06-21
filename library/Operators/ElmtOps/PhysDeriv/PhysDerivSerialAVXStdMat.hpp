@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/PhysDeriv/OperatorPhysDeriv.hpp"
+#include "Operators/ElmtOps/PhysDeriv/PhysDerivOp.hpp"
 #include "Operators/NekBlas/NekBlas.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
@@ -44,7 +44,7 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename Implementation, typename TData>
-class BlockOperatorPhysDerivImpl : public BlockOperatorPhysDeriv<TData>
+class PhysDerivBlockOpImpl : public PhysDerivBlockOp<TData>
 {
     using simd_t =
         typename simd_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
@@ -52,9 +52,9 @@ class BlockOperatorPhysDerivImpl : public BlockOperatorPhysDeriv<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    BlockOperatorPhysDerivImpl(const LocalRegions::ExpansionSharedPtr &exp,
-                               NekDataWarehouseSharedPtr dataWarehouse)
-        : BlockOperatorPhysDeriv<TData>(exp, dataWarehouse)
+    PhysDerivBlockOpImpl(const LocalRegions::ExpansionSharedPtr &exp,
+                         NekDataWarehouseSharedPtr dataWarehouse)
+        : PhysDerivBlockOp<TData>(exp, dataWarehouse)
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -86,7 +86,7 @@ public:
         NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
-            BlockOperatorPhysDerivImpl<ExecSpace, Implementation, TData>>(
+            PhysDerivBlockOpImpl<ExecSpace, Implementation, TData>>(
             exp, dataWarehouse);
     }
 

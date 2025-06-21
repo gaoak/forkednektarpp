@@ -222,36 +222,36 @@ int main(int argc, char *argv[])
 
     // You can add/remove the operators to be profiled as you like.
     // Benchmark-double
-    LaunchProfiler<OperatorBwdTrans<double>, FieldState::Coeff,
-                   FieldState::Phys, double>(explist, Ntest, 1, 1, Ncomp);
-    LaunchProfiler<OperatorIProductWRTBase<double>, FieldState::Phys,
-                   FieldState::Coeff, double>(explist, Ntest, 1, 1, Ncomp);
-    LaunchProfiler<OperatorPhysDeriv<double>, FieldState::Phys,
-                   FieldState::Phys, double>(explist, Ntest, 1, nDim, Ncomp);
-    LaunchProfiler<OperatorIProductWRTDerivBase<double>, FieldState::Phys,
-                   FieldState::Coeff, double>(explist, Ntest, nDim, 1, Ncomp);
-    LaunchProfiler<OperatorHelmholtz<double>, FieldState::Coeff,
-                   FieldState::Coeff, double>(explist, Ntest, 1, 1, Ncomp);
-    LaunchProfiler<OperatorMass<double>, FieldState::Coeff, FieldState::Coeff,
+    LaunchProfiler<BwdTransOp<double>, FieldState::Coeff, FieldState::Phys,
                    double>(explist, Ntest, 1, 1, Ncomp);
-    LaunchProfiler<OperatorLinAdvDiffReaction<double>, FieldState::Coeff,
+    LaunchProfiler<IProductWRTBaseOp<double>, FieldState::Phys,
+                   FieldState::Coeff, double>(explist, Ntest, 1, 1, Ncomp);
+    LaunchProfiler<PhysDerivOp<double>, FieldState::Phys, FieldState::Phys,
+                   double>(explist, Ntest, 1, nDim, Ncomp);
+    LaunchProfiler<IProductWRTDerivBaseOp<double>, FieldState::Phys,
+                   FieldState::Coeff, double>(explist, Ntest, nDim, 1, Ncomp);
+    LaunchProfiler<HelmholtzOp<double>, FieldState::Coeff, FieldState::Coeff,
+                   double>(explist, Ntest, 1, 1, Ncomp);
+    LaunchProfiler<MassOp<double>, FieldState::Coeff, FieldState::Coeff,
+                   double>(explist, Ntest, 1, 1, Ncomp);
+    LaunchProfiler<LinAdvDiffReactionOp<double>, FieldState::Coeff,
                    FieldState::Coeff, double>(explist, Ntest, 1, 1, Ncomp);
 
 #if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
     // Benchmark-float
-    LaunchProfiler<OperatorBwdTrans<float>, FieldState::Coeff, FieldState::Phys,
+    LaunchProfiler<BwdTransOp<float>, FieldState::Coeff, FieldState::Phys,
                    float>(explist, Ntest, 1, 1, Ncomp);
-    LaunchProfiler<OperatorIProductWRTBase<float>, FieldState::Phys,
+    LaunchProfiler<IProductWRTBaseOp<float>, FieldState::Phys,
                    FieldState::Coeff, float>(explist, Ntest, 1, 1, Ncomp);
-    LaunchProfiler<OperatorPhysDeriv<float>, FieldState::Phys, FieldState::Phys,
+    LaunchProfiler<PhysDerivOp<float>, FieldState::Phys, FieldState::Phys,
                    float>(explist, Ntest, 1, nDim, Ncomp);
-    LaunchProfiler<OperatorIProductWRTDerivBase<float>, FieldState::Phys,
+    LaunchProfiler<IProductWRTDerivBaseOp<float>, FieldState::Phys,
                    FieldState::Coeff, float>(explist, Ntest, nDim, 1, Ncomp);
-    LaunchProfiler<OperatorHelmholtz<float>, FieldState::Coeff,
-                   FieldState::Coeff, float>(explist, Ntest, 1, 1, Ncomp);
-    LaunchProfiler<OperatorMass<float>, FieldState::Coeff, FieldState::Coeff,
+    LaunchProfiler<HelmholtzOp<float>, FieldState::Coeff, FieldState::Coeff,
                    float>(explist, Ntest, 1, 1, Ncomp);
-    LaunchProfiler<OperatorLinAdvDiffReaction<float>, FieldState::Coeff,
+    LaunchProfiler<MassOp<float>, FieldState::Coeff, FieldState::Coeff, float>(
+        explist, Ntest, 1, 1, Ncomp);
+    LaunchProfiler<LinAdvDiffReactionOp<float>, FieldState::Coeff,
                    FieldState::Coeff, float>(explist, Ntest, 1, 1, Ncomp);
 #endif
 
