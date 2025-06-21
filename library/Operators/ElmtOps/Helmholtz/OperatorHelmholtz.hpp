@@ -34,59 +34,10 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/OperatorElmt.hpp"
+#include "Operators/ElmtOps/Helmholtz/BlockOperatorHelmholtz.hpp"
 
 namespace Nektar::Operators
 {
-
-template <typename TData>
-class BlockOperatorHelmholtz : public BlockOperator<TData>
-{
-public:
-    static std::shared_ptr<BlockOperatorHelmholtz<TData>> Create(
-        const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
-        std::string implStr)
-    {
-        return BlockOperator<TData>::template Create<
-            BlockOperatorHelmholtz<TData>>(exp, dataWarehouse, execStr,
-                                           implStr);
-    }
-
-    static inline const std::string name = "BlockHelmholtz";
-
-    void Apply(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
-    {
-        this->v_Apply(inblock, outblock);
-    }
-
-    void operator()(BlockAccessor<TData> &inblock,
-                    BlockAccessor<TData> &outblock)
-    {
-        this->v_Apply(inblock, outblock);
-    }
-
-    void SetLambda(const TData &lambda)
-    {
-        this->v_SetLambda(lambda);
-    }
-
-protected:
-    TData m_lambda;
-
-    BlockOperatorHelmholtz(const LocalRegions::ExpansionSharedPtr &exp,
-                           NekDataWarehouseSharedPtr dataWarehouse)
-        : BlockOperator<TData>(exp, dataWarehouse)
-    {
-    }
-
-    ~BlockOperatorHelmholtz() override = default;
-
-    virtual void v_Apply(BlockAccessor<TData> &inblock,
-                         BlockAccessor<TData> &outblock) = 0;
-
-    virtual void v_SetLambda(const TData &lambda) = 0;
-};
 
 // Helmholtz base class
 // Defines the apply operator to enforce apply parameter types

@@ -34,62 +34,10 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/OperatorElmt.hpp"
+#include "Operators/ElmtOps/PhysInterp1DScaled/BlockOperatorPhysInterp1DScaled.hpp"
 
 namespace Nektar::Operators
 {
-
-template <typename TData>
-class BlockOperatorPhysInterp1DScaled : public BlockOperator<TData>
-{
-public:
-    static std::shared_ptr<BlockOperatorPhysInterp1DScaled<TData>> Create(
-        const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
-        std::string implStr)
-    {
-        return BlockOperator<TData>::template Create<
-            BlockOperatorPhysInterp1DScaled<TData>>(exp, dataWarehouse, execStr,
-                                                    implStr);
-    }
-
-    static inline const std::string name = "BlockPhysInterp1DScaled";
-
-    void Apply(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
-    {
-        this->v_Apply(inblock, outblock);
-    }
-
-    void operator()(BlockAccessor<TData> &inblock,
-                    BlockAccessor<TData> &outblock)
-    {
-        this->v_Apply(inblock, outblock);
-    }
-
-    void SetScaleFactor(TData scale)
-    {
-        v_SetScaleFactor(scale);
-    }
-
-protected:
-    TData m_scale = -1.0; // scaling factor
-
-    BlockOperatorPhysInterp1DScaled(const LocalRegions::ExpansionSharedPtr &exp,
-                                    NekDataWarehouseSharedPtr dataWarehouse)
-        : BlockOperator<TData>(exp, dataWarehouse)
-    {
-    }
-
-    ~BlockOperatorPhysInterp1DScaled() override = default;
-
-    virtual void v_Apply(BlockAccessor<TData> &inblock,
-                         BlockAccessor<TData> &outblock) = 0;
-
-    virtual void v_SetScaleFactor(TData scale)
-    {
-        m_scale = scale;
-    }
-};
 
 // PhysInterp1DScaled base class
 // Defines the apply operator to enforce apply parameter types
