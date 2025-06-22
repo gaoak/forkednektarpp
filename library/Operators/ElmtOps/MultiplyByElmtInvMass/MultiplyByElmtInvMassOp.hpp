@@ -54,11 +54,10 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &execStr = "", const std::string &implStr = "")
     {
-        auto op =
-            ElmtOp<FieldState::Coeff, FieldState::Coeff,
-                   TData>::template Create<MultiplyByElmtInvMassOp<TData>,
-                                           MultiplyByElmtInvMassBlockOp<TData>>(
-                expansionList, execStr, implStr);
+        auto op = ElmtOp<FieldState::Coeff, FieldState::Coeff,
+                         TData>::template Create<MultiplyByElmtInvMassOp,
+                                                 MultiplyByElmtInvMassBlockOp>(
+            expansionList, execStr, implStr);
 
         // Loop over the blocks.
         auto blocks =

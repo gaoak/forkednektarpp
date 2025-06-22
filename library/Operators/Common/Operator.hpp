@@ -144,12 +144,19 @@ public:
     {
     }
 
-    template <typename TOperator>
-    static std::shared_ptr<TOperator> Create(
+    template <template <typename> typename TOperator>
+    static std::shared_ptr<TOperator<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string execStr)
     {
-        std::string requestedKey = TOperator::name + execStr;
+        auto session = expansionList->GetSession();
+
+        std::string execStr0 =
+            (execStr == "")
+                ? session->GetCmdLineArgument<std::string>("opExecSpace")
+                : execStr;
+
+        std::string requestedKey = TOperator<TData>::name + execStr0;
 
         OperatorFactory<TData> &factory = GetOperatorFactory<TData>();
 
@@ -162,7 +169,7 @@ public:
             NEKERROR(ErrorUtil::efatal, msg.str());
         }
 
-        return std::static_pointer_cast<TOperator>(
+        return std::static_pointer_cast<TOperator<TData>>(
             factory.CreateInstance(requestedKey, expansionList));
     }
 

@@ -48,9 +48,8 @@ public:
         NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
         std::string implStr)
     {
-        return BlockOperator<TData>::template Create<
-            PhysInterp1DScaledBlockOp<TData>>(exp, dataWarehouse, execStr,
-                                              implStr);
+        return BlockOperator<TData>::template Create<PhysInterp1DScaledBlockOp>(
+            exp, dataWarehouse, execStr, implStr);
     }
 
     static inline const std::string name = "BlockPhysInterp1DScaled";

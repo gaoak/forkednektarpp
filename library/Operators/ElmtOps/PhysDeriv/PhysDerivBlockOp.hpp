@@ -47,7 +47,7 @@ public:
         NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
         std::string implStr)
     {
-        return BlockOperator<TData>::template Create<PhysDerivBlockOp<TData>>(
+        return BlockOperator<TData>::template Create<PhysDerivBlockOp>(
             exp, dataWarehouse, execStr, implStr);
     }
 

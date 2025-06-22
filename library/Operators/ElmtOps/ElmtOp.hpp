@@ -44,8 +44,9 @@ template <FieldState TFieldIn, FieldState TFieldOut, typename TData>
 class ElmtOp : public Operator<TData>
 {
 public:
-    template <typename TOperator, typename TBlockOperator>
-    static std::shared_ptr<TOperator> Create(
+    template <template <typename> typename TOperator,
+              template <typename> typename TBlockOperator>
+    static std::shared_ptr<TOperator<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &execStr = "", const std::string &implStr = "")
     {
@@ -68,7 +69,7 @@ public:
         // Loop over the blocks.
         for (auto &block : blocks)
         {
-            op->m_blockOp.push_back(TBlockOperator::Create(
+            op->m_blockOp.push_back(TBlockOperator<TData>::Create(
                 expansionList->GetExp(block.GetExpIdx()),
                 expansionList->GetDataWarehouseSharedPtr(), execStr0,
                 implStr0));

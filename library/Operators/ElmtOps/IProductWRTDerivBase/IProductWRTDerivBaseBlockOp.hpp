@@ -49,8 +49,7 @@ public:
         std::string implStr)
     {
         return BlockOperator<TData>::template Create<
-            IProductWRTDerivBaseBlockOp<TData>>(exp, dataWarehouse, execStr,
-                                                implStr);
+            IProductWRTDerivBaseBlockOp>(exp, dataWarehouse, execStr, implStr);
     }
 
     static inline const std::string name = "BlockIProductWRTDerivBase";

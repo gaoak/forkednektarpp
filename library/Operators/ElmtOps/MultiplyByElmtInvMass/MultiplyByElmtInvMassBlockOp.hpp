@@ -49,8 +49,7 @@ public:
         std::string implStr)
     {
         return BlockOperator<TData>::template Create<
-            MultiplyByElmtInvMassBlockOp<TData>>(exp, dataWarehouse, execStr,
-                                                 implStr);
+            MultiplyByElmtInvMassBlockOp>(exp, dataWarehouse, execStr, implStr);
     }
 
     static inline const std::string name = "BlockMultiplyByElmtInvMass";

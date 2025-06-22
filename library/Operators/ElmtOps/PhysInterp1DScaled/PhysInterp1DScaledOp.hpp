@@ -54,10 +54,9 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &execStr = "", const std::string &implStr = "")
     {
-        return ElmtOp<FieldState::Phys, FieldState::Phys,
-                      TData>::template Create<PhysInterp1DScaledOp<TData>,
-                                              PhysInterp1DScaledBlockOp<TData>>(
-            expansionList, execStr, implStr);
+        return ElmtOp<FieldState::Phys, FieldState::Phys, TData>::
+            template Create<PhysInterp1DScaledOp, PhysInterp1DScaledBlockOp>(
+                expansionList, execStr, implStr);
     }
 
     static inline const std::string name = "PhysInterp1DScaled";

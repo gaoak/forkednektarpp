@@ -47,7 +47,7 @@ public:
         NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
         std::string implStr)
     {
-        return BlockOperator<TData>::template Create<MassBlockOp<TData>>(
+        return BlockOperator<TData>::template Create<MassBlockOp>(
             exp, dataWarehouse, execStr, implStr);
     }
 

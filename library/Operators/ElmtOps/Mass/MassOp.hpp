@@ -54,8 +54,8 @@ public:
         const std::string &execStr = "", const std::string &implStr = "")
     {
         return ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>::
-            template Create<MassOp<TData>, MassBlockOp<TData>>(
-                expansionList, execStr, implStr);
+            template Create<MassOp, MassBlockOp>(expansionList, execStr,
+                                                 implStr);
     }
 
     static inline const std::string name = "Mass";

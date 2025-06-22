@@ -48,9 +48,8 @@ public:
         NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
         std::string implStr)
     {
-        return BlockOperator<TData>::template Create<
-            IProductWRTBaseBlockOp<TData>>(exp, dataWarehouse, execStr,
-                                           implStr);
+        return BlockOperator<TData>::template Create<IProductWRTBaseBlockOp>(
+            exp, dataWarehouse, execStr, implStr);
     }
 
     static inline const std::string name = "BlockIProductWRTBase";

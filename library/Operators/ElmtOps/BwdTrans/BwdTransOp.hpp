@@ -54,8 +54,8 @@ public:
         const std::string &execStr = "", const std::string &implStr = "")
     {
         return ElmtOp<FieldState::Coeff, FieldState::Phys, TData>::
-            template Create<BwdTransOp<TData>, BwdTransBlockOp<TData>>(
-                expansionList, execStr, implStr);
+            template Create<BwdTransOp, BwdTransBlockOp>(expansionList, execStr,
+                                                         implStr);
     }
 
     static inline const std::string name = "BwdTrans";

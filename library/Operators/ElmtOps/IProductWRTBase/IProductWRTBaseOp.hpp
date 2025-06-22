@@ -54,10 +54,9 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &execStr = "", const std::string &implStr = "")
     {
-        return ElmtOp<FieldState::Phys, FieldState::Coeff,
-                      TData>::template Create<IProductWRTBaseOp<TData>,
-                                              IProductWRTBaseBlockOp<TData>>(
-            expansionList, execStr, implStr);
+        return ElmtOp<FieldState::Phys, FieldState::Coeff, TData>::
+            template Create<IProductWRTBaseOp, IProductWRTBaseBlockOp>(
+                expansionList, execStr, implStr);
     }
 
     static inline const std::string name = "IProductWRTBase";
