@@ -46,48 +46,35 @@ namespace Nektar::Operators
 template <typename TData>
 class ExpressionOp : public ElmtOp<FieldState::Phys, FieldState::Phys, TData>
 {
+    friend class ElmtOp<FieldState::Phys, FieldState::Phys, TData>;
+
 public:
     static std::shared_ptr<ExpressionOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &exprStr = "", const std::string &execStr = "",
         const std::string &implStr = "")
     {
-        auto session = expansionList->GetSession();
+        auto op =
+            ElmtOp<FieldState::Phys, FieldState::Phys, TData>::template Create<
+                ExpressionOp<TData>, ExpressionBlockOp<TData>>(
+                expansionList, execStr, implStr);
 
-        std::string execStr0 =
-            (execStr == "")
-                ? session->GetCmdLineArgument<std::string>("opExecSpace")
-                : execStr;
-        std::string implStr0 =
-            (implStr == "") ? session->GetCmdLineArgument<std::string>("opImpl")
-                            : implStr;
-
-        auto op = Operator<TData>::template Create<ExpressionOp<TData>>(
-            expansionList, execStr0);
-
-        auto blocks =
-            GetBlockAttributes<TData>(FieldState::Phys, expansionList);
-
-        // Read expression for each component
+        auto session    = expansionList->GetSession();
         auto nvariables = session->GetVariables().size();
-        std::vector<LibUtilities::EquationSharedPtr> expressions;
-        for (unsigned int nvar = 0; nvar < nvariables; ++nvar)
-        {
-            expressions.push_back(
-                expansionList->GetSession()->GetFunction(exprStr, nvar));
-        }
 
         // Loop over the blocks.
-        for (auto &block : blocks)
+        for (unsigned int blk = 0; blk < op->m_blockOp.size(); ++blk)
         {
-            op->m_blockOp.push_back(ExpressionBlockOp<TData>::Create(
-                expansionList->GetExp(block.GetExpIdx()),
-                expansionList->GetDataWarehouseSharedPtr(), execStr0,
-                implStr0));
+            // Read expression for each component
+            std::vector<LibUtilities::EquationSharedPtr> expressions;
+            for (unsigned int nvar = 0; nvar < nvariables; ++nvar)
+            {
+                expressions.push_back(
+                    expansionList->GetSession()->GetFunction(exprStr, nvar));
+            }
 
-            op->m_blockOp.back()->SetExpressions(expressions);
+            op->m_blockOp[blk]->SetExpressions(expressions);
         }
-
         return op;
     }
 
@@ -110,7 +97,7 @@ protected:
                  "Number of input and output components differ");
 
         // Loop over the blocks.
-        for (unsigned int blk = 0; blk < m_blockOp.size(); ++blk)
+        for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)
         {
             // Block dependent.
             auto &inblock  = in.GetBlocks()[blk];

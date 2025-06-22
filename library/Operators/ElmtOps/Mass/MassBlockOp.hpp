@@ -53,17 +53,6 @@ public:
 
     static inline const std::string name = "BlockMass";
 
-    void Apply(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
-    {
-        this->v_Apply(inblock, outblock);
-    }
-
-    void operator()(BlockAccessor<TData> &inblock,
-                    BlockAccessor<TData> &outblock)
-    {
-        this->v_Apply(inblock, outblock);
-    }
-
 protected:
     MassBlockOp(const LocalRegions::ExpansionSharedPtr &exp,
                 NekDataWarehouseSharedPtr dataWarehouse)
@@ -72,9 +61,6 @@ protected:
     }
 
     ~MassBlockOp() override = default;
-
-    virtual void v_Apply(BlockAccessor<TData> &inblock,
-                         BlockAccessor<TData> &outblock) = 0;
 };
 
 } // namespace Nektar::Operators

@@ -47,37 +47,17 @@ template <typename TData>
 class LinAdvDiffReactionOp
     : public ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>
 {
+    friend class ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>;
+
 public:
     static std::shared_ptr<LinAdvDiffReactionOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &execStr = "", const std::string &implStr = "")
     {
-        auto session = expansionList->GetSession();
-
-        std::string execStr0 =
-            (execStr == "")
-                ? session->GetCmdLineArgument<std::string>("opExecSpace")
-                : execStr;
-        std::string implStr0 =
-            (implStr == "") ? session->GetCmdLineArgument<std::string>("opImpl")
-                            : implStr;
-
-        auto op = Operator<TData>::template Create<LinAdvDiffReactionOp<TData>>(
-            expansionList, execStr0);
-
-        auto blocks =
-            GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
-
-        // Loop over the blocks.
-        for (auto &block : blocks)
-        {
-            op->m_blockOp.push_back(LinAdvDiffReactionBlockOp<TData>::Create(
-                expansionList->GetExp(block.GetExpIdx()),
-                expansionList->GetDataWarehouseSharedPtr(), execStr0,
-                implStr0));
-        }
-
-        return op;
+        return ElmtOp<FieldState::Coeff, FieldState::Coeff,
+                      TData>::template Create<LinAdvDiffReactionOp<TData>,
+                                              LinAdvDiffReactionBlockOp<TData>>(
+            expansionList, execStr, implStr);
     }
 
     static inline const std::string name = "LinAdvDiffReaction";
@@ -85,7 +65,7 @@ public:
     void SetLambda(TData lambda)
     {
         // Loop over the blocks.
-        for (unsigned int blk = 0; blk < m_blockOp.size(); ++blk)
+        for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)
         {
             this->m_blockOp[blk]->SetLambda(lambda);
         }
@@ -101,8 +81,8 @@ public:
 protected:
     bool m_isSetLambda = false;
     bool m_isSetAdvVel = false;
-    std::vector<std::shared_ptr<LinAdvDiffReactionBlockOp<TData>>> m_blockOp;
     Field<TData, FieldState::Phys> m_advVel;
+    std::vector<std::shared_ptr<LinAdvDiffReactionBlockOp<TData>>> m_blockOp;
 
     LinAdvDiffReactionOp(const MultiRegions::ExpListSharedPtr &expansionList)
         : ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>(expansionList)
@@ -126,7 +106,7 @@ protected:
                  "Set the value with SetAdvVel() before calling Apply().");
 
         // Loop over the blocks.
-        for (unsigned int blk = 0; blk < m_blockOp.size(); ++blk)
+        for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)
         {
             // Block dependent.
             auto &inblock  = in.GetBlocks()[blk];

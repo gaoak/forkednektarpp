@@ -55,17 +55,6 @@ public:
 
     static inline const std::string name = "BlockMultiplyByElmtInvMass";
 
-    void Apply(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
-    {
-        this->v_Apply(inblock, outblock);
-    }
-
-    void operator()(BlockAccessor<TData> &inblock,
-                    BlockAccessor<TData> &outblock)
-    {
-        this->v_Apply(inblock, outblock);
-    }
-
     void SetInvMassMatrix(std::vector<TData> &dmat)
     {
         v_SetInvMassMatrix(dmat);
@@ -79,9 +68,6 @@ protected:
     }
 
     ~MultiplyByElmtInvMassBlockOp() override = default;
-
-    virtual void v_Apply(BlockAccessor<TData> &inblock,
-                         BlockAccessor<TData> &outblock) = 0;
 
     virtual void v_SetInvMassMatrix(std::vector<TData> &dmat) = 0;
 };

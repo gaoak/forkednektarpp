@@ -47,37 +47,31 @@ template <typename TData>
 class MultiplyByElmtInvMassOp
     : public ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>
 {
+    friend class ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>;
+
 public:
     static std::shared_ptr<MultiplyByElmtInvMassOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &execStr = "", const std::string &implStr = "")
     {
-        auto session = expansionList->GetSession();
-
-        std::string execStr0 =
-            (execStr == "")
-                ? session->GetCmdLineArgument<std::string>("opExecSpace")
-                : execStr;
-        std::string implStr0 =
-            (implStr == "") ? session->GetCmdLineArgument<std::string>("opImpl")
-                            : implStr;
-
         auto op =
-            Operator<TData>::template Create<MultiplyByElmtInvMassOp<TData>>(
-                expansionList, execStr0);
-
-        auto blocks =
-            GetBlockAttributes<TData>(FieldState::Phys, expansionList);
+            ElmtOp<FieldState::Coeff, FieldState::Coeff,
+                   TData>::template Create<MultiplyByElmtInvMassOp<TData>,
+                                           MultiplyByElmtInvMassBlockOp<TData>>(
+                expansionList, execStr, implStr);
 
         // Loop over the blocks.
-        std::vector<TData> dmat;
-        for (auto &block : blocks)
+        auto blocks =
+            GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
+
+        for (unsigned int blk = 0; blk < op->m_blockOp.size(); ++blk)
         {
-            const auto exp   = expansionList->GetExp(block.GetExpIdx());
+            std::vector<TData> dmat;
+            const auto exp   = expansionList->GetExp(blocks[blk].GetExpIdx());
             const auto nmTot = exp->GetNcoeffs();
             const auto deformed =
                 exp->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed;
-            const auto nelmt = block.GetNumElements();
+            const auto nelmt = blocks[blk].GetNumElements();
 
             if (deformed)
             {
@@ -86,7 +80,7 @@ public:
                 for (size_t e = 0; e < nelmt; ++e)
                 {
                     const auto exp =
-                        expansionList->GetExp(block.GetExpIdx() + e);
+                        expansionList->GetExp(blocks[blk].GetExpIdx() + e);
                     const auto &InvMass =
                         exp->GetLocMatrix(StdRegions::eInvMass);
                     std::copy_n(InvMass->GetRawPtr(), nmTot * nmTot, dmatptr);
@@ -94,12 +88,7 @@ public:
                 }
             }
 
-            op->m_blockOp.push_back(MultiplyByElmtInvMassBlockOp<TData>::Create(
-                expansionList->GetExp(block.GetExpIdx()),
-                expansionList->GetDataWarehouseSharedPtr(), execStr0,
-                implStr0));
-
-            op->m_blockOp.back()->SetInvMassMatrix(dmat);
+            op->m_blockOp[blk]->SetInvMassMatrix(dmat);
         }
 
         return op;
@@ -124,7 +113,7 @@ protected:
                  "Number of input and output components differ");
 
         // Loop over the blocks.
-        for (unsigned int blk = 0; blk < m_blockOp.size(); ++blk)
+        for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)
         {
             // Block dependent.
             auto &inblock  = in.GetBlocks()[blk];

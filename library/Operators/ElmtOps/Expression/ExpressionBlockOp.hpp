@@ -53,17 +53,6 @@ public:
 
     static inline const std::string name = "BlockExpression";
 
-    void Apply(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
-    {
-        this->v_Apply(inblock, outblock);
-    }
-
-    void operator()(BlockAccessor<TData> &inblock,
-                    BlockAccessor<TData> &outblock)
-    {
-        this->v_Apply(inblock, outblock);
-    }
-
     void SetExpressions(std::vector<LibUtilities::EquationSharedPtr> &exprs)
     {
         v_SetExpressions(exprs);
@@ -79,9 +68,6 @@ protected:
     }
 
     ~ExpressionBlockOp() override = default;
-
-    virtual void v_Apply(BlockAccessor<TData> &inblock,
-                         BlockAccessor<TData> &outblock) = 0;
 
     virtual void v_SetExpressions(
         std::vector<LibUtilities::EquationSharedPtr> &exprs) = 0;
