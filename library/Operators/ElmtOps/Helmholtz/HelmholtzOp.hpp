@@ -46,37 +46,16 @@ namespace Nektar::Operators
 template <typename TData>
 class HelmholtzOp : public ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>
 {
+    friend class ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>;
+
 public:
     static std::shared_ptr<HelmholtzOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &execStr = "", const std::string &implStr = "")
     {
-        auto session = expansionList->GetSession();
-
-        std::string execStr0 =
-            (execStr == "")
-                ? session->GetCmdLineArgument<std::string>("opExecSpace")
-                : execStr;
-        std::string implStr0 =
-            (implStr == "") ? session->GetCmdLineArgument<std::string>("opImpl")
-                            : implStr;
-
-        auto op = Operator<TData>::template Create<HelmholtzOp<TData>>(
-            expansionList, execStr0);
-
-        auto blocks =
-            GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
-
-        // Loop over the blocks.
-        for (auto &block : blocks)
-        {
-            op->m_blockOp.push_back(HelmholtzBlockOp<TData>::Create(
-                expansionList->GetExp(block.GetExpIdx()),
-                expansionList->GetDataWarehouseSharedPtr(), execStr0,
-                implStr0));
-        }
-
-        return op;
+        return ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>::
+            template Create<HelmholtzOp<TData>, HelmholtzBlockOp<TData>>(
+                expansionList, execStr, implStr);
     }
 
     static inline const std::string name = "Helmholtz";
@@ -84,7 +63,7 @@ public:
     void SetLambda(TData lambda)
     {
         // Loop over the blocks.
-        for (unsigned int blk = 0; blk < m_blockOp.size(); ++blk)
+        for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)
         {
             this->m_blockOp[blk]->SetLambda(lambda);
         }
@@ -113,7 +92,7 @@ protected:
                  "Set the value with SetLambda() before calling Apply().");
 
         // Loop over the blocks.
-        for (unsigned int blk = 0; blk < m_blockOp.size(); ++blk)
+        for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)
         {
             // Block dependent.
             auto &inblock  = in.GetBlocks()[blk];

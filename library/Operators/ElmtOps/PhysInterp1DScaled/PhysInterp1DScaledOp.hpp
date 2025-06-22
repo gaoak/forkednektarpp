@@ -47,37 +47,17 @@ template <typename TData>
 class PhysInterp1DScaledOp
     : public ElmtOp<FieldState::Phys, FieldState::Phys, TData>
 {
+    friend class ElmtOp<FieldState::Phys, FieldState::Phys, TData>;
+
 public:
     static std::shared_ptr<PhysInterp1DScaledOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &execStr = "", const std::string &implStr = "")
     {
-        auto session = expansionList->GetSession();
-
-        std::string execStr0 =
-            (execStr == "")
-                ? session->GetCmdLineArgument<std::string>("opExecSpace")
-                : execStr;
-        std::string implStr0 =
-            (implStr == "") ? session->GetCmdLineArgument<std::string>("opImpl")
-                            : implStr;
-
-        auto op = Operator<TData>::template Create<PhysInterp1DScaledOp<TData>>(
-            expansionList, execStr0);
-
-        auto blocks =
-            GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
-
-        // Loop over the blocks.
-        for (auto &block : blocks)
-        {
-            op->m_blockOp.push_back(PhysInterp1DScaledBlockOp<TData>::Create(
-                expansionList->GetExp(block.GetExpIdx()),
-                expansionList->GetDataWarehouseSharedPtr(), execStr0,
-                implStr0));
-        }
-
-        return op;
+        return ElmtOp<FieldState::Phys, FieldState::Phys,
+                      TData>::template Create<PhysInterp1DScaledOp<TData>,
+                                              PhysInterp1DScaledBlockOp<TData>>(
+            expansionList, execStr, implStr);
     }
 
     static inline const std::string name = "PhysInterp1DScaled";
@@ -85,7 +65,7 @@ public:
     void SetScaleFactor(TData scale)
     {
         // Loop over the blocks.
-        for (unsigned int blk = 0; blk < m_blockOp.size(); ++blk)
+        for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)
         {
             this->m_blockOp[blk]->SetScaleFactor(scale);
         }
@@ -108,7 +88,7 @@ protected:
                  "Number of input and output components differ");
 
         // Loop over the blocks.
-        for (unsigned int blk = 0; blk < m_blockOp.size(); ++blk)
+        for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)
         {
             // Block dependent.
             auto &inblock  = in.GetBlocks()[blk];

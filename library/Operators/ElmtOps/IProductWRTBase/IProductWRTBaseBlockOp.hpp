@@ -55,17 +55,6 @@ public:
 
     static inline const std::string name = "BlockIProductWRTBase";
 
-    void Apply(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
-    {
-        this->v_Apply(inblock, outblock);
-    }
-
-    void operator()(BlockAccessor<TData> &inblock,
-                    BlockAccessor<TData> &outblock)
-    {
-        this->v_Apply(inblock, outblock);
-    }
-
     void SetScale(TData scale)
     {
         m_scale = scale;
@@ -81,9 +70,6 @@ protected:
     }
 
     ~IProductWRTBaseBlockOp() override = default;
-
-    virtual void v_Apply(BlockAccessor<TData> &inblock,
-                         BlockAccessor<TData> &outblock) = 0;
 };
 
 } // namespace Nektar::Operators

@@ -55,17 +55,6 @@ public:
 
     static inline const std::string name = "BlockPhysInterp1DScaled";
 
-    void Apply(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
-    {
-        this->v_Apply(inblock, outblock);
-    }
-
-    void operator()(BlockAccessor<TData> &inblock,
-                    BlockAccessor<TData> &outblock)
-    {
-        this->v_Apply(inblock, outblock);
-    }
-
     void SetScaleFactor(TData scale)
     {
         v_SetScaleFactor(scale);
@@ -81,9 +70,6 @@ protected:
     }
 
     ~PhysInterp1DScaledBlockOp() override = default;
-
-    virtual void v_Apply(BlockAccessor<TData> &inblock,
-                         BlockAccessor<TData> &outblock) = 0;
 
     virtual void v_SetScaleFactor(TData scale)
     {

@@ -35,6 +35,7 @@
 #pragma once
 
 #include "Operators/Common/Operator.hpp"
+#include "Operators/ElmtOps/BlockOperator.hpp"
 
 namespace Nektar::Operators
 {
@@ -43,6 +44,39 @@ template <FieldState TFieldIn, FieldState TFieldOut, typename TData>
 class ElmtOp : public Operator<TData>
 {
 public:
+    template <typename TOperator, typename TBlockOperator>
+    static std::shared_ptr<TOperator> Create(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::string &execStr = "", const std::string &implStr = "")
+    {
+        auto session = expansionList->GetSession();
+
+        std::string execStr0 =
+            (execStr == "")
+                ? session->GetCmdLineArgument<std::string>("opExecSpace")
+                : execStr;
+        std::string implStr0 =
+            (implStr == "") ? session->GetCmdLineArgument<std::string>("opImpl")
+                            : implStr;
+
+        auto op = Operator<TData>::template Create<TOperator>(expansionList,
+                                                              execStr0);
+
+        auto blocks =
+            GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
+
+        // Loop over the blocks.
+        for (auto &block : blocks)
+        {
+            op->m_blockOp.push_back(TBlockOperator::Create(
+                expansionList->GetExp(block.GetExpIdx()),
+                expansionList->GetDataWarehouseSharedPtr(), execStr0,
+                implStr0));
+        }
+
+        return op;
+    }
+
     void Apply(Field<TData, TFieldIn> &in, Field<TData, TFieldOut> &out)
     {
         v_Apply(in, out);

@@ -38,6 +38,7 @@
 #include <LocalRegions/Expansion.h>
 
 #include "Operators/Common/NekDataWarehouse.hpp"
+#include "Operators/Field/Field.hpp"
 
 namespace Nektar::Operators
 {
@@ -84,6 +85,17 @@ public:
             factory.CreateInstance(requestedKey, exp, dataWarehouse));
     }
 
+    void Apply(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
+    {
+        this->v_Apply(inblock, outblock);
+    }
+
+    void operator()(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
+    {
+        this->v_Apply(inblock, outblock);
+    }
+
 protected:
     LocalRegions::ExpansionSharedPtr m_exp;
     NekDataWarehouseSharedPtr m_dataWarehouse;
@@ -93,6 +105,9 @@ protected:
         : m_exp(exp), m_dataWarehouse(dataWarehouse)
     {
     }
+
+    virtual void v_Apply(BlockAccessor<TData> &inblock,
+                         BlockAccessor<TData> &outblock) = 0;
 };
 
 } // namespace Nektar::Operators

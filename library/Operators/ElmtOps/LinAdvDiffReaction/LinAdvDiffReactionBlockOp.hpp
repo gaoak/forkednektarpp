@@ -55,17 +55,6 @@ public:
 
     static inline const std::string name = "BlockLinAdvDiffReaction";
 
-    void Apply(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
-    {
-        this->v_Apply(inblock, outblock);
-    }
-
-    void operator()(BlockAccessor<TData> &inblock,
-                    BlockAccessor<TData> &outblock)
-    {
-        this->v_Apply(inblock, outblock);
-    }
-
     void SetLambda(TData lambda)
     {
         this->v_SetLambda(lambda);
@@ -86,9 +75,6 @@ protected:
     }
 
     ~LinAdvDiffReactionBlockOp() override = default;
-
-    virtual void v_Apply(BlockAccessor<TData> &inblock,
-                         BlockAccessor<TData> &outblock) = 0;
 
     virtual void v_SetLambda(const TData &lambda) = 0;
 

@@ -55,17 +55,6 @@ public:
 
     static inline const std::string name = "BlockIProductWRTDerivBase";
 
-    void Apply(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
-    {
-        this->v_Apply(inblock, outblock);
-    }
-
-    void operator()(BlockAccessor<TData> &inblock,
-                    BlockAccessor<TData> &outblock)
-    {
-        this->v_Apply(inblock, outblock);
-    }
-
     void SetAppend(bool append)
     {
         m_append = append;
@@ -81,9 +70,6 @@ protected:
     }
 
     ~IProductWRTDerivBaseBlockOp() override = default;
-
-    virtual void v_Apply(BlockAccessor<TData> &inblock,
-                         BlockAccessor<TData> &outblock) = 0;
 };
 
 } // namespace Nektar::Operators
