@@ -50,15 +50,8 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &execStr = "")
     {
-        auto session = expansionList->GetSession();
-
-        std::string execStr0 =
-            (execStr == "")
-                ? session->GetCmdLineArgument<std::string>("opExecSpace")
-                : execStr;
-
-        return Operator<TData>::template Create<AddTraceIntegralOp<TData>>(
-            expansionList, execStr0);
+        return Operator<TData>::template Create<AddTraceIntegralOp>(
+            expansionList, execStr);
     }
 
     static inline const std::string name = "AddTraceIntegral";

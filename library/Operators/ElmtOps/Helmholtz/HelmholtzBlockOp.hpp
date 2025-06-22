@@ -47,7 +47,7 @@ public:
         NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
         std::string implStr)
     {
-        return BlockOperator<TData>::template Create<HelmholtzBlockOp<TData>>(
+        return BlockOperator<TData>::template Create<HelmholtzBlockOp>(
             exp, dataWarehouse, execStr, implStr);
     }
 

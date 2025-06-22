@@ -62,13 +62,13 @@ template <typename TData> class BlockOperator
 public:
     virtual ~BlockOperator() = default;
 
-    template <typename TOperator>
-    static std::shared_ptr<TOperator> Create(
+    template <template <typename> typename TOperator>
+    static std::shared_ptr<TOperator<TData>> Create(
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
         std::string implStr)
     {
-        std::string requestedKey = TOperator::name + execStr + implStr;
+        std::string requestedKey = TOperator<TData>::name + execStr + implStr;
 
         BlockOperatorFactory<TData> &factory = GetBlockOperatorFactory<TData>();
 
@@ -81,7 +81,7 @@ public:
             NEKERROR(ErrorUtil::efatal, msg.str());
         }
 
-        return std::static_pointer_cast<TOperator>(
+        return std::static_pointer_cast<TOperator<TData>>(
             factory.CreateInstance(requestedKey, exp, dataWarehouse));
     }
 

@@ -54,8 +54,8 @@ public:
         const std::string &execStr = "", const std::string &implStr = "")
     {
         return ElmtOp<FieldState::Phys, FieldState::Phys, TData>::
-            template Create<PhysDerivOp<TData>, PhysDerivBlockOp<TData>>(
-                expansionList, execStr, implStr);
+            template Create<PhysDerivOp, PhysDerivBlockOp>(expansionList,
+                                                           execStr, implStr);
     }
 
     static inline const std::string name = "PhysDeriv";

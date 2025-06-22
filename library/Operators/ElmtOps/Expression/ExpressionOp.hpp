@@ -56,8 +56,8 @@ public:
     {
         auto op =
             ElmtOp<FieldState::Phys, FieldState::Phys, TData>::template Create<
-                ExpressionOp<TData>, ExpressionBlockOp<TData>>(
-                expansionList, execStr, implStr);
+                ExpressionOp, ExpressionBlockOp>(expansionList, execStr,
+                                                 implStr);
 
         auto session    = expansionList->GetSession();
         auto nvariables = session->GetVariables().size();

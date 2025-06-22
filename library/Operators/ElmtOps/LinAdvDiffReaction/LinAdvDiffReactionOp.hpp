@@ -54,10 +54,9 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &execStr = "", const std::string &implStr = "")
     {
-        return ElmtOp<FieldState::Coeff, FieldState::Coeff,
-                      TData>::template Create<LinAdvDiffReactionOp<TData>,
-                                              LinAdvDiffReactionBlockOp<TData>>(
-            expansionList, execStr, implStr);
+        return ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>::
+            template Create<LinAdvDiffReactionOp, LinAdvDiffReactionBlockOp>(
+                expansionList, execStr, implStr);
     }
 
     static inline const std::string name = "LinAdvDiffReaction";

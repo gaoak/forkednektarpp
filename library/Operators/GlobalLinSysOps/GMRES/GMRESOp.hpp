@@ -48,15 +48,8 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &execStr = "")
     {
-        auto session = expansionList->GetSession();
-
-        std::string execStr0 =
-            (execStr == "")
-                ? session->GetCmdLineArgument<std::string>("opExecSpace")
-                : execStr;
-
-        return LinearSolverOp<TData>::template Create<GMRESOp<TData>>(
-            expansionList, execStr0);
+        return Operator<TData>::template Create<GMRESOp>(expansionList,
+                                                         execStr);
     }
 
     static inline const std::string name = "GMRES";
