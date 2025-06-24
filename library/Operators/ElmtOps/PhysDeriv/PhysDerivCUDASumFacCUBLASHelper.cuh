@@ -91,8 +91,8 @@ void PhysDerivSegKernel(const unsigned int coordDim, const unsigned int dim,
                         const TData *deriv, const TData *in, TData *out,
                         TData *wsp, const bool isDeformed)
 {
-    // Fetch cuBLAS handle.
-    cublasHandle_t handle = cuBlasHandle::GetInstance();
+    // Fetch handle.
+    auto handle = NekHandle<ExecSpace>::GetInstance();
 
     NekGemm(handle, "N", "N", nq0, nelmt, nq0, 1.0, d0, nq0, in, nq0, 0.0, wsp,
             nq0);
@@ -111,8 +111,8 @@ void PhysDerivQuadKernel(const unsigned int coordDim, const unsigned int dim,
                          const TData *__restrict__ deriv, const TData *in,
                          TData *out, TData *wsp, const bool isDeformed)
 {
-    // Fetch cuBLAS handle.
-    cublasHandle_t handle = cuBlasHandle::GetInstance();
+    // Fetch handle.
+    auto handle = NekHandle<ExecSpace>::GetInstance();
 
     NekGemm(handle, "N", "N", nq0, nq1 * nelmt, nq0, 1.0, d0, nq0, in, nq0, 0.0,
             wsp, nq0);
@@ -140,8 +140,8 @@ void PhysDerivTriKernel(const unsigned int coordDim, const unsigned int dim,
                         TData *out, TData *wsp, const bool isDeformed,
                         std::vector<cudaStream_t> &streams)
 {
-    // Fetch cuBLAS handle.
-    cublasHandle_t handle       = cuBlasHandle::GetInstance();
+    // Fetch handle.
+    auto handle                 = NekHandle<ExecSpace>::GetInstance();
     const unsigned int nStreams = streams.size();
 
     NekGemm(handle, "N", "N", nq0, nq1 * nelmt, nq0, 1.0, d0, nq0, in, nq0, 0.0,
@@ -191,8 +191,8 @@ void PhysDerivHexKernel(const unsigned int coordDim, const unsigned int dim,
                         const TData *__restrict__ deriv, const TData *in,
                         TData *out, TData *wsp, const bool isDeformed)
 {
-    // Fetch cuBLAS handle.
-    cublasHandle_t handle = cuBlasHandle::GetInstance();
+    // Fetch handle.
+    auto handle = NekHandle<ExecSpace>::GetInstance();
 
     NekGemm(handle, "N", "N", nq0, nq1 * nq2 * nelmt, nq0, 1.0, d0, nq0, in,
             nq0, 0.0, wsp, nq0);
@@ -222,8 +222,8 @@ void PhysDerivPrismKernel(
     const TData *__restrict__ deriv, const TData *in, TData *out, TData *wsp,
     const bool isDeformed)
 {
-    // Fetch cuBLAS handle.
-    cublasHandle_t handle = cuBlasHandle::GetInstance();
+    // Fetch handle.
+    auto handle = NekHandle<ExecSpace>::GetInstance();
 
     // Transform in d1.
     NekGemm(handle, "N", "N", nq0, nq1 * nq2 * nelmt, nq0, 1.0, d0, nq0, in,
@@ -269,8 +269,8 @@ void PhysDerivPyrKernel(
     const TData *in, TData *out, TData *wsp, const bool isDeformed,
     std::vector<cudaStream_t> &streams)
 {
-    // Fetch cuBLAS handle.
-    cublasHandle_t handle       = cuBlasHandle::GetInstance();
+    // Fetch handle.
+    auto handle                 = NekHandle<ExecSpace>::GetInstance();
     const unsigned int nStreams = streams.size();
 
     NekGemm(handle, "N", "N", nq0, nq1 * nq2 * nelmt, nq0, 1.0, d0, nq0, in,
@@ -335,8 +335,8 @@ void PhysDerivTetKernel(
     const TData *__restrict__ deriv, const TData *in, TData *out, TData *wsp,
     const bool isDeformed)
 {
-    // Fetch cuBLAS handle.
-    cublasHandle_t handle = cuBlasHandle::GetInstance();
+    // Fetch handle.
+    auto handle = NekHandle<ExecSpace>::GetInstance();
 
     NekGemm(handle, "N", "N", nq0, nq1 * nq2 * nelmt, nq0, 1.0, d0, nq0, in,
             nq0, 0.0, wsp, nq0);

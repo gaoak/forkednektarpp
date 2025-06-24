@@ -221,8 +221,8 @@ protected:
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Fetch cuBLAS handle.
-        cublasHandle_t handle = cuBlasHandle::GetInstance();
+        // Fetch handle.
+        auto handle = NekHandle<ExecSpace>::GetInstance();
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
@@ -264,8 +264,8 @@ protected:
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Fetch cuBLAS handle.
-        cublasHandle_t handle = cuBlasHandle::GetInstance();
+        // Fetch handle.
+        auto handle = NekHandle<ExecSpace>::GetInstance();
 
         // Set workspace.
         if (m_wsp.size() == 0)
@@ -320,8 +320,8 @@ protected:
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Fetch cuBLAS handle.
-        cublasHandle_t handle = cuBlasHandle::GetInstance();
+        // Fetch handle.
+        auto handle = NekHandle<ExecSpace>::GetInstance();
 
         // Create CUDA Streams.
         const unsigned int nStreams = 2;
@@ -417,8 +417,8 @@ protected:
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Fetch cuBLAS handle.
-        cublasHandle_t handle = cuBlasHandle::GetInstance();
+        // Fetch handle.
+        auto handle = NekHandle<ExecSpace>::GetInstance();
 
         // Set workspace.
         if (m_wsp.size() == 0)
@@ -484,8 +484,8 @@ protected:
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Fetch cuBLAS handle.
-        cublasHandle_t handle = cuBlasHandle::GetInstance();
+        // Fetch handle.
+        auto handle = NekHandle<ExecSpace>::GetInstance();
 
         // Create CUDA streams.
         std::vector<cudaStream_t> streams(nm0);
@@ -601,8 +601,8 @@ protected:
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Fetch cuBLAS handle.
-        cublasHandle_t handle = cuBlasHandle::GetInstance();
+        // Fetch handle.
+        auto handle = NekHandle<ExecSpace>::GetInstance();
 
         // Create CUDA streams.
         const unsigned int nStreams = 8;
@@ -737,8 +737,8 @@ protected:
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Fetch cuBLAS handle.
-        cublasHandle_t handle = cuBlasHandle::GetInstance();
+        // Fetch handle.
+        auto handle = NekHandle<ExecSpace>::GetInstance();
 
         // Create CUDA Streams.
         const unsigned int nStreams = 8;
