@@ -92,8 +92,8 @@ void IProductWRTBaseSegSumFacKernel(const unsigned int nq0,
             });
     }
 
-    // Fetch cuBLAS handle.
-    cublasHandle_t handle = cuBlasHandle::GetInstance();
+    // Fetch handle.
+    auto handle = NekHandle<ExecSpace>::GetInstance();
 
     // Perform matrix-matrix multiply.
     NekGemm(handle, "T", "N", nm0, nelmt, nq0, 1.0, b0, nq0, wsp, nq0, 0.0, out,
@@ -132,8 +132,8 @@ void IProductWRTBaseQuadSumFacKernel(
             });
     }
 
-    // Fetch cuBLAS handle.
-    cublasHandle_t handle = cuBlasHandle::GetInstance();
+    // Fetch handle.
+    auto handle = NekHandle<ExecSpace>::GetInstance();
 
     // Set second wsp.
     TData *wsp2 = wsp + max(nmTot, nqTot) * nelmt;
@@ -193,8 +193,8 @@ void IProductWRTBaseTriSumFacKernel(
             });
     }
 
-    // Fetch cuBLAS handle.
-    cublasHandle_t handle       = cuBlasHandle::GetInstance();
+    // Fetch handle.
+    auto handle                 = NekHandle<ExecSpace>::GetInstance();
     const unsigned int nStreams = streams.size();
 
     // Set second wsp.
@@ -265,8 +265,8 @@ void IProductWRTBaseHexSumFacKernel(
             });
     }
 
-    // Fetch cuBLAS handle.
-    cublasHandle_t handle = cuBlasHandle::GetInstance();
+    // Fetch handle.
+    auto handle = NekHandle<ExecSpace>::GetInstance();
 
     // Set second and third wsp.
     TData *wsp2 = wsp + nqTot * nelmt;
@@ -327,8 +327,8 @@ void IProductWRTBasePrismSumFacKernel(
             });
     }
 
-    // Fetch cuBLAS handle.
-    cublasHandle_t handle       = cuBlasHandle::GetInstance();
+    // Fetch handle.
+    auto handle                 = NekHandle<ExecSpace>::GetInstance();
     const unsigned int nStreams = streams.size();
 
     // Point to second wsp.
@@ -427,8 +427,8 @@ void IProductWRTBasePyrSumFacKernel(
             });
     }
 
-    // Fetch cuBLAS handle.
-    cublasHandle_t handle       = cuBlasHandle::GetInstance();
+    // Fetch handle.
+    auto handle                 = NekHandle<ExecSpace>::GetInstance();
     const unsigned int nStreams = streams.size();
 
     // Set new wsp.
@@ -557,8 +557,8 @@ void IProductWRTBaseTetSumFacKernel(
             });
     }
 
-    // Fetch cuBLAS handle.
-    cublasHandle_t handle       = cuBlasHandle::GetInstance();
+    // Fetch handle.
+    auto handle                 = NekHandle<ExecSpace>::GetInstance();
     const unsigned int nStreams = streams.size();
 
     // Set second wsp.
