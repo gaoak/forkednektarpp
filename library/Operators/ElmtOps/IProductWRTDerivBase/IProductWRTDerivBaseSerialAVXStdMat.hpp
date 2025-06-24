@@ -150,6 +150,10 @@ protected:
         // Get workspace pointer.
         auto wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
 
+        // Dispatch kernel.
+        auto gemm_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
+            simd_t::width, m_nmTot, m_nqTot, 1.0, 1.0);
+
         // Loop over components.
         const auto insize  = m_nqTot * inblock.GetNumElmtGroups();
         const auto wspsize = m_nqTot;
@@ -157,10 +161,6 @@ protected:
         {
             auto jacptr = jacptr_init;
             auto dfptr  = dfptr_init;
-
-            // Dispatch kernel.
-            auto gemm_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
-                simd_t::width, m_nmTot, m_nqTot, 1.0, 1.0);
 
             for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {

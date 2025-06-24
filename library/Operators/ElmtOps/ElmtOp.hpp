@@ -35,7 +35,6 @@
 #pragma once
 
 #include "Operators/Common/Operator.hpp"
-#include "Operators/ElmtOps/BlockOperator.hpp"
 
 namespace Nektar::Operators
 {
@@ -85,16 +84,16 @@ public:
 
     void operator()(Field<TData, TFieldIn> &in, Field<TData, TFieldOut> &out)
     {
-        this->v_Apply(in, out);
+        v_Apply(in, out);
     }
 
 protected:
-    ~ElmtOp() override = default;
-
     ElmtOp(const MultiRegions::ExpListSharedPtr &expansionList)
         : Operator<TData>(expansionList)
     {
     }
+
+    ~ElmtOp() override = default;
 
     virtual void v_Apply(Field<TData, TFieldIn> &in,
                          Field<TData, TFieldOut> &out) = 0;

@@ -147,16 +147,16 @@ protected:
         // Get workspace pointer.
         auto bwdptr = m_bwd.template GetPtr<MemSpace, WriteOnly>();
 
+        // Dispatch kernel.
+        auto bwd_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
+            simd_t::width, m_nqTot, m_nmTot, 1.0, 0.0);
+        auto ipb_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
+            simd_t::width, m_nmTot, m_nqTot, 1.0, 0.0);
+
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             auto jacptr = jacptr_init;
-
-            // Dispatch kernel.
-            auto bwd_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
-                simd_t::width, m_nqTot, m_nmTot, 1.0, 0.0);
-            auto ipb_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
-                simd_t::width, m_nmTot, m_nqTot, 1.0, 0.0);
 
             for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {

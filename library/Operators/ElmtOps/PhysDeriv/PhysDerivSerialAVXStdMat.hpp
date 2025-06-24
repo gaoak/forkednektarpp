@@ -127,15 +127,15 @@ protected:
         inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
 
+        // Dispatch kernel.
+        auto gemm_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
+            simd_t::width, m_nqTot, m_nqTot, 1.0, 0.0);
+
         // Loop over components.
         const auto outsize = m_nqTot * inblock.GetNumElmtGroups();
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             auto dfptr = dfptr_init;
-
-            // Dispatch kernel.
-            auto gemm_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
-                simd_t::width, m_nqTot, m_nqTot, 1.0, 0.0);
 
             for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
