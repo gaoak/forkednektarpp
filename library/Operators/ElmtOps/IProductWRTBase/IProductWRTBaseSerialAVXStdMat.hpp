@@ -144,14 +144,14 @@ protected:
         // Get workspace pointer.
         auto wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
 
+        // Dispatch kernel.
+        auto gemm_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
+            simd_t::width, m_nmTot, m_nqTot, 1.0, 0.0);
+
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             auto jacptr = jacptr_init;
-
-            // Dispatch kernel.
-            auto gemm_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
-                simd_t::width, m_nmTot, m_nqTot, 1.0, 0.0);
 
             for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {

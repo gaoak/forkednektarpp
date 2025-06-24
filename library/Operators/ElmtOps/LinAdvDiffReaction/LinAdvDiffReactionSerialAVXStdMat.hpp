@@ -184,6 +184,16 @@ protected:
         auto bwdptr   = m_bwd.template GetPtr<MemSpace, WriteOnly>();
         auto derivptr = m_deriv.template GetPtr<MemSpace, WriteOnly>();
 
+        // Dispatch kernel.
+        auto bwd_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
+            simd_t::width, m_nqTot, m_nmTot, 1.0, 0.0);
+        auto ipb_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
+            simd_t::width, m_nmTot, m_nqTot, 1.0, 0.0);
+        auto deriv_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
+            simd_t::width, m_nqTot, m_nqTot, 1.0, 0.0);
+        auto ipd_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
+            simd_t::width, m_nmTot, m_nqTot, 1.0, 1.0);
+
         // Loop over components.
         const auto advelsize = m_nqTot * inblock.GetNumElmtGroups();
         const auto derivsize = m_nqTot;
@@ -192,16 +202,6 @@ protected:
             auto advptr = this->m_advVel;
             auto jacptr = jacptr_init;
             auto dfptr  = dfptr_init;
-
-            // Dispatch kernel.
-            auto bwd_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
-                simd_t::width, m_nqTot, m_nmTot, 1.0, 0.0);
-            auto ipb_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
-                simd_t::width, m_nmTot, m_nqTot, 1.0, 0.0);
-            auto deriv_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
-                simd_t::width, m_nqTot, m_nqTot, 1.0, 0.0);
-            auto ipd_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
-                simd_t::width, m_nmTot, m_nqTot, 1.0, 1.0);
 
             for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
