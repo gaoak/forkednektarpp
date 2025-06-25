@@ -221,7 +221,7 @@ protected:
      */
     const TData *GetReadOnlyHostPtr()
     {
-        if (!m_host && !m_device)
+        if (!m_host && !m_device && m_size > 0)
         {
             // Throw an error.
             NEKERROR(Nektar::ErrorUtil::efatal,
@@ -281,7 +281,7 @@ protected:
      */
     TData *GetReadWriteHostPtr()
     {
-        if (!m_host && !m_device)
+        if (!m_host && !m_device && m_size > 0)
         {
             // Throw an error.
             NEKERROR(Nektar::ErrorUtil::efatal,
@@ -314,7 +314,7 @@ protected:
      */
     const TData *GetReadOnlyDevicePtr()
     {
-        if (!m_host && !m_device)
+        if (!m_host && !m_device && m_size > 0)
         {
             // Throw an error.
             NEKERROR(Nektar::ErrorUtil::efatal,
@@ -367,7 +367,7 @@ protected:
      */
     TData *GetReadWriteDevicePtr()
     {
-        if (!m_host && !m_device)
+        if (!m_host && !m_device && m_size > 0)
         {
             // Throw an error.
             NEKERROR(Nektar::ErrorUtil::efatal,
@@ -548,7 +548,7 @@ protected:
     {
         if (!m_device_valid)
         {
-            if (!m_host)
+            if (!m_host && m_size > 0)
             {
                 NEKERROR(Nektar::ErrorUtil::efatal,
                          "MemoryStorage::HostToDeviceCopy - attempt to "
@@ -591,7 +591,7 @@ protected:
     {
         if (!m_host_valid)
         {
-            if (!m_device)
+            if (!m_device && m_size > 0)
             {
                 NEKERROR(Nektar::ErrorUtil::efatal,
                          "MemoryStorage::DeviceToHostCopy - attempt to "
