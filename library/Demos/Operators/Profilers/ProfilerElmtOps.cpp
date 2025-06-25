@@ -34,6 +34,10 @@
 
 #include "ProfilerElmtOps.hpp"
 
+#if defined(NEKTAR_ENABLE_MAGMA)
+#include "magma_v2.h"
+#endif
+
 /**
  * @brief main program of the profiler
  *
@@ -103,6 +107,10 @@
  */
 int main(int argc, char *argv[])
 {
+#ifdef NEKTAR_ENABLE_MAGMA
+    magma_init();
+#endif
+
     LIKWID_MARKER_INIT;
     LIKWID_MARKER_THREADINIT;
 
@@ -258,4 +266,8 @@ int main(int argc, char *argv[])
     LIKWID_MARKER_CLOSE;
 
     session->Finalise();
+
+#ifdef NEKTAR_ENABLE_MAGMA
+    magma_finalize();
+#endif
 }

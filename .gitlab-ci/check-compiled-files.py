@@ -56,6 +56,8 @@ ignore_sources = [
     # Template for PWS
     "solvers/PulseWaveSolver/EquationSystems/TemplatePressureArea.cpp",
     # NekBlas
+    "library/Operators/NekBlas/magma.cpp",
+    "library/Operators/NekBlas/magmaHandle.cpp",
     "library/Operators/NekBlas/libxsmm.cpp",
     "library/Operators/NekBlas/cuBlas.cpp",
     "library/Operators/NekBlas/cuBlasHandle.cpp",

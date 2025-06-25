@@ -193,10 +193,12 @@ protected:
 
             // Step 2: PhysDeriv
             // Perform matrix-matrix multiply.
-            NekGemmStridedBatched(handle, "N", "N", m_nqTot, nelmt, m_nqTot,
-                                  1.0, m_derivmat, m_nqTot, m_nqTot * m_nqTot,
-                                  bwdptr, m_nqTot, 0, 0.0, derivptr, m_nqTot,
-                                  m_nqTot * nelmt, m_dimension);
+            for (unsigned int d = 0; d < m_dimension; d++)
+            {
+                NekGemm(handle, "N", "N", m_nqTot, nelmt, m_nqTot, 1.0,
+                        m_derivmat + d * m_nqTot * m_nqTot, m_nqTot, bwdptr,
+                        m_nqTot, 0.0, derivptr + d * m_nqTot * nelmt, m_nqTot);
+            }
 
             // Multiply by derivative factor.
             if (m_isDeformed)
