@@ -16,7 +16,11 @@ IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABL
 ENDIF()
 
 # Set implementation types.
-SET(ElmtOpImpl StdMat SumFac SumFacCUBLAS SumFacTOP Generic)
+IF(NEKTAR_ENABLE_MAGMA)
+    SET(ElmtOpImpl StdMat SumFac SumFacTOP Generic)
+ELSE()
+    SET(ElmtOpImpl StdMat SumFac SumFacCUBLAS SumFacTOP Generic)
+ENDIF()
 
 # Shape types for seperate code compilation.
 SET(Shapes Seg Tri NodalTri Quad Hex Pyr Prism NodalPrism Tet NodalTet)
@@ -508,18 +512,25 @@ ENDFOREACH()
 SET(OPERATORS_DEPENDS
     MultiRegions)
 
-# AVX specific file
-IF(NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
+# MAGMA specific file
+IF(NEKTAR_ENABLE_MAGMA)
     SET(OPERATORS_HEADERS
       ${OPERATORS_HEADERS}
-      NekBlas/libXSMMDispatchWrapper.hpp
+       NekBlas/magmaHandle.hpp
     )
 
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
+       NekBlas/magmaHandle.cpp
+       NekBlas/magma.cpp
+    )
+# LIBXSMM specific file
+ELSEIF(NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
+    SET(OPERATORS_SOURCES
+      ${OPERATORS_SOURCES}
       NekBlas/libXSMM.cpp
     )
-# CUDA specific file
+# CUBLAS specific file
 ELSEIF(NEKTAR_ENABLE_CUDA)
     SET(OPERATORS_HEADERS
       ${OPERATORS_HEADERS}
@@ -531,11 +542,7 @@ ELSEIF(NEKTAR_ENABLE_CUDA)
        NekBlas/cuBlasHandle.cpp
        NekBlas/cuBlas.cpp
     )
-
-    SET(OPERATORS_DEPENDS
-      ${OPERATORS_DEPENDS}
-      ${NEKTAR_CUDA_DEPENDS})
-# HIP specific file
+# HIPBLAS specific file
 ELSEIF(NEKTAR_ENABLE_HIP)
     SET(OPERATORS_HEADERS
       ${OPERATORS_HEADERS}
@@ -547,7 +554,27 @@ ELSEIF(NEKTAR_ENABLE_HIP)
        NekBlas/hipBlasHandle.cpp
        NekBlas/hipBlas.cpp
     )
+# MKL specific file
+ELSEIF(NEKTAR_ENABLE_SYCL)
+    SET(OPERATORS_SOURCES
+      ${OPERATORS_SOURCES}
+      NekBlas/syclBlas.cpp
+    )
+ENDIF()
 
+# AVX specific file
+IF(NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
+    SET(OPERATORS_HEADERS
+      ${OPERATORS_HEADERS}
+      NekBlas/libXSMMDispatchWrapper.hpp
+    )
+# CUDA specific file
+ELSEIF(NEKTAR_ENABLE_CUDA)
+    SET(OPERATORS_DEPENDS
+      ${OPERATORS_DEPENDS}
+      ${NEKTAR_CUDA_DEPENDS})
+# HIP specific file
+ELSEIF(NEKTAR_ENABLE_HIP)
     SET(OPERATORS_DEPENDS
       ${OPERATORS_DEPENDS}
       ${NEKTAR_HIP_DEPENDS})
@@ -561,7 +588,6 @@ ELSEIF(NEKTAR_ENABLE_SYCL)
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
       Common/SYCLQueue.cpp
-      NekBlas/syclBlas.cpp
     )
 
     SET(OPERATORS_DEPENDS
@@ -582,6 +608,11 @@ ADD_NEKTAR_LIBRARY(Operators
     DEPENDS ${OPERATORS_DEPENDS}
     SUMMARY "Nektar++ Operators library"
     DESCRIPTION "This library provides classes related to operators for Nektar++.")
+
+#MAGMA
+IF(NEKTAR_ENABLE_MAGMA)
+    TARGET_LINK_LIBRARIES(Operators LINK_PUBLIC ${LIBMAGMA_LIBRARY})
+ENDIF()
 
 #LIBXSMM
 IF(NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)

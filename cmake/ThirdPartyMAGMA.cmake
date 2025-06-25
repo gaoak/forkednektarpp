@@ -1,0 +1,55 @@
+
+ADD_DEFINITIONS(-DNEKTAR_ENABLE_MAGMA)
+
+FIND_LIBRARY(LIBMAGMA_LIBRARY magma)
+FIND_PATH(LIBMAGMA_INCLUDE_DIR magma.h)
+
+# If we have our library then don't build libmagma.
+IF (LIBMAGMA_INCLUDE_DIR AND LIBMAGMA_LIBRARY)
+    SET(BUILD_LIBMAGMA OFF)
+ELSE()
+    SET(BUILD_LIBMAGMA ON)
+ENDIF ()
+
+IF(${BUILD_LIBMAGMA})
+    INCLUDE(ExternalProject)
+
+    EXECUTE_PROCESS(COMMAND mkdir -p ${TPBUILD}/LIBMAGMA_CONFIG)
+    IF (NEKTAR_ENABLE_CUDA)
+        EXECUTE_PROCESS(COMMAND echo -e "BACKEND=cuda\nFORT=false\nGPU_TARGET=${NEKTAR_DEVICE_ARCH}" OUTPUT_FILE "${TPBUILD}/LIBMAGMA_CONFIG/make.inc")
+    ELSEIF (NEKTAR_ENABLE_HIP)
+        EXECUTE_PROCESS(COMMAND echo -e "BACKEND=hip\nFORT=false\nGPU_TARGET=${NEKTAR_DEVICE_ARCH}" OUTPUT_FILE "${TPBUILD}/LIBMAGMA_CONFIG/make.inc")
+    ENDIF()
+    EXTERNALPROJECT_ADD(
+            libmagma
+            PREFIX ${TPSRC}
+            GIT_REPOSITORY https://github.com/icl-utk-edu/magma.git
+            STAMP_DIR ${TPBUILD}/stamp
+            DOWNLOAD_DIR ${TPSRC}
+            SOURCE_DIR ${TPSRC}/libmagma
+            BINARY_DIR ${TPBUILD}/libmagma
+            TMP_DIR ${TPBUILD}/libmagma-tmp
+            INSTALL_DIR ${TPDIST}
+            CONFIGURE_COMMAND cp ${TPBUILD}/LIBMAGMA_CONFIG/make.inc ${TPSRC}/libmagma/ && $(MAKE) -C ${TPSRC}/libmagma generate
+            BUILD_COMMAND cmake ${TPSRC}/libmagma
+                    -B ${TPBUILD}/libmagma
+                    -DMAGMA_ENABLE_CUDA=${NEKTAR_ENABLE_CUDA}
+                    -DMAGMA_ENABLE_HIP=${NEKTAR_ENABLE_HIP}
+                    -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+                    -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+                    -DGPU_TARGET=${NEKTAR_DEVICE_ARCH}
+                    -DCMAKE_INSTALL_PREFIX:PATH=${TPDIST}
+    )
+
+    THIRDPARTY_LIBRARY(LIBMAGMA_LIBRARY SHARED magma DESCRIPTION "LIBMAGMA library")
+    SET(LIBMAGMA_INCLUDE_DIR ${TPDIST}/include CACHE FILEPATH "libmagma include" FORCE)
+    MESSAGE(STATUS "Build libmagma: ${LIBMAGMA_LIBRARY}")
+ELSE()
+    ADD_CUSTOM_TARGET(libmagma ALL)
+    MESSAGE(STATUS "Found libmagma: ${LIBMAGMA_LIBRARY}")
+ENDIF()
+
+INCLUDE_DIRECTORIES(${LIBMAGMA_INCLUDE_DIR})
+
+MARK_AS_ADVANCED(LIBMAGMA_INCLUDE_DIR)
+MARK_AS_ADVANCED(LIBMAGMA_LIBRARIES)

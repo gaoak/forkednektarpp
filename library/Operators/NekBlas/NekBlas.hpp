@@ -38,7 +38,9 @@
 
 #include "Operators/NekBlas/libXSMMDispatchWrapper.hpp"
 
-#if defined(NEKTAR_ENABLE_CUDA)
+#if defined(NEKTAR_ENABLE_MAGMA)
+#include "Operators/NekBlas/magmaHandle.hpp"
+#elif defined(NEKTAR_ENABLE_CUDA)
 #include "Operators/NekBlas/cuBlasHandle.hpp"
 #elif defined(NEKTAR_ENABLE_HIP)
 #include "Operators/NekBlas/hipBlasHandle.hpp"
@@ -74,6 +76,15 @@ public:
         return xsmmHandle();
     }
 };
+#elif defined(NEKTAR_ENABLE_MAGMA)
+template <> class NekHandle<NektarSpaces::Device>
+{
+public:
+    static magma_queue_t GetInstance(void)
+    {
+        return magmaHandle::GetInstance();
+    }
+};
 #elif defined(NEKTAR_ENABLE_CUDA)
 template <> class NekHandle<NektarSpaces::Device>
 {
@@ -103,6 +114,7 @@ public:
 };
 #endif
 
+// NekGemm
 template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, blasHandle>, void>::type NekGemm(
     THandle handle, std::string transposeA, std::string transposeB,
@@ -112,6 +124,8 @@ typename std::enable_if<std::is_same_v<THandle, blasHandle>, void>::type NekGemm
 template <typename THandle, typename TData>
 #if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
 typename std::enable_if<std::is_same_v<THandle, xsmmHandle>, void>::type
+#elif defined(NEKTAR_ENABLE_MAGMA)
+typename std::enable_if<std::is_same_v<THandle, magma_queue_t>, void>::type
 #elif defined(NEKTAR_ENABLE_CUDA)
 typename std::enable_if<std::is_same_v<THandle, cublasHandle_t>, void>::type
 #elif defined(NEKTAR_ENABLE_HIP)
@@ -126,6 +140,7 @@ NekGemm(THandle handle, std::string transposeA, std::string transposeB,
         const TData *a, const size_t lda, const TData *b, const size_t ldb,
         const TData beta, TData *c, const size_t ldc);
 
+// NekGemmStridedBatched
 template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, blasHandle>, void>::type
 NekGemmStridedBatched(THandle handle, std::string transposeA,
@@ -138,6 +153,8 @@ NekGemmStridedBatched(THandle handle, std::string transposeA,
 template <typename THandle, typename TData>
 #if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
 typename std::enable_if<std::is_same_v<THandle, xsmmHandle>, void>::type
+#elif defined(NEKTAR_ENABLE_MAGMA)
+typename std::enable_if<std::is_same_v<THandle, magma_queue_t>, void>::type
 #elif defined(NEKTAR_ENABLE_CUDA)
 typename std::enable_if<std::is_same_v<THandle, cublasHandle_t>, void>::type
 #elif defined(NEKTAR_ENABLE_HIP)
@@ -155,6 +172,7 @@ NekGemmStridedBatched(THandle handle, std::string transposeA,
                       TData *c, const size_t ldc, const size_t strideC,
                       const size_t batchSize);
 
+// NekGemv
 template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, blasHandle>, void>::type NekGemv(
     THandle handle, std::string transpose, const size_t M, const size_t N,
@@ -163,6 +181,8 @@ typename std::enable_if<std::is_same_v<THandle, blasHandle>, void>::type NekGemv
 template <typename THandle, typename TData>
 #if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
 typename std::enable_if<std::is_same_v<THandle, xsmmHandle>, void>::type
+#elif defined(NEKTAR_ENABLE_MAGMA)
+typename std::enable_if<std::is_same_v<THandle, magma_queue_t>, void>::type
 #elif defined(NEKTAR_ENABLE_CUDA)
 typename std::enable_if<std::is_same_v<THandle, cublasHandle_t>, void>::type
 #elif defined(NEKTAR_ENABLE_HIP)
@@ -176,6 +196,7 @@ NekGemv(THandle handle, std::string transpose, const size_t M, const size_t N,
         const TData alpha, const TData *a, const size_t lda, const TData *x,
         const size_t incx, const TData beta, TData *y, const size_t incy);
 
+// NekGemvStridedBatched
 template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, blasHandle>, void>::type
 NekGemvStridedBatched(THandle handle, std::string transpose, const size_t M,
@@ -187,6 +208,8 @@ NekGemvStridedBatched(THandle handle, std::string transpose, const size_t M,
 template <typename THandle, typename TData>
 #if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
 typename std::enable_if<std::is_same_v<THandle, xsmmHandle>, void>::type
+#elif defined(NEKTAR_ENABLE_MAGMA)
+typename std::enable_if<std::is_same_v<THandle, magma_queue_t>, void>::type
 #elif defined(NEKTAR_ENABLE_CUDA)
 typename std::enable_if<std::is_same_v<THandle, cublasHandle_t>, void>::type
 #elif defined(NEKTAR_ENABLE_HIP)
