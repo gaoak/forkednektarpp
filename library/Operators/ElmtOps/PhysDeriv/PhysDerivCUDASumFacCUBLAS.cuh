@@ -348,14 +348,6 @@ protected:
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), false));
 
-        // Create CUDA Streams.
-        const unsigned int nStreams = 2;
-        std::vector<cudaStream_t> streams(nStreams);
-        for (unsigned int s = 0; s < nStreams; ++s)
-        {
-            cudaStreamCreate(&streams[s]);
-        }
-
         // Set workspace.
         if (m_wsp.size() == 0)
         {
@@ -373,20 +365,14 @@ protected:
                 (TData *)inptr);
 
             // Calculate derivative.
-            PhysDerivTriKernel<ExecSpace>(
-                m_coordDim, m_dimension, nq0, nq1, nqTot, nelmt,
-                outblock.size(), m_D[0], m_D[1], m_f[0], m_f[1], dfptr, inptr,
-                outptr, wspptr, m_isDeformed, streams);
+            PhysDerivTriKernel<ExecSpace>(m_coordDim, m_dimension, nq0, nq1,
+                                          nqTot, nelmt, outblock.size(), m_D[0],
+                                          m_D[1], m_f[0], m_f[1], dfptr, inptr,
+                                          outptr, wspptr, m_isDeformed);
 
             // Increment pointers.
             inptr += inblock.size();
             outptr += m_coordDim * outblock.size();
-        }
-
-        // Destroy streams.
-        for (unsigned int s = 0; s < nStreams; ++s)
-        {
-            cudaStreamDestroy(streams[s]);
         }
 
         // Set to new interleave width.
@@ -516,14 +502,6 @@ protected:
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), false));
 
-        // Create CUDA Streams.
-        const unsigned int nStreams = 8;
-        std::vector<cudaStream_t> streams(nStreams);
-        for (unsigned int s = 0; s < nStreams; ++s)
-        {
-            cudaStreamCreate(&streams[s]);
-        }
-
         // Set workspace.
         if (m_wsp.size() == 0)
         {
@@ -544,17 +522,11 @@ protected:
             PhysDerivPyrKernel<ExecSpace>(
                 m_coordDim, m_dimension, nq0, nq1, nq2, nqTot, nelmt,
                 outblock.size(), m_D[0], m_D[1], m_D[2], m_f[0], m_f[1], m_f[3],
-                dfptr, inptr, outptr, wspptr, m_isDeformed, streams);
+                dfptr, inptr, outptr, wspptr, m_isDeformed);
 
             // Increment pointers.
             inptr += inblock.size();
             outptr += m_coordDim * outblock.size();
-        }
-
-        // Destroy streams.
-        for (unsigned int s = 0; s < nStreams; ++s)
-        {
-            cudaStreamDestroy(streams[s]);
         }
 
         // Set to new interleave width.
