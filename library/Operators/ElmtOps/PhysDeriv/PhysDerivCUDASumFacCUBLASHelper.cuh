@@ -118,11 +118,8 @@ void PhysDerivQuadKernel(const unsigned int coordDim, const unsigned int dim,
             wsp, nq0);
 
     TData *wsp2 = wsp + nelmt * nqTot;
-    for (size_t e = 0, cnt = 0; e < nelmt; e++, cnt += nqTot)
-    {
-        NekGemm(handle, "N", "T", nq0, nq1, nq1, 1.0, in + cnt, nq0, d1, nq1,
-                0.0, wsp2 + cnt, nq0);
-    }
+    NekGemmStridedBatched(handle, "N", "T", nq0, nq1, nq1, 1.0, in, nq0, nqTot,
+                          d1, nq1, 0, 0.0, wsp2, nq0, nqTot, nelmt);
 
     ApplyDerivFactor<ExecSpace>(coordDim, dim, nqTot, nelmt, outblocksize,
                                 deriv, wsp, out, isDeformed);
@@ -137,34 +134,17 @@ void PhysDerivTriKernel(const unsigned int coordDim, const unsigned int dim,
                         const TData *__restrict__ f0,
                         const TData *__restrict__ f1,
                         const TData *__restrict__ deriv, const TData *in,
-                        TData *out, TData *wsp, const bool isDeformed,
-                        std::vector<cudaStream_t> &streams)
+                        TData *out, TData *wsp, const bool isDeformed)
 {
     // Fetch handle.
-    auto handle                 = NekHandle<ExecSpace>::GetInstance();
-    const unsigned int nStreams = streams.size();
+    auto handle = NekHandle<ExecSpace>::GetInstance();
 
     NekGemm(handle, "N", "N", nq0, nq1 * nelmt, nq0, 1.0, d0, nq0, in, nq0, 0.0,
             wsp, nq0);
 
     TData *wsp2 = wsp + nelmt * nqTot;
-    for (size_t e = 0, cnt = 0; e < nelmt; e++, cnt += nqTot)
-    {
-        // Set stream.
-        cublasSetStream(handle, streams[e % nStreams]);
-
-        NekGemm(handle, "N", "T", nq0, nq1, nq1, 1.0, in + cnt, nq0, d1, nq1,
-                0.0, wsp2 + cnt, nq0);
-    }
-
-    // Synchronize all streams.
-    for (unsigned int s = 0; s < nStreams; ++s)
-    {
-        cudaStreamSynchronize(streams[s]);
-    }
-
-    // Set back to default stream.
-    cublasSetStream(handle, 0);
+    NekGemmStridedBatched(handle, "N", "T", nq0, nq1, nq1, 1.0, in, nq0, nqTot,
+                          d1, nq1, 0, 0.0, wsp2, nq0, nqTot, nelmt);
 
     // Apply z factor.
     Nektar::parallel_for<ExecSpace>(
@@ -266,12 +246,10 @@ void PhysDerivPyrKernel(
     const TData *__restrict__ d1, const TData *__restrict__ d2,
     const TData *__restrict__ f0, const TData *__restrict__ f1,
     const TData *__restrict__ f3, const TData *__restrict__ deriv,
-    const TData *in, TData *out, TData *wsp, const bool isDeformed,
-    std::vector<cudaStream_t> &streams)
+    const TData *in, TData *out, TData *wsp, const bool isDeformed)
 {
     // Fetch handle.
-    auto handle                 = NekHandle<ExecSpace>::GetInstance();
-    const unsigned int nStreams = streams.size();
+    auto handle = NekHandle<ExecSpace>::GetInstance();
 
     NekGemm(handle, "N", "N", nq0, nq1 * nq2 * nelmt, nq0, 1.0, d0, nq0, in,
             nq0, 0.0, wsp, nq0);
@@ -279,33 +257,13 @@ void PhysDerivPyrKernel(
     TData *wsp2 = wsp + nelmt * nqTot;
     TData *wsp3 = wsp2 + nelmt * nqTot;
 
-    for (size_t e = 0; e < nelmt; ++e)
-    {
-        for (unsigned int j = 0, cnt = 0; j < nq2; ++j, ++cnt)
-        {
-            // Set stream.
-            cublasSetStream(handle, streams[cnt % nStreams]);
+    NekGemmStridedBatched(handle, "N", "T", nq0, nq1, nq1, 1.0, in, nq0,
+                          nq0 * nq1, d1, nq1, 0, 0.0, wsp2, nq0, nq0 * nq1,
+                          nelmt * nq2);
 
-            NekGemm(handle, "N", "T", nq0, nq1, nq1, 1.0,
-                    &in[e * nqTot + j * nq0 * nq1], nq0, d1, nq1, 0.0,
-                    &wsp2[e * nqTot + j * nq0 * nq1], nq0);
-        }
-
-        // Set stream.
-        cublasSetStream(handle, streams[e % nStreams]);
-
-        NekGemm(handle, "N", "T", nq0 * nq1, nq2, nq2, 1.0, &in[e * nqTot],
-                nq0 * nq1, d2, nq2, 0.0, &wsp3[e * nqTot], nq0 * nq1);
-    }
-
-    // Synchronize all streams.
-    for (unsigned int s = 0; s < nStreams; ++s)
-    {
-        cudaStreamSynchronize(streams[s]);
-    }
-
-    // Set back to default stream.
-    cublasSetStream(handle, 0);
+    NekGemmStridedBatched(handle, "N", "T", nq0 * nq1, nq2, nq2, 1.0, in,
+                          nq0 * nq1, nqTot, d2, nq2, 0, 0.0, wsp3, nq0 * nq1,
+                          nqTot, nelmt);
 
     // Apply z factor.
     Nektar::parallel_for<ExecSpace>(
