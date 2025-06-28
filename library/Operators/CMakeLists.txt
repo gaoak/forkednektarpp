@@ -482,6 +482,7 @@ SET(OPERATORS_HEADERS
     Common/DeviceProperties.hpp
     ElmtOps/BlockOperator.hpp
     NekBlas/NekBlas.hpp
+    NekBlas/blasHandle.hpp
     )
 
 # Common source file.
@@ -490,6 +491,7 @@ SET(OPERATORS_SOURCES
     Common/DeviceProperties.cpp
     ElmtOps/BlockOperator.cpp
     NekBlas/blas.cpp
+    NekBlas/blasHandle.cpp
     )
 
 # Only these cpp files go into the group set below.
@@ -512,8 +514,20 @@ ENDFOREACH()
 SET(OPERATORS_DEPENDS
     MultiRegions)
 
+# LIBXSMM specific file
+IF(NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
+    SET(OPERATORS_HEADERS
+      ${OPERATORS_HEADERS}
+       NekBlas/xsmmHandle.hpp
+    )
+
+    SET(OPERATORS_SOURCES
+      ${OPERATORS_SOURCES}
+      NekBlas/xsmmHandle.cpp
+      NekBlas/xsmm.cpp
+    )
 # MAGMA specific file
-IF(NEKTAR_ENABLE_MAGMA)
+ELSEIF(NEKTAR_ENABLE_MAGMA)
     SET(OPERATORS_HEADERS
       ${OPERATORS_HEADERS}
        NekBlas/magmaHandle.hpp
@@ -523,12 +537,6 @@ IF(NEKTAR_ENABLE_MAGMA)
       ${OPERATORS_SOURCES}
        NekBlas/magmaHandle.cpp
        NekBlas/magma.cpp
-    )
-# LIBXSMM specific file
-ELSEIF(NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
-    SET(OPERATORS_SOURCES
-      ${OPERATORS_SOURCES}
-      NekBlas/libXSMM.cpp
     )
 # CUBLAS specific file
 ELSEIF(NEKTAR_ENABLE_CUDA)

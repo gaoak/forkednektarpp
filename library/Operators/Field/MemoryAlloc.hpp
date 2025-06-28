@@ -173,10 +173,12 @@ inline void deviceFree(TData *&src, [[maybe_unused]] const size_t size,
 
 #if defined(NEKTAR_ENABLE_CUDA)
     CHECK_HIPCUDA_ERROR(cudaSetDevice(device_rank));
+    // CHECK_HIPCUDA_ERROR(cudaDeviceSynchronize());
     CHECK_HIPCUDA_ERROR(cudaFree(src));
     GetDeviceProperties::TotalGlobalMemory() += size;
 #elif defined(NEKTAR_ENABLE_HIP)
     CHECK_HIPCUDA_ERROR(hipSetDevice(device_rank));
+    // CHECK_HIPCUDA_ERROR(hipDeviceSynchronize());
     CHECK_HIPCUDA_ERROR(hipFree(src));
     GetDeviceProperties::TotalGlobalMemory() += size;
 #elif defined(NEKTAR_ENABLE_SYCL)

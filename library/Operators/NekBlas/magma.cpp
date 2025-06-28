@@ -32,14 +32,14 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "Operators/Field/MemoryAlloc.hpp"
 #include "Operators/NekBlas/NekBlas.hpp"
 
 template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, magma_queue_t>, void>::type NekGemm(
-    THandle handle, std::string transposeA, std::string transposeB,
-    const size_t M, const size_t N, const size_t K, const TData alpha,
-    const TData *a, const size_t lda, const TData *b, const size_t ldb,
-    const TData beta, TData *c, const size_t ldc)
+    THandle handle, std::string transposeA, std::string transposeB, const int M,
+    const int N, const int K, const TData alpha, const TData *a, const int lda,
+    const TData *b, const int ldb, const TData beta, TData *c, const int ldc)
 {
     auto transA = (transposeA == "N") ? MagmaNoTrans : MagmaTrans;
     auto transB = (transposeB == "N") ? MagmaNoTrans : MagmaTrans;
@@ -59,12 +59,12 @@ typename std::enable_if<std::is_same_v<THandle, magma_queue_t>, void>::type NekG
 template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, magma_queue_t>, void>::type
 NekGemmStridedBatched(THandle handle, std::string transposeA,
-                      std::string transposeB, const size_t M, const size_t N,
-                      const size_t K, const TData alpha, const TData *a,
-                      const size_t lda, const size_t strideA, const TData *b,
-                      const size_t ldb, const size_t strideB, const TData beta,
-                      TData *c, const size_t ldc, const size_t strideC,
-                      const size_t batchSize)
+                      std::string transposeB, const int M, const int N,
+                      const int K, const TData alpha, const TData *a,
+                      const int lda, const int strideA, const TData *b,
+                      const int ldb, const int strideB, const TData beta,
+                      TData *c, const int ldc, const int strideC,
+                      const int batchSize)
 {
     auto transA = (transposeA == "N") ? MagmaNoTrans : MagmaTrans;
     auto transB = (transposeB == "N") ? MagmaNoTrans : MagmaTrans;
@@ -84,10 +84,62 @@ NekGemmStridedBatched(THandle handle, std::string transposeA,
 }
 
 template <typename THandle, typename TData>
+typename std::enable_if<std::is_same_v<THandle, magma_queue_t>, void>::type
+NekGemmGroupedBatched(THandle handle, std::string transposeA,
+                      std::string transposeB, const int *M, const int *N,
+                      const int *K, const TData alpha,
+                      TData const *const *Aarray, const int *lda,
+                      TData const *const *Barray, const int *ldb,
+                      const TData beta, TData **Carray, const int *ldc,
+                      const int batchSize)
+{
+    auto transA = (transposeA == "N") ? MagmaNoTrans : MagmaTrans;
+    auto transB = (transposeB == "N") ? MagmaNoTrans : MagmaTrans;
+
+    TData const **Adev;
+    TData const **Bdev;
+    TData **Cdev;
+
+    Nektar::deviceMalloc(Adev, sizeof(TData *) * batchSize,
+                         NektarSpaces::Device::alignment, 0);
+    Nektar::deviceMalloc(Bdev, sizeof(TData *) * batchSize,
+                         NektarSpaces::Device::alignment, 0);
+    Nektar::deviceMalloc(Cdev, sizeof(TData *) * batchSize,
+                         NektarSpaces::Device::alignment, 0);
+
+    Nektar::deviceMemcpy<Nektar::HostToDevice>(Adev, Aarray,
+                                               sizeof(TData *) * batchSize, 0);
+    Nektar::deviceMemcpy<Nektar::HostToDevice>(Bdev, Barray,
+                                               sizeof(TData *) * batchSize, 0);
+    Nektar::deviceMemcpy<Nektar::HostToDevice>(Cdev, Carray,
+                                               sizeof(TData *) * batchSize, 0);
+
+    if constexpr (std::is_same_v<TData, float>)
+    {
+        magmablas_sgemm_vbatched(transA, transB, (int *)M, (int *)N, (int *)K,
+                                 alpha, Adev, (int *)lda, Bdev, (int *)ldb,
+                                 beta, Cdev, (int *)ldc, batchSize, handle);
+    }
+    else if constexpr (std::is_same_v<TData, double>)
+    {
+        magmablas_dgemm_vbatched(transA, transB, (int *)M, (int *)N, (int *)K,
+                                 alpha, Adev, (int *)lda, Bdev, (int *)ldb,
+                                 beta, Cdev, (int *)ldc, batchSize, handle);
+    }
+
+    Nektar::deviceFree(Adev, sizeof(TData *) * batchSize,
+                       NektarSpaces::Device::alignment, 0);
+    Nektar::deviceFree(Bdev, sizeof(TData *) * batchSize,
+                       NektarSpaces::Device::alignment, 0);
+    Nektar::deviceFree(Cdev, sizeof(TData *) * batchSize,
+                       NektarSpaces::Device::alignment, 0);
+}
+
+template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, magma_queue_t>, void>::type NekGemv(
-    THandle handle, std::string transpose, const size_t M, const size_t N,
-    const TData alpha, const TData *a, const size_t lda, const TData *x,
-    const size_t incx, const TData beta, TData *y, const size_t incy)
+    THandle handle, std::string transpose, const int M, const int N,
+    const TData alpha, const TData *a, const int lda, const TData *x,
+    const int incx, const TData beta, TData *y, const int incy)
 {
     auto trans = (transpose == "N") ? MagmaNoTrans : MagmaTrans;
 
@@ -103,12 +155,12 @@ typename std::enable_if<std::is_same_v<THandle, magma_queue_t>, void>::type NekG
 
 template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, magma_queue_t>, void>::type
-NekGemvStridedBatched(THandle handle, std::string transpose, const size_t M,
-                      const size_t N, const TData alpha, const TData *a,
-                      const size_t lda, const size_t strideA, const TData *x,
-                      const size_t incx, const size_t strideX, const TData beta,
-                      TData *y, const size_t incy, const size_t strideY,
-                      const size_t batchSize)
+NekGemvStridedBatched(THandle handle, std::string transpose, const int M,
+                      const int N, const TData alpha, const TData *a,
+                      const int lda, const int strideA, const TData *x,
+                      const int incx, const int strideX, const TData beta,
+                      TData *y, const int incy, const int strideY,
+                      const int batchSize)
 {
     auto trans = (transpose == "N") ? MagmaNoTrans : MagmaTrans;
 
@@ -128,48 +180,62 @@ NekGemvStridedBatched(THandle handle, std::string transpose, const size_t M,
 
 template void NekGemm<magma_queue_t, float>(
     magma_queue_t handle, std::string transposeA, std::string transposeB,
-    const size_t M, const size_t N, const size_t K, const float alpha,
-    const float *a, const size_t lda, const float *b, const size_t ldb,
-    const float beta, float *c, const size_t ldc);
+    const int M, const int N, const int K, const float alpha, const float *a,
+    const int lda, const float *b, const int ldb, const float beta, float *c,
+    const int ldc);
 
 template void NekGemm<magma_queue_t, double>(
     magma_queue_t handle, std::string transposeA, std::string transposeB,
-    const size_t M, const size_t N, const size_t K, const double alpha,
-    const double *a, const size_t lda, const double *b, const size_t ldb,
-    const double beta, double *c, const size_t ldc);
+    const int M, const int N, const int K, const double alpha, const double *a,
+    const int lda, const double *b, const int ldb, const double beta, double *c,
+    const int ldc);
 
 template void NekGemmStridedBatched<magma_queue_t, float>(
     magma_queue_t handle, std::string transposeA, std::string transposeB,
-    const size_t M, const size_t N, const size_t K, const float alpha,
-    const float *a, const size_t lda, const size_t strideA, const float *b,
-    const size_t ldb, const size_t strideB, const float beta, float *c,
-    const size_t ldc, const size_t strideC, const size_t batchSize);
+    const int M, const int N, const int K, const float alpha, const float *a,
+    const int lda, const int strideA, const float *b, const int ldb,
+    const int strideB, const float beta, float *c, const int ldc,
+    const int strideC, const int batchSize);
 
 template void NekGemmStridedBatched<magma_queue_t, double>(
     magma_queue_t handle, std::string transposeA, std::string transposeB,
-    const size_t M, const size_t N, const size_t K, const double alpha,
-    const double *a, const size_t lda, const size_t strideA, const double *b,
-    const size_t ldb, const size_t strideB, const double beta, double *c,
-    const size_t ldc, const size_t strideC, const size_t batchSize);
+    const int M, const int N, const int K, const double alpha, const double *a,
+    const int lda, const int strideA, const double *b, const int ldb,
+    const int strideB, const double beta, double *c, const int ldc,
+    const int strideC, const int batchSize);
+
+template void NekGemmGroupedBatched<magma_queue_t, float>(
+    magma_queue_t handle, std::string transposeA, std::string transposeB,
+    const int *M, const int *N, const int *K, const float alpha,
+    float const *const *Aarray, const int *lda, float const *const *Barray,
+    const int *ldb, const float beta, float **Carray, const int *ldc,
+    const int batchSize);
+
+template void NekGemmGroupedBatched<magma_queue_t, double>(
+    magma_queue_t handle, std::string transposeA, std::string transposeB,
+    const int *M, const int *N, const int *K, const double alpha,
+    double const *const *Aarray, const int *lda, double const *const *Barray,
+    const int *ldb, const double beta, double **Carray, const int *ldc,
+    const int batchSize);
 
 template void NekGemv<magma_queue_t, float>(
-    magma_queue_t handle, std::string transpose, const size_t M, const size_t N,
-    const float alpha, const float *a, const size_t lda, const float *x,
-    const size_t incx, const float beta, float *y, const size_t incy);
+    magma_queue_t handle, std::string transpose, const int M, const int N,
+    const float alpha, const float *a, const int lda, const float *x,
+    const int incx, const float beta, float *y, const int incy);
 
 template void NekGemv<magma_queue_t, double>(
-    magma_queue_t handle, std::string transpose, const size_t M, const size_t N,
-    const double alpha, const double *a, const size_t lda, const double *x,
-    const size_t incx, const double beta, double *y, const size_t incy);
+    magma_queue_t handle, std::string transpose, const int M, const int N,
+    const double alpha, const double *a, const int lda, const double *x,
+    const int incx, const double beta, double *y, const int incy);
 
 template void NekGemvStridedBatched<magma_queue_t, float>(
-    magma_queue_t handle, std::string transpose, const size_t M, const size_t N,
-    const float alpha, const float *a, const size_t lda, const size_t strideA,
-    const float *x, const size_t incx, const size_t strideX, const float beta,
-    float *y, const size_t incy, const size_t strideY, const size_t batchSize);
+    magma_queue_t handle, std::string transpose, const int M, const int N,
+    const float alpha, const float *a, const int lda, const int strideA,
+    const float *x, const int incx, const int strideX, const float beta,
+    float *y, const int incy, const int strideY, const int batchSize);
 
 template void NekGemvStridedBatched<magma_queue_t, double>(
-    magma_queue_t handle, std::string transpose, const size_t M, const size_t N,
-    const double alpha, const double *a, const size_t lda, const size_t strideA,
-    const double *x, const size_t incx, const size_t strideX, const double beta,
-    double *y, const size_t incy, const size_t strideY, const size_t batchSize);
+    magma_queue_t handle, std::string transpose, const int M, const int N,
+    const double alpha, const double *a, const int lda, const int strideA,
+    const double *x, const int incx, const int strideX, const double beta,
+    double *y, const int incy, const int strideY, const int batchSize);
