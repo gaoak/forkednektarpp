@@ -1117,10 +1117,9 @@ public:
             }
 
             // increment mode in case order1!=order2
-            for (j = m_nmodes1; j < m_nmodes2 - i; ++j)
+            for (j = m_nmodes1; j < m_nmodes2; ++j)
             {
-                int ijmax = max(i, j);
-                mode += m_nmodes2 - ijmax;
+                mode += m_nmodes2 - j;
             }
         }
 

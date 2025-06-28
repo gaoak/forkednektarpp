@@ -443,7 +443,7 @@ NEK_FORCE_INLINE static void BwdTransPyrKernel(
             }
 
             // increment mode in case nm2>nm1
-            for (int q = nm1; q < nm2 - p; ++q)
+            for (int q = nm1; q < nm2; ++q)
             {
                 mode_pqr += nm2 - q;
             }

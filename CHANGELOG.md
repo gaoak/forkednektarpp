@@ -2,6 +2,9 @@ Changelog
 =========
 v5.9.0
 ------
+**Library**
+- Fix BwdTrans and IProduct in Collection and MatrixFee for variable P (!2178)
+
 **NekMesh**
 - Minor Bug-fix for industrial pipeline !2057 (!2135)
 - Scaling the mesh nodes (!2115)

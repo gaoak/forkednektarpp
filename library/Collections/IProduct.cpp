@@ -462,8 +462,7 @@ void PyrIProduct(bool sortTopVertex, int numElmt, int nquad0, int nquad1,
         // increment mode in case order1!=order2
         for (int j = nmodes1; j < nmodes2; ++j)
         {
-            int ijmax = max(i, j);
-            mode += nmodes2 - ijmax;
+            mode += nmodes2 - j;
         }
     }
 
