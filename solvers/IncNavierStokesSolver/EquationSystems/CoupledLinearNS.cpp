@@ -1365,28 +1365,6 @@ void CoupledLinearNS::v_DoInitialise(bool dumpInitialConditions)
         case eUnsteadyStokes:
         case eUnsteadyNavierStokes:
         {
-            //                LibUtilities::TimeIntegrationMethod intMethod;
-            //                std::string TimeIntStr =
-            //                m_session->GetSolverInfo("TIMEINTEGRATIONMETHOD");
-            //                int i;
-            //                for(i = 0; i < (int)
-            //                LibUtilities::SIZE_TimeIntegrationMethod; ++i)
-            //                {
-            //                    if(boost::iequals(LibUtilities::TimeIntegrationMethodMap[i],TimeIntStr))
-            //                    {
-            //                        intMethod =
-            //                        (LibUtilities::TimeIntegrationMethod)i;
-            //                        break;
-            //                    }
-            //                }
-            //
-            //                ASSERTL0(i != (int)
-            //                LibUtilities::SIZE_TimeIntegrationMethod, "Invalid
-            //                time integration type.");
-            //
-            //                m_integrationScheme =
-            //                LibUtilities::GetTimeIntegrationWrapperFactory().CreateInstance(LibUtilities::TimeIntegrationMethodMap[intMethod]);
-
             // Could defind this from IncNavierStokes class?
             m_ode.DefineOdeRhs(&CoupledLinearNS::EvaluateAdvection, this);
 

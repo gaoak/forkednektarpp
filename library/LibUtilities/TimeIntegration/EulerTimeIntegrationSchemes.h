@@ -160,62 +160,6 @@ protected:
 
 }; // end class EulerTimeIntegrator
 
-////////////////////////////////////////////////////////////////////////////////
-// Backwards compatibility
-class BackwardEulerTimeIntegrationScheme : public EulerTimeIntegrationScheme
-{
-public:
-    BackwardEulerTimeIntegrationScheme(std::string variant, size_t order,
-                                       std::vector<NekDouble> freeParams)
-        : EulerTimeIntegrationScheme("Backward", 1, freeParams)
-    {
-        boost::ignore_unused(variant, order);
-    }
-
-    static TimeIntegrationSchemeSharedPtr create(
-        [[maybe_unused]] std::string variant, [[maybe_unused]] size_t order,
-        std::vector<NekDouble> freeParams)
-    {
-        TimeIntegrationSchemeSharedPtr p =
-            MemoryManager<EulerTimeIntegrationScheme>::AllocateSharedPtr(
-                "Backward", 1, freeParams);
-        return p;
-    }
-
-    static std::string className;
-
-protected:
-    static std::string TimeIntegrationMethodLookupId;
-
-}; // end class BackwardEulerTimeIntegrationScheme
-
-class ForwardEulerTimeIntegrationScheme : public EulerTimeIntegrationScheme
-{
-public:
-    ForwardEulerTimeIntegrationScheme(std::string variant, size_t order,
-                                      std::vector<NekDouble> freeParams)
-        : EulerTimeIntegrationScheme("Forward", 1, freeParams)
-    {
-        boost::ignore_unused(variant, order);
-    }
-
-    static TimeIntegrationSchemeSharedPtr create(
-        [[maybe_unused]] std::string variant, [[maybe_unused]] size_t order,
-        std::vector<NekDouble> freeParams)
-    {
-        TimeIntegrationSchemeSharedPtr p =
-            MemoryManager<EulerTimeIntegrationScheme>::AllocateSharedPtr(
-                "Forward", 1, freeParams);
-        return p;
-    }
-
-    static std::string className;
-
-protected:
-    static std::string TimeIntegrationMethodLookupId;
-
-}; // end class ForwardEulerTimeIntegrationScheme
-
 } // namespace Nektar::LibUtilities
 
 #endif

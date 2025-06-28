@@ -91,9 +91,7 @@ public:
         }
     }
 
-    ~EulerExponentialTimeIntegrationScheme() override
-    {
-    }
+    ~EulerExponentialTimeIntegrationScheme() override = default;
 
     static TimeIntegrationSchemeSharedPtr create(
         std::string variant, size_t order, std::vector<NekDouble> freeParams)

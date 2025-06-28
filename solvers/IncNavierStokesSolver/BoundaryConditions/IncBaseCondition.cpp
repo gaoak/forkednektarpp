@@ -72,32 +72,9 @@ void IncBaseCondition::v_Initialise(
         m_intSteps = std::round(pSession->GetParameter("ExtrapolateOrder"));
         m_intSteps = std::min(3, std::max(0, m_intSteps));
     }
-    else if (pSession->DefinesSolverInfo("TimeIntegrationMethod") ||
-             pSession->DefinesTimeIntScheme())
+    else if (pSession->DefinesTimeIntScheme())
     {
-        std::string method;
-        if (pSession->DefinesTimeIntScheme())
-        {
-            auto timeInt = pSession->GetTimeIntScheme();
-            method = timeInt.method + "Order" + std::to_string(timeInt.order);
-        }
-        else
-        {
-            method = pSession->GetSolverInfo("TimeIntegrationMethod");
-        }
-
-        if (method == "IMEXOrder1")
-        {
-            m_intSteps = 1;
-        }
-        else if (method == "IMEXOrder2")
-        {
-            m_intSteps = 2;
-        }
-        else
-        {
-            m_intSteps = 3;
-        }
+        m_intSteps = pSession->GetTimeIntScheme().order;
     }
     else
     {

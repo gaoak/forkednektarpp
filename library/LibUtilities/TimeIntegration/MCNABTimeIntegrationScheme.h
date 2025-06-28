@@ -71,9 +71,7 @@ public:
         MCNABTimeIntegrationScheme::SetupSchemeData(m_integration_phases[2]);
     }
 
-    ~MCNABTimeIntegrationScheme() override
-    {
-    }
+    ~MCNABTimeIntegrationScheme() override = default;
 
     static TimeIntegrationSchemeSharedPtr create(
         [[maybe_unused]] std::string variant, [[maybe_unused]] size_t order,
@@ -158,8 +156,6 @@ protected:
     {
         return 1.0;
     }
-
-    static std::string TimeIntegrationMethodLookupId;
 
 }; // end class MCNABTimeIntegrationScheme
 

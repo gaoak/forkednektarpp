@@ -325,7 +325,8 @@ void ProcessProjectCAD::Process()
     LinkFaceToCAD(tolv1);
 
     // Project the Edges to CAD that
-    ProjectEdges(surfEdges, order, rtree);
+    int orderCASE3 = 2;
+    ProjectEdges(surfEdges, orderCASE3, rtree);
 
     if (m_config["ho"].beenSet)
     {
@@ -668,8 +669,8 @@ void ProcessProjectCAD::LinkVertexToCAD(
 
                         m_log(VERBOSE) << "Element not valid after vertex ";
                         m_log(VERBOSE)
-                            << "projection reset it and lock the vertex"
-                            << endl;
+                            << "projection reset it and lock the vertex  "
+                            << tmpX << " " << tmpY << " " << tmpZ << endl;
                         break;
                     }
                 }
@@ -753,9 +754,9 @@ void ProcessProjectCAD::LinkVertexToCAD(
 
                                 m_log(VERBOSE)
                                     << "Element not valid after vertex ";
-                                m_log(VERBOSE)
-                                    << "projection reset it and lock the vertex"
-                                    << endl;
+                                m_log(VERBOSE) << "projection reset it and "
+                                                  "lock the vertex  "
+                                               << vertex << endl;
                             }
                         }
                     }
@@ -810,8 +811,8 @@ void ProcessProjectCAD::LinkVertexToCAD(
                                     m_log(VERBOSE)
                                         << "Element not valid after vertex ";
                                     m_log(VERBOSE) << "projection reset it and "
-                                                      "lock the vertex"
-                                                   << endl;
+                                                      "lock the vertex  "
+                                                   << vertex << endl;
                                 }
                             }
                         }
@@ -1002,9 +1003,10 @@ void ProcessProjectCAD::LinkEdgeToCAD(EdgeSet &surfEdges, NekDouble tolv1)
 
                 // Another test case is a CADSurf like NACA, where it fills the
                 // DO WE NEED THIS ?
+                edge->m_parentCAD = EdgeSurf1;
                 m_log(VERBOSE) << "edge CASE commonCADCurves.size()==2 for "
-                                  "comn.size()  = 2 "
-                               << endl;
+                                  "comn.size()  = 2     xyz= "
+                               << edge->m_n1 << endl;
             }
         }
         else
@@ -1024,6 +1026,12 @@ void ProcessProjectCAD::LinkEdgeToCAD(EdgeSet &surfEdges, NekDouble tolv1)
 vector<int> ProcessProjectCAD::IntersectCADSurf(
     vector<CADSurfSharedPtr> v1_CADs, vector<CADSurfSharedPtr> v2_CADs)
 {
+    vector<int> cmn;
+    if (v1_CADs.size() == 0 || v2_CADs.size() == 0)
+    {
+        return cmn;
+    }
+
     vector<CADSurfSharedPtr> v1 = v1_CADs;
     vector<CADSurfSharedPtr> v2 = v2_CADs;
 
@@ -1040,7 +1048,6 @@ vector<int> ProcessProjectCAD::IntersectCADSurf(
     sort(vi1.begin(), vi1.end());
     sort(vi2.begin(), vi2.end());
 
-    vector<int> cmn;
     set_intersection(vi1.begin(), vi1.end(), vi2.begin(), vi2.end(),
                      back_inserter(cmn));
 
@@ -1372,7 +1379,9 @@ void ProcessProjectCAD::LinkFaceToCAD(NekDouble tolv1)
                 break;
             }
         }
-        if (internal)
+
+        if (internal && edges[0]->m_parentCAD &&
+            edges[0]->m_parentCAD->GetType() == 2)
         {
             element->m_parentCAD = edges[0]->m_parentCAD;
             continue;
@@ -1387,6 +1396,11 @@ void ProcessProjectCAD::LinkFaceToCAD(NekDouble tolv1)
             if (cmn_i.size() > 0)
             {
                 cmn.push_back(cmn_i);
+            }
+            else
+            {
+                cmn.clear();
+                break;
             }
         }
 
@@ -1416,7 +1430,7 @@ void ProcessProjectCAD::LinkFaceToCAD(NekDouble tolv1)
             {
                 if (edge->m_parentCAD == nullptr)
                 {
-                    edge->m_parentCAD = m_mesh->m_cad->GetSurf(commonCAD[0]);
+                    edge->m_parentCAD = element->m_parentCAD;
                 }
             }
         }

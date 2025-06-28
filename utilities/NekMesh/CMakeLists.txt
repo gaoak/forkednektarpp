@@ -16,6 +16,8 @@ ADD_NEKTAR_TEST(Nektar++/revolve)
 ADD_NEKTAR_TEST(Nektar++/jac_list_tet_face)
 ADD_NEKTAR_TEST(Nektar++/linearise_invalid_quad)
 ADD_NEKTAR_TEST(Nektar++/linearise_invalid_tet)
+ADD_NEKTAR_TEST(Nektar++/scaleHO)
+
 IF (NOT WIN32)
     ADD_NEKTAR_TEST(Nektar++/peralign_double_periodic_hybrid)
 ENDIF ()

@@ -54,9 +54,8 @@ public:
         : TimeIntegrationScheme(variant, order, freeParams)
     {
     }
-    ~NoSchemeTimeIntegrationScheme() override
-    {
-    }
+
+    ~NoSchemeTimeIntegrationScheme() override = default;
 
     static NoTimeIntegrationSchemeSharedPtr create(
         std::string variant, unsigned int order,
@@ -110,8 +109,6 @@ public:
 
 protected:
     DoubleArray m_doubleArray;
-
-    static std::string TimeIntegrationMethodLookupId;
 
 }; // end class TimeIntegrationScheme
 

@@ -43,8 +43,6 @@
 
 #define LUE LIB_UTILITIES_EXPORT
 
-#include <boost/core/ignore_unused.hpp>
-
 #include <LibUtilities/TimeIntegration/DIRKTimeIntegrationSchemes.h>
 #include <LibUtilities/TimeIntegration/TimeIntegrationSchemeGLM.h>
 
@@ -118,9 +116,7 @@ public:
         }
     }
 
-    ~BDFImplicitTimeIntegrationScheme() override
-    {
-    }
+    ~BDFImplicitTimeIntegrationScheme() override = default;
 
     static TimeIntegrationSchemeSharedPtr create(
         std::string variant, size_t order, std::vector<NekDouble> freeParams)
@@ -219,120 +215,6 @@ protected:
     }
 
 }; // end class BDFImplicitTimeIntegrator
-
-////////////////////////////////////////////////////////////////////////////////
-// Backwards compatibility
-class BDFImplicitOrder1TimeIntegrationScheme
-    : public BDFImplicitTimeIntegrationScheme
-{
-public:
-    BDFImplicitOrder1TimeIntegrationScheme(std::string variant, size_t order,
-                                           std::vector<NekDouble> freeParams)
-        : BDFImplicitTimeIntegrationScheme("", 1, freeParams)
-    {
-        boost::ignore_unused(variant, order);
-    }
-
-    static TimeIntegrationSchemeSharedPtr create(
-        [[maybe_unused]] std::string variant, [[maybe_unused]] size_t order,
-        std::vector<NekDouble> freeParams)
-    {
-        TimeIntegrationSchemeSharedPtr p =
-            MemoryManager<BDFImplicitTimeIntegrationScheme>::AllocateSharedPtr(
-                "", 1, freeParams);
-        return p;
-    }
-
-    static std::string className;
-
-protected:
-    static std::string TimeIntegrationMethodLookupId;
-
-}; // end class BDFImplicitOrder1TimeIntegrationScheme
-
-class BDFImplicitOrder2TimeIntegrationScheme
-    : public BDFImplicitTimeIntegrationScheme
-{
-public:
-    BDFImplicitOrder2TimeIntegrationScheme(std::string variant, size_t order,
-                                           std::vector<NekDouble> freeParams)
-        : BDFImplicitTimeIntegrationScheme("", 2, freeParams)
-    {
-        boost::ignore_unused(variant, order);
-    }
-
-    static TimeIntegrationSchemeSharedPtr create(
-        [[maybe_unused]] std::string variant, [[maybe_unused]] size_t order,
-        std::vector<NekDouble> freeParams)
-    {
-        TimeIntegrationSchemeSharedPtr p =
-            MemoryManager<BDFImplicitTimeIntegrationScheme>::AllocateSharedPtr(
-                "", 2, freeParams);
-        return p;
-    }
-
-    static std::string className;
-
-protected:
-    static std::string TimeIntegrationMethodLookupId;
-
-}; // end class BDFImplicitOrder2TimeIntegrationScheme
-
-class BDFImplicitOrder3TimeIntegrationScheme
-    : public BDFImplicitTimeIntegrationScheme
-{
-public:
-    BDFImplicitOrder3TimeIntegrationScheme(std::string variant, size_t order,
-                                           std::vector<NekDouble> freeParams)
-        : BDFImplicitTimeIntegrationScheme("", 3, freeParams)
-    {
-        boost::ignore_unused(variant, order);
-    }
-
-    static TimeIntegrationSchemeSharedPtr create(
-        [[maybe_unused]] std::string variant, [[maybe_unused]] size_t order,
-        std::vector<NekDouble> freeParams)
-    {
-        TimeIntegrationSchemeSharedPtr p =
-            MemoryManager<BDFImplicitTimeIntegrationScheme>::AllocateSharedPtr(
-                "", 3, freeParams);
-        return p;
-    }
-
-    static std::string className;
-
-protected:
-    static std::string TimeIntegrationMethodLookupId;
-
-}; // end class BDFImplicitOrder3TimeIntegrationScheme
-
-class BDFImplicitOrder4TimeIntegrationScheme
-    : public BDFImplicitTimeIntegrationScheme
-{
-public:
-    BDFImplicitOrder4TimeIntegrationScheme(std::string variant, size_t order,
-                                           std::vector<NekDouble> freeParams)
-        : BDFImplicitTimeIntegrationScheme("", 4, freeParams)
-    {
-        boost::ignore_unused(variant, order);
-    }
-
-    static TimeIntegrationSchemeSharedPtr create(
-        [[maybe_unused]] std::string variant, [[maybe_unused]] size_t order,
-        std::vector<NekDouble> freeParams)
-    {
-        TimeIntegrationSchemeSharedPtr p =
-            MemoryManager<BDFImplicitTimeIntegrationScheme>::AllocateSharedPtr(
-                "", 4, freeParams);
-        return p;
-    }
-
-    static std::string className;
-
-protected:
-    static std::string TimeIntegrationMethodLookupId;
-
-}; // end class BDFImplicitOrder4TimeIntegrationScheme
 
 } // namespace Nektar::LibUtilities
 

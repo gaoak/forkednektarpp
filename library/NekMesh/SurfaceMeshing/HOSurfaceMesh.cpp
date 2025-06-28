@@ -132,6 +132,10 @@ void HOSurfaceMesh::Process()
             continue;
         }
 
+        ASSERTL0(m_mesh->m_element[2][i]->m_parentCAD->GetType() == 2,
+                 "CAD Association of face is a CAD Curve. Decrease tolv1 or "
+                 "tolv2");
+
         CADObjectSharedPtr o = m_mesh->m_element[2][i]->m_parentCAD;
         CADSurfSharedPtr s   = std::dynamic_pointer_cast<CADSurf>(o);
         int surf             = s->GetId(); // face CADSurf ID
@@ -341,7 +345,7 @@ void HOSurfaceMesh::Process()
                                    Vsup);
                     // This check is necessary if identification is not perfect,
                     // especially in periodic curves/surfaces
-                    NekDouble tol = e->m_n1->Distance(e->m_n2) * 0.01;
+                    NekDouble tol = e->m_n1->Distance(e->m_n2) * 0.025;
                     if (dist0 > tol || dist1 > tol)
                     {
                         ToBreak = 1;

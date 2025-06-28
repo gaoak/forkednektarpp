@@ -94,14 +94,7 @@ Diffusion::Diffusion(int argc, char *argv[])
     sessionName = session->GetSessionName();
 
     // Create time integration scheme.
-    if (session->DefinesTimeIntScheme())
-    {
-        timeInt = session->GetTimeIntScheme();
-    }
-    else
-    {
-        timeInt.method = session->GetSolverInfo("TimeIntegrationMethod");
-    }
+    timeInt = session->GetTimeIntScheme();
 
     nSteps  = session->GetParameter("NumSteps");
     delta_t = session->GetParameter("TimeStep");

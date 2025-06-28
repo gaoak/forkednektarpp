@@ -165,19 +165,7 @@ void SmoothedProfileMethod::v_InitObject(bool DeclareField)
     UpdatePhiUp(0.0);
 
     // Get the time integration scheme.
-    LibUtilities::TimeIntScheme timeInt;
-    if (m_session->DefinesTimeIntScheme())
-    {
-        timeInt = m_session->GetTimeIntScheme();
-    }
-    else
-    {
-        timeInt.method = m_session->GetSolverInfo("TimeIntegrationMethod");
-        timeInt.order  = timeInt.method.back() - '0';
-
-        // Remove everything past the IMEX.
-        timeInt.method = timeInt.method.substr(0, 4);
-    }
+    LibUtilities::TimeIntScheme timeInt = m_session->GetTimeIntScheme();
 
     // Select 'm_gamma0' depending on IMEX order
     ASSERTL0(

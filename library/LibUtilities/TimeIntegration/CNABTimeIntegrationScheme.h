@@ -42,6 +42,8 @@
 
 #define LUE LIB_UTILITIES_EXPORT
 
+#include <boost/core/ignore_unused.hpp>
+
 #include <LibUtilities/TimeIntegration/IMEXdirkTimeIntegrationSchemes.h>
 #include <LibUtilities/TimeIntegration/TimeIntegrationSchemeGLM.h>
 
@@ -70,9 +72,7 @@ public:
         CNABTimeIntegrationScheme::SetupSchemeData(m_integration_phases[1]);
     }
 
-    ~CNABTimeIntegrationScheme() override
-    {
-    }
+    ~CNABTimeIntegrationScheme() override = default;
 
     static TimeIntegrationSchemeSharedPtr create(
         [[maybe_unused]] std::string variant, [[maybe_unused]] size_t order,
@@ -155,8 +155,6 @@ protected:
     {
         return 1.0;
     }
-
-    static std::string TimeIntegrationMethodLookupId;
 
 }; // end class CNABTimeIntegrationScheme
 

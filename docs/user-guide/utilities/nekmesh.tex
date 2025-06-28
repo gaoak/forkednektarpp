@@ -941,6 +941,19 @@ The angle must be between $0$ and $2\pi$.
 The 2D mesh must not cross or touch the $y$ axis i.e. $x>0$ for all points.
 By default the mesh is revolved through the full $2\pi$.
 
+\subsection{3D mesh scaling}
+This module scales a 3D mesh in the $x$, $y$ and $z$ directions. It also works on
+high-order meshes scaling the edge and face nodes. The module requires three parameters:
+
+\begin{lstlisting}[style=BashInputStyle]
+  NekMesh -m scale:scaleX=1.0:scaleY=2.0:scaleZ=2.0 mesh.xml mesh_scaled.xml
+\end{lstlisting}
+
+where \texttt{scaleX}, \texttt{scaleY} and \texttt{scaleZ} are the scaling
+parameters in the $x$, $y$ and $z$ directions respectively. If not selected,
+the scale parameters will be assumed 1.0 by default. 
+
+
 \subsection{Variational Optimisation}
 \label{sec:varopti}
 This module can correct invalid and improve the quality of elements in

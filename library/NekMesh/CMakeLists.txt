@@ -35,6 +35,8 @@ SET(NEKMESH_SOURCES
     Module/ProcessModules/ProcessVarOpti/PreProcessing.cpp
     Module/ProcessModules/ProcessVarOpti/NodeOpti.cpp
     Module/ProcessModules/ProcessVarOpti/ElUtil.cpp
+    Module/ProcessModules/ProcessScale.cpp
+
 
     MeshElements/Mesh.cpp
     MeshElements/Element.cpp
@@ -94,6 +96,8 @@ SET(NEKMESH_HEADERS
     Module/ProcessModules/ProcessVarOpti/ProcessVarOpti.h
     Module/ProcessModules/ProcessVarOpti/NodeOpti.h
     Module/ProcessModules/ProcessVarOpti/ElUtil.h
+    Module/ProcessModules/ProcessScale.h
+
     MeshElements/Node.h
     MeshElements/Edge.h
     MeshElements/Face.h

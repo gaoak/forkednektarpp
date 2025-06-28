@@ -1,5 +1,12 @@
 Changelog
 =========
+v5.9.0
+------
+**NekMesh**
+- Minor Bug-fix for industrial pipeline !2057 (!2135)
+- Scaling the mesh nodes (!2115)
+**Library**
+ - Remove deprecated TimeIntegrationMethod in SolverInfo
 
 v5.8.0
 ------
