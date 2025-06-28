@@ -58,7 +58,8 @@ ignore_sources = [
     # NekBlas
     "library/Operators/NekBlas/magma.cpp",
     "library/Operators/NekBlas/magmaHandle.cpp",
-    "library/Operators/NekBlas/libxsmm.cpp",
+    "library/Operators/NekBlas/xsmm.cpp",
+    "library/Operators/NekBlas/xsmmHandle.cpp",
     "library/Operators/NekBlas/cuBlas.cpp",
     "library/Operators/NekBlas/cuBlasHandle.cpp",
     "library/Operators/NekBlas/hipBlas.cpp",

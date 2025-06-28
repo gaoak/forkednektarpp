@@ -32,14 +32,15 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "LibUtilities/BasicUtils/ErrorUtil.hpp"
 #include "Operators/NekBlas/NekBlas.hpp"
 
 template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, hipblasHandle_t>, void>::type
 NekGemm(THandle handle, std::string transposeA, std::string transposeB,
-        const size_t M, const size_t N, const size_t K, const TData alpha,
-        const TData *a, const size_t lda, const TData *b, const size_t ldb,
-        const TData beta, TData *c, const size_t ldc)
+        const int M, const int N, const int K, const TData alpha,
+        const TData *a, const int lda, const TData *b, const int ldb,
+        const TData beta, TData *c, const int ldc)
 {
     auto transA = (transposeA == "N") ? HIPBLAS_OP_N : HIPBLAS_OP_T;
     auto transB = (transposeB == "N") ? HIPBLAS_OP_N : HIPBLAS_OP_T;
@@ -59,12 +60,12 @@ NekGemm(THandle handle, std::string transposeA, std::string transposeB,
 template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, hipblasHandle_t>, void>::type
 NekGemmStridedBatched(THandle handle, std::string transposeA,
-                      std::string transposeB, const size_t M, const size_t N,
-                      const size_t K, const TData alpha, const TData *a,
-                      const size_t lda, const size_t strideA, const TData *b,
-                      const size_t ldb, const size_t strideB, const TData beta,
-                      TData *c, const size_t ldc, const size_t strideC,
-                      const size_t batchSize)
+                      std::string transposeB, const int M, const int N,
+                      const int K, const TData alpha, const TData *a,
+                      const int lda, const int strideA, const TData *b,
+                      const int ldb, const int strideB, const TData beta,
+                      TData *c, const int ldc, const int strideC,
+                      const int batchSize)
 {
     auto transA = (transposeA == "N") ? HIPBLAS_OP_N : HIPBLAS_OP_T;
     auto transB = (transposeB == "N") ? HIPBLAS_OP_N : HIPBLAS_OP_T;
@@ -85,9 +86,79 @@ NekGemmStridedBatched(THandle handle, std::string transposeA,
 
 template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, hipblasHandle_t>, void>::type
-NekGemv(THandle handle, std::string transpose, const size_t M, const size_t N,
-        const TData alpha, const TData *a, const size_t lda, const TData *x,
-        const size_t incx, const TData beta, TData *y, const size_t incy)
+NekGemmGroupedBatched(THandle handle, std::string transposeA,
+                      std::string transposeB, const int *M, const int *N,
+                      const int *K, const TData alpha,
+                      TData const *const *Aarray, const int *lda,
+                      TData const *const *Barray, const int *ldb,
+                      const TData beta, TData **Carray, const int *ldc,
+                      const int batchSize)
+{
+    // Create HIP Streams.
+    const unsigned int nStreams = std::min(8, batchSize);
+    std::vector<hipStream_t> streams(nStreams);
+    for (unsigned int s = 0; s < nStreams; ++s)
+    {
+        CHECK_HIPCUDA_ERROR(hipStreamCreate(&streams[s]));
+    }
+
+    for (unsigned int i = 0; i < batchSize; i++)
+    {
+        // Set stream.
+        HIPBLAS_CHECK(hipblasSetStream(handle, streams[i % nStreams]));
+
+        NekGemm(handle, transposeA, transposeB, M[i], N[i], K[i], alpha,
+                Aarray[i], lda[i], Barray[i], ldb[i], beta, Carray[i], ldc[i]);
+    }
+
+    for (unsigned int s = 0; s < nStreams; ++s)
+    {
+        CHECK_HIPCUDA_ERROR(hipStreamSynchronize(streams[s]));
+    }
+
+    // Set back to default stream.
+    HIPBLAS_CHECK(hipblasSetStream(handle, 0));
+
+    // Destroy streams.
+    for (unsigned int s = 0; s < nStreams; ++s)
+    {
+        CHECK_HIPCUDA_ERROR(hipStreamDestroy(streams[s]));
+    }
+
+    /*std::vector<hipblasOperation_t> transA(batchSize);
+    std::vector<hipblasOperation_t> transB(batchSize);
+    std::vector<int> groupSize(batchSize);
+    std::vector<TData> alpha_array(batchSize);
+    std::vector<TData> beta_array(batchSize);
+    std::fill(transA.begin(), transA.end(),
+              (transposeA == "N") ? HIPBLAS_OP_N : HIPBLAS_OP_T);
+    std::fill(transB.begin(), transB.end(),
+              (transposeB == "N") ? HIPBLAS_OP_N : HIPBLAS_OP_T);
+    std::fill(alpha_array.begin(), alpha_array.end(), alpha);
+    std::fill(beta_array.begin(), beta_array.end(), beta);
+    std::fill(groupSize.begin(), groupSize.end(), 1);
+
+    if constexpr (std::is_same_v<TData, float>)
+    {
+        HIPBLAS_CHECK(hipblasSgemmGroupedBatched(
+            handle, transA.data(), transB.data(), M, N, K, alpha_array.data(),
+            Aarray, lda, Barray, ldb, beta_array.data(), Carray, ldc, batchSize,
+            groupSize.data()));
+    }
+    else if constexpr (std::is_same_v<TData, double>)
+    {
+        HIPBLAS_CHECK(hipblasDgemmGroupedBatched(
+            handle, transA.data(), transB.data(), M, N, K, alpha_array.data(),
+            Aarray, lda, Barray, ldb, beta_array.data(), Carray, ldc, batchSize,
+            groupSize.data()));
+    }*/
+}
+
+template <typename THandle, typename TData>
+typename std::enable_if<std::is_same_v<THandle, hipblasHandle_t>, void>::type
+NekGemv(THandle handle, std::string transpose, const int M, const int N,
+        const TData alpha, const TData *a, const int lda, const TData *x,
+        const int incx, const TData beta, TData *y, const int incy)
 {
     auto trans = (transpose == "N") ? HIPBLAS_OP_N : HIPBLAS_OP_T;
 
@@ -105,12 +176,12 @@ NekGemv(THandle handle, std::string transpose, const size_t M, const size_t N,
 
 template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, hipblasHandle_t>, void>::type
-NekGemvStridedBatched(THandle handle, std::string transpose, const size_t M,
-                      const size_t N, const TData alpha, const TData *a,
-                      const size_t lda, const size_t strideA, const TData *x,
-                      const size_t incx, const size_t strideX, const TData beta,
-                      TData *y, const size_t incy, const size_t strideY,
-                      const size_t batchSize)
+NekGemvStridedBatched(THandle handle, std::string transpose, const int M,
+                      const int N, const TData alpha, const TData *a,
+                      const int lda, const int strideA, const TData *x,
+                      const int incx, const int strideX, const TData beta,
+                      TData *y, const int incy, const int strideY,
+                      const int batchSize)
 {
     auto trans = (transpose == "N") ? HIPBLAS_OP_N : HIPBLAS_OP_T;
 
@@ -130,52 +201,62 @@ NekGemvStridedBatched(THandle handle, std::string transpose, const size_t M,
 
 template void NekGemm<hipblasHandle_t, float>(
     hipblasHandle_t handle, std::string transposeA, std::string transposeB,
-    const size_t M, const size_t N, const size_t K, const float alpha,
-    const float *a, const size_t lda, const float *b, const size_t ldb,
-    const float beta, float *c, const size_t ldc);
+    const int M, const int N, const int K, const float alpha, const float *a,
+    const int lda, const float *b, const int ldb, const float beta, float *c,
+    const int ldc);
 
 template void NekGemm<hipblasHandle_t, double>(
     hipblasHandle_t handle, std::string transposeA, std::string transposeB,
-    const size_t M, const size_t N, const size_t K, const double alpha,
-    const double *a, const size_t lda, const double *b, const size_t ldb,
-    const double beta, double *c, const size_t ldc);
+    const int M, const int N, const int K, const double alpha, const double *a,
+    const int lda, const double *b, const int ldb, const double beta, double *c,
+    const int ldc);
 
 template void NekGemmStridedBatched<hipblasHandle_t, float>(
     hipblasHandle_t handle, std::string transposeA, std::string transposeB,
-    const size_t M, const size_t N, const size_t K, const float alpha,
-    const float *a, const size_t lda, const size_t strideA, const float *b,
-    const size_t ldb, const size_t strideB, const float beta, float *c,
-    const size_t ldc, const size_t strideC, const size_t batchSize);
+    const int M, const int N, const int K, const float alpha, const float *a,
+    const int lda, const int strideA, const float *b, const int ldb,
+    const int strideB, const float beta, float *c, const int ldc,
+    const int strideC, const int batchSize);
 
 template void NekGemmStridedBatched<hipblasHandle_t, double>(
     hipblasHandle_t handle, std::string transposeA, std::string transposeB,
-    const size_t M, const size_t N, const size_t K, const double alpha,
-    const double *a, const size_t lda, const size_t strideA, const double *b,
-    const size_t ldb, const size_t strideB, const double beta, double *c,
-    const size_t ldc, const size_t strideC, const size_t batchSize);
+    const int M, const int N, const int K, const double alpha, const double *a,
+    const int lda, const int strideA, const double *b, const int ldb,
+    const int strideB, const double beta, double *c, const int ldc,
+    const int strideC, const int batchSize);
+
+template void NekGemmGroupedBatched<hipblasHandle_t, float>(
+    hipblasHandle_t handle, std::string transposeA, std::string transposeB,
+    const int *M, const int *N, const int *K, const float alpha,
+    float const *const *Aarray, const int *lda, float const *const *Barray,
+    const int *ldb, const float beta, float **Carray, const int *ldc,
+    const int batchSize);
+
+template void NekGemmGroupedBatched<hipblasHandle_t, double>(
+    hipblasHandle_t handle, std::string transposeA, std::string transposeB,
+    const int *M, const int *N, const int *K, const double alpha,
+    double const *const *Aarray, const int *lda, double const *const *Barray,
+    const int *ldb, const double beta, double **Carray, const int *ldc,
+    const int batchSize);
 
 template void NekGemv<hipblasHandle_t, float>(
-    hipblasHandle_t handle, std::string transpose, const size_t M,
-    const size_t N, const float alpha, const float *a, const size_t lda,
-    const float *x, const size_t incx, const float beta, float *y,
-    const size_t incy);
+    hipblasHandle_t handle, std::string transpose, const int M, const int N,
+    const float alpha, const float *a, const int lda, const float *x,
+    const int incx, const float beta, float *y, const int incy);
 
 template void NekGemv<hipblasHandle_t, double>(
-    hipblasHandle_t handle, std::string transpose, const size_t M,
-    const size_t N, const double alpha, const double *a, const size_t lda,
-    const double *x, const size_t incx, const double beta, double *y,
-    const size_t incy);
+    hipblasHandle_t handle, std::string transpose, const int M, const int N,
+    const double alpha, const double *a, const int lda, const double *x,
+    const int incx, const double beta, double *y, const int incy);
 
 template void NekGemvStridedBatched<hipblasHandle_t, float>(
-    hipblasHandle_t handle, std::string transpose, const size_t M,
-    const size_t N, const float alpha, const float *a, const size_t lda,
-    const size_t strideA, const float *x, const size_t incx,
-    const size_t strideX, const float beta, float *y, const size_t incy,
-    const size_t strideY, const size_t batchSize);
+    hipblasHandle_t handle, std::string transpose, const int M, const int N,
+    const float alpha, const float *a, const int lda, const int strideA,
+    const float *x, const int incx, const int strideX, const float beta,
+    float *y, const int incy, const int strideY, const int batchSize);
 
 template void NekGemvStridedBatched<hipblasHandle_t, double>(
-    hipblasHandle_t handle, std::string transpose, const size_t M,
-    const size_t N, const double alpha, const double *a, const size_t lda,
-    const size_t strideA, const double *x, const size_t incx,
-    const size_t strideX, const double beta, double *y, const size_t incy,
-    const size_t strideY, const size_t batchSize);
+    hipblasHandle_t handle, std::string transpose, const int M, const int N,
+    const double alpha, const double *a, const int lda, const int strideA,
+    const double *x, const int incx, const int strideX, const double beta,
+    double *y, const int incy, const int strideY, const int batchSize);
