@@ -1062,6 +1062,23 @@ public:
         return m_dataWarehouse;
     }
 
+    /// This function returns collections
+    MULTI_REGIONS_EXPORT inline const Collections::CollectionVector &
+    GetCollections() const
+    {
+        return m_collections;
+    }
+
+    MULTI_REGIONS_EXPORT inline int Get_coll_coeff_offset(int n) const
+    {
+        return m_coll_coeff_offset[n];
+    }
+
+    MULTI_REGIONS_EXPORT inline int Get_coll_phys_offset(int n) const
+    {
+        return m_coll_phys_offset[n];
+    }
+
 protected:
     /// Data Warehouse
     std::shared_ptr<Nektar::Operators::NekDataWarehouse> m_dataWarehouse;
@@ -1138,6 +1155,10 @@ protected:
     Collections::CollectionVector m_collections;
     /// Vector of bools to act as an initialise on first call flag
     std::vector<bool> m_collectionsDoInit;
+    /// Offset of elemental data into the array #m_coeffs
+    std::vector<int> m_coll_coeff_offset;
+    /// Offset of elemental data into the array #m_phys
+    std::vector<int> m_coll_phys_offset;
     /// Offset of elemental data into the array #m_coeffs
     Array<OneD, int> m_coeff_offset;
     /// Offset of elemental data into the array #m_phys

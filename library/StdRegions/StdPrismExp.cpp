@@ -1092,23 +1092,17 @@ const LibUtilities::BasisKey StdPrismExp::v_GetTraceBasisKey(const int i,
     {
         case 0:
         {
-            return EvaluateQuadFaceBasisKey(k, m_base[k]->GetBasisType(),
-                                            m_base[k]->GetNumPoints(),
-                                            m_base[k]->GetNumModes());
+            return EvaluateQuadFaceBasisKey(k, m_base[k]);
         }
         case 2:
         case 4:
         {
-            return EvaluateQuadFaceBasisKey(k, m_base[k + 1]->GetBasisType(),
-                                            m_base[k + 1]->GetNumPoints(),
-                                            m_base[k + 1]->GetNumModes());
+            return EvaluateQuadFaceBasisKey(k, m_base[k + 1]);
         }
         case 1:
         case 3:
         {
-            return EvaluateTriFaceBasisKey(
-                k, m_base[2 * k]->GetBasisType(), m_base[2 * k]->GetNumPoints(),
-                m_base[2 * k]->GetNumModes(), UseGLL);
+            return EvaluateTriFaceBasisKey(k, m_base[2 * k], UseGLL);
         }
         break;
     }

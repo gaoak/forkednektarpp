@@ -175,6 +175,9 @@ void DisContField::SetUpDG(const std::string variable,
         m_session, m_bndCondExpansions, m_bndConditions, *m_exp, m_graph,
         m_comm, true, "DefaultVar", ImpType);
 
+    m_locElmtTrace = MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
+        m_session, *m_exp, GetGraph(), true, "LocElmtTrace");
+
     PeriodicMap periodicTraces = (m_expType == e1D)   ? m_periodicVerts
                                  : (m_expType == e2D) ? m_periodicEdges
                                                       : m_periodicFaces;
@@ -637,18 +640,25 @@ DisContField::DisContField(const DisContField &In,
                            const bool DeclareCoeffPhysArrays)
     : ExpList(In, DeclareCoeffPhysArrays), m_bndConditions(In.m_bndConditions),
       m_bndCondExpansions(In.m_bndCondExpansions),
-      m_globalBndMat(In.m_globalBndMat), m_traceMap(In.m_traceMap),
-      m_boundaryTraces(In.m_boundaryTraces),
+      m_bndCondBndWeight(In.m_bndCondBndWeight),
+      m_interfaceMap(In.m_interfaceMap), m_globalBndMat(In.m_globalBndMat),
+      m_traceMap(In.m_traceMap), m_boundaryTraces(In.m_boundaryTraces),
       m_periodicVerts(In.m_periodicVerts),
       m_periodicFwdCopy(In.m_periodicFwdCopy),
       m_periodicBwdCopy(In.m_periodicBwdCopy),
       m_leftAdjacentTraces(In.m_leftAdjacentTraces),
       m_locTraceToTraceMap(In.m_locTraceToTraceMap)
 {
-    if (In.m_trace)
+    if (In.m_trace) // independent trace space
     {
         m_trace = MemoryManager<ExpList>::AllocateSharedPtr(
             *In.m_trace, DeclareCoeffPhysArrays);
+    }
+
+    if (In.m_locElmtTrace)
+    {
+        m_locElmtTrace = MemoryManager<ExpList>::AllocateSharedPtr(
+            *In.m_locElmtTrace, DeclareCoeffPhysArrays);
     }
 }
 
@@ -736,6 +746,7 @@ DisContField::DisContField(const DisContField &In,
         {
             m_globalBndMat       = In.m_globalBndMat;
             m_trace              = In.m_trace;
+            m_locElmtTrace       = In.m_locElmtTrace;
             m_traceMap           = In.m_traceMap;
             m_interfaceMap       = In.m_interfaceMap;
             m_locTraceToTraceMap = In.m_locTraceToTraceMap;

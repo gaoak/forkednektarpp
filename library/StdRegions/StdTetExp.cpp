@@ -1224,9 +1224,7 @@ const LibUtilities::BasisKey StdTetExp::v_GetTraceBasisKey(const int i,
             break;
     }
 
-    return EvaluateTriFaceBasisKey(k, m_base[dir]->GetBasisType(),
-                                   m_base[dir]->GetNumPoints(),
-                                   m_base[dir]->GetNumModes(), UseGLL);
+    return EvaluateTriFaceBasisKey(k, m_base[dir], UseGLL);
 }
 
 void StdTetExp::v_GetCoords(Array<OneD, NekDouble> &xi_x,

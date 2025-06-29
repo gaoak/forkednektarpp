@@ -265,6 +265,12 @@ public:
     LOCAL_REGIONS_EXPORT void StdDerivBaseOnTraceMat(
         Array<OneD, DNekMatSharedPtr> &DerivMat);
 
+    LOCAL_REGIONS_EXPORT void PhysDerivBaseOnTraceMat(
+        const int traceid, Array<OneD, DNekMatSharedPtr> &DerivMat);
+
+    LOCAL_REGIONS_EXPORT void PhysBaseOnTraceMat(const int traceid,
+                                                 DNekMatSharedPtr &BdataMat);
+
 protected:
     LibUtilities::NekManager<IndexMapKey, IndexMapValues, IndexMapKey::opLess>
         m_indexMapManager;
@@ -475,6 +481,10 @@ inline void Expansion::SetAdjacentElementExp(int traceid,
         m_elementTraceLeft = traceid;
     }
 }
+
+void GetTraceQuadRange(const LibUtilities::ShapeType shapeType,
+                       const LibUtilities::BasisKeyVector &bkeys, int traceid,
+                       std::vector<int> &q_begin, std::vector<int> &q_end);
 
 } // namespace Nektar::LocalRegions
 

@@ -122,6 +122,82 @@ struct cmpop
     }
 };
 
+struct TraceInterpEssential
+{
+    /// useful for allocate workspace
+    int m_maxTraceSize;
+    /// All execept m_interpTraceIndex are shared for collections
+    /// subscript of m_interpTrace, referenced by element and trace id
+    /// the storage is ordered by (e,n)
+    /// if width > 1 then this array should better be ordered by (e, g, k)
+    /// The argument is whether we need to reorder the element trace to group
+    /// them by interpolation type... The current decision is to keep them
+    /// in natrual order.
+    Array<OneD, Array<OneD, int>> m_interpTraceIndex;
+    /// A mapping holding the type of interpolation needed for each local trace.
+    /// Dimension 0 holds forward traces, dimension 1 backward.
+    Array<OneD, Array<OneD, InterpLocTraceToTrace>> m_interpTrace;
+    /// Interpolation matrices for either 2D edges or first coordinate of 3D
+    /// face.
+    Array<OneD, Array<OneD, DNekMatSharedPtr>> m_interpTraceI0;
+    /// Interpolation matrices for the second coordinate of 3D face, not used in
+    /// 2D.
+    Array<OneD, Array<OneD, DNekMatSharedPtr>> m_interpTraceI1;
+    /// Interpolation matrices for either 2D edges or first coordinate
+    /// of 3D face using going "from' to 'to' points (i.e. the reverse
+    /// of other techniques)
+    Array<OneD, Array<OneD, DNekMatSharedPtr>> m_interpFromTraceI0;
+    /// Interpolation matrices for either 2D edges or first coordinate
+    /// of 3D face using going "from' to 'to' points (i.e. the reverse
+    /// of other techniques)
+    Array<OneD, Array<OneD, DNekMatSharedPtr>> m_interpFromTraceI1;
+    /// Interpolation points key distributions to each of the local to global
+    /// mappings.
+    Array<OneD, Array<OneD, TraceInterpPoints>> m_interpPoints;
+    /// Mapping to hold first coordinate direction endpoint interpolation, which
+    /// can be more optimal if using Gauss-Radau distribution for triangles
+    Array<OneD, Array<OneD, Array<OneD, NekDouble>>> m_interpEndPtI0;
+    /// Mapping to hold second coordinate direction endpoint interpolation,
+    /// which can be more optimal if using Gauss-Radau distribution for
+    /// triangles
+    Array<OneD, Array<OneD, Array<OneD, NekDouble>>> m_interpEndPtI1;
+    /// Number of edges/faces on a 2D/3D element that require interpolation.
+    Array<OneD, Array<OneD, int>> m_interpNtraces;
+};
+
+struct TraceFieldMapEssential
+{
+    /// stores the maps to extract local trace from element
+    /// each collection contains a set of different maps;
+    /// the storage is ordered is (e) and will not be changed once created
+    Array<OneD, Array<OneD, int>> m_locTracePhysToElmtMaps;
+    /// stores the maps to reorder locTrace To Trace (in trace size)
+    /// the storage will not change once created
+    Array<OneD, Array<OneD, int>> m_orientationMaps;
+    /// The orientation + type of each local element trace, just store the int
+    /// each collection contains a different array of size (pCollExp * Ntraces)
+    /// the storage is ordered is (e,n) and if width > 1 then this array should
+    /// be ordered by (e, g, v). The padding entry will have default value of 0
+    Array<OneD, Array<OneD, int>> m_orientationIds;
+    /// Returns the start pos of trace phys by giving the local elmt trace id
+    /// each collection contains a different array of size (pCollExp * Ntraces)
+    /// originally in TraceToFieldMap, now moves to this class
+    /// can be created on a single Array by offset
+    /// the storage is ordered is (e,n) and if width > 1 then this array should
+    /// be ordered by (e, g, v). The padding entry will have default value of
+    /// ntracePts - implying the trace array must have bigger size to hold the
+    /// unused data
+    Array<OneD, Array<OneD, int>> m_locToTracePhysOffset;
+    Array<OneD, Array<OneD, int>> m_locToTraceId;
+    /// bool to indicate if this loc trace is left adjacent to trace
+    /// each collection contains a different array of size (pCollExp * Ntraces)
+    /// can be created by offset LeftAdjacents (which should be moved from
+    /// DisContField to this field?) the storage is ordered is (e,n) and if
+    /// width > 1 then this array should be ordered by (e, g, v). The padding
+    /// entry will have default value of true
+    Array<OneD, Array<OneD, bool>> m_isLocTraceLeftAdjacent;
+};
+
 /**
  * @brief A helper class to deal with trace operations in the discontinuous
  * Galerkin code.
@@ -161,12 +237,6 @@ public:
 
     // Destructor
     MULTI_REGIONS_EXPORT virtual ~LocTraceToTraceMap();
-
-    MULTI_REGIONS_EXPORT void Setup(
-        const ExpList &locExp, const ExpListSharedPtr &trace,
-        const Array<OneD, Array<OneD, LocalRegions::ExpansionSharedPtr>>
-            &elmtToTrace,
-        const std::vector<bool> &LeftAdjacents);
 
     MULTI_REGIONS_EXPORT void LocTracesFromField(
         const Array<OneD, const NekDouble> &field,
@@ -218,8 +288,8 @@ public:
         Array<OneD, NekDouble> &loctraces);
 
     MULTI_REGIONS_EXPORT inline void InterpTraceToLocEdges(
-        const int dir, const Array<OneD, const NekDouble> &locfaces,
-        Array<OneD, NekDouble> &edges);
+        const int dir, const Array<OneD, const NekDouble> &edges,
+        Array<OneD, NekDouble> &locedges);
 
     MULTI_REGIONS_EXPORT void InterpTraceToLocFaces(
         const int dir, const Array<OneD, const NekDouble> &faces,
@@ -346,6 +416,12 @@ public:
     MULTI_REGIONS_EXPORT void TraceLocToElmtLocCoeffMap(
         const ExpList &locExp, const ExpListSharedPtr &trace);
 
+    MULTI_REGIONS_EXPORT const TraceInterpEssential &GetTraceInterpEssential(
+        const int cid);
+
+    MULTI_REGIONS_EXPORT const TraceFieldMapEssential &GetTraceFieldMapEssential(
+        const int cid);
+
 private:
     /// Expansion Dimension we have setup for trace mapping.
     int m_expdim;
@@ -436,6 +512,29 @@ private:
 
     void FindElmtNeighbors(const ExpList &locExp,
                            const ExpListSharedPtr &trace);
+
+    //------- Below is new members to support cell-based trace operations ------
+    /// start entry of each local trace in m_locTraceToFieldMap, referenced by
+    /// element and trace id
+    Array<OneD, Array<OneD, int>> m_locTracePtsEntry;
+    /// start entry of each global trace in m_locInterpTraceToTraceMap,
+    /// referenced by element and trace id
+    Array<OneD, Array<OneD, int>> m_interpTracePtsEntry;
+    /// subscript of m_interpTrace, referenced by element and trace id
+    Array<OneD, Array<OneD, int>> m_interpTraceIndex;
+    /// start entry of each global trace in m_traceCoeffsToElmtMap, referenced
+    /// by element and trace id
+    Array<OneD, Array<OneD, int>> m_traceCoeffsEntry;
+
+    // stores start expid of each collection
+    Array<OneD, int> m_collExpOffset;
+
+    // From loctrace id to element trace phys offset
+    Array<OneD, int> m_locToTracePhysOffset;
+
+    // A series of structs, each is for the mapping of a collection
+    Array<OneD, TraceFieldMapEssential> m_traceFieldMap;
+    Array<OneD, TraceInterpEssential> m_traceInterp;
 };
 
 typedef std::shared_ptr<LocTraceToTraceMap> LocTraceToTraceMapSharedPtr;

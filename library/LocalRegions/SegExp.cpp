@@ -378,30 +378,32 @@ void SegExp::v_FwdTransBndConstrained(
     {
         int nInteriorDofs = m_ncoeffs - 2;
         int offset        = 0;
+        bool hasEndPoints = true;
+        bool hasEndModes  = true;
 
         switch (m_base[0]->GetBasisType())
         {
             case LibUtilities::eGLL_Lagrange:
             {
-                offset = 1;
+                nInteriorDofs = m_ncoeffs - 2;
+                offset        = 1;
+                hasEndModes   = true;
             }
             break;
+            case LibUtilities::eOrtho_A:
             case LibUtilities::eGauss_Lagrange:
             {
                 nInteriorDofs = m_ncoeffs;
                 offset        = 0;
+                hasEndModes   = false;
             }
             break;
             case LibUtilities::eModified_A:
             case LibUtilities::eModified_B:
             {
-                ASSERTL1(
-                    m_base[0]->GetPointsType() ==
-                            LibUtilities::eGaussLobattoLegendre ||
-                        m_base[0]->GetPointsType() ==
-                            LibUtilities::ePolyEvenlySpaced,
-                    "Cannot use FwdTrans_BndConstrained with these points.");
-                offset = 2;
+                nInteriorDofs = m_ncoeffs - 2;
+                offset        = 2;
+                hasEndModes   = true;
             }
             break;
             default:
@@ -409,9 +411,33 @@ void SegExp::v_FwdTransBndConstrained(
                                 "for this expansion type");
         }
 
+        switch (m_base[0]->GetPointsType())
+        {
+            case LibUtilities::eGaussGaussLegendre:
+            case LibUtilities::eGaussGaussChebyshev:
+            case LibUtilities::eGaussKronrodLegendre:
+            {
+                hasEndPoints = false;
+            }
+            break;
+            case LibUtilities::eGaussLegendreWithMP:
+            case LibUtilities::eGaussLobattoLegendre:
+            case LibUtilities::eGaussLobattoChebyshev:
+            case LibUtilities::eGaussLobattoKronrodLegendre:
+            case LibUtilities::ePolyEvenlySpaced:
+            case LibUtilities::eFourierEvenlySpaced:
+            {
+                hasEndPoints = true;
+            }
+            break;
+            default:
+                ASSERTL0(false, "FwdTransBndConstrained cannot be used "
+                                "with this point type");
+        }
+
         fill(outarray.data(), outarray.data() + m_ncoeffs, 0.0);
 
-        if (m_base[0]->GetBasisType() != LibUtilities::eGauss_Lagrange)
+        if (hasEndPoints && hasEndModes)
         {
 
             outarray[GetVertexMap(0)] = inarray[0];

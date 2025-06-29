@@ -102,6 +102,12 @@ public:
         m_InterpManager.RegisterCreator(
             PointsKey(0, eBoundaryLayerPointsRev),
             std::bind(&BLPoints::CreateMatrix, this, pl::_1));
+        m_InterpManager.RegisterCreator(
+            PointsKey(0, eGaussLegendreWithMP),
+            std::bind(&BLPoints::CreateMatrix, this, pl::_1));
+        m_InterpManager.RegisterCreator(
+            PointsKey(0, eGaussLegendreWithM),
+            std::bind(&BLPoints::CreateMatrix, this, pl::_1));
     }
 
 protected:

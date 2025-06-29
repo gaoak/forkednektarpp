@@ -767,11 +767,37 @@ const LibUtilities::BasisKey StdQuadExp::v_GetTraceBasisKey(
 
     if ((i == 0) || (i == 2))
     {
-        return GetBasis(0)->GetBasisKey();
+        switch (GetBasis(0)->GetBasisType())
+        {
+            case LibUtilities::eOrtho_A:
+            {
+                return LibUtilities::BasisKey(LibUtilities::eGLL_Lagrange,
+                                              GetBasis(0)->GetNumModes(),
+                                              GetBasis(0)->GetPointsKey());
+            }
+            break;
+            default:
+            {
+                return GetBasis(0)->GetBasisKey();
+            }
+        }
     }
     else
     {
-        return GetBasis(1)->GetBasisKey();
+        switch (GetBasis(1)->GetBasisType())
+        {
+            case LibUtilities::eOrtho_A:
+            {
+                return LibUtilities::BasisKey(LibUtilities::eGLL_Lagrange,
+                                              GetBasis(1)->GetNumModes(),
+                                              GetBasis(1)->GetPointsKey());
+            }
+            break;
+            default:
+            {
+                return GetBasis(1)->GetBasisKey();
+            }
+        }
     }
 }
 

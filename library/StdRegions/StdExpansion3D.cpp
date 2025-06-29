@@ -348,24 +348,42 @@ void StdExpansion3D::v_GetTraceToElementMap(const int tid,
 
 LibUtilities::BasisKey EvaluateQuadFaceBasisKey(
     [[maybe_unused]] const int facedir,
-    const LibUtilities::BasisType faceDirBasisType, const int numpoints,
-    const int nummodes)
+    const LibUtilities::BasisSharedPtr &faceDirBasis)
 {
+    auto faceDirBasisType = faceDirBasis->GetBasisType();
+    auto pointsType       = faceDirBasis->GetPointsType();
+    auto nummodes         = faceDirBasis->GetNumModes();
+    auto numpoints        = faceDirBasis->GetNumPoints();
 
     switch (faceDirBasisType)
     {
         case LibUtilities::eModified_A:
-        {
-            const LibUtilities::PointsKey pkey(
-                numpoints, LibUtilities::eGaussLobattoLegendre);
-            return LibUtilities::BasisKey(LibUtilities::eModified_A, nummodes,
-                                          pkey);
-        }
         case LibUtilities::eModified_B:
         case LibUtilities::eModified_C:
         {
-            const LibUtilities::PointsKey pkey(
-                numpoints + 1, LibUtilities::eGaussLobattoLegendre);
+            LibUtilities::PointsType pType;
+            switch (pointsType)
+            {
+                case LibUtilities::eGaussRadauMLegendre:
+                case LibUtilities::eGaussRadauMAlpha2Beta0:
+                case LibUtilities::eGaussRadauMAlpha1Beta0:
+                {
+                    numpoints = numpoints + 1;
+                    pType     = LibUtilities::eGaussLobattoLegendre;
+                }
+                break;
+                case LibUtilities::eGaussLegendreWithM:
+                {
+                    numpoints = numpoints + 1;
+                    pType     = LibUtilities::eGaussLegendreWithMP;
+                }
+                break;
+                default: // do not change points
+                {
+                    pType = faceDirBasis->GetPointsType();
+                }
+            }
+            const LibUtilities::PointsKey pkey(numpoints, pType);
             return LibUtilities::BasisKey(LibUtilities::eModified_A, nummodes,
                                           pkey);
         }
@@ -377,17 +395,33 @@ LibUtilities::BasisKey EvaluateQuadFaceBasisKey(
                                           pkey);
         }
         case LibUtilities::eOrtho_A:
-        {
-            const LibUtilities::PointsKey pkey(
-                numpoints, LibUtilities::eGaussLobattoLegendre);
-            return LibUtilities::BasisKey(LibUtilities::eOrtho_A, nummodes,
-                                          pkey);
-        }
         case LibUtilities::eOrtho_B:
         case LibUtilities::eOrtho_C:
         {
-            const LibUtilities::PointsKey pkey(
-                numpoints + 1, LibUtilities::eGaussLobattoLegendre);
+            LibUtilities::PointsType pType;
+            switch (pointsType)
+            {
+                case LibUtilities::eGaussRadauMLegendre:
+                case LibUtilities::eGaussRadauMAlpha2Beta0:
+                case LibUtilities::eGaussRadauMAlpha1Beta0:
+                {
+                    numpoints = numpoints + 1;
+                    pType     = LibUtilities::eGaussLobattoLegendre;
+                }
+                break;
+                case LibUtilities::eGaussLegendreWithM:
+                {
+                    numpoints = numpoints + 1;
+                    pType     = LibUtilities::eGaussLegendreWithMP;
+                }
+                break;
+                default: // do not change points
+                {
+                    pType = faceDirBasis->GetPointsType();
+                    break;
+                }
+            }
+            const LibUtilities::PointsKey pkey(numpoints, pType);
             return LibUtilities::BasisKey(LibUtilities::eOrtho_A, nummodes,
                                           pkey);
         }
@@ -403,56 +437,94 @@ LibUtilities::BasisKey EvaluateQuadFaceBasisKey(
 }
 
 LibUtilities::BasisKey EvaluateTriFaceBasisKey(
-    const int facedir, const LibUtilities::BasisType faceDirBasisType,
-    const int numpoints, const int nummodes, bool UseGLL)
+    const int facedir, const LibUtilities::BasisSharedPtr &faceDirBasis,
+    bool UseGLL)
 {
+    auto faceDirBasisType = faceDirBasis->GetBasisType();
+    auto pointsType       = faceDirBasis->GetPointsType();
+    auto nummodes         = faceDirBasis->GetNumModes();
+    auto numpoints        = faceDirBasis->GetNumPoints();
+
     switch (faceDirBasisType)
     {
         case LibUtilities::eModified_A:
-        {
-            const LibUtilities::PointsKey pkey(
-                numpoints, LibUtilities::eGaussLobattoLegendre);
-            return LibUtilities::BasisKey(LibUtilities::eModified_A, nummodes,
-                                          pkey);
-        }
         case LibUtilities::eModified_B:
         case LibUtilities::eModified_C:
         case LibUtilities::eModifiedPyr_C:
         {
-            switch (facedir)
+            LibUtilities::BasisType bType = LibUtilities::eNoBasisType;
+            LibUtilities::PointsKey pkey  = LibUtilities::NullPointsKey;
+            switch (facedir) // determine the basis type
             {
                 case 0:
                 {
-                    const LibUtilities::PointsKey pkey(
-                        numpoints + 1, LibUtilities::eGaussLobattoLegendre);
-                    return LibUtilities::BasisKey(LibUtilities::eModified_A,
-                                                  nummodes, pkey);
-                }
-                case 1:
-                {
-                    LibUtilities::PointsKey pkey;
+                    bType = LibUtilities::eModified_A;
 
-                    if (UseGLL)
+                    switch (pointsType) // determine the points type
                     {
-                        pkey = LibUtilities::PointsKey(
-                            numpoints + 1, LibUtilities::eGaussLobattoLegendre);
+                        case LibUtilities::eGaussRadauMLegendre:
+                        case LibUtilities::eGaussRadauMAlpha2Beta0:
+                        case LibUtilities::eGaussRadauMAlpha1Beta0:
+                        {
+                            pkey = LibUtilities::PointsKey(
+                                numpoints + 1,
+                                LibUtilities::eGaussLobattoLegendre);
+                        }
+                        break;
+                        case LibUtilities::eGaussLegendreWithM:
+                        {
+                            pkey = LibUtilities::PointsKey(
+                                numpoints + 1,
+                                LibUtilities::eGaussLegendreWithMP);
+                        }
+                        break;
+                        default: // For other points type, just return the
+                                 // points key
+                        {
+                            pkey = faceDirBasis->GetPointsKey();
+                        }
                     }
-                    else
-                    {
-                        pkey = LibUtilities::PointsKey(
-                            numpoints, LibUtilities::eGaussRadauMAlpha1Beta0);
-                    }
-                    return LibUtilities::BasisKey(LibUtilities::eModified_B,
-                                                  nummodes, pkey);
                 }
+                break;
+                case 1: // this never appears together with Modified_A
+                {
+                    bType = LibUtilities::eModified_B;
+
+                    switch (pointsType) // determine the points type
+                    {
+                        case LibUtilities::eGaussRadauMLegendre:
+                        case LibUtilities::eGaussRadauMAlpha2Beta0:
+                        case LibUtilities::eGaussRadauMAlpha1Beta0:
+                        {
+                            if (UseGLL) //  force to use GLL
+                            {
+                                pkey = LibUtilities::PointsKey(
+                                    numpoints + 1,
+                                    LibUtilities::eGaussLobattoLegendre);
+                            }
+                            else
+                            {
+                                pkey = LibUtilities::PointsKey(
+                                    numpoints,
+                                    LibUtilities::eGaussRadauMAlpha1Beta0);
+                            }
+                        }
+                        break;
+                        default: // For other points type, just return the
+                                 // points key
+                        {
+                            pkey = faceDirBasis->GetPointsKey();
+                        }
+                    }
+                }
+                break;
                 default:
                 {
-
                     NEKERROR(ErrorUtil::efatal, "invalid value to flag");
                     break;
                 }
             }
-            break;
+            return LibUtilities::BasisKey(bType, nummodes, pkey);
         }
 
         case LibUtilities::eGLL_Lagrange:
@@ -466,6 +538,7 @@ LibUtilities::BasisKey EvaluateTriFaceBasisKey(
                     return LibUtilities::BasisKey(LibUtilities::eOrtho_A,
                                                   nummodes, pkey);
                 }
+                break;
                 case 1:
                 {
                     const LibUtilities::PointsKey pkey(
@@ -473,6 +546,7 @@ LibUtilities::BasisKey EvaluateTriFaceBasisKey(
                     return LibUtilities::BasisKey(LibUtilities::eOrtho_B,
                                                   nummodes, pkey);
                 }
+                break;
                 default:
                 {
                     NEKERROR(ErrorUtil::efatal, "invalid value to flag");
@@ -487,29 +561,69 @@ LibUtilities::BasisKey EvaluateTriFaceBasisKey(
         case LibUtilities::eOrtho_C:
         case LibUtilities::eOrthoPyr_C:
         {
-            switch (facedir)
+            LibUtilities::BasisType bType = LibUtilities::eNoBasisType;
+            LibUtilities::PointsKey pkey  = LibUtilities::NullPointsKey;
+            switch (facedir) // determine the basis type
             {
                 case 0:
                 {
-                    const LibUtilities::PointsKey pkey(
-                        numpoints, LibUtilities::eGaussLobattoLegendre);
-                    return LibUtilities::BasisKey(LibUtilities::eOrtho_A,
-                                                  nummodes, pkey);
+                    bType = LibUtilities::eOrtho_A;
+
+                    switch (pointsType) // determine the points type
+                    {
+                        case LibUtilities::eGaussRadauMLegendre:
+                        case LibUtilities::eGaussRadauMAlpha2Beta0:
+                        case LibUtilities::eGaussRadauMAlpha1Beta0:
+                        {
+                            pkey = LibUtilities::PointsKey(
+                                numpoints + 1,
+                                LibUtilities::eGaussLobattoLegendre);
+                        }
+                        break;
+                        case LibUtilities::eGaussLegendreWithM:
+                        {
+                            pkey = LibUtilities::PointsKey(
+                                numpoints + 1,
+                                LibUtilities::eGaussLegendreWithMP);
+                        }
+                        break;
+                        default: // For other points type, just return the
+                                 // points key
+                        {
+                            pkey = faceDirBasis->GetPointsKey();
+                        }
+                    }
                 }
-                case 1:
+                break;
+                case 1: // this never appears together with Ortho_A
                 {
-                    const LibUtilities::PointsKey pkey(
-                        numpoints, LibUtilities::eGaussRadauMAlpha1Beta0);
-                    return LibUtilities::BasisKey(LibUtilities::eOrtho_B,
-                                                  nummodes, pkey);
+                    bType = LibUtilities::eOrtho_B;
+
+                    switch (pointsType) // determine the points type
+                    {
+                        case LibUtilities::eGaussRadauMLegendre:
+                        case LibUtilities::eGaussRadauMAlpha2Beta0:
+                        {
+                            pkey = LibUtilities::PointsKey(
+                                numpoints,
+                                LibUtilities::eGaussRadauMAlpha1Beta0);
+                        }
+                        break;
+                        default: // For other points type, just return the
+                                 // points key
+                        {
+                            pkey = faceDirBasis->GetPointsKey();
+                        }
+                    }
                 }
+                break;
                 default:
                 {
                     NEKERROR(ErrorUtil::efatal, "invalid value to flag");
                     break;
                 }
             }
-            break;
+            return LibUtilities::BasisKey(bType, nummodes, pkey);
         }
         default:
         {

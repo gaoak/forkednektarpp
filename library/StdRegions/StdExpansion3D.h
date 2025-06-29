@@ -273,12 +273,11 @@ private:
 };
 
 STD_REGIONS_EXPORT LibUtilities::BasisKey EvaluateTriFaceBasisKey(
-    const int facedir, const LibUtilities::BasisType faceDirBasisType,
-    const int numpoints, const int nummodes, bool UseGLL = false);
+    const int facedir, const LibUtilities::BasisSharedPtr &faceDirBasis,
+    bool UseGLL = false);
 
 STD_REGIONS_EXPORT LibUtilities::BasisKey EvaluateQuadFaceBasisKey(
-    const int facedir, const LibUtilities::BasisType faceDirBasisType,
-    const int numpoints, const int nummodes);
+    const int facedir, const LibUtilities::BasisSharedPtr &faceDirBasis);
 } // namespace Nektar::StdRegions
 
 #endif // STDEXP3D_H

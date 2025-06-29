@@ -171,16 +171,6 @@ private:
     /// Add symmetric flux integration to field (in coefficient space)
     void AddSymmFluxIntegralToCoeff(
         const std::size_t nConvectiveFields, const size_t nDim,
-        const size_t nPts, const size_t nTracePts,
-        const Array<OneD, MultiRegions::ExpListSharedPtr> &fields,
-        const Array<OneD, const int> &nonZeroIndex,
-        TensorOfArray3D<NekDouble> &tracflux,
-        Array<OneD, Array<OneD, NekDouble>> &outarray);
-
-    /// Add symmetric flux integration to field (in physical space)
-    void AddSymmFluxIntegralToPhys(
-        const std::size_t nConvectiveFields, const size_t nDim,
-        const size_t nPts, const size_t nTracePts,
         const Array<OneD, MultiRegions::ExpListSharedPtr> &fields,
         const Array<OneD, const int> &nonZeroIndex,
         TensorOfArray3D<NekDouble> &tracflux,

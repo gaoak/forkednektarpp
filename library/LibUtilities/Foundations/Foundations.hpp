@@ -82,7 +82,9 @@ const std::string kPointsTypeStr[] = {"NoPointsType",
                                       "NodalTetSPI",
                                       "NodalPrismSPI",
                                       "NodalQuadElec",
-                                      "NodalHexElec"};
+                                      "NodalHexElec",
+                                      "GaussLegendreWithMP",
+                                      "GaussLegendreWithM"};
 } // namespace Nektar::LibUtilities
 
 #endif // FOUNDATIONS_H

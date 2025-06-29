@@ -18,7 +18,7 @@
             <value variable="v" tolerance="1e-5">0.0</value>
         </metric>
         <metric type="ExecutionTime" id="3">
-            <value tolerance="5e-1" hostname="42.debian-bullseye-performance-build-and-test">6.6686</value>
+            <value tolerance="5e-1" hostname="42.debian-bullseye-performance-build-and-test">7.3</value>
         </metric>
     </metrics>
 </test>

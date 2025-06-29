@@ -228,6 +228,7 @@ IF( NEKTAR_SOLVER_COMPRESSIBLE_FLOW )
         #ADD_NEKTAR_TEST(Perturbation_NS_M05_square_CBC_par LENGTHY)
         #ADD_NEKTAR_TEST(Perturbation_NS_M15_square_CBC_par LENGTHY)
         ADD_NEKTAR_TEST(RAE5240_BSF_LE_bcsfromfile_par)
+        ADD_NEKTAR_TEST(Annulus90deg3D_WeakDG_SIP_MODIFIED_GL_Prism_par)
         ADD_NEKTAR_TEST(Couette_WeakDG_IP_MODIFIED_IM_PRECON_par)
         #ADD_NEKTAR_TEST(Couette_WeakDG_LDGNS_MODIFIED_IM_PRECON_par)
         # disabled as intermittently fails

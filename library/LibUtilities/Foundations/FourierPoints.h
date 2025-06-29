@@ -96,6 +96,12 @@ public:
         m_InterpManager.RegisterCreator(
             PointsKey(0, eFourierEvenlySpaced),
             std::bind(&FourierPoints::CreateMatrix, this, pl::_1));
+        m_InterpManager.RegisterCreator(
+            PointsKey(0, eGaussLegendreWithMP),
+            std::bind(&FourierPoints::CreateMatrix, this, pl::_1));
+        m_InterpManager.RegisterCreator(
+            PointsKey(0, eGaussLegendreWithM),
+            std::bind(&FourierPoints::CreateMatrix, this, pl::_1));
     }
 
 protected:

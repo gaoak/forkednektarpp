@@ -32,6 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <LibUtilities/Foundations/InterpCoeff.h>
 #include <StdRegions/StdHexExp.h>
 
 #ifdef max
@@ -892,9 +893,7 @@ const LibUtilities::BasisKey StdHexExp::v_GetTraceBasisKey(
             break;
     }
 
-    return EvaluateQuadFaceBasisKey(k, m_base[dir]->GetBasisType(),
-                                    m_base[dir]->GetNumPoints(),
-                                    m_base[dir]->GetNumModes());
+    return EvaluateQuadFaceBasisKey(k, m_base[dir]);
 }
 
 void StdHexExp::v_GetCoords(Array<OneD, NekDouble> &xi_x,

@@ -70,6 +70,10 @@ bool GaussPoints::initPointsManager[] = {
     PointsManager().RegisterCreator(
         PointsKey(0, eGaussRadauKronrodMAlpha1Beta0), GaussPoints::Create),
     PointsManager().RegisterCreator(PointsKey(0, eGaussLobattoKronrodLegendre),
+                                    GaussPoints::Create),
+    PointsManager().RegisterCreator(PointsKey(0, eGaussLegendreWithMP),
+                                    GaussPoints::Create),
+    PointsManager().RegisterCreator(PointsKey(0, eGaussLegendreWithM),
                                     GaussPoints::Create)};
 
 void GaussPoints::v_CalculatePoints()
@@ -86,7 +90,20 @@ void GaussPoints::v_CalculatePoints()
             Polylib::zwgj(m_points[0].data(), m_weights.data(), numpoints, 0.0,
                           0.0);
             break;
-
+        case eGaussLegendreWithMP:
+            Polylib::zwgj(m_points[0].data() + 1, m_weights.data() + 1,
+                          numpoints - 2, 0.0, 0.0);
+            m_points[0][0]             = -1.0;
+            m_points[0][numpoints - 1] = 1.0;
+            m_weights[0]               = 0.0;
+            m_weights[numpoints - 1]   = 0.0;
+            break;
+        case eGaussLegendreWithM:
+            Polylib::zwgj(m_points[0].data() + 1, m_weights.data() + 1,
+                          numpoints - 1, 0.0, 0.0);
+            m_points[0][0] = -1.0;
+            m_weights[0]   = 0.0;
+            break;
         case eGaussRadauMLegendre:
             Polylib::zwgrjm(m_points[0].data(), m_weights.data(), numpoints,
                             0.0, 0.0);
@@ -234,6 +251,8 @@ void GaussPoints::v_CalculateDerivMatrix()
             Polylib::Dgrjm(dmtemp, m_points[0].data(), numpoints, 2.0, 0.0);
             break;
 
+        case eGaussLegendreWithMP:
+        case eGaussLegendreWithM:
         case eGaussKronrodLegendre:
         case eGaussRadauKronrodMLegendre:
         case eGaussRadauKronrodMAlpha1Beta0:
@@ -270,6 +289,28 @@ void GaussPoints::CalculateInterpMatrix(
         case eGaussGaussLegendre:
             Polylib::Imgj(interp.data(), m_points[0].data(), xpoints.data(),
                           GetNumPoints(), npts, 0.0, 0.0);
+            break;
+
+        case eGaussLegendreWithMP:
+            // first / last line of interp are zeros:
+            for (int i = 0; i < interp.size(); ++i)
+            {
+                interp[i] = 0.0;
+            }
+            // only interpolate from interior points
+            Polylib::Imgj(interp.data() + npts, m_points[0].data() + 1,
+                          xpoints.data(), GetNumPoints() - 2, npts, 0.0, 0.0);
+            break;
+
+        case eGaussLegendreWithM:
+            // first / last line of interp are zeros:
+            for (int i = 0; i < interp.size(); ++i)
+            {
+                interp[i] = 0.0;
+            }
+            // only interpolate from interior points
+            Polylib::Imgj(interp.data() + npts, m_points[0].data() + 1,
+                          xpoints.data(), GetNumPoints() - 1, npts, 0.0, 0.0);
             break;
 
         case eGaussRadauMLegendre:
@@ -442,8 +483,15 @@ std::shared_ptr<NekMatrix<NekDouble>> GaussPoints::
     {
         Vmath::Vmul(numpointsfrom, Interp->GetPtr().data() + i * numpointsfrom,
                     1, &weightsfrom[0], 1, &GalProj[0] + i, numpointsto);
-        Vmath::Smul(numpointsfrom, 1.0 / m_weights[i], &GalProj[0] + i,
-                    numpointsto, &GalProj[0] + i, numpointsto);
+        if (m_weights[i] == 0.0)
+        {
+            Vmath::Zero(numpointsto, &GalProj[0] + i, numpointsto);
+        }
+        else
+        {
+            Vmath::Smul(numpointsfrom, 1.0 / m_weights[i], &GalProj[0] + i,
+                        numpointsto, &GalProj[0] + i, numpointsto);
+        }
     }
 
     NekDouble *t = GalProj.data();

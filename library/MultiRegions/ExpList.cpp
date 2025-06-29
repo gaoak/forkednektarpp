@@ -496,8 +496,10 @@ ExpList::ExpList(
                         locexp[i]->GetTraceBasisKey(j);
                     LibUtilities::BasisKey existing = it->second.second;
 
-                    int np1 = edge.GetNumPoints();
-                    int np2 = existing.GetNumPoints();
+                    int np1 = LibUtilities::GetDegreeOfExactness(
+                        edge.GetPointsType(), edge.GetNumPoints());
+                    int np2 = LibUtilities::GetDegreeOfExactness(
+                        existing.GetPointsType(), existing.GetNumPoints());
                     int nm1 = edge.GetNumModes();
                     int nm2 = existing.GetNumModes();
 
@@ -570,16 +572,27 @@ ExpList::ExpList(
                     LibUtilities::BasisKey existing0 = it->second.second.first;
                     LibUtilities::BasisKey existing1 = it->second.second.second;
 
-                    // np -- number of points; nm -- number of modes;
-                    // np_I_J --- I=1 current; I=2 existing; J=1 dir0; J=2 dir1;
-                    int np11 = face0.GetNumPoints();
-                    int np12 = face1.GetNumPoints();
-                    int np21 = existing0.GetNumPoints();
-                    int np22 = existing1.GetNumPoints();
-                    int nm11 = face0.GetNumModes();
-                    int nm12 = face1.GetNumModes();
-                    int nm21 = existing0.GetNumModes();
-                    int nm22 = existing1.GetNumModes();
+                    // np -- number of points (now change to degree of
+                    // exactness); nm -- number of modes; np_I_J --- I=1
+                    // current; I=2 existing; J=1 dir0; J=2 dir1;
+                    // -----------old design-----------
+                    // int np00 = face0.GetNumPoints();
+                    // int np01 = face1.GetNumPoints();
+                    // int np10 = existing0.GetNumPoints();
+                    // int np11 = existing1.GetNumPoints();
+                    // -----------new design-----------
+                    int np00 = LibUtilities::GetDegreeOfExactness(
+                        face0.GetPointsType(), face0.GetNumPoints());
+                    int np01 = LibUtilities::GetDegreeOfExactness(
+                        face1.GetPointsType(), face1.GetNumPoints());
+                    int np10 = LibUtilities::GetDegreeOfExactness(
+                        existing0.GetPointsType(), existing0.GetNumPoints());
+                    int np11 = LibUtilities::GetDegreeOfExactness(
+                        existing0.GetPointsType(), existing0.GetNumPoints());
+                    int nm00 = face0.GetNumModes();
+                    int nm01 = face1.GetNumModes();
+                    int nm10 = existing0.GetNumModes();
+                    int nm11 = existing1.GetNumModes();
 
                     // If the axes 1, 2 of the current face correspond to
                     // the axes 2, 1 of existing face, respectively,
@@ -590,89 +603,48 @@ ExpList::ExpList(
                     // eDir1BwdDir2_Dir2BwdDir1 = 12
                     if (locexp[i]->GetTraceOrient(j) >= 9)
                     {
-                        std::swap(np11, np12);
-                        std::swap(nm11, nm12);
+                        std::swap(np00, np01);
+                        std::swap(nm00, nm01);
                         std::swap(face0, face1);
-                    }
-
-                    // The baiskey return by GetTraceBasisKey should always
-                    // have GLL for eModified_A and GR for eModified_B.
-                    // But we still use GetPointsType to check this.
-                    if (existing1.GetPointsType() ==
-                        LibUtilities::eGaussRadauMAlpha1Beta0)
-                    {
-                        if (face1.GetPointsType() ==
-                            LibUtilities::eGaussLobattoLegendre)
-                        {
-                            np12--; // make np12 comparable to np22
-                        }
-                    }
-                    else
-                    {
-                        if (face1.GetPointsType() ==
-                            LibUtilities::eGaussRadauMAlpha1Beta0)
-                        {
-                            np12++; // make np12 comparable to np22
-                        }
-                    }
-
-                    if (existing0.GetPointsType() ==
-                        LibUtilities::eGaussRadauMAlpha1Beta0)
-                    {
-                        if (face0.GetPointsType() ==
-                            LibUtilities::eGaussLobattoLegendre)
-                        {
-                            np11--; // make np11 comparable to np21
-                        }
-                    }
-                    else
-                    {
-                        if (face0.GetPointsType() ==
-                            LibUtilities::eGaussRadauMAlpha1Beta0)
-                        {
-                            np11++; // make np11 comparable to np21
-                        }
                     }
 
                     // if the existing face_i has less points/modes than the
                     // present face_i, then we update the existing face_i with
                     // present one (trace should always have highest order)
-                    if (np22 >= np12 && nm22 >= nm12)
+                    if (np11 >= np01 && nm11 >= nm01)
                     {
                         // keep existing face_i and do nothing
                     }
-                    else if (np22 <= np12 && nm22 <= nm12)
+                    else if (np11 <= np01 && nm11 <= nm01)
                     {
-                        // Instead of using face0 directly, We create new
-                        // basiskey with original Type but higher order.
-                        LibUtilities::BasisKey newbkey(
-                            existing1.GetBasisType(), nm12,
-                            LibUtilities::PointsKey(np12,
-                                                    existing1.GetPointsType()));
+                        // create new basiskey with original basis but
+                        // more points
+                        LibUtilities::BasisKey newbkey(existing1.GetBasisType(),
+                                                       nm01,
+                                                       face1.GetPointsKey());
                         it->second.second.second = newbkey;
                     }
-                    else // np22 > np12 but nm22 < nm12
+                    else // np11 > np01 but nm11 < nm01
                     {
                         NEKERROR(ErrorUtil::efatal,
                                  "inappropriate number of points/modes (max"
                                  "num of points is not set with max order)");
                     }
 
-                    if (np21 >= np11 && nm21 >= nm11)
+                    if (np10 >= np00 && nm10 >= nm00)
                     {
                         // keep existing face_i and do nothing
                     }
-                    else if (np21 <= np11 && nm21 <= nm11)
+                    else if (np10 <= np00 && nm10 <= nm00)
                     {
-                        // Instead of using face0 directly, We create new
-                        // basiskey with original Type but higher order.
-                        LibUtilities::PointsKey newpkey(
-                            np11, existing0.GetPointsType());
+                        // create new basiskey with original basis but
+                        // more points
                         LibUtilities::BasisKey newbkey(existing0.GetBasisType(),
-                                                       nm11, newpkey);
+                                                       nm00,
+                                                       face0.GetPointsKey());
                         it->second.second.first = newbkey;
                     }
-                    else // np21 > np11 but nm21 < nm11
+                    else // np10 > np00 but nm10 < nm00
                     {
                         NEKERROR(ErrorUtil::efatal,
                                  "inappropriate number of points/modes (max"
@@ -816,8 +788,13 @@ ExpList::ExpList(
 
                 LibUtilities::BasisKey existing = it->second.second;
 
-                int np1 = TracesTotPnts0[i];
-                int np2 = existing.GetNumPoints();
+                auto ptype =
+                    static_cast<LibUtilities::PointsType>(TracesPointsType0[i]);
+
+                int np1 = LibUtilities::GetDegreeOfExactness(ptype,
+                                                             TracesTotPnts0[i]);
+                int np2 = LibUtilities::GetDegreeOfExactness(
+                    existing.GetPointsType(), existing.GetNumPoints());
                 int nm1 = TracesTotNm0[i];
                 int nm2 = existing.GetNumModes();
 
@@ -833,7 +810,7 @@ ExpList::ExpList(
                     // MPI::AllReduce does not support BasisKey directly.
                     LibUtilities::BasisKey newbkey(
                         existing.GetBasisType(), nm1,
-                        LibUtilities::PointsKey(np1, existing.GetPointsType()));
+                        LibUtilities::PointsKey(TracesTotPnts0[i], ptype));
                     it->second.second = newbkey;
                 }
                 else
@@ -860,93 +837,57 @@ ExpList::ExpList(
 
                 // np -- number of points; nm -- number of modes;
                 // np_I_J --- I=1 current; I=2 existing; J=1 dir0; J=2 dir1;
-                int np11 = TracesTotPnts0[i];
-                int np12 = TracesTotPnts1[i];
-                int np21 = existing0.GetNumPoints();
-                int np22 = existing1.GetNumPoints();
-                int nm11 = TracesTotNm0[i];
-                int nm12 = TracesTotNm1[i];
-                int nm21 = existing0.GetNumModes();
-                int nm22 = existing1.GetNumModes();
+                auto ptype0 =
+                    static_cast<LibUtilities::PointsType>(TracesPointsType0[i]);
+                auto ptype1 =
+                    static_cast<LibUtilities::PointsType>(TracesPointsType1[i]);
 
-                // The orientation is already aligned
-                // Here we only need to compare pointsType
-                // and adjust np
-                if (existing1.GetPointsType() ==
-                    LibUtilities::eGaussRadauMAlpha1Beta0)
-                {
-                    if (static_cast<LibUtilities::PointsType>(
-                            TracesPointsType1[i]) ==
-                        LibUtilities::eGaussLobattoLegendre)
-                    {
-                        np12--; // make np12 comparable to np22
-                    }
-                }
-                else
-                {
-                    if (static_cast<LibUtilities::PointsType>(
-                            TracesPointsType1[i]) ==
-                        LibUtilities::eGaussRadauMAlpha1Beta0)
-                    {
-                        np12++; // make np12 comparable to np22
-                    }
-                }
-
-                if (existing0.GetPointsType() ==
-                    LibUtilities::eGaussRadauMAlpha1Beta0)
-                {
-                    if (static_cast<LibUtilities::PointsType>(
-                            TracesPointsType0[i]) ==
-                        LibUtilities::eGaussLobattoLegendre)
-                    {
-                        np11--; // make np11 comparable to np21
-                    }
-                }
-                else
-                {
-                    if (static_cast<LibUtilities::PointsType>(
-                            TracesPointsType0[i]) ==
-                        LibUtilities::eGaussRadauMAlpha1Beta0)
-                    {
-                        np11++; // make np11 comparable to np21
-                    }
-                }
+                int np00 = LibUtilities::GetDegreeOfExactness(
+                    ptype0, TracesTotPnts0[i]);
+                int np01 = LibUtilities::GetDegreeOfExactness(
+                    ptype1, TracesTotPnts1[i]);
+                int np10 = LibUtilities::GetDegreeOfExactness(
+                    existing0.GetPointsType(), existing0.GetNumPoints());
+                int np11 = LibUtilities::GetDegreeOfExactness(
+                    existing1.GetPointsType(), existing1.GetNumPoints());
+                int nm00 = TracesTotNm0[i];
+                int nm01 = TracesTotNm1[i];
+                int nm10 = existing0.GetNumModes();
+                int nm11 = existing1.GetNumModes();
 
                 // if the existing face_i has less points/modes than the
                 // present face_i, then we update the existing face_i with
                 // present one (trace should always have highest order)
-                if (np22 >= np12 && nm22 >= nm12)
+                if (np11 >= np01 && nm11 >= nm01)
                 {
                     // keep existing face_i and do nothing
                 }
-                else if (np22 <= np12 && nm22 <= nm12)
+                else if (np11 <= np01 && nm11 <= nm01)
                 {
                     LibUtilities::BasisKey newbkey(
-                        existing1.GetBasisType(), nm12,
-                        LibUtilities::PointsKey(np12,
-                                                existing1.GetPointsType()));
+                        existing1.GetBasisType(), nm01,
+                        LibUtilities::PointsKey(TracesTotPnts1[i], ptype1));
                     it->second.second.second = newbkey;
                 }
-                else // np22 > np12 but nm22 < nm12
+                else // np11 > np01 but nm11 < nm01
                 {
                     NEKERROR(ErrorUtil::efatal,
-                             "inappropriate number of points/modes (max "
+                             "inappropriate number of points/modes (max"
                              "num of points is not set with max order)");
                 }
 
-                if (np21 >= np11 && nm21 >= nm11)
+                if (np10 >= np00 && nm10 >= nm00)
                 {
                     // keep existing face_i and do nothing
                 }
-                else if (np21 <= np11 && nm21 <= nm11)
+                else if (np10 <= np00 && nm10 <= nm00)
                 {
                     LibUtilities::BasisKey newbkey(
-                        existing0.GetBasisType(), nm11,
-                        LibUtilities::PointsKey(np11,
-                                                existing0.GetPointsType()));
+                        existing0.GetBasisType(), nm00,
+                        LibUtilities::PointsKey(TracesTotPnts0[i], ptype0));
                     it->second.second.first = newbkey;
                 }
-                else // np21 > np11 but nm21 < nm11
+                else // np10 > np00 but nm10 < nm00
                 {
                     NEKERROR(ErrorUtil::efatal,
                              "inappropriate number of points/modes (max"

@@ -500,6 +500,13 @@ private:
     Points()                  = delete;
 };
 
+/// offset the m_nq_begin and m_nq_end according to the points type
+LIB_UTILITIES_EXPORT void GetEffectiveQuadRange(
+    const LibUtilities::PointsKey &pkey, int &q_begin, int &q_end);
+/// Get degree of exactness for quadrature points
+LIB_UTILITIES_EXPORT int GetDegreeOfExactness(const PointsType ptype,
+                                              const int npt);
+
 } // namespace Nektar::LibUtilities
 
 #endif // NEKTAR_LIB_UTILITIES_FOUNDATIONS_POINTS_H

@@ -33,6 +33,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <MultiRegions/DisContField.h>
 #include <SolverUtils/Diffusion/DiffusionIP.h>
 #include <cmath>
 #include <iomanip>
@@ -411,7 +412,6 @@ void DiffusionIP::AddDiffusionSymmFluxToCoeff(
     if (fabs(m_IPSymmFluxCoeff) > 1.0E-12)
     {
         size_t nDim      = fields[0]->GetCoordim(0);
-        size_t nPts      = fields[0]->GetTotPoints();
         size_t nTracePts = fields[0]->GetTrace()->GetTotPoints();
         TensorOfArray3D<NekDouble> traceSymflux{nDim};
         for (int nd = 0; nd < nDim; ++nd)
@@ -428,43 +428,8 @@ void DiffusionIP::AddDiffusionSymmFluxToCoeff(
                              VolumeFlux, traceSymflux, pFwd, pBwd,
                              nonZeroIndex);
 
-        AddSymmFluxIntegralToCoeff(nConvectiveFields, nDim, nPts, nTracePts,
-                                   fields, nonZeroIndex, traceSymflux,
-                                   outarray);
-    }
-}
-
-void DiffusionIP::AddDiffusionSymmFluxToPhys(
-    const std::size_t nConvectiveFields,
-    const Array<OneD, MultiRegions::ExpListSharedPtr> &fields,
-    const Array<OneD, Array<OneD, NekDouble>> &inarray,
-    TensorOfArray3D<NekDouble> &qfield, TensorOfArray3D<NekDouble> &VolumeFlux,
-    Array<OneD, Array<OneD, NekDouble>> &outarray,
-    const Array<OneD, Array<OneD, NekDouble>> &pFwd,
-    const Array<OneD, Array<OneD, NekDouble>> &pBwd)
-{
-    if (fabs(m_IPSymmFluxCoeff) > 1.0E-12)
-    {
-        size_t nDim      = fields[0]->GetCoordim(0);
-        size_t nPts      = fields[0]->GetTotPoints();
-        size_t nTracePts = fields[0]->GetTrace()->GetTotPoints();
-        TensorOfArray3D<NekDouble> traceSymflux{nDim};
-        for (int nd = 0; nd < nDim; ++nd)
-        {
-            traceSymflux[nd] =
-                Array<OneD, Array<OneD, NekDouble>>{nConvectiveFields};
-            for (int j = 0; j < nConvectiveFields; ++j)
-            {
-                traceSymflux[nd][j] = Array<OneD, NekDouble>{nTracePts, 0.0};
-            }
-        }
-        Array<OneD, int> nonZeroIndex;
-        DiffuseTraceSymmFlux(nConvectiveFields, fields, inarray, qfield,
-                             VolumeFlux, traceSymflux, pFwd, pBwd,
-                             nonZeroIndex);
-
-        AddSymmFluxIntegralToPhys(nConvectiveFields, nDim, nPts, nTracePts,
-                                  fields, nonZeroIndex, traceSymflux, outarray);
+        AddSymmFluxIntegralToCoeff(nConvectiveFields, nDim, fields,
+                                   nonZeroIndex, traceSymflux, outarray);
     }
 }
 
@@ -509,8 +474,7 @@ void DiffusionIP::CalcTraceSymFlux(
 }
 
 void DiffusionIP::AddSymmFluxIntegralToCoeff(
-    const std::size_t nConvectiveFields, const size_t nDim, const size_t nPts,
-    [[maybe_unused]] const size_t nTracePts,
+    const std::size_t nConvectiveFields, const size_t nDim,
     const Array<OneD, MultiRegions::ExpListSharedPtr> &fields,
     const Array<OneD, const int> &nonZeroIndex,
     TensorOfArray3D<NekDouble> &tracflux,
@@ -518,62 +482,60 @@ void DiffusionIP::AddSymmFluxIntegralToCoeff(
 {
     size_t nCoeffs = outarray[nConvectiveFields - 1].size();
     Array<OneD, NekDouble> tmpCoeff{nCoeffs, 0.0};
-    Array<OneD, Array<OneD, NekDouble>> tmpfield(nDim);
-    for (int i = 0; i < nDim; ++i)
-    {
-        tmpfield[i] = Array<OneD, NekDouble>{nPts, 0.0};
-    }
+    Array<OneD, Array<OneD, NekDouble>> locTracesDotNorm(nDim);
     int nv = 0;
     for (int j = 0; j < nonZeroIndex.size(); ++j)
     {
-        nv                                       = nonZeroIndex[j];
-        MultiRegions::ExpListSharedPtr tracelist = fields[nv]->GetTrace();
+        nv                      = nonZeroIndex[j];
+        auto tracelist          = fields[nv]->GetTrace();
+        auto locTraceToTraceMap = fields[nv]->GetLocTraceToTraceMap();
+        auto DisContField =
+            std::dynamic_pointer_cast<MultiRegions::DisContField>(fields[nv]);
+
+        // Use p2p interp
+        int nLocTracePts = DisContField->GetLocElmtTrace()->GetTotPoints();
+        int nTotPhys     = DisContField->GetTotPoints();
+
+        // For locTrace, Fwd and Bwd are clustered, so we need to get start
+        // of Bwd
+        Array<OneD, NekDouble> locTraceBwd;
+        Array<OneD, NekDouble> wsp(nLocTracePts);
+        Array<OneD, NekDouble> wsp2(nLocTracePts);
+        Array<OneD, Array<OneD, NekDouble>> tmpfields(nDim);
+
         for (int nd = 0; nd < nDim; ++nd)
         {
-            Vmath::Zero(nPts, tmpfield[nd], 1);
-
-            tracelist->MultiplyByQuadratureMetric(tracflux[nd][nv],
-                                                  tracflux[nd][nv]);
-
-            fields[nv]->AddTraceQuadPhysToField(tracflux[nd][nv],
-                                                tracflux[nd][nv], tmpfield[nd]);
-            fields[nv]->DivideByQuadratureMetric(tmpfield[nd], tmpfield[nd]);
+            locTracesDotNorm[nd] = Array<OneD, NekDouble>(nLocTracePts, 0.0);
+            // interp trace to locTrace and unshuffle to loc elmt trace
+            locTraceToTraceMap->InterpTraceToLocTrace(0, tracflux[nd][nv],
+                                                      wsp2);
+            locTraceToTraceMap->UnshuffleLocTraces(0, wsp2, wsp);
+            // interp trace to locTrace and unshuffle to loc elmt trace
+            locTraceBwd = wsp2 + locTraceToTraceMap->GetNFwdLocTracePts();
+            locTraceToTraceMap->InterpTraceToLocTrace(1, tracflux[nd][nv],
+                                                      locTraceBwd);
+            locTraceToTraceMap->UnshuffleLocTraces(1, locTraceBwd, wsp);
+            // multiply by loc wJ
+            DisContField->GetLocElmtTrace()->MultiplyByQuadratureMetric(wsp,
+                                                                        wsp);
+            // Reshuffle LocElmtTrace to LocTraces
+            locTraceToTraceMap->ReshuffleLocTracesForInterp(
+                0, wsp, locTracesDotNorm[nd]);
+            locTraceBwd =
+                locTracesDotNorm[nd] + locTraceToTraceMap->GetNFwdLocTracePts();
+            locTraceToTraceMap->ReshuffleLocTracesForInterp(1, wsp,
+                                                            locTraceBwd);
+            // add locTraceFlux back to tmpfields
+            tmpfields[nd] = Array<OneD, NekDouble>(nTotPhys, 0.0);
+            locTraceToTraceMap->AddLocTracesToField(locTracesDotNorm[nd],
+                                                    tmpfields[nd]);
+            // To use GLwithEnds here, we must handle division by zero
+            DisContField->DivideByQuadratureMetric(tmpfields[nd],
+                                                   tmpfields[nd]);
         }
-        fields[nv]->IProductWRTDerivBase(tmpfield, tmpCoeff);
-        Vmath::Vadd(nCoeffs, tmpCoeff, 1, outarray[nv], 1, outarray[nv], 1);
-    }
-}
 
-void DiffusionIP::AddSymmFluxIntegralToPhys(
-    const std::size_t nConvectiveFields, const size_t nDim, const size_t nPts,
-    [[maybe_unused]] const size_t nTracePts,
-    const Array<OneD, MultiRegions::ExpListSharedPtr> &fields,
-    const Array<OneD, const int> &nonZeroIndex,
-    TensorOfArray3D<NekDouble> &tracflux,
-    Array<OneD, Array<OneD, NekDouble>> &outarray)
-{
-    size_t nCoeffs = outarray[nConvectiveFields - 1].size();
-    Array<OneD, NekDouble> tmpCoeff{nCoeffs, 0.0};
-    Array<OneD, NekDouble> tmpPhysi{nPts, 0.0};
-    Array<OneD, Array<OneD, NekDouble>> tmpfield{nDim};
-    for (int i = 0; i < nDim; ++i)
-    {
-        tmpfield[i] = Array<OneD, NekDouble>{nPts, 0.0};
-    }
-    for (int j = 0; j < nonZeroIndex.size(); ++j)
-    {
-        int nv = nonZeroIndex[j];
-        for (int nd = 0; nd < nDim; ++nd)
-        {
-            Vmath::Zero(nPts, tmpfield[nd], 1);
-
-            fields[nv]->AddTraceQuadPhysToField(tracflux[nd][nv],
-                                                tracflux[nd][nv], tmpfield[nd]);
-            fields[nv]->DivideByQuadratureMetric(tmpfield[nd], tmpfield[nd]);
-        }
-        fields[nv]->IProductWRTDerivBase(tmpfield, tmpCoeff);
-        fields[nv]->BwdTrans(tmpCoeff, tmpPhysi);
-        Vmath::Vadd(nPts, tmpPhysi, 1, outarray[nv], 1, outarray[nv], 1);
+        DisContField->IProductWRTDerivBase(tmpfields, tmpCoeff);
+        Vmath::Vadd(nCoeffs, outarray[nv], 1, tmpCoeff, 1, outarray[nv], 1);
     }
 }
 

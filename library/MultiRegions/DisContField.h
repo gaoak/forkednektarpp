@@ -89,7 +89,7 @@ public:
 
     MULTI_REGIONS_EXPORT DisContField(
         const DisContField &In, const SpatialDomains::MeshGraphSharedPtr &graph,
-        const std::string &variable, const bool SetUpJustDG = false,
+        const std::string &variable, const bool SetUpJustDG = true,
         const bool DeclareCoeffPhysArrays = true);
 
     /// Constructs a 1D discontinuous field based on an
@@ -133,11 +133,12 @@ public:
             &bndCond,
         const Array<OneD, const ExpListSharedPtr> &BndCondExp);
 
-protected:
-    /// The number of boundary segments on which Dirichlet boundary
-    /// conditions are imposed.
-    size_t m_numDirBndCondExpansions;
+    MULTI_REGIONS_EXPORT ExpListSharedPtr &GetLocElmtTrace()
+    {
+        return m_locElmtTrace;
+    }
 
+protected:
     /// An array which contains the information about the boundary
     /// condition structure definition on the different boundary regions.
     Array<OneD, SpatialDomains::BoundaryConditionShPtr> m_bndConditions;
@@ -165,6 +166,9 @@ protected:
 
     /// Trace space storage for points between elements.
     ExpListSharedPtr m_trace;
+
+    /// Local Elemental trace expansions
+    MultiRegions::ExpListSharedPtr m_locElmtTrace;
 
     /// Local to global DG mapping for trace space.
     AssemblyMapDGSharedPtr m_traceMap;

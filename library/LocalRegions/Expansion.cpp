@@ -448,6 +448,14 @@ void Expansion::v_DivideByQuadratureMetric(
 
     Vmath::Vdiv(nqtot, inarray, 1, m_metrics[eMetricQuadrature], 1, outarray,
                 1);
+    // remove NaN or Inf values and set to zero
+    for (int i = 0; i < nqtot; ++i)
+    {
+        if (std::isnan(outarray[i]) || std::isinf(outarray[i]))
+        {
+            outarray[i] = 0.0;
+        }
+    }
 }
 
 void Expansion::ComputeLaplacianMetric()
@@ -527,6 +535,79 @@ void Expansion::StdDerivBaseOnTraceMat(Array<OneD, DNekMatSharedPtr> &DerivMat)
                 }
             }
             cnt += nTracePts;
+        }
+    }
+}
+
+void Expansion::PhysDerivBaseOnTraceMat(const int traceid,
+                                        Array<OneD, DNekMatSharedPtr> &DerivMat)
+{
+    int nquad = GetTotPoints();
+    int ndir  = m_base.size();
+
+    Array<OneD, NekDouble> coeffs(m_ncoeffs);
+    Array<OneD, NekDouble> phys(nquad);
+
+    Array<OneD, int> tracePhysIds;
+    GetTracePhysMap(traceid, tracePhysIds);
+
+    int nTracePts = GetTraceNumPoints(traceid);
+
+    // initialise array to null so can call for
+    // differnt dimensions
+    Array<OneD, Array<OneD, NekDouble>> Deriv(3, NullNekDouble1DArray);
+    DerivMat = Array<OneD, DNekMatSharedPtr>(ndir);
+    for (int d = 0; d < ndir; ++d)
+    {
+        Deriv[d]    = Array<OneD, NekDouble>(nquad);
+        DerivMat[d] = MemoryManager<DNekMat>::AllocateSharedPtr(m_ncoeffs,
+                                                                nTracePts, 0.0);
+    }
+
+    for (int i = 0; i < m_ncoeffs; ++i)
+    {
+        Vmath::Zero(m_ncoeffs, coeffs, 1);
+        coeffs[i] = 1.0;
+        BwdTrans(coeffs, phys);
+
+        // dphi_i/d\xi_1,  dphi_i/d\xi_2  dphi_i/d\xi_3
+        PhysDeriv(phys, Deriv[0], Deriv[1], Deriv[2]);
+
+        for (int k = 0; k < nTracePts; ++k)
+        {
+            for (int d = 0; d < ndir; ++d)
+            {
+                (*DerivMat[d])(i, k) = Deriv[d][tracePhysIds[k]];
+            }
+        }
+    }
+}
+
+void Expansion::PhysBaseOnTraceMat(const int traceid,
+                                   DNekMatSharedPtr &BdataMat)
+{
+    int nquad = GetTotPoints();
+
+    Array<OneD, NekDouble> coeffs(m_ncoeffs);
+    Array<OneD, NekDouble> phys(nquad);
+
+    Array<OneD, int> tracePhysIds;
+    GetTracePhysMap(traceid, tracePhysIds);
+
+    int nTracePts = GetTraceNumPoints(traceid);
+
+    BdataMat =
+        MemoryManager<DNekMat>::AllocateSharedPtr(m_ncoeffs, nTracePts, 0.0);
+
+    for (int i = 0; i < m_ncoeffs; ++i)
+    {
+        Vmath::Zero(m_ncoeffs, coeffs, 1);
+        coeffs[i] = 1.0;
+        BwdTrans(coeffs, phys);
+
+        for (int k = 0; k < nTracePts; ++k)
+        {
+            (*BdataMat)(i, k) = phys[tracePhysIds[k]];
         }
     }
 }
@@ -931,4 +1012,283 @@ void Expansion::v_AlignVectorToCollapsedDir(
 {
     NEKERROR(ErrorUtil::efatal, "v_AlignVectorToCollapsedDir is not defined");
 }
+
+void GetTraceQuadRange(const LibUtilities::ShapeType shapeType,
+                       const LibUtilities::BasisKeyVector &bkeys, int traceid,
+                       std::vector<int> &q_begin, std::vector<int> &q_end)
+{
+    auto DIM = LibUtilities::ShapeTypeDimMap[shapeType];
+
+    if (DIM == 1)
+    {
+        q_begin.resize(1);
+        q_end.resize(1);
+        LibUtilities::GetEffectiveQuadRange(bkeys[0].GetPointsKey(), q_begin[0],
+                                            q_end[0]);
+        return;
+    }
+    else if (DIM == 2)
+    {
+        q_begin.resize(2);
+        q_end.resize(2);
+        LibUtilities::GetEffectiveQuadRange(bkeys[0].GetPointsKey(), q_begin[0],
+                                            q_end[0]);
+        LibUtilities::GetEffectiveQuadRange(bkeys[1].GetPointsKey(), q_begin[1],
+                                            q_end[1]);
+    }
+    else if (DIM == 3)
+    {
+        q_begin.resize(3);
+        q_end.resize(3);
+        LibUtilities::GetEffectiveQuadRange(bkeys[0].GetPointsKey(), q_begin[0],
+                                            q_end[0]);
+        LibUtilities::GetEffectiveQuadRange(bkeys[1].GetPointsKey(), q_begin[1],
+                                            q_end[1]);
+        LibUtilities::GetEffectiveQuadRange(bkeys[2].GetPointsKey(), q_begin[2],
+                                            q_end[2]);
+    }
+
+    switch (shapeType)
+    {
+        case LibUtilities::eTriangle:
+        {
+            switch (traceid)
+            {
+                case 0:
+                {
+                    // assume it always includes the end points
+                    q_begin[1] = 0;
+                    q_end[1]   = 1;
+                    return;
+                }
+                case 1:
+                {
+                    // assume it always includes the end points
+                    q_begin[0] = bkeys[0].GetNumPoints() - 1;
+                    q_end[0]   = bkeys[0].GetNumPoints();
+                    return;
+                }
+                case 2:
+                {
+                    q_begin[0] = 0;
+                    q_end[0]   = 1;
+                    return;
+                }
+                default:
+                {
+                    NEKERROR(ErrorUtil::efatal, "Invalid trace id");
+                    break;
+                }
+            }
+        }
+        break;
+        case LibUtilities::eQuadrilateral:
+        {
+            switch (traceid)
+            {
+                case 0:
+                {
+                    q_begin[1] = 0;
+                    q_end[1]   = 1;
+                    return;
+                }
+                case 1:
+                {
+                    q_begin[0] = bkeys[0].GetNumPoints() - 1;
+                    q_end[0]   = bkeys[0].GetNumPoints();
+                    return;
+                }
+                case 2:
+                {
+                    q_begin[1] = bkeys[1].GetNumPoints() - 1;
+                    q_end[1]   = bkeys[1].GetNumPoints();
+                    return;
+                }
+                case 3:
+                {
+                    q_begin[0] = 0;
+                    q_end[0]   = 1;
+                    return;
+                }
+                default:
+                {
+                    NEKERROR(ErrorUtil::efatal, "Invalid trace id");
+                    break;
+                }
+            }
+        }
+        break;
+        case LibUtilities::eHexahedron:
+        {
+            switch (traceid)
+            {
+                case 0:
+                {
+                    q_begin[2] = 0;
+                    q_end[2]   = 1;
+                    return;
+                }
+                case 1:
+                {
+                    q_begin[1] = 0;
+                    q_end[1]   = 1;
+                    return;
+                }
+                case 2:
+                {
+                    q_begin[0] = bkeys[0].GetNumPoints() - 1;
+                    q_end[0]   = bkeys[0].GetNumPoints();
+                    return;
+                }
+                case 3:
+                {
+                    q_begin[1] = bkeys[1].GetNumPoints() - 1;
+                    q_end[1]   = bkeys[1].GetNumPoints();
+                    return;
+                }
+                case 4:
+                {
+                    q_begin[0] = 0;
+                    q_end[0]   = 1;
+                    return;
+                }
+                case 5:
+                {
+                    q_begin[2] = bkeys[2].GetNumPoints() - 1;
+                    q_end[2]   = bkeys[2].GetNumPoints();
+                    return;
+                }
+                default:
+                {
+                    NEKERROR(ErrorUtil::efatal, "Invalid trace id");
+                    break;
+                }
+            }
+        }
+        break;
+        case LibUtilities::eTetrahedron:
+        {
+            switch (traceid)
+            {
+                case 0:
+                {
+                    q_begin[2] = 0;
+                    q_end[2]   = 1;
+                    return;
+                }
+                case 1:
+                {
+                    q_begin[1] = 0;
+                    q_end[1]   = 1;
+                    return;
+                }
+                case 2:
+                {
+                    q_begin[0] = bkeys[0].GetNumPoints() - 1;
+                    q_end[0]   = bkeys[0].GetNumPoints();
+                    return;
+                }
+                case 3:
+                {
+                    q_begin[0] = 0;
+                    q_end[0]   = 1;
+                    return;
+                }
+                default:
+                {
+                    NEKERROR(ErrorUtil::efatal, "Invalid trace id");
+                    break;
+                }
+            }
+        }
+        break;
+        case LibUtilities::ePrism:
+        {
+            switch (traceid)
+            {
+                case 0:
+                {
+                    q_begin[2] = 0;
+                    q_end[2]   = 1;
+                    return;
+                }
+                case 1:
+                {
+                    q_begin[1] = 0;
+                    q_end[1]   = 1;
+                    return;
+                }
+                case 2:
+                {
+                    q_begin[0] = bkeys[0].GetNumPoints() - 1;
+                    q_end[0]   = bkeys[0].GetNumPoints();
+                    return;
+                }
+                case 3:
+                {
+                    q_begin[1] = bkeys[1].GetNumPoints() - 1;
+                    q_end[1]   = bkeys[1].GetNumPoints();
+                    return;
+                }
+                case 4:
+                {
+                    q_begin[0] = 0;
+                    q_end[0]   = 1;
+                    return;
+                }
+                default:
+                {
+                    NEKERROR(ErrorUtil::efatal, "Invalid trace id");
+                    break;
+                }
+            }
+        }
+        break;
+        case LibUtilities::ePyramid:
+        {
+            switch (traceid)
+            {
+                case 0:
+                {
+                    q_begin[2] = 0;
+                    q_end[2]   = 1;
+                    return;
+                }
+                case 1:
+                {
+                    q_begin[1] = 0;
+                    q_end[1]   = 1;
+                    return;
+                }
+                case 2:
+                {
+                    q_begin[0] = bkeys[0].GetNumPoints() - 1;
+                    q_end[0]   = bkeys[0].GetNumPoints();
+                    return;
+                }
+                case 3:
+                {
+                    q_begin[0] = bkeys[1].GetNumPoints() - 1;
+                    q_end[0]   = bkeys[1].GetNumPoints();
+                    return;
+                }
+                case 4:
+                {
+                    q_begin[1] = 0;
+                    q_end[1]   = 1;
+                    return;
+                }
+                default:
+                {
+                    NEKERROR(ErrorUtil::efatal, "Invalid trace id");
+                    break;
+                }
+            }
+        }
+        break;
+        default:
+            return;
+    }
+}
+
 } // namespace Nektar::LocalRegions

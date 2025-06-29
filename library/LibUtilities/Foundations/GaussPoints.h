@@ -118,6 +118,12 @@ public:
         m_InterpManager.RegisterCreator(
             PointsKey(0, eBoundaryLayerPointsRev),
             std::bind(&GaussPoints::CreateMatrix, this, pl::_1));
+        m_InterpManager.RegisterCreator(
+            PointsKey(0, eGaussLegendreWithMP),
+            std::bind(&GaussPoints::CreateMatrix, this, pl::_1));
+        m_InterpManager.RegisterCreator(
+            PointsKey(0, eGaussLegendreWithM),
+            std::bind(&GaussPoints::CreateMatrix, this, pl::_1));
         m_GalerkinProjectionManager.RegisterCreator(
             PointsKey(0, eGaussGaussLegendre),
             std::bind(&GaussPoints::CreateGPMatrix, this, pl::_1));
@@ -177,6 +183,12 @@ public:
             std::bind(&GaussPoints::CreateGPMatrix, this, pl::_1));
         m_GalerkinProjectionManager.RegisterCreator(
             PointsKey(0, eBoundaryLayerPointsRev),
+            std::bind(&GaussPoints::CreateGPMatrix, this, pl::_1));
+        m_GalerkinProjectionManager.RegisterCreator(
+            PointsKey(0, eGaussLegendreWithMP),
+            std::bind(&GaussPoints::CreateGPMatrix, this, pl::_1));
+        m_GalerkinProjectionManager.RegisterCreator(
+            PointsKey(0, eGaussLegendreWithM),
             std::bind(&GaussPoints::CreateGPMatrix, this, pl::_1));
     }
 

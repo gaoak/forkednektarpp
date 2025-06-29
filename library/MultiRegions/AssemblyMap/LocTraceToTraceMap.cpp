@@ -47,6 +47,10 @@ using namespace std;
 namespace Nektar::MultiRegions
 {
 
+LocTraceToTraceMap::~LocTraceToTraceMap()
+{
+}
+
 /**
  * @brief Set up trace to trace mapping components.
  *
@@ -63,33 +67,10 @@ LocTraceToTraceMap::LocTraceToTraceMap(
         &elmtToTrace,
     const vector<bool> &LeftAdjacents)
 {
-    const LocalRegions::ExpansionVector &locExpVector = *(locExp.GetExp());
-
+    const std::shared_ptr<LocalRegions::ExpansionVector> exp = locExp.GetExp();
     // Assume that all the elements have same dimension
-    m_expdim = locExpVector[0]->GetShapeDimension();
+    m_expdim = (*exp)[0]->GetShapeDimension();
 
-    // set up interpolation details for all dimension elements.
-    Setup(locExp, trace, elmtToTrace, LeftAdjacents);
-}
-
-LocTraceToTraceMap::~LocTraceToTraceMap()
-{
-}
-
-/**
- * @brief Set up member variables for a two-dimensional problem.
- *
- * @param locExp         Expansion list of elements
- * @param trace          Expansion list of the trace.
- * @param elmtToTrace    Mapping from elemental trace to unique trace.
- * @param leftAdjacents  Vector of bools denoting forwards-oriented traces.
- */
-void LocTraceToTraceMap::Setup(
-    const ExpList &locExp, const ExpListSharedPtr &trace,
-    const Array<OneD, Array<OneD, LocalRegions::ExpansionSharedPtr>>
-        &elmtToTrace,
-    const vector<bool> &LeftAdjacents)
-{
     m_locInterpTraceToTraceMap = Array<OneD, Array<OneD, int>>(2);
     m_locTraceToElmtTraceMap   = Array<OneD, Array<OneD, int>>(2);
     m_interpTrace       = Array<OneD, Array<OneD, InterpLocTraceToTrace>>(2);
@@ -111,7 +92,6 @@ void LocTraceToTraceMap::Setup(
     m_traceCoeffsToElmtSign  = Array<OneD, Array<OneD, int>>(2);
 
     LocalRegions::ExpansionSharedPtr elmt;
-    const std::shared_ptr<LocalRegions::ExpansionVector> exp = locExp.GetExp();
 
     int cnt, n, e, phys_offset;
 
@@ -123,6 +103,7 @@ void LocTraceToTraceMap::Setup(
     int nBwdPts       = 0;
     int nFwdCoeffs    = 0;
     int nBwdCoeffs    = 0;
+    int nLocTraces    = 0; // num of total local traces
     m_nFwdLocTracePts = 0;
     m_nLocTracePts    = 0;
 
@@ -134,6 +115,7 @@ void LocTraceToTraceMap::Setup(
         {
             int nLocPts = elmt->GetTraceNumPoints(i);
             m_nLocTracePts += nLocPts;
+            nLocTraces++;
 
             if (LeftAdjacents[cnt])
             {
@@ -168,6 +150,15 @@ void LocTraceToTraceMap::Setup(
     m_traceCoeffsToElmtSign[0]  = Array<OneD, int>(nFwdCoeffs + nBwdCoeffs);
     m_traceCoeffsToElmtSign[1]  = m_traceCoeffsToElmtSign[0] + nFwdCoeffs;
 
+    //------ new entry variables ----------
+    m_locTracePtsEntry    = Array<OneD, Array<OneD, int>>(nexp);
+    m_interpTracePtsEntry = Array<OneD, Array<OneD, int>>(nexp);
+    m_interpTraceIndex    = Array<OneD, Array<OneD, int>>(nexp);
+    m_traceCoeffsEntry    = Array<OneD, Array<OneD, int>>(nexp);
+
+    // size of total loc traces
+    m_locToTracePhysOffset = Array<OneD, int>(nLocTraces);
+
     // Gather information about trace interpolations
     map<TraceInterpPoints, vector<pair<int, int>>, cmpop> TraceInterpMap;
 
@@ -188,6 +179,11 @@ void LocTraceToTraceMap::Setup(
         ntrace = elmt->GetNtraces();
         TraceOrder[n].resize(ntrace);
         ElmtPhysTraceOffset[n].resize(ntrace);
+
+        m_locTracePtsEntry[n]    = Array<OneD, int>(ntrace);
+        m_interpTracePtsEntry[n] = Array<OneD, int>(ntrace);
+        m_interpTraceIndex[n]    = Array<OneD, int>(ntrace);
+        m_traceCoeffsEntry[n]    = Array<OneD, int>(ntrace);
 
         int coeffoffset = locExp.GetCoeff_Offset(n);
         for (e = 0; e < ntrace; ++e, ++cnt)
@@ -291,6 +287,7 @@ void LocTraceToTraceMap::Setup(
 
             if (LeftAdjacents[cnt])
             {
+                m_traceCoeffsEntry[n][e] = fwdcnt;
                 for (int i = 0; i < order_t; ++i)
                 {
                     m_traceCoeffsToElmtMap[0][fwdcnt]    = coeffoffset + map[i];
@@ -300,6 +297,7 @@ void LocTraceToTraceMap::Setup(
             }
             else
             {
+                m_traceCoeffsEntry[n][e] = nFwdCoeffs + bwdcnt;
                 for (int i = 0; i < order_t; ++i)
                 {
                     m_traceCoeffsToElmtMap[1][bwdcnt]    = coeffoffset + map[i];
@@ -307,6 +305,23 @@ void LocTraceToTraceMap::Setup(
                     m_traceCoeffsToElmtSign[1][bwdcnt++] = fac * sign[i];
                 }
             }
+
+            // Get the start pos of this local trace in the trace phys space
+            m_locToTracePhysOffset[cnt] =
+                trace->GetPhys_Offset(elmttrace->GetElmtId());
+
+            // //-----debug------
+            // if (orient>=9 || P[0]!=P[1])
+            // {
+            //     int dir0 = elmt->GetGeom()->GetDir(e, 0);
+            //     int dir1 = elmt->GetGeom()->GetDir(e, 1);
+            //     std::cout << "n = " << n << "  e = " << e
+            //             << "  orient =" << orient << std::endl;
+            //     std::cout << "  glotrace nm0, nm1 = " << P[0] << ", "<< P[1]
+            //     << std::endl; std::cout << "  locTrace nm0, nm1 = " <<
+            //     elmt->GetBasisNumModes(dir0)
+            //             << ", "<< elmt->GetBasisNumModes(dir1) << std::endl;
+            // }
         }
     }
 
@@ -336,11 +351,11 @@ void LocTraceToTraceMap::Setup(
 
     int ntracepts, ntracepts1;
     int cnt1    = 0;
-    int cnt2    = 0;
+    int cnt2    = 0; // counter for traces
     int cntFwd  = 0;
-    int cntBwd  = 0;
+    int cntBwd  = 0; // counter for loc trace points
     int cntFwd1 = 0;
-    int cntBwd1 = 0;
+    int cntBwd1 = 0; // counter for trace points
     int set;
     Array<OneD, int> traceids;
     Array<OneD, int> locTraceToTraceMap;
@@ -395,6 +410,7 @@ void LocTraceToTraceMap::Setup(
 
             if (LeftAdjacents[TraceOrder[n][e]])
             {
+                m_locTracePtsEntry[n][e] = cntFwd;
                 for (int i = 0; i < ntracepts; ++i)
                 {
                     m_locTraceToFieldMap[cntFwd + i] =
@@ -407,6 +423,7 @@ void LocTraceToTraceMap::Setup(
                         ElmtPhysTraceOffset[n][e] + i;
                 }
 
+                m_interpTracePtsEntry[n][e] = cntFwd1;
                 for (int i = 0; i < ntracepts1; ++i)
                 {
                     m_locInterpTraceToTraceMap[0][cntFwd1 + i] =
@@ -419,6 +436,7 @@ void LocTraceToTraceMap::Setup(
             }
             else
             {
+                m_locTracePtsEntry[n][e] = m_nFwdLocTracePts + cntBwd;
                 for (int i = 0; i < ntracepts; ++i)
                 {
                     m_locTraceToFieldMap[m_nFwdLocTracePts + cntBwd + i] =
@@ -431,6 +449,8 @@ void LocTraceToTraceMap::Setup(
                         ElmtPhysTraceOffset[n][e] + i;
                 }
 
+                // it doesn't matter if it is fwd or bwd
+                m_interpTracePtsEntry[n][e] = cntBwd1;
                 for (int i = 0; i < ntracepts1; ++i)
                 {
                     m_locInterpTraceToTraceMap[1][cntBwd1 + i] =
@@ -443,7 +463,9 @@ void LocTraceToTraceMap::Setup(
             }
 
             m_interpNtraces[set][cnt1] += 1;
-
+            m_interpTraceIndex[n][e] = cnt1;
+            // For each unique interpolation type, set the interp matrix only
+            // once either for fwdSet or bwdSet
             if ((fwdSet == false && set == 0) || (bwdSet == false && set == 1))
             {
                 m_interpPoints[set][cnt1] = it->first;
@@ -473,13 +495,17 @@ void LocTraceToTraceMap::Setup(
                                     ->GetI(fromPointsKey0);
                             // Check to see if we can
                             // just interpolate endpoint
-                            if ((fromPointsKey0.GetPointsType() ==
-                                 LibUtilities::eGaussRadauMAlpha1Beta0) &&
-                                (toPointsKey0.GetPointsType() ==
-                                 LibUtilities::eGaussLobattoLegendre))
+                            if (fromPointsKey0.GetNumPoints() + 1 ==
+                                toPointsKey0.GetNumPoints())
                             {
-                                if (fromPointsKey0.GetNumPoints() + 1 ==
-                                    toPointsKey0.GetNumPoints())
+                                if (((fromPointsKey0.GetPointsType() ==
+                                      LibUtilities::eGaussRadauMAlpha1Beta0) &&
+                                     (toPointsKey0.GetPointsType() ==
+                                      LibUtilities::eGaussLobattoLegendre)) ||
+                                    ((fromPointsKey0.GetPointsType() ==
+                                      LibUtilities::eGaussLegendreWithM) &&
+                                     (toPointsKey0.GetPointsType() ==
+                                      LibUtilities::eGaussLegendreWithMP)))
                                 {
                                     m_interpTrace[set][cnt1] = eInterpEndPtDir0;
 
@@ -523,13 +549,19 @@ void LocTraceToTraceMap::Setup(
 
                                 // Check to see if we can just
                                 // interpolate endpoint
-                                if ((fromPointsKey1.GetPointsType() ==
-                                     LibUtilities::eGaussRadauMAlpha1Beta0) &&
-                                    (toPointsKey1.GetPointsType() ==
-                                     LibUtilities::eGaussLobattoLegendre))
+                                if (fromPointsKey1.GetNumPoints() + 1 ==
+                                    toPointsKey1.GetNumPoints())
                                 {
-                                    if (fromPointsKey1.GetNumPoints() + 1 ==
-                                        toPointsKey1.GetNumPoints())
+                                    if (((fromPointsKey1.GetPointsType() ==
+                                          LibUtilities::
+                                              eGaussRadauMAlpha1Beta0) &&
+                                         (toPointsKey1.GetPointsType() ==
+                                          LibUtilities::
+                                              eGaussLobattoLegendre)) ||
+                                        ((fromPointsKey1.GetPointsType() ==
+                                          LibUtilities::eGaussLegendreWithM) &&
+                                         (toPointsKey1.GetPointsType() ==
+                                          LibUtilities::eGaussLegendreWithMP)))
                                     {
                                         m_interpTrace[set][cnt1] =
                                             eInterpEndPtDir1;
@@ -565,13 +597,19 @@ void LocTraceToTraceMap::Setup(
 
                                 // Check to see if we can just
                                 // interpolate endpoint
-                                if ((fromPointsKey0.GetPointsType() ==
-                                     LibUtilities::eGaussRadauMAlpha1Beta0) &&
-                                    (toPointsKey0.GetPointsType() ==
-                                     LibUtilities::eGaussLobattoLegendre))
+                                if (fromPointsKey0.GetNumPoints() + 1 ==
+                                    toPointsKey0.GetNumPoints())
                                 {
-                                    if (fromPointsKey0.GetNumPoints() + 1 ==
-                                        toPointsKey0.GetNumPoints())
+                                    if (((fromPointsKey0.GetPointsType() ==
+                                          LibUtilities::
+                                              eGaussRadauMAlpha1Beta0) &&
+                                         (toPointsKey0.GetPointsType() ==
+                                          LibUtilities::
+                                              eGaussLobattoLegendre)) ||
+                                        ((fromPointsKey0.GetPointsType() ==
+                                          LibUtilities::eGaussLegendreWithM) &&
+                                         (toPointsKey0.GetPointsType() ==
+                                          LibUtilities::eGaussLegendreWithMP)))
                                     {
                                         m_interpTrace[set][cnt1] =
                                             eInterpEndPtDir0;
@@ -611,13 +649,19 @@ void LocTraceToTraceMap::Setup(
 
                                 // check to see if we can just
                                 // interpolate endpoint
-                                if ((fromPointsKey0.GetPointsType() ==
-                                     LibUtilities::eGaussRadauMAlpha1Beta0) &&
-                                    (toPointsKey0.GetPointsType() ==
-                                     LibUtilities::eGaussLobattoLegendre))
+                                if (fromPointsKey0.GetNumPoints() + 1 ==
+                                    toPointsKey0.GetNumPoints())
                                 {
-                                    if (fromPointsKey0.GetNumPoints() + 1 ==
-                                        toPointsKey0.GetNumPoints())
+                                    if (((fromPointsKey0.GetPointsType() ==
+                                          LibUtilities::
+                                              eGaussRadauMAlpha1Beta0) &&
+                                         (toPointsKey0.GetPointsType() ==
+                                          LibUtilities::
+                                              eGaussLobattoLegendre)) ||
+                                        ((fromPointsKey0.GetPointsType() ==
+                                          LibUtilities::eGaussLegendreWithM) &&
+                                         (toPointsKey0.GetPointsType() ==
+                                          LibUtilities::eGaussLegendreWithMP)))
                                     {
                                         m_interpTrace[set][cnt1] =
                                             eInterpEndPtDir0InterpDir1;
@@ -655,6 +699,244 @@ void LocTraceToTraceMap::Setup(
 
     TraceLocToElmtLocCoeffMap(locExp, trace);
     FindElmtNeighbors(locExp, trace);
+
+    //---- Below is to construct traceFieldMap and traceInterp essential -----
+
+    auto collections = locExp.GetCollections();
+
+    m_collExpOffset = Array<OneD, int>(collections.size(), 0);
+
+    for (int cid = 1; cid < collections.size(); ++cid)
+    {
+        m_collExpOffset[cid] = m_collExpOffset[cid - 1] +
+                               collections[cid - 1].GetExpVector().size();
+    }
+
+    m_traceFieldMap = Array<OneD, TraceFieldMapEssential>(collections.size());
+    m_traceInterp   = Array<OneD, TraceInterpEssential>(collections.size());
+
+    // map<{shape, orient, dir, typid}, orientationid>
+    std::map<std::tuple<int, int, int, int>, int> map_locTraceToTrace;
+
+    // temporary
+    std::vector<Array<OneD, int>> orientationMaps;
+
+    int cntLocTrace = 0;
+    int elmtId      = 0;
+    for (int cid = 0; cid < collections.size(); ++cid)
+    {
+        auto pCollExp  = collections[cid].GetExpVector();
+        auto pGeomData = collections[cid].GetGeomSharedPtr();
+
+        auto exp =
+            std::dynamic_pointer_cast<LocalRegions::Expansion>(pCollExp[0]);
+
+        // directly assign the same name variables
+        m_traceInterp[cid].m_interpTrace       = m_interpTrace;
+        m_traceInterp[cid].m_interpTraceI0     = m_interpTraceI0;
+        m_traceInterp[cid].m_interpTraceI1     = m_interpTraceI1;
+        m_traceInterp[cid].m_interpFromTraceI0 = m_interpFromTraceI0;
+        m_traceInterp[cid].m_interpFromTraceI1 = m_interpFromTraceI1;
+        m_traceInterp[cid].m_interpPoints      = m_interpPoints;
+        m_traceInterp[cid].m_interpEndPtI0     = m_interpEndPtI0;
+        m_traceInterp[cid].m_interpEndPtI1     = m_interpEndPtI1;
+        m_traceInterp[cid].m_interpNtraces     = m_interpNtraces;
+
+        m_traceInterp[cid].m_maxTraceSize = 1;
+        for (int dir = 0; dir < 2; ++dir)
+        {
+            for (int typid = 0; typid < m_interpPoints[dir].size(); ++typid)
+            {
+                if (m_expdim == 3)
+                {
+                    int fnp0 =
+                        std::get<0>(m_interpPoints[dir][typid]).GetNumPoints();
+                    int fnp1 =
+                        std::get<1>(m_interpPoints[dir][typid]).GetNumPoints();
+                    int tnp0 =
+                        std::get<2>(m_interpPoints[dir][typid]).GetNumPoints();
+                    int tnp1 =
+                        std::get<3>(m_interpPoints[dir][typid]).GetNumPoints();
+
+                    int tmp = std::max(fnp0 * fnp1, tnp0 * tnp1);
+                    m_traceInterp[cid].m_maxTraceSize =
+                        std::max(tmp, m_traceInterp[cid].m_maxTraceSize);
+                }
+                else
+                {
+                    int fnp0 =
+                        std::get<0>(m_interpPoints[dir][typid]).GetNumPoints();
+                    int tnp0 =
+                        std::get<2>(m_interpPoints[dir][typid]).GetNumPoints();
+                    int tmp = std::max(fnp0, tnp0);
+                    m_traceInterp[cid].m_maxTraceSize =
+                        std::max(tmp, m_traceInterp[cid].m_maxTraceSize);
+                }
+            }
+        }
+
+        // reshape m_interpTraceIndex of this collection from (n,e) to (e,n)
+        // and stored in m_traceInterp
+        m_traceInterp[cid].m_interpTraceIndex =
+            Array<OneD, Array<OneD, int>>(exp->GetNtraces());
+        for (int e = 0; e < exp->GetNtraces(); e++)
+        {
+            m_traceInterp[cid].m_interpTraceIndex[e] =
+                Array<OneD, int>(pCollExp.size(), 0);
+        }
+
+        // Get trace to elmt map from first exp and stored
+        m_traceFieldMap[cid].m_locTracePhysToElmtMaps =
+            Array<OneD, Array<OneD, int>>(exp->GetNtraces());
+
+        for (int e = 0; e < exp->GetNtraces(); e++)
+        {
+            exp->GetTracePhysMap(
+                e, m_traceFieldMap[cid].m_locTracePhysToElmtMaps[e]);
+        }
+
+        // Allocate memory for orientations
+        m_traceFieldMap[cid].m_orientationIds =
+            Array<OneD, Array<OneD, int>>(exp->GetNtraces());
+        for (int e = 0; e < exp->GetNtraces(); e++)
+        {
+            m_traceFieldMap[cid].m_orientationIds[e] =
+                Array<OneD, int>(pCollExp.size(), 0);
+        }
+
+        // allocate memory for locToTraceId
+        m_traceFieldMap[cid].m_locToTraceId =
+            Array<OneD, Array<OneD, int>>(exp->GetNtraces());
+        for (int e = 0; e < exp->GetNtraces(); e++)
+        {
+            m_traceFieldMap[cid].m_locToTraceId[e] =
+                Array<OneD, int>(pCollExp.size(), 0);
+        }
+        // clear the maps : so each collection has its own maps
+        // However, even if we disable this, things won't go wrong
+        // Just have bigger arrays storing redundant data
+        orientationMaps.clear();
+        map_locTraceToTrace.clear();
+
+        int cntCollLocTrace = 0;
+        for (int n = 0; n < pCollExp.size(); n++, elmtId++)
+        {
+            auto locExp =
+                std::dynamic_pointer_cast<LocalRegions::Expansion>(pCollExp[n]);
+            for (int e = 0; e < locExp->GetNtraces(); e++, cntCollLocTrace++)
+            {
+                int dir = 0;
+                if (!LeftAdjacents[cntLocTrace + cntCollLocTrace])
+                {
+                    dir = 1;
+                }
+                int typid  = m_interpTraceIndex[elmtId][e];
+                int orient = static_cast<int>(locExp->GetTraceOrient(e));
+                int shape  = 0;
+                switch (locExp->GetShapeDimension())
+                {
+                    case 1:
+                        shape = static_cast<int>(LibUtilities::ePoint);
+                        break;
+                    case 2:
+                        shape = static_cast<int>(
+                            locExp->GetGeom()->GetEdge(e)->GetShapeType());
+                        break;
+                    case 3:
+                        shape = static_cast<int>(
+                            locExp->GetGeom()->GetFace(e)->GetShapeType());
+                        break;
+                }
+                auto thisKey =
+                    std::tuple<int, int, int, int>{shape, orient, dir, typid};
+                if (map_locTraceToTrace.find(thisKey) ==
+                    map_locTraceToTrace.end())
+                {
+                    // insert new item
+                    Array<OneD, int> thisMapArray;
+                    auto tnp0 =
+                        std::get<2>(m_interpPoints[dir][typid]).GetNumPoints();
+                    auto tnp1 =
+                        std::get<3>(m_interpPoints[dir][typid]).GetNumPoints();
+                    exp->ReOrientTracePhysMap(locExp->GetTraceOrient(e),
+                                              thisMapArray, tnp0, tnp1);
+                    orientationMaps.push_back(thisMapArray);
+                    m_traceFieldMap[cid].m_orientationIds[e][n] =
+                        orientationMaps.size() - 1;
+                    map_locTraceToTrace[thisKey] = orientationMaps.size() - 1;
+                }
+                else // already exist
+                {
+                    m_traceFieldMap[cid].m_orientationIds[e][n] =
+                        map_locTraceToTrace[thisKey];
+                }
+
+                std::array<LibUtilities::BasisKey, 3> thisExpKeys{
+                    LibUtilities::NullBasisKey, LibUtilities::NullBasisKey,
+                    LibUtilities::NullBasisKey};
+
+                m_traceInterp[cid].m_interpTraceIndex[e][n] =
+                    m_interpTraceIndex[elmtId][e];
+                m_traceFieldMap[cid].m_locToTraceId[e][n] =
+                    elmtToTrace[elmtId][e]->GetElmtId();
+            }
+        }
+
+        // copy orientationMaps to m_traceFieldMap[cid] because orientationMaps
+        // are std::vector
+        m_traceFieldMap[cid].m_orientationMaps =
+            Array<OneD, Array<OneD, int>>(orientationMaps.size());
+        for (int i = 0; i < orientationMaps.size(); ++i)
+        {
+            m_traceFieldMap[cid].m_orientationMaps[i] = orientationMaps[i];
+        }
+
+        // reshape LeftAdjacents from (n,e) to (e,n) and copy to
+        // m_traceFieldMap[cid].m_isLocTraceLeftAdjacent
+        m_traceFieldMap[cid].m_isLocTraceLeftAdjacent =
+            Array<OneD, Array<OneD, bool>>(exp->GetNtraces());
+        for (int e = 0; e < exp->GetNtraces(); e++)
+        {
+            m_traceFieldMap[cid].m_isLocTraceLeftAdjacent[e] =
+                Array<OneD, bool>(pCollExp.size(), false);
+            for (int n = 0; n < pCollExp.size(); n++)
+            {
+                m_traceFieldMap[cid].m_isLocTraceLeftAdjacent[e][n] =
+                    LeftAdjacents[cntLocTrace + n * exp->GetNtraces() + e];
+            }
+        }
+
+        // copy the m_locToTracePhysOffset with offset to a new array
+        // reshape from (n,e) to (e,n) and assgin to m_traceFieldMap[cid]
+        m_traceFieldMap[cid].m_locToTracePhysOffset =
+            Array<OneD, Array<OneD, int>>(exp->GetNtraces());
+        for (int e = 0; e < exp->GetNtraces(); e++)
+        {
+            m_traceFieldMap[cid].m_locToTracePhysOffset[e] =
+                Array<OneD, int>(pCollExp.size(), 0);
+            for (int n = 0; n < pCollExp.size(); n++)
+            {
+                m_traceFieldMap[cid].m_locToTracePhysOffset[e][n] =
+                    m_locToTracePhysOffset[cntLocTrace + n * exp->GetNtraces() +
+                                           e];
+            }
+        }
+
+        // update counters
+        cntLocTrace += cntCollLocTrace;
+    }
+}
+
+const TraceInterpEssential &LocTraceToTraceMap::GetTraceInterpEssential(
+    const int cid)
+{
+    return m_traceInterp[cid];
+}
+
+const TraceFieldMapEssential &LocTraceToTraceMap::GetTraceFieldMapEssential(
+    const int cid)
+{
+    return m_traceFieldMap[cid];
 }
 
 void LocTraceToTraceMap::CalcLocTracePhysToTraceIDMap(
@@ -1148,7 +1430,7 @@ void LocTraceToTraceMap::InterpLocEdgesToTrace(
     int cnt1 = 0;
 
     // tmp space assuming forward map is of size of trace
-    Array<OneD, NekDouble> tmp(m_nTracePts);
+    Array<OneD, NekDouble> tmp(m_nTracePts, 0.0);
 
     for (int i = 0; i < m_interpTrace[dir].size(); ++i)
     {
@@ -1170,8 +1452,38 @@ void LocTraceToTraceMap::InterpLocEdgesToTrace(
             {
                 case eNoInterp: // Just copy
                 {
-                    Vmath::Vcopy(nedges * fnp, locedges.data() + cnt, 1,
-                                 tmp.data() + cnt1, 1);
+                    if (fnp == tnp) // identical points : just copy all points
+                    {
+                        Vmath::Vcopy(nedges * fnp, locedges.data() + cnt, 1,
+                                     tmp.data() + cnt1, 1);
+                    }
+                    else // copy interior points and fill in end points (if any)
+                    {
+                        int fbegin, fend, fsize;
+                        int tbegin, tend, tsize;
+                        LibUtilities::GetEffectiveQuadRange(fromPointsKey0,
+                                                            fbegin, fend);
+                        LibUtilities::GetEffectiveQuadRange(toPointsKey0,
+                                                            tbegin, tend);
+                        fsize = fend - fbegin;
+                        tsize = tend - tbegin;
+                        ASSERTL0(
+                            fsize == tsize,
+                            "Quad ranges mismatch in InterpLocEdgesToTrace!");
+                        for (int k = 0; k < nedges; ++k)
+                        {
+                            Vmath::Vcopy(
+                                fsize, locedges.data() + cnt + fnp * k + fbegin,
+                                1, tmp.data() + cnt1 + tnp * k + tbegin, 1);
+                            // fill 0 ~ tbegin with tbegin
+                            Vmath::Fill(tbegin, tmp[cnt1 + tnp * k + tbegin],
+                                        tmp.data() + cnt1 + tnp * k, 1);
+                            // fill tend ~ tnp with tend
+                            Vmath::Fill(tnp - tend,
+                                        tmp[cnt1 + tnp * k + tend - 1],
+                                        tmp.data() + cnt1 + tnp * k + tend, 1);
+                        }
+                    }
                 }
                 break;
                 case eInterpDir0:
@@ -1230,7 +1542,7 @@ void LocTraceToTraceMap::InterpLocFacesToTrace(
     int cnt  = 0;
 
     // tmp space assuming forward map is of size of trace
-    Array<OneD, NekDouble> tmp(m_nTracePts);
+    Array<OneD, NekDouble> tmp(m_nTracePts, 0.0);
 
     for (int i = 0; i < m_interpTrace[dir].size(); ++i)
     {
@@ -1252,15 +1564,52 @@ void LocTraceToTraceMap::InterpLocFacesToTrace(
             int tnp0         = toPointsKey0.GetNumPoints();
             int tnp1         = toPointsKey1.GetNumPoints();
             int nfaces       = m_interpNtraces[dir][i];
-            int nfromfacepts = nfaces * fnp0 * fnp1;
+            int nfromfacepts = fnp0 * fnp1;
+            int ntofacepts   = tnp0 * tnp1;
 
             // Do interpolation here if required
             switch (m_interpTrace[dir][i])
             {
                 case eNoInterp: // Just copy
                 {
-                    Vmath::Vcopy(nfromfacepts, locfaces.data() + cnt, 1,
-                                 tmp.data() + cnt1, 1);
+                    if (fnp0 == tnp0 && fnp1 == tnp1)
+                    {
+                        Vmath::Vcopy(nfaces * nfromfacepts,
+                                     locfaces.data() + cnt, 1,
+                                     tmp.data() + cnt1, 1);
+                    }
+                    else
+                    {
+                        int fbegin0, fend0, fbegin1, fend1;
+                        int tbegin0, tend0, tbegin1, tend1;
+                        LibUtilities::GetEffectiveQuadRange(fromPointsKey0,
+                                                            fbegin0, fend0);
+                        LibUtilities::GetEffectiveQuadRange(toPointsKey0,
+                                                            tbegin0, tend0);
+                        LibUtilities::GetEffectiveQuadRange(fromPointsKey1,
+                                                            fbegin1, fend1);
+                        LibUtilities::GetEffectiveQuadRange(toPointsKey1,
+                                                            tbegin1, tend1);
+                        ASSERTL0(
+                            fend0 - fbegin0 == tend0 - tbegin0 &&
+                                fend1 - fbegin1 == tend1 - tbegin1,
+                            "Quad ranges mismatch in InterpLocFacesToTrace!");
+                        for (int j = 0; j < nfaces; ++j)
+                        {
+                            for (int k = fbegin1, l = tbegin1; k < fend1;
+                                 ++k, ++l)
+                            {
+                                Vmath::Vcopy(
+                                    fend0 - fbegin0,
+                                    locfaces.data() + cnt + j * nfromfacepts +
+                                        k * fnp0 + fbegin0,
+                                    1,
+                                    tmp.data() + cnt1 + j * ntofacepts +
+                                        l * tnp0 + tbegin0,
+                                    1);
+                            }
+                        }
+                    }
                 }
                 break;
                 case eInterpDir0:
@@ -1290,7 +1639,7 @@ void LocTraceToTraceMap::InterpLocFacesToTrace(
                 case eInterpDir1:
                 {
                     DNekMatSharedPtr I1 = m_interpTraceI1[dir][i];
-                    for (int j = 0; j < m_interpNtraces[dir][i]; ++j)
+                    for (int j = 0; j < nfaces; ++j)
                     {
                         Blas::Dgemm('N', 'T', tnp0, tnp1, fnp1, 1.0,
                                     locfaces.data() + cnt + j * fnp0 * fnp1,
@@ -1302,7 +1651,7 @@ void LocTraceToTraceMap::InterpLocFacesToTrace(
                 case eInterpEndPtDir1:
                 {
                     Array<OneD, NekDouble> I1 = m_interpEndPtI1[dir][i];
-                    for (int j = 0; j < m_interpNtraces[dir][i]; ++j)
+                    for (int j = 0; j < nfaces; ++j)
                     {
                         // copy all points
                         Vmath::Vcopy(fnp0 * fnp1,
@@ -1325,19 +1674,18 @@ void LocTraceToTraceMap::InterpLocFacesToTrace(
                 {
                     DNekMatSharedPtr I0 = m_interpTraceI0[dir][i];
                     DNekMatSharedPtr I1 = m_interpTraceI1[dir][i];
-                    Array<OneD, NekDouble> wsp(m_interpNtraces[dir][i] * fnp0 *
-                                               tnp1);
+                    Array<OneD, NekDouble> wsp(nfaces * fnp0 * tnp1);
 
-                    for (int j = 0; j < m_interpNtraces[dir][i]; ++j)
+                    for (int j = 0; j < nfaces; ++j)
                     {
                         Blas::Dgemm('N', 'T', fnp0, tnp1, fnp1, 1.0,
                                     locfaces.data() + cnt + j * fnp0 * fnp1,
                                     fnp0, I1->GetPtr().data(), tnp1, 0.0,
                                     wsp.data() + j * fnp0 * tnp1, fnp0);
                     }
-                    Blas::Dgemm('N', 'N', tnp0, tnp1 * m_interpNtraces[dir][i],
-                                fnp0, 1.0, I0->GetPtr().data(), tnp0,
-                                wsp.data(), fnp0, 0.0, tmp.data() + cnt1, tnp0);
+                    Blas::Dgemm('N', 'N', tnp0, tnp1 * nfaces, fnp0, 1.0,
+                                I0->GetPtr().data(), tnp0, wsp.data(), fnp0,
+                                0.0, tmp.data() + cnt1, tnp0);
                 }
                 break;
                 case eInterpEndPtDir0InterpDir1:
@@ -1345,7 +1693,7 @@ void LocTraceToTraceMap::InterpLocFacesToTrace(
                     DNekMatSharedPtr I1       = m_interpTraceI1[dir][i];
                     Array<OneD, NekDouble> I0 = m_interpEndPtI0[dir][i];
 
-                    for (int j = 0; j < m_interpNtraces[dir][i]; ++j)
+                    for (int j = 0; j < nfaces; ++j)
                     {
                         Blas::Dgemm('N', 'T', fnp0, tnp1, fnp1, 1.0,
                                     locfaces.data() + cnt + j * fnp0 * fnp1,
@@ -1353,7 +1701,7 @@ void LocTraceToTraceMap::InterpLocFacesToTrace(
                                     tmp.data() + cnt1 + j * tnp0 * tnp1, tnp0);
                     }
 
-                    Blas::Dgemv('T', fnp0, tnp1 * m_interpNtraces[dir][i], 1.0,
+                    Blas::Dgemv('T', fnp0, tnp1 * nfaces, 1.0,
                                 tmp.data() + cnt1, tnp0, I0.data(), 1, 0.0,
                                 tmp.data() + cnt1 + tnp0 - 1, tnp0);
                 }
@@ -1362,8 +1710,8 @@ void LocTraceToTraceMap::InterpLocFacesToTrace(
                     ASSERTL0(false, "Interplation case needs implementing");
                     break;
             }
-            cnt += nfromfacepts;
-            cnt1 += m_interpNtraces[dir][i] * tnp0 * tnp1;
+            cnt += nfaces * nfromfacepts;
+            cnt1 += nfaces * ntofacepts;
         }
     }
 
@@ -1407,7 +1755,7 @@ void LocTraceToTraceMap::InterpLocEdgesToTraceTranspose(
     int cnt1 = 0;
 
     // tmp space assuming forward map is of size of trace
-    Array<OneD, NekDouble> tmp{size_t(m_nTracePts)};
+    Array<OneD, NekDouble> tmp{size_t(m_nTracePts), 0.0};
     Vmath::Gathr((int)m_locInterpTraceToTraceMap[dir].size(), edges.data(),
                  m_locInterpTraceToTraceMap[dir].data(), tmp.data());
 
@@ -1431,8 +1779,23 @@ void LocTraceToTraceMap::InterpLocEdgesToTraceTranspose(
             {
                 case eNoInterp: // Just copy
                 {
-                    Vmath::Vcopy(nedges * fnp, tmp.data() + cnt1, 1,
-                                 locedges.data() + cnt, 1);
+                    int fbegin, fsize;
+                    int tbegin, tsize;
+                    LibUtilities::GetEffectiveQuadRange(fromPointsKey0, fbegin,
+                                                        fsize);
+                    LibUtilities::GetEffectiveQuadRange(toPointsKey0, tbegin,
+                                                        tsize);
+                    fsize = fsize - fbegin;
+                    tsize = tsize - tbegin;
+                    ASSERTL0(fsize == tsize, "Quad ranges mismatch in "
+                                             "InterpLocEdgesToTraceTranspose!");
+                    for (int k = 0; k < nedges; ++k)
+                    {
+                        Vmath::Zero(fnp, locedges.data() + cnt + fnp * k, 1);
+                        Vmath::Vcopy(
+                            fsize, tmp.data() + cnt1 + tnp * k + tbegin, 1,
+                            locedges.data() + cnt + fnp * k + fbegin, 1);
+                    }
                 }
                 break;
                 case eInterpDir0:
@@ -1488,7 +1851,7 @@ void LocTraceToTraceMap::InterpLocFacesToTraceTranspose(
     int cnt1 = 0;
 
     // tmp space assuming forward map is of size of trace
-    Array<OneD, NekDouble> tmp{size_t(m_nTracePts)};
+    Array<OneD, NekDouble> tmp{size_t(m_nTracePts), 0.0};
     // The static cast is necessary because m_locInterpTraceToTraceMap should be
     // Array<OneD, size_t> ... or at least the same type as
     // m_locInterpTraceToTraceMap.size() ...
@@ -1516,15 +1879,46 @@ void LocTraceToTraceMap::InterpLocFacesToTraceTranspose(
             int fnp1         = fromPointsKey1.GetNumPoints();
             int tnp0         = toPointsKey0.GetNumPoints();
             int tnp1         = toPointsKey1.GetNumPoints();
-            int nfromfacepts = m_interpNtraces[dir][i] * fnp0 * fnp1;
+            int nfaces       = m_interpNtraces[dir][i];
+            int nfromfacepts = fnp0 * fnp1;
+            int ntofacepts   = tnp0 * tnp1;
 
             // Do transpose interpolation here if required
             switch (m_interpTrace[dir][i])
             {
                 case eNoInterp: // Just copy
                 {
-                    Vmath::Vcopy(nfromfacepts, tmp.data() + cnt1, 1,
-                                 loctraces.data() + cnt, 1);
+                    int fbegin0, fend0, fbegin1, fend1;
+                    int tbegin0, tend0, tbegin1, tend1;
+                    LibUtilities::GetEffectiveQuadRange(fromPointsKey0, fbegin0,
+                                                        fend0);
+                    LibUtilities::GetEffectiveQuadRange(toPointsKey0, tbegin0,
+                                                        tend0);
+                    LibUtilities::GetEffectiveQuadRange(fromPointsKey1, fbegin1,
+                                                        fend1);
+                    LibUtilities::GetEffectiveQuadRange(toPointsKey1, tbegin1,
+                                                        tend1);
+                    // overwrite end by size
+                    fend0 = fend0 - fbegin0;
+                    tend0 = tend0 - tbegin0;
+                    ASSERTL0(fend0 == tend0 &&
+                                 fend1 - fbegin1 == tend1 - tbegin1,
+                             "Quad ranges mismatch in "
+                             "InterpLocFacesToTraceTranspose!");
+                    for (int j = 0; j < nfaces; ++j)
+                    {
+                        for (int k = fbegin1, l = tbegin1; k < fend1; ++k, ++l)
+                        {
+                            Vmath::Vcopy(fend0,
+                                         tmp.data() + cnt1 + j * ntofacepts +
+                                             l * tnp0 + tbegin0,
+                                         1,
+                                         loctraces.data() + cnt +
+                                             j * nfromfacepts + k * fnp0 +
+                                             fbegin0,
+                                         1);
+                        }
+                    }
                 }
                 break;
                 case eInterpDir0:
@@ -1537,7 +1931,6 @@ void LocTraceToTraceMap::InterpLocFacesToTraceTranspose(
                 break;
                 case eInterpEndPtDir0:
                 {
-                    int nfaces = m_interpNtraces[dir][i];
                     for (int k = 0; k < fnp0; ++k)
                     {
                         Vmath::Vcopy(nfaces * fnp1, tmp.data() + cnt1 + k, tnp0,
@@ -1637,8 +2030,8 @@ void LocTraceToTraceMap::InterpLocFacesToTraceTranspose(
                 }
                 break;
             }
-            cnt += nfromfacepts;
-            cnt1 += m_interpNtraces[dir][i] * tnp0 * tnp1;
+            cnt += nfaces * nfromfacepts;
+            cnt1 += nfaces * ntofacepts;
         }
     }
 }
@@ -1685,7 +2078,7 @@ void LocTraceToTraceMap::InterpTraceToLocEdges(
     int cnt  = 0;
     int cnt1 = 0;
 
-    Array<OneD, NekDouble> tmp(m_nTracePts);
+    Array<OneD, NekDouble> tmp(m_nTracePts, 0.0);
 
     // unshuffles trace into lcoally orientated format.
     Vmath::Gathr(static_cast<int>(m_locInterpTraceToTraceMap[dir].size()),
@@ -1712,8 +2105,24 @@ void LocTraceToTraceMap::InterpTraceToLocEdges(
             {
                 case eNoInterp: // Just copy
                 {
-                    Vmath::Vcopy(nedges * fnp, tmp.data() + cnt, 1,
-                                 locedges.data() + cnt1, 1);
+                    int fbegin, fend;
+                    int tbegin, tend;
+                    LibUtilities::GetEffectiveQuadRange(fromPointsKey0, fbegin,
+                                                        fend);
+                    LibUtilities::GetEffectiveQuadRange(toPointsKey0, tbegin,
+                                                        tend);
+                    // overwrite fend by size
+                    fend = fend - fbegin;
+                    tend = tend - tbegin;
+                    ASSERTL0(fend == tend,
+                             "Quad ranges mismatch in InterpTraceToLocEdges!");
+                    for (int k = 0; k < nedges; ++k)
+                    {
+                        Vmath::Zero(tnp, locedges.data() + cnt1 + tnp * k, 1);
+                        Vmath::Vcopy(
+                            fend, tmp.data() + cnt + fnp * k + fbegin, 1,
+                            locedges.data() + cnt1 + tnp * k + tbegin, 1);
+                    }
                 }
                 break;
                 case eInterpDir0:
@@ -1765,7 +2174,7 @@ void LocTraceToTraceMap::InterpTraceToLocFaces(
     int cnt  = 0;
     int cnt1 = 0;
 
-    Array<OneD, NekDouble> tmp(m_nTracePts);
+    Array<OneD, NekDouble> tmp(m_nTracePts, 0.0);
 
     // unshuffles trace into lcoally orientated format.
     Vmath::Gathr(static_cast<int>(m_locInterpTraceToTraceMap[dir].size()),
@@ -1792,15 +2201,46 @@ void LocTraceToTraceMap::InterpTraceToLocFaces(
             int tnp0         = toPointsKey0.GetNumPoints();
             int tnp1         = toPointsKey1.GetNumPoints();
             int nfaces       = m_interpNtraces[dir][i];
-            int nfromfacepts = nfaces * fnp0 * fnp1;
+            int nfromfacepts = fnp0 * fnp1;
+            int ntofacepts   = tnp0 * tnp1;
 
             // Do interpolation here if required
             switch (m_interpTrace[dir][i])
             {
                 case eNoInterp: // Just copy
                 {
-                    Vmath::Vcopy(nfromfacepts, tmp.data() + cnt, 1,
-                                 locfaces.data() + cnt1, 1);
+                    int fbegin0, fend0, fbegin1, fend1;
+                    int tbegin0, tend0, tbegin1, tend1;
+                    LibUtilities::GetEffectiveQuadRange(fromPointsKey0, fbegin0,
+                                                        fend0);
+                    LibUtilities::GetEffectiveQuadRange(toPointsKey0, tbegin0,
+                                                        tend0);
+                    LibUtilities::GetEffectiveQuadRange(fromPointsKey1, fbegin1,
+                                                        fend1);
+                    LibUtilities::GetEffectiveQuadRange(toPointsKey1, tbegin1,
+                                                        tend1);
+                    // overwrite end by size
+                    fend0 = fend0 - fbegin0;
+                    tend0 = tend0 - tbegin0;
+                    ASSERTL0(fend0 == tend0 &&
+                                 fend1 - fbegin1 == tend1 - tbegin1,
+                             "Quad ranges mismatch in InterpTraceToLocFaces!");
+                    for (int j = 0; j < nfaces; ++j)
+                    {
+                        Vmath::Zero(ntofacepts,
+                                    locfaces.data() + cnt1 + ntofacepts * j, 1);
+                        for (int k = fbegin1, l = tbegin1; k < fend1; ++k, ++l)
+                        {
+                            Vmath::Vcopy(fend0,
+                                         tmp.data() + cnt + j * nfromfacepts +
+                                             k * fnp0 + fbegin0,
+                                         1,
+                                         locfaces.data() + cnt1 +
+                                             ntofacepts * j + l * tnp0 +
+                                             tbegin0,
+                                         1);
+                        }
+                    }
                 }
                 break;
                 case eInterpDir0:
@@ -1821,6 +2261,15 @@ void LocTraceToTraceMap::InterpTraceToLocFaces(
                                     I1->GetPtr().data(), tnp1, 0.0,
                                     locfaces.data() + cnt1 + j * tnp0 * tnp1,
                                     tnp0);
+                    }
+                }
+                break;
+                case eInterpEndPtDir0:
+                {
+                    for (int j = 0; j < nfaces * tnp1; ++j)
+                    {
+                        Vmath::Vcopy(tnp0, tmp.data() + cnt + j * fnp0, 1,
+                                     locfaces.data() + cnt1 + j * tnp0, 1);
                     }
                 }
                 break;
@@ -1871,8 +2320,8 @@ void LocTraceToTraceMap::InterpTraceToLocFaces(
                     ASSERTL0(false, "Interpolation case not implemneted (yet)");
                     break;
             }
-            cnt += nfromfacepts;
-            cnt1 += m_interpNtraces[dir][i] * tnp0 * tnp1;
+            cnt += nfaces * nfromfacepts;
+            cnt1 += nfaces * ntofacepts;
         }
     }
 }
