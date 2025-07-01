@@ -104,16 +104,18 @@ protected:
     void v_Apply(BlockAccessor<TData> &inblock,
                  BlockAccessor<TData> &outblock) override
     {
-        // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Fetch derivative factor.
         auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), false));
+
+        // Initialize pointers.
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Get interleave parameter.
         const auto interleave_width = inblock.GetInterleaveWidth();
@@ -122,22 +124,20 @@ protected:
                                           : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
-
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Dispatch kernel.
         auto gemm_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
             simd_t::width, m_nqTot, m_nqTot, 1.0, 0.0);
 
         // Loop over components.
-        const auto outsize = m_nqTot * inblock.GetNumElmtGroups();
+        const auto outsize = m_nqTot * numElmtGroups;
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             auto dfptr = dfptr_init;
 
-            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            // Loop over element groups.
+            for (size_t e = 0; e < numElmtGroups; ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -179,6 +179,10 @@ protected:
             }
             outptr += (m_coordDim - 1) * outblock.size();
         }
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 };
 

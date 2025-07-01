@@ -140,11 +140,7 @@ protected:
     void v_Apply(BlockAccessor<TData> &inblock,
                  BlockAccessor<TData> &outblock) override
     {
-        // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Fetch Jacobian and deriv factors.
         auto jacptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
@@ -156,17 +152,11 @@ protected:
         auto diffCoeffPtr =
             this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
 
-        // Get interleave parameter.
-        const auto interleave_width = inblock.GetInterleaveWidth();
-        const auto width_ratio      = (interleave_width == 1)
-                                          ? 1
-                                          : interleave_width / m_implInterleaveWidth;
-        const auto chunkSize =
-            std::max(m_implInterleaveWidth, interleave_width);
-
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Initialize pointers.
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Allocate storage.
         if (m_bwd.size() == 0)
@@ -180,6 +170,15 @@ protected:
         // Get workspace pointer.
         auto bwdptr   = m_bwd.template GetPtr<MemSpace, WriteOnly>();
         auto derivptr = m_deriv.template GetPtr<MemSpace, WriteOnly>();
+
+        // Get interleave parameter.
+        const auto interleave_width = inblock.GetInterleaveWidth();
+        const auto width_ratio      = (interleave_width == 1)
+                                          ? 1
+                                          : interleave_width / m_implInterleaveWidth;
+        const auto chunkSize =
+            std::max(m_implInterleaveWidth, interleave_width);
+        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Dispatch kernel.
         auto bwd_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
@@ -198,7 +197,8 @@ protected:
             auto jacptr = jacptr_init;
             auto dfptr  = dfptr_init;
 
-            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            // Loop over element groups.
+            for (size_t e = 0; e < numElmtGroups; ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -297,6 +297,10 @@ protected:
                 outptr += m_nmTot * simd_t::width;
             }
         }
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 
     void v_SetLambda(const TData &lambda) override

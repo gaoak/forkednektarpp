@@ -49,28 +49,28 @@ NEK_FORCE_INLINE static void AddAdvectionSegKernel(
 {
     simd_type vx, df0, d0;
 
-    // Precompute Laplacian metricsp
-    if (!DEFORMED)
+    // Precompute Laplacian metrics.
+    if constexpr (!DEFORMED)
     {
         df0 = df_ptr[0];
     }
 
-    // Apply  metrics on all quad points
+    // Apply metrics on all quad points.
     for (unsigned int i = 0; i < nq0; ++i)
     {
-        // Set deformed derivative factors
-        if (DEFORMED)
+        // Set deformed derivative factors.
+        if constexpr (DEFORMED)
         {
             df0 = df_ptr[i];
         }
 
-        // Get advection velocity
+        // Get advection velocity.
         vx = advVel_ptr[i];
 
-        // Get derivatives
+        // Get derivatives.
         d0 = deriv0[i];
 
-        // X-advection * scale
+        // x-advection * scale.
         simd_type adv = df0 * d0;
         adv *= vx;
 
@@ -91,8 +91,8 @@ NEK_FORCE_INLINE static void AddAdvection2DKernel(
     constexpr auto ndf = 4;
     simd_type vx, vy, df0, df1, df2, df3, d0, d1, h0, h1;
 
-    // Precompute Laplacian metricsp
-    if (!DEFORMED)
+    // Precompute Laplacian metrics.
+    if constexpr (!DEFORMED)
     {
         df0 = df_ptr[0];
         df1 = df_ptr[1];
@@ -100,7 +100,7 @@ NEK_FORCE_INLINE static void AddAdvection2DKernel(
         df3 = df_ptr[3];
     }
 
-    // Apply  metrics on all quad points
+    // Apply metrics on all quad points.
     for (unsigned int q = 0; q < nq1; ++q)
     {
         if constexpr (SHAPE_TYPE == LibUtilities::eTriangle ||
@@ -112,8 +112,8 @@ NEK_FORCE_INLINE static void AddAdvection2DKernel(
         {
             unsigned int cnt = q * nq0 + p;
 
-            // Set deformed derivative factors
-            if (DEFORMED)
+            // Set deformed derivative factors.
+            if constexpr (DEFORMED)
             {
                 df0 = df_ptr[cnt * ndf];
                 df1 = df_ptr[cnt * ndf + 1];
@@ -121,11 +121,11 @@ NEK_FORCE_INLINE static void AddAdvection2DKernel(
                 df3 = df_ptr[cnt * ndf + 3];
             }
 
-            // Get advection velocity
+            // Get advection velocity.
             vx = advVel0_ptr[cnt];
             vy = advVel1_ptr[cnt];
 
-            // Get derivatives
+            // Get derivatives.
             d0 = deriv0[cnt];
             d1 = deriv1[cnt];
 
@@ -137,7 +137,7 @@ NEK_FORCE_INLINE static void AddAdvection2DKernel(
                 d1.fma(d0, h0);
             }
 
-            // X-advection * scale
+            // x-advection * scale.
             simd_type adv = df0 * d0;
             adv.fma(df1, d1);
             adv *= vx;
@@ -170,8 +170,8 @@ NEK_FORCE_INLINE static void AddAdvection3DKernel(
     simd_type df0, df1, df2, df3, df4, df5, df6, df7, df8;
     simd_type d0, d1, d2, h0, h1, h2, h3;
 
-    // Precompute Laplacian metricsp
-    if (!DEFORMED)
+    // Precompute Laplacian metrics.
+    if constexpr (!DEFORMED)
     {
         df0 = df_ptr[0];
         df1 = df_ptr[1];
@@ -184,7 +184,7 @@ NEK_FORCE_INLINE static void AddAdvection3DKernel(
         df8 = df_ptr[8];
     }
 
-    // Apply  metrics on all quad points
+    // Apply metrics on all quad points.
     for (unsigned int r = 0; r < nq2; ++r)
     {
         if constexpr ((SHAPE_TYPE == LibUtilities::Prism) ||
@@ -219,8 +219,8 @@ NEK_FORCE_INLINE static void AddAdvection3DKernel(
             {
                 unsigned int cnt = r * nq0 * nq1 + q * nq0 + p;
 
-                // Set deformed derivative factors
-                if (DEFORMED)
+                // Set deformed derivative factors.
+                if constexpr (DEFORMED)
                 {
                     df0 = df_ptr[cnt * ndf];
                     df1 = df_ptr[cnt * ndf + 1];
@@ -233,17 +233,17 @@ NEK_FORCE_INLINE static void AddAdvection3DKernel(
                     df8 = df_ptr[cnt * ndf + 8];
                 }
 
-                // Get advection velocity
+                // Get advection velocity.
                 vx = advVel0_ptr[cnt];
                 vy = advVel1_ptr[cnt];
                 vz = advVel2_ptr[cnt];
 
-                // Get derivatives
+                // Get derivatives.
                 d0 = deriv0[cnt];
                 d1 = deriv1[cnt];
                 d2 = deriv2[cnt];
 
-                // Chain-rule  local to cartesian
+                // Chain-rule local to cartesian.
                 if constexpr ((SHAPE_TYPE == LibUtilities::Prism) ||
                               (SHAPE_TYPE == LibUtilities::NodalPrism))
                 {
@@ -271,7 +271,7 @@ NEK_FORCE_INLINE static void AddAdvection3DKernel(
                     d1.fma(h0, d0);
                 }
 
-                // advection
+                // Advection.
                 // u.dx
                 simd_type adv = df0 * d0;
                 adv.fma(df1, d1);

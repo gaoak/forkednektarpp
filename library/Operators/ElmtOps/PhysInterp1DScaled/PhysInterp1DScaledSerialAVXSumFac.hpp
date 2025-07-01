@@ -256,6 +256,17 @@ protected:
         const auto nmTot = nm0;
         const auto nqTot = nq0;
 
+        const auto nelmt = inblock.GetNumElementsWithPadding();
+
+        // Initialize pointers.
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+
+        // Workspace for kernels - also checks preconditions.
+        BwdTrans1DWorkspace<LibUtilities::Seg>(nm0, nq0);
+
         // Get interleave parameter.
         const auto interleave_width = inblock.GetInterleaveWidth();
         const auto width_ratio      = (interleave_width == 1)
@@ -263,26 +274,13 @@ protected:
                                           : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
-
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-
-        // Workspace for kernels - also checks preconditions.
-        BwdTrans1DWorkspace<LibUtilities::Seg>(nm0, nq0);
-
-        // Initialize pointers.
-        auto input  = (interleave_width == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr  = reinterpret_cast<const simd_t *>(input);
-        auto outptr = reinterpret_cast<simd_t *>(output);
+        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
-            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            // Loop over element groups.
+            for (size_t e = 0; e < numElmtGroups; ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -292,13 +290,19 @@ protected:
                 }
 
                 // PhysInterp1DScaled kernel.
-                BwdTransSegKernel(nm0, nq0, m_B[0], inptr, outptr);
+                BwdTransSegKernel(nm0, nq0, m_B[0],
+                                  reinterpret_cast<const simd_t *>(inptr),
+                                  reinterpret_cast<simd_t *>(outptr));
 
                 // Increment pointers for the next elmt group.
-                inptr += nmTot;
-                outptr += nqTot;
+                inptr += nmTot * simd_t::width;
+                outptr += nqTot * simd_t::width;
             }
         }
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 
     // size based template version
@@ -310,6 +314,17 @@ protected:
         constexpr auto nmTot = nm0;
         constexpr auto nqTot = nq0;
 
+        // Initialize pointers.
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+
+        const auto nelmt = inblock.GetNumElementsWithPadding();
+
+        // Workspace for kernels - also checks preconditions.
+        BwdTrans1DWorkspace<LibUtilities::Seg>(nm0, nq0);
+
         // Get interleave parameter.
         const auto interleave_width = inblock.GetInterleaveWidth();
         const auto width_ratio      = (interleave_width == 1)
@@ -317,26 +332,13 @@ protected:
                                           : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
-
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-
-        // Workspace for kernels - also checks preconditions.
-        BwdTrans1DWorkspace<LibUtilities::Seg>(nm0, nq0);
-
-        // Initialize pointers.
-        auto input  = (interleave_width == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr  = reinterpret_cast<const simd_t *>(input);
-        auto outptr = reinterpret_cast<simd_t *>(output);
+        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
-            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            // Loop over element groups.
+            for (size_t e = 0; e < numElmtGroups; ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -346,13 +348,19 @@ protected:
                 }
 
                 // PhysInterp1DScaled kernel.
-                BwdTransSegKernel(nm0, nq0, m_B[0], inptr, outptr);
+                BwdTransSegKernel(nm0, nq0, m_B[0],
+                                  reinterpret_cast<const simd_t *>(inptr),
+                                  reinterpret_cast<simd_t *>(outptr));
 
                 // Increment pointers for the next elmt group.
-                inptr += nmTot;
-                outptr += nqTot;
+                inptr += nmTot * simd_t::width;
+                outptr += nqTot * simd_t::width;
             }
         }
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 
     // Non-size based operator.
@@ -370,6 +378,19 @@ protected:
         const auto nmTot = nm0 * nm1;
         const auto nqTot = nq0 * nq1;
 
+        const auto nelmt = inblock.GetNumElementsWithPadding();
+
+        // Initialize pointers.
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+
+        // Workspace for kernels - also checks preconditions.
+        unsigned int wsp0Size = 0;
+        BwdTrans2DWorkspace<LibUtilities::Quad>(nm0, nm1, nq0, nq1, wsp0Size);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
+
         // Get interleave parameter.
         const auto interleave_width = inblock.GetInterleaveWidth();
         const auto width_ratio      = (interleave_width == 1)
@@ -377,28 +398,13 @@ protected:
                                           : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
-
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-
-        // Workspace for kernels - also checks preconditions.
-        unsigned int wsp0Size = 0;
-        BwdTrans2DWorkspace<LibUtilities::Quad>(nm0, nm1, nq0, nq1, wsp0Size);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
-
-        // Initialize pointers.
-        auto input  = (interleave_width == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr  = reinterpret_cast<const simd_t *>(input);
-        auto outptr = reinterpret_cast<simd_t *>(output);
+        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
-            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            // Loop over element groups.
+            for (size_t e = 0; e < numElmtGroups; ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -409,13 +415,19 @@ protected:
 
                 // PhysInterp1DScaled kernel.
                 BwdTransQuadKernel(nm0, nm1, nq0, nq1, m_B[0], m_B[1],
-                                   wsp0.data(), inptr, outptr);
+                                   wsp0.data(),
+                                   reinterpret_cast<const simd_t *>(inptr),
+                                   reinterpret_cast<simd_t *>(outptr));
 
                 // Increment pointers for the next elmt group.
-                inptr += nmTot;
-                outptr += nqTot;
+                inptr += nmTot * simd_t::width;
+                outptr += nqTot * simd_t::width;
             }
         }
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 
     // size based template version
@@ -428,6 +440,19 @@ protected:
         constexpr auto nmTot = nm0 * nm1;
         constexpr auto nqTot = nq0 * nq1;
 
+        const auto nelmt = inblock.GetNumElementsWithPadding();
+
+        // Initialize pointers.
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+
+        // Workspace for kernels - also checks preconditions.
+        unsigned int wsp0Size = 0;
+        BwdTrans2DWorkspace<LibUtilities::Quad>(nm0, nm1, nq0, nq1, wsp0Size);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
+
         // Get interleave parameter.
         const auto interleave_width = inblock.GetInterleaveWidth();
         const auto width_ratio      = (interleave_width == 1)
@@ -435,28 +460,13 @@ protected:
                                           : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
-
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-
-        // Workspace for kernels - also checks preconditions.
-        unsigned int wsp0Size = 0;
-        BwdTrans2DWorkspace<LibUtilities::Quad>(nm0, nm1, nq0, nq1, wsp0Size);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
-
-        // Initialize pointers.
-        auto input  = (interleave_width == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr  = reinterpret_cast<const simd_t *>(input);
-        auto outptr = reinterpret_cast<simd_t *>(output);
+        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
-            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            // Loop over element groups.
+            for (size_t e = 0; e < numElmtGroups; ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -467,13 +477,19 @@ protected:
 
                 // PhysInterp1DScaled kernel.
                 BwdTransQuadKernel(nm0, nm1, nq0, nq1, m_B[0], m_B[1],
-                                   wsp0.data(), inptr, outptr);
+                                   wsp0.data(),
+                                   reinterpret_cast<const simd_t *>(inptr),
+                                   reinterpret_cast<simd_t *>(outptr));
 
                 // Increment pointers for the next elmt group.
-                inptr += nmTot;
-                outptr += nqTot;
+                inptr += nmTot * simd_t::width;
+                outptr += nqTot * simd_t::width;
             }
         }
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 
     // Non-size based operator.
@@ -493,17 +509,13 @@ protected:
         const auto nmTot = nm0 * nm1 * nm2;
         const auto nqTot = nq0 * nq1 * nq2;
 
-        // Get interleave parameter.
-        const auto interleave_width = inblock.GetInterleaveWidth();
-        const auto width_ratio      = (interleave_width == 1)
-                                          ? 1
-                                          : interleave_width / m_implInterleaveWidth;
-        const auto chunkSize =
-            std::max(m_implInterleaveWidth, interleave_width);
+        const auto nelmt = inblock.GetNumElementsWithPadding();
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Initialize pointers.
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Workspace for kernels - also checks preconditions.
         unsigned int wsp0Size = 0, wsp1Size = 0;
@@ -512,18 +524,20 @@ protected:
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
             wsp1(wsp1Size);
 
-        // Initialize pointers.
-        auto input  = (interleave_width == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr  = reinterpret_cast<const simd_t *>(input);
-        auto outptr = reinterpret_cast<simd_t *>(output);
+        // Get interleave parameter.
+        const auto interleave_width = inblock.GetInterleaveWidth();
+        const auto width_ratio      = (interleave_width == 1)
+                                          ? 1
+                                          : interleave_width / m_implInterleaveWidth;
+        const auto chunkSize =
+            std::max(m_implInterleaveWidth, interleave_width);
+        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
-            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            // Loop over element groups.
+            for (size_t e = 0; e < numElmtGroups; ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -534,14 +548,19 @@ protected:
 
                 // PhysInterp1DScaled kernel.
                 BwdTransHexKernel(nm0, nm1, nm2, nq0, nq1, nq2, m_B[0], m_B[1],
-                                  m_B[2], wsp0.data(), wsp1.data(), inptr,
-                                  outptr);
+                                  m_B[2], wsp0.data(), wsp1.data(),
+                                  reinterpret_cast<const simd_t *>(inptr),
+                                  reinterpret_cast<simd_t *>(outptr));
 
                 // Increment pointers for the next elmt group.
-                inptr += nmTot;
-                outptr += nqTot;
+                inptr += nmTot * simd_t::width;
+                outptr += nqTot * simd_t::width;
             }
         }
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 
     // size based template version
@@ -554,17 +573,13 @@ protected:
         constexpr auto nmTot = nm0 * nm1 * nm2;
         constexpr auto nqTot = nq0 * nq1 * nq2;
 
-        // Get interleave parameter.
-        const auto interleave_width = inblock.GetInterleaveWidth();
-        const auto width_ratio      = (interleave_width == 1)
-                                          ? 1
-                                          : interleave_width / m_implInterleaveWidth;
-        const auto chunkSize =
-            std::max(m_implInterleaveWidth, interleave_width);
+        const auto nelmt = inblock.GetNumElementsWithPadding();
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Initialize pointers.
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Workspace for kernels - also checks preconditions.
         unsigned int wsp0Size = 0, wsp1Size = 0;
@@ -573,18 +588,20 @@ protected:
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
             wsp1(wsp1Size);
 
-        // Initialize pointers.
-        auto input  = (interleave_width == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr  = reinterpret_cast<const simd_t *>(input);
-        auto outptr = reinterpret_cast<simd_t *>(output);
+        // Get interleave parameter.
+        const auto interleave_width = inblock.GetInterleaveWidth();
+        const auto width_ratio      = (interleave_width == 1)
+                                          ? 1
+                                          : interleave_width / m_implInterleaveWidth;
+        const auto chunkSize =
+            std::max(m_implInterleaveWidth, interleave_width);
+        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
-            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            // Loop over element groups.
+            for (size_t e = 0; e < numElmtGroups; ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -595,14 +612,19 @@ protected:
 
                 // PhysInterp1DScaled kernel.
                 BwdTransHexKernel(nm0, nm1, nm2, nq0, nq1, nq2, m_B[0], m_B[1],
-                                  m_B[2], wsp0.data(), wsp1.data(), inptr,
-                                  outptr);
+                                  m_B[2], wsp0.data(), wsp1.data(),
+                                  reinterpret_cast<const simd_t *>(inptr),
+                                  reinterpret_cast<simd_t *>(outptr));
 
                 // Increment pointers for the next elmt group.
-                inptr += nmTot;
-                outptr += nqTot;
+                inptr += nmTot * simd_t::width;
+                outptr += nqTot * simd_t::width;
             }
         }
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 };
 

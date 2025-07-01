@@ -42,37 +42,105 @@
 
 template <bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void DiffusionCoeffSegKernel(
-    const unsigned int nq0, const bool isConstVarDiff,
+    const unsigned int ncoord, const unsigned int nq0,
+    const bool isConstVarDiff,
     const std::vector<typename simd_type::scalarType> &constVarDiff,
     const bool isVarDiff,
     const std::vector<typename simd_type::scalarType> &varD00,
+    const std::vector<typename simd_type::scalarType> &varD01,
+    const std::vector<typename simd_type::scalarType> &varD11,
+    const std::vector<typename simd_type::scalarType> &varD02,
+    const std::vector<typename simd_type::scalarType> &varD12,
+    const std::vector<typename simd_type::scalarType> &varD22,
     const simd_type *df_ptr, simd_type *deriv0)
 {
-    constexpr auto ndf = 1;
+    const auto ndf = ncoord;
 
     const auto nqTot = nq0;
 
     simd_type d00 = {1.0};
-    simd_type df0;
+    simd_type d01 = {0.0};
+    simd_type d11 = {1.0};
+    simd_type d02 = {0.0};
+    simd_type d12 = {0.0};
+    simd_type d22 = {1.0};
+    simd_type df0, df1, df2;
     simd_type metric00;
 
     if (isConstVarDiff)
     {
-        d00 = constVarDiff[0];
+        if (ncoord == 1)
+        {
+            d00 = constVarDiff[0];
+        }
+        else if (ncoord == 2)
+        {
+            d00 = constVarDiff[0];
+            d01 = constVarDiff[1];
+            d11 = constVarDiff[2];
+        }
+        else if (ncoord == 3)
+        {
+            d00 = constVarDiff[0];
+            d01 = constVarDiff[1];
+            d11 = constVarDiff[2];
+            d02 = constVarDiff[3];
+            d12 = constVarDiff[4];
+            d22 = constVarDiff[5];
+        }
     }
 
     // Precompute Laplacian metricsp
     if constexpr (!DEFORMED)
     {
-        df0 = df_ptr[0];
-
         if (!isConstVarDiff && !isVarDiff)
         {
             metric00 = df0 * df0;
+            if (ncoord > 1)
+            {
+                metric00.fma(df1, df1);
+            }
+            if (ncoord > 2)
+            {
+                metric00.fma(df2, df2);
+            }
         }
         else if (isConstVarDiff)
         {
-            metric00 = df0 * df0 * d00;
+            if (ncoord == 1)
+            {
+                df0      = df_ptr[0];
+                metric00 = df0 * df0 * d00;
+            }
+            else if (ncoord == 2)
+            {
+                df0            = df_ptr[0];
+                df1            = df_ptr[1];
+                simd_type tmp0 = d00 * df0;
+                tmp0.fma(d01, df1);
+                simd_type tmp1 = d01 * df0;
+                tmp1.fma(d11, df1);
+                metric00 = tmp0 * df0;
+                metric00.fma(tmp1, df1);
+            }
+            else if (ncoord == 3)
+            {
+                df0            = df_ptr[0];
+                df1            = df_ptr[1];
+                df2            = df_ptr[2];
+                simd_type tmp0 = d00 * df0;
+                tmp0.fma(d01, df1);
+                tmp0.fma(d02, df2);
+                simd_type tmp1 = d01 * df0;
+                tmp1.fma(d11, df1);
+                tmp1.fma(d12, df2);
+                simd_type tmp2 = d02 * df0;
+                tmp1.fma(d12, df1);
+                tmp1.fma(d22, df2);
+                metric00 = tmp0 * df0;
+                metric00.fma(tmp1, df1);
+                metric00.fma(tmp2, df2);
+            }
         }
     }
 
@@ -83,15 +151,58 @@ NEK_FORCE_INLINE static void DiffusionCoeffSegKernel(
         {
             for (unsigned int i = 0; i < nq0; ++i)
             {
-                df0 = df_ptr[i * ndf];
-
                 if (!isConstVarDiff)
                 {
+                    df0      = df_ptr[i * ndf];
                     metric00 = df0 * df0;
+                    if (ncoord > 1)
+                    {
+                        df1 = df_ptr[i * ndf + 1];
+                        metric00.fma(df1, df1);
+                    }
+                    if (ncoord > 2)
+                    {
+                        df2 = df_ptr[i * ndf + 2];
+                        metric00.fma(df2, df2);
+                    }
                 }
                 else
                 {
                     metric00 = df0 * df0 * d00;
+                    if (ncoord == 1)
+                    {
+                        df0      = df_ptr[i * ndf];
+                        metric00 = df0 * df0 * d00;
+                    }
+                    else if (ncoord == 2)
+                    {
+                        df0            = df_ptr[i * ndf];
+                        df1            = df_ptr[i * ndf + 1];
+                        simd_type tmp0 = d00 * df0;
+                        tmp0.fma(d01, df1);
+                        simd_type tmp1 = d01 * df0;
+                        tmp1.fma(d11, df1);
+                        metric00 = tmp0 * df0;
+                        metric00.fma(tmp1, df1);
+                    }
+                    else if (ncoord == 3)
+                    {
+                        df0            = df_ptr[i * ndf];
+                        df1            = df_ptr[i * ndf + 1];
+                        df2            = df_ptr[i * ndf + 2];
+                        simd_type tmp0 = d00 * df0;
+                        tmp0.fma(d01, df1);
+                        tmp0.fma(d02, df2);
+                        simd_type tmp1 = d01 * df0;
+                        tmp1.fma(d11, df1);
+                        tmp1.fma(d12, df2);
+                        simd_type tmp2 = d02 * df0;
+                        tmp1.fma(d12, df1);
+                        tmp1.fma(d22, df2);
+                        metric00 = tmp0 * df0;
+                        metric00.fma(tmp1, df1);
+                        metric00.fma(tmp2, df2);
+                    }
                 }
 
                 deriv0[i] = metric00 * deriv0[i];
@@ -111,10 +222,50 @@ NEK_FORCE_INLINE static void DiffusionCoeffSegKernel(
         {
             for (unsigned int i = 0; i < nq0; ++i)
             {
-                df0      = df_ptr[i * ndf];
-                d00      = varD00[i];
-                metric00 = df0 * df0 * d00;
-
+                if (ncoord == 1)
+                {
+                    df0      = df_ptr[i * ndf];
+                    d00      = varD00[i];
+                    metric00 = df0 * df0 * d00;
+                }
+                else if (ncoord == 2)
+                {
+                    df0            = df_ptr[i * ndf];
+                    df1            = df_ptr[i * ndf + 1];
+                    d00            = varD00[i];
+                    d01            = varD01[i];
+                    d11            = varD11[i];
+                    simd_type tmp0 = d00 * df0;
+                    tmp0.fma(d01, df1);
+                    simd_type tmp1 = d01 * df0;
+                    tmp1.fma(d11, df1);
+                    metric00 = tmp0 * df0;
+                    metric00.fma(tmp1, df1);
+                }
+                else if (ncoord == 3)
+                {
+                    df0            = df_ptr[i * ndf];
+                    df1            = df_ptr[i * ndf + 1];
+                    df2            = df_ptr[i * ndf + 2];
+                    d00            = varD00[i];
+                    d01            = varD01[i];
+                    d11            = varD11[i];
+                    d02            = varD02[i];
+                    d12            = varD12[i];
+                    d22            = varD22[i];
+                    simd_type tmp0 = d00 * df0;
+                    tmp0.fma(d01, df1);
+                    tmp0.fma(d02, df2);
+                    simd_type tmp1 = d01 * df0;
+                    tmp1.fma(d11, df1);
+                    tmp1.fma(d12, df2);
+                    simd_type tmp2 = d02 * df0;
+                    tmp1.fma(d12, df1);
+                    tmp1.fma(d22, df2);
+                    metric00 = tmp0 * df0;
+                    metric00.fma(tmp1, df1);
+                    metric00.fma(tmp2, df2);
+                }
                 deriv0[i] = metric00 * deriv0[i];
             }
         }
@@ -122,8 +273,45 @@ NEK_FORCE_INLINE static void DiffusionCoeffSegKernel(
         {
             for (unsigned int i = 0; i < nq0; ++i)
             {
-                d00      = varD00[i];
                 metric00 = df0 * df0 * d00;
+                if (ncoord == 1)
+                {
+                    d00      = varD00[i];
+                    metric00 = df0 * df0 * d00;
+                }
+                else if (ncoord == 2)
+                {
+                    d00            = varD00[i];
+                    d01            = varD01[i];
+                    d11            = varD11[i];
+                    simd_type tmp0 = d00 * df0;
+                    tmp0.fma(d01, df1);
+                    simd_type tmp1 = d01 * df0;
+                    tmp1.fma(d11, df1);
+                    metric00 = tmp0 * df0;
+                    metric00.fma(tmp1, df1);
+                }
+                else if (ncoord == 3)
+                {
+                    d00            = varD00[i];
+                    d01            = varD01[i];
+                    d11            = varD11[i];
+                    d02            = varD02[i];
+                    d12            = varD12[i];
+                    d22            = varD22[i];
+                    simd_type tmp0 = d00 * df0;
+                    tmp0.fma(d01, df1);
+                    tmp0.fma(d02, df2);
+                    simd_type tmp1 = d01 * df0;
+                    tmp1.fma(d11, df1);
+                    tmp1.fma(d12, df2);
+                    simd_type tmp2 = d02 * df0;
+                    tmp1.fma(d12, df1);
+                    tmp1.fma(d22, df2);
+                    metric00 = tmp0 * df0;
+                    metric00.fma(tmp1, df1);
+                    metric00.fma(tmp2, df2);
+                }
 
                 deriv0[i] = metric00 * deriv0[i];
             }
@@ -133,43 +321,62 @@ NEK_FORCE_INLINE static void DiffusionCoeffSegKernel(
 
 template <bool DEFORMED, bool SCALE, typename simd_type>
 NEK_FORCE_INLINE static void DiffusionCoeffwithWJTriKernel(
-    const unsigned int nq0, const unsigned int nq1, const bool isConstVarDiff,
+    const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
+    const bool isConstVarDiff,
     const std::vector<typename simd_type::scalarType> &constVarDiff,
     const bool isVarDiff,
     const std::vector<typename simd_type::scalarType> &varD00,
     const std::vector<typename simd_type::scalarType> &varD01,
     const std::vector<typename simd_type::scalarType> &varD11,
+    const std::vector<typename simd_type::scalarType> &varD02,
+    const std::vector<typename simd_type::scalarType> &varD12,
+    const std::vector<typename simd_type::scalarType> &varD22,
     const simd_type *jac_ptr, const simd_type *w0, const simd_type *w1,
     const simd_type *df_ptr, const simd_type *hfac0, const simd_type *hfac1,
     simd_type *deriv0, simd_type *deriv1, [[maybe_unused]] simd_type *phys,
     [[maybe_unused]] typename simd_type::scalarType lambda = 0.0)
 {
-    constexpr auto ndf = 4;
+    const auto ndf = 2 * ncoord;
 
     simd_type jac = {1.0};
-    simd_type df0, df1, df2, df3;
-    simd_type metric00, metric01, metric11;
-
     simd_type d00 = {1.0};
     simd_type d01 = {0.0};
-    simd_type d11 = {1.0};                // var diffusion terms
-    simd_type dtmp0, dtmp1, dtmp2, dtmp3; // metric products
+    simd_type d11 = {1.0};
+    simd_type d02 = {0.0};
+    simd_type d12 = {0.0};
+    simd_type d22 = {1.0};                // var diffusion terms
+    simd_type dtmp0, dtmp1, dtmp2, dtmp3; // temp for vardiff
+    simd_type dtmp4, dtmp5;
+    simd_type df0, df1, df2, df3, df4, df5;
+    simd_type metric00, metric01, metric11;
 
     if (isConstVarDiff)
     {
         d00 = constVarDiff[0];
         d01 = constVarDiff[1];
         d11 = constVarDiff[2];
+        if (ncoord == 3)
+        {
+            d02 = constVarDiff[3];
+            d12 = constVarDiff[4];
+            d22 = constVarDiff[5];
+        }
     }
 
     // Precompute Laplacian metricsp
     if constexpr (!DEFORMED)
     {
         jac = jac_ptr[0];
+
         df0 = df_ptr[0];
         df1 = df_ptr[1];
         df2 = df_ptr[2];
         df3 = df_ptr[3];
+        if (ncoord == 3)
+        {
+            df4 = df_ptr[4];
+            df5 = df_ptr[5];
+        }
     }
 
     for (unsigned int q = 0; q < nq1; ++q)
@@ -189,6 +396,11 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJTriKernel(
                 df1 = df_ptr[cnt * ndf + 1];
                 df2 = df_ptr[cnt * ndf + 2];
                 df3 = df_ptr[cnt * ndf + 3];
+                if (ncoord == 3)
+                {
+                    df4 = df_ptr[cnt * ndf + 4];
+                    df5 = df_ptr[cnt * ndf + 5];
+                }
             }
 
             simd_type h0i = hfac0[p];
@@ -207,6 +419,13 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJTriKernel(
 
                 metric11 = df1 * df1;
                 metric11.fma(df3, df3);
+
+                if (ncoord == 3)
+                {
+                    metric00.fma(df4, df4);
+                    metric01.fma(df4, df5);
+                    metric11.fma(df5, df5);
+                }
             }
             else
             {
@@ -215,23 +434,64 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJTriKernel(
                     d00 = varD00[cnt];
                     d01 = varD01[cnt];
                     d11 = varD11[cnt];
+                    if (ncoord == 3)
+                    {
+                        d02 = varD02[cnt];
+                        d12 = varD12[cnt];
+                        d22 = varD22[cnt];
+                    }
                 }
-                // M = [M_00, df1; M_10; df3]
-                dtmp0 = metric00 * d00;
-                dtmp0.fma(tmp, d01);
-                dtmp1 = metric00 * d01;
-                dtmp1.fma(tmp, d11);
-                dtmp2 = df1 * d00;
-                dtmp2.fma(df3, d01);
-                dtmp3 = df1 * d01;
-                dtmp3.fma(df3, d11);
 
-                metric00 = metric00 * dtmp0;
-                metric00.fma(tmp, dtmp1);
-                metric01 = df1 * dtmp0;
-                metric01.fma(df3, dtmp1);
-                metric11 = df1 * dtmp2;
-                metric11.fma(df3, dtmp3);
+                if (ncoord == 2)
+                {
+                    // M = [M_00, df1; M_10; df3]
+                    dtmp0 = metric00 * d00;
+                    dtmp0.fma(tmp, d01);
+                    dtmp1 = metric00 * d01;
+                    dtmp1.fma(tmp, d11);
+                    dtmp2 = df1 * d00;
+                    dtmp2.fma(df3, d01);
+                    dtmp3 = df1 * d01;
+                    dtmp3.fma(df3, d11);
+
+                    metric00 = metric00 * dtmp0;
+                    metric00.fma(tmp, dtmp1);
+                    metric01 = df1 * dtmp0;
+                    metric01.fma(df3, dtmp1);
+                    metric11 = df1 * dtmp2;
+                    metric11.fma(df3, dtmp3);
+                }
+                else
+                {
+                    dtmp0 = metric00 * d00;
+                    dtmp0.fma(tmp, d01);
+                    dtmp0.fma(df4, d02);
+                    dtmp1 = metric00 * d01;
+                    dtmp1.fma(metric00, d11);
+                    dtmp1.fma(df3, d12);
+                    dtmp2 = metric00 * d02;
+                    dtmp2.fma(tmp, d12);
+                    dtmp2.fma(df3, d22);
+                    dtmp3 = df1 * d00;
+                    dtmp3.fma(df3, d01);
+                    dtmp3.fma(df5, d02);
+                    dtmp4 = df1 * d01;
+                    dtmp4.fma(df3, d11);
+                    dtmp4.fma(df5, d12);
+                    dtmp5 = df1 * d02;
+                    dtmp5.fma(df3, d12);
+                    dtmp5.fma(df5, d22);
+
+                    metric00 = metric00 * dtmp0;
+                    metric00.fma(tmp, dtmp1);
+                    metric00.fma(df4, dtmp2);
+                    metric01 = df1 * dtmp0;
+                    metric01.fma(df3, dtmp1);
+                    metric01.fma(df5, dtmp2);
+                    metric11 = df1 * dtmp3;
+                    metric11.fma(df3, dtmp4);
+                    metric11.fma(df5, dtmp5);
+                }
             }
 
             simd_type d0 = deriv0[cnt];
@@ -241,9 +501,9 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJTriKernel(
             tmp.fma(metric01, d1);
             deriv0[cnt] = tmp * wJ;
 
-            simd_type tmp1 = metric01 * d0;
-            tmp1.fma(metric11, d1);
-            deriv1[cnt] = tmp1 * wJ;
+            tmp = metric01 * d0;
+            tmp.fma(metric11, d1);
+            deriv1[cnt] = tmp * wJ;
 
             // modify phys only when required
             if constexpr (SCALE)
@@ -256,25 +516,33 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJTriKernel(
 
 template <bool DEFORMED, bool SCALE, typename simd_type>
 NEK_FORCE_INLINE static void DiffusionCoeffwithWJQuadKernel(
-    const unsigned int nq0, const unsigned int nq1, const bool isConstVarDiff,
+    const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
+    const bool isConstVarDiff,
     const std::vector<typename simd_type::scalarType> &constVarDiff,
     const bool isVarDiff,
     const std::vector<typename simd_type::scalarType> &varD00,
     const std::vector<typename simd_type::scalarType> &varD01,
     const std::vector<typename simd_type::scalarType> &varD11,
+    const std::vector<typename simd_type::scalarType> &varD02,
+    const std::vector<typename simd_type::scalarType> &varD12,
+    const std::vector<typename simd_type::scalarType> &varD22,
     const simd_type *jac_ptr, const simd_type *w0, const simd_type *w1,
     const simd_type *df_ptr, simd_type *deriv0, simd_type *deriv1,
     [[maybe_unused]] simd_type *phys,
     [[maybe_unused]] typename simd_type::scalarType lambda = 0.0)
 {
-    constexpr auto ndf = 4;
+    const auto ndf = 2 * ncoord;
 
     simd_type jac = {1.0};
     simd_type d00 = {1.0};
     simd_type d01 = {0.0};
-    simd_type d11 = {1.0};                // var diffusion terms
+    simd_type d11 = {1.0};
+    simd_type d02 = {0.0};
+    simd_type d12 = {0.0};
+    simd_type d22 = {1.0};                // var diffusion terms
     simd_type dtmp0, dtmp1, dtmp2, dtmp3; // temp for vardiff
-    simd_type df0, df1, df2, df3;
+    simd_type dtmp4, dtmp5;
+    simd_type df0, df1, df2, df3, df4, df5;
     simd_type metric00, metric01, metric11;
 
     if (isConstVarDiff)
@@ -282,16 +550,28 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJQuadKernel(
         d00 = constVarDiff[0];
         d01 = constVarDiff[1];
         d11 = constVarDiff[2];
+        if (ncoord == 3)
+        {
+            d02 = constVarDiff[3];
+            d12 = constVarDiff[4];
+            d22 = constVarDiff[5];
+        }
     }
 
     // Precompute Laplacian metricsp
     if constexpr (!DEFORMED)
     {
         jac = jac_ptr[0];
+
         df0 = df_ptr[0];
         df1 = df_ptr[1];
         df2 = df_ptr[2];
         df3 = df_ptr[3];
+        if (ncoord == 3)
+        {
+            df4 = df_ptr[4];
+            df5 = df_ptr[5];
+        }
 
         if (!isConstVarDiff && !isVarDiff)
         {
@@ -301,24 +581,64 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJQuadKernel(
             metric01.fma(df2, df3);
             metric11 = df1 * df1;
             metric11.fma(df3, df3);
+            if (ncoord == 3)
+            {
+                metric00.fma(df4, df4);
+                metric01.fma(df4, df5);
+                metric11.fma(df5, df5);
+            }
         }
         else if (isConstVarDiff)
         {
-            dtmp0 = df0 * d00;
-            dtmp0.fma(df2, d01);
-            dtmp1 = df0 * d01;
-            dtmp1.fma(df2, d11);
-            dtmp2 = df1 * d00;
-            dtmp2.fma(df3, d01);
-            dtmp3 = df1 * d01;
-            dtmp3.fma(df3, d11);
+            if (ncoord == 2)
+            {
+                dtmp0 = df0 * d00;
+                dtmp0.fma(df2, d01);
+                dtmp1 = df0 * d01;
+                dtmp1.fma(df2, d11);
+                dtmp2 = df1 * d00;
+                dtmp2.fma(df3, d01);
+                dtmp3 = df1 * d01;
+                dtmp3.fma(df3, d11);
 
-            metric00 = df0 * dtmp0;
-            metric00.fma(df2, dtmp1);
-            metric01 = df1 * dtmp0;
-            metric01.fma(df3, dtmp1);
-            metric11 = df1 * dtmp2;
-            metric11.fma(df3, dtmp3);
+                metric00 = df0 * dtmp0;
+                metric00.fma(df2, dtmp1);
+                metric01 = df1 * dtmp0;
+                metric01.fma(df3, dtmp1);
+                metric11 = df1 * dtmp2;
+                metric11.fma(df3, dtmp3);
+            }
+            else
+            {
+                dtmp0 = df0 * d00;
+                dtmp0.fma(df2, d01);
+                dtmp0.fma(df4, d02);
+                dtmp1 = df0 * d01;
+                dtmp1.fma(df2, d11);
+                dtmp1.fma(df3, d12);
+                dtmp2 = df0 * d02;
+                dtmp2.fma(df2, d12);
+                dtmp2.fma(df3, d22);
+                dtmp3 = df1 * d00;
+                dtmp3.fma(df3, d01);
+                dtmp3.fma(df5, d02);
+                dtmp4 = df1 * d01;
+                dtmp4.fma(df3, d11);
+                dtmp4.fma(df5, d12);
+                dtmp5 = df1 * d02;
+                dtmp5.fma(df3, d12);
+                dtmp5.fma(df5, d22);
+
+                metric00 = df0 * dtmp0;
+                metric00.fma(df2, dtmp1);
+                metric00.fma(df4, dtmp2);
+                metric01 = df1 * dtmp0;
+                metric01.fma(df3, dtmp1);
+                metric01.fma(df5, dtmp2);
+                metric11 = df1 * dtmp3;
+                metric11.fma(df3, dtmp4);
+                metric11.fma(df5, dtmp5);
+            }
         }
     }
 
@@ -348,6 +668,13 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJQuadKernel(
                 metric01.fma(df2, df3);
                 metric11 = df1 * df1;
                 metric11.fma(df3, df3);
+
+                if (ncoord == 3)
+                {
+                    metric00.fma(df4, df4);
+                    metric01.fma(df4, df5);
+                    metric11.fma(df5, df5);
+                }
             }
             else
             {
@@ -356,23 +683,63 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJQuadKernel(
                     d00 = varD00[cnt];
                     d01 = varD01[cnt];
                     d11 = varD11[cnt];
+                    if (ncoord == 3)
+                    {
+                        d02 = varD02[cnt];
+                        d12 = varD12[cnt];
+                        d22 = varD22[cnt];
+                    }
                 }
 
-                dtmp0 = df0 * d00;
-                dtmp0.fma(df2, d01);
-                dtmp1 = df0 * d01;
-                dtmp1.fma(df2, d11);
-                dtmp2 = df1 * d00;
-                dtmp2.fma(df3, d01);
-                dtmp3 = df1 * d01;
-                dtmp3.fma(df3, d11);
+                if (ncoord == 2)
+                {
+                    dtmp0 = df0 * d00;
+                    dtmp0.fma(df2, d01);
+                    dtmp1 = df0 * d01;
+                    dtmp1.fma(df2, d11);
+                    dtmp2 = df1 * d00;
+                    dtmp2.fma(df3, d01);
+                    dtmp3 = df1 * d01;
+                    dtmp3.fma(df3, d11);
 
-                metric00 = df0 * dtmp0;
-                metric00.fma(df2, dtmp1);
-                metric01 = df1 * dtmp0;
-                metric01.fma(df3, dtmp1);
-                metric11 = df1 * dtmp2;
-                metric11.fma(df3, dtmp3);
+                    metric00 = df0 * dtmp0;
+                    metric00.fma(df2, dtmp1);
+                    metric01 = df1 * dtmp0;
+                    metric01.fma(df3, dtmp1);
+                    metric11 = df1 * dtmp2;
+                    metric11.fma(df3, dtmp3);
+                }
+                else
+                {
+                    dtmp0 = df0 * d00;
+                    dtmp0.fma(df2, d01);
+                    dtmp0.fma(df4, d02);
+                    dtmp1 = df0 * d01;
+                    dtmp1.fma(df2, d11);
+                    dtmp1.fma(df3, d12);
+                    dtmp2 = df0 * d02;
+                    dtmp2.fma(df2, d12);
+                    dtmp2.fma(df3, d22);
+                    dtmp3 = df1 * d00;
+                    dtmp3.fma(df3, d01);
+                    dtmp3.fma(df5, d02);
+                    dtmp4 = df1 * d01;
+                    dtmp4.fma(df3, d11);
+                    dtmp4.fma(df5, d12);
+                    dtmp5 = df1 * d02;
+                    dtmp5.fma(df3, d12);
+                    dtmp5.fma(df5, d22);
+
+                    metric00 = df0 * dtmp0;
+                    metric00.fma(df2, dtmp1);
+                    metric00.fma(df4, dtmp2);
+                    metric01 = df1 * dtmp0;
+                    metric01.fma(df3, dtmp1);
+                    metric01.fma(df5, dtmp2);
+                    metric11 = df1 * dtmp3;
+                    metric11.fma(df3, dtmp4);
+                    metric11.fma(df5, dtmp5);
+                }
             }
 
             simd_type d0 = deriv0[cnt];
@@ -382,9 +749,9 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJQuadKernel(
             tmp.fma(metric01, d1);
             deriv0[cnt] = tmp * wJ;
 
-            simd_type tmp1 = metric01 * d0;
-            tmp1.fma(metric11, d1);
-            deriv1[cnt] = tmp1 * wJ;
+            tmp = metric01 * d0;
+            tmp.fma(metric11, d1);
+            deriv1[cnt] = tmp * wJ;
 
             // modify phys only when required
             if constexpr (SCALE)
@@ -1384,12 +1751,16 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJPyrKernel(
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, bool SCALE,
           typename simd_type>
 NEK_FORCE_INLINE static void DiffusionCoeffwithWJ2DKernel(
-    const unsigned int nq0, const unsigned int nq1, const bool isConstVarDiff,
+    const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
+    const bool isConstVarDiff,
     const std::vector<typename simd_type::scalarType> &constVarDiff,
     const bool isVarDiff,
     const std::vector<typename simd_type::scalarType> &varD00,
     const std::vector<typename simd_type::scalarType> &varD01,
     const std::vector<typename simd_type::scalarType> &varD11,
+    const std::vector<typename simd_type::scalarType> &varD02,
+    const std::vector<typename simd_type::scalarType> &varD12,
+    const std::vector<typename simd_type::scalarType> &varD22,
     const simd_type *jac_ptr, const simd_type *w0, const simd_type *w1,
     const simd_type *df_ptr, [[maybe_unused]] const simd_type *h0,
     [[maybe_unused]] const simd_type *h1, simd_type *deriv0, simd_type *deriv1,
@@ -1399,15 +1770,16 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJ2DKernel(
                   SHAPE_TYPE == LibUtilities::eNodalTri)
     {
         DiffusionCoeffwithWJTriKernel<DEFORMED, SCALE, simd_type>(
-            nq0, nq1, isConstVarDiff, constVarDiff, isVarDiff, varD00, varD01,
-            varD11, jac_ptr, w0, w1, df_ptr, h0, h1, deriv0, deriv1, phys,
-            lambda);
+            ncoord, nq0, nq1, isConstVarDiff, constVarDiff, isVarDiff, varD00,
+            varD01, varD11, varD02, varD12, varD22, jac_ptr, w0, w1, df_ptr, h0,
+            h1, deriv0, deriv1, phys, lambda);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::eQuadrilateral)
     {
         DiffusionCoeffwithWJQuadKernel<DEFORMED, SCALE, simd_type>(
-            nq0, nq1, isConstVarDiff, constVarDiff, isVarDiff, varD00, varD01,
-            varD11, jac_ptr, w0, w1, df_ptr, deriv0, deriv1, phys, lambda);
+            ncoord, nq0, nq1, isConstVarDiff, constVarDiff, isVarDiff, varD00,
+            varD01, varD11, varD02, varD12, varD22, jac_ptr, w0, w1, df_ptr,
+            deriv0, deriv1, phys, lambda);
     }
 }
 

@@ -80,10 +80,14 @@ ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_serial_stdmat
 # Serial SumFac
 ADD_NEKTAR_EXECUTABLE(test_addtraceintegral_serial_sumfac
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral_serial_sumfac.cpp)
+ADD_NEKTAR_EXECUTABLE(test_diagprecon_serial_sumfac
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_diagprecon_serial_sumfac.cpp)
 ADD_NEKTAR_EXECUTABLE(test_bwdtrans_serial_sumfac
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_serial_sumfac.cpp)
 ADD_NEKTAR_EXECUTABLE(test_helmholtz_serial_sumfac
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_serial_sumfac.cpp)
+ADD_NEKTAR_EXECUTABLE(test_helmsolve_conjgrad_serial_sumfac
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_conjgrad_serial_sumfac.cpp)
 ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_serial_sumfac
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_serial_sumfac.cpp)
 ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_serial_sumfac
@@ -318,7 +322,9 @@ SET_UNIT_TEST(PhysInterp1DScaled_serial_stdmat test_physinterp1dscaled_serial_st
 # Serial SumFac
 SET_UNIT_TEST(AddTraceIntegral_serial_sumfac test_addtraceintegral_serial_sumfac FALSE)
 SET_UNIT_TEST(BwdTrans_serial_sumfac test_bwdtrans_serial_sumfac FALSE)
+SET_UNIT_TEST(DiagPrecon_serial_sumfac test_diagprecon_serial_sumfac FALSE)
 SET_UNIT_TEST(Helmholtz_serial_sumfac test_helmholtz_serial_sumfac FALSE)
+SET_UNIT_TEST(HelmSolve_conjgrad_serial_sumfac test_helmsolve_conjgrad_serial_sumfac FALSE)
 SET_UNIT_TEST(IProductWRTBase_serial_sumfac test_ipwrtbase_serial_sumfac FALSE)
 SET_UNIT_TEST(IProductWRTDerivBase_serial_sumfac test_ipwrtderivbase_serial_sumfac FALSE)
 SET_UNIT_TEST(LinAdvDiffReaction_serial_sumfac test_linadvdiffreaction_serial_sumfac FALSE)

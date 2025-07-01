@@ -229,12 +229,18 @@ protected:
             dfsize *= nqTot;
         }
 
+        const auto nelmt = inblock.GetNumElementsWithPadding();
+
         // Fetch deriv factors data.
-        auto dfptr_init = reinterpret_cast<const simd_t *>(
-            this->m_dataWarehouse->template GetData<ExecSpace>(
-                DerivFactorKey<TData>(inblock.GetExpIdx(),
-                                      m_implInterleaveWidth,
-                                      inblock.GetNumElements(), false)));
+        auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
+                                  inblock.GetNumElements(), false));
+
+        // Initialize pointers.
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Get interleave parameter.
         const auto interleave_width = inblock.GetInterleaveWidth();
@@ -243,32 +249,20 @@ protected:
                                           : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
-
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-
-        // Initialize pointers.
-        auto input  = (interleave_width == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr  = reinterpret_cast<const simd_t *>(input);
-
-        auto compOffset = outblock.GetNumElmtGroups() * nqTot;
-        simd_t *outptr[3];
-        for (unsigned int d = 0; d < m_coordDim; ++d)
-        {
-            outptr[d] = reinterpret_cast<simd_t *>(output + d * compOffset *
-                                                                simd_t::width);
-        }
+        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
+        auto compOffset = numElmtGroups * nqTot;
+        simd_t *outvec[3];
+        for (unsigned int d = 0; d < m_coordDim; ++d)
+        {
+            outvec[d] = reinterpret_cast<simd_t *>(outptr) + d * compOffset;
+        }
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             auto dfptr = dfptr_init;
 
-            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            for (size_t e = 0; e < numElmtGroups; ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -278,18 +272,21 @@ protected:
                 }
 
                 // Get the basic derivative.
-                PhysDerivTensor1DKernel(nq0, inptr, m_D[0], outptr[0]);
+                PhysDerivTensor1DKernel(nq0,
+                                        reinterpret_cast<const simd_t *>(inptr),
+                                        m_D[0], outvec[0]);
 
                 // Calculate physical derivative.
-                PhysDeriv1DKernel<SHAPE_TYPE, DEFORMED>(nq0, m_coordDim, dfptr,
-                                                        outptr);
+                PhysDeriv1DKernel<SHAPE_TYPE, DEFORMED>(
+                    nq0, m_coordDim, reinterpret_cast<const simd_t *>(dfptr),
+                    outvec);
 
                 // Increment pointers for the next elmt group.
-                dfptr += dfsize;
-                inptr += nqTot;
+                dfptr += dfsize * simd_t::width;
+                inptr += nqTot * simd_t::width;
                 for (unsigned int d = 0; d < m_coordDim; ++d)
                 {
-                    outptr[d] += nqTot;
+                    outvec[d] += nqTot;
                 }
             }
 
@@ -297,9 +294,13 @@ protected:
             // advanced one component in the above.
             for (unsigned int d = 0; d < m_coordDim; ++d)
             {
-                outptr[d] += (m_coordDim - 1) * compOffset;
+                outvec[d] += (m_coordDim - 1) * compOffset;
             }
         }
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 
     // Size based template version.
@@ -311,18 +312,24 @@ protected:
         // Shape size.
         constexpr auto nqTot = nq0;
 
-        unsigned int dfsize = m_coordDim;
+        unsigned int dfsize = coordDim;
         if constexpr (DEFORMED)
         {
             dfsize *= nqTot;
         }
 
+        const auto nelmt = inblock.GetNumElementsWithPadding();
+
         // Fetch deriv factors data.
-        auto dfptr_init = reinterpret_cast<const simd_t *>(
-            this->m_dataWarehouse->template GetData<ExecSpace>(
-                DerivFactorKey<TData>(inblock.GetExpIdx(),
-                                      m_implInterleaveWidth,
-                                      inblock.GetNumElements(), false)));
+        auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
+                                  inblock.GetNumElements(), false));
+
+        // Initialize pointers.
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Get interleave parameter.
         const auto interleave_width = inblock.GetInterleaveWidth();
@@ -331,29 +338,19 @@ protected:
                                           : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
-
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-
-        // Initialize pointers.
-        auto input      = (interleave_width == m_implInterleaveWidth)
-                              ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                              : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto output     = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr      = reinterpret_cast<const simd_t *>(input);
-        auto compOffset = outblock.GetNumElmtGroups() * nqTot;
-        simd_t *outptr[3];
-        for (unsigned int d = 0; d < coordDim; ++d)
-        {
-            outptr[d] = reinterpret_cast<simd_t *>(output) + d * compOffset;
-        }
+        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
+        auto compOffset = numElmtGroups * nqTot;
+        simd_t *outvec[3];
+        for (unsigned int d = 0; d < coordDim; ++d)
+        {
+            outvec[d] = reinterpret_cast<simd_t *>(outptr) + d * compOffset;
+        }
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             auto dfptr = dfptr_init;
-            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            for (size_t e = 0; e < numElmtGroups; ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -363,18 +360,21 @@ protected:
                 }
 
                 // Get the basic derivative.
-                PhysDerivTensor1DKernel(nq0, inptr, m_D[0], outptr[0]);
+                PhysDerivTensor1DKernel(nq0,
+                                        reinterpret_cast<const simd_t *>(inptr),
+                                        m_D[0], outvec[0]);
 
                 // Calculate physical derivative.
-                PhysDeriv1DKernel<SHAPE_TYPE, DEFORMED>(nq0, coordDim, dfptr,
-                                                        outptr);
+                PhysDeriv1DKernel<SHAPE_TYPE, DEFORMED>(
+                    nq0, coordDim, reinterpret_cast<const simd_t *>(dfptr),
+                    outvec);
 
                 // Increment pointers for the next elmt group.
-                dfptr += dfsize;
-                inptr += nqTot;
+                dfptr += dfsize * simd_t::width;
+                inptr += nqTot * simd_t::width;
                 for (unsigned int d = 0; d < coordDim; ++d)
                 {
-                    outptr[d] += nqTot;
+                    outvec[d] += nqTot;
                 }
             }
 
@@ -382,9 +382,13 @@ protected:
             // advanced one component in the above.
             for (unsigned int d = 0; d < coordDim; ++d)
             {
-                outptr[d] += (coordDim - 1) * compOffset;
+                outvec[d] += (coordDim - 1) * compOffset;
             }
         }
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 
     // Non-size based operator.
@@ -404,12 +408,18 @@ protected:
             dfsize *= nqTot;
         }
 
+        const auto nelmt = inblock.GetNumElementsWithPadding();
+
         // Fetch deriv factors data.
-        auto dfptr_init = reinterpret_cast<const simd_t *>(
-            this->m_dataWarehouse->template GetData<ExecSpace>(
-                DerivFactorKey<TData>(inblock.GetExpIdx(),
-                                      m_implInterleaveWidth,
-                                      inblock.GetNumElements(), false)));
+        auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
+                                  inblock.GetNumElements(), false));
+
+        // Initialize pointers.
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Get interleave parameter.
         const auto interleave_width = inblock.GetInterleaveWidth();
@@ -418,29 +428,19 @@ protected:
                                           : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
-
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-
-        // Initialize pointers.
-        auto input      = (interleave_width == m_implInterleaveWidth)
-                              ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                              : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto output     = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr      = reinterpret_cast<const simd_t *>(input);
-        auto compOffset = outblock.GetNumElmtGroups() * nqTot;
-        simd_t *outptr[3];
-        for (unsigned int d = 0; d < m_coordDim; ++d)
-        {
-            outptr[d] = reinterpret_cast<simd_t *>(output) + d * compOffset;
-        }
+        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
+        auto compOffset = numElmtGroups * nqTot;
+        simd_t *outvec[3];
+        for (unsigned int d = 0; d < m_coordDim; ++d)
+        {
+            outvec[d] = reinterpret_cast<simd_t *>(outptr) + d * compOffset;
+        }
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             auto dfptr = dfptr_init;
-            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            for (size_t e = 0; e < numElmtGroups; ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -449,20 +449,22 @@ protected:
                         interleave_width, chunkSize, nqTot, (TData *)inptr);
                 }
 
-                // Results written to outptr0, outptr1.
-                PhysDerivTensor2DKernel(nq0, nq1, inptr, m_D[0], m_D[1],
-                                        outptr[0], outptr[1]);
+                // Results written to outvec0, outvec1.
+                PhysDerivTensor2DKernel(nq0, nq1,
+                                        reinterpret_cast<const simd_t *>(inptr),
+                                        m_D[0], m_D[1], outvec[0], outvec[1]);
 
                 // Calculate physical derivative.
                 PhysDeriv2DKernel<SHAPE_TYPE, DEFORMED>(
-                    nq0, nq1, m_coordDim, m_Z[0], m_Z[1], dfptr, outptr);
+                    nq0, nq1, m_coordDim, m_Z[0], m_Z[1],
+                    reinterpret_cast<const simd_t *>(dfptr), outvec);
 
                 // Increment pointers for the next elmt group.
-                dfptr += dfsize;
-                inptr += nqTot;
+                dfptr += dfsize * simd_t::width;
+                inptr += nqTot * simd_t::width;
                 for (unsigned int d = 0; d < m_coordDim; ++d)
                 {
-                    outptr[d] += nqTot;
+                    outvec[d] += nqTot;
                 }
             }
 
@@ -470,9 +472,13 @@ protected:
             // advanced one component in the above.
             for (unsigned int d = 0; d < m_coordDim; ++d)
             {
-                outptr[d] += (m_coordDim - 1) * compOffset;
+                outvec[d] += (m_coordDim - 1) * compOffset;
             }
         }
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 
     // Size based template version.
@@ -484,18 +490,24 @@ protected:
         // Shape size.
         constexpr auto nqTot = nq0 * nq1;
 
-        unsigned int dfsize = 2 * m_coordDim;
+        unsigned int dfsize = 2 * coordDim;
         if constexpr (DEFORMED)
         {
             dfsize *= nqTot;
         }
 
+        const auto nelmt = inblock.GetNumElementsWithPadding();
+
         // Fetch deriv factors data.
-        auto dfptr_init = reinterpret_cast<const simd_t *>(
-            this->m_dataWarehouse->template GetData<ExecSpace>(
-                DerivFactorKey<TData>(inblock.GetExpIdx(),
-                                      m_implInterleaveWidth,
-                                      inblock.GetNumElements(), false)));
+        auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
+                                  inblock.GetNumElements(), false));
+
+        // Initialize pointers.
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Get interleave parameter.
         const auto interleave_width = inblock.GetInterleaveWidth();
@@ -504,29 +516,19 @@ protected:
                                           : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
-
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-
-        // Initialize pointers.
-        auto input      = (interleave_width == m_implInterleaveWidth)
-                              ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                              : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto output     = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr      = reinterpret_cast<const simd_t *>(input);
-        auto compOffset = outblock.GetNumElmtGroups() * nqTot;
-        simd_t *outptr[3];
-        for (unsigned int d = 0; d < m_coordDim; ++d)
-        {
-            outptr[d] = reinterpret_cast<simd_t *>(output) + d * compOffset;
-        }
+        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
+        auto compOffset = numElmtGroups * nqTot;
+        simd_t *outvec[3];
+        for (unsigned int d = 0; d < coordDim; ++d)
+        {
+            outvec[d] = reinterpret_cast<simd_t *>(outptr) + d * compOffset;
+        }
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             auto dfptr = dfptr_init;
-            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            for (size_t e = 0; e < numElmtGroups; ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -535,20 +537,22 @@ protected:
                         interleave_width, chunkSize, nqTot, (TData *)inptr);
                 }
 
-                // Results written to outptr0, outptr1.
-                PhysDerivTensor2DKernel(nq0, nq1, inptr, m_D[0], m_D[1],
-                                        outptr[0], outptr[1]);
+                // Results written to outvec0, outvec1.
+                PhysDerivTensor2DKernel(nq0, nq1,
+                                        reinterpret_cast<const simd_t *>(inptr),
+                                        m_D[0], m_D[1], outvec[0], outvec[1]);
 
                 // Calculate physical derivative.
                 PhysDeriv2DKernel<SHAPE_TYPE, DEFORMED>(
-                    nq0, nq1, coordDim, m_Z[0], m_Z[1], dfptr, outptr);
+                    nq0, nq1, coordDim, m_Z[0], m_Z[1],
+                    reinterpret_cast<const simd_t *>(dfptr), outvec);
 
                 // Increment pointers for the next elmt group.
-                dfptr += dfsize;
-                inptr += nqTot;
+                dfptr += dfsize * simd_t::width;
+                inptr += nqTot * simd_t::width;
                 for (unsigned int d = 0; d < coordDim; ++d)
                 {
-                    outptr[d] += nqTot;
+                    outvec[d] += nqTot;
                 }
             }
 
@@ -556,9 +560,13 @@ protected:
             // advanced one component in the above.
             for (unsigned int d = 0; d < coordDim; ++d)
             {
-                outptr[d] += (coordDim - 1) * compOffset;
+                outvec[d] += (coordDim - 1) * compOffset;
             }
         }
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 
     // Non-size based operator.
@@ -579,12 +587,24 @@ protected:
             dfsize *= nqTot;
         }
 
+        const auto nelmt = inblock.GetNumElementsWithPadding();
+
         // Fetch deriv factors data.
-        auto dfptr_init = reinterpret_cast<const simd_t *>(
-            this->m_dataWarehouse->template GetData<ExecSpace>(
-                DerivFactorKey<TData>(inblock.GetExpIdx(),
-                                      m_implInterleaveWidth,
-                                      inblock.GetNumElements(), false)));
+        auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
+                                  inblock.GetNumElements(), false));
+
+        // Initialize pointers.
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+
+        // Workspace for kernels - also checks preconditions.
+        unsigned int wsp0Size = 0, wsp1Size = 0;
+        PhysDeriv3DWorkspace<SHAPE_TYPE>(nq0, nq1, nq2, wsp0Size, wsp1Size);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
+            wsp1(wsp1Size);
 
         // Get interleave parameter.
         const auto interleave_width = inblock.GetInterleaveWidth();
@@ -593,35 +613,18 @@ protected:
                                           : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
-
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-
-        // Workspace for kernels - also checks preconditions.
-        unsigned int wsp0Size = 0, wsp1Size = 0;
-        PhysDeriv3DWorkspace<SHAPE_TYPE>(nq0, nq1, nq2, wsp0Size, wsp1Size);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
-            wsp1(wsp1Size);
-
-        // Initialize pointers.
-        auto input  = (interleave_width == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr  = reinterpret_cast<const simd_t *>(input);
-
-        auto compOffset = outblock.GetNumElmtGroups() * nqTot;
-        simd_t *outptr[3];
-        outptr[0] = reinterpret_cast<simd_t *>(output);
-        outptr[1] = reinterpret_cast<simd_t *>(output) + compOffset;
-        outptr[2] = reinterpret_cast<simd_t *>(output) + 2 * compOffset;
+        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
+        auto compOffset = numElmtGroups * nqTot;
+        simd_t *outvec[3];
+        outvec[0] = reinterpret_cast<simd_t *>(outptr);
+        outvec[1] = reinterpret_cast<simd_t *>(outptr) + compOffset;
+        outvec[2] = reinterpret_cast<simd_t *>(outptr) + 2 * compOffset;
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             auto dfptr = dfptr_init;
-            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            for (size_t e = 0; e < numElmtGroups; ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -631,29 +634,34 @@ protected:
                 }
 
                 // Get the basic derivative.
-                PhysDerivTensor3DKernel(nq0, nq1, nq2, inptr, m_D[0], m_D[1],
-                                        m_D[2], outptr[0], outptr[1],
-                                        outptr[2]);
+                PhysDerivTensor3DKernel(
+                    nq0, nq1, nq2, reinterpret_cast<const simd_t *>(inptr),
+                    m_D[0], m_D[1], m_D[2], outvec[0], outvec[1], outvec[2]);
 
                 // Calculate physical derivative.
                 PhysDeriv3DKernel<SHAPE_TYPE, DEFORMED>(
-                    nq0, nq1, nq2, m_Z[0], m_Z[1], m_Z[2], dfptr, wsp0.data(),
-                    wsp1.data(), outptr[0], outptr[1], outptr[2]);
+                    nq0, nq1, nq2, m_Z[0], m_Z[1], m_Z[2],
+                    reinterpret_cast<const simd_t *>(dfptr), wsp0.data(),
+                    wsp1.data(), outvec[0], outvec[1], outvec[2]);
 
                 // Increment pointers for the next elmt group.
-                dfptr += dfsize;
-                inptr += nqTot;
-                outptr[0] += nqTot;
-                outptr[1] += nqTot;
-                outptr[2] += nqTot;
+                dfptr += dfsize * simd_t::width;
+                inptr += nqTot * simd_t::width;
+                outvec[0] += nqTot;
+                outvec[1] += nqTot;
+                outvec[2] += nqTot;
             }
 
             // Advance  by ncoord-1 componennts since have already
             // advanced one component in the above.
-            outptr[0] += 2 * compOffset;
-            outptr[1] += 2 * compOffset;
-            outptr[2] += 2 * compOffset;
+            outvec[0] += 2 * compOffset;
+            outvec[1] += 2 * compOffset;
+            outvec[2] += 2 * compOffset;
         }
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 
     // Size based template version.
@@ -671,12 +679,24 @@ protected:
             dfsize *= nqTot;
         }
 
+        const auto nelmt = inblock.GetNumElementsWithPadding();
+
         // Fetch deriv factors data.
-        auto dfptr_init = reinterpret_cast<const simd_t *>(
-            this->m_dataWarehouse->template GetData<ExecSpace>(
-                DerivFactorKey<TData>(inblock.GetExpIdx(),
-                                      m_implInterleaveWidth,
-                                      inblock.GetNumElements(), false)));
+        auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
+                                  inblock.GetNumElements(), false));
+
+        // Initialize pointers.
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+
+        // Workspace for kernels - also checks preconditions.
+        unsigned int wsp0Size = 0, wsp1Size = 0;
+        PhysDeriv3DWorkspace<SHAPE_TYPE>(nq0, nq1, nq2, wsp0Size, wsp1Size);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
+            wsp1(wsp1Size);
 
         // Get interleave parameter.
         const auto interleave_width = inblock.GetInterleaveWidth();
@@ -685,35 +705,18 @@ protected:
                                           : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
-
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-
-        // Workspace for kernels - also checks preconditions.
-        unsigned int wsp0Size = 0, wsp1Size = 0;
-        PhysDeriv3DWorkspace<SHAPE_TYPE>(nq0, nq1, nq2, wsp0Size, wsp1Size);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
-            wsp1(wsp1Size);
-
-        // Initialize pointers.
-        auto input  = (interleave_width == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr  = reinterpret_cast<const simd_t *>(input);
-
-        auto compOffset = outblock.GetNumElmtGroups() * nqTot;
-        simd_t *outptr[3];
-        outptr[0] = reinterpret_cast<simd_t *>(output);
-        outptr[1] = reinterpret_cast<simd_t *>(output) + compOffset;
-        outptr[2] = reinterpret_cast<simd_t *>(output) + 2 * compOffset;
+        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
+        auto compOffset = numElmtGroups * nqTot;
+        simd_t *outvec[3];
+        outvec[0] = reinterpret_cast<simd_t *>(outptr);
+        outvec[1] = reinterpret_cast<simd_t *>(outptr) + compOffset;
+        outvec[2] = reinterpret_cast<simd_t *>(outptr) + 2 * compOffset;
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             auto dfptr = dfptr_init;
-            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            for (size_t e = 0; e < numElmtGroups; ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -723,29 +726,34 @@ protected:
                 }
 
                 // Get the basic derivative.
-                PhysDerivTensor3DKernel(nq0, nq1, nq2, inptr, m_D[0], m_D[1],
-                                        m_D[2], outptr[0], outptr[1],
-                                        outptr[2]);
+                PhysDerivTensor3DKernel(
+                    nq0, nq1, nq2, reinterpret_cast<const simd_t *>(inptr),
+                    m_D[0], m_D[1], m_D[2], outvec[0], outvec[1], outvec[2]);
 
                 // Calculate physical derivative.
                 PhysDeriv3DKernel<SHAPE_TYPE, DEFORMED>(
-                    nq0, nq1, nq2, m_Z[0], m_Z[1], m_Z[2], dfptr, wsp0.data(),
-                    wsp1.data(), outptr[0], outptr[1], outptr[2]);
+                    nq0, nq1, nq2, m_Z[0], m_Z[1], m_Z[2],
+                    reinterpret_cast<const simd_t *>(dfptr), wsp0.data(),
+                    wsp1.data(), outvec[0], outvec[1], outvec[2]);
 
                 // Increment pointers for the next elmt group.
-                dfptr += dfsize;
-                inptr += nqTot;
-                outptr[0] += nqTot;
-                outptr[1] += nqTot;
-                outptr[2] += nqTot;
+                dfptr += dfsize * simd_t::width;
+                inptr += nqTot * simd_t::width;
+                outvec[0] += nqTot;
+                outvec[1] += nqTot;
+                outvec[2] += nqTot;
             }
 
             // Advance  by ncoord-1 componennts since have already
             // advanced one component in the above.
-            outptr[0] += 2 * compOffset;
-            outptr[1] += 2 * compOffset;
-            outptr[2] += 2 * compOffset;
+            outvec[0] += 2 * compOffset;
+            outvec[1] += 2 * compOffset;
+            outvec[2] += 2 * compOffset;
         }
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 };
 
