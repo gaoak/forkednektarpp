@@ -321,23 +321,32 @@ protected:
         const auto nmTot = nm0;
         const auto nqTot = nq0;
 
-        constexpr unsigned int ndf = 1;
-        unsigned int dfSize        = 1;
+        unsigned int ndf    = m_coordDim;
+        unsigned int dfSize = 1;
         if constexpr (DEFORMED)
         {
             dfSize *= nqTot;
         }
 
+        const auto nelmt = inblock.GetNumElementsWithPadding();
+
         // Fetch Jacobian and deriv factors.
-        auto jacptr_init = reinterpret_cast<const simd_t *>(
-            this->m_dataWarehouse->template GetData<ExecSpace>(
-                JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                   inblock.GetNumElements())));
-        auto dfptr_init = reinterpret_cast<const simd_t *>(
-            this->m_dataWarehouse->template GetData<ExecSpace>(
-                DerivFactorKey<TData>(inblock.GetExpIdx(),
-                                      m_implInterleaveWidth,
-                                      inblock.GetNumElements(), false)));
+        auto jacptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
+                               inblock.GetNumElements()));
+        auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
+                                  inblock.GetNumElements(), false));
+
+        // Initialize pointers.
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+
+        // Allocate workspace.
+        std::vector<simd_t, tinysimd::allocator<simd_t>> bwd(nqTot);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> deriv0(nqTot);
 
         // Get interleave parameter.
         const auto interleave_width = inblock.GetInterleaveWidth();
@@ -346,33 +355,17 @@ protected:
                                           : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
-
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-
-        // Allocate workspace.
-        std::vector<simd_t, tinysimd::allocator<simd_t>> bwd(nqTot);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> deriv0(nqTot);
-
-        // Initialize advVel pointers.
-        auto advVelPtr_init = reinterpret_cast<simd_t *>(m_advVel);
-
-        // Initialize pointers.
-        auto input  = (interleave_width == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr  = reinterpret_cast<const simd_t *>(input);
-        auto outptr = reinterpret_cast<simd_t *>(output);
+        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             auto jacptr    = jacptr_init;
             auto dfptr     = dfptr_init;
-            auto advVelPtr = advVelPtr_init;
-            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            auto advVelPtr = m_advVel;
+
+            // Loop over element groups.
+            for (size_t e = 0; e < numElmtGroups; ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -382,38 +375,50 @@ protected:
                 }
 
                 // Step 1: BwdTrans.
-                BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, m_B[0], inptr,
-                                             bwd.data());
+                BwdTrans1DKernel<SHAPE_TYPE>(
+                    nm0, nq0, m_B[0], reinterpret_cast<const simd_t *>(inptr),
+                    bwd.data());
 
                 // Step 2: Take derivatives in collapsed coordinate space.
                 PhysDerivTensor1DKernel(nq0, bwd.data(), m_D[0], deriv0.data());
 
                 // Step 3: add Advect solution to  this->m_lambda * bwd.
-                AddAdvectionSegKernel<DEFORMED>(nq0, advVelPtr, dfptr,
-                                                deriv0.data(), bwd.data(),
-                                                this->m_lambda);
+                AddAdvectionSegKernel<DEFORMED>(
+                    nq0, reinterpret_cast<const simd_t *>(advVelPtr),
+                    reinterpret_cast<const simd_t *>(dfptr), deriv0.data(),
+                    bwd.data(), this->m_lambda);
 
                 // Step 4: Inner product for mass matrix operation.
                 IProduct1DKernel<SHAPE_TYPE, true, false, DEFORMED>(
-                    nm0, nq0, bwd.data(), m_B[0], m_W[0], jacptr, outptr);
+                    nm0, nq0, bwd.data(), m_B[0], m_W[0],
+                    reinterpret_cast<const simd_t *>(jacptr),
+                    reinterpret_cast<simd_t *>(outptr));
 
                 // Step 5: Apply diffusion coefficiets.
                 DiffusionCoeffSegKernel<DEFORMED, simd_t>(
-                    nq0, true, this->m_diffCoeff, false, NullTDataVector, dfptr,
-                    deriv0.data());
+                    m_coordDim, nq0, true, this->m_diffCoeff, false,
+                    NullTDataVector, NullTDataVector, NullTDataVector,
+                    NullTDataVector, NullTDataVector, NullTDataVector,
+                    reinterpret_cast<const simd_t *>(dfptr), deriv0.data());
 
                 // Step 6: Apply Laplacian metrics & inner product.
                 IProduct1DKernel<SHAPE_TYPE, false, true, DEFORMED>(
-                    nm0, nq0, deriv0.data(), m_DB[0], m_W[0], jacptr, outptr);
+                    nm0, nq0, deriv0.data(), m_DB[0], m_W[0],
+                    reinterpret_cast<const simd_t *>(jacptr),
+                    reinterpret_cast<simd_t *>(outptr));
 
                 // Increment pointers.
-                dfptr += dfSize * ndf;
-                jacptr += dfSize;
-                advVelPtr += nqTot;
-                inptr += nmTot;
-                outptr += nmTot;
+                dfptr += dfSize * ndf * simd_t::width;
+                jacptr += dfSize * simd_t::width;
+                advVelPtr += nqTot * simd_t::width;
+                inptr += nmTot * simd_t::width;
+                outptr += nmTot * simd_t::width;
             }
         }
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 
     // Size based template version.
@@ -426,23 +431,32 @@ protected:
         constexpr auto nmTot = nm0;
         constexpr auto nqTot = nq0;
 
-        constexpr unsigned int ndf = 1;
-        unsigned int dfSize        = 1;
+        unsigned int ndf    = m_coordDim;
+        unsigned int dfSize = 1;
         if constexpr (DEFORMED)
         {
             dfSize *= nqTot;
         }
 
+        const auto nelmt = inblock.GetNumElementsWithPadding();
+
         // Fetch Jacobian and deriv factors.
-        auto jacptr_init = reinterpret_cast<const simd_t *>(
-            this->m_dataWarehouse->template GetData<ExecSpace>(
-                JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                   inblock.GetNumElements())));
-        auto dfptr_init = reinterpret_cast<const simd_t *>(
-            this->m_dataWarehouse->template GetData<ExecSpace>(
-                DerivFactorKey<TData>(inblock.GetExpIdx(),
-                                      m_implInterleaveWidth,
-                                      inblock.GetNumElements(), false)));
+        auto jacptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
+                               inblock.GetNumElements()));
+        auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
+                                  inblock.GetNumElements(), false));
+
+        // Initialize pointers.
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+
+        // Allocate workspace.
+        std::vector<simd_t, tinysimd::allocator<simd_t>> bwd(nqTot);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> deriv0(nqTot);
 
         // Get interleave parameter.
         const auto interleave_width = inblock.GetInterleaveWidth();
@@ -451,33 +465,17 @@ protected:
                                           : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
-
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-
-        // Allocate workspace.
-        std::vector<simd_t, tinysimd::allocator<simd_t>> bwd(nqTot);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> deriv0(nqTot);
-
-        // Initialize advVel pointers.
-        auto advVelPtr_init = reinterpret_cast<simd_t *>(m_advVel);
-
-        // Initialize pointers.
-        auto input  = (interleave_width == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr  = reinterpret_cast<const simd_t *>(input);
-        auto outptr = reinterpret_cast<simd_t *>(output);
+        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             auto jacptr    = jacptr_init;
             auto dfptr     = dfptr_init;
-            auto advVelPtr = advVelPtr_init;
-            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            auto advVelPtr = m_advVel;
+
+            // Loop over element groups.
+            for (size_t e = 0; e < numElmtGroups; ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -487,38 +485,50 @@ protected:
                 }
 
                 // Step 1: BwdTrans.
-                BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, m_B[0], inptr,
-                                             bwd.data());
+                BwdTrans1DKernel<SHAPE_TYPE>(
+                    nm0, nq0, m_B[0], reinterpret_cast<const simd_t *>(inptr),
+                    bwd.data());
 
                 // Step 2: Take derivatives in collapsed coordinate space.
                 PhysDerivTensor1DKernel(nq0, bwd.data(), m_D[0], deriv0.data());
 
                 // Step 3: add Advect solution to  this->m_lambda * bwd.
-                AddAdvectionSegKernel<DEFORMED>(nq0, advVelPtr, dfptr,
-                                                deriv0.data(), bwd.data(),
-                                                this->m_lambda);
+                AddAdvectionSegKernel<DEFORMED>(
+                    nq0, reinterpret_cast<const simd_t *>(advVelPtr),
+                    reinterpret_cast<const simd_t *>(dfptr), deriv0.data(),
+                    bwd.data(), this->m_lambda);
 
                 // Step 4: Inner product for mass matrix operation.
                 IProduct1DKernel<SHAPE_TYPE, true, false, DEFORMED>(
-                    nm0, nq0, bwd.data(), m_B[0], m_W[0], jacptr, outptr);
+                    nm0, nq0, bwd.data(), m_B[0], m_W[0],
+                    reinterpret_cast<const simd_t *>(jacptr),
+                    reinterpret_cast<simd_t *>(outptr));
 
                 // Step 5: Apply diffusion coefficiets.
                 DiffusionCoeffSegKernel<DEFORMED, simd_t>(
-                    nq0, true, this->m_diffCoeff, false, NullTDataVector, dfptr,
-                    deriv0.data());
+                    m_coordDim, nq0, true, this->m_diffCoeff, false,
+                    NullTDataVector, NullTDataVector, NullTDataVector,
+                    NullTDataVector, NullTDataVector, NullTDataVector,
+                    reinterpret_cast<const simd_t *>(dfptr), deriv0.data());
 
                 // Step 6: Apply Laplacian metrics & inner product.
                 IProduct1DKernel<SHAPE_TYPE, false, true, DEFORMED>(
-                    nm0, nq0, deriv0.data(), m_DB[0], m_W[0], jacptr, outptr);
+                    nm0, nq0, deriv0.data(), m_DB[0], m_W[0],
+                    reinterpret_cast<const simd_t *>(jacptr),
+                    reinterpret_cast<simd_t *>(outptr));
 
                 // Increment pointers.
-                dfptr += dfSize * ndf;
-                jacptr += dfSize;
-                advVelPtr += nqTot;
-                inptr += nmTot;
-                outptr += nmTot;
+                dfptr += dfSize * ndf * simd_t::width;
+                jacptr += dfSize * simd_t::width;
+                advVelPtr += nqTot * simd_t::width;
+                inptr += nmTot * simd_t::width;
+                outptr += nmTot * simd_t::width;
             }
         }
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 
     // Non-size based operator.
@@ -544,28 +554,21 @@ protected:
             dfSize *= nqTot;
         }
 
+        const auto nelmt = inblock.GetNumElementsWithPadding();
+
         // Fetch Jacobian and deriv factors.
-        auto jacptr_init = reinterpret_cast<const simd_t *>(
-            this->m_dataWarehouse->template GetData<ExecSpace>(
-                JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                   inblock.GetNumElements())));
-        auto dfptr_init = reinterpret_cast<const simd_t *>(
-            this->m_dataWarehouse->template GetData<ExecSpace>(
-                DerivFactorKey<TData>(inblock.GetExpIdx(),
-                                      m_implInterleaveWidth,
-                                      inblock.GetNumElements(), false)));
+        auto jacptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
+                               inblock.GetNumElements()));
+        auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
+                                  inblock.GetNumElements(), false));
 
-        // Get interleave parameter.
-        const auto interleave_width = inblock.GetInterleaveWidth();
-        const auto width_ratio      = (interleave_width == 1)
-                                          ? 1
-                                          : interleave_width / m_implInterleaveWidth;
-        const auto chunkSize =
-            std::max(m_implInterleaveWidth, interleave_width);
-
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Initialize pointers.
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Workspace for kernels - also checks preconditions.
         unsigned int wsp0Size = 0;
@@ -576,25 +579,25 @@ protected:
         std::vector<simd_t, tinysimd::allocator<simd_t>> deriv0(nqTot);
         std::vector<simd_t, tinysimd::allocator<simd_t>> deriv1(nqTot);
 
-        // Initialize advVel pointers.
-        auto advVelOffset   = inblock.GetNumElmtGroups() * nqTot;
-        auto advVelPtr_init = reinterpret_cast<simd_t *>(m_advVel);
-
-        // Initialize pointers.
-        auto input  = (interleave_width == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr  = reinterpret_cast<const simd_t *>(input);
-        auto outptr = reinterpret_cast<simd_t *>(output);
+        // Get interleave parameter.
+        const auto interleave_width = inblock.GetInterleaveWidth();
+        const auto width_ratio      = (interleave_width == 1)
+                                          ? 1
+                                          : interleave_width / m_implInterleaveWidth;
+        const auto chunkSize =
+            std::max(m_implInterleaveWidth, interleave_width);
+        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
+        auto advVelOffset = nelmt * nqTot;
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             auto jacptr    = jacptr_init;
             auto dfptr     = dfptr_init;
-            auto advVelPtr = advVelPtr_init;
-            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            auto advVelPtr = m_advVel;
+
+            // Loop over element groups.
+            for (size_t e = 0; e < numElmtGroups; ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -604,9 +607,10 @@ protected:
                 }
 
                 // Step 1: BwdTrans.
-                BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, m_isModified,
-                                             m_B[0], m_B[1], m_nodToMod,
-                                             wsp0.data(), inptr, bwd.data());
+                BwdTrans2DKernel<SHAPE_TYPE>(
+                    nm0, nm1, nq0, nq1, m_isModified, m_B[0], m_B[1],
+                    m_nodToMod, wsp0.data(),
+                    reinterpret_cast<const simd_t *>(inptr), bwd.data());
 
                 // Step 2: Get tensor derivative (deriv0, deriv1)
                 PhysDerivTensor2DKernel<simd_t>(nq0, nq1, bwd.data(), m_D[0],
@@ -615,18 +619,22 @@ protected:
 
                 // Step 3: evaluate advection term and add to bwd * lambda.
                 AddAdvection2DKernel<SHAPE_TYPE, DEFORMED>(
-                    nq0, nq1, m_f[0], m_f[1], advVelPtr,
-                    advVelPtr + advVelOffset, dfptr, deriv0.data(),
+                    nq0, nq1, m_f[0], m_f[1],
+                    reinterpret_cast<const simd_t *>(advVelPtr),
+                    reinterpret_cast<const simd_t *>(advVelPtr + advVelOffset),
+                    reinterpret_cast<const simd_t *>(dfptr), deriv0.data(),
                     deriv1.data(), bwd.data(), this->m_lambda);
 
                 // Step 4: apply diffusion coeff to (diffderiv0, diffderiv1) and
                 // apply WJ
                 DiffusionCoeffwithWJ2DKernel<SHAPE_TYPE, DEFORMED, true,
                                              simd_t>(
-                    nq0, nq1, true, this->m_diffCoeff, false, NullTDataVector,
-                    NullTDataVector, NullTDataVector, jacptr, m_W[0], m_W[1],
-                    dfptr, m_f[0], m_f[1], deriv0.data(), deriv1.data(),
-                    bwd.data(), 1.0);
+                    m_coordDim, nq0, nq1, true, this->m_diffCoeff, false,
+                    NullTDataVector, NullTDataVector, NullTDataVector,
+                    NullTDataVector, NullTDataVector, NullTDataVector,
+                    reinterpret_cast<const simd_t *>(jacptr), m_W[0], m_W[1],
+                    reinterpret_cast<const simd_t *>(dfptr), m_f[0], m_f[1],
+                    deriv0.data(), deriv1.data(), bwd.data(), 1.0);
 
                 // Step 5: apply derivative and sum up.
                 SumDerivTensor2DKernel<simd_t>(nq0, nq1, deriv0.data(),
@@ -636,16 +644,21 @@ protected:
                 // Step 6 : inner product without WJ.
                 IProduct2DKernel<SHAPE_TYPE, false, false, simd_t>(
                     nm0, nm1, nq0, nq1, m_isModified, bwd.data(), m_B[0],
-                    m_B[1], m_nodToModTrans, wsp0.data(), outptr, 1.0);
+                    m_B[1], m_nodToModTrans, wsp0.data(),
+                    reinterpret_cast<simd_t *>(outptr), 1.0);
 
                 // Increment pointers.
-                dfptr += dfSize * ndf;
-                jacptr += dfSize;
-                advVelPtr += nqTot;
-                inptr += nmTot;
-                outptr += nmTot;
+                dfptr += dfSize * ndf * simd_t::width;
+                jacptr += dfSize * simd_t::width;
+                advVelPtr += nqTot * simd_t::width;
+                inptr += nmTot * simd_t::width;
+                outptr += nmTot * simd_t::width;
             }
         }
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 
     // Size based template version.
@@ -667,28 +680,21 @@ protected:
             dfSize *= nqTot;
         }
 
+        const auto nelmt = inblock.GetNumElementsWithPadding();
+
         // Fetch Jacobian and deriv factors.
-        auto jacptr_init = reinterpret_cast<const simd_t *>(
-            this->m_dataWarehouse->template GetData<ExecSpace>(
-                JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                   inblock.GetNumElements())));
-        auto dfptr_init = reinterpret_cast<const simd_t *>(
-            this->m_dataWarehouse->template GetData<ExecSpace>(
-                DerivFactorKey<TData>(inblock.GetExpIdx(),
-                                      m_implInterleaveWidth,
-                                      inblock.GetNumElements(), false)));
+        auto jacptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
+                               inblock.GetNumElements()));
+        auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
+                                  inblock.GetNumElements(), false));
 
-        // Get interleave parameter.
-        const auto interleave_width = inblock.GetInterleaveWidth();
-        const auto width_ratio      = (interleave_width == 1)
-                                          ? 1
-                                          : interleave_width / m_implInterleaveWidth;
-        const auto chunkSize =
-            std::max(m_implInterleaveWidth, interleave_width);
-
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Initialize pointers.
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Workspace for kernels - also checks preconditions.
         unsigned int wsp0Size = 0;
@@ -701,25 +707,25 @@ protected:
         std::vector<simd_t, tinysimd::allocator<simd_t>> diffderiv0(nqTot);
         std::vector<simd_t, tinysimd::allocator<simd_t>> diffderiv1(nqTot);
 
-        // Initialize advVel pointers.
-        auto advVelOffset   = inblock.GetNumElmtGroups() * nqTot;
-        auto advVelPtr_init = reinterpret_cast<simd_t *>(m_advVel);
-
-        // Initialize pointers.
-        auto input  = (interleave_width == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr  = reinterpret_cast<const simd_t *>(input);
-        auto outptr = reinterpret_cast<simd_t *>(output);
+        // Get interleave parameter.
+        const auto interleave_width = inblock.GetInterleaveWidth();
+        const auto width_ratio      = (interleave_width == 1)
+                                          ? 1
+                                          : interleave_width / m_implInterleaveWidth;
+        const auto chunkSize =
+            std::max(m_implInterleaveWidth, interleave_width);
+        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
+        auto advVelOffset = nelmt * nqTot;
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             auto jacptr    = jacptr_init;
             auto dfptr     = dfptr_init;
-            auto advVelPtr = advVelPtr_init;
-            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            auto advVelPtr = m_advVel;
+
+            // Loop over element groups.
+            for (size_t e = 0; e < numElmtGroups; ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -729,9 +735,10 @@ protected:
                 }
 
                 // Step 1: BwdTrans.
-                BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, m_isModified,
-                                             m_B[0], m_B[1], m_nodToMod,
-                                             wsp0.data(), inptr, bwd.data());
+                BwdTrans2DKernel<SHAPE_TYPE>(
+                    nm0, nm1, nq0, nq1, m_isModified, m_B[0], m_B[1],
+                    m_nodToMod, wsp0.data(),
+                    reinterpret_cast<const simd_t *>(inptr), bwd.data());
 
                 // Step 2: Get tensor derivative (deriv0, deriv1)
                 PhysDerivTensor2DKernel<simd_t>(nq0, nq1, bwd.data(), m_D[0],
@@ -740,18 +747,22 @@ protected:
 
                 // Step 3: evaluate advection term and add to bwd * lambda.
                 AddAdvection2DKernel<SHAPE_TYPE, DEFORMED>(
-                    nq0, nq1, m_f[0], m_f[1], advVelPtr,
-                    advVelPtr + advVelOffset, dfptr, deriv0.data(),
+                    nq0, nq1, m_f[0], m_f[1],
+                    reinterpret_cast<const simd_t *>(advVelPtr),
+                    reinterpret_cast<const simd_t *>(advVelPtr + advVelOffset),
+                    reinterpret_cast<const simd_t *>(dfptr), deriv0.data(),
                     deriv1.data(), bwd.data(), this->m_lambda);
 
                 // Step 4: apply diffusion coeff to (diffderiv0, diffderiv1) and
                 // apply WJ
                 DiffusionCoeffwithWJ2DKernel<SHAPE_TYPE, DEFORMED, true,
                                              simd_t>(
-                    nq0, nq1, true, this->m_diffCoeff, false, NullTDataVector,
-                    NullTDataVector, NullTDataVector, jacptr, m_W[0], m_W[1],
-                    dfptr, m_f[0], m_f[1], deriv0.data(), deriv1.data(),
-                    bwd.data(), 1.0);
+                    m_coordDim, nq0, nq1, true, this->m_diffCoeff, false,
+                    NullTDataVector, NullTDataVector, NullTDataVector,
+                    NullTDataVector, NullTDataVector, NullTDataVector,
+                    reinterpret_cast<const simd_t *>(jacptr), m_W[0], m_W[1],
+                    reinterpret_cast<const simd_t *>(dfptr), m_f[0], m_f[1],
+                    deriv0.data(), deriv1.data(), bwd.data(), 1.0);
 
                 // Step 5: apply derivative and sum up.
                 SumDerivTensor2DKernel<simd_t>(nq0, nq1, deriv0.data(),
@@ -761,16 +772,21 @@ protected:
                 // Step 6 : inner product without WJ.
                 IProduct2DKernel<SHAPE_TYPE, false, false, simd_t>(
                     nm0, nm1, nq0, nq1, m_isModified, bwd.data(), m_B[0],
-                    m_B[1], m_nodToModTrans, wsp0.data(), outptr, 1.0);
+                    m_B[1], m_nodToModTrans, wsp0.data(),
+                    reinterpret_cast<simd_t *>(outptr), 1.0);
 
                 // Increment pointers.
-                dfptr += dfSize * ndf;
-                jacptr += dfSize;
-                advVelPtr += nqTot;
-                inptr += nmTot;
-                outptr += nmTot;
+                dfptr += dfSize * ndf * simd_t::width;
+                jacptr += dfSize * simd_t::width;
+                advVelPtr += nqTot * simd_t::width;
+                inptr += nmTot * simd_t::width;
+                outptr += nmTot * simd_t::width;
             }
         }
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 
     // Non-size based operator.
@@ -798,29 +814,21 @@ protected:
             dfSize *= nqTot;
         }
 
+        const auto nelmt = inblock.GetNumElementsWithPadding();
+
         // Fetch Jacobian and deriv factors.
-        auto jacptr_init = reinterpret_cast<const simd_t *>(
-            this->m_dataWarehouse->template GetData<ExecSpace>(
-                JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                   inblock.GetNumElements())));
-        auto dfptr_init = reinterpret_cast<const simd_t *>(
-            this->m_dataWarehouse->template GetData<ExecSpace>(
-                DerivFactorKey<TData>(inblock.GetExpIdx(),
-                                      m_implInterleaveWidth,
-                                      inblock.GetNumElements(), false)));
+        auto jacptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
+                               inblock.GetNumElements()));
+        auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
+                                  inblock.GetNumElements(), false));
 
-        // Get interleave parameter.
-        const auto interleave_width = inblock.GetInterleaveWidth();
-
-        const auto width_ratio = (interleave_width == 1)
-                                     ? 1
-                                     : interleave_width / m_implInterleaveWidth;
-        const auto chunkSize =
-            std::max(m_implInterleaveWidth, interleave_width);
-
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Initialize pointers.
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Workspace for kernels - also checks preconditions.
         unsigned int wsp0Size = 0, wsp1Size = 0, wsp2Size = 0;
@@ -839,25 +847,25 @@ protected:
         std::vector<simd_t, tinysimd::allocator<simd_t>> diffderiv1(nqTot);
         std::vector<simd_t, tinysimd::allocator<simd_t>> diffderiv2(nqTot);
 
-        // Initialize advVel pointers.
-        auto advVelOffset   = inblock.GetNumElmtGroups() * nqTot;
-        auto advVelPtr_init = reinterpret_cast<simd_t *>(m_advVel);
-
-        // Initialize pointers.
-        auto input  = (interleave_width == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr  = reinterpret_cast<const simd_t *>(input);
-        auto outptr = reinterpret_cast<simd_t *>(output);
+        // Get interleave parameter.
+        const auto interleave_width = inblock.GetInterleaveWidth();
+        const auto width_ratio      = (interleave_width == 1)
+                                          ? 1
+                                          : interleave_width / m_implInterleaveWidth;
+        const auto chunkSize =
+            std::max(m_implInterleaveWidth, interleave_width);
+        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
+        auto advVelOffset = nelmt * nqTot;
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             auto jacptr    = jacptr_init;
             auto dfptr     = dfptr_init;
-            auto advVelPtr = advVelPtr_init;
-            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            auto advVelPtr = m_advVel;
+
+            // Loop over element groups.
+            for (size_t e = 0; e < numElmtGroups; ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -867,10 +875,10 @@ protected:
                 }
 
                 // Step 1: BwdTrans.
-                BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2,
-                                             m_isModified, m_B[0], m_B[1],
-                                             m_B[2], m_nodToMod, wsp0.data(),
-                                             wsp1.data(), inptr, bwd.data());
+                BwdTrans3DKernel<SHAPE_TYPE>(
+                    nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, m_B[0], m_B[1],
+                    m_B[2], m_nodToMod, wsp0.data(), wsp1.data(),
+                    reinterpret_cast<const simd_t *>(inptr), bwd.data());
 
                 // Step 2: Get tensor derivative (deriv0, deriv1)
                 PhysDerivTensor3DKernel<simd_t>(
@@ -879,10 +887,13 @@ protected:
 
                 // Step 3: evaluate advection term and add to bwd * lambda.
                 AddAdvection3DKernel<SHAPE_TYPE, DEFORMED>(
-                    nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3], advVelPtr,
-                    advVelPtr + advVelOffset, advVelPtr + 2 * advVelOffset,
-                    dfptr, deriv0.data(), deriv1.data(), deriv2.data(),
-                    bwd.data(), this->m_lambda);
+                    nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
+                    reinterpret_cast<const simd_t *>(advVelPtr),
+                    reinterpret_cast<const simd_t *>(advVelPtr + advVelOffset),
+                    reinterpret_cast<const simd_t *>(advVelPtr +
+                                                     2 * advVelOffset),
+                    reinterpret_cast<const simd_t *>(dfptr), deriv0.data(),
+                    deriv1.data(), deriv2.data(), bwd.data(), this->m_lambda);
 
                 // Step 4: apply diffusion coeff to (diffderiv0, diffderiv1) and
                 // apply WJ
@@ -890,10 +901,11 @@ protected:
                                              simd_t>(
                     nq0, nq1, nq2, true, this->m_diffCoeff, false,
                     NullTDataVector, NullTDataVector, NullTDataVector,
-                    NullTDataVector, NullTDataVector, NullTDataVector, jacptr,
-                    m_W[0], m_W[1], m_W[2], dfptr, m_f[0], m_f[1], m_f[2],
-                    m_f[3], deriv0.data(), deriv1.data(), deriv2.data(),
-                    bwd.data(), 1.0);
+                    NullTDataVector, NullTDataVector, NullTDataVector,
+                    reinterpret_cast<const simd_t *>(jacptr), m_W[0], m_W[1],
+                    m_W[2], reinterpret_cast<const simd_t *>(dfptr), m_f[0],
+                    m_f[1], m_f[2], m_f[3], deriv0.data(), deriv1.data(),
+                    deriv2.data(), bwd.data(), 1.0);
 
                 // Step 5: apply derivative and sum up.
                 SumDerivTensor3DKernel<simd_t>(
@@ -904,16 +916,21 @@ protected:
                 IProduct3DKernel<SHAPE_TYPE, false, false, simd_t>(
                     nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, bwd.data(),
                     m_B[0], m_B[1], m_B[2], m_nodToModTrans, wsp0.data(),
-                    wsp1.data(), wsp2.data(), outptr, 1.0);
+                    wsp1.data(), wsp2.data(),
+                    reinterpret_cast<simd_t *>(outptr), 1.0);
 
                 // Increment pointers.
-                dfptr += dfSize * ndf;
-                jacptr += dfSize;
-                advVelPtr += nqTot;
-                inptr += nmTot;
-                outptr += nmTot;
+                dfptr += dfSize * ndf * simd_t::width;
+                jacptr += dfSize * simd_t::width;
+                advVelPtr += nqTot * simd_t::width;
+                inptr += nmTot * simd_t::width;
+                outptr += nmTot * simd_t::width;
             }
         }
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 
     // Size based template version.
@@ -935,29 +952,21 @@ protected:
             dfSize *= nqTot;
         }
 
+        const auto nelmt = inblock.GetNumElementsWithPadding();
+
         // Fetch Jacobian and deriv factors.
-        auto jacptr_init = reinterpret_cast<const simd_t *>(
-            this->m_dataWarehouse->template GetData<ExecSpace>(
-                JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                   inblock.GetNumElements())));
-        auto dfptr_init = reinterpret_cast<const simd_t *>(
-            this->m_dataWarehouse->template GetData<ExecSpace>(
-                DerivFactorKey<TData>(inblock.GetExpIdx(),
-                                      m_implInterleaveWidth,
-                                      inblock.GetNumElements(), false)));
+        auto jacptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
+                               inblock.GetNumElements()));
+        auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
+                                  inblock.GetNumElements(), false));
 
-        // Get interleave parameter.
-        const auto interleave_width = inblock.GetInterleaveWidth();
-
-        const auto width_ratio = (interleave_width == 1)
-                                     ? 1
-                                     : interleave_width / m_implInterleaveWidth;
-        const auto chunkSize =
-            std::max(m_implInterleaveWidth, interleave_width);
-
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Initialize pointers.
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Workspace for kernels - also checks preconditions.
         unsigned int wsp0Size = 0, wsp1Size = 0, wsp2Size = 0;
@@ -975,25 +984,25 @@ protected:
         std::vector<simd_t, tinysimd::allocator<simd_t>> diffderiv1(nqTot);
         std::vector<simd_t, tinysimd::allocator<simd_t>> diffderiv2(nqTot);
 
-        // Initialize advVel pointers.
-        auto advVelOffset   = inblock.GetNumElmtGroups() * nqTot;
-        auto advVelPtr_init = reinterpret_cast<simd_t *>(m_advVel);
-
-        // Initialize pointers.
-        auto input  = (interleave_width == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto inptr  = reinterpret_cast<const simd_t *>(input);
-        auto outptr = reinterpret_cast<simd_t *>(output);
+        // Get interleave parameter.
+        const auto interleave_width = inblock.GetInterleaveWidth();
+        const auto width_ratio      = (interleave_width == 1)
+                                          ? 1
+                                          : interleave_width / m_implInterleaveWidth;
+        const auto chunkSize =
+            std::max(m_implInterleaveWidth, interleave_width);
+        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
+        auto advVelOffset = nelmt * nqTot;
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             auto jacptr    = jacptr_init;
             auto dfptr     = dfptr_init;
-            auto advVelPtr = advVelPtr_init;
-            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            auto advVelPtr = m_advVel;
+
+            // Loop over element groups.
+            for (size_t e = 0; e < numElmtGroups; ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -1003,10 +1012,10 @@ protected:
                 }
 
                 // Step 1: BwdTrans.
-                BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2,
-                                             m_isModified, m_B[0], m_B[1],
-                                             m_B[2], m_nodToMod, wsp0.data(),
-                                             wsp1.data(), inptr, bwd.data());
+                BwdTrans3DKernel<SHAPE_TYPE>(
+                    nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, m_B[0], m_B[1],
+                    m_B[2], m_nodToMod, wsp0.data(), wsp1.data(),
+                    reinterpret_cast<const simd_t *>(inptr), bwd.data());
 
                 // Step 2: Get tensor derivative (deriv0, deriv1)
                 PhysDerivTensor3DKernel<simd_t>(
@@ -1015,10 +1024,13 @@ protected:
 
                 // Step 3: evaluate advection term and add to bwd * lambda.
                 AddAdvection3DKernel<SHAPE_TYPE, DEFORMED>(
-                    nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3], advVelPtr,
-                    advVelPtr + advVelOffset, advVelPtr + 2 * advVelOffset,
-                    dfptr, deriv0.data(), deriv1.data(), deriv2.data(),
-                    bwd.data(), this->m_lambda);
+                    nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
+                    reinterpret_cast<const simd_t *>(advVelPtr),
+                    reinterpret_cast<const simd_t *>(advVelPtr + advVelOffset),
+                    reinterpret_cast<const simd_t *>(advVelPtr +
+                                                     2 * advVelOffset),
+                    reinterpret_cast<const simd_t *>(dfptr), deriv0.data(),
+                    deriv1.data(), deriv2.data(), bwd.data(), this->m_lambda);
 
                 // Step 4: apply diffusion coeff to (diffderiv0, diffderiv1) and
                 // apply WJ
@@ -1026,10 +1038,11 @@ protected:
                                              simd_t>(
                     nq0, nq1, nq2, true, this->m_diffCoeff, false,
                     NullTDataVector, NullTDataVector, NullTDataVector,
-                    NullTDataVector, NullTDataVector, NullTDataVector, jacptr,
-                    m_W[0], m_W[1], m_W[2], dfptr, m_f[0], m_f[1], m_f[2],
-                    m_f[3], deriv0.data(), deriv1.data(), deriv2.data(),
-                    bwd.data(), 1.0);
+                    NullTDataVector, NullTDataVector, NullTDataVector,
+                    reinterpret_cast<const simd_t *>(jacptr), m_W[0], m_W[1],
+                    m_W[2], reinterpret_cast<const simd_t *>(dfptr), m_f[0],
+                    m_f[1], m_f[2], m_f[3], deriv0.data(), deriv1.data(),
+                    deriv2.data(), bwd.data(), 1.0);
 
                 // Step 5: apply derivative and sum up.
                 SumDerivTensor3DKernel<simd_t>(
@@ -1040,16 +1053,21 @@ protected:
                 IProduct3DKernel<SHAPE_TYPE, false, false, simd_t>(
                     nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, bwd.data(),
                     m_B[0], m_B[1], m_B[2], m_nodToModTrans, wsp0.data(),
-                    wsp1.data(), wsp2.data(), outptr, 1.0);
+                    wsp1.data(), wsp2.data(),
+                    reinterpret_cast<simd_t *>(outptr), 1.0);
 
                 // Increment pointers.
-                dfptr += dfSize * ndf;
-                jacptr += dfSize;
-                advVelPtr += nqTot;
-                inptr += nmTot;
-                outptr += nmTot;
+                dfptr += dfSize * ndf * simd_t::width;
+                jacptr += dfSize * simd_t::width;
+                advVelPtr += nqTot * simd_t::width;
+                inptr += nmTot * simd_t::width;
+                outptr += nmTot * simd_t::width;
             }
         }
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 };
 

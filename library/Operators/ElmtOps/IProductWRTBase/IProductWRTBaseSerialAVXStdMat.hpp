@@ -111,6 +111,8 @@ protected:
     void v_Apply(BlockAccessor<TData> &inblock,
                  BlockAccessor<TData> &outblock) override
     {
+        const auto nelmt = inblock.GetNumElementsWithPadding();
+
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
@@ -122,18 +124,6 @@ protected:
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
 
-        // Get interleave parameter.
-        const auto interleave_width = inblock.GetInterleaveWidth();
-        const auto width_ratio      = (interleave_width == 1)
-                                          ? 1
-                                          : interleave_width / m_implInterleaveWidth;
-        const auto chunkSize =
-            std::max(m_implInterleaveWidth, interleave_width);
-
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-
         // Allocate storage.
         if (m_wsp.size() == 0)
         {
@@ -144,6 +134,15 @@ protected:
         // Get workspace pointer.
         auto wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
 
+        // Get interleave parameter.
+        const auto interleave_width = inblock.GetInterleaveWidth();
+        const auto width_ratio      = (interleave_width == 1)
+                                          ? 1
+                                          : interleave_width / m_implInterleaveWidth;
+        const auto chunkSize =
+            std::max(m_implInterleaveWidth, interleave_width);
+        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
+
         // Dispatch kernel.
         auto gemm_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
             simd_t::width, m_nmTot, m_nqTot, 1.0, 0.0);
@@ -153,7 +152,8 @@ protected:
         {
             auto jacptr = jacptr_init;
 
-            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            // Loop over element groups.
+            for (size_t e = 0; e < numElmtGroups; ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -188,6 +188,10 @@ protected:
                 outptr += m_nmTot * simd_t::width;
             }
         }
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 };
 
