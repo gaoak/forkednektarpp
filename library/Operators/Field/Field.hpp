@@ -117,6 +117,11 @@ public:
         return m_num_elements_with_padding / m_interleave_width;
     }
 
+    size_t GetNumElmtGroups(const unsigned int interleave_width) const
+    {
+        return m_num_elements_with_padding / interleave_width;
+    }
+
 private:
     const size_t m_exp_idx;
     const size_t m_num_elements;

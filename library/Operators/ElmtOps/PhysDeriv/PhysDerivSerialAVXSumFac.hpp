@@ -229,8 +229,6 @@ protected:
             dfsize *= nqTot;
         }
 
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
         // Fetch deriv factors data.
         auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
@@ -249,10 +247,10 @@ protected:
                                           : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
-        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
-        auto compOffset = numElmtGroups * nqTot;
+        auto compOffset =
+            inblock.GetNumElmtGroups(m_implInterleaveWidth) * nqTot;
         simd_t *outvec[3];
         for (unsigned int d = 0; d < m_coordDim; ++d)
         {
@@ -262,7 +260,8 @@ protected:
         {
             auto dfptr = dfptr_init;
 
-            for (size_t e = 0; e < numElmtGroups; ++e)
+            for (size_t e = 0;
+                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -318,8 +317,6 @@ protected:
             dfsize *= nqTot;
         }
 
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
         // Fetch deriv factors data.
         auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
@@ -338,10 +335,10 @@ protected:
                                           : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
-        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
-        auto compOffset = numElmtGroups * nqTot;
+        auto compOffset =
+            inblock.GetNumElmtGroups(m_implInterleaveWidth) * nqTot;
         simd_t *outvec[3];
         for (unsigned int d = 0; d < coordDim; ++d)
         {
@@ -350,7 +347,8 @@ protected:
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             auto dfptr = dfptr_init;
-            for (size_t e = 0; e < numElmtGroups; ++e)
+            for (size_t e = 0;
+                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -408,8 +406,6 @@ protected:
             dfsize *= nqTot;
         }
 
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
         // Fetch deriv factors data.
         auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
@@ -428,10 +424,10 @@ protected:
                                           : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
-        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
-        auto compOffset = numElmtGroups * nqTot;
+        auto compOffset =
+            inblock.GetNumElmtGroups(m_implInterleaveWidth) * nqTot;
         simd_t *outvec[3];
         for (unsigned int d = 0; d < m_coordDim; ++d)
         {
@@ -440,7 +436,8 @@ protected:
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             auto dfptr = dfptr_init;
-            for (size_t e = 0; e < numElmtGroups; ++e)
+            for (size_t e = 0;
+                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -496,8 +493,6 @@ protected:
             dfsize *= nqTot;
         }
 
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
         // Fetch deriv factors data.
         auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
@@ -516,10 +511,10 @@ protected:
                                           : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
-        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
-        auto compOffset = numElmtGroups * nqTot;
+        auto compOffset =
+            inblock.GetNumElmtGroups(m_implInterleaveWidth) * nqTot;
         simd_t *outvec[3];
         for (unsigned int d = 0; d < coordDim; ++d)
         {
@@ -528,7 +523,8 @@ protected:
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             auto dfptr = dfptr_init;
-            for (size_t e = 0; e < numElmtGroups; ++e)
+            for (size_t e = 0;
+                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -587,8 +583,6 @@ protected:
             dfsize *= nqTot;
         }
 
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
         // Fetch deriv factors data.
         auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
@@ -613,10 +607,10 @@ protected:
                                           : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
-        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
-        auto compOffset = numElmtGroups * nqTot;
+        auto compOffset =
+            inblock.GetNumElmtGroups(m_implInterleaveWidth) * nqTot;
         simd_t *outvec[3];
         outvec[0] = reinterpret_cast<simd_t *>(outptr);
         outvec[1] = reinterpret_cast<simd_t *>(outptr) + compOffset;
@@ -624,7 +618,8 @@ protected:
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             auto dfptr = dfptr_init;
-            for (size_t e = 0; e < numElmtGroups; ++e)
+            for (size_t e = 0;
+                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -679,8 +674,6 @@ protected:
             dfsize *= nqTot;
         }
 
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
         // Fetch deriv factors data.
         auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
@@ -705,10 +698,10 @@ protected:
                                           : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
-        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
-        auto compOffset = numElmtGroups * nqTot;
+        auto compOffset =
+            inblock.GetNumElmtGroups(m_implInterleaveWidth) * nqTot;
         simd_t *outvec[3];
         outvec[0] = reinterpret_cast<simd_t *>(outptr);
         outvec[1] = reinterpret_cast<simd_t *>(outptr) + compOffset;
@@ -716,7 +709,8 @@ protected:
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             auto dfptr = dfptr_init;
-            for (size_t e = 0; e < numElmtGroups; ++e)
+            for (size_t e = 0;
+                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)

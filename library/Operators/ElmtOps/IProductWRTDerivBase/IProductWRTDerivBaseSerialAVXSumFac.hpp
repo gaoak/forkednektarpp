@@ -282,8 +282,6 @@ protected:
             jacSize *= nq0;
         }
 
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
         // Fetch Jacobian and deriv factors.
         auto jacptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
@@ -309,14 +307,14 @@ protected:
                                           : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
-        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
         for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
         {
             auto jacptr = jacptr_init;
             auto dfptr  = dfptr_init;
-            for (size_t e = 0; e < numElmtGroups; ++e)
+            for (size_t e = 0;
+                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -331,7 +329,8 @@ protected:
 
                 StdAlignDerivBase1D<DEFORMED>(
                     nq0, m_coordDim, reinterpret_cast<const simd_t *>(dfptr),
-                    df_tmp, numElmtGroups * nq0,
+                    df_tmp,
+                    inblock.GetNumElmtGroups(m_implInterleaveWidth) * nq0,
                     reinterpret_cast<const simd_t *>(inptr), tmp0.data());
                 IProductSegKernel<false, false, DEFORMED>(
                     nm0, nq0, tmp0.data(), m_DB[0], m_W[0],
@@ -363,8 +362,6 @@ protected:
             jacSize *= nq0;
         }
 
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
         // Fetch Jacobian and deriv factors.
         auto jacptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
@@ -390,14 +387,14 @@ protected:
                                           : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
-        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
         for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
         {
             auto jacptr = jacptr_init;
             auto dfptr  = dfptr_init;
-            for (size_t e = 0; e < numElmtGroups; ++e)
+            for (size_t e = 0;
+                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -412,7 +409,8 @@ protected:
 
                 StdAlignDerivBase1D<DEFORMED>(
                     nq0, m_coordDim, reinterpret_cast<const simd_t *>(dfptr),
-                    df_tmp, numElmtGroups * nq0,
+                    df_tmp,
+                    inblock.GetNumElmtGroups(m_implInterleaveWidth) * nq0,
                     reinterpret_cast<const simd_t *>(inptr), tmp0.data());
                 IProductSegKernel<false, false, DEFORMED>(
                     nm0, nq0, tmp0.data(), m_DB[0], m_W[0],
@@ -455,8 +453,6 @@ protected:
             jacSize *= nqTot;
         }
 
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
         // Fetch Jacobian and deriv factors.
         auto jacptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
@@ -489,14 +485,14 @@ protected:
                                           : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
-        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
         for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
         {
             auto jacptr = jacptr_init;
             auto dfptr  = dfptr_init;
-            for (size_t e = 0; e < numElmtGroups; ++e)
+            for (size_t e = 0;
+                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -512,7 +508,7 @@ protected:
                 StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(
                     nq0, nq1, m_coordDim,
                     reinterpret_cast<const simd_t *>(dfptr), df_tmp,
-                    numElmtGroups * nqTot,
+                    inblock.GetNumElmtGroups(m_implInterleaveWidth) * nqTot,
                     reinterpret_cast<const simd_t *>(inptr), tmpPtr, m_f[0],
                     m_f[1], reinterpret_cast<const simd_t *>(jacptr), m_W[0],
                     m_W[1]);
@@ -532,7 +528,8 @@ protected:
 
             // Advance input by m_coordDim-1 componennts since have already
             // advanced one component in the above.
-            inptr += nqTot * numElmtGroups * (m_coordDim - 1) * simd_t::width;
+            inptr += nqTot * inblock.GetNumElmtGroups(m_implInterleaveWidth) *
+                     (m_coordDim - 1) * simd_t::width;
         }
 
         // Set to new interleave width.
@@ -559,8 +556,6 @@ protected:
             jacSize *= nqTot;
         }
 
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
         // Fetch Jacobian and deriv factors.
         auto jacptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
@@ -593,14 +588,14 @@ protected:
                                           : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
-        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
         for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
         {
             auto jacptr = jacptr_init;
             auto dfptr  = dfptr_init;
-            for (size_t e = 0; e < numElmtGroups; ++e)
+            for (size_t e = 0;
+                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -616,7 +611,7 @@ protected:
                 StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(
                     nq0, nq1, m_coordDim,
                     reinterpret_cast<const simd_t *>(dfptr), df_tmp,
-                    numElmtGroups * nqTot,
+                    inblock.GetNumElmtGroups(m_implInterleaveWidth) * nqTot,
                     reinterpret_cast<const simd_t *>(inptr), tmpPtr, m_f[0],
                     m_f[1], reinterpret_cast<const simd_t *>(jacptr), m_W[0],
                     m_W[1]);
@@ -636,7 +631,8 @@ protected:
 
             // Advance input by m_coordDim-1 componennts since have already
             // advanced one component in the above.
-            inptr += nqTot * numElmtGroups * (m_coordDim - 1) * simd_t::width;
+            inptr += nqTot * inblock.GetNumElmtGroups(m_implInterleaveWidth) *
+                     (m_coordDim - 1) * simd_t::width;
         }
 
         // Set to new interleave width.
@@ -669,8 +665,6 @@ protected:
             jacSize *= nqTot;
         }
 
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
         // Fetch Jacobian and deriv factors.
         auto jacptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
@@ -707,14 +701,14 @@ protected:
                                           : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
-        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
         for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
         {
             auto jacptr = jacptr_init;
             auto dfptr  = dfptr_init;
-            for (size_t e = 0; e < numElmtGroups; ++e)
+            for (size_t e = 0;
+                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -729,10 +723,11 @@ protected:
 
                 StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
                     nq0, nq1, nq2, reinterpret_cast<const simd_t *>(dfptr),
-                    df_tmp, numElmtGroups * nqTot, m_f[0], m_f[1], m_f[2],
-                    m_f[3], reinterpret_cast<const simd_t *>(jacptr), m_W[0],
-                    m_W[1], m_W[2], reinterpret_cast<const simd_t *>(inptr),
-                    tmpPtr);
+                    df_tmp,
+                    inblock.GetNumElmtGroups(m_implInterleaveWidth) * nqTot,
+                    m_f[0], m_f[1], m_f[2], m_f[3],
+                    reinterpret_cast<const simd_t *>(jacptr), m_W[0], m_W[1],
+                    m_W[2], reinterpret_cast<const simd_t *>(inptr), tmpPtr);
                 SumDerivTensor3DKernel<simd_t>(nq0, nq1, nq2, tmpPtr[0],
                                                tmpPtr[1], tmpPtr[2], m_D[0],
                                                m_D[1], m_D[2], tmp3.data());
@@ -751,7 +746,8 @@ protected:
 
             // Advance input by m_coordDim-1 componennts since have already
             // advanced one component in the above.
-            inptr += nqTot * numElmtGroups * 2 * simd_t::width;
+            inptr += nqTot * inblock.GetNumElmtGroups(m_implInterleaveWidth) *
+                     2 * simd_t::width;
         }
 
         // Set to new interleave width.
@@ -778,8 +774,6 @@ protected:
             jacSize *= nqTot;
         }
 
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
         // Fetch Jacobian and deriv factors.
         auto jacptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
@@ -816,14 +810,14 @@ protected:
                                           : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
-        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
         for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
         {
             auto jacptr = jacptr_init;
             auto dfptr  = dfptr_init;
-            for (size_t e = 0; e < numElmtGroups; ++e)
+            for (size_t e = 0;
+                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -838,10 +832,11 @@ protected:
 
                 StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
                     nq0, nq1, nq2, reinterpret_cast<const simd_t *>(dfptr),
-                    df_tmp, numElmtGroups * nqTot, m_f[0], m_f[1], m_f[2],
-                    m_f[3], reinterpret_cast<const simd_t *>(jacptr), m_W[0],
-                    m_W[1], m_W[2], reinterpret_cast<const simd_t *>(inptr),
-                    tmpPtr);
+                    df_tmp,
+                    inblock.GetNumElmtGroups(m_implInterleaveWidth) * nqTot,
+                    m_f[0], m_f[1], m_f[2], m_f[3],
+                    reinterpret_cast<const simd_t *>(jacptr), m_W[0], m_W[1],
+                    m_W[2], reinterpret_cast<const simd_t *>(inptr), tmpPtr);
                 SumDerivTensor3DKernel<simd_t>(nq0, nq1, nq2, tmpPtr[0],
                                                tmpPtr[1], tmpPtr[2], m_D[0],
                                                m_D[1], m_D[2], tmp3.data());
@@ -860,7 +855,8 @@ protected:
 
             // Advance input by m_coordDim-1 componennts since have already
             // advanced one component in the above.
-            inptr += nqTot * numElmtGroups * 2 * simd_t::width;
+            inptr += nqTot * inblock.GetNumElmtGroups(m_implInterleaveWidth) *
+                     2 * simd_t::width;
         }
 
         // Set to new interleave width.

@@ -104,8 +104,6 @@ protected:
     void v_Apply(BlockAccessor<TData> &inblock,
                  BlockAccessor<TData> &outblock) override
     {
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
         // Fetch derivative factor.
         auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
@@ -124,20 +122,21 @@ protected:
                                           : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
-        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Dispatch kernel.
         auto gemm_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
             simd_t::width, m_nqTot, m_nqTot, 1.0, 0.0);
 
         // Loop over components.
-        const auto outsize = m_nqTot * numElmtGroups;
+        const auto outsize =
+            m_nqTot * inblock.GetNumElmtGroups(m_implInterleaveWidth);
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             auto dfptr = dfptr_init;
 
             // Loop over element groups.
-            for (size_t e = 0; e < numElmtGroups; ++e)
+            for (size_t e = 0;
+                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)

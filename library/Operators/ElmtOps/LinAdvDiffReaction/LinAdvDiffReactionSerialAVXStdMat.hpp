@@ -143,8 +143,6 @@ protected:
     void v_Apply(BlockAccessor<TData> &inblock,
                  BlockAccessor<TData> &outblock) override
     {
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
         // Fetch Jacobian and deriv factors.
         auto jacptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
@@ -181,7 +179,6 @@ protected:
                                           : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
-        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Dispatch kernel.
         auto bwd_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
@@ -194,7 +191,8 @@ protected:
             simd_t::width, m_nmTot, m_nqTot, 1.0, 1.0);
 
         // Loop over components.
-        const auto advelsize = m_nqTot * numElmtGroups;
+        const auto advelsize =
+            m_nqTot * inblock.GetNumElmtGroups(m_implInterleaveWidth);
         const auto derivsize = m_nqTot;
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
@@ -203,7 +201,8 @@ protected:
             auto dfptr  = dfptr_init;
 
             // Loop over element groups.
-            for (size_t e = 0; e < numElmtGroups; ++e)
+            for (size_t e = 0;
+                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
