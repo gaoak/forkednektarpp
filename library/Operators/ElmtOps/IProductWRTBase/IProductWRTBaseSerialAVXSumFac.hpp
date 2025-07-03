@@ -247,8 +247,6 @@ protected:
             jacSize *= nqTot;
         }
 
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
         // Fetch Jacobian.
         auto jacptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
@@ -267,7 +265,6 @@ protected:
                                           : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
-        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
@@ -275,7 +272,8 @@ protected:
             auto jacptr = jacptr_init;
 
             // Loop over element groups.
-            for (size_t e = 0; e < numElmtGroups; ++e)
+            for (size_t e = 0;
+                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -318,8 +316,6 @@ protected:
             jacSize *= nqTot;
         }
 
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
         // Fetch Jacobian.
         auto jacptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
@@ -338,7 +334,6 @@ protected:
                                           : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
-        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
@@ -346,7 +341,8 @@ protected:
             auto jacptr = jacptr_init;
 
             // Loop over element groups.
-            for (size_t e = 0; e < numElmtGroups; ++e)
+            for (size_t e = 0;
+                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -395,8 +391,6 @@ protected:
             jacSize *= nqTot;
         }
 
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
         // Fetch Jacobian.
         auto jacptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
@@ -420,7 +414,6 @@ protected:
                                           : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
-        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
@@ -428,7 +421,8 @@ protected:
             auto jacptr = jacptr_init;
 
             // Loop over element groups.
-            for (size_t e = 0; e < numElmtGroups; ++e)
+            for (size_t e = 0;
+                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -475,8 +469,6 @@ protected:
             jacSize *= nqTot;
         }
 
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
         // Fetch Jacobian.
         auto jacptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
@@ -500,7 +492,6 @@ protected:
                                           : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
-        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
@@ -508,7 +499,8 @@ protected:
             auto jacptr = jacptr_init;
 
             // Loop over element groups.
-            for (size_t e = 0; e < numElmtGroups; ++e)
+            for (size_t e = 0;
+                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -561,8 +553,6 @@ protected:
             jacSize *= nqTot;
         }
 
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
         // Fetch Jacobian.
         auto jacptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
@@ -588,7 +578,6 @@ protected:
                                           : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
-        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
@@ -596,7 +585,8 @@ protected:
             auto jacptr = jacptr_init;
 
             // Loop over element groups.
-            for (size_t e = 0; e < numElmtGroups; ++e)
+            for (size_t e = 0;
+                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -644,8 +634,6 @@ protected:
             jacSize *= nqTot;
         }
 
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
         // Fetch Jacobian.
         auto jacptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
@@ -671,7 +659,6 @@ protected:
                                           : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
-        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
@@ -679,7 +666,8 @@ protected:
             auto jacptr = jacptr_init;
 
             // Loop over element groups.
-            for (size_t e = 0; e < numElmtGroups; ++e)
+            for (size_t e = 0;
+                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)

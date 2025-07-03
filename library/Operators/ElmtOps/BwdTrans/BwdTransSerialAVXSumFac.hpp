@@ -234,8 +234,6 @@ protected:
         const auto nmTot = nm0;
         const auto nqTot = nq0;
 
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
@@ -252,13 +250,13 @@ protected:
                                           : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
-        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Loop over element groups.
-            for (size_t e = 0; e < numElmtGroups; ++e)
+            for (size_t e = 0;
+                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -293,8 +291,6 @@ protected:
         constexpr auto nmTot = nm0;
         constexpr auto nqTot = nq0;
 
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
@@ -311,13 +307,13 @@ protected:
                                           : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
-        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Loop over element groups.
-            for (size_t e = 0; e < numElmtGroups; ++e)
+            for (size_t e = 0;
+                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -358,8 +354,6 @@ protected:
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
         const auto nqTot = nq0 * nq1;
 
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
@@ -378,13 +372,13 @@ protected:
                                           : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
-        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Loop over element groups.
-            for (size_t e = 0; e < numElmtGroups; ++e)
+            for (size_t e = 0;
+                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -423,8 +417,6 @@ protected:
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
         constexpr auto nqTot = nq0 * nq1;
 
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
@@ -443,13 +435,13 @@ protected:
                                           : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
-        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Loop over element groups.
-            for (size_t e = 0; e < numElmtGroups; ++e)
+            for (size_t e = 0;
+                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -494,8 +486,6 @@ protected:
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
         const auto nqTot = nq0 * nq1 * nq2;
 
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
@@ -516,13 +506,13 @@ protected:
                                           : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
-        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Loop over element groups.
-            for (size_t e = 0; e < numElmtGroups; ++e)
+            for (size_t e = 0;
+                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
@@ -561,8 +551,6 @@ protected:
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
         constexpr auto nqTot = nq0 * nq1 * nq2;
 
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
@@ -583,13 +571,13 @@ protected:
                                           : interleave_width / m_implInterleaveWidth;
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
-        const auto numElmtGroups = nelmt / m_implInterleaveWidth;
 
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Loop over element groups.
-            for (size_t e = 0; e < numElmtGroups; ++e)
+            for (size_t e = 0;
+                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
