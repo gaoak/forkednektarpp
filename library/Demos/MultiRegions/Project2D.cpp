@@ -68,31 +68,31 @@ public:
         m_meshGraph->SetSpaceDimension(spaceDimension);
 
         // Create a bunch of point geometries
-        auto &vertSet = m_meshGraph->GetAllPointGeoms();
         for (int i = 0; i < m_nx + 1; ++i)
         {
             for (int j = 0; j < m_ny + 1; ++j)
             {
-                vertSet[MyPntId(i, j)] =
-                    MemoryManager<SpatialDomains::PointGeom>::AllocateSharedPtr(
-                        spaceDimension, MyPntId(i, j),
-                        m_a + i * (m_b - m_a) / m_nx,
-                        m_c + j * (m_d - m_c) / m_ny, 0.0);
+                auto geom = ObjPoolManager<SpatialDomains::PointGeom>::
+                    AllocateUniquePtr(spaceDimension, MyPntId(i, j),
+                                      m_a + i * (m_b - m_a) / m_nx,
+                                      m_c + j * (m_d - m_c) / m_ny, 0.0);
+                m_meshGraph->AddGeom(MyPntId(i, j), std::move(geom));
             }
         }
 
-        auto &segGeoms = m_meshGraph->GetAllSegGeoms();
         // Create a bunch of segment geometries,
         // first the segments parallel to y
         for (int i = 0; i < m_nx + 1; ++i)
         {
             for (int j = 0; j < m_ny; ++j)
             {
-                SpatialDomains::PointGeomSharedPtr pts[2] = {
-                    vertSet[MyPntId(i, j)], vertSet[MyPntId(i, j + 1)]};
-                segGeoms[MyYSegId(i, j)] =
-                    MemoryManager<SpatialDomains::SegGeom>::AllocateSharedPtr(
+                std::array<SpatialDomains::PointGeom *, 2> pts = {
+                    m_meshGraph->GetPointGeom(MyPntId(i, j)),
+                    m_meshGraph->GetPointGeom(MyPntId(i, j + 1))};
+                auto geom =
+                    ObjPoolManager<SpatialDomains::SegGeom>::AllocateUniquePtr(
                         MyYSegId(i, j), spaceDimension, pts);
+                m_meshGraph->AddGeom(MyYSegId(i, j), std::move(geom));
             }
         }
         // then the segments parallel to x
@@ -100,11 +100,13 @@ public:
         {
             for (int j = 0; j < m_ny + 1; ++j)
             {
-                SpatialDomains::PointGeomSharedPtr pts[2] = {
-                    vertSet[MyPntId(i, j)], vertSet[MyPntId(i + 1, j)]};
-                segGeoms[MyXSegId(i, j)] =
-                    MemoryManager<SpatialDomains::SegGeom>::AllocateSharedPtr(
+                std::array<SpatialDomains::PointGeom *, 2> pts = {
+                    m_meshGraph->GetPointGeom(MyPntId(i, j)),
+                    m_meshGraph->GetPointGeom(MyPntId(i + 1, j))};
+                auto geom =
+                    ObjPoolManager<SpatialDomains::SegGeom>::AllocateUniquePtr(
                         MyXSegId(i, j), spaceDimension, pts);
+                m_meshGraph->AddGeom(MyXSegId(i, j), std::move(geom));
             }
         }
         // then the diagonal segments if triangular elements
@@ -114,18 +116,17 @@ public:
             {
                 for (int j = 0; j < m_ny; ++j)
                 {
-                    SpatialDomains::PointGeomSharedPtr pts[2] = {
-                        vertSet[MyPntId(i, j)], vertSet[MyPntId(i + 1, j + 1)]};
-                    segGeoms[MyDiagSegId(i, j)] =
-                        MemoryManager<SpatialDomains::SegGeom>::
-                            AllocateSharedPtr(MyDiagSegId(i, j), spaceDimension,
-                                              pts);
+                    std::array<SpatialDomains::PointGeom *, 2> pts = {
+                        m_meshGraph->GetPointGeom(MyPntId(i, j)),
+                        m_meshGraph->GetPointGeom(MyPntId(i + 1, j + 1))};
+                    auto geom = ObjPoolManager<SpatialDomains::SegGeom>::
+                        AllocateUniquePtr(MyDiagSegId(i, j), spaceDimension,
+                                          pts);
+                    m_meshGraph->AddGeom(MyDiagSegId(i, j), std::move(geom));
                 }
             }
         }
 
-        auto &triGeoms  = m_meshGraph->GetAllTriGeoms();
-        auto &quadGeoms = m_meshGraph->GetAllQuadGeoms();
         switch (m_shapeType)
         {
             case LibUtilities::eTriangle:
@@ -136,20 +137,23 @@ public:
                 {
                     for (int j = 0; j < m_ny; ++j)
                     {
-                        SpatialDomains::SegGeomSharedPtr u_edges[3] = {
-                            segGeoms[MyYSegId(i, j)],
-                            segGeoms[MyDiagSegId(i, j)],
-                            segGeoms[MyXSegId(i, j + 1)]};
-                        triGeoms[MyUpperTriId(i, j)] =
-                            MemoryManager<SpatialDomains::TriGeom>::
-                                AllocateSharedPtr(MyUpperTriId(i, j), u_edges);
-                        SpatialDomains::SegGeomSharedPtr l_edges[3] = {
-                            segGeoms[MyXSegId(i, j)],
-                            segGeoms[MyYSegId(i + 1, j)],
-                            segGeoms[MyDiagSegId(i, j)]};
-                        triGeoms[MyLowerTriId(i, j)] =
-                            MemoryManager<SpatialDomains::TriGeom>::
-                                AllocateSharedPtr(MyLowerTriId(i, j), l_edges);
+                        std::array<SpatialDomains::SegGeom *, 3> u_edges = {
+                            m_meshGraph->GetSegGeom(MyYSegId(i, j)),
+                            m_meshGraph->GetSegGeom(MyDiagSegId(i, j)),
+                            m_meshGraph->GetSegGeom(MyXSegId(i, j + 1))};
+                        auto tri1 = ObjPoolManager<SpatialDomains::TriGeom>::
+                            AllocateUniquePtr(MyUpperTriId(i, j), u_edges);
+                        m_meshGraph->AddGeom(MyUpperTriId(i, j),
+                                             std::move(tri1));
+
+                        std::array<SpatialDomains::SegGeom *, 3> l_edges = {
+                            m_meshGraph->GetSegGeom(MyXSegId(i, j)),
+                            m_meshGraph->GetSegGeom(MyYSegId(i + 1, j)),
+                            m_meshGraph->GetSegGeom(MyDiagSegId(i, j))};
+                        auto tri2 = ObjPoolManager<SpatialDomains::TriGeom>::
+                            AllocateUniquePtr(MyLowerTriId(i, j), l_edges);
+                        m_meshGraph->AddGeom(MyLowerTriId(i, j),
+                                             std::move(tri2));
                     }
                 }
             }
@@ -162,13 +166,14 @@ public:
                 {
                     for (int j = 0; j < m_ny; ++j)
                     {
-                        SpatialDomains::SegGeomSharedPtr edges[4] = {
-                            segGeoms[MyYSegId(i, j)], segGeoms[MyXSegId(i, j)],
-                            segGeoms[MyYSegId(i + 1, j)],
-                            segGeoms[MyXSegId(i, j + 1)]};
-                        quadGeoms[MyQuadId(i, j)] =
-                            MemoryManager<SpatialDomains::QuadGeom>::
-                                AllocateSharedPtr(MyQuadId(i, j), edges);
+                        std::array<SpatialDomains::SegGeom *, 4> edges = {
+                            m_meshGraph->GetSegGeom(MyYSegId(i, j)),
+                            m_meshGraph->GetSegGeom(MyXSegId(i, j)),
+                            m_meshGraph->GetSegGeom(MyYSegId(i + 1, j)),
+                            m_meshGraph->GetSegGeom(MyXSegId(i, j + 1))};
+                        auto quad = ObjPoolManager<SpatialDomains::QuadGeom>::
+                            AllocateUniquePtr(MyQuadId(i, j), edges);
+                        m_meshGraph->AddGeom(MyQuadId(i, j), std::move(quad));
                     }
                 }
             }
@@ -190,14 +195,16 @@ public:
                 {
                     for (int j = 0; j < m_ny; ++j)
                     {
-                        comp->m_geomVec.push_back(triGeoms[MyUpperTriId(i, j)]);
+                        comp->m_geomVec.push_back(
+                            m_meshGraph->GetTriGeom(MyUpperTriId(i, j)));
                     }
                 }
                 for (int i = 0; i < m_nx; ++i)
                 {
                     for (int j = 0; j < m_ny; ++j)
                     {
-                        comp->m_geomVec.push_back(triGeoms[MyLowerTriId(i, j)]);
+                        comp->m_geomVec.push_back(
+                            m_meshGraph->GetTriGeom(MyLowerTriId(i, j)));
                     }
                 }
             }
@@ -208,7 +215,8 @@ public:
                 {
                     for (int j = 0; j < m_ny; ++j)
                     {
-                        comp->m_geomVec.push_back(quadGeoms[MyQuadId(i, j)]);
+                        comp->m_geomVec.push_back(
+                            m_meshGraph->GetQuadGeom(MyQuadId(i, j)));
                     }
                 }
             }
@@ -260,13 +268,15 @@ public:
         m_meshGraph->SetExpansionInfo(fielddefs);
 
         // 2D case from MeshGraph::FillGraph()
-        for (auto &x : triGeoms)
+        for (auto [id, tri] :
+             m_meshGraph->GetGeomMap<SpatialDomains::TriGeom>())
         {
-            x.second->Setup();
+            tri->Setup();
         }
-        for (auto &x : quadGeoms)
+        for (auto [id, quad] :
+             m_meshGraph->GetGeomMap<SpatialDomains::QuadGeom>())
         {
-            x.second->Setup();
+            quad->Setup();
         }
 
         return m_meshGraph;

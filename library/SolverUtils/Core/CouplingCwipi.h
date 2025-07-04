@@ -173,7 +173,7 @@ private:
                            Array<OneD, int> &notLoc);
 
     template <typename T>
-    void AddElementsToMesh(T geom, int &coordsPos, int &connecPos,
+    void AddElementsToMesh(T &geomMap, int &coordsPos, int &connecPos,
                            int &conidxPos);
 };
 

@@ -51,10 +51,10 @@ class NodalTriExp final : virtual public StdRegions::StdNodalTriExp,
 public:
     /** \brief Constructor using BasisKey class for quadrature
         points and order definition */
-    LOCAL_REGIONS_EXPORT NodalTriExp(
-        const LibUtilities::BasisKey &Ba, const LibUtilities::BasisKey &Bb,
-        const LibUtilities::PointsType Ntype,
-        const SpatialDomains::TriGeomSharedPtr &geom);
+    LOCAL_REGIONS_EXPORT NodalTriExp(const LibUtilities::BasisKey &Ba,
+                                     const LibUtilities::BasisKey &Bb,
+                                     const LibUtilities::PointsType Ntype,
+                                     SpatialDomains::Geometry2D *geom);
 
     LOCAL_REGIONS_EXPORT NodalTriExp(const NodalTriExp &T);
 

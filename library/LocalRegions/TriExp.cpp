@@ -44,7 +44,7 @@ namespace Nektar::LocalRegions
 {
 TriExp::TriExp(const LibUtilities::BasisKey &Ba,
                const LibUtilities::BasisKey &Bb,
-               const SpatialDomains::Geometry2DSharedPtr &geom)
+               SpatialDomains::Geometry2D *geom)
     : StdExpansion(LibUtilities::StdTriData::getNumberOfCoefficients(
                        Ba.GetNumModes(), (Bb.GetNumModes())),
                    2, Ba, Bb),

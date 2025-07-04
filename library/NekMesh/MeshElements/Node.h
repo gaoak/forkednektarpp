@@ -43,6 +43,7 @@
 #include <NekMesh/CADSystem/CADCurve.h>
 #include <NekMesh/CADSystem/CADSurf.h>
 #include <NekMesh/CADSystem/CADSystem.h>
+#include <SpatialDomains/MeshGraph.h>
 #include <SpatialDomains/PointGeom.h>
 
 namespace Nektar::NekMesh
@@ -63,15 +64,10 @@ class Node
 public:
     /// Create a new node at a specified coordinate.
     NEKMESH_EXPORT Node(int pId, NekDouble pX, NekDouble pY, NekDouble pZ)
-        : m_id(pId), m_x(pX), m_y(pY), m_z(pZ), m_geom()
+        : m_id(pId), m_x(pX), m_y(pY), m_z(pZ)
     {
     }
-    /// Copy an existing node.
-    // Node(const Node& pSrc)
-    //    : m_id(pSrc.m_id), m_x(pSrc.m_x), m_y(pSrc.m_y),
-    //      m_z(pSrc.m_z), m_geom() {}
-    /// create an empty node
-    NEKMESH_EXPORT Node() : m_id(0), m_x(0.0), m_y(0.0), m_z(0.0), m_geom()
+    NEKMESH_EXPORT Node() : m_id(0), m_x(0.0), m_y(0.0), m_z(0.0)
     {
     }
     NEKMESH_EXPORT ~Node()
@@ -177,12 +173,15 @@ public:
     }
 
     /// Generate a %SpatialDomains::PointGeom for this node.
-    NEKMESH_EXPORT SpatialDomains::PointGeomSharedPtr GetGeom(int coordDim)
+    NEKMESH_EXPORT SpatialDomains::PointGeom *GetGeom(
+        int coordDim, SpatialDomains::EntityHolder &holder)
     {
-        SpatialDomains::PointGeomSharedPtr ret =
-            MemoryManager<SpatialDomains::PointGeom>::AllocateSharedPtr(
+        SpatialDomains::PointGeomUniquePtr point =
+            ObjPoolManager<SpatialDomains::PointGeom>::AllocateUniquePtr(
                 coordDim, m_id, m_x, m_y, m_z);
 
+        auto ret = point.get();
+        holder.m_pointVec.push_back(std::move(point));
         return ret;
     }
 
@@ -441,9 +440,6 @@ public:
         m_CADSurfList;
     /// CAD Vertex the node lies on
     std::weak_ptr<CADVert> m_CADVer;
-
-private:
-    SpatialDomains::PointGeomSharedPtr m_geom;
 };
 /// Shared pointer to a Node.
 

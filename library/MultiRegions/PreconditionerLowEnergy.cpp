@@ -1279,7 +1279,7 @@ void PreconditionerLowEnergy::CreateVariablePMask(void)
  *\brief Sets up the reference prismatic element needed to construct
  *a low energy basis
  */
-SpatialDomains::PrismGeomSharedPtr PreconditionerLowEnergy::CreateRefPrismGeom()
+SpatialDomains::PrismGeomUniquePtr PreconditionerLowEnergy::CreateRefPrismGeom()
 {
     //////////////////////////
     // Set up Prism element //
@@ -1297,10 +1297,10 @@ SpatialDomains::PrismGeomSharedPtr PreconditionerLowEnergy::CreateRefPrismGeom()
     };
 
     // std::shared_ptr<SpatialDomains::PointGeom> verts[6];
-    SpatialDomains::PointGeomSharedPtr verts[6];
+    SpatialDomains::PointGeomUniquePtr verts[6];
     for (int i = 0; i < nVerts; ++i)
     {
-        verts[i] = MemoryManager<SpatialDomains::PointGeom>::AllocateSharedPtr(
+        verts[i] = ObjPoolManager<SpatialDomains::PointGeom>::AllocateUniquePtr(
             three, i, point[i][0], point[i][1], point[i][2]);
     }
     const int nEdges                  = 9;
@@ -1308,23 +1308,27 @@ SpatialDomains::PrismGeomSharedPtr PreconditionerLowEnergy::CreateRefPrismGeom()
                                          {1, 4}, {2, 5}, {3, 5}, {4, 5}};
 
     // Populate the list of edges
-    SpatialDomains::SegGeomSharedPtr edges[nEdges];
+    SpatialDomains::SegGeomUniquePtr edges[nEdges];
     for (int i = 0; i < nEdges; ++i)
     {
-        SpatialDomains::PointGeomSharedPtr vertsArray[2];
+        std::array<SpatialDomains::PointGeom *, 2> vertsArray;
         for (int j = 0; j < 2; ++j)
         {
-            vertsArray[j] = verts[vertexConnectivity[i][j]];
+            vertsArray[j] = verts[vertexConnectivity[i][j]].get();
         }
-        edges[i] = MemoryManager<SpatialDomains::SegGeom>::AllocateSharedPtr(
+        edges[i] = ObjPoolManager<SpatialDomains::SegGeom>::AllocateUniquePtr(
             i, three, vertsArray);
+    }
+    for (int i = 0; i < nVerts; ++i)
+    {
+        m_holder.m_pointVec.push_back(std::move(verts[i]));
     }
 
     ////////////////////////
     // Set up Prism faces //
     ////////////////////////
 
-    const int nFaces = 5;
+    constexpr int nFaces = 5;
     // quad-edge connectivity base-face0, vertical-quadface2, vertical-quadface4
     const int quadEdgeConnectivity[][4] = {
         {0, 1, 2, 3}, {1, 6, 8, 5}, {3, 7, 8, 4}};
@@ -1337,37 +1341,45 @@ SpatialDomains::PrismGeomSharedPtr PreconditionerLowEnergy::CreateRefPrismGeom()
     const int triId[] = {-1, 0, -1, 1, -1};
 
     // Populate the list of faces
-    SpatialDomains::Geometry2DSharedPtr faces[nFaces];
+    std::array<SpatialDomains::Geometry2D *, nFaces> faces;
     for (int f = 0; f < nFaces; ++f)
     {
         if (f == 1 || f == 3)
         {
             int i = triId[f];
-            SpatialDomains::SegGeomSharedPtr edgeArray[3];
+            std::array<SpatialDomains::SegGeom *, 3> edgeArray;
             for (int j = 0; j < 3; ++j)
             {
-                edgeArray[j] = edges[triEdgeConnectivity[i][j]];
+                edgeArray[j] = edges[triEdgeConnectivity[i][j]].get();
             }
-            faces[f] =
-                MemoryManager<SpatialDomains::TriGeom>::AllocateSharedPtr(
-                    f, edgeArray);
+            auto tmp =
+                ObjPoolManager<SpatialDomains::TriGeom>::AllocateUniquePtr(
+                    i, edgeArray);
+            faces[f] = tmp.get();
+            m_holder.m_triVec.push_back(std::move(tmp));
         }
         else
         {
             int i = quadId[f];
-            SpatialDomains::SegGeomSharedPtr edgeArray[4];
+            std::array<SpatialDomains::SegGeom *, 4> edgeArray;
             for (int j = 0; j < 4; ++j)
             {
-                edgeArray[j] = edges[quadEdgeConnectivity[i][j]];
+                edgeArray[j] = edges[quadEdgeConnectivity[i][j]].get();
             }
-            faces[f] =
-                MemoryManager<SpatialDomains::QuadGeom>::AllocateSharedPtr(
-                    f, edgeArray);
+            auto tmp =
+                ObjPoolManager<SpatialDomains::QuadGeom>::AllocateUniquePtr(
+                    i, edgeArray);
+            faces[f] = tmp.get();
+            m_holder.m_quadVec.push_back(std::move(tmp));
         }
     }
+    for (int i = 0; i < nEdges; ++i)
+    {
+        m_holder.m_segVec.push_back(std::move(edges[i]));
+    }
 
-    SpatialDomains::PrismGeomSharedPtr geom =
-        MemoryManager<SpatialDomains::PrismGeom>::AllocateSharedPtr(0, faces);
+    SpatialDomains::PrismGeomUniquePtr geom =
+        ObjPoolManager<SpatialDomains::PrismGeom>::AllocateUniquePtr(0, faces);
 
     return geom;
 }
@@ -1376,7 +1388,7 @@ SpatialDomains::PrismGeomSharedPtr PreconditionerLowEnergy::CreateRefPrismGeom()
  *\brief Sets up the reference prismatic element needed to construct
  *a low energy basis mapping arrays
  */
-SpatialDomains::PyrGeomSharedPtr PreconditionerLowEnergy::CreateRefPyrGeom()
+SpatialDomains::PyrGeomUniquePtr PreconditionerLowEnergy::CreateRefPyrGeom()
 {
     //////////////////////////
     // Set up Pyramid element //
@@ -1391,10 +1403,10 @@ SpatialDomains::PyrGeomSharedPtr PreconditionerLowEnergy::CreateRefPyrGeom()
 
     // boost::shared_ptr<SpatialDomains::PointGeom> verts[6];
     const int three = 3;
-    SpatialDomains::PointGeomSharedPtr verts[5];
+    SpatialDomains::PointGeomUniquePtr verts[5];
     for (int i = 0; i < nVerts; ++i)
     {
-        verts[i] = MemoryManager<SpatialDomains::PointGeom>::AllocateSharedPtr(
+        verts[i] = ObjPoolManager<SpatialDomains::PointGeom>::AllocateUniquePtr(
             three, i, point[i][0], point[i][1], point[i][2]);
     }
     const int nEdges                  = 8;
@@ -1402,15 +1414,15 @@ SpatialDomains::PyrGeomSharedPtr PreconditionerLowEnergy::CreateRefPyrGeom()
                                          {0, 4}, {1, 4}, {2, 4}, {3, 4}};
 
     // Populate the list of edges
-    SpatialDomains::SegGeomSharedPtr edges[nEdges];
+    SpatialDomains::SegGeomUniquePtr edges[nEdges];
     for (int i = 0; i < nEdges; ++i)
     {
-        SpatialDomains::PointGeomSharedPtr vertsArray[2];
+        std::array<SpatialDomains::PointGeom *, 2> vertsArray;
         for (int j = 0; j < 2; ++j)
         {
-            vertsArray[j] = verts[vertexConnectivity[i][j]];
+            vertsArray[j] = verts[vertexConnectivity[i][j]].get();
         }
-        edges[i] = MemoryManager<SpatialDomains::SegGeom>::AllocateSharedPtr(
+        edges[i] = ObjPoolManager<SpatialDomains::SegGeom>::AllocateUniquePtr(
             i, three, vertsArray);
     }
 
@@ -1418,7 +1430,7 @@ SpatialDomains::PyrGeomSharedPtr PreconditionerLowEnergy::CreateRefPyrGeom()
     // Set up Pyramid faces //
     ////////////////////////
 
-    const int nFaces = 5;
+    constexpr int nFaces = 5;
     // quad-edge connectivity base-face0,
     const int quadEdgeConnectivity[][4] = {{0, 1, 2, 3}};
 
@@ -1427,37 +1439,45 @@ SpatialDomains::PyrGeomSharedPtr PreconditionerLowEnergy::CreateRefPyrGeom()
         {0, 5, 4}, {1, 6, 5}, {2, 7, 6}, {3, 4, 7}};
 
     // Populate the list of faces
-    SpatialDomains::Geometry2DSharedPtr faces[nFaces];
+    std::array<SpatialDomains::Geometry2D *, nFaces> faces;
     for (int f = 0; f < nFaces; ++f)
     {
         if (f == 0)
         {
-            SpatialDomains::SegGeomSharedPtr edgeArray[4];
+            std::array<SpatialDomains::SegGeom *, 4> edgeArray;
             for (int j = 0; j < 4; ++j)
             {
-                edgeArray[j] = edges[quadEdgeConnectivity[f][j]];
+                edgeArray[j] = edges[quadEdgeConnectivity[f][j]].get();
             }
 
-            faces[f] =
-                MemoryManager<SpatialDomains::QuadGeom>::AllocateSharedPtr(
+            auto tmp =
+                ObjPoolManager<SpatialDomains::QuadGeom>::AllocateUniquePtr(
                     f, edgeArray);
+            faces[f] = tmp.get();
+            m_holder.m_quadVec.push_back(std::move(tmp));
         }
         else
         {
             int i = f - 1;
-            SpatialDomains::SegGeomSharedPtr edgeArray[3];
+            std::array<SpatialDomains::SegGeom *, 3> edgeArray;
             for (int j = 0; j < 3; ++j)
             {
-                edgeArray[j] = edges[triEdgeConnectivity[i][j]];
+                edgeArray[j] = edges[triEdgeConnectivity[i][j]].get();
             }
-            faces[f] =
-                MemoryManager<SpatialDomains::TriGeom>::AllocateSharedPtr(
+            auto tmp =
+                ObjPoolManager<SpatialDomains::TriGeom>::AllocateUniquePtr(
                     f, edgeArray);
+            faces[f] = tmp.get();
+            m_holder.m_triVec.push_back(std::move(tmp));
         }
     }
+    for (int i = 0; i < nEdges; ++i)
+    {
+        m_holder.m_segVec.push_back(std::move(edges[i]));
+    }
 
-    SpatialDomains::PyrGeomSharedPtr geom =
-        MemoryManager<SpatialDomains::PyrGeom>::AllocateSharedPtr(0, faces);
+    SpatialDomains::PyrGeomUniquePtr geom =
+        ObjPoolManager<SpatialDomains::PyrGeom>::AllocateUniquePtr(0, faces);
 
     return geom;
 }
@@ -1466,7 +1486,7 @@ SpatialDomains::PyrGeomSharedPtr PreconditionerLowEnergy::CreateRefPyrGeom()
  *\brief Sets up the reference tretrahedral element needed to construct
  *a low energy basis
  */
-SpatialDomains::TetGeomSharedPtr PreconditionerLowEnergy::CreateRefTetGeom()
+SpatialDomains::TetGeomUniquePtr PreconditionerLowEnergy::CreateRefTetGeom()
 {
     /////////////////////////////////
     // Set up Tetrahedron vertices //
@@ -1480,10 +1500,10 @@ SpatialDomains::TetGeomSharedPtr PreconditionerLowEnergy::CreateRefTetGeom()
                                {0, 2 / sqrt(double(3)), -1 / sqrt(double(6))},
                                {0, 0, 3 / sqrt(double(6))}};
 
-    std::shared_ptr<SpatialDomains::PointGeom> verts[4];
+    SpatialDomains::PointGeomUniquePtr verts[4];
     for (i = 0; i < nVerts; ++i)
     {
-        verts[i] = MemoryManager<SpatialDomains::PointGeom>::AllocateSharedPtr(
+        verts[i] = ObjPoolManager<SpatialDomains::PointGeom>::AllocateUniquePtr(
             three, i, point[i][0], point[i][1], point[i][2]);
     }
 
@@ -1497,43 +1517,53 @@ SpatialDomains::TetGeomSharedPtr PreconditionerLowEnergy::CreateRefTetGeom()
                                          {0, 3}, {1, 3}, {2, 3}};
 
     // Populate the list of edges
-    SpatialDomains::SegGeomSharedPtr edges[nEdges];
+    SpatialDomains::SegGeomUniquePtr edges[nEdges];
     for (i = 0; i < nEdges; ++i)
     {
-        std::shared_ptr<SpatialDomains::PointGeom> vertsArray[2];
+        std::array<SpatialDomains::PointGeom *, 2> vertsArray;
         for (j = 0; j < 2; ++j)
         {
-            vertsArray[j] = verts[vertexConnectivity[i][j]];
+            vertsArray[j] = verts[vertexConnectivity[i][j]].get();
         }
 
-        edges[i] = MemoryManager<SpatialDomains::SegGeom>::AllocateSharedPtr(
+        edges[i] = ObjPoolManager<SpatialDomains::SegGeom>::AllocateUniquePtr(
             i, three, vertsArray);
+    }
+    for (i = 0; i < nVerts; ++i)
+    {
+        m_holder.m_pointVec.push_back(std::move(verts[i]));
     }
 
     //////////////////////////////
     // Set up Tetrahedron faces //
     //////////////////////////////
 
-    const int nFaces                = 4;
+    constexpr int nFaces            = 4;
     const int edgeConnectivity[][3] = {
         {0, 1, 2}, {0, 4, 3}, {1, 5, 4}, {2, 5, 3}};
 
     // Populate the list of faces
-    SpatialDomains::TriGeomSharedPtr faces[nFaces];
+    std::array<SpatialDomains::TriGeom *, nFaces> faces;
     for (i = 0; i < nFaces; ++i)
     {
-        SpatialDomains::SegGeomSharedPtr edgeArray[3];
+        std::array<SpatialDomains::SegGeom *, 3> edgeArray;
         for (j = 0; j < 3; ++j)
         {
-            edgeArray[j] = edges[edgeConnectivity[i][j]];
+            edgeArray[j] = edges[edgeConnectivity[i][j]].get();
         }
 
-        faces[i] = MemoryManager<SpatialDomains::TriGeom>::AllocateSharedPtr(
+        auto tmp = ObjPoolManager<SpatialDomains::TriGeom>::AllocateUniquePtr(
             i, edgeArray);
+        faces[i] = tmp.get();
+        m_holder.m_triVec.push_back(std::move(tmp));
+    }
+    for (i = 0; i < nEdges; ++i)
+    {
+        m_holder.m_segVec.push_back(std::move(edges[i]));
     }
 
-    SpatialDomains::TetGeomSharedPtr geom =
-        MemoryManager<SpatialDomains::TetGeom>::AllocateSharedPtr(0, faces);
+    SpatialDomains::TetGeomUniquePtr geom =
+        ObjPoolManager<SpatialDomains::TetGeom>::AllocateUniquePtr(0, faces);
 
     return geom;
 }
@@ -1542,7 +1572,7 @@ SpatialDomains::TetGeomSharedPtr PreconditionerLowEnergy::CreateRefTetGeom()
  *\brief Sets up the reference hexahedral element needed to construct
  *a low energy basis
  */
-SpatialDomains::HexGeomSharedPtr PreconditionerLowEnergy::CreateRefHexGeom()
+SpatialDomains::HexGeomUniquePtr PreconditionerLowEnergy::CreateRefHexGeom()
 {
     ////////////////////////////////
     // Set up Hexahedron vertices //
@@ -1555,10 +1585,10 @@ SpatialDomains::HexGeomSharedPtr PreconditionerLowEnergy::CreateRefHexGeom()
                                {0, 0, 1}, {1, 0, 1}, {1, 1, 1}, {0, 1, 1}};
 
     // Populate the list of verts
-    SpatialDomains::PointGeomSharedPtr verts[8];
+    SpatialDomains::PointGeomUniquePtr verts[8];
     for (int i = 0; i < nVerts; ++i)
     {
-        verts[i] = MemoryManager<SpatialDomains::PointGeom>::AllocateSharedPtr(
+        verts[i] = ObjPoolManager<SpatialDomains::PointGeom>::AllocateUniquePtr(
             three, i, point[i][0], point[i][1], point[i][2]);
     }
 
@@ -1573,42 +1603,52 @@ SpatialDomains::HexGeomSharedPtr PreconditionerLowEnergy::CreateRefHexGeom()
                                          {4, 5}, {5, 6}, {6, 7}, {4, 7}};
 
     // Populate the list of edges
-    SpatialDomains::SegGeomSharedPtr edges[nEdges];
+    SpatialDomains::SegGeomUniquePtr edges[nEdges];
     for (int i = 0; i < nEdges; ++i)
     {
-        SpatialDomains::PointGeomSharedPtr vertsArray[2];
+        std::array<SpatialDomains::PointGeom *, 2> vertsArray;
         for (int j = 0; j < 2; ++j)
         {
-            vertsArray[j] = verts[vertexConnectivity[i][j]];
+            vertsArray[j] = verts[vertexConnectivity[i][j]].get();
         }
-        edges[i] = MemoryManager<SpatialDomains::SegGeom>::AllocateSharedPtr(
+        edges[i] = ObjPoolManager<SpatialDomains::SegGeom>::AllocateUniquePtr(
             i, three, vertsArray);
+    }
+    for (int i = 0; i < nVerts; ++i)
+    {
+        m_holder.m_pointVec.push_back(std::move(verts[i]));
     }
 
     /////////////////////////////
     // Set up Hexahedron faces //
     /////////////////////////////
 
-    const int nFaces                = 6;
+    constexpr int nFaces            = 6;
     const int edgeConnectivity[][4] = {{0, 1, 2, 3},  {0, 5, 8, 4},
                                        {1, 6, 9, 5},  {2, 7, 10, 6},
                                        {3, 7, 11, 4}, {8, 9, 10, 11}};
 
     // Populate the list of faces
-    SpatialDomains::QuadGeomSharedPtr faces[nFaces];
+    std::array<SpatialDomains::QuadGeom *, nFaces> faces;
     for (int i = 0; i < nFaces; ++i)
     {
-        SpatialDomains::SegGeomSharedPtr edgeArray[4];
+        std::array<SpatialDomains::SegGeom *, 4> edgeArray;
         for (int j = 0; j < 4; ++j)
         {
-            edgeArray[j] = edges[edgeConnectivity[i][j]];
+            edgeArray[j] = edges[edgeConnectivity[i][j]].get();
         }
-        faces[i] = MemoryManager<SpatialDomains::QuadGeom>::AllocateSharedPtr(
+        auto tmp = ObjPoolManager<SpatialDomains::QuadGeom>::AllocateUniquePtr(
             i, edgeArray);
+        faces[i] = tmp.get();
+        m_holder.m_quadVec.push_back(std::move(tmp));
+    }
+    for (int i = 0; i < nEdges; ++i)
+    {
+        m_holder.m_segVec.push_back(std::move(edges[i]));
     }
 
-    SpatialDomains::HexGeomSharedPtr geom =
-        MemoryManager<SpatialDomains::HexGeom>::AllocateSharedPtr(0, faces);
+    SpatialDomains::HexGeomUniquePtr geom =
+        ObjPoolManager<SpatialDomains::HexGeom>::AllocateUniquePtr(0, faces);
 
     return geom;
 }
@@ -1682,7 +1722,7 @@ void PreconditionerLowEnergy::SetUpReferenceElements(
 
     if (Shapes[eHexahedron])
     {
-        SpatialDomains::HexGeomSharedPtr hexgeom = CreateRefHexGeom();
+        SpatialDomains::HexGeomUniquePtr hexgeom = CreateRefHexGeom();
         // Bases for Hex element
         const BasisKey HexBa(eModified_A, nummodesmax,
                              PointsKey(nummodesmax + 1, eGaussLobattoLegendre));
@@ -1695,7 +1735,8 @@ void PreconditionerLowEnergy::SetUpReferenceElements(
         LocalRegions::HexExpSharedPtr HexExp;
 
         HexExp = MemoryManager<LocalRegions::HexExp>::AllocateSharedPtr(
-            HexBa, HexBb, HexBc, hexgeom);
+            HexBa, HexBb, HexBc, hexgeom.get());
+        m_holder.m_hexVec.push_back(std::move(hexgeom));
 
         maxElmt[eHexahedron] = HexExp;
 
@@ -1714,7 +1755,7 @@ void PreconditionerLowEnergy::SetUpReferenceElements(
 
     if (Shapes[eTetrahedron])
     {
-        SpatialDomains::TetGeomSharedPtr tetgeom = CreateRefTetGeom();
+        SpatialDomains::TetGeomUniquePtr tetgeom = CreateRefTetGeom();
         // Bases for Tetrahedral element
         const BasisKey TetBa(eModified_A, nummodesmax,
                              PointsKey(nummodesmax + 1, eGaussLobattoLegendre));
@@ -1727,7 +1768,8 @@ void PreconditionerLowEnergy::SetUpReferenceElements(
         LocalRegions::TetExpSharedPtr TetExp;
 
         TetExp = MemoryManager<LocalRegions::TetExp>::AllocateSharedPtr(
-            TetBa, TetBb, TetBc, tetgeom);
+            TetBa, TetBb, TetBc, tetgeom.get());
+        m_holder.m_tetVec.push_back(std::move(tetgeom));
 
         maxElmt[eTetrahedron] = TetExp;
 
@@ -1751,7 +1793,7 @@ void PreconditionerLowEnergy::SetUpReferenceElements(
 
     if (Shapes[ePyramid])
     {
-        SpatialDomains::PyrGeomSharedPtr pyrgeom = CreateRefPyrGeom();
+        SpatialDomains::PyrGeomUniquePtr pyrgeom = CreateRefPyrGeom();
 
         // Bases for Pyramid element
         const BasisKey PyrBa(eModified_A, nummodesmax,
@@ -1765,7 +1807,8 @@ void PreconditionerLowEnergy::SetUpReferenceElements(
         LocalRegions::PyrExpSharedPtr PyrExp;
 
         PyrExp = MemoryManager<LocalRegions::PyrExp>::AllocateSharedPtr(
-            PyrBa, PyrBb, PyrBc, pyrgeom);
+            PyrBa, PyrBb, PyrBc, pyrgeom.get());
+        m_holder.m_pyrVec.push_back(std::move(pyrgeom));
 
         maxElmt[ePyramid] = PyrExp;
 
@@ -1783,7 +1826,7 @@ void PreconditionerLowEnergy::SetUpReferenceElements(
 
     if (Shapes[ePrism])
     {
-        SpatialDomains::PrismGeomSharedPtr prismgeom = CreateRefPrismGeom();
+        SpatialDomains::PrismGeomUniquePtr prismgeom = CreateRefPrismGeom();
         // Bases for Prism element
         const BasisKey PrismBa(
             eModified_A, nummodesmax,
@@ -1798,7 +1841,8 @@ void PreconditionerLowEnergy::SetUpReferenceElements(
         LocalRegions::PrismExpSharedPtr PrismExp;
 
         PrismExp = MemoryManager<LocalRegions::PrismExp>::AllocateSharedPtr(
-            PrismBa, PrismBb, PrismBc, prismgeom);
+            PrismBa, PrismBb, PrismBc, prismgeom.get());
+        m_holder.m_prismVec.push_back(std::move(prismgeom));
         maxElmt[ePrism] = PrismExp;
 
         // Prism:

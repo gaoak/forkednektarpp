@@ -41,84 +41,101 @@
 
 namespace Nektar::PrismCollectionTests
 {
-SpatialDomains::SegGeomSharedPtr CreateSegGeom(
-    unsigned int id, SpatialDomains::PointGeomSharedPtr v0,
-    SpatialDomains::PointGeomSharedPtr v1)
+
+SpatialDomains::SegGeomUniquePtr CreateSegGeom(unsigned int id,
+                                               SpatialDomains::PointGeom *v0,
+                                               SpatialDomains::PointGeom *v1)
 {
-    SpatialDomains::PointGeomSharedPtr vertices[] = {v0, v1};
-    SpatialDomains::SegGeomSharedPtr result(
+    std::array<SpatialDomains::PointGeom *, 2> vertices = {v0, v1};
+    SpatialDomains::SegGeomUniquePtr result(
         new SpatialDomains::SegGeom(id, 3, vertices));
     return result;
 }
 
-SpatialDomains::PrismGeomSharedPtr CreatePrism(
-    SpatialDomains::PointGeomSharedPtr v0,
-    SpatialDomains::PointGeomSharedPtr v1,
-    SpatialDomains::PointGeomSharedPtr v2,
-    SpatialDomains::PointGeomSharedPtr v3,
-    SpatialDomains::PointGeomSharedPtr v4,
-    SpatialDomains::PointGeomSharedPtr v5)
+SpatialDomains::PrismGeomUniquePtr CreatePrism(
+    std::array<SpatialDomains::PointGeom *, 6> v,
+    std::array<SpatialDomains::SegGeomUniquePtr, 9> &segVec,
+    std::array<SpatialDomains::TriGeomUniquePtr, 2> &triVec,
+    std::array<SpatialDomains::QuadGeomUniquePtr, 3> &quadVec)
 {
-    Nektar::SpatialDomains::SegGeomSharedPtr e0 = CreateSegGeom(0, v0, v1);
-    Nektar::SpatialDomains::SegGeomSharedPtr e1 = CreateSegGeom(1, v1, v2);
-    Nektar::SpatialDomains::SegGeomSharedPtr e2 = CreateSegGeom(2, v2, v3);
-    Nektar::SpatialDomains::SegGeomSharedPtr e3 = CreateSegGeom(3, v3, v0);
-    Nektar::SpatialDomains::SegGeomSharedPtr e4 = CreateSegGeom(4, v0, v4);
-    Nektar::SpatialDomains::SegGeomSharedPtr e5 = CreateSegGeom(5, v1, v4);
-    Nektar::SpatialDomains::SegGeomSharedPtr e6 = CreateSegGeom(6, v2, v5);
-    Nektar::SpatialDomains::SegGeomSharedPtr e7 = CreateSegGeom(7, v3, v5);
-    Nektar::SpatialDomains::SegGeomSharedPtr e8 = CreateSegGeom(8, v4, v5);
+    std::array<std::array<int, 2>, 9> edgeVerts = {{{{0, 1}},
+                                                    {{1, 2}},
+                                                    {{3, 2}},
+                                                    {{0, 3}},
+                                                    {{0, 4}},
+                                                    {{1, 4}},
+                                                    {{2, 5}},
+                                                    {{3, 5}},
+                                                    {{4, 5}}}};
+    std::array<std::array<int, 4>, 5> faceEdges = {{{{0, 1, 2, 3}},
+                                                    {{0, 5, 4, -1}},
+                                                    {{1, 6, 8, 5}},
+                                                    {{2, 6, 7, -1}},
+                                                    {{3, 7, 8, 4}}}};
 
-    Nektar::SpatialDomains::SegGeomSharedPtr
-        edgesF0[Nektar::SpatialDomains::QuadGeom::kNedges] = {e0, e1, e2, e3};
+    // Create segments from vertices
+    for (int i = 0; i < 9; ++i)
+    {
+        segVec[i] = CreateSegGeom(i, v[edgeVerts[i][0]], v[edgeVerts[i][1]]);
+    }
 
-    Nektar::SpatialDomains::SegGeomSharedPtr
-        edgesF1[Nektar::SpatialDomains::TriGeom::kNedges] = {e0, e4, e5};
+    // Create faces from edges
+    std::array<SpatialDomains::Geometry2D *, 5> faces;
+    for (int i = 0; i < 5; ++i)
+    {
+        if (i % 2 == 0)
+        {
+            // Quad faces
+            std::array<SpatialDomains::SegGeom *, 4> face;
+            for (int j = 0; j < 4; ++j)
+            {
+                face[j] = segVec[faceEdges[i][j]].get();
+            }
+            quadVec[i / 2] = SpatialDomains::QuadGeomUniquePtr(
+                new SpatialDomains::QuadGeom(i, face));
+            faces[i] = quadVec[i / 2].get();
+        }
+        else
+        {
+            // Tri faces
+            std::array<SpatialDomains::SegGeom *, 3> face;
+            for (int j = 0; j < 3; ++j)
+            {
+                face[j] = segVec[faceEdges[i][j]].get();
+            }
+            triVec[(i - 1) / 2] = SpatialDomains::TriGeomUniquePtr(
+                new SpatialDomains::TriGeom(i, face));
+            faces[i] = triVec[(i - 1) / 2].get();
+        }
+    }
 
-    Nektar::SpatialDomains::SegGeomSharedPtr
-        edgesF2[Nektar::SpatialDomains::QuadGeom::kNedges] = {e1, e6, e8, e5};
-
-    Nektar::SpatialDomains::SegGeomSharedPtr
-        edgesF3[Nektar::SpatialDomains::TriGeom::kNedges] = {e2, e6, e7};
-
-    Nektar::SpatialDomains::SegGeomSharedPtr
-        edgesF4[Nektar::SpatialDomains::QuadGeom::kNedges] = {e3, e4, e8, e7};
-
-    Nektar::SpatialDomains::QuadGeomSharedPtr face0(
-        new SpatialDomains::QuadGeom(0, edgesF0));
-    Nektar::SpatialDomains::TriGeomSharedPtr face1(
-        new SpatialDomains::TriGeom(1, edgesF1));
-    Nektar::SpatialDomains::QuadGeomSharedPtr face2(
-        new SpatialDomains::QuadGeom(2, edgesF2));
-    Nektar::SpatialDomains::TriGeomSharedPtr face3(
-        new SpatialDomains::TriGeom(3, edgesF3));
-    Nektar::SpatialDomains::QuadGeomSharedPtr face4(
-        new SpatialDomains::QuadGeom(4, edgesF4));
-
-    Nektar::SpatialDomains::Geometry2DSharedPtr faces[] = {face0, face1, face2,
-                                                           face3, face4};
-    SpatialDomains::PrismGeomSharedPtr prismGeom(
+    SpatialDomains::PrismGeomUniquePtr prismGeom(
         new SpatialDomains::PrismGeom(0, faces));
     return prismGeom;
 }
 
 BOOST_AUTO_TEST_CASE(TestPrismBwdTrans_IterPerExp_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::PrismGeomSharedPtr prismGeom =
-        CreatePrism(v0, v1, v2, v3, v4, v5);
+    std::array<SpatialDomains::SegGeomUniquePtr, 9> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 3> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 2> triVec;
+    std::array<SpatialDomains::PointGeom *, 6> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get(), v5.get()};
+    SpatialDomains::PrismGeomUniquePtr prismGeom =
+        CreatePrism(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -146,7 +163,7 @@ BOOST_AUTO_TEST_CASE(TestPrismBwdTrans_IterPerExp_UniformP_MultiElmt)
 
     Nektar::LocalRegions::PrismExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
     int nelmts = 10;
 
@@ -183,21 +200,26 @@ BOOST_AUTO_TEST_CASE(TestPrismBwdTrans_IterPerExp_UniformP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPrismBwdTrans_StdMat_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::PrismGeomSharedPtr prismGeom =
-        CreatePrism(v0, v1, v2, v3, v4, v5);
+    std::array<SpatialDomains::SegGeomUniquePtr, 9> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 3> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 2> triVec;
+    std::array<SpatialDomains::PointGeom *, 6> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get(), v5.get()};
+    SpatialDomains::PrismGeomUniquePtr prismGeom =
+        CreatePrism(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -225,7 +247,7 @@ BOOST_AUTO_TEST_CASE(TestPrismBwdTrans_StdMat_UniformP_MultiElmt)
 
     Nektar::LocalRegions::PrismExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
     int nelmts = 10;
 
@@ -263,21 +285,26 @@ BOOST_AUTO_TEST_CASE(TestPrismBwdTrans_StdMat_UniformP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPrismBwdTrans_SumFac_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::PrismGeomSharedPtr prismGeom =
-        CreatePrism(v0, v1, v2, v3, v4, v5);
+    std::array<SpatialDomains::SegGeomUniquePtr, 9> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 3> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 2> triVec;
+    std::array<SpatialDomains::PointGeom *, 6> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get(), v5.get()};
+    SpatialDomains::PrismGeomUniquePtr prismGeom =
+        CreatePrism(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -305,7 +332,7 @@ BOOST_AUTO_TEST_CASE(TestPrismBwdTrans_SumFac_UniformP_MultiElmt)
 
     Nektar::LocalRegions::PrismExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
     int nelmts = 10;
 
@@ -345,21 +372,26 @@ BOOST_AUTO_TEST_CASE(TestPrismBwdTrans_SumFac_UniformP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPrismBwdTrans_IterPerExp_VariableP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::PrismGeomSharedPtr prismGeom =
-        CreatePrism(v0, v1, v2, v3, v4, v5);
+    std::array<SpatialDomains::SegGeomUniquePtr, 9> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 3> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 2> triVec;
+    std::array<SpatialDomains::PointGeom *, 6> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get(), v5.get()};
+    SpatialDomains::PrismGeomUniquePtr prismGeom =
+        CreatePrism(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -387,7 +419,7 @@ BOOST_AUTO_TEST_CASE(TestPrismBwdTrans_IterPerExp_VariableP_MultiElmt)
 
     Nektar::LocalRegions::PrismExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
     int nelmts = 10;
 
@@ -425,21 +457,26 @@ BOOST_AUTO_TEST_CASE(TestPrismBwdTrans_IterPerExp_VariableP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPrismBwdTrans_MatrixFree_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::PrismGeomSharedPtr prismGeom =
-        CreatePrism(v0, v1, v2, v3, v4, v5);
+    std::array<SpatialDomains::SegGeomUniquePtr, 9> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 3> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 2> triVec;
+    std::array<SpatialDomains::PointGeom *, 6> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get(), v5.get()};
+    SpatialDomains::PrismGeomUniquePtr prismGeom =
+        CreatePrism(v, segVec, triVec, quadVec);
 
     unsigned int numQuadPoints = 5;
     unsigned int numModes      = 4;
@@ -473,7 +510,7 @@ BOOST_AUTO_TEST_CASE(TestPrismBwdTrans_MatrixFree_UniformP_MultiElmt)
 
     Nektar::LocalRegions::PrismExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
     unsigned int nelmts = 2;
 
@@ -514,21 +551,26 @@ BOOST_AUTO_TEST_CASE(TestPrismBwdTrans_MatrixFree_UniformP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPrismBwdTrans_MatrixFree_UniformP_OverInt_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::PrismGeomSharedPtr prismGeom =
-        CreatePrism(v0, v1, v2, v3, v4, v5);
+    std::array<SpatialDomains::SegGeomUniquePtr, 9> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 3> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 2> triVec;
+    std::array<SpatialDomains::PointGeom *, 6> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get(), v5.get()};
+    SpatialDomains::PrismGeomUniquePtr prismGeom =
+        CreatePrism(v, segVec, triVec, quadVec);
 
     unsigned int numQuadPoints = 8;
     unsigned int numModes      = 4;
@@ -562,7 +604,7 @@ BOOST_AUTO_TEST_CASE(TestPrismBwdTrans_MatrixFree_UniformP_OverInt_MultiElmt)
 
     Nektar::LocalRegions::PrismExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
     unsigned int nelmts = 2;
 
@@ -603,21 +645,26 @@ BOOST_AUTO_TEST_CASE(TestPrismBwdTrans_MatrixFree_UniformP_OverInt_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPrismBwdTrans_StdMat_VariableP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::PrismGeomSharedPtr prismGeom =
-        CreatePrism(v0, v1, v2, v3, v4, v5);
+    std::array<SpatialDomains::SegGeomUniquePtr, 9> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 3> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 2> triVec;
+    std::array<SpatialDomains::PointGeom *, 6> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get(), v5.get()};
+    SpatialDomains::PrismGeomUniquePtr prismGeom =
+        CreatePrism(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -645,7 +692,7 @@ BOOST_AUTO_TEST_CASE(TestPrismBwdTrans_StdMat_VariableP_MultiElmt)
 
     Nektar::LocalRegions::PrismExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
     int nelmts = 10;
 
@@ -682,21 +729,26 @@ BOOST_AUTO_TEST_CASE(TestPrismBwdTrans_StdMat_VariableP_MultiElmt)
 }
 BOOST_AUTO_TEST_CASE(TestPrismBwdTrans_SumFac_VariableP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::PrismGeomSharedPtr prismGeom =
-        CreatePrism(v0, v1, v2, v3, v4, v5);
+    std::array<SpatialDomains::SegGeomUniquePtr, 9> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 3> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 2> triVec;
+    std::array<SpatialDomains::PointGeom *, 6> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get(), v5.get()};
+    SpatialDomains::PrismGeomUniquePtr prismGeom =
+        CreatePrism(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -724,7 +776,7 @@ BOOST_AUTO_TEST_CASE(TestPrismBwdTrans_SumFac_VariableP_MultiElmt)
 
     Nektar::LocalRegions::PrismExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
     int nelmts = 10;
 
@@ -764,21 +816,26 @@ BOOST_AUTO_TEST_CASE(TestPrismBwdTrans_SumFac_VariableP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPrismIProductWRTBase_IterPerExp_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::PrismGeomSharedPtr prismGeom =
-        CreatePrism(v0, v1, v2, v3, v4, v5);
+    std::array<SpatialDomains::SegGeomUniquePtr, 9> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 3> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 2> triVec;
+    std::array<SpatialDomains::PointGeom *, 6> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get(), v5.get()};
+    SpatialDomains::PrismGeomUniquePtr prismGeom =
+        CreatePrism(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -806,7 +863,7 @@ BOOST_AUTO_TEST_CASE(TestPrismIProductWRTBase_IterPerExp_UniformP_MultiElmt)
 
     Nektar::LocalRegions::PrismExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
     int nelmts = 10;
 
@@ -859,21 +916,26 @@ BOOST_AUTO_TEST_CASE(TestPrismIProductWRTBase_IterPerExp_UniformP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPrismIProductWRTBase_StdMat_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::PrismGeomSharedPtr prismGeom =
-        CreatePrism(v0, v1, v2, v3, v4, v5);
+    std::array<SpatialDomains::SegGeomUniquePtr, 9> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 3> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 2> triVec;
+    std::array<SpatialDomains::PointGeom *, 6> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get(), v5.get()};
+    SpatialDomains::PrismGeomUniquePtr prismGeom =
+        CreatePrism(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -901,7 +963,7 @@ BOOST_AUTO_TEST_CASE(TestPrismIProductWRTBase_StdMat_UniformP_MultiElmt)
 
     Nektar::LocalRegions::PrismExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
     int nelmts = 10;
 
@@ -954,21 +1016,26 @@ BOOST_AUTO_TEST_CASE(TestPrismIProductWRTBase_StdMat_UniformP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPrismIProductWRTBase_SumFac_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::PrismGeomSharedPtr prismGeom =
-        CreatePrism(v0, v1, v2, v3, v4, v5);
+    std::array<SpatialDomains::SegGeomUniquePtr, 9> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 3> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 2> triVec;
+    std::array<SpatialDomains::PointGeom *, 6> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get(), v5.get()};
+    SpatialDomains::PrismGeomUniquePtr prismGeom =
+        CreatePrism(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -996,7 +1063,7 @@ BOOST_AUTO_TEST_CASE(TestPrismIProductWRTBase_SumFac_UniformP_MultiElmt)
 
     Nektar::LocalRegions::PrismExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
     int nelmts = 10;
 
@@ -1050,21 +1117,26 @@ BOOST_AUTO_TEST_CASE(TestPrismIProductWRTBase_SumFac_UniformP_MultiElmt)
 BOOST_AUTO_TEST_CASE(
     TestPrismIProductWRTBase_MatrixFree_UniformP_Undeformed_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::PrismGeomSharedPtr prismGeom =
-        CreatePrism(v0, v1, v2, v3, v4, v5);
+    std::array<SpatialDomains::SegGeomUniquePtr, 9> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 3> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 2> triVec;
+    std::array<SpatialDomains::PointGeom *, 6> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get(), v5.get()};
+    SpatialDomains::PrismGeomUniquePtr prismGeom =
+        CreatePrism(v, segVec, triVec, quadVec);
 
     unsigned int numQuadPoints = 5;
     unsigned int numModes      = 4;
@@ -1098,7 +1170,7 @@ BOOST_AUTO_TEST_CASE(
 
     Nektar::LocalRegions::PrismExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
     unsigned int nelmts = 2;
 
@@ -1155,21 +1227,26 @@ BOOST_AUTO_TEST_CASE(
 BOOST_AUTO_TEST_CASE(
     TestPrismIProductWRTBase_MatrixFree_UniformP_Deformed_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -2.0, -3.0, -4.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::PrismGeomSharedPtr prismGeom =
-        CreatePrism(v0, v1, v2, v3, v4, v5);
+    std::array<SpatialDomains::SegGeomUniquePtr, 9> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 3> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 2> triVec;
+    std::array<SpatialDomains::PointGeom *, 6> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get(), v5.get()};
+    SpatialDomains::PrismGeomUniquePtr prismGeom =
+        CreatePrism(v, segVec, triVec, quadVec);
 
     unsigned int numQuadPoints = 5;
     unsigned int numModes      = 4;
@@ -1203,7 +1280,7 @@ BOOST_AUTO_TEST_CASE(
 
     Nektar::LocalRegions::PrismExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
     unsigned int nelmts = 2;
 
@@ -1260,21 +1337,26 @@ BOOST_AUTO_TEST_CASE(
 BOOST_AUTO_TEST_CASE(
     TestPrismIProductWRTBase_MatrixFree_UniformP_Deformed_OverInt_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -2.0, -3.0, -4.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::PrismGeomSharedPtr prismGeom =
-        CreatePrism(v0, v1, v2, v3, v4, v5);
+    std::array<SpatialDomains::SegGeomUniquePtr, 9> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 3> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 2> triVec;
+    std::array<SpatialDomains::PointGeom *, 6> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get(), v5.get()};
+    SpatialDomains::PrismGeomUniquePtr prismGeom =
+        CreatePrism(v, segVec, triVec, quadVec);
 
     unsigned int numQuadPoints = 8;
     unsigned int numModes      = 4;
@@ -1308,7 +1390,7 @@ BOOST_AUTO_TEST_CASE(
 
     Nektar::LocalRegions::PrismExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
     unsigned int nelmts = 2;
 
@@ -1364,21 +1446,26 @@ BOOST_AUTO_TEST_CASE(
 
 BOOST_AUTO_TEST_CASE(TestPrismIProductWRTBase_IterPerExp_VariableP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::PrismGeomSharedPtr prismGeom =
-        CreatePrism(v0, v1, v2, v3, v4, v5);
+    std::array<SpatialDomains::SegGeomUniquePtr, 9> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 3> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 2> triVec;
+    std::array<SpatialDomains::PointGeom *, 6> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get(), v5.get()};
+    SpatialDomains::PrismGeomUniquePtr prismGeom =
+        CreatePrism(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1406,7 +1493,7 @@ BOOST_AUTO_TEST_CASE(TestPrismIProductWRTBase_IterPerExp_VariableP_MultiElmt)
 
     Nektar::LocalRegions::PrismExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
     int nelmts = 10;
 
@@ -1459,21 +1546,26 @@ BOOST_AUTO_TEST_CASE(TestPrismIProductWRTBase_IterPerExp_VariableP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPrismIProductWRTBase_StdMat_VariableP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::PrismGeomSharedPtr prismGeom =
-        CreatePrism(v0, v1, v2, v3, v4, v5);
+    std::array<SpatialDomains::SegGeomUniquePtr, 9> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 3> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 2> triVec;
+    std::array<SpatialDomains::PointGeom *, 6> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get(), v5.get()};
+    SpatialDomains::PrismGeomUniquePtr prismGeom =
+        CreatePrism(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1501,7 +1593,7 @@ BOOST_AUTO_TEST_CASE(TestPrismIProductWRTBase_StdMat_VariableP_MultiElmt)
 
     Nektar::LocalRegions::PrismExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
     int nelmts = 10;
 
@@ -1554,21 +1646,26 @@ BOOST_AUTO_TEST_CASE(TestPrismIProductWRTBase_StdMat_VariableP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPrismIProductWRTBase_SumFac_VariableP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::PrismGeomSharedPtr prismGeom =
-        CreatePrism(v0, v1, v2, v3, v4, v5);
+    std::array<SpatialDomains::SegGeomUniquePtr, 9> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 3> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 2> triVec;
+    std::array<SpatialDomains::PointGeom *, 6> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get(), v5.get()};
+    SpatialDomains::PrismGeomUniquePtr prismGeom =
+        CreatePrism(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1596,7 +1693,7 @@ BOOST_AUTO_TEST_CASE(TestPrismIProductWRTBase_SumFac_VariableP_MultiElmt)
 
     Nektar::LocalRegions::PrismExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
     int nelmts = 10;
 
@@ -1649,21 +1746,26 @@ BOOST_AUTO_TEST_CASE(TestPrismIProductWRTBase_SumFac_VariableP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPrismPhysDeriv_IterPerExp_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::PrismGeomSharedPtr prismGeom =
-        CreatePrism(v0, v1, v2, v3, v4, v5);
+    std::array<SpatialDomains::SegGeomUniquePtr, 9> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 3> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 2> triVec;
+    std::array<SpatialDomains::PointGeom *, 6> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get(), v5.get()};
+    SpatialDomains::PrismGeomUniquePtr prismGeom =
+        CreatePrism(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1691,7 +1793,7 @@ BOOST_AUTO_TEST_CASE(TestPrismPhysDeriv_IterPerExp_UniformP_MultiElmt)
 
     Nektar::LocalRegions::PrismExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
     int nelmts = 10;
 
@@ -1743,21 +1845,26 @@ BOOST_AUTO_TEST_CASE(TestPrismPhysDeriv_IterPerExp_UniformP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPrismPhysDeriv_StdMat_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::PrismGeomSharedPtr prismGeom =
-        CreatePrism(v0, v1, v2, v3, v4, v5);
+    std::array<SpatialDomains::SegGeomUniquePtr, 9> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 3> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 2> triVec;
+    std::array<SpatialDomains::PointGeom *, 6> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get(), v5.get()};
+    SpatialDomains::PrismGeomUniquePtr prismGeom =
+        CreatePrism(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1785,7 +1892,7 @@ BOOST_AUTO_TEST_CASE(TestPrismPhysDeriv_StdMat_UniformP_MultiElmt)
 
     Nektar::LocalRegions::PrismExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
     int nelmts = 10;
 
@@ -1840,21 +1947,26 @@ BOOST_AUTO_TEST_CASE(TestPrismPhysDeriv_StdMat_UniformP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPrismPhysDeriv_SumFac_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::PrismGeomSharedPtr prismGeom =
-        CreatePrism(v0, v1, v2, v3, v4, v5);
+    std::array<SpatialDomains::SegGeomUniquePtr, 9> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 3> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 2> triVec;
+    std::array<SpatialDomains::PointGeom *, 6> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get(), v5.get()};
+    SpatialDomains::PrismGeomUniquePtr prismGeom =
+        CreatePrism(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1882,7 +1994,7 @@ BOOST_AUTO_TEST_CASE(TestPrismPhysDeriv_SumFac_UniformP_MultiElmt)
 
     Nektar::LocalRegions::PrismExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
     int nelmts = 2;
 
@@ -1936,21 +2048,26 @@ BOOST_AUTO_TEST_CASE(TestPrismPhysDeriv_SumFac_UniformP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPrismPhysDeriv_IterPerExp_VariableP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::PrismGeomSharedPtr prismGeom =
-        CreatePrism(v0, v1, v2, v3, v4, v5);
+    std::array<SpatialDomains::SegGeomUniquePtr, 9> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 3> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 2> triVec;
+    std::array<SpatialDomains::PointGeom *, 6> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get(), v5.get()};
+    SpatialDomains::PrismGeomUniquePtr prismGeom =
+        CreatePrism(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1978,7 +2095,7 @@ BOOST_AUTO_TEST_CASE(TestPrismPhysDeriv_IterPerExp_VariableP_MultiElmt)
 
     Nektar::LocalRegions::PrismExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
     int nelmts = 10;
 
@@ -2033,21 +2150,26 @@ BOOST_AUTO_TEST_CASE(TestPrismPhysDeriv_IterPerExp_VariableP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPrismPhysDeriv_SumFac_VariableP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::PrismGeomSharedPtr prismGeom =
-        CreatePrism(v0, v1, v2, v3, v4, v5);
+    std::array<SpatialDomains::SegGeomUniquePtr, 9> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 3> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 2> triVec;
+    std::array<SpatialDomains::PointGeom *, 6> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get(), v5.get()};
+    SpatialDomains::PrismGeomUniquePtr prismGeom =
+        CreatePrism(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -2075,7 +2197,7 @@ BOOST_AUTO_TEST_CASE(TestPrismPhysDeriv_SumFac_VariableP_MultiElmt)
 
     Nektar::LocalRegions::PrismExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
     int nelmts = 10;
 
@@ -2128,21 +2250,26 @@ BOOST_AUTO_TEST_CASE(TestPrismPhysDeriv_SumFac_VariableP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPrismPhysDeriv_MatrixFree_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::PrismGeomSharedPtr prismGeom =
-        CreatePrism(v0, v1, v2, v3, v4, v5);
+    std::array<SpatialDomains::SegGeomUniquePtr, 9> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 3> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 2> triVec;
+    std::array<SpatialDomains::PointGeom *, 6> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get(), v5.get()};
+    SpatialDomains::PrismGeomUniquePtr prismGeom =
+        CreatePrism(v, segVec, triVec, quadVec);
 
     unsigned int numQuadPoints = 5;
     unsigned int numModes      = 2;
@@ -2176,7 +2303,7 @@ BOOST_AUTO_TEST_CASE(TestPrismPhysDeriv_MatrixFree_UniformP_MultiElmt)
 
     Nektar::LocalRegions::PrismExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
     int nelmts = 2;
 
@@ -2234,21 +2361,26 @@ BOOST_AUTO_TEST_CASE(TestPrismPhysDeriv_MatrixFree_UniformP_MultiElmt)
 BOOST_AUTO_TEST_CASE(
     TestPrismIProductWRTDerivBase_IterPerExp_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.5, -1.5, -1.5));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::PrismGeomSharedPtr prismGeom =
-        CreatePrism(v0, v1, v2, v3, v4, v5);
+    std::array<SpatialDomains::SegGeomUniquePtr, 9> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 3> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 2> triVec;
+    std::array<SpatialDomains::PointGeom *, 6> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get(), v5.get()};
+    SpatialDomains::PrismGeomUniquePtr prismGeom =
+        CreatePrism(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -2276,7 +2408,7 @@ BOOST_AUTO_TEST_CASE(
 
     Nektar::LocalRegions::PrismExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
     int nelmts = 10;
 
@@ -2344,21 +2476,26 @@ BOOST_AUTO_TEST_CASE(
 
 BOOST_AUTO_TEST_CASE(TestPrismIProductWRTDerivBase_StdMat_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.5, -1.5, -1.5));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::PrismGeomSharedPtr prismGeom =
-        CreatePrism(v0, v1, v2, v3, v4, v5);
+    std::array<SpatialDomains::SegGeomUniquePtr, 9> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 3> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 2> triVec;
+    std::array<SpatialDomains::PointGeom *, 6> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get(), v5.get()};
+    SpatialDomains::PrismGeomUniquePtr prismGeom =
+        CreatePrism(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -2386,7 +2523,7 @@ BOOST_AUTO_TEST_CASE(TestPrismIProductWRTDerivBase_StdMat_UniformP_MultiElmt)
 
     Nektar::LocalRegions::PrismExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
     int nelmts = 10;
 
@@ -2454,21 +2591,26 @@ BOOST_AUTO_TEST_CASE(TestPrismIProductWRTDerivBase_StdMat_UniformP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPrismIProductWRTDerivBase_SumFac_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.5, -1.5, -1.5));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::PrismGeomSharedPtr prismGeom =
-        CreatePrism(v0, v1, v2, v3, v4, v5);
+    std::array<SpatialDomains::SegGeomUniquePtr, 9> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 3> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 2> triVec;
+    std::array<SpatialDomains::PointGeom *, 6> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get(), v5.get()};
+    SpatialDomains::PrismGeomUniquePtr prismGeom =
+        CreatePrism(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -2496,7 +2638,7 @@ BOOST_AUTO_TEST_CASE(TestPrismIProductWRTDerivBase_SumFac_UniformP_MultiElmt)
 
     Nektar::LocalRegions::PrismExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
     int nelmts = 10;
 
@@ -2565,21 +2707,26 @@ BOOST_AUTO_TEST_CASE(TestPrismIProductWRTDerivBase_SumFac_UniformP_MultiElmt)
 BOOST_AUTO_TEST_CASE(
     TestPrismIProductWRTDerivBase_IterPerExp_VariableP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.5, -1.5, -1.5));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::PrismGeomSharedPtr prismGeom =
-        CreatePrism(v0, v1, v2, v3, v4, v5);
+    std::array<SpatialDomains::SegGeomUniquePtr, 9> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 3> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 2> triVec;
+    std::array<SpatialDomains::PointGeom *, 6> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get(), v5.get()};
+    SpatialDomains::PrismGeomUniquePtr prismGeom =
+        CreatePrism(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -2607,7 +2754,7 @@ BOOST_AUTO_TEST_CASE(
 
     Nektar::LocalRegions::PrismExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
     int nelmts = 10;
 
@@ -2675,21 +2822,26 @@ BOOST_AUTO_TEST_CASE(
 
 BOOST_AUTO_TEST_CASE(TestPrismIProductWRTDerivBase_StdMat_VariableP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.5, -1.5, -1.5));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::PrismGeomSharedPtr prismGeom =
-        CreatePrism(v0, v1, v2, v3, v4, v5);
+    std::array<SpatialDomains::SegGeomUniquePtr, 9> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 3> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 2> triVec;
+    std::array<SpatialDomains::PointGeom *, 6> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get(), v5.get()};
+    SpatialDomains::PrismGeomUniquePtr prismGeom =
+        CreatePrism(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -2717,7 +2869,7 @@ BOOST_AUTO_TEST_CASE(TestPrismIProductWRTDerivBase_StdMat_VariableP_MultiElmt)
 
     Nektar::LocalRegions::PrismExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
     int nelmts = 10;
 
@@ -2785,21 +2937,26 @@ BOOST_AUTO_TEST_CASE(TestPrismIProductWRTDerivBase_StdMat_VariableP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPrismIProductWRTDerivBase_SumFac_VariableP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.5, -1.5, -1.5));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::PrismGeomSharedPtr prismGeom =
-        CreatePrism(v0, v1, v2, v3, v4, v5);
+    std::array<SpatialDomains::SegGeomUniquePtr, 9> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 3> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 2> triVec;
+    std::array<SpatialDomains::PointGeom *, 6> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get(), v5.get()};
+    SpatialDomains::PrismGeomUniquePtr prismGeom =
+        CreatePrism(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -2827,7 +2984,7 @@ BOOST_AUTO_TEST_CASE(TestPrismIProductWRTDerivBase_SumFac_VariableP_MultiElmt)
 
     Nektar::LocalRegions::PrismExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
     int nelmts = 10;
 
@@ -2896,21 +3053,26 @@ BOOST_AUTO_TEST_CASE(TestPrismIProductWRTDerivBase_SumFac_VariableP_MultiElmt)
 BOOST_AUTO_TEST_CASE(
     TestPrismIProductWRTDerivBase_MatriFree_UniformP_Undeformed_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::PrismGeomSharedPtr prismGeom =
-        CreatePrism(v0, v1, v2, v3, v4, v5);
+    std::array<SpatialDomains::SegGeomUniquePtr, 9> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 3> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 2> triVec;
+    std::array<SpatialDomains::PointGeom *, 6> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get(), v5.get()};
+    SpatialDomains::PrismGeomUniquePtr prismGeom =
+        CreatePrism(v, segVec, triVec, quadVec);
 
     unsigned int numQuadPoints = 7;
     unsigned int numModes      = 6;
@@ -2944,7 +3106,7 @@ BOOST_AUTO_TEST_CASE(
 
     Nektar::LocalRegions::PrismExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
     unsigned int nelmts = 1;
 
@@ -3016,21 +3178,26 @@ BOOST_AUTO_TEST_CASE(
 BOOST_AUTO_TEST_CASE(
     TestPrismIProductWRTDerivBase_MatriFree_UniformP_Deformed_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -2.0, -3.0, -4.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::PrismGeomSharedPtr prismGeom =
-        CreatePrism(v0, v1, v2, v3, v4, v5);
+    std::array<SpatialDomains::SegGeomUniquePtr, 9> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 3> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 2> triVec;
+    std::array<SpatialDomains::PointGeom *, 6> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get(), v5.get()};
+    SpatialDomains::PrismGeomUniquePtr prismGeom =
+        CreatePrism(v, segVec, triVec, quadVec);
 
     unsigned int numQuadPoints = 7;
     unsigned int numModes      = 6;
@@ -3064,7 +3231,7 @@ BOOST_AUTO_TEST_CASE(
 
     Nektar::LocalRegions::PrismExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
     unsigned int nelmts = 1;
 
@@ -3136,21 +3303,26 @@ BOOST_AUTO_TEST_CASE(
 BOOST_AUTO_TEST_CASE(
     TestPrismIProductWRTDerivBase_MatriFree_UniformP_Deformed_OverInt_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -2.0, -3.0, -4.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::PrismGeomSharedPtr prismGeom =
-        CreatePrism(v0, v1, v2, v3, v4, v5);
+    std::array<SpatialDomains::SegGeomUniquePtr, 9> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 3> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 2> triVec;
+    std::array<SpatialDomains::PointGeom *, 6> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get(), v5.get()};
+    SpatialDomains::PrismGeomUniquePtr prismGeom =
+        CreatePrism(v, segVec, triVec, quadVec);
 
     unsigned int numQuadPoints = 12;
     unsigned int numModes      = 6;
@@ -3184,7 +3356,7 @@ BOOST_AUTO_TEST_CASE(
 
     Nektar::LocalRegions::PrismExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
     unsigned int nelmts = 1;
 
@@ -3255,21 +3427,26 @@ BOOST_AUTO_TEST_CASE(
 
 BOOST_AUTO_TEST_CASE(TestPrismHelmholtz_IterPerExp_UniformP_ConstVarDiff)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::PrismGeomSharedPtr prismGeom =
-        CreatePrism(v0, v1, v2, v3, v4, v5);
+    std::array<SpatialDomains::SegGeomUniquePtr, 9> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 3> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 2> triVec;
+    std::array<SpatialDomains::PointGeom *, 6> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get(), v5.get()};
+    SpatialDomains::PrismGeomUniquePtr prismGeom =
+        CreatePrism(v, segVec, triVec, quadVec);
 
     unsigned int numQuadPoints = 7;
     unsigned int numModes      = 6;
@@ -3303,7 +3480,7 @@ BOOST_AUTO_TEST_CASE(TestPrismHelmholtz_IterPerExp_UniformP_ConstVarDiff)
 
     Nektar::LocalRegions::PrismExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
     Nektar::StdRegions::StdPrismExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdPrismExp>::AllocateSharedPtr(
@@ -3370,21 +3547,26 @@ BOOST_AUTO_TEST_CASE(TestPrismHelmholtz_IterPerExp_UniformP_ConstVarDiff)
 
 BOOST_AUTO_TEST_CASE(TestPrismHelmholtz_MatrixFree_UniformP)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::PrismGeomSharedPtr prismGeom =
-        CreatePrism(v0, v1, v2, v3, v4, v5);
+    std::array<SpatialDomains::SegGeomUniquePtr, 9> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 3> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 2> triVec;
+    std::array<SpatialDomains::PointGeom *, 6> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get(), v5.get()};
+    SpatialDomains::PrismGeomUniquePtr prismGeom =
+        CreatePrism(v, segVec, triVec, quadVec);
 
     unsigned int numQuadPoints = 7;
     unsigned int numModes      = 6;
@@ -3418,7 +3600,7 @@ BOOST_AUTO_TEST_CASE(TestPrismHelmholtz_MatrixFree_UniformP)
 
     Nektar::LocalRegions::PrismExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
     Nektar::StdRegions::StdPrismExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdPrismExp>::AllocateSharedPtr(
@@ -3479,21 +3661,26 @@ BOOST_AUTO_TEST_CASE(TestPrismHelmholtz_MatrixFree_UniformP)
 
 BOOST_AUTO_TEST_CASE(TestPrismHelmholtz_MatrixFree_Deformed_OverInt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -2.0, -3.0, -4.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::PrismGeomSharedPtr prismGeom =
-        CreatePrism(v0, v1, v2, v3, v4, v5);
+    std::array<SpatialDomains::SegGeomUniquePtr, 9> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 3> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 2> triVec;
+    std::array<SpatialDomains::PointGeom *, 6> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get(), v5.get()};
+    SpatialDomains::PrismGeomUniquePtr prismGeom =
+        CreatePrism(v, segVec, triVec, quadVec);
 
     unsigned int numQuadPoints = 10;
     unsigned int numModes      = 6;
@@ -3527,7 +3714,7 @@ BOOST_AUTO_TEST_CASE(TestPrismHelmholtz_MatrixFree_Deformed_OverInt)
 
     Nektar::LocalRegions::PrismExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
     Nektar::StdRegions::StdPrismExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdPrismExp>::AllocateSharedPtr(
@@ -3588,21 +3775,26 @@ BOOST_AUTO_TEST_CASE(TestPrismHelmholtz_MatrixFree_Deformed_OverInt)
 
 BOOST_AUTO_TEST_CASE(TestPrismHelmholtz_MatrixFree_UniformP_ConstVarDiff)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::PrismGeomSharedPtr prismGeom =
-        CreatePrism(v0, v1, v2, v3, v4, v5);
+    std::array<SpatialDomains::SegGeomUniquePtr, 9> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 3> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 2> triVec;
+    std::array<SpatialDomains::PointGeom *, 6> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get(), v5.get()};
+    SpatialDomains::PrismGeomUniquePtr prismGeom =
+        CreatePrism(v, segVec, triVec, quadVec);
 
     unsigned int numQuadPoints = 7;
     unsigned int numModes      = 6;
@@ -3636,7 +3828,7 @@ BOOST_AUTO_TEST_CASE(TestPrismHelmholtz_MatrixFree_UniformP_ConstVarDiff)
 
     Nektar::LocalRegions::PrismExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
     Nektar::StdRegions::StdPrismExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdPrismExp>::AllocateSharedPtr(
@@ -3703,21 +3895,26 @@ BOOST_AUTO_TEST_CASE(TestPrismHelmholtz_MatrixFree_UniformP_ConstVarDiff)
 
 BOOST_AUTO_TEST_CASE(TestPrismPhsyInterp1DScaled_NoCollection_UniformP)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::PrismGeomSharedPtr prismGeom =
-        CreatePrism(v0, v1, v2, v3, v4, v5);
+    std::array<SpatialDomains::SegGeomUniquePtr, 9> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 3> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 2> triVec;
+    std::array<SpatialDomains::PointGeom *, 6> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get(), v5.get()};
+    SpatialDomains::PrismGeomUniquePtr prismGeom =
+        CreatePrism(v, segVec, triVec, quadVec);
 
     unsigned int numQuadPoints = 7;
     unsigned int numModes      = 6;
@@ -3751,7 +3948,7 @@ BOOST_AUTO_TEST_CASE(TestPrismPhsyInterp1DScaled_NoCollection_UniformP)
 
     Nektar::LocalRegions::PrismExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
     Nektar::StdRegions::StdPrismExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdPrismExp>::AllocateSharedPtr(
@@ -3804,21 +4001,26 @@ BOOST_AUTO_TEST_CASE(TestPrismPhsyInterp1DScaled_NoCollection_UniformP)
 
 BOOST_AUTO_TEST_CASE(TestPrismPhsyInterp1DScaled_MatrixFree_UniformP)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::PrismGeomSharedPtr prismGeom =
-        CreatePrism(v0, v1, v2, v3, v4, v5);
+    std::array<SpatialDomains::SegGeomUniquePtr, 9> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 3> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 2> triVec;
+    std::array<SpatialDomains::PointGeom *, 6> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get(), v5.get()};
+    SpatialDomains::PrismGeomUniquePtr prismGeom =
+        CreatePrism(v, segVec, triVec, quadVec);
 
     unsigned int numQuadPoints = 7;
     unsigned int numModes      = 6;
@@ -3852,7 +4054,7 @@ BOOST_AUTO_TEST_CASE(TestPrismPhsyInterp1DScaled_MatrixFree_UniformP)
 
     Nektar::LocalRegions::PrismExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
     Nektar::StdRegions::StdPrismExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdPrismExp>::AllocateSharedPtr(

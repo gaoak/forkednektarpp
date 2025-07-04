@@ -100,7 +100,7 @@ void ProcessAddFld::v_Process([[maybe_unused]] po::variables_map &vm)
         int i = 0;
         for (auto &expIt : expansions)
         {
-            ElementGIDs[i++] = expIt.second->m_geomShPtr->GetGlobalID();
+            ElementGIDs[i++] = expIt.second->m_geomPtr->GetGlobalID();
         }
         m_f->FieldIOForFile(fromfld)->Import(
             fromfld, fromFieldDef, fromFieldData,

@@ -503,7 +503,8 @@ void HOSurfaceMesh::Process()
         // optimization)
         vector<NodeSharedPtr> vertices = f->m_vertexList;
 
-        SpatialDomains::GeometrySharedPtr geom = f->GetGeom(3);
+        SpatialDomains::EntityHolder holder;
+        SpatialDomains::Geometry *geom = f->GetGeom(3, holder);
         geom->FillGeom();
         StdRegions::StdExpansionSharedPtr xmap = geom->GetXmap();
         Array<OneD, NekDouble> coeffs0         = geom->GetCoeffs(0);

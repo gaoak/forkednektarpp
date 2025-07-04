@@ -1087,8 +1087,7 @@ void PulseWaveSystem::SetUpDomainInterfaceBCs(
     int numNewBc = 1;
     for (auto &d : m_domOrder)
     {
-
-        std::map<int, SpatialDomains::GeometrySharedPtr> domvids;
+        std::map<int, SpatialDomains::Geometry *> domvids;
 
         // Loop over each domain and find which vids are only touched
         // by one element
@@ -1100,7 +1099,7 @@ void PulseWaveSystem::SetUpDomainInterfaceBCs(
                 // get hold of vids of each segment
                 for (size_t p = 0; p < 2; ++p)
                 {
-                    SpatialDomains::GeometrySharedPtr vert =
+                    SpatialDomains::Geometry *vert =
                         compIt.second->m_geomVec[j]->GetVertex(p);
                     int vid = vert->GetGlobalID();
 

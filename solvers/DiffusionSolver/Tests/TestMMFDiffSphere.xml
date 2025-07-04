@@ -1967,7 +1967,7 @@
         </CURVED>
         <!-- V - vertex, E - edge, F - face, L - element -->
         <COMPOSITE>
-            <C ID="0"> T[0-191]
+            <C ID="0"> T[0-143]
             </C>
         </COMPOSITE>
 

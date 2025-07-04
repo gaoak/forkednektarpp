@@ -36,7 +36,7 @@
 
 namespace Nektar::LocalRegions
 {
-Expansion0D::Expansion0D(SpatialDomains::Geometry0DSharedPtr pGeom)
+Expansion0D::Expansion0D(SpatialDomains::Geometry0D *pGeom)
     : StdExpansion(), Expansion(pGeom), StdExpansion0D()
 {
 }

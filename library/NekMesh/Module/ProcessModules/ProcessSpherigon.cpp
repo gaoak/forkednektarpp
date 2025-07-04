@@ -719,11 +719,11 @@ void ProcessSpherigon::Process()
             LibUtilities::eModified_A, nq,
             LibUtilities::PointsKey(nq, LibUtilities::eGaussLobattoLegendre));
 
+        SpatialDomains::EntityHolder holder;
         if (e->GetConf().m_e == LibUtilities::eSegment)
         {
-            SpatialDomains::SegGeomSharedPtr geom =
-                std::dynamic_pointer_cast<SpatialDomains::SegGeom>(
-                    e->GetGeom(m_mesh->m_spaceDim));
+            auto geom = dynamic_cast<SpatialDomains::SegGeom *>(
+                e->GetGeom(m_mesh->m_spaceDim, holder));
             LocalRegions::SegExpSharedPtr seg =
                 MemoryManager<LocalRegions::SegExp>::AllocateSharedPtr(B2,
                                                                        geom);
@@ -732,9 +732,8 @@ void ProcessSpherigon::Process()
         }
         else if (e->GetConf().m_e == LibUtilities::eTriangle)
         {
-            SpatialDomains::TriGeomSharedPtr geom =
-                std::dynamic_pointer_cast<SpatialDomains::TriGeom>(
-                    e->GetGeom(3));
+            auto geom =
+                dynamic_cast<SpatialDomains::TriGeom *>(e->GetGeom(3, holder));
             LocalRegions::NodalTriExpSharedPtr tri =
                 MemoryManager<LocalRegions::NodalTriExp>::AllocateSharedPtr(
                     B0, B1, LibUtilities::eNodalTriElec, geom);
@@ -766,9 +765,8 @@ void ProcessSpherigon::Process()
         }
         else if (e->GetConf().m_e == LibUtilities::eQuadrilateral)
         {
-            SpatialDomains::QuadGeomSharedPtr geom =
-                std::dynamic_pointer_cast<SpatialDomains::QuadGeom>(
-                    e->GetGeom(3));
+            auto geom =
+                dynamic_cast<SpatialDomains::QuadGeom *>(e->GetGeom(3, holder));
             LocalRegions::QuadExpSharedPtr quad =
                 MemoryManager<LocalRegions::QuadExp>::AllocateSharedPtr(B2, B2,
                                                                         geom);

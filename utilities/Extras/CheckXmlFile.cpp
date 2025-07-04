@@ -32,19 +32,14 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <cstdio>
-#include <cstdlib>
-
 #include <MultiRegions/ExpList.h>
 #include <SpatialDomains/MeshGraphIO.h>
 
-using namespace std;
 using namespace Nektar;
 
-bool CheckTetRotation(
-    Array<OneD, NekDouble> &xc, Array<OneD, NekDouble> &yc,
-    Array<OneD, NekDouble> &xz,
-    std::map<int, SpatialDomains::TetGeomSharedPtr>::iterator &tetIter, int id);
+bool CheckTetRotation(Array<OneD, NekDouble> &xc, Array<OneD, NekDouble> &yc,
+                      Array<OneD, NekDouble> &xz, SpatialDomains::TetGeom *tet,
+                      std::map<int, int> &vid2cnt);
 
 int main(int argc, char *argv[])
 {
@@ -53,8 +48,8 @@ int main(int argc, char *argv[])
 
     if (argc != 2)
     {
-        fprintf(stderr, "Usage: CheckXmlFile  meshfile.xml\n");
-        exit(1);
+        std::cerr << "Usage: CheckXmlFile  meshfile.xml" << std::endl;
+        return 1;
     }
 
     LibUtilities::SessionReaderSharedPtr vSession =
@@ -62,7 +57,7 @@ int main(int argc, char *argv[])
 
     //----------------------------------------------
     // Read in mesh from input file
-    string meshfile(argv[argc - 1]);
+    std::string meshfile(argv[argc - 1]);
     SpatialDomains::MeshGraphSharedPtr mesh =
         SpatialDomains::MeshGraphIO::Read(vSession);
     //----------------------------------------------
@@ -77,71 +72,23 @@ int main(int argc, char *argv[])
             ASSERTL0(false, "1D not set up");
             break;
         case 2:
-        {
-            NekDouble x, y, z;
-            string outname(strtok(argv[argc - 1], "."));
-            outname += ".dat";
-            FILE *fp = fopen(outname.c_str(), "w");
-
-            SpatialDomains::TriGeomMap trigeom   = mesh->GetAllTriGeoms();
-            SpatialDomains::QuadGeomMap quadgeom = mesh->GetAllQuadGeoms();
-
-            int nverts = mesh->GetNvertices();
-
-            Array<OneD, NekDouble> xc(nverts), yc(nverts), zc(nverts);
-
-            for (int i = 0; i < nverts; ++i)
-            {
-                mesh->GetVertex(i)->GetCoords(x, y, z);
-                xc[i] = x;
-                yc[i] = y;
-                zc[i] = z;
-            }
-
-            std::map<int, SpatialDomains::TriGeomSharedPtr>::iterator triIter;
-            for (triIter = trigeom.begin(); triIter != trigeom.end(); ++triIter)
-            {
-                fprintf(fp, "%d %d %d %d\n", (triIter->second)->GetVid(0) + 1,
-                        (triIter->second)->GetVid(1) + 1,
-                        (triIter->second)->GetVid(2) + 1,
-                        (triIter->second)->GetVid(2) + 1);
-            }
-
-            std::map<int, SpatialDomains::QuadGeomSharedPtr>::iterator quadIter;
-            for (quadIter = quadgeom.begin(); quadIter != quadgeom.end();
-                 ++quadIter)
-            {
-                fprintf(fp, "%d %d %d %d\n", (quadIter->second)->GetVid(0) + 1,
-                        (quadIter->second)->GetVid(1) + 1,
-                        (quadIter->second)->GetVid(2) + 1,
-                        (quadIter->second)->GetVid(3) + 1);
-            }
-        }
-        break;
+            ASSERTL0(false, "2D not set up");
+            break;
         case 3:
         {
-            NekDouble x, y, z;
-            string outname(strtok(argv[argc - 1], "."));
-            outname += ".dat";
-
-            SpatialDomains::TetGeomMap tetgeom     = mesh->GetAllTetGeoms();
-            SpatialDomains::PyrGeomMap pyrgeom     = mesh->GetAllPyrGeoms();
-            SpatialDomains::PrismGeomMap prismgeom = mesh->GetAllPrismGeoms();
-            SpatialDomains::HexGeomMap hexgeom     = mesh->GetAllHexGeoms();
-
-            int nverts = mesh->GetNvertices();
-
+            int cnt = 0, nverts = mesh->GetNvertices();
             Array<OneD, NekDouble> xc(nverts), yc(nverts), zc(nverts);
+            std::map<int, int> vid2cnt;
 
-            for (int i = 0; i < nverts; ++i)
+            for (auto [id, vert] :
+                 mesh->GetGeomMap<SpatialDomains::PointGeom>())
             {
-                // Check element roation
-                mesh->GetVertex(i)->GetCoords(x, y, z);
-                xc[i] = x;
-                yc[i] = y;
-                zc[i] = z;
+                // Check element rotation
+                vert->GetCoords(xc[cnt], yc[cnt], zc[cnt]);
+                vid2cnt[vert->GetGlobalID()] = cnt++;
             }
 
+            // Check for any duplicated vertex coordinates.
             for (int i = 0; i < nverts; ++i)
             {
                 for (int j = i + 1; j < nverts; ++j)
@@ -151,106 +98,99 @@ int main(int argc, char *argv[])
                             (zc[i] - zc[j]) * (zc[i] - zc[j]) <
                         1e-10)
                     {
-                        cout << "Duplicate vertices: " << i << " " << j << endl;
+                        std::cerr << "ERROR: Duplicate vertices: " << i << " "
+                                  << j << std::endl;
                     }
                 }
             }
 
-            std::map<int, SpatialDomains::TetGeomSharedPtr>::iterator tetIter;
-            int cnt                  = 0;
             bool NoRotateIssues      = true;
             bool NoOrientationIssues = true;
-            for (tetIter = tetgeom.begin(); tetIter != tetgeom.end(); ++tetIter)
+            for (auto [id, tet] : mesh->GetGeomMap<SpatialDomains::TetGeom>())
             {
                 // check rotation and dump
                 NoOrientationIssues =
-                    CheckTetRotation(xc, yc, zc, tetIter, cnt++);
+                    CheckTetRotation(xc, yc, zc, tet, vid2cnt);
 
                 // Check face rotation
-                if ((tetIter->second)->GetFace(0)->GetVid(2) !=
-                    (tetIter->second)->GetVid(2))
+                if (tet->GetFace(0)->GetVid(2) != tet->GetVid(2))
                 {
-                    cout << "ERROR: Face " << tetIter->second->GetFid(0)
-                         << " (vert "
-                         << (tetIter->second)->GetFace(0)->GetVid(2)
-                         << ") is not aligned with base vertex of Tet "
-                         << (tetIter->second)->GetGlobalID() << " (vert "
-                         << (tetIter->second)->GetVid(2) << ")" << endl;
+                    std::cerr << "ERROR: Face " << tet->GetFid(0) << " (vert "
+                              << tet->GetFace(0)->GetVid(2)
+                              << ") is not aligned with base vertex of Tet "
+                              << tet->GetGlobalID() << " (vert "
+                              << tet->GetVid(2) << ")" << std::endl;
                     NoRotateIssues = false;
                 }
 
                 for (int i = 1; i < 4; ++i)
-
                 {
-                    if ((tetIter->second)->GetFace(i)->GetVid(2) !=
-                        (tetIter->second)->GetVid(3))
+                    if (tet->GetFace(i)->GetVid(2) != tet->GetVid(3))
                     {
-                        cout << "ERROR: Face " << tetIter->second->GetFid(i)
-                             << " is not aligned with top Vertex of Tet "
-                             << (tetIter->second)->GetGlobalID() << endl;
+                        std::cerr << "ERROR: Face " << tet->GetFid(i)
+                                  << " is not aligned with top Vertex of Tet "
+                                  << tet->GetGlobalID() << std::endl;
                         NoRotateIssues = false;
                     }
                 }
             }
             if (NoOrientationIssues)
             {
-                cout << "All Tet have correct ordering for anticlockwise "
-                        "rotation"
-                     << endl;
+                std::cout << "All Tet have correct ordering for anticlockwise "
+                             "rotation"
+                          << std::endl;
             }
 
             if (NoRotateIssues)
             {
-                cout << "All Tet faces are correctly aligned" << endl;
+                std::cout << "All Tet faces are correctly aligned" << std::endl;
             }
 
-            std::map<int, SpatialDomains::PyrGeomSharedPtr>::iterator pyrIter;
-            for (pyrIter = pyrgeom.begin(); pyrIter != pyrgeom.end(); ++pyrIter)
+            for ([[maybe_unused]] auto [id, pyr] :
+                 mesh->GetGeomMap<SpatialDomains::PyrGeom>())
             {
                 // Put pyramid checks in here
             }
 
-            // Put prism checks in here
-            std::map<int, SpatialDomains::PrismGeomSharedPtr>::iterator Iter;
             NoRotateIssues      = true;
             NoOrientationIssues = true;
-            for (Iter = prismgeom.begin(); Iter != prismgeom.end(); ++Iter)
+            for (auto [id, pri] : mesh->GetGeomMap<SpatialDomains::PrismGeom>())
             {
-
                 // Check face rotation
-                if ((Iter->second)->GetFace(1)->GetVid(2) !=
-                    (Iter->second)->GetVid(4))
+                if (pri->GetFace(1)->GetVid(2) != pri->GetVid(4))
                 {
-                    cout << "ERROR: Face " << Iter->second->GetFid(1)
-                         << " (vert " << (Iter->second)->GetFace(1)->GetVid(2)
-                         << ") not aligned to face 1 singular vert of Prism "
-                         << (Iter->second)->GetGlobalID() << " (vert "
-                         << (Iter->second)->GetVid(4) << ")" << endl;
+                    std::cerr
+                        << "ERROR: Face " << pri->GetFid(1) << " (vert "
+                        << pri->GetFace(1)->GetVid(2)
+                        << ") not aligned to face 1 singular vert of Prism "
+                        << pri->GetGlobalID() << " (vert " << pri->GetVid(4)
+                        << ")" << std::endl;
                     NoRotateIssues = false;
                 }
 
                 // Check face rotation
-                if ((Iter->second)->GetFace(3)->GetVid(2) !=
-                    (Iter->second)->GetVid(5))
+                if (pri->GetFace(3)->GetVid(2) != pri->GetVid(5))
                 {
-                    cout << "ERROR: Face " << Iter->second->GetFid(3)
-                         << " (vert " << (Iter->second)->GetFace(3)->GetVid(2)
-                         << ") not aligned to face 3 singular vert of Prism "
-                         << (Iter->second)->GetGlobalID() << " (vert "
-                         << (Iter->second)->GetVid(5) << ")" << endl;
+                    std::cerr
+                        << "ERROR: Face " << pri->GetFid(3) << " (vert "
+                        << pri->GetFace(3)->GetVid(2)
+                        << ") not aligned to face 3 singular vert of Prism "
+                        << pri->GetGlobalID() << " (vert " << pri->GetVid(5)
+                        << ")" << std::endl;
                     NoRotateIssues = false;
                 }
             }
 
             if (NoRotateIssues)
             {
-                cout << "All Prism Tri faces are correctly aligned" << endl;
+                std::cout << "All Prism Tri faces are correctly aligned"
+                          << std::endl;
             }
 
-            std::map<int, SpatialDomains::HexGeomSharedPtr>::iterator hexIter;
-            for (hexIter = hexgeom.begin(); hexIter != hexgeom.end(); ++hexIter)
+            for ([[maybe_unused]] auto [id, hex] :
+                 mesh->GetGeomMap<SpatialDomains::HexGeom>())
             {
-                // PUt Hex checks in here
+                // Put hex checks in here
             }
         }
 
@@ -265,7 +205,7 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-class Ord
+struct Ord
 {
 public:
     double x;
@@ -273,30 +213,29 @@ public:
     double z;
 };
 
-bool CheckTetRotation(
-    Array<OneD, NekDouble> &xc, Array<OneD, NekDouble> &yc,
-    Array<OneD, NekDouble> &zc,
-    std::map<int, SpatialDomains::TetGeomSharedPtr>::iterator &tetIter, int id)
+bool CheckTetRotation(Array<OneD, NekDouble> &xc, Array<OneD, NekDouble> &yc,
+                      Array<OneD, NekDouble> &zc, SpatialDomains::TetGeom *tet,
+                      std::map<int, int> &vid2cnt)
 {
     bool RotationOK = true;
-    Ord v[4];
+    std::array<Ord, 4> v;
     NekDouble abx, aby, abz;
 
-    v[0].x = xc[(tetIter->second)->GetVid(0)];
-    v[0].y = yc[(tetIter->second)->GetVid(0)];
-    v[0].z = zc[(tetIter->second)->GetVid(0)];
+    v[0].x = xc[vid2cnt[tet->GetVid(0)]];
+    v[0].y = yc[vid2cnt[tet->GetVid(0)]];
+    v[0].z = zc[vid2cnt[tet->GetVid(0)]];
 
-    v[1].x = xc[(tetIter->second)->GetVid(1)];
-    v[1].y = yc[(tetIter->second)->GetVid(1)];
-    v[1].z = zc[(tetIter->second)->GetVid(1)];
+    v[1].x = xc[vid2cnt[tet->GetVid(1)]];
+    v[1].y = yc[vid2cnt[tet->GetVid(1)]];
+    v[1].z = zc[vid2cnt[tet->GetVid(1)]];
 
-    v[2].x = xc[(tetIter->second)->GetVid(2)];
-    v[2].y = yc[(tetIter->second)->GetVid(2)];
-    v[2].z = zc[(tetIter->second)->GetVid(2)];
+    v[2].x = xc[vid2cnt[tet->GetVid(2)]];
+    v[2].y = yc[vid2cnt[tet->GetVid(2)]];
+    v[2].z = zc[vid2cnt[tet->GetVid(2)]];
 
-    v[3].x = xc[(tetIter->second)->GetVid(3)];
-    v[3].y = yc[(tetIter->second)->GetVid(3)];
-    v[3].z = zc[(tetIter->second)->GetVid(3)];
+    v[3].x = xc[vid2cnt[tet->GetVid(3)]];
+    v[3].y = yc[vid2cnt[tet->GetVid(3)]];
+    v[3].z = zc[vid2cnt[tet->GetVid(3)]];
 
     // cross product of edge 0 and 2
     abx = (v[1].y - v[0].y) * (v[2].z - v[0].z) -
@@ -310,8 +249,9 @@ bool CheckTetRotation(
     if (((v[3].x - v[0].x) * abx + (v[3].y - v[0].y) * aby +
          (v[3].z - v[0].z) * abz) < 0.0)
     {
-        cerr << "ERROR: Element " << id + 1 << "is NOT counter-clockwise\n"
-             << endl;
+        std::cerr << "ERROR: Element " << tet->GetGlobalID()
+                  << "is NOT counter-clockwise\n"
+                  << std::endl;
         RotationOK = false;
     }
     return RotationOK;

@@ -54,14 +54,6 @@
 #include <SpatialDomains/RefRegionParallelogram.h>
 #include <SpatialDomains/RefRegionSphere.h>
 
-// These are required for the Write(...) and Import(...) functions.
-#include <boost/archive/iterators/base64_from_binary.hpp>
-#include <boost/archive/iterators/binary_from_base64.hpp>
-#include <boost/archive/iterators/transform_width.hpp>
-#include <boost/iostreams/copy.hpp>
-#include <boost/iostreams/filter/zlib.hpp>
-#include <boost/iostreams/filtering_stream.hpp>
-
 #include <boost/geometry/geometry.hpp>
 #include <boost/geometry/index/rtree.hpp>
 
@@ -78,7 +70,7 @@ struct MeshGraph::GeomRTree
 
     bg::index::rtree<BgRtreeValue, bg::index::rstar<16, 4>> m_bgTree;
 
-    void InsertGeom(GeometrySharedPtr const &geom)
+    void InsertGeom(Geometry *const &geom)
     {
         std::array<NekDouble, 6> minMax = geom->GetBoundingBox();
         BgPoint ptMin(minMax[0], minMax[1], minMax[2]);
@@ -98,6 +90,10 @@ MeshGraphFactory &GetMeshGraphFactory()
 }
 
 MeshGraph::MeshGraph()
+    : m_pointMapView(m_pointGeoms), m_segMapView(m_segGeoms),
+      m_triMapView(m_triGeoms), m_quadMapView(m_quadGeoms),
+      m_tetMapView(m_tetGeoms), m_pyrMapView(m_pyrGeoms),
+      m_prismMapView(m_prismGeoms), m_hexMapView(m_hexGeoms)
 {
     m_boundingBoxTree =
         std::unique_ptr<MeshGraph::GeomRTree>(new MeshGraph::GeomRTree());
@@ -115,17 +111,21 @@ void MeshGraph::SetPartition(SpatialDomains::MeshGraphSharedPtr graph)
     m_meshDimension  = graph->GetMeshDimension();
     m_spaceDimension = graph->GetSpaceDimension();
 
-    m_vertSet     = graph->GetAllPointGeoms();
+    m_pointGeoms  = std::move(graph->m_pointGeoms);
     m_curvedFaces = graph->GetCurvedFaces();
     m_curvedEdges = graph->GetCurvedEdges();
 
-    m_segGeoms   = graph->GetAllSegGeoms();
-    m_triGeoms   = graph->GetAllTriGeoms();
-    m_quadGeoms  = graph->GetAllQuadGeoms();
-    m_hexGeoms   = graph->GetAllHexGeoms();
-    m_prismGeoms = graph->GetAllPrismGeoms();
-    m_pyrGeoms   = graph->GetAllPyrGeoms();
-    m_tetGeoms   = graph->GetAllTetGeoms();
+    m_segGeoms   = std::move(graph->m_segGeoms);
+    m_triGeoms   = std::move(graph->m_triGeoms);
+    m_quadGeoms  = std::move(graph->m_quadGeoms);
+    m_hexGeoms   = std::move(graph->m_hexGeoms);
+    m_prismGeoms = std::move(graph->m_prismGeoms);
+    m_pyrGeoms   = std::move(graph->m_pyrGeoms);
+    m_tetGeoms   = std::move(graph->m_tetGeoms);
+
+    // m_pointMapView = std::move(graph->m_pointMapView);
+    // m_segMapView = std::move(graph->m_segMapView);
+    // m_triMapView = std::move(graph->m_pointMapView);
 
     m_faceToElMap = graph->GetAllFaceToElMap();
 }
@@ -185,42 +185,41 @@ void MeshGraph::FillGraph()
 
 void MeshGraph::FillBoundingBoxTree()
 {
-
     m_boundingBoxTree->m_bgTree.clear();
     switch (m_meshDimension)
     {
         case 1:
             for (auto &x : m_segGeoms)
             {
-                m_boundingBoxTree->InsertGeom(x.second);
+                m_boundingBoxTree->InsertGeom(x.second.get());
             }
             break;
         case 2:
             for (auto &x : m_triGeoms)
             {
-                m_boundingBoxTree->InsertGeom(x.second);
+                m_boundingBoxTree->InsertGeom(x.second.get());
             }
             for (auto &x : m_quadGeoms)
             {
-                m_boundingBoxTree->InsertGeom(x.second);
+                m_boundingBoxTree->InsertGeom(x.second.get());
             }
             break;
         case 3:
             for (auto &x : m_tetGeoms)
             {
-                m_boundingBoxTree->InsertGeom(x.second);
+                m_boundingBoxTree->InsertGeom(x.second.get());
             }
             for (auto &x : m_prismGeoms)
             {
-                m_boundingBoxTree->InsertGeom(x.second);
+                m_boundingBoxTree->InsertGeom(x.second.get());
             }
             for (auto &x : m_pyrGeoms)
             {
-                m_boundingBoxTree->InsertGeom(x.second);
+                m_boundingBoxTree->InsertGeom(x.second.get());
             }
             for (auto &x : m_hexGeoms)
             {
-                m_boundingBoxTree->InsertGeom(x.second);
+                m_boundingBoxTree->InsertGeom(x.second.get());
             }
             break;
         default:
@@ -228,7 +227,7 @@ void MeshGraph::FillBoundingBoxTree()
     }
 }
 
-std::vector<int> MeshGraph::GetElementsContainingPoint(PointGeomSharedPtr p)
+std::vector<int> MeshGraph::GetElementsContainingPoint(PointGeom *p)
 {
     if (m_boundingBoxTree->m_bgTree.empty())
     {
@@ -490,10 +489,10 @@ bool MeshGraph::CheckRange(Geometry3D &geom)
 /**
  *
  */
-GeometrySharedPtr MeshGraph::GetCompositeItem(int whichComposite, int whichItem)
+Geometry *MeshGraph::GetCompositeItem(int whichComposite, int whichItem)
 {
-    GeometrySharedPtr returnval;
-    bool error = false;
+    Geometry *returnval = nullptr;
+    bool error          = false;
 
     if (whichComposite >= 0 && whichComposite < int(m_meshComposites.size()))
     {
@@ -618,7 +617,7 @@ const ExpansionInfoMap &MeshGraph::GetExpansionInfo(const std::string variable)
 /**
  *
  */
-ExpansionInfoShPtr MeshGraph::GetExpansionInfo(GeometrySharedPtr geom,
+ExpansionInfoShPtr MeshGraph::GetExpansionInfo(Geometry *geom,
                                                const std::string variable)
 {
     ExpansionInfoMapShPtr expansionMap =
@@ -638,7 +637,7 @@ void MeshGraph::SetExpansionInfo(
     std::vector<LibUtilities::FieldDefinitionsSharedPtr> &fielddef)
 {
     int i, j, k, cnt, id;
-    GeometrySharedPtr geom;
+    Geometry *geom = nullptr;
 
     ExpansionInfoMapShPtr expansionMap;
 
@@ -701,7 +700,7 @@ void MeshGraph::SetExpansionInfo(
                         }
                         continue;
                     }
-                    geom = m_segGeoms[fielddef[i]->m_elementIDs[j]];
+                    geom = m_segGeoms[fielddef[i]->m_elementIDs[j]].get();
 
                     LibUtilities::PointsKey pkey(
                         nmodes[cnt] + 1, LibUtilities::eGaussLobattoLegendre);
@@ -747,7 +746,7 @@ void MeshGraph::SetExpansionInfo(
                         }
                         continue;
                     }
-                    geom = m_triGeoms[fielddef[i]->m_elementIDs[j]];
+                    geom = m_triGeoms[fielddef[i]->m_elementIDs[j]].get();
 
                     LibUtilities::PointsKey pkey(
                         nmodes[cnt] + 1, LibUtilities::eGaussLobattoLegendre);
@@ -818,7 +817,7 @@ void MeshGraph::SetExpansionInfo(
                         continue;
                     }
 
-                    geom = m_quadGeoms[fielddef[i]->m_elementIDs[j]];
+                    geom = m_quadGeoms[fielddef[i]->m_elementIDs[j]].get();
 
                     for (int b = 0; b < 2; ++b)
                     {
@@ -873,7 +872,7 @@ void MeshGraph::SetExpansionInfo(
                         }
                         continue;
                     }
-                    geom = m_tetGeoms[k];
+                    geom = m_tetGeoms[k].get();
 
                     {
                         LibUtilities::PointsKey pkey(
@@ -984,7 +983,7 @@ void MeshGraph::SetExpansionInfo(
                         }
                         continue;
                     }
-                    geom = m_prismGeoms[k];
+                    geom = m_prismGeoms[k].get();
 
                     for (int b = 0; b < 2; ++b)
                     {
@@ -1058,7 +1057,7 @@ void MeshGraph::SetExpansionInfo(
                     k = fielddef[i]->m_elementIDs[j];
                     ASSERTL0(m_pyrGeoms.find(k) != m_pyrGeoms.end(),
                              "Failed to find geometry with same global id");
-                    geom = m_pyrGeoms[k];
+                    geom = m_pyrGeoms[k].get();
 
                     for (int b = 0; b < 2; ++b)
                     {
@@ -1139,7 +1138,7 @@ void MeshGraph::SetExpansionInfo(
                         continue;
                     }
 
-                    geom = m_hexGeoms[k];
+                    geom = m_hexGeoms[k].get();
 
                     for (int b = 0; b < 3; ++b)
                     {
@@ -1179,6 +1178,7 @@ void MeshGraph::SetExpansionInfo(
                 }
                 break;
                 default:
+                    geom = nullptr;
                     ASSERTL0(false, "Need to set up for pyramid and prism 3D "
                                     "ExpansionInfo");
                     break;
@@ -1189,7 +1189,7 @@ void MeshGraph::SetExpansionInfo(
                 expansionMap = m_expansionMapShPtrMap.find(fields[k])->second;
                 if ((*expansionMap).find(id) != (*expansionMap).end())
                 {
-                    (*expansionMap)[id]->m_geomShPtr      = geom;
+                    (*expansionMap)[id]->m_geomPtr        = geom;
                     (*expansionMap)[id]->m_basisKeyVector = bkeyvec;
                 }
             }
@@ -1205,7 +1205,7 @@ void MeshGraph::SetExpansionInfo(
     std::vector<std::vector<LibUtilities::PointsType>> &pointstype)
 {
     int i, j, k, cnt, id;
-    GeometrySharedPtr geom;
+    Geometry *geom = nullptr;
 
     ExpansionInfoMapShPtr expansionMap;
 
@@ -1253,7 +1253,7 @@ void MeshGraph::SetExpansionInfo(
                     k = fielddef[i]->m_elementIDs[j];
                     ASSERTL0(m_segGeoms.find(k) != m_segGeoms.end(),
                              "Failed to find geometry with same global id.");
-                    geom = m_segGeoms[k];
+                    geom = m_segGeoms[k].get();
 
                     const LibUtilities::PointsKey pkey(nmodes[cnt],
                                                        pointstype[i][0]);
@@ -1271,7 +1271,7 @@ void MeshGraph::SetExpansionInfo(
                     k = fielddef[i]->m_elementIDs[j];
                     ASSERTL0(m_triGeoms.find(k) != m_triGeoms.end(),
                              "Failed to find geometry with same global id.");
-                    geom = m_triGeoms[k];
+                    geom = m_triGeoms[k].get();
                     for (int b = 0; b < 2; ++b)
                     {
                         const LibUtilities::PointsKey pkey(nmodes[cnt + b],
@@ -1293,7 +1293,7 @@ void MeshGraph::SetExpansionInfo(
                     k = fielddef[i]->m_elementIDs[j];
                     ASSERTL0(m_quadGeoms.find(k) != m_quadGeoms.end(),
                              "Failed to find geometry with same global id");
-                    geom = m_quadGeoms[k];
+                    geom = m_quadGeoms[k].get();
 
                     for (int b = 0; b < 2; ++b)
                     {
@@ -1316,7 +1316,7 @@ void MeshGraph::SetExpansionInfo(
                     k = fielddef[i]->m_elementIDs[j];
                     ASSERTL0(m_tetGeoms.find(k) != m_tetGeoms.end(),
                              "Failed to find geometry with same global id");
-                    geom = m_tetGeoms[k];
+                    geom = m_tetGeoms[k].get();
 
                     for (int b = 0; b < 3; ++b)
                     {
@@ -1338,7 +1338,7 @@ void MeshGraph::SetExpansionInfo(
                     k = fielddef[i]->m_elementIDs[j];
                     ASSERTL0(m_pyrGeoms.find(k) != m_pyrGeoms.end(),
                              "Failed to find geometry with same global id");
-                    geom = m_pyrGeoms[k];
+                    geom = m_pyrGeoms[k].get();
 
                     for (int b = 0; b < 3; ++b)
                     {
@@ -1360,7 +1360,7 @@ void MeshGraph::SetExpansionInfo(
                     k = fielddef[i]->m_elementIDs[j];
                     ASSERTL0(m_prismGeoms.find(k) != m_prismGeoms.end(),
                              "Failed to find geometry with same global id");
-                    geom = m_prismGeoms[k];
+                    geom = m_prismGeoms[k].get();
 
                     for (int b = 0; b < 3; ++b)
                     {
@@ -1382,7 +1382,7 @@ void MeshGraph::SetExpansionInfo(
                     k = fielddef[i]->m_elementIDs[j];
                     ASSERTL0(m_hexGeoms.find(k) != m_hexGeoms.end(),
                              "Failed to find geometry with same global id");
-                    geom = m_hexGeoms[k];
+                    geom = m_hexGeoms[k].get();
 
                     for (int b = 0; b < 3; ++b)
                     {
@@ -1410,7 +1410,7 @@ void MeshGraph::SetExpansionInfo(
                 expansionMap = m_expansionMapShPtrMap.find(fields[k])->second;
                 if ((*expansionMap).find(id) != (*expansionMap).end())
                 {
-                    (*expansionMap)[id]->m_geomShPtr      = geom;
+                    (*expansionMap)[id]->m_geomPtr        = geom;
                     (*expansionMap)[id]->m_basisKeyVector = bkeyvec;
                 }
             }
@@ -1550,7 +1550,7 @@ void MeshGraph::ResetExpansionInfoToBasisKey(
     for (auto elemIter = expansionMap->begin(); elemIter != expansionMap->end();
          ++elemIter)
     {
-        if ((elemIter->second)->m_geomShPtr->GetShapeType() == shape)
+        if ((elemIter->second)->m_geomPtr->GetShapeType() == shape)
         {
             (elemIter->second)->m_basisKeyVector = keys;
         }
@@ -1561,7 +1561,7 @@ void MeshGraph::ResetExpansionInfoToBasisKey(
  *
  */
 LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
-    GeometrySharedPtr in, ExpansionType type, const int nummodes)
+    Geometry *in, ExpansionType type, const int nummodes)
 {
     LibUtilities::BasisKeyVector returnval;
 
@@ -2384,7 +2384,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
  *
  */
 LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionTypeHomo(
-    GeometrySharedPtr in, ExpansionType type_x, ExpansionType type_y,
+    Geometry *in, ExpansionType type_x, ExpansionType type_y,
     ExpansionType type_z, const int nummodes_x, const int nummodes_y,
     const int nummodes_z)
 {
@@ -2683,16 +2683,16 @@ std::string MeshGraph::GetCompositeString(CompositeSharedPtr comp)
 
     std::stringstream s;
 
-    GeometrySharedPtr firstGeom = comp->m_geomVec[0];
-    int shapeDim                = firstGeom->GetShapeDim();
-    std::string tag             = (shapeDim < m_meshDimension)
-                                      ? compMap[firstGeom->GetShapeType()].second
-                                      : compMap[firstGeom->GetShapeType()].first;
+    Geometry *firstGeom = comp->m_geomVec[0];
+    int shapeDim        = firstGeom->GetShapeDim();
+    std::string tag     = (shapeDim < m_meshDimension)
+                              ? compMap[firstGeom->GetShapeType()].second
+                              : compMap[firstGeom->GetShapeType()].first;
 
     std::vector<unsigned int> idxList;
     std::transform(comp->m_geomVec.begin(), comp->m_geomVec.end(),
                    std::back_inserter(idxList),
-                   [](GeometrySharedPtr geom) { return geom->GetGlobalID(); });
+                   [](Geometry *geom) { return geom->GetGlobalID(); });
 
     s << " " << tag << "[" << ParseUtils::GenerateSeqString(idxList) << "] ";
     return s.str();
@@ -2705,11 +2705,10 @@ std::string MeshGraph::GetCompositeString(CompositeSharedPtr comp)
  * @param expansionMap    shared pointer for the ExpansionInfoMap.
  * @param region          Object which holds the information provided by the
  *                        user. For example, the radius, coordinates, etc.
- * @param geomVecIter     shared pointer for the Geometry.
+ * @param geomVecIter     pointer for the Geometry.
  */
 void MeshGraph::PRefinementElmts(ExpansionInfoMapShPtr &expansionMap,
-                                 RefRegion *&region,
-                                 GeometrySharedPtr geomVecIter)
+                                 RefRegion *&region, Geometry *geomVecIter)
 {
     bool updateExpansion = false;
     Array<OneD, NekDouble> coords(m_spaceDimension, 0.0);
@@ -3948,17 +3947,17 @@ void MeshGraph::ReadExpansionInfo()
     }
 }
 
-GeometryLinkSharedPtr MeshGraph::GetElementsFromEdge(Geometry1DSharedPtr edge)
+GeometryLinkSharedPtr MeshGraph::GetElementsFromEdge(Geometry1D *edge)
 {
     // Search tris and quads
     // Need to iterate through vectors because there may be multiple
     // occurrences.
 
-    GeometryLinkSharedPtr ret = GeometryLinkSharedPtr(
-        new std::vector<std::pair<GeometrySharedPtr, int>>);
+    GeometryLinkSharedPtr ret =
+        GeometryLinkSharedPtr(new std::vector<std::pair<Geometry *, int>>);
 
-    TriGeomSharedPtr triGeomShPtr;
-    QuadGeomSharedPtr quadGeomShPtr;
+    TriGeom *triGeomPtr;
+    QuadGeom *quadGeomPtr;
 
     for (auto &d : m_domain)
     {
@@ -3966,32 +3965,31 @@ GeometryLinkSharedPtr MeshGraph::GetElementsFromEdge(Geometry1DSharedPtr edge)
         {
             for (auto &geomIter : compIter.second->m_geomVec)
             {
-                triGeomShPtr  = std::dynamic_pointer_cast<TriGeom>(geomIter);
-                quadGeomShPtr = std::dynamic_pointer_cast<QuadGeom>(geomIter);
+                triGeomPtr  = static_cast<TriGeom *>(geomIter);
+                quadGeomPtr = static_cast<QuadGeom *>(geomIter);
 
-                if (triGeomShPtr || quadGeomShPtr)
+                if (triGeomPtr || quadGeomPtr)
                 {
-                    if (triGeomShPtr)
+                    if (triGeomPtr)
                     {
-                        for (int i = 0; i < triGeomShPtr->GetNumEdges(); i++)
+                        for (int i = 0; i < triGeomPtr->GetNumEdges(); i++)
                         {
-                            if (triGeomShPtr->GetEdge(i)->GetGlobalID() ==
+                            if (triGeomPtr->GetEdge(i)->GetGlobalID() ==
                                 edge->GetGlobalID())
                             {
-                                ret->push_back(std::make_pair(triGeomShPtr, i));
+                                ret->push_back(std::make_pair(triGeomPtr, i));
                                 break;
                             }
                         }
                     }
-                    else if (quadGeomShPtr)
+                    else if (quadGeomPtr)
                     {
-                        for (int i = 0; i < quadGeomShPtr->GetNumEdges(); i++)
+                        for (int i = 0; i < quadGeomPtr->GetNumEdges(); i++)
                         {
-                            if (quadGeomShPtr->GetEdge(i)->GetGlobalID() ==
+                            if (quadGeomPtr->GetEdge(i)->GetGlobalID() ==
                                 edge->GetGlobalID())
                             {
-                                ret->push_back(
-                                    std::make_pair(quadGeomShPtr, i));
+                                ret->push_back(std::make_pair(quadGeomPtr, i));
                                 break;
                             }
                         }
@@ -4004,7 +4002,7 @@ GeometryLinkSharedPtr MeshGraph::GetElementsFromEdge(Geometry1DSharedPtr edge)
     return ret;
 }
 
-GeometryLinkSharedPtr MeshGraph::GetElementsFromFace(Geometry2DSharedPtr face)
+GeometryLinkSharedPtr MeshGraph::GetElementsFromFace(Geometry2D *face)
 {
     auto it = m_faceToElMap.find(face->GetGlobalID());
 
@@ -4022,7 +4020,7 @@ GeometryLinkSharedPtr MeshGraph::GetElementsFromFace(Geometry2DSharedPtr face)
  * @param kNfaces  Number of faces of #element. Should be removed and
  * put into Geometry3D as a virtual member function.
  */
-void MeshGraph::PopulateFaceToElMap(Geometry3DSharedPtr element, int kNfaces)
+void MeshGraph::PopulateFaceToElMap(Geometry3D *element, int kNfaces)
 {
     // Set up face -> element map
     for (int i = 0; i < kNfaces; ++i)
@@ -4035,7 +4033,7 @@ void MeshGraph::PopulateFaceToElMap(Geometry3DSharedPtr element, int kNfaces)
         if (it == m_faceToElMap.end())
         {
             GeometryLinkSharedPtr tmp = GeometryLinkSharedPtr(
-                new std::vector<std::pair<GeometrySharedPtr, int>>);
+                new std::vector<std::pair<Geometry *, int>>);
             tmp->push_back(std::make_pair(element, i));
             m_faceToElMap[faceId] = tmp;
         }
@@ -4219,7 +4217,7 @@ void MeshGraph::SetDomainRange(NekDouble xmin, NekDouble xmax, NekDouble ymin,
 
 void MeshGraph::Clear()
 {
-    m_vertSet.clear();
+    m_pointGeoms.clear();
     m_curvedEdges.clear();
     m_curvedFaces.clear();
     m_segGeoms.clear();

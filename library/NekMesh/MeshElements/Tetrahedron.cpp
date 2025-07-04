@@ -223,21 +223,24 @@ Tetrahedron::Tetrahedron(ElmtConfig pConf, vector<NodeSharedPtr> pNodeList,
     }
 }
 
-SpatialDomains::GeometrySharedPtr Tetrahedron::GetGeom(int coordDim)
+SpatialDomains::Geometry *Tetrahedron::GetGeom(
+    int coordDim, SpatialDomains::EntityHolder &holder)
 {
-    SpatialDomains::TriGeomSharedPtr tfaces[4];
-    SpatialDomains::TetGeomSharedPtr ret;
+    std::array<SpatialDomains::TriGeom *, 4> tfaces;
+    SpatialDomains::TetGeomUniquePtr tet;
 
     for (int i = 0; i < 4; ++i)
     {
-        tfaces[i] = std::dynamic_pointer_cast<SpatialDomains::TriGeom>(
-            m_face[i]->GetGeom(coordDim));
+        tfaces[i] = dynamic_cast<SpatialDomains::TriGeom *>(
+            m_face[i]->GetGeom(coordDim, holder));
     }
 
-    ret =
-        MemoryManager<SpatialDomains::TetGeom>::AllocateSharedPtr(m_id, tfaces);
-    ret->Setup();
+    tet      = ObjPoolManager<SpatialDomains::TetGeom>::AllocateUniquePtr(m_id,
+                                                                          tfaces);
+    auto ret = dynamic_cast<SpatialDomains::Geometry *>(tet.get());
+    holder.m_tetVec.push_back(std::move(tet));
 
+    ret->Setup();
     return ret;
 }
 
@@ -260,7 +263,7 @@ StdRegions::Orientation Tetrahedron::GetEdgeOrient(int edgeId,
     return StdRegions::eNoOrientation;
 }
 
-void Tetrahedron::MakeOrder(int order, SpatialDomains::GeometrySharedPtr geom,
+void Tetrahedron::MakeOrder(int order, SpatialDomains::Geometry *geom,
                             LibUtilities::PointsType pType, int coordDim,
                             int &id, bool justConfig)
 {

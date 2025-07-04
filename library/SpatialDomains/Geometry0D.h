@@ -41,11 +41,6 @@
 
 namespace Nektar::SpatialDomains
 {
-class Geometry0D;
-
-typedef std::shared_ptr<Geometry0D> Geometry0DSharedPtr;
-typedef std::vector<Geometry0DSharedPtr> Geometry0DVector;
-typedef std::vector<Geometry0DSharedPtr>::iterator Geometry0DVectorIter;
 
 /// 1D geometry information
 class Geometry0D : public Geometry

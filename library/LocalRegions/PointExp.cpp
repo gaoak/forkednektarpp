@@ -37,7 +37,7 @@
 namespace Nektar::LocalRegions
 {
 
-PointExp::PointExp(const SpatialDomains::PointGeomSharedPtr &geom)
+PointExp::PointExp(SpatialDomains::Geometry0D *geom)
     : StdExpansion(1, 0), StdExpansion0D(), StdRegions::StdPointExp(),
       Expansion(geom), Expansion0D(geom)
 {
@@ -54,8 +54,7 @@ void PointExp::v_GetCoords(Array<OneD, NekDouble> &coords_0,
     ASSERTL1(GetCoordim() < 3 || coords_2.size() > 0,
              "Coords_2 is of insufficient size.");
 
-    SpatialDomains::PointGeomSharedPtr v =
-        std::dynamic_pointer_cast<SpatialDomains::PointGeom>(m_geom);
+    auto v = static_cast<SpatialDomains::PointGeom *>(m_geom);
     NekDouble tmp;
     switch (GetCoordim())
     {

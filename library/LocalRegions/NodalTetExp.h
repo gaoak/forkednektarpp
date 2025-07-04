@@ -50,10 +50,11 @@ class NodalTetExp final : virtual public StdRegions::StdNodalTetExp,
 public:
     /** \brief Constructor using BasisKey class for quadrature
     points and order definition */
-    LOCAL_REGIONS_EXPORT NodalTetExp(
-        const LibUtilities::BasisKey &Ba, const LibUtilities::BasisKey &Bb,
-        const LibUtilities::BasisKey &Bc, const LibUtilities::PointsType Ntype,
-        const SpatialDomains::TetGeomSharedPtr &geom);
+    LOCAL_REGIONS_EXPORT NodalTetExp(const LibUtilities::BasisKey &Ba,
+                                     const LibUtilities::BasisKey &Bb,
+                                     const LibUtilities::BasisKey &Bc,
+                                     const LibUtilities::PointsType Ntype,
+                                     SpatialDomains::Geometry3D *geom);
 
     /// Copy Constructor
     LOCAL_REGIONS_EXPORT NodalTetExp(const NodalTetExp &T);

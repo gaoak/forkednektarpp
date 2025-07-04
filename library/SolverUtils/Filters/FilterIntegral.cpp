@@ -177,7 +177,7 @@ void FilterIntegral::v_Initialise(
             continue;
         }
 
-        std::vector<std::shared_ptr<SpatialDomains::Geometry>> geomVec =
+        std::vector<SpatialDomains::Geometry *> geomVec =
             composites[m_compVector[i][0]]->m_geomVec;
         size_t dim =
             composites[m_compVector[i][0]]->m_geomVec[0]->GetShapeDim();

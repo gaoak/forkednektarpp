@@ -47,7 +47,7 @@ using namespace std;
 
 namespace Nektar::LocalRegions
 {
-Expansion2D::Expansion2D(SpatialDomains::Geometry2DSharedPtr pGeom)
+Expansion2D::Expansion2D(SpatialDomains::Geometry2D *pGeom)
     : StdExpansion(), Expansion(pGeom), StdExpansion2D()
 {
 }
@@ -2207,7 +2207,7 @@ Array<OneD, unsigned int> Expansion2D::GetTraceInverseBoundaryMap(int eid)
     // Number of interior edge coefficients
     nEdgeCoeffs = GetTraceNcoeffs(eid) - 2;
 
-    const SpatialDomains::Geometry2DSharedPtr &geom = GetGeom2D();
+    const SpatialDomains::Geometry2D *geom = GetGeom2D();
 
     Array<OneD, unsigned int> edgemaparray(nEdgeCoeffs);
     Array<OneD, unsigned int> maparray(nEdgeCoeffs);
@@ -2320,7 +2320,7 @@ NekDouble Expansion2D::v_VectorFlux(
 
 void Expansion2D::v_TraceNormLen(const int traceid, NekDouble &h, NekDouble &p)
 {
-    SpatialDomains::GeometrySharedPtr geom = GetGeom();
+    SpatialDomains::Geometry *geom = GetGeom();
 
     int nverts = geom->GetNumVerts();
 

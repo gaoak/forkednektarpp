@@ -432,63 +432,6 @@ NekDouble Geometry3D::v_GetLocCoords(const Array<OneD, const NekDouble> &coords,
 }
 
 /**
- * @brief Put all quadrature information into face/edge structure and
- * backward transform.
- *
- * Note verts, edges, and faces are listed according to anticlockwise
- * convention but points in _coeffs have to be in array format from left
- * to right.
- */
-void Geometry3D::v_FillGeom()
-{
-    if (m_state == ePtsFilled)
-    {
-        return;
-    }
-
-    int i, j, k;
-
-    for (i = 0; i < m_forient.size(); i++)
-    {
-        m_faces[i]->FillGeom();
-
-        int nFaceCoeffs = m_faces[i]->GetXmap()->GetNcoeffs();
-
-        Array<OneD, unsigned int> mapArray(nFaceCoeffs);
-        Array<OneD, int> signArray(nFaceCoeffs);
-
-        if (m_forient[i] < 9)
-        {
-            m_xmap->GetTraceToElementMap(
-                i, mapArray, signArray, m_forient[i],
-                m_faces[i]->GetXmap()->GetTraceNcoeffs(0),
-                m_faces[i]->GetXmap()->GetTraceNcoeffs(1));
-        }
-        else
-        {
-            m_xmap->GetTraceToElementMap(
-                i, mapArray, signArray, m_forient[i],
-                m_faces[i]->GetXmap()->GetTraceNcoeffs(1),
-                m_faces[i]->GetXmap()->GetTraceNcoeffs(0));
-        }
-
-        for (j = 0; j < m_coordim; j++)
-        {
-            const Array<OneD, const NekDouble> &coeffs =
-                m_faces[i]->GetCoeffs(j);
-
-            for (k = 0; k < nFaceCoeffs; k++)
-            {
-                NekDouble v              = signArray[k] * coeffs[k];
-                m_coeffs[j][mapArray[k]] = v;
-            }
-        }
-    }
-
-    m_state = ePtsFilled;
-}
-
-/**
  * @brief Given local collapsed coordinate Lcoord return the value of
  * physical coordinate in direction i.
  */
@@ -510,56 +453,6 @@ NekDouble Geometry3D::v_GetCoord(const int i,
 int Geometry3D::v_GetShapeDim() const
 {
     return 3;
-}
-
-int Geometry3D::v_GetNumVerts() const
-{
-    return m_verts.size();
-}
-
-int Geometry3D::v_GetNumEdges() const
-{
-    return m_edges.size();
-}
-
-int Geometry3D::v_GetNumFaces() const
-{
-    return m_faces.size();
-}
-
-PointGeomSharedPtr Geometry3D::v_GetVertex(int i) const
-{
-    return m_verts[i];
-}
-
-Geometry1DSharedPtr Geometry3D::v_GetEdge(int i) const
-{
-    ASSERTL2(i >= 0 && i <= m_edges.size() - 1,
-             "Edge ID must be between 0 and " +
-                 std::to_string(m_edges.size() - 1));
-    return m_edges[i];
-}
-
-Geometry2DSharedPtr Geometry3D::v_GetFace(int i) const
-{
-    ASSERTL2((i >= 0) && (i <= 5), "Edge id must be between 0 and 4");
-    return m_faces[i];
-}
-
-inline StdRegions::Orientation Geometry3D::v_GetEorient(const int i) const
-{
-    ASSERTL2(i >= 0 && i <= m_edges.size() - 1,
-             "Edge ID must be between 0 and " +
-                 std::to_string(m_edges.size() - 1));
-    return m_eorient[i];
-}
-
-StdRegions::Orientation Geometry3D::v_GetForient(const int i) const
-{
-    ASSERTL2(i >= 0 && i <= m_faces.size() - 1,
-             "Face ID must be between 0 and " +
-                 std::to_string(m_faces.size() - 1));
-    return m_forient[i];
 }
 
 void Geometry3D::v_CalculateInverseIsoParam()

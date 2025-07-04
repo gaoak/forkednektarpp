@@ -193,9 +193,11 @@ void ProcessJac::Process()
     // Iterate over list of elements of expansion dimension.
     for (int i = 0; i < el.size(); ++i)
     {
+        SpatialDomains::EntityHolder holder;
         // Create elemental geometry.
-        SpatialDomains::GeometrySharedPtr geom =
-            el[i]->GetGeom(m_mesh->m_spaceDim);
+        SpatialDomains::Geometry *geom =
+            el[i]->GetGeom(m_mesh->m_spaceDim, holder);
+
         // Generate geometric factors.
         SpatialDomains::GeomFactorsSharedPtr gfac = geom->GetGeomFactors();
 
@@ -461,8 +463,9 @@ void ProcessJac::GetBoundaryCoordinate(const ElementSharedPtr &el,
                 // Output face ID
                 output_file << std::setw(Boundary_face_ID)
                             << B_face.at(j)->m_id;
-                SpatialDomains::GeometrySharedPtr geom =
-                    B_face.at(j)->GetGeom(m_mesh->m_spaceDim);
+                SpatialDomains::EntityHolder holder;
+                SpatialDomains::Geometry *geom =
+                    B_face.at(j)->GetGeom(m_mesh->m_spaceDim, holder);
                 // List all edges of the boundary face
                 for (int i = 0; i < B_face.at(j)->m_edgeList.size(); ++i)
                 {
@@ -473,8 +476,7 @@ void ProcessJac::GetBoundaryCoordinate(const ElementSharedPtr &el,
                     }
                     // Output edge ID and its vertex IDs and coordinates
                     output_file << std::setw(EdgeID) << geom->GetEid(i);
-                    SpatialDomains::PointGeomSharedPtr point =
-                        geom->GetVertex(0);
+                    SpatialDomains::PointGeom *point = geom->GetVertex(0);
                     Array<OneD, NekDouble> x(m_mesh->m_expDim, 0.0);
                     point->GetCoords(x);
                     output_file << std::setw(CoordX) << x[0]

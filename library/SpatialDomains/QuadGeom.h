@@ -48,17 +48,18 @@ namespace Nektar::SpatialDomains
 
 class QuadGeom;
 struct Curve;
-typedef std::shared_ptr<Curve> CurveSharedPtr;
-typedef std::shared_ptr<QuadGeom> QuadGeomSharedPtr;
-typedef std::map<int, QuadGeomSharedPtr> QuadGeomMap;
 
 class QuadGeom : public Geometry2D
 {
 public:
+    SPATIAL_DOMAINS_EXPORT static const int kNedges  = 4;
+    SPATIAL_DOMAINS_EXPORT static const int kNverts  = 4;
+    SPATIAL_DOMAINS_EXPORT static const int kNfacets = kNedges;
+
     SPATIAL_DOMAINS_EXPORT QuadGeom();
     SPATIAL_DOMAINS_EXPORT QuadGeom(const QuadGeom &in);
     SPATIAL_DOMAINS_EXPORT QuadGeom(
-        const int id, const SegGeomSharedPtr edges[],
+        const int id, std::array<SegGeom *, kNverts> edges,
         const CurveSharedPtr curve = CurveSharedPtr());
     SPATIAL_DOMAINS_EXPORT ~QuadGeom() override = default;
 
@@ -66,13 +67,12 @@ public:
     SPATIAL_DOMAINS_EXPORT static StdRegions::Orientation GetFaceOrientation(
         const QuadGeom &face1, const QuadGeom &face2, bool doRot = false,
         int dir = 0, NekDouble angle = 0.0, NekDouble tol = 1e-8);
+
     SPATIAL_DOMAINS_EXPORT static StdRegions::Orientation GetFaceOrientation(
-        const PointGeomVector &face1, const PointGeomVector &face2,
+        std::array<PointGeom *, 4> face1, std::array<PointGeom *, 4> face2,
         bool doRot = false, int dir = 0, NekDouble angle = 0.0,
         NekDouble tol = 1e-8);
 
-    SPATIAL_DOMAINS_EXPORT static const int kNverts = 4;
-    SPATIAL_DOMAINS_EXPORT static const int kNedges = 4;
     SPATIAL_DOMAINS_EXPORT static const std::string XMLElementType;
 
 protected:
@@ -86,6 +86,37 @@ protected:
                                         CurveMap &curvedFaces) override;
     SPATIAL_DOMAINS_EXPORT void v_Setup() override;
     void PreSolveStraightEdge();
+
+    int v_AllLeftCheck(const Array<OneD, const NekDouble> &gloCoord) override;
+
+    inline int v_GetNumVerts() const final
+    {
+        return kNverts;
+    }
+
+    inline int v_GetNumEdges() const final
+    {
+        return kNedges;
+    }
+
+    inline PointGeom *v_GetVertex(const int i) const final
+    {
+        return m_verts[i];
+    }
+
+    inline Geometry1D *v_GetEdge(const int i) const final
+    {
+        return static_cast<Geometry1D *>(m_edges[i]);
+    }
+
+    inline StdRegions::Orientation v_GetEorient(const int i) const final
+    {
+        return m_eorient[i];
+    }
+
+    std::array<PointGeom *, kNverts> m_verts;
+    std::array<SegGeom *, kNedges> m_edges;
+    std::array<StdRegions::Orientation, kNedges> m_eorient;
 
 private:
     void SetUpXmap();

@@ -49,41 +49,37 @@ void export_LocalElements(py::module &m)
     py::class_<SegExp, Expansion, StdRegions::StdSegExp,
                std::shared_ptr<SegExp>>(m, "SegExp", py::multiple_inheritance())
         .def(py::init<const LibUtilities::BasisKey &,
-                      const SpatialDomains::SegGeomSharedPtr &>());
+                      SpatialDomains::SegGeom *>());
     py::class_<TriExp, Expansion, StdRegions::StdTriExp,
                std::shared_ptr<TriExp>>(m, "TriExp", py::multiple_inheritance())
         .def(py::init<const LibUtilities::BasisKey &,
                       const LibUtilities::BasisKey &,
-                      const SpatialDomains::TriGeomSharedPtr &>());
+                      SpatialDomains::TriGeom *>());
     py::class_<QuadExp, Expansion, StdRegions::StdQuadExp,
                std::shared_ptr<QuadExp>>(m, "QuadExp",
                                          py::multiple_inheritance())
         .def(py::init<const LibUtilities::BasisKey &,
                       const LibUtilities::BasisKey &,
-                      const SpatialDomains::QuadGeomSharedPtr &>());
+                      SpatialDomains::QuadGeom *>());
     py::class_<TetExp, Expansion, StdRegions::StdTetExp,
                std::shared_ptr<TetExp>>(m, "TetExp", py::multiple_inheritance())
-        .def(py::init<const LibUtilities::BasisKey &,
-                      const LibUtilities::BasisKey &,
-                      const LibUtilities::BasisKey &,
-                      const SpatialDomains::TetGeomSharedPtr &>());
+        .def(py::init<
+             const LibUtilities::BasisKey &, const LibUtilities::BasisKey &,
+             const LibUtilities::BasisKey &, SpatialDomains::TetGeom *>());
     py::class_<PrismExp, Expansion, StdRegions::StdPrismExp,
                std::shared_ptr<PrismExp>>(m, "PrismExp",
                                           py::multiple_inheritance())
-        .def(py::init<const LibUtilities::BasisKey &,
-                      const LibUtilities::BasisKey &,
-                      const LibUtilities::BasisKey &,
-                      const SpatialDomains::PrismGeomSharedPtr &>());
+        .def(py::init<
+             const LibUtilities::BasisKey &, const LibUtilities::BasisKey &,
+             const LibUtilities::BasisKey &, SpatialDomains::PrismGeom *>());
     py::class_<PyrExp, Expansion, StdRegions::StdPyrExp,
                std::shared_ptr<PyrExp>>(m, "PyrExp", py::multiple_inheritance())
-        .def(py::init<const LibUtilities::BasisKey &,
-                      const LibUtilities::BasisKey &,
-                      const LibUtilities::BasisKey &,
-                      const SpatialDomains::PyrGeomSharedPtr &>());
+        .def(py::init<
+             const LibUtilities::BasisKey &, const LibUtilities::BasisKey &,
+             const LibUtilities::BasisKey &, SpatialDomains::PyrGeom *>());
     py::class_<HexExp, Expansion, StdRegions::StdHexExp,
                std::shared_ptr<HexExp>>(m, "HexExp", py::multiple_inheritance())
-        .def(py::init<const LibUtilities::BasisKey &,
-                      const LibUtilities::BasisKey &,
-                      const LibUtilities::BasisKey &,
-                      const SpatialDomains::HexGeomSharedPtr &>());
+        .def(py::init<
+             const LibUtilities::BasisKey &, const LibUtilities::BasisKey &,
+             const LibUtilities::BasisKey &, SpatialDomains::HexGeom *>());
 }

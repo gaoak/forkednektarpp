@@ -132,7 +132,7 @@ StdRegions::Orientation Quadrilateral::GetEdgeOrient(int edgeId,
     return StdRegions::eNoOrientation;
 }
 
-void Quadrilateral::MakeOrder(int order, SpatialDomains::GeometrySharedPtr geom,
+void Quadrilateral::MakeOrder(int order, SpatialDomains::Geometry *geom,
                               LibUtilities::PointsType pType, int coordDim,
                               int &id, bool justConfig)
 {
@@ -194,18 +194,21 @@ void Quadrilateral::MakeOrder(int order, SpatialDomains::GeometrySharedPtr geom,
     }
 }
 
-SpatialDomains::GeometrySharedPtr Quadrilateral::GetGeom(int coordDim)
+SpatialDomains::Geometry *Quadrilateral::GetGeom(
+    int coordDim, SpatialDomains::EntityHolder &holder)
 {
-    SpatialDomains::SegGeomSharedPtr edges[4];
-    SpatialDomains::QuadGeomSharedPtr ret;
+    std::array<SpatialDomains::SegGeom *, 4> edges;
+    SpatialDomains::QuadGeomUniquePtr quad;
 
     for (int i = 0; i < 4; ++i)
     {
-        edges[i] = m_edge[i]->GetGeom(coordDim);
+        edges[i] = m_edge[i]->GetGeom(coordDim, holder);
     }
 
-    ret =
-        MemoryManager<SpatialDomains::QuadGeom>::AllocateSharedPtr(m_id, edges);
+    quad     = ObjPoolManager<SpatialDomains::QuadGeom>::AllocateUniquePtr(m_id,
+                                                                           edges);
+    auto ret = dynamic_cast<SpatialDomains::Geometry *>(quad.get());
+    holder.m_quadVec.push_back(std::move(quad));
 
     ret->Setup();
     return ret;

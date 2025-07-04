@@ -40,7 +40,6 @@ import tempfile
 
 import NekPy.SpatialDomains as SD
 
-
 NX = 4
 NY = 5
 
@@ -79,9 +78,6 @@ def main():
     mesh = SD.MeshGraph()
     mesh.SetSpaceDimension(2)
     mesh.SetMeshDimension(2)
-    points = mesh.GetAllPointGeoms()
-    segments = mesh.GetAllSegGeoms()
-    quads = mesh.GetAllQuadGeoms()
     composites = mesh.GetComposites()
     domains = mesh.GetDomain()
     x_bound_lower = []
@@ -91,42 +87,40 @@ def main():
 
     print("Generating points...")
     for i, (x, y) in enumerate(itertools.product(range(NX), range(NY))):
-        points[i] = SD.PointGeom(2, i, x, y, 0.0)
+        mesh.AddGeom(SD.PointGeom(2, i, x, y, 0.0))
     print("Generating vertical segments...")
     for i, (x, y) in enumerate(itertools.product(range(NX), range(NY - 1))):
-        seg = SD.SegGeom(i, 2, [points[x * NY + y], points[x * NY + y + 1]])
-        segments[i] = seg
+        mesh.AddGeom(SD.SegGeom(i, 2, [mesh.points[x * NY + y], mesh.points[x * NY + y + 1]]))
         if x == 0:
-            x_bound_lower.append(seg)
+            x_bound_lower.append(mesh.segments[i])
         if x == NX - 1:
-            x_bound_upper.append(seg)
+            x_bound_upper.append(mesh.segments[i])
     print("Generating horizontal segments...")
     horiz_start = NX * (NY - 1)
     for i, (x, y) in enumerate(
         itertools.product(range(NX - 1), range(NY)), start=horiz_start
     ):
-        seg = SD.SegGeom(i, 2, [points[x * NY + y], points[(x + 1) * NY + y]])
-        segments[i] = seg
+        mesh.AddGeom(SD.SegGeom(i, 2, [mesh.points[x * NY + y], mesh.points[(x + 1) * NY + y]]))
         if y == 0:
-            y_bound_lower.append(seg)
+            y_bound_lower.append(mesh.segments[i])
         if y == NY - 1:
-            y_bound_upper.append(seg)
+            y_bound_upper.append(mesh.segments[i])
     print("Generating quads...")
     for i, (x, y) in enumerate(
         itertools.product(range(NX - 1), range(NY - 1))
     ):
-        quads[i] = SD.QuadGeom(
+        mesh.AddGeom(SD.QuadGeom(
             i,
             [
-                segments[x * (NY - 1) + y],
-                segments[horiz_start + x * NY + y],
-                segments[(x + 1) * (NY - 1) + y],
-                segments[horiz_start + x * NY + y + 1],
+                mesh.segments[x * (NY - 1) + y],
+                mesh.segments[horiz_start + x * NY + y],
+                mesh.segments[(x + 1) * (NY - 1) + y],
+                mesh.segments[horiz_start + x * NY + y + 1],
             ],
-        )
-        assert quads[i].IsValid()
+        ))
+        assert mesh.quads[i].IsValid()
     print("Generating domain...")
-    composites[0] = SD.Composite(list(quads.values()))
+    composites[0] = SD.Composite(list(mesh.quads.values()))
     comp_map = SD.CompositeMap()
     comp_map[0] = composites[0]
     domains[0] = comp_map

@@ -36,6 +36,7 @@
 #define NEKTAR_SPATIALDOMAINS_SEGGEOM_H
 
 #include <LibUtilities/Foundations/Basis.h>
+#include <LibUtilities/Memory/ObjectPool.hpp>
 #include <SpatialDomains/Curve.hpp>
 #include <SpatialDomains/Geometry1D.h>
 #include <SpatialDomains/PointGeom.h>
@@ -46,20 +47,30 @@ namespace Nektar::SpatialDomains
 {
 
 class SegGeom;
-typedef std::shared_ptr<SegGeom> SegGeomSharedPtr;
-typedef std::map<int, SegGeomSharedPtr> SegGeomMap;
+typedef unique_ptr_objpool<SegGeom> SegGeomUniquePtr;
+typedef unique_ptr_objpool<PointGeom> PointGeomUniquePtr;
+class EntityHolder1D
+{
+public:
+    std::vector<PointGeomUniquePtr> m_pointVec;
+    std::vector<SegGeomUniquePtr> m_segVec;
+};
 
 class SegGeom : public Geometry1D
 {
 public:
+    SPATIAL_DOMAINS_EXPORT static const int kNverts  = 2;
+    SPATIAL_DOMAINS_EXPORT static const int kNfacets = kNverts;
+
     SPATIAL_DOMAINS_EXPORT SegGeom();
     SPATIAL_DOMAINS_EXPORT SegGeom(
-        int id, const int coordim, const PointGeomSharedPtr vertex[],
+        int id, int coordim, std::array<PointGeom *, kNverts> vertex,
         const CurveSharedPtr curve = CurveSharedPtr());
 
     SPATIAL_DOMAINS_EXPORT SegGeom(const SegGeom &in);
 
-    SPATIAL_DOMAINS_EXPORT SegGeomSharedPtr GenerateOneSpaceDimGeom(void);
+    SPATIAL_DOMAINS_EXPORT SegGeomUniquePtr
+    GenerateOneSpaceDimGeom(EntityHolder1D &holder);
 
     SPATIAL_DOMAINS_EXPORT ~SegGeom() override = default;
 
@@ -71,13 +82,11 @@ public:
         return m_curve;
     }
 
-    SPATIAL_DOMAINS_EXPORT static const int kNverts = 2;
-
 protected:
-    SpatialDomains::PointGeomSharedPtr m_verts[kNverts];
+    std::array<SpatialDomains::PointGeom *, kNverts> m_verts;
     StdRegions::Orientation m_porient[kNverts];
 
-    PointGeomSharedPtr v_GetVertex(const int i) const override;
+    PointGeom *v_GetVertex(const int i) const override;
     virtual LibUtilities::ShapeType v_GetShapeType() const;
     void v_GenGeomFactors() override;
     void v_FillGeom() override;

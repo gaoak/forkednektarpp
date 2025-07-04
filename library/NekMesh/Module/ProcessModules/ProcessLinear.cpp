@@ -231,8 +231,9 @@ void ProcessLinear::Process()
 
 bool ProcessLinear::Invalid(ElementSharedPtr el, NekDouble thr)
 {
+    SpatialDomains::EntityHolder holder;
     // Create elemental geometry.
-    SpatialDomains::GeometrySharedPtr geom = el->GetGeom(m_mesh->m_spaceDim);
+    SpatialDomains::Geometry *geom = el->GetGeom(m_mesh->m_spaceDim, holder);
 
     // Generate geometric factors.
     SpatialDomains::GeomFactorsSharedPtr gfac = geom->GetGeomFactors();
@@ -251,7 +252,7 @@ bool ProcessLinear::Invalid(ElementSharedPtr el, NekDouble thr)
 
     ElementSharedPtr elL =
         GetElementFactory().CreateInstance(c.m_e, c, ns, el->GetTagList());
-    SpatialDomains::GeometrySharedPtr geomL = elL->GetGeom(m_mesh->m_spaceDim);
+    SpatialDomains::Geometry *geomL = elL->GetGeom(m_mesh->m_spaceDim, holder);
     SpatialDomains::GeomFactorsSharedPtr gfacL = geomL->GetGeomFactors();
 
     LibUtilities::PointsKeyVector p     = geom->GetXmap()->GetPointsKeys();

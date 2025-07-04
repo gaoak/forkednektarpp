@@ -353,7 +353,7 @@ NekDouble ProcessBodyFittedVelocity::PntToBndElmtPntDistance(
  */
 bool ProcessBodyFittedVelocity::LocCoordForNearestPntOnBndElmt_2D(
     const Array<OneD, const NekDouble> &inGloCoord,
-    SpatialDomains::GeometrySharedPtr bndGeom,
+    SpatialDomains::Geometry *bndGeom,
     const Array<OneD, Array<OneD, NekDouble>> &pts,
     Array<OneD, NekDouble> &locCoord, Array<OneD, NekDouble> &gloCoord,
     NekDouble &dist, const NekDouble iterTol, const int iterMax)
@@ -427,7 +427,7 @@ bool ProcessBodyFittedVelocity::LocCoordForNearestPntOnBndElmt_2D(
  */
 bool ProcessBodyFittedVelocity::LocCoordForNearestPntOnBndElmt(
     const Array<OneD, const NekDouble> &inGloCoord,
-    SpatialDomains::GeometrySharedPtr bndGeom, Array<OneD, NekDouble> &locCoord,
+    SpatialDomains::Geometry *bndGeom, Array<OneD, NekDouble> &locCoord,
     Array<OneD, NekDouble> &gloCoord, NekDouble &dist, const NekDouble iterTol,
     const int iterMax)
 {
@@ -529,7 +529,7 @@ void ProcessBodyFittedVelocity::GenPntwiseBodyFittedCoordSys(
     m_f->m_exp[0]->GetBoundaryNormals(targetBndId, normalQ);
 
     // Vars in the loop
-    SpatialDomains::GeometrySharedPtr bndGeom;
+    SpatialDomains::Geometry *bndGeom;
     StdRegions::StdExpansionSharedPtr bndXmap;
     Array<OneD, Array<OneD, NekDouble>> bndCoeffs(nCoordDim);
     Array<OneD, Array<OneD, NekDouble>> bndPts(nCoordDim);

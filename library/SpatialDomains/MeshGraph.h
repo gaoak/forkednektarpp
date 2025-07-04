@@ -40,6 +40,7 @@
 #include <LibUtilities/BasicUtils/DomainRange.h>
 #include <LibUtilities/BasicUtils/FieldIO.h>
 #include <LibUtilities/BasicUtils/SessionReader.h>
+#include <LibUtilities/Memory/ObjectPool.hpp>
 
 #include <SpatialDomains/HexGeom.h>
 #include <SpatialDomains/MeshEntities.hpp>
@@ -55,8 +56,71 @@
 
 class TiXmlDocument;
 
-namespace Nektar::SpatialDomains
+namespace Nektar
 {
+
+template <>
+PoolAllocator<SpatialDomains::PointGeom>
+    ObjPoolManager<SpatialDomains::PointGeom>::m_alloc;
+template <>
+PoolAllocator<SpatialDomains::SegGeom>
+    ObjPoolManager<SpatialDomains::SegGeom>::m_alloc;
+template <>
+PoolAllocator<SpatialDomains::TriGeom>
+    ObjPoolManager<SpatialDomains::TriGeom>::m_alloc;
+template <>
+PoolAllocator<SpatialDomains::QuadGeom>
+    ObjPoolManager<SpatialDomains::QuadGeom>::m_alloc;
+template <>
+PoolAllocator<SpatialDomains::TetGeom>
+    ObjPoolManager<SpatialDomains::TetGeom>::m_alloc;
+template <>
+PoolAllocator<SpatialDomains::PyrGeom>
+    ObjPoolManager<SpatialDomains::PyrGeom>::m_alloc;
+template <>
+PoolAllocator<SpatialDomains::PrismGeom>
+    ObjPoolManager<SpatialDomains::PrismGeom>::m_alloc;
+template <>
+PoolAllocator<SpatialDomains::HexGeom>
+    ObjPoolManager<SpatialDomains::HexGeom>::m_alloc;
+
+namespace SpatialDomains
+{
+
+template <typename T>
+using GeomMap = boost::container::flat_map<int, unique_ptr_objpool<T>>;
+
+// Point geom type defs
+typedef unique_ptr_objpool<PointGeom> PointGeomUniquePtr;
+typedef std::shared_ptr<PointGeom>
+    PointGeomSharedPtr; // @TODO: Remove once fixed curves
+
+// Geometry typedefs
+typedef unique_ptr_objpool<SegGeom> SegGeomUniquePtr;
+typedef unique_ptr_objpool<TriGeom> TriGeomUniquePtr;
+typedef unique_ptr_objpool<QuadGeom> QuadGeomUniquePtr;
+typedef unique_ptr_objpool<TetGeom> TetGeomUniquePtr;
+typedef unique_ptr_objpool<PyrGeom> PyrGeomUniquePtr;
+typedef unique_ptr_objpool<PrismGeom> PrismGeomUniquePtr;
+typedef unique_ptr_objpool<HexGeom> HexGeomUniquePtr;
+typedef unique_ptr_objpool<Geometry2D> Geometry2DUniquePtr;
+typedef unique_ptr_objpool<Geometry3D> Geometry3DUniquePtr;
+
+// Minimal owner of Geom objects not owned by a MeshGraph.
+class EntityHolder
+{
+public:
+    std::vector<PointGeomUniquePtr> m_pointVec;
+    std::vector<SegGeomUniquePtr> m_segVec;
+    std::vector<TriGeomUniquePtr> m_triVec;
+    std::vector<QuadGeomUniquePtr> m_quadVec;
+    std::vector<TetGeomUniquePtr> m_tetVec;
+    std::vector<PyrGeomUniquePtr> m_pyrVec;
+    std::vector<PrismGeomUniquePtr> m_prismVec;
+    std::vector<HexGeomUniquePtr> m_hexVec;
+};
+
+// Composite type def
 typedef std::map<int, std::pair<LibUtilities::ShapeType, std::vector<int>>>
     CompositeDescriptor;
 
@@ -129,7 +193,7 @@ typedef std::map<int, std::vector<unsigned int>> BndRegionOrdering;
 
 struct Composite
 {
-    std::vector<std::shared_ptr<Geometry>> m_geomVec;
+    std::vector<Geometry *> m_geomVec;
 };
 
 typedef std::shared_ptr<Composite> CompositeSharedPtr;
@@ -145,24 +209,24 @@ typedef std::map<std::string, ExpansionInfoMapShPtr> ExpansionInfoMapShPtrMap;
 
 struct ExpansionInfo
 {
-    ExpansionInfo(GeometrySharedPtr geomShPtr,
+    ExpansionInfo(Geometry *geomPtr,
                   const LibUtilities::BasisKeyVector basiskeyvec)
-        : m_geomShPtr(geomShPtr), m_basisKeyVector(basiskeyvec)
+        : m_geomPtr(geomPtr), m_basisKeyVector(basiskeyvec)
     {
     }
 
     ExpansionInfo(ExpansionInfoShPtr ExpInfo)
-        : m_geomShPtr(ExpInfo->m_geomShPtr),
+        : m_geomPtr(ExpInfo->m_geomPtr),
           m_basisKeyVector(ExpInfo->m_basisKeyVector)
     {
     }
 
-    GeometrySharedPtr m_geomShPtr;
+    Geometry *m_geomPtr;
     LibUtilities::BasisKeyVector m_basisKeyVector;
 };
 
 typedef std::map<std::string, std::string> GeomInfoMap;
-typedef std::shared_ptr<std::vector<std::pair<GeometrySharedPtr, int>>>
+typedef std::shared_ptr<std::vector<std::pair<Geometry *, int>>>
     GeometryLinkSharedPtr;
 
 // Forward declaration
@@ -175,6 +239,72 @@ typedef std::shared_ptr<MeshGraph> MeshGraphSharedPtr;
 
 class Movement;
 typedef std::shared_ptr<Movement> MovementSharedPtr;
+
+template <typename T> class GeomMapView
+{
+public:
+    class Iterator
+    {
+        typename GeomMap<T>::const_iterator m_it;
+
+    public:
+        using value_type = std::pair<int, T *>;
+
+        explicit Iterator(typename GeomMap<T>::const_iterator it) : m_it(it)
+        {
+        }
+
+        value_type operator*() const
+        {
+            return {m_it->first, m_it->second.get()};
+        }
+        Iterator &operator++()
+        {
+            ++m_it;
+            return *this;
+        }
+        bool operator!=(const Iterator &other) const
+        {
+            return m_it != other.m_it;
+        }
+        bool operator==(const Iterator &other) const
+        {
+            return m_it == other.m_it;
+        }
+    };
+
+    explicit GeomMapView(const GeomMap<T> &map) : m_map(map)
+    {
+    }
+
+    Iterator begin() const
+    {
+        return Iterator(m_map.begin());
+    }
+    Iterator end() const
+    {
+        return Iterator(m_map.end());
+    }
+
+    std::size_t size() const
+    {
+        return m_map.size();
+    }
+
+    Iterator find(int id) const
+    {
+        return Iterator(m_map.find(id));
+    }
+
+    T *at(int id) const
+    {
+        auto it = m_map.find(id);
+        return it != m_map.end() ? it->second.get() : nullptr;
+    }
+
+private:
+    const GeomMap<T> &m_map;
+};
 
 /// Base class for a spectral/hp element mesh.
 class MeshGraph
@@ -195,7 +325,7 @@ public:
     SPATIAL_DOMAINS_EXPORT void FillBoundingBoxTree();
 
     SPATIAL_DOMAINS_EXPORT std::vector<int> GetElementsContainingPoint(
-        PointGeomSharedPtr p);
+        PointGeom *p);
 
     ////////////////////
     SPATIAL_DOMAINS_EXPORT void ReadExpansionInfo();
@@ -252,8 +382,8 @@ public:
         return m_meshComposites.find(whichComposite)->second;
     }
 
-    SPATIAL_DOMAINS_EXPORT GeometrySharedPtr
-    GetCompositeItem(int whichComposite, int whichItem);
+    SPATIAL_DOMAINS_EXPORT Geometry *GetCompositeItem(int whichComposite,
+                                                      int whichItem);
 
     SPATIAL_DOMAINS_EXPORT void GetCompositeList(
         const std::string &compositeStr, CompositeMap &compositeVector) const;
@@ -283,8 +413,8 @@ public:
     SPATIAL_DOMAINS_EXPORT const ExpansionInfoMap &GetExpansionInfo(
         const std::string variable = "DefaultVar");
 
-    SPATIAL_DOMAINS_EXPORT ExpansionInfoShPtr GetExpansionInfo(
-        GeometrySharedPtr geom, const std::string variable = "DefaultVar");
+    SPATIAL_DOMAINS_EXPORT ExpansionInfoShPtr
+    GetExpansionInfo(Geometry *geom, const std::string variable = "DefaultVar");
 
     /// Sets expansions given field definitions
     SPATIAL_DOMAINS_EXPORT void SetExpansionInfo(
@@ -315,7 +445,7 @@ public:
     /// Perform the p-refinement in the selected elements
     SPATIAL_DOMAINS_EXPORT void PRefinementElmts(
         ExpansionInfoMapShPtr &expansionMap, RefRegion *&region,
-        GeometrySharedPtr geomVecIter);
+        Geometry *geomVecIter);
 
     inline void SetExpansionInfo(const std::string variable,
                                  ExpansionInfoMapShPtr &exp);
@@ -341,102 +471,308 @@ public:
     inline const std::string GetGeomInfo(std::string parameter);
 
     SPATIAL_DOMAINS_EXPORT static LibUtilities::BasisKeyVector
-    DefineBasisKeyFromExpansionType(GeometrySharedPtr in, ExpansionType type,
+    DefineBasisKeyFromExpansionType(Geometry *in, ExpansionType type,
                                     const int order);
 
     SPATIAL_DOMAINS_EXPORT LibUtilities::BasisKeyVector
-    DefineBasisKeyFromExpansionTypeHomo(
-        GeometrySharedPtr in, ExpansionType type_x, ExpansionType type_y,
-        ExpansionType type_z, const int nummodes_x, const int nummodes_y,
-        const int nummodes_z);
+    DefineBasisKeyFromExpansionTypeHomo(Geometry *in, ExpansionType type_x,
+                                        ExpansionType type_y,
+                                        ExpansionType type_z,
+                                        const int nummodes_x,
+                                        const int nummodes_y,
+                                        const int nummodes_z);
 
     /* ---- Manipulation of mesh ---- */
     int GetNvertices()
     {
-        return m_vertSet.size();
+        return m_pointGeoms.size();
     }
 
-    PointGeomSharedPtr GetVertex(int id)
+    /**
+     * @brief Returns vertex @p id from the MeshGraph.
+     */
+    [[deprecated("since 5.8.0, use GetPointGeom() instead")]] PointGeom *GetVertex(
+        int id)
     {
-        return m_vertSet[id];
+        return this->GetGeom(id, m_pointGeoms);
     }
 
-    SPATIAL_DOMAINS_EXPORT SegGeomSharedPtr GetSegGeom(int id)
+    /**
+     * @brief Returns vertex @p id from the MeshGraph.
+     */
+    PointGeom *GetPointGeom(int id)
     {
-        return m_segGeoms[id];
+        return this->GetGeom(id, m_pointGeoms);
+    }
+
+    /**
+     * @brief Returns segment @p id from the MeshGraph.
+     */
+    SegGeom *GetSegGeom(int id)
+    {
+        return this->GetGeom(id, m_segGeoms);
+    }
+
+    /**
+     * @brief Returns triangle @p id from the MeshGraph.
+     */
+    TriGeom *GetTriGeom(int id)
+    {
+        return this->GetGeom(id, m_triGeoms);
+    }
+
+    /**
+     * @brief Returns quadrilateral @p id from the MeshGraph.
+     */
+    QuadGeom *GetQuadGeom(int id)
+    {
+        return this->GetGeom(id, m_quadGeoms);
+    }
+
+    /**
+     * @brief Returns tetrahedron @p id from the MeshGraph.
+     */
+    TetGeom *GetTetGeom(int id)
+    {
+        return this->GetGeom(id, m_tetGeoms);
+    }
+
+    /**
+     * @brief Returns pyramid @p id from the MeshGraph.
+     */
+    PyrGeom *GetPyrGeom(int id)
+    {
+        return this->GetGeom(id, m_pyrGeoms);
+    }
+
+    /**
+     * @brief Returns prism @p id from the MeshGraph.
+     */
+    PrismGeom *GetPrismGeom(int id)
+    {
+        return this->GetGeom(id, m_prismGeoms);
+    }
+
+    /**
+     * @brief Returns hex @p id from the MeshGraph.
+     */
+    HexGeom *GetHexGeom(int id)
+    {
+        return this->GetGeom(id, m_hexGeoms);
+    }
+
+    /**
+     * @brief Convenience function to add a geometry @p geom to the MeshGraph
+     * with geometry ID @p id. Retains ownership of the passed unique_ptr.
+     *
+     * @p id    Geometry ID
+     * @p geom  unique_ptr to geometry object.
+     */
+    template <typename T> void AddGeom(int id, unique_ptr_objpool<T> geom)
+    {
+        if constexpr (std::is_same_v<T, PointGeom>)
+        {
+            m_pointGeoms[id] = std::move(geom);
+        }
+        else if constexpr (std::is_same_v<T, SegGeom>)
+        {
+            m_segGeoms[id] = std::move(geom);
+        }
+        else if constexpr (std::is_same_v<T, QuadGeom>)
+        {
+            m_quadGeoms[id] = std::move(geom);
+        }
+        else if constexpr (std::is_same_v<T, TriGeom>)
+        {
+            m_triGeoms[id] = std::move(geom);
+        }
+        else if constexpr (std::is_same_v<T, TetGeom>)
+        {
+            m_tetGeoms[id] = std::move(geom);
+        }
+        else if constexpr (std::is_same_v<T, PyrGeom>)
+        {
+            m_pyrGeoms[id] = std::move(geom);
+        }
+        else if constexpr (std::is_same_v<T, PrismGeom>)
+        {
+            m_prismGeoms[id] = std::move(geom);
+        }
+        else if constexpr (std::is_same_v<T, HexGeom>)
+        {
+            m_hexGeoms[id] = std::move(geom);
+        }
+        else
+        {
+            ASSERTL0(false, "Unknown geometry type");
+        }
+    }
+
+    SPATIAL_DOMAINS_EXPORT PointGeom *CreatePointGeom(const int coordim,
+                                                      const int vid,
+                                                      NekDouble x, NekDouble y,
+                                                      NekDouble z)
+    {
+        auto geom =
+            ObjPoolManager<PointGeom>::AllocateUniquePtr(coordim, vid, x, y, z);
+        auto ret = geom.get();
+        AddGeom(vid, std::move(geom));
+        return ret;
+    }
+
+    SPATIAL_DOMAINS_EXPORT SegGeom *CreateSegGeom(
+        int id, int coordim, std::array<PointGeom *, SegGeom::kNverts> vertex,
+        const CurveSharedPtr curve = CurveSharedPtr())
+    {
+        auto geom = ObjPoolManager<SegGeom>::AllocateUniquePtr(id, coordim,
+                                                               vertex, curve);
+        auto ret  = geom.get();
+        AddGeom(id, std::move(geom));
+        return ret;
+    }
+
+    SPATIAL_DOMAINS_EXPORT QuadGeom *CreateQuadGeom(
+        int id, std::array<SegGeom *, QuadGeom::kNedges> edges,
+        const CurveSharedPtr curve = CurveSharedPtr())
+    {
+        auto geom =
+            ObjPoolManager<QuadGeom>::AllocateUniquePtr(id, edges, curve);
+        auto ret = geom.get();
+        AddGeom(id, std::move(geom));
+        return ret;
+    }
+
+    SPATIAL_DOMAINS_EXPORT TriGeom *CreateTriGeom(
+        int id, std::array<SegGeom *, TriGeom::kNedges> edges,
+        const CurveSharedPtr curve = CurveSharedPtr())
+    {
+        auto geom =
+            ObjPoolManager<TriGeom>::AllocateUniquePtr(id, edges, curve);
+        auto ret = geom.get();
+        AddGeom(id, std::move(geom));
+        return ret;
+    }
+
+    SPATIAL_DOMAINS_EXPORT TetGeom *CreateTetGeom(
+        int id, std::array<TriGeom *, TetGeom::kNfaces> faces)
+    {
+        auto geom = ObjPoolManager<TetGeom>::AllocateUniquePtr(id, faces);
+        auto ret  = geom.get();
+        AddGeom(id, std::move(geom));
+        return ret;
+    }
+
+    SPATIAL_DOMAINS_EXPORT HexGeom *CreateHexGeom(
+        int id, std::array<QuadGeom *, HexGeom::kNfaces> faces)
+    {
+        auto geom = ObjPoolManager<HexGeom>::AllocateUniquePtr(id, faces);
+        auto ret  = geom.get();
+        AddGeom(id, std::move(geom));
+        return ret;
+    }
+
+    SPATIAL_DOMAINS_EXPORT PrismGeom *CreatePrismGeom(
+        int id, std::array<Geometry2D *, PrismGeom::kNfaces> faces)
+    {
+        auto geom = ObjPoolManager<PrismGeom>::AllocateUniquePtr(id, faces);
+        auto ret  = geom.get();
+        AddGeom(id, std::move(geom));
+        return ret;
+    }
+
+    SPATIAL_DOMAINS_EXPORT PyrGeom *CreatePyrGeom(
+        int id, std::array<Geometry2D *, PyrGeom::kNfaces> faces)
+    {
+        auto geom = ObjPoolManager<PyrGeom>::AllocateUniquePtr(id, faces);
+        auto ret  = geom.get();
+        AddGeom(id, std::move(geom));
+        return ret;
     }
 
     SPATIAL_DOMAINS_EXPORT CurveMap &GetCurvedEdges()
     {
         return m_curvedEdges;
     }
+
     SPATIAL_DOMAINS_EXPORT CurveMap &GetCurvedFaces()
     {
         return m_curvedFaces;
     }
 
-    SPATIAL_DOMAINS_EXPORT std::map<int, PointGeomSharedPtr> &GetAllPointGeoms()
+    template <typename T> GeomMapView<T> &GetGeomMap()
     {
-        return m_vertSet;
+        if constexpr (std::is_same_v<T, PointGeom>)
+        {
+            return m_pointMapView;
+        }
+        else if constexpr (std::is_same_v<T, SegGeom>)
+        {
+            return m_segMapView;
+        }
+        else if constexpr (std::is_same_v<T, TriGeom>)
+        {
+            return m_triMapView;
+        }
+        else if constexpr (std::is_same_v<T, QuadGeom>)
+        {
+            return m_quadMapView;
+        }
+        else if constexpr (std::is_same_v<T, TetGeom>)
+        {
+            return m_tetMapView;
+        }
+        else if constexpr (std::is_same_v<T, PrismGeom>)
+        {
+            return m_prismMapView;
+        }
+        else if constexpr (std::is_same_v<T, PyrGeom>)
+        {
+            return m_pyrMapView;
+        }
+        else if constexpr (std::is_same_v<T, HexGeom>)
+        {
+            return m_hexMapView;
+        }
+
+        ASSERTL0(false,
+                 "MeshGraph does not support the supplied geometry type.");
     }
-    SPATIAL_DOMAINS_EXPORT std::map<int, SegGeomSharedPtr> &GetAllSegGeoms()
-    {
-        return m_segGeoms;
-    }
-    SPATIAL_DOMAINS_EXPORT TriGeomMap &GetAllTriGeoms()
-    {
-        return m_triGeoms;
-    }
-    SPATIAL_DOMAINS_EXPORT QuadGeomMap &GetAllQuadGeoms()
-    {
-        return m_quadGeoms;
-    }
-    SPATIAL_DOMAINS_EXPORT TetGeomMap &GetAllTetGeoms()
-    {
-        return m_tetGeoms;
-    }
-    SPATIAL_DOMAINS_EXPORT PyrGeomMap &GetAllPyrGeoms()
-    {
-        return m_pyrGeoms;
-    }
-    SPATIAL_DOMAINS_EXPORT PrismGeomMap &GetAllPrismGeoms()
-    {
-        return m_prismGeoms;
-    }
-    SPATIAL_DOMAINS_EXPORT HexGeomMap &GetAllHexGeoms()
-    {
-        return m_hexGeoms;
-    }
+
     SPATIAL_DOMAINS_EXPORT std::unordered_map<int, GeometryLinkSharedPtr> &
     GetAllFaceToElMap()
     {
         return m_faceToElMap;
     }
 
+    SPATIAL_DOMAINS_EXPORT std::vector<PointGeomUniquePtr> &GetAllCurveNodes()
+    {
+        return m_nodeSet;
+    }
+
     SPATIAL_DOMAINS_EXPORT int GetNumElements();
 
-    Geometry2DSharedPtr GetGeometry2D(int gID)
+    Geometry2D *GetGeometry2D(int gID)
     {
         auto it1 = m_triGeoms.find(gID);
         if (it1 != m_triGeoms.end())
         {
-            return it1->second;
+            return it1->second.get();
         }
 
         auto it2 = m_quadGeoms.find(gID);
         if (it2 != m_quadGeoms.end())
         {
-            return it2->second;
+            return it2->second.get();
         }
 
-        return Geometry2DSharedPtr();
+        return nullptr;
     };
 
     SPATIAL_DOMAINS_EXPORT GeometryLinkSharedPtr
-    GetElementsFromEdge(Geometry1DSharedPtr edge);
+    GetElementsFromEdge(Geometry1D *edge);
 
     SPATIAL_DOMAINS_EXPORT GeometryLinkSharedPtr
-    GetElementsFromFace(Geometry2DSharedPtr face);
+    GetElementsFromFace(Geometry2D *face);
 
     void SetPartition(SpatialDomains::MeshGraphSharedPtr graph);
 
@@ -470,11 +806,23 @@ public:
 
     void Clear();
 
-    void PopulateFaceToElMap(Geometry3DSharedPtr element, int kNfaces);
+    void PopulateFaceToElMap(Geometry3D *element, int kNfaces);
 
     void SetMeshPartitioned(bool meshPartitioned)
     {
         m_meshPartitioned = meshPartitioned;
+    }
+
+private:
+    /**
+     * @brief Helper function for geometry lookups
+     */
+    template <typename T> T *GetGeom(int id, GeomMap<T> &geomMap)
+    {
+        auto it = geomMap.find(id);
+        ASSERTL0(it != geomMap.end(),
+                 "Unable to find geometry with ID " + std::to_string(id));
+        return it->second.get();
     }
 
 protected:
@@ -482,19 +830,30 @@ protected:
     std::string GetCompositeString(CompositeSharedPtr comp);
 
     LibUtilities::SessionReaderSharedPtr m_session;
-    PointGeomMap m_vertSet;
 
     CurveMap m_curvedEdges;
     CurveMap m_curvedFaces;
 
-    SegGeomMap m_segGeoms;
+    GeomMap<PointGeom> m_pointGeoms;
+    GeomMap<SegGeom> m_segGeoms;
+    GeomMap<TriGeom> m_triGeoms;
+    GeomMap<QuadGeom> m_quadGeoms;
+    GeomMap<TetGeom> m_tetGeoms;
+    GeomMap<PyrGeom> m_pyrGeoms;
+    GeomMap<PrismGeom> m_prismGeoms;
+    GeomMap<HexGeom> m_hexGeoms;
 
-    TriGeomMap m_triGeoms;
-    QuadGeomMap m_quadGeoms;
-    TetGeomMap m_tetGeoms;
-    PyrGeomMap m_pyrGeoms;
-    PrismGeomMap m_prismGeoms;
-    HexGeomMap m_hexGeoms;
+    GeomMapView<PointGeom> m_pointMapView;
+    GeomMapView<SegGeom> m_segMapView;
+    GeomMapView<TriGeom> m_triMapView;
+    GeomMapView<QuadGeom> m_quadMapView;
+    GeomMapView<TetGeom> m_tetMapView;
+    GeomMapView<PyrGeom> m_pyrMapView;
+    GeomMapView<PrismGeom> m_prismMapView;
+    GeomMapView<HexGeom> m_hexMapView;
+
+    /// Vector of all unique curve nodes, not including vertices
+    std::vector<PointGeomUniquePtr> m_nodeSet;
 
     int m_meshDimension;
     int m_spaceDimension;
@@ -587,6 +946,8 @@ inline bool MeshGraph::ExpansionInfoDefined(const std::string var)
     return m_expansionMapShPtrMap.count(var);
 }
 
-} // namespace Nektar::SpatialDomains
+} // namespace SpatialDomains
+
+} // namespace Nektar
 
 #endif

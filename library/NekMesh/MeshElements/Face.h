@@ -118,12 +118,13 @@ public:
     NEKMESH_EXPORT std::string GetXmlCurveString();
 
     /// Make this face an order @p order face. @see Element::MakeOrder.
-    void MakeOrder(int order, SpatialDomains::GeometrySharedPtr geom,
+    void MakeOrder(int order, SpatialDomains::Geometry *geom,
                    LibUtilities::PointsType pType, int coordDim, int &id);
 
     /// Generate either SpatialDomains::TriGeom or
     /// SpatialDomains::QuadGeom for this element.
-    NEKMESH_EXPORT SpatialDomains::Geometry2DSharedPtr GetGeom(int coordDim);
+    NEKMESH_EXPORT SpatialDomains::Geometry2D *GetGeom(
+        int coordDim, SpatialDomains::EntityHolder &holder);
 
     /// ID of the face.
     size_t m_id;
@@ -138,7 +139,7 @@ public:
     /// Element(s) which are linked to this face.
     std::vector<std::pair<std::weak_ptr<Element>, int>> m_elLink;
     /// Nektar++ representation of geometry
-    SpatialDomains::Geometry2DSharedPtr m_geom;
+    SpatialDomains::Geometry2D *m_geom;
 
     CADObjectSharedPtr m_parentCAD;
 };

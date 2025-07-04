@@ -42,7 +42,7 @@ namespace Nektar::LocalRegions
 NodalTriExp::NodalTriExp(const LibUtilities::BasisKey &Ba,
                          const LibUtilities::BasisKey &Bb,
                          const LibUtilities::PointsType Ntype,
-                         const SpatialDomains::TriGeomSharedPtr &geom)
+                         SpatialDomains::Geometry2D *geom)
     : StdExpansion(LibUtilities::StdTriData::getNumberOfCoefficients(
                        Ba.GetNumModes(), (Bb.GetNumModes())),
                    2, Ba, Bb),

@@ -18,7 +18,7 @@ ADD_NEKTAR_TEST(Nektar++/linearise_invalid_quad)
 ADD_NEKTAR_TEST(Nektar++/linearise_invalid_tet)
 ADD_NEKTAR_TEST(Nektar++/scaleHO)
 
-IF (NOT WIN32)
+IF (NOT WIN32 AND NEKTAR_SOLVER_INCNAVIERSTOKES)
     ADD_NEKTAR_TEST(Nektar++/peralign_double_periodic_hybrid)
 ENDIF ()
 

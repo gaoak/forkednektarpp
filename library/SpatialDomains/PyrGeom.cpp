@@ -38,6 +38,7 @@
 #include <SpatialDomains/Geometry2D.h>
 #include <SpatialDomains/SegGeom.h>
 #include <SpatialDomains/TriGeom.h>
+#include <SpatialDomains/XmapFactory.hpp>
 #include <StdRegions/StdPyrExp.h>
 
 namespace Nektar::SpatialDomains
@@ -45,23 +46,28 @@ namespace Nektar::SpatialDomains
 const unsigned int PyrGeom::EdgeNormalToFaceVert[5][4] = {
     {4, 5, 6, 7}, {1, 3, 6, 7}, {0, 2, 4, 7}, {1, 3, 4, 5}, {0, 2, 5, 6}};
 
+XmapFactory<StdRegions::StdPyrExp, 3> &GetStdPyrFactory()
+{
+    static XmapFactory<StdRegions::StdPyrExp, 3> factory;
+    return factory;
+}
+
 PyrGeom::PyrGeom()
 {
     m_shapeType = LibUtilities::ePyramid;
 }
 
-PyrGeom::PyrGeom(int id, const Geometry2DSharedPtr faces[])
+PyrGeom::PyrGeom(int id, std::array<Geometry2D *, kNfaces> faces)
     : Geometry3D(faces[0]->GetEdge(0)->GetVertex(0)->GetCoordim())
 {
     m_shapeType = LibUtilities::ePyramid;
     m_globalID  = id;
 
-    /// Copy the face shared pointers
-    m_faces.insert(m_faces.begin(), faces, faces + PyrGeom::kNfaces);
-
-    /// Set up orientation vectors with correct amount of elements.
-    m_eorient.resize(kNedges);
-    m_forient.resize(kNfaces);
+    /// Copy the face pointers
+    for (int i = 0; i < kNfaces; i++)
+    {
+        m_faces[i] = faces[i];
+    }
 
     SetUpLocalEdges();
     SetUpLocalVertices();
@@ -160,8 +166,6 @@ void PyrGeom::SetUpLocalEdges()
     int i, j;
     unsigned int check;
 
-    SegGeomSharedPtr edge;
-
     // First set up the 4 bottom edges
     int f;
     for (f = 1; f < 5; f++)
@@ -174,9 +178,8 @@ void PyrGeom::SetUpLocalEdges()
             {
                 if (m_faces[0]->GetEid(i) == m_faces[f]->GetEid(j))
                 {
-                    edge = std::dynamic_pointer_cast<SegGeom>(
-                        (m_faces[0])->GetEdge(i));
-                    m_edges.push_back(edge);
+                    m_edges[f - 1] =
+                        static_cast<SegGeom *>((m_faces[0])->GetEdge(i));
                     check++;
                 }
             }
@@ -208,9 +211,7 @@ void PyrGeom::SetUpLocalEdges()
         {
             if ((m_faces[1])->GetEid(i) == (m_faces[4])->GetEid(j))
             {
-                edge = std::dynamic_pointer_cast<SegGeom>(
-                    (m_faces[1])->GetEdge(i));
-                m_edges.push_back(edge);
+                m_edges[4] = static_cast<SegGeom *>((m_faces[1])->GetEdge(i));
                 check++;
             }
         }
@@ -242,9 +243,8 @@ void PyrGeom::SetUpLocalEdges()
             {
                 if ((m_faces[f])->GetEid(i) == (m_faces[f + 1])->GetEid(j))
                 {
-                    edge = std::dynamic_pointer_cast<SegGeom>(
-                        (m_faces[f])->GetEdge(i));
-                    m_edges.push_back(edge);
+                    m_edges[f + 4] =
+                        static_cast<SegGeom *>((m_faces[f])->GetEdge(i));
                     check++;
                 }
             }
@@ -275,14 +275,14 @@ void PyrGeom::SetUpLocalVertices()
     if (m_edges[0]->GetVid(0) == m_edges[1]->GetVid(0) ||
         m_edges[0]->GetVid(0) == m_edges[1]->GetVid(1))
     {
-        m_verts.push_back(m_edges[0]->GetVertex(1));
-        m_verts.push_back(m_edges[0]->GetVertex(0));
+        m_verts[0] = m_edges[0]->GetVertex(1);
+        m_verts[1] = m_edges[0]->GetVertex(0);
     }
     else if (m_edges[0]->GetVid(1) == m_edges[1]->GetVid(0) ||
              m_edges[0]->GetVid(1) == m_edges[1]->GetVid(1))
     {
-        m_verts.push_back(m_edges[0]->GetVertex(0));
-        m_verts.push_back(m_edges[0]->GetVertex(1));
+        m_verts[0] = m_edges[0]->GetVertex(0);
+        m_verts[1] = m_edges[0]->GetVertex(1);
     }
     else
     {
@@ -298,11 +298,11 @@ void PyrGeom::SetUpLocalVertices()
     {
         if (m_edges[i]->GetVid(0) == m_verts[i]->GetGlobalID())
         {
-            m_verts.push_back(m_edges[i]->GetVertex(1));
+            m_verts[i + 1] = m_edges[i]->GetVertex(1);
         }
         else if (m_edges[i]->GetVid(1) == m_verts[i]->GetGlobalID())
         {
-            m_verts.push_back(m_edges[i]->GetVertex(0));
+            m_verts[i + 1] = m_edges[i]->GetVertex(0);
         }
         else
         {
@@ -317,11 +317,11 @@ void PyrGeom::SetUpLocalVertices()
     // set up top vertex
     if (m_edges[4]->GetVid(0) == m_verts[0]->GetGlobalID())
     {
-        m_verts.push_back(m_edges[4]->GetVertex(1));
+        m_verts[4] = m_edges[4]->GetVertex(1);
     }
     else
     {
-        m_verts.push_back(m_edges[4]->GetVertex(0));
+        m_verts[4] = m_edges[4]->GetVertex(0);
     }
 
     int check = 0;
@@ -441,7 +441,7 @@ void PyrGeom::SetUpFaceOrientation()
         // Compute the length of edges on a base-face
         if (f > 0)
         {
-            if (baseVertex == m_verts[faceVerts[f][0]]->GetVid())
+            if (baseVertex == m_verts[faceVerts[f][0]]->GetGlobalID())
             {
                 for (i = 0; i < m_coordim; i++)
                 {
@@ -451,7 +451,7 @@ void PyrGeom::SetUpFaceOrientation()
                                       (*m_verts[faceVerts[f][0]])[i];
                 }
             }
-            else if (baseVertex == m_verts[faceVerts[f][1]]->GetVid())
+            else if (baseVertex == m_verts[faceVerts[f][1]]->GetGlobalID())
             {
                 for (i = 0; i < m_coordim; i++)
                 {
@@ -461,7 +461,7 @@ void PyrGeom::SetUpFaceOrientation()
                                       (*m_verts[faceVerts[f][1]])[i];
                 }
             }
-            else if (baseVertex == m_verts[faceVerts[f][2]]->GetVid())
+            else if (baseVertex == m_verts[faceVerts[f][2]]->GetGlobalID())
             {
                 for (i = 0; i < m_coordim; i++)
                 {
@@ -724,19 +724,78 @@ void PyrGeom::SetUpXmap()
     tmp.push_back(m_faces[3]->GetXmap()->GetTraceNcoeffs(2));
     int order2 = *max_element(tmp.begin(), tmp.end());
 
-    const LibUtilities::BasisKey A1(
-        LibUtilities::eModified_A, order0,
-        LibUtilities::PointsKey(order0 + 1,
-                                LibUtilities::eGaussLobattoLegendre));
-    const LibUtilities::BasisKey A2(
-        LibUtilities::eModified_A, order1,
-        LibUtilities::PointsKey(order1 + 1,
-                                LibUtilities::eGaussLobattoLegendre));
-    const LibUtilities::BasisKey C(
-        LibUtilities::eModifiedPyr_C, order2,
-        LibUtilities::PointsKey(order2, LibUtilities::eGaussRadauMAlpha2Beta0));
+    std::array<LibUtilities::BasisKey, 3> basis = {
+        LibUtilities::BasisKey(
+            LibUtilities::eModified_A, order0,
+            LibUtilities::PointsKey(order0 + 1,
+                                    LibUtilities::eGaussLobattoLegendre)),
+        LibUtilities::BasisKey(
+            LibUtilities::eModified_A, order1,
+            LibUtilities::PointsKey(order1 + 1,
+                                    LibUtilities::eGaussLobattoLegendre)),
+        LibUtilities::BasisKey(
+            LibUtilities::eModifiedPyr_C, order2,
+            LibUtilities::PointsKey(order2,
+                                    LibUtilities::eGaussRadauMAlpha2Beta0))};
 
-    m_xmap = MemoryManager<StdRegions::StdPyrExp>::AllocateSharedPtr(A1, A2, C);
+    m_xmap = GetStdPyrFactory().CreateInstance(basis);
+}
+
+/**
+ * @brief Put all quadrature information into face/edge structure and
+ * backward transform.
+ *
+ * Note verts, edges, and faces are listed according to anticlockwise
+ * convention but points in _coeffs have to be in array format from left
+ * to right.
+ */
+void PyrGeom::v_FillGeom()
+{
+    if (m_state == ePtsFilled)
+    {
+        return;
+    }
+
+    int i, j, k;
+
+    for (i = 0; i < kNfaces; i++)
+    {
+        m_faces[i]->FillGeom();
+
+        int nFaceCoeffs = m_faces[i]->GetXmap()->GetNcoeffs();
+
+        Array<OneD, unsigned int> mapArray(nFaceCoeffs);
+        Array<OneD, int> signArray(nFaceCoeffs);
+
+        if (m_forient[i] < 9)
+        {
+            m_xmap->GetTraceToElementMap(
+                i, mapArray, signArray, m_forient[i],
+                m_faces[i]->GetXmap()->GetTraceNcoeffs(0),
+                m_faces[i]->GetXmap()->GetTraceNcoeffs(1));
+        }
+        else
+        {
+            m_xmap->GetTraceToElementMap(
+                i, mapArray, signArray, m_forient[i],
+                m_faces[i]->GetXmap()->GetTraceNcoeffs(1),
+                m_faces[i]->GetXmap()->GetTraceNcoeffs(0));
+        }
+
+        for (j = 0; j < m_coordim; j++)
+        {
+            const Array<OneD, const NekDouble> &coeffs =
+                m_faces[i]->GetCoeffs(j);
+
+            for (k = 0; k < nFaceCoeffs; k++)
+            {
+                NekDouble v              = signArray[k] * coeffs[k];
+                m_coeffs[j][mapArray[k]] = v;
+            }
+        }
+    }
+
+    m_state = ePtsFilled;
 }
 
 } // namespace Nektar::SpatialDomains

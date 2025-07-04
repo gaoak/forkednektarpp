@@ -51,18 +51,18 @@ class Expansion0D : virtual public Expansion,
                     virtual public StdRegions::StdExpansion0D
 {
 public:
-    LOCAL_REGIONS_EXPORT Expansion0D(SpatialDomains::Geometry0DSharedPtr pGeom);
+    LOCAL_REGIONS_EXPORT Expansion0D(SpatialDomains::Geometry0D *pGeom);
     LOCAL_REGIONS_EXPORT ~Expansion0D() override = default;
 
-    inline SpatialDomains::Geometry0DSharedPtr GetGeom0D() const;
+    inline SpatialDomains::Geometry0D *GetGeom0D() const;
 
 protected:
 private:
 };
 
-inline SpatialDomains::Geometry0DSharedPtr Expansion0D::GetGeom0D() const
+inline SpatialDomains::Geometry0D *Expansion0D::GetGeom0D() const
 {
-    return std::dynamic_pointer_cast<SpatialDomains::Geometry0D>(m_geom);
+    return static_cast<SpatialDomains::Geometry0D *>(m_geom);
 }
 } // namespace Nektar::LocalRegions
 

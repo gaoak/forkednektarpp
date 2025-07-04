@@ -57,7 +57,7 @@ namespace Nektar::LocalRegions
 HexExp::HexExp(const LibUtilities::BasisKey &Ba,
                const LibUtilities::BasisKey &Bb,
                const LibUtilities::BasisKey &Bc,
-               const SpatialDomains::HexGeomSharedPtr &geom)
+               SpatialDomains::Geometry3D *geom)
     : StdExpansion(Ba.GetNumModes() * Bb.GetNumModes() * Bc.GetNumModes(), 3,
                    Ba, Bb, Bc),
       StdExpansion3D(Ba.GetNumModes() * Bb.GetNumModes() * Bc.GetNumModes(), Ba,

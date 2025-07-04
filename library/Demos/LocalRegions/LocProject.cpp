@@ -45,20 +45,36 @@
 #include <LocalRegions/SegExp.h>
 #include <LocalRegions/TetExp.h>
 #include <LocalRegions/TriExp.h>
+#include <SpatialDomains/MeshGraph.h>
 
 using namespace std;
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
 using namespace Nektar::StdRegions;
-using namespace Nektar::SpatialDomains;
 using namespace Nektar::LocalRegions;
 
 namespace po = boost::program_options;
+namespace sd = Nektar::SpatialDomains;
+
+// These declarations are not really necessary, but avoid compiler warnings
+// related to destructors for unique_ptr_objpool<Geometry> and other
+// non-elemental classes (Geometry1D, Geometry2D, Geometry3D).
+namespace Nektar
+{
+template <> PoolAllocator<sd::Geometry> ObjPoolManager<sd::Geometry>::m_alloc;
+template <>
+PoolAllocator<sd::Geometry2D> ObjPoolManager<sd::Geometry2D>::m_alloc;
+template <>
+PoolAllocator<sd::Geometry3D> ObjPoolManager<sd::Geometry3D>::m_alloc;
+} // namespace Nektar
 
 NekDouble Shape_sol(NekDouble x, NekDouble y, NekDouble z, vector<int> order,
                     vector<BasisType> btype, ShapeType stype, bool diff);
 
-GeometrySharedPtr CreateGeom(vector<double> coords, ShapeType shapeType);
+sd::GeometryUniquePtr CreateGeom(vector<double> coords, ShapeType shapeType,
+                                 std::vector<sd::PointGeomUniquePtr> &pointVec,
+                                 std::vector<sd::SegGeomUniquePtr> &segVec,
+                                 std::vector<sd::Geometry2DUniquePtr> &faceVec);
 
 // Modification to deal with exact solution for diff. Return 1 if integer < 0.
 static double pow_loc(const double val, const int i)
@@ -345,19 +361,23 @@ int main(int argc, char *argv[])
         bkey.emplace_back(BasisKey(btype[i], order[i], pkey[i]));
     }
 
-    GeometrySharedPtr geomFull = CreateGeom(coords, stype);
+    std::vector<sd::PointGeomUniquePtr> pointVec;
+    std::vector<sd::SegGeomUniquePtr> segVec;
+    std::vector<sd::Geometry2DUniquePtr> faceVec;
+    sd::GeometryUniquePtr geomFull =
+        CreateGeom(coords, stype, pointVec, segVec, faceVec);
 
     switch (stype)
     {
         case eSegment:
         {
-            SegGeomSharedPtr geom = static_pointer_cast<SegGeom>(geomFull);
-            E                     = new SegExp(bkey[0], geom);
+            sd::SegGeom *geom = static_cast<sd::SegGeom *>(geomFull.get());
+            E                 = new SegExp(bkey[0], geom);
             break;
         }
         case eTriangle:
         {
-            TriGeomSharedPtr geom = static_pointer_cast<TriGeom>(geomFull);
+            sd::TriGeom *geom = static_cast<sd::TriGeom *>(geomFull.get());
             if (nodaltype == eNoPointsType)
             {
                 E = new TriExp(bkey[0], bkey[1], geom);
@@ -370,32 +390,32 @@ int main(int argc, char *argv[])
         }
         case eQuadrilateral:
         {
-            QuadGeomSharedPtr geom = static_pointer_cast<QuadGeom>(geomFull);
-            E                      = new QuadExp(bkey[0], bkey[1], geom);
+            sd::QuadGeom *geom = static_cast<sd::QuadGeom *>(geomFull.get());
+            E                  = new QuadExp(bkey[0], bkey[1], geom);
             break;
         }
         case eTetrahedron:
         {
-            TetGeomSharedPtr geom = static_pointer_cast<TetGeom>(geomFull);
-            E                     = new TetExp(bkey[0], bkey[1], bkey[2], geom);
+            sd::TetGeom *geom = static_cast<sd::TetGeom *>(geomFull.get());
+            E                 = new TetExp(bkey[0], bkey[1], bkey[2], geom);
             break;
         }
         case ePyramid:
         {
-            PyrGeomSharedPtr geom = static_pointer_cast<PyrGeom>(geomFull);
-            E                     = new PyrExp(bkey[0], bkey[1], bkey[2], geom);
+            sd::PyrGeom *geom = static_cast<sd::PyrGeom *>(geomFull.get());
+            E                 = new PyrExp(bkey[0], bkey[1], bkey[2], geom);
             break;
         }
         case ePrism:
         {
-            PrismGeomSharedPtr geom = static_pointer_cast<PrismGeom>(geomFull);
-            E = new PrismExp(bkey[0], bkey[1], bkey[2], geom);
+            sd::PrismGeom *geom = static_cast<sd::PrismGeom *>(geomFull.get());
+            E                   = new PrismExp(bkey[0], bkey[1], bkey[2], geom);
             break;
         }
         case eHexahedron:
         {
-            HexGeomSharedPtr geom = static_pointer_cast<HexGeom>(geomFull);
-            E                     = new HexExp(bkey[0], bkey[1], bkey[2], geom);
+            sd::HexGeom *geom = static_cast<sd::HexGeom *>(geomFull.get());
+            E                 = new HexExp(bkey[0], bkey[1], bkey[2], geom);
             break;
         }
         default:
@@ -485,7 +505,12 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-GeometrySharedPtr CreateGeom(vector<NekDouble> coords, ShapeType shapeType)
+// Empty vectors of unique pointers given by reference hold ownership of Geom
+// objects in the absence of a MeshGraph
+sd::GeometryUniquePtr CreateGeom(vector<NekDouble> coords, ShapeType shapeType,
+                                 std::vector<sd::PointGeomUniquePtr> &pointVec,
+                                 std::vector<sd::SegGeomUniquePtr> &segVec,
+                                 std::vector<sd::Geometry2DUniquePtr> &faceVec)
 {
     map<ShapeType, vector<vector<unsigned int>>> edgeDef, faceDef;
     edgeDef[eSegment]       = {{0, 1}};
@@ -535,23 +560,23 @@ GeometrySharedPtr CreateGeom(vector<NekDouble> coords, ShapeType shapeType)
               to_string(numVerts[shapeType])));
 
     // Set up vector of vertices
-    vector<PointGeomSharedPtr> verts(numVerts[shapeType]);
+    vector<sd::PointGeomUniquePtr> verts(numVerts[shapeType]);
     for (int i = 0; i < numVerts[shapeType]; ++i)
     {
         if (dimension == 1)
         {
-            verts[i] = MemoryManager<PointGeom>::AllocateSharedPtr(
+            verts[i] = ObjPoolManager<sd::PointGeom>::AllocateUniquePtr(
                 dimension, i, coords[dimension * i], 0, 0);
         }
         if (dimension == 2)
         {
-            verts[i] = MemoryManager<PointGeom>::AllocateSharedPtr(
+            verts[i] = ObjPoolManager<sd::PointGeom>::AllocateUniquePtr(
                 dimension, i, coords[dimension * i], coords[dimension * i + 1],
                 0);
         }
         if (dimension == 3)
         {
-            verts[i] = MemoryManager<PointGeom>::AllocateSharedPtr(
+            verts[i] = ObjPoolManager<sd::PointGeom>::AllocateUniquePtr(
                 dimension, i, coords[dimension * i], coords[dimension * i + 1],
                 coords[dimension * i + 2]);
         }
@@ -559,95 +584,127 @@ GeometrySharedPtr CreateGeom(vector<NekDouble> coords, ShapeType shapeType)
 
     // Set up vector of edges
     const unsigned int numEdges = edgeDef[shapeType].size();
-    vector<SegGeomSharedPtr> edges(numEdges);
+    vector<sd::SegGeomUniquePtr> edges(numEdges);
     for (int i = 0; i < numEdges; ++i)
     {
-        vector<PointGeomSharedPtr> tmp(2);
+        std::array<sd::PointGeom *, 2> tmp;
         for (int j = 0; j < 2; ++j)
         {
-            tmp[j] = verts[edgeDef[shapeType][i][j]];
+            tmp[j] = verts[edgeDef[shapeType][i][j]].get();
         }
         edges[i] =
-            MemoryManager<SegGeom>::AllocateSharedPtr(i, dimension, &tmp[0]);
+            ObjPoolManager<sd::SegGeom>::AllocateUniquePtr(i, dimension, tmp);
     }
-
+    for (int i = 0; i < numVerts[shapeType]; ++i)
+    {
+        pointVec.push_back(std::move(verts[i]));
+    }
     if (dimension == 1)
     {
-        return edges[0];
+        return sd::GeometryUniquePtr(
+            static_cast<sd::Geometry *>(edges[0].release()));
     }
 
     // Set up vector of faces
     const unsigned int numFaces = faceDef[shapeType].size();
-    vector<Geometry2DSharedPtr> faces(numFaces);
+    vector<sd::Geometry2DUniquePtr> faces(numFaces);
     for (int i = 0; i < numFaces; ++i)
     {
         const unsigned int numEdgesFace = faceDef[shapeType][i].size();
-        vector<SegGeomSharedPtr> tmp(numEdgesFace);
+        vector<sd::SegGeom *> tmp(numEdgesFace);
         for (int j = 0; j < numEdgesFace; ++j)
         {
-            tmp[j] = edges[faceDef[shapeType][i][j]];
+            tmp[j] = edges[faceDef[shapeType][i][j]].get();
         }
         if (numEdgesFace == 3)
         {
-            faces[i] = MemoryManager<TriGeom>::AllocateSharedPtr(i, &tmp[0]);
+            std::array<sd::SegGeom *, 3> tmp3 = {tmp[0], tmp[1], tmp[2]};
+            auto tmp2 = ObjPoolManager<sd::TriGeom>::AllocateUniquePtr(i, tmp3);
+            faces[i]  = sd::Geometry2DUniquePtr(
+                static_cast<sd::Geometry2D *>(tmp2.release()));
         }
         else
         {
-            faces[i] = MemoryManager<QuadGeom>::AllocateSharedPtr(i, &tmp[0]);
+            std::array<sd::SegGeom *, 4> tmp3 = {tmp[0], tmp[1], tmp[2],
+                                                 tmp[3]};
+            auto tmp2 =
+                ObjPoolManager<sd::QuadGeom>::AllocateUniquePtr(i, tmp3);
+            faces[i] = sd::Geometry2DUniquePtr(
+                static_cast<sd::Geometry2D *>(tmp2.release()));
         }
     }
-
+    for (int i = 0; i < numEdges; ++i)
+    {
+        segVec.push_back(std::move(edges[i]));
+    }
     if (dimension == 2)
     {
-        return faces[0];
+        return sd::GeometryUniquePtr(
+            static_cast<sd::Geometry *>(faces[0].release()));
     }
 
     // Set up volume
-    Geometry3DSharedPtr volume;
-    vector<Geometry2DSharedPtr> tmp;
+    sd::Geometry3DUniquePtr volume;
+    vector<sd::Geometry2D *> tmp;
     for (auto volEdge : volDef[shapeType])
     {
-        tmp.emplace_back(faces[volEdge]);
+        tmp.emplace_back(faces[volEdge].get());
     }
     switch (shapeType)
     {
         case eTetrahedron:
         {
             const unsigned int numVol = tmp.size();
-            vector<TriGeomSharedPtr> tmp2(numVol);
+            std::array<sd::TriGeom *, 4> tmp2;
             for (int i = 0; i < numVol; ++i)
             {
-                tmp2[i] = static_pointer_cast<TriGeom>(tmp[i]);
+                tmp2[i] = static_cast<sd::TriGeom *>(tmp[i]);
             }
-            volume = MemoryManager<TetGeom>::AllocateSharedPtr(0, &tmp2[0]);
+            auto tmp3 = ObjPoolManager<sd::TetGeom>::AllocateUniquePtr(0, tmp2);
+            volume    = sd::Geometry3DUniquePtr(
+                static_cast<sd::Geometry3D *>(tmp3.release()));
             break;
         }
         case ePyramid:
         {
-            volume = MemoryManager<PyrGeom>::AllocateSharedPtr(0, &tmp[0]);
+            std::array<sd::Geometry2D *, 5> tmp2 = {tmp[0], tmp[1], tmp[2],
+                                                    tmp[3], tmp[4]};
+            auto tmp3 = ObjPoolManager<sd::PyrGeom>::AllocateUniquePtr(0, tmp2);
+            volume    = sd::Geometry3DUniquePtr(
+                static_cast<sd::Geometry3D *>(tmp3.release()));
             break;
         }
         case ePrism:
         {
-            volume = MemoryManager<PrismGeom>::AllocateSharedPtr(0, &tmp[0]);
+            std::array<sd::Geometry2D *, 5> tmp2 = {tmp[0], tmp[1], tmp[2],
+                                                    tmp[3], tmp[4]};
+            auto tmp3 =
+                ObjPoolManager<sd::PrismGeom>::AllocateUniquePtr(0, tmp2);
+            volume = sd::Geometry3DUniquePtr(
+                static_cast<sd::Geometry3D *>(tmp3.release()));
             break;
         }
         case eHexahedron:
         {
             const unsigned int numVol = tmp.size();
-            vector<QuadGeomSharedPtr> tmp2(numVol);
+            std::array<sd::QuadGeom *, 6> tmp2;
             for (int i = 0; i < numVol; ++i)
             {
-                tmp2[i] = static_pointer_cast<QuadGeom>(tmp[i]);
+                tmp2[i] = static_cast<sd::QuadGeom *>(tmp[i]);
             }
-            volume = MemoryManager<HexGeom>::AllocateSharedPtr(0, &tmp2[0]);
+            auto tmp3 = ObjPoolManager<sd::HexGeom>::AllocateUniquePtr(0, tmp2);
+            volume    = sd::Geometry3DUniquePtr(
+                static_cast<sd::Geometry3D *>(tmp3.release()));
             break;
         }
         default:
             break;
     }
-
-    return volume;
+    for (int i = 0; i < numFaces; ++i)
+    {
+        faceVec.push_back(std::move(faces[i]));
+    }
+    return sd::GeometryUniquePtr(static_cast<sd::Geometry *>(volume.release()));
 }
 
 NekDouble Shape_sol(NekDouble x, NekDouble y, NekDouble z, vector<int> order,

@@ -158,20 +158,23 @@ Pyramid::Pyramid(ElmtConfig pConf, vector<NodeSharedPtr> pNodeList,
     m_edge = tmp;
 }
 
-SpatialDomains::GeometrySharedPtr Pyramid::GetGeom(int coordDim)
+SpatialDomains::Geometry *Pyramid::GetGeom(int coordDim,
+                                           SpatialDomains::EntityHolder &holder)
 {
-    SpatialDomains::Geometry2DSharedPtr faces[5];
+    std::array<SpatialDomains::Geometry2D *, 5> faces;
 
     for (int i = 0; i < 5; ++i)
     {
-        faces[i] = m_face[i]->GetGeom(coordDim);
+        faces[i] = m_face[i]->GetGeom(coordDim, holder);
     }
 
-    m_geom =
-        MemoryManager<SpatialDomains::PyrGeom>::AllocateSharedPtr(m_id, faces);
-    m_geom->Setup();
+    SpatialDomains::PyrGeomUniquePtr pyr =
+        ObjPoolManager<SpatialDomains::PyrGeom>::AllocateUniquePtr(m_id, faces);
+    auto ret = dynamic_cast<SpatialDomains::Geometry *>(pyr.get());
+    holder.m_pyrVec.push_back(std::move(pyr));
 
-    return m_geom;
+    ret->Setup();
+    return ret;
 }
 
 /**

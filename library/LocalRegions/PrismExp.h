@@ -50,10 +50,10 @@ class PrismExp : virtual public StdRegions::StdPrismExp,
 public:
     /// \brief Constructor using BasisKey class for quadrature
     /// points and order definition
-    LOCAL_REGIONS_EXPORT PrismExp(
-        const LibUtilities::BasisKey &Ba, const LibUtilities::BasisKey &Bb,
-        const LibUtilities::BasisKey &Bc,
-        const SpatialDomains::PrismGeomSharedPtr &geom);
+    LOCAL_REGIONS_EXPORT PrismExp(const LibUtilities::BasisKey &Ba,
+                                  const LibUtilities::BasisKey &Bb,
+                                  const LibUtilities::BasisKey &Bc,
+                                  SpatialDomains::Geometry3D *geom);
 
     LOCAL_REGIONS_EXPORT PrismExp(const PrismExp &T);
 

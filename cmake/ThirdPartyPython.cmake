@@ -43,8 +43,8 @@ IF (NEKTAR_BUILD_PYTHON)
     EXTERNALPROJECT_ADD(
         pybind11
         PREFIX ${TPSRC}
-        URL ${TPURL}/pybind11-sh-3.0.0.zip
-        URL_MD5 4583fbe042df34723c96cf51368d6cef
+        URL ${TPURL}/pybind11-002c05b17.zip
+        URL_MD5 4fd2f2df6a8a4f28c260e56163bf4481
         STAMP_DIR ${TPBUILD}/stamp
         DOWNLOAD_DIR ${TPSRC}
         SOURCE_DIR ${TPSRC}/pybind11

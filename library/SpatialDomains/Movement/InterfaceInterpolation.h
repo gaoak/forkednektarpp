@@ -70,13 +70,13 @@ struct Interface
     virtual ~Interface() = default;
 
     /// Returns map of global ID to geometry of the interface edge
-    inline std::map<int, GeometrySharedPtr> const &GetEdge() const
+    inline std::map<int, Geometry *> const &GetEdge() const
     {
         return m_edge;
     }
 
     /// Returns geometry of the interface edge with global ID @param id
-    inline GeometrySharedPtr const &GetEdge(int id)
+    inline Geometry *const &GetEdge(int id)
     {
         return m_edge[id];
     }
@@ -120,7 +120,7 @@ protected:
     /// interface
     std::vector<unsigned int> m_compositeIDs;
     /// Map of global ID to geometry of the interface edge
-    std::map<int, GeometrySharedPtr> m_edge;
+    std::map<int, Geometry *> m_edge;
     /// Skip the coord found check in InterfaceMapDG
     bool m_skipCoordCheck;
 };

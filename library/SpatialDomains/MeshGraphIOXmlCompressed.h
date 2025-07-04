@@ -66,14 +66,24 @@ protected:
     void v_ReadElements2D() override;
     void v_ReadElements3D() override;
 
-    void v_WriteVertices(TiXmlElement *geomTag, PointGeomMap &verts) override;
-    void v_WriteEdges(TiXmlElement *geomTag, SegGeomMap &edges) override;
-    void v_WriteTris(TiXmlElement *faceTag, TriGeomMap &tris) override;
-    void v_WriteQuads(TiXmlElement *faceTag, QuadGeomMap &quads) override;
-    void v_WriteHexs(TiXmlElement *elmtTag, HexGeomMap &hexs) override;
-    void v_WritePrisms(TiXmlElement *elmtTag, PrismGeomMap &pris) override;
-    void v_WritePyrs(TiXmlElement *elmtTag, PyrGeomMap &pyrs) override;
-    void v_WriteTets(TiXmlElement *elmtTag, TetGeomMap &tets) override;
+    // *keysToWrite specifies a subset of GeomMap to write during partitioning.
+    void v_WriteVertices(
+        TiXmlElement *geomTag,
+        std::vector<int> keysToWrite = std::vector<int>()) override;
+    void v_WriteEdges(TiXmlElement *geomTag, std::vector<int> keysToWrite =
+                                                 std::vector<int>()) override;
+    void v_WriteTris(TiXmlElement *faceTag, std::vector<int> keysToWrite =
+                                                std::vector<int>()) override;
+    void v_WriteQuads(TiXmlElement *faceTag, std::vector<int> keysToWrite =
+                                                 std::vector<int>()) override;
+    void v_WriteHexs(TiXmlElement *elmtTag, std::vector<int> keysToWrite =
+                                                std::vector<int>()) override;
+    void v_WritePrisms(TiXmlElement *elmtTag, std::vector<int> keysToWrite =
+                                                  std::vector<int>()) override;
+    void v_WritePyrs(TiXmlElement *elmtTag, std::vector<int> keysToWrite =
+                                                std::vector<int>()) override;
+    void v_WriteTets(TiXmlElement *elmtTag, std::vector<int> keysToWrite =
+                                                std::vector<int>()) override;
     void v_WriteCurves(TiXmlElement *geomTag, CurveMap &edges,
                        CurveMap &faces) override;
 };

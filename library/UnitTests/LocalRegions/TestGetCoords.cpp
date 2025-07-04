@@ -39,93 +39,91 @@
 
 namespace Nektar::HexExpTests
 {
-SpatialDomains::SegGeomSharedPtr CreateSegGeom(
-    unsigned int id, SpatialDomains::PointGeomSharedPtr v0,
-    SpatialDomains::PointGeomSharedPtr v1)
+
+SpatialDomains::SegGeomUniquePtr CreateSegGeom(unsigned int id,
+                                               SpatialDomains::PointGeom *v0,
+                                               SpatialDomains::PointGeom *v1)
 {
-    SpatialDomains::PointGeomSharedPtr vertices[] = {v0, v1};
-    SpatialDomains::SegGeomSharedPtr result(
+    std::array<SpatialDomains::PointGeom *, 2> vertices = {v0, v1};
+    SpatialDomains::SegGeomUniquePtr result(
         new SpatialDomains::SegGeom(id, 3, vertices));
     return result;
 }
 
-SpatialDomains::HexGeomSharedPtr CreateHex(
-    SpatialDomains::PointGeomSharedPtr v0,
-    SpatialDomains::PointGeomSharedPtr v1,
-    SpatialDomains::PointGeomSharedPtr v2,
-    SpatialDomains::PointGeomSharedPtr v3,
-    SpatialDomains::PointGeomSharedPtr v4,
-    SpatialDomains::PointGeomSharedPtr v5,
-    SpatialDomains::PointGeomSharedPtr v6,
-    SpatialDomains::PointGeomSharedPtr v7)
+SpatialDomains::HexGeomUniquePtr CreateHex(
+    std::array<SpatialDomains::PointGeom *, 8> v,
+    std::array<SpatialDomains::SegGeomUniquePtr, 12> &segVec,
+    std::array<SpatialDomains::QuadGeomUniquePtr, 6> &faceVec)
 {
-    Nektar::SpatialDomains::SegGeomSharedPtr e0  = CreateSegGeom(0, v0, v1);
-    Nektar::SpatialDomains::SegGeomSharedPtr e1  = CreateSegGeom(1, v1, v2);
-    Nektar::SpatialDomains::SegGeomSharedPtr e2  = CreateSegGeom(2, v2, v3);
-    Nektar::SpatialDomains::SegGeomSharedPtr e3  = CreateSegGeom(3, v3, v0);
-    Nektar::SpatialDomains::SegGeomSharedPtr e4  = CreateSegGeom(4, v0, v4);
-    Nektar::SpatialDomains::SegGeomSharedPtr e5  = CreateSegGeom(5, v1, v5);
-    Nektar::SpatialDomains::SegGeomSharedPtr e6  = CreateSegGeom(6, v2, v6);
-    Nektar::SpatialDomains::SegGeomSharedPtr e7  = CreateSegGeom(7, v3, v7);
-    Nektar::SpatialDomains::SegGeomSharedPtr e8  = CreateSegGeom(8, v4, v5);
-    Nektar::SpatialDomains::SegGeomSharedPtr e9  = CreateSegGeom(9, v5, v6);
-    Nektar::SpatialDomains::SegGeomSharedPtr e10 = CreateSegGeom(10, v6, v7);
-    Nektar::SpatialDomains::SegGeomSharedPtr e11 = CreateSegGeom(11, v4, v7);
+    std::array<std::array<int, 2>, 12> edgeVerts = {{{{0, 1}},
+                                                     {{1, 2}},
+                                                     {{2, 3}},
+                                                     {{3, 0}},
+                                                     {{0, 4}},
+                                                     {{1, 5}},
+                                                     {{2, 6}},
+                                                     {{3, 7}},
+                                                     {{4, 5}},
+                                                     {{5, 6}},
+                                                     {{6, 7}},
+                                                     {{7, 4}}}};
+    std::array<std::array<int, 4>, 6> faceEdges  = {{{{0, 1, 2, 3}},
+                                                     {{0, 5, 8, 4}},
+                                                     {{1, 6, 9, 5}},
+                                                     {{2, 6, 10, 7}},
+                                                     {{3, 7, 11, 4}},
+                                                     {{8, 9, 10, 11}}}};
 
-    Nektar::SpatialDomains::SegGeomSharedPtr
-        edgesF0[Nektar::SpatialDomains::QuadGeom::kNedges] = {e0, e1, e2, e3};
-    Nektar::SpatialDomains::SegGeomSharedPtr
-        edgesF1[Nektar::SpatialDomains::QuadGeom::kNedges] = {e0, e5, e8, e4};
-    Nektar::SpatialDomains::SegGeomSharedPtr
-        edgesF2[Nektar::SpatialDomains::QuadGeom::kNedges] = {e1, e6, e9, e5};
-    Nektar::SpatialDomains::SegGeomSharedPtr
-        edgesF3[Nektar::SpatialDomains::QuadGeom::kNedges] = {e2, e6, e10, e7};
-    Nektar::SpatialDomains::SegGeomSharedPtr
-        edgesF4[Nektar::SpatialDomains::QuadGeom::kNedges] = {e3, e7, e11, e4};
-    Nektar::SpatialDomains::SegGeomSharedPtr
-        edgesF5[Nektar::SpatialDomains::QuadGeom::kNedges] = {e8, e9, e10, e11};
+    // Create segments from vertices
+    for (int i = 0; i < 12; ++i)
+    {
+        segVec[i] = CreateSegGeom(i, v[edgeVerts[i][0]], v[edgeVerts[i][1]]);
+    }
 
-    Nektar::SpatialDomains::QuadGeomSharedPtr face0(
-        new SpatialDomains::QuadGeom(0, edgesF0));
-    Nektar::SpatialDomains::QuadGeomSharedPtr face1(
-        new SpatialDomains::QuadGeom(1, edgesF1));
-    Nektar::SpatialDomains::QuadGeomSharedPtr face2(
-        new SpatialDomains::QuadGeom(2, edgesF2));
-    Nektar::SpatialDomains::QuadGeomSharedPtr face3(
-        new SpatialDomains::QuadGeom(3, edgesF3));
-    Nektar::SpatialDomains::QuadGeomSharedPtr face4(
-        new SpatialDomains::QuadGeom(4, edgesF4));
-    Nektar::SpatialDomains::QuadGeomSharedPtr face5(
-        new SpatialDomains::QuadGeom(5, edgesF5));
+    // Create faces from edges
+    std::array<SpatialDomains::QuadGeom *, 6> faces;
+    for (int i = 0; i < 6; ++i)
+    {
+        std::array<SpatialDomains::SegGeom *, 4> face;
+        for (int j = 0; j < 4; ++j)
+        {
+            face[j] = segVec[faceEdges[i][j]].get();
+        }
+        faceVec[i] = SpatialDomains::QuadGeomUniquePtr(
+            new SpatialDomains::QuadGeom(i, face));
+        faces[i] = faceVec[i].get();
+    }
 
-    Nektar::SpatialDomains::QuadGeomSharedPtr qfaces[] = {face0, face1, face2,
-                                                          face3, face4, face5};
-    SpatialDomains::HexGeomSharedPtr hexGeom(
-        new SpatialDomains::HexGeom(0, qfaces));
+    SpatialDomains::HexGeomUniquePtr hexGeom(
+        new SpatialDomains::HexGeom(0, faces));
     return hexGeom;
 }
 
 BOOST_AUTO_TEST_CASE(TestHexExpThatIsStdRegion)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, 1.0, -1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v6(
+    SpatialDomains::PointGeomUniquePtr v6(
         new SpatialDomains::PointGeom(3u, 6u, 1.0, 1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v7(
+    SpatialDomains::PointGeomUniquePtr v7(
         new SpatialDomains::PointGeom(3u, 7u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::HexGeomSharedPtr hexGeom =
-        CreateHex(v0, v1, v2, v3, v4, v5, v6, v7);
+    std::array<SpatialDomains::PointGeom *, 8> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(),
+        v4.get(), v5.get(), v6.get(), v7.get()};
+    std::array<SpatialDomains::SegGeomUniquePtr, 12> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 6> faceVec;
+    SpatialDomains::HexGeomUniquePtr hexGeom = CreateHex(v, segVec, faceVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -139,7 +137,7 @@ BOOST_AUTO_TEST_CASE(TestHexExpThatIsStdRegion)
 
     Nektar::LocalRegions::HexExpSharedPtr hexExp =
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom);
+            basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom.get());
 
     Array<OneD, NekDouble> c0 = Array<OneD, NekDouble>(hexExp->GetTotPoints());
     Array<OneD, NekDouble> c1 = Array<OneD, NekDouble>(hexExp->GetTotPoints());
@@ -159,25 +157,29 @@ BOOST_AUTO_TEST_CASE(TestHexExpThatIsStdRegion)
 
 BOOST_AUTO_TEST_CASE(TestScaledAndTranslatedHexExp)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, 0.0, 0.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 0.5, 0.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 0.5, 0.5, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, 0.0, 0.5, 0.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, 0.0, 0.0, 0.5));
-    SpatialDomains::PointGeomSharedPtr v5(
+    SpatialDomains::PointGeomUniquePtr v5(
         new SpatialDomains::PointGeom(3u, 5u, 0.5, 0.0, 0.5));
-    SpatialDomains::PointGeomSharedPtr v6(
+    SpatialDomains::PointGeomUniquePtr v6(
         new SpatialDomains::PointGeom(3u, 6u, 0.5, 0.5, 0.5));
-    SpatialDomains::PointGeomSharedPtr v7(
+    SpatialDomains::PointGeomUniquePtr v7(
         new SpatialDomains::PointGeom(3u, 7u, 0.0, 0.5, 0.5));
 
-    SpatialDomains::HexGeomSharedPtr hexGeom =
-        CreateHex(v0, v1, v2, v3, v4, v5, v6, v7);
+    std::array<SpatialDomains::PointGeom *, 8> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(),
+        v4.get(), v5.get(), v6.get(), v7.get()};
+    std::array<SpatialDomains::SegGeomUniquePtr, 12> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 6> faceVec;
+    SpatialDomains::HexGeomUniquePtr hexGeom = CreateHex(v, segVec, faceVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -191,7 +193,7 @@ BOOST_AUTO_TEST_CASE(TestScaledAndTranslatedHexExp)
 
     Nektar::LocalRegions::HexExpSharedPtr hexExp =
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom);
+            basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom.get());
 
     Array<OneD, NekDouble> c0 = Array<OneD, NekDouble>(hexExp->GetTotPoints());
     Array<OneD, NekDouble> c1 = Array<OneD, NekDouble>(hexExp->GetTotPoints());

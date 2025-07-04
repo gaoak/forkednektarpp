@@ -152,19 +152,22 @@ Hexahedron::Hexahedron(ElmtConfig pConf, vector<NodeSharedPtr> pNodeList,
     m_edge  = tmp;
 }
 
-SpatialDomains::GeometrySharedPtr Hexahedron::GetGeom(int coordDim)
+SpatialDomains::Geometry *Hexahedron::GetGeom(
+    int coordDim, SpatialDomains::EntityHolder &holder)
 {
-    SpatialDomains::QuadGeomSharedPtr faces[6];
-    SpatialDomains::HexGeomSharedPtr ret;
+    std::array<SpatialDomains::QuadGeom *, 6> faces;
+    SpatialDomains::HexGeomUniquePtr hex;
 
     for (int i = 0; i < 6; ++i)
     {
-        faces[i] = std::dynamic_pointer_cast<SpatialDomains::QuadGeom>(
-            m_face[i]->GetGeom(coordDim));
+        faces[i] = dynamic_cast<SpatialDomains::QuadGeom *>(
+            m_face[i]->GetGeom(coordDim, holder));
     }
 
-    ret =
-        MemoryManager<SpatialDomains::HexGeom>::AllocateSharedPtr(m_id, faces);
+    hex =
+        ObjPoolManager<SpatialDomains::HexGeom>::AllocateUniquePtr(m_id, faces);
+    auto ret = hex.get();
+    holder.m_hexVec.push_back(std::move(hex));
 
     ret->Setup();
     return ret;
@@ -193,7 +196,7 @@ StdRegions::Orientation Hexahedron::GetEdgeOrient(int edgeId,
     return StdRegions::eNoOrientation;
 }
 
-void Hexahedron::MakeOrder(int order, SpatialDomains::GeometrySharedPtr geom,
+void Hexahedron::MakeOrder(int order, SpatialDomains::Geometry *geom,
                            LibUtilities::PointsType pType, int coordDim,
                            int &id, bool justConfig)
 {

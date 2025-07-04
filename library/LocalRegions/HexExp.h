@@ -51,7 +51,7 @@ public:
     LOCAL_REGIONS_EXPORT HexExp(const LibUtilities::BasisKey &Ba,
                                 const LibUtilities::BasisKey &Bb,
                                 const LibUtilities::BasisKey &Bc,
-                                const SpatialDomains::HexGeomSharedPtr &geom);
+                                SpatialDomains::Geometry3D *geom);
 
     LOCAL_REGIONS_EXPORT HexExp(const HexExp &T);
 

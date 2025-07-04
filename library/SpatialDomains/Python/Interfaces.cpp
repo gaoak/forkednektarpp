@@ -57,7 +57,7 @@ void export_Interfaces(py::module &m)
 
     py::class_<Interface, std::shared_ptr<Interface>>(m, "Interface")
         .def(py::init<>(&Interface_Init))
-        .def<const std::map<int, GeometrySharedPtr> &(Interface::*)() const>(
+        .def<const std::map<int, Geometry *> &(Interface::*)() const>(
             "GetEdge", &Interface::GetEdge,
             py::return_value_policy::reference_internal)
         .def("IsEmpty", &Interface::IsEmpty)

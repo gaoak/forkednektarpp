@@ -78,9 +78,10 @@ void ProcessOptiExtract::Process()
         // get invalid elements
         for (int i = 0; i < el.size(); ++i)
         {
+            SpatialDomains::EntityHolder holder;
             // Create elemental geometry.
-            SpatialDomains::GeometrySharedPtr geom =
-                el[i]->GetGeom(m_mesh->m_spaceDim);
+            SpatialDomains::Geometry *geom =
+                el[i]->GetGeom(m_mesh->m_spaceDim, holder);
 
             // Generate geometric factors.
             SpatialDomains::GeomFactorsSharedPtr gfac = geom->GetGeomFactors();

@@ -72,7 +72,7 @@ AssemblyMapDG::AssemblyMapDG(
 
     LocalRegions::ExpansionSharedPtr exp;
     LocalRegions::ExpansionSharedPtr bndExp;
-    SpatialDomains::GeometrySharedPtr traceGeom;
+    SpatialDomains::Geometry *traceGeom;
 
     const LocalRegions::ExpansionVector expList = *(locExp.GetExp());
     int nel                                     = expList.size();

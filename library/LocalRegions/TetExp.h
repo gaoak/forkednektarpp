@@ -52,7 +52,7 @@ public:
     LOCAL_REGIONS_EXPORT TetExp(const LibUtilities::BasisKey &Ba,
                                 const LibUtilities::BasisKey &Bb,
                                 const LibUtilities::BasisKey &Bc,
-                                const SpatialDomains::TetGeomSharedPtr &geom);
+                                SpatialDomains::Geometry3D *geom);
 
     LOCAL_REGIONS_EXPORT TetExp(const TetExp &T);
 

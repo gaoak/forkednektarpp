@@ -121,14 +121,14 @@ void ProcessPowerSpectrum::v_Process(po::variables_map &vm)
     Array<OneD, NekDouble> masks(ntot, 0.);
     for (size_t i = 0; i < plane0->GetExpSize(); ++i)
     {
-        LocalRegions::ExpansionSharedPtr exp   = plane0->GetExp(i);
-        SpatialDomains::GeometrySharedPtr geom = exp->GetGeom();
-        int nv                                 = geom->GetNumVerts();
-        NekDouble gc[3]                        = {0., 0., 0.};
-        NekDouble gct[3]                       = {0., 0., 0.};
+        LocalRegions::ExpansionSharedPtr exp = plane0->GetExp(i);
+        SpatialDomains::Geometry *geom       = exp->GetGeom();
+        int nv                               = geom->GetNumVerts();
+        NekDouble gc[3]                      = {0., 0., 0.};
+        NekDouble gct[3]                     = {0., 0., 0.};
         for (size_t j = 0; j < nv; ++j)
         {
-            SpatialDomains::PointGeomSharedPtr vertex = geom->GetVertex(j);
+            SpatialDomains::PointGeom *vertex = geom->GetVertex(j);
             vertex->GetCoords(gct[0], gct[1], gct[2]);
             gc[0] += gct[0] / NekDouble(nv);
             gc[1] += gct[1] / NekDouble(nv);

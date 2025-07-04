@@ -44,15 +44,7 @@ using namespace Nektar::SpatialDomains;
 
 // Define common opaque types
 PYBIND11_MAKE_OPAQUE(LibUtilities::FieldMetaDataMap);
-PYBIND11_MAKE_OPAQUE(std::vector<GeometrySharedPtr>);
-PYBIND11_MAKE_OPAQUE(PointGeomMap);
-PYBIND11_MAKE_OPAQUE(SegGeomMap);
-PYBIND11_MAKE_OPAQUE(QuadGeomMap);
-PYBIND11_MAKE_OPAQUE(TriGeomMap);
-PYBIND11_MAKE_OPAQUE(TetGeomMap);
-PYBIND11_MAKE_OPAQUE(PrismGeomMap);
-PYBIND11_MAKE_OPAQUE(PyrGeomMap);
-PYBIND11_MAKE_OPAQUE(HexGeomMap);
+PYBIND11_MAKE_OPAQUE(std::vector<Geometry *>);
 PYBIND11_MAKE_OPAQUE(CurveMap);
 PYBIND11_MAKE_OPAQUE(CompositeMap);
 PYBIND11_MAKE_OPAQUE(std::map<int, CompositeMap>);

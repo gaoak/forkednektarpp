@@ -371,7 +371,7 @@ In the following example, we create (and explicitly name) the type
 to follow. This is particularly true of nested STL data structures where repeated template declarations would make the code harder to follow. A couple of examples are shown below:
 \begin{lstlisting}
 typedef std::shared_ptr<Expansion> ExpansionSharedPtr;
-typedef std::shared_ptr<std::vector<std::pair<GeometrySharedPtr, int>>>
+typedef std::shared_ptr<std::vector<std::pair<Geometry*, int>>>
 GeometryLinkSharedPtr;
 \end{lstlisting}
 If you are not familiar with the use of typedefs, you should take

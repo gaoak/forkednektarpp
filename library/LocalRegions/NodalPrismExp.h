@@ -50,10 +50,11 @@ class NodalPrismExp final : virtual public StdRegions::StdNodalPrismExp,
 public:
     /** \brief Constructor using BasisKey class for quadrature
     points and order definition */
-    LOCAL_REGIONS_EXPORT NodalPrismExp(
-        const LibUtilities::BasisKey &Ba, const LibUtilities::BasisKey &Bb,
-        const LibUtilities::BasisKey &Bc, const LibUtilities::PointsType Ntype,
-        const SpatialDomains::PrismGeomSharedPtr &geom);
+    LOCAL_REGIONS_EXPORT NodalPrismExp(const LibUtilities::BasisKey &Ba,
+                                       const LibUtilities::BasisKey &Bb,
+                                       const LibUtilities::BasisKey &Bc,
+                                       const LibUtilities::PointsType Ntype,
+                                       SpatialDomains::Geometry3D *geom);
 
     /// Copy Constructor
     LOCAL_REGIONS_EXPORT NodalPrismExp(const NodalPrismExp &T);

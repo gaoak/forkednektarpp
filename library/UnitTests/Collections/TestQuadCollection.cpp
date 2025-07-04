@@ -41,47 +41,50 @@
 
 namespace Nektar::QuadCollectionTests
 {
-SpatialDomains::SegGeomSharedPtr CreateSegGeom(
-    unsigned int id, SpatialDomains::PointGeomSharedPtr v0,
-    SpatialDomains::PointGeomSharedPtr v1)
+
+SpatialDomains::SegGeomUniquePtr CreateSegGeom(unsigned int id,
+                                               SpatialDomains::PointGeom *v0,
+                                               SpatialDomains::PointGeom *v1)
 {
-    SpatialDomains::PointGeomSharedPtr vertices[] = {v0, v1};
-    SpatialDomains::SegGeomSharedPtr result(
-        new SpatialDomains::SegGeom(id, 3, vertices));
+    std::array<SpatialDomains::PointGeom *, 2> vertices = {v0, v1};
+    SpatialDomains::SegGeomUniquePtr result(
+        new SpatialDomains::SegGeom(id, v0->GetCoordim(), vertices));
     return result;
 }
 
-SpatialDomains::QuadGeomSharedPtr CreateQuad(
-    SpatialDomains::PointGeomSharedPtr v0,
-    SpatialDomains::PointGeomSharedPtr v1,
-    SpatialDomains::PointGeomSharedPtr v2,
-    SpatialDomains::PointGeomSharedPtr v3)
+SpatialDomains::QuadGeomUniquePtr CreateQuad(
+    std::array<SpatialDomains::PointGeom *, 4> v,
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> &segVec)
 {
-    Nektar::SpatialDomains::SegGeomSharedPtr e0 = CreateSegGeom(0, v0, v1);
-    Nektar::SpatialDomains::SegGeomSharedPtr e1 = CreateSegGeom(1, v1, v2);
-    Nektar::SpatialDomains::SegGeomSharedPtr e2 = CreateSegGeom(2, v2, v3);
-    Nektar::SpatialDomains::SegGeomSharedPtr e3 = CreateSegGeom(3, v3, v0);
+    segVec = {CreateSegGeom(0, v[0], v[1]), CreateSegGeom(1, v[1], v[2]),
+              CreateSegGeom(2, v[2], v[3]), CreateSegGeom(3, v[3], v[0])};
 
-    Nektar::SpatialDomains::SegGeomSharedPtr
-        edges[Nektar::SpatialDomains::QuadGeom::kNedges] = {e0, e1, e2, e3};
+    std::array<SpatialDomains::SegGeom *, 4> tmp;
+    for (int i = 0; i < 4; ++i)
+    {
+        tmp[i] = segVec[i].get();
+    }
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom(
-        new SpatialDomains::QuadGeom(0, edges));
+    SpatialDomains::QuadGeomUniquePtr quadGeom(
+        new SpatialDomains::QuadGeom(0, tmp));
     return quadGeom;
 }
 
 BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_StdMat_UniformP)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(2u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(2u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -95,7 +98,7 @@ BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_StdMat_UniformP)
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, quadGeom);
+            basisKeyDir1, basisKeyDir1, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -127,16 +130,19 @@ BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_StdMat_UniformP)
 
 BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_StdMat_VariableP)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -153,7 +159,7 @@ BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_StdMat_VariableP)
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, quadGeom);
+            basisKeyDir1, basisKeyDir2, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -185,16 +191,19 @@ BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_StdMat_VariableP)
 
 BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_StdMat_VariableP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -211,7 +220,7 @@ BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_StdMat_VariableP_MultiElmt)
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, quadGeom);
+            basisKeyDir1, basisKeyDir2, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -251,16 +260,19 @@ BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_StdMat_VariableP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_IterPerExp_UniformP)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(2u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(2u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -274,7 +286,7 @@ BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_IterPerExp_UniformP)
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, quadGeom);
+            basisKeyDir1, basisKeyDir1, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -306,16 +318,19 @@ BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_IterPerExp_UniformP)
 
 BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_IterPerExp_VariableP)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -332,7 +347,7 @@ BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_IterPerExp_VariableP)
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, quadGeom);
+            basisKeyDir1, basisKeyDir2, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -364,16 +379,19 @@ BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_IterPerExp_VariableP)
 
 BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_MatrixFree_UniformP)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(2u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(2u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -388,7 +406,7 @@ BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_MatrixFree_UniformP)
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, quadGeom);
+            basisKeyDir1, basisKeyDir1, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -421,16 +439,19 @@ BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_MatrixFree_UniformP)
 
 BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_SumFac_UniformP)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(2u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(2u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -444,7 +465,7 @@ BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_SumFac_UniformP)
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, quadGeom);
+            basisKeyDir1, basisKeyDir1, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -485,16 +506,19 @@ BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_SumFac_UniformP)
 
 BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_SumFac_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(2u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(2u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -508,7 +532,7 @@ BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_SumFac_UniformP_MultiElmt)
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, quadGeom);
+            basisKeyDir1, basisKeyDir1, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -549,16 +573,19 @@ BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_SumFac_UniformP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_SumFac_VariableP)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -575,7 +602,7 @@ BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_SumFac_VariableP)
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, quadGeom);
+            basisKeyDir1, basisKeyDir2, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -616,16 +643,19 @@ BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_SumFac_VariableP)
 
 BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_SumFac_VariableP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -642,7 +672,7 @@ BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_SumFac_VariableP_MultiElmt)
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, quadGeom);
+            basisKeyDir1, basisKeyDir2, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -683,16 +713,19 @@ BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_SumFac_VariableP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestQuadIProductWRTBase_StdMat_UniformP)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(2u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(2u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -706,7 +739,7 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTBase_StdMat_UniformP)
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, quadGeom);
+            basisKeyDir1, basisKeyDir1, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -751,16 +784,19 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTBase_StdMat_UniformP)
 BOOST_AUTO_TEST_CASE(TestQuadIProductWRTBase_StdMat_VariableP)
 {
 
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -777,7 +813,7 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTBase_StdMat_VariableP)
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, quadGeom);
+            basisKeyDir1, basisKeyDir2, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -822,16 +858,19 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTBase_StdMat_VariableP)
 BOOST_AUTO_TEST_CASE(TestQuadIProductWRTBase_StdMat_VariableP_MultiElmt)
 {
 
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -848,7 +887,7 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTBase_StdMat_VariableP_MultiElmt)
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, quadGeom);
+            basisKeyDir1, basisKeyDir2, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -903,16 +942,19 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTBase_StdMat_VariableP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestQuadIProductWRTBase_IterPerExp_UniformP)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(2u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(2u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -926,7 +968,7 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTBase_IterPerExp_UniformP)
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, quadGeom);
+            basisKeyDir1, basisKeyDir1, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -970,16 +1012,19 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTBase_IterPerExp_UniformP)
 
 BOOST_AUTO_TEST_CASE(TestQuadIProductWRTBase_SumFac_UniformP)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(2u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(2u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -993,7 +1038,7 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTBase_SumFac_UniformP)
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, quadGeom);
+            basisKeyDir1, basisKeyDir1, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -1037,16 +1082,19 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTBase_SumFac_UniformP)
 
 BOOST_AUTO_TEST_CASE(TestQuadIProductWRTBase_SumFac_VariableP)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(2u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(2u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1063,7 +1111,7 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTBase_SumFac_VariableP)
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, quadGeom);
+            basisKeyDir1, basisKeyDir2, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -1107,16 +1155,19 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTBase_SumFac_VariableP)
 
 BOOST_AUTO_TEST_CASE(TestQuadIProductWRTBase_MatrixFree_UniformP_Undeformed)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(2u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(2u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1131,7 +1182,7 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTBase_MatrixFree_UniformP_Undeformed)
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, quadGeom);
+            basisKeyDir1, basisKeyDir1, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -1175,16 +1226,19 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTBase_MatrixFree_UniformP_Undeformed)
 
 BOOST_AUTO_TEST_CASE(TestQuadIProductWRTBase_MatrixFree_UniformP_Deformed)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(2u, 2u, 1.0, 2.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(2u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1199,7 +1253,7 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTBase_MatrixFree_UniformP_Deformed)
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, quadGeom);
+            basisKeyDir1, basisKeyDir1, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -1244,16 +1298,19 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTBase_MatrixFree_UniformP_Deformed)
 BOOST_AUTO_TEST_CASE(
     TestQuadIProductWRTBase_MatrixFree_UniformP_Deformed_OverInt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(2u, 2u, 1.0, 2.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(2u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1268,7 +1325,7 @@ BOOST_AUTO_TEST_CASE(
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, quadGeom);
+            basisKeyDir1, basisKeyDir1, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -1312,16 +1369,19 @@ BOOST_AUTO_TEST_CASE(
 
 BOOST_AUTO_TEST_CASE(TestQuadPhysDeriv_IterPerExp_UniformP)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.5, -1.5, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(2u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(2u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1335,7 +1395,7 @@ BOOST_AUTO_TEST_CASE(TestQuadPhysDeriv_IterPerExp_UniformP)
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, quadGeom);
+            basisKeyDir1, basisKeyDir1, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -1376,16 +1436,19 @@ BOOST_AUTO_TEST_CASE(TestQuadPhysDeriv_IterPerExp_UniformP)
 
 BOOST_AUTO_TEST_CASE(TestQuadPhysDeriv_IterPerExp_VariableP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.5, -1.5, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1402,7 +1465,7 @@ BOOST_AUTO_TEST_CASE(TestQuadPhysDeriv_IterPerExp_VariableP_MultiElmt)
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, quadGeom);
+            basisKeyDir1, basisKeyDir2, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -1456,16 +1519,19 @@ BOOST_AUTO_TEST_CASE(TestQuadPhysDeriv_IterPerExp_VariableP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestQuadPhysDeriv_MatrixFree_UniformP_Undeformed)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(2u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(2u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1480,7 +1546,7 @@ BOOST_AUTO_TEST_CASE(TestQuadPhysDeriv_MatrixFree_UniformP_Undeformed)
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, quadGeom);
+            basisKeyDir1, basisKeyDir1, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -1523,16 +1589,19 @@ BOOST_AUTO_TEST_CASE(TestQuadPhysDeriv_MatrixFree_UniformP_Undeformed)
 
 BOOST_AUTO_TEST_CASE(TestQuadPhysDeriv_MatrixFree_UniformP_Deformed)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.0, -2.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(2u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(2u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1547,7 +1616,7 @@ BOOST_AUTO_TEST_CASE(TestQuadPhysDeriv_MatrixFree_UniformP_Deformed)
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, quadGeom);
+            basisKeyDir1, basisKeyDir1, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -1590,16 +1659,19 @@ BOOST_AUTO_TEST_CASE(TestQuadPhysDeriv_MatrixFree_UniformP_Deformed)
 
 BOOST_AUTO_TEST_CASE(TestQuadPhysDeriv_MatrixFree_UniformP_Deformed_3D)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -2.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1614,7 +1686,7 @@ BOOST_AUTO_TEST_CASE(TestQuadPhysDeriv_MatrixFree_UniformP_Deformed_3D)
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, quadGeom);
+            basisKeyDir1, basisKeyDir1, quadGeom.get());
 
     std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
@@ -1656,16 +1728,19 @@ BOOST_AUTO_TEST_CASE(TestQuadPhysDeriv_MatrixFree_UniformP_Deformed_3D)
 BOOST_AUTO_TEST_CASE(
     TestQuadPhysDeriv_Directional_MatrixFree_UniformP_Undeformed)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(2u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(2u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1680,7 +1755,7 @@ BOOST_AUTO_TEST_CASE(
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, quadGeom);
+            basisKeyDir1, basisKeyDir1, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -1726,16 +1801,19 @@ BOOST_AUTO_TEST_CASE(
 
 BOOST_AUTO_TEST_CASE(TestQuadPhysDeriv_StdMat_UniformP)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.5, -1.5, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(2u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(2u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1749,7 +1827,7 @@ BOOST_AUTO_TEST_CASE(TestQuadPhysDeriv_StdMat_UniformP)
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, quadGeom);
+            basisKeyDir1, basisKeyDir1, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -1790,16 +1868,19 @@ BOOST_AUTO_TEST_CASE(TestQuadPhysDeriv_StdMat_UniformP)
 
 BOOST_AUTO_TEST_CASE(TestQuadPhysDeriv_StdMat_VariableP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.5, -1.5, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1816,7 +1897,7 @@ BOOST_AUTO_TEST_CASE(TestQuadPhysDeriv_StdMat_VariableP_MultiElmt)
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, quadGeom);
+            basisKeyDir1, basisKeyDir2, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -1871,16 +1952,19 @@ BOOST_AUTO_TEST_CASE(TestQuadPhysDeriv_StdMat_VariableP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestQuadPhysDeriv_SumFac_UniformP)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.5, -1.5, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(2u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(2u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1894,7 +1978,7 @@ BOOST_AUTO_TEST_CASE(TestQuadPhysDeriv_SumFac_UniformP)
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, quadGeom);
+            basisKeyDir1, basisKeyDir1, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -1935,16 +2019,19 @@ BOOST_AUTO_TEST_CASE(TestQuadPhysDeriv_SumFac_UniformP)
 
 BOOST_AUTO_TEST_CASE(TestQuadPhysDeriv_SumFac_VariableP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.5, -1.5, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1961,7 +2048,7 @@ BOOST_AUTO_TEST_CASE(TestQuadPhysDeriv_SumFac_VariableP_MultiElmt)
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, quadGeom);
+            basisKeyDir1, basisKeyDir2, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -2016,16 +2103,19 @@ BOOST_AUTO_TEST_CASE(TestQuadPhysDeriv_SumFac_VariableP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestQuadIProductWRTDerivBase_IterPerExp_UniformP)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(2u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(2u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -2039,7 +2129,7 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTDerivBase_IterPerExp_UniformP)
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, quadGeom);
+            basisKeyDir1, basisKeyDir1, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -2091,16 +2181,19 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTDerivBase_IterPerExp_UniformP)
 BOOST_AUTO_TEST_CASE(
     TestQuadIProductWRTDerivBase_IterPerExp_VariableP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.0, -1.5, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -2117,7 +2210,7 @@ BOOST_AUTO_TEST_CASE(
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, quadGeom);
+            basisKeyDir1, basisKeyDir2, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -2182,16 +2275,19 @@ BOOST_AUTO_TEST_CASE(
 BOOST_AUTO_TEST_CASE(
     TestQuadIProductWRTDerivBase_MatrixFree_UniformP_Undeformed)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(2u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(2u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -2206,7 +2302,7 @@ BOOST_AUTO_TEST_CASE(
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, quadGeom);
+            basisKeyDir1, basisKeyDir1, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -2261,16 +2357,19 @@ BOOST_AUTO_TEST_CASE(
 
 BOOST_AUTO_TEST_CASE(TestQuadIProductWRTDerivBase_MatrixFree_UniformP_Deformed)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 3.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(2u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(2u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -2285,7 +2384,7 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTDerivBase_MatrixFree_UniformP_Deformed)
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, quadGeom);
+            basisKeyDir1, basisKeyDir1, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -2341,16 +2440,19 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTDerivBase_MatrixFree_UniformP_Deformed)
 BOOST_AUTO_TEST_CASE(
     TestQuadIProductWRTDerivBase_MatrixFree_UniformP_Deformed_ThreeD)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 3.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, 1.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -2365,7 +2467,7 @@ BOOST_AUTO_TEST_CASE(
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, quadGeom);
+            basisKeyDir1, basisKeyDir1, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -2438,16 +2540,19 @@ BOOST_AUTO_TEST_CASE(
 BOOST_AUTO_TEST_CASE(
     TestQuadIProductWRTDerivBase_MatrixFree_UniformP_Deformed_OverInt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 3.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(2u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(2u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -2462,7 +2567,7 @@ BOOST_AUTO_TEST_CASE(
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, quadGeom);
+            basisKeyDir1, basisKeyDir1, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -2517,16 +2622,19 @@ BOOST_AUTO_TEST_CASE(
 
 BOOST_AUTO_TEST_CASE(TestQuadIProductWRTDerivBase_StdMat_UniformP)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(2u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(2u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -2540,7 +2648,7 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTDerivBase_StdMat_UniformP)
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, quadGeom);
+            basisKeyDir1, basisKeyDir1, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -2591,16 +2699,19 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTDerivBase_StdMat_UniformP)
 
 BOOST_AUTO_TEST_CASE(TestQuadIProductWRTDerivBase_StdMat_VariableP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.0, -1.5, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -2617,7 +2728,7 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTDerivBase_StdMat_VariableP_MultiElmt)
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, quadGeom);
+            basisKeyDir1, basisKeyDir2, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -2681,16 +2792,19 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTDerivBase_StdMat_VariableP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestQuadIProductWRTDerivBase_SumFac_UniformP)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(2u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(2u, 3u, -1.0, 2.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -2704,7 +2818,7 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTDerivBase_SumFac_UniformP)
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, quadGeom);
+            basisKeyDir1, basisKeyDir1, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -2755,16 +2869,19 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTDerivBase_SumFac_UniformP)
 
 BOOST_AUTO_TEST_CASE(TestQuadIProductWRTDerivBase_SumFac_VariableP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.0, -1.5, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -2781,7 +2898,7 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTDerivBase_SumFac_VariableP_MultiElmt)
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, quadGeom);
+            basisKeyDir1, basisKeyDir2, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -2846,16 +2963,19 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTDerivBase_SumFac_VariableP_MultiElmt)
 BOOST_AUTO_TEST_CASE(
     TestQuadIProductWRTDerivBase_SumFac_VariableP_MultiElmt_threedim)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3, 0, -1.0, -1.5, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3, 1, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3, 2, 1.0, 1.0, 1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3, 3, -1.0, 1.0, 1.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -2872,7 +2992,7 @@ BOOST_AUTO_TEST_CASE(
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, quadGeom);
+            basisKeyDir1, basisKeyDir2, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -2944,16 +3064,19 @@ BOOST_AUTO_TEST_CASE(
 
 BOOST_AUTO_TEST_CASE(TestQuadHelmholtz_IterPerExp_UniformP_ConstVarDiff)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(2u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(2u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -2968,7 +3091,7 @@ BOOST_AUTO_TEST_CASE(TestQuadHelmholtz_IterPerExp_UniformP_ConstVarDiff)
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, quadGeom);
+            basisKeyDir1, basisKeyDir1, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -3032,16 +3155,19 @@ BOOST_AUTO_TEST_CASE(TestQuadHelmholtz_IterPerExp_UniformP_ConstVarDiff)
 
 BOOST_AUTO_TEST_CASE(TestQuadHelmholtz_MatrixFree_UniformP)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(2u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(2u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -3056,7 +3182,7 @@ BOOST_AUTO_TEST_CASE(TestQuadHelmholtz_MatrixFree_UniformP)
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, quadGeom);
+            basisKeyDir1, basisKeyDir1, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -3117,16 +3243,19 @@ BOOST_AUTO_TEST_CASE(TestQuadHelmholtz_MatrixFree_UniformP)
 
 BOOST_AUTO_TEST_CASE(TestQuadHelmholtz_MatrixFree_UniformP_Deformed)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.5, -1.5, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(2u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(2u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -3141,7 +3270,7 @@ BOOST_AUTO_TEST_CASE(TestQuadHelmholtz_MatrixFree_UniformP_Deformed)
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, quadGeom);
+            basisKeyDir1, basisKeyDir1, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -3202,16 +3331,19 @@ BOOST_AUTO_TEST_CASE(TestQuadHelmholtz_MatrixFree_UniformP_Deformed)
 
 BOOST_AUTO_TEST_CASE(TestQuadHelmholtz_MatrixFree_UniformP_ConstVarDiff)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(2u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(2u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -3226,7 +3358,7 @@ BOOST_AUTO_TEST_CASE(TestQuadHelmholtz_MatrixFree_UniformP_ConstVarDiff)
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, quadGeom);
+            basisKeyDir1, basisKeyDir1, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -3290,16 +3422,19 @@ BOOST_AUTO_TEST_CASE(TestQuadHelmholtz_MatrixFree_UniformP_ConstVarDiff)
 
 BOOST_AUTO_TEST_CASE(TestQuadPhysInterp1D_NoCollection_UniformP)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(2u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(2u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -3313,7 +3448,7 @@ BOOST_AUTO_TEST_CASE(TestQuadPhysInterp1D_NoCollection_UniformP)
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, quadGeom);
+            basisKeyDir1, basisKeyDir1, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
@@ -3366,16 +3501,19 @@ BOOST_AUTO_TEST_CASE(TestQuadPhysInterp1D_NoCollection_UniformP)
 
 BOOST_AUTO_TEST_CASE(TestQuadPhysInterp1D_MatrixFree_UniformP)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(2u, 2u, 1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(2u, 3u, -1.0, 1.0, 0.0));
 
-    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
 
     Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -3389,7 +3527,7 @@ BOOST_AUTO_TEST_CASE(TestQuadPhysInterp1D_MatrixFree_UniformP)
 
     Nektar::LocalRegions::QuadExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, quadGeom);
+            basisKeyDir1, basisKeyDir1, quadGeom.get());
 
     Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(

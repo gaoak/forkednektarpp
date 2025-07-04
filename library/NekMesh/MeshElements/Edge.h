@@ -61,13 +61,13 @@ public:
                         std::vector<NodeSharedPtr> pEdgeNodes,
                         LibUtilities::PointsType pCurveType)
         : m_n1(pVertex1), m_n2(pVertex2), m_edgeNodes(pEdgeNodes),
-          m_curveType(pCurveType), m_geom()
+          m_curveType(pCurveType)
     {
     }
 
     /// Creates a new linear edge.
     NEKMESH_EXPORT Edge(NodeSharedPtr pVertex1, NodeSharedPtr pVertex2)
-        : m_n1(pVertex1), m_n2(pVertex2), m_edgeNodes(), m_curveType(), m_geom()
+        : m_n1(pVertex1), m_n2(pVertex2), m_edgeNodes(), m_curveType()
     {
     }
 
@@ -105,10 +105,11 @@ public:
     NEKMESH_EXPORT std::string GetXmlCurveString();
 
     /// Generate a SpatialDomains::SegGeom object for this edge.
-    NEKMESH_EXPORT SpatialDomains::SegGeomSharedPtr GetGeom(int coordDim);
+    NEKMESH_EXPORT SpatialDomains::SegGeom *GetGeom(
+        int coordDim, SpatialDomains::EntityHolder &holder);
 
     /// Make this edge an order @p order edge. @see Element::MakeOrder.
-    void MakeOrder(int order, SpatialDomains::GeometrySharedPtr geom,
+    void MakeOrder(int order, SpatialDomains::Geometry *geom,
                    LibUtilities::PointsType edgeType, int coordDim, int &id);
 
     /// ID of edge.
@@ -125,9 +126,6 @@ public:
     std::vector<std::pair<std::weak_ptr<Element>, int>> m_elLink;
 
     CADObjectSharedPtr m_parentCAD;
-
-private:
-    SpatialDomains::SegGeomSharedPtr m_geom;
 };
 /// Shared pointer to an edge.
 typedef std::shared_ptr<Edge> EdgeSharedPtr;

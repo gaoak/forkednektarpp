@@ -56,7 +56,7 @@ class Expansion3D : virtual public Expansion,
                     virtual public StdRegions::StdExpansion3D
 {
 public:
-    LOCAL_REGIONS_EXPORT Expansion3D(SpatialDomains::Geometry3DSharedPtr pGeom)
+    LOCAL_REGIONS_EXPORT Expansion3D(SpatialDomains::Geometry3D *pGeom)
         : Expansion(pGeom), StdExpansion3D(), m_requireNeg()
     {
     }
@@ -87,7 +87,7 @@ public:
         Array<OneD, NekDouble> &facePhys, Array<OneD, NekDouble> &outarray,
         const StdRegions::VarCoeffMap &varcoeffs = StdRegions::NullVarCoeffMap);
 
-    inline SpatialDomains::Geometry3DSharedPtr GetGeom3D() const;
+    inline SpatialDomains::Geometry3D *GetGeom3D() const;
 
     LOCAL_REGIONS_EXPORT void v_ReOrientTracePhysMap(
         const StdRegions::Orientation orient, Array<OneD, int> &idmap,
@@ -173,9 +173,9 @@ private:
         const StdRegions::VarCoeffMap &varcoeffs);
 };
 
-inline SpatialDomains::Geometry3DSharedPtr Expansion3D::GetGeom3D() const
+inline SpatialDomains::Geometry3D *Expansion3D::GetGeom3D() const
 {
-    return std::dynamic_pointer_cast<SpatialDomains::Geometry3D>(m_geom);
+    return static_cast<SpatialDomains::Geometry3D *>(m_geom);
 }
 } // namespace Nektar::LocalRegions
 

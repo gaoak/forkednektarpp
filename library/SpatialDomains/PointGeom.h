@@ -38,7 +38,9 @@
 
 #include <SpatialDomains/Geometry0D.h>
 #include <SpatialDomains/SpatialDomainsDeclspec.h>
-#include <StdRegions/StdRegions.hpp>
+
+#include <boost/container/flat_map.hpp>
+
 #include <memory>
 
 namespace Nektar::SpatialDomains
@@ -47,12 +49,7 @@ namespace Nektar::SpatialDomains
 class PointGeom;
 class SegGeom;
 
-typedef std::shared_ptr<PointGeom> PointGeomSharedPtr;
-typedef std::map<int, PointGeomSharedPtr> PointGeomMap;
-
-class PointGeom : public Geometry0D,
-                  public NekPoint<NekDouble>,
-                  public std::enable_shared_from_this<PointGeom>
+class PointGeom : public Geometry0D, public NekPoint<NekDouble>
 {
 public:
     SPATIAL_DOMAINS_EXPORT PointGeom();
@@ -61,11 +58,6 @@ public:
     SPATIAL_DOMAINS_EXPORT PointGeom(const PointGeom &T);
 
     SPATIAL_DOMAINS_EXPORT ~PointGeom() override = default;
-
-    SPATIAL_DOMAINS_EXPORT int GetVid()
-    {
-        return m_globalID;
-    }
 
     SPATIAL_DOMAINS_EXPORT void GetCoords(NekDouble &x, NekDouble &y,
                                           NekDouble &z);
@@ -94,8 +86,12 @@ public:
                                                   const PointGeom &y);
 
 protected:
+    int v_GetVid([[maybe_unused]] int i) const override
+    {
+        return m_globalID;
+    }
+
     void v_GenGeomFactors() override;
-    PointGeomSharedPtr v_GetVertex(int i) const override;
 };
 
 } // namespace Nektar::SpatialDomains

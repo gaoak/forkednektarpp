@@ -64,8 +64,8 @@ public:
     {
     }
 
-    NEKMESH_EXPORT SpatialDomains::GeometrySharedPtr GetGeom(
-        int coordDim) override;
+    NEKMESH_EXPORT SpatialDomains::Geometry *GetGeom(
+        int coordDim, SpatialDomains::EntityHolder &holder) override;
     NEKMESH_EXPORT static unsigned int GetNumNodes(ElmtConfig pConf);
     NEKMESH_EXPORT int GetFaceVertex(int i, int j) override
     {

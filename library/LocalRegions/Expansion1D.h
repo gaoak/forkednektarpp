@@ -55,7 +55,7 @@ class Expansion1D : virtual public Expansion,
                     virtual public StdRegions::StdExpansion1D
 {
 public:
-    LOCAL_REGIONS_EXPORT Expansion1D(SpatialDomains::Geometry1DSharedPtr pGeom)
+    LOCAL_REGIONS_EXPORT Expansion1D(SpatialDomains::Geometry1D *pGeom)
         : Expansion(pGeom), StdExpansion1D()
     {
     }
@@ -70,7 +70,7 @@ public:
                                    const Array<OneD, const NekDouble> &inarray,
                                    Array<OneD, NekDouble> &outarray);
 
-    inline SpatialDomains::Geometry1DSharedPtr GetGeom1D() const;
+    inline SpatialDomains::Geometry1D *GetGeom1D() const;
 
 protected:
     DNekMatSharedPtr v_GenMatrix(const StdRegions::StdMatrixKey &mkey) override;
@@ -101,9 +101,9 @@ protected:
 private:
 };
 
-inline SpatialDomains::Geometry1DSharedPtr Expansion1D ::GetGeom1D() const
+inline SpatialDomains::Geometry1D *Expansion1D ::GetGeom1D() const
 {
-    return std::dynamic_pointer_cast<SpatialDomains ::Geometry1D>(m_geom);
+    return static_cast<SpatialDomains::Geometry1D *>(m_geom);
 }
 } // namespace Nektar::LocalRegions
 

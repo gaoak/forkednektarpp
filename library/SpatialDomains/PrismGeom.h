@@ -45,16 +45,18 @@ namespace Nektar::SpatialDomains
 class PrismGeom : public Geometry3D
 {
 public:
-    SPATIAL_DOMAINS_EXPORT PrismGeom();
-    SPATIAL_DOMAINS_EXPORT PrismGeom(int id, const Geometry2DSharedPtr faces[]);
-    SPATIAL_DOMAINS_EXPORT ~PrismGeom() override = default;
-
     SPATIAL_DOMAINS_EXPORT static const int kNverts  = 6;
     SPATIAL_DOMAINS_EXPORT static const int kNedges  = 9;
     SPATIAL_DOMAINS_EXPORT static const int kNqfaces = 3;
     SPATIAL_DOMAINS_EXPORT static const int kNtfaces = 2;
     SPATIAL_DOMAINS_EXPORT static const int kNfaces  = kNqfaces + kNtfaces;
+    SPATIAL_DOMAINS_EXPORT static const int kNfacets = kNfaces;
     SPATIAL_DOMAINS_EXPORT static const std::string XMLElementType;
+
+    SPATIAL_DOMAINS_EXPORT PrismGeom();
+    SPATIAL_DOMAINS_EXPORT PrismGeom(
+        int id, std::array<Geometry2D *, PrismGeom::kNfaces> faces);
+    SPATIAL_DOMAINS_EXPORT ~PrismGeom() override = default;
 
 protected:
     void v_GenGeomFactors() override;
@@ -65,6 +67,53 @@ protected:
     int v_GetDir(const int faceidx, const int facedir) const override;
     void v_Reset(CurveMap &curvedEdges, CurveMap &curvedFaces) override;
     void v_Setup() override;
+    void v_FillGeom() override;
+
+    inline int v_GetNumVerts() const final
+    {
+        return kNverts;
+    }
+
+    inline int v_GetNumEdges() const final
+    {
+        return kNedges;
+    }
+
+    inline int v_GetNumFaces() const final
+    {
+        return kNfaces;
+    }
+
+    inline PointGeom *v_GetVertex(const int i) const final
+    {
+        return m_verts[i];
+    }
+
+    inline Geometry1D *v_GetEdge(const int i) const final
+    {
+        return static_cast<Geometry1D *>(m_edges[i]);
+    }
+
+    inline Geometry2D *v_GetFace(const int i) const final
+    {
+        return static_cast<Geometry2D *>(m_faces[i]);
+    }
+
+    inline StdRegions::Orientation v_GetEorient(const int i) const final
+    {
+        return m_eorient[i];
+    }
+
+    inline StdRegions::Orientation v_GetForient(const int i) const final
+    {
+        return m_forient[i];
+    }
+
+    std::array<PointGeom *, kNverts> m_verts;
+    std::array<SegGeom *, kNedges> m_edges;
+    std::array<Geometry2D *, kNfaces> m_faces;
+    std::array<StdRegions::Orientation, kNedges> m_eorient;
+    std::array<StdRegions::Orientation, kNfaces> m_forient;
 
 private:
     void SetUpLocalEdges();
@@ -78,9 +127,6 @@ private:
     static const unsigned int EdgeFaceConnectivity[9][2];
     static const unsigned int EdgeNormalToFaceVert[5][4];
 };
-
-typedef std::shared_ptr<PrismGeom> PrismGeomSharedPtr;
-typedef std::map<int, PrismGeomSharedPtr> PrismGeomMap;
 
 } // namespace Nektar::SpatialDomains
 

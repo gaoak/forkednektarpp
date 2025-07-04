@@ -286,7 +286,7 @@ int main(int argc, char *argv[])
         }
 
         // Now process each vertex of each element in the mesh
-        SpatialDomains::PointGeomSharedPtr vert;
+        SpatialDomains::PointGeom *vert;
         for (i = 0; i < Exp->GetNumElmts(); ++i)
         {
             StdRegions::StdExpansionSharedPtr e = Exp->GetExp(i);

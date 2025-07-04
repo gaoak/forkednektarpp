@@ -108,7 +108,7 @@ void ProcessQualityMetric::v_Process(po::variables_map &vm)
     exp->FwdTransLocalElmt(phys, coeffs);
 }
 
-inline vector<DNekMat> MappingIdealToRef(SpatialDomains::GeometrySharedPtr geom,
+inline vector<DNekMat> MappingIdealToRef(SpatialDomains::Geometry *geom,
                                          StdRegions::StdExpansionSharedPtr chi)
 {
     vector<DNekMat> ret;
@@ -119,7 +119,7 @@ inline vector<DNekMat> MappingIdealToRef(SpatialDomains::GeometrySharedPtr geom,
         for (int i = 0; i < geom->GetNumVerts(); i++)
         {
             Array<OneD, NekDouble> loc(2);
-            SpatialDomains::PointGeomSharedPtr p = geom->GetVertex(i);
+            SpatialDomains::PointGeom *p = geom->GetVertex(i);
             p->GetCoords(loc);
             xy.push_back(loc);
         }
@@ -157,7 +157,7 @@ inline vector<DNekMat> MappingIdealToRef(SpatialDomains::GeometrySharedPtr geom,
         for (int i = 0; i < geom->GetNumVerts(); i++)
         {
             Array<OneD, NekDouble> loc(2);
-            SpatialDomains::PointGeomSharedPtr p = geom->GetVertex(i);
+            SpatialDomains::PointGeom *p = geom->GetVertex(i);
             p->GetCoords(loc);
             xy.push_back(loc);
         }
@@ -190,7 +190,7 @@ inline vector<DNekMat> MappingIdealToRef(SpatialDomains::GeometrySharedPtr geom,
         for (int i = 0; i < geom->GetNumVerts(); i++)
         {
             Array<OneD, NekDouble> loc(3);
-            SpatialDomains::PointGeomSharedPtr p = geom->GetVertex(i);
+            SpatialDomains::PointGeom *p = geom->GetVertex(i);
             p->GetCoords(loc);
             xyz.push_back(loc);
         }
@@ -237,7 +237,7 @@ inline vector<DNekMat> MappingIdealToRef(SpatialDomains::GeometrySharedPtr geom,
         for (int i = 0; i < geom->GetNumVerts(); i++)
         {
             Array<OneD, NekDouble> loc(3);
-            SpatialDomains::PointGeomSharedPtr p = geom->GetVertex(i);
+            SpatialDomains::PointGeom *p = geom->GetVertex(i);
             p->GetCoords(loc);
             xyz.push_back(loc);
         }
@@ -298,7 +298,7 @@ inline vector<DNekMat> MappingIdealToRef(SpatialDomains::GeometrySharedPtr geom,
         for (int i = 0; i < geom->GetNumVerts(); i++)
         {
             Array<OneD, NekDouble> loc(3);
-            SpatialDomains::PointGeomSharedPtr p = geom->GetVertex(i);
+            SpatialDomains::PointGeom *p = geom->GetVertex(i);
             p->GetCoords(loc);
             xyz.push_back(loc);
         }
@@ -388,7 +388,7 @@ inline vector<DNekMat> MappingIdealToRef(SpatialDomains::GeometrySharedPtr geom,
 Array<OneD, NekDouble> ProcessQualityMetric::GetQ(
     LocalRegions::ExpansionSharedPtr e, bool s)
 {
-    SpatialDomains::GeometrySharedPtr geom    = e->GetGeom();
+    SpatialDomains::Geometry *geom            = e->GetGeom();
     StdRegions::StdExpansionSharedPtr chi     = e->GetGeom()->GetXmap();
     LibUtilities::PointsKeyVector p           = chi->GetPointsKeys();
     LibUtilities::PointsKeyVector pElem       = e->GetPointsKeys();

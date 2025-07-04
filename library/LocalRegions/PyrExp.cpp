@@ -43,7 +43,7 @@ namespace Nektar::LocalRegions
 PyrExp::PyrExp(const LibUtilities::BasisKey &Ba,
                const LibUtilities::BasisKey &Bb,
                const LibUtilities::BasisKey &Bc,
-               const SpatialDomains::PyrGeomSharedPtr &geom)
+               SpatialDomains::Geometry3D *geom)
     : StdExpansion(LibUtilities::StdPyrData::getNumberOfCoefficients(
                        Ba.GetNumModes(), Bb.GetNumModes(), Bc.GetNumModes()),
                    3, Ba, Bb, Bc),

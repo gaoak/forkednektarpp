@@ -139,8 +139,7 @@ public:
     //---------------------------------------------------------
     /// Specialised constructors for 0D Expansions
     /// Wrapper around LocalRegion::PointExp - used in PrePacing.cpp
-    MULTI_REGIONS_EXPORT ExpList(
-        const SpatialDomains::PointGeomSharedPtr &geom);
+    MULTI_REGIONS_EXPORT ExpList(SpatialDomains::PointGeom *geom);
 
     /// Generate expansions for the trace space expansions used in
     /// DisContField.
@@ -1082,7 +1081,8 @@ public:
 protected:
     /// Data Warehouse
     std::shared_ptr<Nektar::Operators::NekDataWarehouse> m_dataWarehouse;
-
+    /// Pointer holder for PulseWaveSolver
+    SpatialDomains::EntityHolder1D m_holder;
     /// Expansion type
     ExpansionType m_expType;
     std::shared_ptr<DNekMat> GenGlobalMatrixFull(

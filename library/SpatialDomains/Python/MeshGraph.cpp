@@ -51,10 +51,63 @@ CompositeSharedPtr Composite_Init(py::list geometries)
     composite->m_geomVec.clear();
     for (int i = 0; i < py::len(geometries); i++)
     {
-        composite->m_geomVec.emplace_back(
-            py::cast<GeometrySharedPtr>(geometries[i]));
+        composite->m_geomVec.emplace_back(py::cast<Geometry *>(geometries[i]));
     }
     return composite;
+}
+
+template <typename T>
+void MeshGraph_AddGeom(MeshGraphSharedPtr graph, unique_ptr_objpool<T> geom)
+{
+    auto id = geom->GetGlobalID();
+    graph->AddGeom(id, std::move(geom));
+}
+
+template <typename T>
+void MeshGraph_GeomMapView(py::module_ &m, const std::string &name)
+{
+    using MapView = GeomMapView<T>;
+
+    py::class_<MapView>(m, name.c_str())
+        .def("__getitem__", &MapView::at, py::return_value_policy::reference)
+        .def("__len__", &MapView::size)
+        .def(
+            "__iter__",
+            [](const MapView &self) {
+                return py::make_key_iterator(self.begin(), self.end());
+            },
+            py::keep_alive<0, 1>()) // keep object alive while iterating
+        .def(
+            "items",
+            [](const MapView &self) {
+                return py::make_iterator(self.begin(), self.end());
+            },
+            py::keep_alive<0, 1>())
+        .def("values",
+             [](const MapView &self) {
+                 py::list result;
+                 for (const auto &[_, ptr] : self)
+                 {
+                     result.append(ptr);
+                 }
+                 return result;
+             })
+        .def("keys",
+             [](const MapView &self) {
+                 py::list result;
+                 for (const auto &[id, _] : self)
+                 {
+                     result.append(id);
+                 }
+                 return result;
+             })
+        .def(
+            "get",
+            [](const MapView &self, int id) -> T * {
+                auto it = self.find(id);
+                return (*it).second;
+            },
+            py::return_value_policy::reference);
 }
 
 /**
@@ -63,24 +116,25 @@ CompositeSharedPtr Composite_Init(py::list geometries)
 void export_MeshGraph(py::module &m)
 {
     py::bind_map<LibUtilities::FieldMetaDataMap>(m, "FieldMetaDataMap");
-    py::bind_vector<std::vector<GeometrySharedPtr>>(m, "GeometryList");
+    py::bind_vector<std::vector<Geometry *>>(m, "GeometryList");
 
     py::class_<Composite, std::shared_ptr<Composite>>(m, "Composite")
         .def(py::init<>())
         .def(py::init<>(&Composite_Init))
         .def_readwrite("geometries", &Composite::m_geomVec);
 
-    py::bind_map<PointGeomMap>(m, "PointGeomMap");
-    py::bind_map<SegGeomMap>(m, "SegGeomMap");
-    py::bind_map<QuadGeomMap>(m, "QuadGeomMap");
-    py::bind_map<TriGeomMap>(m, "TriGeomMap");
-    py::bind_map<TetGeomMap>(m, "TetGeomMap");
-    py::bind_map<PrismGeomMap>(m, "PrismGeomMap");
-    py::bind_map<PyrGeomMap>(m, "PyrGeomMap");
-    py::bind_map<HexGeomMap>(m, "HexGeomMap");
     py::bind_map<CurveMap>(m, "CurveMap");
     py::bind_map<CompositeMap>(m, "CompositeMap");
     py::bind_map<std::map<int, CompositeMap>>(m, "DomainMap");
+
+    MeshGraph_GeomMapView<PointGeom>(m, "PointGeomView");
+    MeshGraph_GeomMapView<SegGeom>(m, "SegGeomView");
+    MeshGraph_GeomMapView<TriGeom>(m, "TriGeomView");
+    MeshGraph_GeomMapView<QuadGeom>(m, "QuadGeomView");
+    MeshGraph_GeomMapView<TetGeom>(m, "TetGeomView");
+    MeshGraph_GeomMapView<PyrGeom>(m, "PyrGeomView");
+    MeshGraph_GeomMapView<PrismGeom>(m, "PrismGeomView");
+    MeshGraph_GeomMapView<HexGeom>(m, "HexGeomView");
 
     py::class_<MeshGraph, std::shared_ptr<MeshGraph>>(m, "MeshGraph")
         .def(py::init<>())
@@ -89,26 +143,51 @@ void export_MeshGraph(py::module &m)
 
         .def("GetMeshDimension", &MeshGraph::GetMeshDimension)
         .def("GetSpaceDimension", &MeshGraph::GetSpaceDimension)
-
         .def("SetMeshDimension", &MeshGraph::SetMeshDimension)
         .def("SetSpaceDimension", &MeshGraph::SetSpaceDimension)
 
-        .def("GetAllPointGeoms", &MeshGraph::GetAllPointGeoms,
+        .def_property_readonly("points", &MeshGraph::GetGeomMap<PointGeom>,
+                               py::return_value_policy::reference_internal)
+        .def_property_readonly("segments", &MeshGraph::GetGeomMap<SegGeom>,
+                               py::return_value_policy::reference_internal)
+        .def_property_readonly("quads", &MeshGraph::GetGeomMap<QuadGeom>,
+                               py::return_value_policy::reference_internal)
+        .def_property_readonly("tris", &MeshGraph::GetGeomMap<TriGeom>,
+                               py::return_value_policy::reference_internal)
+        .def_property_readonly("tets", &MeshGraph::GetGeomMap<TetGeom>,
+                               py::return_value_policy::reference_internal)
+        .def_property_readonly("pyrs", &MeshGraph::GetGeomMap<PyrGeom>,
+                               py::return_value_policy::reference_internal)
+        .def_property_readonly("prisms", &MeshGraph::GetGeomMap<PrismGeom>,
+                               py::return_value_policy::reference_internal)
+        .def_property_readonly("hexes", &MeshGraph::GetGeomMap<HexGeom>,
+                               py::return_value_policy::reference_internal)
+
+        .def("AddGeom", &MeshGraph_AddGeom<PointGeom>)
+        .def("AddGeom", &MeshGraph_AddGeom<SegGeom>)
+        .def("AddGeom", &MeshGraph_AddGeom<TriGeom>)
+        .def("AddGeom", &MeshGraph_AddGeom<QuadGeom>)
+
+        .def("GetVertex", &MeshGraph::GetPointGeom,
              py::return_value_policy::reference_internal)
-        .def("GetAllSegGeoms", &MeshGraph::GetAllSegGeoms,
+        .def("GetPointGeom", &MeshGraph::GetPointGeom,
              py::return_value_policy::reference_internal)
-        .def("GetAllQuadGeoms", &MeshGraph::GetAllQuadGeoms,
+        .def("GetSegGeom", &MeshGraph::GetSegGeom,
              py::return_value_policy::reference_internal)
-        .def("GetAllTriGeoms", &MeshGraph::GetAllTriGeoms,
+        .def("GetTriGeom", &MeshGraph::GetTriGeom,
              py::return_value_policy::reference_internal)
-        .def("GetAllTetGeoms", &MeshGraph::GetAllTetGeoms,
+        .def("GetQuadGeom", &MeshGraph::GetQuadGeom,
              py::return_value_policy::reference_internal)
-        .def("GetAllPrismGeoms", &MeshGraph::GetAllPrismGeoms,
+        .def("GetHexGeom", &MeshGraph::GetHexGeom,
              py::return_value_policy::reference_internal)
-        .def("GetAllPyrGeoms", &MeshGraph::GetAllPyrGeoms,
+        .def("GetPrismGeom", &MeshGraph::GetPrismGeom,
              py::return_value_policy::reference_internal)
-        .def("GetAllHexGeoms", &MeshGraph::GetAllHexGeoms,
+        .def("GetTetGeom", &MeshGraph::GetTetGeom,
              py::return_value_policy::reference_internal)
+        .def("GetPyrGeom", &MeshGraph::GetPyrGeom,
+             py::return_value_policy::reference_internal)
+
+        //.def("AddGeom", &MeshGraph::AddGeom<PointGeom>)
         .def("GetCurvedEdges", &MeshGraph::GetCurvedEdges,
              py::return_value_policy::reference_internal)
         .def("GetCurvedFaces", &MeshGraph::GetCurvedFaces,

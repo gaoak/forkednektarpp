@@ -99,6 +99,7 @@ unsigned int Mesh::GetNumEntities()
  */
 void Mesh::MakeOrder(int order, LibUtilities::PointsType distType, Logger &log)
 {
+    SpatialDomains::EntityHolder holder;
     // Going to make a copy of the curavture information, since this is cheaper
     // than using Nektar's Geometry objects. Currently, the geometry objects
     // which make up a 3D element dont use the volume nodes, they are just
@@ -152,8 +153,8 @@ void Mesh::MakeOrder(int order, LibUtilities::PointsType distType, Logger &log)
     for (int i = 0; i < nElmt; ++i)
     {
         log(VERBOSE).Progress(i, nElmt, "MakeOrder: Elements");
-        ElementSharedPtr el                    = m_element[m_expDim][i];
-        SpatialDomains::GeometrySharedPtr geom = el->GetGeom(m_spaceDim);
+        ElementSharedPtr el            = m_element[m_expDim][i];
+        SpatialDomains::Geometry *geom = el->GetGeom(m_spaceDim, holder);
         geom->FillGeom();
         el->MakeOrder(order, geom, pTypes[el->GetConf().m_e], m_spaceDim,
                       tmpId);
@@ -203,8 +204,8 @@ void Mesh::MakeOrder(int order, LibUtilities::PointsType distType, Logger &log)
             continue;
         }
 
-        EdgeSharedPtr cpEdge                   = edgeCopies[edgeId];
-        SpatialDomains::GeometrySharedPtr geom = cpEdge->GetGeom(m_spaceDim);
+        EdgeSharedPtr cpEdge           = edgeCopies[edgeId];
+        SpatialDomains::Geometry *geom = cpEdge->GetGeom(m_spaceDim, holder);
         geom->FillGeom();
 
         (*eit)->MakeOrder(order, geom, pTypes[LibUtilities::eSegment],
@@ -231,8 +232,8 @@ void Mesh::MakeOrder(int order, LibUtilities::PointsType distType, Logger &log)
             continue;
         }
 
-        FaceSharedPtr cpFace                   = faceCopies[faceId];
-        SpatialDomains::GeometrySharedPtr geom = cpFace->GetGeom(m_spaceDim);
+        FaceSharedPtr cpFace           = faceCopies[faceId];
+        SpatialDomains::Geometry *geom = cpFace->GetGeom(m_spaceDim, holder);
         geom->FillGeom();
 
         LibUtilities::ShapeType type = (*fit)->m_vertexList.size() == 3
@@ -259,8 +260,8 @@ void Mesh::MakeOrder(int order, LibUtilities::PointsType distType, Logger &log)
         }
 
         // Copy face curvature
-        el->MakeOrder(order, SpatialDomains::GeometrySharedPtr(),
-                      pTypes[el->GetConf().m_e], m_spaceDim, id, true);
+        el->MakeOrder(order, nullptr, pTypes[el->GetConf().m_e], m_spaceDim, id,
+                      true);
         el->SetVolumeNodes(edge->m_edgeNodes);
     }
 
@@ -275,8 +276,8 @@ void Mesh::MakeOrder(int order, LibUtilities::PointsType distType, Logger &log)
         }
 
         // Copy face curvature
-        el->MakeOrder(order, SpatialDomains::GeometrySharedPtr(),
-                      pTypes[el->GetConf().m_e], m_spaceDim, id, true);
+        el->MakeOrder(order, nullptr, pTypes[el->GetConf().m_e], m_spaceDim, id,
+                      true);
         el->SetVolumeNodes(face->m_faceNodes);
     }
 

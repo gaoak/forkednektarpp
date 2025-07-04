@@ -238,7 +238,7 @@ ExpList::ExpList(const LibUtilities::SessionReaderSharedPtr &pSession,
 //----------------------------------------------------------------------
 //                        0D Expansion Constructors
 //----------------------------------------------------------------------
-ExpList::ExpList(const SpatialDomains::PointGeomSharedPtr &geom)
+ExpList::ExpList(SpatialDomains::PointGeom *geom)
     : m_expType(e0D), m_ncoeffs(1), m_npoints(1), m_physState(false),
       m_exp(MemoryManager<LocalRegions::ExpansionVector>::AllocateSharedPtr()),
       m_blockMat(MemoryManager<BlockMatrixMap>::AllocateSharedPtr()),
@@ -291,12 +291,11 @@ ExpList::ExpList(
     int i, j, id, elmtid = 0;
     set<int> tracesDone;
 
-    SpatialDomains::PointGeomSharedPtr PointGeom;
-    SpatialDomains::Geometry1DSharedPtr segGeom;
-    SpatialDomains::Geometry2DSharedPtr ElGeom;
-    SpatialDomains::Geometry2DSharedPtr FaceGeom;
-    SpatialDomains::QuadGeomSharedPtr QuadGeom;
-    SpatialDomains::TriGeomSharedPtr TriGeom;
+    SpatialDomains::PointGeom *PointGeom;
+    SpatialDomains::Geometry1D *segGeom;
+    SpatialDomains::Geometry2D *FaceGeom;
+    SpatialDomains::QuadGeom *QuadGeom;
+    SpatialDomains::TriGeom *TriGeom;
 
     LocalRegions::ExpansionSharedPtr exp;
     LocalRegions::Expansion0DSharedPtr exp0D;
@@ -355,9 +354,9 @@ ExpList::ExpList(
                     {
                         if ((eInfo->m_basisKeyVector ==
                              ExpOrder[i][0]->m_basisKeyVector) &&
-                            (eInfo->m_geomShPtr->GetGeomFactors()->GetGtype() ==
+                            (eInfo->m_geomPtr->GetGeomFactors()->GetGtype() ==
                              ExpOrder[i][0]
-                                 ->m_geomShPtr->GetGeomFactors()
+                                 ->m_geomPtr->GetGeomFactors()
                                  ->GetGtype()))
                         {
                             ExpOrder[i].push_back(eInfo);
@@ -385,18 +384,16 @@ ExpList::ExpList(
         {
 
             if ((PointGeom =
-                     std::dynamic_pointer_cast<SpatialDomains::PointGeom>(
-                         eit->m_geomShPtr)))
+                     dynamic_cast<SpatialDomains::PointGeom *>(eit->m_geomPtr)))
             {
                 m_expType = e0D;
 
                 exp = MemoryManager<LocalRegions::PointExp>::AllocateSharedPtr(
                     PointGeom);
-                tracesDone.insert(PointGeom->GetVid());
+                tracesDone.insert(PointGeom->GetGlobalID());
             }
-            else if ((segGeom =
-                          std::dynamic_pointer_cast<SpatialDomains::SegGeom>(
-                              eit->m_geomShPtr)))
+            else if ((segGeom = dynamic_cast<SpatialDomains::SegGeom *>(
+                          eit->m_geomPtr)))
             {
                 m_expType = e1D;
 
@@ -404,9 +401,8 @@ ExpList::ExpList(
                     eit->m_basisKeyVector[0], segGeom);
                 tracesDone.insert(segGeom->GetGlobalID());
             }
-            else if ((TriGeom =
-                          std::dynamic_pointer_cast<SpatialDomains::TriGeom>(
-                              eit->m_geomShPtr)))
+            else if ((TriGeom = dynamic_cast<SpatialDomains::TriGeom *>(
+                          eit->m_geomPtr)))
             {
                 m_expType = e2D;
 
@@ -416,9 +412,8 @@ ExpList::ExpList(
 
                 tracesDone.insert(TriGeom->GetGlobalID());
             }
-            else if ((QuadGeom =
-                          std::dynamic_pointer_cast<SpatialDomains::QuadGeom>(
-                              eit->m_geomShPtr)))
+            else if ((QuadGeom = dynamic_cast<SpatialDomains::QuadGeom *>(
+                          eit->m_geomPtr)))
             {
                 m_expType = e2D;
                 exp = MemoryManager<LocalRegions::QuadExp>::AllocateSharedPtr(
@@ -436,10 +431,10 @@ ExpList::ExpList(
         }
     }
 
-    map<int, pair<SpatialDomains::Geometry1DSharedPtr, LibUtilities::BasisKey>>
+    map<int, pair<SpatialDomains::Geometry1D *, LibUtilities::BasisKey>>
         edgeOrders;
 
-    map<int, pair<SpatialDomains::Geometry2DSharedPtr,
+    map<int, pair<SpatialDomains::Geometry2D *,
                   pair<LibUtilities::BasisKey, LibUtilities::BasisKey>>>
         faceOrders;
 
@@ -453,7 +448,7 @@ ExpList::ExpList(
             for (j = 0; j < 2; ++j)
             {
                 PointGeom = (exp1D->GetGeom1D())->GetVertex(j);
-                id        = PointGeom->GetVid();
+                id        = PointGeom->GetGlobalID();
 
                 // Ignore Dirichlet edges
                 if (tracesDone.count(id) != 0)
@@ -998,16 +993,15 @@ ExpList::ExpList(
                 FaceGeom = it->second.first;
 
                 if ((QuadGeom =
-                         std::dynamic_pointer_cast<SpatialDomains::QuadGeom>(
-                             FaceGeom)))
+                         dynamic_cast<SpatialDomains::QuadGeom *>(FaceGeom)))
                 {
                     exp =
                         MemoryManager<LocalRegions::QuadExp>::AllocateSharedPtr(
                             it->second.second.first, it->second.second.second,
                             QuadGeom);
                 }
-                else if ((TriGeom = std::dynamic_pointer_cast<
-                              SpatialDomains::TriGeom>(FaceGeom)))
+                else if ((TriGeom = dynamic_cast<SpatialDomains::TriGeom *>(
+                              FaceGeom)))
                 {
                     exp =
                         MemoryManager<LocalRegions::TriExp>::AllocateSharedPtr(
@@ -1066,12 +1060,11 @@ ExpList::ExpList(const LibUtilities::SessionReaderSharedPtr &pSession,
 {
     int i, j, elmtid = 0;
 
-    SpatialDomains::PointGeomSharedPtr PointGeom;
-    SpatialDomains::Geometry1DSharedPtr segGeom;
-    SpatialDomains::Geometry2DSharedPtr ElGeom;
-    SpatialDomains::Geometry2DSharedPtr FaceGeom;
-    SpatialDomains::QuadGeomSharedPtr QuadGeom;
-    SpatialDomains::TriGeomSharedPtr TriGeom;
+    SpatialDomains::PointGeom *PointGeom;
+    SpatialDomains::Geometry1D *segGeom;
+    SpatialDomains::Geometry2D *FaceGeom;
+    SpatialDomains::QuadGeom *QuadGeom;
+    SpatialDomains::TriGeom *TriGeom;
 
     LocalRegions::ExpansionSharedPtr exp;
     LocalRegions::Expansion0DSharedPtr exp0D;
@@ -1156,15 +1149,14 @@ ExpList::ExpList(const LibUtilities::SessionReaderSharedPtr &pSession,
                     locexp[i]->GetBasis(dir1)->GetBasisKey();
 
                 if ((QuadGeom =
-                         std::dynamic_pointer_cast<SpatialDomains::QuadGeom>(
-                             FaceGeom)))
+                         dynamic_cast<SpatialDomains::QuadGeom *>(FaceGeom)))
                 {
                     exp =
                         MemoryManager<LocalRegions::QuadExp>::AllocateSharedPtr(
                             face_dir0, face_dir1, QuadGeom);
                 }
-                else if ((TriGeom = std::dynamic_pointer_cast<
-                              SpatialDomains::TriGeom>(FaceGeom)))
+                else if ((TriGeom = dynamic_cast<SpatialDomains::TriGeom *>(
+                              FaceGeom)))
                 {
                     LibUtilities::BasisKey nface_dir0(face0_dir0.GetBasisType(),
                                                       face_dir0.GetNumModes(),
@@ -1230,10 +1222,10 @@ ExpList::ExpList(const LibUtilities::SessionReaderSharedPtr &pSession,
       m_WaveSpace(false)
 {
     int j, elmtid = 0;
-    SpatialDomains::PointGeomSharedPtr PtGeom;
-    SpatialDomains::SegGeomSharedPtr SegGeom;
-    SpatialDomains::TriGeomSharedPtr TriGeom;
-    SpatialDomains::QuadGeomSharedPtr QuadGeom;
+    SpatialDomains::PointGeom *PtGeom;
+    SpatialDomains::SegGeom *SegGeom;
+    SpatialDomains::TriGeom *TriGeom;
+    SpatialDomains::QuadGeom *QuadGeom;
 
     LocalRegions::ExpansionSharedPtr exp;
 
@@ -1265,7 +1257,7 @@ ExpList::ExpList(const LibUtilities::SessionReaderSharedPtr &pSession,
                 MemoryManager<SpatialDomains::ExpansionInfo>::AllocateSharedPtr(
                     compIt.second->m_geomVec[j], PtBvec);
 
-            if ((SegGeom = std::dynamic_pointer_cast<SpatialDomains::SegGeom>(
+            if ((SegGeom = dynamic_cast<SpatialDomains::SegGeom *>(
                      compIt.second->m_geomVec[j])))
             {
                 if (meshdim == 1)
@@ -1282,8 +1274,8 @@ ExpList::ExpList(const LibUtilities::SessionReaderSharedPtr &pSession,
                     // Currently we assume the elements adjacent to the edge
                     // have the same type. So we directly fetch the first
                     // element.
-                    SpatialDomains::GeometrySharedPtr geom = elmts->at(0).first;
-                    int edge_id = elmts->at(0).second;
+                    SpatialDomains::Geometry *geom = elmts->at(0).first;
+                    int edge_id                    = elmts->at(0).second;
                     SpatialDomains::ExpansionInfoShPtr expInfo =
                         graph->GetExpansionInfo(geom, variable);
                     LibUtilities::BasisKey Ba = expInfo->m_basisKeyVector[0];
@@ -1312,9 +1304,8 @@ ExpList::ExpList(const LibUtilities::SessionReaderSharedPtr &pSession,
                         elmtStdExp->GetTraceBasisKey(edge_id));
                 }
             }
-            else if ((TriGeom =
-                          std::dynamic_pointer_cast<SpatialDomains::TriGeom>(
-                              compIt.second->m_geomVec[j])))
+            else if ((TriGeom = dynamic_cast<SpatialDomains::TriGeom *>(
+                          compIt.second->m_geomVec[j])))
             {
                 // First, create the element stdExp that the face belongs to
                 SpatialDomains::GeometryLinkSharedPtr elmts =
@@ -1322,8 +1313,8 @@ ExpList::ExpList(const LibUtilities::SessionReaderSharedPtr &pSession,
                 // elmts -> std::vector<std::pair<GeometrySharedPtr, int> >
                 // Currently we assume the elements adjacent to the face have
                 // the same type. So we directly fetch the first element.
-                SpatialDomains::GeometrySharedPtr geom = elmts->at(0).first;
-                int face_id                            = elmts->at(0).second;
+                SpatialDomains::Geometry *geom = elmts->at(0).first;
+                int face_id                    = elmts->at(0).second;
                 auto expInfo = expansions.find(geom->GetGlobalID());
                 ASSERTL0(expInfo != expansions.end(),
                          "Failed to find expansion info");
@@ -1372,9 +1363,8 @@ ExpList::ExpList(const LibUtilities::SessionReaderSharedPtr &pSession,
                 eInfo->m_basisKeyVector.push_back(TriBa);
                 eInfo->m_basisKeyVector.push_back(TriBb);
             }
-            else if ((QuadGeom =
-                          std::dynamic_pointer_cast<SpatialDomains::QuadGeom>(
-                              compIt.second->m_geomVec[j])))
+            else if ((QuadGeom = dynamic_cast<SpatialDomains::QuadGeom *>(
+                          compIt.second->m_geomVec[j])))
             {
                 // First, create the element stdExp that the face belongs to
                 SpatialDomains::GeometryLinkSharedPtr elmts =
@@ -1382,8 +1372,8 @@ ExpList::ExpList(const LibUtilities::SessionReaderSharedPtr &pSession,
                 // elmts -> std::vector<std::pair<GeometrySharedPtr, int> >
                 // Currently we assume the elements adjacent to the face have
                 // the same type. So we directly fetch the first element.
-                SpatialDomains::GeometrySharedPtr geom = elmts->at(0).first;
-                int face_id                            = elmts->at(0).second;
+                SpatialDomains::Geometry *geom = elmts->at(0).first;
+                int face_id                    = elmts->at(0).second;
                 auto expInfo = expansions.find(geom->GetGlobalID());
                 ASSERTL0(expInfo != expansions.end(),
                          "Failed to find expansion info");
@@ -1444,9 +1434,9 @@ ExpList::ExpList(const LibUtilities::SessionReaderSharedPtr &pSession,
                 {
                     if ((eInfo->m_basisKeyVector ==
                          ExpOrder[i][0]->m_basisKeyVector) &&
-                        (eInfo->m_geomShPtr->GetGeomFactors()->GetGtype() ==
+                        (eInfo->m_geomPtr->GetGeomFactors()->GetGtype() ==
                          ExpOrder[i][0]
-                             ->m_geomShPtr->GetGeomFactors()
+                             ->m_geomPtr->GetGeomFactors()
                              ->GetGtype()))
                     {
                         ExpOrder[i].push_back(eInfo);
@@ -1472,28 +1462,28 @@ ExpList::ExpList(const LibUtilities::SessionReaderSharedPtr &pSession,
         for (auto &eit : ordIt.second)
         {
             // Process each expansion in the region.
-            if ((PtGeom = std::dynamic_pointer_cast<SpatialDomains::PointGeom>(
-                     eit->m_geomShPtr)))
+            if ((PtGeom =
+                     dynamic_cast<SpatialDomains::PointGeom *>(eit->m_geomPtr)))
             {
                 m_expType = e0D;
 
                 exp = MemoryManager<LocalRegions::PointExp>::AllocateSharedPtr(
                     PtGeom);
             }
-            else if ((SegGeom =
-                          std::dynamic_pointer_cast<SpatialDomains::SegGeom>(
-                              eit->m_geomShPtr)))
+            else if ((SegGeom = dynamic_cast<SpatialDomains::SegGeom *>(
+                          eit->m_geomPtr)))
             {
                 m_expType = e1D;
 
                 if (SetToOneSpaceDimension)
                 {
-                    SpatialDomains::SegGeomSharedPtr OneDSegmentGeom =
-                        SegGeom->GenerateOneSpaceDimGeom();
+                    SpatialDomains::SegGeomUniquePtr OneDSegmentGeom =
+                        SegGeom->GenerateOneSpaceDimGeom(m_holder);
 
                     exp =
                         MemoryManager<LocalRegions::SegExp>::AllocateSharedPtr(
-                            eit->m_basisKeyVector[0], OneDSegmentGeom);
+                            eit->m_basisKeyVector[0], OneDSegmentGeom.get());
+                    m_holder.m_segVec.push_back(std::move(OneDSegmentGeom));
                 }
                 else
                 {
@@ -1502,9 +1492,8 @@ ExpList::ExpList(const LibUtilities::SessionReaderSharedPtr &pSession,
                             eit->m_basisKeyVector[0], SegGeom);
                 }
             }
-            else if ((TriGeom =
-                          std::dynamic_pointer_cast<SpatialDomains::TriGeom>(
-                              eit->m_geomShPtr)))
+            else if ((TriGeom = dynamic_cast<SpatialDomains::TriGeom *>(
+                          eit->m_geomPtr)))
             {
                 m_expType = e2D;
 
@@ -1526,9 +1515,8 @@ ExpList::ExpList(const LibUtilities::SessionReaderSharedPtr &pSession,
                             TriGeom);
                 }
             }
-            else if ((QuadGeom =
-                          std::dynamic_pointer_cast<SpatialDomains::QuadGeom>(
-                              eit->m_geomShPtr)))
+            else if ((QuadGeom = dynamic_cast<SpatialDomains::QuadGeom *>(
+                          eit->m_geomPtr)))
             {
                 m_expType = e2D;
 
@@ -1626,13 +1614,13 @@ void ExpList::SetupCoeffPhys(bool DeclareCoeffPhysArrays, bool SetupOffsets)
 void ExpList::InitialiseExpVector(
     const SpatialDomains::ExpansionInfoMap &expmap)
 {
-    SpatialDomains::SegGeomSharedPtr SegmentGeom;
-    SpatialDomains::TriGeomSharedPtr TriangleGeom;
-    SpatialDomains::QuadGeomSharedPtr QuadrilateralGeom;
-    SpatialDomains::TetGeomSharedPtr TetGeom;
-    SpatialDomains::HexGeomSharedPtr HexGeom;
-    SpatialDomains::PrismGeomSharedPtr PrismGeom;
-    SpatialDomains::PyrGeomSharedPtr PyrGeom;
+    SpatialDomains::SegGeom *SegmentGeom;
+    SpatialDomains::TriGeom *TriangleGeom;
+    SpatialDomains::QuadGeom *QuadrilateralGeom;
+    SpatialDomains::TetGeom *TetGeom;
+    SpatialDomains::HexGeom *HexGeom;
+    SpatialDomains::PrismGeom *PrismGeom;
+    SpatialDomains::PyrGeom *PyrGeom;
 
     int id = 0;
     LocalRegions::ExpansionSharedPtr exp;
@@ -1659,8 +1647,8 @@ void ExpList::InitialiseExpVector(
 
                 if ((expIt->second->m_basisKeyVector ==
                      expInfo->m_basisKeyVector) &&
-                    (expIt->second->m_geomShPtr->GetGeomFactors()->GetGtype() ==
-                     expInfo->m_geomShPtr->GetGeomFactors()->GetGtype()))
+                    (expIt->second->m_geomPtr->GetGeomFactors()->GetGtype() ==
+                     expInfo->m_geomPtr->GetGeomFactors()->GetGtype()))
                 {
                     ExpOrder[i].push_back(expIt->first);
                     break;
@@ -1700,9 +1688,8 @@ void ExpList::InitialiseExpVector(
                              "Cannot mix expansion dimensions in one vector");
                     m_expType = e1D;
 
-                    if ((SegmentGeom =
-                             std::dynamic_pointer_cast<SpatialDomains::SegGeom>(
-                                 expInfo->m_geomShPtr)))
+                    if ((SegmentGeom = dynamic_cast<SpatialDomains::SegGeom *>(
+                             expInfo->m_geomPtr)))
                     {
                         // Retrieve basis key from expansion
                         LibUtilities::BasisKey bkey =
@@ -1727,8 +1714,9 @@ void ExpList::InitialiseExpVector(
                     LibUtilities::BasisKey Ba = expInfo->m_basisKeyVector[0];
                     LibUtilities::BasisKey Bb = expInfo->m_basisKeyVector[1];
 
-                    if ((TriangleGeom = std::dynamic_pointer_cast<
-                             SpatialDomains ::TriGeom>(expInfo->m_geomShPtr)))
+                    if ((TriangleGeom =
+                             dynamic_cast<SpatialDomains ::TriGeom *>(
+                                 expInfo->m_geomPtr)))
                     {
                         // This is not elegantly implemented needs re-thinking.
                         if (Ba.GetBasisType() == LibUtilities::eGLL_Lagrange)
@@ -1749,9 +1737,9 @@ void ExpList::InitialiseExpVector(
                                 AllocateSharedPtr(Ba, Bb, TriangleGeom);
                         }
                     }
-                    else if ((QuadrilateralGeom = std::dynamic_pointer_cast<
-                                  SpatialDomains::QuadGeom>(
-                                  expInfo->m_geomShPtr)))
+                    else if ((QuadrilateralGeom =
+                                  dynamic_cast<SpatialDomains::QuadGeom *>(
+                                      expInfo->m_geomPtr)))
                     {
                         exp = MemoryManager<LocalRegions::QuadExp>::
                             AllocateSharedPtr(Ba, Bb, QuadrilateralGeom);
@@ -1773,9 +1761,8 @@ void ExpList::InitialiseExpVector(
                     LibUtilities::BasisKey Bb = expInfo->m_basisKeyVector[1];
                     LibUtilities::BasisKey Bc = expInfo->m_basisKeyVector[2];
 
-                    if ((TetGeom =
-                             std::dynamic_pointer_cast<SpatialDomains::TetGeom>(
-                                 expInfo->m_geomShPtr)))
+                    if ((TetGeom = dynamic_cast<SpatialDomains::TetGeom *>(
+                             expInfo->m_geomPtr)))
                     {
                         if (Ba.GetBasisType() == LibUtilities::eGLL_Lagrange)
                         {
@@ -1809,9 +1796,9 @@ void ExpList::InitialiseExpVector(
                                 AllocateSharedPtr(Ba, Bb, Bc, TetGeom);
                         }
                     }
-                    else if ((PrismGeom = std::dynamic_pointer_cast<
-                                  SpatialDomains ::PrismGeom>(
-                                  expInfo->m_geomShPtr)))
+                    else if ((PrismGeom =
+                                  dynamic_cast<SpatialDomains ::PrismGeom *>(
+                                      expInfo->m_geomPtr)))
                     {
                         if (Ba.GetBasisType() == LibUtilities::eGLL_Lagrange)
                         {
@@ -1832,17 +1819,15 @@ void ExpList::InitialiseExpVector(
                                 AllocateSharedPtr(Ba, Bb, Bc, PrismGeom);
                         }
                     }
-                    else if ((PyrGeom = std::dynamic_pointer_cast<
-                                  SpatialDomains::PyrGeom>(
-                                  expInfo->m_geomShPtr)))
+                    else if ((PyrGeom = dynamic_cast<SpatialDomains::PyrGeom *>(
+                                  expInfo->m_geomPtr)))
                     {
                         exp = MemoryManager<
                             LocalRegions::PyrExp>::AllocateSharedPtr(Ba, Bb, Bc,
                                                                      PyrGeom);
                     }
-                    else if ((HexGeom = std::dynamic_pointer_cast<
-                                  SpatialDomains::HexGeom>(
-                                  expInfo->m_geomShPtr)))
+                    else if ((HexGeom = dynamic_cast<SpatialDomains::HexGeom *>(
+                                  expInfo->m_geomPtr)))
                     {
                         exp = MemoryManager<
                             LocalRegions::HexExp>::AllocateSharedPtr(Ba, Bb, Bc,
@@ -3242,13 +3227,13 @@ int ExpList::GetExpIndex(const Array<OneD, const NekDouble> &gloCoords,
     NekDouble x = (gloCoords.size() > 0 ? gloCoords[0] : 0.0);
     NekDouble y = (gloCoords.size() > 1 ? gloCoords[1] : 0.0);
     NekDouble z = (gloCoords.size() > 2 ? gloCoords[2] : 0.0);
-    SpatialDomains::PointGeomSharedPtr p =
-        MemoryManager<SpatialDomains::PointGeom>::AllocateSharedPtr(
+    SpatialDomains::PointGeomUniquePtr p =
+        ObjPoolManager<SpatialDomains::PointGeom>::AllocateUniquePtr(
             GetExp(0)->GetCoordim(), -1, x, y, z);
 
     // Get the list of elements whose bounding box contains the desired
     // point.
-    std::vector<int> elmts = m_graph->GetElementsContainingPoint(p);
+    std::vector<int> elmts = m_graph->GetElementsContainingPoint(p.get());
 
     // Check each element in turn to see if point lies within it.
     for (int i = 0; i < elmts.size(); ++i)

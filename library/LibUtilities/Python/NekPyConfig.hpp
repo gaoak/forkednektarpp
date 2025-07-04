@@ -44,6 +44,8 @@
 #include <pybind11/stl.h>
 #include <pybind11/stl_bind.h>
 
+#include <LibUtilities/BasicUtils/CppCommandLine.hpp>
+
 namespace py = pybind11;
 
 // Define some common STL opaque types
@@ -85,79 +87,25 @@ PYBIND11_MAKE_OPAQUE(std::vector<unsigned int>)
  * @brief Helper structure to construct C++ command line `argc` and `argv`
  * variables from a Python list.
  */
-struct CppCommandLine
+struct PyCppCommandLine : public Nektar::LibUtilities::CppCommandLine
 {
     /**
      * @brief Constructor.
      *
      * @param py_argv   List of command line arguments from Python.
      */
-    CppCommandLine(py::list &py_argv) : m_argc(py::len(py_argv))
+    PyCppCommandLine(py::list &py_argv) : Nektar::LibUtilities::CppCommandLine()
     {
-        int i          = 0;
-        size_t bufSize = 0;
-        char *p;
+        int argc = py::len(py_argv);
+        std::vector<std::string> argv(argc);
 
-        m_argv = new char *[m_argc + 1];
-
-        // Create argc, argv to give to the session reader. Note that this needs
-        // to be a contiguous block in memory, otherwise MPI (specifically
-        // OpenMPI) will likely segfault.
-        for (i = 0; i < m_argc; ++i)
+        for (int i = 0; i < argc; ++i)
         {
-            std::string tmp = py::cast<std::string>(py_argv[i]);
-            bufSize += tmp.size() + 1;
+            argv[i] = py::cast<std::string>(py_argv[i]);
         }
 
-        m_buf.resize(bufSize);
-        for (i = 0, p = &m_buf[0]; i < m_argc; ++i)
-        {
-            std::string tmp = py::cast<std::string>(py_argv[i]);
-            std::copy(tmp.begin(), tmp.end(), p);
-            p[tmp.size()] = '\0';
-            m_argv[i]     = p;
-            p += tmp.size() + 1;
-        }
-
-        m_argv[m_argc] = nullptr;
+        Setup(argv);
     }
-
-    /**
-     * @brief Destructor.
-     */
-    ~CppCommandLine()
-    {
-        if (m_argv == nullptr)
-        {
-            return;
-        }
-
-        delete m_argv;
-    }
-
-    /**
-     * @brief Returns the constructed `argv`.
-     */
-    char **GetArgv()
-    {
-        return m_argv;
-    }
-
-    /**
-     * @brief Returns the constructed `argc`.
-     */
-    int GetArgc()
-    {
-        return m_argc;
-    }
-
-private:
-    /// Pointers for strings `argv`.
-    char **m_argv = nullptr;
-    /// Number of arguments `argc`.
-    int m_argc = 0;
-    /// Buffer for storage of the argument strings.
-    std::vector<char> m_buf;
 };
 
 #endif

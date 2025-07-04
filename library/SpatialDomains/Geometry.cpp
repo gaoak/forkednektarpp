@@ -86,14 +86,12 @@ GeomFactorsSharedPtr Geometry::ValidateRegGeomFactor(
     return returnval;
 }
 
-bool SortByGlobalId(const std::shared_ptr<Geometry> &lhs,
-                    const std::shared_ptr<Geometry> &rhs)
+bool SortByGlobalId(const Geometry *&lhs, const Geometry *&rhs)
 {
     return lhs->GetGlobalID() < rhs->GetGlobalID();
 }
 
-bool GlobalIdEquality(const std::shared_ptr<Geometry> &lhs,
-                      const std::shared_ptr<Geometry> &rhs)
+bool GlobalIdEquality(const Geometry *&lhs, const Geometry *&rhs)
 {
     return lhs->GetGlobalID() == rhs->GetGlobalID();
 }
@@ -101,7 +99,7 @@ bool GlobalIdEquality(const std::shared_ptr<Geometry> &lhs,
 /**
  * @brief Get the ID of vertex @p i of this object.
  */
-int Geometry::GetVid(int i) const
+int Geometry::v_GetVid(int i) const
 {
     return GetVertex(i)->GetGlobalID();
 }
@@ -123,23 +121,33 @@ int Geometry::GetFid(int i) const
 }
 
 /**
- * @copydoc Geometry::GetEdge()
+ * @copydoc Geometry::GetVertex()
  */
-Geometry1DSharedPtr Geometry::v_GetEdge([[maybe_unused]] int i) const
+PointGeom *Geometry::v_GetVertex([[maybe_unused]] int i) const
 {
     NEKERROR(ErrorUtil::efatal,
              "This function is only valid for shape type geometries");
-    return Geometry1DSharedPtr();
+    return nullptr;
+}
+
+/**
+ * @copydoc Geometry::GetEdge()
+ */
+Geometry1D *Geometry::v_GetEdge([[maybe_unused]] int i) const
+{
+    NEKERROR(ErrorUtil::efatal,
+             "This function is only valid for shape type geometries");
+    return nullptr;
 }
 
 /**
  * @copydoc Geometry::GetFace()
  */
-Geometry2DSharedPtr Geometry::v_GetFace([[maybe_unused]] int i) const
+Geometry2D *Geometry::v_GetFace([[maybe_unused]] int i) const
 {
     NEKERROR(ErrorUtil::efatal,
              "This function is only valid for shape type geometries");
-    return Geometry2DSharedPtr();
+    return nullptr;
 }
 
 /**
@@ -399,7 +407,7 @@ std::array<NekDouble, 6> Geometry::GetBoundingBox()
     Array<OneD, NekDouble> min(3), max(3);
 
     // Always get vertexes min/max
-    PointGeomSharedPtr p = GetVertex(0);
+    PointGeom *p = GetVertex(0);
     Array<OneD, NekDouble> x(3, 0.0);
     p->GetCoords(x[0], x[1], x[2]);
     for (int j = 0; j < 3; ++j)
@@ -468,9 +476,8 @@ void Geometry::ClearBoundingBox()
 }
 
 /**
- * @brief A fast and robust check if a given global coord is
- * outside of a deformed element. For regular elements, this
- * check is unnecessary
+ * @brief A fast and robust check if a given global coord is outside of a
+ * deformed element. For regular elements, this check is unnecessary.
  *
  * @param coords   Input Cartesian global coordinates
  *
@@ -497,8 +504,7 @@ int Geometry::PreliminaryCheck(const Array<OneD, const NekDouble> &gloCoord)
 }
 
 /**
- * @brief Check if given global coord is within the BoundingBox
- * of the element.
+ * @brief Check if given global coord is within the BoundingBox of the element.
  *
  * @param coords   Input Cartesian global coordinates
  *

@@ -106,11 +106,12 @@ void FilterElectrogram::v_Initialise(
         m_electrogramStream >> gloCoord[0] >> gloCoord[1] >> gloCoord[2];
         if (!m_electrogramStream.fail())
         {
-            SpatialDomains::PointGeomSharedPtr vert =
-                MemoryManager<SpatialDomains::PointGeom>::AllocateSharedPtr(
+            SpatialDomains::PointGeomUniquePtr vert =
+                ObjPoolManager<SpatialDomains::PointGeom>::AllocateUniquePtr(
                     dim, i, gloCoord[0], gloCoord[1], gloCoord[2]);
 
-            m_electrogramPoints.push_back(vert);
+            m_electrogramPoints.push_back(vert.get());
+            m_holder.m_pointVec.push_back(std::move(vert));
             ++i;
         }
     }

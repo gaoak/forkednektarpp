@@ -38,6 +38,7 @@
 #define NEKTAR_SPATIALDOMAINS_GEOMETRY_H
 
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
+#include <LibUtilities/Memory/ObjectPool.hpp>
 #include <SpatialDomains/GeomFactors.h>
 #include <SpatialDomains/SpatialDomainsDeclspec.h>
 
@@ -48,18 +49,12 @@ namespace Nektar::SpatialDomains
 {
 
 class Geometry; // Forward declaration for typedef.
-typedef std::shared_ptr<Geometry> GeometrySharedPtr;
-typedef std::vector<GeometrySharedPtr> GeometryVector;
-typedef std::unordered_set<GeometrySharedPtr> GeometrySet;
-typedef std::shared_ptr<GeometryVector> GeometryVectorSharedPtr;
-
-class PointGeom;
-typedef std::shared_ptr<PointGeom> PointGeomSharedPtr;
+typedef unique_ptr_objpool<Geometry> GeometryUniquePtr;
 
 class Geometry1D;
 class Geometry2D;
-typedef std::shared_ptr<Geometry1D> Geometry1DSharedPtr;
-typedef std::shared_ptr<Geometry2D> Geometry2DSharedPtr;
+
+class PointGeom;
 
 struct Curve;
 typedef std::shared_ptr<Curve> CurveSharedPtr;
@@ -68,11 +63,11 @@ static CurveMap NullCurveMap;
 
 /// \brief Less than operator to sort Geometry objects by global id when sorting
 /// STL containers.
-SPATIAL_DOMAINS_EXPORT bool SortByGlobalId(
-    const std::shared_ptr<Geometry> &lhs, const std::shared_ptr<Geometry> &rhs);
+SPATIAL_DOMAINS_EXPORT bool SortByGlobalId(const Geometry *&lhs,
+                                           const Geometry *&rhs);
 
-SPATIAL_DOMAINS_EXPORT bool GlobalIdEquality(
-    const std::shared_ptr<Geometry> &lhs, const std::shared_ptr<Geometry> &rhs);
+SPATIAL_DOMAINS_EXPORT bool GlobalIdEquality(const Geometry *&lhs,
+                                             const Geometry *&rhs);
 
 /// Base class for shape geometry information
 class Geometry
@@ -104,13 +99,13 @@ public:
     //---------------------------------------
     // Vertex, edge and face access
     //---------------------------------------
-    SPATIAL_DOMAINS_EXPORT int GetVid(int i) const;
+    SPATIAL_DOMAINS_EXPORT inline int GetVid(int i) const;
     SPATIAL_DOMAINS_EXPORT int GetEid(int i) const;
     SPATIAL_DOMAINS_EXPORT int GetFid(int i) const;
     SPATIAL_DOMAINS_EXPORT inline int GetTid(int i) const;
-    SPATIAL_DOMAINS_EXPORT inline PointGeomSharedPtr GetVertex(int i) const;
-    SPATIAL_DOMAINS_EXPORT inline Geometry1DSharedPtr GetEdge(int i) const;
-    SPATIAL_DOMAINS_EXPORT inline Geometry2DSharedPtr GetFace(int i) const;
+    SPATIAL_DOMAINS_EXPORT inline PointGeom *GetVertex(int i) const;
+    SPATIAL_DOMAINS_EXPORT inline Geometry1D *GetEdge(int i) const;
+    SPATIAL_DOMAINS_EXPORT inline Geometry2D *GetFace(int i) const;
     SPATIAL_DOMAINS_EXPORT inline StdRegions::Orientation GetEorient(
         const int i) const;
     SPATIAL_DOMAINS_EXPORT inline StdRegions::Orientation GetForient(
@@ -213,9 +208,10 @@ protected:
     //---------------------------------------
     // Helper functions
     //---------------------------------------
-    virtual PointGeomSharedPtr v_GetVertex(int i) const = 0;
-    virtual Geometry1DSharedPtr v_GetEdge(int i) const;
-    virtual Geometry2DSharedPtr v_GetFace(int i) const;
+    virtual int v_GetVid(int i) const;
+    virtual PointGeom *v_GetVertex(int i) const;
+    virtual Geometry1D *v_GetEdge(int i) const;
+    virtual Geometry2D *v_GetFace(int i) const;
     virtual StdRegions::Orientation v_GetEorient(const int i) const;
     virtual StdRegions::Orientation v_GetForient(const int i) const;
     virtual int v_GetNumVerts() const;
@@ -258,7 +254,7 @@ protected:
  */
 struct GeometryHash
 {
-    std::size_t operator()(GeometrySharedPtr const &p) const
+    std::size_t operator()(GeometryUniquePtr const &p) const
     {
         int i;
         size_t seed = 0;
@@ -352,9 +348,17 @@ inline int Geometry::GetTid(int i) const
 }
 
 /**
+ * @brief Returns global id of vertex @p i of this object.
+ */
+inline int Geometry::GetVid(int i) const
+{
+    return v_GetVid(i);
+}
+
+/**
  * @brief Returns vertex @p i of this object.
  */
-inline PointGeomSharedPtr Geometry::GetVertex(int i) const
+inline PointGeom *Geometry::GetVertex(int i) const
 {
     return v_GetVertex(i);
 }
@@ -362,7 +366,7 @@ inline PointGeomSharedPtr Geometry::GetVertex(int i) const
 /**
  * @brief Returns edge @p i of this object.
  */
-inline Geometry1DSharedPtr Geometry::GetEdge(int i) const
+inline Geometry1D *Geometry::GetEdge(int i) const
 {
     return v_GetEdge(i);
 }
@@ -370,7 +374,7 @@ inline Geometry1DSharedPtr Geometry::GetEdge(int i) const
 /**
  * @brief Returns face @p i of this object.
  */
-inline Geometry2DSharedPtr Geometry::GetFace(int i) const
+inline Geometry2D *Geometry::GetFace(int i) const
 {
     return v_GetFace(i);
 }

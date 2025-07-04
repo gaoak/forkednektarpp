@@ -279,12 +279,13 @@ public:
     /// associated with this element.
     NEKMESH_EXPORT std::string GetXmlCurveString();
     /// Generate a Nektar++ geometry object for this element.
-    virtual SpatialDomains::GeometrySharedPtr GetGeom(
-        [[maybe_unused]] int coordDim)
+    virtual SpatialDomains::Geometry *GetGeom(
+        [[maybe_unused]] int coordDim,
+        [[maybe_unused]] SpatialDomains::EntityHolder &holder)
     {
         NEKERROR(ErrorUtil::efatal,
                  "This function should be implemented at a shape level.");
-        return std::shared_ptr<SpatialDomains::Geometry>();
+        return nullptr;
     }
 
     /**
@@ -379,12 +380,12 @@ public:
      *                       elements, which just require copying of face or
      *                       edge interior nodes.
      */
-    virtual void MakeOrder(
-        [[maybe_unused]] int order,
-        [[maybe_unused]] SpatialDomains::GeometrySharedPtr geom,
-        [[maybe_unused]] LibUtilities::PointsType edgeType,
-        [[maybe_unused]] int coordDim, [[maybe_unused]] int &id,
-        [[maybe_unused]] bool justConfig = false)
+    virtual void MakeOrder([[maybe_unused]] int order,
+                           [[maybe_unused]] SpatialDomains::Geometry *geom,
+                           [[maybe_unused]] LibUtilities::PointsType edgeType,
+                           [[maybe_unused]] int coordDim,
+                           [[maybe_unused]] int &id,
+                           [[maybe_unused]] bool justConfig = false)
     {
         NEKERROR(ErrorUtil::efatal,
                  "This function should be implemented at a shape level.");
@@ -480,7 +481,7 @@ protected:
     /// boundary elements in m->element.
     std::map<int, int> m_boundaryLinks;
     /// Nektar++ geometry object for this element.
-    SpatialDomains::GeometrySharedPtr m_geom;
+    SpatialDomains::Geometry *m_geom;
 };
 
 typedef std::shared_ptr<Element> ElementSharedPtr;

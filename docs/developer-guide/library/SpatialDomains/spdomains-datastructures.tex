@@ -62,8 +62,9 @@ At its core, the items contained within SpatialDomains are meant to represent th
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{MeshGraph and MeshGraphIO}
-The MeshGraph class holds the geometric information about each element and the connectivity of these elements to form the domain, in arrays of Geometry objects.
-The MeshGraphIO classes handle MeshGraph's reading and writing operations in the different file formats.
+The \verb+MeshGraph+ class holds the geometric information about each element and the connectivity of these elements to form the domain.
+The ownership of a \verb+Geometry+ object is now usually held by a \verb+MeshGraph+ in one of its unique pointer maps indexed by \verb+globalID+.
+The \verb+MeshGraphIO+ classes handle \verb+MeshGraph+'s reading and writing operations in the different file formats.
 
-Since v5.7.0 (when MeshGraph's input/output operations were moved to the separate MeshGraphIO classes) a MeshGraph is instantiated by calling a MeshGraphIO subclass' Read method.
-Creating a MeshGraph object generates the hierarchical mesh entity data structures, constructing the domain $\Omega$ by instantiating a corresponding Geometry object for each element $\Omega_e$.
+Since v5.7.0 (when \verb+MeshGraph+'s input/output operations were moved to the separate \verb+MeshGraphIO+ classes) a \verb+MeshGraph+ is instantiated by calling a \verb+MeshGraphIO+ subclass' \verb+Read+ method.
+Creating a \verb+MeshGraph+ object generates the hierarchical mesh entity data structures, constructing the domain $\Omega$ by instantiating a corresponding \verb+Geometry+ object for each element $\Omega_e$.

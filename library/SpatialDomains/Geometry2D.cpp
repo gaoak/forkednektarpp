@@ -54,92 +54,6 @@ Geometry2D::Geometry2D(const int coordim, CurveSharedPtr curve)
              "Coordinate dimension should be at least 2 for a 2D geometry");
 }
 
-int Geometry2D::v_AllLeftCheck(const Array<OneD, const NekDouble> &gloCoord)
-{
-    int nc = 1, d0 = m_manifold[0], d1 = m_manifold[1];
-    if (0 == m_edgeNormal.size())
-    {
-        m_edgeNormal = Array<OneD, Array<OneD, NekDouble>>(m_verts.size());
-        Array<OneD, Array<OneD, NekDouble>> x(2);
-        x[0] = Array<OneD, NekDouble>(3);
-        x[1] = Array<OneD, NekDouble>(3);
-        m_verts[0]->GetCoords(x[0]);
-        int i0 = 1, i1 = 0, direction = 1;
-        for (size_t i = 0; i < m_verts.size(); ++i)
-        {
-            i0 ^= 1;
-            i1 ^= 1;
-            m_verts[(i + 1) % m_verts.size()]->GetCoords(x[i1]);
-            if (m_edges[i]->GetXmap()->GetBasis(0)->GetNumModes() > 2)
-            {
-                continue;
-            }
-            m_edgeNormal[i]    = Array<OneD, NekDouble>(2);
-            m_edgeNormal[i][0] = x[i0][d1] - x[i1][d1];
-            m_edgeNormal[i][1] = x[i1][d0] - x[i0][d0];
-        }
-        if (m_coordim == 3)
-        {
-            for (size_t i = 0; i < m_verts.size(); ++i)
-            {
-                if (m_edgeNormal[i].size() == 2)
-                {
-                    m_verts[i]->GetCoords(x[0]);
-                    m_verts[(i + 2) % m_verts.size()]->GetCoords(x[1]);
-                    if (m_edgeNormal[i][0] * (x[1][d0] - x[0][d0]) <
-                        m_edgeNormal[i][1] * (x[0][d1] - x[1][d1]))
-                    {
-                        direction = -1;
-                    }
-                    break;
-                }
-            }
-        }
-        if (direction == -1)
-        {
-            for (size_t i = 0; i < m_verts.size(); ++i)
-            {
-                if (m_edgeNormal[i].size() == 2)
-                {
-                    m_edgeNormal[i][0] = -m_edgeNormal[i][0];
-                    m_edgeNormal[i][1] = -m_edgeNormal[i][1];
-                }
-            }
-        }
-    }
-
-    Array<OneD, NekDouble> vertex(3);
-    for (size_t i = 0; i < m_verts.size(); ++i)
-    {
-        int i1 = (i + 1) % m_verts.size();
-        if (m_verts[i]->GetVid() < m_verts[i1]->GetVid())
-        {
-            m_verts[i]->GetCoords(vertex);
-        }
-        else
-        {
-            m_verts[i1]->GetCoords(vertex);
-        }
-        if (m_edgeNormal[i].size() == 0)
-        {
-            nc = 0; // not sure
-            continue;
-        }
-        if (m_edgeNormal[i][0] * (gloCoord[d0] - vertex[d0]) <
-            m_edgeNormal[i][1] * (vertex[d1] - gloCoord[d1]))
-        {
-            return -1; // outside
-        }
-    }
-    // 3D manifold needs to check the distance
-    if (m_coordim == 3)
-    {
-        nc = 0;
-    }
-    // nc: 1 (side element), 0 (maybe inside), -1 (outside)
-    return nc;
-}
-
 void Geometry2D::SolveStraightEdgeQuad(
     const Array<OneD, const NekDouble> &coords, Array<OneD, NekDouble> &Lcoords)
 {
@@ -365,34 +279,6 @@ NekDouble Geometry2D::v_GetLocCoords(const Array<OneD, const NekDouble> &coords,
         }
     }
     return dist;
-}
-
-int Geometry2D::v_GetNumVerts() const
-{
-    return m_verts.size();
-}
-
-int Geometry2D::v_GetNumEdges() const
-{
-    return m_edges.size();
-}
-
-PointGeomSharedPtr Geometry2D::v_GetVertex(int i) const
-{
-    ASSERTL2(i >= 0 && i < m_verts.size(), "Index out of range");
-    return m_verts[i];
-}
-
-Geometry1DSharedPtr Geometry2D::v_GetEdge(int i) const
-{
-    ASSERTL2(i >= 0 && i < m_edges.size(), "Index out of range");
-    return m_edges[i];
-}
-
-StdRegions::Orientation Geometry2D::v_GetEorient(const int i) const
-{
-    ASSERTL2(i >= 0 && i < m_eorient.size(), "Index out of range");
-    return m_eorient[i];
 }
 
 int Geometry2D::v_GetShapeDim() const

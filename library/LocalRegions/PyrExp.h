@@ -53,7 +53,7 @@ public:
     LOCAL_REGIONS_EXPORT PyrExp(const LibUtilities::BasisKey &Ba,
                                 const LibUtilities::BasisKey &Bb,
                                 const LibUtilities::BasisKey &Bc,
-                                const SpatialDomains::PyrGeomSharedPtr &geom);
+                                SpatialDomains::Geometry3D *geom);
 
     LOCAL_REGIONS_EXPORT PyrExp(const PyrExp &T);
 

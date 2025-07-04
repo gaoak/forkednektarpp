@@ -178,7 +178,7 @@ void ProcessInterpPoints::v_Process(po::variables_map &vm)
     int i = 0;
     for (auto &expIt : expansions)
     {
-        ElementGIDs[i++] = expIt.second->m_geomShPtr->GetGlobalID();
+        ElementGIDs[i++] = expIt.second->m_geomPtr->GetGlobalID();
     }
     // check to see that we do have some element in the domain since
     // possibly all points could be outside of the domain

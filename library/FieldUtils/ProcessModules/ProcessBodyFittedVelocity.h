@@ -133,7 +133,7 @@ private:
      */
     bool LocCoordForNearestPntOnBndElmt_2D(
         const Array<OneD, const NekDouble> &inGloCoord,
-        SpatialDomains::GeometrySharedPtr bndGeom,
+        SpatialDomains::Geometry *bndGeom,
         const Array<OneD, Array<OneD, NekDouble>> &pts,
         Array<OneD, NekDouble> &locCoord, Array<OneD, NekDouble> &gloCoord,
         NekDouble &dist, const NekDouble iterTol = 1.0e-12,
@@ -153,10 +153,9 @@ private:
      */
     bool LocCoordForNearestPntOnBndElmt(
         const Array<OneD, const NekDouble> &inGloCoord,
-        SpatialDomains::GeometrySharedPtr bndGeom,
-        Array<OneD, NekDouble> &locCoord, Array<OneD, NekDouble> &gloCoord,
-        NekDouble &dist, const NekDouble iterTol = 1.0e-12,
-        const int iterMax = 51);
+        SpatialDomains::Geometry *bndGeom, Array<OneD, NekDouble> &locCoord,
+        Array<OneD, NekDouble> &gloCoord, NekDouble &dist,
+        const NekDouble iterTol = 1.0e-12, const int iterMax = 51);
 
     /**
      * @brief Compute the normalized cross product for two 2D vectors.

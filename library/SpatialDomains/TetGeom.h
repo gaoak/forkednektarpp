@@ -45,16 +45,18 @@ namespace Nektar::SpatialDomains
 class TetGeom : public Geometry3D
 {
 public:
-    SPATIAL_DOMAINS_EXPORT TetGeom();
-    SPATIAL_DOMAINS_EXPORT TetGeom(int id, const TriGeomSharedPtr faces[]);
-    SPATIAL_DOMAINS_EXPORT ~TetGeom() override = default;
-
     SPATIAL_DOMAINS_EXPORT static const int kNverts  = 4;
     SPATIAL_DOMAINS_EXPORT static const int kNedges  = 6;
     SPATIAL_DOMAINS_EXPORT static const int kNqfaces = 0;
     SPATIAL_DOMAINS_EXPORT static const int kNtfaces = 4;
     SPATIAL_DOMAINS_EXPORT static const int kNfaces  = kNqfaces + kNtfaces;
+    SPATIAL_DOMAINS_EXPORT static const int kNfacets = kNfaces;
     SPATIAL_DOMAINS_EXPORT static const std::string XMLElementType;
+
+    SPATIAL_DOMAINS_EXPORT TetGeom();
+    SPATIAL_DOMAINS_EXPORT TetGeom(int id,
+                                   std::array<TriGeom *, kNfaces> faces);
+    SPATIAL_DOMAINS_EXPORT ~TetGeom() override = default;
 
 protected:
     int v_GetVertexEdgeMap(const int i, const int j) const override;
@@ -65,6 +67,53 @@ protected:
     void v_Reset(CurveMap &curvedEdges, CurveMap &curvedFaces) override;
     void v_Setup() override;
     void v_GenGeomFactors() override;
+    void v_FillGeom() override;
+
+    inline int v_GetNumVerts() const final
+    {
+        return kNverts;
+    }
+
+    inline int v_GetNumEdges() const final
+    {
+        return kNedges;
+    }
+
+    inline int v_GetNumFaces() const final
+    {
+        return kNfaces;
+    }
+
+    inline PointGeom *v_GetVertex(const int i) const final
+    {
+        return m_verts[i];
+    }
+
+    inline Geometry1D *v_GetEdge(const int i) const final
+    {
+        return static_cast<Geometry1D *>(m_edges[i]);
+    }
+
+    inline Geometry2D *v_GetFace(const int i) const final
+    {
+        return static_cast<Geometry2D *>(m_faces[i]);
+    }
+
+    inline StdRegions::Orientation v_GetEorient(const int i) const final
+    {
+        return m_eorient[i];
+    }
+
+    inline StdRegions::Orientation v_GetForient(const int i) const final
+    {
+        return m_forient[i];
+    }
+
+    std::array<PointGeom *, kNverts> m_verts;
+    std::array<SegGeom *, kNedges> m_edges;
+    std::array<TriGeom *, kNfaces> m_faces;
+    std::array<StdRegions::Orientation, kNedges> m_eorient;
+    std::array<StdRegions::Orientation, kNfaces> m_forient;
 
 private:
     void SetUpLocalEdges();
@@ -78,10 +127,6 @@ private:
     static const unsigned int EdgeFaceConnectivity[6][2];
     static const unsigned int EdgeNormalToFaceVert[4][3];
 };
-
-typedef std::shared_ptr<TetGeom> TetGeomSharedPtr;
-typedef std::vector<TetGeomSharedPtr> TetGeomVector;
-typedef std::map<int, TetGeomSharedPtr> TetGeomMap;
 
 } // namespace Nektar::SpatialDomains
 

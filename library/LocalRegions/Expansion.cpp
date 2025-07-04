@@ -40,7 +40,7 @@ using namespace std;
 
 namespace Nektar::LocalRegions
 {
-Expansion::Expansion(SpatialDomains::GeometrySharedPtr pGeom)
+Expansion::Expansion(SpatialDomains::Geometry *pGeom)
     : m_indexMapManager(
           std::bind(&Expansion::CreateIndexMap, this, std::placeholders::_1),
           std::string("ExpansionIndexMap")),
@@ -164,7 +164,7 @@ DNekScalMatSharedPtr Expansion::GetLocMatrix(
     return GetLocMatrix(mkey);
 }
 
-SpatialDomains::GeometrySharedPtr Expansion::GetGeom() const
+SpatialDomains::Geometry *Expansion::GetGeom() const
 {
     return m_geom;
 }

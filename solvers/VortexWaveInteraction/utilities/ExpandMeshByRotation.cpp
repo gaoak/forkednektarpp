@@ -85,11 +85,10 @@ int main(int argc, char *argv[])
     int compsize = composite->m_geomVec.size();
     for (i = 0; i < compsize; ++i)
     {
-        SpatialDomains::Geometry1DSharedPtr tmp1 =
-            std::dynamic_pointer_cast<SpatialDomains::Geometry1D>(
-                composite->m_geomVec[i]);
-        SpatialDomains::Geometry1DSharedPtr tmp2 =
-            std::dynamic_pointer_cast<SpatialDomains::Geometry1D>(
+        SpatialDomains::Geometry1D *tmp1 =
+            dynamic_cast<SpatialDomains::Geometry1D *>(composite->m_geomVec[i]);
+        SpatialDomains::Geometry1D *tmp2 =
+            dynamic_cast<SpatialDomains::Geometry1D *>(
                 composite->m_geomVec[compsize - 1 - i]);
         jointEdges[tmp1->GetGlobalID()] = tmp2->GetGlobalID();
         jointVerts[tmp1->GetVid(0)]     = tmp2->GetVid(1);

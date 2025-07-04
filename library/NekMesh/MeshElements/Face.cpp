@@ -145,7 +145,7 @@ std::string Face::GetXmlCurveString()
     return s.str();
 }
 
-void Face::MakeOrder(int order, SpatialDomains::GeometrySharedPtr geom,
+void Face::MakeOrder(int order, SpatialDomains::Geometry *geom,
                      LibUtilities::PointsType pType, int coordDim, int &id)
 {
     if (m_vertexList.size() == 3)
@@ -265,17 +265,18 @@ void Face::MakeOrder(int order, SpatialDomains::GeometrySharedPtr geom,
     }
 }
 
-SpatialDomains::Geometry2DSharedPtr Face::GetGeom(int coordDim)
+SpatialDomains::Geometry2D *Face::GetGeom(int coordDim,
+                                          SpatialDomains::EntityHolder &holder)
 {
     int nEdge = m_edgeList.size();
 
-    SpatialDomains::SegGeomSharedPtr edges[4];
-    SpatialDomains::Geometry2DSharedPtr ret;
-    StdRegions::Orientation edgeo[4];
+    std::array<SpatialDomains::SegGeom *, 4> edges;
+    SpatialDomains::Geometry2D *ret;
+    std::array<StdRegions::Orientation, 4> edgeo;
 
     for (int i = 0; i < nEdge; ++i)
     {
-        edges[i] = m_edgeList[i]->GetGeom(coordDim);
+        edges[i] = m_edgeList[i]->GetGeom(coordDim, holder);
     }
 
     for (int i = 0; i < nEdge; ++i)
@@ -289,13 +290,17 @@ SpatialDomains::Geometry2DSharedPtr Face::GetGeom(int coordDim)
     {
         if (nEdge == 3)
         {
+            std::array<SpatialDomains::SegGeom *, 3> tedge = {
+                edges[0], edges[1], edges[2]};
+
             SpatialDomains::CurveSharedPtr c =
                 MemoryManager<SpatialDomains::Curve>::AllocateSharedPtr(
                     m_id, m_curveType);
 
             for (int j = 0; j < m_vertexList.size(); j++)
             {
-                c->m_points.push_back(m_vertexList[j]->GetGeom(coordDim));
+                c->m_points.push_back(
+                    m_vertexList[j]->GetGeom(coordDim, holder));
             }
             for (int j = 0; j < nEdge; j++)
             {
@@ -304,24 +309,28 @@ SpatialDomains::Geometry2DSharedPtr Face::GetGeom(int coordDim)
                 {
                     for (int k = ed.size() - 1; k >= 0; k--)
                     {
-                        c->m_points.push_back(ed[k]->GetGeom(coordDim));
+                        c->m_points.push_back(ed[k]->GetGeom(coordDim, holder));
                     }
                 }
                 else
                 {
                     for (int k = 0; k < ed.size(); k++)
                     {
-                        c->m_points.push_back(ed[k]->GetGeom(coordDim));
+                        c->m_points.push_back(ed[k]->GetGeom(coordDim, holder));
                     }
                 }
             }
             for (int j = 0; j < m_faceNodes.size(); j++)
             {
-                c->m_points.push_back(m_faceNodes[j]->GetGeom(coordDim));
+                c->m_points.push_back(
+                    m_faceNodes[j]->GetGeom(coordDim, holder));
             }
 
-            ret = MemoryManager<SpatialDomains::TriGeom>::AllocateSharedPtr(
-                m_id, edges, c);
+            auto tri =
+                ObjPoolManager<SpatialDomains::TriGeom>::AllocateUniquePtr(
+                    m_id, tedge, c);
+            ret = tri.get();
+            holder.m_triVec.push_back(std::move(tri));
         }
         else
         {
@@ -380,24 +389,35 @@ SpatialDomains::Geometry2DSharedPtr Face::GetGeom(int coordDim)
 
             for (int k = 0; k < tmp.size(); ++k)
             {
-                c->m_points.push_back(tmp[k]->GetGeom(coordDim));
+                c->m_points.push_back(tmp[k]->GetGeom(coordDim, holder));
             }
 
-            ret = MemoryManager<SpatialDomains::QuadGeom>::AllocateSharedPtr(
-                m_id, edges, c);
+            auto quad =
+                ObjPoolManager<SpatialDomains::QuadGeom>::AllocateUniquePtr(
+                    m_id, edges, c);
+            ret = quad.get();
+            holder.m_quadVec.push_back(std::move(quad));
         }
     }
     else
     {
         if (nEdge == 3)
         {
-            ret = MemoryManager<SpatialDomains::TriGeom>::AllocateSharedPtr(
-                m_id, edges);
+            std::array<SpatialDomains::SegGeom *, 3> tedge = {
+                edges[0], edges[1], edges[2]};
+            auto tri =
+                ObjPoolManager<SpatialDomains::TriGeom>::AllocateUniquePtr(
+                    m_id, tedge);
+            ret = tri.get();
+            holder.m_triVec.push_back(std::move(tri));
         }
         else
         {
-            ret = MemoryManager<SpatialDomains::QuadGeom>::AllocateSharedPtr(
-                m_id, edges);
+            auto quad =
+                ObjPoolManager<SpatialDomains::QuadGeom>::AllocateUniquePtr(
+                    m_id, edges);
+            ret = quad.get();
+            holder.m_quadVec.push_back(std::move(quad));
         }
     }
 

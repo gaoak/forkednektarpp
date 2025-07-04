@@ -159,7 +159,7 @@ void ProcessInterpField::v_Process(po::variables_map &vm)
     int i = 0;
     for (auto &expIt : expansions)
     {
-        ElementGIDs[i++] = expIt.second->m_geomShPtr->GetGlobalID();
+        ElementGIDs[i++] = expIt.second->m_geomPtr->GetGlobalID();
     }
 
     string fromfld = m_config["fromfld"].as<string>();

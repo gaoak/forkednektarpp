@@ -113,20 +113,23 @@ Triangle::Triangle(ElmtConfig pConf, vector<NodeSharedPtr> pNodeList,
     }
 }
 
-SpatialDomains::GeometrySharedPtr Triangle::GetGeom(int coordDim)
+SpatialDomains::Geometry *Triangle::GetGeom(
+    int coordDim, SpatialDomains::EntityHolder &holder)
 {
-    SpatialDomains::SegGeomSharedPtr edges[3];
-    SpatialDomains::TriGeomSharedPtr ret;
+    std::array<SpatialDomains::SegGeom *, 3> edges;
+    SpatialDomains::TriGeomUniquePtr tri;
 
     for (int i = 0; i < 3; ++i)
     {
-        edges[i] = m_edge[i]->GetGeom(coordDim);
+        edges[i] = m_edge[i]->GetGeom(coordDim, holder);
     }
 
-    ret =
-        MemoryManager<SpatialDomains::TriGeom>::AllocateSharedPtr(m_id, edges);
-    ret->Setup();
+    tri =
+        ObjPoolManager<SpatialDomains::TriGeom>::AllocateUniquePtr(m_id, edges);
+    auto ret = dynamic_cast<SpatialDomains::Geometry *>(tri.get());
+    holder.m_triVec.push_back(std::move(tri));
 
+    ret->Setup();
     return ret;
 }
 
@@ -190,7 +193,7 @@ void Triangle::GetCurvedNodes(std::vector<NodeSharedPtr> &nodeList) const
               nodeList.begin() + 3 * (n - 1));
 }
 
-void Triangle::MakeOrder(int order, SpatialDomains::GeometrySharedPtr geom,
+void Triangle::MakeOrder(int order, SpatialDomains::Geometry *geom,
                          LibUtilities::PointsType pType, int coordDim, int &id,
                          bool justConfig)
 

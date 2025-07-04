@@ -63,7 +63,7 @@ public:
      * @param locCoord     Iteration results for local coordinates (if inside).
      * @param normals      Wall normal as the result
      */
-    void GetNormals(SpatialDomains::GeometrySharedPtr bndGeom,
+    void GetNormals(SpatialDomains::Geometry *bndGeom,
                     const Array<OneD, const NekDouble> &locCoord,
                     Array<OneD, NekDouble> &normals);
 
@@ -153,14 +153,14 @@ private:
      * @return             Converged (true) or not (false)
      */
     bool BisectionForLocCoordOnBndElmt(
-        SpatialDomains::GeometrySharedPtr bndGeom,
+        SpatialDomains::Geometry *bndGeom,
         const Array<OneD, const NekDouble> &gloCoord,
         const Array<OneD, const Array<OneD, NekDouble>> &pts,
         const Array<OneD, const int> &dirUse, Array<OneD, NekDouble> &locCoord,
         const NekDouble iterTol = 1.0e-8, const int iterMax = 51);
 
     bool NewtonIterForLocCoordOnBndElmt(
-        SpatialDomains::GeometrySharedPtr bndGeom,
+        SpatialDomains::Geometry *bndGeom,
         const Array<OneD, const NekDouble> &gloCoord,
         const Array<OneD, const Array<OneD, NekDouble>> &pts,
         const Array<OneD, const int> &dirUse, Array<OneD, NekDouble> &locCoord,
@@ -183,7 +183,7 @@ private:
      * @param iterTol      Tolerence for iteration.
      * @return             Inside (true) or not (false)
      */
-    bool BndElmtContainsPoint(SpatialDomains::GeometrySharedPtr bndGeom,
+    bool BndElmtContainsPoint(SpatialDomains::Geometry *bndGeom,
                               const Array<OneD, const NekDouble> &gloCoord,
                               const Array<OneD, const NekDouble> &projDir,
                               Array<OneD, NekDouble> &locCoord,

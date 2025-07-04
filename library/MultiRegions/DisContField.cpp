@@ -546,7 +546,7 @@ SpatialDomains::BoundaryConditionsSharedPtr DisContField::GetDomainBCs(
         }
     }
 
-    map<int, SpatialDomains::GeometrySharedPtr> EndOfDomain;
+    map<int, SpatialDomains::Geometry *> EndOfDomain;
 
     // Now find out which points in domain have only one vertex
     for (auto &domIt : domain)
@@ -1056,10 +1056,10 @@ void DisContField::FindPeriodicTraces(
 
                 for (i = 0; i < c->m_geomVec.size(); ++i)
                 {
-                    SpatialDomains::SegGeomSharedPtr segGeom =
-                        std::dynamic_pointer_cast<SpatialDomains::SegGeom>(
+                    SpatialDomains::SegGeom *segGeom =
+                        dynamic_cast<SpatialDomains::SegGeom *>(
                             c->m_geomVec[i]);
-                    ASSERTL0(segGeom, "Unable to cast to shared ptr");
+                    ASSERTL0(segGeom, "Unable to cast to SegGeom*");
 
                     SpatialDomains::GeometryLinkSharedPtr elmt =
                         m_graph->GetElementsFromEdge(segGeom);
@@ -1067,8 +1067,8 @@ void DisContField::FindPeriodicTraces(
                              "The periodic boundaries belong to "
                              "more than one element of the mesh");
 
-                    SpatialDomains::Geometry2DSharedPtr geom =
-                        std::dynamic_pointer_cast<SpatialDomains::Geometry2D>(
+                    SpatialDomains::Geometry2D *geom =
+                        dynamic_cast<SpatialDomains::Geometry2D *>(
                             elmt->at(0).first);
 
                     allEdges[c->m_geomVec[i]->GetGlobalID()] =
@@ -1560,7 +1560,7 @@ void DisContField::FindPeriodicTraces(
             map<int, RotPeriodicInfo> rotComp;
             map<int, int> perComps;
             map<int, vector<int>> allVerts;
-            map<int, SpatialDomains::PointGeomVector> allCoord;
+            map<int, std::vector<SpatialDomains::PointGeom *>> allCoord;
             map<int, vector<int>> allEdges;
             map<int, vector<StdRegions::Orientation>> allOrient;
             set<int> locVerts;
@@ -1695,10 +1695,10 @@ void DisContField::FindPeriodicTraces(
                 // record of all faces local to this process.
                 for (i = 0; i < c->m_geomVec.size(); ++i)
                 {
-                    SpatialDomains::Geometry2DSharedPtr faceGeom =
-                        std::dynamic_pointer_cast<SpatialDomains::Geometry2D>(
+                    SpatialDomains::Geometry2D *faceGeom =
+                        dynamic_cast<SpatialDomains::Geometry2D *>(
                             c->m_geomVec[i]);
-                    ASSERTL1(faceGeom, "Unable to cast to shared ptr");
+                    ASSERTL1(faceGeom, "Unable to cast to Geometry2D*");
 
                     // Get geometry ID of this face and store in locFaces.
                     int faceId = c->m_geomVec[i]->GetGlobalID();
@@ -1714,7 +1714,7 @@ void DisContField::FindPeriodicTraces(
                     // Loop over vertices and edges of the face to populate
                     // allVerts, allEdges and allCoord maps.
                     vector<int> vertList, edgeList;
-                    SpatialDomains::PointGeomVector coordVec;
+                    std::vector<SpatialDomains::PointGeom *> coordVec;
                     vector<StdRegions::Orientation> orientVec;
                     for (j = 0; j < faceGeom->GetNumVerts(); ++j)
                     {
@@ -1960,20 +1960,20 @@ void DisContField::FindPeriodicTraces(
             // routine, but now hold information for all periodic vertices.
             map<int, vector<int>> vertMap;
             map<int, vector<int>> edgeMap;
-            map<int, SpatialDomains::PointGeomVector> coordMap;
+            map<int, std::vector<SpatialDomains::PointGeom *>> coordMap;
 
             // These final two maps are required for determining the relative
             // orientation of periodic edges. vCoMap associates vertex IDs with
             // their coordinates, and eIdMap maps an edge ID to the two vertices
             // which construct it.
-            map<int, SpatialDomains::PointGeomSharedPtr> vCoMap;
+            map<int, SpatialDomains::PointGeomUniquePtr> vCoMap;
             map<int, pair<int, int>> eIdMap;
 
             for (cnt = i = 0; i < totFaces; ++i)
             {
                 vector<int> edges(faceVerts[i]);
                 vector<int> verts(faceVerts[i]);
-                SpatialDomains::PointGeomVector coord(faceVerts[i]);
+                std::vector<SpatialDomains::PointGeom *> coord(faceVerts[i]);
 
                 // Keep track of cnt to enable correct edge vertices to be
                 // inserted into eIdMap.
@@ -1982,10 +1982,21 @@ void DisContField::FindPeriodicTraces(
                 {
                     edges[j] = edgeIds[cnt];
                     verts[j] = vertIds[cnt];
-                    coord[j] = MemoryManager<SpatialDomains::PointGeom>::
-                        AllocateSharedPtr(3, verts[j], vertX[cnt], vertY[cnt],
-                                          vertZ[cnt]);
-                    vCoMap[vertIds[cnt]] = coord[j];
+
+                    auto vIt = vCoMap.find(vertIds[cnt]);
+
+                    if (vIt == vCoMap.end())
+                    {
+                        auto pt = ObjPoolManager<SpatialDomains::PointGeom>::
+                            AllocateUniquePtr(3, verts[j], vertX[cnt],
+                                              vertY[cnt], vertZ[cnt]);
+                        coord[j]             = pt.get();
+                        vCoMap[vertIds[cnt]] = std::move(pt);
+                    }
+                    else
+                    {
+                        coord[j] = vIt->second.get();
+                    }
 
                     // Try to insert edge into the eIdMap to avoid re-inserting.
                     auto testIns = eIdMap.insert(make_pair(
@@ -2158,7 +2169,7 @@ void DisContField::FindPeriodicTraces(
 
                     // Loop up coordinates of the faces, check they have the
                     // same number of vertices.
-                    SpatialDomains::PointGeomVector tmpVec[2] = {
+                    std::vector<SpatialDomains::PointGeom *> tmpVec[2] = {
                         coordMap[ids[0]], coordMap[ids[1]]};
 
                     ASSERTL0(tmpVec[0].size() == tmpVec[1].size(),
@@ -2204,14 +2215,19 @@ void DisContField::FindPeriodicTraces(
                         if (tmpVec[0].size() == 3)
                         {
                             o = SpatialDomains::TriGeom::GetFaceOrientation(
-                                tmpVec[i], tmpVec[other], rotbnd, dir,
-                                sign * angle, tol);
+                                {tmpVec[i][0], tmpVec[i][1], tmpVec[i][2]},
+                                {tmpVec[other][0], tmpVec[other][1],
+                                 tmpVec[other][2]},
+                                rotbnd, dir, sign * angle, tol);
                         }
                         else
                         {
                             o = SpatialDomains::QuadGeom::GetFaceOrientation(
-                                tmpVec[i], tmpVec[other], rotbnd, dir,
-                                sign * angle, tol);
+                                {tmpVec[i][0], tmpVec[i][1], tmpVec[i][2],
+                                 tmpVec[i][3]},
+                                {tmpVec[other][0], tmpVec[other][1],
+                                 tmpVec[other][2], tmpVec[other][3]},
+                                rotbnd, dir, sign * angle, tol);
                         }
 
                         // Record face ID, orientation and whether other face is
@@ -2234,14 +2250,19 @@ void DisContField::FindPeriodicTraces(
                         if (tmpVec[0].size() == 3)
                         {
                             o = SpatialDomains::TriGeom::GetFaceOrientation(
-                                tmpVec[i], tmpVec[other], rotbnd, dir,
-                                sign * angle, tol);
+                                {tmpVec[i][0], tmpVec[i][1], tmpVec[i][2]},
+                                {tmpVec[other][0], tmpVec[other][1],
+                                 tmpVec[other][2]},
+                                rotbnd, dir, sign * angle, tol);
                         }
                         else
                         {
                             o = SpatialDomains::QuadGeom::GetFaceOrientation(
-                                tmpVec[i], tmpVec[other], rotbnd, dir,
-                                sign * angle, tol);
+                                {tmpVec[i][0], tmpVec[i][1], tmpVec[i][2],
+                                 tmpVec[i][3]},
+                                {tmpVec[other][0], tmpVec[other][1],
+                                 tmpVec[other][2], tmpVec[other][3]},
+                                rotbnd, dir, sign * angle, tol);
                         }
 
                         if (nFaceVerts == 3)
@@ -2320,14 +2341,19 @@ void DisContField::FindPeriodicTraces(
                         if (tmpVec[0].size() == 3)
                         {
                             o = SpatialDomains::TriGeom::GetFaceOrientation(
-                                tmpVec[i], tmpVec[other], rotbnd, dir,
-                                sign * angle, tol);
+                                {tmpVec[i][0], tmpVec[i][1], tmpVec[i][2]},
+                                {tmpVec[other][0], tmpVec[other][1],
+                                 tmpVec[other][2]},
+                                rotbnd, dir, sign * angle, tol);
                         }
                         else
                         {
                             o = SpatialDomains::QuadGeom::GetFaceOrientation(
-                                tmpVec[i], tmpVec[other], rotbnd, dir,
-                                sign * angle, tol);
+                                {tmpVec[i][0], tmpVec[i][1], tmpVec[i][2],
+                                 tmpVec[i][3]},
+                                {tmpVec[other][0], tmpVec[other][1],
+                                 tmpVec[other][2], tmpVec[other][3]},
+                                rotbnd, dir, sign * angle, tol);
                         }
 
                         vector<int> per1 = edgeMap[ids[i]];
@@ -2431,18 +2457,24 @@ void DisContField::FindPeriodicTraces(
                         // to be periodic with. perFaceId is the face
                         // ID which is periodic with faceId. The logic
                         // is much the same as the loop above.
-                        SpatialDomains::PointGeomVector tmpVec[2] = {
+                        std::vector<SpatialDomains::PointGeom *> tmpVec[2] = {
                             coordMap[faceId], coordMap[perFaceId]};
 
                         int nFaceVerts = tmpVec[0].size();
                         StdRegions::Orientation o =
                             nFaceVerts == 3
                                 ? SpatialDomains::TriGeom::GetFaceOrientation(
-                                      tmpVec[0], tmpVec[1], rotbnd, dir, angle,
-                                      tol)
+                                      {tmpVec[0][0], tmpVec[0][1],
+                                       tmpVec[0][2]},
+                                      {tmpVec[1][0], tmpVec[1][1],
+                                       tmpVec[1][2]},
+                                      rotbnd, dir, angle, tol)
                                 : SpatialDomains::QuadGeom::GetFaceOrientation(
-                                      tmpVec[0], tmpVec[1], rotbnd, dir, angle,
-                                      tol);
+                                      {tmpVec[0][0], tmpVec[0][1], tmpVec[0][2],
+                                       tmpVec[0][3]},
+                                      {tmpVec[1][0], tmpVec[1][1], tmpVec[1][2],
+                                       tmpVec[1][3]},
+                                      rotbnd, dir, angle, tol);
 
                         // Use vmap to determine which vertex of the other face
                         // should be periodic with this one.
@@ -2474,18 +2506,24 @@ void DisContField::FindPeriodicTraces(
                         // with. perFaceId is the face ID which is
                         // periodic with faceId. The logic is much the
                         // same as the loop above.
-                        SpatialDomains::PointGeomVector tmpVec[2] = {
+                        std::vector<SpatialDomains::PointGeom *> tmpVec[2] = {
                             coordMap[faceId], coordMap[perFaceId]};
 
                         int nFaceEdges = tmpVec[0].size();
                         StdRegions::Orientation o =
                             nFaceEdges == 3
                                 ? SpatialDomains::TriGeom::GetFaceOrientation(
-                                      tmpVec[0], tmpVec[1], rotbnd, dir, angle,
-                                      tol)
+                                      {tmpVec[0][0], tmpVec[0][1],
+                                       tmpVec[0][2]},
+                                      {tmpVec[1][0], tmpVec[1][1],
+                                       tmpVec[1][2]},
+                                      rotbnd, dir, angle, tol)
                                 : SpatialDomains::QuadGeom::GetFaceOrientation(
-                                      tmpVec[0], tmpVec[1], rotbnd, dir, angle,
-                                      tol);
+                                      {tmpVec[0][0], tmpVec[0][1], tmpVec[0][2],
+                                       tmpVec[0][3]},
+                                      {tmpVec[1][0], tmpVec[1][1], tmpVec[1][2],
+                                       tmpVec[1][3]},
+                                      rotbnd, dir, angle, tol);
 
                         // Use emap to determine which edge of the other
                         // face should be periodic with this one.
@@ -3909,8 +3947,7 @@ void DisContField::v_GetBoundaryToElmtMap(Array<OneD, int> &ElmtID,
                         Vid = m_bndCondExpansions[n]
                                   ->GetExp(i)
                                   ->GetGeom()
-                                  ->GetVertex(0)
-                                  ->GetVid();
+                                  ->GetVid(0);
                         VertGID[Vid] = cnt++;
                     }
                 }
@@ -4334,8 +4371,8 @@ void DisContField::EvaluateHDGPostProcessing(
                                               num_modes[0], PkeyQ1);
                 LibUtilities::BasisKey BkeyQ2(LibUtilities::eOrtho_A,
                                               num_modes[1], PkeyQ2);
-                SpatialDomains::QuadGeomSharedPtr qGeom =
-                    std::dynamic_pointer_cast<SpatialDomains::QuadGeom>(
+                SpatialDomains::QuadGeom *qGeom =
+                    dynamic_cast<SpatialDomains::QuadGeom *>(
                         (*m_exp)[i]->GetGeom());
                 ppExp = MemoryManager<LocalRegions::QuadExp>::AllocateSharedPtr(
                     BkeyQ1, BkeyQ2, qGeom);
@@ -4351,8 +4388,8 @@ void DisContField::EvaluateHDGPostProcessing(
                                               num_modes[0], PkeyT1);
                 LibUtilities::BasisKey BkeyT2(LibUtilities::eOrtho_B,
                                               num_modes[1], PkeyT2);
-                SpatialDomains::TriGeomSharedPtr tGeom =
-                    std::dynamic_pointer_cast<SpatialDomains::TriGeom>(
+                SpatialDomains::TriGeom *tGeom =
+                    dynamic_cast<SpatialDomains::TriGeom *>(
                         (*m_exp)[i]->GetGeom());
                 ppExp = MemoryManager<LocalRegions::TriExp>::AllocateSharedPtr(
                     BkeyT1, BkeyT2, tGeom);
@@ -4372,8 +4409,8 @@ void DisContField::EvaluateHDGPostProcessing(
                                               num_modes[1], PkeyH2);
                 LibUtilities::BasisKey BkeyH3(LibUtilities::eOrtho_A,
                                               num_modes[2], PkeyH3);
-                SpatialDomains::HexGeomSharedPtr hGeom =
-                    std::dynamic_pointer_cast<SpatialDomains::HexGeom>(
+                SpatialDomains::HexGeom *hGeom =
+                    dynamic_cast<SpatialDomains::HexGeom *>(
                         (*m_exp)[i]->GetGeom());
                 ppExp = MemoryManager<LocalRegions::HexExp>::AllocateSharedPtr(
                     BkeyH1, BkeyH2, BkeyH3, hGeom);
@@ -4393,8 +4430,8 @@ void DisContField::EvaluateHDGPostProcessing(
                                               num_modes[1], PkeyT2);
                 LibUtilities::BasisKey BkeyT3(LibUtilities::eOrtho_C,
                                               num_modes[2], PkeyT3);
-                SpatialDomains::TetGeomSharedPtr tGeom =
-                    std::dynamic_pointer_cast<SpatialDomains::TetGeom>(
+                SpatialDomains::TetGeom *tGeom =
+                    dynamic_cast<SpatialDomains::TetGeom *>(
                         (*m_exp)[i]->GetGeom());
                 ppExp = MemoryManager<LocalRegions::TetExp>::AllocateSharedPtr(
                     BkeyT1, BkeyT2, BkeyT3, tGeom);

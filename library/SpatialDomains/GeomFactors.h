@@ -39,6 +39,7 @@
 
 #include <LibUtilities/BasicUtils/HashUtils.hpp>
 #include <LibUtilities/Foundations/Basis.h>
+#include <LibUtilities/Memory/ObjectPool.hpp>
 #include <SpatialDomains/SpatialDomains.hpp>
 #include <SpatialDomains/SpatialDomainsDeclspec.h>
 #include <StdRegions/StdExpansion.h>
@@ -48,9 +49,6 @@ namespace Nektar::SpatialDomains
 {
 // Forward declarations
 class GeomFactors;
-class Geometry;
-
-typedef std::shared_ptr<Geometry> GeometrySharedPtr;
 
 /// Equivalence test for GeomFactors objects
 SPATIAL_DOMAINS_EXPORT bool operator==(const GeomFactors &lhs,

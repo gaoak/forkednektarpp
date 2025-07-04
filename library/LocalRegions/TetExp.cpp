@@ -57,7 +57,7 @@ namespace Nektar::LocalRegions
 TetExp::TetExp(const LibUtilities::BasisKey &Ba,
                const LibUtilities::BasisKey &Bb,
                const LibUtilities::BasisKey &Bc,
-               const SpatialDomains::TetGeomSharedPtr &geom)
+               SpatialDomains::Geometry3D *geom)
     : StdExpansion(LibUtilities::StdTetData::getNumberOfCoefficients(
                        Ba.GetNumModes(), Bb.GetNumModes(), Bc.GetNumModes()),
                    3, Ba, Bb, Bc),

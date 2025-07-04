@@ -39,17 +39,24 @@
 #include <SpatialDomains/Curve.hpp>
 #include <SpatialDomains/GeomFactors.h>
 #include <SpatialDomains/SegGeom.h>
+#include <SpatialDomains/XmapFactory.hpp>
 #include <StdRegions/StdQuadExp.h>
 
 namespace Nektar::SpatialDomains
 {
+
+XmapFactory<StdRegions::StdQuadExp, 2> &GetStdQuadFactory()
+{
+    static XmapFactory<StdRegions::StdQuadExp, 2> factory;
+    return factory;
+}
 
 QuadGeom::QuadGeom()
 {
     m_shapeType = LibUtilities::eQuadrilateral;
 }
 
-QuadGeom::QuadGeom(const int id, const SegGeomSharedPtr edges[],
+QuadGeom::QuadGeom(const int id, std::array<SegGeom *, kNedges> edges,
                    const CurveSharedPtr curve)
     : Geometry2D(edges[0]->GetVertex(0)->GetCoordim(), curve)
 {
@@ -58,16 +65,15 @@ QuadGeom::QuadGeom(const int id, const SegGeomSharedPtr edges[],
     m_shapeType = LibUtilities::eQuadrilateral;
     m_globalID  = id;
 
-    /// Copy the edge shared pointers.
-    m_edges.insert(m_edges.begin(), edges, edges + QuadGeom::kNedges);
-    m_eorient.resize(kNedges);
+    /// Copy the edge pointers
+    m_edges = edges;
 
     for (j = 0; j < kNedges; ++j)
     {
         m_eorient[j] =
             SegGeom::GetEdgeOrientation(*edges[j], *edges[(j + 1) % kNedges]);
-        m_verts.push_back(
-            edges[j]->GetVertex(m_eorient[j] == StdRegions::eForwards ? 0 : 1));
+        m_verts[j] =
+            edges[j]->GetVertex(m_eorient[j] == StdRegions::eForwards ? 0 : 1);
     }
 
     for (j = 2; j < kNedges; ++j)
@@ -96,6 +102,92 @@ QuadGeom::QuadGeom(const QuadGeom &in) : Geometry2D(in)
     }
 }
 
+int QuadGeom::v_AllLeftCheck(const Array<OneD, const NekDouble> &gloCoord)
+{
+    int nc = 1, d0 = m_manifold[0], d1 = m_manifold[1];
+    if (0 == m_edgeNormal.size())
+    {
+        m_edgeNormal = Array<OneD, Array<OneD, NekDouble>>(m_verts.size());
+        Array<OneD, Array<OneD, NekDouble>> x(2);
+        x[0] = Array<OneD, NekDouble>(3);
+        x[1] = Array<OneD, NekDouble>(3);
+        m_verts[0]->GetCoords(x[0]);
+        int i0 = 1, i1 = 0, direction = 1;
+        for (size_t i = 0; i < m_verts.size(); ++i)
+        {
+            i0 ^= 1;
+            i1 ^= 1;
+            m_verts[(i + 1) % m_verts.size()]->GetCoords(x[i1]);
+            if (m_edges[i]->GetXmap()->GetBasis(0)->GetNumModes() > 2)
+            {
+                continue;
+            }
+            m_edgeNormal[i]    = Array<OneD, NekDouble>(2);
+            m_edgeNormal[i][0] = x[i0][d1] - x[i1][d1];
+            m_edgeNormal[i][1] = x[i1][d0] - x[i0][d0];
+        }
+        if (m_coordim == 3)
+        {
+            for (size_t i = 0; i < m_verts.size(); ++i)
+            {
+                if (m_edgeNormal[i].size() == 2)
+                {
+                    m_verts[i]->GetCoords(x[0]);
+                    m_verts[(i + 2) % m_verts.size()]->GetCoords(x[1]);
+                    if (m_edgeNormal[i][0] * (x[1][d0] - x[0][d0]) <
+                        m_edgeNormal[i][1] * (x[0][d1] - x[1][d1]))
+                    {
+                        direction = -1;
+                    }
+                    break;
+                }
+            }
+        }
+        if (direction == -1)
+        {
+            for (size_t i = 0; i < m_verts.size(); ++i)
+            {
+                if (m_edgeNormal[i].size() == 2)
+                {
+                    m_edgeNormal[i][0] = -m_edgeNormal[i][0];
+                    m_edgeNormal[i][1] = -m_edgeNormal[i][1];
+                }
+            }
+        }
+    }
+
+    Array<OneD, NekDouble> vertex(3);
+    for (size_t i = 0; i < m_verts.size(); ++i)
+    {
+        int i1 = (i + 1) % m_verts.size();
+        if (m_verts[i]->GetGlobalID() < m_verts[i1]->GetGlobalID())
+        {
+            m_verts[i]->GetCoords(vertex);
+        }
+        else
+        {
+            m_verts[i1]->GetCoords(vertex);
+        }
+        if (m_edgeNormal[i].size() == 0)
+        {
+            nc = 0; // not sure
+            continue;
+        }
+        if (m_edgeNormal[i][0] * (gloCoord[d0] - vertex[d0]) <
+            m_edgeNormal[i][1] * (vertex[d1] - gloCoord[d1]))
+        {
+            return -1; // outside
+        }
+    }
+    // 3D manifold needs to check the distance
+    if (m_coordim == 3)
+    {
+        nc = 0;
+    }
+    // nc: 1 (side element), 0 (maybe inside), -1 (outside)
+    return nc;
+}
+
 void QuadGeom::SetUpXmap()
 {
     int order0 = std::max(m_edges[0]->GetXmap()->GetBasis(0)->GetNumModes(),
@@ -103,16 +195,17 @@ void QuadGeom::SetUpXmap()
     int order1 = std::max(m_edges[1]->GetXmap()->GetBasis(0)->GetNumModes(),
                           m_edges[3]->GetXmap()->GetBasis(0)->GetNumModes());
 
-    const LibUtilities::BasisKey B0(
-        LibUtilities::eModified_A, order0,
-        LibUtilities::PointsKey(order0 + 1,
-                                LibUtilities::eGaussLobattoLegendre));
-    const LibUtilities::BasisKey B1(
-        LibUtilities::eModified_A, order1,
-        LibUtilities::PointsKey(order1 + 1,
-                                LibUtilities::eGaussLobattoLegendre));
+    std::array<LibUtilities::BasisKey, 2> basis = {
+        LibUtilities::BasisKey(
+            LibUtilities::eModified_A, order0,
+            LibUtilities::PointsKey(order0 + 1,
+                                    LibUtilities::eGaussLobattoLegendre)),
+        LibUtilities::BasisKey(
+            LibUtilities::eModified_A, order1,
+            LibUtilities::PointsKey(order1 + 1,
+                                    LibUtilities::eGaussLobattoLegendre))};
 
-    m_xmap = MemoryManager<StdRegions::StdQuadExp>::AllocateSharedPtr(B0, B1);
+    m_xmap = GetStdQuadFactory().CreateInstance(basis);
 }
 
 NekDouble QuadGeom::v_GetCoord(const int i,
@@ -141,8 +234,8 @@ StdRegions::Orientation QuadGeom::GetFaceOrientation(const QuadGeom &face1,
  * not face1 to face2!).
  */
 StdRegions::Orientation QuadGeom::GetFaceOrientation(
-    const PointGeomVector &face1, const PointGeomVector &face2, bool doRot,
-    int dir, NekDouble angle, NekDouble tol)
+    std::array<PointGeom *, 4> face1, std::array<PointGeom *, 4> face2,
+    bool doRot, int dir, NekDouble angle, NekDouble tol)
 {
     int i, j, vmap[4] = {-1, -1, -1, -1};
 

@@ -44,18 +44,18 @@ using namespace Nektar;
 using namespace Nektar::SpatialDomains;
 
 // Thin wrapper for ContainsPoint
-bool Geometry_ContainsPoint(GeometrySharedPtr geom,
+bool Geometry_ContainsPoint(Geometry *geom,
                             const Array<OneD, const NekDouble> &gloCoord)
 {
     return geom->ContainsPoint(gloCoord);
 }
 
-void Geometry_GenGeomFactors(GeometrySharedPtr geom)
+void Geometry_GenGeomFactors(Geometry *geom)
 {
     GeomFactorsSharedPtr geomFactors = geom->GetGeomFactors();
 }
 
-bool Geometry_IsValid(GeometrySharedPtr geom)
+bool Geometry_IsValid(Geometry *geom)
 {
     GeomFactorsSharedPtr geomFactors = geom->GetGeomFactors();
     return geomFactors->IsValid();
@@ -63,8 +63,7 @@ bool Geometry_IsValid(GeometrySharedPtr geom)
 
 void export_Geometry(py::module &m)
 {
-    py::class_<Geometry, std::shared_ptr<Geometry>>(m, "Geometry")
-
+    py::classh<Geometry>(m, "Geometry")
         .def("GetCoordim", &Geometry::GetCoordim)
         .def("GetGlobalID", &Geometry::GetGlobalID)
         .def("SetGlobalID", &Geometry::SetGlobalID)
@@ -76,9 +75,10 @@ void export_Geometry(py::module &m)
 
         .def("ContainsPoint", &Geometry_ContainsPoint)
 
-        .def("GetVertex", &Geometry::GetVertex)
-        .def("GetEdge", &Geometry::GetEdge)
-        .def("GetFace", &Geometry::GetFace)
+        .def("GetVertex", &Geometry::GetVertex,
+             py::return_value_policy::reference)
+        .def("GetEdge", &Geometry::GetEdge, py::return_value_policy::reference)
+        .def("GetFace", &Geometry::GetFace, py::return_value_policy::reference)
         .def("GetVid", &Geometry::GetVid)
         .def("GetEid", &Geometry::GetEid)
         .def("GetFid", &Geometry::GetFid)

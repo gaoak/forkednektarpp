@@ -408,42 +408,38 @@ void CouplingCwipi::AnnounceMesh()
 {
     SpatialDomains::MeshGraphSharedPtr graph = m_evalField->GetGraph();
 
+    int nElts = 0, tmp = 0;
+
     // get Elements
-    SpatialDomains::SegGeomMap seggeom;
-    SpatialDomains::TriGeomMap trigeom;
-    SpatialDomains::QuadGeomMap quadgeom;
-    SpatialDomains::TetGeomMap tetgeom;
-    SpatialDomains::PyrGeomMap pyrgeom;
-    SpatialDomains::PrismGeomMap prismgeom;
-    SpatialDomains::HexGeomMap hexgeom;
     if (m_spacedim == 1)
     {
-        seggeom = graph->GetAllSegGeoms();
+        int nSeg = graph->GetGeomMap<SpatialDomains::SegGeom>().size();
+        nElts += nSeg;
+        tmp += nSeg * 2;
     }
     else if (m_spacedim == 2)
     {
-        trigeom  = graph->GetAllTriGeoms();
-        quadgeom = graph->GetAllQuadGeoms();
+        int nTri  = graph->GetGeomMap<SpatialDomains::TriGeom>().size();
+        int nQuad = graph->GetGeomMap<SpatialDomains::QuadGeom>().size();
+        nElts += nTri + nQuad;
+        tmp += nTri * 3 + nQuad * 4;
     }
     else if (m_spacedim == 3)
     {
-        tetgeom   = graph->GetAllTetGeoms();
-        pyrgeom   = graph->GetAllPyrGeoms();
-        prismgeom = graph->GetAllPrismGeoms();
-        hexgeom   = graph->GetAllHexGeoms();
-    };
+        int nTet   = graph->GetGeomMap<SpatialDomains::TetGeom>().size();
+        int nPyr   = graph->GetGeomMap<SpatialDomains::PyrGeom>().size();
+        int nPrism = graph->GetGeomMap<SpatialDomains::PrismGeom>().size();
+        int nHex   = graph->GetGeomMap<SpatialDomains::HexGeom>().size();
+
+        nElts += nTet + nPyr + nPrism + nHex;
+        tmp += 4 * nTet + 5 * nPyr + 6 * nPrism + 8 * nHex;
+    }
 
     int nVerts = graph->GetNvertices();
-    int nElts  = seggeom.size() + trigeom.size() + quadgeom.size() +
-                tetgeom.size() + pyrgeom.size() + prismgeom.size() +
-                hexgeom.size();
 
     // allocate CWIPI arrays
     m_coords = (double *)malloc(sizeof(double) * 3 * nVerts);
     ASSERTL1(m_coords != nullptr, "malloc failed for m_coords");
-    int tmp = 2 * seggeom.size() + 3 * trigeom.size() + 4 * quadgeom.size() +
-              4 * tetgeom.size() + 5 * pyrgeom.size() + 6 * prismgeom.size() +
-              8 * hexgeom.size();
     m_connec = (int *)malloc(sizeof(int) * tmp);
     ASSERTL1(m_connec != nullptr, "malloc failed for m_connec");
     m_connecIdx = (int *)malloc(sizeof(int) * (nElts + 1));
@@ -454,13 +450,29 @@ void CouplingCwipi::AnnounceMesh()
     int connecPos  = 0;
     int conidxPos  = 0;
 
-    AddElementsToMesh(seggeom, coordsPos, connecPos, conidxPos);
-    AddElementsToMesh(trigeom, coordsPos, connecPos, conidxPos);
-    AddElementsToMesh(quadgeom, coordsPos, connecPos, conidxPos);
-    AddElementsToMesh(tetgeom, coordsPos, connecPos, conidxPos);
-    AddElementsToMesh(pyrgeom, coordsPos, connecPos, conidxPos);
-    AddElementsToMesh(prismgeom, coordsPos, connecPos, conidxPos);
-    AddElementsToMesh(hexgeom, coordsPos, connecPos, conidxPos);
+    if (m_spacedim == 1)
+    {
+        AddElementsToMesh(graph->GetGeomMap<SpatialDomains::SegGeom>(),
+                          coordsPos, connecPos, conidxPos);
+    }
+    else if (m_spacedim == 2)
+    {
+        AddElementsToMesh(graph->GetGeomMap<SpatialDomains::TriGeom>(),
+                          coordsPos, connecPos, conidxPos);
+        AddElementsToMesh(graph->GetGeomMap<SpatialDomains::QuadGeom>(),
+                          coordsPos, connecPos, conidxPos);
+    }
+    else if (m_spacedim == 3)
+    {
+        AddElementsToMesh(graph->GetGeomMap<SpatialDomains::TetGeom>(),
+                          coordsPos, connecPos, conidxPos);
+        AddElementsToMesh(graph->GetGeomMap<SpatialDomains::PyrGeom>(),
+                          coordsPos, connecPos, conidxPos);
+        AddElementsToMesh(graph->GetGeomMap<SpatialDomains::PrismGeom>(),
+                          coordsPos, connecPos, conidxPos);
+        AddElementsToMesh(graph->GetGeomMap<SpatialDomains::HexGeom>(),
+                          coordsPos, connecPos, conidxPos);
+    }
 
     // output the mesh in tecplot format. If this works, CWIPI will be able
     // to process it, too
@@ -491,24 +503,30 @@ void CouplingCwipi::v_Finalize(void)
 }
 
 template <typename T>
-void CouplingCwipi::AddElementsToMesh(T geom, int &coordsPos, int &connecPos,
-                                      int &conidxPos)
+void CouplingCwipi::AddElementsToMesh(T &geomMap, int &coordsPos,
+                                      int &connecPos, int &conidxPos)
 {
+    // If map is empty (i.e. no elements), do nothing.
+    if (geomMap.size() == 0)
+    {
+        return;
+    }
+
     // helper variables
     Array<OneD, NekDouble> x(3);
-    SpatialDomains::PointGeomSharedPtr vert;
+    SpatialDomains::PointGeom *vert;
     int vertID;
 
-    int kNverts = T::mapped_type::element_type::kNverts;
+    int kNverts = (*geomMap.begin()).second->GetNumVerts();
 
     // iterate over all elements
-    for (auto it = geom.begin(); it != geom.end(); it++)
+    for (auto [id, geom] : geomMap)
     {
         //  iterate over the elements vertices
         for (int j = 0; j < kNverts; ++j)
         {
-            vert   = it->second->GetVertex(j);
-            vertID = vert->GetVid();
+            vert   = geom->GetVertex(j);
+            vertID = vert->GetGlobalID();
 
             // check if we already stored the vertex
             if (m_vertMap.count(vertID) == 0)

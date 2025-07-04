@@ -64,17 +64,18 @@ string Edge::GetXmlCurveString()
     return s.str();
 }
 
-SpatialDomains::SegGeomSharedPtr Edge::GetGeom(int coordDim)
+SpatialDomains::SegGeom *Edge::GetGeom(int coordDim,
+                                       SpatialDomains::EntityHolder &holder)
 {
     static std::mutex io_mutex;
     std::unique_lock<std::mutex> lock(io_mutex);
 
     // Create edge vertices.
-    SpatialDomains::PointGeomSharedPtr p[2];
-    SpatialDomains::SegGeomSharedPtr ret;
+    std::array<SpatialDomains::PointGeom *, 2> p;
+    SpatialDomains::SegGeomUniquePtr seg;
 
-    p[0] = m_n1->GetGeom(coordDim);
-    p[1] = m_n2->GetGeom(coordDim);
+    p[0] = m_n1->GetGeom(coordDim, holder);
+    p[1] = m_n2->GetGeom(coordDim, holder);
 
     // Create a curve if high-order information exists.
     if (m_edgeNodes.size() > 0)
@@ -86,25 +87,27 @@ SpatialDomains::SegGeomSharedPtr Edge::GetGeom(int coordDim)
         c->m_points.push_back(p[0]);
         for (int i = 0; i < m_edgeNodes.size(); ++i)
         {
-            c->m_points.push_back(m_edgeNodes[i]->GetGeom(coordDim));
+            c->m_points.push_back(m_edgeNodes[i]->GetGeom(coordDim, holder));
         }
         c->m_points.push_back(p[1]);
 
-        ret = MemoryManager<SpatialDomains::SegGeom>::AllocateSharedPtr(
+        seg = ObjPoolManager<SpatialDomains::SegGeom>::AllocateUniquePtr(
             m_id, coordDim, p, c);
     }
     else
     {
-        ret = MemoryManager<SpatialDomains::SegGeom>::AllocateSharedPtr(
+        seg = ObjPoolManager<SpatialDomains::SegGeom>::AllocateUniquePtr(
             m_id, coordDim, p);
     }
 
-    ret->Setup();
+    auto ret = seg.get();
+    holder.m_segVec.push_back(std::move(seg));
 
+    ret->Setup();
     return ret;
 }
 
-void Edge::MakeOrder(int order, SpatialDomains::GeometrySharedPtr geom,
+void Edge::MakeOrder(int order, SpatialDomains::Geometry *geom,
                      LibUtilities::PointsType edgeType, int coordDim, int &id)
 {
     int nPoints                            = order + 1;

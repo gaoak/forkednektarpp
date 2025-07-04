@@ -214,11 +214,11 @@ void ProcessTetSplit::Process()
                          << endl;
         }
 
+        SpatialDomains::EntityHolder holder;
         // Create local prismatic region so that co-ordinates of the
         // mapped element can be read from.
-        SpatialDomains::PrismGeomSharedPtr geomLayer =
-            std::dynamic_pointer_cast<SpatialDomains::PrismGeom>(
-                el[i]->GetGeom(m_mesh->m_spaceDim));
+        auto geomLayer = dynamic_cast<SpatialDomains::PrismGeom *>(
+            el[i]->GetGeom(m_mesh->m_spaceDim, holder));
         LibUtilities::BasisKey B0(
             LibUtilities::eOrtho_A, nq,
             LibUtilities::PointsKey(nq, LibUtilities::eGaussLobattoLegendre));
@@ -347,7 +347,7 @@ void ProcessTetSplit::Process()
                 ElmtConfig conf(LibUtilities::eTriangle, 1, false, false);
                 ElementSharedPtr elmt = GetElementFactory().CreateInstance(
                     LibUtilities::eTriangle, conf, triNodes, tags);
-                SpatialDomains::GeometrySharedPtr triGeom = elmt->GetGeom(3);
+                SpatialDomains::Geometry *triGeom = elmt->GetGeom(3, holder);
                 triGeom->FillGeom();
                 o                 = 3 + 3 * ne;
                 face->m_curveType = LibUtilities::eNodalTriEvenlySpaced;

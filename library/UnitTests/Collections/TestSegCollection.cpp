@@ -41,24 +41,27 @@
 
 namespace Nektar::SegCollectionTests
 {
-SpatialDomains::SegGeomSharedPtr CreateSegGeom(
-    unsigned int id, SpatialDomains::PointGeomSharedPtr v0,
-    SpatialDomains::PointGeomSharedPtr v1, int coordim = 1)
+
+SpatialDomains::SegGeomUniquePtr CreateSegGeom(unsigned int id,
+                                               SpatialDomains::PointGeom *v0,
+                                               SpatialDomains::PointGeom *v1,
+                                               int coordim = 1)
 {
-    SpatialDomains::PointGeomSharedPtr vertices[] = {v0, v1};
-    SpatialDomains::SegGeomSharedPtr result(
+    std::array<SpatialDomains::PointGeom *, 2> vertices = {v0, v1};
+    SpatialDomains::SegGeomUniquePtr result(
         new SpatialDomains::SegGeom(id, coordim, vertices));
     return result;
 }
 
 BOOST_AUTO_TEST_CASE(TestSegBwdTrans_StdMat_UniformP)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(1u, 0u, -1.0, 0.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(1u, 1u, 1.0, 0.0, 0.0));
 
-    SpatialDomains::SegGeomSharedPtr segGeom = CreateSegGeom(0, v0, v1);
+    SpatialDomains::SegGeomUniquePtr segGeom =
+        CreateSegGeom(0, v0.get(), v1.get());
 
     Nektar::LibUtilities::PointsType segPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -72,7 +75,7 @@ BOOST_AUTO_TEST_CASE(TestSegBwdTrans_StdMat_UniformP)
 
     Nektar::LocalRegions::SegExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
-            basisKeyDir1, segGeom);
+            basisKeyDir1, segGeom.get());
 
     std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
@@ -100,12 +103,13 @@ BOOST_AUTO_TEST_CASE(TestSegBwdTrans_StdMat_UniformP)
 
 BOOST_AUTO_TEST_CASE(TestSegBwdTrans_StdMat_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(1u, 0u, -1.0, 0.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(1u, 1u, 1.0, 0.0, 0.0));
 
-    SpatialDomains::SegGeomSharedPtr segGeom = CreateSegGeom(0, v0, v1);
+    SpatialDomains::SegGeomUniquePtr segGeom =
+        CreateSegGeom(0, v0.get(), v1.get());
 
     Nektar::LibUtilities::PointsType segPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -119,7 +123,7 @@ BOOST_AUTO_TEST_CASE(TestSegBwdTrans_StdMat_UniformP_MultiElmt)
 
     Nektar::LocalRegions::SegExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
-            basisKeyDir1, segGeom);
+            basisKeyDir1, segGeom.get());
 
     std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
 
@@ -156,12 +160,13 @@ BOOST_AUTO_TEST_CASE(TestSegBwdTrans_StdMat_UniformP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestSegBwdTrans_IterPerExp_UniformP)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(1u, 0u, -1.0, 0.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(1u, 1u, 1.0, 0.0, 0.0));
 
-    SpatialDomains::SegGeomSharedPtr segGeom = CreateSegGeom(0, v0, v1);
+    SpatialDomains::SegGeomUniquePtr segGeom =
+        CreateSegGeom(0, v0.get(), v1.get());
 
     Nektar::LibUtilities::PointsType segPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -175,7 +180,7 @@ BOOST_AUTO_TEST_CASE(TestSegBwdTrans_IterPerExp_UniformP)
 
     Nektar::LocalRegions::SegExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
-            basisKeyDir1, segGeom);
+            basisKeyDir1, segGeom.get());
 
     std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
@@ -203,12 +208,13 @@ BOOST_AUTO_TEST_CASE(TestSegBwdTrans_IterPerExp_UniformP)
 
 BOOST_AUTO_TEST_CASE(TestSegBwdTrans_SumFac_UniformP)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(1u, 0u, -1.0, 0.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(1u, 1u, 1.0, 0.0, 0.0));
 
-    SpatialDomains::SegGeomSharedPtr segGeom = CreateSegGeom(0, v0, v1);
+    SpatialDomains::SegGeomUniquePtr segGeom =
+        CreateSegGeom(0, v0.get(), v1.get());
 
     Nektar::LibUtilities::PointsType segPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -222,7 +228,7 @@ BOOST_AUTO_TEST_CASE(TestSegBwdTrans_SumFac_UniformP)
 
     Nektar::LocalRegions::SegExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
-            basisKeyDir1, segGeom);
+            basisKeyDir1, segGeom.get());
 
     std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
 
@@ -259,12 +265,13 @@ BOOST_AUTO_TEST_CASE(TestSegBwdTrans_SumFac_UniformP)
 
 BOOST_AUTO_TEST_CASE(TestSegBwdTrans_SumFac_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(1u, 0u, -1.0, 0.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(1u, 1u, 1.0, 0.0, 0.0));
 
-    SpatialDomains::SegGeomSharedPtr segGeom = CreateSegGeom(0, v0, v1);
+    SpatialDomains::SegGeomUniquePtr segGeom =
+        CreateSegGeom(0, v0.get(), v1.get());
 
     Nektar::LibUtilities::PointsType segPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -278,7 +285,7 @@ BOOST_AUTO_TEST_CASE(TestSegBwdTrans_SumFac_UniformP_MultiElmt)
 
     Nektar::LocalRegions::SegExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
-            basisKeyDir1, segGeom);
+            basisKeyDir1, segGeom.get());
 
     std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
 
@@ -315,12 +322,13 @@ BOOST_AUTO_TEST_CASE(TestSegBwdTrans_SumFac_UniformP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestSegBwdTrans_MatrixFree_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(1u, 0u, -1.0, 0.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(1u, 1u, 1.0, 0.0, 0.0));
 
-    SpatialDomains::SegGeomSharedPtr segGeom = CreateSegGeom(0, v0, v1);
+    SpatialDomains::SegGeomUniquePtr segGeom =
+        CreateSegGeom(0, v0.get(), v1.get());
 
     Nektar::LibUtilities::PointsType segPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -334,7 +342,7 @@ BOOST_AUTO_TEST_CASE(TestSegBwdTrans_MatrixFree_UniformP_MultiElmt)
 
     Nektar::LocalRegions::SegExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
-            basisKeyDir1, segGeom);
+            basisKeyDir1, segGeom.get());
 
     std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
 
@@ -372,12 +380,13 @@ BOOST_AUTO_TEST_CASE(TestSegBwdTrans_MatrixFree_UniformP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestSegIProductWRTBase_IterPerExp_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(1u, 0u, -1.5, 0.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(1u, 1u, 1.0, 0.0, 0.0));
 
-    SpatialDomains::SegGeomSharedPtr segGeom = CreateSegGeom(0, v0, v1);
+    SpatialDomains::SegGeomUniquePtr segGeom =
+        CreateSegGeom(0, v0.get(), v1.get());
 
     Nektar::LibUtilities::PointsType segPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -390,7 +399,7 @@ BOOST_AUTO_TEST_CASE(TestSegIProductWRTBase_IterPerExp_UniformP_MultiElmt)
 
     Nektar::LocalRegions::SegExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
-            basisKeyDir1, segGeom);
+            basisKeyDir1, segGeom.get());
 
     std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
 
@@ -438,12 +447,13 @@ BOOST_AUTO_TEST_CASE(TestSegIProductWRTBase_IterPerExp_UniformP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestSegIProductWRTBase_StdMat_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(1u, 0u, -1.5, 0.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(1u, 1u, 1.0, 0.0, 0.0));
 
-    SpatialDomains::SegGeomSharedPtr segGeom = CreateSegGeom(0, v0, v1);
+    SpatialDomains::SegGeomUniquePtr segGeom =
+        CreateSegGeom(0, v0.get(), v1.get());
 
     Nektar::LibUtilities::PointsType segPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -456,7 +466,7 @@ BOOST_AUTO_TEST_CASE(TestSegIProductWRTBase_StdMat_UniformP_MultiElmt)
 
     Nektar::LocalRegions::SegExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
-            basisKeyDir1, segGeom);
+            basisKeyDir1, segGeom.get());
 
     std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
 
@@ -504,12 +514,13 @@ BOOST_AUTO_TEST_CASE(TestSegIProductWRTBase_StdMat_UniformP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestSegIProductWRTBase_SumFac_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(1u, 0u, -1.5, 0.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(1u, 1u, 1.0, 0.0, 0.0));
 
-    SpatialDomains::SegGeomSharedPtr segGeom = CreateSegGeom(0, v0, v1);
+    SpatialDomains::SegGeomUniquePtr segGeom =
+        CreateSegGeom(0, v0.get(), v1.get());
 
     Nektar::LibUtilities::PointsType segPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -522,7 +533,7 @@ BOOST_AUTO_TEST_CASE(TestSegIProductWRTBase_SumFac_UniformP_MultiElmt)
 
     Nektar::LocalRegions::SegExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
-            basisKeyDir1, segGeom);
+            basisKeyDir1, segGeom.get());
 
     std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
 
@@ -570,12 +581,13 @@ BOOST_AUTO_TEST_CASE(TestSegIProductWRTBase_SumFac_UniformP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestSegIProductWRTBase_MatrixFree_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(1u, 0u, -1.5, 0.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(1u, 1u, 1.0, 0.0, 0.0));
 
-    SpatialDomains::SegGeomSharedPtr segGeom = CreateSegGeom(0, v0, v1);
+    SpatialDomains::SegGeomUniquePtr segGeom =
+        CreateSegGeom(0, v0.get(), v1.get());
 
     Nektar::LibUtilities::PointsType segPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -588,7 +600,7 @@ BOOST_AUTO_TEST_CASE(TestSegIProductWRTBase_MatrixFree_UniformP_MultiElmt)
 
     Nektar::LocalRegions::SegExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
-            basisKeyDir1, segGeom);
+            basisKeyDir1, segGeom.get());
 
     std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
 
@@ -637,12 +649,13 @@ BOOST_AUTO_TEST_CASE(TestSegIProductWRTBase_MatrixFree_UniformP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestSegPhysDeriv_IterPerExp_UniformP)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(1u, 0u, -1.5, 0.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(1u, 1u, 1.0, 0.0, 0.0));
 
-    SpatialDomains::SegGeomSharedPtr segGeom = CreateSegGeom(0, v0, v1);
+    SpatialDomains::SegGeomUniquePtr segGeom =
+        CreateSegGeom(0, v0.get(), v1.get());
 
     Nektar::LibUtilities::PointsType segPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -655,7 +668,7 @@ BOOST_AUTO_TEST_CASE(TestSegPhysDeriv_IterPerExp_UniformP)
 
     Nektar::LocalRegions::SegExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
-            basisKeyDir1, segGeom);
+            basisKeyDir1, segGeom.get());
 
     std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
@@ -692,12 +705,13 @@ BOOST_AUTO_TEST_CASE(TestSegPhysDeriv_IterPerExp_UniformP)
 
 BOOST_AUTO_TEST_CASE(TestSegPhysDeriv_IterPerExp_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(1u, 0u, -1.5, 0.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(1u, 1u, 1.0, 0.0, 0.0));
 
-    SpatialDomains::SegGeomSharedPtr segGeom = CreateSegGeom(0, v0, v1);
+    SpatialDomains::SegGeomUniquePtr segGeom =
+        CreateSegGeom(0, v0.get(), v1.get());
 
     Nektar::LibUtilities::PointsType segPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -710,7 +724,7 @@ BOOST_AUTO_TEST_CASE(TestSegPhysDeriv_IterPerExp_UniformP_MultiElmt)
 
     Nektar::LocalRegions::SegExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
-            basisKeyDir1, segGeom);
+            basisKeyDir1, segGeom.get());
 
     int nelmts = 10;
 
@@ -760,12 +774,13 @@ BOOST_AUTO_TEST_CASE(TestSegPhysDeriv_IterPerExp_UniformP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestSegPhysDeriv_StdMat_UniformP)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(1u, 0u, -1.5, 0.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(1u, 1u, 1.0, 0.0, 0.0));
 
-    SpatialDomains::SegGeomSharedPtr segGeom = CreateSegGeom(0, v0, v1);
+    SpatialDomains::SegGeomUniquePtr segGeom =
+        CreateSegGeom(0, v0.get(), v1.get());
 
     Nektar::LibUtilities::PointsType segPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -778,7 +793,7 @@ BOOST_AUTO_TEST_CASE(TestSegPhysDeriv_StdMat_UniformP)
 
     Nektar::LocalRegions::SegExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
-            basisKeyDir1, segGeom);
+            basisKeyDir1, segGeom.get());
 
     std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
@@ -815,12 +830,13 @@ BOOST_AUTO_TEST_CASE(TestSegPhysDeriv_StdMat_UniformP)
 
 BOOST_AUTO_TEST_CASE(TestSegPhysDeriv_StdMat_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(1u, 0u, -1.5, 0.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(1u, 1u, 1.0, 0.0, 0.0));
 
-    SpatialDomains::SegGeomSharedPtr segGeom = CreateSegGeom(0, v0, v1);
+    SpatialDomains::SegGeomUniquePtr segGeom =
+        CreateSegGeom(0, v0.get(), v1.get());
 
     Nektar::LibUtilities::PointsType segPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -833,7 +849,7 @@ BOOST_AUTO_TEST_CASE(TestSegPhysDeriv_StdMat_UniformP_MultiElmt)
 
     Nektar::LocalRegions::SegExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
-            basisKeyDir1, segGeom);
+            basisKeyDir1, segGeom.get());
 
     int nelmts = 10;
 
@@ -883,12 +899,13 @@ BOOST_AUTO_TEST_CASE(TestSegPhysDeriv_StdMat_UniformP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestSegPhysDeriv_SumFac_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(1u, 0u, -1.5, 0.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(1u, 1u, 1.0, 0.0, 0.0));
 
-    SpatialDomains::SegGeomSharedPtr segGeom = CreateSegGeom(0, v0, v1);
+    SpatialDomains::SegGeomUniquePtr segGeom =
+        CreateSegGeom(0, v0.get(), v1.get());
 
     Nektar::LibUtilities::PointsType segPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -901,7 +918,7 @@ BOOST_AUTO_TEST_CASE(TestSegPhysDeriv_SumFac_UniformP_MultiElmt)
 
     Nektar::LocalRegions::SegExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
-            basisKeyDir1, segGeom);
+            basisKeyDir1, segGeom.get());
 
     int nelmts = 10;
 
@@ -951,12 +968,13 @@ BOOST_AUTO_TEST_CASE(TestSegPhysDeriv_SumFac_UniformP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestSegPhysDeriv_MatrixFree_UniformP_MultiElmt_1D)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(1u, 0u, -1.5, 0.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(1u, 1u, 1.0, 0.0, 0.0));
 
-    SpatialDomains::SegGeomSharedPtr segGeom = CreateSegGeom(0, v0, v1);
+    SpatialDomains::SegGeomUniquePtr segGeom =
+        CreateSegGeom(0, v0.get(), v1.get());
 
     Nektar::LibUtilities::PointsType segPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -969,7 +987,7 @@ BOOST_AUTO_TEST_CASE(TestSegPhysDeriv_MatrixFree_UniformP_MultiElmt_1D)
 
     Nektar::LocalRegions::SegExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
-            basisKeyDir1, segGeom);
+            basisKeyDir1, segGeom.get());
 
     int nelmts = 10;
 
@@ -1020,12 +1038,13 @@ BOOST_AUTO_TEST_CASE(TestSegPhysDeriv_MatrixFree_UniformP_MultiElmt_1D)
 
 BOOST_AUTO_TEST_CASE(TestSegPhysDeriv_MatrixFree_UniformP_MultiElmt_2D)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.5, 0.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, 1.0, 0.0));
 
-    SpatialDomains::SegGeomSharedPtr segGeom = CreateSegGeom(0, v0, v1, 2u);
+    SpatialDomains::SegGeomUniquePtr segGeom =
+        CreateSegGeom(0, v0.get(), v1.get(), 2u);
 
     Nektar::LibUtilities::PointsType segPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1038,7 +1057,7 @@ BOOST_AUTO_TEST_CASE(TestSegPhysDeriv_MatrixFree_UniformP_MultiElmt_2D)
 
     Nektar::LocalRegions::SegExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
-            basisKeyDir1, segGeom);
+            basisKeyDir1, segGeom.get());
 
     int nelmts = 10;
 
@@ -1091,12 +1110,13 @@ BOOST_AUTO_TEST_CASE(TestSegPhysDeriv_MatrixFree_UniformP_MultiElmt_2D)
 
 BOOST_AUTO_TEST_CASE(TestSegPhysDeriv_MatrixFree_UniformP_MultiElmt_3D)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.5, 0.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, 1.0, 1.0));
 
-    SpatialDomains::SegGeomSharedPtr segGeom = CreateSegGeom(0, v0, v1, 3u);
+    SpatialDomains::SegGeomUniquePtr segGeom =
+        CreateSegGeom(0, v0.get(), v1.get(), 3u);
 
     Nektar::LibUtilities::PointsType segPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1109,7 +1129,7 @@ BOOST_AUTO_TEST_CASE(TestSegPhysDeriv_MatrixFree_UniformP_MultiElmt_3D)
 
     Nektar::LocalRegions::SegExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
-            basisKeyDir1, segGeom);
+            basisKeyDir1, segGeom.get());
 
     int nelmts = 10;
 
@@ -1164,12 +1184,13 @@ BOOST_AUTO_TEST_CASE(TestSegPhysDeriv_MatrixFree_UniformP_MultiElmt_3D)
 
 BOOST_AUTO_TEST_CASE(TestSegIProductWRTDerivBase_IterPerExp_UniformP)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(1u, 0u, -1.0, 0.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(1u, 1u, 1.0, 0.0, 0.0));
 
-    SpatialDomains::SegGeomSharedPtr segGeom = CreateSegGeom(0, v0, v1);
+    SpatialDomains::SegGeomUniquePtr segGeom =
+        CreateSegGeom(0, v0.get(), v1.get());
 
     Nektar::LibUtilities::PointsType segPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1183,7 +1204,7 @@ BOOST_AUTO_TEST_CASE(TestSegIProductWRTDerivBase_IterPerExp_UniformP)
 
     Nektar::LocalRegions::SegExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
-            basisKeyDir1, segGeom);
+            basisKeyDir1, segGeom.get());
 
     std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
@@ -1226,12 +1247,13 @@ BOOST_AUTO_TEST_CASE(TestSegIProductWRTDerivBase_IterPerExp_UniformP)
 
 BOOST_AUTO_TEST_CASE(TestSegIProductWRTDerivBase_IterPerExp_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(1u, 0u, -1.0, 0.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(1u, 1u, 1.0, 0.0, 0.0));
 
-    SpatialDomains::SegGeomSharedPtr segGeom = CreateSegGeom(0, v0, v1);
+    SpatialDomains::SegGeomUniquePtr segGeom =
+        CreateSegGeom(0, v0.get(), v1.get());
 
     Nektar::LibUtilities::PointsType segPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1245,7 +1267,7 @@ BOOST_AUTO_TEST_CASE(TestSegIProductWRTDerivBase_IterPerExp_UniformP_MultiElmt)
 
     Nektar::LocalRegions::SegExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
-            basisKeyDir1, segGeom);
+            basisKeyDir1, segGeom.get());
 
     std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
 
@@ -1298,12 +1320,13 @@ BOOST_AUTO_TEST_CASE(TestSegIProductWRTDerivBase_IterPerExp_UniformP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestSegIProductWRTDerivBase_StdMat_UniformP)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(1u, 0u, -1.0, 0.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(1u, 1u, 1.0, 0.0, 0.0));
 
-    SpatialDomains::SegGeomSharedPtr segGeom = CreateSegGeom(0, v0, v1);
+    SpatialDomains::SegGeomUniquePtr segGeom =
+        CreateSegGeom(0, v0.get(), v1.get());
 
     Nektar::LibUtilities::PointsType segPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1317,7 +1340,7 @@ BOOST_AUTO_TEST_CASE(TestSegIProductWRTDerivBase_StdMat_UniformP)
 
     Nektar::LocalRegions::SegExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
-            basisKeyDir1, segGeom);
+            basisKeyDir1, segGeom.get());
 
     std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
@@ -1360,12 +1383,13 @@ BOOST_AUTO_TEST_CASE(TestSegIProductWRTDerivBase_StdMat_UniformP)
 
 BOOST_AUTO_TEST_CASE(TestSegIProductWRTDerivBase_StdMat_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(1u, 0u, -1.0, 0.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(1u, 1u, 1.0, 0.0, 0.0));
 
-    SpatialDomains::SegGeomSharedPtr segGeom = CreateSegGeom(0, v0, v1);
+    SpatialDomains::SegGeomUniquePtr segGeom =
+        CreateSegGeom(0, v0.get(), v1.get());
 
     Nektar::LibUtilities::PointsType segPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1379,7 +1403,7 @@ BOOST_AUTO_TEST_CASE(TestSegIProductWRTDerivBase_StdMat_UniformP_MultiElmt)
 
     Nektar::LocalRegions::SegExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
-            basisKeyDir1, segGeom);
+            basisKeyDir1, segGeom.get());
 
     std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
 
@@ -1432,12 +1456,13 @@ BOOST_AUTO_TEST_CASE(TestSegIProductWRTDerivBase_StdMat_UniformP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestSegIProductWRTDerivBase_SumFac_UniformP)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(1u, 0u, -1.0, 0.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(1u, 1u, 1.0, 0.0, 0.0));
 
-    SpatialDomains::SegGeomSharedPtr segGeom = CreateSegGeom(0, v0, v1);
+    SpatialDomains::SegGeomUniquePtr segGeom =
+        CreateSegGeom(0, v0.get(), v1.get());
 
     Nektar::LibUtilities::PointsType segPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1451,7 +1476,7 @@ BOOST_AUTO_TEST_CASE(TestSegIProductWRTDerivBase_SumFac_UniformP)
 
     Nektar::LocalRegions::SegExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
-            basisKeyDir1, segGeom);
+            basisKeyDir1, segGeom.get());
 
     std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
@@ -1494,12 +1519,13 @@ BOOST_AUTO_TEST_CASE(TestSegIProductWRTDerivBase_SumFac_UniformP)
 
 BOOST_AUTO_TEST_CASE(TestSegIProductWRTDerivBase_SumFac_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(1u, 0u, -1.0, 0.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(1u, 1u, 1.0, 0.0, 0.0));
 
-    SpatialDomains::SegGeomSharedPtr segGeom = CreateSegGeom(0, v0, v1);
+    SpatialDomains::SegGeomUniquePtr segGeom =
+        CreateSegGeom(0, v0.get(), v1.get());
 
     Nektar::LibUtilities::PointsType segPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1513,7 +1539,7 @@ BOOST_AUTO_TEST_CASE(TestSegIProductWRTDerivBase_SumFac_UniformP_MultiElmt)
 
     Nektar::LocalRegions::SegExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
-            basisKeyDir1, segGeom);
+            basisKeyDir1, segGeom.get());
 
     std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
 
@@ -1567,12 +1593,13 @@ BOOST_AUTO_TEST_CASE(TestSegIProductWRTDerivBase_SumFac_UniformP_MultiElmt)
 BOOST_AUTO_TEST_CASE(
     TestSegIProductWRTDerivBase_SumFac_UniformP_MultiElmt_CoordimTwo)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(1u, 0u, -1.0, 0.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(1u, 1u, 1.0, 1.0, 0.0));
 
-    SpatialDomains::SegGeomSharedPtr segGeom = CreateSegGeom(0, v0, v1, 2);
+    SpatialDomains::SegGeomUniquePtr segGeom =
+        CreateSegGeom(0, v0.get(), v1.get(), 2);
 
     Nektar::LibUtilities::PointsType segPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1586,7 +1613,7 @@ BOOST_AUTO_TEST_CASE(
 
     Nektar::LocalRegions::SegExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
-            basisKeyDir1, segGeom);
+            basisKeyDir1, segGeom.get());
 
     std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
 
@@ -1645,12 +1672,13 @@ BOOST_AUTO_TEST_CASE(
 
 BOOST_AUTO_TEST_CASE(TestSegIProductWRTDerivBase_MatrixFree_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(1u, 0u, -1.0, 0.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(1u, 1u, 1.0, 0.0, 0.0));
 
-    SpatialDomains::SegGeomSharedPtr segGeom = CreateSegGeom(0, v0, v1);
+    SpatialDomains::SegGeomUniquePtr segGeom =
+        CreateSegGeom(0, v0.get(), v1.get());
 
     Nektar::LibUtilities::PointsType segPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1664,7 +1692,7 @@ BOOST_AUTO_TEST_CASE(TestSegIProductWRTDerivBase_MatrixFree_UniformP_MultiElmt)
 
     Nektar::LocalRegions::SegExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
-            basisKeyDir1, segGeom);
+            basisKeyDir1, segGeom.get());
 
     std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
 
@@ -1719,12 +1747,13 @@ BOOST_AUTO_TEST_CASE(TestSegIProductWRTDerivBase_MatrixFree_UniformP_MultiElmt)
 BOOST_AUTO_TEST_CASE(
     TestSegIProductWRTDerivBase_MatrixFree_UniformP_MultiElmt_CoordimTwo)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.0, 0.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, 1.0, 0.0));
 
-    SpatialDomains::SegGeomSharedPtr segGeom = CreateSegGeom(0, v0, v1, 2);
+    SpatialDomains::SegGeomUniquePtr segGeom =
+        CreateSegGeom(0, v0.get(), v1.get(), 2);
 
     Nektar::LibUtilities::PointsType segPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1738,7 +1767,7 @@ BOOST_AUTO_TEST_CASE(
 
     Nektar::LocalRegions::SegExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
-            basisKeyDir1, segGeom);
+            basisKeyDir1, segGeom.get());
 
     std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
 
@@ -1798,12 +1827,13 @@ BOOST_AUTO_TEST_CASE(
 
 BOOST_AUTO_TEST_CASE(TestSegPhysInterp1D_NoCollection_UniformP)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.0, 0.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, 0.0, 0.0));
 
-    SpatialDomains::SegGeomSharedPtr segGeom = CreateSegGeom(0, v0, v1, 2);
+    SpatialDomains::SegGeomUniquePtr segGeom =
+        CreateSegGeom(0, v0.get(), v1.get(), 2);
 
     Nektar::LibUtilities::PointsType segPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1817,7 +1847,7 @@ BOOST_AUTO_TEST_CASE(TestSegPhysInterp1D_NoCollection_UniformP)
 
     Nektar::LocalRegions::SegExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
-            basisKeyDir1, segGeom);
+            basisKeyDir1, segGeom.get());
 
     std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
@@ -1866,12 +1896,13 @@ BOOST_AUTO_TEST_CASE(TestSegPhysInterp1D_NoCollection_UniformP)
 
 BOOST_AUTO_TEST_CASE(TestSegPhysInterp1D_MatrixFree_UniformP)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(2u, 0u, -1.0, 1.0, 0.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(2u, 1u, 1.0, 1.0, 0.0));
 
-    SpatialDomains::SegGeomSharedPtr segGeom = CreateSegGeom(0, v0, v1, 2);
+    SpatialDomains::SegGeomUniquePtr segGeom =
+        CreateSegGeom(0, v0.get(), v1.get(), 2);
 
     Nektar::LibUtilities::PointsType segPointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1885,7 +1916,7 @@ BOOST_AUTO_TEST_CASE(TestSegPhysInterp1D_MatrixFree_UniformP)
 
     Nektar::LocalRegions::SegExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
-            basisKeyDir1, segGeom);
+            basisKeyDir1, segGeom.get());
 
     std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);

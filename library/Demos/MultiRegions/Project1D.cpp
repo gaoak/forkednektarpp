@@ -65,23 +65,23 @@ public:
         m_meshGraph->SetSpaceDimension(spaceDimension);
 
         // Create a bunch of point geometries
-        auto &vertSet = m_meshGraph->GetAllPointGeoms();
         for (int i = 0; i < m_nx + 1; ++i)
         {
-            vertSet[i] =
-                MemoryManager<SpatialDomains::PointGeom>::AllocateSharedPtr(
+            auto geom =
+                ObjPoolManager<SpatialDomains::PointGeom>::AllocateUniquePtr(
                     spaceDimension, i, m_a + i * (m_b - m_a) / m_nx, 0.0, 0.0);
+            m_meshGraph->AddGeom(i, std::move(geom));
         }
 
-        auto &segGeoms = m_meshGraph->GetAllSegGeoms();
         // Create a bunch of segment geometries
         for (int i = 0; i < m_nx; ++i)
         {
-            SpatialDomains::PointGeomSharedPtr pts[2] = {vertSet[i],
-                                                         vertSet[i + 1]};
-            segGeoms[i] =
-                MemoryManager<SpatialDomains::SegGeom>::AllocateSharedPtr(
+            std::array<SpatialDomains::PointGeom *, 2> pts = {
+                m_meshGraph->GetPointGeom(i), m_meshGraph->GetPointGeom(i + 1)};
+            auto geom =
+                ObjPoolManager<SpatialDomains::SegGeom>::AllocateUniquePtr(
                     i, spaceDimension, pts);
+            m_meshGraph->AddGeom(i, std::move(geom));
         }
 
         // Set up a composite for the domain, like ReadComposites() followed by
@@ -90,7 +90,7 @@ public:
             MemoryManager<SpatialDomains::Composite>::AllocateSharedPtr();
         for (int i = 0; i < m_nx; ++i)
         {
-            comp->m_geomVec.push_back(segGeoms[i]);
+            comp->m_geomVec.push_back(m_meshGraph->GetSegGeom(i));
         }
         auto &meshComposites = m_meshGraph->GetComposites();
         meshComposites[0]    = comp;
@@ -122,9 +122,10 @@ public:
         m_meshGraph->SetExpansionInfo(fielddefs);
 
         // 1D case from MeshGraph::FillGraph()
-        for (auto &x : segGeoms)
+        for (auto [id, seg] :
+             m_meshGraph->GetGeomMap<SpatialDomains::SegGeom>())
         {
-            x.second->Setup();
+            seg->Setup();
         }
 
         return m_meshGraph;

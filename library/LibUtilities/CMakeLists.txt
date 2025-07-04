@@ -258,6 +258,7 @@ SET(LinearAlgebraSources
 SET(MemoryHeaders
 ./Memory/ThreadSpecificPool.hpp
 ./Memory/NekMemoryManager.hpp
+./Memory/ObjectPool.hpp
 )
 
 SET(MemorySources

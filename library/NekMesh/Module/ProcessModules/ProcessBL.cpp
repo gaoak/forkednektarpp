@@ -289,10 +289,10 @@ void ProcessBL::BoundaryLayer2D()
             }
         }
 
+        SpatialDomains::EntityHolder holder;
         // Get elemental geometry object.
-        SpatialDomains::QuadGeomSharedPtr geom =
-            std::dynamic_pointer_cast<SpatialDomains::QuadGeom>(
-                el[i]->GetGeom(m_mesh->m_spaceDim));
+        auto geom = dynamic_cast<SpatialDomains::QuadGeom *>(
+            el[i]->GetGeom(m_mesh->m_spaceDim, holder));
 
         // Determine whether to use reverse points.
         // (if edges 1 or 2 are on the surface)
@@ -953,8 +953,10 @@ void ProcessBL::BoundaryLayer3D()
     vector<ElementSharedPtr> el = m_mesh->m_element[m_mesh->m_expDim];
     m_mesh->m_element[m_mesh->m_expDim].clear();
 
-    map<int, SpatialDomains::Geometry3DSharedPtr> geomMap;
-    map<int, SpatialDomains::GeometrySharedPtr> edgeGeomMap;
+    map<int, SpatialDomains::Geometry3D *> geomMap;
+    map<int, SpatialDomains::SegGeom *> edgeGeomMap;
+    SpatialDomains::EntityHolder holder;
+
     for (int i = 0; i < el.size(); ++i)
     {
         const int elId = el[i]->GetId();
@@ -965,8 +967,8 @@ void ProcessBL::BoundaryLayer3D()
         }
 
         // Get elemental geometry object and put into map.
-        geomMap[elId] = dynamic_pointer_cast<SpatialDomains::Geometry3D>(
-            el[i]->GetGeom(m_mesh->m_spaceDim));
+        geomMap[elId] = dynamic_cast<SpatialDomains::Geometry3D *>(
+            el[i]->GetGeom(m_mesh->m_spaceDim, holder));
 
         // Get all edge geometry too for evaluations.
         for (int j = 0; j < el[i]->GetEdgeCount(); j++)
@@ -975,7 +977,7 @@ void ProcessBL::BoundaryLayer3D()
             auto f          = edgeGeomMap.find(e->m_id);
             if (f == edgeGeomMap.end())
             {
-                edgeGeomMap[e->m_id] = e->GetGeom(m_mesh->m_spaceDim);
+                edgeGeomMap[e->m_id] = e->GetGeom(m_mesh->m_spaceDim, holder);
             }
         }
     }
@@ -1022,10 +1024,10 @@ void ProcessBL::BoundaryLayer3D()
         // Loop over edges to be split.
         for (int j = 0; j < nSplitEdge; ++j)
         {
-            int locEdge                            = sMap.edgesToSplit[j];
-            EdgeSharedPtr edg                      = el[i]->GetEdge(locEdge);
-            int edgeId                             = edg->m_id;
-            SpatialDomains::GeometrySharedPtr geom = edgeGeomMap[edg->m_id];
+            int locEdge                   = sMap.edgesToSplit[j];
+            EdgeSharedPtr edg             = el[i]->GetEdge(locEdge);
+            int edgeId                    = edg->m_id;
+            SpatialDomains::SegGeom *geom = edgeGeomMap[edg->m_id];
             geom->FillGeom();
 
             // Determine value of r based on geometry.
@@ -1334,7 +1336,7 @@ void ProcessBL::BoundaryLayer3D()
             continue;
         }
 
-        SpatialDomains::Geometry3DSharedPtr gm = geomMap[elId];
+        SpatialDomains::Geometry3D *gm = geomMap[elId];
         gm->FillGeom();
         StdRegions::StdExpansionSharedPtr xmape = gm->GetXmap();
         Array<OneD, NekDouble> coeffs0e         = gm->GetCoeffs(0);
@@ -1380,7 +1382,7 @@ void ProcessBL::BoundaryLayer3D()
                     continue;
                 }
 
-                SpatialDomains::GeometrySharedPtr geom = edgeGeomMap[edg->m_id];
+                SpatialDomains::SegGeom *geom = edgeGeomMap[edg->m_id];
                 geom->FillGeom();
                 StdRegions::StdExpansionSharedPtr xmap = geom->GetXmap();
                 Array<OneD, NekDouble> coeffs0         = geom->GetCoeffs(0);

@@ -370,7 +370,7 @@ void GJPStabilisation::SetUpExpansionInfoMapForGJP(
 
         (*newInfo)[expIt->first] =
             MemoryManager<SpatialDomains::ExpansionInfo>::AllocateSharedPtr(
-                expIt->second->m_geomShPtr, BKeyVector);
+                expIt->second->m_geomPtr, BKeyVector);
     }
 
     graph->SetExpansionInfo("GJP", newInfo);

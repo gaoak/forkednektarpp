@@ -45,7 +45,7 @@ namespace Nektar::LocalRegions
 PrismExp::PrismExp(const LibUtilities::BasisKey &Ba,
                    const LibUtilities::BasisKey &Bb,
                    const LibUtilities::BasisKey &Bc,
-                   const SpatialDomains::PrismGeomSharedPtr &geom)
+                   SpatialDomains::Geometry3D *geom)
     : StdExpansion(LibUtilities::StdPrismData::getNumberOfCoefficients(
                        Ba.GetNumModes(), Bb.GetNumModes(), Bc.GetNumModes()),
                    3, Ba, Bb, Bc),

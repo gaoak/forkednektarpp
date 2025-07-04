@@ -35,37 +35,46 @@
 #include <LibUtilities/Foundations/Interp.h>
 #include <SpatialDomains/GeomFactors.h>
 
+namespace Nektar
+{
+
+template <>
+PoolAllocator<SpatialDomains::GeomFactors>
+    ObjPoolManager<SpatialDomains::GeomFactors>::m_alloc{};
+
+}
+
 namespace Nektar::SpatialDomains
 {
+
 /**
  * @class GeomFactors
  *
- * This class stores the various geometric factors associated with a
- * specific element, necessary for fundamental integration and
- * differentiation operations as well as edge and surface normals.
+ * This class stores the various geometric factors associated with a specific
+ * element, necessary for fundamental integration and differentiation operations
+ * as well as edge and surface normals.
  *
- * Initially, these algorithms are provided with a mapping from the
- * reference region element to the physical element. Practically, this
- * is represented using a corresponding reference region element for
- * each coordinate component. Note that for straight-sided elements,
- * these elements will be of linear order. Curved elements are
- * represented using higher-order coordinate mappings. This geometric
- * order is in contrast to the order of the spectral/hp expansion order
- * on the element.
+ * Initially, these algorithms are provided with a mapping from the reference
+ * region element to the physical element. Practically, this is represented
+ * using a corresponding reference region element for each coordinate
+ * component. Note that for straight-sided elements, these elements will be of
+ * linear order. Curved elements are represented using higher-order coordinate
+ * mappings. This geometric order is in contrast to the order of the spectral/hp
+ * expansion order on the element.
  *
- * For application of the chain rule during differentiation we require
- * the partial derivatives \f[\frac{\partial \xi_i}{\partial \chi_j}\f]
- * evaluated at the physical points of the expansion basis. We also
- * construct the inverse metric tensor \f$g^{ij}\f$ which, in the case
- * of a domain embedded in a higher-dimensional space, supports the
- * conversion of covariant quantities to contravariant quantities.
- * When the expansion dimension is equal to the coordinate dimension the
- * Jacobian of the mapping \f$\chi_j\f$ is a square matrix and
- * consequently the required terms are the entries of the inverse of the
- * Jacobian. However, in general this is not the case, so we therefore
- * implement the construction of these terms following the derivation
- * in Cantwell, et. al. \cite CaYaKiPeSh13. Given the coordinate maps
- * \f$\chi_i\f$, this comprises of five steps
+ * For application of the chain rule during differentiation we require the
+ * partial derivatives \f[\frac{\partial \xi_i}{\partial \chi_j}\f] evaluated at
+ * the physical points of the expansion basis. We also construct the inverse
+ * metric tensor \f$g^{ij}\f$ which, in the case of a domain embedded in a
+ * higher-dimensional space, supports the conversion of covariant quantities to
+ * contravariant quantities.  When the expansion dimension is equal to the
+ * coordinate dimension the Jacobian of the mapping \f$\chi_j\f$ is a square
+ * matrix and consequently the required terms are the entries of the inverse of
+ * the Jacobian. However, in general this is not the case, so we therefore
+ * implement the construction of these terms following the derivation in
+ * Cantwell, et. al. \cite CaYaKiPeSh13. Given the coordinate maps \f$\chi_i\f$,
+ * this comprises of five steps
+ *
  * -# Compute the terms of the Jacobian
  *    \f$\frac{\partial \chi_i}{\partial \xi_j}\f$.
  * -# Compute the metric tensor

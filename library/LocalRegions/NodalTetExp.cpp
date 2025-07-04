@@ -42,7 +42,7 @@ NodalTetExp::NodalTetExp(const LibUtilities::BasisKey &Ba,
                          const LibUtilities::BasisKey &Bb,
                          const LibUtilities::BasisKey &Bc,
                          const LibUtilities::PointsType Ntype,
-                         const SpatialDomains::TetGeomSharedPtr &geom)
+                         SpatialDomains::Geometry3D *geom)
     : StdExpansion(LibUtilities::StdNodalTetData::getNumberOfCoefficients(
                        Ba.GetNumModes(), Bb.GetNumModes(), Bc.GetNumModes()),
                    3, Ba, Bb, Bc),

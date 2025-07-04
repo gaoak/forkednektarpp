@@ -46,7 +46,7 @@ namespace Nektar::LocalRegions
 {
 QuadExp::QuadExp(const LibUtilities::BasisKey &Ba,
                  const LibUtilities::BasisKey &Bb,
-                 const SpatialDomains::Geometry2DSharedPtr &geom)
+                 SpatialDomains::Geometry2D *geom)
     : StdExpansion(Ba.GetNumModes() * Bb.GetNumModes(), 2, Ba, Bb),
       StdExpansion2D(Ba.GetNumModes() * Bb.GetNumModes(), Ba, Bb),
       StdQuadExp(Ba, Bb), Expansion(geom), Expansion2D(geom),

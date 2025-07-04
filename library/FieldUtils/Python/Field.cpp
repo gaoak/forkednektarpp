@@ -50,7 +50,7 @@ void NewPartition(FieldSharedPtr f, py::list &py_argv, int part)
     std::cout << std::endl << "Processing partition: " << part << std::endl;
     f->ClearField();
 
-    CppCommandLine cpp(py_argv);
+    PyCppCommandLine cpp(py_argv);
 
     f->m_partComm = std::shared_ptr<FieldConvertComm>(
         new FieldConvertComm(cpp.GetArgc(), cpp.GetArgv(), f->m_nParts, part));
@@ -76,7 +76,7 @@ FieldSharedPtr Field_Init(py::list &argv, int nparts = 0, int output_points = 0,
     if (py::len(argv) > 0)
     {
         // Get argc and argv from the Python command line.
-        CppCommandLine cpp(argv);
+        PyCppCommandLine cpp(argv);
 
         // Define the MPI Communicator.
         f->m_comm = LibUtilities::GetCommFactory().CreateInstance(

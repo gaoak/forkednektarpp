@@ -45,21 +45,6 @@
 namespace Nektar::SpatialDomains
 {
 
-class Geometry2D;
-class Geometry3D;
-typedef std::shared_ptr<Geometry3D> Geometry3DSharedPtr;
-typedef std::shared_ptr<Geometry2D> Geometry2DSharedPtr;
-typedef std::vector<Geometry3DSharedPtr> Geometry3DVector;
-typedef std::vector<Geometry2DSharedPtr> Geometry2DVector;
-
-class PointGeom;
-typedef std::shared_ptr<PointGeom> PointGeomSharedPtr;
-typedef std::vector<PointGeomSharedPtr> PointGeomVector;
-
-class SegGeom;
-typedef std::shared_ptr<SegGeom> SegGeomSharedPtr;
-typedef std::vector<SegGeomSharedPtr> SegGeomVector;
-
 /// 3D geometry information
 class Geometry3D : public Geometry
 {
@@ -74,11 +59,6 @@ public:
     SPATIAL_DOMAINS_EXPORT static const int kDim = 3;
 
 protected:
-    PointGeomVector m_verts;
-    SegGeomVector m_edges;
-    Geometry2DVector m_faces;
-    std::vector<StdRegions::Orientation> m_eorient;
-    std::vector<StdRegions::Orientation> m_forient;
     int m_eid;
     bool m_ownverts;
 
@@ -99,7 +79,6 @@ protected:
     void NewtonIterationForLocCoord(const Array<OneD, const NekDouble> &coords,
                                     Array<OneD, NekDouble> &Lcoords);
 
-    void v_FillGeom() override;
     NekDouble v_GetCoord(const int i,
                          const Array<OneD, const NekDouble> &Lcoord) override;
     void v_CalculateInverseIsoParam() override;
@@ -109,14 +88,6 @@ protected:
     // Helper functions
     //---------------------------------------
     int v_GetShapeDim() const override;
-    int v_GetNumVerts() const override;
-    int v_GetNumEdges() const override;
-    int v_GetNumFaces() const override;
-    PointGeomSharedPtr v_GetVertex(int i) const override;
-    Geometry1DSharedPtr v_GetEdge(int i) const override;
-    Geometry2DSharedPtr v_GetFace(int i) const override;
-    StdRegions::Orientation v_GetEorient(const int i) const override;
-    StdRegions::Orientation v_GetForient(const int i) const override;
 };
 
 } // namespace Nektar::SpatialDomains

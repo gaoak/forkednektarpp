@@ -65,10 +65,9 @@ public:
     NEKMESH_EXPORT void GetCurvedNodes(
         std::vector<NodeSharedPtr> &nodeList) const override;
 
-    NEKMESH_EXPORT SpatialDomains::GeometrySharedPtr GetGeom(
-        int coordDim) override;
-    NEKMESH_EXPORT void MakeOrder(int order,
-                                  SpatialDomains::GeometrySharedPtr geom,
+    NEKMESH_EXPORT SpatialDomains::Geometry *GetGeom(
+        int coordDim, SpatialDomains::EntityHolder &holder) override;
+    NEKMESH_EXPORT void MakeOrder(int order, SpatialDomains::Geometry *geom,
                                   LibUtilities::PointsType pType, int coordDim,
                                   int &id, bool justConfig = false) override;
     NEKMESH_EXPORT static unsigned int GetNumNodes(ElmtConfig pConf);

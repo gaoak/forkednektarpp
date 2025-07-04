@@ -1424,10 +1424,8 @@ AssemblyMapCG::AssemblyMapCG(
                 faceModes[1][meshFaceId] = numModes1;
 
                 // Get shape of this face
-                SpatialDomains::Geometry3DSharedPtr geom;
-                geom = std::dynamic_pointer_cast<SpatialDomains::Geometry3D>(
-                    exp->GetGeom());
-                faceType[meshFaceId] = geom->GetFace(j)->GetShapeType();
+                faceType[meshFaceId] =
+                    exp->GetGeom()->GetFace(j)->GetShapeType();
             }
         }
     }

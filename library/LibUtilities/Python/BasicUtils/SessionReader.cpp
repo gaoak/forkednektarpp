@@ -56,7 +56,7 @@ CommSharedPtr MPICOMM = CommSharedPtr();
 
 SessionReaderSharedPtr SessionReader_CreateInstance(py::list &ns)
 {
-    CppCommandLine cpp(ns);
+    PyCppCommandLine cpp(ns);
 
     int argc    = cpp.GetArgc();
     char **argv = cpp.GetArgv();

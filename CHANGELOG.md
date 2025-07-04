@@ -14,6 +14,11 @@ v5.9.0
 - Minor Bug-fix for industrial pipeline !2057 (!2135)
 - Scaling the mesh nodes (!2115)
 
+v5.9.0
+------
+**Library**
+- Replace `std::shared_ptr` with `std::unique_ptr` inside SpatialDomains (!2112)
+
 v5.8.0
 ------
 **Library**

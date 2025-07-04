@@ -203,7 +203,7 @@ void ProcessWallNormalData::v_Process(po::variables_map &vm)
 
     //-------------------------------------------------------------------------
     // Find the element that contains the origin, and give the precise origin
-    SpatialDomains::GeometrySharedPtr bndGeom;
+    SpatialDomains::Geometry *bndGeom = nullptr;
     Array<OneD, NekDouble> locCoord(nBndLcoordDim, -999.0);
     NekDouble projDist;
     int elmtid;
@@ -589,7 +589,7 @@ bool ProcessWallNormalData::isInProjectedArea3D(
  * @return             Converged (true) or not (false)
  */
 bool ProcessWallNormalData::BisectionForLocCoordOnBndElmt(
-    SpatialDomains::GeometrySharedPtr bndGeom,
+    SpatialDomains::Geometry *bndGeom,
     const Array<OneD, const NekDouble> &gloCoord,
     const Array<OneD, const Array<OneD, NekDouble>> &pts,
     const Array<OneD, const int> &dirUse, Array<OneD, NekDouble> &locCoord,
@@ -640,7 +640,7 @@ bool ProcessWallNormalData::BisectionForLocCoordOnBndElmt(
 }
 
 bool ProcessWallNormalData::NewtonIterForLocCoordOnBndElmt(
-    SpatialDomains::GeometrySharedPtr bndGeom,
+    SpatialDomains::Geometry *bndGeom,
     const Array<OneD, const NekDouble> &gloCoord,
     const Array<OneD, const Array<OneD, NekDouble>> &pts,
     const Array<OneD, const int> &dirUse, Array<OneD, NekDouble> &locCoord,
@@ -794,7 +794,7 @@ bool ProcessWallNormalData::NewtonIterForLocCoordOnBndElmt(
  * @return             Inside (true) or not (false)
  */
 bool ProcessWallNormalData::BndElmtContainsPoint(
-    SpatialDomains::GeometrySharedPtr bndGeom,
+    SpatialDomains::Geometry *bndGeom,
     const Array<OneD, const NekDouble> &gloCoord,
     const Array<OneD, const NekDouble> &projDir,
     Array<OneD, NekDouble> &locCoord, NekDouble &projDist,
@@ -945,7 +945,7 @@ bool ProcessWallNormalData::BndElmtContainsPoint(
  * @param normals      Wall normal as the result
  */
 void ProcessWallNormalData::GetNormals(
-    SpatialDomains::GeometrySharedPtr bndGeom,
+    SpatialDomains::Geometry *bndGeom,
     const Array<OneD, const NekDouble> &locCoord,
     Array<OneD, NekDouble> &normals)
 {

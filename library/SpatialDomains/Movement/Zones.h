@@ -98,7 +98,7 @@ struct ZoneBase
     }
 
     /// Returns all highest dimension elements in the zone
-    inline std::vector<GeometrySharedPtr> const &GetElements() const
+    inline std::vector<Geometry *> const &GetElements() const
     {
         return m_elements;
     }
@@ -113,7 +113,7 @@ struct ZoneBase
     void ClearBoundingBoxes();
 
     /// Returns constituent elements, i.e. faces + edges
-    inline std::array<std::set<GeometrySharedPtr>, 3> &GetConstituentElements()
+    inline std::array<std::set<Geometry *>, 3> &GetConstituentElements()
     {
         return m_constituentElements;
     }
@@ -146,16 +146,16 @@ protected:
     /// Zone domain
     CompositeMap m_domain;
     /// Vector of highest dimension zone elements
-    std::vector<GeometrySharedPtr> m_elements;
+    std::vector<Geometry *> m_elements;
     /// Array of all dimension elements i.e. faces = [2], edges = [1], geom =
     /// [0]
-    std::array<std::set<GeometrySharedPtr>, 3> m_constituentElements;
+    std::array<std::set<Geometry *>, 3> m_constituentElements;
     /// Moved flag
     bool m_moved = true;
     /// Coordinate dimension
     int m_coordDim;
     /// Vector of all points in the zone
-    std::vector<PointGeomSharedPtr> m_verts;
+    std::vector<PointGeomUniquePtr> m_verts;
     /// Vector of all curves in the zone
     std::vector<CurveSharedPtr> m_curves;
     /// Vector of all points in the zone at initialisation

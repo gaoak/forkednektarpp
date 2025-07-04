@@ -68,10 +68,10 @@ private:
     void TransferVertices(SpatialDomains::MeshGraphSharedPtr graph);
     void TransferEdges(
         SpatialDomains::MeshGraphSharedPtr graph,
-        std::unordered_map<int, SpatialDomains::SegGeomSharedPtr> &edgeMap);
+        std::unordered_map<int, SpatialDomains::SegGeom *> &edgeMap);
     void TransferFaces(
         SpatialDomains::MeshGraphSharedPtr graph,
-        std::unordered_map<int, SpatialDomains::SegGeomSharedPtr> &edgeMap);
+        std::unordered_map<int, SpatialDomains::SegGeom *> &edgeMap);
     void TransferElements(SpatialDomains::MeshGraphSharedPtr graph);
     void TransferCurves(SpatialDomains::MeshGraphSharedPtr graph);
     void TransferComposites(SpatialDomains::MeshGraphSharedPtr graph);

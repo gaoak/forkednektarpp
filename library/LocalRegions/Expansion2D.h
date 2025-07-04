@@ -56,7 +56,7 @@ class Expansion2D : virtual public Expansion,
                     virtual public StdRegions::StdExpansion2D
 {
 public:
-    LOCAL_REGIONS_EXPORT Expansion2D(SpatialDomains::Geometry2DSharedPtr pGeom);
+    LOCAL_REGIONS_EXPORT Expansion2D(SpatialDomains::Geometry2D *pGeom);
 
     LOCAL_REGIONS_EXPORT ~Expansion2D() override = default;
 
@@ -99,7 +99,7 @@ public:
         const StdRegions::VarCoeffMap &dirForcing,
         Array<OneD, NekDouble> &outarray);
 
-    inline SpatialDomains::Geometry2DSharedPtr GetGeom2D() const;
+    inline SpatialDomains::Geometry2D *GetGeom2D() const;
 
     LOCAL_REGIONS_EXPORT void ReOrientEdgePhysMap(
         const int nvert, const StdRegions::Orientation orient, const int nq0,
@@ -161,9 +161,9 @@ private:
         const StdRegions::VarCoeffMap &varcoeffs);
 };
 
-inline SpatialDomains::Geometry2DSharedPtr Expansion2D::GetGeom2D() const
+inline SpatialDomains::Geometry2D *Expansion2D::GetGeom2D() const
 {
-    return std::dynamic_pointer_cast<SpatialDomains::Geometry2D>(m_geom);
+    return static_cast<SpatialDomains::Geometry2D *>(m_geom);
 }
 } // namespace Nektar::LocalRegions
 

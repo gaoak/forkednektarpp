@@ -53,7 +53,7 @@ namespace Nektar::LocalRegions
  * @param   geom        Description of geometry.
  */
 SegExp::SegExp(const LibUtilities::BasisKey &Ba,
-               const SpatialDomains::Geometry1DSharedPtr &geom)
+               SpatialDomains::Geometry1D *geom)
     : StdExpansion(Ba.GetNumModes(), 1, Ba),
       StdExpansion1D(Ba.GetNumModes(), Ba), StdRegions::StdSegExp(Ba),
       Expansion(geom), Expansion1D(geom),

@@ -46,8 +46,7 @@ class PointExp : virtual public StdRegions::StdPointExp,
                  virtual public Expansion0D
 {
 public:
-    LOCAL_REGIONS_EXPORT PointExp(
-        const SpatialDomains::PointGeomSharedPtr &m_geom);
+    LOCAL_REGIONS_EXPORT PointExp(SpatialDomains::Geometry0D *m_geom);
     LOCAL_REGIONS_EXPORT ~PointExp() override = default;
 
     inline const Array<OneD, const NekDouble> &GetCoeffs(void) const
@@ -103,14 +102,13 @@ public:
 
     inline void GetCoords(NekDouble &x, NekDouble &y, NekDouble &z)
     {
-        SpatialDomains::PointGeomSharedPtr v =
-            std::dynamic_pointer_cast<SpatialDomains::PointGeom>(m_geom);
+        auto v = static_cast<SpatialDomains::PointGeom *>(m_geom);
         v->GetCoords(x, y, z);
     }
 
-    inline const SpatialDomains::PointGeomSharedPtr GetGeom() const
+    inline const SpatialDomains::PointGeom *GetGeom() const
     {
-        return std::dynamic_pointer_cast<SpatialDomains::PointGeom>(m_geom);
+        return static_cast<SpatialDomains::PointGeom *>(m_geom);
     }
 
 protected:

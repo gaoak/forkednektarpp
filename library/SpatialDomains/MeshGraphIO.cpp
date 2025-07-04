@@ -131,12 +131,12 @@ std::map<int, MeshEntity> MeshGraphIO::CreateMeshEntities()
     {
         case 1:
         {
-            for (auto &i : m_meshGraph->GetAllSegGeoms())
+            for (auto [id, geom] : m_meshGraph->GetGeomMap<SegGeom>())
             {
                 MeshEntity e;
-                e.id = e.origId = i.first;
-                e.list.push_back(i.second->GetVertex(0)->GetGlobalID());
-                e.list.push_back(i.second->GetVertex(1)->GetGlobalID());
+                e.id = e.origId = id;
+                e.list.push_back(geom->GetVertex(0)->GetGlobalID());
+                e.list.push_back(geom->GetVertex(1)->GetGlobalID());
                 e.ghost        = false;
                 elements[e.id] = e;
             }
@@ -144,24 +144,24 @@ std::map<int, MeshEntity> MeshGraphIO::CreateMeshEntities()
         break;
         case 2:
         {
-            for (auto &i : m_meshGraph->GetAllTriGeoms())
+            for (auto [id, geom] : m_meshGraph->GetGeomMap<TriGeom>())
             {
                 MeshEntity e;
-                e.id = e.origId = i.first;
-                e.list.push_back(i.second->GetEdge(0)->GetGlobalID());
-                e.list.push_back(i.second->GetEdge(1)->GetGlobalID());
-                e.list.push_back(i.second->GetEdge(2)->GetGlobalID());
+                e.id = e.origId = id;
+                e.list.push_back(geom->GetEdge(0)->GetGlobalID());
+                e.list.push_back(geom->GetEdge(1)->GetGlobalID());
+                e.list.push_back(geom->GetEdge(2)->GetGlobalID());
                 e.ghost        = false;
                 elements[e.id] = e;
             }
-            for (auto &i : m_meshGraph->GetAllQuadGeoms())
+            for (auto [id, geom] : m_meshGraph->GetGeomMap<QuadGeom>())
             {
                 MeshEntity e;
-                e.id = e.origId = i.first;
-                e.list.push_back(i.second->GetEdge(0)->GetGlobalID());
-                e.list.push_back(i.second->GetEdge(1)->GetGlobalID());
-                e.list.push_back(i.second->GetEdge(2)->GetGlobalID());
-                e.list.push_back(i.second->GetEdge(3)->GetGlobalID());
+                e.id = e.origId = id;
+                e.list.push_back(geom->GetEdge(0)->GetGlobalID());
+                e.list.push_back(geom->GetEdge(1)->GetGlobalID());
+                e.list.push_back(geom->GetEdge(2)->GetGlobalID());
+                e.list.push_back(geom->GetEdge(3)->GetGlobalID());
                 e.ghost        = false;
                 elements[e.id] = e;
             }
@@ -169,51 +169,51 @@ std::map<int, MeshEntity> MeshGraphIO::CreateMeshEntities()
         break;
         case 3:
         {
-            for (auto &i : m_meshGraph->GetAllTetGeoms())
+            for (auto [id, geom] : m_meshGraph->GetGeomMap<TetGeom>())
             {
                 MeshEntity e;
-                e.id = e.origId = i.first;
-                e.list.push_back(i.second->GetFace(0)->GetGlobalID());
-                e.list.push_back(i.second->GetFace(1)->GetGlobalID());
-                e.list.push_back(i.second->GetFace(2)->GetGlobalID());
-                e.list.push_back(i.second->GetFace(3)->GetGlobalID());
+                e.id = e.origId = id;
+                e.list.push_back(geom->GetFace(0)->GetGlobalID());
+                e.list.push_back(geom->GetFace(1)->GetGlobalID());
+                e.list.push_back(geom->GetFace(2)->GetGlobalID());
+                e.list.push_back(geom->GetFace(3)->GetGlobalID());
                 e.ghost        = false;
                 elements[e.id] = e;
             }
-            for (auto &i : m_meshGraph->GetAllPyrGeoms())
+            for (auto [id, geom] : m_meshGraph->GetGeomMap<PyrGeom>())
             {
                 MeshEntity e;
-                e.id = e.origId = i.first;
-                e.list.push_back(i.second->GetFace(0)->GetGlobalID());
-                e.list.push_back(i.second->GetFace(1)->GetGlobalID());
-                e.list.push_back(i.second->GetFace(2)->GetGlobalID());
-                e.list.push_back(i.second->GetFace(3)->GetGlobalID());
-                e.list.push_back(i.second->GetFace(4)->GetGlobalID());
+                e.id = e.origId = id;
+                e.list.push_back(geom->GetFace(0)->GetGlobalID());
+                e.list.push_back(geom->GetFace(1)->GetGlobalID());
+                e.list.push_back(geom->GetFace(2)->GetGlobalID());
+                e.list.push_back(geom->GetFace(3)->GetGlobalID());
+                e.list.push_back(geom->GetFace(4)->GetGlobalID());
                 e.ghost        = false;
                 elements[e.id] = e;
             }
-            for (auto &i : m_meshGraph->GetAllPrismGeoms())
+            for (auto [id, geom] : m_meshGraph->GetGeomMap<PrismGeom>())
             {
                 MeshEntity e;
-                e.id = e.origId = i.first;
-                e.list.push_back(i.second->GetFace(0)->GetGlobalID());
-                e.list.push_back(i.second->GetFace(1)->GetGlobalID());
-                e.list.push_back(i.second->GetFace(2)->GetGlobalID());
-                e.list.push_back(i.second->GetFace(3)->GetGlobalID());
-                e.list.push_back(i.second->GetFace(4)->GetGlobalID());
+                e.id = e.origId = id;
+                e.list.push_back(geom->GetFace(0)->GetGlobalID());
+                e.list.push_back(geom->GetFace(1)->GetGlobalID());
+                e.list.push_back(geom->GetFace(2)->GetGlobalID());
+                e.list.push_back(geom->GetFace(3)->GetGlobalID());
+                e.list.push_back(geom->GetFace(4)->GetGlobalID());
                 e.ghost        = false;
                 elements[e.id] = e;
             }
-            for (auto &i : m_meshGraph->GetAllHexGeoms())
+            for (auto [id, geom] : m_meshGraph->GetGeomMap<HexGeom>())
             {
                 MeshEntity e;
-                e.id = e.origId = i.first;
-                e.list.push_back(i.second->GetFace(0)->GetGlobalID());
-                e.list.push_back(i.second->GetFace(1)->GetGlobalID());
-                e.list.push_back(i.second->GetFace(2)->GetGlobalID());
-                e.list.push_back(i.second->GetFace(3)->GetGlobalID());
-                e.list.push_back(i.second->GetFace(4)->GetGlobalID());
-                e.list.push_back(i.second->GetFace(5)->GetGlobalID());
+                e.id = e.origId = id;
+                e.list.push_back(geom->GetFace(0)->GetGlobalID());
+                e.list.push_back(geom->GetFace(1)->GetGlobalID());
+                e.list.push_back(geom->GetFace(2)->GetGlobalID());
+                e.list.push_back(geom->GetFace(3)->GetGlobalID());
+                e.list.push_back(geom->GetFace(4)->GetGlobalID());
+                e.list.push_back(geom->GetFace(5)->GetGlobalID());
                 e.ghost        = false;
                 elements[e.id] = e;
             }
@@ -271,16 +271,16 @@ std::string MeshGraphIO::GetCompositeString(CompositeSharedPtr comp)
 
     std::stringstream s;
 
-    GeometrySharedPtr firstGeom = comp->m_geomVec[0];
-    int shapeDim                = firstGeom->GetShapeDim();
-    std::string tag             = (shapeDim < m_meshGraph->GetMeshDimension())
-                                      ? compMap[firstGeom->GetShapeType()].second
-                                      : compMap[firstGeom->GetShapeType()].first;
+    Geometry *firstGeom = comp->m_geomVec[0];
+    int shapeDim        = firstGeom->GetShapeDim();
+    std::string tag     = (shapeDim < m_meshGraph->GetMeshDimension())
+                              ? compMap[firstGeom->GetShapeType()].second
+                              : compMap[firstGeom->GetShapeType()].first;
 
     std::vector<unsigned int> idxList;
     std::transform(comp->m_geomVec.begin(), comp->m_geomVec.end(),
                    std::back_inserter(idxList),
-                   [](GeometrySharedPtr geom) { return geom->GetGlobalID(); });
+                   [](Geometry *geom) { return geom->GetGlobalID(); });
 
     s << " " << tag << "[" << ParseUtils::GenerateSeqString(idxList) << "] ";
     return s.str();

@@ -1068,7 +1068,7 @@ void OutputVtk::OutputFromExpLowOrderMultiBlock(po::variables_map &vm,
         vtkPoints->SetDataType(VTK_DOUBLE);
 
         int compId = comp.first;
-        std::vector<std::shared_ptr<SpatialDomains::Geometry>> geomVec =
+        std::vector<SpatialDomains::Geometry *> geomVec =
             comp.second->m_geomVec;
 
         unsigned int offset = 0;

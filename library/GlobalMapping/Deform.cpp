@@ -55,8 +55,10 @@ void UpdateGeometry(SpatialDomains::MeshGraphSharedPtr graph,
                     Array<OneD, Array<OneD, NekDouble>> &PhysVals, bool modal)
 {
     // Clear existing curvature.
+    auto &curveNodes                      = graph->GetAllCurveNodes();
     SpatialDomains::CurveMap &curvedEdges = graph->GetCurvedEdges();
     SpatialDomains::CurveMap &curvedFaces = graph->GetCurvedFaces();
+    curveNodes.clear();
     curvedEdges.clear();
     curvedFaces.clear();
 
@@ -88,13 +90,12 @@ void UpdateGeometry(SpatialDomains::MeshGraphSharedPtr graph,
         {
             exp->GetCoords(coord[0], coord[1]);
 
-            SpatialDomains::Geometry2DSharedPtr geom =
-                std::dynamic_pointer_cast<SpatialDomains::Geometry2D>(
-                    exp->GetGeom());
+            SpatialDomains::Geometry2D *geom =
+                static_cast<SpatialDomains::Geometry2D *>(exp->GetGeom());
 
             for (j = 0; j < exp->GetGeom()->GetNumEdges(); ++j)
             {
-                SpatialDomains::Geometry1DSharedPtr edge = geom->GetEdge(j);
+                SpatialDomains::Geometry1D *edge = geom->GetEdge(j);
 
                 // This edge has already been processed.
                 if (updatedEdges.find(edge->GetGlobalID()) !=
@@ -132,7 +133,7 @@ void UpdateGeometry(SpatialDomains::MeshGraphSharedPtr graph,
                         continue;
                     }
 
-                    SpatialDomains::PointGeomSharedPtr pt = edge->GetVertex(k);
+                    SpatialDomains::PointGeom *pt = edge->GetVertex(k);
 
                     pt->UpdatePosition(
                         (*pt)(0) + edgePhys[0][k * (nEdgePts - 1)],
@@ -149,14 +150,14 @@ void UpdateGeometry(SpatialDomains::MeshGraphSharedPtr graph,
 
                 for (k = 0; k < nEdgePts; ++k)
                 {
-                    SpatialDomains::PointGeomSharedPtr vert =
-                        MemoryManager<SpatialDomains::PointGeom>::
-                            AllocateSharedPtr(dim, edge->GetGlobalID(),
+                    SpatialDomains::PointGeomUniquePtr vert =
+                        ObjPoolManager<SpatialDomains::PointGeom>::
+                            AllocateUniquePtr(dim, edge->GetGlobalID(),
                                               edgeCoord[0][k] + edgePhys[0][k],
                                               edgeCoord[1][k] + edgePhys[1][k],
                                               0.0);
-
-                    curve->m_points.push_back(vert);
+                    curve->m_points.push_back(vert.get());
+                    curveNodes.push_back(std::move(vert));
                 }
 
                 curvedEdges[edge->GetGlobalID()] = curve;
@@ -167,13 +168,12 @@ void UpdateGeometry(SpatialDomains::MeshGraphSharedPtr graph,
         {
             exp->GetCoords(coord[0], coord[1], coord[2]);
 
-            SpatialDomains::Geometry3DSharedPtr geom =
-                std::dynamic_pointer_cast<SpatialDomains::Geometry3D>(
-                    exp->GetGeom());
+            SpatialDomains::Geometry3D *geom =
+                static_cast<SpatialDomains::Geometry3D *>(exp->GetGeom());
 
             for (j = 0; j < exp->GetNtraces(); ++j)
             {
-                SpatialDomains::Geometry2DSharedPtr face = geom->GetFace(j);
+                SpatialDomains::Geometry2D *face = geom->GetFace(j);
 
                 LocalRegions::Expansion3DSharedPtr exp3d =
                     exp->as<LocalRegions::Expansion3D>();
@@ -264,8 +264,7 @@ void UpdateGeometry(SpatialDomains::MeshGraphSharedPtr graph,
 
                     if (updatedVerts.find(id) == updatedVerts.end())
                     {
-                        SpatialDomains::PointGeomSharedPtr pt =
-                            face->GetVertex(k);
+                        SpatialDomains::PointGeom *pt = face->GetVertex(k);
                         pt->UpdatePosition(intPos[0][edgeOff[o][k][0]],
                                            intPos[1][edgeOff[o][k][0]],
                                            intPos[2][edgeOff[o][k][0]]);
@@ -276,8 +275,7 @@ void UpdateGeometry(SpatialDomains::MeshGraphSharedPtr graph,
                     id = face->GetEid(k);
                     if (updatedEdges.find(id) == updatedEdges.end())
                     {
-                        SpatialDomains::Geometry1DSharedPtr edge =
-                            face->GetEdge(k);
+                        SpatialDomains::Geometry1D *edge = face->GetEdge(k);
                         SpatialDomains::CurveSharedPtr curve =
                             MemoryManager<SpatialDomains::Curve>::
                                 AllocateSharedPtr(
@@ -292,13 +290,14 @@ void UpdateGeometry(SpatialDomains::MeshGraphSharedPtr graph,
                             for (l = nq - 1; l >= 0; --l)
                             {
                                 int m = offset + pos * l;
-                                SpatialDomains::PointGeomSharedPtr vert =
-                                    MemoryManager<SpatialDomains::PointGeom>::
-                                        AllocateSharedPtr(
+                                SpatialDomains::PointGeomUniquePtr vert =
+                                    ObjPoolManager<SpatialDomains::PointGeom>::
+                                        AllocateUniquePtr(
                                             dim, edge->GetGlobalID(),
                                             intPos[0][m], intPos[1][m],
                                             intPos[2][m]);
-                                curve->m_points.push_back(vert);
+                                curve->m_points.push_back(vert.get());
+                                curveNodes.push_back(std::move(vert));
                             }
                         }
                         else
@@ -306,13 +305,14 @@ void UpdateGeometry(SpatialDomains::MeshGraphSharedPtr graph,
                             for (l = 0; l < nq; ++l)
                             {
                                 int m = offset + pos * l;
-                                SpatialDomains::PointGeomSharedPtr vert =
-                                    MemoryManager<SpatialDomains::PointGeom>::
-                                        AllocateSharedPtr(
+                                SpatialDomains::PointGeomUniquePtr vert =
+                                    ObjPoolManager<SpatialDomains::PointGeom>::
+                                        AllocateUniquePtr(
                                             dim, edge->GetGlobalID(),
                                             intPos[0][m], intPos[1][m],
                                             intPos[2][m]);
-                                curve->m_points.push_back(vert);
+                                curve->m_points.push_back(vert.get());
+                                curveNodes.push_back(std::move(vert));
                             }
                         }
 
@@ -366,24 +366,26 @@ void UpdateGeometry(SpatialDomains::MeshGraphSharedPtr graph,
 
                     for (l = 0; l < nq * (nq + 1) / 2; ++l)
                     {
-                        SpatialDomains::PointGeomSharedPtr vert =
-                            MemoryManager<SpatialDomains::PointGeom>::
-                                AllocateSharedPtr(dim, face->GetGlobalID(),
+                        SpatialDomains::PointGeomUniquePtr vert =
+                            ObjPoolManager<SpatialDomains::PointGeom>::
+                                AllocateUniquePtr(dim, face->GetGlobalID(),
                                                   newPos[0][l], newPos[1][l],
                                                   newPos[2][l]);
-                        curve->m_points.push_back(vert);
+                        curve->m_points.push_back(vert.get());
+                        curveNodes.push_back(std::move(vert));
                     }
                 }
                 else
                 {
                     for (l = 0; l < nq * nq; ++l)
                     {
-                        SpatialDomains::PointGeomSharedPtr vert =
-                            MemoryManager<SpatialDomains::PointGeom>::
-                                AllocateSharedPtr(dim, face->GetGlobalID(),
+                        SpatialDomains::PointGeomUniquePtr vert =
+                            ObjPoolManager<SpatialDomains::PointGeom>::
+                                AllocateUniquePtr(dim, face->GetGlobalID(),
                                                   intPos[0][l], intPos[1][l],
                                                   intPos[2][l]);
-                        curve->m_points.push_back(vert);
+                        curve->m_points.push_back(vert.get());
+                        curveNodes.push_back(std::move(vert));
                     }
                 }
 

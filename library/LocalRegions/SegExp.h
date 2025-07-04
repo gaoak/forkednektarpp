@@ -50,9 +50,8 @@ class SegExp : virtual public StdRegions::StdSegExp, virtual public Expansion1D
 {
 
 public:
-    LOCAL_REGIONS_EXPORT SegExp(
-        const LibUtilities::BasisKey &Ba,
-        const SpatialDomains::Geometry1DSharedPtr &geom);
+    LOCAL_REGIONS_EXPORT SegExp(const LibUtilities::BasisKey &Ba,
+                                SpatialDomains::Geometry1D *geom);
 
     LOCAL_REGIONS_EXPORT SegExp(const SegExp &S);
 

@@ -121,7 +121,7 @@ CoupledLocalToGlobalC0ContMap::CoupledLocalToGlobalC0ContMap(
     std::map<int, int> IsDirVertDof;
     std::map<int, int> IsDirEdgeDof;
 
-    SpatialDomains::Geometry1DSharedPtr g;
+    SpatialDomains::Geometry1D *g;
     for (j = 0; j < bndCondExp.size(); ++j)
     {
         std::map<int, int> BndExpVids;

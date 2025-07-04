@@ -45,79 +45,97 @@ namespace Nektar::PyrCollectionTests
 {
 #define NELMTS 10
 
-SpatialDomains::SegGeomSharedPtr CreateSegGeom(
-    unsigned int id, SpatialDomains::PointGeomSharedPtr v0,
-    SpatialDomains::PointGeomSharedPtr v1)
+SpatialDomains::SegGeomUniquePtr CreateSegGeom(unsigned int id,
+                                               SpatialDomains::PointGeom *v0,
+                                               SpatialDomains::PointGeom *v1)
 {
-    SpatialDomains::PointGeomSharedPtr vertices[] = {v0, v1};
-    SpatialDomains::SegGeomSharedPtr result(
+    std::array<SpatialDomains::PointGeom *, 2> vertices = {v0, v1};
+    SpatialDomains::SegGeomUniquePtr result(
         new SpatialDomains::SegGeom(id, 3, vertices));
     return result;
 }
 
-SpatialDomains::PyrGeomSharedPtr CreatePyr(
-    SpatialDomains::PointGeomSharedPtr v0,
-    SpatialDomains::PointGeomSharedPtr v1,
-    SpatialDomains::PointGeomSharedPtr v2,
-    SpatialDomains::PointGeomSharedPtr v3,
-    SpatialDomains::PointGeomSharedPtr v4)
+SpatialDomains::PyrGeomUniquePtr CreatePyr(
+    std::array<SpatialDomains::PointGeom *, 5> v,
+    std::array<SpatialDomains::SegGeomUniquePtr, 8> &segVec,
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> &triVec,
+    std::array<SpatialDomains::QuadGeomUniquePtr, 1> &quadVec)
 {
-    Nektar::SpatialDomains::SegGeomSharedPtr e0 = CreateSegGeom(0, v0, v1);
-    Nektar::SpatialDomains::SegGeomSharedPtr e1 = CreateSegGeom(1, v1, v2);
-    Nektar::SpatialDomains::SegGeomSharedPtr e2 = CreateSegGeom(2, v2, v3);
-    Nektar::SpatialDomains::SegGeomSharedPtr e3 = CreateSegGeom(3, v3, v0);
-    Nektar::SpatialDomains::SegGeomSharedPtr e4 = CreateSegGeom(4, v0, v4);
-    Nektar::SpatialDomains::SegGeomSharedPtr e5 = CreateSegGeom(5, v1, v4);
-    Nektar::SpatialDomains::SegGeomSharedPtr e6 = CreateSegGeom(6, v2, v4);
-    Nektar::SpatialDomains::SegGeomSharedPtr e7 = CreateSegGeom(7, v3, v4);
+    std::array<std::array<int, 2>, 8> edgeVerts = {{{{0, 1}},
+                                                    {{1, 2}},
+                                                    {{3, 2}},
+                                                    {{0, 3}},
+                                                    {{0, 4}},
+                                                    {{1, 4}},
+                                                    {{2, 4}},
+                                                    {{3, 4}}}};
+    std::array<std::array<int, 4>, 5> faceEdges = {{{{0, 1, 2, 3}},
+                                                    {{0, 5, 4, -1}},
+                                                    {{1, 6, 5, -1}},
+                                                    {{2, 7, 6, -1}},
+                                                    {{3, 7, 4, -1}}}};
 
-    Nektar::SpatialDomains::SegGeomSharedPtr
-        edgesF0[Nektar::SpatialDomains::QuadGeom::kNedges] = {e0, e1, e2, e3};
+    // Create segments from vertices
+    for (int i = 0; i < 8; ++i)
+    {
+        segVec[i] = CreateSegGeom(i, v[edgeVerts[i][0]], v[edgeVerts[i][1]]);
+    }
 
-    Nektar::SpatialDomains::SegGeomSharedPtr
-        edgesF1[Nektar::SpatialDomains::TriGeom::kNedges] = {e0, e4, e5};
+    // Create faces from edges
+    std::array<SpatialDomains::Geometry2D *, 5> faces;
+    for (int i = 0; i < 5; ++i)
+    {
+        if (i == 0)
+        {
+            // Quad faces
+            std::array<SpatialDomains::SegGeom *, 4> face;
+            for (int j = 0; j < 4; ++j)
+            {
+                face[j] = segVec[faceEdges[i][j]].get();
+            }
+            quadVec[0] = SpatialDomains::QuadGeomUniquePtr(
+                new SpatialDomains::QuadGeom(i, face));
+            faces[i] = quadVec[0].get();
+        }
+        else
+        {
+            // Tri faces
+            std::array<SpatialDomains::SegGeom *, 3> face;
+            for (int j = 0; j < 3; ++j)
+            {
+                face[j] = segVec[faceEdges[i][j]].get();
+            }
+            triVec[i - 1] = SpatialDomains::TriGeomUniquePtr(
+                new SpatialDomains::TriGeom(i, face));
+            faces[i] = triVec[i - 1].get();
+        }
+    }
 
-    Nektar::SpatialDomains::SegGeomSharedPtr
-        edgesF2[Nektar::SpatialDomains::TriGeom::kNedges] = {e1, e6, e5};
-
-    Nektar::SpatialDomains::SegGeomSharedPtr
-        edgesF3[Nektar::SpatialDomains::TriGeom::kNedges] = {e2, e6, e7};
-
-    Nektar::SpatialDomains::SegGeomSharedPtr
-        edgesF4[Nektar::SpatialDomains::TriGeom::kNedges] = {e3, e4, e7};
-
-    Nektar::SpatialDomains::QuadGeomSharedPtr face0(
-        new SpatialDomains::QuadGeom(0, edgesF0));
-    Nektar::SpatialDomains::TriGeomSharedPtr face1(
-        new SpatialDomains::TriGeom(1, edgesF1));
-    Nektar::SpatialDomains::TriGeomSharedPtr face2(
-        new SpatialDomains::TriGeom(2, edgesF2));
-    Nektar::SpatialDomains::TriGeomSharedPtr face3(
-        new SpatialDomains::TriGeom(3, edgesF3));
-    Nektar::SpatialDomains::TriGeomSharedPtr face4(
-        new SpatialDomains::TriGeom(4, edgesF4));
-
-    Nektar::SpatialDomains::Geometry2DSharedPtr faces[] = {face0, face1, face2,
-                                                           face3, face4};
-    SpatialDomains::PyrGeomSharedPtr pyrGeom(
+    SpatialDomains::PyrGeomUniquePtr pyrGeom(
         new SpatialDomains::PyrGeom(0, faces));
     return pyrGeom;
 }
 
 BOOST_AUTO_TEST_CASE(TestPyrBwdTrans_IterPerExp_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
 
-    SpatialDomains::PyrGeomSharedPtr pyrGeom = CreatePyr(v0, v1, v2, v3, v4);
+    std::array<SpatialDomains::SegGeomUniquePtr, 8> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 1> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> triVec;
+    std::array<SpatialDomains::PointGeom *, 5> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get()};
+    SpatialDomains::PyrGeomUniquePtr pyrGeom =
+        CreatePyr(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -145,7 +163,7 @@ BOOST_AUTO_TEST_CASE(TestPyrBwdTrans_IterPerExp_UniformP_MultiElmt)
 
     Nektar::LocalRegions::PyrExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PyrExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom.get());
 
     int nelmts = NELMTS;
 
@@ -187,18 +205,24 @@ BOOST_AUTO_TEST_CASE(TestPyrBwdTrans_IterPerExp_UniformP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPyrBwdTrans_StdMat_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
 
-    SpatialDomains::PyrGeomSharedPtr pyrGeom = CreatePyr(v0, v1, v2, v3, v4);
+    std::array<SpatialDomains::SegGeomUniquePtr, 8> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 1> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> triVec;
+    std::array<SpatialDomains::PointGeom *, 5> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get()};
+    SpatialDomains::PyrGeomUniquePtr pyrGeom =
+        CreatePyr(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -226,7 +250,7 @@ BOOST_AUTO_TEST_CASE(TestPyrBwdTrans_StdMat_UniformP_MultiElmt)
 
     Nektar::LocalRegions::PyrExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PyrExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom.get());
 
     int nelmts = 10;
 
@@ -264,18 +288,24 @@ BOOST_AUTO_TEST_CASE(TestPyrBwdTrans_StdMat_UniformP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPyrBwdTrans_SumFac_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
 
-    SpatialDomains::PyrGeomSharedPtr pyrGeom = CreatePyr(v0, v1, v2, v3, v4);
+    std::array<SpatialDomains::SegGeomUniquePtr, 8> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 1> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> triVec;
+    std::array<SpatialDomains::PointGeom *, 5> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get()};
+    SpatialDomains::PyrGeomUniquePtr pyrGeom =
+        CreatePyr(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -303,7 +333,7 @@ BOOST_AUTO_TEST_CASE(TestPyrBwdTrans_SumFac_UniformP_MultiElmt)
 
     Nektar::LocalRegions::PyrExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PyrExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom.get());
 
     int nelmts = NELMTS;
 
@@ -347,18 +377,24 @@ BOOST_AUTO_TEST_CASE(TestPyrBwdTrans_SumFac_UniformP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPyrBwdTrans_IterPerExp_VariableP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
 
-    SpatialDomains::PyrGeomSharedPtr pyrGeom = CreatePyr(v0, v1, v2, v3, v4);
+    std::array<SpatialDomains::SegGeomUniquePtr, 8> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 1> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> triVec;
+    std::array<SpatialDomains::PointGeom *, 5> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get()};
+    SpatialDomains::PyrGeomUniquePtr pyrGeom =
+        CreatePyr(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -386,7 +422,7 @@ BOOST_AUTO_TEST_CASE(TestPyrBwdTrans_IterPerExp_VariableP_MultiElmt)
 
     Nektar::LocalRegions::PyrExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PyrExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom.get());
     int nelmts = 10;
 
     std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
@@ -423,18 +459,24 @@ BOOST_AUTO_TEST_CASE(TestPyrBwdTrans_IterPerExp_VariableP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPyrBwdTrans_StdMat_VariableP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
 
-    SpatialDomains::PyrGeomSharedPtr pyrGeom = CreatePyr(v0, v1, v2, v3, v4);
+    std::array<SpatialDomains::SegGeomUniquePtr, 8> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 1> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> triVec;
+    std::array<SpatialDomains::PointGeom *, 5> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get()};
+    SpatialDomains::PyrGeomUniquePtr pyrGeom =
+        CreatePyr(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -462,7 +504,7 @@ BOOST_AUTO_TEST_CASE(TestPyrBwdTrans_StdMat_VariableP_MultiElmt)
 
     Nektar::LocalRegions::PyrExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PyrExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom.get());
 
     int nelmts = 10;
 
@@ -500,18 +542,24 @@ BOOST_AUTO_TEST_CASE(TestPyrBwdTrans_StdMat_VariableP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPyrBwdTrans_SumFac_VariableP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
 
-    SpatialDomains::PyrGeomSharedPtr pyrGeom = CreatePyr(v0, v1, v2, v3, v4);
+    std::array<SpatialDomains::SegGeomUniquePtr, 8> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 1> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> triVec;
+    std::array<SpatialDomains::PointGeom *, 5> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get()};
+    SpatialDomains::PyrGeomUniquePtr pyrGeom =
+        CreatePyr(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -539,7 +587,7 @@ BOOST_AUTO_TEST_CASE(TestPyrBwdTrans_SumFac_VariableP_MultiElmt)
 
     Nektar::LocalRegions::PyrExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PyrExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom.get());
 
     int nelmts = 10;
 
@@ -578,18 +626,24 @@ BOOST_AUTO_TEST_CASE(TestPyrBwdTrans_SumFac_VariableP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPyrPhysDeriv_IterPerExp_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
 
-    SpatialDomains::PyrGeomSharedPtr pyrGeom = CreatePyr(v0, v1, v2, v3, v4);
+    std::array<SpatialDomains::SegGeomUniquePtr, 8> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 1> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> triVec;
+    std::array<SpatialDomains::PointGeom *, 5> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get()};
+    SpatialDomains::PyrGeomUniquePtr pyrGeom =
+        CreatePyr(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -617,7 +671,7 @@ BOOST_AUTO_TEST_CASE(TestPyrPhysDeriv_IterPerExp_UniformP_MultiElmt)
 
     Nektar::LocalRegions::PyrExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PyrExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom.get());
     int nelmts = NELMTS;
 
     std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
@@ -672,18 +726,24 @@ BOOST_AUTO_TEST_CASE(TestPyrPhysDeriv_IterPerExp_UniformP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPyrPhysDeriv_StdMat_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
 
-    SpatialDomains::PyrGeomSharedPtr pyrGeom = CreatePyr(v0, v1, v2, v3, v4);
+    std::array<SpatialDomains::SegGeomUniquePtr, 8> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 1> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> triVec;
+    std::array<SpatialDomains::PointGeom *, 5> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get()};
+    SpatialDomains::PyrGeomUniquePtr pyrGeom =
+        CreatePyr(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -711,7 +771,7 @@ BOOST_AUTO_TEST_CASE(TestPyrPhysDeriv_StdMat_UniformP_MultiElmt)
 
     Nektar::LocalRegions::PyrExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PyrExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom.get());
 
     int nelmts = 10;
 
@@ -766,18 +826,24 @@ BOOST_AUTO_TEST_CASE(TestPyrPhysDeriv_StdMat_UniformP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPyrPhysDeriv_SumFac_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
 
-    SpatialDomains::PyrGeomSharedPtr pyrGeom = CreatePyr(v0, v1, v2, v3, v4);
+    std::array<SpatialDomains::SegGeomUniquePtr, 8> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 1> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> triVec;
+    std::array<SpatialDomains::PointGeom *, 5> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get()};
+    SpatialDomains::PyrGeomUniquePtr pyrGeom =
+        CreatePyr(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -805,7 +871,7 @@ BOOST_AUTO_TEST_CASE(TestPyrPhysDeriv_SumFac_UniformP_MultiElmt)
 
     Nektar::LocalRegions::PyrExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PyrExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom.get());
     int nelmts = NELMTS;
 
     std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
@@ -864,18 +930,24 @@ BOOST_AUTO_TEST_CASE(TestPyrPhysDeriv_SumFac_UniformP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPyrPhysDeriv_IterPerExp_VariableP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
 
-    SpatialDomains::PyrGeomSharedPtr pyrGeom = CreatePyr(v0, v1, v2, v3, v4);
+    std::array<SpatialDomains::SegGeomUniquePtr, 8> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 1> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> triVec;
+    std::array<SpatialDomains::PointGeom *, 5> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get()};
+    SpatialDomains::PyrGeomUniquePtr pyrGeom =
+        CreatePyr(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -903,7 +975,7 @@ BOOST_AUTO_TEST_CASE(TestPyrPhysDeriv_IterPerExp_VariableP_MultiElmt)
 
     Nektar::LocalRegions::PyrExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PyrExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom.get());
 
     int nelmts = 10;
 
@@ -958,18 +1030,24 @@ BOOST_AUTO_TEST_CASE(TestPyrPhysDeriv_IterPerExp_VariableP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPyrPhysDeriv_SumFac_VariableP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
 
-    SpatialDomains::PyrGeomSharedPtr pyrGeom = CreatePyr(v0, v1, v2, v3, v4);
+    std::array<SpatialDomains::SegGeomUniquePtr, 8> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 1> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> triVec;
+    std::array<SpatialDomains::PointGeom *, 5> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get()};
+    SpatialDomains::PyrGeomUniquePtr pyrGeom =
+        CreatePyr(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -997,7 +1075,7 @@ BOOST_AUTO_TEST_CASE(TestPyrPhysDeriv_SumFac_VariableP_MultiElmt)
 
     Nektar::LocalRegions::PyrExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PyrExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom.get());
 
     int nelmts = 10;
 
@@ -1053,18 +1131,24 @@ BOOST_AUTO_TEST_CASE(TestPyrPhysDeriv_SumFac_VariableP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPyrPhysDeriv_MatrixFree_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
 
-    SpatialDomains::PyrGeomSharedPtr pyrGeom = CreatePyr(v0, v1, v2, v3, v4);
+    std::array<SpatialDomains::SegGeomUniquePtr, 8> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 1> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> triVec;
+    std::array<SpatialDomains::PointGeom *, 5> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get()};
+    SpatialDomains::PyrGeomUniquePtr pyrGeom =
+        CreatePyr(v, segVec, triVec, quadVec);
 
     unsigned int numQuadPoints = 5;
     unsigned int numModes      = 2;
@@ -1098,7 +1182,7 @@ BOOST_AUTO_TEST_CASE(TestPyrPhysDeriv_MatrixFree_UniformP_MultiElmt)
 
     Nektar::LocalRegions::PyrExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PyrExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom.get());
 
     int nelmts = NELMTS;
 
@@ -1159,18 +1243,24 @@ BOOST_AUTO_TEST_CASE(TestPyrPhysDeriv_MatrixFree_UniformP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPyrIProductWRTBase_IterPerExp_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
 
-    SpatialDomains::PyrGeomSharedPtr pyrGeom = CreatePyr(v0, v1, v2, v3, v4);
+    std::array<SpatialDomains::SegGeomUniquePtr, 8> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 1> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> triVec;
+    std::array<SpatialDomains::PointGeom *, 5> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get()};
+    SpatialDomains::PyrGeomUniquePtr pyrGeom =
+        CreatePyr(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1198,7 +1288,7 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTBase_IterPerExp_UniformP_MultiElmt)
 
     Nektar::LocalRegions::PyrExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PyrExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom.get());
 
     int nelmts = NELMTS;
 
@@ -1255,18 +1345,24 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTBase_IterPerExp_UniformP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPyrIProductWRTBase_StdMat_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
 
-    SpatialDomains::PyrGeomSharedPtr pyrGeom = CreatePyr(v0, v1, v2, v3, v4);
+    std::array<SpatialDomains::SegGeomUniquePtr, 8> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 1> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> triVec;
+    std::array<SpatialDomains::PointGeom *, 5> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get()};
+    SpatialDomains::PyrGeomUniquePtr pyrGeom =
+        CreatePyr(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1294,7 +1390,7 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTBase_StdMat_UniformP_MultiElmt)
 
     Nektar::LocalRegions::PyrExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PyrExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom.get());
 
     int nelmts = 10;
 
@@ -1347,18 +1443,24 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTBase_StdMat_UniformP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPyrIProductWRTBase_SumFac_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
 
-    SpatialDomains::PyrGeomSharedPtr pyrGeom = CreatePyr(v0, v1, v2, v3, v4);
+    std::array<SpatialDomains::SegGeomUniquePtr, 8> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 1> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> triVec;
+    std::array<SpatialDomains::PointGeom *, 5> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get()};
+    SpatialDomains::PyrGeomUniquePtr pyrGeom =
+        CreatePyr(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1386,7 +1488,7 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTBase_SumFac_UniformP_MultiElmt)
 
     Nektar::LocalRegions::PyrExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PyrExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom.get());
 
     int nelmts = NELMTS;
 
@@ -1444,18 +1546,24 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTBase_SumFac_UniformP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPyrIProductWRTBase_IterPerExp_VariableP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
 
-    SpatialDomains::PyrGeomSharedPtr pyrGeom = CreatePyr(v0, v1, v2, v3, v4);
+    std::array<SpatialDomains::SegGeomUniquePtr, 8> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 1> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> triVec;
+    std::array<SpatialDomains::PointGeom *, 5> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get()};
+    SpatialDomains::PyrGeomUniquePtr pyrGeom =
+        CreatePyr(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1483,7 +1591,7 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTBase_IterPerExp_VariableP_MultiElmt)
 
     Nektar::LocalRegions::PyrExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PyrExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom.get());
 
     int nelmts = 10;
 
@@ -1536,18 +1644,24 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTBase_IterPerExp_VariableP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPyrIProductWRTBase_StdMat_VariableP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
 
-    SpatialDomains::PyrGeomSharedPtr pyrGeom = CreatePyr(v0, v1, v2, v3, v4);
+    std::array<SpatialDomains::SegGeomUniquePtr, 8> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 1> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> triVec;
+    std::array<SpatialDomains::PointGeom *, 5> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get()};
+    SpatialDomains::PyrGeomUniquePtr pyrGeom =
+        CreatePyr(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1575,7 +1689,7 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTBase_StdMat_VariableP_MultiElmt)
 
     Nektar::LocalRegions::PyrExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PyrExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom.get());
 
     int nelmts = 10;
 
@@ -1628,18 +1742,24 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTBase_StdMat_VariableP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPyrIProductWRTBase_SumFac_VariableP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
 
-    SpatialDomains::PyrGeomSharedPtr pyrGeom = CreatePyr(v0, v1, v2, v3, v4);
+    std::array<SpatialDomains::SegGeomUniquePtr, 8> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 1> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> triVec;
+    std::array<SpatialDomains::PointGeom *, 5> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get()};
+    SpatialDomains::PyrGeomUniquePtr pyrGeom =
+        CreatePyr(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1667,7 +1787,7 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTBase_SumFac_VariableP_MultiElmt)
 
     Nektar::LocalRegions::PyrExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PyrExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom.get());
 
     int nelmts = 10;
 
@@ -1721,18 +1841,24 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTBase_SumFac_VariableP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPyrIProductWRTBase_MatrixFree_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
 
-    SpatialDomains::PyrGeomSharedPtr pyrGeom = CreatePyr(v0, v1, v2, v3, v4);
+    std::array<SpatialDomains::SegGeomUniquePtr, 8> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 1> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> triVec;
+    std::array<SpatialDomains::PointGeom *, 5> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get()};
+    SpatialDomains::PyrGeomUniquePtr pyrGeom =
+        CreatePyr(v, segVec, triVec, quadVec);
 
     unsigned int numQuadPoints = 5;
     unsigned int numModes      = 4;
@@ -1766,7 +1892,7 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTBase_MatrixFree_UniformP_MultiElmt)
 
     Nektar::LocalRegions::PyrExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PyrExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom.get());
 
     int nelmts = NELMTS;
 
@@ -1824,18 +1950,24 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTBase_MatrixFree_UniformP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPyrIProductWRTBase_MatrixFree_Deformed_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -2.0, -3.0, -4.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
 
-    SpatialDomains::PyrGeomSharedPtr pyrGeom = CreatePyr(v0, v1, v2, v3, v4);
+    std::array<SpatialDomains::SegGeomUniquePtr, 8> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 1> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> triVec;
+    std::array<SpatialDomains::PointGeom *, 5> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get()};
+    SpatialDomains::PyrGeomUniquePtr pyrGeom =
+        CreatePyr(v, segVec, triVec, quadVec);
 
     unsigned int numQuadPoints = 5;
     unsigned int numModes      = 4;
@@ -1869,7 +2001,7 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTBase_MatrixFree_Deformed_MultiElmt)
 
     Nektar::LocalRegions::PyrExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PyrExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom.get());
 
     int nelmts = 5;
 
@@ -1924,18 +2056,24 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTBase_MatrixFree_Deformed_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPyrIProductWRTDerivBase_IterPerExp_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.5, -1.5, -1.5));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
 
-    SpatialDomains::PyrGeomSharedPtr pyrGeom = CreatePyr(v0, v1, v2, v3, v4);
+    std::array<SpatialDomains::SegGeomUniquePtr, 8> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 1> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> triVec;
+    std::array<SpatialDomains::PointGeom *, 5> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get()};
+    SpatialDomains::PyrGeomUniquePtr pyrGeom =
+        CreatePyr(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -1963,7 +2101,7 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTDerivBase_IterPerExp_UniformP_MultiElmt)
 
     Nektar::LocalRegions::PyrExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PyrExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom.get());
 
     int nelmts = NELMTS;
 
@@ -2035,18 +2173,24 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTDerivBase_IterPerExp_UniformP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPyrIProductWRTDerivBase_StdMat_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.5, -1.5, -1.5));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
 
-    SpatialDomains::PyrGeomSharedPtr pyrGeom = CreatePyr(v0, v1, v2, v3, v4);
+    std::array<SpatialDomains::SegGeomUniquePtr, 8> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 1> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> triVec;
+    std::array<SpatialDomains::PointGeom *, 5> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get()};
+    SpatialDomains::PyrGeomUniquePtr pyrGeom =
+        CreatePyr(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -2074,7 +2218,7 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTDerivBase_StdMat_UniformP_MultiElmt)
 
     Nektar::LocalRegions::PyrExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PyrExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom.get());
 
     int nelmts = 10;
 
@@ -2142,18 +2286,24 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTDerivBase_StdMat_UniformP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPyrIProductWRTDerivBase_SumFac_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.5, -1.5, -1.5));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
 
-    SpatialDomains::PyrGeomSharedPtr pyrGeom = CreatePyr(v0, v1, v2, v3, v4);
+    std::array<SpatialDomains::SegGeomUniquePtr, 8> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 1> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> triVec;
+    std::array<SpatialDomains::PointGeom *, 5> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get()};
+    SpatialDomains::PyrGeomUniquePtr pyrGeom =
+        CreatePyr(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -2181,7 +2331,7 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTDerivBase_SumFac_UniformP_MultiElmt)
 
     Nektar::LocalRegions::PyrExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PyrExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom.get());
 
     int nelmts = NELMTS;
 
@@ -2253,18 +2403,24 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTDerivBase_SumFac_UniformP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPyrIProductWRTDerivBase_IterPerExp_VariableP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.5, -1.5, -1.5));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
 
-    SpatialDomains::PyrGeomSharedPtr pyrGeom = CreatePyr(v0, v1, v2, v3, v4);
+    std::array<SpatialDomains::SegGeomUniquePtr, 8> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 1> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> triVec;
+    std::array<SpatialDomains::PointGeom *, 5> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get()};
+    SpatialDomains::PyrGeomUniquePtr pyrGeom =
+        CreatePyr(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -2292,7 +2448,7 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTDerivBase_IterPerExp_VariableP_MultiElmt)
 
     Nektar::LocalRegions::PyrExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PyrExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom.get());
 
     int nelmts = 10;
 
@@ -2360,18 +2516,24 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTDerivBase_IterPerExp_VariableP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPyrIProductWRTDerivBase_MatrixFree_Deformed_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.5, -1.5, -1.5));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
 
-    SpatialDomains::PyrGeomSharedPtr pyrGeom = CreatePyr(v0, v1, v2, v3, v4);
+    std::array<SpatialDomains::SegGeomUniquePtr, 8> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 1> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> triVec;
+    std::array<SpatialDomains::PointGeom *, 5> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get()};
+    SpatialDomains::PyrGeomUniquePtr pyrGeom =
+        CreatePyr(v, segVec, triVec, quadVec);
 
     unsigned int numQuadPoints = 5;
     unsigned int numModes      = 4;
@@ -2405,7 +2567,7 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTDerivBase_MatrixFree_Deformed_MultiElmt)
 
     Nektar::LocalRegions::PyrExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PyrExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom.get());
 
     int nelmts = NELMTS;
 
@@ -2476,18 +2638,24 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTDerivBase_MatrixFree_Deformed_MultiElmt)
 BOOST_AUTO_TEST_CASE(
     TestPyrIProductWRTDerivBase_MatrixFree_Deformed_MultiElmt_OverInt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.5, -1.5, -1.5));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
 
-    SpatialDomains::PyrGeomSharedPtr pyrGeom = CreatePyr(v0, v1, v2, v3, v4);
+    std::array<SpatialDomains::SegGeomUniquePtr, 8> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 1> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> triVec;
+    std::array<SpatialDomains::PointGeom *, 5> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get()};
+    SpatialDomains::PyrGeomUniquePtr pyrGeom =
+        CreatePyr(v, segVec, triVec, quadVec);
 
     unsigned int numQuadPoints = 8;
     unsigned int numModes      = 4;
@@ -2521,7 +2689,7 @@ BOOST_AUTO_TEST_CASE(
 
     Nektar::LocalRegions::PyrExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PyrExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom.get());
 
     int nelmts = 5;
 
@@ -2588,18 +2756,24 @@ BOOST_AUTO_TEST_CASE(
 
 BOOST_AUTO_TEST_CASE(TestPyrBwdTrans_MatrixFree_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
 
-    SpatialDomains::PyrGeomSharedPtr pyrGeom = CreatePyr(v0, v1, v2, v3, v4);
+    std::array<SpatialDomains::SegGeomUniquePtr, 8> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 1> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> triVec;
+    std::array<SpatialDomains::PointGeom *, 5> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get()};
+    SpatialDomains::PyrGeomUniquePtr pyrGeom =
+        CreatePyr(v, segVec, triVec, quadVec);
 
     unsigned int numQuadPoints = 5;
     unsigned int numModes      = 4;
@@ -2633,7 +2807,7 @@ BOOST_AUTO_TEST_CASE(TestPyrBwdTrans_MatrixFree_UniformP_MultiElmt)
 
     Nektar::LocalRegions::PyrExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PyrExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom.get());
 
     unsigned int nelmts = NELMTS;
 
@@ -2678,18 +2852,24 @@ BOOST_AUTO_TEST_CASE(TestPyrBwdTrans_MatrixFree_UniformP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPyrBwdTrans_MatrixFree_UniformP_OverInt_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
 
-    SpatialDomains::PyrGeomSharedPtr pyrGeom = CreatePyr(v0, v1, v2, v3, v4);
+    std::array<SpatialDomains::SegGeomUniquePtr, 8> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 1> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> triVec;
+    std::array<SpatialDomains::PointGeom *, 5> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get()};
+    SpatialDomains::PyrGeomUniquePtr pyrGeom =
+        CreatePyr(v, segVec, triVec, quadVec);
 
     unsigned int numQuadPoints = 8;
     unsigned int numModes      = 4;
@@ -2723,7 +2903,7 @@ BOOST_AUTO_TEST_CASE(TestPyrBwdTrans_MatrixFree_UniformP_OverInt_MultiElmt)
 
     Nektar::LocalRegions::PyrExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PyrExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom.get());
 
     unsigned int nelmts = 10;
 
@@ -2764,18 +2944,24 @@ BOOST_AUTO_TEST_CASE(TestPyrBwdTrans_MatrixFree_UniformP_OverInt_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPyrIProductWRTDerivBase_StdMat_VariableP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.5, -1.5, -1.5));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
 
-    SpatialDomains::PyrGeomSharedPtr pyrGeom = CreatePyr(v0, v1, v2, v3, v4);
+    std::array<SpatialDomains::SegGeomUniquePtr, 8> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 1> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> triVec;
+    std::array<SpatialDomains::PointGeom *, 5> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get()};
+    SpatialDomains::PyrGeomUniquePtr pyrGeom =
+        CreatePyr(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -2803,7 +2989,7 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTDerivBase_StdMat_VariableP_MultiElmt)
 
     Nektar::LocalRegions::PyrExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PyrExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom.get());
 
     int nelmts = 10;
 
@@ -2871,18 +3057,24 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTDerivBase_StdMat_VariableP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPyrIProductWRTDerivBase_SumFac_VariableP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.5, -1.5, -1.5));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
 
-    SpatialDomains::PyrGeomSharedPtr pyrGeom = CreatePyr(v0, v1, v2, v3, v4);
+    std::array<SpatialDomains::SegGeomUniquePtr, 8> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 1> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> triVec;
+    std::array<SpatialDomains::PointGeom *, 5> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get()};
+    SpatialDomains::PyrGeomUniquePtr pyrGeom =
+        CreatePyr(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -2910,7 +3102,7 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTDerivBase_SumFac_VariableP_MultiElmt)
 
     Nektar::LocalRegions::PyrExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PyrExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom.get());
 
     int nelmts = 10;
 
@@ -2978,18 +3170,24 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTDerivBase_SumFac_VariableP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPyrHelmholtz_IterPerExp_UniformP_ConstVarDiff)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
 
-    SpatialDomains::PyrGeomSharedPtr pyrGeom = CreatePyr(v0, v1, v2, v3, v4);
+    std::array<SpatialDomains::SegGeomUniquePtr, 8> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 1> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> triVec;
+    std::array<SpatialDomains::PointGeom *, 5> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get()};
+    SpatialDomains::PyrGeomUniquePtr pyrGeom =
+        CreatePyr(v, segVec, triVec, quadVec);
 
     unsigned int numQuadPoints = 5;
     unsigned int numModes      = 4;
@@ -3023,7 +3221,7 @@ BOOST_AUTO_TEST_CASE(TestPyrHelmholtz_IterPerExp_UniformP_ConstVarDiff)
 
     Nektar::LocalRegions::PyrExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PyrExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom.get());
 
     int nelmts = 10;
 
@@ -3086,18 +3284,24 @@ BOOST_AUTO_TEST_CASE(TestPyrHelmholtz_IterPerExp_UniformP_ConstVarDiff)
 
 BOOST_AUTO_TEST_CASE(TestPyrHelmholtz_MatrixFree_UniformP)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
 
-    SpatialDomains::PyrGeomSharedPtr pyrGeom = CreatePyr(v0, v1, v2, v3, v4);
+    std::array<SpatialDomains::SegGeomUniquePtr, 8> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 1> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> triVec;
+    std::array<SpatialDomains::PointGeom *, 5> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get()};
+    SpatialDomains::PyrGeomUniquePtr pyrGeom =
+        CreatePyr(v, segVec, triVec, quadVec);
 
     unsigned int numQuadPoints = 5;
     unsigned int numModes      = 4;
@@ -3131,7 +3335,7 @@ BOOST_AUTO_TEST_CASE(TestPyrHelmholtz_MatrixFree_UniformP)
 
     Nektar::LocalRegions::PyrExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PyrExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom.get());
 
     int nelmts = 10;
 
@@ -3188,18 +3392,24 @@ BOOST_AUTO_TEST_CASE(TestPyrHelmholtz_MatrixFree_UniformP)
 
 BOOST_AUTO_TEST_CASE(TestPyrHelmholtz_MatrixFree_Deformed_overInt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.5, -1.5, -1.5));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
 
-    SpatialDomains::PyrGeomSharedPtr pyrGeom = CreatePyr(v0, v1, v2, v3, v4);
+    std::array<SpatialDomains::SegGeomUniquePtr, 8> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 1> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> triVec;
+    std::array<SpatialDomains::PointGeom *, 5> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get()};
+    SpatialDomains::PyrGeomUniquePtr pyrGeom =
+        CreatePyr(v, segVec, triVec, quadVec);
 
     unsigned int numQuadPoints = 8;
     unsigned int numModes      = 4;
@@ -3233,7 +3443,7 @@ BOOST_AUTO_TEST_CASE(TestPyrHelmholtz_MatrixFree_Deformed_overInt)
 
     Nektar::LocalRegions::PyrExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PyrExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom.get());
 
     int nelmts = 10;
 
@@ -3290,18 +3500,24 @@ BOOST_AUTO_TEST_CASE(TestPyrHelmholtz_MatrixFree_Deformed_overInt)
 
 BOOST_AUTO_TEST_CASE(TestPyrHelmholtz_MatrixFree_UniformP_ConstVarDiff)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
 
-    SpatialDomains::PyrGeomSharedPtr pyrGeom = CreatePyr(v0, v1, v2, v3, v4);
+    std::array<SpatialDomains::SegGeomUniquePtr, 8> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 1> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> triVec;
+    std::array<SpatialDomains::PointGeom *, 5> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get()};
+    SpatialDomains::PyrGeomUniquePtr pyrGeom =
+        CreatePyr(v, segVec, triVec, quadVec);
 
     unsigned int numQuadPoints = 5;
     unsigned int numModes      = 4;
@@ -3335,7 +3551,7 @@ BOOST_AUTO_TEST_CASE(TestPyrHelmholtz_MatrixFree_UniformP_ConstVarDiff)
 
     Nektar::LocalRegions::PyrExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PyrExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom.get());
 
     int nelmts = 10;
 
@@ -3398,18 +3614,24 @@ BOOST_AUTO_TEST_CASE(TestPyrHelmholtz_MatrixFree_UniformP_ConstVarDiff)
 
 BOOST_AUTO_TEST_CASE(TestPyrPhysInterp1DScaled_NoCollection_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
 
-    SpatialDomains::PyrGeomSharedPtr pyrGeom = CreatePyr(v0, v1, v2, v3, v4);
+    std::array<SpatialDomains::SegGeomUniquePtr, 8> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 1> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> triVec;
+    std::array<SpatialDomains::PointGeom *, 5> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get()};
+    SpatialDomains::PyrGeomUniquePtr pyrGeom =
+        CreatePyr(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -3437,7 +3659,7 @@ BOOST_AUTO_TEST_CASE(TestPyrPhysInterp1DScaled_NoCollection_UniformP_MultiElmt)
 
     Nektar::LocalRegions::PyrExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PyrExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom.get());
 
     int nelmts = 1;
 
@@ -3490,18 +3712,24 @@ BOOST_AUTO_TEST_CASE(TestPyrPhysInterp1DScaled_NoCollection_UniformP_MultiElmt)
 
 BOOST_AUTO_TEST_CASE(TestPyrPhysInterp1DScaled_MatrixFree_UniformP_MultiElmt)
 {
-    SpatialDomains::PointGeomSharedPtr v0(
+    SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v1(
+    SpatialDomains::PointGeomUniquePtr v1(
         new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v2(
+    SpatialDomains::PointGeomUniquePtr v2(
         new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v3(
+    SpatialDomains::PointGeomUniquePtr v3(
         new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
-    SpatialDomains::PointGeomSharedPtr v4(
+    SpatialDomains::PointGeomUniquePtr v4(
         new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
 
-    SpatialDomains::PyrGeomSharedPtr pyrGeom = CreatePyr(v0, v1, v2, v3, v4);
+    std::array<SpatialDomains::SegGeomUniquePtr, 8> segVec;
+    std::array<SpatialDomains::QuadGeomUniquePtr, 1> quadVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> triVec;
+    std::array<SpatialDomains::PointGeom *, 5> v = {
+        v0.get(), v1.get(), v2.get(), v3.get(), v4.get()};
+    SpatialDomains::PyrGeomUniquePtr pyrGeom =
+        CreatePyr(v, segVec, triVec, quadVec);
 
     Nektar::LibUtilities::PointsType PointsTypeDir1 =
         Nektar::LibUtilities::eGaussLobattoLegendre;
@@ -3529,7 +3757,7 @@ BOOST_AUTO_TEST_CASE(TestPyrPhysInterp1DScaled_MatrixFree_UniformP_MultiElmt)
 
     Nektar::LocalRegions::PyrExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::PyrExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom.get());
 
     int nelmts = 1;
 

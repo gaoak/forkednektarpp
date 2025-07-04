@@ -37,10 +37,17 @@
 #include <SpatialDomains/HexGeom.h>
 #include <SpatialDomains/QuadGeom.h>
 #include <SpatialDomains/SegGeom.h>
+#include <SpatialDomains/XmapFactory.hpp>
 #include <StdRegions/StdHexExp.h>
 
 namespace Nektar::SpatialDomains
 {
+
+XmapFactory<StdRegions::StdHexExp, 3> &GetStdHexFactory()
+{
+    static XmapFactory<StdRegions::StdHexExp, 3> factory;
+    return factory;
+}
 
 const unsigned int HexGeom::VertexEdgeConnectivity[8][3] = {
     {0, 3, 4},  {0, 1, 5}, {1, 2, 6},  {2, 3, 7},
@@ -60,18 +67,12 @@ HexGeom::HexGeom()
     m_shapeType = LibUtilities::eHexahedron;
 }
 
-HexGeom::HexGeom(int id, const QuadGeomSharedPtr faces[])
+HexGeom::HexGeom(int id, std::array<QuadGeom *, kNfaces> faces)
     : Geometry3D(faces[0]->GetEdge(0)->GetVertex(0)->GetCoordim())
 {
     m_shapeType = LibUtilities::eHexahedron;
     m_globalID  = id;
-
-    /// Copy the face shared pointers
-    m_faces.insert(m_faces.begin(), faces, faces + HexGeom::kNfaces);
-
-    /// Set up orientation vectors with correct amount of elements.
-    m_eorient.resize(kNedges);
-    m_forient.resize(kNfaces);
+    m_faces     = faces;
 
     SetUpLocalEdges();
     SetUpLocalVertices();
@@ -203,8 +204,6 @@ void HexGeom::SetUpLocalEdges()
     int i, j;
     unsigned int check;
 
-    SegGeomSharedPtr edge;
-
     // First set up the 4 bottom edges
     int f;
     for (f = 1; f < 5; f++)
@@ -216,9 +215,8 @@ void HexGeom::SetUpLocalEdges()
             {
                 if ((m_faces[0])->GetEid(i) == (m_faces[f])->GetEid(j))
                 {
-                    edge = std::dynamic_pointer_cast<SegGeom>(
-                        (m_faces[0])->GetEdge(i));
-                    m_edges.push_back(edge);
+                    m_edges[f - 1] =
+                        static_cast<SegGeom *>((m_faces[0])->GetEdge(i));
                     check++;
                 }
             }
@@ -250,9 +248,7 @@ void HexGeom::SetUpLocalEdges()
         {
             if ((m_faces[1])->GetEid(i) == (m_faces[4])->GetEid(j))
             {
-                edge = std::dynamic_pointer_cast<SegGeom>(
-                    (m_faces[1])->GetEdge(i));
-                m_edges.push_back(edge);
+                m_edges[4] = static_cast<SegGeom *>((m_faces[1])->GetEdge(i));
                 check++;
             }
         }
@@ -282,9 +278,8 @@ void HexGeom::SetUpLocalEdges()
             {
                 if ((m_faces[f])->GetEid(i) == (m_faces[f + 1])->GetEid(j))
                 {
-                    edge = std::dynamic_pointer_cast<SegGeom>(
-                        (m_faces[f])->GetEdge(i));
-                    m_edges.push_back(edge);
+                    m_edges[f + 4] =
+                        static_cast<SegGeom *>((m_faces[f])->GetEdge(i));
                     check++;
                 }
             }
@@ -318,9 +313,8 @@ void HexGeom::SetUpLocalEdges()
             {
                 if ((m_faces[5])->GetEid(i) == (m_faces[f])->GetEid(j))
                 {
-                    edge = std::dynamic_pointer_cast<SegGeom>(
-                        (m_faces[5])->GetEdge(i));
-                    m_edges.push_back(edge);
+                    m_edges[f + 7] =
+                        static_cast<SegGeom *>((m_faces[5])->GetEdge(i));
                     check++;
                 }
             }
@@ -351,14 +345,14 @@ void HexGeom::SetUpLocalVertices()
     if ((m_edges[0]->GetVid(0) == m_edges[1]->GetVid(0)) ||
         (m_edges[0]->GetVid(0) == m_edges[1]->GetVid(1)))
     {
-        m_verts.push_back(m_edges[0]->GetVertex(1));
-        m_verts.push_back(m_edges[0]->GetVertex(0));
+        m_verts[0] = m_edges[0]->GetVertex(1);
+        m_verts[1] = m_edges[0]->GetVertex(0);
     }
     else if ((m_edges[0]->GetVid(1) == m_edges[1]->GetVid(0)) ||
              (m_edges[0]->GetVid(1) == m_edges[1]->GetVid(1)))
     {
-        m_verts.push_back(m_edges[0]->GetVertex(0));
-        m_verts.push_back(m_edges[0]->GetVertex(1));
+        m_verts[0] = m_edges[0]->GetVertex(0);
+        m_verts[1] = m_edges[0]->GetVertex(1);
     }
     else
     {
@@ -375,11 +369,11 @@ void HexGeom::SetUpLocalVertices()
     {
         if (m_edges[i]->GetVid(0) == m_verts[i]->GetGlobalID())
         {
-            m_verts.push_back(m_edges[i]->GetVertex(1));
+            m_verts[i + 1] = m_edges[i]->GetVertex(1);
         }
         else if (m_edges[i]->GetVid(1) == m_verts[i]->GetGlobalID())
         {
-            m_verts.push_back(m_edges[i]->GetVertex(0));
+            m_verts[i + 1] = m_edges[i]->GetVertex(0);
         }
         else
         {
@@ -396,14 +390,14 @@ void HexGeom::SetUpLocalVertices()
     if ((m_edges[8]->GetVid(0) == m_edges[9]->GetVid(0)) ||
         (m_edges[8]->GetVid(0) == m_edges[9]->GetVid(1)))
     {
-        m_verts.push_back(m_edges[8]->GetVertex(1));
-        m_verts.push_back(m_edges[8]->GetVertex(0));
+        m_verts[4] = m_edges[8]->GetVertex(1);
+        m_verts[5] = m_edges[8]->GetVertex(0);
     }
     else if ((m_edges[8]->GetVid(1) == m_edges[9]->GetVid(0)) ||
              (m_edges[8]->GetVid(1) == m_edges[9]->GetVid(1)))
     {
-        m_verts.push_back(m_edges[8]->GetVertex(0));
-        m_verts.push_back(m_edges[8]->GetVertex(1));
+        m_verts[4] = m_edges[8]->GetVertex(0);
+        m_verts[5] = m_edges[8]->GetVertex(1);
     }
     else
     {
@@ -419,11 +413,11 @@ void HexGeom::SetUpLocalVertices()
     {
         if (m_edges[i]->GetVid(0) == m_verts[i - 4]->GetGlobalID())
         {
-            m_verts.push_back(m_edges[i]->GetVertex(1));
+            m_verts[i - 3] = m_edges[i]->GetVertex(1);
         }
         else if (m_edges[i]->GetVid(1) == m_verts[i - 4]->GetGlobalID())
         {
-            m_verts.push_back(m_edges[i]->GetVertex(0));
+            m_verts[i - 3] = m_edges[i]->GetVertex(0);
         }
         else
         {
@@ -804,20 +798,78 @@ void HexGeom::SetUpXmap()
 
     int order2 = *std::max_element(tmp1.begin(), tmp1.end());
 
-    const LibUtilities::BasisKey A(
-        LibUtilities::eModified_A, order0,
-        LibUtilities::PointsKey(order0 + 1,
-                                LibUtilities::eGaussLobattoLegendre));
-    const LibUtilities::BasisKey B(
-        LibUtilities::eModified_A, order1,
-        LibUtilities::PointsKey(order1 + 1,
-                                LibUtilities::eGaussLobattoLegendre));
-    const LibUtilities::BasisKey C(
-        LibUtilities::eModified_A, order2,
-        LibUtilities::PointsKey(order2 + 1,
-                                LibUtilities::eGaussLobattoLegendre));
+    std::array<LibUtilities::BasisKey, 3> basis = {
+        LibUtilities::BasisKey(
+            LibUtilities::eModified_A, order0,
+            LibUtilities::PointsKey(order0 + 1,
+                                    LibUtilities::eGaussLobattoLegendre)),
+        LibUtilities::BasisKey(
+            LibUtilities::eModified_A, order1,
+            LibUtilities::PointsKey(order1 + 1,
+                                    LibUtilities::eGaussLobattoLegendre)),
+        LibUtilities::BasisKey(
+            LibUtilities::eModified_A, order2,
+            LibUtilities::PointsKey(order2 + 1,
+                                    LibUtilities::eGaussLobattoLegendre))};
 
-    m_xmap = MemoryManager<StdRegions::StdHexExp>::AllocateSharedPtr(A, B, C);
+    m_xmap = GetStdHexFactory().CreateInstance(basis);
+}
+
+/**
+ * @brief Put all quadrature information into face/edge structure and
+ * backward transform.
+ *
+ * Note verts, edges, and faces are listed according to anticlockwise
+ * convention but points in _coeffs have to be in array format from left
+ * to right.
+ */
+void HexGeom::v_FillGeom()
+{
+    if (m_state == ePtsFilled)
+    {
+        return;
+    }
+
+    int i, j, k;
+
+    for (i = 0; i < kNfaces; i++)
+    {
+        m_faces[i]->FillGeom();
+
+        int nFaceCoeffs = m_faces[i]->GetXmap()->GetNcoeffs();
+
+        Array<OneD, unsigned int> mapArray(nFaceCoeffs);
+        Array<OneD, int> signArray(nFaceCoeffs);
+
+        if (m_forient[i] < 9)
+        {
+            m_xmap->GetTraceToElementMap(
+                i, mapArray, signArray, m_forient[i],
+                m_faces[i]->GetXmap()->GetTraceNcoeffs(0),
+                m_faces[i]->GetXmap()->GetTraceNcoeffs(1));
+        }
+        else
+        {
+            m_xmap->GetTraceToElementMap(
+                i, mapArray, signArray, m_forient[i],
+                m_faces[i]->GetXmap()->GetTraceNcoeffs(1),
+                m_faces[i]->GetXmap()->GetTraceNcoeffs(0));
+        }
+
+        for (j = 0; j < m_coordim; j++)
+        {
+            const Array<OneD, const NekDouble> &coeffs =
+                m_faces[i]->GetCoeffs(j);
+
+            for (k = 0; k < nFaceCoeffs; k++)
+            {
+                NekDouble v              = signArray[k] * coeffs[k];
+                m_coeffs[j][mapArray[k]] = v;
+            }
+        }
+    }
+
+    m_state = ePtsFilled;
 }
 
 } // namespace Nektar::SpatialDomains

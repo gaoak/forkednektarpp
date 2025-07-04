@@ -47,37 +47,48 @@
 using namespace Nektar;
 using namespace Nektar::SpatialDomains;
 
-template <class T, class S>
-std::shared_ptr<T> Geometry_Init(int id, py::list &facets)
-{
-    std::vector<std::shared_ptr<S>> geomVec;
+using NekError = Nektar::ErrorUtil::NekError;
 
-    for (int i = 0; i < py::len(facets); ++i)
+template <class T, class S>
+unique_ptr_objpool<T> Geometry_Init(int id, py::list &facets)
+{
+    std::array<S *, T::kNfacets> geomArr;
+
+    if (py::len(facets) != T::kNfacets)
     {
-        geomVec.push_back(py::cast<std::shared_ptr<S>>(facets[i]));
+        throw new NekError("Incorrect number of facets for this geometry");
     }
 
-    return std::make_shared<T>(id, &geomVec[0]);
+    for (int i = 0; i < T::kNfacets; ++i)
+    {
+        geomArr[i] = py::cast<S *>(facets[i]);
+    }
+
+    return ObjPoolManager<T>::AllocateUniquePtr(id, geomArr);
 }
 
 template <class T, class S>
-std::shared_ptr<T> Geometry_Init_Curved(int id, py::list &facets,
-                                        CurveSharedPtr curve)
+unique_ptr_objpool<T> Geometry_Init_Curved(int id, py::list &facets,
+                                           CurveSharedPtr curve)
 {
-    std::vector<std::shared_ptr<S>> geomVec;
+    std::array<S *, T::kNfacets> geomArr;
 
-    for (int i = 0; i < py::len(facets); ++i)
+    if (py::len(facets) != T::kNfacets)
     {
-        geomVec.push_back(py::cast<std::shared_ptr<S>>(facets[i]));
+        throw new NekError("Incorrect number of facets for this geometry");
     }
 
-    return std::make_shared<T>(id, &geomVec[0], curve);
+    for (int i = 0; i < T::kNfacets; ++i)
+    {
+        geomArr[i] = py::cast<S *>(facets[i]);
+    }
+
+    return ObjPoolManager<T>::AllocateUniquePtr(id, geomArr, curve);
 }
 
 template <class T, class S> void export_Geom_2d(py::module &m, const char *name)
 {
-    py::class_<T, Geometry2D, std::shared_ptr<T>>(m, name)
-        .def(py::init<>())
+    py::classh<T, Geometry2D>(m, name)
         .def(py::init<>(&Geometry_Init<T, S>), py::arg("id"),
              py::arg("segments") = py::list())
         .def(py::init<>(&Geometry_Init_Curved<T, S>), py::arg("id"),
@@ -86,30 +97,41 @@ template <class T, class S> void export_Geom_2d(py::module &m, const char *name)
 
 template <class T, class S> void export_Geom_3d(py::module &m, const char *name)
 {
-    py::class_<T, Geometry3D, std::shared_ptr<T>>(m, name)
-        .def(py::init<>())
-        .def(py::init<>(&Geometry_Init<T, S>), py::arg("id"),
-             py::arg("segments") = py::list());
+    py::classh<T, Geometry3D>(m, name).def(py::init<>(&Geometry_Init<T, S>),
+                                           py::arg("id"),
+                                           py::arg("segments") = py::list());
 }
 
-SegGeomSharedPtr SegGeom_Init(int id, int coordim, py::list &points,
-                              CurveSharedPtr curve)
+unique_ptr_objpool<SegGeom> SegGeom_Init(int id, int coordim, py::list &points,
+                                         CurveSharedPtr curve)
 {
-    std::vector<PointGeomSharedPtr> geomVec;
+    std::array<PointGeom *, 2> geomArr;
 
-    for (int i = 0; i < py::len(points); ++i)
+    if (py::len(points) != 2)
     {
-        geomVec.push_back(py::cast<PointGeomSharedPtr>(points[i]));
+        throw new NekError("Incorrect number of facets for this geometry");
+    }
+
+    for (int i = 0; i < 2; ++i)
+    {
+        geomArr[i] = py::cast<PointGeom *>(points[i]);
     }
 
     if (!curve)
     {
-        return std::make_shared<SegGeom>(id, coordim, &geomVec[0]);
+        return ObjPoolManager<SegGeom>::AllocateUniquePtr(id, coordim, geomArr);
     }
     else
     {
-        return std::make_shared<SegGeom>(id, coordim, &geomVec[0], curve);
+        return ObjPoolManager<SegGeom>::AllocateUniquePtr(id, coordim, geomArr,
+                                                          curve);
     }
+}
+
+unique_ptr_objpool<PointGeom> PointGeom_Init(int coordim, int id, NekDouble x,
+                                             NekDouble y, NekDouble z)
+{
+    return ObjPoolManager<PointGeom>::AllocateUniquePtr(coordim, id, x, y, z);
 }
 
 py::tuple PointGeom_GetCoordinates(const PointGeom &self)
@@ -120,23 +142,20 @@ py::tuple PointGeom_GetCoordinates(const PointGeom &self)
 void export_GeomElements(py::module &m)
 {
     // Geometry dimensioned base classes
-    py::class_<Geometry1D, Geometry, std::shared_ptr<Geometry1D>>(m,
-                                                                  "Geometry1D");
-    py::class_<Geometry2D, Geometry, std::shared_ptr<Geometry2D>>(m,
-                                                                  "Geometry2D")
-        .def("GetCurve", &Geometry2D::GetCurve);
-    py::class_<Geometry3D, Geometry, std::shared_ptr<Geometry3D>>(m,
-                                                                  "Geometry3D");
+    py::classh<Geometry1D, Geometry>(m, "Geometry1D");
+    py::classh<Geometry2D, Geometry>(m, "Geometry2D")
+        .def("GetCurve", &Geometry2D::GetCurve,
+             py::return_value_policy::reference);
+    py::classh<Geometry3D, Geometry>(m, "Geometry3D");
 
     // Point geometries
-    py::class_<PointGeom, Geometry, std::shared_ptr<PointGeom>>(m, "PointGeom")
-        .def(py::init<>())
-        .def(py::init<int, int, NekDouble, NekDouble, NekDouble>())
+    py::classh<PointGeom, Geometry>(m, "PointGeom")
+        .def(py::init<>(&PointGeom_Init), py::arg("coordim"), py::arg("id"),
+             py::arg("x"), py::arg("y"), py::arg("z"))
         .def("GetCoordinates", &PointGeom_GetCoordinates);
 
     // Segment geometries
-    py::class_<SegGeom, Geometry, std::shared_ptr<SegGeom>>(m, "SegGeom")
-        .def(py::init<>())
+    py::classh<SegGeom, Geometry>(m, "SegGeom")
         .def(py::init<>(&SegGeom_Init), py::arg("id"), py::arg("coordim"),
              py::arg("points") = py::list(),
              py::arg("curve")  = CurveSharedPtr())

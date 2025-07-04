@@ -72,7 +72,7 @@ class Expansion : virtual public StdRegions::StdExpansion
 {
 public:
     LOCAL_REGIONS_EXPORT Expansion(
-        SpatialDomains::GeometrySharedPtr pGeom); // default constructor.
+        SpatialDomains::Geometry *pGeom); // default constructor.
     LOCAL_REGIONS_EXPORT Expansion(const Expansion &pSrc); // copy constructor.
     LOCAL_REGIONS_EXPORT ~Expansion() override;
 
@@ -92,7 +92,7 @@ public:
             StdRegions::NullConstFactorMap,
         const StdRegions::VarCoeffMap &varcoeffs = StdRegions::NullVarCoeffMap);
 
-    LOCAL_REGIONS_EXPORT SpatialDomains::GeometrySharedPtr GetGeom() const;
+    LOCAL_REGIONS_EXPORT SpatialDomains::Geometry *GetGeom() const;
 
     LOCAL_REGIONS_EXPORT void Reset();
 
@@ -276,7 +276,7 @@ protected:
         m_indexMapManager;
 
     std::map<int, ExpansionWeakPtr> m_traceExp;
-    SpatialDomains::GeometrySharedPtr m_geom;
+    SpatialDomains::Geometry *m_geom;
     SpatialDomains::GeomFactorsSharedPtr m_metricinfo;
     MetricMap m_metrics;
     std::map<int, NormalVector> m_traceNormals;

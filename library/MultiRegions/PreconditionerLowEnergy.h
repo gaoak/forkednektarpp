@@ -79,6 +79,7 @@ protected:
     DNekBlkMatSharedPtr m_BlkMat;
     DNekBlkMatSharedPtr m_RBlk;
     DNekBlkMatSharedPtr m_InvRBlk;
+    SpatialDomains::EntityHolder m_holder;
 
     Array<OneD, NekDouble> m_variablePmask;
 
@@ -160,10 +161,10 @@ private:
 
     void CreateVariablePMask(void);
 
-    SpatialDomains::TetGeomSharedPtr CreateRefTetGeom(void);
-    SpatialDomains::PyrGeomSharedPtr CreateRefPyrGeom(void);
-    SpatialDomains::PrismGeomSharedPtr CreateRefPrismGeom(void);
-    SpatialDomains::HexGeomSharedPtr CreateRefHexGeom(void);
+    SpatialDomains::TetGeomUniquePtr CreateRefTetGeom(void);
+    SpatialDomains::PyrGeomUniquePtr CreateRefPyrGeom(void);
+    SpatialDomains::PrismGeomUniquePtr CreateRefPrismGeom(void);
+    SpatialDomains::HexGeomUniquePtr CreateRefHexGeom(void);
 };
 } // namespace Nektar::MultiRegions
 

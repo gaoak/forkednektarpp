@@ -287,8 +287,8 @@ int main(int argc, char *argv[])
     int lastedge = -1;
     int v1, v2;
     // first point for x_connect=0(or-1.6 for the full mesh (-pi,pi)  )
-    x_connect                                  = 0;
-    SpatialDomains::PointGeomSharedPtr vertex0 = graphShPt->GetVertex(
+    x_connect                          = 0;
+    SpatialDomains::PointGeom *vertex0 = graphShPt->GetPointGeom(
         ((bndfieldx[lastIregion]->GetExp(0)->as<LocalRegions::SegExp>())
              ->GetGeom1D())
             ->GetVid(0));
@@ -303,8 +303,7 @@ int main(int argc, char *argv[])
     OrderVertices(nedges, graphShPt, bndfieldx[lastIregion - 1], Vids_low, v1,
                   v2, x_connect, lastedge, xold_low, yold_low);
     ASSERTL0(Vids_low[v2] != -10, "Vids_low[v2] is wrong");
-    SpatialDomains::PointGeomSharedPtr vertex =
-        graphShPt->GetVertex(Vids_low[v2]);
+    SpatialDomains::PointGeom *vertex = graphShPt->GetPointGeom(Vids_low[v2]);
 
     // update x_connect
     cout << "x_conn=" << x_connect << "   yt=" << yt << "  zt=" << zt
@@ -317,8 +316,8 @@ int main(int argc, char *argv[])
         v1 = i;
         OrderVertices(nedges, graphShPt, bndfieldx[lastIregion - 1], Vids_low,
                       v1, v2, x_connect, lastedge, xold_low, yold_low);
-        SpatialDomains::PointGeomSharedPtr vertex =
-            graphShPt->GetVertex(Vids_low[v1]);
+        SpatialDomains::PointGeom *vertex =
+            graphShPt->GetPointGeom(Vids_low[v1]);
         // update x_connect  (lastedge is updated on the OrderVertices function)
         vertex->GetCoords(x_connect, yt, zt);
         i++;
@@ -332,7 +331,7 @@ int main(int argc, char *argv[])
     Array<OneD, NekDouble> yold_up(nvertl);
     // first point for x_connect=0 (or-1.6)
     x_connect = 0;
-    vertex0   = graphShPt->GetVertex(
+    vertex0   = graphShPt->GetPointGeom(
         ((bndfieldx[lastIregion]->GetExp(0)->as<LocalRegions::SegExp>())
              ->GetGeom1D())
             ->GetVid(0));
@@ -348,8 +347,7 @@ int main(int argc, char *argv[])
     v2 = 1;
     OrderVertices(nedges, graphShPt, bndfieldx[lastIregion - 2], Vids_up, v1,
                   v2, x_connect, lastedge, xold_up, yold_up);
-    SpatialDomains::PointGeomSharedPtr vertexU =
-        graphShPt->GetVertex(Vids_up[v2]);
+    SpatialDomains::PointGeom *vertexU = graphShPt->GetPointGeom(Vids_up[v2]);
     vertexU->GetCoords(x_connect, yt, zt);
 
     i = 2;
@@ -358,8 +356,8 @@ int main(int argc, char *argv[])
         v1 = i;
         OrderVertices(nedges, graphShPt, bndfieldx[lastIregion - 2], Vids_up,
                       v1, v2, x_connect, lastedge, xold_up, yold_up);
-        SpatialDomains::PointGeomSharedPtr vertex =
-            graphShPt->GetVertex(Vids_up[v1]);
+        SpatialDomains::PointGeom *vertex =
+            graphShPt->GetPointGeom(Vids_up[v1]);
         // cout<<"VIdup="<<Vids_up[v1]<<endl;
         // update x_connect  (lastedge is updated on the OrderVertices function)
         vertex->GetCoords(x_connect, yt, zt);
@@ -374,7 +372,7 @@ int main(int argc, char *argv[])
     Array<OneD, NekDouble> yold_c(nvertl);
     // first point for x_connect=0(or-1.6)
     x_connect = 0;
-    vertex0   = graphShPt->GetVertex(
+    vertex0   = graphShPt->GetPointGeom(
         ((bndfieldx[lastIregion]->GetExp(0)->as<LocalRegions::SegExp>())
              ->GetGeom1D())
             ->GetVid(0));
@@ -391,8 +389,7 @@ int main(int argc, char *argv[])
 
     OrderVertices(nedges, graphShPt, bndfieldx[lastIregion], Vids_c, v1, v2,
                   x_connect, lastedge, xold_c, yold_c);
-    SpatialDomains::PointGeomSharedPtr vertexc =
-        graphShPt->GetVertex(Vids_c[v2]);
+    SpatialDomains::PointGeom *vertexc = graphShPt->GetPointGeom(Vids_c[v2]);
 
     // update x_connect
     vertexc->GetCoords(x_connect, yt, zt);
@@ -403,8 +400,7 @@ int main(int argc, char *argv[])
         v1 = i;
         OrderVertices(nedges, graphShPt, bndfieldx[lastIregion], Vids_c, v1, v2,
                       x_connect, lastedge, xold_c, yold_c);
-        SpatialDomains::PointGeomSharedPtr vertex =
-            graphShPt->GetVertex(Vids_c[v1]);
+        SpatialDomains::PointGeom *vertex = graphShPt->GetPointGeom(Vids_c[v1]);
         // cout<<"Vids cl="<<Vids_low[v1]<<endl;
         // update x_connect  (lastedge is updated on the OrderVertices function)
         vertex->GetCoords(x_connect, yt, zt);
@@ -507,8 +503,8 @@ int main(int argc, char *argv[])
     int Eid, id1, id2;
     NekDouble x1, y1, z1;
     NekDouble x2, y2, z2;
-    SpatialDomains::PointGeomSharedPtr vertex1;
-    SpatialDomains::PointGeomSharedPtr vertex2;
+    SpatialDomains::PointGeom *vertex1;
+    SpatialDomains::PointGeom *vertex2;
     for (int r = 0; r < nedges; r++)
     {
 
@@ -517,8 +513,8 @@ int main(int argc, char *argv[])
         Eid     = (bndSegExp->GetGeom1D())->GetGlobalID();
         id1     = (bndSegExp->GetGeom1D())->GetVid(0);
         id2     = (bndSegExp->GetGeom1D())->GetVid(1);
-        vertex1 = graphShPt->GetVertex(id1);
-        vertex2 = graphShPt->GetVertex(id2);
+        vertex1 = graphShPt->GetPointGeom(id1);
+        vertex2 = graphShPt->GetPointGeom(id2);
         vertex1->GetCoords(x1, y1, z1);
         vertex2->GetCoords(x2, y2, z2);
         // cout<<"edge="<<r<<"  x1="<<x1<<"  x2="<<x2<<endl;
@@ -710,8 +706,8 @@ int main(int argc, char *argv[])
     NekDouble tleft  = 10;
     for (int i = 0; i < nVertTot; i++)
     {
-        bool mvpoint                              = false;
-        SpatialDomains::PointGeomSharedPtr vertex = graphShPt->GetVertex(i);
+        bool mvpoint                      = false;
+        SpatialDomains::PointGeom *vertex = graphShPt->GetPointGeom(i);
         NekDouble x, y, z;
         vertex->GetCoords(x, y, z);
 
@@ -1904,7 +1900,7 @@ int main(int argc, char *argv[])
         for(int n=0; n<nVertTot; n++)
         {
         NekDouble ratio;
-        SpatialDomains::PointGeomSharedPtr vertex = graphShPt->GetVertex(n);
+        SpatialDomains::PointGeom* vertex = graphShPt->GetPointGeom(n);
         NekDouble x,y,z;
         vertex->GetCoords(x,y,z);
         int qp_closer;
@@ -2023,8 +2019,8 @@ void OrderVertices(int nedges, SpatialDomains::MeshGraphSharedPtr graphShPt,
         for (int k = 0; k < 2; k++)
         {
             Vids_temp[j + k] = (bndSegExplow->GetGeom1D())->GetVid(k);
-            SpatialDomains::PointGeomSharedPtr vertex =
-                graphShPt->GetVertex(Vids_temp[j + k]);
+            SpatialDomains::PointGeom *vertex =
+                graphShPt->GetPointGeom(Vids_temp[j + k]);
             NekDouble x1, y1, z1;
             vertex->GetCoords(x1, y1, z1);
             if (x1 == x_connect && edge != lastedge)
@@ -2041,8 +2037,8 @@ void OrderVertices(int nedges, SpatialDomains::MeshGraphSharedPtr graphShPt,
                         Vids_temp[j + 1] =
                             (bndSegExplow->GetGeom1D())->GetVid(1);
                         Vids[v2] = Vids_temp[j + 1];
-                        SpatialDomains::PointGeomSharedPtr vertex =
-                            graphShPt->GetVertex(Vids[v2]);
+                        SpatialDomains::PointGeom *vertex =
+                            graphShPt->GetPointGeom(Vids[v2]);
                         NekDouble x2, y2, z2;
                         vertex->GetCoords(x2, y2, z2);
                         x[v2] = x2;
@@ -2053,8 +2049,8 @@ void OrderVertices(int nedges, SpatialDomains::MeshGraphSharedPtr graphShPt,
                         Vids_temp[j + 0] =
                             (bndSegExplow->GetGeom1D())->GetVid(0);
                         Vids[v2] = Vids_temp[j + 0];
-                        SpatialDomains::PointGeomSharedPtr vertex =
-                            graphShPt->GetVertex(Vids[v2]);
+                        SpatialDomains::PointGeom *vertex =
+                            graphShPt->GetPointGeom(Vids[v2]);
                         NekDouble x2, y2, z2;
                         vertex->GetCoords(x2, y2, z2);
                         x[v2] = x2;
@@ -2068,8 +2064,8 @@ void OrderVertices(int nedges, SpatialDomains::MeshGraphSharedPtr graphShPt,
                         Vids_temp[j + 1] =
                             (bndSegExplow->GetGeom1D())->GetVid(1);
                         Vids[v1] = Vids_temp[j + 1];
-                        SpatialDomains::PointGeomSharedPtr vertex =
-                            graphShPt->GetVertex(Vids[v1]);
+                        SpatialDomains::PointGeom *vertex =
+                            graphShPt->GetPointGeom(Vids[v1]);
                         NekDouble x1, y1, z1;
                         vertex->GetCoords(x1, y1, z1);
                         x[v1] = x1;
@@ -2080,8 +2076,8 @@ void OrderVertices(int nedges, SpatialDomains::MeshGraphSharedPtr graphShPt,
                         Vids_temp[j + 0] =
                             (bndSegExplow->GetGeom1D())->GetVid(0);
                         Vids[v1] = Vids_temp[j + 0];
-                        SpatialDomains::PointGeomSharedPtr vertex =
-                            graphShPt->GetVertex(Vids[v1]);
+                        SpatialDomains::PointGeom *vertex =
+                            graphShPt->GetPointGeom(Vids[v1]);
                         NekDouble x1, y1, z1;
                         vertex->GetCoords(x1, y1, z1);
                         x[v1] = x1;
@@ -2325,7 +2321,7 @@ void GenerateMapEidsv1v2(MultiRegions::ExpListSharedPtr field,
     int nel = exp2D->size();
     LocalRegions::QuadExpSharedPtr locQuadExp;
     LocalRegions::TriExpSharedPtr locTriExp;
-    SpatialDomains::Geometry1DSharedPtr SegGeom;
+    SpatialDomains::Geometry1D *SegGeom;
     int id;
     int cnt = 0;
     Array<OneD, int> V1tmp(4 * nel, 10000);
@@ -2341,8 +2337,8 @@ void GenerateMapEidsv1v2(MultiRegions::ExpListSharedPtr field,
 
                 if (V1tmp[id] == 10000)
                 {
-                    V1tmp[id] = SegGeom->GetVertex(0)->GetVid();
-                    V2tmp[id] = SegGeom->GetVertex(1)->GetVid();
+                    V1tmp[id] = SegGeom->GetVertex(0)->GetGlobalID();
+                    V2tmp[id] = SegGeom->GetVertex(1)->GetGlobalID();
                     cnt++;
                 }
             }
@@ -2359,8 +2355,8 @@ void GenerateMapEidsv1v2(MultiRegions::ExpListSharedPtr field,
 
                 if (V1tmp[id] == 10000)
                 {
-                    V1tmp[id] = SegGeom->GetVertex(0)->GetVid();
-                    V2tmp[id] = SegGeom->GetVertex(1)->GetVid();
+                    V1tmp[id] = SegGeom->GetVertex(0)->GetGlobalID();
+                    V2tmp[id] = SegGeom->GetVertex(1)->GetGlobalID();
                     cnt++;
                 }
             }
@@ -2411,7 +2407,7 @@ void MappingEVids([[maybe_unused]] Array<OneD, NekDouble> xoldup,
     for (int r = 0; r < nVertsTot; r++)
     {
 
-        SpatialDomains::PointGeomSharedPtr vertex = mesh->GetVertex(r);
+        SpatialDomains::PointGeom *vertex = mesh->GetPointGeom(r);
         NekDouble x, y, z;
         vertex->GetCoords(x, y, z);
         x2D[r] = x;
@@ -2481,8 +2477,8 @@ void MappingEVids([[maybe_unused]] Array<OneD, NekDouble> xoldup,
 
                     if (tmpVids0[m] == V1[h])
                     {
-                        SpatialDomains::PointGeomSharedPtr vertex =
-                            mesh->GetVertex(V2[h]);
+                        SpatialDomains::PointGeom *vertex =
+                            mesh->GetPointGeom(V2[h]);
                         NekDouble x, y, z;
                         vertex->GetCoords(x, y, z);
                         if (x != tmpx0[m])
@@ -2490,8 +2486,8 @@ void MappingEVids([[maybe_unused]] Array<OneD, NekDouble> xoldup,
                             Eids_lay[m][0] = h;
                             Vids_lay[m][0] = V1[h];
                             Vids_lay[m][1] = V2[h];
-                            SpatialDomains::PointGeomSharedPtr vertex1 =
-                                mesh->GetVertex(V1[h]);
+                            SpatialDomains::PointGeom *vertex1 =
+                                mesh->GetPointGeom(V1[h]);
                             NekDouble x1, y1, z1;
                             vertex1->GetCoords(x1, y1, z1);
                             normbef =
@@ -2508,8 +2504,8 @@ void MappingEVids([[maybe_unused]] Array<OneD, NekDouble> xoldup,
                     }
                     if (tmpVids0[m] == V2[h])
                     {
-                        SpatialDomains::PointGeomSharedPtr vertex =
-                            mesh->GetVertex(V1[h]);
+                        SpatialDomains::PointGeom *vertex =
+                            mesh->GetPointGeom(V1[h]);
                         NekDouble x, y, z;
                         vertex->GetCoords(x, y, z);
                         if (x != tmpx0[m])
@@ -2517,8 +2513,6 @@ void MappingEVids([[maybe_unused]] Array<OneD, NekDouble> xoldup,
                             Eids_lay[m][0] = h;
                             Vids_lay[m][0] = V2[h];
                             Vids_lay[m][1] = V1[h];
-                            SpatialDomains::PointGeomSharedPtr vertex2 =
-                                mesh->GetVertex(V2[h]);
                             NekDouble x2 = 0.0, y2 = 0.0;
                             normbef =
                                 sqrt((y - y2) * (y - y2) + (x - x2) * (x - x2));
@@ -2564,12 +2558,12 @@ void MappingEVids([[maybe_unused]] Array<OneD, NekDouble> xoldup,
                 // choose the right candidate
                 for (int e = 0; e < cnt; e++)
                 {
-                    SpatialDomains::PointGeomSharedPtr vertex1 =
-                        mesh->GetVertex(V1[edgestmp[e]]);
+                    SpatialDomains::PointGeom *vertex1 =
+                        mesh->GetPointGeom(V1[edgestmp[e]]);
                     NekDouble x1, y1, z1;
                     vertex1->GetCoords(x1, y1, z1);
-                    SpatialDomains::PointGeomSharedPtr vertex2 =
-                        mesh->GetVertex(V2[edgestmp[e]]);
+                    SpatialDomains::PointGeom *vertex2 =
+                        mesh->GetPointGeom(V2[edgestmp[e]]);
                     NekDouble x2, y2, z2;
                     vertex2->GetCoords(x2, y2, z2);
 
@@ -2682,12 +2676,12 @@ void MappingEVids([[maybe_unused]] Array<OneD, NekDouble> xoldup,
                     diffarray[eid] = 1000;
                     eid            = Vmath::Imin(cnt, diffarray, 1);
 
-                    SpatialDomains::PointGeomSharedPtr vertex1 =
-                        mesh->GetVertex(V1[edgestmp[eid]]);
+                    SpatialDomains::PointGeom *vertex1 =
+                        mesh->GetPointGeom(V1[edgestmp[eid]]);
                     NekDouble x1, y1, z1;
                     vertex1->GetCoords(x1, y1, z1);
-                    SpatialDomains::PointGeomSharedPtr vertex2 =
-                        mesh->GetVertex(V2[edgestmp[eid]]);
+                    SpatialDomains::PointGeom *vertex2 =
+                        mesh->GetPointGeom(V2[edgestmp[eid]]);
                     NekDouble x2, y2, z2;
                     vertex2->GetCoords(x2, y2, z2);
 
@@ -3383,7 +3377,7 @@ void MoveOutsidePointsfixedxpos(
     for (int n = 0; n < nVertTot; n++)
     {
         NekDouble ratio;
-        SpatialDomains::PointGeomSharedPtr vertex = mesh->GetVertex(n);
+        SpatialDomains::PointGeom *vertex = mesh->GetPointGeom(n);
         NekDouble x, y, z;
         vertex->GetCoords(x, y, z);
         int qp_closer = 0;
@@ -3496,7 +3490,7 @@ void MoveOutsidePointsNnormpos(
     for (int n = 0; n < nVertTot; n++)
     {
         NekDouble ratio;
-        SpatialDomains::PointGeomSharedPtr vertex = mesh->GetVertex(n);
+        SpatialDomains::PointGeom *vertex = mesh->GetPointGeom(n);
         NekDouble x, y, z;
         vertex->GetCoords(x, y, z);
         int qp_closeroldup = 0, qp_closerolddown = 0;
@@ -3724,7 +3718,7 @@ void CheckSingularQuads(MultiRegions::ExpListSharedPtr Exp, Array<OneD, int> V1,
     int nel                                                    = exp2D->size();
     LocalRegions::QuadExpSharedPtr locQuadExp;
     LocalRegions::TriExpSharedPtr locTriExp;
-    SpatialDomains::Geometry1DSharedPtr SegGeom;
+    SpatialDomains::Geometry1D *SegGeom;
     int idbef, idnext;
     NekDouble xV1, yV1, xV2, yV2;
     NekDouble slopebef = 0.0, slopenext = 0.0, slopenew = 0.0;

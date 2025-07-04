@@ -72,14 +72,15 @@ Line::Line(ElmtConfig pConf, vector<NodeSharedPtr> pNodeList,
     }
 }
 
-SpatialDomains::GeometrySharedPtr Line::GetGeom(int coordDim)
+SpatialDomains::Geometry *Line::GetGeom(int coordDim,
+                                        SpatialDomains::EntityHolder &holder)
 {
     // Create edge vertices.
-    SpatialDomains::PointGeomSharedPtr p[2];
-    SpatialDomains::SegGeomSharedPtr ret;
+    std::array<SpatialDomains::PointGeom *, 2> p;
+    SpatialDomains::SegGeomUniquePtr seg;
 
-    p[0] = m_vertex[0]->GetGeom(coordDim);
-    p[1] = m_vertex[1]->GetGeom(coordDim);
+    p[0] = m_vertex[0]->GetGeom(coordDim, holder);
+    p[1] = m_vertex[1]->GetGeom(coordDim, holder);
 
     if (m_edge[0]->m_edgeNodes.size() > 0)
     {
@@ -90,18 +91,21 @@ SpatialDomains::GeometrySharedPtr Line::GetGeom(int coordDim)
         c->m_points.push_back(p[0]);
         for (int i = 0; i < m_edge[0]->m_edgeNodes.size(); ++i)
         {
-            c->m_points.push_back(m_edge[0]->m_edgeNodes[i]->GetGeom(coordDim));
+            c->m_points.push_back(
+                m_edge[0]->m_edgeNodes[i]->GetGeom(coordDim, holder));
         }
         c->m_points.push_back(p[1]);
 
-        ret = MemoryManager<SpatialDomains::SegGeom>::AllocateSharedPtr(m_id, 2,
-                                                                        p, c);
+        seg = ObjPoolManager<SpatialDomains::SegGeom>::AllocateUniquePtr(
+            m_id, 2, p, c);
     }
     else
     {
-        ret = MemoryManager<SpatialDomains::SegGeom>::AllocateSharedPtr(m_id, 2,
-                                                                        p);
+        seg = ObjPoolManager<SpatialDomains::SegGeom>::AllocateUniquePtr(m_id,
+                                                                         2, p);
     }
+    auto ret = dynamic_cast<SpatialDomains::Geometry *>(seg.get());
+    holder.m_segVec.push_back(std::move(seg));
 
     ret->Setup();
     return ret;
@@ -116,7 +120,7 @@ void Line::GetCurvedNodes(std::vector<NodeSharedPtr> &nodeList) const
     }
     nodeList.push_back(m_vertex[1]);
 }
-void Line::MakeOrder(int order, SpatialDomains::GeometrySharedPtr geom,
+void Line::MakeOrder(int order, SpatialDomains::Geometry *geom,
                      LibUtilities::PointsType pType, int coordDim, int &id,
                      bool justConfig)
 {

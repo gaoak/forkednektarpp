@@ -88,7 +88,7 @@ ZoneBase::ZoneBase(MovementType type, int indx, int domainID,
         {
             for (int i = 0; i < geom->GetNumVerts(); ++i)
             {
-                PointGeomSharedPtr vert = geom->GetVertex(i);
+                PointGeom *vert = geom->GetVertex(i);
 
                 if (seenVerts.find(vert->GetGlobalID()) != seenVerts.end())
                 {
@@ -101,8 +101,7 @@ ZoneBase::ZoneBase(MovementType type, int indx, int domainID,
 
             for (int i = 0; i < geom->GetNumEdges(); ++i)
             {
-                SegGeomSharedPtr edge =
-                    std::static_pointer_cast<SegGeom>(geom->GetEdge(i));
+                SegGeom *edge = static_cast<SegGeom *>(geom->GetEdge(i));
 
                 if (seenEdges.find(edge->GetGlobalID()) != seenEdges.end())
                 {
@@ -122,8 +121,7 @@ ZoneBase::ZoneBase(MovementType type, int indx, int domainID,
 
             for (int i = 0; i < geom->GetNumFaces(); ++i)
             {
-                Geometry2DSharedPtr face =
-                    std::static_pointer_cast<Geometry2D>(geom->GetFace(i));
+                Geometry2D *face = static_cast<Geometry2D *>(geom->GetFace(i));
 
                 if (seenFaces.find(face->GetGlobalID()) != seenFaces.end())
                 {

@@ -54,7 +54,7 @@ void Curve_SetPoints(CurveSharedPtr curve, py::list &pts)
 
     for (py::ssize_t i = 0; i < n; ++i)
     {
-        curve->m_points.push_back(py::cast<PointGeomSharedPtr>(pts[i]));
+        curve->m_points.push_back(py::cast<PointGeom *>(pts[i]));
     }
 }
 

@@ -285,18 +285,21 @@ unsigned int Prism::GetNumNodes(ElmtConfig pConf)
     }
 }
 
-SpatialDomains::GeometrySharedPtr Prism::GetGeom(int coordDim)
+SpatialDomains::Geometry *Prism::GetGeom(int coordDim,
+                                         SpatialDomains::EntityHolder &holder)
 {
-    SpatialDomains::Geometry2DSharedPtr faces[5];
-    SpatialDomains::PrismGeomSharedPtr ret;
+    std::array<SpatialDomains::Geometry2D *, 5> faces;
+    SpatialDomains::PrismGeomUniquePtr prism;
 
     for (int i = 0; i < 5; ++i)
     {
-        faces[i] = m_face[i]->GetGeom(coordDim);
+        faces[i] = m_face[i]->GetGeom(coordDim, holder);
     }
 
-    ret = MemoryManager<SpatialDomains::PrismGeom>::AllocateSharedPtr(m_id,
-                                                                      faces);
+    prism = ObjPoolManager<SpatialDomains::PrismGeom>::AllocateUniquePtr(m_id,
+                                                                         faces);
+    auto ret = dynamic_cast<SpatialDomains::Geometry *>(prism.get());
+    holder.m_prismVec.push_back(std::move(prism));
 
     ret->Setup();
     return ret;
@@ -323,7 +326,7 @@ StdRegions::Orientation Prism::GetEdgeOrient(int edgeId, EdgeSharedPtr edge)
     return StdRegions::eNoOrientation;
 }
 
-void Prism::MakeOrder(int order, SpatialDomains::GeometrySharedPtr geom,
+void Prism::MakeOrder(int order, SpatialDomains::Geometry *geom,
                       LibUtilities::PointsType pType, int coordDim, int &id,
                       bool justConfig)
 {

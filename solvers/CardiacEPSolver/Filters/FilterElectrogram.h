@@ -85,6 +85,7 @@ protected:
         const NekDouble &time) override;
     /// Filter is time-dependent and should be called at each time-step.
     bool v_IsTimeDependent() override;
+    SpatialDomains::EntityHolder m_holder;
 
 private:
     /// Gradient of the radius from each electrogram point in x-direction
@@ -94,7 +95,7 @@ private:
     /// Gradient of the radius from each electrogram point in z-direction
     Array<OneD, Array<OneD, NekDouble>> m_grad_R_z;
     /// List of electrogram points
-    SpatialDomains::PointGeomVector m_electrogramPoints;
+    std::vector<SpatialDomains::PointGeom *> m_electrogramPoints;
     /// Counts number of calls to update (number of timesteps)
     unsigned int m_index;
     /// Number of timesteps between outputs

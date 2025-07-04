@@ -1992,7 +1992,7 @@ const SpatialDomains::ExpansionInfoMap &CoupledLinearNS::GenPressureExp(
         // Put new expansion into list.
         SpatialDomains::ExpansionInfoShPtr expansionElementShPtr =
             MemoryManager<SpatialDomains::ExpansionInfo>::AllocateSharedPtr(
-                expMapIter.second->m_geomShPtr, BasisVec);
+                expMapIter.second->m_geomPtr, BasisVec);
         (*returnval)[expMapIter.first] = expansionElementShPtr;
     }
 

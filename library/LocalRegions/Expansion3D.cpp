@@ -2009,7 +2009,7 @@ DNekMatSharedPtr Expansion3D::v_BuildTransformationMatrix(
 
     int nBndCoeffs = NumBndryCoeffs();
 
-    const SpatialDomains::Geometry3DSharedPtr &geom = GetGeom3D();
+    const SpatialDomains::Geometry3D *geom = GetGeom3D();
 
     // Get geometric information about this element
     nVerts = GetNverts();
@@ -2520,7 +2520,7 @@ Array<OneD, unsigned int> Expansion3D::GetEdgeInverseBoundaryMap(int eid)
     // Number of interior edge coefficients
     nEdgeCoeffs = GetEdgeNcoeffs(eid) - 2;
 
-    const SpatialDomains::Geometry3DSharedPtr &geom = GetGeom3D();
+    const SpatialDomains::Geometry3D *geom = GetGeom3D();
 
     Array<OneD, unsigned int> edgemaparray(nEdgeCoeffs);
     StdRegions::Orientation eOrient    = geom->GetEorient(eid);
@@ -2796,7 +2796,7 @@ void Expansion3D::v_GetTracePhysVals(
 
 void Expansion3D::v_GenTraceExp(const int traceid, ExpansionSharedPtr &exp)
 {
-    SpatialDomains::GeometrySharedPtr faceGeom = m_geom->GetFace(traceid);
+    SpatialDomains::Geometry *faceGeom = m_geom->GetFace(traceid);
     if (faceGeom->GetNumVerts() == 3)
     {
         exp = MemoryManager<LocalRegions::TriExp>::AllocateSharedPtr(
@@ -3001,7 +3001,7 @@ Array<OneD, NekDouble> Expansion3D::GetnFacecdotMF(
 
 void Expansion3D::v_TraceNormLen(const int traceid, NekDouble &h, NekDouble &p)
 {
-    SpatialDomains::GeometrySharedPtr geom = GetGeom();
+    SpatialDomains::Geometry *geom = GetGeom();
 
     int nverts = geom->GetFace(traceid)->GetNumVerts();
 
