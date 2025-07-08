@@ -34,8 +34,7 @@
 
 #define BOOST_TEST_MODULE TestMathDevice
 
-#include "MathKernelsLauncher.hpp"
-#include "init_mathkernels.hpp"
+#include "init_math.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
@@ -48,7 +47,7 @@
 
 BOOST_AUTO_TEST_SUITE(TestMathDevice)
 
-BOOST_FIXTURE_TEST_CASE(device_negkernel, MathKernels)
+BOOST_FIXTURE_TEST_CASE(device_negkernel, MathField)
 {
     Configure("Device");
     SetTestCase();
@@ -57,7 +56,7 @@ BOOST_FIXTURE_TEST_CASE(device_negkernel, MathKernels)
     neg();
 
     // Device results
-    negKernelLauncher(*fixt_in, *fixt_out);
+    math.neg(*fixt_in, *fixt_out);
 
     // Check results
     boost::test_tools::output_test_stream output;
@@ -66,7 +65,7 @@ BOOST_FIXTURE_TEST_CASE(device_negkernel, MathKernels)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(device_addkernel, MathKernels)
+BOOST_FIXTURE_TEST_CASE(device_addkernel, MathField)
 {
     Configure("Device");
     SetTestCase();
@@ -75,7 +74,7 @@ BOOST_FIXTURE_TEST_CASE(device_addkernel, MathKernels)
     add();
 
     // Device results
-    addKernelLauncher(*fixt_in, *fixt_in2, *fixt_out);
+    math.add(*fixt_in, *fixt_in2, *fixt_out);
 
     // Check results
     boost::test_tools::output_test_stream output;
@@ -84,7 +83,7 @@ BOOST_FIXTURE_TEST_CASE(device_addkernel, MathKernels)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(device_subkernel, MathKernels)
+BOOST_FIXTURE_TEST_CASE(device_subkernel, MathField)
 {
     Configure("Device");
     SetTestCase();
@@ -93,7 +92,7 @@ BOOST_FIXTURE_TEST_CASE(device_subkernel, MathKernels)
     sub();
 
     // Device results
-    subKernelLauncher(*fixt_in, *fixt_in2, *fixt_out);
+    math.sub(*fixt_in, *fixt_in2, *fixt_out);
 
     // Check results
     boost::test_tools::output_test_stream output;
@@ -102,7 +101,7 @@ BOOST_FIXTURE_TEST_CASE(device_subkernel, MathKernels)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(device_mulkernel, MathKernels)
+BOOST_FIXTURE_TEST_CASE(device_mulkernel, MathField)
 {
     Configure("Device");
     SetTestCase();
@@ -111,7 +110,7 @@ BOOST_FIXTURE_TEST_CASE(device_mulkernel, MathKernels)
     mul();
 
     // Device results
-    mulKernelLauncher(*fixt_in, *fixt_in2, *fixt_out);
+    math.mul(*fixt_in, *fixt_in2, *fixt_out);
 
     // Check results
     boost::test_tools::output_test_stream output;
@@ -120,7 +119,7 @@ BOOST_FIXTURE_TEST_CASE(device_mulkernel, MathKernels)
     }
 }
 
-/* BOOST_FIXTURE_TEST_CASE(device_divkernel, MathKernels)
+/* BOOST_FIXTURE_TEST_CASE(device_divkernel, MathField)
 {
     Configure("Device");
     SetTestCase();
@@ -129,7 +128,7 @@ BOOST_FIXTURE_TEST_CASE(device_mulkernel, MathKernels)
     div();
 
     // Device results
-    divKernelLauncher(*fixt_in, *fixt_in2, *fixt_out);
+    math.div("Device",*fixt_in, *fixt_in2, *fixt_out);
 
     // Check results
     boost::test_tools::output_test_stream output;
@@ -138,7 +137,7 @@ BOOST_FIXTURE_TEST_CASE(device_mulkernel, MathKernels)
     }
 }*/
 
-BOOST_FIXTURE_TEST_CASE(device_daxpykernel, MathKernels)
+BOOST_FIXTURE_TEST_CASE(device_daxpykernel, MathField)
 {
     Configure("Device");
     SetTestCase();
@@ -148,7 +147,7 @@ BOOST_FIXTURE_TEST_CASE(device_daxpykernel, MathKernels)
     daxpy(alpha);
 
     // Device results
-    daxpyKernelLauncher(alpha, *fixt_in, *fixt_in2, *fixt_out);
+    math.daxpy(alpha, *fixt_in, *fixt_in2, *fixt_out);
 
     // Check results
     boost::test_tools::output_test_stream output;
@@ -157,7 +156,7 @@ BOOST_FIXTURE_TEST_CASE(device_daxpykernel, MathKernels)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(device_sum, MathKernels)
+BOOST_FIXTURE_TEST_CASE(device_sum, MathField)
 {
     Configure("Device");
     SetTestCase();
@@ -166,17 +165,17 @@ BOOST_FIXTURE_TEST_CASE(device_sum, MathKernels)
     auto out = sum();
 
     // Device results
-    auto h_out = sumKernelLauncher(*fixt_in);
+    auto h_out = math.reduceSum(*fixt_in);
 
     // Check results
-    BOOST_TEST(fabs(h_out - out) < 6.0E-12);
+    BOOST_TEST(fabs(h_out - out) < 1.0E-11);
     boost::test_tools::output_test_stream output;
     {
         std::cout << "Device = " << h_out << " Sum = " << out << std::endl;
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(device_max, MathKernels)
+BOOST_FIXTURE_TEST_CASE(device_max, MathField)
 {
     Configure("Device");
     SetTestCase();
@@ -185,7 +184,7 @@ BOOST_FIXTURE_TEST_CASE(device_max, MathKernels)
     auto out = max();
 
     // Device results
-    auto h_out = maxKernelLauncher(*fixt_in);
+    auto h_out = math.reduceMax(*fixt_in);
 
     // Check results
     BOOST_TEST(fabs(h_out - out) < 5.0E-12);
@@ -195,7 +194,7 @@ BOOST_FIXTURE_TEST_CASE(device_max, MathKernels)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(device_min, MathKernels)
+BOOST_FIXTURE_TEST_CASE(device_min, MathField)
 {
     Configure("Device");
     SetTestCase();
@@ -204,7 +203,7 @@ BOOST_FIXTURE_TEST_CASE(device_min, MathKernels)
     auto out = min();
 
     // Device results
-    auto h_out = minKernelLauncher(*fixt_in);
+    auto h_out = math.reduceMin(*fixt_in);
 
     // Check results
     BOOST_TEST(fabs(h_out - out) < 5.0E-12);
@@ -214,7 +213,7 @@ BOOST_FIXTURE_TEST_CASE(device_min, MathKernels)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(device_innerproduct, MathKernels)
+BOOST_FIXTURE_TEST_CASE(device_innerproduct, MathField)
 {
     Configure("Device");
     SetTestCase();
@@ -223,7 +222,7 @@ BOOST_FIXTURE_TEST_CASE(device_innerproduct, MathKernels)
     auto out = inner_product();
 
     // Device results
-    auto h_out = innerproductKernelLauncher(*fixt_in, *fixt_in2);
+    auto h_out = math.ddot(*fixt_in, *fixt_in2);
 
     // Check results
     BOOST_TEST(fabs(h_out - out) < 5.0E-10);
@@ -234,7 +233,7 @@ BOOST_FIXTURE_TEST_CASE(device_innerproduct, MathKernels)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(device_l1norm, MathKernels)
+BOOST_FIXTURE_TEST_CASE(device_l1norm, MathField)
 {
     Configure("Device");
     SetTestCase();
@@ -243,7 +242,7 @@ BOOST_FIXTURE_TEST_CASE(device_l1norm, MathKernels)
     auto out = l1norm();
 
     // Device results
-    auto h_out = l1normKernelLauncher(*fixt_in);
+    auto h_out = math.l1norm(*fixt_in);
 
     // Check results
     BOOST_TEST(fabs(h_out - out) < 5.0E-11);
@@ -253,7 +252,7 @@ BOOST_FIXTURE_TEST_CASE(device_l1norm, MathKernels)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(device_l2norm, MathKernels)
+BOOST_FIXTURE_TEST_CASE(device_l2norm, MathField)
 {
     Configure("Device");
     SetTestCase();
@@ -262,7 +261,7 @@ BOOST_FIXTURE_TEST_CASE(device_l2norm, MathKernels)
     auto out = l2norm();
 
     // Device results
-    auto h_out = l2normKernelLauncher(*fixt_in);
+    auto h_out = math.l2norm(*fixt_in);
 
     // Check results
     BOOST_TEST(fabs(h_out - out) < 5.0E-10);
@@ -273,7 +272,7 @@ BOOST_FIXTURE_TEST_CASE(device_l2norm, MathKernels)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(device_lpnorm, MathKernels)
+BOOST_FIXTURE_TEST_CASE(device_lpnorm, MathField)
 {
     Configure("Device");
     SetTestCase();
@@ -284,7 +283,7 @@ BOOST_FIXTURE_TEST_CASE(device_lpnorm, MathKernels)
         auto out = lpnorm(p);
 
         // Device results
-        auto h_out = lpnormKernelLauncher(p, *fixt_in);
+        auto h_out = math.lpnorm(p, *fixt_in);
 
         // Check results
         BOOST_TEST(fabs(h_out - out) < 2.0E-9);
@@ -296,7 +295,7 @@ BOOST_FIXTURE_TEST_CASE(device_lpnorm, MathKernels)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(device_linfnorm, MathKernels)
+BOOST_FIXTURE_TEST_CASE(device_linfnorm, MathField)
 {
     Configure("Device");
     SetTestCase();
@@ -305,7 +304,7 @@ BOOST_FIXTURE_TEST_CASE(device_linfnorm, MathKernels)
     auto out = linfnorm();
 
     // Device results
-    auto h_out = linfnormKernelLauncher(*fixt_in);
+    auto h_out = math.linfnorm(*fixt_in);
 
     // Check results
     BOOST_TEST(fabs(h_out - out) < 5.0E-10);

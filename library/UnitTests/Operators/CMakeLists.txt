@@ -33,7 +33,7 @@ ENDIF()
 
 # Serial
 ADD_NEKTAR_EXECUTABLE(test_math_serial
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_math_serial.cpp MathSerialKernelsLauncher.cpp)
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_math_serial.cpp)
 ADD_NEKTAR_EXECUTABLE(test_assmbscatr_serial
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_assmbscatr_serial.cpp)
 ADD_NEKTAR_EXECUTABLE(test_dirichlet_serial
@@ -102,7 +102,7 @@ ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_serial_sumfac
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_serial_sumfac.cpp)
 
 # AVX StdMat
-IF (${NEKTAR_ENABLE_SIMD_AVX2} OR ${NEKTAR_ENABLE_SIMD_AVX512})
+IF (${NEKTAR_ENABLE_SIMD})
     ADD_NEKTAR_EXECUTABLE(test_bwdtrans_avx_stdmat
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_avx_stdmat.cpp)
     ADD_NEKTAR_EXECUTABLE(test_helmholtz_avx_stdmat
@@ -122,11 +122,11 @@ IF (${NEKTAR_ENABLE_SIMD_AVX2} OR ${NEKTAR_ENABLE_SIMD_AVX512})
 ENDIF()
 
 # AVX SumFac
-IF (${NEKTAR_ENABLE_SIMD_AVX2} OR ${NEKTAR_ENABLE_SIMD_AVX512})
+IF (${NEKTAR_ENABLE_SIMD})
     ADD_NEKTAR_EXECUTABLE(test_addtraceintegral_avx_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral_avx_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_math_avx
-            COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_math_avx.cpp MathAVXKernelsLauncher.cpp)
+            COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_math_avx.cpp)
     ADD_NEKTAR_EXECUTABLE(test_bwdtrans_avx_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_avx_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_helmholtz_avx_sumfac
@@ -146,21 +146,9 @@ IF (${NEKTAR_ENABLE_SIMD_AVX2} OR ${NEKTAR_ENABLE_SIMD_AVX512})
 ENDIF()
 
 # Device
-IF(NEKTAR_ENABLE_CUDA)
-    ADD_NEKTAR_EXECUTABLE(test_math_device
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_math_device.cpp MathCUDAKernelsLauncher.cu)
-ELSEIF(NEKTAR_ENABLE_HIP)
-    ADD_NEKTAR_EXECUTABLE(test_math_device
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_math_device.cpp MathHIPKernelsLauncher.hip)
-ELSEIF(NEKTAR_ENABLE_SYCL)
-    ADD_NEKTAR_EXECUTABLE(test_math_device
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_math_device.cpp MathSYCLKernelsLauncher.cpp)
-ELSEIF(NEKTAR_ENABLE_DEVICEONHOST)
-    ADD_NEKTAR_EXECUTABLE(test_math_device
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_math_device.cpp MathDeviceOnHostKernelsLauncher.cpp)
-ENDIF()
-
 IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABLE_DEVICEONHOST)
+    ADD_NEKTAR_EXECUTABLE(test_math_device
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_math_device.cpp)
     ADD_NEKTAR_EXECUTABLE(test_assmbscatr_device
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_assmbscatr_device.cpp)
     ADD_NEKTAR_EXECUTABLE(test_dirichlet_device
@@ -333,7 +321,7 @@ SET_UNIT_TEST(PhysDeriv_serial_sumfac test_physderiv_serial_sumfac FALSE)
 SET_UNIT_TEST(PhysInterp1DScaled_serial_sumfac test_physinterp1dscaled_serial_sumfac FALSE)
 
 # AVX StdMat
-IF (${NEKTAR_ENABLE_SIMD_AVX2} OR ${NEKTAR_ENABLE_SIMD_AVX512})
+IF (${NEKTAR_ENABLE_SIMD})
     SET_UNIT_TEST(BwdTrans_avx_stdmat test_bwdtrans_avx_stdmat FALSE)
     SET_UNIT_TEST(Helmholtz_avx_stdmat test_helmholtz_avx_stdmat FALSE)
     SET_UNIT_TEST(IProductWRTBase_avx_stdmat test_ipwrtbase_avx_stdmat FALSE)
@@ -345,7 +333,7 @@ IF (${NEKTAR_ENABLE_SIMD_AVX2} OR ${NEKTAR_ENABLE_SIMD_AVX512})
 ENDIF()
 
 # AVX SumFac
-IF (NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
+IF (${NEKTAR_ENABLE_SIMD})
     #SET_UNIT_TEST(AddTraceIntegral_avx_sumfac test_addtraceintegral_avx_sumfac FALSE)
     SET_UNIT_TEST(Math_avx test_math_avx FALSE)
     SET_UNIT_TEST(BwdTrans_avx_sumfac test_bwdtrans_avx_sumfac FALSE)

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: init_mathkernels.hpp
+// File: init_math.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,6 +34,8 @@
 
 #include "init_fields.hpp"
 
+#include "Operators/MathKernels/Math.hpp"
+
 #if defined(_MSC_VER)
 #undef max
 #undef min
@@ -43,18 +45,18 @@ using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
 
-class MathKernelsField
-    : public InitFields<double, FieldState::Phys, FieldState::Phys,
-                        MultiRegions::ExpList>
+class MathField : public InitFields<double, FieldState::Phys, FieldState::Phys,
+                                    MultiRegions::ExpList>
 {
 public:
-    MathKernelsField()
+    MathField()
         : InitFields<double, FieldState::Phys, FieldState::Phys,
                      MultiRegions::ExpList>()
     {
+        meshName = "run/Helmholtz3D_Hex_AllBCs_P6.xml";
     }
 
-    ~MathKernelsField()
+    ~MathField()
     {
         if (fixt_in2)
         {
@@ -64,6 +66,14 @@ public:
 
     void SetTestCase()
     {
+        std::string execName;
+        if (session->DefinesCmdLineArgument("opExecSpace"))
+        {
+            execName = session->GetCmdLineArgument<std::string>("opExecSpace");
+        }
+
+        math = Math(execName);
+
         auto blocks_in =
             GetBlockAttributes<double>(FieldState::Phys, fixt_explist);
         auto f_in = Field<double, FieldState::Phys>::Create("f_in2", blocks_in,
@@ -337,13 +347,5 @@ public:
 
 protected:
     Field<double, FieldState::Phys> *fixt_in2 = nullptr;
-};
-
-class MathKernels : public MathKernelsField
-{
-public:
-    MathKernels()
-    {
-        meshName = "run/Helmholtz3D_Hex_AllBCs_P6.xml";
-    }
+    Math math;
 };

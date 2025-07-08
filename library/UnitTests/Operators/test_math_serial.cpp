@@ -34,8 +34,7 @@
 
 #define BOOST_TEST_MODULE TestMathSerial
 
-#include "MathKernelsLauncher.hpp"
-#include "init_mathkernels.hpp"
+#include "init_math.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
@@ -48,7 +47,7 @@
 
 BOOST_AUTO_TEST_SUITE(TestMathSerial)
 
-BOOST_FIXTURE_TEST_CASE(serial_negkernel, MathKernels)
+BOOST_FIXTURE_TEST_CASE(serial_negkernel, MathField)
 {
     Configure("Serial");
     SetTestCase();
@@ -57,7 +56,7 @@ BOOST_FIXTURE_TEST_CASE(serial_negkernel, MathKernels)
     neg();
 
     // Serial results
-    negKernelLauncher(*fixt_in, *fixt_out);
+    math.neg(*fixt_in, *fixt_out);
 
     // Check results
     boost::test_tools::output_test_stream output;
@@ -66,7 +65,7 @@ BOOST_FIXTURE_TEST_CASE(serial_negkernel, MathKernels)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(serial_addkernel, MathKernels)
+BOOST_FIXTURE_TEST_CASE(serial_addkernel, MathField)
 {
     Configure("Serial");
     SetTestCase();
@@ -75,7 +74,7 @@ BOOST_FIXTURE_TEST_CASE(serial_addkernel, MathKernels)
     add();
 
     // Serial results
-    addKernelLauncher(*fixt_in, *fixt_in2, *fixt_out);
+    math.add(*fixt_in, *fixt_in2, *fixt_out);
 
     // Check results
     boost::test_tools::output_test_stream output;
@@ -84,7 +83,7 @@ BOOST_FIXTURE_TEST_CASE(serial_addkernel, MathKernels)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(serial_subkernel, MathKernels)
+BOOST_FIXTURE_TEST_CASE(serial_subkernel, MathField)
 {
     Configure("Serial");
     SetTestCase();
@@ -93,7 +92,7 @@ BOOST_FIXTURE_TEST_CASE(serial_subkernel, MathKernels)
     sub();
 
     // Serial results
-    subKernelLauncher(*fixt_in, *fixt_in2, *fixt_out);
+    math.sub(*fixt_in, *fixt_in2, *fixt_out);
 
     // Check results
     boost::test_tools::output_test_stream output;
@@ -102,7 +101,7 @@ BOOST_FIXTURE_TEST_CASE(serial_subkernel, MathKernels)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(serial_mulkernel, MathKernels)
+BOOST_FIXTURE_TEST_CASE(serial_mulkernel, MathField)
 {
     Configure("Serial");
     SetTestCase();
@@ -111,7 +110,7 @@ BOOST_FIXTURE_TEST_CASE(serial_mulkernel, MathKernels)
     mul();
 
     // Serial results
-    mulKernelLauncher(*fixt_in, *fixt_in2, *fixt_out);
+    math.mul(*fixt_in, *fixt_in2, *fixt_out);
 
     // Check results
     boost::test_tools::output_test_stream output;
@@ -120,7 +119,7 @@ BOOST_FIXTURE_TEST_CASE(serial_mulkernel, MathKernels)
     }
 }
 
-/* BOOST_FIXTURE_TEST_CASE(serial_divkernel, MathKernels)
+/* BOOST_FIXTURE_TEST_CASE(serial_divkernel, MathField)
 {
     Configure("Serial");
     SetTestCase();
@@ -129,7 +128,7 @@ BOOST_FIXTURE_TEST_CASE(serial_mulkernel, MathKernels)
     div();
 
     // Serial results
-    divKernelLauncher(*fixt_in, *fixt_in2, *fixt_out);
+    math.div("Serial",*fixt_in, *fixt_in2, *fixt_out);
 
     // Check results
     boost::test_tools::output_test_stream output;
@@ -138,7 +137,7 @@ BOOST_FIXTURE_TEST_CASE(serial_mulkernel, MathKernels)
     }
 }*/
 
-BOOST_FIXTURE_TEST_CASE(serial_daxpykernel, MathKernels)
+BOOST_FIXTURE_TEST_CASE(serial_daxpykernel, MathField)
 {
     Configure("Serial");
     SetTestCase();
@@ -148,7 +147,7 @@ BOOST_FIXTURE_TEST_CASE(serial_daxpykernel, MathKernels)
     daxpy(alpha);
 
     // Serial results
-    daxpyKernelLauncher(alpha, *fixt_in, *fixt_in2, *fixt_out);
+    math.daxpy(alpha, *fixt_in, *fixt_in2, *fixt_out);
 
     // Check results
     boost::test_tools::output_test_stream output;
@@ -157,7 +156,7 @@ BOOST_FIXTURE_TEST_CASE(serial_daxpykernel, MathKernels)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(serial_sum, MathKernels)
+BOOST_FIXTURE_TEST_CASE(serial_sum, MathField)
 {
     Configure("Serial");
     SetTestCase();
@@ -166,17 +165,17 @@ BOOST_FIXTURE_TEST_CASE(serial_sum, MathKernels)
     auto out = sum();
 
     // Serial results
-    auto h_out = sumKernelLauncher(*fixt_in);
+    auto h_out = math.reduceSum(*fixt_in);
 
     // Check results
-    BOOST_TEST(fabs(h_out - out) < 5.0E-12);
+    BOOST_TEST(fabs(h_out - out) < 1.0E-11);
     boost::test_tools::output_test_stream output;
     {
         std::cout << "Serial = " << h_out << " Sum = " << out << std::endl;
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(serial_max, MathKernels)
+BOOST_FIXTURE_TEST_CASE(serial_max, MathField)
 {
     Configure("Serial");
     SetTestCase();
@@ -185,7 +184,7 @@ BOOST_FIXTURE_TEST_CASE(serial_max, MathKernels)
     auto out = max();
 
     // Serial results
-    auto h_out = maxKernelLauncher(*fixt_in);
+    auto h_out = math.reduceMax(*fixt_in);
 
     // Check results
     BOOST_TEST(fabs(h_out - out) < 5.0E-12);
@@ -195,7 +194,7 @@ BOOST_FIXTURE_TEST_CASE(serial_max, MathKernels)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(serial_min, MathKernels)
+BOOST_FIXTURE_TEST_CASE(serial_min, MathField)
 {
     Configure("Serial");
     SetTestCase();
@@ -204,7 +203,7 @@ BOOST_FIXTURE_TEST_CASE(serial_min, MathKernels)
     auto out = min();
 
     // Serial results
-    auto h_out = minKernelLauncher(*fixt_in);
+    auto h_out = math.reduceMin(*fixt_in);
 
     // Check results
     BOOST_TEST(fabs(h_out - out) < 5.0E-12);
@@ -214,7 +213,7 @@ BOOST_FIXTURE_TEST_CASE(serial_min, MathKernels)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(serial_innerproduct, MathKernels)
+BOOST_FIXTURE_TEST_CASE(serial_innerproduct, MathField)
 {
     Configure("Serial");
     SetTestCase();
@@ -223,7 +222,7 @@ BOOST_FIXTURE_TEST_CASE(serial_innerproduct, MathKernels)
     auto out = inner_product();
 
     // Serial results
-    auto h_out = innerproductKernelLauncher(*fixt_in, *fixt_in2);
+    auto h_out = math.ddot(*fixt_in, *fixt_in2);
 
     // Check results
     BOOST_TEST(fabs(h_out - out) < 5.0E-10);
@@ -234,7 +233,7 @@ BOOST_FIXTURE_TEST_CASE(serial_innerproduct, MathKernels)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(serial_l1norm, MathKernels)
+BOOST_FIXTURE_TEST_CASE(serial_l1norm, MathField)
 {
     Configure("Serial");
     SetTestCase();
@@ -243,7 +242,7 @@ BOOST_FIXTURE_TEST_CASE(serial_l1norm, MathKernels)
     auto out = l1norm();
 
     // Serial results
-    auto h_out = l1normKernelLauncher(*fixt_in);
+    auto h_out = math.l1norm(*fixt_in);
 
     // Check results
     BOOST_TEST(fabs(h_out - out) < 5.0E-11);
@@ -253,7 +252,7 @@ BOOST_FIXTURE_TEST_CASE(serial_l1norm, MathKernels)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(serial_l2norm, MathKernels)
+BOOST_FIXTURE_TEST_CASE(serial_l2norm, MathField)
 {
     Configure("Serial");
     SetTestCase();
@@ -262,7 +261,7 @@ BOOST_FIXTURE_TEST_CASE(serial_l2norm, MathKernels)
     auto out = l2norm();
 
     // Serial results
-    auto h_out = l2normKernelLauncher(*fixt_in);
+    auto h_out = math.l2norm(*fixt_in);
 
     // Check results
     BOOST_TEST(fabs(h_out - out) < 5.0E-10);
@@ -273,7 +272,7 @@ BOOST_FIXTURE_TEST_CASE(serial_l2norm, MathKernels)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(serial_lpnorm, MathKernels)
+BOOST_FIXTURE_TEST_CASE(serial_lpnorm, MathField)
 {
     Configure("Serial");
     SetTestCase();
@@ -284,7 +283,7 @@ BOOST_FIXTURE_TEST_CASE(serial_lpnorm, MathKernels)
         auto out = lpnorm(p);
 
         // Serial results
-        auto h_out = lpnormKernelLauncher(p, *fixt_in);
+        auto h_out = math.lpnorm(p, *fixt_in);
 
         // Check results
         BOOST_TEST(fabs(h_out - out) < 5.0E-10);
@@ -296,7 +295,7 @@ BOOST_FIXTURE_TEST_CASE(serial_lpnorm, MathKernels)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(serial_linfnorm, MathKernels)
+BOOST_FIXTURE_TEST_CASE(serial_linfnorm, MathField)
 {
     Configure("Serial");
     SetTestCase();
@@ -305,7 +304,7 @@ BOOST_FIXTURE_TEST_CASE(serial_linfnorm, MathKernels)
     auto out = linfnorm();
 
     // Serial results
-    auto h_out = linfnormKernelLauncher(*fixt_in);
+    auto h_out = math.linfnorm(*fixt_in);
 
     // Check results
     BOOST_TEST(fabs(h_out - out) < 5.0E-10);

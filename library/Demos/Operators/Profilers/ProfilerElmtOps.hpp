@@ -496,7 +496,7 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
     PrintBlockInfo(expList, blocks_in, rankL1Error);
 
     // First check if the output is all zeros.
-    TData L2 = 0.0;
+    TData L2;
     l2norm<NektarSpaces::Serial>(out, &L2);
     if (L2 < 1e-9)
     {

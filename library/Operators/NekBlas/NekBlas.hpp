@@ -39,7 +39,7 @@
 #include "Operators/NekBlas/libXSMMDispatchWrapper.hpp"
 
 #include "Operators/NekBlas/blasHandle.hpp"
-#if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
+#if defined(NEKTAR_ENABLE_SIMD)
 #include "Operators/NekBlas/xsmmHandle.hpp"
 #elif defined(NEKTAR_ENABLE_MAGMA)
 #include "Operators/NekBlas/magmaHandle.hpp"
@@ -64,7 +64,7 @@ public:
     }
 };
 
-#if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
+#if defined(NEKTAR_ENABLE_SIMD)
 template <> class NekHandle<NektarSpaces::AVX>
 {
 public:
@@ -128,7 +128,7 @@ typename std::enable_if<std::is_same_v<THandle, blasHandle_t>, void>::type NekGe
     const int N, const int K, const TData alpha, const TData *a, const int lda,
     const TData *b, const int ldb, const TData beta, TData *c, const int ldc);
 template <typename THandle, typename TData>
-#if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
+#if defined(NEKTAR_ENABLE_SIMD)
 typename std::enable_if<std::is_same_v<THandle, xsmmHandle_t>, void>::type
 #elif defined(NEKTAR_ENABLE_MAGMA)
 typename std::enable_if<std::is_same_v<THandle, magma_queue_t>, void>::type
@@ -163,7 +163,7 @@ NekGemmStridedBatched(THandle handle, std::string transposeA,
                       TData *c, const int ldc, const int strideC,
                       const int batchSize);
 template <typename THandle, typename TData>
-#if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
+#if defined(NEKTAR_ENABLE_SIMD)
 typename std::enable_if<std::is_same_v<THandle, xsmmHandle_t>, void>::type
 #elif defined(NEKTAR_ENABLE_MAGMA)
 typename std::enable_if<std::is_same_v<THandle, magma_queue_t>, void>::type
@@ -204,7 +204,7 @@ NekGemmGroupedBatched(THandle, std::string transposeA, std::string transposeB,
                       const int *ldb, const TData beta, TData **Carray,
                       const int *ldc, const int batchSize);
 template <typename THandle, typename TData>
-#if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
+#if defined(NEKTAR_ENABLE_SIMD)
 typename std::enable_if<std::is_same_v<THandle, xsmmHandle_t>, void>::type
 #elif defined(NEKTAR_ENABLE_MAGMA)
 typename std::enable_if<std::is_same_v<THandle, magma_queue_t>, void>::type
@@ -240,7 +240,7 @@ typename std::enable_if<std::is_same_v<THandle, blasHandle_t>, void>::type NekGe
     const TData alpha, const TData *a, const int lda, const TData *x,
     const int incx, const TData beta, TData *y, const int incy);
 template <typename THandle, typename TData>
-#if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
+#if defined(NEKTAR_ENABLE_SIMD)
 typename std::enable_if<std::is_same_v<THandle, xsmmHandle_t>, void>::type
 #elif defined(NEKTAR_ENABLE_MAGMA)
 typename std::enable_if<std::is_same_v<THandle, magma_queue_t>, void>::type
@@ -273,7 +273,7 @@ NekGemvStridedBatched(THandle handle, std::string transpose, const int M,
                       TData *y, const int incy, const int strideY,
                       const int batchSize);
 template <typename THandle, typename TData>
-#if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
+#if defined(NEKTAR_ENABLE_SIMD)
 typename std::enable_if<std::is_same_v<THandle, xsmmHandle_t>, void>::type
 #elif defined(NEKTAR_ENABLE_MAGMA)
 typename std::enable_if<std::is_same_v<THandle, magma_queue_t>, void>::type

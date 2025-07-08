@@ -6,7 +6,7 @@ CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/Common/SwitchLimits.h.in
 SET(ExecSpaces Serial)
 
 # Optional AVX execution space.
-IF(NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
+IF(NEKTAR_ENABLE_SIMD)
     SET(ExecSpaces ${ExecSpaces} AVX)
 ENDIF()
 
@@ -481,6 +481,7 @@ SET(OPERATORS_HEADERS
     Common/Operator.hpp
     Common/DeviceProperties.hpp
     ElmtOps/BlockOperator.hpp
+    MathKernels/Math.hpp
     NekBlas/NekBlas.hpp
     NekBlas/blasHandle.hpp
     )
@@ -515,7 +516,7 @@ SET(OPERATORS_DEPENDS
     MultiRegions)
 
 # LIBXSMM specific file
-IF(NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
+IF(NEKTAR_ENABLE_SIMD)
     SET(OPERATORS_HEADERS
       ${OPERATORS_HEADERS}
        NekBlas/xsmmHandle.hpp
@@ -571,18 +572,29 @@ ELSEIF(NEKTAR_ENABLE_SYCL)
 ENDIF()
 
 # AVX specific file
-IF(NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
+IF(NEKTAR_ENABLE_SIMD)
     SET(OPERATORS_HEADERS
       ${OPERATORS_HEADERS}
       NekBlas/libXSMMDispatchWrapper.hpp
+      MathKernels/Math.cpp
     )
 # CUDA specific file
 ELSEIF(NEKTAR_ENABLE_CUDA)
+    SET(OPERATORS_SOURCES
+      ${OPERATORS_SOURCES}
+       MathKernels/Math.cu
+    )
+
     SET(OPERATORS_DEPENDS
       ${OPERATORS_DEPENDS}
       ${NEKTAR_CUDA_DEPENDS})
 # HIP specific file
 ELSEIF(NEKTAR_ENABLE_HIP)
+    SET(OPERATORS_SOURCES
+      ${OPERATORS_SOURCES}
+       MathKernels/Math.cpp
+    )
+
     SET(OPERATORS_DEPENDS
       ${OPERATORS_DEPENDS}
       ${NEKTAR_HIP_DEPENDS})
@@ -595,12 +607,18 @@ ELSEIF(NEKTAR_ENABLE_SYCL)
 
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
+      MathKernels/Math.cpp
       Common/SYCLQueue.cpp
     )
 
     SET(OPERATORS_DEPENDS
       ${OPERATORS_DEPENDS}
       ${NEKTAR_SYCL_DEPENDS})
+ELSE()
+    SET(OPERATORS_SOURCES
+      ${OPERATORS_SOURCES}
+      MathKernels/Math.cpp
+    )
 ENDIF()
 
 SOURCE_GROUP(TREE ${CMAKE_CURRENT_SOURCE_DIR}
@@ -623,7 +641,7 @@ IF(NEKTAR_ENABLE_MAGMA)
 ENDIF()
 
 #LIBXSMM
-IF(NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
+IF(NEKTAR_ENABLE_SIMD)
     TARGET_LINK_LIBRARIES(Operators LINK_PRIVATE ${LIBXSMM_LIBRARY})
     ADD_DEPENDENCIES(Operators libxsmm-1.17)
 ENDIF()
