@@ -654,10 +654,9 @@ protected:
                 }
 
                 // Increment mode in case nm1 != nm2.
-                for (unsigned int j = nm1; j < nm2 - i; ++j)
+                for (unsigned int j = nm1; j < nm2; ++j)
                 {
-                    unsigned int ijmax = max(i, j);
-                    mode += nm2 - ijmax;
+                    mode += nm2 - j;
                 }
             }
 

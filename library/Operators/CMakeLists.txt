@@ -19,7 +19,7 @@ ENDIF()
 IF(NEKTAR_ENABLE_MAGMA)
     SET(ElmtOpImpl StdMat SumFac SumFacTOP Generic)
 ELSE()
-    SET(ElmtOpImpl StdMat SumFac SumFacCUBLAS SumFacTOP Generic)
+    SET(ElmtOpImpl StdMat SumFac SumFacTOP SumFacMat Generic)
 ENDIF()
 
 # Shape types for seperate code compilation.
@@ -295,8 +295,8 @@ MACRO(ADD_ELMT_OPERATOR dir)
             # These combinations do/should not exist.
             IF(("${ExecSpace}" STREQUAL "Serial" AND "${Impl}" STREQUAL "SumFacTOP") OR
                ("${ExecSpace}" STREQUAL "AVX" AND "${Impl}" STREQUAL "SumFacTOP") OR
-               ("${ExecSpace}" STREQUAL "Serial" AND "${Impl}" STREQUAL "SumFacCUBLAS") OR
-               ("${ExecSpace}" STREQUAL "AVX" AND "${Impl}" STREQUAL "SumFacCUBLAS"))
+               ("${ExecSpace}" STREQUAL "Serial" AND "${Impl}" STREQUAL "SumFacMat") OR
+               ("${ExecSpace}" STREQUAL "AVX" AND "${Impl}" STREQUAL "SumFacMat"))
                 CONTINUE()
             ENDIF()
 
@@ -424,7 +424,7 @@ MACRO(ADD_ELMT_OPERATOR dir)
                 # ----------------- ADDED FOR CUBLAS IMPLEMENTATION -----------------#
                 # Found a CUDA SumFacCUBLAS header.
                 ELSEIF((EXISTS "${dir}/${name}CUDASumFacCUBLAS.cuh") AND NEKTAR_ENABLE_CUDA AND
-                    ("${ExecSpace}" STREQUAL "Device") AND ("${Impl}" STREQUAL "SumFacCUBLAS"))
+                    ("${ExecSpace}" STREQUAL "Device") AND ("${Impl}" STREQUAL "SumFacMat"))
                     FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
                         "${dir}/${name}CUDASumFacCUBLAS.cuh")
                     SET(IMPL_HEADER "#include \"${include_file}\"")

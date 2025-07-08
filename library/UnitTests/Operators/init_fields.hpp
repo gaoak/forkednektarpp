@@ -179,10 +179,14 @@ public:
         }
     }
 
-    void Configure(const std::string &execStr = "none",
-                   const std::string &implStr = "none", unsigned int nin = 1,
-                   unsigned int nout = 1, double scale_out = 1.0)
+    void Configure(unsigned int nin = 1, unsigned int nout = 1,
+                   double scale_out = 1.0)
     {
+        std::string execStr(
+            boost::unit_test::framework::master_test_suite().argv[1]);
+        std::string implStr(
+            boost::unit_test::framework::master_test_suite().argv[2]);
+
         BOOST_TEST_MESSAGE("Creating input and output fields");
         // Initialise a session, graph and Create an expansion list
         SpatialDomains::MeshGraphSharedPtr graph;
@@ -257,13 +261,7 @@ public:
             blocks_out = GetBlockAttributes<TData>(stateOut, fixt_explist);
         }
 
-        std::string execName;
-        if (session->DefinesCmdLineArgument("opExecSpace"))
-        {
-            execName = session->GetCmdLineArgument<std::string>("opExecSpace");
-        }
-
-        alignment = Nektar::GetExecSpaceAlignment(execName);
+        alignment = Nektar::GetExecSpaceAlignment(execStr);
 
         auto f_in =
             Field<TData, stateIn>::Create("f_in", blocks_in, nin, alignment);
@@ -373,7 +371,7 @@ public:
         }
     }
 
-    void ReshapeToScalar(Field<TData, stateOut> &in)
+    template <FieldState state> void ReshapeToScalar(Field<TData, state> &in)
     {
         for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
         {
