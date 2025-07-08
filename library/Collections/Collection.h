@@ -121,7 +121,7 @@ public:
     }
 
 protected:
-    std::unordered_map<OperatorType, OperatorSharedPtr, EnumHash> m_ops;
+    std::unordered_map<OperatorType, OperatorSharedPtr> m_ops;
     CoalescedGeomDataSharedPtr m_geomData;
     // store details for initialisation on call rather than default
     // initialisation

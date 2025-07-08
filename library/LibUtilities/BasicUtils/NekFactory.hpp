@@ -37,10 +37,10 @@
 
 #include <functional>
 #include <iostream>
-#include <map>
 #include <memory>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 
 #ifdef NEKTAR_USE_THREAD_SAFETY
 #include <mutex>
@@ -49,6 +49,7 @@
 #endif
 
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
+#include <LibUtilities/BasicUtils/HashUtils.hpp>
 
 namespace Nektar::LibUtilities
 {
@@ -103,8 +104,6 @@ template <typename tKey,  // reference tag (e.g. string, int)
 class NekFactory
 {
 public:
-    /// Comparison predicator of key
-    typedef std::less<tKey> tPredicator;
     /// Shared pointer to an object of baseclass type.
     typedef std::shared_ptr<tBase> tBaseSharedPtr;
     /// CreatorFunction type which takes parameter and returns base class shared
@@ -126,7 +125,7 @@ public:
     };
 
     /// Factory map between key and module data.
-    typedef std::map<tKey, ModuleEntry, tPredicator> TMapFactory;
+    typedef std::unordered_map<tKey, ModuleEntry, HashOp> tMapFactory;
 
 public:
     NekFactory() = default;
@@ -273,16 +272,16 @@ protected:
      * @brief Ensure the factory's map is created.
      * @returns                 The factory's map.
      */
-    TMapFactory *getMapFactory()
+    tMapFactory *getMapFactory()
     {
-        return &mMapFactory;
+        return &m_mapFactory;
     }
 
 private:
     NekFactory(const NekFactory &rhs)            = delete;
     NekFactory &operator=(const NekFactory &rhs) = delete;
 
-    TMapFactory mMapFactory;
+    tMapFactory m_mapFactory;
 
 #ifdef NEKTAR_USE_THREAD_SAFETY
     std::shared_mutex m_mutex;

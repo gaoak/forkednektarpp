@@ -54,10 +54,10 @@ inline void hash_combine(std::size_t &seed, const T &v, Args... args)
 }
 
 template <typename T, typename... Args>
-inline std::size_t hash_combine([[maybe_unused]] const T &v, Args... args)
+inline std::size_t hash_combine(const T &v, Args... args)
 {
     std::size_t seed = 0;
-    hash_combine(seed, args...);
+    hash_combine(seed, v, args...);
     return seed;
 }
 
@@ -77,24 +77,30 @@ void hash_range(std::size_t &seed, Iter first, Iter last)
     hash_combine(seed, hash_range(first, last));
 }
 
-struct EnumHash
+struct HashOp
 {
-    template <typename T> std::size_t operator()(T t) const
+    template <typename T> std::size_t operator()(const T &t) const
     {
-        return static_cast<std::size_t>(t);
+        return std::hash<T>{}(t);
     }
-};
 
-struct PairHash
-{
-    template <class T1, class T2>
+    template <typename T1, typename T2>
     std::size_t operator()(const std::pair<T1, T2> &p) const
     {
-        std::size_t seed = 0;
-        auto h1          = std::hash<T1>{}(p.first);
-        auto h2          = std::hash<T2>{}(p.second);
-        hash_combine(seed, h1, h2);
-        return seed;
+        return hash_combine(p.first, p.second);
+    }
+
+    template <typename... T>
+    std::size_t operator()(const std::tuple<T...> &tup) const
+    {
+        return operator()(tup, std::make_index_sequence<sizeof...(T)>());
+    }
+
+    template <typename... T, size_t... I>
+    std::size_t operator()(const std::tuple<T...> &tup,
+                           std::index_sequence<I...>) const
+    {
+        return hash_combine(std::get<I>(tup)...);
     }
 };
 

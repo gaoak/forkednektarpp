@@ -423,7 +423,7 @@ void InputNek5000::Process()
     }
 
     int nSurfaces = 0;
-    std::unordered_set<pair<int, int>, PairHash> periodicIn;
+    std::unordered_set<pair<int, int>, HashOp> periodicIn;
     int periodicInId = -1, periodicOutId = -1;
 
     // Boundary conditions: should be precisely nElements * nFaces lines to
