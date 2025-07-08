@@ -481,8 +481,7 @@ void IProductWRTBasePyrSumFacKernel(
 
         for (unsigned int j = nm1; j < nm2; j++)
         {
-            const unsigned int ijmax = max(i, j);
-            mode += nm2 - ijmax;
+            mode += nm2 - j;
         }
     }
 

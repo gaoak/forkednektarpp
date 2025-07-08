@@ -31,406 +31,245 @@ IF(BOOST_TEST_DYN_LINK)
         ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY})
 ENDIF()
 
-# Serial
-ADD_NEKTAR_EXECUTABLE(test_math_serial
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_math_serial.cpp)
-ADD_NEKTAR_EXECUTABLE(test_assmbscatr_serial
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_assmbscatr_serial.cpp)
-ADD_NEKTAR_EXECUTABLE(test_dirichlet_serial
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_dirichlet_serial.cpp)
-ADD_NEKTAR_EXECUTABLE(test_neumann_serial
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_neumann_serial.cpp)
+ADD_NEKTAR_EXECUTABLE(test_math
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_math.cpp)
+ADD_NEKTAR_EXECUTABLE(test_assmbscatr
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_assmbscatr.cpp)
+ADD_NEKTAR_EXECUTABLE(test_dirichlet
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_dirichlet.cpp)
+ADD_NEKTAR_EXECUTABLE(test_neumann
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_neumann.cpp)
 
-# Serial generic
-ADD_NEKTAR_EXECUTABLE(test_multiplybyelmtinvmass_serial_generic
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_multiplybyelmtinvmass_serial_generic.cpp)
-ADD_NEKTAR_EXECUTABLE(test_expression_serial_generic
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_expression_serial_generic.cpp)
+ADD_NEKTAR_EXECUTABLE(test_multiplybyelmtinvmass
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_multiplybyelmtinvmass.cpp)
+ADD_NEKTAR_EXECUTABLE(test_expression
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_expression.cpp)
 
-# Serial StdMat
-ADD_NEKTAR_EXECUTABLE(test_addtraceintegral_serial_stdmat
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral_serial_stdmat.cpp)
-ADD_NEKTAR_EXECUTABLE(test_bwdtrans_serial_stdmat
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_serial_stdmat.cpp)
-ADD_NEKTAR_EXECUTABLE(test_diagprecon_serial_stdmat
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_diagprecon_serial_stdmat.cpp)
-ADD_NEKTAR_EXECUTABLE(test_fwdtrans_serial_stdmat
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_fwdtrans_serial_stdmat.cpp)
-ADD_NEKTAR_EXECUTABLE(test_helmholtz_serial_stdmat
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_serial_stdmat.cpp)
-ADD_NEKTAR_EXECUTABLE(test_helmsolve_conjgrad_serial_stdmat
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_conjgrad_serial_stdmat.cpp)
-ADD_NEKTAR_EXECUTABLE(test_helmsolve_gmres_serial_stdmat
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_gmres_serial_stdmat.cpp)
-ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_serial_stdmat
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_serial_stdmat.cpp)
-ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_serial_stdmat
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_serial_stdmat.cpp)
-ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_serial_stdmat
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_serial_stdmat.cpp)
-ADD_NEKTAR_EXECUTABLE(test_mass_serial_stdmat
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_serial_stdmat.cpp)
-ADD_NEKTAR_EXECUTABLE(test_nullprecon_serial_stdmat
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_nullprecon_serial_stdmat.cpp)
-ADD_NEKTAR_EXECUTABLE(test_physderiv_serial_stdmat
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_serial_stdmat.cpp)
-ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_serial_stdmat
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_serial_stdmat.cpp)
+ADD_NEKTAR_EXECUTABLE(test_addtraceintegral
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral.cpp)
+ADD_NEKTAR_EXECUTABLE(test_bwdtrans
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans.cpp)
+ADD_NEKTAR_EXECUTABLE(test_diagprecon
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_diagprecon.cpp)
+ADD_NEKTAR_EXECUTABLE(test_fwdtrans
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_fwdtrans.cpp)
+ADD_NEKTAR_EXECUTABLE(test_helmholtz
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz.cpp)
+ADD_NEKTAR_EXECUTABLE(test_helmsolve_conjgrad
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_conjgrad.cpp)
+ADD_NEKTAR_EXECUTABLE(test_helmsolve_gmres
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_gmres.cpp)
+ADD_NEKTAR_EXECUTABLE(test_ipwrtbase
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase.cpp)
+ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase.cpp)
+ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction.cpp)
+ADD_NEKTAR_EXECUTABLE(test_mass
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass.cpp)
+ADD_NEKTAR_EXECUTABLE(test_nullprecon
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_nullprecon.cpp)
+ADD_NEKTAR_EXECUTABLE(test_physderiv
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv.cpp)
+ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled.cpp)
 
-# Serial SumFac
-ADD_NEKTAR_EXECUTABLE(test_addtraceintegral_serial_sumfac
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral_serial_sumfac.cpp)
-ADD_NEKTAR_EXECUTABLE(test_diagprecon_serial_sumfac
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_diagprecon_serial_sumfac.cpp)
-ADD_NEKTAR_EXECUTABLE(test_bwdtrans_serial_sumfac
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_serial_sumfac.cpp)
-ADD_NEKTAR_EXECUTABLE(test_helmholtz_serial_sumfac
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_serial_sumfac.cpp)
-ADD_NEKTAR_EXECUTABLE(test_helmsolve_conjgrad_serial_sumfac
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_conjgrad_serial_sumfac.cpp)
-ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_serial_sumfac
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_serial_sumfac.cpp)
-ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_serial_sumfac
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_serial_sumfac.cpp)
-ADD_NEKTAR_EXECUTABLE(test_mass_serial_sumfac
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_serial_sumfac.cpp)
-ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_serial_sumfac
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_serial_sumfac.cpp)
-ADD_NEKTAR_EXECUTABLE(test_physderiv_serial_sumfac
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_serial_sumfac.cpp)
-ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_serial_sumfac
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_serial_sumfac.cpp)
-
-# AVX StdMat
-IF (${NEKTAR_ENABLE_SIMD})
-    ADD_NEKTAR_EXECUTABLE(test_bwdtrans_avx_stdmat
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_avx_stdmat.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_helmholtz_avx_stdmat
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_avx_stdmat.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_avx_stdmat
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_avx_stdmat.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_avx_stdmat
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_avx_stdmat.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_avx_stdmat
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_avx_stdmat.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_mass_avx_stdmat
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_avx_stdmat.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_physderiv_avx_stdmat
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_avx_stdmat.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_avx_stdmat
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_avx_stdmat.cpp)
-ENDIF()
-
-# AVX SumFac
-IF (${NEKTAR_ENABLE_SIMD})
-    ADD_NEKTAR_EXECUTABLE(test_addtraceintegral_avx_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral_avx_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_math_avx
-            COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_math_avx.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_bwdtrans_avx_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_avx_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_helmholtz_avx_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_avx_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_avx_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_avx_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_avx_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_avx_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_avx_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_avx_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_mass_avx_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_avx_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_physderiv_avx_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_avx_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_avx_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_avx_sumfac.cpp)
-ENDIF()
-
-# Device
-IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABLE_DEVICEONHOST)
-    ADD_NEKTAR_EXECUTABLE(test_math_device
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_math_device.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_assmbscatr_device
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_assmbscatr_device.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_dirichlet_device
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_dirichlet_device.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_neumann_device
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_neumann_device.cpp)
-ENDIF()
-
-# Device generic
-IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABLE_DEVICEONHOST)
-    ADD_NEKTAR_EXECUTABLE(test_multiplybyelmtinvmass_device_generic
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_multiplybyelmtinvmass_device_generic.cpp)
-ENDIF()
-
-# Device StdMat
-IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABLE_DEVICEONHOST)
-    ADD_NEKTAR_EXECUTABLE(test_bwdtrans_device_stdmat
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_device_stdmat.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_helmholtz_device_stdmat
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_device_stdmat.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_device_stdmat
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_device_stdmat.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_device_stdmat
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_device_stdmat.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_device_stdmat
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_device_stdmat.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_mass_device_stdmat
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_device_stdmat.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_physderiv_device_stdmat
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_device_stdmat.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_device_stdmat
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_device_stdmat.cpp)
-ENDIF()
-
-# Device SumFac
-IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABLE_DEVICEONHOST)
-    #ADD_NEKTAR_EXECUTABLE(test_addtraceintegral_device_sumfac
-    #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral_device_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_bwdtrans_device_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_device_sumfac.cpp)
-    #ADD_NEKTAR_EXECUTABLE(test_diagprecon_device_sumfac
-    #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_diagprecon_device_sumfac.cpp)
-    #ADD_NEKTAR_EXECUTABLE(test_fwdtrans_device_sumfac
-    #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_fwdtrans_device_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_helmholtz_device_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_device_sumfac.cpp)
-    #ADD_NEKTAR_EXECUTABLE(test_helmsolve_conjgrad_device_sumfac
-    #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_conjgrad_device_sumfac.cpp)
-    #ADD_NEKTAR_EXECUTABLE(test_helmsolve_gmres_device_sumfac
-    #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_gmres_device_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_device_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_device_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_device_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_device_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_device_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_device_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_mass_device_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_device_sumfac.cpp)
-    #ADD_NEKTAR_EXECUTABLE(test_nullprecon_device_sumfac
-    #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_nullprecon_device_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_physderiv_device_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_device_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_device_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_device_sumfac.cpp)
-ENDIF()
-
-# Device SumFacTOP
-IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABLE_DEVICEONHOST)
-    ADD_NEKTAR_EXECUTABLE(test_addtraceintegral_device_sumfactop
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral_device_sumfactop.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_bwdtrans_device_sumfactop
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_device_sumfactop.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_diagprecon_device_sumfactop
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_diagprecon_device_sumfactop.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_fwdtrans_device_sumfactop
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_fwdtrans_device_sumfactop.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_helmholtz_device_sumfactop
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_device_sumfactop.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_helmsolve_conjgrad_device_sumfactop
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_conjgrad_device_sumfactop.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_helmsolve_gmres_device_sumfactop
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_gmres_device_sumfactop.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_device_sumfactop
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_device_sumfactop.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_device_sumfactop
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_device_sumfactop.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction_device_sumfactop
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction_device_sumfactop.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_mass_device_sumfactop
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_device_sumfactop.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_nullprecon_device_sumfactop
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_nullprecon_device_sumfactop.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_physderiv_device_sumfactop
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_device_sumfactop.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled_device_sumfactop
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled_device_sumfactop.cpp)
-ENDIF()
-
-# CUDA SumFacCUBLAS
+# CUDA SumFacMat
 IF(NEKTAR_ENABLE_CUDA)
-    ADD_NEKTAR_EXECUTABLE(test_bwdtrans_device_sumfac_cublas
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_device_sumfac_cublas.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_device_sumfac_cublas
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_device_sumfac_cublas.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_device_sumfac_cublas
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_device_sumfac_cublas.cpp)
-ADD_NEKTAR_EXECUTABLE(test_physderiv_device_sumfac_cublas
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_device_sumfac_cublas.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_bwdtrans_device_sumfacmat
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_device_sumfacmat.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_device_sumfacmat
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_device_sumfacmat.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_device_sumfacmat
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_device_sumfacmat.cpp)
+ADD_NEKTAR_EXECUTABLE(test_physderiv_device_sumfacmat
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_device_sumfacmat.cpp)
 ENDIF()
 
 # Macro
-MACRO(SET_UNIT_TEST testname name mpi_flag)
+MACRO(SET_UNIT_TEST testname name execspace implementation mpi_flag)
     IF (${mpi_flag})
         ADD_TEST(
           NAME Operators${testname}MPI
-          COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 2 ${CMAKE_CURRENT_BINARY_DIR}/${name} --detect_memory_leaks=0
+          COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 2 ${CMAKE_CURRENT_BINARY_DIR}/${name} --detect_memory_leaks=0 -- ${execspace} ${implementation}
       )
     ELSE()
         ADD_TEST(
-          NAME Operators${testname}
-          COMMAND ${name} --detect_memory_leaks=0
-      )
+          NAME Operators${testname} 
+          COMMAND ${name} --detect_memory_leaks=0 -- ${execspace} ${implementation})
     ENDIF()
 ENDMACRO()
 
 # Serial
-SET_UNIT_TEST(Math_serial test_math_serial FALSE)
-SET_UNIT_TEST(AssmbScatr_serial test_assmbscatr_serial FALSE)
-SET_UNIT_TEST(Dirichlet_serial test_dirichlet_serial FALSE)
-SET_UNIT_TEST(Neumann_serial test_neumann_serial FALSE)
+SET_UNIT_TEST(Math_serial test_math Serial none  FALSE)
+SET_UNIT_TEST(AssmbScatr_serial test_assmbscatr Serial none FALSE)
+SET_UNIT_TEST(Dirichlet_serial test_dirichlet Serial none FALSE)
+SET_UNIT_TEST(Neumann_serial test_neumann Serial none FALSE)
 
 # Serial generic
-SET_UNIT_TEST(MultiplyByElmtInvMass_serial_generic test_multiplybyelmtinvmass_serial_generic FALSE)
-SET_UNIT_TEST(expression_serial_generic test_expression_serial_generic FALSE)
+SET_UNIT_TEST(MultiplyByElmtInvMass_serial_generic test_multiplybyelmtinvmass Serial Generic FALSE)
+SET_UNIT_TEST(expression_serial_generic test_expression Serial Generic FALSE)
 
 # Serial StdMat
-SET_UNIT_TEST(AddTraceIntegral_serial_stdmat test_addtraceintegral_serial_stdmat FALSE)
-SET_UNIT_TEST(BwdTrans_serial_stdmat test_bwdtrans_serial_stdmat FALSE)
-SET_UNIT_TEST(DiagPrecon_serial_stdmat test_diagprecon_serial_stdmat FALSE)
-SET_UNIT_TEST(FwdTrans_serial_stdmat test_fwdtrans_serial_stdmat FALSE)
-#IF (NEKTAR_USE_MPI)
-#    SET_UNIT_TEST(FwdTrans_serial_stdmat test_fwdtrans_serial_stdmat TRUE)
-#ENDIF()
-SET_UNIT_TEST(Helmholtz_serial_stdmat test_helmholtz_serial_stdmat FALSE)
-SET_UNIT_TEST(HelmSolve_conjgrad_serial_stdmat test_helmsolve_conjgrad_serial_stdmat FALSE)
-SET_UNIT_TEST(HelmSolve_gmres_serial_stdmat test_helmsolve_gmres_serial_stdmat FALSE)
-#IF (NEKTAR_USE_MPI)
-#    SET_UNIT_TEST(HelmSolve_conjgrad_serial_stdmat test_helmsolve_conjgrad_serial_stdmat TRUE)
-#    SET_UNIT_TEST(HelmSolve_gmres_serial_stdmat test_helmsolve_gmres_serial_stdmat TRUE)
-#ENDIF()
-SET_UNIT_TEST(IProductWRTBase_serial_stdmat test_ipwrtbase_serial_stdmat FALSE)
-SET_UNIT_TEST(IProductWRTDerivBase_serial_stdmat test_ipwrtderivbase_serial_stdmat FALSE)
-SET_UNIT_TEST(LinAdvDiffReaction_serial_stdmat test_linadvdiffreaction_serial_stdmat FALSE)
-SET_UNIT_TEST(Mass_serial_stdmat test_mass_serial_stdmat FALSE)
-SET_UNIT_TEST(NullPrecon_serial_stdmat test_nullprecon_serial_stdmat FALSE)
-SET_UNIT_TEST(PhysDeriv_serial_stdmat test_physderiv_serial_stdmat FALSE)
-SET_UNIT_TEST(PhysInterp1DScaled_serial_stdmat test_physinterp1dscaled_serial_stdmat FALSE)
+SET_UNIT_TEST(AddTraceIntegral_serial_stdmat test_addtraceintegral Serial StdMat FALSE)
+SET_UNIT_TEST(BwdTrans_serial_stdmat test_bwdtrans Serial StdMat FALSE)
+SET_UNIT_TEST(DiagPrecon_serial_stdmat test_diagprecon Serial StdMat FALSE)
+SET_UNIT_TEST(FwdTrans_serial_stdmat test_fwdtrans Serial StdMat FALSE)
+SET_UNIT_TEST(Helmholtz_serial_stdmat test_helmholtz Serial StdMat FALSE)
+SET_UNIT_TEST(HelmSolve_conjgrad_serial_stdmat test_helmsolve_conjgrad Serial StdMat FALSE)
+SET_UNIT_TEST(HelmSolve_gmres_serial_stdmat test_helmsolve_gmres Serial StdMat FALSE)
+SET_UNIT_TEST(IProductWRTBase_serial_stdmat test_ipwrtbase Serial StdMat FALSE)
+SET_UNIT_TEST(IProductWRTDerivBase_serial_stdmat test_ipwrtderivbase Serial StdMat FALSE)
+SET_UNIT_TEST(LinAdvDiffReaction_serial_stdmat test_linadvdiffreaction Serial StdMat FALSE)
+SET_UNIT_TEST(Mass_serial_stdmat test_mass Serial StdMat FALSE)
+SET_UNIT_TEST(NullPrecon_serial_stdmat test_nullprecon Serial StdMat FALSE)
+SET_UNIT_TEST(PhysDeriv_serial_stdmat test_physderiv Serial StdMat FALSE)
+SET_UNIT_TEST(PhysInterp1DScaled_serial_stdmat test_physinterp1dscaled Serial StdMat FALSE)
 
 # Serial SumFac
-SET_UNIT_TEST(AddTraceIntegral_serial_sumfac test_addtraceintegral_serial_sumfac FALSE)
-SET_UNIT_TEST(BwdTrans_serial_sumfac test_bwdtrans_serial_sumfac FALSE)
-SET_UNIT_TEST(DiagPrecon_serial_sumfac test_diagprecon_serial_sumfac FALSE)
-SET_UNIT_TEST(Helmholtz_serial_sumfac test_helmholtz_serial_sumfac FALSE)
-SET_UNIT_TEST(HelmSolve_conjgrad_serial_sumfac test_helmsolve_conjgrad_serial_sumfac FALSE)
-SET_UNIT_TEST(IProductWRTBase_serial_sumfac test_ipwrtbase_serial_sumfac FALSE)
-SET_UNIT_TEST(IProductWRTDerivBase_serial_sumfac test_ipwrtderivbase_serial_sumfac FALSE)
-SET_UNIT_TEST(LinAdvDiffReaction_serial_sumfac test_linadvdiffreaction_serial_sumfac FALSE)
-SET_UNIT_TEST(Mass_serial_sumfac test_mass_serial_sumfac FALSE)
-SET_UNIT_TEST(PhysDeriv_serial_sumfac test_physderiv_serial_sumfac FALSE)
-SET_UNIT_TEST(PhysInterp1DScaled_serial_sumfac test_physinterp1dscaled_serial_sumfac FALSE)
+SET_UNIT_TEST(AddTraceIntegral_serial_sumfac test_addtraceintegral Serial SumFac FALSE)
+SET_UNIT_TEST(BwdTrans_serial_sumfac test_bwdtrans Serial SumFac FALSE)
+SET_UNIT_TEST(DiagPrecon_serial_sumfac test_diagprecon Serial SumFac FALSE)
+SET_UNIT_TEST(FwdTrans_serial_sumfac test_fwdtrans Serial SumFac FALSE)
+SET_UNIT_TEST(Helmholtz_serial_sumfac test_helmholtz Serial SumFac FALSE)
+SET_UNIT_TEST(HelmSolve_conjgrad_serial_sumfac test_helmsolve_conjgrad Serial SumFac FALSE)
+SET_UNIT_TEST(HelmSolve_gmres_serial_sumfac test_helmsolve_gmres Serial SumFac FALSE)
+SET_UNIT_TEST(IProductWRTBase_serial_sumfac test_ipwrtbase Serial SumFac FALSE)
+SET_UNIT_TEST(IProductWRTDerivBase_serial_sumfac test_ipwrtderivbase Serial SumFac FALSE)
+SET_UNIT_TEST(LinAdvDiffReaction_serial_sumfac test_linadvdiffreaction Serial SumFac FALSE)
+SET_UNIT_TEST(Mass_serial_sumfac test_mass Serial SumFac FALSE)
+SET_UNIT_TEST(NullPrecon_serial_sumfac test_nullprecon Serial SumFac FALSE)
+SET_UNIT_TEST(PhysDeriv_serial_sumfac test_physderiv Serial SumFac FALSE)
+SET_UNIT_TEST(PhysInterp1DScaled_serial_sumfac test_physinterp1dscaled Serial SumFac FALSE)
+
+# AVX
+IF (${NEKTAR_ENABLE_SIMD})
+    SET_UNIT_TEST(Math_avx test_math AVX none  FALSE)
+    SET_UNIT_TEST(AssmbScatr_avx test_assmbscatr AVX none FALSE)
+    SET_UNIT_TEST(Dirichlet_avx  test_dirichlet AVX none FALSE)
+    SET_UNIT_TEST(Neumann_avx test_neumann AVX none FALSE)
+ENDIF()
+
+# AVX generic
+IF (${NEKTAR_ENABLE_SIMD})
+    # SET_UNIT_TEST(MultiplyByElmtInvMass_avx_generic test_multiplybyelmtinvmass AVX Generic FALSE)
+    # SET_UNIT_TEST(expression_avx_generic test_expression AVX Generic FALSE)
+ENDIF()
 
 # AVX StdMat
 IF (${NEKTAR_ENABLE_SIMD})
-    SET_UNIT_TEST(BwdTrans_avx_stdmat test_bwdtrans_avx_stdmat FALSE)
-    SET_UNIT_TEST(Helmholtz_avx_stdmat test_helmholtz_avx_stdmat FALSE)
-    SET_UNIT_TEST(IProductWRTBase_avx_stdmat test_ipwrtbase_avx_stdmat FALSE)
-    SET_UNIT_TEST(IProductWRTDerivBase_avx_stdmat test_ipwrtderivbase_avx_stdmat FALSE)
-    SET_UNIT_TEST(LinAdvDiffReaction_avx_stdmat test_linadvdiffreaction_avx_stdmat FALSE)
-    SET_UNIT_TEST(Mass_avx_stdmat test_mass_avx_stdmat FALSE)
-    SET_UNIT_TEST(PhysDeriv_avx_stdmat test_physderiv_avx_stdmat FALSE)
-    SET_UNIT_TEST(PhysInterp1DScaled_avx_stdmat test_physinterp1dscaled_avx_stdmat FALSE)
+    # SET_UNIT_TEST(AddTraceIntegral_avx_stdmat test_addtraceintegral AVX StdMat FALSE)
+    SET_UNIT_TEST(BwdTrans_avx_stdmat test_bwdtrans AVX StdMat FALSE)
+    # SET_UNIT_TEST(DiagPrecon_avx_stdmat test_diagprecon AVX StdMat FALSE)
+    # SET_UNIT_TEST(FwdTrans_avx_stdmat AVX StdMat test_fwdtrans AVX StdMat FALSE)
+    SET_UNIT_TEST(Helmholtz_avx_stdmat test_helmholtz AVX StdMat FALSE)
+    # SET_UNIT_TEST(HelmSolve_conjgrad_avx_stdmat test_helmsolve_conjgrad AVX StdMat FALSE)
+    # SET_UNIT_TEST(HelmSolve_gmres_avx_stdmat test_helmsolve_gmres AVX StdMat FALSE)
+    SET_UNIT_TEST(IProductWRTBase_avx_stdmat test_ipwrtbase AVX StdMat FALSE)
+    SET_UNIT_TEST(IProductWRTDerivBase_avx_stdmat test_ipwrtderivbase AVX StdMat FALSE)
+    SET_UNIT_TEST(LinAdvDiffReaction_avx_stdmat test_linadvdiffreaction AVX StdMat FALSE)
+    SET_UNIT_TEST(Mass_avx_stdmat test_mass AVX StdMat FALSE)
+    # SET_UNIT_TEST(NullPrecon_avx_stdmat test_nullprecon AVX StdMat FALSE)
+    SET_UNIT_TEST(PhysDeriv_avx_stdmat test_physderiv AVX StdMat FALSE)
+    SET_UNIT_TEST(PhysInterp1DScaled_avx_stdmat test_physinterp1dscaled Serial StdMat FALSE)
 ENDIF()
 
 # AVX SumFac
 IF (${NEKTAR_ENABLE_SIMD})
-    #SET_UNIT_TEST(AddTraceIntegral_avx_sumfac test_addtraceintegral_avx_sumfac FALSE)
-    SET_UNIT_TEST(Math_avx test_math_avx FALSE)
-    SET_UNIT_TEST(BwdTrans_avx_sumfac test_bwdtrans_avx_sumfac FALSE)
-    SET_UNIT_TEST(Helmholtz_avx_sumfac test_helmholtz_avx_sumfac FALSE)
-    SET_UNIT_TEST(IProductWRTBase_avx_sumfac test_ipwrtbase_avx_sumfac FALSE)
-    SET_UNIT_TEST(IProductWRTDerivBase_avx_sumfac test_ipwrtderivbase_avx_sumfac FALSE)
-    SET_UNIT_TEST(LinAdvDiffReaction_avx_sumfac test_linadvdiffreaction_avx_sumfac FALSE)
-    SET_UNIT_TEST(Mass_avx_sumfac test_mass_avx_sumfac FALSE)
-    SET_UNIT_TEST(PhysDeriv_avx_sumfac test_physderiv_avx_sumfac FALSE)
-    SET_UNIT_TEST(PhysInterp1DScaled_avx_sumfac test_physinterp1dscaled_avx_sumfac FALSE)
+    # SET_UNIT_TEST(AddTraceIntegral_avx_sumfac test_addtraceintegral AVX SumFac FALSE)
+    SET_UNIT_TEST(BwdTrans_avx_sumfac test_bwdtrans AVX SumFac FALSE)
+    # SET_UNIT_TEST(DiagPrecon_avx_sumfac test_diagprecon AVX SumFac FALSE)
+    # SET_UNIT_TEST(FwdTrans_avx_sumfac Serial StdMat test_fwdtrans AVX SumFac FALSE)
+    SET_UNIT_TEST(Helmholtz_avx_sumfac test_helmholtz AVX SumFac FALSE)
+    # SET_UNIT_TEST(HelmSolve_conjgrad_avx_sumfac test_helmsolve_conjgrad AVX SumFac FALSE)
+    # SET_UNIT_TEST(HelmSolve_gmres_avx_sumfa test_helmsolve_gmres AVX SumFac FALSE)
+    SET_UNIT_TEST(IProductWRTBase_avx_sumfac test_ipwrtbase AVX SumFac FALSE)
+    SET_UNIT_TEST(IProductWRTDerivBase_avx_sumfac test_ipwrtderivbase AVX SumFac FALSE)
+    SET_UNIT_TEST(LinAdvDiffReaction_avx_sumfac test_linadvdiffreaction AVX SumFac FALSE)
+    SET_UNIT_TEST(Mass_avx_sumfac test_mass AVX SumFac FALSE)
+    # SET_UNIT_TEST(NullPrecon_avx_sumfac test_nullprecon AVX SumFac FALSE)
+    SET_UNIT_TEST(PhysDeriv_avx_sumfac test_physderiv AVX SumFac FALSE)
+    SET_UNIT_TEST(PhysInterp1DScaled_avx_sumfac test_physinterp1dscaled AVX SumFac FALSE)
 ENDIF()
 
 # Device
 IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABLE_DEVICEONHOST)
-    SET_UNIT_TEST(Math_device test_math_device FALSE)
-    SET_UNIT_TEST(AssmbScatr_device test_assmbscatr_device FALSE)
-    SET_UNIT_TEST(Dirichlet_device test_dirichlet_device FALSE)
-    SET_UNIT_TEST(Neumann_device test_neumann_device FALSE)
+    SET_UNIT_TEST(Math_device test_math Device none  FALSE)
+    SET_UNIT_TEST(AssmbScatr_device test_assmbscatr Device none FALSE)
+    SET_UNIT_TEST(Dirichlet_device test_dirichlet Device none FALSE)
+    SET_UNIT_TEST(Neumann_device test_neumann Device none FALSE)
 ENDIF()
 
 # Device generic
 IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABLE_DEVICEONHOST)
     IF(NOT NEKTAR_ENABLE_SYCL STREQUAL "CUDA")
-        SET_UNIT_TEST(MultiplyByElmtInvMass_device_generic test_multiplybyelmtinvmass_device_generic FALSE)
+        SET_UNIT_TEST(MultiplyByElmtInvMass_device_generic test_multiplybyelmtinvmass Device Generic FALSE)
+        # SET_UNIT_TEST(expression_device_generic test_expression Device Generic FALSE)
     ENDIF()
 ENDIF()
 
 # Device StdMat
 IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABLE_DEVICEONHOST)
     IF(NOT NEKTAR_ENABLE_SYCL STREQUAL "CUDA")
-        SET_UNIT_TEST(BwdTrans_device_stdmat test_bwdtrans_device_stdmat FALSE)
-        SET_UNIT_TEST(Helmholtz_device_stdmat test_helmholtz_device_stdmat FALSE)
-        SET_UNIT_TEST(IProductWRTBase_device_stdmat test_ipwrtbase_device_stdmat FALSE)
-        SET_UNIT_TEST(IProductWRTDerivBase_device_stdmat test_ipwrtderivbase_device_stdmat FALSE)
-        SET_UNIT_TEST(LinAdvDiffReaction_device_stdmat test_linadvdiffreaction_device_stdmat FALSE)
-        SET_UNIT_TEST(PhysDeriv_device_stdmat test_physderiv_device_stdmat FALSE)
-        SET_UNIT_TEST(Mass_device_stdmat test_mass_device_stdmat FALSE)
-        SET_UNIT_TEST(PhysInterp1DScaled_device_stdmat test_physinterp1dscaled_device_stdmat FALSE)
+        SET_UNIT_TEST(AddTraceIntegral_device_stdmat test_addtraceintegral Device StdMat FALSE)
+        SET_UNIT_TEST(BwdTrans_device_stdmat test_bwdtrans Device StdMat FALSE)
+        SET_UNIT_TEST(DiagPrecon_device_stdmat test_diagprecon Device StdMat FALSE)
+        SET_UNIT_TEST(FwdTrans_device_stdmat test_fwdtrans Device StdMat FALSE)
+        SET_UNIT_TEST(Helmholtz_device_stdmat test_helmholtz Device StdMat FALSE)
+        SET_UNIT_TEST(HelmSolve_conjgrad_device_stdmat test_helmsolve_conjgrad Device StdMat FALSE)
+        SET_UNIT_TEST(HelmSolve_gmres_device_stdmat test_helmsolve_gmres Device StdMat FALSE)
+        SET_UNIT_TEST(IProductWRTBase_device_stdmat test_ipwrtbase Device StdMat FALSE)
+        SET_UNIT_TEST(IProductWRTDerivBase_device_stdmat test_ipwrtderivbase Device StdMat FALSE)
+        SET_UNIT_TEST(LinAdvDiffReaction_device_stdmat test_linadvdiffreaction Device StdMat FALSE)
+        SET_UNIT_TEST(Mass_device_stdmat test_mass Device StdMat FALSE)
+        SET_UNIT_TEST(NullPrecon_device_stdmat test_nullprecon Device StdMat FALSE)
+        SET_UNIT_TEST(PhysDeriv_device_stdmat test_physderiv Device StdMat FALSE)
+        SET_UNIT_TEST(PhysInterp1DScaled_device_stdmat test_physinterp1dscaled Device StdMat FALSE)
     ENDIF()
 ENDIF()
 
 # Device SumFac
 IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABLE_DEVICEONHOST)
-    #SET_UNIT_TEST(AddTraceIntegral_device_sumfac test_addtraceintegral_device_sumfac FALSE)
-    SET_UNIT_TEST(BwdTrans_device_sumfac test_bwdtrans_device_sumfac FALSE)
-    #SET_UNIT_TEST(DiagPrecon_device_sumfac test_diagprecon_device_sumfac FALSE)
-    #SET_UNIT_TEST(FwdTrans_device_sumfac test_fwdtrans_device_sumfac FALSE)
-    #IF (NEKTAR_USE_MPI)
-    #    SET_UNIT_TEST(FwdTrans_device_sumfac test_fwdtrans_device_sumfac TRUE)
-    #ENDIF()
-    SET_UNIT_TEST(Helmholtz_device_sumfac test_helmholtz_device_sumfac FALSE)
-    #SET_UNIT_TEST(HelmSolve_conjgrad_device_sumfac test_helmsolve_conjgrad_device_sumfac FALSE)
-    #SET_UNIT_TEST(HelmSolve_gmres_device_sumfac test_helmsolve_gmres_device_sumfac FALSE)
-    #IF (NEKTAR_USE_MPI)
-    #    SET_UNIT_TEST(HelmSolve_conjgrad_device_sumfac test_helmsolve_conjgrad_device_sumfac TRUE)
-    #    SET_UNIT_TEST(HelmSolve_gmres_device_sumfac test_helmsolve_gmres_device_sumfac TRUE)
-    #ENDIF()
-    SET_UNIT_TEST(IProductWRTBase_device_sumfac test_ipwrtbase_device_sumfac FALSE)
-    SET_UNIT_TEST(IProductWRTDerivBase_device_sumfac test_ipwrtderivbase_device_sumfac FALSE)
-    SET_UNIT_TEST(LinAdvDiffReaction_device_sumfac test_linadvdiffreaction_device_sumfac FALSE)
-    SET_UNIT_TEST(Mass_device_sumfac test_mass_device_sumfac FALSE)
-    #SET_UNIT_TEST(NullPrecon_device_sumfac test_nullprecon_device_sumfac FALSE)
-    SET_UNIT_TEST(PhysDeriv_device_sumfac test_physderiv_device_sumfac FALSE)
-    SET_UNIT_TEST(PhysInterp1DScaled_device_sumfac test_physinterp1dscaled_device_sumfac FALSE)
+    #SET_UNIT_TEST(AddTraceIntegral_device_sumfac test_addtraceintegral Device SumFac FALSE)
+    SET_UNIT_TEST(BwdTrans_device_sumfac test_bwdtrans Device SumFac FALSE)
+    # SET_UNIT_TEST(DiagPrecon_device_sumfac test_diagprecon Device SumFac FALSE)
+    # SET_UNIT_TEST(FwdTrans_device_sumfac Serial StdMat test_fwdtrans Device SumFac FALSE)
+    SET_UNIT_TEST(Helmholtz_device_sumfac test_helmholtz Device SumFac FALSE)
+    # SET_UNIT_TEST(HelmSolve_conjgrad_device_sumfac test_helmsolve_conjgrad Device SumFac FALSE)
+    # SET_UNIT_TEST(HelmSolve_gmres_device_sumfac AVX StdMat test_helmsolve_gmres Device SumFac FALSE)
+    SET_UNIT_TEST(IProductWRTBase_device_sumfac test_ipwrtbase Device SumFac FALSE)
+    SET_UNIT_TEST(IProductWRTDerivBase_device_sumfac test_ipwrtderivbase Device SumFac FALSE)
+    SET_UNIT_TEST(LinAdvDiffReaction_device_sumfac test_linadvdiffreaction Device SumFac FALSE)
+    SET_UNIT_TEST(Mass_device_sumfac test_mass Device SumFac FALSE)
+    # SET_UNIT_TEST(NullPrecon_device_sumfac test_nullprecon Device SumFac FALSE)
+    SET_UNIT_TEST(PhysDeriv_device_sumfac test_physderiv Device SumFac FALSE)
+    SET_UNIT_TEST(PhysInterp1DScaled_device_sumfac test_physinterp1dscaled Device SumFac FALSE)
 ENDIF()
 
 # Device SumFacTOP
 IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABLE_DEVICEONHOST)
-    SET_UNIT_TEST(AddTraceIntegral_device_sumfactop test_addtraceintegral_device_sumfactop FALSE)
-    SET_UNIT_TEST(BwdTrans_device_sumfactop test_bwdtrans_device_sumfactop FALSE)
-    SET_UNIT_TEST(DiagPrecon_device_sumfactop test_diagprecon_device_sumfactop FALSE)
-    SET_UNIT_TEST(FwdTrans_device_sumfactop test_fwdtrans_device_sumfactop FALSE)
-    #IF (NEKTAR_USE_MPI)
-    #    SET_UNIT_TEST(FwdTrans_device_sumfactop test_fwdtrans_device_sumfactop TRUE)
-    #ENDIF()
-    SET_UNIT_TEST(Helmholtz_device_sumfactop test_helmholtz_device_sumfactop FALSE)
-    SET_UNIT_TEST(HelmSolve_conjgrad_device_sumfactop test_helmsolve_conjgrad_device_sumfactop FALSE)
-    SET_UNIT_TEST(HelmSolve_gmres_device_sumfactop test_helmsolve_gmres_device_sumfactop FALSE)
-    #IF (NEKTAR_USE_MPI)
-    #    SET_UNIT_TEST(HelmSolve_conjgrad_device_sumfactop test_helmsolve_conjgrad_device_sumfactop TRUE)
-    #    SET_UNIT_TEST(HelmSolve_gmres_device_sumfactop test_helmsolve_gmres_device_sumfactop TRUE)
-    #ENDIF()
-    SET_UNIT_TEST(IProductWRTBase_device_sumfactop test_ipwrtbase_device_sumfactop FALSE)
-    SET_UNIT_TEST(IProductWRTDerivBase_device_sumfactop test_ipwrtderivbase_device_sumfactop FALSE)
-    SET_UNIT_TEST(LinAdvDiffReaction_device_sumfactop test_linadvdiffreaction_device_sumfactop FALSE)
-    SET_UNIT_TEST(Mass_device_sumfactop test_mass_device_sumfactop FALSE)
-    SET_UNIT_TEST(NullPrecon_device_sumfactop test_nullprecon_device_sumfactop FALSE)
-    SET_UNIT_TEST(PhysDeriv_device_sumfactop test_physderiv_device_sumfactop FALSE)
-    SET_UNIT_TEST(PhysInterp1DScaled_device_sumfactop test_physinterp1dscaled_device_sumfactop FALSE)
+    SET_UNIT_TEST(AddTraceIntegral_device_sumfactop test_addtraceintegral Device SumFacTOP FALSE)
+    SET_UNIT_TEST(BwdTrans_device_sumfactop test_bwdtrans Device SumFacTOP FALSE)
+    SET_UNIT_TEST(DiagPrecon_device_sumfactop test_diagprecon Device SumFacTOP FALSE)
+    SET_UNIT_TEST(FwdTrans_device_sumfactop test_fwdtrans Device SumFacTOP FALSE)
+    SET_UNIT_TEST(Helmholtz_device_sumfactop test_helmholtz Device SumFacTOP FALSE)
+    SET_UNIT_TEST(HelmSolve_conjgrad_device_sumfactop test_helmsolve_conjgrad Device SumFacTOP FALSE)
+    SET_UNIT_TEST(HelmSolve_gmres_device_sumfactop test_helmsolve_gmres Device SumFacTOP FALSE)
+    SET_UNIT_TEST(IProductWRTBase_device_sumfactop test_ipwrtbase Device SumFacTOP FALSE)
+    SET_UNIT_TEST(IProductWRTDerivBase_device_sumfactop test_ipwrtderivbase Device SumFacTOP FALSE)
+    SET_UNIT_TEST(LinAdvDiffReaction_device_sumfactop test_linadvdiffreaction Device SumFacTOP FALSE)
+    SET_UNIT_TEST(Mass_device_sumfactop test_mass Device SumFacTOP FALSE)
+    SET_UNIT_TEST(NullPrecon_device_sumfactop test_nullprecon Device SumFacTOP FALSE)
+    SET_UNIT_TEST(PhysDeriv_device_sumfactop test_physderiv Device SumFacTOP FALSE)
+    SET_UNIT_TEST(PhysInterp1DScaled_device_sumfactop test_physinterp1dscaled Device SumFacTOP FALSE)
 ENDIF()
 
-# CUDA SumFacCUBLAS
+# CUDA SumFacMat
 IF(NEKTAR_ENABLE_CUDA)
-    SET_UNIT_TEST(BwdTrans_device_sumfac_cublas test_bwdtrans_device_sumfac_cublas FALSE)
-    SET_UNIT_TEST(IProductWRTBase_device_sumfac_cublas test_ipwrtbase_device_sumfac_cublas FALSE)
-    SET_UNIT_TEST(IProductWRTDerivBase_device_sumfac_cublas test_ipwrtderivbase_device_sumfac_cublas FALSE)
-    SET_UNIT_TEST(PhysDeriv_device_sumfac_cublas test_physderiv_device_sumfac_cublas FALSE)
+    SET_UNIT_TEST(BwdTrans_device_sumfacmat test_bwdtrans_device_sumfacmat Device SumFacMat FALSE)
+    SET_UNIT_TEST(IProductWRTBase_device_sumfacmat test_ipwrtbase_device_sumfacmat Device SumFacMat FALSE)
+    SET_UNIT_TEST(IProductWRTDerivBase_device_sumfacmat test_ipwrtderivbase_device_sumfacmat Device SumFacMat FALSE)
+    SET_UNIT_TEST(PhysDeriv_device_sumfacmat test_physderiv_device_sumfacmat Device SumFacMat FALSE)
 ENDIF()
 
 # Copy XML file to build directory

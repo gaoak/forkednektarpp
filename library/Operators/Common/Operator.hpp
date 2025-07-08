@@ -106,14 +106,14 @@ struct SumFac
     static inline const std::string name = "SumFac";
 };
 
-struct SumFacCUBLAS
-{
-    static constexpr char name[] = "SumFacCUBLAS";
-};
-
 struct SumFacTOP
 {
     static inline const std::string name = "SumFacTOP";
+};
+
+struct SumFacMat
+{
+    static constexpr char name[] = "SumFacMat";
 };
 
 struct Generic
