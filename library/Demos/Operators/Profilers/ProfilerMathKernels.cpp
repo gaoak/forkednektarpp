@@ -36,7 +36,7 @@
 #include <iomanip>
 #include <iostream>
 
-#include "Operators/MathKernels/MathKernels.hpp"
+#include "Operators/MathKernels/Math.hpp"
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <LibUtilities/BasicUtils/Timer.h>
 #include <Operators/Field/Field.hpp>
@@ -49,6 +49,7 @@ template <typename TData, bool warmup = false>
 void ProfilerReduction(const size_t size)
 {
     // Initialization.
+    Math math;
     Timer timer;
     const unsigned int ntests = 40;
     auto x    = MemoryRegion<TData>::Create("x", size, vec_t::alignment);
@@ -64,53 +65,42 @@ void ProfilerReduction(const size_t size)
     y.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
 
     // Serial.
+    math = Math("Serial");
     TData result_serial;
     timer.Start();
     for (unsigned int t = 0; t < ntests; ++t)
     {
-        ddot<NektarSpaces::Serial>(x, y, &result_serial);
+        result_serial = math.ddot(x, y);
         ASSERTL0((result_serial > 0.0), "Error!");
     }
     timer.Stop();
     TData time_serial = timer.Elapsed().count() / ntests;
 
     // AVX.
-#if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
+#if defined(NEKTAR_ENABLE_SIMD)
+    math = Math("AVX");
     TData result_avx;
     timer.Start();
     for (unsigned int t = 0; t < ntests; ++t)
     {
-        ddot<NektarSpaces::AVX>(x, y, &result_avx);
+        result_avx = math.ddot(x, y);
         ASSERTL0((result_avx > 0.0), "Error!");
     }
     timer.Stop();
     TData time_avx = timer.Elapsed().count() / ntests;
-#endif
-
-    // SYCL.
-#if defined(NEKTAR_ENABLE_SYCL)
-    TData result_sycl;
+    // Device.
+#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
+    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
+    math = Math("Device");
+    TData result_device;
     timer.Start();
     for (unsigned int t = 0; t < ntests; ++t)
     {
-        ddot<NektarSpaces::Device>(x, y, &result_sycl);
-    }
-    SYCLQueue::GetInstance().wait();
-    timer.Stop();
-    TData time_sycl = timer.Elapsed().count() / ntests;
-#endif
-
-    // DeviceOnHost.
-#if defined(NEKTAR_ENABLE_DEVICEONHOST)
-    TData result_deviceonhost;
-    timer.Start();
-    for (unsigned int t = 0; t < ntests; ++t)
-    {
-        ddot<NektarSpaces::Device>(x, y, &result_deviceonhost);
-        ASSERTL0((result_deviceonhost > 0.0), "Error!");
+        result_device = math.ddot(x, y);
+        ASSERTL0((result_device > 0.0), "Error!");
     }
     timer.Stop();
-    TData time_deviceonhost = timer.Elapsed().count() / ntests;
+    TData time_device = timer.Elapsed().count() / ntests;
 #endif
 
     // Display results.
@@ -120,14 +110,11 @@ void ProfilerReduction(const size_t size)
         std::cout << "Size " << size
                   << " GB/s: " << 2 * sizeof(TData) * 1e-9 * size / time_serial
                   << " "
-#if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
+#if defined(NEKTAR_ENABLE_SIMD)
                   << 2 * sizeof(TData) * 1e-9 * size / time_avx << " "
-#endif
-#if defined(NEKTAR_ENABLE_SYCL)
-                  << 2 * sizeof(TData) * 1e-9 * size / time_sycl
-#endif
-#if defined(NEKTAR_ENABLE_DEVICEONHOST)
-                  << 2 * sizeof(TData) * 1e-9 * size / time_deviceonhost
+#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
+    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
+                  << 2 * sizeof(TData) * 1e-9 * size / time_device
 #endif
                   << std::endl;
     }
@@ -137,6 +124,7 @@ template <typename TData, bool warmup = false>
 void ProfilerDaxpy(const size_t size)
 {
     // Initialization.
+    Math math;
     Timer timer;
     const unsigned int ntests = 40;
     auto x    = MemoryRegion<TData>::Create("x", size, vec_t::alignment);
@@ -154,46 +142,43 @@ void ProfilerDaxpy(const size_t size)
     z.template GetPtr<NektarSpaces::DeviceSpace, WriteOnly>();
 
     // Serial.
+    math = Math("Serial");
     timer.Start();
     for (unsigned int t = 0; t < ntests; ++t)
     {
-        daxpy<NektarSpaces::Serial>(3.2, x, y, z);
+        math.daxpy(3.2, x, y, z);
     }
     timer.Stop();
     TData time_serial = timer.Elapsed().count() / ntests;
 
     // AVX.
-#if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
+#if defined(NEKTAR_ENABLE_SIMD)
+    math = Math("AVX");
     timer.Start();
     for (unsigned int t = 0; t < ntests; ++t)
     {
-        daxpy<NektarSpaces::AVX>(3.2, x, y, z);
+        math.daxpy(3.2, x, y, z);
     }
     timer.Stop();
     TData time_avx = timer.Elapsed().count() / ntests;
-#endif
-
     // SYCL.
-#if defined(NEKTAR_ENABLE_SYCL)
+#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
+    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
+    math = Math("Device");
     timer.Start();
     for (unsigned int t = 0; t < ntests; ++t)
     {
-        daxpy<NektarSpaces::Device>(3.2, x, y, z);
+        math.daxpy(3.2, x, y, z);
     }
+#if defined(NEKTAR_ENABLE_CUDA)
+    CHECK_HIPCUDA_ERROR(cudaDeviceSynchronize());
+#elif defined(NEKTAR_ENABLE_HIP)
+    CHECK_HIPCUDA_ERROR(hipDeviceSynchronize());
+#elif defined(NEKTAR_ENABLE_SYCL)
     SYCLQueue::GetInstance().wait();
-    timer.Stop();
-    TData time_sycl = timer.Elapsed().count() / ntests;
 #endif
-
-    // DeviceOnHost.
-#if defined(NEKTAR_ENABLE_DEVICEONHOST)
-    timer.Start();
-    for (unsigned int t = 0; t < ntests; ++t)
-    {
-        daxpy<NektarSpaces::Device>(3.2, x, y, z);
-    }
     timer.Stop();
-    TData time_deviceonhost = timer.Elapsed().count() / ntests;
+    TData time_device = timer.Elapsed().count() / ntests;
 #endif
 
     // Display results.
@@ -203,14 +188,11 @@ void ProfilerDaxpy(const size_t size)
         std::cout << "Size " << size
                   << " GB/s: " << 3 * sizeof(TData) * 1e-9 * size / time_serial
                   << " "
-#if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
+#if defined(NEKTAR_ENABLE_SIMD)
                   << 3 * sizeof(TData) * 1e-9 * size / time_avx << " "
-#endif
-#if defined(NEKTAR_ENABLE_SYCL)
-                  << 3 * sizeof(TData) * 1e-9 * size / time_sycl
-#endif
-#if defined(NEKTAR_ENABLE_DEVICEONHOST)
-                  << 3 * sizeof(TData) * 1e-9 * size / time_deviceonhost
+#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
+    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
+                  << 3 * sizeof(TData) * 1e-9 * size / time_device
 #endif
                   << std::endl;
     }
@@ -219,7 +201,39 @@ void ProfilerDaxpy(const size_t size)
 int main(void)
 {
     // Print GPU properties
-#if defined(NEKTAR_ENABLE_SYCL) && !defined(SYCL_ENABLE_CPU) &&                \
+#if defined(NEKTAR_ENABLE_CUDA)
+    cudaDeviceProp prop;
+    CHECK_HIPCUDA_ERROR(cudaGetDeviceProperties(&prop, 0));
+    std::cout << "--------------------------------" << std::endl;
+    std::cout << "Device Properties " << std::endl;
+    std::cout << "--------------------------------" << std::endl;
+    printf("  Device name: %s\n", prop.name);
+    printf("  Memory Clock Rate (KHz): %d\n", prop.memoryClockRate);
+    printf("  Memory Bus Width (bits): %d\n", prop.memoryBusWidth);
+    printf("  Total Global Memory (bytes): %ld\n", prop.totalGlobalMem);
+    printf("  Shared Memory per Block (bytes): %ld\n", prop.sharedMemPerBlock);
+    printf("  Shared Memory per Multiprocessor (bytes): %ld\n",
+           prop.sharedMemPerMultiprocessor);
+    printf("  Peak Memory Bandwidth (GB/s): %f\n",
+           2.0 * prop.memoryClockRate * (prop.memoryBusWidth / 8) / 1.0e6);
+    printf("  Number of multiprocessors: %d\n", prop.multiProcessorCount);
+#elif defined(NEKTAR_ENABLE_HIP)
+    hipDeviceProp_t prop;
+    CHECK_HIPCUDA_ERROR(hipGetDeviceProperties(&prop, 0));
+    std::cout << "--------------------------------" << std::endl;
+    std::cout << "Device Properties " << std::endl;
+    std::cout << "--------------------------------" << std::endl;
+    printf("  Device name: %s\n", prop.name);
+    printf("  Memory Clock Rate (KHz): %d\n", prop.memoryClockRate);
+    printf("  Memory Bus Width (bits): %d\n", prop.memoryBusWidth);
+    printf("  Total Global Memory (bytes): %ld\n", prop.totalGlobalMem);
+    printf("  Shared Memory per Block (bytes): %ld\n", prop.sharedMemPerBlock);
+    printf("  Shared Memory per Multiprocessor (bytes): %ld\n",
+           prop.sharedMemPerMultiprocessor);
+    printf("  Peak Memory Bandwidth (GB/s): %f\n",
+           2.0 * prop.memoryClockRate * (prop.memoryBusWidth / 8) / 1.0e6);
+    printf("  Number of multiprocessors: %d\n", prop.multiProcessorCount);
+#elif defined(NEKTAR_ENABLE_SYCL) && !defined(SYCL_ENABLE_CPU) &&              \
     defined(__INTEL_LLVM_COMPILER)
     auto device =
         SYCLQueue::GetInstance().get_info<sycl::info::queue::device>();
@@ -272,14 +286,11 @@ int main(void)
     std::cout << "Math Kernel Profiler : Reduction " << std::endl;
     std::cout << "---------------------------------" << std::endl;
     std::cout << "                      Serial";
-#if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
+#if defined(NEKTAR_ENABLE_SIMD)
     std::cout << "      AVX";
-#endif
-#if defined(NEKTAR_ENABLE_SYCL)
-    std::cout << "      SYCL";
-#endif
-#if defined(NEKTAR_ENABLE_DEVICEONHOST)
-    std::cout << "      DeviceOnHost";
+#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
+    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
+    std::cout << "      Device";
 #endif
     std::cout << std::endl;
 
@@ -296,14 +307,11 @@ int main(void)
     std::cout << "Math Kernel Profiler : daxpy     " << std::endl;
     std::cout << "---------------------------------" << std::endl;
     std::cout << "                      Serial";
-#if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
+#if defined(NEKTAR_ENABLE_SIMD)
     std::cout << "      AVX";
-#endif
-#if defined(NEKTAR_ENABLE_SYCL)
-    std::cout << "      SYCL";
-#endif
-#if defined(NEKTAR_ENABLE_DEVICEONHOST)
-    std::cout << "      DeviceOnHost";
+#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
+    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
+    std::cout << "      Device";
 #endif
     std::cout << std::endl;
 
@@ -313,6 +321,6 @@ int main(void)
     // Benchmark.
     for (unsigned int i = 0; i < 24; i++)
     {
-        ProfilerDaxpy<double>(4 << i);
+        ProfilerDaxpy<double>(2 << i);
     }
 }

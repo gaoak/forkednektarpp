@@ -119,7 +119,7 @@ namespace NektarSpaces
 
 // Device vector width
 template <typename TData>
-#if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
+#if defined(NEKTAR_ENABLE_SIMD)
 struct vector_width
 {
     static constexpr unsigned int value = tinysimd::simd<TData>::width;
@@ -224,7 +224,7 @@ struct Device
 // Specify execution for CMakeList.txt
 #define NEKTAR_DEFAULT_HOST_TAG NektarSpaces::Serial
 
-#if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
+#if defined(NEKTAR_ENABLE_SIMD)
 #define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::AVX
 #elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
