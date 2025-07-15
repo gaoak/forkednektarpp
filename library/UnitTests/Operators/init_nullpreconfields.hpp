@@ -57,6 +57,7 @@ public:
 
     void SetTestCase()
     {
+        // Set initial conditions.
         for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
         {
             auto &block = fixt_in->GetBlocks()[blk];
@@ -71,6 +72,8 @@ public:
                 }
             }
         }
+
+        // Compute expected solution.
         ExpectedSolution();
     }
 
@@ -85,7 +88,9 @@ public:
         // Calculate expected result from Nektar++
         Array<OneD, double> incoeffs = fixt_in->ToArray();
         Array<OneD, double> outcoeffs(fixt_explist->GetNcoeffs(), 0.0);
-        auto map = fixt_explist->GetLocalToGlobalMap();
+        auto map =
+            std::dynamic_pointer_cast<MultiRegions::ContField>(fixt_explist)
+                ->GetLocalToGlobalMap();
         GlobalLinSysKey key(StdRegions::eHelmholtz, map);
         auto globalSys = GetGlobalLinSysFactory().CreateInstance(
             "IterativeFull", key, fixt_explist, map);

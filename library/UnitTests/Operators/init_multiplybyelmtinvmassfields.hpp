@@ -56,14 +56,16 @@ public:
             auto &block = fixt_in->GetBlocks()[blk];
             auto inptr =
                 block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-            for (unsigned int nc = 0; nc < fixt_in->GetNumComponents(); ++nc)
+            for (unsigned int n = 0;
+                 n < fixt_in->GetNumComponents() * fixt_in->GetNumHomoModes();
+                 ++n)
             {
                 for (size_t el = 0, cnt = 0; el < block.GetNumElements(); ++el)
                 {
                     for (unsigned int coeff = 0; coeff < block.GetNumData();
                          ++coeff, ++cnt)
                     {
-                        inptr[cnt] = coeff + nc;
+                        inptr[cnt] = coeff + n;
                     }
                 }
                 inptr += block.size();

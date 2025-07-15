@@ -151,10 +151,12 @@ protected:
             simd_t::width, m_nmTot, m_nqTot, 1.0, 1.0);
 
         // Loop over components.
-        const auto insize =
-            m_nqTot * inblock.GetNumElmtGroups(m_implInterleaveWidth);
+        const auto inoffset = m_nqTot *
+                              inblock.GetNumElmtGroups(m_implInterleaveWidth) *
+                              inblock.GetNumHomoModes();
         const auto wspsize = m_nqTot;
-        for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
+        for (unsigned int n = 0;
+             n < outblock.GetNumComponents() * outblock.GetNumHomoModes(); ++n)
         {
             auto jacptr = jacptr_init;
             auto dfptr  = dfptr_init;
@@ -170,7 +172,8 @@ protected:
                     {
                         ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
                             interleave_width, chunkSize, m_nqTot,
-                            (TData *)inptr + d * inblock.size());
+                            (TData *)inptr +
+                                d * inblock.size() * inblock.GetNumHomoModes());
                     }
                     /*if (this->m_append)
                     {
@@ -184,7 +187,7 @@ protected:
                 if (m_isDeformed)
                 {
                     MultiplyByJacobianAndDerivFactorKernel<ExecSpace, true>(
-                        m_nqTot, m_coordDim, m_dimension, 1, insize, wspsize,
+                        m_nqTot, m_coordDim, m_dimension, 1, inoffset, wspsize,
                         reinterpret_cast<const simd_t *>(jacptr),
                         reinterpret_cast<const simd_t *>(dfptr),
                         reinterpret_cast<const simd_t *>(inptr),
@@ -195,7 +198,7 @@ protected:
                 else
                 {
                     MultiplyByJacobianAndDerivFactorKernel<ExecSpace, false>(
-                        m_nqTot, m_coordDim, m_dimension, 1, insize, wspsize,
+                        m_nqTot, m_coordDim, m_dimension, 1, inoffset, wspsize,
                         reinterpret_cast<const simd_t *>(jacptr),
                         reinterpret_cast<const simd_t *>(dfptr),
                         reinterpret_cast<const simd_t *>(inptr),
@@ -223,7 +226,11 @@ protected:
                 inptr += m_nqTot * simd_t::width;
                 outptr += m_nmTot * simd_t::width;
             }
-            inptr += (m_coordDim - 1) * inblock.size();
+
+            if ((n + 1) % inblock.GetNumHomoModes() == 0)
+            {
+                inptr += (m_coordDim - 1) * inoffset * simd_t::width;
+            }
         }
 
         // Set to new interleave width.

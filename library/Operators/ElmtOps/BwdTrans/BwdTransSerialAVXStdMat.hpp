@@ -126,7 +126,8 @@ protected:
             simd_t::width, m_nqTot, m_nmTot, 1.0, 0.0);
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+        for (unsigned int n = 0;
+             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
             // Loop over element groups.
             for (size_t e = 0;

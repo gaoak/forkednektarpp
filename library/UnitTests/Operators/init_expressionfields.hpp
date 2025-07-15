@@ -53,12 +53,15 @@ public:
 
     void SetTestCase()
     {
+        // Set initial conditions.
         for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
         {
             auto &block = fixt_in->GetBlocks()[blk];
             auto inptr =
                 block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-            for (unsigned int nc = 0; nc < fixt_in->GetNumComponents(); ++nc)
+            for (unsigned int n = 0;
+                 n < fixt_in->GetNumComponents() * fixt_in->GetNumHomoModes();
+                 ++n)
             {
                 for (size_t el = 0, cnt = 0; el < block.GetNumElements(); ++el)
                 {
@@ -71,6 +74,8 @@ public:
                 inptr += block.size();
             }
         }
+
+        // Compute expected solution.
         ExpectedSolution();
     }
 
@@ -83,8 +88,8 @@ public:
     void ExpectedSolution()
     {
         // Get number of variables and quadrature points
-        auto nVariables = session->GetVariables().size();
-        auto nphys      = fixt_explist->GetTotPoints();
+        const unsigned int nVariables = session->GetVariables().size();
+        const size_t nphys            = fixt_explist->GetTotPoints();
 
         // Initialise array storage for forcing evaluation
         Array<OneD, double> fce(nVariables * nphys);

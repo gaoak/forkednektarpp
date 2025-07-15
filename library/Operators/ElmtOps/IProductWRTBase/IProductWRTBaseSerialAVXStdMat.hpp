@@ -145,7 +145,8 @@ protected:
             simd_t::width, m_nmTot, m_nqTot, 1.0, 0.0);
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+        for (unsigned int n = 0;
+             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
             auto jacptr = jacptr_init;
 

@@ -249,14 +249,16 @@ protected:
             std::max(m_implInterleaveWidth, interleave_width);
 
         // Loop over components.
-        auto compOffset =
-            inblock.GetNumElmtGroups(m_implInterleaveWidth) * nqTot;
+        const auto compOffset =
+            outblock.GetNumElmtGroups(m_implInterleaveWidth) * nqTot *
+            outblock.GetNumHomoModes();
         simd_t *outvec[3];
         for (unsigned int d = 0; d < m_coordDim; ++d)
         {
             outvec[d] = reinterpret_cast<simd_t *>(outptr) + d * compOffset;
         }
-        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+        for (unsigned int n = 0;
+             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
             auto dfptr = dfptr_init;
 
@@ -291,9 +293,12 @@ protected:
 
             // Advance  by ncoord-1 componennts since have already
             // advanced one component in the above.
-            for (unsigned int d = 0; d < m_coordDim; ++d)
+            if ((n + 1) % outblock.GetNumHomoModes() == 0)
             {
-                outvec[d] += (m_coordDim - 1) * compOffset;
+                for (unsigned int d = 0; d < m_coordDim; ++d)
+                {
+                    outvec[d] += (m_coordDim - 1) * compOffset;
+                }
             }
         }
 
@@ -337,14 +342,16 @@ protected:
             std::max(m_implInterleaveWidth, interleave_width);
 
         // Loop over components.
-        auto compOffset =
-            inblock.GetNumElmtGroups(m_implInterleaveWidth) * nqTot;
+        const auto compOffset =
+            outblock.GetNumElmtGroups(m_implInterleaveWidth) * nqTot *
+            outblock.GetNumHomoModes();
         simd_t *outvec[3];
         for (unsigned int d = 0; d < coordDim; ++d)
         {
             outvec[d] = reinterpret_cast<simd_t *>(outptr) + d * compOffset;
         }
-        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+        for (unsigned int n = 0;
+             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
             auto dfptr = dfptr_init;
             for (size_t e = 0;
@@ -378,9 +385,12 @@ protected:
 
             // Advance  by ncoord-1 componennts since have already
             // advanced one component in the above.
-            for (unsigned int d = 0; d < coordDim; ++d)
+            if ((n + 1) % outblock.GetNumHomoModes() == 0)
             {
-                outvec[d] += (coordDim - 1) * compOffset;
+                for (unsigned int d = 0; d < m_coordDim; ++d)
+                {
+                    outvec[d] += (m_coordDim - 1) * compOffset;
+                }
             }
         }
 
@@ -426,14 +436,16 @@ protected:
             std::max(m_implInterleaveWidth, interleave_width);
 
         // Loop over components.
-        auto compOffset =
-            inblock.GetNumElmtGroups(m_implInterleaveWidth) * nqTot;
+        const auto compOffset =
+            outblock.GetNumElmtGroups(m_implInterleaveWidth) * nqTot *
+            outblock.GetNumHomoModes();
         simd_t *outvec[3];
         for (unsigned int d = 0; d < m_coordDim; ++d)
         {
             outvec[d] = reinterpret_cast<simd_t *>(outptr) + d * compOffset;
         }
-        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+        for (unsigned int n = 0;
+             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
             auto dfptr = dfptr_init;
             for (size_t e = 0;
@@ -467,9 +479,12 @@ protected:
 
             // Advance  by ncoord-1 componennts since have already
             // advanced one component in the above.
-            for (unsigned int d = 0; d < m_coordDim; ++d)
+            if ((n + 1) % outblock.GetNumHomoModes() == 0)
             {
-                outvec[d] += (m_coordDim - 1) * compOffset;
+                for (unsigned int d = 0; d < m_coordDim; ++d)
+                {
+                    outvec[d] += (m_coordDim - 1) * compOffset;
+                }
             }
         }
 
@@ -513,14 +528,16 @@ protected:
             std::max(m_implInterleaveWidth, interleave_width);
 
         // Loop over components.
-        auto compOffset =
-            inblock.GetNumElmtGroups(m_implInterleaveWidth) * nqTot;
+        const auto compOffset =
+            outblock.GetNumElmtGroups(m_implInterleaveWidth) * nqTot *
+            outblock.GetNumHomoModes();
         simd_t *outvec[3];
         for (unsigned int d = 0; d < coordDim; ++d)
         {
             outvec[d] = reinterpret_cast<simd_t *>(outptr) + d * compOffset;
         }
-        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+        for (unsigned int n = 0;
+             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
             auto dfptr = dfptr_init;
             for (size_t e = 0;
@@ -554,9 +571,12 @@ protected:
 
             // Advance  by ncoord-1 componennts since have already
             // advanced one component in the above.
-            for (unsigned int d = 0; d < coordDim; ++d)
+            if ((n + 1) % outblock.GetNumHomoModes() == 0)
             {
-                outvec[d] += (coordDim - 1) * compOffset;
+                for (unsigned int d = 0; d < coordDim; ++d)
+                {
+                    outvec[d] += (coordDim - 1) * compOffset;
+                }
             }
         }
 
@@ -609,13 +629,13 @@ protected:
             std::max(m_implInterleaveWidth, interleave_width);
 
         // Loop over components.
-        auto compOffset =
+        const auto compOffset =
             inblock.GetNumElmtGroups(m_implInterleaveWidth) * nqTot;
         simd_t *outvec[3];
         outvec[0] = reinterpret_cast<simd_t *>(outptr);
         outvec[1] = reinterpret_cast<simd_t *>(outptr) + compOffset;
         outvec[2] = reinterpret_cast<simd_t *>(outptr) + 2 * compOffset;
-        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+        for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
             auto dfptr = dfptr_init;
             for (size_t e = 0;
@@ -700,13 +720,13 @@ protected:
             std::max(m_implInterleaveWidth, interleave_width);
 
         // Loop over components.
-        auto compOffset =
+        const auto compOffset =
             inblock.GetNumElmtGroups(m_implInterleaveWidth) * nqTot;
         simd_t *outvec[3];
         outvec[0] = reinterpret_cast<simd_t *>(outptr);
         outvec[1] = reinterpret_cast<simd_t *>(outptr) + compOffset;
         outvec[2] = reinterpret_cast<simd_t *>(outptr) + 2 * compOffset;
-        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+        for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
             auto dfptr = dfptr_init;
             for (size_t e = 0;

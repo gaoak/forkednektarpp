@@ -39,7 +39,7 @@
 template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static void MultiplyByDiffusionCoeff(
     const size_t nelmt, const unsigned int nqTot, const unsigned int ncoord,
-    const size_t outsize, const TData *diffCoeff, TData *inout)
+    const size_t outoffset, const TData *diffCoeff, TData *inout)
 {
     const auto nsize = nelmt * nqTot;
 
@@ -53,13 +53,13 @@ NEK_FORCE_INLINE static void MultiplyByDiffusionCoeff(
                 for (unsigned int l = 1; l < ncoord; l++)
                 {
                     tmp[d] +=
-                        diffCoeff[d * ncoord + l] * inout[l * outsize + idx];
+                        diffCoeff[d * ncoord + l] * inout[l * outoffset + idx];
                 }
             }
 
             for (unsigned int d = 0; d < ncoord; d++)
             {
-                inout[d * outsize + idx] = tmp[d];
+                inout[d * outoffset + idx] = tmp[d];
             }
         });
 }
@@ -67,8 +67,8 @@ NEK_FORCE_INLINE static void MultiplyByDiffusionCoeff(
 template <typename ExecSpace, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void ApplyMetricKernel(
     const unsigned int nqTot, const unsigned int ncoord,
-    const unsigned int dimension, const size_t nelmt, const size_t insize,
-    const size_t outsize, const TData *diffCoeff, const TData *jacptr,
+    const unsigned int dimension, const size_t nelmt, const size_t inoffset,
+    const size_t outoffset, const TData *diffCoeff, const TData *jacptr,
     const TData *dfptr, const TData *inptr, TData *outptr)
 {
     const auto ndf   = ncoord * dimension;
@@ -104,14 +104,14 @@ NEK_FORCE_INLINE static void ApplyMetricKernel(
                     for (unsigned int k = 1; k < ncoord; ++k)
                     {
                         tmp[d] +=
-                            metric[d * ncoord + k] * inptr[idx + k * insize];
+                            metric[d * ncoord + k] * inptr[idx + k * inoffset];
                     }
                 }
 
                 // Write.
                 for (unsigned int d = 0; d < dimension; d++)
                 {
-                    outptr[d * outsize + idx] = tmp[d] * jacptr[idx];
+                    outptr[d * outoffset + idx] = tmp[d] * jacptr[idx];
                 }
             });
     }
@@ -143,14 +143,14 @@ NEK_FORCE_INLINE static void ApplyMetricKernel(
                     for (unsigned int k = 1; k < ncoord; ++k)
                     {
                         tmp[d] +=
-                            metric[d * ncoord + k] * inptr[idx + k * insize];
+                            metric[d * ncoord + k] * inptr[idx + k * inoffset];
                     }
                 }
 
                 // Write.
                 for (unsigned int d = 0; d < dimension; d++)
                 {
-                    outptr[d * outsize + idx] = tmp[d] * jacptr[e];
+                    outptr[d * outoffset + idx] = tmp[d] * jacptr[e];
                 }
             });
     }

@@ -51,13 +51,16 @@ public:
 
     void SetTestCase()
     {
+        // Set initial conditions.
         for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
         {
             auto &block = fixt_in->GetBlocks()[blk];
             auto inptr =
                 block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
-            for (unsigned int nc = 0; nc < fixt_in->GetNumComponents(); ++nc)
+            for (unsigned int n = 0;
+                 n < fixt_in->GetNumComponents() * fixt_in->GetNumHomoModes();
+                 ++n)
             {
                 for (size_t el = 0, cnt = 0; el < block.GetNumElements(); ++el)
                 {
@@ -77,9 +80,10 @@ public:
                        : 10.0;
 
         // Set advection velocity
-        size_t nphys = fixt_explist->GetTotPoints();
-        m_dim        = fixt_explist->GetCoordim(0);
-        m_vel        = Array<OneD, double>(nphys * m_dim, 0.0);
+        size_t nphys =
+            fixt_explist->GetTotPoints() / fixt_in->GetNumHomoModes();
+        m_dim = fixt_explist->GetCoordim(0);
+        m_vel = Array<OneD, double>(nphys * m_dim, 0.0);
         Array<OneD, double> tmp;
         for (unsigned int d = 1; d < m_dim; ++d)
         {
@@ -87,6 +91,7 @@ public:
             // Vmath::Fill(nphys, 0.0, tmp = m_vel + d * nphys, 1);
         }
 
+        // Compute expected solution.
         ExpectedSolution();
     }
 
@@ -103,9 +108,12 @@ public:
     void ExpectedSolution()
     {
         // Calculate expected result from Nektar++
-        unsigned int compSize = fixt_in->GetNumComponents();
-        size_t ncoeffs        = fixt_explist->GetNcoeffs();
-        size_t nphys          = fixt_explist->GetTotPoints();
+        const unsigned int compSize =
+            fixt_in->GetNumComponents() * fixt_in->GetNumHomoModes();
+        const size_t ncoeffs =
+            fixt_explist->GetNcoeffs() / fixt_in->GetNumHomoModes();
+        const size_t nphys =
+            fixt_explist->GetTotPoints() / fixt_in->GetNumHomoModes();
         Array<OneD, double> tmp;
 
         StdRegions::FactorMap factors;

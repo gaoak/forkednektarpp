@@ -38,21 +38,22 @@
 
 template <typename ExecSpace, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void MultiplyByJacobianKernel(
-    const unsigned int nqTot, const size_t nelmt, const TData *jacptr,
-    const TData *inptr, TData *outptr, const TData scale)
+    const unsigned int nqTot, const size_t nelmt, const unsigned int nhomo,
+    const TData *jacptr, const TData *inptr, TData *outptr, const TData scale)
 {
     if constexpr (DEFORMED)
     {
         Nektar::parallel_for<ExecSpace>(
-            0, nelmt * nqTot, NEKTAR_LAMBDA(const size_t idx) {
-                outptr[idx] = scale * jacptr[idx] * inptr[idx];
+            0, nelmt * nqTot * nhomo, NEKTAR_LAMBDA(const size_t idx) {
+                size_t e    = idx % (nelmt * nqTot);
+                outptr[idx] = scale * jacptr[e] * inptr[idx];
             });
     }
     else
     {
         Nektar::parallel_for<ExecSpace>(
-            0, nelmt * nqTot, NEKTAR_LAMBDA(const size_t idx) {
-                size_t e    = idx / nqTot;
+            0, nelmt * nqTot * nhomo, NEKTAR_LAMBDA(const size_t idx) {
+                size_t e    = (idx % (nelmt * nqTot)) / nqTot;
                 outptr[idx] = scale * jacptr[e] * inptr[idx];
             });
     }

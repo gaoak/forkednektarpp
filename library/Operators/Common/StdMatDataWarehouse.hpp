@@ -69,7 +69,8 @@ enum StdMatType
     eIProductWRTDerivBaseStdMat          = 7,
     eIProductWRTDerivBaseStdMatTranspose = 8,
     ePhysInterpStdMat                    = 9,
-    eMultiplyByElmtInvMassStdMat         = 10,
+    ePhysInterpStdMatTranspose           = 10,
+    eMultiplyByElmtInvMassStdMat         = 11,
 };
 
 class StdMatDataCreator;
@@ -420,6 +421,80 @@ public:
                         LibUtilities::Interp3D(inkey0, inkey1, inkey2, tmp,
                                                outkey0, outkey1, outkey2,
                                                t = mat + i * nqTot);
+                    }
+                }
+
+                return MemoryRegion<TData>::template FromArray<MemSpace>(
+                    mat, alignment);
+            }
+            break;
+            case ePhysInterpStdMatTranspose:
+            {
+                const auto nmTot = stdExp->GetTotPoints();
+                const auto nqTot =
+                    std::accumulate(nq.begin(), nq.end(), 1, std::multiplies());
+                Array<OneD, NekDouble> tmp(nmTot), t(nqTot);
+                Array<OneD, NekDouble> mat(nmTot * nqTot);
+                for (unsigned int i = 0; i < nmTot; ++i)
+                {
+                    Vmath::Zero(nmTot, tmp, 1);
+                    tmp[i] = 1.0;
+
+                    if (stdExp->GetShapeDimension() == 1)
+                    {
+                        // In keys
+                        const LibUtilities::PointsKey &inkey0 =
+                            stdExp->GetBasis(0)->GetPointsKey();
+
+                        // Out keys
+                        const LibUtilities::PointsKey outkey0(
+                            nq[0], stdExp->GetBasis(0)->GetPointsType());
+
+                        LibUtilities::Interp1D(inkey0, tmp, outkey0, t);
+                        // Copy to mat with stride nmTot
+                        Vmath::Vcopy(nqTot, &t[0], 1, &mat[i], nmTot);
+                    }
+                    else if (stdExp->GetShapeDimension() == 2)
+                    {
+                        // In keys
+                        const LibUtilities::PointsKey &inkey0 =
+                            stdExp->GetBasis(0)->GetPointsKey();
+                        const LibUtilities::PointsKey &inkey1 =
+                            stdExp->GetBasis(1)->GetPointsKey();
+
+                        // Out keys
+                        const LibUtilities::PointsKey outkey0(
+                            nq[0], stdExp->GetBasis(0)->GetPointsType());
+                        const LibUtilities::PointsKey outkey1(
+                            nq[1], stdExp->GetBasis(1)->GetPointsType());
+
+                        LibUtilities::Interp2D(inkey0, inkey1, tmp, outkey0,
+                                               outkey1, t);
+                        // Copy to mat with stride nmTot
+                        Vmath::Vcopy(nqTot, &t[0], 1, &mat[i], nmTot);
+                    }
+                    else if (stdExp->GetShapeDimension() == 3)
+                    {
+                        // In keys
+                        const LibUtilities::PointsKey &inkey0 =
+                            stdExp->GetBasis(0)->GetPointsKey();
+                        const LibUtilities::PointsKey &inkey1 =
+                            stdExp->GetBasis(1)->GetPointsKey();
+                        const LibUtilities::PointsKey &inkey2 =
+                            stdExp->GetBasis(2)->GetPointsKey();
+
+                        // Out keys
+                        const LibUtilities::PointsKey outkey0(
+                            nq[0], stdExp->GetBasis(0)->GetPointsType());
+                        const LibUtilities::PointsKey outkey1(
+                            nq[1], stdExp->GetBasis(1)->GetPointsType());
+                        const LibUtilities::PointsKey outkey2(
+                            nq[2], stdExp->GetBasis(2)->GetPointsType());
+
+                        LibUtilities::Interp3D(inkey0, inkey1, inkey2, tmp,
+                                               outkey0, outkey1, outkey2, t);
+                        // Copy to mat with stride nmTot
+                        Vmath::Vcopy(nqTot, &t[0], 1, &mat[i], nmTot);
                     }
                 }
 

@@ -355,7 +355,8 @@ protected:
             std::max(m_implInterleaveWidth, interleave_width);
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+        for (unsigned int n = 0;
+             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
             auto jacptr    = jacptr_init;
             auto dfptr     = dfptr_init;
@@ -463,7 +464,8 @@ protected:
             std::max(m_implInterleaveWidth, interleave_width);
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+        for (unsigned int n = 0;
+             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
             auto jacptr    = jacptr_init;
             auto dfptr     = dfptr_init;
@@ -585,7 +587,8 @@ protected:
 
         // Loop over components.
         auto advVelOffset = nelmt * nqTot;
-        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+        for (unsigned int n = 0;
+             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
             auto jacptr    = jacptr_init;
             auto dfptr     = dfptr_init;
@@ -713,7 +716,8 @@ protected:
 
         // Loop over components.
         auto advVelOffset = nelmt * nqTot;
-        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+        for (unsigned int n = 0;
+             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
             auto jacptr    = jacptr_init;
             auto dfptr     = dfptr_init;
@@ -853,7 +857,7 @@ protected:
 
         // Loop over components.
         auto advVelOffset = nelmt * nqTot;
-        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+        for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
             auto jacptr    = jacptr_init;
             auto dfptr     = dfptr_init;
@@ -990,7 +994,7 @@ protected:
 
         // Loop over components.
         auto advVelOffset = nelmt * nqTot;
-        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+        for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
             auto jacptr    = jacptr_init;
             auto dfptr     = dfptr_init;

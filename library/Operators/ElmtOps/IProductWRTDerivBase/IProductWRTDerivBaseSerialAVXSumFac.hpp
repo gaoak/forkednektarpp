@@ -309,7 +309,11 @@ protected:
             std::max(m_implInterleaveWidth, interleave_width);
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
+        const auto inoffset = nq0 *
+                              inblock.GetNumElmtGroups(m_implInterleaveWidth) *
+                              inblock.GetNumHomoModes();
+        for (unsigned int n = 0;
+             n < outblock.GetNumComponents() * outblock.GetNumHomoModes(); ++n)
         {
             auto jacptr = jacptr_init;
             auto dfptr  = dfptr_init;
@@ -319,19 +323,18 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    for (unsigned int n = 0; n < m_coordDim; ++n)
+                    for (unsigned int d = 0; d < m_coordDim; ++d)
                     {
                         ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
                             interleave_width, chunkSize, nq0,
-                            (TData *)(inptr + n * inblock.size()));
+                            (TData *)(inptr + d * inoffset * simd_t::width));
                     }
                 }
 
                 StdAlignDerivBase1D<DEFORMED>(
                     nq0, m_coordDim, reinterpret_cast<const simd_t *>(dfptr),
-                    df_tmp,
-                    inblock.GetNumElmtGroups(m_implInterleaveWidth) * nq0,
-                    reinterpret_cast<const simd_t *>(inptr), tmp0.data());
+                    df_tmp, inoffset, reinterpret_cast<const simd_t *>(inptr),
+                    tmp0.data());
                 IProductSegKernel<false, false, DEFORMED>(
                     nm0, nq0, tmp0.data(), m_DB[0], m_W[0],
                     reinterpret_cast<const simd_t *>(jacptr),
@@ -342,6 +345,13 @@ protected:
                 outptr += nm0 * simd_t::width;
                 jacptr += jacSize * simd_t::width;
                 dfptr += jacSize * m_coordDim * simd_t::width;
+            }
+
+            // Advance input by m_coordDim-1 componennts since have already
+            // advanced one component in the above.
+            if ((n + 1) % inblock.GetNumHomoModes() == 0)
+            {
+                inptr += (m_coordDim - 1) * inoffset * simd_t::width;
             }
         }
 
@@ -389,7 +399,11 @@ protected:
             std::max(m_implInterleaveWidth, interleave_width);
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
+        const auto inoffset = nq0 *
+                              inblock.GetNumElmtGroups(m_implInterleaveWidth) *
+                              inblock.GetNumHomoModes();
+        for (unsigned int n = 0;
+             n < outblock.GetNumComponents() * outblock.GetNumHomoModes(); ++n)
         {
             auto jacptr = jacptr_init;
             auto dfptr  = dfptr_init;
@@ -399,19 +413,18 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    for (unsigned int n = 0; n < m_coordDim; ++n)
+                    for (unsigned int d = 0; d < m_coordDim; ++d)
                     {
                         ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
                             interleave_width, chunkSize, nq0,
-                            (TData *)(inptr + n * inblock.size()));
+                            (TData *)(inptr + d * inoffset * simd_t::width));
                     }
                 }
 
                 StdAlignDerivBase1D<DEFORMED>(
                     nq0, m_coordDim, reinterpret_cast<const simd_t *>(dfptr),
-                    df_tmp,
-                    inblock.GetNumElmtGroups(m_implInterleaveWidth) * nq0,
-                    reinterpret_cast<const simd_t *>(inptr), tmp0.data());
+                    df_tmp, inoffset, reinterpret_cast<const simd_t *>(inptr),
+                    tmp0.data());
                 IProductSegKernel<false, false, DEFORMED>(
                     nm0, nq0, tmp0.data(), m_DB[0], m_W[0],
                     reinterpret_cast<const simd_t *>(jacptr),
@@ -422,6 +435,13 @@ protected:
                 outptr += nm0 * simd_t::width;
                 jacptr += jacSize * simd_t::width;
                 dfptr += jacSize * m_coordDim * simd_t::width;
+            }
+
+            // Advance input by m_coordDim-1 componennts since have already
+            // advanced one component in the above.
+            if ((n + 1) % inblock.GetNumHomoModes() == 0)
+            {
+                inptr += (m_coordDim - 1) * inoffset * simd_t::width;
             }
         }
 
@@ -487,7 +507,11 @@ protected:
             std::max(m_implInterleaveWidth, interleave_width);
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
+        const auto inoffset = nqTot *
+                              inblock.GetNumElmtGroups(m_implInterleaveWidth) *
+                              inblock.GetNumHomoModes();
+        for (unsigned int n = 0;
+             n < outblock.GetNumComponents() * outblock.GetNumHomoModes(); ++n)
         {
             auto jacptr = jacptr_init;
             auto dfptr  = dfptr_init;
@@ -497,18 +521,17 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    for (unsigned int n = 0; n < m_coordDim; ++n)
+                    for (unsigned int d = 0; d < m_coordDim; ++d)
                     {
                         ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
                             interleave_width, chunkSize, nqTot,
-                            (TData *)(inptr + n * inblock.size()));
+                            (TData *)(inptr + d * inoffset * simd_t::width));
                     }
                 }
 
                 StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(
                     nq0, nq1, m_coordDim,
-                    reinterpret_cast<const simd_t *>(dfptr), df_tmp,
-                    inblock.GetNumElmtGroups(m_implInterleaveWidth) * nqTot,
+                    reinterpret_cast<const simd_t *>(dfptr), df_tmp, inoffset,
                     reinterpret_cast<const simd_t *>(inptr), tmpPtr, m_f[0],
                     m_f[1], reinterpret_cast<const simd_t *>(jacptr), m_W[0],
                     m_W[1]);
@@ -528,8 +551,10 @@ protected:
 
             // Advance input by m_coordDim-1 componennts since have already
             // advanced one component in the above.
-            inptr += nqTot * inblock.GetNumElmtGroups(m_implInterleaveWidth) *
-                     (m_coordDim - 1) * simd_t::width;
+            if ((n + 1) % inblock.GetNumHomoModes() == 0)
+            {
+                inptr += (m_coordDim - 1) * inoffset * simd_t::width;
+            }
         }
 
         // Set to new interleave width.
@@ -590,7 +615,11 @@ protected:
             std::max(m_implInterleaveWidth, interleave_width);
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
+        const auto inoffset = nqTot *
+                              inblock.GetNumElmtGroups(m_implInterleaveWidth) *
+                              inblock.GetNumHomoModes();
+        for (unsigned int n = 0;
+             n < outblock.GetNumComponents() * outblock.GetNumHomoModes(); ++n)
         {
             auto jacptr = jacptr_init;
             auto dfptr  = dfptr_init;
@@ -600,18 +629,17 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    for (unsigned int n = 0; n < m_coordDim; ++n)
+                    for (unsigned int d = 0; d < m_coordDim; ++d)
                     {
                         ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
                             interleave_width, chunkSize, nqTot,
-                            (TData *)(inptr + n * inblock.size()));
+                            (TData *)(inptr + d * inoffset * simd_t::width));
                     }
                 }
 
                 StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(
                     nq0, nq1, m_coordDim,
-                    reinterpret_cast<const simd_t *>(dfptr), df_tmp,
-                    inblock.GetNumElmtGroups(m_implInterleaveWidth) * nqTot,
+                    reinterpret_cast<const simd_t *>(dfptr), df_tmp, inoffset,
                     reinterpret_cast<const simd_t *>(inptr), tmpPtr, m_f[0],
                     m_f[1], reinterpret_cast<const simd_t *>(jacptr), m_W[0],
                     m_W[1]);
@@ -631,8 +659,10 @@ protected:
 
             // Advance input by m_coordDim-1 componennts since have already
             // advanced one component in the above.
-            inptr += nqTot * inblock.GetNumElmtGroups(m_implInterleaveWidth) *
-                     (m_coordDim - 1) * simd_t::width;
+            if ((n + 1) % inblock.GetNumHomoModes() == 0)
+            {
+                inptr += (m_coordDim - 1) * inoffset * simd_t::width;
+            }
         }
 
         // Set to new interleave width.
@@ -703,7 +733,7 @@ protected:
             std::max(m_implInterleaveWidth, interleave_width);
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
+        for (unsigned int n = 0; n < outblock.GetNumComponents(); ++n)
         {
             auto jacptr = jacptr_init;
             auto dfptr  = dfptr_init;
@@ -713,11 +743,11 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    for (unsigned int n = 0; n < 3; ++n)
+                    for (unsigned int d = 0; d < 3; ++d)
                     {
                         ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
                             interleave_width, chunkSize, nqTot,
-                            (TData *)(inptr + n * inblock.size()));
+                            (TData *)(inptr + d * inblock.size()));
                     }
                 }
 
@@ -812,7 +842,7 @@ protected:
             std::max(m_implInterleaveWidth, interleave_width);
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
+        for (unsigned int n = 0; n < outblock.GetNumComponents(); ++n)
         {
             auto jacptr = jacptr_init;
             auto dfptr  = dfptr_init;
@@ -822,11 +852,11 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    for (unsigned int n = 0; n < 3; ++n)
+                    for (unsigned int d = 0; d < 3; ++d)
                     {
                         ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
                             interleave_width, chunkSize, nqTot,
-                            (TData *)(inptr + n * inblock.size()));
+                            (TData *)(inptr + d * inblock.size()));
                     }
                 }
 

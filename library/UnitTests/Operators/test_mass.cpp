@@ -52,13 +52,41 @@
         }                                                                      \
     }
 
+#define TEST_MASS3DH1(test_name, test, tol)                                    \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        Configure3DH1(2, 2, 4);                                                \
+        SetTestCase();                                                         \
+        RunTestCase();                                                         \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            BOOST_TEST(Compare(tol));                                          \
+        }                                                                      \
+    }
+
+#define TEST_MASS3DH2(test_name, test, tol)                                    \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        Configure3DH2(2, 2, 4, 4);                                             \
+        SetTestCase();                                                         \
+        RunTestCase();                                                         \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            BOOST_TEST(Compare(tol));                                          \
+        }                                                                      \
+    }
+
 BOOST_AUTO_TEST_SUITE(TestMass)
 
 TEST_MASS(mass_seg, Seg, 1.0E-12)
 
 TEST_MASS(mass_seg_sem, SegSEM, 1.0E-12)
 
+TEST_MASS3DH2(mass_seg_sem_3dh2, SegSEM, 1.0E-12)
+
 TEST_MASS(mass_quad, Quad, 1.0E-12)
+
+TEST_MASS3DH1(mass_quad_3dh1, Quad, 1.0E-12)
 
 TEST_MASS(mass_quad_sem, QuadSEM, 1.0E-12)
 
@@ -66,11 +94,15 @@ TEST_MASS(mass_quad_varp, QuadVarP, 1.0E-12)
 
 TEST_MASS(mass_tri, Tri, 1.0E-12)
 
+TEST_MASS3DH1(mass_tri_3dh1, Tri, 1.0E-12)
+
 TEST_MASS(mass_tri_varp, TriVarP, 1.0E-12)
 
 TEST_MASS(mass_tri_nodal, TriNodal, 1.0E-12)
 
 TEST_MASS(mass_square_all_elements, SquareAllElements, 1.0E-12)
+
+TEST_MASS3DH1(mass_square_all_elements_3dh1, SquareAllElements, 1.0E-12)
 
 TEST_MASS(mass_hex, Hex, 1.0E-12)
 

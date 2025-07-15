@@ -55,7 +55,7 @@ public:
           m_trace(Field<TData, FieldState::Coeff>::Create(
               GetBlockAttributes<TData>(FieldState::Coeff,
                                         expansionList->GetTrace()),
-              1, ExecSpace::alignment, eDeviceOnly))
+              1, 1, ExecSpace::alignment, eDeviceOnly))
     {
         // Get Trace-to-Element Map
         auto locTraceToTraceMap = expansionList->GetLocTraceToTraceMap();

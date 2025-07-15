@@ -129,19 +129,20 @@ protected:
 
         // Create local diagonal field.
         Field<TData, FieldState::Coeff> locdiag =
-            Field<TData, FieldState::Coeff>::Create(
-                "Local diagonal", blocks, 1, ExecSpace::alignment, eDeviceOnly);
+            Field<TData, FieldState::Coeff>::Create("Local diagonal", blocks, 1,
+                                                    1, ExecSpace::alignment,
+                                                    eDeviceOnly);
 
         // Create unit vector field to extract diagonal.
         Field<TData, FieldState::Coeff> unit_vec =
             Field<TData, FieldState::Coeff>::Create(
-                "DiagPrecon unit vec", blocks, 1, ExecSpace::alignment,
+                "DiagPrecon unit vec", blocks, 1, 1, ExecSpace::alignment,
                 eDeviceOnly);
 
         // Create action field to receive column action from unit vector.
         Field<TData, FieldState::Coeff> action =
             Field<TData, FieldState::Coeff>::Create("DiagPrecon action", blocks,
-                                                    1, ExecSpace::alignment,
+                                                    1, 1, ExecSpace::alignment,
                                                     eDeviceOnly);
 
         // Initialize field.

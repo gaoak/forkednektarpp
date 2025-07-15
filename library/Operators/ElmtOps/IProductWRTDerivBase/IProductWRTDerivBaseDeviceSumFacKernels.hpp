@@ -188,7 +188,7 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
 template <bool DEFORMED, typename TData>
 NEK_DEVICE_INLINE static void StdAlignDerivBase1DSumFacKernel(
     const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
-    const size_t insize, const TData *__restrict__ w0,
+    const size_t inoffset, const TData *__restrict__ w0,
     const TData *__restrict__ df, const TData *__restrict__ jac,
     const TData *__restrict__ in, TData *__restrict__ out)
 {
@@ -203,7 +203,7 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase1DSumFacKernel(
         TData sum = 0.0;
         for (unsigned int d = 0u; d < ncoord; ++d)
         {
-            sum += df[d * warpsize + dfindex] * in[d * insize * nq0 + index];
+            sum += df[d * warpsize + dfindex] * in[d * inoffset + index];
         }
 
         if constexpr (DEFORMED)
@@ -220,7 +220,7 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase1DSumFacKernel(
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 NEK_DEVICE_INLINE static void StdAlignDerivBase2DSumFacKernel(
     const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
-    const unsigned int nq1, const size_t insize, const TData *__restrict__ w0,
+    const unsigned int nq1, const size_t inoffset, const TData *__restrict__ w0,
     const TData *__restrict__ w1, [[maybe_unused]] const TData *__restrict__ f0,
     [[maybe_unused]] const TData *__restrict__ f1, const TData *__restrict__ df,
     const TData *__restrict__ jac, const TData *__restrict__ in,
@@ -228,8 +228,7 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase2DSumFacKernel(
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
-    const unsigned int ndf   = 2 * ncoord;
-    const unsigned int nqTot = nq0 * nq1;
+    const unsigned int ndf = 2 * ncoord;
 
     for (unsigned int j = 0u, cnt_ji = 0u; j < nq1; ++j)
     {
@@ -242,12 +241,12 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase2DSumFacKernel(
             TData tmp  = in[index];
             TData sum1 = df[0u * warpsize + dfindex] * tmp;
             TData sum2 = df[1u * warpsize + dfindex] * tmp;
-            tmp        = in[insize * nqTot + index];
+            tmp        = in[inoffset + index];
             sum1 += df[2u * warpsize + dfindex] * tmp;
             sum2 += df[3u * warpsize + dfindex] * tmp;
             if (ncoord == 3u)
             {
-                tmp = in[2u * insize * nqTot + index];
+                tmp = in[2u * inoffset + index];
                 sum1 += df[4u * warpsize + dfindex] * tmp;
                 sum2 += df[5u * warpsize + dfindex] * tmp;
             }
@@ -280,7 +279,7 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase2DSumFacKernel(
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 NEK_DEVICE_INLINE static void StdAlignDerivBase3DSumFacKernel(
     const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const size_t insize, const TData *__restrict__ w0,
+    const unsigned int nq2, const size_t inoffset, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ w2,
     [[maybe_unused]] const TData *__restrict__ f0,
     [[maybe_unused]] const TData *__restrict__ f1,
@@ -293,8 +292,6 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase3DSumFacKernel(
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     constexpr unsigned int ndf = 9u;
-
-    const unsigned int nqTot = nq0 * nq1 * nq2;
 
     for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
     {
@@ -310,11 +307,11 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase3DSumFacKernel(
                 TData sum1 = df[0u * warpsize + dfindex] * tmp;
                 TData sum2 = df[1u * warpsize + dfindex] * tmp;
                 TData sum3 = df[2u * warpsize + dfindex] * tmp;
-                tmp        = in[insize * nqTot + index];
+                tmp        = in[inoffset + index];
                 sum1 += df[3u * warpsize + dfindex] * tmp;
                 sum2 += df[4u * warpsize + dfindex] * tmp;
                 sum3 += df[5u * warpsize + dfindex] * tmp;
-                tmp = in[2u * insize * nqTot + index];
+                tmp = in[2u * inoffset + index];
                 sum1 += df[6u * warpsize + dfindex] * tmp;
                 sum2 += df[7u * warpsize + dfindex] * tmp;
                 sum3 += df[8u * warpsize + dfindex] * tmp;
@@ -364,7 +361,7 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase3DSumFacKernel(
 
 template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void StdAlignDerivBase1DSumFacTOPKernel(
-    const unsigned int ncoord, const unsigned int nq0, const size_t insize,
+    const unsigned int ncoord, const unsigned int nq0, const size_t inoffset,
     const TData *__restrict__ w0, const TData *__restrict__ df,
     const TData *__restrict__ jac, const TData *__restrict__ in,
     TData *__restrict__ out, const TthreadBlock &threadBlock)
@@ -381,7 +378,7 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase1DSumFacTOPKernel(
         TData sum = 0.0;
         for (unsigned int d = 0u; d < ncoord; ++d)
         {
-            sum += df[d * dfsize + dfindex] * in[d * insize * nq0 + i];
+            sum += df[d * dfsize + dfindex] * in[d * inoffset + i];
         }
 
         if constexpr (DEFORMED)
@@ -401,7 +398,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void StdAlignDerivBase2DSumFacTOPKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
-    const size_t insize, const TData *__restrict__ w0,
+    const size_t inoffset, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ f0,
     const TData *__restrict__ f1, const TData *__restrict__ df,
     const TData *__restrict__ jac, const TData *__restrict__ in,
@@ -423,12 +420,12 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase2DSumFacTOPKernel(
         TData tmp  = in[idx];
         TData sum1 = df[0u * dfsize + dfindex] * tmp;
         TData sum2 = df[1u * dfsize + dfindex] * tmp;
-        tmp        = in[insize * nqTot + idx];
+        tmp        = in[inoffset + idx];
         sum1 += df[2u * dfsize + dfindex] * tmp;
         sum2 += df[3u * dfsize + dfindex] * tmp;
         if (ncoord == 3u)
         {
-            tmp = in[2u * insize * nqTot + idx];
+            tmp = in[2u * inoffset + idx];
             sum1 += df[4u * dfsize + dfindex] * tmp;
             sum2 += df[5u * dfsize + dfindex] * tmp;
         }
@@ -464,7 +461,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void StdAlignDerivBase3DSumFacTOPKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const size_t insize, const TData *__restrict__ w0,
+    const size_t inoffset, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ w2,
     const TData *__restrict__ f0, const TData *__restrict__ f1,
     const TData *__restrict__ f1m, const TData *__restrict__ f2,
@@ -490,11 +487,11 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase3DSumFacTOPKernel(
         TData sum1 = df[0u * dfsize + dfindex] * tmp;
         TData sum2 = df[1u * dfsize + dfindex] * tmp;
         TData sum3 = df[2u * dfsize + dfindex] * tmp;
-        tmp        = in[insize * nqTot + idx];
+        tmp        = in[inoffset + idx];
         sum1 += df[3u * dfsize + dfindex] * tmp;
         sum2 += df[4u * dfsize + dfindex] * tmp;
         sum3 += df[5u * dfsize + dfindex] * tmp;
-        tmp = in[2u * insize * nqTot + idx];
+        tmp = in[2u * inoffset + idx];
         sum1 += df[6u * dfsize + dfindex] * tmp;
         sum2 += df[7u * dfsize + dfindex] * tmp;
         sum3 += df[8u * dfsize + dfindex] * tmp;
@@ -546,11 +543,12 @@ template <typename Implementation, bool DEFORMED, typename TthreadBlock,
           typename TData>
 NEK_DEVICE_INLINE static void IProductWRTDerivBase1DKernel(
     const unsigned int ncoord, const unsigned int nm0, const unsigned int nq0,
-    const size_t nelmt, const TData *__restrict__ dbasis0,
-    const TData *__restrict__ w0, const TData *__restrict__ df,
-    const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ wsp,
-    TData *__restrict__ shmemptr, const TthreadBlock &threadBlock)
+    const size_t nelmt, const unsigned int inoffset,
+    const TData *__restrict__ dbasis0, const TData *__restrict__ w0,
+    const TData *__restrict__ df, const TData *__restrict__ jac,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp, TData *__restrict__ shmemptr,
+    const TthreadBlock &threadBlock)
 {
     const unsigned int ndf     = ncoord;
     const unsigned int dfsize  = DEFORMED ? nq0 : 1u;
@@ -573,7 +571,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase1DKernel(
             TData *deriv       = wsp + nq0 * warpsize * iwarp;
             TData *outptr      = out + nm0 * warpsize * iwarp;
             StdAlignDerivBase1DSumFacKernel<DEFORMED>(
-                ilane, ncoord, nq0, nelmt, w0, dfptr, jacptr, inptr, deriv);
+                ilane, ncoord, nq0, inoffset, w0, dfptr, jacptr, inptr, deriv);
             IProductWRTBaseSegSumFacKernel<false, false, DEFORMED>(
                 ilane, nm0, nq0, dbasis0, deriv, outptr, (TData)1.0);
             e += getGlobalRange(threadBlock);
@@ -591,9 +589,9 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase1DKernel(
             const TData *inptr  = in + nq0 * e;
             TData *outptr       = out + nm0 * e;
 
-            StdAlignDerivBase1DSumFacTOPKernel<DEFORMED>(ncoord, nq0, nelmt, w0,
-                                                         dfptr, jacptr, inptr,
-                                                         deriv, threadBlock);
+            StdAlignDerivBase1DSumFacTOPKernel<DEFORMED>(
+                ncoord, nq0, inoffset, w0, dfptr, jacptr, inptr, deriv,
+                threadBlock);
             IProductWRTBaseSegSumFacTOPKernel<false, false, DEFORMED>(
                 nm0, nq0, dbasis0, deriv, outptr, (TData)1.0, threadBlock);
 
@@ -607,7 +605,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_INLINE static void IProductWRTDerivBase2DKernel(
     const unsigned int ncoord, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const size_t nelmt, const bool isModified,
+    const size_t nelmt, const unsigned int inoffset, const bool isModified,
     [[maybe_unused]] const unsigned int *__restrict__ index0,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ D0, const TData *__restrict__ D1,
@@ -669,7 +667,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase2DKernel(
             TData *deriv = wsp + 2 * nqTot * nelmt + nqTot * warpsize * iwarp;
 
             StdAlignDerivBase2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
-                ilane, ncoord, nq0, nq1, nelmt, w0, w1, s_f0, s_f1, dfptr,
+                ilane, ncoord, nq0, nq1, inoffset, w0, w1, s_f0, s_f1, dfptr,
                 jacptr, inptr, deriv0, deriv1);
             SumDerivTensor2DKernel<false, DEFORMED>(ilane, nq0, nq1, D0, D1,
                                                     deriv0, deriv1, deriv);
@@ -752,8 +750,8 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase2DKernel(
             TData *outptr       = out + nmTot * e;
 
             StdAlignDerivBase2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
-                ncoord, nq0, nq1, nelmt, w0, w1, f0, f1, dfptr, jacptr, inptr,
-                deriv0, deriv1, threadBlock);
+                ncoord, nq0, nq1, inoffset, w0, w1, f0, f1, dfptr, jacptr,
+                inptr, deriv0, deriv1, threadBlock);
             SumDerivTensor2DQPKernel<false, DEFORMED>(
                 nq0, nq1, D0, D1, deriv0, deriv1, deriv, threadBlock);
             if constexpr (SHAPE_TYPE == LibUtilities::Quad)
@@ -791,7 +789,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const size_t nelmt, const bool isModified,
+    const unsigned int nq2, const size_t nelmt, const unsigned int inoffset,
+    const bool isModified,
     [[maybe_unused]] const unsigned int *__restrict__ index0,
     [[maybe_unused]] const unsigned int *__restrict__ index1,
     [[maybe_unused]] const unsigned int *__restrict__ index2,
@@ -910,7 +909,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
             TData *deriv  = wsp + 3 * nqTot * nelmt + nqTot * warpsize * iwarp;
 
             StdAlignDerivBase3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
-                ilane, nq0, nq1, nq2, nelmt, w0, w1, w2, s_f0, s_f1, s_f1m,
+                ilane, nq0, nq1, nq2, inoffset, w0, w1, w2, s_f0, s_f1, s_f1m,
                 s_f2, dfptr, jacptr, inptr, deriv0, deriv1, deriv2);
             SumDerivTensor3DKernel<false, DEFORMED>(ilane, nq0, nq1, nq2, D0,
                                                     D1, D2, deriv0, deriv1,
@@ -1068,7 +1067,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
             TData *outptr       = out + nmTot * e;
 
             StdAlignDerivBase3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
-                nq0, nq1, nq2, nelmt, w0, w1, w2, f0, f1, f1m, f2, dfptr,
+                nq0, nq1, nq2, inoffset, w0, w1, w2, f0, f1, f1m, f2, dfptr,
                 jacptr, inptr, deriv0, deriv1, deriv2, threadBlock);
             SumDerivTensor3DQPKernel<false, DEFORMED>(nq0, nq1, nq2, D0, D1, D2,
                                                       deriv0, deriv1, deriv2,

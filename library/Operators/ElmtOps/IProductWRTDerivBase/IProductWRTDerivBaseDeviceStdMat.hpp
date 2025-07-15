@@ -110,7 +110,10 @@ protected:
     {
         auto handle = NekHandle<ExecSpace>::GetInstance();
 
+        const auto nhomo = inblock.GetNumHomoModes();
         const auto nelmt = inblock.GetNumElementsWithPadding();
+        const auto nelmtTot =
+            inblock.GetNumElementsWithPadding() * inblock.GetNumHomoModes();
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -131,46 +134,44 @@ protected:
         // Allocate storage.
         if (m_wsp.size() == 0)
         {
-            m_wsp = MemoryRegion<TData>::Create(m_dimension * nelmt * m_nqTot,
-                                                ExecSpace::alignment);
+            m_wsp = MemoryRegion<TData>::Create(
+                m_dimension * nelmtTot * m_nqTot, ExecSpace::alignment);
         }
 
         // Get workspace pointer.
         auto wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
 
         // Loop over components.
-        const auto insize  = m_nqTot * nelmt;
-        const auto wspsize = m_nqTot * nelmt;
-        for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
+        const auto inoffset  = inblock.size() * inblock.GetNumHomoModes();
+        const auto wspoffset = m_nqTot * nelmtTot;
+        for (unsigned int n = 0; n < outblock.GetNumComponents(); ++n)
         {
             // Reshape, if necessary.
             for (unsigned int d = 0; d < m_coordDim; ++d)
             {
                 ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                    inblock.GetInterleaveWidth(),
-                    inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
-                    (TData *)inptr + d * inblock.size());
+                    inblock.GetInterleaveWidth(), nelmtTot,
+                    inblock.GetNumData(), (TData *)inptr + d * inblock.size());
             }
             if (this->m_append)
             {
                 ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                    outblock.GetInterleaveWidth(),
-                    outblock.GetNumElementsWithPadding(), outblock.GetNumData(),
-                    outptr);
+                    outblock.GetInterleaveWidth(), nelmtTot,
+                    outblock.GetNumData(), outptr);
             }
 
             // Multiply by derivative factor and Jacobian.
             if (m_isDeformed)
             {
                 MultiplyByJacobianAndDerivFactorKernel<ExecSpace, true>(
-                    m_nqTot, m_coordDim, m_dimension, nelmt, insize, wspsize,
-                    jacptr, dfptr, inptr, wspptr);
+                    m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, inoffset,
+                    wspoffset, jacptr, dfptr, inptr, wspptr);
             }
             else
             {
                 MultiplyByJacobianAndDerivFactorKernel<ExecSpace, false>(
-                    m_nqTot, m_coordDim, m_dimension, nelmt, insize, wspsize,
-                    jacptr, dfptr, inptr, wspptr);
+                    m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, inoffset,
+                    wspoffset, jacptr, dfptr, inptr, wspptr);
             }
 
             // Perform matrix-matrix multiply.
@@ -179,15 +180,15 @@ protected:
                 TData alpha = 1.0;
                 TData beta  = (d != 0 || this->m_append);
 
-                NekGemm(handle, "N", "N", m_nmTot, nelmt, m_nqTot, alpha,
+                NekGemm(handle, "N", "N", m_nmTot, nelmtTot, m_nqTot, alpha,
                         m_matptr + d * m_nqTot * m_nmTot, m_nmTot,
-                        wspptr + d * nelmt * m_nqTot, m_nqTot, beta, outptr,
+                        wspptr + d * nelmtTot * m_nqTot, m_nqTot, beta, outptr,
                         m_nmTot);
             }
 
             // Increment pointers.
-            inptr += m_coordDim * inblock.size();
-            outptr += outblock.size();
+            inptr += m_coordDim * inblock.size() * inblock.GetNumHomoModes();
+            outptr += outblock.size() * outblock.GetNumHomoModes();
         }
 
         // Set to new interleave width.

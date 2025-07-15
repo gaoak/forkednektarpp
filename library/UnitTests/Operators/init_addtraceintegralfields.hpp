@@ -51,31 +51,9 @@ public:
     {
     }
 
-    /*
-     *  Re-Initialise the input blocks based on the Trace-ExpList for this
-     * operator Delete previouisly defined fixt_in (also for Device) and
-     * re-define input based on TraceExpList
-     */
-    void ReConfigure(unsigned int nin                   = 1,
-                     [[maybe_unused]] unsigned int nout = 1)
-    {
-        fixt_explist->GetTrace()->SetDataWarehouse();
-
-        const FieldState stateIn = FieldState::Phys;
-
-        if (fixt_in)
-        {
-            delete fixt_in;
-        }
-        auto blocks_in =
-            GetBlockAttributes<double>(stateIn, fixt_explist->GetTrace());
-        auto f_in =
-            Field<double, stateIn>::Create("f_in", blocks_in, nin, alignment);
-        fixt_in = new Field<double, stateIn>(std::move(f_in));
-    }
-
     void SetTestCase()
     {
+        // Set initial conditions.
         for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
         {
             auto &block = fixt_in->GetBlocks()[blk];
@@ -90,6 +68,8 @@ public:
                 }
             }
         }
+
+        // Compute expected solution.
         ExpectedSolution();
     }
 
@@ -101,7 +81,7 @@ public:
 
     void ExpectedSolution()
     {
-        // Calculate expected result from Nektar++
+        // Calculate expected result from Nektar++.
         Array<OneD, double> inTracephys = fixt_in->ToArray();
         Array<OneD, double> outcoeffs(fixt_explist->GetNcoeffs(), 0.0);
         fixt_explist->AddTraceIntegral(inTracephys, outcoeffs);

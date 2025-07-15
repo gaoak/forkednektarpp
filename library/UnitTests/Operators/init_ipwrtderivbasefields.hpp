@@ -51,33 +51,30 @@ public:
 
     void SetTestCase()
     {
-        // expect coordim components for each input dimension
-        unsigned int coordim  = fixt_explist->GetCoordim(0);
-        unsigned int compSize = fixt_in->GetNumComponents() / coordim;
-
+        // Set initial conditions.
         for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
         {
             auto &block = fixt_in->GetBlocks()[blk];
             double *inptr =
                 block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
-            for (unsigned int nc = 0; nc < compSize; ++nc)
+            for (unsigned int n = 0;
+                 n < fixt_in->GetNumComponents() * fixt_in->GetNumHomoModes();
+                 ++n)
             {
-                for (unsigned int k = 0; k < coordim; k++)
+                for (size_t el = 0, cnt = 0; el < block.GetNumElements(); ++el)
                 {
-                    for (size_t el = 0, cnt = 0; el < block.GetNumElements();
-                         ++el)
+                    for (unsigned int phys = 0; phys < block.GetNumData();
+                         ++phys, ++cnt)
                     {
-                        for (unsigned int phys = 0; phys < block.GetNumData();
-                             ++phys, ++cnt)
-                        {
-                            inptr[cnt] = phys + k + nc;
-                        }
+                        inptr[cnt] = phys + n;
                     }
-                    inptr += block.size();
                 }
+                inptr += block.size();
             }
         }
+
+        // Compute expected solution.
         ExpectedSolution();
     }
 
@@ -90,12 +87,10 @@ public:
     void ExpectedSolution()
     {
         // Calculate expected result from Nektar++
-        size_t ncoeffs       = fixt_explist->GetNcoeffs();
-        size_t nphys         = fixt_explist->GetTotPoints();
-        unsigned int coordim = fixt_explist->GetCoordim(0);
-
-        // expect coordim components for each input dimension
-        unsigned int compSize = fixt_in->GetNumComponents() / coordim;
+        const size_t ncoeffs        = fixt_explist->GetNcoeffs();
+        const size_t nphys          = fixt_explist->GetTotPoints();
+        const unsigned int coordim  = fixt_explist->GetCoordim(0);
+        const unsigned int compSize = fixt_out->GetNumComponents();
 
         Array<OneD, double> inphys = fixt_in->ToArray();
         Array<OneD, double> outcoeffs(ncoeffs * compSize, 0.0), tmp;

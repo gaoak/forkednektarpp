@@ -103,7 +103,10 @@ protected:
     {
         auto handle = NekHandle<ExecSpace>::GetInstance();
 
+        const auto nhomo = inblock.GetNumHomoModes();
         const auto nelmt = inblock.GetNumElementsWithPadding();
+        const auto nelmtTot =
+            inblock.GetNumElementsWithPadding() * inblock.GetNumHomoModes();
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -117,40 +120,39 @@ protected:
                                   inblock.GetNumElements(), true));
 
         // Loop over components.
-        const auto outsize = m_nqTot * nelmt;
-        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+        const auto outoffset = outblock.size() * outblock.GetNumHomoModes();
+        for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(),
-                inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
+                inblock.GetInterleaveWidth(), nelmtTot, inblock.GetNumData(),
                 (TData *)inptr);
 
             // Perform matrix-matrix multiply.
             for (unsigned int d = 0; d < m_dimension; d++)
             {
-                NekGemm(handle, "N", "N", m_nqTot, nelmt, m_nqTot, 1.0,
+                NekGemm(handle, "N", "N", m_nqTot, nelmtTot, m_nqTot, 1.0,
                         m_matptr + d * m_nqTot * m_nqTot, m_nqTot, inptr,
-                        m_nqTot, 0.0, outptr + d * m_nqTot * nelmt, m_nqTot);
+                        m_nqTot, 0.0, outptr + d * outoffset, m_nqTot);
             }
 
             // Multiply by derivative factor.
             if (m_isDeformed)
             {
                 MultiplyByDerivFactorKernel<ExecSpace, true>(
-                    m_nqTot, m_coordDim, m_dimension, nelmt, outsize, outsize,
-                    dfptr, outptr, outptr);
+                    m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, outoffset,
+                    outoffset, dfptr, outptr, outptr);
             }
             else
             {
                 MultiplyByDerivFactorKernel<ExecSpace, false>(
-                    m_nqTot, m_coordDim, m_dimension, nelmt, outsize, outsize,
-                    dfptr, outptr, outptr);
+                    m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, outoffset,
+                    outoffset, dfptr, outptr, outptr);
             }
 
             // Increment pointer.
-            inptr += inblock.size();
-            outptr += m_coordDim * outblock.size();
+            inptr += inblock.size() * inblock.GetNumHomoModes();
+            outptr += m_coordDim * outblock.size() * outblock.GetNumHomoModes();
         }
 
         // Set to new interleave width.

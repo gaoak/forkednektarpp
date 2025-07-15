@@ -135,8 +135,9 @@ void ReshapeToScalar(Field<TData, stateOut> &in)
              component++)
         {
             ReshapeStorage<NektarSpaces::Serial, 1>(
-                block.GetInterleaveWidth(), numElmtsPad, block.GetNumData(),
-                inptr + component * block.size());
+                block.GetInterleaveWidth(), numElmtsPad * in.GetNumHomoModes(),
+                block.GetNumData(),
+                inptr + component * block.size() * in.GetNumHomoModes());
         }
 
         block.template SetInterleaveWidth<TData>(1);
@@ -363,7 +364,8 @@ void PrintProfileResult(const CommSharedPtr comm,
 template <class Op, FieldState stateIn, FieldState stateOut, typename TData>
 void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
                     const unsigned int Ntest, const unsigned int nIn = 1,
-                    const unsigned int nOut = 1, const unsigned int nComp = 1)
+                    const unsigned int nOut = 1, const unsigned int nComp = 1,
+                    const unsigned int nHomo = 1)
 {
     // Timer.
     Timer timer;
@@ -408,9 +410,9 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
 
     // Create fields.
     auto in  = Field<TData, stateIn>::Create("f_in", blocks_in, nIn * nComp,
-                                             alignment);
+                                             nHomo, alignment);
     auto out = Field<TData, stateOut>::Create("f_out", blocks_out, nOut * nComp,
-                                              alignment);
+                                              nHomo, alignment);
 
     // Initialize the in field to random non-zeros: 1 2 3 4 ...
     auto inblk = in.GetBlocks();

@@ -39,33 +39,35 @@
 template <typename ExecSpace, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void MultiplyByDerivFactorKernel(
     const unsigned int nqTot, const unsigned int ncoord,
-    const unsigned int dimension, const size_t nelmt, const size_t insize,
-    const size_t outsize, const TData *dfptr, const TData *inptr, TData *outptr)
+    const unsigned int dimension, const size_t nelmt, const unsigned int nhomo,
+    const size_t inoffset, const size_t outoffset, const TData *dfptr,
+    const TData *inptr, TData *outptr)
 {
     const auto ndf   = ncoord * dimension;
-    const auto nsize = nqTot * nelmt;
+    const auto nsize = nqTot * nelmt * nhomo;
 
     if constexpr (DEFORMED)
     {
         Nektar::parallel_for<ExecSpace>(
             0, nsize, NEKTAR_LAMBDA(const size_t idx) {
-                size_t e = idx / nqTot;
+                size_t idx0 = idx % (nelmt * nqTot);
+                size_t e    = idx0 / nqTot;
                 TData tmp[3];
                 for (unsigned int k = 0; k < ncoord; k++)
                 {
                     tmp[k] = dfptr[(ndf - 1) * nqTot * e +
-                                   nqTot * (k * dimension) + idx] *
+                                   nqTot * (k * dimension) + idx0] *
                              inptr[idx];
                     for (unsigned int d = 1; d < dimension; d++)
                     {
                         tmp[k] += dfptr[(ndf - 1) * nqTot * e +
-                                        nqTot * (k * dimension + d) + idx] *
-                                  inptr[idx + d * insize];
+                                        nqTot * (k * dimension + d) + idx0] *
+                                  inptr[idx + d * inoffset];
                     }
                 }
                 for (unsigned int k = 0; k < ncoord; k++)
                 {
-                    outptr[k * outsize + idx] = tmp[k];
+                    outptr[k * outoffset + idx] = tmp[k];
                 }
             });
     }
@@ -73,7 +75,7 @@ NEK_FORCE_INLINE static void MultiplyByDerivFactorKernel(
     {
         Nektar::parallel_for<ExecSpace>(
             0, nsize, NEKTAR_LAMBDA(const size_t idx) {
-                size_t e = idx / nqTot;
+                size_t e = (idx % (nelmt * nqTot)) / nqTot;
                 TData tmp[3];
                 for (unsigned int k = 0; k < ncoord; k++)
                 {
@@ -81,12 +83,12 @@ NEK_FORCE_INLINE static void MultiplyByDerivFactorKernel(
                     for (unsigned int d = 1; d < dimension; d++)
                     {
                         tmp[k] += dfptr[(ndf * e + k * dimension + d)] *
-                                  inptr[idx + d * insize];
+                                  inptr[idx + d * inoffset];
                     }
                 }
                 for (unsigned int k = 0; k < ncoord; k++)
                 {
-                    outptr[k * outsize + idx] = tmp[k];
+                    outptr[k * outoffset + idx] = tmp[k];
                 }
             });
     }

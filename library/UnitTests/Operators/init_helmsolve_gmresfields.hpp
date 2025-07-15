@@ -55,6 +55,7 @@ public:
 
     void SetTestCase()
     {
+        // Set initial conditions.
         Array<OneD, double> x(fixt_explist->GetTotPoints());
         Array<OneD, double> y(fixt_explist->GetTotPoints());
         Array<OneD, double> z(fixt_explist->GetTotPoints());
@@ -126,6 +127,7 @@ public:
                        ? session->GetParameter("Lambda")
                        : 10.0;
 
+        // Compute expected solution.
         ExpectedSolution();
     }
 
@@ -142,7 +144,7 @@ public:
 
     void ExpectedSolution()
     {
-        // Calculate expected result from Nektar++
+        // Calculate expected result from Nektar++.
         Array<OneD, double> inphys = fixt_in->ToArray();
         Array<OneD, double> outcoeffs(fixt_explist->GetNcoeffs(), 0.0);
         StdRegions::ConstFactorMap factors;

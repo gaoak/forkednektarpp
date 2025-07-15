@@ -128,9 +128,11 @@ protected:
             simd_t::width, m_nqTot, m_nqTot, 1.0, 0.0);
 
         // Loop over components.
-        const auto outsize =
-            m_nqTot * inblock.GetNumElmtGroups(m_implInterleaveWidth);
-        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+        const auto outoffset =
+            m_nqTot * outblock.GetNumElmtGroups(m_implInterleaveWidth) *
+            outblock.GetNumHomoModes();
+        for (unsigned int n = 0;
+             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
             auto dfptr = dfptr_init;
 
@@ -149,15 +151,16 @@ protected:
                 for (unsigned int d = 0; d < m_dimension; d++)
                 {
                     gemm_kernel(inptr, m_matptr + d * m_nqTot * m_nqTot,
-                                outptr + d * outblock.size());
+                                outptr + d * outblock.size() *
+                                             outblock.GetNumHomoModes());
                 }
 
                 // Multiply by derivative factor.
                 if (m_isDeformed)
                 {
                     MultiplyByDerivFactorKernel<ExecSpace, true>(
-                        m_nqTot, m_coordDim, m_dimension, 1, outsize, outsize,
-                        reinterpret_cast<const simd_t *>(dfptr),
+                        m_nqTot, m_coordDim, m_dimension, 1, outoffset,
+                        outoffset, reinterpret_cast<const simd_t *>(dfptr),
                         reinterpret_cast<const simd_t *>(outptr),
                         reinterpret_cast<simd_t *>(outptr));
                     dfptr += m_coordDim * m_dimension * m_nqTot * simd_t::width;
@@ -165,8 +168,8 @@ protected:
                 else
                 {
                     MultiplyByDerivFactorKernel<ExecSpace, false>(
-                        m_nqTot, m_coordDim, m_dimension, 1, outsize, outsize,
-                        reinterpret_cast<const simd_t *>(dfptr),
+                        m_nqTot, m_coordDim, m_dimension, 1, outoffset,
+                        outoffset, reinterpret_cast<const simd_t *>(dfptr),
                         reinterpret_cast<const simd_t *>(outptr),
                         reinterpret_cast<simd_t *>(outptr));
                     dfptr += m_coordDim * m_dimension * simd_t::width;
@@ -176,7 +179,11 @@ protected:
                 inptr += m_nqTot * simd_t::width;
                 outptr += m_nqTot * simd_t::width;
             }
-            outptr += (m_coordDim - 1) * outblock.size();
+
+            if ((n + 1) % outblock.GetNumHomoModes() == 0)
+            {
+                outptr += (m_coordDim - 1) * outoffset * simd_t::width;
+            }
         }
 
         // Set to new interleave width.

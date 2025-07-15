@@ -55,6 +55,7 @@ public:
     }
     void SetTestCase()
     {
+        // Set initial conditions.
         auto coordim   = fixt_explist->GetCoordim(0);
         auto totpoints = fixt_explist->GetTotPoints();
         Array<OneD, double> x(totpoints);
@@ -71,63 +72,68 @@ public:
             Vmath::Fill(totpoints, 1.0, z, 1);
         }
 
-        size_t el = 0, exp_pts = 0;
+        size_t el = 0;
         for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
         {
             auto &block = fixt_in->GetBlocks()[blk];
             auto inptr =
                 block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
-            for (unsigned int nc = 0; nc < fixt_in->GetNumComponents(); ++nc)
+            for (unsigned int n = 0; n < fixt_in->GetNumComponents(); ++n)
             {
-                for (size_t e = 0, cnt = 0; e < block.GetNumElements(); ++e)
+                size_t pts = 0;
+                for (unsigned int m = 0; m < fixt_in->GetNumHomoModes(); ++m)
                 {
-                    // set M[3] to the point in the zero direction
-                    // otherwise to the points in the basis direction if
-                    // that basis exists
-                    unsigned int M[3];
-                    M[0] = M[1] = M[2] =
-                        fixt_explist->GetExp(el)->GetNumPoints(0);
-                    for (unsigned int i = 1;
-                         i < fixt_explist->GetExp(el)->GetNumBases(); ++i)
+                    for (size_t e = 0, cnt = 0; e < block.GetNumElements(); ++e)
                     {
-                        M[i] = fixt_explist->GetExp(el)->GetNumPoints(i);
-                    }
-
-                    size_t pts = exp_pts;
-                    for (unsigned int phys = 0; phys < block.GetNumData();
-                         ++phys, ++pts, ++cnt)
-                    {
-                        double tmp = 0.0;
-                        for (unsigned int i = 0; i < M[0] / 2; i++)
+                        // set M[3] to the point in the zero direction
+                        // otherwise to the points in the basis direction if
+                        // that basis exists
+                        unsigned int M[3];
+                        M[0] = M[1] = M[2] =
+                            fixt_explist->GetExp(el)->GetNumPoints(0);
+                        for (unsigned int i = 1;
+                             i < fixt_explist->GetExp(el)->GetNumBases(); ++i)
                         {
-                            for (unsigned int j = 0; j < M[1] / 2; j++)
+                            M[i] = fixt_explist->GetExp(el)->GetNumPoints(i);
+                        }
+
+                        for (unsigned int phys = 0; phys < block.GetNumData();
+                             ++phys, ++pts, ++cnt)
+                        {
+                            double tmp = 0.0;
+                            for (unsigned int i = 0; i < M[0] / 2; i++)
                             {
-                                for (unsigned int k = 0; k < M[2] / 2; ++k)
+                                for (unsigned int j = 0; j < M[1] / 2; j++)
                                 {
-                                    tmp += std::pow(x[pts], i) *
-                                           std::pow(y[pts], j) *
-                                           std::pow(z[pts], k);
+                                    for (unsigned int k = 0; k < M[2] / 2; ++k)
+                                    {
+                                        tmp += std::pow(x[pts], i) *
+                                               std::pow(y[pts], j) *
+                                               std::pow(z[pts], k);
+                                    }
                                 }
                             }
+                            inptr[cnt] = tmp;
                         }
-                        inptr[cnt] = tmp;
                     }
+                    inptr += block.size();
                 }
-                inptr += block.size();
             }
             el += block.GetNumElements();
-            exp_pts += block.GetNumData();
         }
-        NektarSolution();
+
+        // Compute expected solution.
+        ExpectedSolution();
     }
-    void NektarSolution()
+
+    void ExpectedSolution()
     {
         // Calculate expected result from Nektar++
-        unsigned int compSize      = fixt_in->GetNumComponents();
-        size_t nphys               = fixt_explist->GetTotPoints();
-        unsigned int coordim       = fixt_explist->GetCoordim(0);
-        Array<OneD, double> inphys = fixt_in->ToArray();
+        const unsigned int compSize = fixt_in->GetNumComponents();
+        const unsigned int coordim  = fixt_explist->GetCoordim(0);
+        const size_t nphys          = fixt_explist->GetTotPoints();
+        Array<OneD, double> inphys  = fixt_in->ToArray();
         Array<OneD, double> outphys(compSize * coordim * nphys);
 
         for (unsigned int i = 0; i < compSize; ++i)

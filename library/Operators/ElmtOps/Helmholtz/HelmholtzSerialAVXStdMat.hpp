@@ -189,7 +189,8 @@ protected:
 
         // Loop over components.
         const auto derivsize = m_nqTot;
-        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+        for (unsigned int n = 0;
+             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
             auto jacptr = jacptr_init;
             auto dfptr  = dfptr_init;

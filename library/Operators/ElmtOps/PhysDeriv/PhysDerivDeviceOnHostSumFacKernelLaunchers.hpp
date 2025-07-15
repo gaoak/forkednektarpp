@@ -46,22 +46,24 @@ template <typename ExecSpace, typename Implementation, bool DEFORMED,
 NEK_FORCE_INLINE static void PhysDeriv1DKernel(const unsigned int ncoord,
                                                const unsigned int nq0,
                                                const size_t nelmt,
+                                               const unsigned int outoffset,
                                                const TData *D0, const TData *df,
                                                const TData *in, TData *out)
 {
-    PhysDeriv1DKernel<Implementation, DEFORMED>(ncoord, nq0, nelmt, D0, df, in,
-                                                out, deviceOnHostBlock1D());
+    PhysDeriv1DKernel<Implementation, DEFORMED>(
+        ncoord, nq0, nelmt, outoffset, D0, df, in, out, deviceOnHostBlock1D());
 }
 
 // Size based template version.
 template <typename ExecSpace, typename Implementation, bool DEFORMED,
           unsigned int ncoord, unsigned int nq0, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv1DKernel(const size_t nelmt,
+                                               const unsigned int outoffset,
                                                const TData *D0, const TData *df,
                                                const TData *in, TData *out)
 {
-    PhysDeriv1DKernel<Implementation, DEFORMED>(ncoord, nq0, nelmt, D0, df, in,
-                                                out, deviceOnHostBlock1D());
+    PhysDeriv1DKernel<Implementation, DEFORMED>(
+        ncoord, nq0, nelmt, outoffset, D0, df, in, out, deviceOnHostBlock1D());
 }
 
 // Non-size based version.
@@ -69,16 +71,17 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           typename Implementation, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv2DKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
-    const size_t nelmt, const TData *D0, const TData *D1, const TData *f0,
-    const TData *f1, const TData *df, const TData *in, TData *out)
+    const size_t nelmt, const unsigned int outoffset, const TData *D0,
+    const TData *D1, const TData *f0, const TData *f1, const TData *df,
+    const TData *in, TData *out)
 {
     const unsigned int shmemsize =
         PhysDerivSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1);
     std::vector<TData> shmem(shmemsize);
 
     PhysDeriv2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
-        ncoord, nq0, nq1, nelmt, D0, D1, f0, f1, df, in, out, shmem.data(),
-        deviceOnHostBlock1D());
+        ncoord, nq0, nq1, nelmt, outoffset, D0, D1, f0, f1, df, in, out,
+        shmem.data(), deviceOnHostBlock1D());
 }
 
 // Size based template version.
@@ -86,6 +89,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           typename Implementation, bool DEFORMED, unsigned int ncoord,
           unsigned int nq0, unsigned int nq1, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv2DKernel(const size_t nelmt,
+                                               const unsigned int outoffset,
                                                const TData *D0, const TData *D1,
                                                const TData *f0, const TData *f1,
                                                const TData *df, const TData *in,
@@ -96,8 +100,8 @@ NEK_FORCE_INLINE static void PhysDeriv2DKernel(const size_t nelmt,
     std::vector<TData> shmem(shmemsize);
 
     PhysDeriv2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
-        ncoord, nq0, nq1, nelmt, D0, D1, f0, f1, df, in, out, shmem.data(),
-        deviceOnHostBlock1D());
+        ncoord, nq0, nq1, nelmt, outoffset, D0, D1, f0, f1, df, in, out,
+        shmem.data(), deviceOnHostBlock1D());
 }
 
 // Non-size based version.
@@ -105,17 +109,18 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           typename Implementation, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const size_t nelmt, const TData *D0, const TData *D1, const TData *D2,
-    const TData *f0, const TData *f1, const TData *f1m, const TData *f2,
-    const TData *df, const TData *in, TData *out)
+    const size_t nelmt, const unsigned int outoffset, const TData *D0,
+    const TData *D1, const TData *D2, const TData *f0, const TData *f1,
+    const TData *f1m, const TData *f2, const TData *df, const TData *in,
+    TData *out)
 {
     const unsigned int shmemsize =
         PhysDerivSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1, nq2);
     std::vector<TData> shmem(shmemsize);
 
     PhysDeriv3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
-        nq0, nq1, nq2, nelmt, D0, D1, D2, f0, f1, f1m, f2, df, in, out,
-        shmem.data(), deviceOnHostBlock1D());
+        nq0, nq1, nq2, nelmt, outoffset, D0, D1, D2, f0, f1, f1m, f2, df, in,
+        out, shmem.data(), deviceOnHostBlock1D());
 }
 
 // Size based template version.
@@ -123,17 +128,18 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           typename Implementation, bool DEFORMED, unsigned int nq0,
           unsigned int nq1, unsigned int nq2, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv3DKernel(
-    const size_t nelmt, const TData *D0, const TData *D1, const TData *D2,
-    const TData *f0, const TData *f1, const TData *f1m, const TData *f2,
-    const TData *df, const TData *in, TData *out)
+    const size_t nelmt, const unsigned int outoffset, const TData *D0,
+    const TData *D1, const TData *D2, const TData *f0, const TData *f1,
+    const TData *f1m, const TData *f2, const TData *df, const TData *in,
+    TData *out)
 {
     const unsigned int shmemsize =
         PhysDerivSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1, nq2);
     std::vector<TData> shmem(shmemsize);
 
     PhysDeriv3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
-        nq0, nq1, nq2, nelmt, D0, D1, D2, f0, f1, f1m, f2, df, in, out,
-        shmem.data(), deviceOnHostBlock1D());
+        nq0, nq1, nq2, nelmt, outoffset, D0, D1, D2, f0, f1, f1m, f2, df, in,
+        out, shmem.data(), deviceOnHostBlock1D());
 }
 
 } // namespace Nektar::Operators::detail

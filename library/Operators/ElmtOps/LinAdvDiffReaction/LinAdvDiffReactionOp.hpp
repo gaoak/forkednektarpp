@@ -96,6 +96,9 @@ protected:
         ASSERTL1(in.GetNumComponents() == out.GetNumComponents(),
                  "Number of input and output components differ");
 
+        ASSERTL1(in.GetNumHomoModes() == out.GetNumHomoModes(),
+                 "Number of input and output homogeneous modes differ");
+
         ASSERTL1(m_isSetLambda,
                  "m_lambda has not been set."
                  "Set the value with SetLambda() before calling Apply().");

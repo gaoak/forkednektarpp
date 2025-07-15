@@ -131,77 +131,6 @@ private:
     unsigned int m_interleave_width;
 };
 
-template <typename TData> class BlockAccessor : public BlockAttributes
-{
-public:
-    BlockAccessor(const BlockAttributes blockAttr,
-                  MemoryRegion<TData> &memory_region,
-                  const unsigned int num_components, const size_t offset)
-        : BlockAttributes(blockAttr), m_memory_region(memory_region),
-          m_num_components(num_components), m_offset(offset)
-    {
-    }
-
-    BlockAccessor(const size_t exp_idx, const size_t num_elements,
-                  const size_t num_elements_with_padding,
-                  const unsigned int num_data, const unsigned interleave_width,
-                  MemoryRegion<TData> &memory_region,
-                  const unsigned int num_components, const size_t offset)
-        : BlockAttributes(exp_idx, num_elements, num_elements_with_padding,
-                          num_data, interleave_width),
-          m_memory_region(memory_region), m_num_components(num_components),
-          m_offset(offset)
-    {
-    }
-
-    /**
-     * @brief Get the pointer to the host/device memory.
-     *
-     * @return    - TData*
-     */
-    template <typename MemSpace, typename MemAccess>
-    typename const_if<std::is_same_v<MemAccess, ReadOnly>, TData>::type *GetPtr()
-    {
-        return m_memory_region.template GetPtr<MemSpace, MemAccess>() +
-               m_offset;
-    }
-
-    /**
-     * @brief Gets the alignment of the memory region block.
-     *
-     * @return size_t
-     */
-    size_t GetAlignment() const
-    {
-        return m_memory_region.GetAlignment();
-    }
-
-    /**
-     * @brief Gets the device rank of the memory region block.
-     *
-     * @return unsigned int
-     */
-    unsigned int GetDeviceRank() const
-    {
-        return m_memory_region.GetDeviceRank();
-    }
-
-    /**
-     * @brief Gets the number of components.
-     *
-     * @return unsigned int
-     */
-    unsigned int GetNumComponents() const
-    {
-        return m_num_components;
-    }
-
-private:
-    MemoryRegion<TData> &m_memory_region;
-    unsigned int m_num_components = 0;
-    size_t m_offset               = 0;
-};
-
 /**
  * @brief Get the BlockAttributes for a given field state from an ExpList.
  * This method basically captures identical elements that are contiguously
@@ -218,7 +147,7 @@ std::vector<BlockAttributes> GetBlockAttributes(
     FieldState state, const MultiRegions::ExpListSharedPtr explist,
     const unsigned interleave_width = 1)
 {
-    auto vector_width = NektarSpaces::vector_width<TData>::value;
+    const auto vector_width = NektarSpaces::vector_width<TData>::value;
 
     std::vector<BlockAttributes> blockAttr;
 
@@ -287,6 +216,91 @@ std::vector<BlockAttributes> GetBlockAttributes(
     return blockAttr;
 }
 
+template <typename TData> class BlockAccessor : public BlockAttributes
+{
+public:
+    BlockAccessor(const BlockAttributes blockAttr,
+                  MemoryRegion<TData> &memory_region,
+                  const unsigned int num_components,
+                  const unsigned int num_homo_modes, const size_t offset)
+        : BlockAttributes(blockAttr), m_memory_region(memory_region),
+          m_num_components(num_components), m_num_homo_modes(num_homo_modes),
+          m_offset(offset)
+    {
+    }
+
+    BlockAccessor(const size_t exp_idx, const size_t num_elements,
+                  const size_t num_elements_with_padding,
+                  const unsigned int num_data, const unsigned interleave_width,
+                  MemoryRegion<TData> &memory_region,
+                  const unsigned int num_components,
+                  const unsigned int num_homo_modes, const size_t offset)
+        : BlockAttributes(exp_idx, num_elements, num_elements_with_padding,
+                          num_data, interleave_width),
+          m_memory_region(memory_region), m_num_components(num_components),
+          m_num_homo_modes(num_homo_modes), m_offset(offset)
+    {
+    }
+
+    /**
+     * @brief Get the pointer to the host/device memory.
+     *
+     * @return    - TData*
+     */
+    template <typename MemSpace, typename MemAccess>
+    typename const_if<std::is_same_v<MemAccess, ReadOnly>, TData>::type *GetPtr()
+    {
+        return m_memory_region.template GetPtr<MemSpace, MemAccess>() +
+               m_offset;
+    }
+
+    /**
+     * @brief Gets the alignment of the memory region block.
+     *
+     * @return size_t
+     */
+    size_t GetAlignment() const
+    {
+        return m_memory_region.GetAlignment();
+    }
+
+    /**
+     * @brief Gets the device rank of the memory region block.
+     *
+     * @return unsigned int
+     */
+    unsigned int GetDeviceRank() const
+    {
+        return m_memory_region.GetDeviceRank();
+    }
+
+    /**
+     * @brief Gets the number of components.
+     *
+     * @return unsigned int
+     */
+    unsigned int GetNumComponents() const
+    {
+        return m_num_components;
+    }
+
+    /**
+     * @brief Gets the number of homogeneous modes.
+     *
+     * @return unsigned int
+     */
+    unsigned int GetNumHomoModes() const
+    {
+        return m_num_homo_modes;
+    }
+
+private:
+    MemoryRegion<TData> &m_memory_region;
+    unsigned int m_num_components = 0;
+    unsigned int m_num_homo_modes = 1;
+    size_t m_offset               = 0;
+};
+
 /**
  * @brief A Field represents expansion data to be operated on.
  *
@@ -322,7 +336,8 @@ public:
      */
     Field(Field &&rhs)
         : m_name(std::move(rhs.m_name)),
-          m_var_names(std::move(rhs.m_var_names)),
+          m_component_names(std::move(rhs.m_component_names)),
+          m_num_homo_modes(std::move(rhs.m_num_homo_modes)),
           m_host(std::move(rhs.m_host)),
           m_alignment(std::move(rhs.m_alignment)),
           m_num_device(std::move(rhs.m_num_device)),
@@ -333,10 +348,11 @@ public:
           m_memAllocType(std::move(rhs.m_memAllocType))
     {
         rhs.m_name = "";
-        rhs.m_var_names.clear();
-        rhs.m_host       = nullptr;
-        rhs.m_alignment  = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
-        rhs.m_num_device = 1;
+        rhs.m_component_names.clear();
+        rhs.m_num_homo_modes = 1;
+        rhs.m_host           = nullptr;
+        rhs.m_alignment      = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+        rhs.m_num_device     = 1;
         rhs.m_block_accessors.clear();
         rhs.m_memory_regions.clear();
         rhs.m_blk_to_mr_offset.clear();
@@ -354,7 +370,8 @@ public:
     Field &operator=(Field &&rhs)
     {
         m_name              = std::move(rhs.m_name);
-        m_var_names         = std::move(rhs.m_var_names);
+        m_component_names   = std::move(rhs.m_component_names);
+        m_num_homo_modes    = std::move(rhs.m_num_homo_modes);
         m_host              = std::move(rhs.m_host);
         m_alignment         = std::move(rhs.m_alignment);
         m_num_device        = std::move(rhs.m_num_device);
@@ -365,10 +382,11 @@ public:
         m_memAllocType      = std::move(rhs.m_memAllocType);
 
         rhs.m_name = "";
-        rhs.m_var_names.clear();
-        rhs.m_host       = nullptr;
-        rhs.m_alignment  = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
-        rhs.m_num_device = 1;
+        rhs.m_component_names.clear();
+        rhs.m_num_homo_modes = 1;
+        rhs.m_host           = nullptr;
+        rhs.m_alignment      = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+        rhs.m_num_device     = 1;
         rhs.m_block_accessors.clear();
         rhs.m_memory_regions.clear();
         rhs.m_blk_to_mr_offset.clear();
@@ -381,22 +399,24 @@ public:
      * @brief Static templated creation method. This method create
      * new Field by giving the names of the components.
      *
-     * @param name         - Name of the field (memory region)
-     * @param blockAttr    - Block attributes.
-     * @param components   - Names of components for a vector field.
-     * @param alignment    - Memory alignment to use.
-     * @param memAllocType - [eHostDevice, eDeviceOnly, ePinned].
+     * @param name           - Name of the field (memory region)
+     * @param blockAttr      - Block attributes.
+     * @param components     - Names of components for a vector field.
+     * @param num_homo_modes - Number of homogeneous modes.
+     * @param alignment      - Memory alignment to use.
+     * @param memAllocType   - [eHostDevice, eDeviceOnly, ePinned].
      *
      * @return Field<TData, TState>
      */
     static Field<TData, TState> Create(
         const std::string name, const std::vector<BlockAttributes> blockAttr,
-        const std::vector<std::string> components, const size_t alignment,
+        const std::vector<std::string> components,
+        const unsigned int num_homo_modes, const size_t alignment,
         const MemAllocType &memAllocType = eHostDevice)
     {
         unsigned int num_device = 1;
-        auto field =
-            Field(name, components, alignment, num_device, memAllocType);
+        auto field = Field(name, components, num_homo_modes, alignment,
+                           num_device, memAllocType);
 
         SetBlockToMemoryRegionMapping(field, blockAttr);
 
@@ -409,6 +429,7 @@ public:
      *
      * @param blocks       - Field data specification.
      * @param components   - Names of components for a vector field.
+     * @param num_homo_modes - Number of homogeneous modes.
      * @param alignment    - Memory alignment to use.
      * @param memAllocType - [eHostDevice, eDeviceOnly, ePinned].
      *
@@ -416,32 +437,35 @@ public:
      */
     static Field<TData, TState> Create(
         const std::vector<BlockAttributes> blockAttr,
-        const std::vector<std::string> components, const size_t alignment,
+        const std::vector<std::string> components,
+        const unsigned int num_homo_modes, const size_t alignment,
         const MemAllocType &memAllocType = eHostDevice)
     {
-        return Field<TData, TState>::Create("", blockAttr, components,
-                                            alignment, memAllocType);
+        return Field<TData, TState>::Create(
+            "", blockAttr, components, num_homo_modes, alignment, memAllocType);
     }
 
     /**
      * @brief Static templated creation method. This method create
      * new Field by giving the number of components.
      *
-     * @param name         - Name of the field (memory region)
-     * @param blockAttr    - Block attributes.
-     * @param nvar         - Number of components for a vector field.
-     * @param alignment    - Memory alignment to use.
-     * @param memAllocType - [eHostDevice, eDeviceOnly, ePinned].
+     * @param name           - Name of the field (memory region)
+     * @param blockAttr      - Block attributes.
+     * @param num_components - Number of components for a vector field.
+     * @param num_homo_modes - Number of homogeneous modes.
+     * @param alignment      - Memory alignment to use.
+     * @param memAllocType   - [eHostDevice, eDeviceOnly, ePinned].
      *
      * @return Field<TData, TState>
      */
     static Field<TData, TState> Create(
         const std::string name, const std::vector<BlockAttributes> blockAttr,
-        const unsigned int nvar, const size_t alignment,
-        const MemAllocType &memAllocType = eHostDevice)
+        const unsigned int num_components, const unsigned int num_homo_modes,
+        const size_t alignment, const MemAllocType &memAllocType = eHostDevice)
     {
         unsigned int num_device = 1;
-        auto field = Field(name, nvar, alignment, num_device, memAllocType);
+        auto field = Field(name, num_components, num_homo_modes, alignment,
+                           num_device, memAllocType);
 
         SetBlockToMemoryRegionMapping(field, blockAttr);
 
@@ -452,18 +476,21 @@ public:
      * @brief Static templated creation method. This method create
      * new Field by giving the number of components.
      *
-     * @param blocks       - Field data specification.
-     * @param nvar         - Number of components for a vector field.
-     * @param alignment    - Memory alignment to use.
-     * @param memAllocType - [eHostDevice, eDeviceOnly, ePinned].
+     * @param blocks         - Field data specification.
+     * @param num_components - Number of components for a vector field.
+     * @param num_homo_modes - Number of homogeneous modes.
+     * @param alignment      - Memory alignment to use.
+     * @param memAllocType   - [eHostDevice, eDeviceOnly, ePinned].
      *
      * @return Field<TData, TState>
      */
     static Field<TData, TState> Create(
-        const std::vector<BlockAttributes> blockAttr, const unsigned int nvar,
+        const std::vector<BlockAttributes> blockAttr,
+        const unsigned int num_components, const unsigned int num_homo_modes,
         const size_t alignment, const MemAllocType &memAllocType = eHostDevice)
     {
-        return Field<TData, TState>::Create("", blockAttr, nvar, alignment,
+        return Field<TData, TState>::Create("", blockAttr, num_components,
+                                            num_homo_modes, alignment,
                                             memAllocType);
     }
 
@@ -479,7 +506,8 @@ public:
         {
             // Set one-to-one MemoryRegion to device mapping.
             auto mr    = blk % field.m_num_device;
-            auto nsize = blockAttr[blk].size() * field.GetNumComponents();
+            auto nsize = blockAttr[blk].size() * field.GetNumComponents() *
+                         field.GetNumHomoModes();
             field.m_blk_to_mr_mapping.push_back(mr);
             field.m_blk_to_mr_offset.push_back(offset[mr]);
             offset[mr] += nsize;
@@ -527,7 +555,8 @@ public:
         for (unsigned int blk = 0; blk < blockAttr.size(); ++blk)
         {
             // Set one-to-one block to MemoryRegion mapping.
-            auto nsize = blockAttr[blk].size() * field.GetNumComponents();
+            auto nsize = blockAttr[blk].size() * field.GetNumComponents() *
+                         field.GetNumHomoModes();
             field.m_blk_to_mr_mapping.push_back(blk);
             field.m_blk_to_mr_offset.push_back(0);
             hsize += nsize;
@@ -551,7 +580,8 @@ public:
         {
             // Create memory region.
             auto device_rank = blk % field.m_num_device;
-            auto size        = blockAttr[blk].size() * field.GetNumComponents();
+            auto size = blockAttr[blk].size() * field.GetNumComponents() *
+                        field.GetNumHomoModes();
             if (field.m_memAllocType == eDeviceOnly)
             {
                 field.m_memory_regions.push_back(MemoryRegion<TData>::Create(
@@ -573,7 +603,8 @@ public:
             field.m_block_accessors.push_back(BlockAccessor(
                 blockAttr[blk],
                 field.m_memory_regions[field.m_blk_to_mr_mapping[blk]],
-                field.m_var_names.size(), field.m_blk_to_mr_offset[blk]));
+                field.GetNumComponents(), field.GetNumHomoModes(),
+                field.m_blk_to_mr_offset[blk]));
         }
     }
 
@@ -590,55 +621,6 @@ public:
     }
 
     /**
-     * @brief Copy the data to a MemoryRegion
-     *
-     * @return MemoryRegion
-     */
-    template <typename MemSpace, typename TDataOut = TData>
-    MemoryRegion<TDataOut> ToMemoryRegion()
-    {
-        unsigned int compSize = 0;
-        for (auto &block : this->GetBlocks())
-        {
-            compSize += block.GetNumData() * block.GetNumElements();
-        }
-
-        MemoryRegion<TDataOut> mr = MemoryRegion<TDataOut>::Create(
-            compSize * this->GetNumComponents(), this->m_alignment);
-
-        // Copy the data from the input field
-        auto dst = mr.template GetPtr<MemSpace, WriteOnly>();
-        for (unsigned int blk = 0; blk < this->GetBlocks().size(); ++blk)
-        {
-            auto nSize  = this->GetBlocks()[blk].size();
-            auto nElmts = this->GetBlocks()[blk].GetNumElements();
-            auto nPts   = this->GetBlocks()[blk].GetNumData();
-            auto src =
-                this->GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-            auto device_rank = this->GetBlocks()[blk].GetDeviceRank(blk);
-            for (auto n = 0; n < this->GetNumComponents(); n++)
-            {
-                if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
-                {
-                    std::copy(src, src + nElmts * nPts, dst + n * compSize);
-                }
-                else if constexpr (std::is_same_v<MemSpace,
-                                                  NektarSpaces::DeviceSpace>)
-                {
-                    deviceMemcpy<DeviceToDevice>(dst + n * compSize, src,
-                                                 nElmts * nPts * sizeof(TData),
-                                                 device_rank);
-                }
-                src += nSize;
-            }
-
-            dst += nElmts * nPts;
-        }
-
-        return mr;
-    }
-
-    /**
      * @brief Copy the data to a std::vector
      *
      * @return std::vector
@@ -652,7 +634,8 @@ public:
             compSize += block.GetNumData() * block.GetNumElements();
         }
 
-        std::vector<TDataOut, Alloc> array(compSize * this->GetNumComponents());
+        std::vector<TDataOut, Alloc> array(compSize * this->GetNumComponents() *
+                                           this->GetNumHomoModes());
 
         // Copy the data from the input field.
         auto dst = array.data();
@@ -661,10 +644,11 @@ public:
             auto src =
                 this->GetBlocks()[blk]
                     .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-            auto nSize  = this->GetBlocks()[blk].size();
-            auto nElmts = this->GetBlocks()[blk].GetNumElements();
-            auto nPts   = this->GetBlocks()[blk].GetNumData();
-            for (auto n = 0; n < this->GetNumComponents(); n++)
+            const auto nSize  = this->GetBlocks()[blk].size();
+            const auto nElmts = this->GetBlocks()[blk].GetNumElements();
+            const auto nPts   = this->GetBlocks()[blk].GetNumData();
+            for (auto n = 0;
+                 n < this->GetNumComponents() * this->GetNumHomoModes(); n++)
             {
                 std::copy(src, src + nElmts * nPts, dst + n * compSize);
                 src += nSize;
@@ -690,8 +674,8 @@ public:
             compSize += block.GetNumData() * block.GetNumElements();
         }
 
-        Nektar::Array<Nektar::OneD, TDataOut> array(compSize *
-                                                    this->GetNumComponents());
+        Nektar::Array<Nektar::OneD, TDataOut> array(
+            compSize * this->GetNumComponents() * this->GetNumHomoModes());
 
         // Copy the data from the input field.
         auto dst = array.data();
@@ -700,10 +684,11 @@ public:
             auto src =
                 this->GetBlocks()[blk]
                     .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-            auto nSize  = this->GetBlocks()[blk].size();
-            auto nElmts = this->GetBlocks()[blk].GetNumElements();
-            auto nPts   = this->GetBlocks()[blk].GetNumData();
-            for (auto n = 0; n < this->GetNumComponents(); n++)
+            const auto nSize  = this->GetBlocks()[blk].size();
+            const auto nElmts = this->GetBlocks()[blk].GetNumElements();
+            const auto nPts   = this->GetBlocks()[blk].GetNumData();
+            for (auto n = 0;
+                 n < this->GetNumComponents() * this->GetNumHomoModes(); n++)
             {
                 std::copy(src, src + nElmts * nPts, dst + n * compSize);
                 src += nSize;
@@ -767,14 +752,14 @@ public:
               class Alloc = std::allocator<TDataIn>>
     void CopyVector(const std::vector<TDataIn, Alloc> &array)
     {
-        size_t nSize = 0;
+        unsigned int compSize = 0;
         for (auto &block : this->GetBlocks())
         {
-            nSize += block.GetNumData() * block.GetNumElements();
+            compSize += block.GetNumData() * block.GetNumElements();
         }
-        nSize *= this->GetNumComponents();
 
-        if (nSize != array.size())
+        if (compSize * this->GetNumComponents() * this->GetNumHomoModes() !=
+            array.size())
         {
             std::stringstream msg;
 
@@ -784,7 +769,24 @@ public:
             NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
         }
 
-        this->template CopyFromHostPtr<MemSpace>(array.data());
+        // Copy the data to the array.
+        auto src = array.data();
+        for (unsigned int blk = 0; blk < this->GetBlocks().size(); ++blk)
+        {
+            auto offset       = m_blk_to_mr_offset[blk];
+            const auto nSize  = this->GetBlocks()[blk].size();
+            const auto nElmts = this->GetBlocks()[blk].GetNumElements();
+            const auto nPts   = this->GetBlocks()[blk].GetNumData();
+            for (auto n = 0;
+                 n < this->GetNumComponents() * this->GetNumHomoModes(); n++)
+            {
+                m_memory_regions[m_blk_to_mr_mapping[blk]]
+                    .template CopyFromHostPtr<MemSpace>(src + n * compSize,
+                                                        nElmts * nPts, offset);
+                offset += nSize;
+            }
+            src += nElmts * nPts;
+        }
     }
 
     /**
@@ -797,14 +799,14 @@ public:
     template <typename MemSpace, typename TDataIn>
     void CopyArray(const Nektar::Array<Nektar::OneD, TDataIn> &array)
     {
-        size_t nSize = 0;
+        unsigned int compSize = 0;
         for (auto &block : this->GetBlocks())
         {
-            nSize += block.GetNumData() * block.GetNumElements();
+            compSize += block.GetNumData() * block.GetNumElements();
         }
-        nSize *= this->GetNumComponents();
 
-        if (nSize != array.size())
+        if (compSize * this->GetNumComponents() * this->GetNumHomoModes() !=
+            array.size())
         {
             std::stringstream msg;
 
@@ -814,7 +816,24 @@ public:
             NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
         }
 
-        this->template CopyFromHostPtr<MemSpace>(array.data());
+        // Copy the data to the array.
+        auto src = array.data();
+        for (unsigned int blk = 0; blk < this->GetBlocks().size(); ++blk)
+        {
+            auto offset       = m_blk_to_mr_offset[blk];
+            const auto nSize  = this->GetBlocks()[blk].size();
+            const auto nElmts = this->GetBlocks()[blk].GetNumElements();
+            const auto nPts   = this->GetBlocks()[blk].GetNumData();
+            for (auto n = 0;
+                 n < this->GetNumComponents() * this->GetNumHomoModes(); n++)
+            {
+                m_memory_regions[m_blk_to_mr_mapping[blk]]
+                    .template CopyFromHostPtr<MemSpace>(src + n * compSize,
+                                                        nElmts * nPts, offset);
+                offset += nSize;
+            }
+            src += nElmts * nPts;
+        }
     }
 
     /**
@@ -849,7 +868,7 @@ public:
         {
             nSize += m_block_accessors[blk].size();
         }
-        return nSize * this->GetNumComponents();
+        return nSize * this->GetNumComponents() * this->GetNumHomoModes();
     }
 
     /**
@@ -869,7 +888,17 @@ public:
      */
     unsigned int GetNumComponents() const
     {
-        return m_var_names.size();
+        return m_component_names.size();
+    }
+
+    /**
+     * @brief Gets the number of homogeneous modes.
+     *
+     * @return unsigned int
+     */
+    unsigned int GetNumHomoModes() const
+    {
+        return m_num_homo_modes;
     }
 
     typedef TData value_type;
@@ -878,15 +907,17 @@ private:
     /**
      * @brief Construct a new Field object.
      *
-     * @param name         - Name of the field object.
-     * @param blocks       - Field data layout specification.
-     * @param nvar         - Number of components.
-     * @param memAllocType - [eHostDevice, eDeviceOnly, ePinned].
+     * @param name           - Name of the field object.
+     * @param blocks         - Field data layout specification.
+     * @param num_components - Number of components.
+     * @param num_homo_modes - Number of components.
+     * @param memAllocType   - [eHostDevice, eDeviceOnly, ePinned].
      */
-    Field(const std::string name, const unsigned int nvar,
-          const size_t alignment, const unsigned int num_device,
-          const MemAllocType &memAllocType)
-        : m_name(name), m_var_names(nvar), m_alignment(alignment),
+    Field(const std::string name, const unsigned int num_components,
+          const unsigned int num_homo_modes, const size_t alignment,
+          const unsigned int num_device, const MemAllocType &memAllocType)
+        : m_name(name), m_component_names(num_components),
+          m_num_homo_modes(num_homo_modes), m_alignment(alignment),
           m_num_device(num_device), m_memAllocType(memAllocType)
     {
     }
@@ -897,56 +928,25 @@ private:
      * @param name         - Name of the field object.
      * @param blocks       - Field data layout specification.
      * @param components   - Names of components for vector field.
+     * @param num_homo_modes - Number of components.
      * @param memAllocType - [eHostDevice, eDeviceOnly, ePinned].
      */
     Field(const std::string name, const std::vector<std::string> components,
-          const size_t alignment, const unsigned int num_device,
-          const MemAllocType &memAllocType)
-        : m_name(name), m_var_names(components), m_alignment(alignment),
+          const unsigned int num_homo_modes, const size_t alignment,
+          const unsigned int num_device, const MemAllocType &memAllocType)
+        : m_name(name), m_component_names(components),
+          m_num_homo_modes(num_homo_modes), m_alignment(alignment),
           m_num_device(num_device), m_memAllocType(memAllocType)
     {
     }
 
-    /**
-     * @brief Copy the data from a host source pointer. This is a helper
-     * function to copy the source data from a host container (vector, array,
-     * etc.). CopyFromHostPtr should not be otherwise used and has been made
-     * private.
-     *
-     * @param const TDataIn* src
-     */
-    template <typename MemSpace, typename TDataIn>
-    void CopyFromHostPtr(const TDataIn *src)
-    {
-        auto compSize = 0;
-        for (auto &block : this->GetBlocks())
-        {
-            compSize += block.GetNumData() * block.GetNumElements();
-        }
-
-        for (unsigned int blk = 0; blk < this->GetBlocks().size(); ++blk)
-        {
-            auto offset = m_blk_to_mr_offset[blk];
-            auto nSize  = this->GetBlocks()[blk].size();
-            auto nElmts = this->GetBlocks()[blk].GetNumElements();
-            auto nPts   = this->GetBlocks()[blk].GetNumData();
-            for (auto n = 0; n < this->GetNumComponents(); n++)
-            {
-                m_memory_regions[m_blk_to_mr_mapping[blk]]
-                    .template CopyFromHostPtr<MemSpace>(src + n * compSize,
-                                                        nElmts * nPts, offset);
-                offset += nSize;
-            }
-            src += nElmts * nPts;
-        }
-    }
-
     // Member variables:
     std::string m_name;
-    std::vector<std::string> m_var_names;
-    TData *m_host             = nullptr;
-    size_t m_alignment        = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
-    unsigned int m_num_device = 1;
+    std::vector<std::string> m_component_names;
+    unsigned int m_num_homo_modes = 1;
+    TData *m_host                 = nullptr;
+    size_t m_alignment            = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+    unsigned int m_num_device     = 1;
     std::vector<BlockAccessor<TData>> m_block_accessors;
     std::vector<MemoryRegion<TData>> m_memory_regions;
     std::vector<size_t> m_blk_to_mr_offset;

@@ -255,7 +255,9 @@ protected:
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+        const auto outoffset = outblock.size() * outblock.GetNumHomoModes();
+        for (unsigned int n = 0;
+             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
@@ -264,11 +266,16 @@ protected:
 
             // Calculate derivative.
             PhysDeriv1DKernel<ExecSpace, Implementation, DEFORMED>(
-                m_coordDim, nq0, nelmt, m_D[0], dfptr, inptr, outptr);
+                m_coordDim, nq0, nelmt, outoffset, m_D[0], dfptr, inptr,
+                outptr);
 
             // Increment pointers.
             inptr += inblock.size();
-            outptr += m_coordDim * outblock.size();
+            outptr += outblock.size();
+            if ((n + 1) % outblock.GetNumHomoModes() == 0)
+            {
+                outptr += (m_coordDim - 1) * outoffset;
+            }
         }
 
         // Set to new interleave width.
@@ -298,7 +305,9 @@ protected:
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+        const auto outoffset = outblock.size() * outblock.GetNumHomoModes();
+        for (unsigned int n = 0;
+             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
@@ -307,11 +316,16 @@ protected:
 
             // Calculate derivative.
             PhysDeriv1DKernel<ExecSpace, Implementation, DEFORMED, coordDim,
-                              nq0>(nelmt, m_D[0], dfptr, inptr, outptr);
+                              nq0>(nelmt, outoffset, m_D[0], dfptr, inptr,
+                                   outptr);
 
             // Increment pointers.
             inptr += inblock.size();
-            outptr += coordDim * outblock.size();
+            outptr += outblock.size();
+            if ((n + 1) % outblock.GetNumHomoModes() == 0)
+            {
+                outptr += (m_coordDim - 1) * outoffset;
+            }
         }
 
         // Set to new interleave width.
@@ -344,7 +358,9 @@ protected:
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+        const auto outoffset = outblock.size() * outblock.GetNumHomoModes();
+        for (unsigned int n = 0;
+             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
@@ -353,12 +369,16 @@ protected:
 
             // Calculate derivative.
             PhysDeriv2DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
-                m_coordDim, nq0, nq1, nelmt, m_D[0], m_D[1], m_f[0], m_f[1],
-                dfptr, inptr, outptr);
+                m_coordDim, nq0, nq1, nelmt, outoffset, m_D[0], m_D[1], m_f[0],
+                m_f[1], dfptr, inptr, outptr);
 
             // Increment pointers.
             inptr += inblock.size();
-            outptr += m_coordDim * outblock.size();
+            outptr += outblock.size();
+            if ((n + 1) % outblock.GetNumHomoModes() == 0)
+            {
+                outptr += (m_coordDim - 1) * outoffset;
+            }
         }
 
         // Set to new interleave width.
@@ -388,7 +408,9 @@ protected:
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+        const auto outoffset = outblock.size() * outblock.GetNumHomoModes();
+        for (unsigned int n = 0;
+             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
@@ -397,12 +419,17 @@ protected:
 
             // Calculate derivative.
             PhysDeriv2DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED,
-                              coordDim, nq0, nq1>(nelmt, m_D[0], m_D[1], m_f[0],
-                                                  m_f[1], dfptr, inptr, outptr);
+                              coordDim, nq0, nq1>(nelmt, outoffset, m_D[0],
+                                                  m_D[1], m_f[0], m_f[1], dfptr,
+                                                  inptr, outptr);
 
             // Increment pointers.
             inptr += inblock.size();
-            outptr += coordDim * outblock.size();
+            outptr += outblock.size();
+            if ((n + 1) % outblock.GetNumHomoModes() == 0)
+            {
+                outptr += (m_coordDim - 1) * outoffset;
+            }
         }
 
         // Set to new interleave width.
@@ -436,7 +463,7 @@ protected:
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+        for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
@@ -445,8 +472,8 @@ protected:
 
             // Calculate derivative.
             PhysDeriv3DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
-                nq0, nq1, nq2, nelmt, m_D[0], m_D[1], m_D[2], m_f[0], m_f[1],
-                m_f[2], m_f[3], dfptr, inptr, outptr);
+                nq0, nq1, nq2, nelmt, outblock.size(), m_D[0], m_D[1], m_D[2],
+                m_f[0], m_f[1], m_f[2], m_f[3], dfptr, inptr, outptr);
 
             // Increment pointers.
             inptr += inblock.size();
@@ -480,7 +507,7 @@ protected:
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+        for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
@@ -489,9 +516,9 @@ protected:
 
             // Calculate derivative.
             PhysDeriv3DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED,
-                              nq0, nq1, nq2>(nelmt, m_D[0], m_D[1], m_D[2],
-                                             m_f[0], m_f[1], m_f[2], m_f[3],
-                                             dfptr, inptr, outptr);
+                              nq0, nq1, nq2>(
+                nelmt, outblock.size(), m_D[0], m_D[1], m_D[2], m_f[0], m_f[1],
+                m_f[2], m_f[3], dfptr, inptr, outptr);
 
             // Increment pointers.
             inptr += inblock.size();
