@@ -252,7 +252,8 @@ protected:
             std::max(m_implInterleaveWidth, interleave_width);
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+        for (unsigned int n = 0;
+             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
             // Loop over element groups.
             for (size_t e = 0;
@@ -309,7 +310,8 @@ protected:
             std::max(m_implInterleaveWidth, interleave_width);
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+        for (unsigned int n = 0;
+             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
             // Loop over element groups.
             for (size_t e = 0;
@@ -374,7 +376,8 @@ protected:
             std::max(m_implInterleaveWidth, interleave_width);
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+        for (unsigned int n = 0;
+             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
             // Loop over element groups.
             for (size_t e = 0;
@@ -437,7 +440,8 @@ protected:
             std::max(m_implInterleaveWidth, interleave_width);
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+        for (unsigned int n = 0;
+             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
             // Loop over element groups.
             for (size_t e = 0;
@@ -508,7 +512,7 @@ protected:
             std::max(m_implInterleaveWidth, interleave_width);
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+        for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
             // Loop over element groups.
             for (size_t e = 0;
@@ -573,7 +577,7 @@ protected:
             std::max(m_implInterleaveWidth, interleave_width);
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+        for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
             // Loop over element groups.
             for (size_t e = 0;

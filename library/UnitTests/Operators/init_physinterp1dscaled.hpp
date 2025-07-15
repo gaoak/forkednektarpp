@@ -51,25 +51,30 @@ public:
 
     void SetTestCase(double scale)
     {
+        // Set initial conditions.
         for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
         {
             auto &block = fixt_in->GetBlocks()[blk];
             auto inptr =
                 block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
-            for (unsigned int nc = 0; nc < fixt_in->GetNumComponents(); ++nc)
+            for (unsigned int n = 0;
+                 n < fixt_in->GetNumComponents() * fixt_in->GetNumHomoModes();
+                 ++n)
             {
                 for (size_t el = 0, cnt = 0; el < block.GetNumElements(); ++el)
                 {
                     for (unsigned int phys = 0; phys < block.GetNumData();
                          ++phys, ++cnt)
                     {
-                        inptr[cnt] = phys + nc;
+                        inptr[cnt] = phys + n;
                     }
                 }
                 inptr += block.size();
             }
         }
+
+        // Compute expected solution.
         ExpectedSolution(scale);
     }
 
@@ -82,9 +87,9 @@ public:
 
     void ExpectedSolution(double scale)
     {
-        unsigned int compSize = fixt_in->GetNumComponents();
-        size_t nphys          = fixt_explist->GetTotPoints();
-        size_t nphys1D        = fixt_explist->Get1DScaledTotPoints(scale);
+        const unsigned int compSize = fixt_in->GetNumComponents();
+        const size_t nphys          = fixt_explist->GetTotPoints();
+        const size_t nphys1D        = fixt_explist->Get1DScaledTotPoints(scale);
 
         // Calculate expected result from Nektar++
         Array<OneD, double> inphys = fixt_in->ToArray();

@@ -40,17 +40,20 @@
 
 template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static void AddAdvectionKernels(
-    const size_t nelmt, const unsigned int nqTot, const unsigned int ncoord,
-    const size_t advelsize, const size_t derivsize, const TData *advVel,
-    const TData *deriv, TData *out, const TData scale)
+    const size_t nelmt, const unsigned int nhomo, const unsigned int nqTot,
+    const unsigned int ncoord, const size_t adveloffset,
+    const size_t derivoffset, const TData *advVel, const TData *deriv,
+    TData *out, const TData scale)
 {
-    const auto nsize = nelmt * nqTot;
+    const auto nsize = nelmt * nqTot * nhomo;
     Nektar::parallel_for<ExecSpace>(
         0, nsize, NEKTAR_LAMBDA(const size_t idx) {
-            TData tmp = 0.0;
+            size_t idx0 = idx % (nelmt * nqTot);
+            TData tmp   = 0.0;
             for (unsigned int d = 0; d < ncoord; d++)
             {
-                tmp += advVel[d * advelsize + idx] * deriv[d * derivsize + idx];
+                tmp += advVel[d * adveloffset + idx0] *
+                       deriv[d * derivoffset + idx];
             }
             out[idx] = scale * out[idx] + tmp;
         });

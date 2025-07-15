@@ -51,12 +51,15 @@ public:
 
     void SetTestCase()
     {
+        // Set initial conditions.
         for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
         {
             auto &block = fixt_in->GetBlocks()[blk];
             auto inptr =
                 block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-            for (unsigned int nc = 0; nc < fixt_in->GetNumComponents(); ++nc)
+            for (unsigned int n = 0;
+                 n < fixt_in->GetNumComponents() * fixt_in->GetNumHomoModes();
+                 ++n)
             {
                 for (size_t el = 0, cnt = 0; el < block.GetNumElements(); ++el)
                 {
@@ -75,6 +78,7 @@ public:
                        ? session->GetParameter("Lambda")
                        : 10.0;
 
+        // Compute expected solution.
         ExpectedSolution();
     }
 
@@ -87,9 +91,11 @@ public:
 
     void ExpectedSolution()
     {
-        // Calculate expected result from Nektar++
-        unsigned int compSize = fixt_in->GetNumComponents();
-        size_t ncoeffs        = fixt_explist->GetNcoeffs();
+        // Calculate expected result from Nektar++.
+        const unsigned int compSize =
+            fixt_in->GetNumComponents() * fixt_in->GetNumHomoModes();
+        const size_t ncoeffs =
+            fixt_explist->GetNcoeffs() / fixt_in->GetNumHomoModes();
 
         StdRegions::FactorMap factors;
         factors[StdRegions::eFactorLambda] = m_lambda;

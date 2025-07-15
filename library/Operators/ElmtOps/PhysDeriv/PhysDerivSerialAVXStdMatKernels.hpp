@@ -37,8 +37,9 @@
 template <typename ExecSpace, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void MultiplyByDerivFactorKernel(
     const unsigned int nqTot, const unsigned int ncoord,
-    const unsigned int dimension, const size_t nelmt, const size_t insize,
-    const size_t outsize, const TData *dfptr, const TData *inptr, TData *outptr)
+    const unsigned int dimension, const size_t nelmt, const size_t inoffset,
+    const size_t outoffset, const TData *dfptr, const TData *inptr,
+    TData *outptr)
 {
     const auto ndf   = ncoord * dimension;
     const auto nsize = nqTot * nelmt;
@@ -54,12 +55,12 @@ NEK_FORCE_INLINE static void MultiplyByDerivFactorKernel(
                 for (unsigned int d = 1; d < dimension; d++)
                 {
                     tmp[k].fma(dfptr[ndf * idx + k * dimension + d],
-                               inptr[d * insize + idx]);
+                               inptr[d * inoffset + idx]);
                 }
             }
             for (unsigned int k = 0; k < ncoord; k++)
             {
-                outptr[k * outsize + idx] = tmp[k];
+                outptr[k * outoffset + idx] = tmp[k];
             }
         }
     }
@@ -76,12 +77,12 @@ NEK_FORCE_INLINE static void MultiplyByDerivFactorKernel(
                     for (unsigned int d = 1; d < dimension; d++)
                     {
                         tmp[k].fma(dfptr[ndf * e + k * dimension + d],
-                                   inptr[nqTot * e + i + d * insize]);
+                                   inptr[nqTot * e + i + d * inoffset]);
                     }
                 }
                 for (unsigned int k = 0; k < ncoord; k++)
                 {
-                    outptr[k * outsize + nqTot * e + i] = tmp[k];
+                    outptr[k * outoffset + nqTot * e + i] = tmp[k];
                 }
             }
         }

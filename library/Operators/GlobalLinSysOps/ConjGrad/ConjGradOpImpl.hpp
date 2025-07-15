@@ -56,27 +56,27 @@ public:
         : ConjGradOp<TData>(expansionList),
           m_w_A(Field<TData, FieldState::Coeff>::Create(
               "ConjGrad w_A",
-              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
+              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1, 1,
               ExecSpace::alignment, eDeviceOnly)),
           m_s_A(Field<TData, FieldState::Coeff>::Create(
               "ConjGrad s_A",
-              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
+              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1, 1,
               ExecSpace::alignment, eDeviceOnly)),
           m_r_A(Field<TData, FieldState::Coeff>::Create(
               "ConjGrad r_A",
-              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
+              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1, 1,
               ExecSpace::alignment, eDeviceOnly)),
           m_wk(Field<TData, FieldState::Coeff>::Create(
               "ConjGrad wk",
-              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
+              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1, 1,
               ExecSpace::alignment, eDeviceOnly)),
           m_q_A(Field<TData, FieldState::Coeff>::Create(
               "ConjGrad wk",
-              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
+              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1, 1,
               ExecSpace::alignment, eDeviceOnly)),
           m_p_A(Field<TData, FieldState::Coeff>::Create(
               "ConjGrad wk",
-              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
+              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1, 1,
               ExecSpace::alignment, eDeviceOnly))
     {
         auto contfield =

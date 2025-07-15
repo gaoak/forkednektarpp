@@ -53,8 +53,10 @@ public:
 
     void SetTestCase()
     {
+        // Set initial conditions.
         fixt_out->template Initialize<NektarSpaces::HostSpace>(0.0);
 
+        // Compute expected solution.
         ExpectedSolution();
     }
 

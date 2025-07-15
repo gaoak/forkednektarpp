@@ -66,18 +66,15 @@ public:
 
     void SetTestCase()
     {
-        std::string execName;
-        if (session->DefinesCmdLineArgument("opExecSpace"))
-        {
-            execName = session->GetCmdLineArgument<std::string>("opExecSpace");
-        }
+        std::string execName =
+            session->GetCmdLineArgument<std::string>("opExecSpace");
 
         math = Math(execName);
 
         auto blocks_in =
             GetBlockAttributes<double>(FieldState::Phys, fixt_explist);
         auto f_in = Field<double, FieldState::Phys>::Create("f_in2", blocks_in,
-                                                            1, alignment);
+                                                            1, 1, alignment);
         fixt_in2  = new Field<double, FieldState::Phys>(std::move(f_in));
 
         Array<OneD, double> x(fixt_explist->GetTotPoints());

@@ -94,7 +94,8 @@ protected:
                             inblock.GetNumElements(), false));
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+        for (unsigned int n = 0;
+             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
@@ -111,7 +112,7 @@ protected:
                 {
                     // Evaluate the function assuming fixed input of x, y and z
                     // coordinate.
-                    auto fce = m_expressions[nc]->Evaluate(
+                    auto fce = m_expressions[n]->Evaluate(
                         *(coordptr), *(coordptr + 1), *(coordptr + 2));
 
                     // Add fce to outptr.

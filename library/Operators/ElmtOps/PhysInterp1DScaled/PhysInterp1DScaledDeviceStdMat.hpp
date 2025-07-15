@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: MassDeviceStdMat.hpp
+// File: PhysInterp1DScaledDeviceStdMat.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,24 +34,22 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/Mass/MassOp.hpp"
+#include "Operators/ElmtOps/PhysInterp1DScaled/PhysInterp1DScaledOp.hpp"
 #include "Operators/NekBlas/NekBlas.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
-
-#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseDeviceStdMatKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename Implementation, typename TData>
-class MassBlockOpImpl : public MassBlockOp<TData>
+class PhysInterp1DScaledBlockOpImpl : public PhysInterp1DScaledBlockOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    MassBlockOpImpl(const LocalRegions::ExpansionSharedPtr &exp,
-                    NekDataWarehouseSharedPtr dataWarehouse)
-        : MassBlockOp<TData>(exp, dataWarehouse)
+    PhysInterp1DScaledBlockOpImpl(const LocalRegions::ExpansionSharedPtr &exp,
+                                  NekDataWarehouseSharedPtr dataWarehouse)
+        : PhysInterp1DScaledBlockOp<TData>(exp, dataWarehouse)
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -59,26 +57,26 @@ public:
             exp->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed;
         m_dimension = exp->GetShapeDimension();
         m_coordDim  = exp->GetCoordim();
-        m_nmTot     = exp->GetNcoeffs();
-        m_nqTot     = exp->GetTotPoints();
 
-        // Fetch matrix.
-        std::vector<LibUtilities::BasisKey> basisKeys(
+        // Flag for collapsed coordinate correction.
+        m_isModified = (exp->GetBasisType(0) == LibUtilities::eModified_A);
+
+        for (unsigned int d = 0; d < m_dimension; d++)
+        {
+            m_nm.push_back(exp->GetNumPoints(d));
+        }
+
+        // Fetch basis key.
+        m_basisKeys = std::vector<LibUtilities::BasisKey>(
             m_dimension, LibUtilities::NullBasisKey);
         for (unsigned int d = 0; d < m_dimension; d++)
         {
-            basisKeys[d] = exp->GetBasis(d)->GetBasisKey();
+            m_basisKeys[d] = exp->GetBasis(d)->GetBasisKey();
         }
 
-        LibUtilities::PointsType nodalType =
-            (exp->IsNodalNonTensorialExp())
-                ? exp->GetNodalPointsKey().GetPointsType()
-                : LibUtilities::eNoPointsType;
-
-        m_bwdmat = dataWarehouse->template GetData<ExecSpace>(StdMatKey<TData>(
-            basisKeys, m_shapeType, eBwdTransStdMat, nodalType));
-        m_ipbmat = dataWarehouse->template GetData<ExecSpace>(StdMatKey<TData>(
-            basisKeys, m_shapeType, eIProductWRTBaseStdMat, nodalType));
+        m_nodalType = (exp->IsNodalNonTensorialExp())
+                          ? exp->GetNodalPointsKey().GetPointsType()
+                          : LibUtilities::eNoPointsType;
     }
 
     // className - for BlockOperatorFactory
@@ -90,30 +88,31 @@ public:
         NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
-            MassBlockOpImpl<ExecSpace, Implementation, TData>>(exp,
-                                                               dataWarehouse);
+            PhysInterp1DScaledBlockOpImpl<ExecSpace, Implementation, TData>>(
+            exp, dataWarehouse);
     }
 
 protected:
-    static constexpr unsigned int m_implInterleaveWidth = 1u;
+    static constexpr unsigned int m_implInterleaveWidth = 1;
 
+    std::vector<LibUtilities::BasisKey> m_basisKeys;
     LibUtilities::ShapeType m_shapeType;
+    LibUtilities::PointsType m_nodalType;
     bool m_isDeformed;
+    bool m_isModified;
     unsigned int m_dimension;
     unsigned int m_coordDim;
     unsigned int m_nmTot;
     unsigned int m_nqTot;
-    const TData *m_bwdmat;
-    const TData *m_ipbmat;
-    MemoryRegion<TData> m_bwd;
+    std::vector<unsigned int> m_nm;
+    std::vector<unsigned int> m_nq;
+    const TData *m_matptr;
 
     void v_Apply(BlockAccessor<TData> &inblock,
                  BlockAccessor<TData> &outblock) override
     {
         auto handle = NekHandle<ExecSpace>::GetInstance();
 
-        const auto nhomo = inblock.GetNumHomoModes();
-        const auto nelmt = inblock.GetNumElementsWithPadding();
         const auto nelmtTot =
             inblock.GetNumElementsWithPadding() * inblock.GetNumHomoModes();
 
@@ -123,21 +122,6 @@ protected:
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Fetch Jacobian.
-        auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
-            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                               inblock.GetNumElements()));
-
-        // Allocate storage.
-        if (m_bwd.size() == 0)
-        {
-            m_bwd = MemoryRegion<TData>::Create(nelmtTot * m_nqTot,
-                                                ExecSpace::alignment);
-        }
-
-        // Get workspace pointer.
-        auto bwdptr = m_bwd.template GetPtr<MemSpace, WriteOnly>();
-
         // Loop over components.
         for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
@@ -146,27 +130,9 @@ protected:
                 inblock.GetInterleaveWidth(), nelmtTot, inblock.GetNumData(),
                 (TData *)inptr);
 
-            // Step 1: BwdTrans
             // Perform matrix-matrix multiply.
-            NekGemm(handle, "N", "N", m_nqTot, nelmtTot, m_nmTot, 1.0, m_bwdmat,
-                    m_nqTot, inptr, m_nmTot, 0.0, bwdptr, m_nqTot);
-
-            // Step 2: IProduct
-            // Multiply by jacobian.
-            if (m_isDeformed)
-            {
-                MultiplyByJacobianKernel<ExecSpace, true>(
-                    m_nqTot, nelmt, nhomo, jacptr, bwdptr, bwdptr, 1.0);
-            }
-            else
-            {
-                MultiplyByJacobianKernel<ExecSpace, false>(
-                    m_nqTot, nelmt, nhomo, jacptr, bwdptr, bwdptr, 1.0);
-            }
-
-            // Perform matrix-matrix multiply.
-            NekGemm(handle, "N", "N", m_nmTot, nelmtTot, m_nqTot, 1.0, m_ipbmat,
-                    m_nmTot, bwdptr, m_nqTot, 0.0, outptr, m_nmTot);
+            NekGemm(handle, "N", "N", m_nqTot, nelmtTot, m_nmTot, 1.0, m_matptr,
+                    m_nqTot, inptr, m_nmTot, 0.0, outptr, m_nqTot);
 
             // Increment pointers.
             inptr += inblock.size() * inblock.GetNumHomoModes();
@@ -176,6 +142,48 @@ protected:
         // Set to new interleave width.
         inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+    }
+
+    void v_SetScaleFactor(TData scale) override
+    {
+        this->m_scale = scale;
+        m_nq.clear();
+        for (unsigned int d = 0; d < m_dimension; d++)
+        {
+            // Fetch element size.
+            if (d == 0)
+            {
+                const auto nq0 = this->m_scale * m_nm[0];
+                m_nq.push_back(nq0);
+            }
+            else if (d == 1)
+            {
+                // if delta between nm0 and nm1 is 1 then keep this delta
+                // for new poitns to capitalise on switch templating
+                const auto nq1 =
+                    (m_nm[0] - m_nm[1] == 1)
+                        ? (unsigned int)(this->m_scale * m_nm[0]) - 1
+                        : (unsigned int)(this->m_scale * m_nm[1]);
+                m_nq.push_back(nq1);
+            }
+            else if (d == 2)
+            {
+                const auto nq2 =
+                    (m_nm[0] - m_nm[2] == 1)
+                        ? (unsigned int)(this->m_scale * m_nm[0]) - 1
+                        : (unsigned int)(this->m_scale * m_nm[2]);
+                m_nq.push_back(nq2);
+            }
+        }
+
+        m_nmTot =
+            std::accumulate(m_nm.begin(), m_nm.end(), 1, std::multiplies());
+        m_nqTot =
+            std::accumulate(m_nq.begin(), m_nq.end(), 1, std::multiplies());
+
+        m_matptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+            StdMatKey<TData>(m_basisKeys, m_shapeType, ePhysInterpStdMat,
+                             m_nodalType, m_nq));
     }
 };
 

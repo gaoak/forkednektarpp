@@ -44,12 +44,12 @@ namespace Nektar::Operators::detail
 template <typename Implementation, bool DEFORMED, typename TData>
 __global__ void PhysDeriv1DKernelLauncher(
     const unsigned int ncoord, const unsigned int nq0, const size_t nelmt,
-    const TData *__restrict__ D0, const TData *__restrict__ df,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    const hipcudaBlock1D &threadBlock)
+    const unsigned int outoffset, const TData *__restrict__ D0,
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out, const hipcudaBlock1D &threadBlock)
 {
-    PhysDeriv1DKernel<Implementation, DEFORMED>(ncoord, nq0, nelmt, D0, df, in,
-                                                out, threadBlock);
+    PhysDeriv1DKernel<Implementation, DEFORMED>(ncoord, nq0, nelmt, outoffset,
+                                                D0, df, in, out, threadBlock);
 }
 
 // Size based template version.
@@ -58,14 +58,14 @@ template <
     unsigned int nq0, typename TData/*,
     unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(nq0)*/>
 __global__ void /*__launch_bounds__(maxThreadPerBlock)*/
-    PhysDeriv1DKernelLauncher(const size_t nelmt, const TData *__restrict__ D0,
+    PhysDeriv1DKernelLauncher(const size_t nelmt, const unsigned int outoffset, const TData *__restrict__ D0,
                               const TData *__restrict__ df,
                               const TData *__restrict__ in,
                               TData *__restrict__ out,
                               const hipcudaBlock1D &threadBlock)
 {
-    PhysDeriv1DKernel<Implementation, DEFORMED>(ncoord, nq0, nelmt, D0, df, in,
-                                                out, threadBlock);
+    PhysDeriv1DKernel<Implementation, DEFORMED>(ncoord, nq0, nelmt, outoffset,
+                                                D0, df, in, out, threadBlock);
 }
 
 // Non-size based version.
@@ -73,17 +73,17 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TData>
 __global__ void PhysDeriv2DKernelLauncher(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
-    const size_t nelmt, const TData *__restrict__ D0,
-    const TData *__restrict__ D1, const TData *__restrict__ f0,
-    const TData *__restrict__ f1, const TData *__restrict__ df,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    const hipcudaBlock1D &threadBlock)
+    const size_t nelmt, const unsigned int outoffset,
+    const TData *__restrict__ D0, const TData *__restrict__ D1,
+    const TData *__restrict__ f0, const TData *__restrict__ f1,
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out, const hipcudaBlock1D &threadBlock)
 {
     extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     PhysDeriv2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
-        ncoord, nq0, nq1, nelmt, D0, D1, f0, f1, df, in, out, (TData *)shmemptr,
-        threadBlock);
+        ncoord, nq0, nq1, nelmt, outoffset, D0, D1, f0, f1, df, in, out,
+        (TData *)shmemptr, threadBlock);
 }
 
 // Size based template version.
@@ -93,7 +93,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           unsigned int maxThreadPerBlock =
               GetDeviceBlockSize<Implementation>(nq0 *nq1)*/>
 __global__ void /*__launch_bounds__(maxThreadPerBlock)*/
-    PhysDeriv2DKernelLauncher(const size_t nelmt, const TData *__restrict__ D0,
+    PhysDeriv2DKernelLauncher(const size_t nelmt, const unsigned int outoffset, const TData *__restrict__ D0,
                               const TData *__restrict__ D1,
                               const TData *__restrict__ f0,
                               const TData *__restrict__ f1,
@@ -105,8 +105,8 @@ __global__ void /*__launch_bounds__(maxThreadPerBlock)*/
     extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     PhysDeriv2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
-        ncoord, nq0, nq1, nelmt, D0, D1, f0, f1, df, in, out, (TData *)shmemptr,
-        threadBlock);
+        ncoord, nq0, nq1, nelmt, outoffset, D0, D1, f0, f1, df, in, out,
+        (TData *)shmemptr, threadBlock);
 }
 
 // Non-size based version.
@@ -114,18 +114,19 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TData>
 __global__ void PhysDeriv3DKernelLauncher(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const size_t nelmt, const TData *__restrict__ D0,
-    const TData *__restrict__ D1, const TData *__restrict__ D2,
-    const TData *__restrict__ f0, const TData *__restrict__ f1,
-    const TData *__restrict__ f1m, const TData *__restrict__ f2,
-    const TData *__restrict__ df, const TData *__restrict__ in,
-    TData *__restrict__ out, const hipcudaBlock1D &threadBlock)
+    const size_t nelmt, const unsigned int outoffset,
+    const TData *__restrict__ D0, const TData *__restrict__ D1,
+    const TData *__restrict__ D2, const TData *__restrict__ f0,
+    const TData *__restrict__ f1, const TData *__restrict__ f1m,
+    const TData *__restrict__ f2, const TData *__restrict__ df,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    const hipcudaBlock1D &threadBlock)
 {
     extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     PhysDeriv3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
-        nq0, nq1, nq2, nelmt, D0, D1, D2, f0, f1, f1m, f2, df, in, out,
-        (TData *)shmemptr, threadBlock);
+        nq0, nq1, nq2, nelmt, outoffset, D0, D1, D2, f0, f1, f1m, f2, df, in,
+        out, (TData *)shmemptr, threadBlock);
 }
 
 // Size based template version.
@@ -135,7 +136,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           unsigned int maxThreadPerBlock =
               GetDeviceBlockSize<Implementation>(nq0 *nq1 *nq2)*/>
 __global__ void /*__launch_bounds__(maxThreadPerBlock)*/ PhysDeriv3DKernelLauncher(
-    const size_t nelmt, const TData *__restrict__ D0,
+    const size_t nelmt, const unsigned int outoffset, const TData *__restrict__ D0,
     const TData *__restrict__ D1, const TData *__restrict__ D2,
     const TData *__restrict__ f0, const TData *__restrict__ f1,
     const TData *__restrict__ f1m, const TData *__restrict__ f2,
@@ -145,8 +146,8 @@ __global__ void /*__launch_bounds__(maxThreadPerBlock)*/ PhysDeriv3DKernelLaunch
     extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     PhysDeriv3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
-        nq0, nq1, nq2, nelmt, D0, D1, D2, f0, f1, f1m, f2, df, in, out,
-        (TData *)shmemptr, threadBlock);
+        nq0, nq1, nq2, nelmt, outoffset, D0, D1, D2, f0, f1, f1m, f2, df, in,
+        out, (TData *)shmemptr, threadBlock);
 }
 
 // Kernel Launchers.
@@ -156,6 +157,7 @@ template <typename ExecSpace, typename Implementation, bool DEFORMED,
 NEK_FORCE_INLINE static void PhysDeriv1DKernel(const unsigned int ncoord,
                                                const unsigned int nq0,
                                                const size_t nelmt,
+                                               const unsigned int outoffset,
                                                const TData *D0, const TData *df,
                                                const TData *in, TData *out)
 {
@@ -163,8 +165,8 @@ NEK_FORCE_INLINE static void PhysDeriv1DKernel(const unsigned int ncoord,
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
     PhysDeriv1DKernelLauncher<Implementation, DEFORMED>
-        <<<gridsize, blocksize>>>(ncoord, nq0, nelmt, D0, df, in, out,
-                                  hipcudaBlock1D());
+        <<<gridsize, blocksize>>>(ncoord, nq0, nelmt, outoffset, D0, df, in,
+                                  out, hipcudaBlock1D());
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -172,6 +174,7 @@ NEK_FORCE_INLINE static void PhysDeriv1DKernel(const unsigned int ncoord,
 template <typename ExecSpace, typename Implementation, bool DEFORMED,
           unsigned int ncoord, unsigned int nq0, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv1DKernel(const size_t nelmt,
+                                               const unsigned int outoffset,
                                                const TData *D0, const TData *df,
                                                const TData *in, TData *out)
 {
@@ -179,7 +182,8 @@ NEK_FORCE_INLINE static void PhysDeriv1DKernel(const size_t nelmt,
     const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
     PhysDeriv1DKernelLauncher<Implementation, DEFORMED, ncoord, nq0>
-        <<<gridsize, blocksize>>>(nelmt, D0, df, in, out, hipcudaBlock1D());
+        <<<gridsize, blocksize>>>(nelmt, outoffset, D0, df, in, out,
+                                  hipcudaBlock1D());
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -188,8 +192,9 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           typename Implementation, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv2DKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
-    const size_t nelmt, const TData *D0, const TData *D1, const TData *f0,
-    const TData *f1, const TData *df, const TData *in, TData *out)
+    const size_t nelmt, const unsigned int outoffset, const TData *D0,
+    const TData *D1, const TData *f0, const TData *f1, const TData *df,
+    const TData *in, TData *out)
 {
     const unsigned int shmemsize =
         sizeof(TData) *
@@ -201,8 +206,8 @@ NEK_FORCE_INLINE static void PhysDeriv2DKernel(
     GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
     PhysDeriv2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>
-        <<<gridsize, blocksize, shmemsize>>>(ncoord, nq0, nq1, nelmt, D0, D1,
-                                             f0, f1, df, in, out,
+        <<<gridsize, blocksize, shmemsize>>>(ncoord, nq0, nq1, nelmt, outoffset,
+                                             D0, D1, f0, f1, df, in, out,
                                              hipcudaBlock1D());
     CHECK_LAST_HIPCUDA_ERROR();
 }
@@ -212,6 +217,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           typename Implementation, bool DEFORMED, unsigned int ncoord,
           unsigned int nq0, unsigned int nq1, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv2DKernel(const size_t nelmt,
+                                               const unsigned int outoffset,
                                                const TData *D0, const TData *D1,
                                                const TData *f0, const TData *f1,
                                                const TData *df, const TData *in,
@@ -228,7 +234,7 @@ NEK_FORCE_INLINE static void PhysDeriv2DKernel(const size_t nelmt,
 
     PhysDeriv2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED, ncoord, nq0,
                               nq1><<<gridsize, blocksize, shmemsize>>>(
-        nelmt, D0, D1, f0, f1, df, in, out, hipcudaBlock1D());
+        nelmt, outoffset, D0, D1, f0, f1, df, in, out, hipcudaBlock1D());
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -237,9 +243,10 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           typename Implementation, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const size_t nelmt, const TData *D0, const TData *D1, const TData *D2,
-    const TData *f0, const TData *f1, const TData *f1m, const TData *f2,
-    const TData *df, const TData *in, TData *out)
+    const size_t nelmt, const unsigned int outoffset, const TData *D0,
+    const TData *D1, const TData *D2, const TData *f0, const TData *f1,
+    const TData *f1m, const TData *f2, const TData *df, const TData *in,
+    TData *out)
 {
     const unsigned int shmemsize =
         sizeof(TData) *
@@ -251,9 +258,9 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel(
     GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
     PhysDeriv3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>
-        <<<gridsize, blocksize, shmemsize>>>(nq0, nq1, nq2, nelmt, D0, D1, D2,
-                                             f0, f1, f1m, f2, df, in, out,
-                                             hipcudaBlock1D());
+        <<<gridsize, blocksize, shmemsize>>>(nq0, nq1, nq2, nelmt, outoffset,
+                                             D0, D1, D2, f0, f1, f1m, f2, df,
+                                             in, out, hipcudaBlock1D());
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -262,9 +269,10 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           typename Implementation, bool DEFORMED, unsigned int nq0,
           unsigned int nq1, unsigned int nq2, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv3DKernel(
-    const size_t nelmt, const TData *D0, const TData *D1, const TData *D2,
-    const TData *f0, const TData *f1, const TData *f1m, const TData *f2,
-    const TData *df, const TData *in, TData *out)
+    const size_t nelmt, const unsigned int outoffset, const TData *D0,
+    const TData *D1, const TData *D2, const TData *f0, const TData *f1,
+    const TData *f1m, const TData *f2, const TData *df, const TData *in,
+    TData *out)
 {
     const unsigned int shmemsize =
         sizeof(TData) *
@@ -277,7 +285,8 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel(
 
     PhysDeriv3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED, nq0, nq1,
                               nq2><<<gridsize, blocksize, shmemsize>>>(
-        nelmt, D0, D1, D2, f0, f1, f1m, f2, df, in, out, hipcudaBlock1D());
+        nelmt, outoffset, D0, D1, D2, f0, f1, f1m, f2, df, in, out,
+        hipcudaBlock1D());
     CHECK_LAST_HIPCUDA_ERROR();
 }
 

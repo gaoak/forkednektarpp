@@ -44,16 +44,16 @@ namespace Nektar::Operators::detail
 template <typename Implementation, bool DEFORMED, typename TData>
 __global__ void IProductWRTDerivBase1DKernelLauncher(
     const unsigned int ncoord, const unsigned int nm0, const unsigned int nq0,
-    const size_t nelmt, const TData *__restrict__ dbasis0,
-    const TData *__restrict__ w0, const TData *__restrict__ df,
-    const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ wsp,
-    const hipcudaBlock1D &threadBlock)
+    const size_t nelmt, const unsigned int inoffset,
+    const TData *__restrict__ dbasis0, const TData *__restrict__ w0,
+    const TData *__restrict__ df, const TData *__restrict__ jac,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp, const hipcudaBlock1D &threadBlock)
 {
     extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     IProductWRTDerivBase1DKernel<Implementation, DEFORMED>(
-        ncoord, nm0, nq0, nelmt, dbasis0, w0, df, jac, in, out, wsp,
+        ncoord, nm0, nq0, nelmt, inoffset, dbasis0, w0, df, jac, in, out, wsp,
         (TData *)shmemptr, threadBlock);
 }
 
@@ -65,15 +65,16 @@ template <
 __global__ void __launch_bounds__(maxThreadPerBlock)
     IProductWRTDerivBase1DKernelLauncher(
         const unsigned int ncoord, const size_t nelmt,
-        const TData *__restrict__ dbasis0, const TData *__restrict__ w0,
-        const TData *__restrict__ df, const TData *__restrict__ jac,
-        const TData *__restrict__ in, TData *__restrict__ out,
-        TData *__restrict__ wsp, const hipcudaBlock1D &threadBlock)
+        const unsigned int inoffset, const TData *__restrict__ dbasis0,
+        const TData *__restrict__ w0, const TData *__restrict__ df,
+        const TData *__restrict__ jac, const TData *__restrict__ in,
+        TData *__restrict__ out, TData *__restrict__ wsp,
+        const hipcudaBlock1D &threadBlock)
 {
     extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     IProductWRTDerivBase1DKernel<Implementation, DEFORMED>(
-        ncoord, nm0, nq0, nelmt, dbasis0, w0, df, jac, in, out, wsp,
+        ncoord, nm0, nq0, nelmt, inoffset, dbasis0, w0, df, jac, in, out, wsp,
         (TData *)shmemptr, threadBlock);
 }
 
@@ -83,7 +84,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 __global__ void IProductWRTDerivBase2DKernelLauncher(
     const unsigned int ncoord, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const size_t nelmt, const bool isModified,
+    const size_t nelmt, const unsigned int inoffset, const bool isModified,
     const unsigned int *__restrict__ index0, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ D0,
     const TData *__restrict__ D1, const TData *__restrict__ w0,
@@ -96,8 +97,8 @@ __global__ void IProductWRTDerivBase2DKernelLauncher(
     extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     IProductWRTDerivBase2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
-        ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0,
-        basis1, D0, D1, w0, w1, f0, f1, nodToMod, df, jac, in, out, wsp,
+        ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, inoffset, isModified, index0,
+        basis0, basis1, D0, D1, w0, w1, f0, f1, nodToMod, df, jac, in, out, wsp,
         (TData *)shmemptr, threadBlock);
 }
 
@@ -109,7 +110,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1))>
 __global__ void __launch_bounds__(maxThreadPerBlock)
     IProductWRTDerivBase2DKernelLauncher(
-        const unsigned int ncoord, const size_t nelmt, const bool isModified,
+        const unsigned int ncoord, const size_t nelmt,
+        const unsigned int inoffset, const bool isModified,
         const unsigned int *__restrict__ index0,
         const TData *__restrict__ basis0, const TData *__restrict__ basis1,
         const TData *__restrict__ D0, const TData *__restrict__ D1,
@@ -123,8 +125,8 @@ __global__ void __launch_bounds__(maxThreadPerBlock)
     extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     IProductWRTDerivBase2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
-        ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0,
-        basis1, D0, D1, w0, w1, f0, f1, nodToMod, df, jac, in, out, wsp,
+        ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, inoffset, isModified, index0,
+        basis0, basis1, D0, D1, w0, w1, f0, f1, nodToMod, df, jac, in, out, wsp,
         (TData *)shmemptr, threadBlock);
 }
 
@@ -134,8 +136,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 __global__ void IProductWRTDerivBase3DKernelLauncher(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const size_t nelmt, const bool isModified,
-    const unsigned int *__restrict__ index0,
+    const unsigned int nq2, const size_t nelmt, const unsigned int inoffset,
+    const bool isModified, const unsigned int *__restrict__ index0,
     const unsigned int *__restrict__ index1,
     const unsigned int *__restrict__ index2, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ basis2,
@@ -152,9 +154,10 @@ __global__ void IProductWRTDerivBase3DKernelLauncher(
     extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     IProductWRTDerivBase3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
-        nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
-        index2, basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2,
-        nodToMod, df, jac, in, out, wsp, (TData *)shmemptr, threadBlock);
+        nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, inoffset, isModified,
+        index0, index1, index2, basis0, basis1, basis2, D0, D1, D2, w0, w1, w2,
+        f0, f1, f1m, f2, nodToMod, df, jac, in, out, wsp, (TData *)shmemptr,
+        threadBlock);
 }
 
 // Size based template version.
@@ -166,7 +169,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2))>
 __global__ void __launch_bounds__(maxThreadPerBlock)
     IProductWRTDerivBase3DKernelLauncher(
-        const size_t nelmt, const bool isModified,
+        const size_t nelmt, const unsigned int inoffset, const bool isModified,
         const unsigned int *__restrict__ index0,
         const unsigned int *__restrict__ index1,
         const unsigned int *__restrict__ index2,
@@ -184,9 +187,10 @@ __global__ void __launch_bounds__(maxThreadPerBlock)
     extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     IProductWRTDerivBase3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
-        nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
-        index2, basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2,
-        nodToMod, df, jac, in, out, wsp, (TData *)shmemptr, threadBlock);
+        nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, inoffset, isModified,
+        index0, index1, index2, basis0, basis1, basis2, D0, D1, D2, w0, w1, w2,
+        f0, f1, f1m, f2, nodToMod, df, jac, in, out, wsp, (TData *)shmemptr,
+        threadBlock);
 }
 
 // Kernel Launchers.
@@ -195,29 +199,7 @@ template <typename ExecSpace, typename Implementation, bool DEFORMED,
           typename TData>
 NEK_FORCE_INLINE static void IProductWRTDerivBase1DKernel(
     const unsigned int ncoord, const unsigned int nm0, const unsigned int nq0,
-    const size_t nelmt, const TData *dbasis0, const TData *w0, const TData *df,
-    const TData *jac, const TData *in, TData *out, TData *wsp)
-{
-    const unsigned int shmemsize =
-        sizeof(TData) *
-        IProductWRTDerivBaseSharedMemorySize<Implementation>(nq0, nm0);
-    const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nq0);
-    const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
-
-    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
-
-    IProductWRTDerivBase1DKernelLauncher<Implementation, DEFORMED>
-        <<<gridsize, blocksize, shmemsize>>>(ncoord, nm0, nq0, nelmt, dbasis0,
-                                             w0, df, jac, in, out, wsp,
-                                             hipcudaBlock1D());
-    CHECK_LAST_HIPCUDA_ERROR();
-}
-
-// Size based template version.
-template <typename ExecSpace, typename Implementation, bool DEFORMED,
-          unsigned int nm0, unsigned int nq0, typename TData>
-NEK_FORCE_INLINE static void IProductWRTDerivBase1DKernel(
-    const unsigned int ncoord, const size_t nelmt, const TData *dbasis0,
+    const size_t nelmt, const unsigned int inoffset, const TData *dbasis0,
     const TData *w0, const TData *df, const TData *jac, const TData *in,
     TData *out, TData *wsp)
 {
@@ -229,9 +211,32 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase1DKernel(
 
     GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
+    IProductWRTDerivBase1DKernelLauncher<Implementation, DEFORMED>
+        <<<gridsize, blocksize, shmemsize>>>(ncoord, nm0, nq0, nelmt, inoffset,
+                                             dbasis0, w0, df, jac, in, out, wsp,
+                                             hipcudaBlock1D());
+    CHECK_LAST_HIPCUDA_ERROR();
+}
+
+// Size based template version.
+template <typename ExecSpace, typename Implementation, bool DEFORMED,
+          unsigned int nm0, unsigned int nq0, typename TData>
+NEK_FORCE_INLINE static void IProductWRTDerivBase1DKernel(
+    const unsigned int ncoord, const size_t nelmt, const unsigned int inoffset,
+    const TData *dbasis0, const TData *w0, const TData *df, const TData *jac,
+    const TData *in, TData *out, TData *wsp)
+{
+    const unsigned int shmemsize =
+        sizeof(TData) *
+        IProductWRTDerivBaseSharedMemorySize<Implementation>(nq0, nm0);
+    const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nq0);
+    const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
     IProductWRTDerivBase1DKernelLauncher<Implementation, DEFORMED, nm0, nq0>
-        <<<gridsize, blocksize, shmemsize>>>(ncoord, nelmt, dbasis0, w0, df,
-                                             jac, in, out, wsp,
+        <<<gridsize, blocksize, shmemsize>>>(ncoord, nelmt, inoffset, dbasis0,
+                                             w0, df, jac, in, out, wsp,
                                              hipcudaBlock1D());
     CHECK_LAST_HIPCUDA_ERROR();
 }
@@ -242,10 +247,11 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
 NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
     const unsigned int ncoord, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nq0, const unsigned int nq1, const size_t nelmt,
-    const bool isModified, const unsigned int *index0, const TData *basis0,
-    const TData *basis1, const TData *D0, const TData *D1, const TData *w0,
-    const TData *w1, const TData *f0, const TData *f1, const TData *nodToMod,
-    const TData *df, const TData *jac, const TData *in, TData *out, TData *wsp)
+    const unsigned int inoffset, const bool isModified,
+    const unsigned int *index0, const TData *basis0, const TData *basis1,
+    const TData *D0, const TData *D1, const TData *w0, const TData *w1,
+    const TData *f0, const TData *f1, const TData *nodToMod, const TData *df,
+    const TData *jac, const TData *in, TData *out, TData *wsp)
 {
     const unsigned int nmTot =
         LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
@@ -261,9 +267,9 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
 
     IProductWRTDerivBase2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>
         <<<gridsize, blocksize, shmemsize>>>(
-            ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0,
-            basis0, basis1, D0, D1, w0, w1, f0, f1, nodToMod, df, jac, in, out,
-            wsp, hipcudaBlock1D());
+            ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, inoffset, isModified,
+            index0, basis0, basis1, D0, D1, w0, w1, f0, f1, nodToMod, df, jac,
+            in, out, wsp, hipcudaBlock1D());
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -272,11 +278,11 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           typename Implementation, bool DEFORMED, unsigned int nm0,
           unsigned int nm1, unsigned int nq0, unsigned int nq1, typename TData>
 NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
-    const unsigned int ncoord, const size_t nelmt, const bool isModified,
-    const unsigned int *index0, const TData *basis0, const TData *basis1,
-    const TData *D0, const TData *D1, const TData *w0, const TData *w1,
-    const TData *f0, const TData *f1, const TData *nodToMod, const TData *df,
-    const TData *jac, const TData *in, TData *out, TData *wsp)
+    const unsigned int ncoord, const size_t nelmt, const unsigned int inoffset,
+    const bool isModified, const unsigned int *index0, const TData *basis0,
+    const TData *basis1, const TData *D0, const TData *D1, const TData *w0,
+    const TData *w1, const TData *f0, const TData *f1, const TData *nodToMod,
+    const TData *df, const TData *jac, const TData *in, TData *out, TData *wsp)
 {
     const unsigned int nmTot =
         LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
@@ -292,8 +298,8 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
     IProductWRTDerivBase2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED,
                                          nm0, nm1, nmTot, nq0, nq1>
         <<<gridsize, blocksize, shmemsize>>>(
-            ncoord, nelmt, isModified, index0, basis0, basis1, D0, D1, w0, w1,
-            f0, f1, nodToMod, df, jac, in, out, wsp, hipcudaBlock1D());
+            ncoord, nelmt, inoffset, isModified, index0, basis0, basis1, D0, D1,
+            w0, w1, f0, f1, nodToMod, df, jac, in, out, wsp, hipcudaBlock1D());
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -303,13 +309,13 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
 NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const size_t nelmt, const bool isModified, const unsigned int *index0,
-    const unsigned int *index1, const unsigned int *index2, const TData *basis0,
-    const TData *basis1, const TData *basis2, const TData *D0, const TData *D1,
-    const TData *D2, const TData *w0, const TData *w1, const TData *w2,
-    const TData *f0, const TData *f1, const TData *f1m, const TData *f2,
-    const TData *nodToMod, const TData *df, const TData *jac, const TData *in,
-    TData *out, TData *wsp)
+    const size_t nelmt, const unsigned int inoffset, const bool isModified,
+    const unsigned int *index0, const unsigned int *index1,
+    const unsigned int *index2, const TData *basis0, const TData *basis1,
+    const TData *basis2, const TData *D0, const TData *D1, const TData *D2,
+    const TData *w0, const TData *w1, const TData *w2, const TData *f0,
+    const TData *f1, const TData *f1m, const TData *f2, const TData *nodToMod,
+    const TData *df, const TData *jac, const TData *in, TData *out, TData *wsp)
 {
     const unsigned int nmTot =
         LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
@@ -324,9 +330,10 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
 
     IProductWRTDerivBase3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>
         <<<gridsize, blocksize, shmemsize>>>(
-            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0,
-            index1, index2, basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, f0,
-            f1, f1m, f2, nodToMod, df, jac, in, out, wsp, hipcudaBlock1D());
+            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, inoffset, isModified,
+            index0, index1, index2, basis0, basis1, basis2, D0, D1, D2, w0, w1,
+            w2, f0, f1, f1m, f2, nodToMod, df, jac, in, out, wsp,
+            hipcudaBlock1D());
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -336,13 +343,13 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           unsigned int nm1, unsigned int nm2, unsigned int nq0,
           unsigned int nq1, unsigned int nq2, typename TData>
 NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
-    const size_t nelmt, const bool isModified, const unsigned int *index0,
-    const unsigned int *index1, const unsigned int *index2, const TData *basis0,
-    const TData *basis1, const TData *basis2, const TData *D0, const TData *D1,
-    const TData *D2, const TData *w0, const TData *w1, const TData *w2,
-    const TData *f0, const TData *f1, const TData *f1m, const TData *f2,
-    const TData *nodToMod, const TData *df, const TData *jac, const TData *in,
-    TData *out, TData *wsp)
+    const size_t nelmt, const unsigned int inoffset, const bool isModified,
+    const unsigned int *index0, const unsigned int *index1,
+    const unsigned int *index2, const TData *basis0, const TData *basis1,
+    const TData *basis2, const TData *D0, const TData *D1, const TData *D2,
+    const TData *w0, const TData *w1, const TData *w2, const TData *f0,
+    const TData *f1, const TData *f1m, const TData *f2, const TData *nodToMod,
+    const TData *df, const TData *jac, const TData *in, TData *out, TData *wsp)
 {
     const unsigned int nmTot =
         LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
@@ -358,9 +365,9 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
     IProductWRTDerivBase3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED,
                                          nm0, nm1, nm2, nmTot, nq0, nq1, nq2>
         <<<gridsize, blocksize, shmemsize>>>(
-            nelmt, isModified, index0, index1, index2, basis0, basis1, basis2,
-            D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2, nodToMod, df, jac, in, out,
-            wsp, hipcudaBlock1D());
+            nelmt, inoffset, isModified, index0, index1, index2, basis0, basis1,
+            basis2, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2, nodToMod, df, jac,
+            in, out, wsp, hipcudaBlock1D());
     CHECK_LAST_HIPCUDA_ERROR();
 }
 

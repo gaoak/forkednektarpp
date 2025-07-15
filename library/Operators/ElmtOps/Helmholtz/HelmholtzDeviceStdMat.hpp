@@ -136,7 +136,10 @@ protected:
     {
         auto handle = NekHandle<ExecSpace>::GetInstance();
 
+        const auto nhomo = inblock.GetNumHomoModes();
         const auto nelmt = inblock.GetNumElementsWithPadding();
+        const auto nelmtTot =
+            inblock.GetNumElementsWithPadding() * inblock.GetNumHomoModes();
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -157,10 +160,10 @@ protected:
         // Allocate storage.
         if (m_bwd.size() == 0)
         {
-            m_bwd   = MemoryRegion<TData>::Create(nelmt * m_nqTot,
+            m_bwd   = MemoryRegion<TData>::Create(nelmtTot * m_nqTot,
                                                   ExecSpace::alignment);
-            m_deriv = MemoryRegion<TData>::Create(m_coordDim * nelmt * m_nqTot,
-                                                  ExecSpace::alignment);
+            m_deriv = MemoryRegion<TData>::Create(
+                m_coordDim * nelmtTot * m_nqTot, ExecSpace::alignment);
         }
 
         // Get workspace pointer.
@@ -168,8 +171,8 @@ protected:
         auto derivptr = m_deriv.template GetPtr<MemSpace, WriteOnly>();
 
         // Loop over components.
-        const auto derivsize = m_nqTot * nelmt;
-        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+        const auto derivoffset = m_nqTot * nelmtTot;
+        for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
@@ -179,30 +182,31 @@ protected:
 
             // Step 1: BwdTrans
             // Perform matrix-matrix multiply.
-            NekGemm(handle, "N", "N", m_nqTot, nelmt, m_nmTot, 1.0, m_bwdmat,
+            NekGemm(handle, "N", "N", m_nqTot, nelmtTot, m_nmTot, 1.0, m_bwdmat,
                     m_nqTot, inptr, m_nmTot, 0.0, bwdptr, m_nqTot);
 
             // Step 2: PhysDeriv
             // Perform matrix-matrix multiply.
             for (unsigned int d = 0; d < m_dimension; d++)
             {
-                NekGemm(handle, "N", "N", m_nqTot, nelmt, m_nqTot, 1.0,
+                NekGemm(handle, "N", "N", m_nqTot, nelmtTot, m_nqTot, 1.0,
                         m_derivmat + d * m_nqTot * m_nqTot, m_nqTot, bwdptr,
-                        m_nqTot, 0.0, derivptr + d * m_nqTot * nelmt, m_nqTot);
+                        m_nqTot, 0.0, derivptr + d * m_nqTot * nelmtTot,
+                        m_nqTot);
             }
 
             // Multiply by derivative factor.
             if (m_isDeformed)
             {
                 MultiplyByDerivFactorKernel<ExecSpace, true>(
-                    m_nqTot, m_coordDim, m_dimension, nelmt, derivsize,
-                    derivsize, dfptr, derivptr, derivptr);
+                    m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, derivoffset,
+                    derivoffset, dfptr, derivptr, derivptr);
             }
             else
             {
                 MultiplyByDerivFactorKernel<ExecSpace, false>(
-                    m_nqTot, m_coordDim, m_dimension, nelmt, derivsize,
-                    derivsize, dfptr, derivptr, derivptr);
+                    m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, derivoffset,
+                    derivoffset, dfptr, derivptr, derivptr);
             }
 
             // Step 3: IProduct
@@ -210,49 +214,52 @@ protected:
             if (m_isDeformed)
             {
                 MultiplyByJacobianKernel<ExecSpace, true>(
-                    m_nqTot, nelmt, jacptr, bwdptr, bwdptr, this->m_lambda);
+                    m_nqTot, nelmt, nhomo, jacptr, bwdptr, bwdptr,
+                    this->m_lambda);
             }
             else
             {
                 MultiplyByJacobianKernel<ExecSpace, false>(
-                    m_nqTot, nelmt, jacptr, bwdptr, bwdptr, this->m_lambda);
+                    m_nqTot, nelmt, nhomo, jacptr, bwdptr, bwdptr,
+                    this->m_lambda);
             }
 
             // Perform matrix-matrix multiply.
-            NekGemm(handle, "N", "N", m_nmTot, nelmt, m_nqTot, 1.0, m_ipbmat,
+            NekGemm(handle, "N", "N", m_nmTot, nelmtTot, m_nqTot, 1.0, m_ipbmat,
                     m_nmTot, bwdptr, m_nqTot, 0.0, outptr, m_nmTot);
 
             // Step 4: Multiply by diffusion coefficient
-            MultiplyByDiffusionCoeff<ExecSpace>(
-                nelmt, m_nqTot, m_coordDim, derivsize, diffCoeffPtr, derivptr);
+            MultiplyByDiffusionCoeff<ExecSpace>(nelmtTot, m_nqTot, m_coordDim,
+                                                derivoffset, diffCoeffPtr,
+                                                derivptr);
 
             // Step 5: IProductWRTDerivBase
             // Multiply by derivative factor and Jacobian.
             if (m_isDeformed)
             {
                 MultiplyByJacobianAndDerivFactorKernel<ExecSpace, true>(
-                    m_nqTot, m_coordDim, m_dimension, nelmt, derivsize,
-                    derivsize, jacptr, dfptr, derivptr, derivptr);
+                    m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, derivoffset,
+                    derivoffset, jacptr, dfptr, derivptr, derivptr);
             }
             else
             {
                 MultiplyByJacobianAndDerivFactorKernel<ExecSpace, false>(
-                    m_nqTot, m_coordDim, m_dimension, nelmt, derivsize,
-                    derivsize, jacptr, dfptr, derivptr, derivptr);
+                    m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, derivoffset,
+                    derivoffset, jacptr, dfptr, derivptr, derivptr);
             }
 
             // Perform matrix-matrix multiply.
             for (unsigned int d = 0; d < m_dimension; d++)
             {
-                NekGemm(handle, "N", "N", m_nmTot, nelmt, m_nqTot, 1.0,
+                NekGemm(handle, "N", "N", m_nmTot, nelmtTot, m_nqTot, 1.0,
                         m_ipdmat + d * m_nqTot * m_nmTot, m_nmTot,
-                        derivptr + d * nelmt * m_nqTot, m_nqTot, 1.0, outptr,
+                        derivptr + d * nelmtTot * m_nqTot, m_nqTot, 1.0, outptr,
                         m_nmTot);
             }
 
             // Increment pointers.
-            inptr += inblock.size();
-            outptr += outblock.size();
+            inptr += inblock.size() * inblock.GetNumHomoModes();
+            outptr += outblock.size() * outblock.GetNumHomoModes();
         }
 
         // Set to new interleave width.

@@ -109,7 +109,10 @@ protected:
     {
         auto handle = NekHandle<ExecSpace>::GetInstance();
 
+        const auto nhomo = inblock.GetNumHomoModes();
         const auto nelmt = inblock.GetNumElementsWithPadding();
+        const auto nelmtTot =
+            inblock.GetNumElementsWithPadding() * inblock.GetNumHomoModes();
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -125,7 +128,7 @@ protected:
         // Allocate storage.
         if (m_wsp.size() == 0)
         {
-            m_wsp = MemoryRegion<TData>::Create(nelmt * m_nqTot,
+            m_wsp = MemoryRegion<TData>::Create(nelmtTot * m_nqTot,
                                                 ExecSpace::alignment);
         }
 
@@ -133,33 +136,34 @@ protected:
         auto wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+        for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(),
-                inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
+                inblock.GetInterleaveWidth(), nelmtTot, inblock.GetNumData(),
                 (TData *)inptr);
 
             // Multiply by jacobian.
             if (m_isDeformed)
             {
-                MultiplyByJacobianKernel<ExecSpace, true>(
-                    m_nqTot, nelmt, jacptr, inptr, wspptr, this->m_scale);
+                MultiplyByJacobianKernel<ExecSpace, true>(m_nqTot, nelmt, nhomo,
+                                                          jacptr, inptr, wspptr,
+                                                          this->m_scale);
             }
             else
             {
                 MultiplyByJacobianKernel<ExecSpace, false>(
-                    m_nqTot, nelmt, jacptr, inptr, wspptr, this->m_scale);
+                    m_nqTot, nelmt, nhomo, jacptr, inptr, wspptr,
+                    this->m_scale);
             }
 
             // Perform matrix-matrix multiply.
-            NekGemm(handle, "N", "N", m_nmTot, nelmt, m_nqTot, 1.0, m_matptr,
+            NekGemm(handle, "N", "N", m_nmTot, nelmtTot, m_nqTot, 1.0, m_matptr,
                     m_nmTot, wspptr, m_nqTot, 0.0, outptr, m_nmTot);
 
             // Increment pointers.
-            inptr += inblock.size();
-            outptr += outblock.size();
+            inptr += inblock.size() * inblock.GetNumHomoModes();
+            outptr += outblock.size() * outblock.GetNumHomoModes();
         }
 
         // Set to new interleave width.

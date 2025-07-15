@@ -96,6 +96,9 @@ protected:
         ASSERTL1(in.GetNumComponents() == out.GetNumComponents(),
                  "Number of input and output components differ");
 
+        ASSERTL1(in.GetNumHomoModes() == out.GetNumHomoModes(),
+                 "Number of input and output homogeneous modes differ");
+
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)
         {

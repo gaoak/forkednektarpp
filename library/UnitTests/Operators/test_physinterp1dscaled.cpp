@@ -44,7 +44,33 @@
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
         double scale = 1.5;                                                    \
-        Configure(2, 2, scale);                                                \
+        Configure(2, 2, false, scale);                                         \
+        SetTestCase(scale);                                                    \
+        RunTestCase(scale);                                                    \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            BOOST_TEST(Compare(tol));                                          \
+        }                                                                      \
+    }
+
+#define TEST_PHYSINTERP1DSCALED3DH1(test_name, test, tol)                      \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        double scale = 1.5;                                                    \
+        Configure3DH1(2, 2, 4, false, scale);                                  \
+        SetTestCase(scale);                                                    \
+        RunTestCase(scale);                                                    \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            BOOST_TEST(Compare(tol));                                          \
+        }                                                                      \
+    }
+
+#define TEST_PHYSINTERP1DSCALED3DH2(test_name, test, tol)                      \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        double scale = 1.5;                                                    \
+        Configure3DH2(2, 2, 4, 4, false, scale);                               \
         SetTestCase(scale);                                                    \
         RunTestCase(scale);                                                    \
         boost::test_tools::output_test_stream output;                          \
@@ -57,9 +83,13 @@ BOOST_AUTO_TEST_SUITE(TestPhysInterp1DScaled)
 
 TEST_PHYSINTERP1DSCALED(physinterp1d_seg, Seg, 1.0E-12)
 
+// TEST_PHYSINTERP1DSCALED3DH2(physinterp1d_seg_3dh2, Seg, 1.0E-12)
+
 TEST_PHYSINTERP1DSCALED(physinterp1d_seg_sem, SegSEM, 1.0E-12)
 
 TEST_PHYSINTERP1DSCALED(physinterp1d_tri, Tri, 1.0E-12)
+
+TEST_PHYSINTERP1DSCALED3DH1(physinterp1d_tri_3dh1, Tri, 1.0E-12)
 
 TEST_PHYSINTERP1DSCALED(physinterp1d_tri_varp, TriVarP, 1.0E-12)
 
@@ -67,12 +97,17 @@ TEST_PHYSINTERP1DSCALED(physinterp1d_tri_nodal, TriNodal, 1.0E-12)
 
 TEST_PHYSINTERP1DSCALED(physinterp1d_quad, Quad, 1.0E-12)
 
+TEST_PHYSINTERP1DSCALED3DH1(physinterp1d_quad_3dh1, Quad, 1.0E-12)
+
 TEST_PHYSINTERP1DSCALED(physinterp1d_quad_varp, QuadVarP, 1.0E-12)
 
 TEST_PHYSINTERP1DSCALED(physinterp1d_quad_sem, QuadSEM, 1.0E-12)
 
 TEST_PHYSINTERP1DSCALED(physinterp1d_square_all_elements, SquareAllElements,
                         1.0E-12)
+
+TEST_PHYSINTERP1DSCALED3DH1(physinterp1d_square_all_elements_3dh1,
+                            SquareAllElements, 1.0E-12)
 
 TEST_PHYSINTERP1DSCALED(physinterp1d_tet, Tet, 1.0E-12)
 

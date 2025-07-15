@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: PhysInterp1DScaledStdMat.hpp
+// File: PhysInterp1DScaledSerialAVXStdMat.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -44,6 +44,9 @@ namespace Nektar::Operators::detail
 template <typename ExecSpace, typename Implementation, typename TData>
 class PhysInterp1DScaledBlockOpImpl : public PhysInterp1DScaledBlockOp<TData>
 {
+    using simd_t =
+        typename simd_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                              TData>::type;
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
@@ -111,32 +114,46 @@ protected:
     void v_Apply(BlockAccessor<TData> &inblock,
                  BlockAccessor<TData> &outblock) override
     {
-        auto handle = NekHandle<ExecSpace>::GetInstance();
-
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
+        // Get interleave parameter.
+        const auto interleave_width = inblock.GetInterleaveWidth();
+        const auto width_ratio      = (interleave_width == 1)
+                                          ? 1
+                                          : interleave_width / m_implInterleaveWidth;
+        const auto chunkSize =
+            std::max(m_implInterleaveWidth, interleave_width);
+
+        // Dispatch kernel.
+        auto gemm_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
+            simd_t::width, m_nqTot, m_nmTot, 1.0, 0.0);
+
         // Loop over components.
-        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+        for (unsigned int n = 0;
+             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
-            // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(),
-                inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
-                (TData *)inptr);
+            // Loop over element groups.
+            for (size_t e = 0;
+                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
+            {
+                // Reshape, if necessary.
+                if (e % width_ratio == 0)
+                {
+                    ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                        interleave_width, chunkSize, m_nmTot, (TData *)inptr);
+                }
 
-            // Perform matrix-matrix multiply.
-            NekGemm(handle, "N", "N", m_nqTot, nelmt, m_nmTot, 1.0, m_matptr,
-                    m_nqTot, inptr, m_nmTot, 0.0, outptr, m_nqTot);
+                // Perform matrix-matrix multiply.
+                gemm_kernel(inptr, m_matptr, outptr);
 
-            // Increment pointers.
-            inptr += inblock.size();
-            outptr += outblock.size();
+                // Increment pointers.
+                inptr += m_nmTot * simd_t::width;
+                outptr += m_nqTot * simd_t::width;
+            }
         }
 
         // Set to new interleave width.
@@ -182,8 +199,8 @@ protected:
             std::accumulate(m_nq.begin(), m_nq.end(), 1, std::multiplies());
 
         m_matptr = this->m_dataWarehouse->template GetData<ExecSpace>(
-            StdMatKey<TData>(m_basisKeys, m_shapeType, ePhysInterpStdMat,
-                             m_nodalType, m_nq));
+            StdMatKey<TData>(m_basisKeys, m_shapeType,
+                             ePhysInterpStdMatTranspose, m_nodalType, m_nq));
     }
 };
 

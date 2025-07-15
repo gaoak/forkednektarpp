@@ -194,7 +194,8 @@ protected:
         const auto advelsize =
             m_nqTot * inblock.GetNumElmtGroups(m_implInterleaveWidth);
         const auto derivsize = m_nqTot;
-        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+        for (unsigned int n = 0;
+             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
             auto advptr = this->m_advVel;
             auto jacptr = jacptr_init;

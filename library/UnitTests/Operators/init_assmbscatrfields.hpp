@@ -56,6 +56,7 @@ public:
 
     void SetTestCase()
     {
+        // Set initial conditions.
         for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
         {
             auto &block = fixt_in->GetBlocks()[blk];
@@ -70,6 +71,8 @@ public:
                 }
             }
         }
+
+        // Compute expected solution.
         ExpectedSolution();
     }
 
@@ -81,10 +84,12 @@ public:
 
     void ExpectedSolution()
     {
-        // Calculate expected result from Nektar++
+        // Calculate expected result from Nektar++.
         Array<OneD, double> incoeffs = fixt_in->ToArray();
         Array<OneD, double> outcoeffs(fixt_explist->GetNcoeffs());
-        auto map = fixt_explist->GetLocalToGlobalMap();
+        auto map =
+            std::dynamic_pointer_cast<MultiRegions::ContField>(fixt_explist)
+                ->GetLocalToGlobalMap();
         map->Assemble(incoeffs, outcoeffs);
         // Vmath::Zero(map->GetNumGlobalDirBndCoeffs(), outcoeff, 1);
         map->GlobalToLocal(outcoeffs, outcoeffs);

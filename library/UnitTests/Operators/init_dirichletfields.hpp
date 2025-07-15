@@ -53,6 +53,7 @@ public:
 
     void SetTestCase()
     {
+        // Compute expected solution.
         ExpectedSolution();
     }
 

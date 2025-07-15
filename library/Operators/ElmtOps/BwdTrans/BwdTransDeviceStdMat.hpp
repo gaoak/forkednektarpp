@@ -106,7 +106,8 @@ protected:
     {
         auto handle = NekHandle<ExecSpace>::GetInstance();
 
-        const auto nelmt = inblock.GetNumElementsWithPadding();
+        const auto nelmtTot =
+            inblock.GetNumElementsWithPadding() * inblock.GetNumHomoModes();
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -115,21 +116,20 @@ protected:
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+        for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(),
-                inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
+                inblock.GetInterleaveWidth(), nelmtTot, inblock.GetNumData(),
                 (TData *)inptr);
 
             // Perform matrix-matrix multiply.
-            NekGemm(handle, "N", "N", m_nqTot, nelmt, m_nmTot, 1.0, m_matptr,
+            NekGemm(handle, "N", "N", m_nqTot, nelmtTot, m_nmTot, 1.0, m_matptr,
                     m_nqTot, inptr, m_nmTot, 0.0, outptr, m_nqTot);
 
             // Increment pointers.
-            inptr += inblock.size();
-            outptr += outblock.size();
+            inptr += inblock.size() * inblock.GetNumHomoModes();
+            outptr += outblock.size() * outblock.GetNumHomoModes();
         }
 
         // Set to new interleave width.

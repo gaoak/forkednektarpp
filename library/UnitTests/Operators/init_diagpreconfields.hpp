@@ -58,6 +58,7 @@ public:
 
     void SetTestCase()
     {
+        // Set initial conditions.
         for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
         {
             auto &block = fixt_in->GetBlocks()[blk];
@@ -78,6 +79,7 @@ public:
                        ? session->GetParameter("Lambda")
                        : 10.0;
 
+        // Compute expected solution.
         ExpectedSolution();
     }
 
@@ -99,7 +101,9 @@ public:
         StdRegions::ConstFactorMap factors;
         factors[StdRegions::eFactorLambda] = m_lambda;
 
-        auto map = fixt_explist->GetLocalToGlobalMap();
+        auto map =
+            std::dynamic_pointer_cast<MultiRegions::ContField>(fixt_explist)
+                ->GetLocalToGlobalMap();
         GlobalLinSysKey key(StdRegions::eHelmholtz, map, factors);
         auto globalSys = GetGlobalLinSysFactory().CreateInstance(
             "IterativeFull", key, fixt_explist, map);

@@ -52,13 +52,41 @@
         }                                                                      \
     }
 
+#define TEST_IPWRTDERIVBASE3DH1(test_name, test, dim, tol)                     \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        Configure3DH1(2 * dim, 2, 4);                                          \
+        SetTestCase();                                                         \
+        RunTestCase();                                                         \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            BOOST_TEST(Compare(tol));                                          \
+        }                                                                      \
+    }
+
+#define TEST_IPWRTDERIVBASE3DH2(test_name, test, dim, tol)                     \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        Configure3DH2(2 * dim, 2, 4, 4);                                       \
+        SetTestCase();                                                         \
+        RunTestCase();                                                         \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            BOOST_TEST(Compare(tol));                                          \
+        }                                                                      \
+    }
+
 BOOST_AUTO_TEST_SUITE(TestIProductWRTDerivBase)
 
 TEST_IPWRTDERIVBASE(ipwrtderivbase_seg, Seg, 1, 1.0E-12)
 
 TEST_IPWRTDERIVBASE(ipwrtderivbase_seg_sem, SegSEM, 1, 1.0E-12)
 
+// TEST_IPWRTDERIVBASE3DH2(ipwrtderivbase_seg_sem_3dh2, SegSEM, 1, 1.0E-12)
+
 TEST_IPWRTDERIVBASE(ipwrtderivbase_quad, Quad, 2, 1.0E-12)
+
+TEST_IPWRTDERIVBASE3DH1(ipwrtderivbase_quad_3dh1, Quad, 2, 1.0E-12)
 
 TEST_IPWRTDERIVBASE(ipwrtderivbase_quad_sem, QuadSEM, 2, 1.0E-12)
 
@@ -66,12 +94,17 @@ TEST_IPWRTDERIVBASE(ipwrtderivbase_quad_varp, QuadVarP, 2, 1.0E-12)
 
 TEST_IPWRTDERIVBASE(ipwrtderivbase_tri, Tri, 2, 1.0E-12)
 
+TEST_IPWRTDERIVBASE3DH1(ipwrtderivbase_tri_3dh1, Tri, 2, 1.0E-12)
+
 TEST_IPWRTDERIVBASE(ipwrtderivbase_tri_varp, TriVarP, 2, 1.0E-12)
 
 TEST_IPWRTDERIVBASE(ipwrtderivbase_tri_nodal, TriNodal, 2, 1.0E-12)
 
 TEST_IPWRTDERIVBASE(ipwrtderivbase_square_all_elements, SquareAllElements, 2,
                     1.0E-12)
+
+TEST_IPWRTDERIVBASE3DH1(ipwrtderivbase_square_all_elements_3dh1,
+                        SquareAllElements, 2, 1.0E-12)
 
 TEST_IPWRTDERIVBASE(ipwrtderivbase_hex, Hex, 3, 1.0E-12)
 
