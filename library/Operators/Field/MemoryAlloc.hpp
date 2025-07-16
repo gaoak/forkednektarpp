@@ -54,35 +54,35 @@ struct DeviceToDevice
 };
 
 template <typename TData>
-inline void hostMalloc(TData *&src, const size_t size,
+inline void hostMalloc(TData **src, const size_t size,
                        [[maybe_unused]] const size_t alignment)
 {
     if (size > 0)
     {
-        src = static_cast<TData *>(
+        *src = static_cast<TData *>(
             ::operator new[](size, std::align_val_t(alignment)));
     }
     else
     {
-        src = nullptr;
+        *src = nullptr;
     }
 }
 
 template <typename TData>
-inline void hostMallocPinned(TData *&src, const size_t size,
+inline void hostMallocPinned(TData **src, const size_t size,
                              [[maybe_unused]] const size_t alignment)
 {
     if (size > 0)
     {
 #if defined(NEKTAR_ENABLE_CUDA)
-        CHECK_HIPCUDA_ERROR(cudaMallocHost((void **)&src, size));
+        CHECK_HIPCUDA_ERROR(cudaMallocHost((void **)src, size));
 #elif defined(NEKTAR_ENABLE_HIP)
-        CHECK_HIPCUDA_ERROR(hipHostMalloc((void **)&src, size));
+        CHECK_HIPCUDA_ERROR(hipHostMalloc((void **)src, size));
 #elif defined(NEKTAR_ENABLE_SYCL)
         sycl::queue &Q = SYCLQueue::GetInstance();
-        src            = (TData *)sycl::malloc_host(size, Q);
+        *src           = (TData *)sycl::malloc_host(size, Q);
 #else
-        src = static_cast<TData *>(
+        *src = static_cast<TData *>(
             ::operator new[](size, std::align_val_t(alignment)));
 #endif
     }
@@ -93,7 +93,7 @@ inline void hostMallocPinned(TData *&src, const size_t size,
 }
 
 template <typename TData>
-inline void deviceMalloc(TData *&src, const size_t size,
+inline void deviceMalloc(TData **src, const size_t size,
                          [[maybe_unused]] const size_t alignment,
                          [[maybe_unused]] const unsigned int device_rank)
 {
@@ -102,31 +102,31 @@ inline void deviceMalloc(TData *&src, const size_t size,
 #if defined(NEKTAR_ENABLE_CUDA)
         CHECK_HIPCUDA_ERROR(cudaSetDevice(device_rank));
         GetDeviceProperties::CheckGlobalMemoryUsage(size);
-        CHECK_HIPCUDA_ERROR(cudaMalloc((void **)&src, size));
+        CHECK_HIPCUDA_ERROR(cudaMalloc((void **)src, size));
         GetDeviceProperties::TotalGlobalMemory() -= size;
 #elif defined(NEKTAR_ENABLE_HIP)
         CHECK_HIPCUDA_ERROR(hipSetDevice(device_rank));
         GetDeviceProperties::CheckGlobalMemoryUsage(size);
-        CHECK_HIPCUDA_ERROR(hipMalloc((void **)&src, size));
+        CHECK_HIPCUDA_ERROR(hipMalloc((void **)src, size));
         GetDeviceProperties::TotalGlobalMemory() -= size;
 #elif defined(NEKTAR_ENABLE_SYCL)
         GetDeviceProperties::CheckGlobalMemoryUsage(size);
         sycl::queue &Q = SYCLQueue::GetInstance();
-        src            = (TData *)sycl::malloc_device(size, Q);
+        *src           = (TData *)sycl::malloc_device(size, Q);
         GetDeviceProperties::TotalGlobalMemory() -= size;
 #else
-        src = static_cast<TData *>(
+        *src = static_cast<TData *>(
             ::operator new[](size, std::align_val_t(alignment)));
 #endif
     }
     else
     {
-        src = nullptr;
+        *src = nullptr;
     }
 }
 
 template <typename TData>
-inline void hostFree(TData *&src, [[maybe_unused]] const size_t alignment)
+inline void hostFree(TData *src, [[maybe_unused]] const size_t alignment)
 {
     if (src == nullptr)
     {
@@ -134,12 +134,10 @@ inline void hostFree(TData *&src, [[maybe_unused]] const size_t alignment)
     }
 
     operator delete[](src, std::align_val_t(alignment));
-
-    src = nullptr;
 }
 
 template <typename TData>
-inline void hostFreePinned(TData *&src, [[maybe_unused]] const size_t alignment)
+inline void hostFreePinned(TData *src, [[maybe_unused]] const size_t alignment)
 {
     if (src == nullptr)
     {
@@ -157,12 +155,10 @@ inline void hostFreePinned(TData *&src, [[maybe_unused]] const size_t alignment)
 #else
     operator delete[](src, std::align_val_t(alignment));
 #endif
-
-    src = nullptr;
 }
 
 template <typename TData>
-inline void deviceFree(TData *&src, [[maybe_unused]] const size_t size,
+inline void deviceFree(TData *src, [[maybe_unused]] const size_t size,
                        [[maybe_unused]] const size_t alignment,
                        [[maybe_unused]] const unsigned int device_rank)
 {
@@ -189,8 +185,6 @@ inline void deviceFree(TData *&src, [[maybe_unused]] const size_t size,
 #else
     operator delete[](src, std::align_val_t(alignment));
 #endif
-
-    src = nullptr;
 }
 
 template <typename TData>
