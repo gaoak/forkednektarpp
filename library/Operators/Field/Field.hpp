@@ -520,12 +520,12 @@ public:
         // Allocate contiguous memory on the host.
         if (field.m_memAllocType == eHostDevice)
         {
-            hostMalloc(field.m_host, hsize * sizeof(TData), field.m_alignment);
+            hostMalloc(&field.m_host, hsize * sizeof(TData), field.m_alignment);
             std::memset((void *)field.m_host, 0, hsize * sizeof(TData));
         }
         else if (field.m_memAllocType == ePinned)
         {
-            hostMallocPinned(field.m_host, hsize * sizeof(TData),
+            hostMallocPinned(&field.m_host, hsize * sizeof(TData),
                              field.m_alignment);
             std::memset((void *)field.m_host, 0, hsize * sizeof(TData));
         }
@@ -565,12 +565,12 @@ public:
         // Allocate contiguous memory on the host.
         if (field.m_memAllocType == eHostDevice)
         {
-            hostMalloc(field.m_host, hsize * sizeof(TData), field.m_alignment);
+            hostMalloc(&field.m_host, hsize * sizeof(TData), field.m_alignment);
             std::memset((void *)field.m_host, 0, hsize * sizeof(TData));
         }
         else if (field.m_memAllocType == ePinned)
         {
-            hostMallocPinned(field.m_host, hsize * sizeof(TData),
+            hostMallocPinned(&field.m_host, hsize * sizeof(TData),
                              field.m_alignment);
             std::memset((void *)field.m_host, 0, hsize * sizeof(TData));
         }

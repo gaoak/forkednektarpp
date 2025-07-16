@@ -124,11 +124,11 @@ NekGemmGroupedBatched(THandle handle, std::string transposeA,
     TData const **Adev;
     TData const **Bdev;
     TData **Cdev;
-    Nektar::deviceMalloc(Adev, sizeof(TData *) * batchSize,
+    Nektar::deviceMalloc(&Adev, sizeof(TData *) * batchSize,
                          NektarSpaces::Device::alignment, 0);
-    Nektar::deviceMalloc(Bdev, sizeof(TData *) * batchSize,
+    Nektar::deviceMalloc(&Bdev, sizeof(TData *) * batchSize,
                          NektarSpaces::Device::alignment, 0);
-    Nektar::deviceMalloc(Cdev, sizeof(TData *) * batchSize,
+    Nektar::deviceMalloc(&Cdev, sizeof(TData *) * batchSize,
                          NektarSpaces::Device::alignment, 0);
 
     Nektar::deviceMemcpy<Nektar::HostToDevice>(Adev, Aarray,
