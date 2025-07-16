@@ -359,9 +359,9 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
                 IProductWRTDerivBase3DKernel<SHAPE_TYPE, Implementation,
                                              DEFORMED, nm0, nm1, nm2, nmTot,
                                              nq0, nq1, nq2>(
-                    nelmt, isModified, index0, index1, index2, basis0, basis1,
-                    basis2, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2, nodToMod,
-                    df, jac, in, out, wsp, shmemptr, item_ct1);
+                    nelmt, inoffset, isModified, index0, index1, index2, basis0,
+                    basis1, basis2, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2,
+                    nodToMod, df, jac, in, out, wsp, shmemptr, item_ct1);
             });
     });
 #endif

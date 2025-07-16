@@ -139,7 +139,7 @@ NEK_FORCE_INLINE static void PhysDeriv1DKernel(const size_t nelmt,
             [=](sycl::nd_item<1> item_ct1) {
 #pragma forceinline
                 PhysDeriv1DKernel<Implementation, DEFORMED, ncoord, nq0>(
-                    nelmt, D0, df, in, out, item_ct1);
+                    nelmt, outoffset, D0, df, in, out, item_ct1);
             });
     });
 #endif
@@ -215,8 +215,8 @@ NEK_FORCE_INLINE static void PhysDeriv2DKernel(const size_t nelmt,
 #pragma forceinline
                              PhysDeriv2DKernel<SHAPE_TYPE, Implementation,
                                                DEFORMED, ncoord, nq0, nq1>(
-                                 nelmt, D0, D1, f0, f1, df, in, out, shmemptr,
-                                 item_ct1);
+                                 nelmt, outoffset, D0, D1, f0, f1, df, in, out,
+                                 shmemptr, item_ct1);
                          });
     });
 #endif
@@ -293,8 +293,8 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel(
 #pragma forceinline
                              PhysDeriv3DKernel<SHAPE_TYPE, Implementation,
                                                DEFORMED, nq0, nq1, nq2>(
-                                 nelmt, D0, D1, D2, f0, f1, f1m, f2, df, in,
-                                 out, shmemptr, item_ct1);
+                                 nelmt, outoffset, D0, D1, D2, f0, f1, f1m, f2,
+                                 df, in, out, shmemptr, item_ct1);
                          });
     });
 #endif
