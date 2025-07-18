@@ -89,6 +89,7 @@ public:
                                                m_tol, 1.0E-09);
 
         // Set operators.
+        m_math = Math(ExecSpace::name);
         m_assmbScatrOp =
             AssmbScatrOp<TData>::Create(this->m_expansionList, ExecSpace::name);
         m_robBndCondOp =
@@ -115,6 +116,8 @@ protected:
 
     std::shared_ptr<AssmbScatrOp<TData>> m_assmbScatrOp;
     std::shared_ptr<RobBndCondOp<TData>> m_robBndCondOp;
+
+    Math m_math;
 
     Field<TData, FieldState::Coeff> m_w_A;
     Field<TData, FieldState::Coeff> m_s_A;
@@ -146,11 +149,11 @@ protected:
 
         // Assembly (communication).
         m_assmbScatrOp->Apply(m_r_A, m_wk, true);
-        ddot<ExecSpace>(m_wk, m_r_A, &m_vExchange[2]);
+        m_vExchange[2] = m_math.ddot(m_wk, m_r_A);
 
         // Calculate rhs magnitude.
         m_assmbScatrOp->Apply(m_r_A, m_wk);
-        ddot<ExecSpace>(in, m_wk, &m_vExchange[3]);
+        m_vExchange[3] = m_math.ddot(in, m_wk);
 
         m_rowComm->AllReduce(m_vExchange, Nektar::LibUtilities::ReduceSum);
 
@@ -171,9 +174,9 @@ protected:
 
         m_robBndCondOp->Apply(m_w_A, m_s_A);
 
-        ddot<ExecSpace>(m_r_A, m_w_A, &m_vExchange[0]);
+        m_vExchange[0] = m_math.ddot(m_r_A, m_w_A);
 
-        ddot<ExecSpace>(m_s_A, m_w_A, &m_vExchange[1]);
+        m_vExchange[1] = m_math.ddot(m_s_A, m_w_A);
 
         m_rowComm->AllReduce(m_vExchange, Nektar::LibUtilities::ReduceSum);
 
@@ -215,15 +218,16 @@ protected:
 
             m_robBndCondOp->Apply(m_w_A, m_s_A);
 
+            m_assmbScatrOp->Apply(m_r_A, m_wk, true);
+
             // <r_{k+1}, w_{k+1}>
-            ddot<ExecSpace>(m_r_A, m_w_A, &m_vExchange[0]);
+            m_vExchange[0] = m_math.ddot(m_r_A, m_w_A);
 
             // <s_{k+1}, w_{k+1}>
-            ddot<ExecSpace>(m_s_A, m_w_A, &m_vExchange[1]);
+            m_vExchange[1] = m_math.ddot(m_s_A, m_w_A);
 
             // <r_{k+1}, r_{k+1}>
-            m_assmbScatrOp->Apply(m_r_A, m_wk, true);
-            ddot<ExecSpace>(m_wk, m_r_A, &m_vExchange[2]);
+            m_vExchange[2] = m_math.ddot(m_wk, m_r_A);
 
             m_rowComm->AllReduce(m_vExchange, Nektar::LibUtilities::ReduceSum);
 

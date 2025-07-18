@@ -403,17 +403,20 @@ void reduceSum(Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
-    TData reduce;
-    *out = 0.0;
-
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
         auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto &block = x.GetBlocks()[blk];
         auto size   = block.GetNumElements() * block.GetNumData() *
                     x.GetNumComponents() * x.GetNumHomoModes();
-        reduceSumKernel<ExecSpace>(size, xptr, &reduce);
-        *out += reduce;
+        if (blk == 0)
+        {
+            reduceSumKernel<ExecSpace, true>(size, xptr, out);
+        }
+        else
+        {
+            reduceSumKernel<ExecSpace, false>(size, xptr, out);
+        }
     }
 }
 
@@ -424,7 +427,7 @@ void reduceSum(MemoryRegion<TData> &x, TData *out)
 
     auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
     auto nsize = x.size();
-    reduceSumKernel<ExecSpace>(nsize, xptr, out);
+    reduceSumKernel<ExecSpace, true>(nsize, xptr, out);
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
@@ -432,17 +435,20 @@ void reduceMax(Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
-    TData reduce;
-    *out = std::numeric_limits<TData>::min();
-
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
         auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto &block = x.GetBlocks()[blk];
         auto size   = block.GetNumElements() * block.GetNumData() *
                     x.GetNumComponents() * x.GetNumHomoModes();
-        reduceMaxKernel<ExecSpace>(size, xptr, &reduce);
-        *out = std::max(*out, reduce);
+        if (blk == 0)
+        {
+            reduceMaxKernel<ExecSpace, true>(size, xptr, out);
+        }
+        else
+        {
+            reduceMaxKernel<ExecSpace, false>(size, xptr, out);
+        }
     }
 }
 
@@ -453,7 +459,7 @@ void reduceMax(MemoryRegion<TData> &x, TData *out)
 
     auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
     auto nsize = x.size();
-    reduceMaxKernel<ExecSpace>(nsize, xptr, out);
+    reduceMaxKernel<ExecSpace, true>(nsize, xptr, out);
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
@@ -461,17 +467,20 @@ void reduceMin(Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
-    TData reduce;
-    *out = std::numeric_limits<TData>::max();
-
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
         auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto &block = x.GetBlocks()[blk];
         auto size   = block.GetNumElements() * block.GetNumData() *
                     x.GetNumComponents() * x.GetNumHomoModes();
-        reduceMinKernel<ExecSpace>(size, xptr, &reduce);
-        *out = std::min(*out, reduce);
+        if (blk == 0)
+        {
+            reduceMinKernel<ExecSpace, true>(size, xptr, out);
+        }
+        else
+        {
+            reduceMinKernel<ExecSpace, false>(size, xptr, out);
+        }
     }
 }
 
@@ -482,7 +491,7 @@ void reduceMin(MemoryRegion<TData> &x, TData *out)
 
     auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
     auto nsize = x.size();
-    reduceMinKernel<ExecSpace>(nsize, xptr, out);
+    reduceMinKernel<ExecSpace, true>(nsize, xptr, out);
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
@@ -490,9 +499,6 @@ void ddot(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
           TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
-
-    TData reduce;
-    *out = 0.0;
 
     if (x.size() != y.size())
     {
@@ -509,8 +515,14 @@ void ddot(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
         auto &block = x.GetBlocks()[blk];
         auto size   = block.GetNumElements() * block.GetNumData() *
                     x.GetNumComponents() * x.GetNumHomoModes();
-        ddotKernel<ExecSpace>(size, xptr, yptr, &reduce);
-        *out += reduce;
+        if (blk == 0)
+        {
+            ddotKernel<ExecSpace, true>(size, xptr, yptr, out);
+        }
+        else
+        {
+            ddotKernel<ExecSpace, false>(size, xptr, yptr, out);
+        }
     }
 }
 
@@ -530,7 +542,7 @@ void ddot(MemoryRegion<TData> &x, MemoryRegion<TData> &y, TData *out)
     auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
     auto yptr  = y.template GetPtr<MemSpace, ReadOnly>();
     auto nsize = x.size();
-    ddotKernel<ExecSpace>(nsize, xptr, yptr, out);
+    ddotKernel<ExecSpace, true>(nsize, xptr, yptr, out);
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
@@ -538,17 +550,20 @@ void l1norm(Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
-    TData reduce;
-    *out = 0.0;
-
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
         auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto &block = x.GetBlocks()[blk];
         auto size   = block.GetNumElements() * block.GetNumData() *
                     x.GetNumComponents() * x.GetNumHomoModes();
-        l1normKernel<ExecSpace>(size, xptr, &reduce);
-        *out += reduce;
+        if (blk == 0)
+        {
+            l1normKernel<ExecSpace, true>(size, xptr, out);
+        }
+        else
+        {
+            l1normKernel<ExecSpace, false>(size, xptr, out);
+        }
     }
 }
 
@@ -559,7 +574,7 @@ void l1norm(MemoryRegion<TData> &x, TData *out)
 
     auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
     auto nsize = x.size();
-    l1normKernel<ExecSpace>(nsize, xptr, out);
+    l1normKernel<ExecSpace, true>(nsize, xptr, out);
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
@@ -567,17 +582,20 @@ void l2norm(Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
-    TData reduce;
-    *out = 0.0;
-
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
         auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto &block = x.GetBlocks()[blk];
         auto size   = block.GetNumElements() * block.GetNumData() *
                     x.GetNumComponents() * x.GetNumHomoModes();
-        l2normKernel<ExecSpace>(size, xptr, &reduce);
-        *out += reduce;
+        if (blk == 0)
+        {
+            l2normKernel<ExecSpace, true>(size, xptr, out);
+        }
+        else
+        {
+            l2normKernel<ExecSpace, false>(size, xptr, out);
+        }
     }
 }
 
@@ -588,7 +606,7 @@ void l2norm(MemoryRegion<TData> &x, TData *out)
 
     auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
     auto nsize = x.size();
-    l2normKernel<ExecSpace>(nsize, xptr, out);
+    l2normKernel<ExecSpace, true>(nsize, xptr, out);
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
@@ -596,17 +614,20 @@ void lpnorm(const unsigned int p, Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
-    TData reduce;
-    *out = 0.0;
-
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
         auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto &block = x.GetBlocks()[blk];
         auto size   = block.GetNumElements() * block.GetNumData() *
                     x.GetNumComponents() * x.GetNumHomoModes();
-        lpnormKernel<ExecSpace>(size, p, xptr, &reduce);
-        *out += reduce;
+        if (blk == 0)
+        {
+            lpnormKernel<ExecSpace, true>(size, p, xptr, out);
+        }
+        else
+        {
+            lpnormKernel<ExecSpace, false>(size, p, xptr, out);
+        }
     }
 }
 
@@ -617,7 +638,7 @@ void lpnorm(const unsigned int p, MemoryRegion<TData> &x, TData *out)
 
     auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
     auto nsize = x.size();
-    lpnormKernel<ExecSpace>(nsize, p, xptr, out);
+    lpnormKernel<ExecSpace, true>(nsize, p, xptr, out);
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
@@ -625,17 +646,20 @@ void linfnorm(Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
-    TData reduce;
-    *out = std::numeric_limits<TData>::min();
-
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
         auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto &block = x.GetBlocks()[blk];
         auto size   = block.GetNumElements() * block.GetNumData() *
                     x.GetNumComponents() * x.GetNumHomoModes();
-        linfnormKernel<ExecSpace>(size, xptr, &reduce);
-        *out = std::max(*out, reduce);
+        if (blk == 0)
+        {
+            linfnormKernel<ExecSpace, true>(size, xptr, out);
+        }
+        else
+        {
+            linfnormKernel<ExecSpace, false>(size, xptr, out);
+        }
     }
 }
 
@@ -646,7 +670,7 @@ void linfnorm(MemoryRegion<TData> &x, TData *out)
 
     auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
     auto nsize = x.size();
-    linfnormKernel<ExecSpace>(nsize, xptr, out);
+    linfnormKernel<ExecSpace, true>(nsize, xptr, out);
 }
 
 } // namespace Nektar

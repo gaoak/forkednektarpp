@@ -856,7 +856,7 @@ daxpyKernel(const size_t nsize, const TData alpha, const TData *x,
     }
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                                void>::type
 reduceSumKernel(const size_t nsize, const TData *x, TData *out)
@@ -868,7 +868,10 @@ reduceSumKernel(const size_t nsize, const TData *x, TData *out)
     simd_t yChunk0 = 0, yChunk1 = 0, yChunk2 = 0, yChunk3 = 0;
     alignas(simd_t::alignment) typename simd_t::scalarArray tmp;
 
-    *out = 0.0;
+    if constexpr (init)
+    {
+        *out = 0.0;
+    }
 
     // Vectorized loop unroll 4x
     while (cnt >= 4 * simd_t::width)
@@ -950,7 +953,7 @@ reduceSumKernel(const size_t nsize, const TData *x, TData *out)
     }
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                                void>::type
 reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
@@ -962,7 +965,10 @@ reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
     simd_t yChunk0 = 0, yChunk1 = 0, yChunk2 = 0, yChunk3 = 0;
     alignas(simd_t::alignment) typename simd_t::scalarArray tmp;
 
-    *out = std::numeric_limits<TData>::min();
+    if constexpr (init)
+    {
+        *out = std::numeric_limits<TData>::min();
+    }
 
     // Vectorized loop unroll 4x
     while (cnt >= 4 * simd_t::width)
@@ -1044,7 +1050,7 @@ reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
     }
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                                void>::type
 reduceMinKernel(const size_t nsize, const TData *x, TData *out)
@@ -1056,7 +1062,10 @@ reduceMinKernel(const size_t nsize, const TData *x, TData *out)
     simd_t yChunk0 = 0, yChunk1 = 0, yChunk2 = 0, yChunk3 = 0;
     alignas(simd_t::alignment) typename simd_t::scalarArray tmp;
 
-    *out = std::numeric_limits<TData>::max();
+    if constexpr (init)
+    {
+        *out = std::numeric_limits<TData>::max();
+    }
 
     // Vectorized loop unroll 4x
     while (cnt >= 4 * simd_t::width)
@@ -1138,7 +1147,7 @@ reduceMinKernel(const size_t nsize, const TData *x, TData *out)
     }
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                                void>::type
 ddotKernel(const size_t nsize, const TData *x, const TData *y, TData *out)
@@ -1150,7 +1159,10 @@ ddotKernel(const size_t nsize, const TData *x, const TData *y, TData *out)
     simd_t zChunk0 = 0, zChunk1 = 0, zChunk2 = 0, zChunk3 = 0;
     alignas(simd_t::alignment) typename simd_t::scalarArray tmp;
 
-    *out = 0.0;
+    if constexpr (init)
+    {
+        *out = 0.0;
+    }
 
     // Vectorized loop unroll 4x
     while (cnt >= 4 * simd_t::width)
@@ -1249,7 +1261,7 @@ ddotKernel(const size_t nsize, const TData *x, const TData *y, TData *out)
     }
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                                void>::type
 l1normKernel(const size_t nsize, const TData *x, TData *out)
@@ -1261,7 +1273,10 @@ l1normKernel(const size_t nsize, const TData *x, TData *out)
     simd_t yChunk0 = 0, yChunk1 = 0, yChunk2 = 0, yChunk3 = 0;
     alignas(simd_t::alignment) typename simd_t::scalarArray tmp;
 
-    *out = 0.0;
+    if constexpr (init)
+    {
+        *out = 0.0;
+    }
 
     // Vectorized loop unroll 4x
     while (cnt >= 4 * simd_t::width)
@@ -1343,7 +1358,7 @@ l1normKernel(const size_t nsize, const TData *x, TData *out)
     }
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                                void>::type
 l2normKernel(const size_t nsize, const TData *x, TData *out)
@@ -1355,7 +1370,10 @@ l2normKernel(const size_t nsize, const TData *x, TData *out)
     simd_t yChunk0 = 0, yChunk1 = 0, yChunk2 = 0, yChunk3 = 0;
     alignas(simd_t::alignment) typename simd_t::scalarArray tmp;
 
-    *out = 0.0;
+    if constexpr (init)
+    {
+        *out = 0.0;
+    }
 
     // Vectorized loop unroll 4x
     while (cnt >= 4 * simd_t::width)
@@ -1437,20 +1455,21 @@ l2normKernel(const size_t nsize, const TData *x, TData *out)
     }
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                                void>::type
 lpnormKernel(const size_t nsize, const unsigned int p, const TData *x,
              TData *out)
 {
     // TODO: SIMD/AVX
-    *out = std::accumulate(x, x + nsize, (TData)0.0,
-                           [&](const TData &acc, const TData &val) {
+    TData initializer = init ? 0.0 : *out;
+    *out              = std::accumulate(x, x + nsize, initializer,
+                                        [&](const TData &acc, const TData &val) {
                                return acc + std::pow(std::abs(val), p);
                            });
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                                void>::type
 linfnormKernel(const size_t nsize, const TData *x, TData *out)
@@ -1462,7 +1481,10 @@ linfnormKernel(const size_t nsize, const TData *x, TData *out)
     simd_t yChunk0 = 0, yChunk1 = 0, yChunk2 = 0, yChunk3 = 0;
     alignas(simd_t::alignment) typename simd_t::scalarArray tmp;
 
-    *out = 0;
+    if constexpr (init)
+    {
+        *out = 0;
+    }
 
     // Vectorized loop unroll 4x
     while (cnt >= 4 * simd_t::width)
