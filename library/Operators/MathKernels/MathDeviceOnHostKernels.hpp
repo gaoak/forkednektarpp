@@ -116,77 +116,85 @@ daxpyKernel(const size_t nsize, const TData alpha, const TData *x,
     });
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 reduceSumKernel(const size_t nsize, const TData *x, TData *out)
 {
-    *out = std::accumulate(x, x + nsize, (TData)0.0);
+    TData initializer = init ? 0.0 : *out;
+    *out              = std::accumulate(x, x + nsize, initializer);
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
 {
-    *out = *(std::max_element(x, x + nsize));
+    TData initializer = init ? std::numeric_limits<TData>::min() : *out;
+    *out = std::max(initializer, *(std::max_element(x, x + nsize)));
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 reduceMinKernel(const size_t nsize, const TData *x, TData *out)
 {
-    *out = *(std::min_element(x, x + nsize));
+    TData initializer = init ? std::numeric_limits<TData>::min() : *out;
+    *out = std::min(initializer, *(std::min_element(x, x + nsize)));
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 ddotKernel(const size_t nsize, const TData *x, const TData *y, TData *out)
 {
-    *out = std::inner_product(x, x + nsize, y, 0.0);
+    TData initializer = init ? 0.0 : *out;
+    *out              = std::inner_product(x, x + nsize, y, initializer);
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 l1normKernel(const size_t nsize, const TData *x, TData *out)
 {
-    *out = std::accumulate(
-        x, x + nsize, (TData)0.0,
+    TData initializer = init ? 0.0 : *out;
+    *out              = std::accumulate(
+        x, x + nsize, initializer,
         [](const TData &acc, const TData &val) { return acc + std::abs(val); });
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 l2normKernel(const size_t nsize, const TData *x, TData *out)
 {
-    *out = std::accumulate(
-        x, x + nsize, (TData)0.0,
+    TData initializer = init ? 0.0 : *out;
+    *out              = std::accumulate(
+        x, x + nsize, initializer,
         [](const TData &acc, const TData &val) { return acc + val * val; });
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 lpnormKernel(const size_t nsize, const unsigned int p, const TData *x,
              TData *out)
 {
-    *out = std::accumulate(x, x + nsize, (TData)0.0,
-                           [&](const TData &acc, const TData &val) {
+    TData initializer = init ? 0.0 : *out;
+    *out              = std::accumulate(x, x + nsize, initializer,
+                                        [&](const TData &acc, const TData &val) {
                                return acc + std::pow(std::abs(val), p);
                            });
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 linfnormKernel(const size_t nsize, const TData *x, TData *out)
 {
-    *out = std::accumulate(x, x + nsize, 0.0,
-                           [](const TData &acc, const TData &val) {
+    TData initializer = init ? std::numeric_limits<TData>::min() : *out;
+    *out              = std::accumulate(x, x + nsize, initializer,
+                                        [](const TData &acc, const TData &val) {
                                return std::max(acc, std::abs(val));
                            });
 }

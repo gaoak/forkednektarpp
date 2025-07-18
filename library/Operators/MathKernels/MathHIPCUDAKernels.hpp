@@ -302,7 +302,7 @@ __global__ void daxpyKernel(const size_t nsize, const TData alpha,
     }
 }
 
-template <typename TData, bool vl = true>
+template <bool init, typename TData>
 __global__ void reduceSumKernel(const size_t nsize, const TData *x, TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
@@ -316,14 +316,17 @@ __global__ void reduceSumKernel(const size_t nsize, const TData *x, TData *out)
     auto warp  = cg::tiled_partition<warpsize>(block);
     TData v    = 0;
 
-    if (block.thread_rank() == 0)
+    if constexpr (init)
     {
-        out[block.group_index().x] = 0.0;
+        if (block.thread_rank() == 0)
+        {
+            out[block.group_index().x] = 0.0;
+        }
     }
 
     block.sync();
 
-    if constexpr (vl && std::is_same_v<TData, float>)
+    if constexpr (std::is_same_v<TData, float>)
     {
         float4 v4 = {0.0f, 0.0f, 0.0f, 0.0f}; // use v4 to read global memory
         for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
@@ -333,7 +336,7 @@ __global__ void reduceSumKernel(const size_t nsize, const TData *x, TData *out)
         }
         v = v4.x + v4.y + v4.z + v4.w; // accumulate thread sums in v
     }
-    else if constexpr (vl && std::is_same_v<TData, double>)
+    else if constexpr (std::is_same_v<TData, double>)
     {
         double2 v2 = {0.0, 0.0}; // use v2 to read global memory
         for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
@@ -352,13 +355,10 @@ __global__ void reduceSumKernel(const size_t nsize, const TData *x, TData *out)
     }
 
     // process final elements (if there are any)
-    if constexpr (vl)
+    if (grid.thread_rank() < nsize % vecsize)
     {
-        if (grid.thread_rank() < nsize % vecsize)
-        {
-            size_t tid = nsize - 1u - grid.thread_rank();
-            v += x[tid];
-        }
+        size_t tid = nsize - 1u - grid.thread_rank();
+        v += x[tid];
     }
 
     warp.sync();
@@ -388,7 +388,7 @@ __global__ void reduceSumKernel(const size_t nsize, const TData *x, TData *out)
     }
 }
 
-template <typename TData, bool vl = true>
+template <bool init, typename TData>
 __global__ void reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
@@ -403,14 +403,17 @@ __global__ void reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
     auto warp  = cg::tiled_partition<warpsize>(block);
     TData v    = min;
 
-    if (block.thread_rank() == 0)
+    if constexpr (init)
     {
-        out[block.group_index().x] = min;
+        if (block.thread_rank() == 0)
+        {
+            out[block.group_index().x] = min;
+        }
     }
 
     block.sync();
 
-    if constexpr (vl && std::is_same_v<TData, float>)
+    if constexpr (std::is_same_v<TData, float>)
     {
         for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
              tid += grid.size())
@@ -420,7 +423,7 @@ __global__ void reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
                                        std::max(std::max(v4.x, v4.y), std::max(v4.z, v4.w)));
         }
     }
-    else if constexpr (vl && std::is_same_v<TData, double>)
+    else if constexpr (std::is_same_v<TData, double>)
     {
         for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
              tid += grid.size())
@@ -438,13 +441,10 @@ __global__ void reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
     }
 
     // process final elements (if there are any)
-    if constexpr (vl)
+    if (grid.thread_rank() < nsize % vecsize)
     {
-        if (grid.thread_rank() < nsize % vecsize)
-        {
-            size_t tid = nsize - 1u - grid.thread_rank();
-            v          = std::max(v, x[tid]);
-        }
+        size_t tid = nsize - 1u - grid.thread_rank();
+        v          = std::max(v, x[tid]);
     }
 
     warp.sync();
@@ -473,7 +473,7 @@ __global__ void reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
     }
 }
 
-template <typename TData, bool vl = true>
+template <bool init, typename TData>
 __global__ void reduceMinKernel(const size_t nsize, const TData *x, TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
@@ -488,14 +488,17 @@ __global__ void reduceMinKernel(const size_t nsize, const TData *x, TData *out)
     auto warp  = cg::tiled_partition<warpsize>(block);
     TData v    = max;
 
-    if (block.thread_rank() == 0)
+    if constexpr (init)
     {
-        out[block.group_index().x] = max;
+        if (block.thread_rank() == 0)
+        {
+            out[block.group_index().x] = max;
+        }
     }
 
     block.sync();
 
-    if constexpr (vl && std::is_same_v<TData, float>)
+    if constexpr (std::is_same_v<TData, float>)
     {
         for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
              tid += grid.size())
@@ -505,7 +508,7 @@ __global__ void reduceMinKernel(const size_t nsize, const TData *x, TData *out)
                                        std::min(std::min(v4.x, v4.y), std::min(v4.z, v4.w)));
         }
     }
-    else if constexpr (vl && std::is_same_v<TData, double>)
+    else if constexpr (std::is_same_v<TData, double>)
     {
         for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
              tid += grid.size())
@@ -523,13 +526,10 @@ __global__ void reduceMinKernel(const size_t nsize, const TData *x, TData *out)
     }
 
     // process final elements (if there are any)
-    if constexpr (vl)
+    if (grid.thread_rank() < nsize % vecsize)
     {
-        if (grid.thread_rank() < nsize % vecsize)
-        {
-            size_t tid = nsize - 1u - grid.thread_rank();
-            v          = std::min(v, x[tid]);
-        }
+        size_t tid = nsize - 1u - grid.thread_rank();
+        v          = std::min(v, x[tid]);
     }
 
     warp.sync();
@@ -558,7 +558,7 @@ __global__ void reduceMinKernel(const size_t nsize, const TData *x, TData *out)
     }
 }
 
-template <typename TData, bool vl = true>
+template <bool init, typename TData>
 __global__ void ddotKernel(const size_t nsize, const TData *x, const TData *y,
                            TData *out)
 {
@@ -573,14 +573,17 @@ __global__ void ddotKernel(const size_t nsize, const TData *x, const TData *y,
     auto warp  = cg::tiled_partition<warpsize>(block);
     TData v    = 0;
 
-    if (block.thread_rank() == 0)
+    if constexpr (init)
     {
-        out[block.group_index().x] = 0.0;
+        if (block.thread_rank() == 0)
+        {
+            out[block.group_index().x] = 0.0;
+        }
     }
 
     block.sync();
 
-    if constexpr (vl && std::is_same_v<TData, float>)
+    if constexpr (std::is_same_v<TData, float>)
     {
         float4 v4 = {0.0f, 0.0f, 0.0f, 0.0f}; // use v4 to read global memory
         for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
@@ -592,7 +595,7 @@ __global__ void ddotKernel(const size_t nsize, const TData *x, const TData *y,
         }
         v = v4.x + v4.y + v4.z + v4.w; // accumulate thread sums in v
     }
-    else if constexpr (vl && std::is_same_v<TData, double>)
+    else if constexpr (std::is_same_v<TData, double>)
     {
         double2 v2 = {0.0, 0.0}; // use v2 to read global memory
         for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
@@ -613,13 +616,10 @@ __global__ void ddotKernel(const size_t nsize, const TData *x, const TData *y,
     }
 
     // process final elements (if there are any)
-    if constexpr (vl)
+    if (grid.thread_rank() < nsize % vecsize)
     {
-        if (grid.thread_rank() < nsize % vecsize)
-        {
-            size_t tid = nsize - 1u - grid.thread_rank();
-            v += x[tid] * y[tid];
-        }
+        size_t tid = nsize - 1u - grid.thread_rank();
+        v += x[tid] * y[tid];
     }
 
     warp.sync();
@@ -649,7 +649,7 @@ __global__ void ddotKernel(const size_t nsize, const TData *x, const TData *y,
     }
 }
 
-template <typename TData, bool vl = true>
+template <bool init, typename TData>
 __global__ void l1normKernel(const size_t nsize, const TData *x, TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
@@ -670,7 +670,7 @@ __global__ void l1normKernel(const size_t nsize, const TData *x, TData *out)
 
     block.sync();
 
-    if constexpr (vl && std::is_same_v<TData, float>)
+    if constexpr (std::is_same_v<TData, float>)
     {
         float4 v4 = {0.0f, 0.0f, 0.0f, 0.0f}; // use v4 to read global memory
         for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
@@ -682,7 +682,7 @@ __global__ void l1normKernel(const size_t nsize, const TData *x, TData *out)
         }
         v = v4.x + v4.y + v4.z + v4.w; // accumulate thread sums in v
     }
-    else if constexpr (vl && std::is_same_v<TData, double>)
+    else if constexpr (std::is_same_v<TData, double>)
     {
         double2 v2 = {0.0, 0.0}; // use v2 to read global memory
         for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
@@ -702,13 +702,10 @@ __global__ void l1normKernel(const size_t nsize, const TData *x, TData *out)
     }
 
     // process final elements (if there are any)
-    if constexpr (vl)
+    if (grid.thread_rank() < nsize % vecsize)
     {
-        if (grid.thread_rank() < nsize % vecsize)
-        {
-            size_t tid = nsize - 1u - grid.thread_rank();
-            v += std::abs(x[tid]);
-        }
+        size_t tid = nsize - 1u - grid.thread_rank();
+        v += std::abs(x[tid]);
     }
 
     warp.sync();
@@ -738,7 +735,7 @@ __global__ void l1normKernel(const size_t nsize, const TData *x, TData *out)
     }
 }
 
-template <typename TData, bool vl = true>
+template <bool init, typename TData>
 __global__ void l2normKernel(const size_t nsize, const TData *x, TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
@@ -752,14 +749,17 @@ __global__ void l2normKernel(const size_t nsize, const TData *x, TData *out)
     auto warp  = cg::tiled_partition<warpsize>(block);
     TData v    = 0;
 
-    if (block.thread_rank() == 0)
+    if constexpr (init)
     {
-        out[block.group_index().x] = 0.0;
+        if (block.thread_rank() == 0)
+        {
+            out[block.group_index().x] = 0.0;
+        }
     }
 
     block.sync();
 
-    if constexpr (vl && std::is_same_v<TData, float>)
+    if constexpr (std::is_same_v<TData, float>)
     {
         float4 v4 = {0.0f, 0.0f, 0.0f, 0.0f}; // use v4 to read global memory
         for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
@@ -770,7 +770,7 @@ __global__ void l2normKernel(const size_t nsize, const TData *x, TData *out)
         }
         v = v4.x + v4.y + v4.z + v4.w; // accumulate thread sums in v
     }
-    else if constexpr (vl && std::is_same_v<TData, double>)
+    else if constexpr (std::is_same_v<TData, double>)
     {
         double2 v2 = {0.0, 0.0}; // use v2 to read global memory
         for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
@@ -790,13 +790,10 @@ __global__ void l2normKernel(const size_t nsize, const TData *x, TData *out)
     }
 
     // process final elements (if there are any)
-    if constexpr (vl)
+    if (grid.thread_rank() < nsize % vecsize)
     {
-        if (grid.thread_rank() < nsize % vecsize)
-        {
-            size_t tid = nsize - 1u - grid.thread_rank();
-            v += x[tid] * x[tid];
-        }
+        size_t tid = nsize - 1u - grid.thread_rank();
+        v += x[tid] * x[tid];
     }
 
     warp.sync();
@@ -826,7 +823,7 @@ __global__ void l2normKernel(const size_t nsize, const TData *x, TData *out)
     }
 }
 
-template <typename TData, bool vl = true>
+template <bool init, typename TData>
 __global__ void lpnormKernel(const size_t nsize, const unsigned int p,
                              const TData *x, TData *out)
 {
@@ -841,14 +838,17 @@ __global__ void lpnormKernel(const size_t nsize, const unsigned int p,
     auto warp  = cg::tiled_partition<warpsize>(block);
     TData v    = 0;
 
-    if (block.thread_rank() == 0)
+    if constexpr (init)
     {
-        out[block.group_index().x] = 0.0;
+        if (block.thread_rank() == 0)
+        {
+            out[block.group_index().x] = 0.0;
+        }
     }
 
     block.sync();
 
-    if constexpr (vl && std::is_same_v<TData, float>)
+    if constexpr (std::is_same_v<TData, float>)
     {
         float4 v4 = {0.0f, 0.0f, 0.0f, 0.0f}; // use v4 to read global memory
         for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
@@ -861,7 +861,7 @@ __global__ void lpnormKernel(const size_t nsize, const unsigned int p,
         }
         v = v4.x + v4.y + v4.z + v4.w; // accumulate thread sums in v
     }
-    else if constexpr (vl && std::is_same_v<TData, double>)
+    else if constexpr (std::is_same_v<TData, double>)
     {
         double2 v2 = {0.0, 0.0}; // use v2 to read global memory
         for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
@@ -882,13 +882,10 @@ __global__ void lpnormKernel(const size_t nsize, const unsigned int p,
     }
 
     // process final elements (if there are any)
-    if constexpr (vl)
+    if (grid.thread_rank() < nsize % vecsize)
     {
-        if (grid.thread_rank() < nsize % vecsize)
-        {
-            size_t tid = nsize - 1u - grid.thread_rank();
-            v += std::pow(std::abs(x[tid]), p);
-        }
+        size_t tid = nsize - 1u - grid.thread_rank();
+        v += std::pow(std::abs(x[tid]), p);
     }
 
     warp.sync();
@@ -918,7 +915,7 @@ __global__ void lpnormKernel(const size_t nsize, const unsigned int p,
     }
 }
 
-template <typename TData, bool vl = true>
+template <bool init, typename TData>
 __global__ void linfnormKernel(const size_t nsize, const TData *x, TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
@@ -933,14 +930,17 @@ __global__ void linfnormKernel(const size_t nsize, const TData *x, TData *out)
     auto warp  = cg::tiled_partition<warpsize>(block);
     TData v    = min;
 
-    if (block.thread_rank() == 0)
+    if constexpr (init)
     {
-        out[block.group_index().x] = min;
+        if (block.thread_rank() == 0)
+        {
+            out[block.group_index().x] = min;
+        }
     }
 
     block.sync();
 
-    if constexpr (vl && std::is_same_v<TData, float>)
+    if constexpr (std::is_same_v<TData, float>)
     {
         for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
              tid += grid.size())
@@ -950,7 +950,7 @@ __global__ void linfnormKernel(const size_t nsize, const TData *x, TData *out)
                                      std::max(std::abs(v4.z), std::abs(v4.w))));
         }
     }
-    else if constexpr (vl && std::is_same_v<TData, double>)
+    else if constexpr (std::is_same_v<TData, double>)
     {
         for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
              tid += grid.size())
@@ -968,13 +968,10 @@ __global__ void linfnormKernel(const size_t nsize, const TData *x, TData *out)
     }
 
     // process final elements (if there are any)
-    if constexpr (vl)
+    if (grid.thread_rank() < nsize % vecsize)
     {
-        if (grid.thread_rank() < nsize % vecsize)
-        {
-            size_t tid = nsize - 1u - grid.thread_rank();
-            v          = std::max(v, std::abs(x[tid]));
-        }
+        size_t tid = nsize - 1u - grid.thread_rank();
+        v          = std::max(v, std::abs(x[tid]));
     }
 
     warp.sync();
@@ -1114,7 +1111,7 @@ daxpyKernel(const size_t nsize, const TData alpha, const TData *x,
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 reduceSumKernel(const size_t nsize, const TData *x, TData *out)
@@ -1124,7 +1121,7 @@ reduceSumKernel(const size_t nsize, const TData *x, TData *out)
 
     if (hipcudaBuffer == nullptr)
     {
-        const unsigned int hipcudaBufferSize = sizeof(TData) * (gridSize + 1);
+        const unsigned int hipcudaBufferSize = sizeof(TData) * gridSize;
         GetDeviceProperties::CheckGlobalMemoryUsage(hipcudaBufferSize);
 #if defined(NEKTAR_ENABLE_CUDA)
         CHECK_HIPCUDA_ERROR(cudaMalloc(&hipcudaBuffer, hipcudaBufferSize));
@@ -1135,21 +1132,13 @@ reduceSumKernel(const size_t nsize, const TData *x, TData *out)
     }
 
     TData *buffer = (TData *)hipcudaBuffer;
-    TData *d_out  = buffer + gridSize;
-    reduceSumKernel<<<gridSize, blockSize>>>(nsize, x, buffer);
+    reduceSumKernel<true><<<gridSize, blockSize>>>(nsize, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<<<1, gridSize>>>(gridSize, buffer, d_out);
+    reduceSumKernel<init><<<1, gridSize>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
-#if defined(NEKTAR_ENABLE_CUDA)
-    CHECK_HIPCUDA_ERROR(
-        cudaMemcpy(out, d_out, sizeof(TData), cudaMemcpyDeviceToHost));
-#elif defined(NEKTAR_ENABLE_HIP)
-    CHECK_HIPCUDA_ERROR(
-        hipMemcpy(out, d_out, sizeof(TData), hipMemcpyDeviceToHost));
-#endif
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
@@ -1159,7 +1148,7 @@ reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
 
     if (hipcudaBuffer == nullptr)
     {
-        const unsigned int hipcudaBufferSize = sizeof(TData) * (gridSize + 1);
+        const unsigned int hipcudaBufferSize = sizeof(TData) * gridSize;
         GetDeviceProperties::CheckGlobalMemoryUsage(hipcudaBufferSize);
 #if defined(NEKTAR_ENABLE_CUDA)
         CHECK_HIPCUDA_ERROR(cudaMalloc(&hipcudaBuffer, hipcudaBufferSize));
@@ -1170,21 +1159,13 @@ reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
     }
 
     TData *buffer = (TData *)hipcudaBuffer;
-    TData *d_out  = buffer + gridSize;
-    reduceMaxKernel<<<gridSize, blockSize>>>(nsize, x, buffer);
+    reduceMaxKernel<true><<<gridSize, blockSize>>>(nsize, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceMaxKernel<<<1, gridSize>>>(gridSize, buffer, d_out);
+    reduceMaxKernel<init><<<1, gridSize>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
-#if defined(NEKTAR_ENABLE_CUDA)
-    CHECK_HIPCUDA_ERROR(
-        cudaMemcpy(out, d_out, sizeof(TData), cudaMemcpyDeviceToHost));
-#elif defined(NEKTAR_ENABLE_HIP)
-    CHECK_HIPCUDA_ERROR(
-        hipMemcpy(out, d_out, sizeof(TData), hipMemcpyDeviceToHost));
-#endif
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 reduceMinKernel(const size_t nsize, const TData *x, TData *out)
@@ -1194,7 +1175,7 @@ reduceMinKernel(const size_t nsize, const TData *x, TData *out)
 
     if (hipcudaBuffer == nullptr)
     {
-        const unsigned int hipcudaBufferSize = sizeof(TData) * (gridSize + 1);
+        const unsigned int hipcudaBufferSize = sizeof(TData) * gridSize;
         GetDeviceProperties::CheckGlobalMemoryUsage(hipcudaBufferSize);
 #if defined(NEKTAR_ENABLE_CUDA)
         CHECK_HIPCUDA_ERROR(cudaMalloc(&hipcudaBuffer, hipcudaBufferSize));
@@ -1205,21 +1186,13 @@ reduceMinKernel(const size_t nsize, const TData *x, TData *out)
     }
 
     TData *buffer = (TData *)hipcudaBuffer;
-    TData *d_out  = buffer + gridSize;
-    reduceMinKernel<<<gridSize, blockSize>>>(nsize, x, buffer);
+    reduceMinKernel<true><<<gridSize, blockSize>>>(nsize, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceMinKernel<<<1, gridSize>>>(gridSize, buffer, d_out);
+    reduceMinKernel<init><<<1, gridSize>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
-#if defined(NEKTAR_ENABLE_CUDA)
-    CHECK_HIPCUDA_ERROR(
-        cudaMemcpy(out, d_out, sizeof(TData), cudaMemcpyDeviceToHost));
-#elif defined(NEKTAR_ENABLE_HIP)
-    CHECK_HIPCUDA_ERROR(
-        hipMemcpy(out, d_out, sizeof(TData), hipMemcpyDeviceToHost));
-#endif
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 ddotKernel(const size_t nsize, const TData *x, const TData *y, TData *out)
@@ -1229,7 +1202,7 @@ ddotKernel(const size_t nsize, const TData *x, const TData *y, TData *out)
 
     if (hipcudaBuffer == nullptr)
     {
-        const unsigned int hipcudaBufferSize = sizeof(TData) * (gridSize + 1);
+        const unsigned int hipcudaBufferSize = sizeof(TData) * gridSize;
         GetDeviceProperties::CheckGlobalMemoryUsage(hipcudaBufferSize);
 #if defined(NEKTAR_ENABLE_CUDA)
         CHECK_HIPCUDA_ERROR(cudaMalloc(&hipcudaBuffer, hipcudaBufferSize));
@@ -1240,21 +1213,13 @@ ddotKernel(const size_t nsize, const TData *x, const TData *y, TData *out)
     }
 
     TData *buffer = (TData *)hipcudaBuffer;
-    TData *d_out  = buffer + gridSize;
-    ddotKernel<<<gridSize, blockSize>>>(nsize, x, y, buffer);
+    ddotKernel<true><<<gridSize, blockSize>>>(nsize, x, y, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<<<1, gridSize>>>(gridSize, buffer, d_out);
+    reduceSumKernel<init><<<1, gridSize>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
-#if defined(NEKTAR_ENABLE_CUDA)
-    CHECK_HIPCUDA_ERROR(
-        cudaMemcpy(out, d_out, sizeof(TData), cudaMemcpyDeviceToHost));
-#elif defined(NEKTAR_ENABLE_HIP)
-    CHECK_HIPCUDA_ERROR(
-        hipMemcpy(out, d_out, sizeof(TData), hipMemcpyDeviceToHost));
-#endif
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 l1normKernel(const size_t nsize, const TData *x, TData *out)
@@ -1264,7 +1229,7 @@ l1normKernel(const size_t nsize, const TData *x, TData *out)
 
     if (hipcudaBuffer == nullptr)
     {
-        const unsigned int hipcudaBufferSize = sizeof(TData) * (gridSize + 1);
+        const unsigned int hipcudaBufferSize = sizeof(TData) * gridSize;
         GetDeviceProperties::CheckGlobalMemoryUsage(hipcudaBufferSize);
 #if defined(NEKTAR_ENABLE_CUDA)
         CHECK_HIPCUDA_ERROR(cudaMalloc(&hipcudaBuffer, hipcudaBufferSize));
@@ -1275,21 +1240,13 @@ l1normKernel(const size_t nsize, const TData *x, TData *out)
     }
 
     TData *buffer = (TData *)hipcudaBuffer;
-    TData *d_out  = buffer + gridSize;
-    l1normKernel<<<gridSize, blockSize>>>(nsize, x, buffer);
+    l1normKernel<true><<<gridSize, blockSize>>>(nsize, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<<<1, gridSize>>>(gridSize, buffer, d_out);
+    reduceSumKernel<init><<<1, gridSize>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
-#if defined(NEKTAR_ENABLE_CUDA)
-    CHECK_HIPCUDA_ERROR(
-        cudaMemcpy(out, d_out, sizeof(TData), cudaMemcpyDeviceToHost));
-#elif defined(NEKTAR_ENABLE_HIP)
-    CHECK_HIPCUDA_ERROR(
-        hipMemcpy(out, d_out, sizeof(TData), hipMemcpyDeviceToHost));
-#endif
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 l2normKernel(const size_t nsize, const TData *x, TData *out)
@@ -1299,7 +1256,7 @@ l2normKernel(const size_t nsize, const TData *x, TData *out)
 
     if (hipcudaBuffer == nullptr)
     {
-        const unsigned int hipcudaBufferSize = sizeof(TData) * (gridSize + 1);
+        const unsigned int hipcudaBufferSize = sizeof(TData) * gridSize;
         GetDeviceProperties::CheckGlobalMemoryUsage(hipcudaBufferSize);
 #if defined(NEKTAR_ENABLE_CUDA)
         CHECK_HIPCUDA_ERROR(cudaMalloc(&hipcudaBuffer, hipcudaBufferSize));
@@ -1310,21 +1267,13 @@ l2normKernel(const size_t nsize, const TData *x, TData *out)
     }
 
     TData *buffer = (TData *)hipcudaBuffer;
-    TData *d_out  = buffer + gridSize;
-    l2normKernel<<<gridSize, blockSize>>>(nsize, x, buffer);
+    l2normKernel<true><<<gridSize, blockSize>>>(nsize, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<<<1, gridSize>>>(gridSize, buffer, d_out);
+    reduceSumKernel<init><<<1, gridSize>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
-#if defined(NEKTAR_ENABLE_CUDA)
-    CHECK_HIPCUDA_ERROR(
-        cudaMemcpy(out, d_out, sizeof(TData), cudaMemcpyDeviceToHost));
-#elif defined(NEKTAR_ENABLE_HIP)
-    CHECK_HIPCUDA_ERROR(
-        hipMemcpy(out, d_out, sizeof(TData), hipMemcpyDeviceToHost));
-#endif
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 lpnormKernel(const size_t nsize, const unsigned int p, const TData *x,
@@ -1335,7 +1284,7 @@ lpnormKernel(const size_t nsize, const unsigned int p, const TData *x,
 
     if (hipcudaBuffer == nullptr)
     {
-        const unsigned int hipcudaBufferSize = sizeof(TData) * (gridSize + 1);
+        const unsigned int hipcudaBufferSize = sizeof(TData) * gridSize;
         GetDeviceProperties::CheckGlobalMemoryUsage(hipcudaBufferSize);
 #if defined(NEKTAR_ENABLE_CUDA)
         CHECK_HIPCUDA_ERROR(cudaMalloc(&hipcudaBuffer, hipcudaBufferSize));
@@ -1346,21 +1295,13 @@ lpnormKernel(const size_t nsize, const unsigned int p, const TData *x,
     }
 
     TData *buffer = (TData *)hipcudaBuffer;
-    TData *d_out  = buffer + gridSize;
-    lpnormKernel<<<gridSize, blockSize>>>(nsize, p, x, buffer);
+    lpnormKernel<true><<<gridSize, blockSize>>>(nsize, p, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<<<1, gridSize>>>(gridSize, buffer, d_out);
+    reduceSumKernel<init><<<1, gridSize>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
-#if defined(NEKTAR_ENABLE_CUDA)
-    CHECK_HIPCUDA_ERROR(
-        cudaMemcpy(out, d_out, sizeof(TData), cudaMemcpyDeviceToHost));
-#elif defined(NEKTAR_ENABLE_HIP)
-    CHECK_HIPCUDA_ERROR(
-        hipMemcpy(out, d_out, sizeof(TData), hipMemcpyDeviceToHost));
-#endif
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 linfnormKernel(const size_t nsize, const TData *x, TData *out)
@@ -1370,7 +1311,7 @@ linfnormKernel(const size_t nsize, const TData *x, TData *out)
 
     if (hipcudaBuffer == nullptr)
     {
-        const unsigned int hipcudaBufferSize = sizeof(TData) * (gridSize + 1);
+        const unsigned int hipcudaBufferSize = sizeof(TData) * gridSize;
         GetDeviceProperties::CheckGlobalMemoryUsage(hipcudaBufferSize);
 #if defined(NEKTAR_ENABLE_CUDA)
         CHECK_HIPCUDA_ERROR(cudaMalloc(&hipcudaBuffer, hipcudaBufferSize));
@@ -1381,18 +1322,10 @@ linfnormKernel(const size_t nsize, const TData *x, TData *out)
     }
 
     TData *buffer = (TData *)hipcudaBuffer;
-    TData *d_out  = buffer + gridSize;
-    linfnormKernel<<<gridSize, blockSize>>>(nsize, x, buffer);
+    linfnormKernel<true><<<gridSize, blockSize>>>(nsize, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceMaxKernel<<<1, gridSize>>>(gridSize, buffer, d_out);
+    reduceMaxKernel<init><<<1, gridSize>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
-#if defined(NEKTAR_ENABLE_CUDA)
-    CHECK_HIPCUDA_ERROR(
-        cudaMemcpy(out, d_out, sizeof(TData), cudaMemcpyDeviceToHost));
-#elif defined(NEKTAR_ENABLE_HIP)
-    CHECK_HIPCUDA_ERROR(
-        hipMemcpy(out, d_out, sizeof(TData), hipMemcpyDeviceToHost));
-#endif
 }
 
 } // namespace Nektar

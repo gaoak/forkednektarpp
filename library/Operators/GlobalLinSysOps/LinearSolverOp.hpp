@@ -40,6 +40,7 @@
 
 #include "Operators/AssmbScatr/AssmbScatrOp.hpp"
 #include "Operators/BndCondOps/RobBndCond/RobBndCondOp.hpp"
+#include "Operators/MathKernels/Math.hpp"
 #include "Operators/MathKernels/MathKernels.hpp"
 
 namespace Nektar::Operators

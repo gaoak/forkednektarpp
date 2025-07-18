@@ -38,6 +38,12 @@
 namespace Nektar
 {
 
+#if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||               \
+    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
+static void *internal_device_buffer = nullptr;
+static void *internal_host_buffer   = nullptr;
+#endif
+
 template <typename TData, FieldState TFieldState>
 void Math::neg(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
                const std::string &execSpace)
@@ -508,13 +514,25 @@ TData Math::reduceSum(Field<TData, TFieldState> &x,
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
     else if (execSpace0 == "Device")
     {
-        Nektar::reduceSum<NektarSpaces::Device>(x, &out);
+        if (internal_device_buffer == nullptr)
+        {
+            Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
+                                 NektarSpaces::Device::alignment, 0);
+            Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
+                                     NektarSpaces::Device::alignment);
+        }
+        Nektar::reduceSum<NektarSpaces::Device>(
+            x, (TData *)internal_device_buffer);
+        Nektar::deviceMemcpy<DeviceToHost>(
+            internal_host_buffer, internal_device_buffer, sizeof(TData), 0);
+        out = *(TData *)internal_host_buffer;
     }
 #endif
     else
     {
         ASSERTL0(false, "Unknown Execution space: " + execSpace)
     }
+
     return out;
 }
 
@@ -537,13 +555,25 @@ TData Math::reduceSum(MemoryRegion<TData> &x, const std::string &execSpace)
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
     else if (execSpace0 == "Device")
     {
-        Nektar::reduceSum<NektarSpaces::Device>(x, &out);
+        if (internal_device_buffer == nullptr)
+        {
+            Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
+                                 NektarSpaces::Device::alignment, 0);
+            Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
+                                     NektarSpaces::Device::alignment);
+        }
+        Nektar::reduceSum<NektarSpaces::Device>(
+            x, (TData *)internal_device_buffer);
+        Nektar::deviceMemcpy<DeviceToHost>(
+            internal_host_buffer, internal_device_buffer, sizeof(TData), 0);
+        out = *(TData *)internal_host_buffer;
     }
 #endif
     else
     {
         ASSERTL0(false, "Unknown Execution space: " + execSpace)
     }
+
     return out;
 }
 
@@ -567,13 +597,25 @@ TData Math::reduceMax(Field<TData, TFieldState> &x,
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
     else if (execSpace0 == "Device")
     {
-        Nektar::reduceMax<NektarSpaces::Device>(x, &out);
+        if (internal_device_buffer == nullptr)
+        {
+            Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
+                                 NektarSpaces::Device::alignment, 0);
+            Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
+                                     NektarSpaces::Device::alignment);
+        }
+        Nektar::reduceMax<NektarSpaces::Device>(
+            x, (TData *)internal_device_buffer);
+        Nektar::deviceMemcpy<DeviceToHost>(
+            internal_host_buffer, internal_device_buffer, sizeof(TData), 0);
+        out = *(TData *)internal_host_buffer;
     }
 #endif
     else
     {
         ASSERTL0(false, "Unknown Execution space: " + execSpace)
     }
+
     return out;
 }
 
@@ -596,13 +638,25 @@ TData Math::reduceMax(MemoryRegion<TData> &x, const std::string &execSpace)
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
     else if (execSpace0 == "Device")
     {
-        Nektar::reduceMax<NektarSpaces::Device>(x, &out);
+        if (internal_device_buffer == nullptr)
+        {
+            Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
+                                 NektarSpaces::Device::alignment, 0);
+            Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
+                                     NektarSpaces::Device::alignment);
+        }
+        Nektar::reduceMax<NektarSpaces::Device>(
+            x, (TData *)internal_device_buffer);
+        Nektar::deviceMemcpy<DeviceToHost>(
+            internal_host_buffer, internal_device_buffer, sizeof(TData), 0);
+        out = *(TData *)internal_host_buffer;
     }
 #endif
     else
     {
         ASSERTL0(false, "Unknown Execution space: " + execSpace)
     }
+
     return out;
 }
 
@@ -626,13 +680,25 @@ TData Math::reduceMin(Field<TData, TFieldState> &x,
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
     else if (execSpace0 == "Device")
     {
-        Nektar::reduceMin<NektarSpaces::Device>(x, &out);
+        if (internal_device_buffer == nullptr)
+        {
+            Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
+                                 NektarSpaces::Device::alignment, 0);
+            Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
+                                     NektarSpaces::Device::alignment);
+        }
+        Nektar::reduceMin<NektarSpaces::Device>(
+            x, (TData *)internal_device_buffer);
+        Nektar::deviceMemcpy<DeviceToHost>(
+            internal_host_buffer, internal_device_buffer, sizeof(TData), 0);
+        out = *(TData *)internal_host_buffer;
     }
 #endif
     else
     {
         ASSERTL0(false, "Unknown Execution space: " + execSpace)
     }
+
     return out;
 }
 
@@ -655,13 +721,25 @@ TData Math::reduceMin(MemoryRegion<TData> &x, const std::string &execSpace)
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
     else if (execSpace0 == "Device")
     {
-        Nektar::reduceMin<NektarSpaces::Device>(x, &out);
+        if (internal_device_buffer == nullptr)
+        {
+            Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
+                                 NektarSpaces::Device::alignment, 0);
+            Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
+                                     NektarSpaces::Device::alignment);
+        }
+        Nektar::reduceMin<NektarSpaces::Device>(
+            x, (TData *)internal_device_buffer);
+        Nektar::deviceMemcpy<DeviceToHost>(
+            internal_host_buffer, internal_device_buffer, sizeof(TData), 0);
+        out = *(TData *)internal_host_buffer;
     }
 #endif
     else
     {
         ASSERTL0(false, "Unknown Execution space: " + execSpace)
     }
+
     return out;
 }
 
@@ -685,13 +763,25 @@ TData Math::ddot(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
     else if (execSpace0 == "Device")
     {
-        Nektar::ddot<NektarSpaces::Device>(x, y, &out);
+        if (internal_device_buffer == nullptr)
+        {
+            Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
+                                 NektarSpaces::Device::alignment, 0);
+            Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
+                                     NektarSpaces::Device::alignment);
+        }
+        Nektar::ddot<NektarSpaces::Device>(x, y,
+                                           (TData *)internal_device_buffer);
+        Nektar::deviceMemcpy<DeviceToHost>(
+            internal_host_buffer, internal_device_buffer, sizeof(TData), 0);
+        out = *(TData *)internal_host_buffer;
     }
 #endif
     else
     {
         ASSERTL0(false, "Unknown Execution space: " + execSpace)
     }
+
     return out;
 }
 
@@ -715,13 +805,25 @@ TData Math::ddot(MemoryRegion<TData> &x, MemoryRegion<TData> &y,
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
     else if (execSpace0 == "Device")
     {
-        Nektar::ddot<NektarSpaces::Device>(x, y, &out);
+        if (internal_device_buffer == nullptr)
+        {
+            Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
+                                 NektarSpaces::Device::alignment, 0);
+            Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
+                                     NektarSpaces::Device::alignment);
+        }
+        Nektar::ddot<NektarSpaces::Device>(x, y,
+                                           (TData *)internal_device_buffer);
+        Nektar::deviceMemcpy<DeviceToHost>(
+            internal_host_buffer, internal_device_buffer, sizeof(TData), 0);
+        out = *(TData *)internal_host_buffer;
     }
 #endif
     else
     {
         ASSERTL0(false, "Unknown Execution space: " + execSpace)
     }
+
     return out;
 }
 
@@ -744,13 +846,25 @@ TData Math::l1norm(Field<TData, TFieldState> &x, const std::string &execSpace)
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
     else if (execSpace0 == "Device")
     {
-        Nektar::l1norm<NektarSpaces::Device>(x, &out);
+        if (internal_device_buffer == nullptr)
+        {
+            Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
+                                 NektarSpaces::Device::alignment, 0);
+            Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
+                                     NektarSpaces::Device::alignment);
+        }
+        Nektar::l1norm<NektarSpaces::Device>(x,
+                                             (TData *)internal_device_buffer);
+        Nektar::deviceMemcpy<DeviceToHost>(
+            internal_host_buffer, internal_device_buffer, sizeof(TData), 0);
+        out = *(TData *)internal_host_buffer;
     }
 #endif
     else
     {
         ASSERTL0(false, "Unknown Execution space: " + execSpace)
     }
+
     return out;
 }
 
@@ -773,13 +887,25 @@ TData Math::l1norm(MemoryRegion<TData> &x, const std::string &execSpace)
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
     else if (execSpace0 == "Device")
     {
-        Nektar::l1norm<NektarSpaces::Device>(x, &out);
+        if (internal_device_buffer == nullptr)
+        {
+            Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
+                                 NektarSpaces::Device::alignment, 0);
+            Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
+                                     NektarSpaces::Device::alignment);
+        }
+        Nektar::l1norm<NektarSpaces::Device>(x,
+                                             (TData *)internal_device_buffer);
+        Nektar::deviceMemcpy<DeviceToHost>(
+            internal_host_buffer, internal_device_buffer, sizeof(TData), 0);
+        out = *(TData *)internal_host_buffer;
     }
 #endif
     else
     {
         ASSERTL0(false, "Unknown Execution space: " + execSpace)
     }
+
     return out;
 }
 
@@ -802,13 +928,25 @@ TData Math::l2norm(Field<TData, TFieldState> &x, const std::string &execSpace)
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
     else if (execSpace0 == "Device")
     {
-        Nektar::l2norm<NektarSpaces::Device>(x, &out);
+        if (internal_device_buffer == nullptr)
+        {
+            Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
+                                 NektarSpaces::Device::alignment, 0);
+            Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
+                                     NektarSpaces::Device::alignment);
+        }
+        Nektar::l2norm<NektarSpaces::Device>(x,
+                                             (TData *)internal_device_buffer);
+        Nektar::deviceMemcpy<DeviceToHost>(
+            internal_host_buffer, internal_device_buffer, sizeof(TData), 0);
+        out = *(TData *)internal_host_buffer;
     }
 #endif
     else
     {
         ASSERTL0(false, "Unknown Execution space: " + execSpace)
     }
+
     return out;
 }
 
@@ -831,13 +969,25 @@ TData Math::l2norm(MemoryRegion<TData> &x, const std::string &execSpace)
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
     else if (execSpace0 == "Device")
     {
-        Nektar::l2norm<NektarSpaces::Device>(x, &out);
+        if (internal_device_buffer == nullptr)
+        {
+            Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
+                                 NektarSpaces::Device::alignment, 0);
+            Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
+                                     NektarSpaces::Device::alignment);
+        }
+        Nektar::l2norm<NektarSpaces::Device>(x,
+                                             (TData *)internal_device_buffer);
+        Nektar::deviceMemcpy<DeviceToHost>(
+            internal_host_buffer, internal_device_buffer, sizeof(TData), 0);
+        out = *(TData *)internal_host_buffer;
     }
 #endif
     else
     {
         ASSERTL0(false, "Unknown Execution space: " + execSpace)
     }
+
     return out;
 }
 
@@ -861,13 +1011,25 @@ TData Math::lpnorm(const unsigned int p, Field<TData, TFieldState> &x,
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
     else if (execSpace0 == "Device")
     {
-        Nektar::lpnorm<NektarSpaces::Device>(p, x, &out);
+        if (internal_device_buffer == nullptr)
+        {
+            Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
+                                 NektarSpaces::Device::alignment, 0);
+            Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
+                                     NektarSpaces::Device::alignment);
+        }
+        Nektar::lpnorm<NektarSpaces::Device>(p, x,
+                                             (TData *)internal_device_buffer);
+        Nektar::deviceMemcpy<DeviceToHost>(
+            internal_host_buffer, internal_device_buffer, sizeof(TData), 0);
+        out = *(TData *)internal_host_buffer;
     }
 #endif
     else
     {
         ASSERTL0(false, "Unknown Execution space: " + execSpace)
     }
+
     return out;
 }
 
@@ -891,13 +1053,25 @@ TData Math::lpnorm(const unsigned int p, MemoryRegion<TData> &x,
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
     else if (execSpace0 == "Device")
     {
-        Nektar::lpnorm<NektarSpaces::Device>(p, x, &out);
+        if (internal_device_buffer == nullptr)
+        {
+            Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
+                                 NektarSpaces::Device::alignment, 0);
+            Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
+                                     NektarSpaces::Device::alignment);
+        }
+        Nektar::lpnorm<NektarSpaces::Device>(p, x,
+                                             (TData *)internal_device_buffer);
+        Nektar::deviceMemcpy<DeviceToHost>(
+            internal_host_buffer, internal_device_buffer, sizeof(TData), 0);
+        out = *(TData *)internal_host_buffer;
     }
 #endif
     else
     {
         ASSERTL0(false, "Unknown Execution space: " + execSpace)
     }
+
     return out;
 }
 
@@ -920,13 +1094,25 @@ TData Math::linfnorm(Field<TData, TFieldState> &x, const std::string &execSpace)
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
     else if (execSpace0 == "Device")
     {
-        Nektar::linfnorm<NektarSpaces::Device>(x, &out);
+        if (internal_device_buffer == nullptr)
+        {
+            Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
+                                 NektarSpaces::Device::alignment, 0);
+            Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
+                                     NektarSpaces::Device::alignment);
+        }
+        Nektar::linfnorm<NektarSpaces::Device>(x,
+                                               (TData *)internal_device_buffer);
+        Nektar::deviceMemcpy<DeviceToHost>(
+            internal_host_buffer, internal_device_buffer, sizeof(TData), 0);
+        out = *(TData *)internal_host_buffer;
     }
 #endif
     else
     {
         ASSERTL0(false, "Unknown Execution space: " + execSpace)
     }
+
     return out;
 }
 
@@ -949,13 +1135,25 @@ TData Math::linfnorm(MemoryRegion<TData> &x, const std::string &execSpace)
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
     else if (execSpace0 == "Device")
     {
-        Nektar::linfnorm<NektarSpaces::Device>(x, &out);
+        if (internal_device_buffer == nullptr)
+        {
+            Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
+                                 NektarSpaces::Device::alignment, 0);
+            Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
+                                     NektarSpaces::Device::alignment);
+        }
+        Nektar::linfnorm<NektarSpaces::Device>(x,
+                                               (TData *)internal_device_buffer);
+        Nektar::deviceMemcpy<DeviceToHost>(
+            internal_host_buffer, internal_device_buffer, sizeof(TData), 0);
+        out = *(TData *)internal_host_buffer;
     }
 #endif
     else
     {
         ASSERTL0(false, "Unknown Execution space: " + execSpace)
     }
+
     return out;
 }
 

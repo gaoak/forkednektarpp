@@ -90,6 +90,7 @@ public:
             "GMRESCentralDifference", "True", m_GMRESCentralDifference, false);
 
         // Set operators.
+        m_math = Math(ExecSpace::name);
         m_assmbScatrOp =
             AssmbScatrOp<TData>::Create(this->m_expansionList, ExecSpace::name);
         m_robBndCondOp =
@@ -131,6 +132,8 @@ protected:
     std::shared_ptr<AssmbScatrOp<TData>> m_assmbScatrOp;
     std::shared_ptr<RobBndCondOp<TData>> m_robBndCondOp;
 
+    Math m_math;
+
     Field<TData, FieldState::Coeff> m_w;
     Field<TData, FieldState::Coeff> m_wk;
     Field<TData, FieldState::Coeff> m_r0;
@@ -161,7 +164,7 @@ protected:
         if (m_rhs_magnitude == NekConstants::kNekUnsetDouble)
         {
             m_assmbScatrOp->Apply(in, m_wk);
-            ddot<ExecSpace>(in, m_wk, &m_rhs_magnitude);
+            m_rhs_magnitude = m_math.ddot(in, m_wk);
             m_rowComm->AllReduce(m_rhs_magnitude,
                                  Nektar::LibUtilities::ReduceSum);
             m_rhs_magnitude =
@@ -198,7 +201,7 @@ protected:
             m_robBndCondOp->Apply(out, m_r0);
             sub<ExecSpace>(in, m_r0, m_r0);
             m_assmbScatrOp->Apply(m_r0, m_wk, true);
-            ddot<ExecSpace>(m_wk, m_r0, &eps1);
+            eps1 = m_math.ddot(m_wk, m_r0);
             m_rowComm->AllReduce(eps1, LibUtilities::ReduceSum);
 
             // if (m_root)
@@ -275,7 +278,7 @@ protected:
         // Norm of (r0)
         TData eps;
         m_assmbScatrOp->Apply(m_r0, m_wk, true);
-        ddot<ExecSpace>(m_r0, m_wk, &eps);
+        eps = m_math.ddot(m_r0, m_wk);
         m_rowComm->AllReduce(eps, LibUtilities::ReduceSum);
 
         if (!restarted)
@@ -285,7 +288,7 @@ protected:
                 if (m_NekLinSysLeftPrecon)
                 {
                     m_assmbScatrOp->Apply(in, m_wk, true);
-                    ddot<ExecSpace>(in, m_wk, &m_prec_factor);
+                    m_prec_factor = m_math.ddot(in, m_wk);
                     m_rowComm->AllReduce(m_prec_factor,
                                          LibUtilities::ReduceSum);
                 }
@@ -431,14 +434,14 @@ protected:
         for (unsigned int i = starttem; i < endtem; ++i)
         {
             m_assmbScatrOp->Apply(m_Vtotal[i], wk, true);
-            ddot<ExecSpace>(w, wk, &h[i]);
+            h[i] = m_math.ddot(w, wk);
             m_rowComm->AllReduce(h[i], LibUtilities::ReduceSum);
             daxpy<ExecSpace>(-1.0 * h[i], m_Vtotal[i], w, w);
         }
 
         // Calculate the L2 norm and normalize.
         m_assmbScatrOp->Apply(w, wk, true);
-        ddot<ExecSpace>(w, wk, &h[endtem]);
+        h[endtem] = m_math.ddot(w, wk);
         m_rowComm->AllReduce(h[endtem], LibUtilities::ReduceSum);
         h[endtem] = std::sqrt(h[endtem]);
         mul<ExecSpace>(1.0 / h[endtem], w, V2);
