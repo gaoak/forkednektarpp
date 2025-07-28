@@ -277,7 +277,7 @@ static int OutputTec360_binary(const std::string filename,
 }
 
 void StatLagrangianPoints::v_OutputData(
-    std::string filename, bool verbose,
+    std::string filename, [[maybe_unused]] bool verbose,
     std::map<std::string, NekDouble> &params)
 {
     std::vector<std::string> COORDS = {"x", "y", "z"};
@@ -324,33 +324,34 @@ void StatLagrangianPoints::v_OutputData(
         variables.push_back(m_extraPhysVars[d]);
     }
     OutputTec360_binary(filename, variables, m_N, data, 1);
-    if (verbose)
-    {
-        int Np = m_coords[0][0].size();
-        for (int d = 0; d < m_dim; ++d)
-        {
-            NekDouble value = 0.;
-            for (int i = 0; i < Np; ++i)
-            {
-                value += m_coords[0][d][i] * m_coords[0][d][i];
-            }
-            value = sqrt(value / Np);
-            cout << "L 2 error (variable L" << COORDS[d] << ") : " << value
-                 << endl;
-        }
-        for (int d = 0; d < m_dim; ++d)
-        {
-            NekDouble value = 0.;
-            for (int i = 0; i < Np; ++i)
-            {
-                value += m_velocity[0][d][i] * m_velocity[0][d][i];
-            }
-            value = sqrt(value / Np);
-            cout << "L 2 error (variable L" << VELOCI[d] << ") : " << value
-                 << endl;
-        }
-    }
     cout << "Write file " << filename << endl;
+}
+
+void StatLagrangianPoints::v_OutputError()
+{
+    int Np                          = m_coords[0][0].size();
+    std::vector<std::string> COORDS = {"x", "y", "z"};
+    std::vector<std::string> VELOCI = {"u", "v", "w"};
+    for (int d = 0; d < m_dim; ++d)
+    {
+        NekDouble value = 0.;
+        for (int i = 0; i < Np; ++i)
+        {
+            value += m_coords[0][d][i] * m_coords[0][d][i];
+        }
+        value = sqrt(value / Np);
+        cout << "L 2 error (variable L" << COORDS[d] << ") : " << value << endl;
+    }
+    for (int d = 0; d < m_dim; ++d)
+    {
+        NekDouble value = 0.;
+        for (int i = 0; i < Np; ++i)
+        {
+            value += m_velocity[0][d][i] * m_velocity[0][d][i];
+        }
+        value = sqrt(value / Np);
+        cout << "L 2 error (variable L" << VELOCI[d] << ") : " << value << endl;
+    }
 }
 
 void StatLagrangianPoints::v_AssignPoint(int id, int pid,
@@ -801,10 +802,18 @@ void FilterLagrangianPoints::v_Update(
     std::map<int, std::set<int>> callbackUpdateMobCoords;
     PassMobilePhysToStatic(callbackUpdateMobCoords);
     // output Lagrangian coordinates
+
     if (m_index % m_outputFrequency == 0 && m_staticPts != nullptr)
     {
         OutputStatPoints(time);
     }
+    m_session->GetComm()->GetSpaceComm()->Block();
+    if (m_index % m_outputFrequency == 0 && m_staticPts != nullptr &&
+        m_outputL2Norm)
+    {
+        m_staticPts->OutputError();
+    }
+
     // output sample points
     if (m_index % m_outputSampleFrequency == 0 && !m_samplePointIDs.empty())
     {

@@ -76,6 +76,7 @@ public:
 protected:
     void v_OutputData(std::string filename, bool verbose,
                       std::map<std::string, NekDouble> &params) override;
+    void v_OutputError() override;
     void v_TimeAdvance(int order) override;
     void v_GetCoords(int pid, Array<OneD, NekDouble> &gcoords) override;
     void v_SetCoords(int pid, const Array<OneD, NekDouble> &gcoords) override;

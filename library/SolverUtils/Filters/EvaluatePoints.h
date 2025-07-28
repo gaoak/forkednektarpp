@@ -64,6 +64,10 @@ public:
     {
         v_OutputData(filename, verbose, params);
     }
+    SOLVER_UTILS_EXPORT void OutputError()
+    {
+        v_OutputError();
+    }
     inline void ReSize(int Np)
     {
         v_ReSize(Np);
@@ -129,6 +133,7 @@ public:
 protected:
     virtual void v_OutputData(std::string filename, bool verbose,
                               std::map<std::string, NekDouble> &params)    = 0;
+    virtual void v_OutputError()                                           = 0;
     virtual void v_TimeAdvance(int order)                                  = 0;
     virtual void v_GetCoords(int pid, Array<OneD, NekDouble> &gcoords)     = 0;
     virtual void v_SetCoords(int pid,

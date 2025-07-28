@@ -103,6 +103,7 @@ include:
       -e "BUILD_CC=$BUILD_CC"
       -e "BUILD_CXX=$BUILD_CXX"
       -e "BUILD_FC=$BUILD_FC"
+      -e "DISABLE_CWIPI=$DISABLE_CWIPI"
       -e "DISABLE_MCA=$DISABLE_MCA"
       -e "DO_COVERAGE=$DO_COVERAGE"
       -e "NUM_CPUS=$NUM_CPUS"
@@ -681,6 +682,8 @@ fedora-40-default-build-and-test:
 fedora-40-full-build-and-test:
   <<: *build-and-test-template
   needs: ["fedora-40-full-build-env"]
+  variables:
+    DISABLE_CWIPI: true
 
 #fedora-41-default-build-and-test:
 #  <<: *build-and-test-template

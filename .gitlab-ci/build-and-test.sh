@@ -16,6 +16,7 @@ echo "  - BUILD_CXX               : $BUILD_CXX"
 echo "  - BUILD_FC                : $BUILD_FC"
 echo "  - BUILD_TYPE              : $BUILD_TYPE"
 echo "  - BUILD_SIMD              : $BUILD_SIMD"
+echo "  - DISABLE_CWIPI           : $DISABLE_CWIPI"
 echo "  - DISABLE_MCA             : $DISABLE_MCA"
 echo "  - EXPORT_COMPILE_COMMANDS : $EXPORT_COMPILE_COMMANDS"
 echo "  - NUM_CPUS                : $NUM_CPUS"
@@ -45,7 +46,6 @@ elif [[ $BUILD_TYPE == "full" ]]; then
                "-DNEKTAR_USE_CCM:BOOL=ON"
                "-DNEKTAR_USE_CGNS:BOOL=ON"
                "-DNEKTAR_CCMIO_URL=https://www.nektar.info/ccmio/libccmio-2.6.1.tar.gz"
-               "-DNEKTAR_USE_CWIPI:BOOL=ON"
                "-DNEKTAR_USE_VTK:BOOL=ON"
                "-DNEKTAR_BUILD_REDESIGN:BOOL=ON"
 	       "-DNEKTAR_USE_LST:BOOL=ON"
@@ -55,6 +55,9 @@ elif [[ $BUILD_TYPE == "full" ]]; then
                "-DNEKTAR_ERROR_ON_WARNINGS=OFF"
               )
 
+    if [[ $DISABLE_CWIPI != "true" ]]; then
+        CMAKEARGS+=("-DNEKTAR_USE_CWIPI:BOOL=ON")
+    fi
     if [[ $BUILD_SIMD == "avx2" ]]; then
         CMAKEARGS+=("-DNEKTAR_ENABLE_SIMD_AVX2:BOOL=ON")
     elif [[ $BUILD_SIMD == "avx512" ]]; then
