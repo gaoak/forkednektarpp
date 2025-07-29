@@ -11,7 +11,7 @@ v5.9.0
 - Some fix for PhysInterp1D (!2081)
 - Use std::unordered_map instead of std::map for NekFactory (!2103)
 - Replace `std::shared_ptr` with `std::unique_ptr` inside SpatialDomains (!2112)
-- Fix output messages clobbering error info in Lagrangian filter (!2200)
+- Fix output messages clobbering error info in Lagrangian filter (!2200, !2202)
 
 **NekMesh**
 - Minor Bug-fix for industrial pipeline !2057 (!2135)

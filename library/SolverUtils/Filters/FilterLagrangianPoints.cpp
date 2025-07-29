@@ -324,7 +324,10 @@ void StatLagrangianPoints::v_OutputData(
         variables.push_back(m_extraPhysVars[d]);
     }
     OutputTec360_binary(filename, variables, m_N, data, 1);
-    cout << "Write file " << filename << endl;
+    if (verbose)
+    {
+        cout << "Write file " << filename << endl;
+    }
 }
 
 void StatLagrangianPoints::v_OutputError()
@@ -806,12 +809,10 @@ void FilterLagrangianPoints::v_Update(
     if (m_index % m_outputFrequency == 0 && m_staticPts != nullptr)
     {
         OutputStatPoints(time);
-    }
-    m_session->GetComm()->GetSpaceComm()->Block();
-    if (m_index % m_outputFrequency == 0 && m_staticPts != nullptr &&
-        m_outputL2Norm)
-    {
-        m_staticPts->OutputError();
+        if (m_outputL2Norm)
+        {
+            m_staticPts->OutputError();
+        }
     }
 
     // output sample points
