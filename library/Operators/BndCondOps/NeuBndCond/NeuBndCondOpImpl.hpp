@@ -196,6 +196,13 @@ protected:
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
         {
+            auto nbndCoeffBlock = m_nBndCoeffBlock[blk];
+
+            if (nbndCoeffBlock == 0)
+            {
+                continue;
+            }
+
             // Initialize pointers.
             auto inoutptr =
                 inout.GetBlocks()[blk].template GetPtr<MemSpace, ReadWrite>();
@@ -205,9 +212,6 @@ protected:
             auto signPtr =
                 m_signChange ? m_sign[blk].template GetPtr<MemSpace, ReadOnly>()
                              : nullptr;
-
-            // Block dependent.
-            auto nbndCoeffBlock = m_nBndCoeffBlock[blk];
 
             // Add weak boundary conditions to the forcing.
             if (m_signChange)

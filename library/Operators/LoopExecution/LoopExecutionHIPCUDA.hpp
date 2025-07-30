@@ -42,7 +42,7 @@
 namespace Nektar
 {
 
-static void *hipcudaBuffer = nullptr;
+static void *internalHIPCUDABuffer = nullptr;
 
 template <typename ExecSpace, typename Scope, typename TData>
 NEK_DEVICE_INLINE
@@ -237,20 +237,23 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
 
     using TData = typename Reduction::value_type;
 
-    if (hipcudaBuffer == nullptr)
+    if (internalHIPCUDABuffer == nullptr)
     {
-        const unsigned int hipcudaBufferSize = sizeof(TData) * (gridSize + 1);
-        GetDeviceProperties::CheckGlobalMemoryUsage(hipcudaBufferSize);
+        const unsigned int internalHIPCUDABufferSize =
+            sizeof(TData) * (gridSize + 1);
+        GetDeviceProperties::CheckGlobalMemoryUsage(internalHIPCUDABufferSize);
 #if defined(NEKTAR_ENABLE_CUDA)
-        CHECK_HIPCUDA_ERROR(cudaMalloc(&hipcudaBuffer, hipcudaBufferSize));
+        CHECK_HIPCUDA_ERROR(
+            cudaMalloc(&internalHIPCUDABuffer, internalHIPCUDABufferSize));
 #elif defined(NEKTAR_ENABLE_HIP)
-        CHECK_HIPCUDA_ERROR(hipMalloc(&hipcudaBuffer, hipcudaBufferSize));
+        CHECK_HIPCUDA_ERROR(
+            hipMalloc(&internalHIPCUDABuffer, internalHIPCUDABufferSize));
 #endif
-        GetDeviceProperties::TotalGlobalMemory() -= hipcudaBufferSize;
+        GetDeviceProperties::TotalGlobalMemory() -= internalHIPCUDABufferSize;
     }
 
-    TData *buffer = (TData *)hipcudaBuffer;
-    TData *d_out  = (TData *)hipcudaBuffer + gridSize;
+    TData *buffer = (TData *)internalHIPCUDABuffer;
+    TData *d_out  = (TData *)internalHIPCUDABuffer + gridSize;
     if constexpr (std::is_same_v<Reduction, Nektar::ReduceSum<TData>>)
     {
         reduceSumKernel<<<gridSize, blockSize>>>(begin, end, buffer, functor);

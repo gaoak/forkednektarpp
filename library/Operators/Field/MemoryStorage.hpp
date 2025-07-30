@@ -71,7 +71,8 @@ public:
                   const size_t alignment, const unsigned int device_rank,
                   const MemAllocType &memAllocType)
     {
-        m_owned        = true;
+        m_host_owned   = true;
+        m_device_owned = true;
         m_name         = name;
         m_size         = size;
         m_alignment    = alignment;
@@ -86,29 +87,59 @@ public:
 
     /**
      * @brief Constructor methods - create a new memory region from an
-     * existing host pointer. Specialized constructor method used by
-     * Field.hpp to allocate a contiguous host memory coupled with
-     * distributed device memory.
+     * existing device pointer. Specialized constructor method used by
+     * Field.hpp to allocate a contiguous device memory.
      *
      * @param name        - name
-     * @param h_src       - host src pointer
+     * @param d_src       - device src pointer
      * @param size        - size of memory
      * @param alignment   - memory alignment
      * @param device_rank - device (GPU) rank id
      */
-    MemoryStorage(const std::string name, TData *h_src, const size_t size,
+    MemoryStorage(const std::string name, TData *d_src, const size_t size,
                   const size_t alignment, const unsigned int device_rank)
     {
-        m_owned       = false;
-        m_name        = name;
-        m_size        = size;
-        m_alignment   = alignment;
-        m_device_rank = device_rank;
+        m_host_owned   = true;
+        m_device_owned = false;
+        m_name         = name;
+        m_size         = size;
+        m_alignment    = alignment;
+        m_device_rank  = device_rank;
+
+        m_host         = nullptr;
+        m_device       = d_src;
+        m_host_valid   = false;
+        m_device_valid = true;
+    }
+
+    /**
+     * @brief Constructor methods - create a new memory region from an
+     * existing host and device pointers. Specialized constructor method
+     * used by Field.hpp to allocate a contiguous host memory coupled with
+     * contiguous device memory.
+     *
+     * @param name        - name
+     * @param h_src       - host src pointer
+     * @param d_src       - device src pointer
+     * @param size        - size of memory
+     * @param alignment   - memory alignment
+     * @param device_rank - device (GPU) rank id
+     */
+    MemoryStorage(const std::string name, TData *h_src, TData *d_src,
+                  const size_t size, const size_t alignment,
+                  const unsigned int device_rank)
+    {
+        m_host_owned   = false;
+        m_device_owned = false;
+        m_name         = name;
+        m_size         = size;
+        m_alignment    = alignment;
+        m_device_rank  = device_rank;
 
         m_host         = h_src;
-        m_device       = nullptr;
+        m_device       = d_src;
         m_host_valid   = true;
-        m_device_valid = false;
+        m_device_valid = true;
     }
 
     /**
@@ -117,12 +148,14 @@ public:
      * @param rhs - MemoryStorage to move from
      */
     MemoryStorage(MemoryStorage &&rhs)
-        : m_owned(rhs.m_owned), m_host(rhs.m_host), m_size(rhs.m_size),
+        : m_host_owned(rhs.m_host_owned), m_device_owned(rhs.m_device_owned),
+          m_host(rhs.m_host), m_device(rhs.m_device), m_size(rhs.m_size),
           m_alignment(rhs.m_alignment), m_host_valid(rhs.m_host_valid),
-          m_device_rank(rhs.m_device_rank), m_name(rhs.m_name),
-          m_memAllocType(rhs.m_memAllocType)
+          m_device_valid(rhs.m_device_valid), m_device_rank(rhs.m_device_rank),
+          m_name(rhs.m_name), m_memAllocType(rhs.m_memAllocType)
     {
-        rhs.m_owned        = true;
+        rhs.m_host_owned   = true;
+        rhs.m_device_owned = true;
         rhs.m_host         = nullptr;
         rhs.m_device       = nullptr;
         rhs.m_size         = 0;
@@ -140,13 +173,13 @@ public:
      */
     ~MemoryStorage()
     {
-        if (m_device)
+        nekSetDevice(m_device_rank);
+        if (m_device && m_device_owned)
         {
-            deviceFree(m_device, m_size * sizeof(TData), m_alignment,
-                       m_device_rank);
+            deviceFree(m_device, m_size * sizeof(TData), m_alignment);
         }
 
-        if (m_host && m_owned)
+        if (m_host && m_host_owned)
         {
             if (m_memAllocType == ePinned)
             {
@@ -158,7 +191,8 @@ public:
             }
         }
 
-        m_owned        = true;
+        m_host_owned   = true;
+        m_device_owned = true;
         m_host         = nullptr;
         m_device       = nullptr;
         m_size         = 0;
@@ -188,7 +222,8 @@ protected:
      */
     MemoryStorage &operator=(MemoryStorage &&rhs)
     {
-        m_owned        = rhs.m_owned;
+        m_host_owned   = rhs.m_host_owned;
+        m_device_owned = rhs.m_device_owned;
         m_host         = rhs.m_host;
         m_device       = rhs.m_device;
         m_size         = rhs.m_size;
@@ -199,7 +234,8 @@ protected:
         m_name         = rhs.m_name;
         m_memAllocType = rhs.m_memAllocType;
 
-        rhs.m_owned        = true;
+        rhs.m_host_owned   = true;
+        rhs.m_device_owned = true;
         rhs.m_host         = nullptr;
         rhs.m_device       = nullptr;
         rhs.m_size         = 0;
@@ -346,11 +382,11 @@ protected:
      */
     TData *GetWriteOnlyDevicePtr()
     {
+        nekSetDevice(m_device_rank);
         if (!m_device)
         {
-            deviceMalloc(&m_device, m_size * sizeof(TData), m_alignment,
-                         m_device_rank);
-            deviceMemset(m_device, 0, m_size * sizeof(TData), m_device_rank);
+            deviceMalloc(&m_device, m_size * sizeof(TData), m_alignment);
+            deviceMemset(m_device, 0, m_size * sizeof(TData));
         }
 
         m_host_valid   = false;
@@ -404,6 +440,7 @@ protected:
     void Initialize(const TData val, const size_t count = 0,
                     const size_t offset = 0)
     {
+        nekSetDevice(m_device_rank);
         if (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
         {
             if (!m_host)
@@ -451,10 +488,8 @@ protected:
         {
             if (!m_device)
             {
-                deviceMalloc(&m_device, m_size * sizeof(TData), m_alignment,
-                             m_device_rank);
-                deviceMemset(m_device, 0, m_size * sizeof(TData),
-                             m_device_rank);
+                deviceMalloc(&m_device, m_size * sizeof(TData), m_alignment);
+                deviceMemset(m_device, 0, m_size * sizeof(TData));
             }
 
             auto size = (count == 0) ? m_size : count;
@@ -467,17 +502,17 @@ protected:
             {
                 if (val == TData(0))
                 {
-                    deviceMemset(dst, 0, size * sizeof(TData), m_device_rank);
+                    deviceMemset(dst, 0, size * sizeof(TData));
                 }
                 // Nonzero value
                 else
                 {
-                    deviceFill(dst, val, size, m_device_rank);
+                    deviceFill(dst, val, size);
                 }
             }
             else
             {
-                deviceFill(dst, val, size, m_device_rank);
+                deviceFill(dst, val, size);
             }
 
             m_host_valid   = false;
@@ -496,6 +531,7 @@ protected:
     void CopyFromHostPtr(const TData *src, const size_t size,
                          const size_t offset = 0)
     {
+        nekSetDevice(m_device_rank);
         if (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
         {
             if (!m_host)
@@ -524,16 +560,13 @@ protected:
         {
             if (!m_device)
             {
-                deviceMalloc(&m_device, m_size * sizeof(TData), m_alignment,
-                             m_device_rank);
-                deviceMemset(m_device, 0, m_size * sizeof(TData),
-                             m_device_rank);
+                deviceMalloc(&m_device, m_size * sizeof(TData), m_alignment);
+                deviceMemset(m_device, 0, m_size * sizeof(TData));
             }
 
             TData *dst = m_device + offset;
 
-            deviceMemcpy<HostToDevice>(dst, src, size * sizeof(TData),
-                                       m_device_rank);
+            deviceMemcpy<HostToDevice>(dst, src, size * sizeof(TData));
 
             m_host_valid   = false;
             m_device_valid = true;
@@ -546,6 +579,7 @@ protected:
      */
     void HostToDeviceCopy(void)
     {
+        nekSetDevice(m_device_rank);
         if (!m_device_valid)
         {
             if (!m_host && m_size > 0)
@@ -560,15 +594,14 @@ protected:
 
             if (!m_device)
             {
-                deviceMalloc(&m_device, m_size * sizeof(TData), m_alignment,
-                             m_device_rank);
+                deviceMalloc(&m_device, m_size * sizeof(TData), m_alignment);
             }
 
             // Make sure the host data is valid. It might not be.
             if (m_host_valid)
             {
-                deviceMemcpy<HostToDevice>(
-                    m_device, m_host, m_size * sizeof(TData), m_device_rank);
+                deviceMemcpy<HostToDevice>(m_device, m_host,
+                                           m_size * sizeof(TData));
             }
             else
             {
@@ -589,6 +622,7 @@ protected:
      */
     void DeviceToHostCopy(void)
     {
+        nekSetDevice(m_device_rank);
         if (!m_host_valid)
         {
             if (!m_device && m_size > 0)
@@ -617,8 +651,8 @@ protected:
             // Make sure the device data is valid. It might not be.
             if (m_device_valid)
             {
-                deviceMemcpy<DeviceToHost>(
-                    m_host, m_device, m_size * sizeof(TData), m_device_rank);
+                deviceMemcpy<DeviceToHost>(m_host, m_device,
+                                           m_size * sizeof(TData));
             }
             else
             {
@@ -634,16 +668,18 @@ protected:
     }
 
     // Member variables:
-    bool m_owned = true; // Flag indicating if the host pointer is owned
-                         // by the current object.
+    bool m_host_owned = true;   // Flag indicating if the host pointer is owned
+                                // by the current object.
+    bool m_device_owned = true; // Flag indicating if the device pointer is
+                                // owned by the current object.
     TData *m_host      = nullptr; /// < Host memory pointer
     TData *m_device    = nullptr; ///< Device memory pointer
     size_t m_size      = 0;
     size_t m_alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
 
-    bool m_host_valid    = false; // Flag indicating that the host data is valid
-    bool m_device_valid  = false; ///< Flag indicating the device data is valid
-    size_t m_device_rank = 0;     // Index indicating device ID.
+    bool m_host_valid   = false; // Flag indicating that the host data is valid
+    bool m_device_valid = false; ///< Flag indicating the device data is valid
+    unsigned int m_device_rank = 0; // Index indicating device ID.
     std::string m_name{""};
     MemAllocType m_memAllocType{eHostDevice};
 };

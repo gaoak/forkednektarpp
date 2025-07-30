@@ -34,4 +34,4 @@
 
 #include "SYCLQueue.hpp"
 
-sycl::queue *SYCLQueue::queue = nullptr;
+std::vector<sycl::queue *> SYCLQueue::queue;

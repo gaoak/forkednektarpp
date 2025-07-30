@@ -573,15 +573,15 @@ reduceSumKernel(const size_t nsize, const TData *x, TData *out)
 
     sycl::queue &Q = SYCLQueue::GetInstance();
 
-    if (syclBuffer == nullptr)
+    if (internalSYCLBuffer == nullptr)
     {
-        const unsigned int syclBufferSize = sizeof(TData) * gridSize;
-        GetDeviceProperties::CheckGlobalMemoryUsage(syclBufferSize);
-        syclBuffer = sycl::malloc_device(syclBufferSize, Q);
-        GetDeviceProperties::TotalGlobalMemory() -= syclBufferSize;
+        const unsigned int internalSYCLBufferSize = sizeof(TData) * gridSize;
+        GetDeviceProperties::CheckGlobalMemoryUsage(internalSYCLBufferSize);
+        internalSYCLBuffer = sycl::malloc_device(internalSYCLBufferSize, Q);
+        GetDeviceProperties::TotalGlobalMemory() -= internalSYCLBufferSize;
     }
 
-    TData *buffer = (TData *)syclBuffer;
+    TData *buffer = (TData *)internalSYCLBuffer;
 #if defined(USE_SYCL_BUILTIN_REDUCER)
     sycl::property_list initializer =
         init ? sycl::property_list{sycl::property::reduction::
@@ -611,15 +611,15 @@ reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
 
     sycl::queue &Q = SYCLQueue::GetInstance();
 
-    if (syclBuffer == nullptr)
+    if (internalSYCLBuffer == nullptr)
     {
-        const unsigned int syclBufferSize = sizeof(TData) * gridSize;
-        GetDeviceProperties::CheckGlobalMemoryUsage(syclBufferSize);
-        syclBuffer = sycl::malloc_device(syclBufferSize, Q);
-        GetDeviceProperties::TotalGlobalMemory() -= syclBufferSize;
+        const unsigned int internalSYCLBufferSize = sizeof(TData) * gridSize;
+        GetDeviceProperties::CheckGlobalMemoryUsage(internalSYCLBufferSize);
+        internalSYCLBuffer = sycl::malloc_device(internalSYCLBufferSize, Q);
+        GetDeviceProperties::TotalGlobalMemory() -= internalSYCLBufferSize;
     }
 
-    TData *buffer = (TData *)syclBuffer;
+    TData *buffer = (TData *)internalSYCLBuffer;
 #if defined(USE_SYCL_BUILTIN_REDUCER)
     sycl::property_list initializer =
         init ? sycl::property_list{sycl::property::reduction::
@@ -649,15 +649,15 @@ reduceMinKernel(const size_t nsize, const TData *x, TData *out)
 
     sycl::queue &Q = SYCLQueue::GetInstance();
 
-    if (syclBuffer == nullptr)
+    if (internalSYCLBuffer == nullptr)
     {
-        const unsigned int syclBufferSize = sizeof(TData) * gridSize;
-        GetDeviceProperties::CheckGlobalMemoryUsage(syclBufferSize);
-        syclBuffer = sycl::malloc_device(syclBufferSize, Q);
-        GetDeviceProperties::TotalGlobalMemory() -= syclBufferSize;
+        const unsigned int internalSYCLBufferSize = sizeof(TData) * gridSize;
+        GetDeviceProperties::CheckGlobalMemoryUsage(internalSYCLBufferSize);
+        internalSYCLBuffer = sycl::malloc_device(internalSYCLBufferSize, Q);
+        GetDeviceProperties::TotalGlobalMemory() -= internalSYCLBufferSize;
     }
 
-    TData *buffer = (TData *)syclBuffer;
+    TData *buffer = (TData *)internalSYCLBuffer;
 #if defined(USE_SYCL_BUILTIN_REDUCER)
     sycl::property_list initializer =
         init ? sycl::property_list{sycl::property::reduction::
@@ -687,15 +687,15 @@ ddotKernel(const size_t nsize, const TData *x, const TData *y, TData *out)
 
     sycl::queue &Q = SYCLQueue::GetInstance();
 
-    if (syclBuffer == nullptr)
+    if (internalSYCLBuffer == nullptr)
     {
-        const unsigned int syclBufferSize = sizeof(TData) * gridSize;
-        GetDeviceProperties::CheckGlobalMemoryUsage(syclBufferSize);
-        syclBuffer = sycl::malloc_device(syclBufferSize, Q);
-        GetDeviceProperties::TotalGlobalMemory() -= syclBufferSize;
+        const unsigned int internalSYCLBufferSize = sizeof(TData) * gridSize;
+        GetDeviceProperties::CheckGlobalMemoryUsage(internalSYCLBufferSize);
+        internalSYCLBuffer = sycl::malloc_device(internalSYCLBufferSize, Q);
+        GetDeviceProperties::TotalGlobalMemory() -= internalSYCLBufferSize;
     }
 
-    TData *buffer = (TData *)syclBuffer;
+    TData *buffer = (TData *)internalSYCLBuffer;
 #if defined(USE_SYCL_BUILTIN_REDUCER)
     sycl::property_list initializer =
         init ? sycl::property_list{sycl::property::reduction::
@@ -725,15 +725,15 @@ l1normKernel(const size_t nsize, const TData *x, TData *out)
 
     sycl::queue &Q = SYCLQueue::GetInstance();
 
-    if (syclBuffer == nullptr)
+    if (internalSYCLBuffer == nullptr)
     {
-        const unsigned int syclBufferSize = sizeof(TData) * gridSize;
-        GetDeviceProperties::CheckGlobalMemoryUsage(syclBufferSize);
-        syclBuffer = sycl::malloc_device(syclBufferSize, Q);
-        GetDeviceProperties::TotalGlobalMemory() -= syclBufferSize;
+        const unsigned int internalSYCLBufferSize = sizeof(TData) * gridSize;
+        GetDeviceProperties::CheckGlobalMemoryUsage(internalSYCLBufferSize);
+        internalSYCLBuffer = sycl::malloc_device(internalSYCLBufferSize, Q);
+        GetDeviceProperties::TotalGlobalMemory() -= internalSYCLBufferSize;
     }
 
-    TData *buffer = (TData *)syclBuffer;
+    TData *buffer = (TData *)internalSYCLBuffer;
 #if defined(USE_SYCL_BUILTIN_REDUCER)
     sycl::property_list initializer =
         init ? sycl::property_list{sycl::property::reduction::
@@ -764,15 +764,15 @@ l2normKernel(const size_t nsize, const TData *x, TData *out)
 
     sycl::queue &Q = SYCLQueue::GetInstance();
 
-    if (syclBuffer == nullptr)
+    if (internalSYCLBuffer == nullptr)
     {
-        const unsigned int syclBufferSize = sizeof(TData) * gridSize;
-        GetDeviceProperties::CheckGlobalMemoryUsage(syclBufferSize);
-        syclBuffer = sycl::malloc_device(syclBufferSize, Q);
-        GetDeviceProperties::TotalGlobalMemory() -= syclBufferSize;
+        const unsigned int internalSYCLBufferSize = sizeof(TData) * gridSize;
+        GetDeviceProperties::CheckGlobalMemoryUsage(internalSYCLBufferSize);
+        internalSYCLBuffer = sycl::malloc_device(internalSYCLBufferSize, Q);
+        GetDeviceProperties::TotalGlobalMemory() -= internalSYCLBufferSize;
     }
 
-    TData *buffer = (TData *)syclBuffer;
+    TData *buffer = (TData *)internalSYCLBuffer;
 #if defined(USE_SYCL_BUILTIN_REDUCER)
     sycl::property_list initializer =
         init ? sycl::property_list{sycl::property::reduction::
@@ -802,15 +802,15 @@ lpnormKernel(const size_t nsize, const int p, const TData *x, TData *out)
 
     sycl::queue &Q = SYCLQueue::GetInstance();
 
-    if (syclBuffer == nullptr)
+    if (internalSYCLBuffer == nullptr)
     {
-        const unsigned int syclBufferSize = sizeof(TData) * gridSize;
-        GetDeviceProperties::CheckGlobalMemoryUsage(syclBufferSize);
-        syclBuffer = sycl::malloc_device(syclBufferSize, Q);
-        GetDeviceProperties::TotalGlobalMemory() -= syclBufferSize;
+        const unsigned int internalSYCLBufferSize = sizeof(TData) * gridSize;
+        GetDeviceProperties::CheckGlobalMemoryUsage(internalSYCLBufferSize);
+        internalSYCLBuffer = sycl::malloc_device(internalSYCLBufferSize, Q);
+        GetDeviceProperties::TotalGlobalMemory() -= internalSYCLBufferSize;
     }
 
-    TData *buffer = (TData *)syclBuffer;
+    TData *buffer = (TData *)internalSYCLBuffer;
 #if defined(USE_SYCL_BUILTIN_REDUCER)
     sycl::property_list initializer =
         init ? sycl::property_list{sycl::property::reduction::
@@ -841,15 +841,15 @@ linfnormKernel(const size_t nsize, const TData *x, TData *out)
 
     sycl::queue &Q = SYCLQueue::GetInstance();
 
-    if (syclBuffer == nullptr)
+    if (internalSYCLBuffer == nullptr)
     {
-        const unsigned int syclBufferSize = sizeof(TData) * gridSize;
-        GetDeviceProperties::CheckGlobalMemoryUsage(syclBufferSize);
-        syclBuffer = sycl::malloc_device(syclBufferSize, Q);
-        GetDeviceProperties::TotalGlobalMemory() -= syclBufferSize;
+        const unsigned int internalSYCLBufferSize = sizeof(TData) * gridSize;
+        GetDeviceProperties::CheckGlobalMemoryUsage(internalSYCLBufferSize);
+        internalSYCLBuffer = sycl::malloc_device(internalSYCLBufferSize, Q);
+        GetDeviceProperties::TotalGlobalMemory() -= internalSYCLBufferSize;
     }
 
-    TData *buffer = (TData *)syclBuffer;
+    TData *buffer = (TData *)internalSYCLBuffer;
 #if defined(USE_SYCL_BUILTIN_REDUCER)
     sycl::property_list initializer =
         init ? sycl::property_list{sycl::property::reduction::
