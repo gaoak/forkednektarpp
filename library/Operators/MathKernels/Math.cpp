@@ -517,14 +517,14 @@ TData Math::reduceSum(Field<TData, TFieldState> &x,
         if (internal_device_buffer == nullptr)
         {
             Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
-                                 NektarSpaces::Device::alignment, 0);
+                                 NektarSpaces::Device::alignment);
             Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
                                      NektarSpaces::Device::alignment);
         }
         Nektar::reduceSum<NektarSpaces::Device>(
             x, (TData *)internal_device_buffer);
         Nektar::deviceMemcpy<DeviceToHost>(
-            internal_host_buffer, internal_device_buffer, sizeof(TData), 0);
+            internal_host_buffer, internal_device_buffer, sizeof(TData));
         out = *(TData *)internal_host_buffer;
     }
 #endif
@@ -558,14 +558,14 @@ TData Math::reduceSum(MemoryRegion<TData> &x, const std::string &execSpace)
         if (internal_device_buffer == nullptr)
         {
             Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
-                                 NektarSpaces::Device::alignment, 0);
+                                 NektarSpaces::Device::alignment);
             Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
                                      NektarSpaces::Device::alignment);
         }
         Nektar::reduceSum<NektarSpaces::Device>(
             x, (TData *)internal_device_buffer);
         Nektar::deviceMemcpy<DeviceToHost>(
-            internal_host_buffer, internal_device_buffer, sizeof(TData), 0);
+            internal_host_buffer, internal_device_buffer, sizeof(TData));
         out = *(TData *)internal_host_buffer;
     }
 #endif
@@ -600,14 +600,14 @@ TData Math::reduceMax(Field<TData, TFieldState> &x,
         if (internal_device_buffer == nullptr)
         {
             Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
-                                 NektarSpaces::Device::alignment, 0);
+                                 NektarSpaces::Device::alignment);
             Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
                                      NektarSpaces::Device::alignment);
         }
         Nektar::reduceMax<NektarSpaces::Device>(
             x, (TData *)internal_device_buffer);
         Nektar::deviceMemcpy<DeviceToHost>(
-            internal_host_buffer, internal_device_buffer, sizeof(TData), 0);
+            internal_host_buffer, internal_device_buffer, sizeof(TData));
         out = *(TData *)internal_host_buffer;
     }
 #endif
@@ -641,14 +641,14 @@ TData Math::reduceMax(MemoryRegion<TData> &x, const std::string &execSpace)
         if (internal_device_buffer == nullptr)
         {
             Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
-                                 NektarSpaces::Device::alignment, 0);
+                                 NektarSpaces::Device::alignment);
             Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
                                      NektarSpaces::Device::alignment);
         }
         Nektar::reduceMax<NektarSpaces::Device>(
             x, (TData *)internal_device_buffer);
         Nektar::deviceMemcpy<DeviceToHost>(
-            internal_host_buffer, internal_device_buffer, sizeof(TData), 0);
+            internal_host_buffer, internal_device_buffer, sizeof(TData));
         out = *(TData *)internal_host_buffer;
     }
 #endif
@@ -683,14 +683,14 @@ TData Math::reduceMin(Field<TData, TFieldState> &x,
         if (internal_device_buffer == nullptr)
         {
             Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
-                                 NektarSpaces::Device::alignment, 0);
+                                 NektarSpaces::Device::alignment);
             Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
                                      NektarSpaces::Device::alignment);
         }
         Nektar::reduceMin<NektarSpaces::Device>(
             x, (TData *)internal_device_buffer);
         Nektar::deviceMemcpy<DeviceToHost>(
-            internal_host_buffer, internal_device_buffer, sizeof(TData), 0);
+            internal_host_buffer, internal_device_buffer, sizeof(TData));
         out = *(TData *)internal_host_buffer;
     }
 #endif
@@ -724,14 +724,14 @@ TData Math::reduceMin(MemoryRegion<TData> &x, const std::string &execSpace)
         if (internal_device_buffer == nullptr)
         {
             Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
-                                 NektarSpaces::Device::alignment, 0);
+                                 NektarSpaces::Device::alignment);
             Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
                                      NektarSpaces::Device::alignment);
         }
         Nektar::reduceMin<NektarSpaces::Device>(
             x, (TData *)internal_device_buffer);
         Nektar::deviceMemcpy<DeviceToHost>(
-            internal_host_buffer, internal_device_buffer, sizeof(TData), 0);
+            internal_host_buffer, internal_device_buffer, sizeof(TData));
         out = *(TData *)internal_host_buffer;
     }
 #endif
@@ -766,14 +766,14 @@ TData Math::ddot(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
         if (internal_device_buffer == nullptr)
         {
             Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
-                                 NektarSpaces::Device::alignment, 0);
+                                 NektarSpaces::Device::alignment);
             Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
                                      NektarSpaces::Device::alignment);
         }
         Nektar::ddot<NektarSpaces::Device>(x, y,
                                            (TData *)internal_device_buffer);
         Nektar::deviceMemcpy<DeviceToHost>(
-            internal_host_buffer, internal_device_buffer, sizeof(TData), 0);
+            internal_host_buffer, internal_device_buffer, sizeof(TData));
         out = *(TData *)internal_host_buffer;
     }
 #endif
@@ -808,14 +808,14 @@ TData Math::ddot(MemoryRegion<TData> &x, MemoryRegion<TData> &y,
         if (internal_device_buffer == nullptr)
         {
             Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
-                                 NektarSpaces::Device::alignment, 0);
+                                 NektarSpaces::Device::alignment);
             Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
                                      NektarSpaces::Device::alignment);
         }
         Nektar::ddot<NektarSpaces::Device>(x, y,
                                            (TData *)internal_device_buffer);
         Nektar::deviceMemcpy<DeviceToHost>(
-            internal_host_buffer, internal_device_buffer, sizeof(TData), 0);
+            internal_host_buffer, internal_device_buffer, sizeof(TData));
         out = *(TData *)internal_host_buffer;
     }
 #endif
@@ -849,14 +849,14 @@ TData Math::l1norm(Field<TData, TFieldState> &x, const std::string &execSpace)
         if (internal_device_buffer == nullptr)
         {
             Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
-                                 NektarSpaces::Device::alignment, 0);
+                                 NektarSpaces::Device::alignment);
             Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
                                      NektarSpaces::Device::alignment);
         }
         Nektar::l1norm<NektarSpaces::Device>(x,
                                              (TData *)internal_device_buffer);
         Nektar::deviceMemcpy<DeviceToHost>(
-            internal_host_buffer, internal_device_buffer, sizeof(TData), 0);
+            internal_host_buffer, internal_device_buffer, sizeof(TData));
         out = *(TData *)internal_host_buffer;
     }
 #endif
@@ -890,14 +890,14 @@ TData Math::l1norm(MemoryRegion<TData> &x, const std::string &execSpace)
         if (internal_device_buffer == nullptr)
         {
             Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
-                                 NektarSpaces::Device::alignment, 0);
+                                 NektarSpaces::Device::alignment);
             Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
                                      NektarSpaces::Device::alignment);
         }
         Nektar::l1norm<NektarSpaces::Device>(x,
                                              (TData *)internal_device_buffer);
         Nektar::deviceMemcpy<DeviceToHost>(
-            internal_host_buffer, internal_device_buffer, sizeof(TData), 0);
+            internal_host_buffer, internal_device_buffer, sizeof(TData));
         out = *(TData *)internal_host_buffer;
     }
 #endif
@@ -931,14 +931,14 @@ TData Math::l2norm(Field<TData, TFieldState> &x, const std::string &execSpace)
         if (internal_device_buffer == nullptr)
         {
             Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
-                                 NektarSpaces::Device::alignment, 0);
+                                 NektarSpaces::Device::alignment);
             Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
                                      NektarSpaces::Device::alignment);
         }
         Nektar::l2norm<NektarSpaces::Device>(x,
                                              (TData *)internal_device_buffer);
         Nektar::deviceMemcpy<DeviceToHost>(
-            internal_host_buffer, internal_device_buffer, sizeof(TData), 0);
+            internal_host_buffer, internal_device_buffer, sizeof(TData));
         out = *(TData *)internal_host_buffer;
     }
 #endif
@@ -972,14 +972,14 @@ TData Math::l2norm(MemoryRegion<TData> &x, const std::string &execSpace)
         if (internal_device_buffer == nullptr)
         {
             Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
-                                 NektarSpaces::Device::alignment, 0);
+                                 NektarSpaces::Device::alignment);
             Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
                                      NektarSpaces::Device::alignment);
         }
         Nektar::l2norm<NektarSpaces::Device>(x,
                                              (TData *)internal_device_buffer);
         Nektar::deviceMemcpy<DeviceToHost>(
-            internal_host_buffer, internal_device_buffer, sizeof(TData), 0);
+            internal_host_buffer, internal_device_buffer, sizeof(TData));
         out = *(TData *)internal_host_buffer;
     }
 #endif
@@ -1014,14 +1014,14 @@ TData Math::lpnorm(const unsigned int p, Field<TData, TFieldState> &x,
         if (internal_device_buffer == nullptr)
         {
             Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
-                                 NektarSpaces::Device::alignment, 0);
+                                 NektarSpaces::Device::alignment);
             Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
                                      NektarSpaces::Device::alignment);
         }
         Nektar::lpnorm<NektarSpaces::Device>(p, x,
                                              (TData *)internal_device_buffer);
         Nektar::deviceMemcpy<DeviceToHost>(
-            internal_host_buffer, internal_device_buffer, sizeof(TData), 0);
+            internal_host_buffer, internal_device_buffer, sizeof(TData));
         out = *(TData *)internal_host_buffer;
     }
 #endif
@@ -1056,14 +1056,14 @@ TData Math::lpnorm(const unsigned int p, MemoryRegion<TData> &x,
         if (internal_device_buffer == nullptr)
         {
             Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
-                                 NektarSpaces::Device::alignment, 0);
+                                 NektarSpaces::Device::alignment);
             Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
                                      NektarSpaces::Device::alignment);
         }
         Nektar::lpnorm<NektarSpaces::Device>(p, x,
                                              (TData *)internal_device_buffer);
         Nektar::deviceMemcpy<DeviceToHost>(
-            internal_host_buffer, internal_device_buffer, sizeof(TData), 0);
+            internal_host_buffer, internal_device_buffer, sizeof(TData));
         out = *(TData *)internal_host_buffer;
     }
 #endif
@@ -1097,14 +1097,14 @@ TData Math::linfnorm(Field<TData, TFieldState> &x, const std::string &execSpace)
         if (internal_device_buffer == nullptr)
         {
             Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
-                                 NektarSpaces::Device::alignment, 0);
+                                 NektarSpaces::Device::alignment);
             Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
                                      NektarSpaces::Device::alignment);
         }
         Nektar::linfnorm<NektarSpaces::Device>(x,
                                                (TData *)internal_device_buffer);
         Nektar::deviceMemcpy<DeviceToHost>(
-            internal_host_buffer, internal_device_buffer, sizeof(TData), 0);
+            internal_host_buffer, internal_device_buffer, sizeof(TData));
         out = *(TData *)internal_host_buffer;
     }
 #endif
@@ -1138,14 +1138,14 @@ TData Math::linfnorm(MemoryRegion<TData> &x, const std::string &execSpace)
         if (internal_device_buffer == nullptr)
         {
             Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
-                                 NektarSpaces::Device::alignment, 0);
+                                 NektarSpaces::Device::alignment);
             Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
                                      NektarSpaces::Device::alignment);
         }
         Nektar::linfnorm<NektarSpaces::Device>(x,
                                                (TData *)internal_device_buffer);
         Nektar::deviceMemcpy<DeviceToHost>(
-            internal_host_buffer, internal_device_buffer, sizeof(TData), 0);
+            internal_host_buffer, internal_device_buffer, sizeof(TData));
         out = *(TData *)internal_host_buffer;
     }
 #endif

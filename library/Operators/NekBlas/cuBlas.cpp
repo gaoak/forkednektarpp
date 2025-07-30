@@ -110,18 +110,18 @@ NekGemmGroupedBatched(THandle handle, std::string transposeA,
     TData const **Bdev;
     TData **Cdev;
     Nektar::deviceMalloc(&Adev, sizeof(TData *) * batchSize,
-                         NektarSpaces::Device::alignment, 0);
+                         NektarSpaces::Device::alignment);
     Nektar::deviceMalloc(&Bdev, sizeof(TData *) * batchSize,
-                         NektarSpaces::Device::alignment, 0);
+                         NektarSpaces::Device::alignment);
     Nektar::deviceMalloc(&Cdev, sizeof(TData *) * batchSize,
-                         NektarSpaces::Device::alignment, 0);
+                         NektarSpaces::Device::alignment);
 
     Nektar::deviceMemcpy<Nektar::HostToDevice>(Adev, Aarray,
-                                               sizeof(TData *) * batchSize, 0);
+                                               sizeof(TData *) * batchSize);
     Nektar::deviceMemcpy<Nektar::HostToDevice>(Bdev, Barray,
-                                               sizeof(TData *) * batchSize, 0);
+                                               sizeof(TData *) * batchSize);
     Nektar::deviceMemcpy<Nektar::HostToDevice>(Cdev, Carray,
-                                               sizeof(TData *) * batchSize, 0);
+                                               sizeof(TData *) * batchSize);
 
     if constexpr (std::is_same_v<TData, float>)
     {
@@ -139,11 +139,11 @@ NekGemmGroupedBatched(THandle handle, std::string transposeA,
     }
 
     Nektar::deviceFree(Adev, sizeof(TData *) * batchSize,
-                       NektarSpaces::Device::alignment, 0);
+                       NektarSpaces::Device::alignment);
     Nektar::deviceFree(Bdev, sizeof(TData *) * batchSize,
-                       NektarSpaces::Device::alignment, 0);
+                       NektarSpaces::Device::alignment);
     Nektar::deviceFree(Cdev, sizeof(TData *) * batchSize,
-                       NektarSpaces::Device::alignment, 0);
+                       NektarSpaces::Device::alignment);
 }
 
 template <typename THandle, typename TData>

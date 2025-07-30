@@ -90,6 +90,11 @@
 #define STRV(...) #__VA_ARGS__
 #define STRVX(...) STRV(__VA_ARGS__)
 
+#if defined(_MSC_VER)
+#undef max
+#undef min
+#endif
+
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
 
@@ -209,7 +214,16 @@ public:
         argv[3]     = strdup(("--opImpl=" + implStr).c_str());
 
         session = LibUtilities::SessionReader::CreateInstance(argc, argv);
-        graph   = SpatialDomains::MeshGraphIO::Read(session);
+
+        if (session->GetComm())
+        {
+            auto rank        = session->GetComm()->GetRank();
+            auto num_device  = nekGetDeviceCount();
+            auto device_rank = rank & num_device;
+            nekSetDevice(device_rank);
+        }
+
+        graph = SpatialDomains::MeshGraphIO::Read(session);
         if constexpr (std::is_same_v<TExpList, MultiRegions::ContField>)
         {
             fixt_explist =
@@ -265,7 +279,16 @@ public:
         argv[3]     = strdup(("--opImpl=" + implStr).c_str());
 
         session = LibUtilities::SessionReader::CreateInstance(argc, argv);
-        graph   = SpatialDomains::MeshGraphIO::Read(session);
+
+        if (session->GetComm())
+        {
+            auto rank        = session->GetComm()->GetRank();
+            auto num_device  = nekGetDeviceCount();
+            auto device_rank = rank & num_device;
+            nekSetDevice(device_rank);
+        }
+
+        graph = SpatialDomains::MeshGraphIO::Read(session);
         if constexpr (std::is_same_v<TExpList, MultiRegions::ContField>)
         {
             const Nektar::LibUtilities::PointsKey pkey(
@@ -336,7 +359,16 @@ public:
         argv[3]     = strdup(("--opImpl=" + implStr).c_str());
 
         session = LibUtilities::SessionReader::CreateInstance(argc, argv);
-        graph   = SpatialDomains::MeshGraphIO::Read(session);
+
+        if (session->GetComm())
+        {
+            auto rank        = session->GetComm()->GetRank();
+            auto num_device  = nekGetDeviceCount();
+            auto device_rank = rank & num_device;
+            nekSetDevice(device_rank);
+        }
+
+        graph = SpatialDomains::MeshGraphIO::Read(session);
         if constexpr (std::is_same_v<TExpList, MultiRegions::ContField>)
         {
             const Nektar::LibUtilities::PointsKey pkey1(

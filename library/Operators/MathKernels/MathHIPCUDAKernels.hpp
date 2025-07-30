@@ -1119,19 +1119,21 @@ reduceSumKernel(const size_t nsize, const TData *x, TData *out)
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
-    if (hipcudaBuffer == nullptr)
+    if (internalHIPCUDABuffer == nullptr)
     {
-        const unsigned int hipcudaBufferSize = sizeof(TData) * gridSize;
-        GetDeviceProperties::CheckGlobalMemoryUsage(hipcudaBufferSize);
+        const unsigned int internalHIPCUDABufferSize = sizeof(TData) * gridSize;
+        GetDeviceProperties::CheckGlobalMemoryUsage(internalHIPCUDABufferSize);
 #if defined(NEKTAR_ENABLE_CUDA)
-        CHECK_HIPCUDA_ERROR(cudaMalloc(&hipcudaBuffer, hipcudaBufferSize));
+        CHECK_HIPCUDA_ERROR(
+            cudaMalloc(&internalHIPCUDABuffer, internalHIPCUDABufferSize));
 #elif defined(NEKTAR_ENABLE_HIP)
-        CHECK_HIPCUDA_ERROR(hipMalloc(&hipcudaBuffer, hipcudaBufferSize));
+        CHECK_HIPCUDA_ERROR(
+            hipMalloc(&internalHIPCUDABuffer, internalHIPCUDABufferSize));
 #endif
-        GetDeviceProperties::TotalGlobalMemory() -= hipcudaBufferSize;
+        GetDeviceProperties::TotalGlobalMemory() -= internalHIPCUDABufferSize;
     }
 
-    TData *buffer = (TData *)hipcudaBuffer;
+    TData *buffer = (TData *)internalHIPCUDABuffer;
     reduceSumKernel<true><<<gridSize, blockSize>>>(nsize, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
     reduceSumKernel<init><<<1, gridSize>>>(gridSize, buffer, out);
@@ -1146,19 +1148,21 @@ reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
-    if (hipcudaBuffer == nullptr)
+    if (internalHIPCUDABuffer == nullptr)
     {
-        const unsigned int hipcudaBufferSize = sizeof(TData) * gridSize;
-        GetDeviceProperties::CheckGlobalMemoryUsage(hipcudaBufferSize);
+        const unsigned int internalHIPCUDABufferSize = sizeof(TData) * gridSize;
+        GetDeviceProperties::CheckGlobalMemoryUsage(internalHIPCUDABufferSize);
 #if defined(NEKTAR_ENABLE_CUDA)
-        CHECK_HIPCUDA_ERROR(cudaMalloc(&hipcudaBuffer, hipcudaBufferSize));
+        CHECK_HIPCUDA_ERROR(
+            cudaMalloc(&internalHIPCUDABuffer, internalHIPCUDABufferSize));
 #elif defined(NEKTAR_ENABLE_HIP)
-        CHECK_HIPCUDA_ERROR(hipMalloc(&hipcudaBuffer, hipcudaBufferSize));
+        CHECK_HIPCUDA_ERROR(
+            hipMalloc(&internalHIPCUDABuffer, internalHIPCUDABufferSize));
 #endif
-        GetDeviceProperties::TotalGlobalMemory() -= hipcudaBufferSize;
+        GetDeviceProperties::TotalGlobalMemory() -= internalHIPCUDABufferSize;
     }
 
-    TData *buffer = (TData *)hipcudaBuffer;
+    TData *buffer = (TData *)internalHIPCUDABuffer;
     reduceMaxKernel<true><<<gridSize, blockSize>>>(nsize, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
     reduceMaxKernel<init><<<1, gridSize>>>(gridSize, buffer, out);
@@ -1173,19 +1177,21 @@ reduceMinKernel(const size_t nsize, const TData *x, TData *out)
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
-    if (hipcudaBuffer == nullptr)
+    if (internalHIPCUDABuffer == nullptr)
     {
-        const unsigned int hipcudaBufferSize = sizeof(TData) * gridSize;
-        GetDeviceProperties::CheckGlobalMemoryUsage(hipcudaBufferSize);
+        const unsigned int internalHIPCUDABufferSize = sizeof(TData) * gridSize;
+        GetDeviceProperties::CheckGlobalMemoryUsage(internalHIPCUDABufferSize);
 #if defined(NEKTAR_ENABLE_CUDA)
-        CHECK_HIPCUDA_ERROR(cudaMalloc(&hipcudaBuffer, hipcudaBufferSize));
+        CHECK_HIPCUDA_ERROR(
+            cudaMalloc(&internalHIPCUDABuffer, internalHIPCUDABufferSize));
 #elif defined(NEKTAR_ENABLE_HIP)
-        CHECK_HIPCUDA_ERROR(hipMalloc(&hipcudaBuffer, hipcudaBufferSize));
+        CHECK_HIPCUDA_ERROR(
+            hipMalloc(&internalHIPCUDABuffer, internalHIPCUDABufferSize));
 #endif
-        GetDeviceProperties::TotalGlobalMemory() -= hipcudaBufferSize;
+        GetDeviceProperties::TotalGlobalMemory() -= internalHIPCUDABufferSize;
     }
 
-    TData *buffer = (TData *)hipcudaBuffer;
+    TData *buffer = (TData *)internalHIPCUDABuffer;
     reduceMinKernel<true><<<gridSize, blockSize>>>(nsize, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
     reduceMinKernel<init><<<1, gridSize>>>(gridSize, buffer, out);
@@ -1200,19 +1206,21 @@ ddotKernel(const size_t nsize, const TData *x, const TData *y, TData *out)
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
-    if (hipcudaBuffer == nullptr)
+    if (internalHIPCUDABuffer == nullptr)
     {
-        const unsigned int hipcudaBufferSize = sizeof(TData) * gridSize;
-        GetDeviceProperties::CheckGlobalMemoryUsage(hipcudaBufferSize);
+        const unsigned int internalHIPCUDABufferSize = sizeof(TData) * gridSize;
+        GetDeviceProperties::CheckGlobalMemoryUsage(internalHIPCUDABufferSize);
 #if defined(NEKTAR_ENABLE_CUDA)
-        CHECK_HIPCUDA_ERROR(cudaMalloc(&hipcudaBuffer, hipcudaBufferSize));
+        CHECK_HIPCUDA_ERROR(
+            cudaMalloc(&internalHIPCUDABuffer, internalHIPCUDABufferSize));
 #elif defined(NEKTAR_ENABLE_HIP)
-        CHECK_HIPCUDA_ERROR(hipMalloc(&hipcudaBuffer, hipcudaBufferSize));
+        CHECK_HIPCUDA_ERROR(
+            hipMalloc(&internalHIPCUDABuffer, internalHIPCUDABufferSize));
 #endif
-        GetDeviceProperties::TotalGlobalMemory() -= hipcudaBufferSize;
+        GetDeviceProperties::TotalGlobalMemory() -= internalHIPCUDABufferSize;
     }
 
-    TData *buffer = (TData *)hipcudaBuffer;
+    TData *buffer = (TData *)internalHIPCUDABuffer;
     ddotKernel<true><<<gridSize, blockSize>>>(nsize, x, y, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
     reduceSumKernel<init><<<1, gridSize>>>(gridSize, buffer, out);
@@ -1227,19 +1235,21 @@ l1normKernel(const size_t nsize, const TData *x, TData *out)
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
-    if (hipcudaBuffer == nullptr)
+    if (internalHIPCUDABuffer == nullptr)
     {
-        const unsigned int hipcudaBufferSize = sizeof(TData) * gridSize;
-        GetDeviceProperties::CheckGlobalMemoryUsage(hipcudaBufferSize);
+        const unsigned int internalHIPCUDABufferSize = sizeof(TData) * gridSize;
+        GetDeviceProperties::CheckGlobalMemoryUsage(internalHIPCUDABufferSize);
 #if defined(NEKTAR_ENABLE_CUDA)
-        CHECK_HIPCUDA_ERROR(cudaMalloc(&hipcudaBuffer, hipcudaBufferSize));
+        CHECK_HIPCUDA_ERROR(
+            cudaMalloc(&internalHIPCUDABuffer, internalHIPCUDABufferSize));
 #elif defined(NEKTAR_ENABLE_HIP)
-        CHECK_HIPCUDA_ERROR(hipMalloc(&hipcudaBuffer, hipcudaBufferSize));
+        CHECK_HIPCUDA_ERROR(
+            hipMalloc(&internalHIPCUDABuffer, internalHIPCUDABufferSize));
 #endif
-        GetDeviceProperties::TotalGlobalMemory() -= hipcudaBufferSize;
+        GetDeviceProperties::TotalGlobalMemory() -= internalHIPCUDABufferSize;
     }
 
-    TData *buffer = (TData *)hipcudaBuffer;
+    TData *buffer = (TData *)internalHIPCUDABuffer;
     l1normKernel<true><<<gridSize, blockSize>>>(nsize, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
     reduceSumKernel<init><<<1, gridSize>>>(gridSize, buffer, out);
@@ -1254,19 +1264,21 @@ l2normKernel(const size_t nsize, const TData *x, TData *out)
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
-    if (hipcudaBuffer == nullptr)
+    if (internalHIPCUDABuffer == nullptr)
     {
-        const unsigned int hipcudaBufferSize = sizeof(TData) * gridSize;
-        GetDeviceProperties::CheckGlobalMemoryUsage(hipcudaBufferSize);
+        const unsigned int internalHIPCUDABufferSize = sizeof(TData) * gridSize;
+        GetDeviceProperties::CheckGlobalMemoryUsage(internalHIPCUDABufferSize);
 #if defined(NEKTAR_ENABLE_CUDA)
-        CHECK_HIPCUDA_ERROR(cudaMalloc(&hipcudaBuffer, hipcudaBufferSize));
+        CHECK_HIPCUDA_ERROR(
+            cudaMalloc(&internalHIPCUDABuffer, internalHIPCUDABufferSize));
 #elif defined(NEKTAR_ENABLE_HIP)
-        CHECK_HIPCUDA_ERROR(hipMalloc(&hipcudaBuffer, hipcudaBufferSize));
+        CHECK_HIPCUDA_ERROR(
+            hipMalloc(&internalHIPCUDABuffer, internalHIPCUDABufferSize));
 #endif
-        GetDeviceProperties::TotalGlobalMemory() -= hipcudaBufferSize;
+        GetDeviceProperties::TotalGlobalMemory() -= internalHIPCUDABufferSize;
     }
 
-    TData *buffer = (TData *)hipcudaBuffer;
+    TData *buffer = (TData *)internalHIPCUDABuffer;
     l2normKernel<true><<<gridSize, blockSize>>>(nsize, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
     reduceSumKernel<init><<<1, gridSize>>>(gridSize, buffer, out);
@@ -1282,19 +1294,21 @@ lpnormKernel(const size_t nsize, const unsigned int p, const TData *x,
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
-    if (hipcudaBuffer == nullptr)
+    if (internalHIPCUDABuffer == nullptr)
     {
-        const unsigned int hipcudaBufferSize = sizeof(TData) * gridSize;
-        GetDeviceProperties::CheckGlobalMemoryUsage(hipcudaBufferSize);
+        const unsigned int internalHIPCUDABufferSize = sizeof(TData) * gridSize;
+        GetDeviceProperties::CheckGlobalMemoryUsage(internalHIPCUDABufferSize);
 #if defined(NEKTAR_ENABLE_CUDA)
-        CHECK_HIPCUDA_ERROR(cudaMalloc(&hipcudaBuffer, hipcudaBufferSize));
+        CHECK_HIPCUDA_ERROR(
+            cudaMalloc(&internalHIPCUDABuffer, internalHIPCUDABufferSize));
 #elif defined(NEKTAR_ENABLE_HIP)
-        CHECK_HIPCUDA_ERROR(hipMalloc(&hipcudaBuffer, hipcudaBufferSize));
+        CHECK_HIPCUDA_ERROR(
+            hipMalloc(&internalHIPCUDABuffer, internalHIPCUDABufferSize));
 #endif
-        GetDeviceProperties::TotalGlobalMemory() -= hipcudaBufferSize;
+        GetDeviceProperties::TotalGlobalMemory() -= internalHIPCUDABufferSize;
     }
 
-    TData *buffer = (TData *)hipcudaBuffer;
+    TData *buffer = (TData *)internalHIPCUDABuffer;
     lpnormKernel<true><<<gridSize, blockSize>>>(nsize, p, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
     reduceSumKernel<init><<<1, gridSize>>>(gridSize, buffer, out);
@@ -1309,19 +1323,21 @@ linfnormKernel(const size_t nsize, const TData *x, TData *out)
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
-    if (hipcudaBuffer == nullptr)
+    if (internalHIPCUDABuffer == nullptr)
     {
-        const unsigned int hipcudaBufferSize = sizeof(TData) * gridSize;
-        GetDeviceProperties::CheckGlobalMemoryUsage(hipcudaBufferSize);
+        const unsigned int internalHIPCUDABufferSize = sizeof(TData) * gridSize;
+        GetDeviceProperties::CheckGlobalMemoryUsage(internalHIPCUDABufferSize);
 #if defined(NEKTAR_ENABLE_CUDA)
-        CHECK_HIPCUDA_ERROR(cudaMalloc(&hipcudaBuffer, hipcudaBufferSize));
+        CHECK_HIPCUDA_ERROR(
+            cudaMalloc(&internalHIPCUDABuffer, internalHIPCUDABufferSize));
 #elif defined(NEKTAR_ENABLE_HIP)
-        CHECK_HIPCUDA_ERROR(hipMalloc(&hipcudaBuffer, hipcudaBufferSize));
+        CHECK_HIPCUDA_ERROR(
+            hipMalloc(&internalHIPCUDABuffer, internalHIPCUDABufferSize));
 #endif
-        GetDeviceProperties::TotalGlobalMemory() -= hipcudaBufferSize;
+        GetDeviceProperties::TotalGlobalMemory() -= internalHIPCUDABufferSize;
     }
 
-    TData *buffer = (TData *)hipcudaBuffer;
+    TData *buffer = (TData *)internalHIPCUDABuffer;
     linfnormKernel<true><<<gridSize, blockSize>>>(nsize, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
     reduceMaxKernel<init><<<1, gridSize>>>(gridSize, buffer, out);

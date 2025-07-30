@@ -53,6 +53,57 @@ struct DeviceToDevice
 {
 };
 
+inline static unsigned int nekGetDeviceCount(void)
+{
+    //  Current design assumes one MPI rank per device architecture. The number
+    //  of GPU devices is limited by the number of MPI ranks.
+    int num_rank = 1;
+#if defined(NEKTAR_USE_MPI)
+    MPI_Comm_size(MPI_COMM_WORLD, &num_rank);
+#endif
+
+    int num_device = 1;
+#if defined(NEKTAR_ENABLE_CUDA)
+    CHECK_HIPCUDA_ERROR(cudaGetDeviceCount(&num_device));
+#elif defined(NEKTAR_ENABLE_HIP)
+    CHECK_HIPCUDA_ERROR(hipGetDeviceCount(&num_device));
+#elif defined(SYCL_ENABLE_CUDA) || defined(SYCL_ENABLE_HIP) ||                 \
+    defined(SYCL_ENABLE_INTEL)
+    num_device = sycl::device::get_devices(sycl::info::device_type::gpu).size();
+#endif
+    return std::min(num_rank, num_device);
+}
+
+inline static void nekSetDevice([[maybe_unused]] unsigned int device_rank)
+{
+#if defined(NEKTAR_ENABLE_CUDA)
+    CHECK_HIPCUDA_ERROR(cudaSetDevice(device_rank));
+#elif defined(NEKTAR_ENABLE_HIP)
+    CHECK_HIPCUDA_ERROR(hipSetDevice(device_rank));
+#elif defined(NEKTAR_ENABLE_SYCL)
+    internalSYCLDeviceId = device_rank;
+#else
+    // Do nothing
+#endif
+}
+
+inline static unsigned int nekGetDevice()
+{
+#if defined(NEKTAR_ENABLE_CUDA)
+    int device_rank = 0;
+    CHECK_HIPCUDA_ERROR(cudaGetDevice(&device_rank));
+    return device_rank;
+#elif defined(NEKTAR_ENABLE_HIP)
+    int device_rank = 0;
+    CHECK_HIPCUDA_ERROR(hipGetDevice(&device_rank));
+    return device_rank;
+#elif defined(NEKTAR_ENABLE_SYCL)
+    return internalSYCLDeviceId;
+#else
+    return 0;
+#endif
+}
+
 template <typename TData>
 inline void hostMalloc(TData **src, const size_t size,
                        [[maybe_unused]] const size_t alignment)
@@ -94,18 +145,15 @@ inline void hostMallocPinned(TData **src, const size_t size,
 
 template <typename TData>
 inline void deviceMalloc(TData **src, const size_t size,
-                         [[maybe_unused]] const size_t alignment,
-                         [[maybe_unused]] const unsigned int device_rank)
+                         [[maybe_unused]] const size_t alignment)
 {
     if (size > 0)
     {
 #if defined(NEKTAR_ENABLE_CUDA)
-        CHECK_HIPCUDA_ERROR(cudaSetDevice(device_rank));
         GetDeviceProperties::CheckGlobalMemoryUsage(size);
         CHECK_HIPCUDA_ERROR(cudaMalloc((void **)src, size));
         GetDeviceProperties::TotalGlobalMemory() -= size;
 #elif defined(NEKTAR_ENABLE_HIP)
-        CHECK_HIPCUDA_ERROR(hipSetDevice(device_rank));
         GetDeviceProperties::CheckGlobalMemoryUsage(size);
         CHECK_HIPCUDA_ERROR(hipMalloc((void **)src, size));
         GetDeviceProperties::TotalGlobalMemory() -= size;
@@ -159,8 +207,7 @@ inline void hostFreePinned(TData *src, [[maybe_unused]] const size_t alignment)
 
 template <typename TData>
 inline void deviceFree(TData *src, [[maybe_unused]] const size_t size,
-                       [[maybe_unused]] const size_t alignment,
-                       [[maybe_unused]] const unsigned int device_rank)
+                       [[maybe_unused]] const size_t alignment)
 {
     if (src == nullptr)
     {
@@ -168,13 +215,9 @@ inline void deviceFree(TData *src, [[maybe_unused]] const size_t size,
     }
 
 #if defined(NEKTAR_ENABLE_CUDA)
-    CHECK_HIPCUDA_ERROR(cudaSetDevice(device_rank));
-    // CHECK_HIPCUDA_ERROR(cudaDeviceSynchronize());
     CHECK_HIPCUDA_ERROR(cudaFree(src));
     GetDeviceProperties::TotalGlobalMemory() += size;
 #elif defined(NEKTAR_ENABLE_HIP)
-    CHECK_HIPCUDA_ERROR(hipSetDevice(device_rank));
-    // CHECK_HIPCUDA_ERROR(hipDeviceSynchronize());
     CHECK_HIPCUDA_ERROR(hipFree(src));
     GetDeviceProperties::TotalGlobalMemory() += size;
 #elif defined(NEKTAR_ENABLE_SYCL)
@@ -188,8 +231,7 @@ inline void deviceFree(TData *src, [[maybe_unused]] const size_t size,
 }
 
 template <typename TData>
-inline void deviceMemset(TData *dst, const int val, const size_t size,
-                         [[maybe_unused]] const unsigned int device_rank)
+inline void deviceMemset(TData *dst, const int val, const size_t size)
 {
     if (size == 0)
     {
@@ -197,10 +239,8 @@ inline void deviceMemset(TData *dst, const int val, const size_t size,
     }
 
 #if defined(NEKTAR_ENABLE_CUDA)
-    CHECK_HIPCUDA_ERROR(cudaSetDevice(device_rank));
     CHECK_HIPCUDA_ERROR(cudaMemset((void *)dst, val, size));
 #elif defined(NEKTAR_ENABLE_HIP)
-    CHECK_HIPCUDA_ERROR(hipSetDevice(device_rank));
     CHECK_HIPCUDA_ERROR(hipMemset((void *)dst, val, size));
 #elif defined(NEKTAR_ENABLE_SYCL)
     sycl::queue &Q = SYCLQueue::GetInstance();
@@ -211,8 +251,7 @@ inline void deviceMemset(TData *dst, const int val, const size_t size,
 }
 
 template <typename TData>
-inline void deviceFill(TData *dst, const TData val, const size_t size,
-                       [[maybe_unused]] const unsigned int device_rank)
+inline void deviceFill(TData *dst, const TData val, const size_t size)
 {
     if (size == 0)
     {
@@ -220,10 +259,8 @@ inline void deviceFill(TData *dst, const TData val, const size_t size,
     }
 
 #if defined(NEKTAR_ENABLE_CUDA)
-    CHECK_HIPCUDA_ERROR(cudaSetDevice(device_rank));
     thrust::fill(dst, dst + size, val);
 #elif defined(NEKTAR_ENABLE_HIP)
-    CHECK_HIPCUDA_ERROR(hipSetDevice(device_rank));
     thrust::fill(dst, dst + size, val);
 #elif defined(NEKTAR_ENABLE_SYCL)
     sycl::queue &Q = SYCLQueue::GetInstance();
@@ -234,8 +271,7 @@ inline void deviceFill(TData *dst, const TData val, const size_t size,
 }
 
 template <typename MemCopy, typename TData>
-inline void deviceMemcpy(TData *dst, const TData *src, const size_t size,
-                         [[maybe_unused]] const unsigned int device_rank)
+inline void deviceMemcpy(TData *dst, const TData *src, const size_t size)
 {
     if (size == 0)
     {
@@ -245,10 +281,8 @@ inline void deviceMemcpy(TData *dst, const TData *src, const size_t size,
     if constexpr (std::is_same_v<MemCopy, HostToHost>)
     {
 #if defined(NEKTAR_ENABLE_CUDA)
-        CHECK_HIPCUDA_ERROR(cudaSetDevice(device_rank));
         CHECK_HIPCUDA_ERROR(cudaMemcpy(dst, src, size, cudaMemcpyHostToHost));
 #elif defined(NEKTAR_ENABLE_HIP)
-        CHECK_HIPCUDA_ERROR(hipSetDevice(device_rank));
         CHECK_HIPCUDA_ERROR(hipMemcpy(dst, src, size, hipMemcpyHostToHost));
 #elif defined(NEKTAR_ENABLE_SYCL)
         sycl::queue &Q = SYCLQueue::GetInstance();
@@ -260,10 +294,8 @@ inline void deviceMemcpy(TData *dst, const TData *src, const size_t size,
     else if constexpr (std::is_same_v<MemCopy, DeviceToHost>)
     {
 #if defined(NEKTAR_ENABLE_CUDA)
-        CHECK_HIPCUDA_ERROR(cudaSetDevice(device_rank));
         CHECK_HIPCUDA_ERROR(cudaMemcpy(dst, src, size, cudaMemcpyDeviceToHost));
 #elif defined(NEKTAR_ENABLE_HIP)
-        CHECK_HIPCUDA_ERROR(hipSetDevice(device_rank));
         CHECK_HIPCUDA_ERROR(hipMemcpy(dst, src, size, hipMemcpyDeviceToHost));
 #elif defined(NEKTAR_ENABLE_SYCL)
         sycl::queue &Q = SYCLQueue::GetInstance();
@@ -275,10 +307,8 @@ inline void deviceMemcpy(TData *dst, const TData *src, const size_t size,
     else if constexpr (std::is_same_v<MemCopy, HostToDevice>)
     {
 #if defined(NEKTAR_ENABLE_CUDA)
-        CHECK_HIPCUDA_ERROR(cudaSetDevice(device_rank));
         CHECK_HIPCUDA_ERROR(cudaMemcpy(dst, src, size, cudaMemcpyHostToDevice));
 #elif defined(NEKTAR_ENABLE_HIP)
-        CHECK_HIPCUDA_ERROR(hipSetDevice(device_rank));
         CHECK_HIPCUDA_ERROR(hipMemcpy(dst, src, size, hipMemcpyHostToDevice));
 #elif defined(NEKTAR_ENABLE_SYCL)
         sycl::queue &Q = SYCLQueue::GetInstance();
@@ -290,11 +320,9 @@ inline void deviceMemcpy(TData *dst, const TData *src, const size_t size,
     else if constexpr (std::is_same_v<MemCopy, DeviceToDevice>)
     {
 #if defined(NEKTAR_ENABLE_CUDA)
-        CHECK_HIPCUDA_ERROR(cudaSetDevice(device_rank));
         CHECK_HIPCUDA_ERROR(
             cudaMemcpy(dst, src, size, cudaMemcpyDeviceToDevice));
 #elif defined(NEKTAR_ENABLE_HIP)
-        CHECK_HIPCUDA_ERROR(hipSetDevice(device_rank));
         CHECK_HIPCUDA_ERROR(hipMemcpy(dst, src, size, hipMemcpyDeviceToDevice));
 #elif defined(NEKTAR_ENABLE_SYCL)
         sycl::queue &Q = SYCLQueue::GetInstance();

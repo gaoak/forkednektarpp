@@ -39,7 +39,7 @@
 namespace Nektar
 {
 
-static void *syclBuffer = nullptr;
+static void *internalSYCLBuffer = nullptr;
 
 template <typename ExecSpace, typename Scope, typename TData>
 NEK_DEVICE_INLINE
@@ -265,16 +265,17 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
 
     using TData = typename Reduction::value_type;
 
-    if (syclBuffer == nullptr)
+    if (internalSYCLBuffer == nullptr)
     {
-        const unsigned int syclBufferSize = sizeof(TData) * (gridSize + 1);
-        GetDeviceProperties::CheckGlobalMemoryUsage(syclBufferSize);
-        syclBuffer = sycl::malloc_device(syclBufferSize, Q);
-        GetDeviceProperties::TotalGlobalMemory() -= syclBufferSize;
+        const unsigned int internalSYCLBufferSize =
+            sizeof(TData) * (gridSize + 1);
+        GetDeviceProperties::CheckGlobalMemoryUsage(internalSYCLBufferSize);
+        internalSYCLBuffer = sycl::malloc_device(internalSYCLBufferSize, Q);
+        GetDeviceProperties::TotalGlobalMemory() -= internalSYCLBufferSize;
     }
 
-    TData *buffer = (TData *)syclBuffer;
-    TData *d_out  = (TData *)syclBuffer + gridSize;
+    TData *buffer = (TData *)internalSYCLBuffer;
+    TData *d_out  = (TData *)internalSYCLBuffer + gridSize;
     if constexpr (std::is_same_v<Reduction, Nektar::ReduceSum<TData>>)
     {
 #if defined(USE_SYCL_BUILTIN_REDUCER)

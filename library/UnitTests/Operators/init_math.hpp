@@ -36,11 +36,6 @@
 
 #include "Operators/MathKernels/Math.hpp"
 
-#if defined(_MSC_VER)
-#undef max
-#undef min
-#endif
-
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;

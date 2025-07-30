@@ -325,7 +325,14 @@ public:
                 hostFree(m_host, m_alignment);
             }
         }
-        m_host = nullptr;
+
+        if (m_device)
+        {
+            deviceFree(m_device, m_size, m_alignment);
+        }
+
+        m_host   = nullptr;
+        m_device = nullptr;
     }
 
     /**
@@ -338,9 +345,9 @@ public:
         : m_name(std::move(rhs.m_name)),
           m_component_names(std::move(rhs.m_component_names)),
           m_num_homo_modes(std::move(rhs.m_num_homo_modes)),
-          m_host(std::move(rhs.m_host)),
+          m_host(std::move(rhs.m_host)), m_device(std::move(rhs.m_device)),
+          m_size(std::move(rhs.m_size)),
           m_alignment(std::move(rhs.m_alignment)),
-          m_num_device(std::move(rhs.m_num_device)),
           m_block_accessors(std::move(rhs.m_block_accessors)),
           m_memory_regions(std::move(rhs.m_memory_regions)),
           m_blk_to_mr_offset(std::move(rhs.m_blk_to_mr_offset)),
@@ -351,8 +358,9 @@ public:
         rhs.m_component_names.clear();
         rhs.m_num_homo_modes = 1;
         rhs.m_host           = nullptr;
+        rhs.m_device         = nullptr;
+        rhs.m_size           = 0;
         rhs.m_alignment      = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
-        rhs.m_num_device     = 1;
         rhs.m_block_accessors.clear();
         rhs.m_memory_regions.clear();
         rhs.m_blk_to_mr_offset.clear();
@@ -373,8 +381,9 @@ public:
         m_component_names   = std::move(rhs.m_component_names);
         m_num_homo_modes    = std::move(rhs.m_num_homo_modes);
         m_host              = std::move(rhs.m_host);
+        m_device            = std::move(rhs.m_device);
+        m_size              = std::move(rhs.m_size);
         m_alignment         = std::move(rhs.m_alignment);
-        m_num_device        = std::move(rhs.m_num_device);
         m_block_accessors   = std::move(rhs.m_block_accessors);
         m_memory_regions    = std::move(rhs.m_memory_regions);
         m_blk_to_mr_offset  = std::move(rhs.m_blk_to_mr_offset);
@@ -385,8 +394,9 @@ public:
         rhs.m_component_names.clear();
         rhs.m_num_homo_modes = 1;
         rhs.m_host           = nullptr;
+        rhs.m_device         = nullptr;
+        rhs.m_size           = 0;
         rhs.m_alignment      = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
-        rhs.m_num_device     = 1;
         rhs.m_block_accessors.clear();
         rhs.m_memory_regions.clear();
         rhs.m_blk_to_mr_offset.clear();
@@ -414,9 +424,8 @@ public:
         const unsigned int num_homo_modes, const size_t alignment,
         const MemAllocType &memAllocType = eHostDevice)
     {
-        unsigned int num_device = 1;
-        auto field = Field(name, components, num_homo_modes, alignment,
-                           num_device, memAllocType);
+        auto field =
+            Field(name, components, num_homo_modes, alignment, memAllocType);
 
         SetBlockToMemoryRegionMapping(field, blockAttr);
 
@@ -463,9 +472,8 @@ public:
         const unsigned int num_components, const unsigned int num_homo_modes,
         const size_t alignment, const MemAllocType &memAllocType = eHostDevice)
     {
-        unsigned int num_device = 1;
         auto field = Field(name, num_components, num_homo_modes, alignment,
-                           num_device, memAllocType);
+                           memAllocType);
 
         SetBlockToMemoryRegionMapping(field, blockAttr);
 
@@ -498,59 +506,6 @@ public:
         Field<TData, TState> &field,
         const std::vector<BlockAttributes> blockAttr)
     {
-#if defined(NEKTAR_USE_SINGLE_MEMORY_REGION_PER_DEVICE)
-        std::vector<size_t> offset(field.m_num_device, 0);
-        std::vector<size_t> size(field.m_num_device, 0);
-        size_t hsize = 0;
-        for (unsigned int blk = 0; blk < blockAttr.size(); ++blk)
-        {
-            // Set one-to-one MemoryRegion to device mapping.
-            auto mr    = blk % field.m_num_device;
-            auto nsize = blockAttr[blk].size() * field.GetNumComponents() *
-                         field.GetNumHomoModes();
-            field.m_blk_to_mr_mapping.push_back(mr);
-            field.m_blk_to_mr_offset.push_back(offset[mr]);
-            offset[mr] += nsize;
-
-            // Compute MemoryRegion memory size.
-            size[mr] += nsize;
-            hsize += nsize;
-        }
-
-        // Allocate contiguous memory on the host.
-        if (field.m_memAllocType == eHostDevice)
-        {
-            hostMalloc(&field.m_host, hsize * sizeof(TData), field.m_alignment);
-            std::memset((void *)field.m_host, 0, hsize * sizeof(TData));
-        }
-        else if (field.m_memAllocType == ePinned)
-        {
-            hostMallocPinned(&field.m_host, hsize * sizeof(TData),
-                             field.m_alignment);
-            std::memset((void *)field.m_host, 0, hsize * sizeof(TData));
-        }
-
-        auto hsrc = field.m_host;
-        for (unsigned int mr = 0; mr < field.m_num_device; ++mr)
-        {
-            // Create memory region.
-            auto device_rank = mr;
-            if (field.m_memAllocType == eDeviceOnly)
-            {
-                field.m_memory_regions.push_back(MemoryRegion<TData>::Create(
-                    field.m_name + std::to_string(mr), size[mr],
-                    field.m_alignment, device_rank));
-            }
-            else
-            {
-                field.m_memory_regions.push_back(
-                    MemoryRegion<TData>::CreateFromHostPtr(
-                        field.m_name + std::to_string(mr), hsrc, size[mr],
-                        field.m_alignment, device_rank, m_memAllocType));
-                hsrc += size;
-            }
-        }
-#else
         size_t hsize = 0;
         for (unsigned int blk = 0; blk < blockAttr.size(); ++blk)
         {
@@ -575,29 +530,35 @@ public:
             std::memset((void *)field.m_host, 0, hsize * sizeof(TData));
         }
 
+        // Allocate contiguous memory on the device.
+        unsigned int device_rank = nekGetDevice();
+        deviceMalloc(&field.m_device, hsize * sizeof(TData), field.m_alignment);
+        deviceMemset(field.m_device, 0, hsize * sizeof(TData));
+
         auto hsrc = field.m_host;
+        auto dsrc = field.m_device;
         for (unsigned int blk = 0; blk < blockAttr.size(); ++blk)
         {
             // Create memory region.
-            auto device_rank = blk % field.m_num_device;
             auto size = blockAttr[blk].size() * field.GetNumComponents() *
                         field.GetNumHomoModes();
             if (field.m_memAllocType == eDeviceOnly)
             {
                 field.m_memory_regions.push_back(MemoryRegion<TData>::Create(
-                    field.m_name + std::to_string(blk), size, field.m_alignment,
-                    device_rank));
+                    field.m_name + std::to_string(blk), dsrc, size,
+                    field.m_alignment, device_rank));
+                dsrc += size;
             }
             else
             {
-                field.m_memory_regions.push_back(
-                    MemoryRegion<TData>::CreateFromHostPtr(
-                        field.m_name + std::to_string(blk), hsrc, size,
-                        field.m_alignment, device_rank));
+                field.m_memory_regions.push_back(MemoryRegion<TData>::Create(
+                    field.m_name + std::to_string(blk), hsrc, dsrc, size,
+                    field.m_alignment, device_rank));
                 hsrc += size;
+                dsrc += size;
             }
         }
-#endif
+
         for (unsigned int blk = 0; blk < blockAttr.size(); ++blk)
         {
             field.m_block_accessors.push_back(BlockAccessor(
@@ -915,10 +876,10 @@ private:
      */
     Field(const std::string name, const unsigned int num_components,
           const unsigned int num_homo_modes, const size_t alignment,
-          const unsigned int num_device, const MemAllocType &memAllocType)
+          const MemAllocType &memAllocType)
         : m_name(name), m_component_names(num_components),
           m_num_homo_modes(num_homo_modes), m_alignment(alignment),
-          m_num_device(num_device), m_memAllocType(memAllocType)
+          m_memAllocType(memAllocType)
     {
     }
 
@@ -933,10 +894,10 @@ private:
      */
     Field(const std::string name, const std::vector<std::string> components,
           const unsigned int num_homo_modes, const size_t alignment,
-          const unsigned int num_device, const MemAllocType &memAllocType)
+          const MemAllocType &memAllocType)
         : m_name(name), m_component_names(components),
           m_num_homo_modes(num_homo_modes), m_alignment(alignment),
-          m_num_device(num_device), m_memAllocType(memAllocType)
+          m_memAllocType(memAllocType)
     {
     }
 
@@ -945,8 +906,9 @@ private:
     std::vector<std::string> m_component_names;
     unsigned int m_num_homo_modes = 1;
     TData *m_host                 = nullptr;
+    TData *m_device               = nullptr;
+    size_t m_size                 = 0;
     size_t m_alignment            = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
-    unsigned int m_num_device     = 1;
     std::vector<BlockAccessor<TData>> m_block_accessors;
     std::vector<MemoryRegion<TData>> m_memory_regions;
     std::vector<size_t> m_blk_to_mr_offset;

@@ -192,7 +192,7 @@ public:
      */
     static MemoryRegion<TData> Create(
         const std::string name, const size_t size, const size_t alignment,
-        const unsigned int device_rank   = 0,
+        const unsigned int device_rank   = nekGetDevice(),
         const MemAllocType &memAllocType = eHostDevice)
     {
         auto mr = MemoryRegion();
@@ -219,7 +219,7 @@ public:
      */
     static MemoryRegion<TData> Create(
         const size_t size, const size_t alignment,
-        const unsigned int device_rank   = 0,
+        const unsigned int device_rank   = nekGetDevice(),
         const MemAllocType &memAllocType = eHostDevice)
     {
         return MemoryRegion<TData>::Create("", size, alignment, device_rank,
@@ -240,7 +240,7 @@ public:
               class Alloc = std::allocator<TDataIn>>
     static MemoryRegion<TData> FromVector(
         const std::string name, std::vector<TDataIn, Alloc> const &array,
-        const size_t alignment, const unsigned int device_rank = 0)
+        const size_t alignment, const unsigned int device_rank = nekGetDevice())
     {
         auto mr = MemoryRegion<TData>::Create(name, array.size(), alignment,
                                               device_rank);
@@ -261,7 +261,7 @@ public:
               class Alloc = std::allocator<TDataIn>>
     static MemoryRegion<TData> FromVector(
         std::vector<TDataIn, Alloc> const &array, const size_t alignment,
-        const unsigned int device_rank = 0)
+        const unsigned int device_rank = nekGetDevice())
     {
         return MemoryRegion<TData>::template FromVector<MemSpace, TDataIn>(
             "", array, alignment, device_rank);
@@ -282,7 +282,7 @@ public:
     static MemoryRegion<TData> FromArray(
         const std::string name,
         Nektar::Array<Nektar::OneD, TDataIn> const &array,
-        const size_t alignment, const unsigned int device_rank = 0)
+        const size_t alignment, const unsigned int device_rank = nekGetDevice())
     {
         auto mr = MemoryRegion<TData>::Create(name, array.size(), alignment,
                                               device_rank);
@@ -302,7 +302,7 @@ public:
     template <typename MemSpace, typename TDataIn>
     static MemoryRegion<TData> FromArray(
         Nektar::Array<Nektar::OneD, TDataIn> const &array,
-        const size_t alignment, const unsigned int device_rank = 0)
+        const size_t alignment, const unsigned int device_rank = nekGetDevice())
     {
         return MemoryRegion<TData>::template FromArray<MemSpace, TDataIn>(
             "", array, alignment, device_rank);
@@ -334,6 +334,7 @@ public:
      */
     template <typename MemSpace> void Copy(MemoryRegion &rhs)
     {
+        nekSetDevice(this->GetDeviceRank());
         if (this->size() != rhs.size())
         {
             std::stringstream msg;
@@ -352,8 +353,8 @@ public:
         }
         else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
         {
-            deviceMemcpy<DeviceToDevice>(dst, src, this->size() * sizeof(TData),
-                                         this->GetDeviceRank());
+            deviceMemcpy<DeviceToDevice>(dst, src,
+                                         this->size() * sizeof(TData));
         }
     }
 
@@ -541,26 +542,75 @@ public:
 private:
     /**
      * @brief Static templated creation method. This method creates a
-     *        new MemoryRegion from an existing host src pointer. Specialized
-     *        constructor method used by Field.hpp to allocate a contiguous
-     *        host memory coupled with distributed device memory. This method
-     *        should not be otherwise used and has been made protected.
+     *        new MemoryRegion from an existing device src pointer.
+     *        Specialized constructor method used by Field.hpp to allocate a
+     *        contiguous device memory. This method should not be
+     *        otherwise used and has been made protected.
      * @param name        - name of the memory region
-     * @param h_src       - host src pointer
+     * @param d_src        - device src pointer
      * @param size        - size of memory
      * @param alignment   - memory alignment
      * @param device_rank - device (GPU) rank id
      *
      * @return MemoryRegion<TData>
      */
-    static MemoryRegion<TData> CreateFromHostPtr(
-        const std::string name, TData *h_src, const size_t size,
-        const size_t alignment, const unsigned int device_rank = 0)
+    static MemoryRegion<TData> Create(
+        const std::string name, TData *d_src, const size_t size,
+        const size_t alignment, const unsigned int device_rank = nekGetDevice())
     {
         auto mr = MemoryRegion();
 
         mr.m_storage = std::make_unique<MemoryStorage<TData>>(
-            name, h_src, size, alignment, device_rank);
+            name, d_src, size, alignment, device_rank);
+
+        return mr;
+    }
+
+    /**
+     * @brief Static templated creation method. This method creates a
+     *        new MemoryRegion from an existing device src pointer.
+     *        Specialized constructor method used by Field.hpp to allocate a
+     *        contiguous device memory. This method should not be
+     *        otherwise used and has been made protected.
+     *
+     * @param d_src        - device src pointer
+     * @param size        - size of memory
+     * @param alignment   - memory alignment
+     * @param device_rank - device (GPU) rank id
+     *
+     * @return MemoryRegion<TData>
+     */
+    static MemoryRegion<TData> Create(
+        TData *d_src, const size_t size, const size_t alignment,
+        const unsigned int device_rank = nekGetDevice())
+    {
+        return MemoryRegion<TData>::Create("", d_src, size, alignment,
+                                           device_rank);
+    }
+
+    /**
+     * @brief Static templated creation method. This method creates a
+     *        new MemoryRegion from an existing host src pointer. Specialized
+     *        constructor method used by Field.hpp to allocate a contiguous
+     *        host memory coupled with contiguous device memory. This method
+     *        should not be otherwise used and has been made protected.
+     * @param name        - name of the memory region
+     * @param h_src       - host src pointer
+     * @param d_src       - device src pointer
+     * @param size        - size of memory
+     * @param alignment   - memory alignment
+     * @param device_rank - device (GPU) rank id
+     *
+     * @return MemoryRegion<TData>
+     */
+    static MemoryRegion<TData> Create(
+        const std::string name, TData *h_src, TData *d_src, const size_t size,
+        const size_t alignment, const unsigned int device_rank = nekGetDevice())
+    {
+        auto mr = MemoryRegion();
+
+        mr.m_storage = std::make_unique<MemoryStorage<TData>>(
+            name, h_src, d_src, size, alignment, device_rank);
 
         return mr;
     }
@@ -569,22 +619,23 @@ private:
      * @brief Static templated creation method. This method creates a
      *        new MemoryRegion from an existing host src pointer. Specialized
      *        constructor method used by Field.hpp to allocate a contiguous
-     *        host memory coupled with distributed device memory. This method
+     *        host memory coupled with contiguous device memory. This method
      *        should not be otherwise used and has been made protected.
      *
      * @param h_src       - host src pointer
+     * @param d_src       - device src pointer
      * @param size        - size of memory
      * @param alignment   - memory alignment
      * @param device_rank - device (GPU) rank id
      *
      * @return MemoryRegion<TData>
      */
-    static MemoryRegion<TData> CreateFromHostPtr(
-        TData *h_src, const size_t size, const size_t alignment,
-        const unsigned int device_rank = 0)
+    static MemoryRegion<TData> Create(
+        TData *h_src, TData *d_src, const size_t size, const size_t alignment,
+        const unsigned int device_rank = nekGetDevice())
     {
-        return MemoryRegion<TData>::CreateFromHostPtr("", h_src, size,
-                                                      alignment, device_rank);
+        return MemoryRegion<TData>::Create("", h_src, d_src, size, alignment,
+                                           device_rank);
     }
 
     /**

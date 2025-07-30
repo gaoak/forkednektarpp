@@ -124,19 +124,17 @@ NekGemmGroupedBatched(THandle handle, std::string transposeA,
     TData const **Adev;
     TData const **Bdev;
     TData **Cdev;
-    Nektar::deviceMalloc(&Adev, sizeof(TData *) * batchSize,
-                         NektarSpaces::Device::alignment, 0);
-    Nektar::deviceMalloc(&Bdev, sizeof(TData *) * batchSize,
-                         NektarSpaces::Device::alignment, 0);
-    Nektar::deviceMalloc(&Cdev, sizeof(TData *) * batchSize,
-                         NektarSpaces::Device::alignment, 0);
-
-    Nektar::deviceMemcpy<Nektar::HostToDevice>(Adev, Aarray,
-                                               sizeof(TData *) * batchSize, 0);
-    Nektar::deviceMemcpy<Nektar::HostToDevice>(Bdev, Barray,
-                                               sizeof(TData *) * batchSize, 0);
-    Nektar::deviceMemcpy<Nektar::HostToDevice>(Cdev, Carray,
-                                               sizeof(TData *) * batchSize, 0);
+    GetDeviceProperties::CheckGlobalMemoryUsage(3 * sizeof(TData *) *
+                                                batchSize);
+    Adev = (const TData **)sycl::malloc_device(sizeof(TData *) * batchSize,
+                                               handle);
+    Bdev = (const TData **)sycl::malloc_device(sizeof(TData *) * batchSize,
+                                               handle);
+    Cdev = (TData **)sycl::malloc_device(sizeof(TData *) * batchSize, handle);
+    GetDeviceProperties::TotalGlobalMemory() -= 3 * sizeof(TData *) * batchSize;
+    handle.memcpy(Adev, Aarray, sizeof(TData *) * batchSize).wait();
+    handle.memcpy(Bdev, Barray, sizeof(TData *) * batchSize).wait();
+    handle.memcpy(Cdev, Carray, sizeof(TData *) * batchSize).wait();
 
 #if __has_include("oneapi/math.hpp")
     blas::column_major::gemm_batch(
@@ -151,12 +149,11 @@ NekGemmGroupedBatched(THandle handle, std::string transposeA,
                                    groupSize.data());
 #endif
 
-    Nektar::deviceFree(Adev, sizeof(TData *) * batchSize,
-                       NektarSpaces::Device::alignment, 0);
-    Nektar::deviceFree(Bdev, sizeof(TData *) * batchSize,
-                       NektarSpaces::Device::alignment, 0);
-    Nektar::deviceFree(Cdev, sizeof(TData *) * batchSize,
-                       NektarSpaces::Device::alignment, 0);
+    handle.wait();
+    sycl::free(Adev, handle);
+    sycl::free(Bdev, handle);
+    sycl::free(Cdev, handle);
+    GetDeviceProperties::TotalGlobalMemory() += 3 * sizeof(TData *) * batchSize;
 }
 
 template <typename THandle, typename TData>

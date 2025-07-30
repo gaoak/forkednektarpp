@@ -36,6 +36,8 @@
 
 #include <sycl/sycl.hpp>
 
+static unsigned int internalSYCLDeviceId = 0;
+
 /**
  * @brief wrapper around sycl::queue to ensure queues are not constantly
  * instansiated. Can also use this class for implementing custom device
@@ -47,21 +49,32 @@
 class SYCLQueue
 {
 public:
-    static sycl::queue &GetInstance()
+    static sycl::queue &GetInstance(unsigned int id)
     {
-        if (!queue)
+        if (queue.size() == 0)
         {
 #if defined(SYCL_ENABLE_CPU)
-            queue = new sycl::queue(sycl::cpu_selector_v,
+            queue.push_back(new sycl::queue(sycl::cpu_selector_v,
+                                            sycl::property::queue::in_order()));
 #else
-            queue = new sycl::queue(sycl::gpu_selector_v,
+            std::vector<sycl::device> gpu_devices =
+                sycl::device::get_devices(sycl::info::device_type::gpu);
+            for (auto &gpu_device : gpu_devices)
+            {
+                queue.push_back(new sycl::queue(
+                    gpu_device, sycl::property::queue::in_order()));
+            }
 #endif
-                                    sycl::property::queue::in_order());
         }
 
-        return *queue;
+        return *queue[id];
+    }
+
+    static sycl::queue &GetInstance(void)
+    {
+        return SYCLQueue::GetInstance(internalSYCLDeviceId);
     }
 
 private:
-    static sycl::queue *queue;
+    static std::vector<sycl::queue *> queue;
 };
