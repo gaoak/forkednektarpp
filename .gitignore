@@ -29,3 +29,5 @@ a.out
 *.opt
 # Any python cache directories
 __pycache__
+# Generated CardiacEPSolver CellModel class
+solvers/CardiacEPSolver/CellModels/CellMLTest.*

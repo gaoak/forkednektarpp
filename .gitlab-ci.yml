@@ -61,6 +61,7 @@ include:
   timeout: 1h
   variables:
     REMOVE_UCX: 0
+    PIP_FLAGS: ""
   script:
     - OS_DISTRO=$(echo $CI_JOB_NAME | cut -d- -f 1)
     - OS_VERSION=$(echo $CI_JOB_NAME | cut -d- -f 2)
@@ -69,7 +70,7 @@ include:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
     - export IMAGE=$CI_REGISTRY_IMAGE:env-${OS_DISTRO}-${OS_VERSION}-${BUILD_TYPE}
     - docker pull $IMAGE || true
-    - docker build --pull --build-arg REMOVE_UCX=${REMOVE_UCX} -t $IMAGE .
+    - docker build --pull --build-arg REMOVE_UCX=${REMOVE_UCX} --build-arg PIP_FLAGS=${PIP_FLAGS} -t $IMAGE .
     - docker push $IMAGE
 
 .build-and-test-template: &build-and-test-template
@@ -246,6 +247,8 @@ debian-bookworm-default-build-env:
 debian-bookworm-full-build-env:
   <<: *build-env-debian-template-full
   needs: ["debian-bookworm-default-build-env"]
+  variables:
+    PIP_FLAGS: "--break-system-packages"
 
 debian-bullseye-default-build-env:
   <<: *build-env-debian-template-default
@@ -483,6 +486,8 @@ ubuntu-noble-default-build-env:
 ubuntu-noble-full-build-env:
   <<: *build-env-ubuntu-template-full
   needs: ["ubuntu-noble-default-build-env"]
+  variables:
+    PIP_FLAGS: "--break-system-packages"
 
 ubuntu-jammy-default-build-env:
   <<: *build-env-ubuntu-template-default

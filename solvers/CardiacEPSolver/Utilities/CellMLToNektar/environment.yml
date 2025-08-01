@@ -1,0 +1,6 @@
+name: CellMLToNektar
+dependencies:
+  - python==3
+  - pip
+  - pip:
+    - myokit>=1.30.6

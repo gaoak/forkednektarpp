@@ -7,6 +7,59 @@ IF (NOT NEKTAR_BUILD_SOLVERS)
 ENDIF()
 
 IF( NEKTAR_SOLVER_CARDIAC_EP )
+
+    # The CellMLToNektar script converts CellML repository models into
+    # Nektar++ code, which can be compiled into the CardiacEPSolver
+    # To allow this script to be tested, a test model is automatically
+    # converted and compiled into the solver, so it can be executed as part
+    # of the test suite. To do this Python3 and the myokit package is required.
+    # This is ignored, if these pre-requisites are not satisfied.
+
+    # Assume support is not available.
+    SET(NEKTAR_HAS_MYOKIT FALSE)
+
+    # Find the Python3 interpreter
+    find_package(
+        Python3
+        COMPONENTS Interpreter
+    )
+
+    if ( Python3_FOUND )
+        # Check if 'myokit' is installed
+        execute_process(
+            COMMAND pip show myokit
+            RESULT_VARIABLE EXIT_CODE
+            OUTPUT_QUIET
+        )
+
+        if (NOT ${EXIT_CODE} EQUAL 0)
+            message(STATUS "Found Python3, but without myokit package. "
+                "Skipping testing of CellMLToNektar script.")
+        else()
+            message(STATUS "Found Python3 with myokit package")
+
+            SET(MYOKIT_TEST_MODEL courtemanche_ramirez_nattel_1998.cellml)
+            MESSAGE(STATUS "Building test model: ${MYOKIT_TEST_MODEL}")
+
+            # Run the conversion script to convert the test model and put the
+            # resulting code into the CardiacEPSolver/CellModels directory
+            execute_process(
+                COMMAND python3 convert.py -n CellMLTest
+                    -o ${CMAKE_CURRENT_SOURCE_DIR}/CellModels
+                    ${MYOKIT_TEST_MODEL}
+                WORKING_DIRECTORY
+                ${CMAKE_CURRENT_SOURCE_DIR}/Utilities/CellMLToNektar
+    		)
+
+            # Enable the compilation of the test code and subsequent test.
+            SET(NEKTAR_HAS_MYOKIT TRUE)	
+        endif()
+    else()
+        message(STATUS "Python3 not found. "
+                 "Skipping testing of CellMLToNektar script.")
+
+    endif ()
+
     SET(CardiacEPSolverSources
         EquationSystems/Monodomain.cpp
         EquationSystems/Bidomain.cpp
@@ -35,6 +88,11 @@ IF( NEKTAR_SOLVER_CARDIAC_EP )
         Stimuli/ProtocolS1.cpp
         Stimuli/ProtocolS1S2.cpp
         )
+
+	IF( NEKTAR_HAS_MYOKIT )
+        SET(CardiacEPSolverSources ${CardiacEPSolverSources}
+            CellModels/CellMLTest.cpp)
+	ENDIF()
 
     IF( NEKTAR_USE_FFTW )
         SET(CardiacEPSolverSources ${CardiacEPSolverSources}
@@ -76,6 +134,11 @@ IF( NEKTAR_SOLVER_CARDIAC_EP )
             Stimuli/Stimulus.h
             Stimuli/StimulusPoint.h
             Stimuli/StimulusRect.h)
+		IF (NEKTAR_HAS_MYOKIT)
+            SET(CardiacEPSolverHeaders ${CardiacEPSolverHeaders}
+				CellModels/CellMLTest.h)
+		ENDIF()
+
         # Create separate library. No need to pass source files, as the executable's
         # LIBRARY_SOURCES objects will be reused
         ADD_SOLVER_LIBRARY(CardiacEPSolver HEADERS ${CardiacEPSolverHeaders}

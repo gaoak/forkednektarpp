@@ -55,6 +55,8 @@ ignore_sources = [
     "solvers/CompressibleFlowSolver/Utilities/TimeRoeKernel.cpp",
     # Template for PWS
     "solvers/PulseWaveSolver/EquationSystems/TemplatePressureArea.cpp",
+    # CardiacEPSolver CellMLToNektar template file
+    "solvers/CardiacEPSolver/Utilities/CellMLToNektar/nektar/template/model.cpp",
     # NekBlas
     "library/Operators/NekBlas/magma.cpp",
     "library/Operators/NekBlas/magmaHandle.cpp",

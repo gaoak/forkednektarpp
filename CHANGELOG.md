@@ -12,6 +12,10 @@ v5.9.0
 - Use std::unordered_map instead of std::map for NekFactory (!2103)
 - Replace `std::shared_ptr` with `std::unique_ptr` inside SpatialDomains (!2112)
 - Fix output messages clobbering error info in Lagrangian filter (!2200, !2202)
+- Unified IProductWRTDerivBaseOp align vector function for all 3D shapes (!2203)
+
+**CardiacEPSolver**
+- Add script for converting CellML models into Nektar++ cell model code (!2185)
 
 **NekMesh**
 - Minor Bug-fix for industrial pipeline !2057 (!2135)

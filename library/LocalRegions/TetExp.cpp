@@ -399,9 +399,9 @@ void TetExp::v_AlignVectorToCollapsedDir(
 
     for (cnt = 0, k = 0; k < nquad2; ++k)
     {
+        g2 = 2.0 / (1.0 - z2[k]);
         for (j = 0; j < nquad1; ++j)
         {
-            g2 = 2.0 / (1.0 - z2[k]);
             g1 = g2 / (1.0 - z1[j]);
             g0 = 2.0 * g1;
             g3 = (1.0 + z1[j]) * g2 * 0.5;

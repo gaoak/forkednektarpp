@@ -362,20 +362,11 @@ void PyrExp::v_AlignVectorToCollapsedDir(
     const int nquad0 = m_base[0]->GetNumPoints();
     const int nquad1 = m_base[1]->GetNumPoints();
     const int nquad2 = m_base[2]->GetNumPoints();
-    const int order0 = m_base[0]->GetNumModes();
-    const int order1 = m_base[1]->GetNumModes();
     const int nqtot  = nquad0 * nquad1 * nquad2;
 
     const Array<OneD, const NekDouble> &z0 = m_base[0]->GetZ();
     const Array<OneD, const NekDouble> &z1 = m_base[1]->GetZ();
     const Array<OneD, const NekDouble> &z2 = m_base[2]->GetZ();
-
-    Array<OneD, NekDouble> gfac0(nquad0);
-    Array<OneD, NekDouble> gfac1(nquad1);
-    Array<OneD, NekDouble> gfac2(nquad2);
-    Array<OneD, NekDouble> tmp5(nqtot);
-    Array<OneD, NekDouble> wsp(
-        std::max(nqtot, order0 * nquad2 * (nquad1 + order1)));
 
     Array<OneD, NekDouble> tmp2 = outarray[0];
     Array<OneD, NekDouble> tmp3 = outarray[1];
@@ -384,70 +375,45 @@ void PyrExp::v_AlignVectorToCollapsedDir(
     const Array<TwoD, const NekDouble> &df =
         m_metricinfo->GetDerivFactors(GetPointsKeys());
 
-    Array<OneD, NekDouble> tmp1;
-    tmp1 = inarray;
-
     if (m_metricinfo->GetGtype() == SpatialDomains::eDeformed)
     {
-        Vmath::Vmul(nqtot, &df[3 * dir][0], 1, tmp1.data(), 1, tmp2.data(), 1);
-        Vmath::Vmul(nqtot, &df[3 * dir + 1][0], 1, tmp1.data(), 1, tmp3.data(),
+        Vmath::Vmul(nqtot, &df[3 * dir][0], 1, inarray.data(), 1, tmp2.data(),
                     1);
-        Vmath::Vmul(nqtot, &df[3 * dir + 2][0], 1, tmp1.data(), 1, tmp4.data(),
-                    1);
+        Vmath::Vmul(nqtot, &df[3 * dir + 1][0], 1, inarray.data(), 1,
+                    tmp3.data(), 1);
+        Vmath::Vmul(nqtot, &df[3 * dir + 2][0], 1, inarray.data(), 1,
+                    tmp4.data(), 1);
     }
     else
     {
-        Vmath::Smul(nqtot, df[3 * dir][0], tmp1.data(), 1, tmp2.data(), 1);
-        Vmath::Smul(nqtot, df[3 * dir + 1][0], tmp1.data(), 1, tmp3.data(), 1);
-        Vmath::Smul(nqtot, df[3 * dir + 2][0], tmp1.data(), 1, tmp4.data(), 1);
+        Vmath::Smul(nqtot, df[3 * dir][0], inarray.data(), 1, tmp2.data(), 1);
+        Vmath::Smul(nqtot, df[3 * dir + 1][0], inarray.data(), 1, tmp3.data(),
+                    1);
+        Vmath::Smul(nqtot, df[3 * dir + 2][0], inarray.data(), 1, tmp4.data(),
+                    1);
     }
 
-    // set up geometric factor: (1+z0)/2
-    for (int i = 0; i < nquad0; ++i)
+    int i, j;
+    NekDouble g0, g1, g2, g02;
+
+    for (int k = 0, cnt = 0; k < nquad2; ++k)
     {
-        gfac0[i] = 0.5 * (1 + z0[i]);
+        g2 = 2.0 / (1.0 - z2[k]);
+
+        for (j = 0; j < nquad1; ++j)
+        {
+            g1 = 0.5 * (1.0 + z1[j]) * g2;
+
+            for (i = 0; i < nquad0; ++i, ++cnt)
+            {
+                g0  = 0.5 * (1.0 + z0[i]);
+                g02 = g0 * g2;
+
+                outarray[0][cnt] = g2 * tmp2[cnt] + g02 * tmp4[cnt];
+                outarray[1][cnt] = g2 * tmp3[cnt] + g1 * tmp4[cnt];
+            }
+        }
     }
-
-    // set up geometric factor: (1+z1)/2
-    for (int i = 0; i < nquad1; ++i)
-    {
-        gfac1[i] = 0.5 * (1 + z1[i]);
-    }
-
-    // Set up geometric factor: 2/(1-z2)
-    for (int i = 0; i < nquad2; ++i)
-    {
-        gfac2[i] = 2.0 / (1 - z2[i]);
-    }
-
-    const int nq01 = nquad0 * nquad1;
-
-    for (int i = 0; i < nquad2; ++i)
-    {
-        Vmath::Smul(nq01, gfac2[i], &tmp2[0] + i * nq01, 1, &tmp2[0] + i * nq01,
-                    1); // 2/(1-z2) for d/dxi_0
-        Vmath::Smul(nq01, gfac2[i], &tmp3[0] + i * nq01, 1, &tmp3[0] + i * nq01,
-                    1); // 2/(1-z2) for d/dxi_1
-        Vmath::Smul(nq01, gfac2[i], &tmp4[0] + i * nq01, 1, &tmp5[0] + i * nq01,
-                    1); // 2/(1-z2) for d/dxi_2
-    }
-
-    // (1+z0)/(1-z2) for d/d eta_0
-    for (int i = 0; i < nquad1 * nquad2; ++i)
-    {
-        Vmath::Vmul(nquad0, &gfac0[0], 1, &tmp5[0] + i * nquad0, 1,
-                    &wsp[0] + i * nquad0, 1);
-    }
-
-    Vmath::Vadd(nqtot, &tmp2[0], 1, &wsp[0], 1, &tmp2[0], 1);
-
-    // (1+z1)/(1-z2) for d/d eta_1
-    for (int i = 0; i < nquad1 * nquad2; ++i)
-    {
-        Vmath::Smul(nquad0, gfac1[i % nquad1], &tmp5[0] + i * nquad0, 1,
-                    &tmp5[0] + i * nquad0, 1);
-    }
-    Vmath::Vadd(nqtot, &tmp3[0], 1, &tmp5[0], 1, &tmp3[0], 1);
 }
 
 //---------------------------------------
