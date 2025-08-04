@@ -69,6 +69,8 @@ public:
             }
         }
 
+        fixt_out->template Initialize<NektarSpaces::HostSpace>(0.0);
+
         // Compute expected solution.
         ExpectedSolution();
     }

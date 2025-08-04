@@ -547,31 +547,28 @@ public:
                  n < fixt_out->GetNumComponents() * fixt_out->GetNumHomoModes();
                  ++n)
             {
-                for (size_t el = 0;
+                for (size_t el = 0, cnt = 0;
                      el < fixt_out->GetBlocks()[blk].GetNumElements(); ++el)
                 {
                     for (unsigned int pts = 0;
-                         pts < fixt_out->GetBlocks()[blk].GetNumData(); ++pts)
+                         pts < fixt_out->GetBlocks()[blk].GetNumData();
+                         ++pts, ++cnt)
                     {
-                        if (std::isnan(*outptr) || std::isinf(*outptr) ||
-                            std::abs(*outptr - *expptr) > tol)
+                        if (std::isnan(outptr[cnt]) ||
+                            std::isinf(outptr[cnt]) ||
+                            std::abs(outptr[cnt] - expptr[cnt]) > tol)
                         {
                             printf("%04lu %04u %20.16f %20.16f %20.16f\n", el,
-                                   pts, *outptr, *expptr,
-                                   std::abs(*outptr - *expptr));
+                                   pts, outptr[cnt], expptr[cnt],
+                                   std::abs(outptr[cnt] - expptr[cnt]));
                             MisMatchcnt++;
                         }
                         total++;
-                        outptr++;
-                        expptr++;
                     }
                 }
 
-                outptr += fixt_out->GetBlocks()[blk].GetNumData() *
-                          fixt_out->GetBlocks()[blk].GetNumPaddingElements();
-                expptr +=
-                    fixt_expected->GetBlocks()[blk].GetNumData() *
-                    fixt_expected->GetBlocks()[blk].GetNumPaddingElements();
+                outptr += fixt_out->GetBlocks()[blk].size();
+                expptr += fixt_expected->GetBlocks()[blk].size();
             }
 
             if (MisMatchcnt)

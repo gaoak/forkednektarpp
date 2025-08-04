@@ -38,7 +38,8 @@
 
 #include "MemoryRegion.hpp"
 
-static constexpr FieldState DefaultState = FieldState::Phys;
+template <typename MemSpace, typename TData>
+void AllocateFieldStorage(FieldBase<TData> *field);
 
 /**
  * @brief A block means a group of elements of identical shape,
@@ -218,27 +219,32 @@ std::vector<BlockAttributes> GetBlockAttributes(
 
 template <typename TData> class BlockAccessor : public BlockAttributes
 {
+    template <typename TDataField> friend class FieldBase;
+    template <typename TDataField, FieldState TState> friend class Field;
+    template <typename MemSpace, typename TDataField>
+    friend void AllocateFieldStorage(FieldBase<TDataField> *field);
+
 public:
     BlockAccessor(const BlockAttributes blockAttr,
-                  MemoryRegion<TData> &memory_region,
+                  MemoryRegion<TData> &&memory_region, FieldBase<TData> *field,
                   const unsigned int num_components,
-                  const unsigned int num_homo_modes, const size_t offset)
-        : BlockAttributes(blockAttr), m_memory_region(memory_region),
-          m_num_components(num_components), m_num_homo_modes(num_homo_modes),
-          m_offset(offset)
+                  const unsigned int num_homo_modes)
+        : BlockAttributes(blockAttr), m_memory_region(std::move(memory_region)),
+          m_field(field), m_num_components(num_components),
+          m_num_homo_modes(num_homo_modes)
     {
     }
 
     BlockAccessor(const size_t exp_idx, const size_t num_elements,
                   const size_t num_elements_with_padding,
                   const unsigned int num_data, const unsigned interleave_width,
-                  MemoryRegion<TData> &memory_region,
+                  MemoryRegion<TData> &&memory_region, FieldBase<TData> *field,
                   const unsigned int num_components,
-                  const unsigned int num_homo_modes, const size_t offset)
+                  const unsigned int num_homo_modes)
         : BlockAttributes(exp_idx, num_elements, num_elements_with_padding,
                           num_data, interleave_width),
-          m_memory_region(memory_region), m_num_components(num_components),
-          m_num_homo_modes(num_homo_modes), m_offset(offset)
+          m_memory_region(std::move(memory_region)), m_field(field),
+          m_num_components(num_components), m_num_homo_modes(num_homo_modes)
     {
     }
 
@@ -250,8 +256,13 @@ public:
     template <typename MemSpace, typename MemAccess>
     typename const_if<std::is_same_v<MemAccess, ReadOnly>, TData>::type *GetPtr()
     {
-        return m_memory_region.template GetPtr<MemSpace, MemAccess>() +
-               m_offset;
+        // If not yet allocated, allocate contiguous host OR device memory
+        // accross all MemoryRegion objects from m_field. Note: m_field is a
+        // pointer to a Field object from which the current BlockAccessor object
+        // belong to.
+        AllocateFieldStorage<MemSpace>(m_field);
+
+        return m_memory_region.template GetPtr<MemSpace, MemAccess>();
     }
 
     /**
@@ -295,40 +306,44 @@ public:
     }
 
 private:
-    MemoryRegion<TData> &m_memory_region;
+    // Note: m_field is a pointer to a Field object from which the current
+    // BlockAccessor object belong to.
+    MemoryRegion<TData> m_memory_region;
+    FieldBase<TData> *m_field;
     unsigned int m_num_components = 0;
     unsigned int m_num_homo_modes = 1;
-    size_t m_offset               = 0;
 };
 
 /**
- * @brief A Field represents expansion data to be operated on.
+ * @brief A FieldBase represents expansion data to be operated on.
  *
  * @tparam TData  The floating-point representation used by the field.
- * @tparam TState A FieldState value representing the state of the field.
  */
-template <typename TData, FieldState TState = DefaultState> class Field
+template <typename TData> class FieldBase
 {
+    template <typename MemSpace, typename TDataField>
+    friend void AllocateFieldStorage(FieldBase<TDataField> *field);
+
 public:
-    Field(){};
-    Field(const Field &) = delete;
-    ~Field()
+    FieldBase(){};
+    FieldBase(const FieldBase &) = delete;
+    ~FieldBase()
     {
         if (m_host)
         {
-            if (m_memAllocType == ePinned)
-            {
-                hostFreePinned(m_host, m_alignment);
-            }
-            else
+            if (m_memAllocType == ePageable)
             {
                 hostFree(m_host, m_alignment);
+            }
+            else if (m_memAllocType == ePinned)
+            {
+                hostFreePinned(m_host, m_alignment);
             }
         }
 
         if (m_device)
         {
-            deviceFree(m_device, m_size, m_alignment);
+            deviceFree(m_device, this->size(), m_alignment);
         }
 
         m_host   = nullptr;
@@ -336,36 +351,32 @@ public:
     }
 
     /**
-     * @brief Construct a new Field object by moving storage from an existing
-     * Field object.
+     * @brief Construct a new FieldBase object by moving storage from an
+     * existing FieldBase object.
      *
      * @param rhs
      */
-    Field(Field &&rhs)
+    FieldBase(FieldBase &&rhs)
         : m_name(std::move(rhs.m_name)),
           m_component_names(std::move(rhs.m_component_names)),
           m_num_homo_modes(std::move(rhs.m_num_homo_modes)),
           m_host(std::move(rhs.m_host)), m_device(std::move(rhs.m_device)),
-          m_size(std::move(rhs.m_size)),
           m_alignment(std::move(rhs.m_alignment)),
           m_block_accessors(std::move(rhs.m_block_accessors)),
-          m_memory_regions(std::move(rhs.m_memory_regions)),
-          m_blk_to_mr_offset(std::move(rhs.m_blk_to_mr_offset)),
-          m_blk_to_mr_mapping(std::move(rhs.m_blk_to_mr_mapping)),
           m_memAllocType(std::move(rhs.m_memAllocType))
     {
+        for (auto &blocks : m_block_accessors)
+        {
+            blocks.m_field = this;
+        }
         rhs.m_name = "";
         rhs.m_component_names.clear();
         rhs.m_num_homo_modes = 1;
         rhs.m_host           = nullptr;
         rhs.m_device         = nullptr;
-        rhs.m_size           = 0;
         rhs.m_alignment      = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
         rhs.m_block_accessors.clear();
-        rhs.m_memory_regions.clear();
-        rhs.m_blk_to_mr_offset.clear();
-        rhs.m_blk_to_mr_mapping.clear();
-        rhs.m_memAllocType = eHostDevice;
+        rhs.m_memAllocType = ePageable;
     }
 
     /**
@@ -373,200 +384,32 @@ public:
      *
      * @param rhs
      *
-     * @return Field&
+     * @return FieldBase&
      */
-    Field &operator=(Field &&rhs)
+    FieldBase &operator=(FieldBase &&rhs)
     {
-        m_name              = std::move(rhs.m_name);
-        m_component_names   = std::move(rhs.m_component_names);
-        m_num_homo_modes    = std::move(rhs.m_num_homo_modes);
-        m_host              = std::move(rhs.m_host);
-        m_device            = std::move(rhs.m_device);
-        m_size              = std::move(rhs.m_size);
-        m_alignment         = std::move(rhs.m_alignment);
-        m_block_accessors   = std::move(rhs.m_block_accessors);
-        m_memory_regions    = std::move(rhs.m_memory_regions);
-        m_blk_to_mr_offset  = std::move(rhs.m_blk_to_mr_offset);
-        m_blk_to_mr_mapping = std::move(rhs.m_blk_to_mr_mapping);
-        m_memAllocType      = std::move(rhs.m_memAllocType);
+        m_name            = std::move(rhs.m_name);
+        m_component_names = std::move(rhs.m_component_names);
+        m_num_homo_modes  = std::move(rhs.m_num_homo_modes);
+        m_host            = std::move(rhs.m_host);
+        m_device          = std::move(rhs.m_device);
+        m_alignment       = std::move(rhs.m_alignment);
+        m_block_accessors = std::move(rhs.m_block_accessors);
+        m_memAllocType    = std::move(rhs.m_memAllocType);
+        for (auto &blocks : m_block_accessors)
+        {
+            blocks.m_field = this;
+        }
 
         rhs.m_name = "";
         rhs.m_component_names.clear();
         rhs.m_num_homo_modes = 1;
         rhs.m_host           = nullptr;
         rhs.m_device         = nullptr;
-        rhs.m_size           = 0;
         rhs.m_alignment      = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
         rhs.m_block_accessors.clear();
-        rhs.m_memory_regions.clear();
-        rhs.m_blk_to_mr_offset.clear();
-        rhs.m_blk_to_mr_mapping.clear();
-        rhs.m_memAllocType = eHostDevice;
+        rhs.m_memAllocType = ePageable;
         return *this;
-    }
-
-    /**
-     * @brief Static templated creation method. This method create
-     * new Field by giving the names of the components.
-     *
-     * @param name           - Name of the field (memory region)
-     * @param blockAttr      - Block attributes.
-     * @param components     - Names of components for a vector field.
-     * @param num_homo_modes - Number of homogeneous modes.
-     * @param alignment      - Memory alignment to use.
-     * @param memAllocType   - [eHostDevice, eDeviceOnly, ePinned].
-     *
-     * @return Field<TData, TState>
-     */
-    static Field<TData, TState> Create(
-        const std::string name, const std::vector<BlockAttributes> blockAttr,
-        const std::vector<std::string> components,
-        const unsigned int num_homo_modes, const size_t alignment,
-        const MemAllocType &memAllocType = eHostDevice)
-    {
-        auto field =
-            Field(name, components, num_homo_modes, alignment, memAllocType);
-
-        SetBlockToMemoryRegionMapping(field, blockAttr);
-
-        return field;
-    }
-
-    /**
-     * @brief Static templated creation method. This method create
-     * new Field by giving the names of the components.
-     *
-     * @param blocks       - Field data specification.
-     * @param components   - Names of components for a vector field.
-     * @param num_homo_modes - Number of homogeneous modes.
-     * @param alignment    - Memory alignment to use.
-     * @param memAllocType - [eHostDevice, eDeviceOnly, ePinned].
-     *
-     * @return Field<TData, TState>
-     */
-    static Field<TData, TState> Create(
-        const std::vector<BlockAttributes> blockAttr,
-        const std::vector<std::string> components,
-        const unsigned int num_homo_modes, const size_t alignment,
-        const MemAllocType &memAllocType = eHostDevice)
-    {
-        return Field<TData, TState>::Create(
-            "", blockAttr, components, num_homo_modes, alignment, memAllocType);
-    }
-
-    /**
-     * @brief Static templated creation method. This method create
-     * new Field by giving the number of components.
-     *
-     * @param name           - Name of the field (memory region)
-     * @param blockAttr      - Block attributes.
-     * @param num_components - Number of components for a vector field.
-     * @param num_homo_modes - Number of homogeneous modes.
-     * @param alignment      - Memory alignment to use.
-     * @param memAllocType   - [eHostDevice, eDeviceOnly, ePinned].
-     *
-     * @return Field<TData, TState>
-     */
-    static Field<TData, TState> Create(
-        const std::string name, const std::vector<BlockAttributes> blockAttr,
-        const unsigned int num_components, const unsigned int num_homo_modes,
-        const size_t alignment, const MemAllocType &memAllocType = eHostDevice)
-    {
-        auto field = Field(name, num_components, num_homo_modes, alignment,
-                           memAllocType);
-
-        SetBlockToMemoryRegionMapping(field, blockAttr);
-
-        return field;
-    }
-
-    /**
-     * @brief Static templated creation method. This method create
-     * new Field by giving the number of components.
-     *
-     * @param blocks         - Field data specification.
-     * @param num_components - Number of components for a vector field.
-     * @param num_homo_modes - Number of homogeneous modes.
-     * @param alignment      - Memory alignment to use.
-     * @param memAllocType   - [eHostDevice, eDeviceOnly, ePinned].
-     *
-     * @return Field<TData, TState>
-     */
-    static Field<TData, TState> Create(
-        const std::vector<BlockAttributes> blockAttr,
-        const unsigned int num_components, const unsigned int num_homo_modes,
-        const size_t alignment, const MemAllocType &memAllocType = eHostDevice)
-    {
-        return Field<TData, TState>::Create("", blockAttr, num_components,
-                                            num_homo_modes, alignment,
-                                            memAllocType);
-    }
-
-    static void SetBlockToMemoryRegionMapping(
-        Field<TData, TState> &field,
-        const std::vector<BlockAttributes> blockAttr)
-    {
-        size_t hsize = 0;
-        for (unsigned int blk = 0; blk < blockAttr.size(); ++blk)
-        {
-            // Set one-to-one block to MemoryRegion mapping.
-            auto nsize = blockAttr[blk].size() * field.GetNumComponents() *
-                         field.GetNumHomoModes();
-            field.m_blk_to_mr_mapping.push_back(blk);
-            field.m_blk_to_mr_offset.push_back(0);
-            hsize += nsize;
-        }
-
-        // Allocate contiguous memory on the host.
-        if (field.m_memAllocType == eHostDevice)
-        {
-            hostMalloc(&field.m_host, hsize * sizeof(TData), field.m_alignment);
-            std::memset((void *)field.m_host, 0, hsize * sizeof(TData));
-        }
-        else if (field.m_memAllocType == ePinned)
-        {
-            hostMallocPinned(&field.m_host, hsize * sizeof(TData),
-                             field.m_alignment);
-            std::memset((void *)field.m_host, 0, hsize * sizeof(TData));
-        }
-
-        // Allocate contiguous memory on the device.
-        unsigned int device_rank = nekGetDevice();
-        deviceMalloc(&field.m_device, hsize * sizeof(TData), field.m_alignment);
-        deviceMemset(field.m_device, 0, hsize * sizeof(TData));
-
-        auto hsrc = field.m_host;
-        auto dsrc = field.m_device;
-        for (unsigned int blk = 0; blk < blockAttr.size(); ++blk)
-        {
-            // Create memory region.
-            auto size = blockAttr[blk].size() * field.GetNumComponents() *
-                        field.GetNumHomoModes();
-            if (field.m_memAllocType == eDeviceOnly)
-            {
-                field.m_memory_regions.push_back(MemoryRegion<TData>::Create(
-                    field.m_name + std::to_string(blk), dsrc, size,
-                    field.m_alignment, device_rank));
-                dsrc += size;
-            }
-            else
-            {
-                field.m_memory_regions.push_back(MemoryRegion<TData>::Create(
-                    field.m_name + std::to_string(blk), hsrc, dsrc, size,
-                    field.m_alignment, device_rank));
-                hsrc += size;
-                dsrc += size;
-            }
-        }
-
-        for (unsigned int blk = 0; blk < blockAttr.size(); ++blk)
-        {
-            field.m_block_accessors.push_back(BlockAccessor(
-                blockAttr[blk],
-                field.m_memory_regions[field.m_blk_to_mr_mapping[blk]],
-                field.GetNumComponents(), field.GetNumHomoModes(),
-                field.m_blk_to_mr_offset[blk]));
-        }
     }
 
     /**
@@ -575,9 +418,15 @@ public:
      */
     template <typename MemSpace> void Initialize(const TData val)
     {
-        for (unsigned int mr = 0; mr < m_memory_regions.size(); ++mr)
+        // If not yet allocated, allocate contiguous host OR device memory
+        // across all MemoryRegion objects within current Field object before
+        // data initialization.
+        AllocateFieldStorage<MemSpace>(this);
+
+        for (unsigned int blk = 0; blk < m_block_accessors.size(); ++blk)
         {
-            m_memory_regions[mr].template Initialize<MemSpace>(val);
+            m_block_accessors[blk]
+                .m_memory_region.template Initialize<MemSpace>(val);
         }
     }
 
@@ -589,6 +438,11 @@ public:
     template <typename TDataOut = TData, class Alloc = std::allocator<TDataOut>>
     std::vector<TDataOut, Alloc> ToVector()
     {
+        // If not yet allocated, allocate contiguous host memory across all
+        // MemoryRegion objects within current Field objects before data copy to
+        // vector.
+        AllocateFieldStorage<NektarSpaces::HostSpace>(this);
+
         unsigned int compSize = 0;
         for (auto &block : this->GetBlocks())
         {
@@ -629,6 +483,11 @@ public:
     template <typename TDataOut = TData>
     Nektar::Array<Nektar::OneD, TDataOut> ToArray()
     {
+        // If not yet allocated, allocate contiguous host memory across all
+        // MemoryRegion objects within current Field objects before data copy to
+        // NekArray.
+        AllocateFieldStorage<NektarSpaces::HostSpace>(this);
+
         unsigned int compSize = 0;
         for (auto &block : this->GetBlocks())
         {
@@ -663,18 +522,28 @@ public:
 
     /**
      * @brief Templated copy method. This method copies data from a
-     *        Field
+     *        FieldBase
      *
-     * @param field - Field to copy from
+     * @param field - FieldBase to copy from
      *
      */
-    template <typename MemSpace> void Copy(Field &field)
+    template <typename MemSpace> void Copy(FieldBase &field)
     {
+        // If not yet allocated, allocate contiguous host OR device memory
+        // across all MemoryRegion objects within the input argument field
+        // object before data copy.
+        AllocateFieldStorage<MemSpace>(&field);
+
+        // If not yet allocated, allocate contiguous host OR device memory
+        // across all MemoryRegion objects within current Field object before
+        // data copy from input argument field object.
+        AllocateFieldStorage<MemSpace>(this);
+
         if (this->GetBlocks().size() != field.GetBlocks().size())
         {
             std::stringstream msg;
 
-            msg << "Field::Copy - "
+            msg << "FieldBase::Copy - "
                 << "Block number mismatch between (" << field.GetName()
                 << ") and (" << this->GetName() << ").";
             NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
@@ -684,16 +553,16 @@ public:
         {
             std::stringstream msg;
 
-            msg << "Field::Copy - "
+            msg << "FieldBase::Copy - "
                 << "Memory size mismatch between (" << field.GetName()
                 << ") and (" << this->GetName() << ").";
             NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
         }
 
-        for (unsigned int mr = 0; mr < m_memory_regions.size(); ++mr)
+        for (unsigned int blk = 0; blk < m_block_accessors.size(); ++blk)
         {
-            m_memory_regions[mr].template Copy<MemSpace>(
-                field.m_memory_regions[mr]);
+            m_block_accessors[blk].m_memory_region.template Copy<MemSpace>(
+                field.m_block_accessors[blk].m_memory_region);
         }
         for (unsigned int blk = 0; blk < m_block_accessors.size(); ++blk)
         {
@@ -713,6 +582,11 @@ public:
               class Alloc = std::allocator<TDataIn>>
     void CopyVector(const std::vector<TDataIn, Alloc> &array)
     {
+        // If not yet allocated, allocate contiguous host memory across all
+        // MemoryRegion objects within current Field object before data copy
+        // from vector.
+        AllocateFieldStorage<MemSpace>(this);
+
         unsigned int compSize = 0;
         for (auto &block : this->GetBlocks())
         {
@@ -724,7 +598,7 @@ public:
         {
             std::stringstream msg;
 
-            msg << "Field::CopyVector - "
+            msg << "FieldBase::CopyVector - "
                 << "Memory size mismatch between (std::vector) and ("
                 << this->GetName() << ").";
             NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
@@ -734,16 +608,16 @@ public:
         auto src = array.data();
         for (unsigned int blk = 0; blk < this->GetBlocks().size(); ++blk)
         {
-            auto offset       = m_blk_to_mr_offset[blk];
+            auto offset       = 0;
             const auto nSize  = this->GetBlocks()[blk].size();
             const auto nElmts = this->GetBlocks()[blk].GetNumElements();
             const auto nPts   = this->GetBlocks()[blk].GetNumData();
             for (auto n = 0;
                  n < this->GetNumComponents() * this->GetNumHomoModes(); n++)
             {
-                m_memory_regions[m_blk_to_mr_mapping[blk]]
-                    .template CopyFromHostPtr<MemSpace>(src + n * compSize,
-                                                        nElmts * nPts, offset);
+                m_block_accessors[blk]
+                    .m_memory_region.template CopyFromHostPtr<MemSpace>(
+                        src + n * compSize, nElmts * nPts, offset);
                 offset += nSize;
             }
             src += nElmts * nPts;
@@ -760,6 +634,11 @@ public:
     template <typename MemSpace, typename TDataIn>
     void CopyArray(const Nektar::Array<Nektar::OneD, TDataIn> &array)
     {
+        // If not yet allocated, allocate contiguous host memory across all
+        // MemoryRegion objects within current Field object before data copy
+        // from NekArray.
+        AllocateFieldStorage<MemSpace>(this);
+
         unsigned int compSize = 0;
         for (auto &block : this->GetBlocks())
         {
@@ -771,7 +650,7 @@ public:
         {
             std::stringstream msg;
 
-            msg << "Field::CopyArray - "
+            msg << "FieldBase::CopyArray - "
                 << "Memory size mismatch between (Nektar::array) and ("
                 << this->GetName() << ").";
             NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
@@ -781,16 +660,16 @@ public:
         auto src = array.data();
         for (unsigned int blk = 0; blk < this->GetBlocks().size(); ++blk)
         {
-            auto offset       = m_blk_to_mr_offset[blk];
+            auto offset       = 0;
             const auto nSize  = this->GetBlocks()[blk].size();
             const auto nElmts = this->GetBlocks()[blk].GetNumElements();
             const auto nPts   = this->GetBlocks()[blk].GetNumData();
             for (auto n = 0;
                  n < this->GetNumComponents() * this->GetNumHomoModes(); n++)
             {
-                m_memory_regions[m_blk_to_mr_mapping[blk]]
-                    .template CopyFromHostPtr<MemSpace>(src + n * compSize,
-                                                        nElmts * nPts, offset);
+                m_block_accessors[blk]
+                    .m_memory_region.template CopyFromHostPtr<MemSpace>(
+                        src + n * compSize, nElmts * nPts, offset);
                 offset += nSize;
             }
             src += nElmts * nPts;
@@ -808,16 +687,6 @@ public:
     }
 
     /**
-     * @brief Gets the number of the memory region.
-     *
-     * @return unsigned int
-     */
-    unsigned int GetNumMemorRegion() const
-    {
-        return m_memory_regions.size();
-    }
-
-    /**
      * @brief Gets the size of the field.
      *
      * @return size_t
@@ -827,9 +696,9 @@ public:
         size_t nSize = 0;
         for (unsigned int blk = 0; blk < m_block_accessors.size(); ++blk)
         {
-            nSize += m_block_accessors[blk].size();
+            nSize += m_block_accessors[blk].m_memory_region.size();
         }
-        return nSize * this->GetNumComponents() * this->GetNumHomoModes();
+        return nSize;
     }
 
     /**
@@ -864,19 +733,18 @@ public:
 
     typedef TData value_type;
 
-private:
+    // protected:
     /**
-     * @brief Construct a new Field object.
+     * @brief Construct a new FieldBase object.
      *
      * @param name           - Name of the field object.
-     * @param blocks         - Field data layout specification.
      * @param num_components - Number of components.
      * @param num_homo_modes - Number of components.
-     * @param memAllocType   - [eHostDevice, eDeviceOnly, ePinned].
+     * @param memAllocType   - [ePageable, ePinned].
      */
-    Field(const std::string name, const unsigned int num_components,
-          const unsigned int num_homo_modes, const size_t alignment,
-          const MemAllocType &memAllocType)
+    FieldBase(const std::string name, const unsigned int num_components,
+              const unsigned int num_homo_modes, const size_t alignment,
+              const MemAllocType &memAllocType)
         : m_name(name), m_component_names(num_components),
           m_num_homo_modes(num_homo_modes), m_alignment(alignment),
           m_memAllocType(memAllocType)
@@ -884,17 +752,16 @@ private:
     }
 
     /**
-     * @brief Construct a new Field object.
+     * @brief Construct a new FieldBase object.
      *
-     * @param name         - Name of the field object.
-     * @param blocks       - Field data layout specification.
-     * @param components   - Names of components for vector field.
+     * @param name           - Name of the field object.
+     * @param components     - Names of components for vector field.
      * @param num_homo_modes - Number of components.
-     * @param memAllocType - [eHostDevice, eDeviceOnly, ePinned].
+     * @param memAllocType   - [ePageable, ePinned].
      */
-    Field(const std::string name, const std::vector<std::string> components,
-          const unsigned int num_homo_modes, const size_t alignment,
-          const MemAllocType &memAllocType)
+    FieldBase(const std::string name, const std::vector<std::string> components,
+              const unsigned int num_homo_modes, const size_t alignment,
+              const MemAllocType &memAllocType)
         : m_name(name), m_component_names(components),
           m_num_homo_modes(num_homo_modes), m_alignment(alignment),
           m_memAllocType(memAllocType)
@@ -907,11 +774,255 @@ private:
     unsigned int m_num_homo_modes = 1;
     TData *m_host                 = nullptr;
     TData *m_device               = nullptr;
-    size_t m_size                 = 0;
     size_t m_alignment            = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
     std::vector<BlockAccessor<TData>> m_block_accessors;
-    std::vector<MemoryRegion<TData>> m_memory_regions;
-    std::vector<size_t> m_blk_to_mr_offset;
-    std::vector<size_t> m_blk_to_mr_mapping;
     MemAllocType m_memAllocType;
 };
+
+/**
+ * @brief A Field represents expansion data to be operated on.
+ *
+ * @tparam TData  The floating-point representation used by the field.
+ * @tparam TState A FieldState value representing the state of the field.
+ */
+template <typename TData, FieldState TState>
+class Field : public FieldBase<TData>
+{
+public:
+    Field(){};
+    Field(const Field &) = delete;
+    ~Field(){};
+
+    /**
+     * @brief Construct a new Field object by moving storage from an
+     * existing Field object.
+     *
+     * @param rhs
+     */
+    Field(Field &&rhs) : FieldBase<TData>(std::move(rhs))
+    {
+    }
+
+    /**
+     * @brief Move assignment operator.
+     *
+     * @param rhs
+     *
+     * @return Field&
+     */
+    Field &operator=(Field &&rhs)
+    {
+        FieldBase<TData>::operator=(std::move(rhs));
+        return *this;
+    }
+
+    /**
+     * @brief Static templated creation method. This method create
+     * new Field by giving the names of the components.
+     *
+     * @param name           - Name of the field (memory region)
+     * @param blockAttr      - Block attributes.
+     * @param components     - Names of components for a vector field.
+     * @param num_homo_modes - Number of homogeneous modes.
+     * @param alignment      - Memory alignment to use.
+     * @param memAllocType   - [ePageable, ePinned].
+     *
+     * @return Field<TData, TState>
+     */
+    static Field<TData, TState> Create(
+        const std::string name, const std::vector<BlockAttributes> blockAttr,
+        const std::vector<std::string> components,
+        const unsigned int num_homo_modes, const size_t alignment,
+        const MemAllocType &memAllocType = ePageable)
+    {
+        auto field =
+            Field(name, components, num_homo_modes, alignment, memAllocType);
+        unsigned int device_rank = nekGetDevice();
+        for (unsigned int blk = 0; blk < blockAttr.size(); ++blk)
+        {
+            auto nsize = blockAttr[blk].size() * field.GetNumComponents() *
+                         field.GetNumHomoModes();
+            auto mr = MemoryRegion<TData>::Create(
+                field.m_name + std::to_string(blk), nsize, field.m_alignment,
+                device_rank);
+            field.m_block_accessors.push_back(BlockAccessor(
+                blockAttr[blk], std::move(mr), &field, field.GetNumComponents(),
+                field.GetNumHomoModes()));
+        }
+
+        return field;
+    }
+
+    /**
+     * @brief Static templated creation method. This method create
+     * new Field by giving the names of the components.
+     *
+     * @param blocks         - Field data specification.
+     * @param components     - Names of components for a vector field.
+     * @param num_homo_modes - Number of homogeneous modes.
+     * @param alignment      - Memory alignment to use.
+     * @param memAllocType   - [ePageable, ePinned].
+     *
+     * @return Field<TData, TState>
+     */
+    static Field<TData, TState> Create(
+        const std::vector<BlockAttributes> blockAttr,
+        const std::vector<std::string> components,
+        const unsigned int num_homo_modes, const size_t alignment,
+        const MemAllocType &memAllocType = ePageable)
+    {
+        return Field<TData, TState>::Create(
+            "", blockAttr, components, num_homo_modes, alignment, memAllocType);
+    }
+
+    /**
+     * @brief Static templated creation method. This method create
+     * new Field by giving the number of components.
+     *
+     * @param name           - Name of the field (memory region)
+     * @param blockAttr      - Block attributes.
+     * @param num_components - Number of components for a vector field.
+     * @param num_homo_modes - Number of homogeneous modes.
+     * @param alignment      - Memory alignment to use.
+     * @param memAllocType   - [ePageable, ePinned].
+     *
+     * @return Field<TData, TState>
+     */
+    static Field<TData, TState> Create(
+        const std::string name, const std::vector<BlockAttributes> blockAttr,
+        const unsigned int num_components, const unsigned int num_homo_modes,
+        const size_t alignment, const MemAllocType &memAllocType = ePageable)
+    {
+        auto field = Field(name, num_components, num_homo_modes, alignment,
+                           memAllocType);
+        unsigned int device_rank = nekGetDevice();
+        for (unsigned int blk = 0; blk < blockAttr.size(); ++blk)
+        {
+            auto nsize = blockAttr[blk].size() * field.GetNumComponents() *
+                         field.GetNumHomoModes();
+            auto mr = MemoryRegion<TData>::Create(
+                field.m_name + std::to_string(blk), nsize, field.m_alignment,
+                device_rank);
+            field.m_block_accessors.push_back(BlockAccessor(
+                blockAttr[blk], std::move(mr), &field, field.GetNumComponents(),
+                field.GetNumHomoModes()));
+        }
+
+        return field;
+    }
+
+    /**
+     * @brief Static templated creation method. This method create
+     * new Field by giving the number of components.
+     *
+     * @param blocks         - Field data specification.
+     * @param num_components - Number of components for a vector field.
+     * @param num_homo_modes - Number of homogeneous modes.
+     * @param alignment      - Memory alignment to use.
+     * @param memAllocType   - [ePageable, ePinned].
+     *
+     * @return Field<TData, TState>
+     */
+    static Field<TData, TState> Create(
+        const std::vector<BlockAttributes> blockAttr,
+        const unsigned int num_components, const unsigned int num_homo_modes,
+        const size_t alignment, const MemAllocType &memAllocType = ePageable)
+    {
+        return Field<TData, TState>::Create("", blockAttr, num_components,
+                                            num_homo_modes, alignment,
+                                            memAllocType);
+    }
+
+private:
+    /**
+     * @brief Construct a new FieldBase object.
+     *
+     * @param name           - Name of the field object.
+     * @param num_components - Number of components.
+     * @param num_homo_modes - Number of homogeneous modes.
+     * @param memAllocType   - [ePageable, ePinned].
+     */
+    Field(const std::string name, const unsigned int num_components,
+          const unsigned int num_homo_modes, const size_t alignment,
+          const MemAllocType &memAllocType)
+        : FieldBase<TData>(name, num_components, num_homo_modes, alignment,
+                           memAllocType)
+    {
+    }
+
+    /**
+     * @brief Construct a new FieldBase object.
+     *
+     * @param name           - Name of the field object.
+     * @param components     - Names of components for vector field.
+     * @param num_homo_modes - Number of homogeneous modes.
+     * @param memAllocType   - [ePageable, ePinned].
+     */
+    Field(const std::string name, const std::vector<std::string> components,
+          const unsigned int num_homo_modes, const size_t alignment,
+          const MemAllocType &memAllocType)
+        : FieldBase<TData>(name, components, num_homo_modes, alignment,
+                           memAllocType)
+    {
+    }
+};
+
+/**
+ * @brief Allocate contiguous host OR device memory accross all MemoryRegion
+ * objects belonging to a FieldBase object pointer.
+ *
+ * @param field  - FieldBase object pointer.
+ */
+template <typename MemSpace, typename TData>
+void AllocateFieldStorage(FieldBase<TData> *field)
+{
+    if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
+    {
+        // Allocate contiguous host memory accross all MemoryRegions of the
+        // field object.
+        if (!field->m_host)
+        {
+            if (field->m_memAllocType == ePageable)
+            {
+                hostMalloc(&field->m_host, field->size() * sizeof(TData),
+                           field->m_alignment);
+            }
+            else if (field->m_memAllocType == ePinned)
+            {
+                hostMallocPinned(&field->m_host, field->size() * sizeof(TData),
+                                 field->m_alignment);
+            }
+            std::memset((void *)field->m_host, 0,
+                        field->size() * sizeof(TData));
+
+            auto src = field->m_host;
+            for (unsigned int blk = 0; blk < field->m_block_accessors.size();
+                 ++blk)
+            {
+                field->m_block_accessors[blk].m_memory_region.SetHostStorage(
+                    src);
+                src += field->m_block_accessors[blk].m_memory_region.size();
+            }
+        }
+    }
+    else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
+    {
+        // Allocate contiguous device memory accross all MemoryRegions of the
+        // field object.
+        if (!field->m_device)
+        {
+            deviceMalloc(&field->m_device, field->size() * sizeof(TData),
+                         field->m_alignment);
+            deviceMemset(field->m_device, 0, field->size() * sizeof(TData));
+
+            auto src = field->m_device;
+            for (unsigned int blk = 0; blk < field->m_block_accessors.size();
+                 ++blk)
+            {
+                field->m_block_accessors[blk].m_memory_region.SetDeviceStorage(
+                    src);
+                src += field->m_block_accessors[blk].m_memory_region.size();
+            }
+        }
+    }
+}

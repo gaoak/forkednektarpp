@@ -77,6 +77,8 @@ template <class TData> struct const_if<true, TData>
     typedef const TData type;
 };
 
+template <typename TData> class FieldBase;
+
 class MemoryRegionBase
 {
 };
@@ -87,7 +89,10 @@ class MemoryRegionBase
  */
 template <typename TData> class MemoryRegion : public MemoryRegionBase
 {
+    template <typename TDataField> friend class FieldBase;
     template <typename TDataField, FieldState TState> friend class Field;
+    template <typename MemSpace, typename TDataField>
+    friend void AllocateFieldStorage(FieldBase<TDataField> *field);
 
 public:
     /**
@@ -186,18 +191,18 @@ public:
      * @param size         - size of memory
      * @param alignment    - memory alignment
      * @param device_rank  - device (GPU) rank id
-     * @param memAllocType - [eHostDevice, ePinned]
+     * @param memAllocType - [ePageable, ePinned]
      *
      * @return MemoryRegion<TData>
      */
     static MemoryRegion<TData> Create(
         const std::string name, const size_t size, const size_t alignment,
         const unsigned int device_rank   = nekGetDevice(),
-        const MemAllocType &memAllocType = eHostDevice)
+        const MemAllocType &memAllocType = ePageable)
     {
         auto mr = MemoryRegion();
 
-        ASSERTL0((memAllocType == eHostDevice) || (memAllocType == ePinned),
+        ASSERTL0((memAllocType == ePageable) || (memAllocType == ePinned),
                  "Unknown memAllocType option");
 
         mr.m_storage = std::make_unique<MemoryStorage<TData>>(
@@ -213,14 +218,14 @@ public:
      * @param size         - size of memory
      * @param alignment    - memory alignment
      * @param device_rank  - device (GPU) rank id
-     * @param memAllocType - [eHostDevice, ePinned]
+     * @param memAllocType - [ePageable, ePinned]
      *
      * @return MemoryRegion<TData>
      */
     static MemoryRegion<TData> Create(
         const size_t size, const size_t alignment,
         const unsigned int device_rank   = nekGetDevice(),
-        const MemAllocType &memAllocType = eHostDevice)
+        const MemAllocType &memAllocType = ePageable)
     {
         return MemoryRegion<TData>::Create("", size, alignment, device_rank,
                                            memAllocType);
@@ -541,101 +546,29 @@ public:
 
 private:
     /**
-     * @brief Static templated creation method. This method creates a
-     *        new MemoryRegion from an existing device src pointer.
-     *        Specialized constructor method used by Field.hpp to allocate a
-     *        contiguous device memory. This method should not be
-     *        otherwise used and has been made protected.
-     * @param name        - name of the memory region
-     * @param d_src        - device src pointer
-     * @param size        - size of memory
-     * @param alignment   - memory alignment
-     * @param device_rank - device (GPU) rank id
+     * @brief Initialize host pointer for an existing pointer. Specialized
+     * function used in Field.h to allocate a contiguous memory on the host.
+     * This function should not be otherwise used.
      *
-     * @return MemoryRegion<TData>
+     * @param src - source pointer from Field
+     *
      */
-    static MemoryRegion<TData> Create(
-        const std::string name, TData *d_src, const size_t size,
-        const size_t alignment, const unsigned int device_rank = nekGetDevice())
+    void SetHostStorage(TData *src)
     {
-        auto mr = MemoryRegion();
-
-        mr.m_storage = std::make_unique<MemoryStorage<TData>>(
-            name, d_src, size, alignment, device_rank);
-
-        return mr;
+        m_storage->SetHostStorage(src);
     }
 
     /**
-     * @brief Static templated creation method. This method creates a
-     *        new MemoryRegion from an existing device src pointer.
-     *        Specialized constructor method used by Field.hpp to allocate a
-     *        contiguous device memory. This method should not be
-     *        otherwise used and has been made protected.
+     * @brief Initialize device pointer for an existing pointer. Specialized
+     * function used in Field.h to allocate a contiguous memory on the device.
+     * This function should not be otherwise used.
      *
-     * @param d_src        - device src pointer
-     * @param size        - size of memory
-     * @param alignment   - memory alignment
-     * @param device_rank - device (GPU) rank id
+     * @param src - source pointer from Field
      *
-     * @return MemoryRegion<TData>
      */
-    static MemoryRegion<TData> Create(
-        TData *d_src, const size_t size, const size_t alignment,
-        const unsigned int device_rank = nekGetDevice())
+    void SetDeviceStorage(TData *src)
     {
-        return MemoryRegion<TData>::Create("", d_src, size, alignment,
-                                           device_rank);
-    }
-
-    /**
-     * @brief Static templated creation method. This method creates a
-     *        new MemoryRegion from an existing host src pointer. Specialized
-     *        constructor method used by Field.hpp to allocate a contiguous
-     *        host memory coupled with contiguous device memory. This method
-     *        should not be otherwise used and has been made protected.
-     * @param name        - name of the memory region
-     * @param h_src       - host src pointer
-     * @param d_src       - device src pointer
-     * @param size        - size of memory
-     * @param alignment   - memory alignment
-     * @param device_rank - device (GPU) rank id
-     *
-     * @return MemoryRegion<TData>
-     */
-    static MemoryRegion<TData> Create(
-        const std::string name, TData *h_src, TData *d_src, const size_t size,
-        const size_t alignment, const unsigned int device_rank = nekGetDevice())
-    {
-        auto mr = MemoryRegion();
-
-        mr.m_storage = std::make_unique<MemoryStorage<TData>>(
-            name, h_src, d_src, size, alignment, device_rank);
-
-        return mr;
-    }
-
-    /**
-     * @brief Static templated creation method. This method creates a
-     *        new MemoryRegion from an existing host src pointer. Specialized
-     *        constructor method used by Field.hpp to allocate a contiguous
-     *        host memory coupled with contiguous device memory. This method
-     *        should not be otherwise used and has been made protected.
-     *
-     * @param h_src       - host src pointer
-     * @param d_src       - device src pointer
-     * @param size        - size of memory
-     * @param alignment   - memory alignment
-     * @param device_rank - device (GPU) rank id
-     *
-     * @return MemoryRegion<TData>
-     */
-    static MemoryRegion<TData> Create(
-        TData *h_src, TData *d_src, const size_t size, const size_t alignment,
-        const unsigned int device_rank = nekGetDevice())
-    {
-        return MemoryRegion<TData>::Create("", h_src, d_src, size, alignment,
-                                           device_rank);
+        m_storage->SetDeviceStorage(src);
     }
 
     /**

@@ -38,8 +38,7 @@
 
 enum MemAllocType
 {
-    eHostDevice,
-    eDeviceOnly,
+    ePageable,
     ePinned
 };
 
@@ -65,7 +64,7 @@ public:
      * @param size         - size of memory
      * @param alignment    - memory alignment
      * @param device_rank  - device (GPU) rank id
-     * @param memAllocType - [eHostDevice, ePinned]
+     * @param memAllocType - [ePageable, ePinned]
      */
     MemoryStorage(const std::string name, const size_t size,
                   const size_t alignment, const unsigned int device_rank,
@@ -83,63 +82,6 @@ public:
         m_device       = nullptr;
         m_host_valid   = false;
         m_device_valid = false;
-    }
-
-    /**
-     * @brief Constructor methods - create a new memory region from an
-     * existing device pointer. Specialized constructor method used by
-     * Field.hpp to allocate a contiguous device memory.
-     *
-     * @param name        - name
-     * @param d_src       - device src pointer
-     * @param size        - size of memory
-     * @param alignment   - memory alignment
-     * @param device_rank - device (GPU) rank id
-     */
-    MemoryStorage(const std::string name, TData *d_src, const size_t size,
-                  const size_t alignment, const unsigned int device_rank)
-    {
-        m_host_owned   = true;
-        m_device_owned = false;
-        m_name         = name;
-        m_size         = size;
-        m_alignment    = alignment;
-        m_device_rank  = device_rank;
-
-        m_host         = nullptr;
-        m_device       = d_src;
-        m_host_valid   = false;
-        m_device_valid = true;
-    }
-
-    /**
-     * @brief Constructor methods - create a new memory region from an
-     * existing host and device pointers. Specialized constructor method
-     * used by Field.hpp to allocate a contiguous host memory coupled with
-     * contiguous device memory.
-     *
-     * @param name        - name
-     * @param h_src       - host src pointer
-     * @param d_src       - device src pointer
-     * @param size        - size of memory
-     * @param alignment   - memory alignment
-     * @param device_rank - device (GPU) rank id
-     */
-    MemoryStorage(const std::string name, TData *h_src, TData *d_src,
-                  const size_t size, const size_t alignment,
-                  const unsigned int device_rank)
-    {
-        m_host_owned   = false;
-        m_device_owned = false;
-        m_name         = name;
-        m_size         = size;
-        m_alignment    = alignment;
-        m_device_rank  = device_rank;
-
-        m_host         = h_src;
-        m_device       = d_src;
-        m_host_valid   = true;
-        m_device_valid = true;
     }
 
     /**
@@ -164,7 +106,7 @@ public:
         rhs.m_device_valid = false;
         rhs.m_device_rank  = 0;
         rhs.m_name         = "";
-        rhs.m_memAllocType = eHostDevice;
+        rhs.m_memAllocType = ePageable;
     }
 
     /**
@@ -173,7 +115,7 @@ public:
      */
     ~MemoryStorage()
     {
-        nekSetDevice(m_device_rank);
+        // nekSetDevice(m_device_rank);
         if (m_device && m_device_owned)
         {
             deviceFree(m_device, m_size * sizeof(TData), m_alignment);
@@ -201,7 +143,7 @@ public:
         m_device_valid = false;
         m_device_rank  = 0;
         m_name         = "";
-        m_memAllocType = eHostDevice;
+        m_memAllocType = ePageable;
     }
 
 protected:
@@ -244,9 +186,56 @@ protected:
         rhs.m_device_valid = false;
         rhs.m_device_rank  = 0;
         rhs.m_name         = "";
-        rhs.m_memAllocType = eHostDevice;
+        rhs.m_memAllocType = ePageable;
 
         return *this;
+    }
+
+    /**
+     * @brief Initialize host pointer for an existing (external) pointer.
+     * Specialized function used in Field.h to allocate a contiguous host memory
+     * accross all MemoryRegion objects from a Field object. This function
+     * should not be otherwise used.
+     *
+     * @param src - source pointer from Field
+     *
+     */
+    void SetHostStorage(TData *src)
+    {
+        if (m_host)
+        {
+            // Throw an error.
+            NEKERROR(Nektar::ErrorUtil::efatal,
+                     "MemoryStorage::SetHostStorage - Host storage has already "
+                     "been allocated");
+        }
+
+        m_host       = src;
+        m_host_owned = false;
+    }
+
+    /**
+     * @brief Initialize device pointer for an existing (external) pointer.
+     * Specialized function used in Field.h to allocate a contiguous device
+     * memory accross all MemoryRegion objects from a Field object. This
+     * function should not be otherwise used.
+     *
+     * @param src - source pointer from Field
+     *
+     */
+    void SetDeviceStorage(TData *src)
+    {
+        if (m_device)
+        {
+            // Throw an error.
+            NEKERROR(
+                Nektar::ErrorUtil::efatal,
+                "MemoryStorage::SetDeviceStorage - Device storage has already "
+                "been allocated");
+        }
+
+        m_device       = src;
+        m_device_owned = false;
     }
 
     /**
@@ -382,7 +371,7 @@ protected:
      */
     TData *GetWriteOnlyDevicePtr()
     {
-        nekSetDevice(m_device_rank);
+        // nekSetDevice(m_device_rank);
         if (!m_device)
         {
             deviceMalloc(&m_device, m_size * sizeof(TData), m_alignment);
@@ -440,7 +429,7 @@ protected:
     void Initialize(const TData val, const size_t count = 0,
                     const size_t offset = 0)
     {
-        nekSetDevice(m_device_rank);
+        // nekSetDevice(m_device_rank);
         if (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
         {
             if (!m_host)
@@ -531,7 +520,7 @@ protected:
     void CopyFromHostPtr(const TData *src, const size_t size,
                          const size_t offset = 0)
     {
-        nekSetDevice(m_device_rank);
+        // nekSetDevice(m_device_rank);
         if (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
         {
             if (!m_host)
@@ -579,7 +568,7 @@ protected:
      */
     void HostToDeviceCopy(void)
     {
-        nekSetDevice(m_device_rank);
+        // nekSetDevice(m_device_rank);
         if (!m_device_valid)
         {
             if (!m_host && m_size > 0)
@@ -622,7 +611,7 @@ protected:
      */
     void DeviceToHostCopy(void)
     {
-        nekSetDevice(m_device_rank);
+        // nekSetDevice(m_device_rank);
         if (!m_host_valid)
         {
             if (!m_device && m_size > 0)
@@ -681,5 +670,5 @@ protected:
     bool m_device_valid = false; ///< Flag indicating the device data is valid
     unsigned int m_device_rank = 0; // Index indicating device ID.
     std::string m_name{""};
-    MemAllocType m_memAllocType{eHostDevice};
+    MemAllocType m_memAllocType{ePageable};
 };
