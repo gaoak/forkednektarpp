@@ -57,17 +57,17 @@ public:
           m_w(Field<TData, FieldState::Coeff>::Create(
               "GMRES w",
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1, 1,
-              ExecSpace::alignment, eDeviceOnly)),
+              ExecSpace::alignment)),
           m_wk(Field<TData, FieldState::Coeff>::Create(
               "GMRES wk",
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1, 1,
-              ExecSpace::alignment, eDeviceOnly)),
+              ExecSpace::alignment)),
           m_r0(Field<TData, FieldState::Coeff>::Create(
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1, 1,
-              ExecSpace::alignment, eDeviceOnly)),
+              ExecSpace::alignment)),
           m_solution(Field<TData, FieldState::Coeff>::Create(
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1, 1,
-              ExecSpace::alignment, eDeviceOnly))
+              ExecSpace::alignment))
     {
         auto contfield =
             std::dynamic_pointer_cast<ContField>(this->m_expansionList);
@@ -112,7 +112,7 @@ public:
             m_V1 = Field<TData, FieldState::Coeff>::Create(
                 GetBlockAttributes<TData>(FieldState::Coeff,
                                           this->m_expansionList),
-                1, 1, ExecSpace::alignment, eDeviceOnly);
+                1, 1, ExecSpace::alignment);
         }
     }
 
@@ -323,7 +323,7 @@ protected:
             m_Vtotal.push_back(Field<TData, FieldState::Coeff>::Create(
                 GetBlockAttributes<TData>(FieldState::Coeff,
                                           this->m_expansionList),
-                1, 1, ExecSpace::alignment, eDeviceOnly));
+                1, 1, ExecSpace::alignment));
         }
         mul<ExecSpace>(1.0 / eta[0], m_r0, m_Vtotal[0]);
 
@@ -342,7 +342,7 @@ protected:
                 m_Vtotal.push_back(Field<TData, FieldState::Coeff>::Create(
                     GetBlockAttributes<TData>(FieldState::Coeff,
                                               this->m_expansionList),
-                    1, 1, ExecSpace::alignment, eDeviceOnly));
+                    1, 1, ExecSpace::alignment));
             }
             m_Vtotal[nd + 1].template Initialize<MemSpace>(0);
             std::fill_n(m_hes[nd].data(), m_LinSysMaxStorage + 1, 0.0);

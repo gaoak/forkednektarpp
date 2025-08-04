@@ -123,7 +123,7 @@ int main(int argc, char *argv[])
 
     // Set random output
     srand(0);
-    auto blockOut = fOutCorrect.GetBlocks();
+    auto &blockOut = fOutCorrect.GetBlocks();
     for (size_t i = 0; i < blockOut.size(); ++i)
     {
         auto outPtr =

@@ -68,6 +68,8 @@ public:
 
     void ExpectedSolution()
     {
+        fixt_expected->template Initialize<NektarSpaces::HostSpace>(0.0);
+
         auto op = NeuBndCondOp<double>::Create(fixt_explist, "Serial");
         op->Apply(*fixt_expected);
     }

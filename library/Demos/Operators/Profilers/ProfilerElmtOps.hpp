@@ -415,7 +415,7 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
                                               nHomo, alignment);
 
     // Initialize the in field to random non-zeros: 1 2 3 4 ...
-    auto inblk = in.GetBlocks();
+    auto &inblk = in.GetBlocks();
     for (size_t i = 0; i < inblk.size(); ++i)
     {
         auto inptr =
@@ -431,8 +431,8 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
     }
 
     // Create input and output Array for explist.
-    Array<OneD, NekDouble> inArr  = in.template ToArray<NekDouble>();
-    Array<OneD, NekDouble> outArr = out.template ToArray<NekDouble>();
+    Array<OneD, NekDouble> inArr = in.template ToArray<NekDouble>();
+    Array<OneD, NekDouble> outArr(out.size());
     Array<OneD, Array<OneD, NekDouble>> inArrays(nIn);
     Array<OneD, Array<OneD, NekDouble>> outArrays(nOut);
     for (unsigned int d = 0; d < nIn; d++)

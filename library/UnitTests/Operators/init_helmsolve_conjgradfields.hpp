@@ -122,6 +122,8 @@ public:
             }
         }
 
+        fixt_out->template Initialize<NektarSpaces::HostSpace>(0.0);
+
         // Get lambda from session or default to 10.0
         m_lambda = session->DefinesParameter("Lambda")
                        ? session->GetParameter("Lambda")
