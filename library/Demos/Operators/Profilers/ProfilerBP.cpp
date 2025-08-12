@@ -1,6 +1,6 @@
 //////////////////////////////////////////////////////////////////////////////
 //
-// File: BP1.cpp
+// File: ProfilerBP.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,34 +32,36 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Demos/Operators/Profilers/ProfilerElmtOps.hpp"
 #include "Operators/AssmbScatr/AssmbScatrOp.hpp"
 #include "Operators/GlobalLinSysOps/ConjGrad/ConjGradOp.hpp"
 #include "Operators/GlobalLinSysOps/FwdTrans/FwdTransOp.hpp"
 #include "Operators/PreconOps/DiagPrecon/DiagPreconOp.hpp"
+#include <Operators/ElmtOps/Helmholtz/HelmholtzOp.hpp>
+#include <Operators/ElmtOps/Mass/MassOp.hpp>
 
 #include <LibUtilities/BasicUtils/Timer.h>
 #include <MultiRegions/ContField.h>
 #include <MultiRegions/ExpList.h>
 #include <SpatialDomains/MeshGraphIO.h>
+
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
 
 int main(int argc, char *argv[])
 {
-    typedef double tData;
-    constexpr FieldState stateIn  = FieldState::Coeff;
-    constexpr FieldState stateOut = FieldState::Coeff;
-    int nIn                       = 1;
-    int nOut                      = 1;
-    int nComp                     = 1;
+    typedef double TData;
+    int nIn   = 1;
+    int nOut  = 1;
+    int nComp = 1;
+
     // Initialise a session, graph and explist.
     auto session = LibUtilities::SessionReader::CreateInstance(argc, argv);
     auto graph   = SpatialDomains::MeshGraphIO::Read(session);
 
     // Load parameters (from the command lines).
-    int nTest, order;
+    int BP, nTest, order;
+    session->LoadParameter("BP", BP, 1);
     session->LoadParameter("Ntest", nTest, 100);
     session->LoadParameter("order", order, 0);
     session->LoadParameter("Ncomp", nComp, 1);
@@ -81,47 +83,51 @@ int main(int argc, char *argv[])
 
     auto nDim = expList->GetGraph()->GetSpaceDimension();
 
-    auto massOp       = MassOp<double>::Create(expList);
-    auto diagPreconOp = Operators::DiagPreconOp<double>::Create(expList);
-    diagPreconOp->Configure(massOp);
-    auto conjGradOp = Operators::ConjGradOp<double>::Create(expList);
-    conjGradOp->SetLHS(massOp);
+    // Initialize operators.
+    std::shared_ptr<ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>> elmtOp;
+    if (BP == 1)
+    {
+        elmtOp = MassOp<TData>::Create(expList);
+    }
+    else if (BP == 3)
+    {
+        elmtOp = HelmholtzOp<TData>::Create(expList);
+    }
+    auto assembOp     = AssmbScatrOp<TData>::Create(expList);
+    auto diagPreconOp = DiagPreconOp<TData>::Create(expList);
+    auto conjGradOp   = ConjGradOp<TData>::Create(expList);
+    diagPreconOp->Configure(elmtOp);
+    conjGradOp->SetLHS(elmtOp);
     conjGradOp->SetPrecon(diagPreconOp);
+
     // Timer.
     Timer timer;
 
-    // Create operator.
-    auto oper = conjGradOp;
-
-    // Set operator name tag.
+    // Set alignment.
     std::string execName =
         session->GetCmdLineArgument<std::string>("opExecSpace");
-    std::string implName = session->GetCmdLineArgument<std::string>("opImpl");
-    std::string opName   = oper->name;
-    std::string dataType = (std::is_same_v<tData, double>) ? "Double" : "Float";
-    auto tag             = opName + execName + implName + dataType;
-
-    // Set alignment.
     size_t alignment = Nektar::GetExecSpaceAlignment(execName);
 
     // Create blocks.
-    auto blocksIn               = GetBlockAttributes<tData>(stateIn, expList);
-    auto blocksOut              = GetBlockAttributes<tData>(stateOut, expList);
-    auto blocksOutCorrect       = GetBlockAttributes<tData>(stateOut, expList);
-    auto blocksOutCorrectAssemb = GetBlockAttributes<tData>(stateOut, expList);
+    auto blocksIn  = GetBlockAttributes<TData>(FieldState::Coeff, expList);
+    auto blocksOut = GetBlockAttributes<TData>(FieldState::Coeff, expList);
+    auto blocksOutCorrect =
+        GetBlockAttributes<TData>(FieldState::Coeff, expList);
+    auto blocksOutCorrectAssemb =
+        GetBlockAttributes<TData>(FieldState::Coeff, expList);
 
     // Create fields.
-    auto fIn  = Field<tData, stateIn>::Create("f_in", blocksIn, nIn * nComp, 1,
-                                              alignment);
-    auto fOut = Field<tData, stateOut>::Create("f_out", blocksOut, nOut * nComp,
-                                               1, alignment);
-    auto fOutCorrect = Field<tData, stateOut>::Create(
+    auto fIn = Field<TData, FieldState::Coeff>::Create(
+        "f_in", blocksIn, nIn * nComp, 1, alignment);
+    auto fOut = Field<TData, FieldState::Coeff>::Create(
+        "f_out", blocksOut, nOut * nComp, 1, alignment);
+    auto fOutCorrect = Field<TData, FieldState::Coeff>::Create(
         "f_out_correct", blocksOutCorrect, nOut * nComp, 1, alignment);
-    auto fOutCorrectAssemb = Field<tData, stateOut>::Create(
+    auto fOutCorrectAssemb = Field<TData, FieldState::Coeff>::Create(
         "f_out_correct_assemb", blocksOutCorrectAssemb, nOut * nComp, 1,
         alignment);
 
-    // Set random output
+    // Set random output.
     srand(0);
     auto &blockOut = fOutCorrect.GetBlocks();
     for (size_t i = 0; i < blockOut.size(); ++i)
@@ -138,20 +144,19 @@ int main(int argc, char *argv[])
         }
     }
 
-    // Ensure C0 continuity
-    auto assembOp = AssmbScatrOp<tData>::Create(expList);
+    // Ensure C0 continuity.
     assembOp->Apply(fOutCorrect, fOutCorrectAssemb);
 
-    // Compute expected solution
-    massOp->Apply(fOutCorrectAssemb, fIn);
+    // Compute expected solution.
+    elmtOp->Apply(fOutCorrectAssemb, fIn);
 
-    // Warm up solves
+    // Warm up solves.
     for (unsigned int i = 0; i < nTest / 2; ++i)
     {
-        oper->Apply(fIn, fOut);
+        conjGradOp->Apply(fIn, fOut);
     }
 
-    // Benchmark CG solve
+    // Benchmark CG solve.
 #if defined(NEKTAR_ENABLE_CUDA)
     CHECK_HIPCUDA_ERROR(cudaDeviceSynchronize());
 #elif defined(NEKTAR_ENABLE_HIP)
@@ -162,7 +167,7 @@ int main(int argc, char *argv[])
     timer.Start();
     for (unsigned int i = 0; i < nTest; ++i)
     {
-        oper->Apply(fIn, fOut);
+        conjGradOp->Apply(fIn, fOut);
     }
 #if defined(NEKTAR_ENABLE_CUDA)
     CHECK_HIPCUDA_ERROR(cudaDeviceSynchronize());
@@ -171,18 +176,20 @@ int main(int argc, char *argv[])
 #elif defined(NEKTAR_ENABLE_SYCL)
     SYCLQueue::GetInstance().wait();
 #endif
+
     timer.Stop();
 
-    // output results
-    long numElmts      = expList->GetNumElmts();
-    long numDofs       = expList->GetNcoeffs();
-    auto expOrder      = (*expList->GetExp())[0]->GetBase()[0]->GetNumModes();
-    double elmtsPerDim = std::pow(numElmts, 1.0 / nDim);
-    long globalDOFs =
+    // Output results.
+    unsigned int expOrder =
+        (*expList->GetExp())[0]->GetBase()[0]->GetNumModes();
+    size_t numElmts    = expList->GetNumElmts();
+    size_t numDofs     = expList->GetNcoeffs();
+    size_t elmtsPerDim = std::pow(numElmts, 1.0 / nDim);
+    size_t globalDOFs =
         std::pow((elmtsPerDim - 1) * (expOrder - 1) + expOrder, 3);
-    double timerS   = timer.Elapsed().count();
-    double sPerIter = timerS / (nTest * 5000);
+    double time        = timer.Elapsed().count();
+    double timePerIter = time / (nTest * 5000);
 
     std::cout << expOrder << " " << numElmts << " " << globalDOFs << " "
-              << numDofs << " " << sPerIter << std::endl;
+              << numDofs << " " << timePerIter << std::endl;
 }
