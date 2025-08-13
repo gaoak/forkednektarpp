@@ -480,6 +480,7 @@ ENDMACRO()
 SET(OPERATORS_HEADERS
     Common/Operator.hpp
     Common/DeviceProperties.hpp
+    Field/MemoryAlloc.hpp
     ElmtOps/BlockOperator.hpp
     MathKernels/Math.hpp
     NekBlas/NekBlas.hpp
@@ -582,6 +583,7 @@ IF(NEKTAR_ENABLE_SIMD)
 ELSEIF(NEKTAR_ENABLE_CUDA)
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
+       Field/MemoryAlloc.cu
        MathKernels/Math.cu
     )
 
@@ -592,6 +594,7 @@ ELSEIF(NEKTAR_ENABLE_CUDA)
 ELSEIF(NEKTAR_ENABLE_HIP)
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
+       Field/MemoryAlloc.hip
        MathKernels/Math.cpp
     )
 
