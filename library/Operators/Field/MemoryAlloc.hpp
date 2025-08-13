@@ -53,6 +53,9 @@ struct DeviceToDevice
 {
 };
 
+template <typename TData>
+void deviceFillKernelLauncher(TData *dst, const TData val, const size_t size);
+
 inline static unsigned int nekGetDeviceCount(void)
 {
     //  Current design assumes one MPI rank per device architecture. The number
@@ -259,9 +262,9 @@ inline void deviceFill(TData *dst, const TData val, const size_t size)
     }
 
 #if defined(NEKTAR_ENABLE_CUDA)
-    thrust::fill(dst, dst + size, val);
+    deviceFillKernelLauncher(dst, val, size);
 #elif defined(NEKTAR_ENABLE_HIP)
-    thrust::fill(dst, dst + size, val);
+    deviceFillKernelLauncher(dst, val, size);
 #elif defined(NEKTAR_ENABLE_SYCL)
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.fill(dst, val, size);

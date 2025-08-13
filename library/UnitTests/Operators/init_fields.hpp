@@ -219,7 +219,7 @@ public:
         {
             auto rank        = session->GetComm()->GetRank();
             auto num_device  = nekGetDeviceCount();
-            auto device_rank = rank & num_device;
+            auto device_rank = rank % num_device;
             nekSetDevice(device_rank);
         }
 

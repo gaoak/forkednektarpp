@@ -51,7 +51,6 @@
 
 #if defined(NEKTAR_ENABLE_CUDA)
 #include <cuda_runtime.h>
-#include <thrust/fill.h>
 #define CHECK_LAST_HIPCUDA_ERROR()                                             \
     {                                                                          \
         cudaError_t err = cudaGetLastError();                                  \
@@ -73,7 +72,6 @@
     }
 #elif defined(NEKTAR_ENABLE_HIP)
 #include <hip/hip_runtime.h>
-#include <thrust/fill.h>
 #define CHECK_LAST_HIPCUDA_ERROR()                                             \
     {                                                                          \
         hipError_t err = hipGetLastError();                                    \
