@@ -31,6 +31,9 @@ IF(NEKTAR_ENABLE_SINGLE_PRECISION)
     SET(DataTypes ${DataTypes} float)
 ENDIF()
 
+# Set timeintegration order (BDF only)
+SET(TimeIntegrationOrders 1 2 3 4)
+
 # Macro for each operator.
 MACRO(ADD_OPERATOR dir)
 
@@ -476,6 +479,149 @@ MACRO(ADD_ELMT_OPERATOR dir)
         )
 ENDMACRO()
 
+
+# Macro for each operator.
+MACRO(ADD_TIME_OPERATOR dir)
+
+    # Extract operator name form directory if it exists.
+    IF(IS_DIRECTORY ${dir})
+        GET_FILENAME_COMPONENT(name "${dir}" NAME)
+    ELSE()
+        CONTINUE()
+    ENDIF()
+
+    # Skip those files.
+    IF( ("${name}" STREQUAL "Common") OR
+    ("${name}" STREQUAL "Field") OR
+    ("${name}" STREQUAL "LoopExecution") OR
+    ("${name}" STREQUAL "MathKernels"))
+        CONTINUE()
+    ENDIF()
+
+    SET(NAME_HEADERS ${name}_HEADERS)
+    SET(NAME_SOURCES ${name}_SOURCES)
+    SET(OPERATOR ${name})
+
+    # These operator have an additional argument for the FieldState
+    # which requires two delcarations.
+    SET(CONFIG_FILE TimeOps/TimeOperatorFactoryDec.cpp.in)
+
+    # Loop through each possible execution space.
+    FOREACH (ExecSpace IN LISTS ExecSpaces)
+
+        # Set file extension.
+        SET(HEADER_EXT hpp)
+        IF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_CUDA)
+            SET(SOURCE_EXT cu)
+        ELSEIF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_HIP)
+            SET(SOURCE_EXT hip)
+        ELSE()
+            SET(SOURCE_EXT cpp)
+        ENDIF()
+
+        # Set execuation space - see Spaces.hpp
+        IF("${ExecSpace}" STREQUAL "Serial")
+            SET(EXEC_MEM_SPACE_TAG NEKTAR_DEFAULT_HOST_TAG)
+        ELSE()
+            SET(EXEC_MEM_SPACE_TAG NEKTAR_DEFAULT_DEVICE_TAG)
+        ENDIF()
+
+        # Loop through each possible data type.
+        FOREACH (TData IN LISTS DataTypes)
+            FOREACH (IntOrder IN LISTS TimeIntegrationOrders)
+                # Set up the name used for the .cpp declaration file.
+                SET(FactoryDeclName ${name}${ExecSpace}${TData}Order${IntOrder}.${SOURCE_EXT})
+
+                # Get the source and header files for this operator,
+                # execution space, and implementation.
+                SET(CURRENT_HEADERS ${name}_${ExecSpace}_HEADERS)
+                SET(CURRENT_SOURCES ${name}_${ExecSpace}_SOURCES)
+
+                # Get the headers matching the name and execution space
+                FILE(GLOB ${CURRENT_HEADERS} RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+                        ${dir}/${name}${ExecSpace}*.hpp)
+
+                # Found a impl header.
+                IF(EXISTS "${dir}/${name}OpImpl.hpp")
+                    FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                            "${dir}/${name}OpImpl.hpp")
+                    SET(IMPL_HEADER "#include \"${include_file}\"")
+                    # Found a general kernel
+                    IF(EXISTS "${dir}/${name}Kernels.hpp" )
+                        MESSAGE("Adding operator with a ${ExecSpace} implementation: " "${FactoryDeclName}")
+                        # Found a specific kernel
+                    ELSEIF(EXISTS "${dir}/${name}${ExecSpace}Kernels.hpp")
+                        MESSAGE("Adding operator with a ${ExecSpace} implementation: " "${FactoryDeclName}")
+                    ELSEIF(("${ExecSpace}" STREQUAL "Serial" AND EXISTS "${dir}/${name}SerialAVXKernels.hpp") OR
+                    ("${ExecSpace}" STREQUAL "AVX" AND EXISTS "${dir}/${name}SerialAVXKernels.hpp"))
+                        MESSAGE("Adding operator with a ${ExecSpace} implementation: " "${FactoryDeclName}")
+                        # No kernel found
+                    ELSEIF(NOT EXISTS "${dir}/${name}Kernels.hpp" AND
+                            NOT EXISTS "${dir}/${name}SerialKernels.hpp" AND
+                            NOT EXISTS "${dir}/${name}AVXKernels.hpp" AND
+                            NOT EXISTS "${dir}/${name}SerialAVXKernels.hpp" AND
+                            NOT EXISTS "${dir}/${name}DeviceKernels.hpp")
+                        MESSAGE("Adding operator with a ${ExecSpace} implementation: " "${FactoryDeclName}")
+                    ELSE()
+                        CONTINUE() # This avoid creating a *.cpp file
+                    ENDIF()
+
+                    # Found a Serial header.
+                ELSEIF((EXISTS "${dir}/${name}Serial.hpp") AND ("${ExecSpace}" STREQUAL "Serial"))
+                    FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                            "${dir}/${name}Serial.hpp")
+                    SET(IMPL_HEADER "#include \"${include_file}\"")
+                    MESSAGE("Adding operator with a ${ExecSpace} implementation: " "${FactoryDeclName}")
+
+                    # Found a AVX header.
+                ELSEIF((EXISTS "${dir}/${name}AVX.hpp") AND ("${ExecSpace}" STREQUAL "AVX"))
+                    FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                            "${dir}/${name}AVX.hpp")
+                    SET(IMPL_HEADER "#include \"${include_file}\"")
+                    MESSAGE("Adding operator with a ${ExecSpace} implementation: " "${FactoryDeclName}")
+
+                    # Found a Device header.
+                ELSEIF(EXISTS "${dir}/${name}DeviceSumFac.hpp" AND ("${ExecSpace}" STREQUAL "Device"))
+                    FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                            "${dir}/${name}Device.hpp")
+                    SET(IMPL_HEADER "#include \"${include_file}\"")
+                    # Found general kernel
+                    IF(EXISTS "${dir}/${name}DeviceKernels.hpp")
+                        MESSAGE("Adding operator with a ${ExecSpace} implementation and a generic device kernel: " "${FactoryDeclName}")
+                        # No kernel found, generic implementation
+                    ELSE()
+                        MESSAGE("Adding operator with a ${ExecSpace} implementation: " "${FactoryDeclName}")
+                    ENDIF()
+
+                    # No implementation, skip.
+                ELSE()
+                    CONTINUE() # This avoid creating a *.cpp file
+                ENDIF()
+
+                # Create the cpp file from the implementation file.
+                CONFIGURE_FILE(${CONFIG_FILE} ${FactoryDeclName})
+
+                # Add the respective cpp file.
+                SET(${NAME_HEADERS} ${${NAME_HEADERS}} ${${CURRENT_HEADERS}})
+                SET(${CURRENT_SOURCES} ${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName})
+                SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${${CURRENT_SOURCES}})
+            ENDFOREACH()
+        ENDFOREACH()
+    ENDFOREACH()
+
+    # Add this operator's implemenations to the global operator source
+    # and header files.
+    SET(OPERATORS_HEADERS
+            ${OPERATORS_HEADERS}
+            ${${NAME_HEADERS}}
+    )
+    SET(OPERATORS_SOURCES
+            ${OPERATORS_SOURCES}
+            ${${NAME_SOURCES}}
+    )
+ENDMACRO()
+
+
 # Common header file.
 SET(OPERATORS_HEADERS
     Common/Operator.hpp
@@ -511,6 +657,13 @@ ENDFOREACH()
 FILE(GLOB children ElmtOps/*)
 FOREACH(child ${children})
     ADD_ELMT_OPERATOR(${child})
+ENDFOREACH()
+
+# Loop through TimeIntegration directory which contain operators and add
+# their source and header files.
+FILE(GLOB children TimeOps/*)
+FOREACH(child ${children})
+    ADD_TIME_OPERATOR(${child})
 ENDFOREACH()
 
 SET(OPERATORS_DEPENDS

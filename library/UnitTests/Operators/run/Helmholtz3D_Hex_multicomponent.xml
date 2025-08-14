@@ -165,12 +165,18 @@
             <I PROPERTY="Projection"       VALUE="Continuous"/>
         </SOLVERINFO>
 
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> BDFImplicit </METHOD>
+            <ORDER> 3 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
+
         <PARAMETERS>
             <P> Lambda    = 1 </P>
             <P> IterativeSolverTolerance = 1e-14 </P>
             <P> A = PI/2 </P>
             <P> B = PI/4 </P>
             <P> C = PI/8 </P>
+            <P> TimeStep = 1e-4 </P>
         </PARAMETERS>
 
         <VARIABLES>

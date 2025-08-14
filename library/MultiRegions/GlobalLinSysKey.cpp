@@ -65,8 +65,8 @@ GlobalLinSysKey::GlobalLinSysKey(const StdRegions::MatrixType matrixType,
     for (VarFactorsMap::const_iterator x = varFactors.begin();
          x != varFactors.end(); ++x)
     {
-        m_varFactors_hashes[i] =
-            hash_range(x->second.begin(), x->second.begin() + x->second.size());
+        m_varFactors_hashes[i] = boost::hash_range(
+            x->second.begin(), x->second.begin() + x->second.size());
         hash_combine(m_varFactors_hashes[i], (int)x->first);
         i++;
     }
