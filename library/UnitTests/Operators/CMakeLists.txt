@@ -39,6 +39,10 @@ ADD_NEKTAR_EXECUTABLE(test_dirichlet
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_dirichlet.cpp)
 ADD_NEKTAR_EXECUTABLE(test_neumann
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_neumann.cpp)
+ADD_NEKTAR_EXECUTABLE(test_bdf
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bdf.cpp)
+ADD_NEKTAR_EXECUTABLE(test_imex
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_imex.cpp)
 
 ADD_NEKTAR_EXECUTABLE(test_multiplybyelmtinvmass
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_multiplybyelmtinvmass.cpp)
@@ -105,6 +109,8 @@ SET_UNIT_TEST(Math_serial test_math Serial none  FALSE)
 SET_UNIT_TEST(AssmbScatr_serial test_assmbscatr Serial none FALSE)
 SET_UNIT_TEST(Dirichlet_serial test_dirichlet Serial none FALSE)
 SET_UNIT_TEST(Neumann_serial test_neumann Serial none FALSE)
+SET_UNIT_TEST(BDF_serial test_bdf Serial none FALSE)
+SET_UNIT_TEST(IMEX_serial test_imex Serial none FALSE)
 
 # Serial generic
 SET_UNIT_TEST(MultiplyByElmtInvMass_serial_generic test_multiplybyelmtinvmass Serial Generic FALSE)
@@ -148,6 +154,8 @@ IF (${NEKTAR_ENABLE_SIMD})
     SET_UNIT_TEST(AssmbScatr_avx test_assmbscatr AVX none FALSE)
     SET_UNIT_TEST(Dirichlet_avx  test_dirichlet AVX none FALSE)
     SET_UNIT_TEST(Neumann_avx test_neumann AVX none FALSE)
+    SET_UNIT_TEST(BDF_avx test_bdf AVX none FALSE)
+    SET_UNIT_TEST(IMEX_avx test_imex AVX none FALSE)
 ENDIF()
 
 # AVX generic
@@ -198,6 +206,8 @@ IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABL
     SET_UNIT_TEST(AssmbScatr_device test_assmbscatr Device none FALSE)
     SET_UNIT_TEST(Dirichlet_device test_dirichlet Device none FALSE)
     SET_UNIT_TEST(Neumann_device test_neumann Device none FALSE)
+    SET_UNIT_TEST(BDF_device test_bdf Device none FALSE)
+    SET_UNIT_TEST(IMEX_device test_imex Device none FALSE)
 ENDIF()
 
 # Device generic

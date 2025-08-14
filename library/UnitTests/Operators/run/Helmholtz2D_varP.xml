@@ -249,9 +249,15 @@
             <I PROPERTY="Projection"       VALUE="Continuous"/>
         </SOLVERINFO>
 
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> BDFImplicit </METHOD>
+            <ORDER> 2 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
+
         <PARAMETERS>
             <P> Lambda    = 1 </P>
             <P> IterativeSolverTolerance = 1e-14 </P>
+            <P> TimeStep = 1e-4 </P>
         </PARAMETERS>
 
         <VARIABLES>
