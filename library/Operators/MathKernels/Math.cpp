@@ -32,6 +32,8 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "Operators/Field/Field.hpp"
+
 #include "Operators/MathKernels/Math.hpp"
 #include "Operators/MathKernels/MathKernels.hpp"
 
@@ -44,9 +46,7 @@ static void *internal_device_buffer = nullptr;
 static void *internal_host_buffer   = nullptr;
 #endif
 
-template <typename TData, FieldState TFieldState>
-void Math::neg(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
-               const std::string &execSpace)
+template <typename T> void Math::neg(T &x, T &y, const std::string &execSpace)
 {
     auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
 
@@ -72,154 +72,68 @@ void Math::neg(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
     }
 }
 
-template <typename TData>
-void Math::neg(MemoryRegion<TData> &x, MemoryRegion<TData> &y,
+template <typename T>
+void Math::add(T &x, T &y, T &z, const std::string &execSpace)
+{
+    auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
+
+    if (execSpace0 == "Serial")
+    {
+        Nektar::add<NektarSpaces::Serial>(x, y, z);
+    }
+#if defined(NEKTAR_ENABLE_SIMD)
+    else if (execSpace0 == "AVX")
+    {
+        Nektar::add<NektarSpaces::AVX>(x, y, z);
+    }
+#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
+    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
+    else if (execSpace0 == "Device")
+    {
+        Nektar::add<NektarSpaces::Device>(x, y, z);
+    }
+#endif
+    else
+    {
+        ASSERTL0(false, "Unknown Execution space: " + execSpace)
+    }
+}
+
+template <typename T>
+void Math::sub(T &x, T &y, T &z, const std::string &execSpace)
+{
+    auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
+
+    if (execSpace0 == "Serial")
+    {
+        Nektar::sub<NektarSpaces::Serial>(x, y, z);
+    }
+#if defined(NEKTAR_ENABLE_SIMD)
+    else if (execSpace0 == "AVX")
+    {
+        Nektar::sub<NektarSpaces::AVX>(x, y, z);
+    }
+#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
+    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
+    else if (execSpace0 == "Device")
+    {
+        Nektar::sub<NektarSpaces::Device>(x, y, z);
+    }
+#endif
+    else
+    {
+        ASSERTL0(false, "Unknown Execution space: " + execSpace)
+    }
+}
+
+template <typename T>
+void Math::mul(const typename T::value_type alpha, T &x, T &y,
                const std::string &execSpace)
 {
     auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
 
     if (execSpace0 == "Serial")
     {
-        Nektar::neg<NektarSpaces::Serial>(x, y);
-    }
-#if defined(NEKTAR_ENABLE_SIMD)
-    else if (execSpace0 == "AVX")
-    {
-        Nektar::neg<NektarSpaces::AVX>(x, y);
-    }
-#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
-    else if (execSpace0 == "Device")
-    {
-        Nektar::neg<NektarSpaces::Device>(x, y);
-    }
-#endif
-    else
-    {
-        ASSERTL0(false, "Unknown Execution space: " + execSpace)
-    }
-}
-
-template <typename TData, FieldState TFieldState>
-void Math::add(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
-               Field<TData, TFieldState> &z, const std::string &execSpace)
-{
-    auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
-
-    if (execSpace0 == "Serial")
-    {
-        Nektar::add<NektarSpaces::Serial>(x, y, z);
-    }
-#if defined(NEKTAR_ENABLE_SIMD)
-    else if (execSpace0 == "AVX")
-    {
-        Nektar::add<NektarSpaces::AVX>(x, y, z);
-    }
-#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
-    else if (execSpace0 == "Device")
-    {
-        Nektar::add<NektarSpaces::Device>(x, y, z);
-    }
-#endif
-    else
-    {
-        ASSERTL0(false, "Unknown Execution space: " + execSpace)
-    }
-}
-
-template <typename TData>
-void Math::add(MemoryRegion<TData> &x, MemoryRegion<TData> &y,
-               MemoryRegion<TData> &z, const std::string &execSpace)
-{
-    auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
-
-    if (execSpace0 == "Serial")
-    {
-        Nektar::add<NektarSpaces::Serial>(x, y, z);
-    }
-#if defined(NEKTAR_ENABLE_SIMD)
-    else if (execSpace0 == "AVX")
-    {
-        Nektar::add<NektarSpaces::AVX>(x, y, z);
-    }
-#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
-    else if (execSpace0 == "Device")
-    {
-        Nektar::add<NektarSpaces::Device>(x, y, z);
-    }
-#endif
-    else
-    {
-        ASSERTL0(false, "Unknown Execution space: " + execSpace)
-    }
-}
-
-template <typename TData, FieldState TFieldState>
-void Math::sub(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
-               Field<TData, TFieldState> &z, const std::string &execSpace)
-{
-    auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
-
-    if (execSpace0 == "Serial")
-    {
-        Nektar::sub<NektarSpaces::Serial>(x, y, z);
-    }
-#if defined(NEKTAR_ENABLE_SIMD)
-    else if (execSpace0 == "AVX")
-    {
-        Nektar::sub<NektarSpaces::AVX>(x, y, z);
-    }
-#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
-    else if (execSpace0 == "Device")
-    {
-        Nektar::sub<NektarSpaces::Device>(x, y, z);
-    }
-#endif
-    else
-    {
-        ASSERTL0(false, "Unknown Execution space: " + execSpace)
-    }
-}
-
-template <typename TData>
-void Math::sub(MemoryRegion<TData> &x, MemoryRegion<TData> &y,
-               MemoryRegion<TData> &z, const std::string &execSpace)
-{
-    auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
-
-    if (execSpace0 == "Serial")
-    {
-        Nektar::sub<NektarSpaces::Serial>(x, y, z);
-    }
-#if defined(NEKTAR_ENABLE_SIMD)
-    else if (execSpace0 == "AVX")
-    {
-        Nektar::sub<NektarSpaces::AVX>(x, y, z);
-    }
-#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
-    else if (execSpace0 == "Device")
-    {
-        Nektar::sub<NektarSpaces::Device>(x, y, z);
-    }
-#endif
-    else
-    {
-        ASSERTL0(false, "Unknown Execution space: " + execSpace)
-    }
-}
-
-template <typename TData, FieldState TFieldState>
-void Math::mul(const TData alpha, Field<TData, TFieldState> &x,
-               Field<TData, TFieldState> &y, const std::string &execSpace)
-{
-    auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
-
-    if (execSpace0 == "Serial")
-    {
         Nektar::mul<NektarSpaces::Serial>(alpha, x, y);
     }
 #if defined(NEKTAR_ENABLE_SIMD)
@@ -240,9 +154,8 @@ void Math::mul(const TData alpha, Field<TData, TFieldState> &x,
     }
 }
 
-template <typename TData, FieldState TFieldState>
-void Math::mul(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
-               Field<TData, TFieldState> &z, const std::string &execSpace)
+template <typename T>
+void Math::mul(T &x, T &y, T &z, const std::string &execSpace)
 {
     auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
 
@@ -268,65 +181,9 @@ void Math::mul(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
     }
 }
 
-template <typename TData>
-void Math::mul(const TData alpha, MemoryRegion<TData> &x,
-               MemoryRegion<TData> &y, const std::string &execSpace)
-{
-    auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
-
-    if (execSpace0 == "Serial")
-    {
-        Nektar::mul<NektarSpaces::Serial>(alpha, x, y);
-    }
-#if defined(NEKTAR_ENABLE_SIMD)
-    else if (execSpace0 == "AVX")
-    {
-        Nektar::mul<NektarSpaces::AVX>(alpha, x, y);
-    }
-#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
-    else if (execSpace0 == "Device")
-    {
-        Nektar::mul<NektarSpaces::Device>(alpha, x, y);
-    }
-#endif
-    else
-    {
-        ASSERTL0(false, "Unknown Execution space: " + execSpace)
-    }
-}
-
-template <typename TData>
-void Math::mul(MemoryRegion<TData> &x, MemoryRegion<TData> &y,
-               MemoryRegion<TData> &z, const std::string &execSpace)
-{
-    auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
-
-    if (execSpace0 == "Serial")
-    {
-        Nektar::mul<NektarSpaces::Serial>(x, y, z);
-    }
-#if defined(NEKTAR_ENABLE_SIMD)
-    else if (execSpace0 == "AVX")
-    {
-        Nektar::mul<NektarSpaces::AVX>(x, y, z);
-    }
-#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
-    else if (execSpace0 == "Device")
-    {
-        Nektar::mul<NektarSpaces::Device>(x, y, z);
-    }
-#endif
-    else
-    {
-        ASSERTL0(false, "Unknown Execution space: " + execSpace)
-    }
-}
-
-template <typename TData, FieldState TFieldState>
-void Math::div(const TData alpha, Field<TData, TFieldState> &x,
-               Field<TData, TFieldState> &y, const std::string &execSpace)
+template <typename T>
+void Math::div(const typename T::value_type alpha, T &x, T &y,
+               const std::string &execSpace)
 {
     auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
 
@@ -352,9 +209,8 @@ void Math::div(const TData alpha, Field<TData, TFieldState> &x,
     }
 }
 
-template <typename TData, FieldState TFieldState>
-void Math::div(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
-               Field<TData, TFieldState> &z, const std::string &execSpace)
+template <typename T>
+void Math::div(T &x, T &y, T &z, const std::string &execSpace)
 {
     auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
 
@@ -380,65 +236,8 @@ void Math::div(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
     }
 }
 
-template <typename TData>
-void Math::div(const TData alpha, MemoryRegion<TData> &x,
-               MemoryRegion<TData> &y, const std::string &execSpace)
-{
-    auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
-
-    if (execSpace0 == "Serial")
-    {
-        Nektar::div<NektarSpaces::Serial>(alpha, x, y);
-    }
-#if defined(NEKTAR_ENABLE_SIMD)
-    else if (execSpace0 == "AVX")
-    {
-        Nektar::div<NektarSpaces::AVX>(alpha, x, y);
-    }
-#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
-    else if (execSpace0 == "Device")
-    {
-        Nektar::div<NektarSpaces::Device>(alpha, x, y);
-    }
-#endif
-    else
-    {
-        ASSERTL0(false, "Unknown Execution space: " + execSpace)
-    }
-}
-
-template <typename TData>
-void Math::div(MemoryRegion<TData> &x, MemoryRegion<TData> &y,
-               MemoryRegion<TData> &z, const std::string &execSpace)
-{
-    auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
-
-    if (execSpace0 == "Serial")
-    {
-        Nektar::div<NektarSpaces::Serial>(x, y, z);
-    }
-#if defined(NEKTAR_ENABLE_SIMD)
-    else if (execSpace0 == "AVX")
-    {
-        Nektar::div<NektarSpaces::AVX>(x, y, z);
-    }
-#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
-    else if (execSpace0 == "Device")
-    {
-        Nektar::div<NektarSpaces::Device>(x, y, z);
-    }
-#endif
-    else
-    {
-        ASSERTL0(false, "Unknown Execution space: " + execSpace)
-    }
-}
-
-template <typename TData, FieldState TFieldState>
-void Math::daxpy(const TData alpha, Field<TData, TFieldState> &x,
-                 Field<TData, TFieldState> &y, Field<TData, TFieldState> &z,
+template <typename T>
+void Math::daxpy(const typename T::value_type alpha, T &x, T &y, T &z,
                  const std::string &execSpace)
 {
     auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
@@ -465,42 +264,12 @@ void Math::daxpy(const TData alpha, Field<TData, TFieldState> &x,
     }
 }
 
-template <typename TData>
-void Math::daxpy(const TData alpha, MemoryRegion<TData> &x,
-                 MemoryRegion<TData> &y, MemoryRegion<TData> &z,
-                 const std::string &execSpace)
+template <typename T>
+typename T::value_type Math::reduceSum(T &x, const std::string &execSpace)
 {
     auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
 
-    if (execSpace0 == "Serial")
-    {
-        Nektar::daxpy<NektarSpaces::Serial>(alpha, x, y, z);
-    }
-#if defined(NEKTAR_ENABLE_SIMD)
-    else if (execSpace0 == "AVX")
-    {
-        Nektar::daxpy<NektarSpaces::AVX>(alpha, x, y, z);
-    }
-#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
-    else if (execSpace0 == "Device")
-    {
-        Nektar::daxpy<NektarSpaces::Device>(alpha, x, y, z);
-    }
-#endif
-    else
-    {
-        ASSERTL0(false, "Unknown Execution space: " + execSpace)
-    }
-}
-
-template <typename TData, FieldState TFieldState>
-TData Math::reduceSum(Field<TData, TFieldState> &x,
-                      const std::string &execSpace)
-{
-    auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
-
-    TData out = 0.0;
+    typename T::value_type out = 0.0;
     if (execSpace0 == "Serial")
     {
         Nektar::reduceSum<NektarSpaces::Serial>(x, &out);
@@ -516,16 +285,19 @@ TData Math::reduceSum(Field<TData, TFieldState> &x,
     {
         if (internal_device_buffer == nullptr)
         {
-            Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
+            Nektar::deviceMalloc(&internal_device_buffer,
+                                 sizeof(typename T::value_type),
                                  NektarSpaces::Device::alignment);
-            Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
+            Nektar::hostMallocPinned(&internal_host_buffer,
+                                     sizeof(typename T::value_type),
                                      NektarSpaces::Device::alignment);
         }
         Nektar::reduceSum<NektarSpaces::Device>(
-            x, (TData *)internal_device_buffer);
-        Nektar::deviceMemcpy<DeviceToHost>(
-            internal_host_buffer, internal_device_buffer, sizeof(TData));
-        out = *(TData *)internal_host_buffer;
+            x, (typename T::value_type *)internal_device_buffer);
+        Nektar::deviceMemcpy<DeviceToHost>(internal_host_buffer,
+                                           internal_device_buffer,
+                                           sizeof(typename T::value_type));
+        out = *(typename T::value_type *)internal_host_buffer;
     }
 #endif
     else
@@ -536,54 +308,12 @@ TData Math::reduceSum(Field<TData, TFieldState> &x,
     return out;
 }
 
-template <typename TData>
-TData Math::reduceSum(MemoryRegion<TData> &x, const std::string &execSpace)
+template <typename T>
+typename T::value_type Math::reduceMax(T &x, const std::string &execSpace)
 {
     auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
 
-    TData out = 0.0;
-    if (execSpace0 == "Serial")
-    {
-        Nektar::reduceSum<NektarSpaces::Serial>(x, &out);
-    }
-#if defined(NEKTAR_ENABLE_SIMD)
-    else if (execSpace0 == "AVX")
-    {
-        Nektar::reduceSum<NektarSpaces::AVX>(x, &out);
-    }
-#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
-    else if (execSpace0 == "Device")
-    {
-        if (internal_device_buffer == nullptr)
-        {
-            Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
-                                 NektarSpaces::Device::alignment);
-            Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
-                                     NektarSpaces::Device::alignment);
-        }
-        Nektar::reduceSum<NektarSpaces::Device>(
-            x, (TData *)internal_device_buffer);
-        Nektar::deviceMemcpy<DeviceToHost>(
-            internal_host_buffer, internal_device_buffer, sizeof(TData));
-        out = *(TData *)internal_host_buffer;
-    }
-#endif
-    else
-    {
-        ASSERTL0(false, "Unknown Execution space: " + execSpace)
-    }
-
-    return out;
-}
-
-template <typename TData, FieldState TFieldState>
-TData Math::reduceMax(Field<TData, TFieldState> &x,
-                      const std::string &execSpace)
-{
-    auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
-
-    TData out = 0.0;
+    typename T::value_type out = 0.0;
     if (execSpace0 == "Serial")
     {
         Nektar::reduceMax<NektarSpaces::Serial>(x, &out);
@@ -599,16 +329,19 @@ TData Math::reduceMax(Field<TData, TFieldState> &x,
     {
         if (internal_device_buffer == nullptr)
         {
-            Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
+            Nektar::deviceMalloc(&internal_device_buffer,
+                                 sizeof(typename T::value_type),
                                  NektarSpaces::Device::alignment);
-            Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
+            Nektar::hostMallocPinned(&internal_host_buffer,
+                                     sizeof(typename T::value_type),
                                      NektarSpaces::Device::alignment);
         }
         Nektar::reduceMax<NektarSpaces::Device>(
-            x, (TData *)internal_device_buffer);
-        Nektar::deviceMemcpy<DeviceToHost>(
-            internal_host_buffer, internal_device_buffer, sizeof(TData));
-        out = *(TData *)internal_host_buffer;
+            x, (typename T::value_type *)internal_device_buffer);
+        Nektar::deviceMemcpy<DeviceToHost>(internal_host_buffer,
+                                           internal_device_buffer,
+                                           sizeof(typename T::value_type));
+        out = *(typename T::value_type *)internal_host_buffer;
     }
 #endif
     else
@@ -619,54 +352,12 @@ TData Math::reduceMax(Field<TData, TFieldState> &x,
     return out;
 }
 
-template <typename TData>
-TData Math::reduceMax(MemoryRegion<TData> &x, const std::string &execSpace)
+template <typename T>
+typename T::value_type Math::reduceMin(T &x, const std::string &execSpace)
 {
     auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
 
-    TData out = 0.0;
-    if (execSpace0 == "Serial")
-    {
-        Nektar::reduceMax<NektarSpaces::Serial>(x, &out);
-    }
-#if defined(NEKTAR_ENABLE_SIMD)
-    else if (execSpace0 == "AVX")
-    {
-        Nektar::reduceMax<NektarSpaces::AVX>(x, &out);
-    }
-#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
-    else if (execSpace0 == "Device")
-    {
-        if (internal_device_buffer == nullptr)
-        {
-            Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
-                                 NektarSpaces::Device::alignment);
-            Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
-                                     NektarSpaces::Device::alignment);
-        }
-        Nektar::reduceMax<NektarSpaces::Device>(
-            x, (TData *)internal_device_buffer);
-        Nektar::deviceMemcpy<DeviceToHost>(
-            internal_host_buffer, internal_device_buffer, sizeof(TData));
-        out = *(TData *)internal_host_buffer;
-    }
-#endif
-    else
-    {
-        ASSERTL0(false, "Unknown Execution space: " + execSpace)
-    }
-
-    return out;
-}
-
-template <typename TData, FieldState TFieldState>
-TData Math::reduceMin(Field<TData, TFieldState> &x,
-                      const std::string &execSpace)
-{
-    auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
-
-    TData out = 0.0;
+    typename T::value_type out = 0.0;
     if (execSpace0 == "Serial")
     {
         Nektar::reduceMin<NektarSpaces::Serial>(x, &out);
@@ -682,16 +373,19 @@ TData Math::reduceMin(Field<TData, TFieldState> &x,
     {
         if (internal_device_buffer == nullptr)
         {
-            Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
+            Nektar::deviceMalloc(&internal_device_buffer,
+                                 sizeof(typename T::value_type),
                                  NektarSpaces::Device::alignment);
-            Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
+            Nektar::hostMallocPinned(&internal_host_buffer,
+                                     sizeof(typename T::value_type),
                                      NektarSpaces::Device::alignment);
         }
         Nektar::reduceMin<NektarSpaces::Device>(
-            x, (TData *)internal_device_buffer);
-        Nektar::deviceMemcpy<DeviceToHost>(
-            internal_host_buffer, internal_device_buffer, sizeof(TData));
-        out = *(TData *)internal_host_buffer;
+            x, (typename T::value_type *)internal_device_buffer);
+        Nektar::deviceMemcpy<DeviceToHost>(internal_host_buffer,
+                                           internal_device_buffer,
+                                           sizeof(typename T::value_type));
+        out = *(typename T::value_type *)internal_host_buffer;
     }
 #endif
     else
@@ -702,54 +396,12 @@ TData Math::reduceMin(Field<TData, TFieldState> &x,
     return out;
 }
 
-template <typename TData>
-TData Math::reduceMin(MemoryRegion<TData> &x, const std::string &execSpace)
+template <typename T>
+typename T::value_type Math::ddot(T &x, T &y, const std::string &execSpace)
 {
     auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
 
-    TData out = 0.0;
-    if (execSpace0 == "Serial")
-    {
-        Nektar::reduceMin<NektarSpaces::Serial>(x, &out);
-    }
-#if defined(NEKTAR_ENABLE_SIMD)
-    else if (execSpace0 == "AVX")
-    {
-        Nektar::reduceMin<NektarSpaces::AVX>(x, &out);
-    }
-#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
-    else if (execSpace0 == "Device")
-    {
-        if (internal_device_buffer == nullptr)
-        {
-            Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
-                                 NektarSpaces::Device::alignment);
-            Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
-                                     NektarSpaces::Device::alignment);
-        }
-        Nektar::reduceMin<NektarSpaces::Device>(
-            x, (TData *)internal_device_buffer);
-        Nektar::deviceMemcpy<DeviceToHost>(
-            internal_host_buffer, internal_device_buffer, sizeof(TData));
-        out = *(TData *)internal_host_buffer;
-    }
-#endif
-    else
-    {
-        ASSERTL0(false, "Unknown Execution space: " + execSpace)
-    }
-
-    return out;
-}
-
-template <typename TData, FieldState TFieldState>
-TData Math::ddot(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
-                 const std::string &execSpace)
-{
-    auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
-
-    TData out = 0.0;
+    typename T::value_type out = 0.0;
     if (execSpace0 == "Serial")
     {
         Nektar::ddot<NektarSpaces::Serial>(x, y, &out);
@@ -765,16 +417,19 @@ TData Math::ddot(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
     {
         if (internal_device_buffer == nullptr)
         {
-            Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
+            Nektar::deviceMalloc(&internal_device_buffer,
+                                 sizeof(typename T::value_type),
                                  NektarSpaces::Device::alignment);
-            Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
+            Nektar::hostMallocPinned(&internal_host_buffer,
+                                     sizeof(typename T::value_type),
                                      NektarSpaces::Device::alignment);
         }
-        Nektar::ddot<NektarSpaces::Device>(x, y,
-                                           (TData *)internal_device_buffer);
-        Nektar::deviceMemcpy<DeviceToHost>(
-            internal_host_buffer, internal_device_buffer, sizeof(TData));
-        out = *(TData *)internal_host_buffer;
+        Nektar::ddot<NektarSpaces::Device>(
+            x, y, (typename T::value_type *)internal_device_buffer);
+        Nektar::deviceMemcpy<DeviceToHost>(internal_host_buffer,
+                                           internal_device_buffer,
+                                           sizeof(typename T::value_type));
+        out = *(typename T::value_type *)internal_host_buffer;
     }
 #endif
     else
@@ -785,54 +440,12 @@ TData Math::ddot(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
     return out;
 }
 
-template <typename TData>
-TData Math::ddot(MemoryRegion<TData> &x, MemoryRegion<TData> &y,
-                 const std::string &execSpace)
+template <typename T>
+typename T::value_type Math::l1norm(T &x, const std::string &execSpace)
 {
     auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
 
-    TData out = 0.0;
-    if (execSpace0 == "Serial")
-    {
-        Nektar::ddot<NektarSpaces::Serial>(x, y, &out);
-    }
-#if defined(NEKTAR_ENABLE_SIMD)
-    else if (execSpace0 == "AVX")
-    {
-        Nektar::ddot<NektarSpaces::AVX>(x, y, &out);
-    }
-#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
-    else if (execSpace0 == "Device")
-    {
-        if (internal_device_buffer == nullptr)
-        {
-            Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
-                                 NektarSpaces::Device::alignment);
-            Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
-                                     NektarSpaces::Device::alignment);
-        }
-        Nektar::ddot<NektarSpaces::Device>(x, y,
-                                           (TData *)internal_device_buffer);
-        Nektar::deviceMemcpy<DeviceToHost>(
-            internal_host_buffer, internal_device_buffer, sizeof(TData));
-        out = *(TData *)internal_host_buffer;
-    }
-#endif
-    else
-    {
-        ASSERTL0(false, "Unknown Execution space: " + execSpace)
-    }
-
-    return out;
-}
-
-template <typename TData, FieldState TFieldState>
-TData Math::l1norm(Field<TData, TFieldState> &x, const std::string &execSpace)
-{
-    auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
-
-    TData out = 0.0;
+    typename T::value_type out = 0.0;
     if (execSpace0 == "Serial")
     {
         Nektar::l1norm<NektarSpaces::Serial>(x, &out);
@@ -848,16 +461,19 @@ TData Math::l1norm(Field<TData, TFieldState> &x, const std::string &execSpace)
     {
         if (internal_device_buffer == nullptr)
         {
-            Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
+            Nektar::deviceMalloc(&internal_device_buffer,
+                                 sizeof(typename T::value_type),
                                  NektarSpaces::Device::alignment);
-            Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
+            Nektar::hostMallocPinned(&internal_host_buffer,
+                                     sizeof(typename T::value_type),
                                      NektarSpaces::Device::alignment);
         }
-        Nektar::l1norm<NektarSpaces::Device>(x,
-                                             (TData *)internal_device_buffer);
-        Nektar::deviceMemcpy<DeviceToHost>(
-            internal_host_buffer, internal_device_buffer, sizeof(TData));
-        out = *(TData *)internal_host_buffer;
+        Nektar::l1norm<NektarSpaces::Device>(
+            x, (typename T::value_type *)internal_device_buffer);
+        Nektar::deviceMemcpy<DeviceToHost>(internal_host_buffer,
+                                           internal_device_buffer,
+                                           sizeof(typename T::value_type));
+        out = *(typename T::value_type *)internal_host_buffer;
     }
 #endif
     else
@@ -868,53 +484,12 @@ TData Math::l1norm(Field<TData, TFieldState> &x, const std::string &execSpace)
     return out;
 }
 
-template <typename TData>
-TData Math::l1norm(MemoryRegion<TData> &x, const std::string &execSpace)
+template <typename T>
+typename T::value_type Math::l2norm(T &x, const std::string &execSpace)
 {
     auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
 
-    TData out = 0.0;
-    if (execSpace0 == "Serial")
-    {
-        Nektar::l1norm<NektarSpaces::Serial>(x, &out);
-    }
-#if defined(NEKTAR_ENABLE_SIMD)
-    else if (execSpace0 == "AVX")
-    {
-        Nektar::l1norm<NektarSpaces::AVX>(x, &out);
-    }
-#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
-    else if (execSpace0 == "Device")
-    {
-        if (internal_device_buffer == nullptr)
-        {
-            Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
-                                 NektarSpaces::Device::alignment);
-            Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
-                                     NektarSpaces::Device::alignment);
-        }
-        Nektar::l1norm<NektarSpaces::Device>(x,
-                                             (TData *)internal_device_buffer);
-        Nektar::deviceMemcpy<DeviceToHost>(
-            internal_host_buffer, internal_device_buffer, sizeof(TData));
-        out = *(TData *)internal_host_buffer;
-    }
-#endif
-    else
-    {
-        ASSERTL0(false, "Unknown Execution space: " + execSpace)
-    }
-
-    return out;
-}
-
-template <typename TData, FieldState TFieldState>
-TData Math::l2norm(Field<TData, TFieldState> &x, const std::string &execSpace)
-{
-    auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
-
-    TData out = 0.0;
+    typename T::value_type out = 0.0;
     if (execSpace0 == "Serial")
     {
         Nektar::l2norm<NektarSpaces::Serial>(x, &out);
@@ -930,16 +505,19 @@ TData Math::l2norm(Field<TData, TFieldState> &x, const std::string &execSpace)
     {
         if (internal_device_buffer == nullptr)
         {
-            Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
+            Nektar::deviceMalloc(&internal_device_buffer,
+                                 sizeof(typename T::value_type),
                                  NektarSpaces::Device::alignment);
-            Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
+            Nektar::hostMallocPinned(&internal_host_buffer,
+                                     sizeof(typename T::value_type),
                                      NektarSpaces::Device::alignment);
         }
-        Nektar::l2norm<NektarSpaces::Device>(x,
-                                             (TData *)internal_device_buffer);
-        Nektar::deviceMemcpy<DeviceToHost>(
-            internal_host_buffer, internal_device_buffer, sizeof(TData));
-        out = *(TData *)internal_host_buffer;
+        Nektar::l2norm<NektarSpaces::Device>(
+            x, (typename T::value_type *)internal_device_buffer);
+        Nektar::deviceMemcpy<DeviceToHost>(internal_host_buffer,
+                                           internal_device_buffer,
+                                           sizeof(typename T::value_type));
+        out = *(typename T::value_type *)internal_host_buffer;
     }
 #endif
     else
@@ -950,54 +528,13 @@ TData Math::l2norm(Field<TData, TFieldState> &x, const std::string &execSpace)
     return out;
 }
 
-template <typename TData>
-TData Math::l2norm(MemoryRegion<TData> &x, const std::string &execSpace)
+template <typename T>
+typename T::value_type Math::lpnorm(const unsigned int p, T &x,
+                                    const std::string &execSpace)
 {
     auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
 
-    TData out = 0.0;
-    if (execSpace0 == "Serial")
-    {
-        Nektar::l2norm<NektarSpaces::Serial>(x, &out);
-    }
-#if defined(NEKTAR_ENABLE_SIMD)
-    else if (execSpace0 == "AVX")
-    {
-        Nektar::l2norm<NektarSpaces::AVX>(x, &out);
-    }
-#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
-    else if (execSpace0 == "Device")
-    {
-        if (internal_device_buffer == nullptr)
-        {
-            Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
-                                 NektarSpaces::Device::alignment);
-            Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
-                                     NektarSpaces::Device::alignment);
-        }
-        Nektar::l2norm<NektarSpaces::Device>(x,
-                                             (TData *)internal_device_buffer);
-        Nektar::deviceMemcpy<DeviceToHost>(
-            internal_host_buffer, internal_device_buffer, sizeof(TData));
-        out = *(TData *)internal_host_buffer;
-    }
-#endif
-    else
-    {
-        ASSERTL0(false, "Unknown Execution space: " + execSpace)
-    }
-
-    return out;
-}
-
-template <typename TData, FieldState TFieldState>
-TData Math::lpnorm(const unsigned int p, Field<TData, TFieldState> &x,
-                   const std::string &execSpace)
-{
-    auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
-
-    TData out = 0.0;
+    typename T::value_type out = 0.0;
     if (execSpace0 == "Serial")
     {
         Nektar::lpnorm<NektarSpaces::Serial>(p, x, &out);
@@ -1013,16 +550,19 @@ TData Math::lpnorm(const unsigned int p, Field<TData, TFieldState> &x,
     {
         if (internal_device_buffer == nullptr)
         {
-            Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
+            Nektar::deviceMalloc(&internal_device_buffer,
+                                 sizeof(typename T::value_type),
                                  NektarSpaces::Device::alignment);
-            Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
+            Nektar::hostMallocPinned(&internal_host_buffer,
+                                     sizeof(typename T::value_type),
                                      NektarSpaces::Device::alignment);
         }
-        Nektar::lpnorm<NektarSpaces::Device>(p, x,
-                                             (TData *)internal_device_buffer);
-        Nektar::deviceMemcpy<DeviceToHost>(
-            internal_host_buffer, internal_device_buffer, sizeof(TData));
-        out = *(TData *)internal_host_buffer;
+        Nektar::lpnorm<NektarSpaces::Device>(
+            p, x, (typename T::value_type *)internal_device_buffer);
+        Nektar::deviceMemcpy<DeviceToHost>(internal_host_buffer,
+                                           internal_device_buffer,
+                                           sizeof(typename T::value_type));
+        out = *(typename T::value_type *)internal_host_buffer;
     }
 #endif
     else
@@ -1033,54 +573,12 @@ TData Math::lpnorm(const unsigned int p, Field<TData, TFieldState> &x,
     return out;
 }
 
-template <typename TData>
-TData Math::lpnorm(const unsigned int p, MemoryRegion<TData> &x,
-                   const std::string &execSpace)
+template <typename T>
+typename T::value_type Math::linfnorm(T &x, const std::string &execSpace)
 {
     auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
 
-    TData out = 0.0;
-    if (execSpace0 == "Serial")
-    {
-        Nektar::lpnorm<NektarSpaces::Serial>(p, x, &out);
-    }
-#if defined(NEKTAR_ENABLE_SIMD)
-    else if (execSpace0 == "AVX")
-    {
-        Nektar::lpnorm<NektarSpaces::AVX>(p, x, &out);
-    }
-#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
-    else if (execSpace0 == "Device")
-    {
-        if (internal_device_buffer == nullptr)
-        {
-            Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
-                                 NektarSpaces::Device::alignment);
-            Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
-                                     NektarSpaces::Device::alignment);
-        }
-        Nektar::lpnorm<NektarSpaces::Device>(p, x,
-                                             (TData *)internal_device_buffer);
-        Nektar::deviceMemcpy<DeviceToHost>(
-            internal_host_buffer, internal_device_buffer, sizeof(TData));
-        out = *(TData *)internal_host_buffer;
-    }
-#endif
-    else
-    {
-        ASSERTL0(false, "Unknown Execution space: " + execSpace)
-    }
-
-    return out;
-}
-
-template <typename TData, FieldState TFieldState>
-TData Math::linfnorm(Field<TData, TFieldState> &x, const std::string &execSpace)
-{
-    auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
-
-    TData out = 0.0;
+    typename T::value_type out = 0.0;
     if (execSpace0 == "Serial")
     {
         Nektar::linfnorm<NektarSpaces::Serial>(x, &out);
@@ -1096,57 +594,19 @@ TData Math::linfnorm(Field<TData, TFieldState> &x, const std::string &execSpace)
     {
         if (internal_device_buffer == nullptr)
         {
-            Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
+            Nektar::deviceMalloc(&internal_device_buffer,
+                                 sizeof(typename T::value_type),
                                  NektarSpaces::Device::alignment);
-            Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
+            Nektar::hostMallocPinned(&internal_host_buffer,
+                                     sizeof(typename T::value_type),
                                      NektarSpaces::Device::alignment);
         }
-        Nektar::linfnorm<NektarSpaces::Device>(x,
-                                               (TData *)internal_device_buffer);
-        Nektar::deviceMemcpy<DeviceToHost>(
-            internal_host_buffer, internal_device_buffer, sizeof(TData));
-        out = *(TData *)internal_host_buffer;
-    }
-#endif
-    else
-    {
-        ASSERTL0(false, "Unknown Execution space: " + execSpace)
-    }
-
-    return out;
-}
-
-template <typename TData>
-TData Math::linfnorm(MemoryRegion<TData> &x, const std::string &execSpace)
-{
-    auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
-
-    TData out = 0.0;
-    if (execSpace0 == "Serial")
-    {
-        Nektar::linfnorm<NektarSpaces::Serial>(x, &out);
-    }
-#if defined(NEKTAR_ENABLE_SIMD)
-    else if (execSpace0 == "AVX")
-    {
-        Nektar::linfnorm<NektarSpaces::AVX>(x, &out);
-    }
-#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
-    else if (execSpace0 == "Device")
-    {
-        if (internal_device_buffer == nullptr)
-        {
-            Nektar::deviceMalloc(&internal_device_buffer, sizeof(TData),
-                                 NektarSpaces::Device::alignment);
-            Nektar::hostMallocPinned(&internal_host_buffer, sizeof(TData),
-                                     NektarSpaces::Device::alignment);
-        }
-        Nektar::linfnorm<NektarSpaces::Device>(x,
-                                               (TData *)internal_device_buffer);
-        Nektar::deviceMemcpy<DeviceToHost>(
-            internal_host_buffer, internal_device_buffer, sizeof(TData));
-        out = *(TData *)internal_host_buffer;
+        Nektar::linfnorm<NektarSpaces::Device>(
+            x, (typename T::value_type *)internal_device_buffer);
+        Nektar::deviceMemcpy<DeviceToHost>(internal_host_buffer,
+                                           internal_device_buffer,
+                                           sizeof(typename T::value_type));
+        out = *(typename T::value_type *)internal_host_buffer;
     }
 #endif
     else
@@ -1158,288 +618,302 @@ TData Math::linfnorm(MemoryRegion<TData> &x, const std::string &execSpace)
 }
 
 // neg template specialization.
-template void Math::neg<double, FieldState::Phys>(
+template void Math::neg<Field<double, FieldState::Phys>>(
     Field<double, FieldState::Phys> &x, Field<double, FieldState::Phys> &y,
     const std::string &execSpace);
-template void Math::neg<float, FieldState::Phys>(
+template void Math::neg<Field<float, FieldState::Phys>>(
     Field<float, FieldState::Phys> &x, Field<float, FieldState::Phys> &y,
     const std::string &execSpace);
-template void Math::neg<double, FieldState::Coeff>(
+template void Math::neg<Field<double, FieldState::Coeff>>(
     Field<double, FieldState::Coeff> &x, Field<double, FieldState::Coeff> &y,
     const std::string &execSpace);
-template void Math::neg<float, FieldState::Coeff>(
+template void Math::neg<Field<float, FieldState::Coeff>>(
     Field<float, FieldState::Coeff> &x, Field<float, FieldState::Coeff> &y,
     const std::string &execSpace);
-template void Math::neg<double>(MemoryRegion<double> &x,
-                                MemoryRegion<double> &y,
-                                const std::string &execSpace);
-template void Math::neg<float>(MemoryRegion<float> &x, MemoryRegion<float> &y,
-                               const std::string &execSpace);
+template void Math::neg<MemoryRegion<double>>(MemoryRegion<double> &x,
+                                              MemoryRegion<double> &y,
+                                              const std::string &execSpace);
+template void Math::neg<MemoryRegion<float>>(MemoryRegion<float> &x,
+                                             MemoryRegion<float> &y,
+                                             const std::string &execSpace);
 
 // add template specialization.
-template void Math::add<double, FieldState::Phys>(
+template void Math::add<Field<double, FieldState::Phys>>(
     Field<double, FieldState::Phys> &x, Field<double, FieldState::Phys> &y,
     Field<double, FieldState::Phys> &z, const std::string &execSpace);
-template void Math::add<float, FieldState::Phys>(
+template void Math::add<Field<float, FieldState::Phys>>(
     Field<float, FieldState::Phys> &x, Field<float, FieldState::Phys> &y,
     Field<float, FieldState::Phys> &z, const std::string &execSpace);
-template void Math::add<double, FieldState::Coeff>(
+template void Math::add<Field<double, FieldState::Coeff>>(
     Field<double, FieldState::Coeff> &x, Field<double, FieldState::Coeff> &y,
     Field<double, FieldState::Coeff> &z, const std::string &execSpace);
-template void Math::add<float, FieldState::Coeff>(
+template void Math::add<Field<float, FieldState::Coeff>>(
     Field<float, FieldState::Coeff> &x, Field<float, FieldState::Coeff> &y,
     Field<float, FieldState::Coeff> &z, const std::string &execSpace);
-template void Math::add<double>(MemoryRegion<double> &x,
-                                MemoryRegion<double> &y,
-                                MemoryRegion<double> &z,
-                                const std::string &execSpace);
-template void Math::add<float>(MemoryRegion<float> &x, MemoryRegion<float> &y,
-                               MemoryRegion<float> &z,
-                               const std::string &execSpace);
+template void Math::add<MemoryRegion<double>>(MemoryRegion<double> &x,
+                                              MemoryRegion<double> &y,
+                                              MemoryRegion<double> &z,
+                                              const std::string &execSpace);
+template void Math::add<MemoryRegion<float>>(MemoryRegion<float> &x,
+                                             MemoryRegion<float> &y,
+                                             MemoryRegion<float> &z,
+                                             const std::string &execSpace);
 
 // sub template specialization.
-template void Math::sub<double, FieldState::Phys>(
+template void Math::sub<Field<double, FieldState::Phys>>(
     Field<double, FieldState::Phys> &x, Field<double, FieldState::Phys> &y,
     Field<double, FieldState::Phys> &z, const std::string &execSpace);
-template void Math::sub<float, FieldState::Phys>(
+template void Math::sub<Field<float, FieldState::Phys>>(
     Field<float, FieldState::Phys> &x, Field<float, FieldState::Phys> &y,
     Field<float, FieldState::Phys> &z, const std::string &execSpace);
-template void Math::sub<double, FieldState::Coeff>(
+template void Math::sub<Field<double, FieldState::Coeff>>(
     Field<double, FieldState::Coeff> &x, Field<double, FieldState::Coeff> &y,
     Field<double, FieldState::Coeff> &z, const std::string &execSpace);
-template void Math::sub<float, FieldState::Coeff>(
+template void Math::sub<Field<float, FieldState::Coeff>>(
     Field<float, FieldState::Coeff> &x, Field<float, FieldState::Coeff> &y,
     Field<float, FieldState::Coeff> &z, const std::string &execSpace);
-template void Math::sub<double>(MemoryRegion<double> &x,
-                                MemoryRegion<double> &y,
-                                MemoryRegion<double> &z,
-                                const std::string &execSpace);
-template void Math::sub<float>(MemoryRegion<float> &x, MemoryRegion<float> &y,
-                               MemoryRegion<float> &z,
-                               const std::string &execSpace);
+template void Math::sub<MemoryRegion<double>>(MemoryRegion<double> &x,
+                                              MemoryRegion<double> &y,
+                                              MemoryRegion<double> &z,
+                                              const std::string &execSpace);
+template void Math::sub<MemoryRegion<float>>(MemoryRegion<float> &x,
+                                             MemoryRegion<float> &y,
+                                             MemoryRegion<float> &z,
+                                             const std::string &execSpace);
 
 // mul template specialization.
-template void Math::mul<double, FieldState::Phys>(
+template void Math::mul<Field<double, FieldState::Phys>>(
     const double alpha, Field<double, FieldState::Phys> &x,
     Field<double, FieldState::Phys> &y, const std::string &execSpace);
-template void Math::mul<float, FieldState::Phys>(
+template void Math::mul<Field<float, FieldState::Phys>>(
     const float alpha, Field<float, FieldState::Phys> &x,
     Field<float, FieldState::Phys> &y, const std::string &execSpace);
-template void Math::mul<double, FieldState::Coeff>(
+template void Math::mul<Field<double, FieldState::Coeff>>(
     const double alpha, Field<double, FieldState::Coeff> &x,
     Field<double, FieldState::Coeff> &y, const std::string &execSpace);
-template void Math::mul<float, FieldState::Coeff>(
+template void Math::mul<Field<float, FieldState::Coeff>>(
     const float alpha, Field<float, FieldState::Coeff> &x,
     Field<float, FieldState::Coeff> &y, const std::string &execSpace);
-template void Math::mul<double, FieldState::Phys>(
+template void Math::mul<Field<double, FieldState::Phys>>(
     Field<double, FieldState::Phys> &x, Field<double, FieldState::Phys> &y,
     Field<double, FieldState::Phys> &z, const std::string &execSpace);
-template void Math::mul<float, FieldState::Phys>(
+template void Math::mul<Field<float, FieldState::Phys>>(
     Field<float, FieldState::Phys> &x, Field<float, FieldState::Phys> &y,
     Field<float, FieldState::Phys> &z, const std::string &execSpace);
-template void Math::mul<double, FieldState::Coeff>(
+template void Math::mul<Field<double, FieldState::Coeff>>(
     Field<double, FieldState::Coeff> &x, Field<double, FieldState::Coeff> &y,
     Field<double, FieldState::Coeff> &z, const std::string &execSpace);
-template void Math::mul<float, FieldState::Coeff>(
+template void Math::mul<Field<float, FieldState::Coeff>>(
     Field<float, FieldState::Coeff> &x, Field<float, FieldState::Coeff> &y,
     Field<float, FieldState::Coeff> &z, const std::string &execSpace);
-template void Math::mul<double>(const double alpha, MemoryRegion<double> &x,
-                                MemoryRegion<double> &y,
-                                const std::string &execSpace);
-template void Math::mul<float>(const float alpha, MemoryRegion<float> &x,
-                               MemoryRegion<float> &y,
-                               const std::string &execSpace);
-template void Math::mul<double>(MemoryRegion<double> &x,
-                                MemoryRegion<double> &y,
-                                MemoryRegion<double> &z,
-                                const std::string &execSpace);
-template void Math::mul<float>(MemoryRegion<float> &x, MemoryRegion<float> &y,
-                               MemoryRegion<float> &z,
-                               const std::string &execSpace);
+template void Math::mul<MemoryRegion<double>>(const double alpha,
+                                              MemoryRegion<double> &x,
+                                              MemoryRegion<double> &y,
+                                              const std::string &execSpace);
+template void Math::mul<MemoryRegion<float>>(const float alpha,
+                                             MemoryRegion<float> &x,
+                                             MemoryRegion<float> &y,
+                                             const std::string &execSpace);
+template void Math::mul<MemoryRegion<double>>(MemoryRegion<double> &x,
+                                              MemoryRegion<double> &y,
+                                              MemoryRegion<double> &z,
+                                              const std::string &execSpace);
+template void Math::mul<MemoryRegion<float>>(MemoryRegion<float> &x,
+                                             MemoryRegion<float> &y,
+                                             MemoryRegion<float> &z,
+                                             const std::string &execSpace);
 
 // div template specialization.
-template void Math::div<double, FieldState::Phys>(
+template void Math::div<Field<double, FieldState::Phys>>(
     const double alpha, Field<double, FieldState::Phys> &x,
     Field<double, FieldState::Phys> &y, const std::string &execSpace);
-template void Math::div<float, FieldState::Phys>(
+template void Math::div<Field<float, FieldState::Phys>>(
     const float alpha, Field<float, FieldState::Phys> &x,
     Field<float, FieldState::Phys> &y, const std::string &execSpace);
-template void Math::div<double, FieldState::Coeff>(
+template void Math::div<Field<double, FieldState::Coeff>>(
     const double alpha, Field<double, FieldState::Coeff> &x,
     Field<double, FieldState::Coeff> &y, const std::string &execSpace);
-template void Math::div<float, FieldState::Coeff>(
+template void Math::div<Field<float, FieldState::Coeff>>(
     const float alpha, Field<float, FieldState::Coeff> &x,
     Field<float, FieldState::Coeff> &y, const std::string &execSpace);
-template void Math::div<double, FieldState::Phys>(
+template void Math::div<Field<double, FieldState::Phys>>(
     Field<double, FieldState::Phys> &x, Field<double, FieldState::Phys> &y,
     Field<double, FieldState::Phys> &z, const std::string &execSpace);
-template void Math::div<float, FieldState::Phys>(
+template void Math::div<Field<float, FieldState::Phys>>(
     Field<float, FieldState::Phys> &x, Field<float, FieldState::Phys> &y,
     Field<float, FieldState::Phys> &z, const std::string &execSpace);
-template void Math::div<double, FieldState::Coeff>(
+template void Math::div<Field<double, FieldState::Coeff>>(
     Field<double, FieldState::Coeff> &x, Field<double, FieldState::Coeff> &y,
     Field<double, FieldState::Coeff> &z, const std::string &execSpace);
-template void Math::div<float, FieldState::Coeff>(
+template void Math::div<Field<float, FieldState::Coeff>>(
     Field<float, FieldState::Coeff> &x, Field<float, FieldState::Coeff> &y,
     Field<float, FieldState::Coeff> &z, const std::string &execSpace);
-template void Math::div<double>(const double alpha, MemoryRegion<double> &x,
-                                MemoryRegion<double> &y,
-                                const std::string &execSpace);
-template void Math::div<float>(const float alpha, MemoryRegion<float> &x,
-                               MemoryRegion<float> &y,
-                               const std::string &execSpace);
-template void Math::div<double>(MemoryRegion<double> &x,
-                                MemoryRegion<double> &y,
-                                MemoryRegion<double> &z,
-                                const std::string &execSpace);
-template void Math::div<float>(MemoryRegion<float> &x, MemoryRegion<float> &y,
-                               MemoryRegion<float> &z,
-                               const std::string &execSpace);
+template void Math::div<MemoryRegion<double>>(const double alpha,
+                                              MemoryRegion<double> &x,
+                                              MemoryRegion<double> &y,
+                                              const std::string &execSpace);
+template void Math::div<MemoryRegion<float>>(const float alpha,
+                                             MemoryRegion<float> &x,
+                                             MemoryRegion<float> &y,
+                                             const std::string &execSpace);
+template void Math::div<MemoryRegion<double>>(MemoryRegion<double> &x,
+                                              MemoryRegion<double> &y,
+                                              MemoryRegion<double> &z,
+                                              const std::string &execSpace);
+template void Math::div<MemoryRegion<float>>(MemoryRegion<float> &x,
+                                             MemoryRegion<float> &y,
+                                             MemoryRegion<float> &z,
+                                             const std::string &execSpace);
 
 // daxpy template specialization.
-template void Math::daxpy<double, FieldState::Phys>(
+template void Math::daxpy<Field<double, FieldState::Phys>>(
     const double alpha, Field<double, FieldState::Phys> &x,
     Field<double, FieldState::Phys> &y, Field<double, FieldState::Phys> &z,
     const std::string &execSpace);
-template void Math::daxpy<float, FieldState::Phys>(
+template void Math::daxpy<Field<float, FieldState::Phys>>(
     const float alpha, Field<float, FieldState::Phys> &x,
     Field<float, FieldState::Phys> &y, Field<float, FieldState::Phys> &z,
     const std::string &execSpace);
-template void Math::daxpy<double, FieldState::Coeff>(
+template void Math::daxpy<Field<double, FieldState::Coeff>>(
     const double alpha, Field<double, FieldState::Coeff> &x,
     Field<double, FieldState::Coeff> &y, Field<double, FieldState::Coeff> &z,
     const std::string &execSpace);
-template void Math::daxpy<float, FieldState::Coeff>(
+template void Math::daxpy<Field<float, FieldState::Coeff>>(
     const float alpha, Field<float, FieldState::Coeff> &x,
     Field<float, FieldState::Coeff> &y, Field<float, FieldState::Coeff> &z,
     const std::string &execSpace);
-template void Math::daxpy<double>(const double alpha, MemoryRegion<double> &x,
-                                  MemoryRegion<double> &y,
-                                  MemoryRegion<double> &z,
-                                  const std::string &execSpace);
-template void Math::daxpy<float>(const float alpha, MemoryRegion<float> &x,
-                                 MemoryRegion<float> &y, MemoryRegion<float> &z,
-                                 const std::string &execSpace);
+template void Math::daxpy<MemoryRegion<double>>(const double alpha,
+                                                MemoryRegion<double> &x,
+                                                MemoryRegion<double> &y,
+                                                MemoryRegion<double> &z,
+                                                const std::string &execSpace);
+template void Math::daxpy<MemoryRegion<float>>(const float alpha,
+                                               MemoryRegion<float> &x,
+                                               MemoryRegion<float> &y,
+                                               MemoryRegion<float> &z,
+                                               const std::string &execSpace);
 
 // reduceSum template specialization.
-template double Math::reduceSum<double, FieldState::Phys>(
+template double Math::reduceSum<Field<double, FieldState::Phys>>(
     Field<double, FieldState::Phys> &x, const std::string &execSpace);
-template float Math::reduceSum<float, FieldState::Phys>(
+template float Math::reduceSum<Field<float, FieldState::Phys>>(
     Field<float, FieldState::Phys> &x, const std::string &execSpace);
-template double Math::reduceSum<double, FieldState::Coeff>(
+template double Math::reduceSum<Field<double, FieldState::Coeff>>(
     Field<double, FieldState::Coeff> &x, const std::string &execSpace);
-template float Math::reduceSum<float, FieldState::Coeff>(
+template float Math::reduceSum<Field<float, FieldState::Coeff>>(
     Field<float, FieldState::Coeff> &x, const std::string &execSpace);
-template double Math::reduceSum<double>(MemoryRegion<double> &x,
-                                        const std::string &execSpace);
-template float Math::reduceSum<float>(MemoryRegion<float> &x,
-                                      const std::string &execSpace);
+template double Math::reduceSum<MemoryRegion<double>>(
+    MemoryRegion<double> &x, const std::string &execSpace);
+template float Math::reduceSum<MemoryRegion<float>>(
+    MemoryRegion<float> &x, const std::string &execSpace);
 
 // reduceMax template specialization.
-template double Math::reduceMax<double, FieldState::Phys>(
+template double Math::reduceMax<Field<double, FieldState::Phys>>(
     Field<double, FieldState::Phys> &x, const std::string &execSpace);
-template float Math::reduceMax<float, FieldState::Phys>(
+template float Math::reduceMax<Field<float, FieldState::Phys>>(
     Field<float, FieldState::Phys> &x, const std::string &execSpace);
-template double Math::reduceMax<double, FieldState::Coeff>(
+template double Math::reduceMax<Field<double, FieldState::Coeff>>(
     Field<double, FieldState::Coeff> &x, const std::string &execSpace);
-template float Math::reduceMax<float, FieldState::Coeff>(
+template float Math::reduceMax<Field<float, FieldState::Coeff>>(
     Field<float, FieldState::Coeff> &x, const std::string &execSpace);
-template double Math::reduceMax<double>(MemoryRegion<double> &x,
-                                        const std::string &execSpace);
-template float Math::reduceMax<float>(MemoryRegion<float> &x,
-                                      const std::string &execSpace);
+template double Math::reduceMax<MemoryRegion<double>>(
+    MemoryRegion<double> &x, const std::string &execSpace);
+template float Math::reduceMax<MemoryRegion<float>>(
+    MemoryRegion<float> &x, const std::string &execSpace);
 
 // reduceMin template specialization.
-template double Math::reduceMin<double, FieldState::Phys>(
+template double Math::reduceMin<Field<double, FieldState::Phys>>(
     Field<double, FieldState::Phys> &x, const std::string &execSpace);
-template float Math::reduceMin<float, FieldState::Phys>(
+template float Math::reduceMin<Field<float, FieldState::Phys>>(
     Field<float, FieldState::Phys> &x, const std::string &execSpace);
-template double Math::reduceMin<double, FieldState::Coeff>(
+template double Math::reduceMin<Field<double, FieldState::Coeff>>(
     Field<double, FieldState::Coeff> &x, const std::string &execSpace);
-template float Math::reduceMin<float, FieldState::Coeff>(
+template float Math::reduceMin<Field<float, FieldState::Coeff>>(
     Field<float, FieldState::Coeff> &x, const std::string &execSpace);
-template double Math::reduceMin<double>(MemoryRegion<double> &x,
-                                        const std::string &execSpace);
-template float Math::reduceMin<float>(MemoryRegion<float> &x,
-                                      const std::string &execSpace);
+template double Math::reduceMin<MemoryRegion<double>>(
+    MemoryRegion<double> &x, const std::string &execSpace);
+template float Math::reduceMin<MemoryRegion<float>>(
+    MemoryRegion<float> &x, const std::string &execSpace);
 
 // ddot template specialization.
-template double Math::ddot<double, FieldState::Phys>(
+template double Math::ddot<Field<double, FieldState::Phys>>(
     Field<double, FieldState::Phys> &x, Field<double, FieldState::Phys> &y,
     const std::string &execSpace);
-template float Math::ddot<float, FieldState::Phys>(
+template float Math::ddot<Field<float, FieldState::Phys>>(
     Field<float, FieldState::Phys> &x, Field<float, FieldState::Phys> &y,
     const std::string &execSpace);
-template double Math::ddot<double, FieldState::Coeff>(
+template double Math::ddot<Field<double, FieldState::Coeff>>(
     Field<double, FieldState::Coeff> &x, Field<double, FieldState::Coeff> &y,
     const std::string &execSpace);
-template float Math::ddot<float, FieldState::Coeff>(
+template float Math::ddot<Field<float, FieldState::Coeff>>(
     Field<float, FieldState::Coeff> &x, Field<float, FieldState::Coeff> &y,
     const std::string &execSpace);
-template double Math::ddot<double>(MemoryRegion<double> &x,
-                                   MemoryRegion<double> &y,
-                                   const std::string &execSpace);
-template float Math::ddot<float>(MemoryRegion<float> &x, MemoryRegion<float> &y,
-                                 const std::string &execSpace);
+template double Math::ddot<MemoryRegion<double>>(MemoryRegion<double> &x,
+                                                 MemoryRegion<double> &y,
+                                                 const std::string &execSpace);
+template float Math::ddot<MemoryRegion<float>>(MemoryRegion<float> &x,
+                                               MemoryRegion<float> &y,
+                                               const std::string &execSpace);
 
 // l1norm template specialization.
-template double Math::l1norm<double, FieldState::Phys>(
+template double Math::l1norm<Field<double, FieldState::Phys>>(
     Field<double, FieldState::Phys> &x, const std::string &execSpace);
-template float Math::l1norm<float, FieldState::Phys>(
+template float Math::l1norm<Field<float, FieldState::Phys>>(
     Field<float, FieldState::Phys> &x, const std::string &execSpace);
-template double Math::l1norm<double, FieldState::Coeff>(
+template double Math::l1norm<Field<double, FieldState::Coeff>>(
     Field<double, FieldState::Coeff> &x, const std::string &execSpace);
-template float Math::l1norm<float, FieldState::Coeff>(
+template float Math::l1norm<Field<float, FieldState::Coeff>>(
     Field<float, FieldState::Coeff> &x, const std::string &execSpace);
-template double Math::l1norm<double>(MemoryRegion<double> &x,
-                                     const std::string &execSpace);
-template float Math::l1norm<float>(MemoryRegion<float> &x,
-                                   const std::string &execSpace);
+template double Math::l1norm<MemoryRegion<double>>(
+    MemoryRegion<double> &x, const std::string &execSpace);
+template float Math::l1norm<MemoryRegion<float>>(MemoryRegion<float> &x,
+                                                 const std::string &execSpace);
 
 // l2norm template specialization.
-template double Math::l2norm<double, FieldState::Phys>(
+template double Math::l2norm<Field<double, FieldState::Phys>>(
     Field<double, FieldState::Phys> &x, const std::string &execSpace);
-template float Math::l2norm<float, FieldState::Phys>(
+template float Math::l2norm<Field<float, FieldState::Phys>>(
     Field<float, FieldState::Phys> &x, const std::string &execSpace);
-template double Math::l2norm<double, FieldState::Coeff>(
+template double Math::l2norm<Field<double, FieldState::Coeff>>(
     Field<double, FieldState::Coeff> &x, const std::string &execSpace);
-template float Math::l2norm<float, FieldState::Coeff>(
+template float Math::l2norm<Field<float, FieldState::Coeff>>(
     Field<float, FieldState::Coeff> &x, const std::string &execSpace);
-template double Math::l2norm<double>(MemoryRegion<double> &x,
-                                     const std::string &execSpace);
-template float Math::l2norm<float>(MemoryRegion<float> &x,
-                                   const std::string &execSpace);
+template double Math::l2norm<MemoryRegion<double>>(
+    MemoryRegion<double> &x, const std::string &execSpace);
+template float Math::l2norm<MemoryRegion<float>>(MemoryRegion<float> &x,
+                                                 const std::string &execSpace);
 
 // lpnorm template specialization.
-template double Math::lpnorm<double, FieldState::Phys>(
+template double Math::lpnorm<Field<double, FieldState::Phys>>(
     const unsigned int p, Field<double, FieldState::Phys> &x,
     const std::string &execSpace);
-template float Math::lpnorm<float, FieldState::Phys>(
+template float Math::lpnorm<Field<float, FieldState::Phys>>(
     const unsigned int p, Field<float, FieldState::Phys> &x,
     const std::string &execSpace);
-template double Math::lpnorm<double, FieldState::Coeff>(
+template double Math::lpnorm<Field<double, FieldState::Coeff>>(
     const unsigned int p, Field<double, FieldState::Coeff> &x,
     const std::string &execSpace);
-template float Math::lpnorm<float, FieldState::Coeff>(
+template float Math::lpnorm<Field<float, FieldState::Coeff>>(
     const unsigned int p, Field<float, FieldState::Coeff> &x,
     const std::string &execSpace);
-template double Math::lpnorm<double>(const unsigned int p,
-                                     MemoryRegion<double> &x,
-                                     const std::string &execSpace);
-template float Math::lpnorm<float>(const unsigned int p, MemoryRegion<float> &x,
-                                   const std::string &execSpace);
+template double Math::lpnorm<MemoryRegion<double>>(
+    const unsigned int p, MemoryRegion<double> &x,
+    const std::string &execSpace);
+template float Math::lpnorm<MemoryRegion<float>>(const unsigned int p,
+                                                 MemoryRegion<float> &x,
+                                                 const std::string &execSpace);
 
 // linfnorm template specialization.
-template double Math::linfnorm<double, FieldState::Phys>(
+template double Math::linfnorm<Field<double, FieldState::Phys>>(
     Field<double, FieldState::Phys> &x, const std::string &execSpace);
-template float Math::linfnorm<float, FieldState::Phys>(
+template float Math::linfnorm<Field<float, FieldState::Phys>>(
     Field<float, FieldState::Phys> &x, const std::string &execSpace);
-template double Math::linfnorm<double, FieldState::Coeff>(
+template double Math::linfnorm<Field<double, FieldState::Coeff>>(
     Field<double, FieldState::Coeff> &x, const std::string &execSpace);
-template float Math::linfnorm<float, FieldState::Coeff>(
+template float Math::linfnorm<Field<float, FieldState::Coeff>>(
     Field<float, FieldState::Coeff> &x, const std::string &execSpace);
-template double Math::linfnorm<double>(MemoryRegion<double> &x,
-                                       const std::string &execSpace);
-template float Math::linfnorm<float>(MemoryRegion<float> &x,
-                                     const std::string &execSpace);
+template double Math::linfnorm<MemoryRegion<double>>(
+    MemoryRegion<double> &x, const std::string &execSpace);
+template float Math::linfnorm<MemoryRegion<float>>(
+    MemoryRegion<float> &x, const std::string &execSpace);
 } // namespace Nektar
