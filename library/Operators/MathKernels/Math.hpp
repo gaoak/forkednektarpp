@@ -35,7 +35,6 @@
 #pragma once
 
 #include "Operators/Common/OperatorsDeclspec.hpp"
-#include "Operators/Field/Field.hpp"
 
 #include <string>
 
@@ -60,155 +59,68 @@ public:
         return *this;
     }
 
-    template <typename TData, FieldState TFieldState>
-    OPERATORS_EXPORT void neg(Field<TData, TFieldState> &x,
-                              Field<TData, TFieldState> &y,
+    template <typename T>
+    OPERATORS_EXPORT void neg(T &x, T &y, const std::string &execSpace = "");
+
+    template <typename T>
+    OPERATORS_EXPORT void add(T &x, T &y, T &z,
                               const std::string &execSpace = "");
 
-    template <typename TData>
-    OPERATORS_EXPORT void neg(MemoryRegion<TData> &x, MemoryRegion<TData> &y,
+    template <typename T>
+    OPERATORS_EXPORT void sub(T &x, T &y, T &z,
                               const std::string &execSpace = "");
 
-    template <typename TData, FieldState TFieldState>
-    OPERATORS_EXPORT void add(Field<TData, TFieldState> &x,
-                              Field<TData, TFieldState> &y,
-                              Field<TData, TFieldState> &z,
+    template <typename T>
+    OPERATORS_EXPORT void mul(const typename T::value_type alpha, T &x, T &y,
                               const std::string &execSpace = "");
 
-    template <typename TData>
-    OPERATORS_EXPORT void add(MemoryRegion<TData> &x, MemoryRegion<TData> &y,
-                              MemoryRegion<TData> &z,
+    template <typename T>
+    OPERATORS_EXPORT void mul(T &x, T &y, T &z,
                               const std::string &execSpace = "");
 
-    template <typename TData, FieldState TFieldState>
-    OPERATORS_EXPORT void sub(Field<TData, TFieldState> &x,
-                              Field<TData, TFieldState> &y,
-                              Field<TData, TFieldState> &z,
+    template <typename T>
+    OPERATORS_EXPORT void div(const typename T::value_type alpha, T &x, T &y,
                               const std::string &execSpace = "");
 
-    template <typename TData>
-    OPERATORS_EXPORT void sub(MemoryRegion<TData> &x, MemoryRegion<TData> &y,
-                              MemoryRegion<TData> &z,
+    template <typename T>
+    OPERATORS_EXPORT void div(T &x, T &y, T &z,
                               const std::string &execSpace = "");
 
-    template <typename TData, FieldState TFieldState>
-    OPERATORS_EXPORT void mul(const TData alpha, Field<TData, TFieldState> &x,
-                              Field<TData, TFieldState> &y,
-                              const std::string &execSpace = "");
+    template <typename T>
+    OPERATORS_EXPORT void daxpy(const typename T::value_type alpha, T &x, T &y,
+                                T &z, const std::string &execSpace = "");
 
-    template <typename TData, FieldState TFieldState>
-    OPERATORS_EXPORT void mul(Field<TData, TFieldState> &x,
-                              Field<TData, TFieldState> &y,
-                              Field<TData, TFieldState> &z,
-                              const std::string &execSpace = "");
+    template <typename T>
+    OPERATORS_EXPORT typename T::value_type reduceSum(
+        T &x, const std::string &execSpace = "");
 
-    template <typename TData>
-    OPERATORS_EXPORT void mul(const TData alpha, MemoryRegion<TData> &x,
-                              MemoryRegion<TData> &y,
-                              const std::string &execSpace = "");
+    template <typename T>
+    OPERATORS_EXPORT typename T::value_type reduceMax(
+        T &x, const std::string &execSpace = "");
 
-    template <typename TData>
-    OPERATORS_EXPORT void mul(MemoryRegion<TData> &x, MemoryRegion<TData> &y,
-                              MemoryRegion<TData> &z,
-                              const std::string &execSpace = "");
+    template <typename T>
+    OPERATORS_EXPORT typename T::value_type reduceMin(
+        T &x, const std::string &execSpace = "");
 
-    template <typename TData, FieldState TFieldState>
-    OPERATORS_EXPORT void div(const TData alpha, Field<TData, TFieldState> &x,
-                              Field<TData, TFieldState> &y,
-                              const std::string &execSpace = "");
+    template <typename T>
+    OPERATORS_EXPORT typename T::value_type ddot(
+        T &x, T &y, const std::string &execSpace = "");
 
-    template <typename TData, FieldState TFieldState>
-    OPERATORS_EXPORT void div(Field<TData, TFieldState> &x,
-                              Field<TData, TFieldState> &y,
-                              Field<TData, TFieldState> &z,
-                              const std::string &execSpace = "");
+    template <typename T>
+    OPERATORS_EXPORT typename T::value_type l1norm(
+        T &x, const std::string &execSpace = "");
 
-    template <typename TData>
-    OPERATORS_EXPORT void div(const TData alpha, MemoryRegion<TData> &x,
-                              MemoryRegion<TData> &y,
-                              const std::string &execSpace = "");
+    template <typename T>
+    OPERATORS_EXPORT typename T::value_type l2norm(
+        T &, const std::string &execSpace = "");
 
-    template <typename TData>
-    OPERATORS_EXPORT void div(MemoryRegion<TData> &x, MemoryRegion<TData> &y,
-                              MemoryRegion<TData> &z,
-                              const std::string &execSpace = "");
+    template <typename T>
+    OPERATORS_EXPORT typename T::value_type lpnorm(
+        const unsigned int p, T &x, const std::string &execSpace = "");
 
-    template <typename TData, FieldState TFieldState>
-    OPERATORS_EXPORT void daxpy(const TData alpha, Field<TData, TFieldState> &x,
-                                Field<TData, TFieldState> &y,
-                                Field<TData, TFieldState> &z,
-                                const std::string &execSpace = "");
-
-    template <typename TData>
-    OPERATORS_EXPORT void daxpy(const TData alpha, MemoryRegion<TData> &x,
-                                MemoryRegion<TData> &y, MemoryRegion<TData> &z,
-                                const std::string &execSpace = "");
-
-    template <typename TData, FieldState TFieldState>
-    OPERATORS_EXPORT TData reduceSum(Field<TData, TFieldState> &x,
-                                     const std::string &execSpace = "");
-
-    template <typename TData>
-    OPERATORS_EXPORT TData reduceSum(MemoryRegion<TData> &x,
-                                     const std::string &execSpace = "");
-
-    template <typename TData, FieldState TFieldState>
-    OPERATORS_EXPORT TData reduceMax(Field<TData, TFieldState> &x,
-                                     const std::string &execSpace = "");
-
-    template <typename TData>
-    OPERATORS_EXPORT TData reduceMax(MemoryRegion<TData> &x,
-                                     const std::string &execSpace = "");
-
-    template <typename TData, FieldState TFieldState>
-    OPERATORS_EXPORT TData reduceMin(Field<TData, TFieldState> &x,
-                                     const std::string &execSpace = "");
-
-    template <typename TData>
-    OPERATORS_EXPORT TData reduceMin(MemoryRegion<TData> &x,
-                                     const std::string &execSpace = "");
-
-    template <typename TData, FieldState TFieldState>
-    OPERATORS_EXPORT TData ddot(Field<TData, TFieldState> &x,
-                                Field<TData, TFieldState> &y,
-                                const std::string &execSpace = "");
-
-    template <typename TData>
-    OPERATORS_EXPORT TData ddot(MemoryRegion<TData> &x, MemoryRegion<TData> &y,
-                                const std::string &execSpace = "");
-
-    template <typename TData, FieldState TFieldState>
-    OPERATORS_EXPORT TData l1norm(Field<TData, TFieldState> &x,
-                                  const std::string &execSpace = "");
-
-    template <typename TData>
-    OPERATORS_EXPORT TData l1norm(MemoryRegion<TData> &x,
-                                  const std::string &execSpace = "");
-
-    template <typename TData, FieldState TFieldState>
-    OPERATORS_EXPORT TData l2norm(Field<TData, TFieldState> &x,
-                                  const std::string &execSpace = "");
-
-    template <typename TData>
-    OPERATORS_EXPORT TData l2norm(MemoryRegion<TData> &,
-                                  const std::string &execSpace = "");
-
-    template <typename TData, FieldState TFieldState>
-    OPERATORS_EXPORT TData lpnorm(const unsigned int p,
-                                  Field<TData, TFieldState> &x,
-                                  const std::string &execSpace = "");
-
-    template <typename TData>
-    OPERATORS_EXPORT TData lpnorm(const unsigned int p, MemoryRegion<TData> &x,
-                                  const std::string &execSpace = "");
-
-    template <typename TData, FieldState TFieldState>
-    OPERATORS_EXPORT TData linfnorm(Field<TData, TFieldState> &x,
-                                    const std::string &execSpace = "");
-
-    template <typename TData>
-    OPERATORS_EXPORT TData linfnorm(MemoryRegion<TData> &x,
-                                    const std::string &execSpace = "");
+    template <typename T>
+    OPERATORS_EXPORT typename T::value_type linfnorm(
+        T &x, const std::string &execSpace = "");
 
 private:
     std::string m_defaultExecSpace;
