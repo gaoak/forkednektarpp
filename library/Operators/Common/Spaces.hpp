@@ -267,7 +267,7 @@ namespace Nektar
 {
 
 // Helper function
-[[maybe_unused]] static size_t GetExecSpaceAlignment(
+[[maybe_unused]] static inline size_t GetExecSpaceAlignment(
     const std::string &execspace)
 {
     if (execspace == "Serial")
@@ -286,6 +286,17 @@ namespace Nektar
     {
         return NektarSpaces::Serial::alignment;
     }
+}
+
+[[maybe_unused]] static inline void nekDeviceSynchronize(void)
+{
+#if defined(NEKTAR_ENABLE_CUDA)
+    CHECK_HIPCUDA_ERROR(cudaDeviceSynchronize());
+#elif defined(NEKTAR_ENABLE_HIP)
+    CHECK_HIPCUDA_ERROR(hipDeviceSynchronize());
+#elif defined(NEKTAR_ENABLE_SYCL)
+    SYCLQueue::GetInstance().wait();
+#endif
 }
 
 class hipcudaBlock1D

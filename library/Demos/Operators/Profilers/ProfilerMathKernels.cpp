@@ -170,13 +170,7 @@ void ProfilerDaxpy(const size_t size)
     {
         math.daxpy(3.2, x, y, z);
     }
-#if defined(NEKTAR_ENABLE_CUDA)
-    CHECK_HIPCUDA_ERROR(cudaDeviceSynchronize());
-#elif defined(NEKTAR_ENABLE_HIP)
-    CHECK_HIPCUDA_ERROR(hipDeviceSynchronize());
-#elif defined(NEKTAR_ENABLE_SYCL)
-    SYCLQueue::GetInstance().wait();
-#endif
+    nekDeviceSynchronize();
     timer.Stop();
     TData time_device = timer.Elapsed().count() / ntests;
 #endif

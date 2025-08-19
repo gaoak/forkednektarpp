@@ -157,25 +157,13 @@ int main(int argc, char *argv[])
     }
 
     // Benchmark CG solve.
-#if defined(NEKTAR_ENABLE_CUDA)
-    CHECK_HIPCUDA_ERROR(cudaDeviceSynchronize());
-#elif defined(NEKTAR_ENABLE_HIP)
-    CHECK_HIPCUDA_ERROR(hipDeviceSynchronize());
-#elif defined(NEKTAR_ENABLE_SYCL)
-    SYCLQueue::GetInstance().wait();
-#endif
+    nekDeviceSynchronize();
     timer.Start();
     for (unsigned int i = 0; i < nTest; ++i)
     {
         conjGradOp->Apply(fIn, fOut);
     }
-#if defined(NEKTAR_ENABLE_CUDA)
-    CHECK_HIPCUDA_ERROR(cudaDeviceSynchronize());
-#elif defined(NEKTAR_ENABLE_HIP)
-    CHECK_HIPCUDA_ERROR(hipDeviceSynchronize());
-#elif defined(NEKTAR_ENABLE_SYCL)
-    SYCLQueue::GetInstance().wait();
-#endif
+    nekDeviceSynchronize();
 
     timer.Stop();
 
