@@ -460,13 +460,7 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
     // For MPI, since elmental operators are local we don't need to synchronize
     // after each operator call. Just add a block after the timer stops.
 
-#if defined(NEKTAR_ENABLE_CUDA)
-    CHECK_HIPCUDA_ERROR(cudaDeviceSynchronize());
-#elif defined(NEKTAR_ENABLE_HIP)
-    CHECK_HIPCUDA_ERROR(hipDeviceSynchronize());
-#elif defined(NEKTAR_ENABLE_SYCL)
-    SYCLQueue::GetInstance().wait();
-#endif
+    nekDeviceSynchronize();
     timer.Start();
     LIKWID_MARKER_START(tag.c_str());
 
@@ -475,13 +469,7 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
         oper->Apply(in, out);
     }
 
-#if defined(NEKTAR_ENABLE_CUDA)
-    CHECK_HIPCUDA_ERROR(cudaDeviceSynchronize());
-#elif defined(NEKTAR_ENABLE_HIP)
-    CHECK_HIPCUDA_ERROR(hipDeviceSynchronize());
-#elif defined(NEKTAR_ENABLE_SYCL)
-    SYCLQueue::GetInstance().wait();
-#endif
+    nekDeviceSynchronize();
     LIKWID_MARKER_STOP(tag.c_str());
     timer.Stop();
 
