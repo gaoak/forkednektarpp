@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: BDFDeviceOnHostKernelLaunchers.hpp
+// File: AdamsMoultonOp.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,24 +34,33 @@
 
 #pragma once
 
-#if defined(NEKTAR_ENABLE_DEVICEONHOST)
-#include <deque>
+#include "Operators/TimeOps/TimeOp.hpp"
 
-namespace Nektar::Operators::detail
+namespace Nektar::Operators
 {
 
-// Kernel Launchers.
-template <typename ExecSpace, typename TData, unsigned int IntOrder>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                            void>::type
-    ExtrapolateKernel(const size_t nsize, const TData dt,
-                      const TData *const *solutions, TData *inoutPtr)
+// AdamsMoulton base class
+// Defines the apply operator to enforce apply parameter types
+template <typename TData> class AdamsMoultonOp : public TimeOp<TData>
 {
-    ExtrapolateKernel<deviceOnHostBlock1D, TData, IntOrder>(
-        nsize, dt, solutions, inoutPtr, deviceOnHostBlock1D());
-}
+public:
+    static std::shared_ptr<AdamsMoultonOp<TData>> Create(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const unsigned int &order = 0, const std::string &execStr = "")
+    {
+        return std::dynamic_pointer_cast<AdamsMoultonOp<TData>>(
+            TimeOp<TData>::Create(expansionList, name, order, "", execStr));
+    }
 
-} // namespace Nektar::Operators::detail
+    static inline const std::string name = "AdamsMoulton";
 
-#endif
+protected:
+    AdamsMoultonOp(const MultiRegions::ExpListSharedPtr &expansionList)
+        : TimeOp<TData>(expansionList)
+    {
+    }
+
+    ~AdamsMoultonOp() override = default;
+};
+
+} // namespace Nektar::Operators

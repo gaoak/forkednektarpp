@@ -160,7 +160,7 @@ public:
 
         OperatorFactory<TData> &factory = GetOperatorFactory<TData>();
 
-        // No suitible operator was found.
+        // No suitable operator was found.
         if (!factory.ModuleExists(requestedKey))
         {
             std::stringstream msg;

@@ -245,7 +245,7 @@ struct Device
 #if defined(NEKTAR_ENABLE_CUDA) && defined(DEVICE_COMPILE_ONLY)
 #define NEK_DEVICE_INLINE __device__ __forceinline__
 #elif defined(NEKTAR_ENABLE_HIP) && defined(DEVICE_COMPILE_ONLY)
-#define NEK_DEVICE_INLINE __device__ __forceinline__
+#define NEK_DEVICE_INLINE __host__ __device__ __forceinline__
 #elif defined(NEKTAR_ENABLE_SYCL)
 #define NEK_DEVICE_INLINE NEK_FORCE_INLINE
 #else

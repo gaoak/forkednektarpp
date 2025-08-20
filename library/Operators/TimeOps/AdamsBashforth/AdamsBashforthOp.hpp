@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: BDFSYCLKernelLaunchers.hpp
+// File: AdamsBashforthOp.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,34 +34,33 @@
 
 #pragma once
 
-#if defined(NEKTAR_ENABLE_SYCL)
+#include "Operators/TimeOps/TimeOp.hpp"
 
-namespace Nektar::Operators::detail
+namespace Nektar::Operators
 {
 
-// Kernel Launchers.
-template <typename ExecSpace, typename TData, unsigned int IntOrder>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                            void>::type
-    ExtrapolateKernel(const size_t nsize, const TData dt,
-                      const TData *const *solutions, TData *inoutPtr)
+// AdamsBashforth base class
+// Defines the apply operator to enforce apply parameter types
+template <typename TData> class AdamsBashforthOp : public TimeOp<TData>
 {
-    const size_t blockSize = NektarSpaces::Device::defaultBlockSize;
-    const size_t gridSize  = (nsize + blockSize - 1u) / blockSize;
+public:
+    static std::shared_ptr<AdamsBashforthOp<TData>> Create(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const unsigned int &order = 0, const std::string &execStr = "")
+    {
+        return std::dynamic_pointer_cast<AdamsBashforthOp<TData>>(
+            TimeOp<TData>::Create(expansionList, name, order, "", execStr));
+    }
 
-    sycl::queue &Q = SYCLQueue::GetInstance();
-    Q.submit([=](sycl::handler &cgh) {
-        cgh.parallel_for(
-            sycl::nd_range<1>(gridSize * blockSize, blockSize),
-            [=](sycl::nd_item<1> item_ct1) {
-#pragma forceinline
-                ExtrapolateKernel<sycl::nd_item<1>, TData, IntOrder>(
-                    nsize, dt, solutions, inoutPtr, item_ct1);
-            });
-    });
-}
+    static inline const std::string name = "AdamsBashforth";
 
-} // namespace Nektar::Operators::detail
+protected:
+    AdamsBashforthOp(const MultiRegions::ExpListSharedPtr &expansionList)
+        : TimeOp<TData>(expansionList)
+    {
+    }
 
-#endif
+    ~AdamsBashforthOp() override = default;
+};
+
+} // namespace Nektar::Operators
