@@ -42,7 +42,8 @@ enum MemAllocType
     ePinned
 };
 
-using namespace Nektar;
+namespace Nektar::Operators
+{
 
 template <typename TData> class MemoryRegion;
 
@@ -672,3 +673,5 @@ protected:
     std::string m_name{""};
     MemAllocType m_memAllocType{ePageable};
 };
+
+} // namespace Nektar::Operators

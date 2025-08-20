@@ -41,6 +41,9 @@
 
 #include <LibUtilities/BasicUtils/NekInline.hpp>
 
+namespace Nektar::Operators::detail
+{
+
 template <bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void AddAdvectionSegKernel(
     const unsigned int nq0, const simd_type *advVel_ptr,
@@ -296,3 +299,5 @@ NEK_FORCE_INLINE static void AddAdvection3DKernel(
         }
     }
 }
+
+} // namespace Nektar::Operators::detail

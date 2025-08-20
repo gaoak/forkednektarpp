@@ -41,7 +41,7 @@
 #include "Operators/MathKernels/MathSYCLKernels.hpp"
 #include "Operators/MathKernels/MathSerialKernels.hpp"
 
-namespace Nektar
+namespace Nektar::Operators
 {
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
@@ -673,4 +673,4 @@ void linfnorm(MemoryRegion<TData> &x, TData *out)
     linfnormKernel<ExecSpace, true>(nsize, xptr, out);
 }
 
-} // namespace Nektar
+} // namespace Nektar::Operators

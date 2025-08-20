@@ -43,6 +43,7 @@
 
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
+using namespace Nektar::Operators;
 using vec_t = tinysimd::simd<double>;
 
 template <typename TData, bool warmup = false>

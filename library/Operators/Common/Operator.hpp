@@ -53,35 +53,6 @@
 #include "Operators/Common/StdMatDataWarehouse.hpp"
 #include "Operators/Field/Field.hpp"
 
-namespace Nektar::LibUtilities
-{
-/**
- * Partial specialisation for memory region
- */
-template <class elemT> class CommDataTypeTraits<MemoryRegion<elemT>>
-{
-public:
-    static CommDataType &GetDataType()
-    {
-        return CommDataTypeTraits<elemT>::GetDataType();
-    }
-    static void *GetPointer(MemoryRegion<elemT> &val)
-    {
-        return val.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
-    }
-    static const void *GetPointer(const MemoryRegion<elemT> &val)
-    {
-        return val.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
-    }
-    static size_t GetCount(const MemoryRegion<elemT> &val)
-    {
-        return val.size();
-    }
-    const static bool IsVector = true;
-};
-
-} // namespace Nektar::LibUtilities
-
 namespace Nektar::Operators
 {
 

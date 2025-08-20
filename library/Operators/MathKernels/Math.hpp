@@ -38,7 +38,7 @@
 
 #include <string>
 
-namespace Nektar
+namespace Nektar::Operators
 {
 
 class Math
@@ -126,4 +126,4 @@ private:
     std::string m_defaultExecSpace;
 };
 
-} // namespace Nektar
+} // namespace Nektar::Operators
