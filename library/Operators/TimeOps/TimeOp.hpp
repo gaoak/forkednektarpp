@@ -117,10 +117,12 @@ public:
     /// Functor definitions and generic handles for projection, and explicit
     /// and implicit evaluation.
     // Functor typedefs
-    typedef std::function<void(Field<TData, FieldState::Phys> &, const TData &)>
-        functorType1;
     typedef std::function<void(Field<TData, FieldState::Phys> &,
                                Field<TData, FieldState::Phys> &, const TData &)>
+        functorType1;
+    typedef std::function<void(Field<TData, FieldState::Phys> &,
+                               Field<TData, FieldState::Phys> &, const TData &,
+                               const TData &)>
         functorType2;
 
     template <typename FuncPointerT, typename ObjectPointerT>
@@ -128,14 +130,15 @@ public:
     {
         m_explicitFunctor =
             std::bind(func, obj, std::placeholders::_1, std::placeholders::_2,
-                      std::placeholders::_3);
+                      std::placeholders::_3, std::placeholders::_4);
     }
 
     template <typename FuncPointerT, typename ObjectPointerT>
     void DefineProjection(FuncPointerT func, ObjectPointerT obj)
     {
         m_projectionFunctor =
-            std::bind(func, obj, std::placeholders::_1, std::placeholders::_2);
+            std::bind(func, obj, std::placeholders::_1, std::placeholders::_2,
+                      std::placeholders::_3);
     }
 
     template <typename FuncPointerT, typename ObjectPointerT>
@@ -143,39 +146,40 @@ public:
     {
         m_implicitFunctor =
             std::bind(func, obj, std::placeholders::_1, std::placeholders::_2,
-                      std::placeholders::_3);
+                      std::placeholders::_3, std::placeholders::_4);
     }
 
     void DoExplicit(Field<TData, FieldState::Phys> &in,
-                    Field<TData, FieldState::Phys> &out,
+                    Field<TData, FieldState::Phys> &out, const TData &time,
                     const TData &factor) const
     {
         ASSERTL1(m_explicitFunctor,
                  "Explicit functor should be defined for this time "
                  "integration scheme. Use DefineExplicit() within "
                  "solver definition.");
-        m_explicitFunctor(in, out, factor);
+        m_explicitFunctor(in, out, time, factor);
     }
 
     void DoProjection(Field<TData, FieldState::Phys> &in,
-                      const TData &factor) const
+                      Field<TData, FieldState::Phys> &out,
+                      const TData &time) const
     {
         ASSERTL1(m_projectionFunctor,
                  "Projection functor should be defined for this time "
                  "integration scheme. Use DefineProjection() within "
                  "solver definition.");
-        m_projectionFunctor(in, factor);
+        m_projectionFunctor(in, out, time);
     }
 
     void DoImplicit(Field<TData, FieldState::Phys> &in,
-                    Field<TData, FieldState::Phys> &out,
+                    Field<TData, FieldState::Phys> &out, const TData &time,
                     const TData &lambda) const
     {
         ASSERTL1(m_implicitFunctor,
                  "Implicit functor should be defined for this time "
                  "integration scheme. Use DefineImplicit() within "
                  "solver definition.");
-        m_implicitFunctor(in, out, lambda);
+        m_implicitFunctor(in, out, time, lambda);
     }
 
     void CopyFunctorsFrom(const TimeOp<TData> &src)

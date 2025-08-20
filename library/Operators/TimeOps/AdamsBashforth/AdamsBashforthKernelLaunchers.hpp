@@ -47,28 +47,28 @@ NEK_DEVICE_INLINE static void ExtrapolateAdamsBashforthKernelImpl(
 {
     constexpr unsigned int intOrder = sizeof...(explicits);
 
-    // 1st Order
+    // 1st order
     if constexpr (intOrder == 1)
     {
         constexpr TData coeff[] = {1.0};
 
         inout[idx] += ((explicits[idx] * coeff[ind]) + ...);
     }
-    // 2nd Order
+    // 2nd order
     else if constexpr (intOrder == 2)
     {
         constexpr TData coeff[] = {3.0 / 2.0, -1.0 / 2.0};
 
         inout[idx] += ((explicits[idx] * coeff[ind]) + ...);
     }
-    // 3rd Order
+    // 3rd order
     else if constexpr (intOrder == 3)
     {
         constexpr TData coeff[] = {23.0 / 12.0, -4.0 / 3.0, 5.0 / 12.0};
 
         inout[idx] += ((explicits[idx] * coeff[ind]) + ...);
     }
-    // 4th Order
+    // 4th order
     else if constexpr (intOrder == 4)
     {
         constexpr TData coeff[] = {55.0 / 24.0, -59.0 / 24.0, 37.0 / 24.0,

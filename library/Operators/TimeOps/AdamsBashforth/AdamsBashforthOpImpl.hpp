@@ -123,7 +123,8 @@ protected:
                 this->RollOver(this->m_explicits);
             }
 
-            this->DoExplicit(inout, this->m_explicits[0], this->m_timestep);
+            this->DoExplicit(inout, this->m_explicits[0], this->m_time,
+                             this->m_timestep);
 
             // Do extrapolation.
             Extrapolate(inout,

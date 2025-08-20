@@ -137,6 +137,7 @@ protected:
 
             // Compute next time step
             this->DoImplicit(this->m_implicits[0], inout,
+                             this->m_time + this->m_timestep,
                              m_gamma * this->m_timestep);
 
             // Update implicit derivative

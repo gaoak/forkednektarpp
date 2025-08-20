@@ -47,21 +47,21 @@ NEK_DEVICE_INLINE static void ExtrapolateAdamsMoultonKernelImpl(
 {
     constexpr unsigned int intOrder = sizeof...(implicits) + 1;
 
-    // 2nd Order
+    // 2nd order
     if constexpr (intOrder == 2)
     {
         constexpr TData coeff[] = {1.0 / 2.0};
 
         inout[idx] += dt * ((implicits[idx] * coeff[ind]) + ...);
     }
-    // 3rd Order
+    // 3rd order
     else if constexpr (intOrder == 3)
     {
         constexpr TData coeff[] = {8.0 / 12.0, -1.0 / 12.0};
 
         inout[idx] += dt * ((implicits[idx] * coeff[ind]) + ...);
     }
-    // 4th Order
+    // 4th order
     else if constexpr (intOrder == 4)
     {
         constexpr TData coeff[] = {19.0 / 24.0, -5.0 / 24.0, 1.0 / 24.0};
