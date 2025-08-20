@@ -38,6 +38,9 @@
 #include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseSerialAVXSumFacKernels.hpp"
 #include "Operators/ElmtOps/PhysDeriv/PhysDerivSerialAVXSumFacKernels.hpp"
 
+namespace Nektar::Operators::detail
+{
+
 template <bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void StdAlignDerivBase1D(
     const unsigned int nq0, const unsigned int indim, const simd_type *df_ptr,
@@ -305,3 +308,5 @@ NEK_FORCE_INLINE static void StdAlignDerivBase3D(
         }
     }
 }
+
+} // namespace Nektar::Operators::detail

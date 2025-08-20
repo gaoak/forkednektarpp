@@ -38,6 +38,9 @@
 
 #include "StdRegions/Operators/IProductWRTBaseSumFacStdKernels.hpp"
 
+namespace Nektar::Operators::detail
+{
+
 // The dimension and shape kernels. NOTE: They are NOT duplicate
 // templated version based on the array size like the
 // operators. HOWEVER, they are forced to be INLINED. The inlining is
@@ -291,3 +294,5 @@ NEK_FORCE_INLINE static void IProduct3DKernel(
                                                     B2, wsp0, wsp1, out, scale);
     }
 }
+
+} // namespace Nektar::Operators::detail

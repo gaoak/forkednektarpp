@@ -77,6 +77,9 @@ template <class TData> struct const_if<true, TData>
     typedef const TData type;
 };
 
+namespace Nektar::Operators
+{
+
 template <typename TData> class FieldBase;
 
 class MemoryRegionBase
@@ -607,3 +610,5 @@ private:
     // Member variables:
     std::unique_ptr<MemoryStorage<TData>> m_storage = nullptr;
 };
+
+} // namespace Nektar::Operators

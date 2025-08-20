@@ -38,6 +38,9 @@
 
 #include "StdRegions/Operators/BwdTransSumFacStdKernels.hpp"
 
+namespace Nektar::Operators::detail
+{
+
 // The dimension and shape kernels. NOTE: They are NOT duplicate
 // templated version based on the array size like the
 // operators. HOWEVER, they are forced to be INLINED. The inlining is
@@ -194,3 +197,5 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
                           basis1, basis2, wsp0, wsp1, in, out);
     }
 }
+
+} // namespace Nektar::Operators::detail

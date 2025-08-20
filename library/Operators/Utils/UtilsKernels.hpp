@@ -38,6 +38,9 @@
 #include "Operators/Utils/UtilsDeviceKernels.hpp"
 #include "Operators/Utils/UtilsSerialAVXKernels.hpp"
 
+namespace Nektar::Operators
+{
+
 /**
  * @brief Reshapes the storage to a prescribed vector width.
  *
@@ -76,3 +79,5 @@ void ReshapeStorage(const unsigned int currInterleaveWidth, const size_t nelmt,
         }
     }
 }
+
+} // namespace Nektar::Operators

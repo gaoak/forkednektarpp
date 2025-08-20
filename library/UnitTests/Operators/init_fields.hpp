@@ -95,6 +95,7 @@
 #undef min
 #endif
 
+using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
 

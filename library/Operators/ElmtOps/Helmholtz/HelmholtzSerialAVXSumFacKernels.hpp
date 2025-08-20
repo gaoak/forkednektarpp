@@ -40,6 +40,9 @@
 
 #include <LibUtilities/BasicUtils/NekInline.hpp>
 
+namespace Nektar::Operators::detail
+{
+
 template <bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void DiffusionCoeffSegKernel(
     const unsigned int ncoord, const unsigned int nq0,
@@ -1834,3 +1837,5 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJ3DKernel(
             h0, h1, h3, deriv0, deriv1, deriv2, phys, lambda);
     }
 }
+
+} // namespace Nektar::Operators::detail

@@ -38,6 +38,9 @@
 
 #include "StdRegions/Operators/PhysDerivSumFacStdKernels.hpp"
 
+namespace Nektar::Operators::detail
+{
+
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE void PhysDeriv1DKernel(const unsigned int nq0,
                                         const unsigned int ndf,
@@ -358,3 +361,5 @@ NEK_FORCE_INLINE static void PhysDeriv3DWorkspace(
         wsp2Size = std::max(wsp2Size, nq0 * nq1 * nq2);
     }
 }
+
+} // namespace Nektar::Operators::detail

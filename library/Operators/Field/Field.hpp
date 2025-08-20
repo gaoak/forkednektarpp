@@ -38,6 +38,9 @@
 
 #include "MemoryRegion.hpp"
 
+namespace Nektar::Operators
+{
+
 template <typename MemSpace, typename TData>
 void AllocateFieldStorage(FieldBase<TData> *field);
 
@@ -1026,3 +1029,5 @@ void AllocateFieldStorage(FieldBase<TData> *field)
         }
     }
 }
+
+} // namespace Nektar::Operators

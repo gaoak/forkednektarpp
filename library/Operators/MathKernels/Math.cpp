@@ -37,7 +37,7 @@
 #include "Operators/MathKernels/Math.hpp"
 #include "Operators/MathKernels/MathKernels.hpp"
 
-namespace Nektar
+namespace Nektar::Operators
 {
 
 #if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||               \
@@ -52,18 +52,18 @@ template <typename T> void Math::neg(T &x, T &y, const std::string &execSpace)
 
     if (execSpace0 == "Serial")
     {
-        Nektar::neg<NektarSpaces::Serial>(x, y);
+        Nektar::Operators::neg<NektarSpaces::Serial>(x, y);
     }
 #if defined(NEKTAR_ENABLE_SIMD)
     else if (execSpace0 == "AVX")
     {
-        Nektar::neg<NektarSpaces::AVX>(x, y);
+        Nektar::Operators::neg<NektarSpaces::AVX>(x, y);
     }
 #elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
     else if (execSpace0 == "Device")
     {
-        Nektar::neg<NektarSpaces::Device>(x, y);
+        Nektar::Operators::neg<NektarSpaces::Device>(x, y);
     }
 #endif
     else
@@ -79,18 +79,18 @@ void Math::add(T &x, T &y, T &z, const std::string &execSpace)
 
     if (execSpace0 == "Serial")
     {
-        Nektar::add<NektarSpaces::Serial>(x, y, z);
+        Nektar::Operators::add<NektarSpaces::Serial>(x, y, z);
     }
 #if defined(NEKTAR_ENABLE_SIMD)
     else if (execSpace0 == "AVX")
     {
-        Nektar::add<NektarSpaces::AVX>(x, y, z);
+        Nektar::Operators::add<NektarSpaces::AVX>(x, y, z);
     }
 #elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
     else if (execSpace0 == "Device")
     {
-        Nektar::add<NektarSpaces::Device>(x, y, z);
+        Nektar::Operators::add<NektarSpaces::Device>(x, y, z);
     }
 #endif
     else
@@ -106,18 +106,18 @@ void Math::sub(T &x, T &y, T &z, const std::string &execSpace)
 
     if (execSpace0 == "Serial")
     {
-        Nektar::sub<NektarSpaces::Serial>(x, y, z);
+        Nektar::Operators::sub<NektarSpaces::Serial>(x, y, z);
     }
 #if defined(NEKTAR_ENABLE_SIMD)
     else if (execSpace0 == "AVX")
     {
-        Nektar::sub<NektarSpaces::AVX>(x, y, z);
+        Nektar::Operators::sub<NektarSpaces::AVX>(x, y, z);
     }
 #elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
     else if (execSpace0 == "Device")
     {
-        Nektar::sub<NektarSpaces::Device>(x, y, z);
+        Nektar::Operators::sub<NektarSpaces::Device>(x, y, z);
     }
 #endif
     else
@@ -134,18 +134,18 @@ void Math::mul(const typename T::value_type alpha, T &x, T &y,
 
     if (execSpace0 == "Serial")
     {
-        Nektar::mul<NektarSpaces::Serial>(alpha, x, y);
+        Nektar::Operators::mul<NektarSpaces::Serial>(alpha, x, y);
     }
 #if defined(NEKTAR_ENABLE_SIMD)
     else if (execSpace0 == "AVX")
     {
-        Nektar::mul<NektarSpaces::AVX>(alpha, x, y);
+        Nektar::Operators::mul<NektarSpaces::AVX>(alpha, x, y);
     }
 #elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
     else if (execSpace0 == "Device")
     {
-        Nektar::mul<NektarSpaces::Device>(alpha, x, y);
+        Nektar::Operators::mul<NektarSpaces::Device>(alpha, x, y);
     }
 #endif
     else
@@ -161,18 +161,18 @@ void Math::mul(T &x, T &y, T &z, const std::string &execSpace)
 
     if (execSpace0 == "Serial")
     {
-        Nektar::mul<NektarSpaces::Serial>(x, y, z);
+        Nektar::Operators::mul<NektarSpaces::Serial>(x, y, z);
     }
 #if defined(NEKTAR_ENABLE_SIMD)
     else if (execSpace0 == "AVX")
     {
-        Nektar::mul<NektarSpaces::AVX>(x, y, z);
+        Nektar::Operators::mul<NektarSpaces::AVX>(x, y, z);
     }
 #elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
     else if (execSpace0 == "Device")
     {
-        Nektar::mul<NektarSpaces::Device>(x, y, z);
+        Nektar::Operators::mul<NektarSpaces::Device>(x, y, z);
     }
 #endif
     else
@@ -189,18 +189,18 @@ void Math::div(const typename T::value_type alpha, T &x, T &y,
 
     if (execSpace0 == "Serial")
     {
-        Nektar::div<NektarSpaces::Serial>(alpha, x, y);
+        Nektar::Operators::div<NektarSpaces::Serial>(alpha, x, y);
     }
 #if defined(NEKTAR_ENABLE_SIMD)
     else if (execSpace0 == "AVX")
     {
-        Nektar::div<NektarSpaces::AVX>(alpha, x, y);
+        Nektar::Operators::div<NektarSpaces::AVX>(alpha, x, y);
     }
 #elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
     else if (execSpace0 == "Device")
     {
-        Nektar::div<NektarSpaces::Device>(alpha, x, y);
+        Nektar::Operators::div<NektarSpaces::Device>(alpha, x, y);
     }
 #endif
     else
@@ -216,18 +216,18 @@ void Math::div(T &x, T &y, T &z, const std::string &execSpace)
 
     if (execSpace0 == "Serial")
     {
-        Nektar::div<NektarSpaces::Serial>(x, y, z);
+        Nektar::Operators::div<NektarSpaces::Serial>(x, y, z);
     }
 #if defined(NEKTAR_ENABLE_SIMD)
     else if (execSpace0 == "AVX")
     {
-        Nektar::div<NektarSpaces::AVX>(x, y, z);
+        Nektar::Operators::div<NektarSpaces::AVX>(x, y, z);
     }
 #elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
     else if (execSpace0 == "Device")
     {
-        Nektar::div<NektarSpaces::Device>(x, y, z);
+        Nektar::Operators::div<NektarSpaces::Device>(x, y, z);
     }
 #endif
     else
@@ -244,18 +244,18 @@ void Math::daxpy(const typename T::value_type alpha, T &x, T &y, T &z,
 
     if (execSpace0 == "Serial")
     {
-        Nektar::daxpy<NektarSpaces::Serial>(alpha, x, y, z);
+        Nektar::Operators::daxpy<NektarSpaces::Serial>(alpha, x, y, z);
     }
 #if defined(NEKTAR_ENABLE_SIMD)
     else if (execSpace0 == "AVX")
     {
-        Nektar::daxpy<NektarSpaces::AVX>(alpha, x, y, z);
+        Nektar::Operators::daxpy<NektarSpaces::AVX>(alpha, x, y, z);
     }
 #elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
     else if (execSpace0 == "Device")
     {
-        Nektar::daxpy<NektarSpaces::Device>(alpha, x, y, z);
+        Nektar::Operators::daxpy<NektarSpaces::Device>(alpha, x, y, z);
     }
 #endif
     else
@@ -272,12 +272,12 @@ typename T::value_type Math::reduceSum(T &x, const std::string &execSpace)
     typename T::value_type out = 0.0;
     if (execSpace0 == "Serial")
     {
-        Nektar::reduceSum<NektarSpaces::Serial>(x, &out);
+        Nektar::Operators::reduceSum<NektarSpaces::Serial>(x, &out);
     }
 #if defined(NEKTAR_ENABLE_SIMD)
     else if (execSpace0 == "AVX")
     {
-        Nektar::reduceSum<NektarSpaces::AVX>(x, &out);
+        Nektar::Operators::reduceSum<NektarSpaces::AVX>(x, &out);
     }
 #elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
@@ -292,7 +292,7 @@ typename T::value_type Math::reduceSum(T &x, const std::string &execSpace)
                                      sizeof(typename T::value_type),
                                      NektarSpaces::Device::alignment);
         }
-        Nektar::reduceSum<NektarSpaces::Device>(
+        Nektar::Operators::reduceSum<NektarSpaces::Device>(
             x, (typename T::value_type *)internal_device_buffer);
         Nektar::deviceMemcpy<DeviceToHost>(internal_host_buffer,
                                            internal_device_buffer,
@@ -316,12 +316,12 @@ typename T::value_type Math::reduceMax(T &x, const std::string &execSpace)
     typename T::value_type out = 0.0;
     if (execSpace0 == "Serial")
     {
-        Nektar::reduceMax<NektarSpaces::Serial>(x, &out);
+        Nektar::Operators::reduceMax<NektarSpaces::Serial>(x, &out);
     }
 #if defined(NEKTAR_ENABLE_SIMD)
     else if (execSpace0 == "AVX")
     {
-        Nektar::reduceMax<NektarSpaces::AVX>(x, &out);
+        Nektar::Operators::reduceMax<NektarSpaces::AVX>(x, &out);
     }
 #elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
@@ -336,7 +336,7 @@ typename T::value_type Math::reduceMax(T &x, const std::string &execSpace)
                                      sizeof(typename T::value_type),
                                      NektarSpaces::Device::alignment);
         }
-        Nektar::reduceMax<NektarSpaces::Device>(
+        Nektar::Operators::reduceMax<NektarSpaces::Device>(
             x, (typename T::value_type *)internal_device_buffer);
         Nektar::deviceMemcpy<DeviceToHost>(internal_host_buffer,
                                            internal_device_buffer,
@@ -360,12 +360,12 @@ typename T::value_type Math::reduceMin(T &x, const std::string &execSpace)
     typename T::value_type out = 0.0;
     if (execSpace0 == "Serial")
     {
-        Nektar::reduceMin<NektarSpaces::Serial>(x, &out);
+        Nektar::Operators::reduceMin<NektarSpaces::Serial>(x, &out);
     }
 #if defined(NEKTAR_ENABLE_SIMD)
     else if (execSpace0 == "AVX")
     {
-        Nektar::reduceMin<NektarSpaces::AVX>(x, &out);
+        Nektar::Operators::reduceMin<NektarSpaces::AVX>(x, &out);
     }
 #elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
@@ -380,7 +380,7 @@ typename T::value_type Math::reduceMin(T &x, const std::string &execSpace)
                                      sizeof(typename T::value_type),
                                      NektarSpaces::Device::alignment);
         }
-        Nektar::reduceMin<NektarSpaces::Device>(
+        Nektar::Operators::reduceMin<NektarSpaces::Device>(
             x, (typename T::value_type *)internal_device_buffer);
         Nektar::deviceMemcpy<DeviceToHost>(internal_host_buffer,
                                            internal_device_buffer,
@@ -404,12 +404,12 @@ typename T::value_type Math::ddot(T &x, T &y, const std::string &execSpace)
     typename T::value_type out = 0.0;
     if (execSpace0 == "Serial")
     {
-        Nektar::ddot<NektarSpaces::Serial>(x, y, &out);
+        Nektar::Operators::ddot<NektarSpaces::Serial>(x, y, &out);
     }
 #if defined(NEKTAR_ENABLE_SIMD)
     else if (execSpace0 == "AVX")
     {
-        Nektar::ddot<NektarSpaces::AVX>(x, y, &out);
+        Nektar::Operators::ddot<NektarSpaces::AVX>(x, y, &out);
     }
 #elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
@@ -424,7 +424,7 @@ typename T::value_type Math::ddot(T &x, T &y, const std::string &execSpace)
                                      sizeof(typename T::value_type),
                                      NektarSpaces::Device::alignment);
         }
-        Nektar::ddot<NektarSpaces::Device>(
+        Nektar::Operators::ddot<NektarSpaces::Device>(
             x, y, (typename T::value_type *)internal_device_buffer);
         Nektar::deviceMemcpy<DeviceToHost>(internal_host_buffer,
                                            internal_device_buffer,
@@ -448,12 +448,12 @@ typename T::value_type Math::l1norm(T &x, const std::string &execSpace)
     typename T::value_type out = 0.0;
     if (execSpace0 == "Serial")
     {
-        Nektar::l1norm<NektarSpaces::Serial>(x, &out);
+        Nektar::Operators::l1norm<NektarSpaces::Serial>(x, &out);
     }
 #if defined(NEKTAR_ENABLE_SIMD)
     else if (execSpace0 == "AVX")
     {
-        Nektar::l1norm<NektarSpaces::AVX>(x, &out);
+        Nektar::Operators::l1norm<NektarSpaces::AVX>(x, &out);
     }
 #elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
@@ -468,7 +468,7 @@ typename T::value_type Math::l1norm(T &x, const std::string &execSpace)
                                      sizeof(typename T::value_type),
                                      NektarSpaces::Device::alignment);
         }
-        Nektar::l1norm<NektarSpaces::Device>(
+        Nektar::Operators::l1norm<NektarSpaces::Device>(
             x, (typename T::value_type *)internal_device_buffer);
         Nektar::deviceMemcpy<DeviceToHost>(internal_host_buffer,
                                            internal_device_buffer,
@@ -492,12 +492,12 @@ typename T::value_type Math::l2norm(T &x, const std::string &execSpace)
     typename T::value_type out = 0.0;
     if (execSpace0 == "Serial")
     {
-        Nektar::l2norm<NektarSpaces::Serial>(x, &out);
+        Nektar::Operators::l2norm<NektarSpaces::Serial>(x, &out);
     }
 #if defined(NEKTAR_ENABLE_SIMD)
     else if (execSpace0 == "AVX")
     {
-        Nektar::l2norm<NektarSpaces::AVX>(x, &out);
+        Nektar::Operators::l2norm<NektarSpaces::AVX>(x, &out);
     }
 #elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
@@ -512,7 +512,7 @@ typename T::value_type Math::l2norm(T &x, const std::string &execSpace)
                                      sizeof(typename T::value_type),
                                      NektarSpaces::Device::alignment);
         }
-        Nektar::l2norm<NektarSpaces::Device>(
+        Nektar::Operators::l2norm<NektarSpaces::Device>(
             x, (typename T::value_type *)internal_device_buffer);
         Nektar::deviceMemcpy<DeviceToHost>(internal_host_buffer,
                                            internal_device_buffer,
@@ -537,12 +537,12 @@ typename T::value_type Math::lpnorm(const unsigned int p, T &x,
     typename T::value_type out = 0.0;
     if (execSpace0 == "Serial")
     {
-        Nektar::lpnorm<NektarSpaces::Serial>(p, x, &out);
+        Nektar::Operators::lpnorm<NektarSpaces::Serial>(p, x, &out);
     }
 #if defined(NEKTAR_ENABLE_SIMD)
     else if (execSpace0 == "AVX")
     {
-        Nektar::lpnorm<NektarSpaces::AVX>(p, x, &out);
+        Nektar::Operators::lpnorm<NektarSpaces::AVX>(p, x, &out);
     }
 #elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
@@ -557,7 +557,7 @@ typename T::value_type Math::lpnorm(const unsigned int p, T &x,
                                      sizeof(typename T::value_type),
                                      NektarSpaces::Device::alignment);
         }
-        Nektar::lpnorm<NektarSpaces::Device>(
+        Nektar::Operators::lpnorm<NektarSpaces::Device>(
             p, x, (typename T::value_type *)internal_device_buffer);
         Nektar::deviceMemcpy<DeviceToHost>(internal_host_buffer,
                                            internal_device_buffer,
@@ -581,12 +581,12 @@ typename T::value_type Math::linfnorm(T &x, const std::string &execSpace)
     typename T::value_type out = 0.0;
     if (execSpace0 == "Serial")
     {
-        Nektar::linfnorm<NektarSpaces::Serial>(x, &out);
+        Nektar::Operators::linfnorm<NektarSpaces::Serial>(x, &out);
     }
 #if defined(NEKTAR_ENABLE_SIMD)
     else if (execSpace0 == "AVX")
     {
-        Nektar::linfnorm<NektarSpaces::AVX>(x, &out);
+        Nektar::Operators::linfnorm<NektarSpaces::AVX>(x, &out);
     }
 #elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
@@ -601,7 +601,7 @@ typename T::value_type Math::linfnorm(T &x, const std::string &execSpace)
                                      sizeof(typename T::value_type),
                                      NektarSpaces::Device::alignment);
         }
-        Nektar::linfnorm<NektarSpaces::Device>(
+        Nektar::Operators::linfnorm<NektarSpaces::Device>(
             x, (typename T::value_type *)internal_device_buffer);
         Nektar::deviceMemcpy<DeviceToHost>(internal_host_buffer,
                                            internal_device_buffer,
@@ -916,4 +916,5 @@ template double Math::linfnorm<MemoryRegion<double>>(
     MemoryRegion<double> &x, const std::string &execSpace);
 template float Math::linfnorm<MemoryRegion<float>>(
     MemoryRegion<float> &x, const std::string &execSpace);
-} // namespace Nektar
+
+} // namespace Nektar::Operators
