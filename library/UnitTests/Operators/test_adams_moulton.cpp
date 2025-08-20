@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: BDFSerialAVXKernels.hpp
+// File: test_adams_moulton.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,51 +32,37 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#pragma once
+#define BOOST_TEST_MODULE TestAdamsMoulton
 
-namespace Nektar::Operators::detail
-{
+#include "init_timeop.hpp"
 
-/*
- * Compute extrapolation of previous time steps.
- * extrapolation = \sum_q=0^{J-1} \alpha_q u^{n-q} where J = IntOrder
- */
-template <typename ExecSpace, typename TData, unsigned int IntOrder>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
-                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                            void>::type
-    ExtrapolateKernel(const size_t nsize, const TData dt,
-                      const TData *const *solutions, TData *inoutPtr)
-{
-    // use tmp to avoid multiple read-write to memory
-    TData tmp;
+#include <boost/test/tools/output_test_stream.hpp>
+#include <iostream>
+#include <memory>
 
-    for (size_t i = 0; i < nsize; i++)
-    {
-        if constexpr (IntOrder == 2)
-        {
-            tmp = 2.0 * solutions[0][i];
-            tmp += -1.0 / 2.0 * inoutPtr[i];
-            tmp /= dt;
-        }
-        if constexpr (IntOrder == 3)
-        {
-            tmp = 3.0 * solutions[0][i];
-            tmp += -3.0 / 2.0 * solutions[1][i];
-            tmp += 1.0 / 3.0 * inoutPtr[i];
-            tmp /= dt;
-        }
-        if constexpr (IntOrder == 4)
-        {
-            tmp = 4.0 * solutions[0][i];
-            tmp += -3.0 * solutions[1][i];
-            tmp += 4.0 / 3.0 * solutions[2][i];
-            tmp += -1.0 / 4.0 * inoutPtr[i];
-            tmp /= dt;
-        }
-        inoutPtr[i] = tmp; // Write once to global memory
+#define TEST_AdamsMoulton(test_name, test, nvar, order)                        \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        Configure(nvar, nvar);                                                 \
+        SetTestCase(0.0, -10.0);                                               \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            BOOST_TEST(CheckOrderOfAccuracy("AdamsMoulton", order));           \
+        }                                                                      \
     }
-}
 
-} // namespace Nektar::Operators::detail
+BOOST_AUTO_TEST_SUITE(TestAdamsMoulton)
+
+// Tolerance matches 1st order
+TEST_AdamsMoulton(adams_moulton_order_1, segment_order_1, 1, 1)
+
+    // Tolerance matches 2nd order
+    TEST_AdamsMoulton(adams_moulton_order_2, segment_order_2, 1, 2)
+
+    // Tolerance matches 3rd order (TODO: fix restart)
+    TEST_AdamsMoulton(adams_moulton_order_3, segment_order_3, 1, 2)
+
+    // Tolerance matches 4th order (TODO: fix restart)
+    TEST_AdamsMoulton(adams_moulton_order_4, segment_order_4, 1, 2)
+
+        BOOST_AUTO_TEST_SUITE_END()

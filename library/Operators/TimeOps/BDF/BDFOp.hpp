@@ -39,19 +39,20 @@
 namespace Nektar::Operators
 {
 
-// Bdf base class
+// BDF base class
 // Defines the apply operator to enforce apply parameter types
 template <typename TData> class BDFOp : public TimeOp<TData>
 {
 public:
     static std::shared_ptr<BDFOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
-        const std::string &execStr = "")
+        const unsigned int &order = 0, const std::string &execStr = "")
     {
-        return Operator<TData>::template Create<BDFOp>(expansionList, execStr);
+        return std::dynamic_pointer_cast<BDFOp<TData>>(
+            TimeOp<TData>::Create(expansionList, name, order, "", execStr));
     }
 
-    static inline const std::string name = "BDF";
+    static inline const std::string name = "BDFImplicit";
 
 protected:
     BDFOp(const MultiRegions::ExpListSharedPtr &expansionList)

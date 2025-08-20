@@ -46,9 +46,10 @@ template <typename TData> class IMEXOp : public TimeOp<TData>
 public:
     static std::shared_ptr<IMEXOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
-        const std::string &execStr = "")
+        const unsigned int &order = 0, const std::string &execStr = "")
     {
-        return Operator<TData>::template Create<IMEXOp>(expansionList, execStr);
+        return std::dynamic_pointer_cast<IMEXOp<TData>>(
+            TimeOp<TData>::Create(expansionList, name, order, "", execStr));
     }
 
     static inline const std::string name = "IMEX";

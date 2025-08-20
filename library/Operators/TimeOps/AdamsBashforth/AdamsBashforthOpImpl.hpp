@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: IMEXOpImpl.hpp
+// File: AdamsBashforthOpImpl.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,8 +34,8 @@
 
 #pragma once
 
-#include "Operators/TimeOps/IMEX/IMEXKernelLaunchers.hpp"
-#include "Operators/TimeOps/IMEX/IMEXOp.hpp"
+#include "Operators/TimeOps/AdamsBashforth/AdamsBashforthKernelLaunchers.hpp"
+#include "Operators/TimeOps/AdamsBashforth/AdamsBashforthOp.hpp"
 
 using namespace Nektar;
 using namespace Nektar::MultiRegions;
@@ -44,20 +44,19 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, unsigned int IntOrder, typename TData>
-class IMEXOpImpl : public IMEXOp<TData>
+class AdamsBashforthOpImpl : public AdamsBashforthOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
     // Compile-time check for valid integration order
-    static_assert(IntOrder >= 1 && IntOrder <= 4,
-                  "The IMEXOp class is only implemented for order 1-4.");
+    static_assert(
+        IntOrder >= 1 && IntOrder <= 4,
+        "The AdamsBashforthOp class is only implemented for order 1-4.");
 
 public:
-    IMEXOpImpl(const ExpListSharedPtr &expansionList)
-        : IMEXOp<TData>(expansionList)
+    AdamsBashforthOpImpl(const ExpListSharedPtr &expansionList)
+        : AdamsBashforthOp<TData>(expansionList)
     {
-        // Initialize coefficients at construction time
-        SetCoefficients();
     }
 
     // className - for OperatorFactory
@@ -67,61 +66,39 @@ public:
     static std::unique_ptr<Operator<TData>> Instantiate(
         const ExpListSharedPtr &expansionList)
     {
-        return std::make_unique<IMEXOpImpl<ExecSpace, IntOrder, TData>>(
-            expansionList);
+        return std::make_unique<
+            AdamsBashforthOpImpl<ExecSpace, IntOrder, TData>>(expansionList);
     }
 
 protected:
-    // Extrapolation coefficient of implicit scheme
-    TData m_gamma;
-
     void v_Apply(Field<TData, FieldState::Phys> &inout) override
     {
-        // Check that implicit function call is defined for IMEX
-        ASSERTL0(this->m_implicitFunctor,
-                 "IMEX schemes require a DoImplicit method. Define with "
-                 "IMEXOp->DefineImplicit().");
-
         // Check that explicit function is defined for IMEX
-        ASSERTL0(this->m_explicitFunctor,
-                 "IMEX schemes require a DoExplicit method. Define with "
-                 "IMEXOp->DefineExplicit().");
+        ASSERTL0(
+            this->m_explicitFunctor,
+            "AdamsBashforth schemes require a DoExplicit method. Define with "
+            "AdamsBashforthOp->DefineExplicit().");
 
         // Startup
         while (this->m_step + 1 < IntOrder)
         {
-            // Save initial solution
-            auto initial = Field<TData, FieldState::Phys>::Create(
-                "implicit n-" + std::to_string(this->m_step + 1),
-                GetBlockAttributes<TData>(FieldState::Phys,
-                                          this->m_expansionList),
-                inout.GetNumComponents(), inout.GetNumHomoModes(),
-                ExecSpace::alignment);
-            initial.template Copy<MemSpace>(
-                (this->m_step == 0) ? inout : this->m_solutions.back());
-
-            // Initialise IMEX and hand-over the m_solutions deque
-            auto startup = IMEXOp<TData>::Create(
+            // Initialise AdamsBashforth and hand-over the m_explicits deque
+            auto startup = AdamsBashforthOp<TData>::Create(
                 this->m_expansionList, this->m_step + 1, ExecSpace::name);
 
-            // Copy functors from outer/higher-order IMEX scheme
+            // Copy functors from outer/higher-order AdamsBashforth scheme
             startup->CopyFunctorsFrom(*this);
 
-            // Move solutions to startup
+            // Move explicits to startup
             startup->SetExplicits(this->TakeExplicits());
-            startup->SetSolutions(this->TakeSolutions());
 
             // Advance in time with startup
             startup->SetTime(this->m_time);
             startup->SetNumStep(this->m_step);
             startup->Apply(inout);
 
-            // Move solutions back to this IMEX
+            // Move explicits back to higher-order AdamsBashforth
             this->SetExplicits(startup->TakeExplicits());
-            this->SetSolutions(startup->TakeSolutions());
-
-            // Save initial solution to m_solutions
-            this->m_solutions.push_back(std::move(initial));
 
             // Increment step and time
             this->m_time += this->m_timestep;
@@ -141,28 +118,16 @@ protected:
         // After startup
         if (this->m_step + 1 >= IntOrder)
         {
-            // Extrapolate previous solutions, explicit part, and sum up
             if constexpr (IntOrder > 1)
             {
-                // Rollover previous explicit parts
                 this->RollOver(this->m_explicits);
             }
 
             this->DoExplicit(inout, this->m_explicits[0], this->m_timestep);
 
-            if constexpr (IntOrder > 1)
-            {
-                // Rollover previous solutions
-                this->RollOver(inout, this->m_solutions);
-            }
-
             // Do extrapolation.
-            Extrapolate(
-                inout, std::make_integer_sequence<unsigned int, IntOrder>(),
-                std::make_integer_sequence<unsigned int, IntOrder - 1>());
-
-            // Compute next time step
-            this->DoImplicit(inout, inout, m_gamma * this->m_timestep);
+            Extrapolate(inout,
+                        std::make_integer_sequence<unsigned int, IntOrder>());
 
             // Increment step and time
             this->m_time += this->m_timestep;
@@ -170,10 +135,9 @@ protected:
         }
     }
 
-    template <unsigned int... Ind, unsigned int... Ind2>
+    template <unsigned int... ind>
     void Extrapolate(Field<TData, FieldState::Phys> &inout,
-                     std::integer_sequence<unsigned int, Ind...>,
-                     std::integer_sequence<unsigned int, Ind2...>)
+                     std::integer_sequence<unsigned int, ind...>)
     {
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
@@ -187,39 +151,11 @@ protected:
             // Initialize pointer.
             auto inoutPtr = inoutBlock.template GetPtr<MemSpace, ReadWrite>();
 
-            ExtrapolateIMEXKernel<ExecSpace>(
+            ExtrapolateAdamsBashforthKernel<ExecSpace>(
                 nphys * nelmt, inoutPtr,
-                (this->m_explicits[Ind]
-                     .GetBlocks()[blk]
-                     .template GetPtr<MemSpace, ReadOnly>())...,
-                (this->m_solutions[Ind2]
+                (this->m_explicits[ind]
                      .GetBlocks()[blk]
                      .template GetPtr<MemSpace, ReadOnly>())...);
-        }
-    }
-
-    /*
-     *  Setup gamma coefficient for IMEX.
-     *  Note the extrapolation coefficients are defined inside the
-     *  ExtrapolateIMEXKernel.
-     */
-    void SetCoefficients()
-    {
-        if constexpr (IntOrder == 1)
-        {
-            m_gamma = 1.0;
-        }
-        else if constexpr (IntOrder == 2)
-        {
-            m_gamma = 2.0 / 3.0;
-        }
-        else if constexpr (IntOrder == 3)
-        {
-            m_gamma = 6.0 / 11.0;
-        }
-        else if constexpr (IntOrder == 4)
-        {
-            m_gamma = 12.0 / 25.0;
         }
     }
 };

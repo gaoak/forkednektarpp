@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: BDFHIPCUDAKernelLaunchers.hpp
+// File: test_adams_bashforth.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,40 +32,37 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#pragma once
+#define BOOST_TEST_MODULE TestAdamsBashforth
 
-#if (defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)) ||                    \
-    (defined(NEKTAR_ENABLE_HIP) && defined(__HIPCC__))
+#include "init_timeop.hpp"
 
-namespace Nektar::Operators::detail
-{
+#include <boost/test/tools/output_test_stream.hpp>
+#include <iostream>
+#include <memory>
 
-template <typename TData, unsigned int IntOrder>
-__global__ void ExtrapolateKernelLauncher(
-    const size_t nsize, const TData dt,
-    const TData *__restrict__ const *__restrict__ solutions,
-    TData *__restrict__ inoutPtr, const hipcudaBlock1D &threadBlock)
-{
-    ExtrapolateKernel<hipcudaBlock1D, TData, IntOrder>(nsize, dt, solutions,
-                                                       inoutPtr, threadBlock);
-}
+#define TEST_AdamsBashforth(test_name, test, nvar, order)                      \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        Configure(nvar, nvar);                                                 \
+        SetTestCase(1.0, 0.0);                                                 \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            BOOST_TEST(CheckOrderOfAccuracy("AdamsBashforth", order));         \
+        }                                                                      \
+    }
 
-// Kernel Launchers.
-template <typename ExecSpace, typename TData, unsigned int IntOrder>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                            void>::type
-    ExtrapolateKernel(const size_t nsize, const TData dt,
-                      const TData *const *solutions, TData *inoutPtr)
-{
-    const size_t blockSize = NektarSpaces::Device::defaultBlockSize;
-    const size_t gridSize  = (nsize + blockSize - 1u) / blockSize;
+BOOST_AUTO_TEST_SUITE(TestAdamsBashforth)
 
-    ExtrapolateKernelLauncher<TData, IntOrder><<<gridSize, blockSize>>>(
-        nsize, dt, solutions, inoutPtr, hipcudaBlock1D());
-    CHECK_LAST_HIPCUDA_ERROR();
-}
+// Tolerance matches 1st order
+TEST_AdamsBashforth(adams_bashforth_order_1, segment_order_1, 1, 1)
 
-} // namespace Nektar::Operators::detail
+    // Tolerance matches 2nd order
+    TEST_AdamsBashforth(adams_bashforth_order_2, segment_order_2, 1, 2)
 
-#endif
+    // Tolerance matches 3rd order (TODO: fix restart)
+    TEST_AdamsBashforth(adams_bashforth_order_3, segment_order_3, 1, 2)
+
+    // Tolerance matches 4th order (TODO: fix restart)
+    TEST_AdamsBashforth(adams_bashforth_order_4, segment_order_4, 1, 2)
+
+        BOOST_AUTO_TEST_SUITE_END()
