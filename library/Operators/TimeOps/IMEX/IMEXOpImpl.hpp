@@ -148,7 +148,8 @@ protected:
                 this->RollOver(this->m_explicits);
             }
 
-            this->DoExplicit(inout, this->m_explicits[0], this->m_timestep);
+            this->DoExplicit(inout, this->m_explicits[0], this->m_time,
+                             this->m_timestep);
 
             if constexpr (IntOrder > 1)
             {
@@ -162,7 +163,8 @@ protected:
                 std::make_integer_sequence<unsigned int, IntOrder - 1>());
 
             // Compute next time step
-            this->DoImplicit(inout, inout, m_gamma * this->m_timestep);
+            this->DoImplicit(inout, inout, this->m_time + this->m_timestep,
+                             m_gamma * this->m_timestep);
 
             // Increment step and time
             this->m_time += this->m_timestep;

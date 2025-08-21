@@ -144,7 +144,8 @@ protected:
             }
 
             // Compute next time step
-            this->DoImplicit(inout, inout, m_gamma * this->m_timestep);
+            this->DoImplicit(inout, inout, this->m_time + this->m_timestep,
+                             m_gamma * this->m_timestep);
 
             // Increment step and time
             this->m_time += this->m_timestep;

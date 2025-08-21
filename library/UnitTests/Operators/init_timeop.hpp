@@ -172,7 +172,8 @@ protected:
     Math math;
 
     void DoLHS(Field<double, FieldState::Phys> &in,
-               Field<double, FieldState::Phys> &out, const double &lambda)
+               Field<double, FieldState::Phys> &out,
+               [[maybe_unused]] const double &time, const double &lambda)
     {
         // Factor for implicit/stiff part of analytic test problem
         auto factor = 1.0 / (1.0 - lambda * m_beta);
@@ -182,7 +183,8 @@ protected:
     }
 
     void DoRHS(Field<double, FieldState::Phys> &in,
-               Field<double, FieldState::Phys> &out, const double &factor)
+               Field<double, FieldState::Phys> &out,
+               [[maybe_unused]] const double &time, const double &factor)
     {
         // Multiply solution by factor
         math.mul(m_alpha * factor, in, out);
