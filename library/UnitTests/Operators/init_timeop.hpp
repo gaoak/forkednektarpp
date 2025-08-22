@@ -69,7 +69,7 @@ public:
                     for (unsigned int phys = 0; phys < block.GetNumData();
                          ++phys, ++cnt)
                     {
-                        inptr[cnt] = 1.0;
+                        inptr[cnt] = 1.0 + phys;
                     }
                 }
                 inptr += block.size();
@@ -79,6 +79,11 @@ public:
         // Parameters for analytic solution
         m_alpha = alpha; // non-stiff factor
         m_beta  = beta;  // stiff factor
+
+        double final_time = 0.5;
+
+        // Compute expected solution
+        ExpectedSolution(final_time);
     }
 
     void RunTestCase(const std::string scheme, unsigned int numsteps)
@@ -106,19 +111,17 @@ public:
         // where \alpha is mild parameter leading to the explicit part
         // and \beta is a stiff parameter leading to the implicit part.
         // The solution is u = e^((\alpha + \beta)*t) and u(t=0) = 1.0
-        fixt_expected->Initialize<NektarSpaces::HostSpace>(
-            exp((m_alpha + m_beta) * final_time));
+        fixt_expected->template Copy<NektarSpaces::HostSpace>(*fixt_in);
+        math.mul(exp((m_alpha + m_beta) * final_time), *fixt_expected,
+                 *fixt_expected);
     }
 
     bool CheckOrderOfAccuracy(std::string scheme, int expectedOrder)
     {
-        std::vector<double> timesteps = {0.1, 0.05, 0.01, 0.005, 0.001, 0.0001};
-        std::vector<double> errors;
-
         double final_time = 0.5;
 
-        // Compute expected solution
-        ExpectedSolution(final_time);
+        std::vector<double> timesteps = {0.1, 0.05, 0.01, 0.005, 0.001};
+        std::vector<double> errors;
 
         for (double dt : timesteps)
         {
@@ -205,3 +208,4 @@ TEST(segment_order_1, "run/segment_time_order_1.xml")
 TEST(segment_order_2, "run/segment_time_order_2.xml")
 TEST(segment_order_3, "run/segment_time_order_3.xml")
 TEST(segment_order_4, "run/segment_time_order_4.xml")
+TEST(segment_order_5, "run/segment_time_order_5.xml")

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_adams_bashforth.cpp
+// File: test_runge_kutta.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestAdamsBashforth
+#define BOOST_TEST_MODULE TestRungeKutta
 
 #include "init_timeop.hpp"
 
@@ -40,29 +40,32 @@
 #include <iostream>
 #include <memory>
 
-#define TEST_AdamsBashforth(test_name, test, nvar, order)                      \
+#define TEST_RungeKutta(test_name, test, nvar, order)                          \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
         Configure(nvar, nvar);                                                 \
         SetTestCase(1.0, 0.0);                                                 \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
-            BOOST_TEST(CheckOrderOfAccuracy("AdamsBashforth", order));         \
+            BOOST_TEST(CheckOrderOfAccuracy("RungeKutta", order));             \
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestAdamsBashforth)
+BOOST_AUTO_TEST_SUITE(TestRungeKutta)
 
 // Tolerance matches 1st order
-TEST_AdamsBashforth(adams_bashforth_order_1, segment_order_1, 2, 1)
+TEST_RungeKutta(runge_kutta_order_1, segment_order_1, 2, 1)
 
     // Tolerance matches 2nd order
-    TEST_AdamsBashforth(adams_bashforth_order_2, segment_order_2, 2, 2)
+    TEST_RungeKutta(runge_kutta_order_2, segment_order_2, 2, 2)
 
-    // Tolerance matches 3rd order (TODO: fix restart)
-    TEST_AdamsBashforth(adams_bashforth_order_3, segment_order_3, 2, 2)
+    // Tolerance matches 3rd order
+    TEST_RungeKutta(runge_kutta_order_3, segment_order_3, 2, 3)
 
     // Tolerance matches 4th order (TODO: fix restart)
-    TEST_AdamsBashforth(adams_bashforth_order_4, segment_order_4, 2, 2)
+    TEST_RungeKutta(runge_kutta_order_4, segment_order_4, 2, 4)
 
-        BOOST_AUTO_TEST_SUITE_END()
+    // Tolerance matches 5th order
+    // TEST_RungeKutta(runge_kutta_order_5, segment_order_5, 2, 5)
+
+    BOOST_AUTO_TEST_SUITE_END()

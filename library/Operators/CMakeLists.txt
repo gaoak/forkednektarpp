@@ -31,9 +31,6 @@ IF(NEKTAR_ENABLE_SINGLE_PRECISION)
     SET(DataTypes ${DataTypes} float)
 ENDIF()
 
-# Set timeintegration order (BDF only)
-SET(TimeIntegrationOrders 1 2 3 4)
-
 # Macro for each operator.
 MACRO(ADD_OPERATOR dir)
 
@@ -459,6 +456,13 @@ MACRO(ADD_TIME_OPERATOR dir)
     # which requires two delcarations.
     SET(CONFIG_FILE TimeOps/TimeOperatorFactoryDec.cpp.in)
 
+    # Set timeintegration order
+    IF (${name} STREQUAL "RungeKutta")
+        SET(TimeIntegrationOrders 1 2 3 4 5)
+    ELSE()
+        SET(TimeIntegrationOrders 1 2 3 4)
+    ENDIF()
+
     # Loop through each possible execution space.
     FOREACH (ExecSpace IN LISTS ExecSpaces)
 
@@ -499,54 +503,6 @@ MACRO(ADD_TIME_OPERATOR dir)
                     FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
                             "${dir}/${name}OpImpl.hpp")
                     SET(IMPL_HEADER "#include \"${include_file}\"")
-                    # Found a general kernel
-                    IF(EXISTS "${dir}/${name}Kernels.hpp" )
-                        MESSAGE("Adding operator with a ${ExecSpace} implementation: " "${FactoryDeclName}")
-                        # Found a specific kernel
-                    ELSEIF(EXISTS "${dir}/${name}${ExecSpace}Kernels.hpp")
-                        MESSAGE("Adding operator with a ${ExecSpace} implementation: " "${FactoryDeclName}")
-                    ELSEIF(("${ExecSpace}" STREQUAL "Serial" AND EXISTS "${dir}/${name}SerialAVXKernels.hpp") OR
-                    ("${ExecSpace}" STREQUAL "AVX" AND EXISTS "${dir}/${name}SerialAVXKernels.hpp"))
-                        MESSAGE("Adding operator with a ${ExecSpace} implementation: " "${FactoryDeclName}")
-                        # No kernel found
-                    ELSEIF(NOT EXISTS "${dir}/${name}Kernels.hpp" AND
-                            NOT EXISTS "${dir}/${name}SerialKernels.hpp" AND
-                            NOT EXISTS "${dir}/${name}AVXKernels.hpp" AND
-                            NOT EXISTS "${dir}/${name}SerialAVXKernels.hpp" AND
-                            NOT EXISTS "${dir}/${name}DeviceKernels.hpp")
-                        MESSAGE("Adding operator with a ${ExecSpace} implementation: " "${FactoryDeclName}")
-                    ELSE()
-                        CONTINUE() # This avoid creating a *.cpp file
-                    ENDIF()
-
-                    # Found a Serial header.
-                ELSEIF((EXISTS "${dir}/${name}Serial.hpp") AND ("${ExecSpace}" STREQUAL "Serial"))
-                    FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                            "${dir}/${name}Serial.hpp")
-                    SET(IMPL_HEADER "#include \"${include_file}\"")
-                    MESSAGE("Adding operator with a ${ExecSpace} implementation: " "${FactoryDeclName}")
-
-                    # Found a AVX header.
-                ELSEIF((EXISTS "${dir}/${name}AVX.hpp") AND ("${ExecSpace}" STREQUAL "AVX"))
-                    FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                            "${dir}/${name}AVX.hpp")
-                    SET(IMPL_HEADER "#include \"${include_file}\"")
-                    MESSAGE("Adding operator with a ${ExecSpace} implementation: " "${FactoryDeclName}")
-
-                    # Found a Device header.
-                ELSEIF(EXISTS "${dir}/${name}DeviceSumFac.hpp" AND ("${ExecSpace}" STREQUAL "Device"))
-                    FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                            "${dir}/${name}Device.hpp")
-                    SET(IMPL_HEADER "#include \"${include_file}\"")
-                    # Found general kernel
-                    IF(EXISTS "${dir}/${name}DeviceKernels.hpp")
-                        MESSAGE("Adding operator with a ${ExecSpace} implementation and a generic device kernel: " "${FactoryDeclName}")
-                        # No kernel found, generic implementation
-                    ELSE()
-                        MESSAGE("Adding operator with a ${ExecSpace} implementation: " "${FactoryDeclName}")
-                    ENDIF()
-
-                    # No implementation, skip.
                 ELSE()
                     CONTINUE() # This avoid creating a *.cpp file
                 ENDIF()
