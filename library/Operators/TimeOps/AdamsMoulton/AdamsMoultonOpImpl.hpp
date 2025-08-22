@@ -164,11 +164,9 @@ protected:
             auto nphys =
                 inoutBlock.GetNumData() * inoutBlock.GetNumComponents();
 
-            // Initialize pointer.
-            auto inoutPtr = inoutBlock.template GetPtr<MemSpace, ReadWrite>();
-
             ExtrapolateAdamsMoultonKernel<ExecSpace>(
-                nphys * nelmt, this->m_timestep, inoutPtr,
+                nphys * nelmt, this->m_timestep,
+                inoutBlock.template GetPtr<MemSpace, ReadWrite>(),
                 (this->m_implicits[ind]
                      .GetBlocks()[blk]
                      .template GetPtr<MemSpace, ReadOnly>())...);

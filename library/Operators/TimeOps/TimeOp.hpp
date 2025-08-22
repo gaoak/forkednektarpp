@@ -96,10 +96,7 @@ public:
             factory.CreateInstance(requestedKey, expansionList));
 
         // Set operator meta data
-        op->m_intOrder   = order0;
-        op->m_intMethod  = method0;
-        op->m_intVariant = variant0;
-        op->m_timestep   = timestep0;
+        op->m_timestep = timestep0;
 
         return op;
     }
@@ -263,12 +260,9 @@ public:
 
 protected:
     // General parameters
-    unsigned int m_intOrder;
     unsigned int m_step = 0;
     TData m_time        = 0.0;
     TData m_timestep    = 0.0;
-    std::string m_intMethod;
-    std::string m_intVariant;
 
     // Storage for previous solutions in Fields
     // and memory region for pointer access on device

@@ -186,11 +186,9 @@ protected:
             auto nphys =
                 inoutBlock.GetNumData() * inoutBlock.GetNumComponents();
 
-            // Initialize pointer.
-            auto inoutPtr = inoutBlock.template GetPtr<MemSpace, ReadWrite>();
-
             ExtrapolateIMEXKernel<ExecSpace>(
-                nphys * nelmt, inoutPtr,
+                nphys * nelmt,
+                inoutBlock.template GetPtr<MemSpace, ReadWrite>(),
                 (this->m_explicits[Ind]
                      .GetBlocks()[blk]
                      .template GetPtr<MemSpace, ReadOnly>())...,
