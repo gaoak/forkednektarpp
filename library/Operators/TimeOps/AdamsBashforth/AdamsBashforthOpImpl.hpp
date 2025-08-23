@@ -94,7 +94,7 @@ protected:
 
             // Advance in time with startup
             startup->SetTime(this->m_time);
-            startup->SetNumStep(this->m_step);
+            startup->SetStep(this->m_step);
             startup->Apply(inout);
 
             // Move explicits back to higher-order AdamsBashforth
@@ -127,8 +127,8 @@ protected:
                              this->m_timestep);
 
             // Do extrapolation.
-            Extrapolate(inout,
-                        std::make_integer_sequence<unsigned int, IntOrder>());
+            UpdateSolution(
+                inout, std::make_integer_sequence<unsigned int, IntOrder>());
 
             // Increment step and time
             this->m_time += this->m_timestep;
@@ -137,8 +137,8 @@ protected:
     }
 
     template <unsigned int... ind>
-    void Extrapolate(Field<TData, FieldState::Phys> &inout,
-                     std::integer_sequence<unsigned int, ind...>)
+    void UpdateSolution(Field<TData, FieldState::Phys> &inout,
+                        std::integer_sequence<unsigned int, ind...>)
     {
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
@@ -149,7 +149,7 @@ protected:
             auto nphys =
                 inoutBlock.GetNumData() * inoutBlock.GetNumComponents();
 
-            ExtrapolateAdamsBashforthKernel<ExecSpace>(
+            UpdateSolutionKernel<ExecSpace, AdamsBashforthScheme>(
                 nphys * nelmt,
                 inoutBlock.template GetPtr<MemSpace, ReadWrite>(),
                 (this->m_explicits[ind]

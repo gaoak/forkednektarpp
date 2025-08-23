@@ -39,16 +39,11 @@
 namespace Nektar::Operators::detail
 {
 
-template <unsigned int IntOrder, typename TData, unsigned int... ind,
-          typename... TDatas>
-NEK_DEVICE_INLINE static void StageSolutionDIRKKernelImpl(
-    const size_t idx, TData *__restrict inout, const TData *__restrict solution,
-    std::integer_sequence<unsigned int, ind...>,
-    const TDatas *__restrict... implicits)
-{
-    constexpr unsigned int stage    = sizeof...(implicits);
-    constexpr unsigned int indStart = (stage * (stage - 1)) / 2;
+class DIRKscheme;
 
+template <unsigned int IntOrder, typename TData>
+NEK_DEVICE_INLINE static constexpr auto GetDIRKCoefficients(void)
+{
     // 2nd order
     if constexpr (IntOrder == 2)
     {
@@ -56,12 +51,9 @@ NEK_DEVICE_INLINE static void StageSolutionDIRKKernelImpl(
         constexpr TData lambda     = (2.0 - ConstSqrt2) / 2.0;
 
         // clang-format off
-        constexpr TData coeff[] =
+        return std::array<TData, 1>
                 { 1.0 - lambda };
         // clang-format on
-
-        inout[idx] =
-            solution[idx] + ((implicits[idx] * coeff[indStart + ind]) + ...);
     }
     // 3rd order
     else if constexpr (IntOrder == 3)
@@ -69,7 +61,7 @@ NEK_DEVICE_INLINE static void StageSolutionDIRKKernelImpl(
         constexpr TData lambda = 0.4358665215;
 
         // clang-format off
-        constexpr TData coeff[] =
+        return std::array<TData, 3> 
                 {  // 1st stage
                    0.5 * (1.0 - lambda),
                    // 2nd stage
@@ -77,149 +69,68 @@ NEK_DEVICE_INLINE static void StageSolutionDIRKKernelImpl(
                    0.25 * (6.0 * lambda * lambda - 20.0 * lambda + 5.0)
                 };
         // clang-format on
-
-        inout[idx] =
-            solution[idx] + ((implicits[idx] * coeff[indStart + ind]) + ...);
     }
 }
 
-template <unsigned int IntOrder, typename TData, unsigned int... ind,
-          typename... TDatas>
-NEK_DEVICE_INLINE static void UpdateDIRKKernelImpl(
-    const size_t idx, TData *__restrict inout, const TData *__restrict solution,
-    std::integer_sequence<unsigned int, ind...>,
-    const TDatas *__restrict... implicits)
+template <unsigned int IntOrder, typename TData>
+NEK_DEVICE_INLINE static constexpr auto GetDIRKCoefficients2(void)
 {
     // 1st order
     if constexpr (IntOrder == 1)
     {
-        constexpr TData coeff[] = {1.0};
-
-        inout[idx] = solution[idx] + ((implicits[idx] * coeff[ind]) + ...);
+        return std::array<TData, 1>{1.0};
     }
     // 2nd order
-    else if constexpr (IntOrder == 2)
+    if constexpr (IntOrder == 2)
     {
         constexpr TData ConstSqrt2 = 1.414213562373095;
         constexpr TData lambda     = (2.0 - ConstSqrt2) / 2.0;
 
-        constexpr TData coeff[] = {1.0 - lambda, lambda};
-
-        inout[idx] = solution[idx] + ((implicits[idx] * coeff[ind]) + ...);
+        return std::array<TData, 2>{1.0 - lambda, lambda};
     }
     // 3rd order
     else if constexpr (IntOrder == 3)
     {
         constexpr TData lambda = 0.4358665215;
 
-        constexpr TData coeff[] = {
+        return std::array<TData, 3>{
             0.25 * (-6.0 * lambda * lambda + 16.0 * lambda - 1.0),
             0.25 * (6.0 * lambda * lambda - 20.0 * lambda + 5.0), lambda};
-
-        inout[idx] = solution[idx] + ((implicits[idx] * coeff[ind]) + ...);
     }
 }
 
-// Kernel Launchers.
-#if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
-// Currently, argument pack can't be captured in a device lambda. Explicit
-// kernel must be used (instead of nektar::parallel_for)
-template <unsigned int IntOrder, typename TData, typename... TDatas>
-__global__ void StageSolutionDIRKKernelLauncher(
-    const size_t nsize, TData *__restrict inout,
-    const TData *__restrict solution, const TDatas *__restrict... implicits)
+template <typename Scheme, unsigned int IntOrder, typename TData,
+          unsigned int... ind, typename... TDatas>
+NEK_DEVICE_INLINE static
+    typename std::enable_if<std::is_same_v<Scheme, DIRKscheme>, void>::type
+    UpdateStageKernelImpl(const size_t idx, TData *__restrict inout,
+                          const TData *__restrict solution,
+                          std::integer_sequence<unsigned int, ind...>,
+                          const TDatas *__restrict... implicits)
 {
-    const size_t idx0   = threadIdx.x + blockIdx.x * blockDim.x;
-    const size_t stride = blockDim.x * gridDim.x;
+    constexpr unsigned int stage    = sizeof...(implicits);
+    constexpr unsigned int indStart = (stage * (stage - 1)) / 2;
 
-    for (size_t idx = idx0; idx < nsize; idx += stride)
-    {
-        StageSolutionDIRKKernelImpl<IntOrder>(
-            idx, inout, solution,
-            std::make_integer_sequence<unsigned int, sizeof...(implicits)>(),
-            implicits...);
-    }
+    constexpr auto coeff = GetDIRKCoefficients<IntOrder, TData>();
+
+    inout[idx] =
+        solution[idx] + ((implicits[idx] * coeff[indStart + ind]) + ...);
 }
 
-template <unsigned int IntOrder, typename TData, typename... TDatas>
-__global__ void UpdateDIRKKernelLauncher(const size_t nsize,
-                                         TData *__restrict inout,
-                                         const TData *__restrict solution,
-                                         const TDatas *__restrict... implicits)
+template <typename Scheme, unsigned int IntOrder, typename TData,
+          unsigned int... ind, typename... TDatas>
+NEK_DEVICE_INLINE static
+    typename std::enable_if<std::is_same_v<Scheme, DIRKscheme>, void>::type
+    UpdateSolutionKernelImpl(const size_t idx, TData *__restrict inout,
+                             const TData *__restrict solution,
+                             std::integer_sequence<unsigned int, ind...>,
+                             const TDatas *__restrict... implicits)
 {
-    const size_t idx0   = threadIdx.x + blockIdx.x * blockDim.x;
-    const size_t stride = blockDim.x * gridDim.x;
+    constexpr auto coeff = GetDIRKCoefficients2<IntOrder, TData>();
 
-    for (size_t idx = idx0; idx < nsize; idx += stride)
-    {
-        UpdateDIRKKernelImpl<IntOrder>(
-            idx, inout, solution,
-            std::make_integer_sequence<unsigned int, sizeof...(implicits)>(),
-            implicits...);
-    }
+    inout[idx] = solution[idx] + ((implicits[idx] * coeff[ind]) + ...);
 }
-
-template <typename ExecSpace, unsigned int IntOrder, typename TData,
-          typename... TDatas>
-NEK_FORCE_INLINE static void StageSolutionDIRKKernel(const size_t nsize,
-                                                     TData *inout,
-                                                     const TData *solution,
-                                                     const TDatas *...implicits)
-{
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
-
-    StageSolutionDIRKKernelLauncher<IntOrder>
-        <<<gridSize, blockSize>>>(nsize, inout, solution, implicits...);
-    CHECK_LAST_HIPCUDA_ERROR();
-}
-
-template <typename ExecSpace, unsigned int IntOrder, typename TData,
-          typename... TDatas>
-NEK_FORCE_INLINE static void UpdateDIRKKernel(const size_t nsize, TData *inout,
-                                              const TData *solution,
-                                              const TDatas *...implicits)
-{
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
-
-    UpdateDIRKKernelLauncher<IntOrder>
-        <<<gridSize, blockSize>>>(nsize, inout, solution, implicits...);
-    CHECK_LAST_HIPCUDA_ERROR();
-}
-#else
-template <typename ExecSpace, unsigned int IntOrder, typename TData,
-          typename... TDatas>
-NEK_FORCE_INLINE static void StageSolutionDIRKKernel(const size_t nsize,
-                                                     TData *inout,
-                                                     const TData *solution,
-                                                     const TDatas *...implicits)
-{
-    Nektar::parallel_for<ExecSpace>(
-        0, nsize, NEKTAR_LAMBDA(const size_t idx) {
-            StageSolutionDIRKKernelImpl<IntOrder>(
-                idx, inout, solution,
-                std::make_integer_sequence<unsigned int,
-                                           sizeof...(implicits)>(),
-                implicits...);
-        });
-}
-
-template <typename ExecSpace, unsigned int IntOrder, typename TData,
-          typename... TDatas>
-NEK_FORCE_INLINE static void UpdateDIRKKernel(const size_t nsize, TData *inout,
-                                              const TData *solution,
-                                              const TDatas *...implicits)
-{
-    Nektar::parallel_for<ExecSpace>(
-        0, nsize, NEKTAR_LAMBDA(const size_t idx) {
-            UpdateDIRKKernelImpl<IntOrder>(
-                idx, inout, solution,
-                std::make_integer_sequence<unsigned int,
-                                           sizeof...(implicits)>(),
-                implicits...);
-        });
-}
-#endif
 
 } // namespace Nektar::Operators::detail
+
+#include "Operators/TimeOps/TimeOpHelper.hpp"

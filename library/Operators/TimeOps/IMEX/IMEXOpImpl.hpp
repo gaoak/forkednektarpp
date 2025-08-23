@@ -72,7 +72,6 @@ public:
     }
 
 protected:
-    // Extrapolation coefficient of implicit scheme
     TData m_gamma;
 
     void v_Apply(Field<TData, FieldState::Phys> &inout) override
@@ -113,7 +112,7 @@ protected:
 
             // Advance in time with startup
             startup->SetTime(this->m_time);
-            startup->SetNumStep(this->m_step);
+            startup->SetStep(this->m_step);
             startup->Apply(inout);
 
             // Move solutions back to this IMEX
@@ -141,7 +140,7 @@ protected:
         // After startup
         if (this->m_step + 1 >= IntOrder)
         {
-            // Extrapolate previous solutions, explicit part, and sum up
+            // UpdateSolution previous solutions, explicit part, and sum up
             if constexpr (IntOrder > 1)
             {
                 // Rollover previous explicit parts
@@ -158,7 +157,7 @@ protected:
             }
 
             // Do extrapolation.
-            Extrapolate(
+            UpdateSolution(
                 inout, std::make_integer_sequence<unsigned int, IntOrder>(),
                 std::make_integer_sequence<unsigned int, IntOrder - 1>());
 
@@ -173,9 +172,9 @@ protected:
     }
 
     template <unsigned int... Ind, unsigned int... Ind2>
-    void Extrapolate(Field<TData, FieldState::Phys> &inout,
-                     std::integer_sequence<unsigned int, Ind...>,
-                     std::integer_sequence<unsigned int, Ind2...>)
+    void UpdateSolution(Field<TData, FieldState::Phys> &inout,
+                        std::integer_sequence<unsigned int, Ind...>,
+                        std::integer_sequence<unsigned int, Ind2...>)
     {
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
@@ -186,7 +185,7 @@ protected:
             auto nphys =
                 inoutBlock.GetNumData() * inoutBlock.GetNumComponents();
 
-            ExtrapolateIMEXKernel<ExecSpace>(
+            UpdateSolutionKernel<ExecSpace, IMEXscheme>(
                 nphys * nelmt,
                 inoutBlock.template GetPtr<MemSpace, ReadWrite>(),
                 (this->m_explicits[Ind]
@@ -200,8 +199,6 @@ protected:
 
     /*
      *  Setup gamma coefficient for IMEX.
-     *  Note the extrapolation coefficients are defined inside the
-     *  ExtrapolateIMEXKernel.
      */
     void SetCoefficients()
     {

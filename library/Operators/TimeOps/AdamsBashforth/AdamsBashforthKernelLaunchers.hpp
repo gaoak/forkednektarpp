@@ -39,91 +39,50 @@
 namespace Nektar::Operators::detail
 {
 
-template <typename TData, unsigned int... ind, typename... TDatas>
-NEK_DEVICE_INLINE static void ExtrapolateAdamsBashforthKernelImpl(
-    const size_t idx, TData *__restrict inout,
-    std::integer_sequence<unsigned int, ind...>,
-    const TDatas *__restrict... explicits)
+class AdamsBashforthScheme;
+
+template <unsigned int IntOrder, typename TData>
+NEK_DEVICE_INLINE static constexpr auto GetAdamsBashforthCoefficients(void)
 {
-    constexpr unsigned int intOrder = sizeof...(explicits);
-
     // 1st order
-    if constexpr (intOrder == 1)
+    if constexpr (IntOrder == 1)
     {
-        constexpr TData coeff[] = {1.0};
-
-        inout[idx] += ((explicits[idx] * coeff[ind]) + ...);
+        return std::array<TData, 1>{1.0};
     }
     // 2nd order
-    else if constexpr (intOrder == 2)
+    else if constexpr (IntOrder == 2)
     {
-        constexpr TData coeff[] = {3.0 / 2.0, -1.0 / 2.0};
-
-        inout[idx] += ((explicits[idx] * coeff[ind]) + ...);
+        return std::array<TData, 2>{3.0 / 2.0, -1.0 / 2.0};
     }
     // 3rd order
-    else if constexpr (intOrder == 3)
+    else if constexpr (IntOrder == 3)
     {
-        constexpr TData coeff[] = {23.0 / 12.0, -4.0 / 3.0, 5.0 / 12.0};
-
-        inout[idx] += ((explicits[idx] * coeff[ind]) + ...);
+        return std::array<TData, 3>{23.0 / 12.0, -4.0 / 3.0, 5.0 / 12.0};
     }
     // 4th order
-    else if constexpr (intOrder == 4)
+    else if constexpr (IntOrder == 4)
     {
-        constexpr TData coeff[] = {55.0 / 24.0, -59.0 / 24.0, 37.0 / 24.0,
-                                   -3.0 / 8.0};
-
-        inout[idx] += ((explicits[idx] * coeff[ind]) + ...);
+        return std::array<TData, 4>{55.0 / 24.0, -59.0 / 24.0, 37.0 / 24.0,
+                                    -3.0 / 8.0};
     }
 }
 
-// Kernel Launchers.
-#if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
-// Currently, argument pack can't be captured in a device lambda. Explicit
-// kernel must be used (instead of nektar::parallel_for)
-template <typename TData, typename... TDatas>
-__global__ void ExtrapolateAdamsBashforthKernelLauncher(
-    const size_t nsize, TData *__restrict inout,
-    const TDatas *__restrict... explicits)
+template <typename Scheme, typename TData, unsigned int... ind,
+          typename... TDatas>
+NEK_DEVICE_INLINE static
+    typename std::enable_if<std::is_same_v<Scheme, AdamsBashforthScheme>,
+                            void>::type
+    UpdateSolutionKernelImpl(const size_t idx, TData *__restrict inout,
+                             std::integer_sequence<unsigned int, ind...>,
+                             const TDatas *__restrict... explicits)
 {
-    const size_t idx0   = threadIdx.x + blockIdx.x * blockDim.x;
-    const size_t stride = blockDim.x * gridDim.x;
+    constexpr unsigned int IntOrder = sizeof...(explicits);
 
-    for (size_t idx = idx0; idx < nsize; idx += stride)
-    {
-        ExtrapolateAdamsBashforthKernelImpl(
-            idx, inout,
-            std::make_integer_sequence<unsigned int, sizeof...(explicits)>(),
-            explicits...);
-    }
-}
+    constexpr auto coeff = GetAdamsBashforthCoefficients<IntOrder, TData>();
 
-template <typename ExecSpace, typename TData, typename... TDatas>
-NEK_FORCE_INLINE static void ExtrapolateAdamsBashforthKernel(
-    const size_t nsize, TData *inout, const TDatas *...explicits)
-{
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
-
-    ExtrapolateAdamsBashforthKernelLauncher<<<gridSize, blockSize>>>(
-        nsize, inout, explicits...);
-    CHECK_LAST_HIPCUDA_ERROR();
+    inout[idx] += ((explicits[idx] * coeff[ind]) + ...);
 }
-#else
-template <typename ExecSpace, typename TData, typename... TDatas>
-NEK_FORCE_INLINE static void ExtrapolateAdamsBashforthKernel(
-    const size_t nsize, TData *inout, const TDatas *...explicits)
-{
-    Nektar::parallel_for<ExecSpace>(
-        0, nsize, NEKTAR_LAMBDA(const size_t idx) {
-            ExtrapolateAdamsBashforthKernelImpl(
-                idx, inout,
-                std::make_integer_sequence<unsigned int,
-                                           sizeof...(explicits)>(),
-                explicits...);
-        });
-}
-#endif
 
 } // namespace Nektar::Operators::detail
+
+#include "Operators/TimeOps/TimeOpHelper.hpp"

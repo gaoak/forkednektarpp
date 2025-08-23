@@ -39,108 +39,57 @@
 namespace Nektar::Operators::detail
 {
 
-template <typename TData, unsigned int... ind, typename... TDatas>
-NEK_DEVICE_INLINE static void ExtrapolateIMEXKernelImpl(
-    const size_t idx, TData *__restrict inout,
-    std::integer_sequence<unsigned int, ind...>,
-    const TDatas *__restrict... solutions)
+class IMEXscheme;
+
+template <unsigned int IntOrder, typename TData>
+NEK_DEVICE_INLINE static constexpr auto GetIMEXCoefficients(void)
 {
-    constexpr unsigned int nSolution = sizeof...(solutions);
-    constexpr unsigned int intOrder  = (nSolution + 1) / 2;
-
     // 1st order
-    if constexpr (intOrder == 1)
+    if constexpr (IntOrder == 1)
     {
-        constexpr TData coeff[] = {1.0, 1.0};
-
-        TData tmp = ((solutions[idx] * coeff[ind]) + ...);
-        tmp += inout[idx] * coeff[nSolution];
-        inout[idx] = tmp;
+        return std::array<TData, 2>{1.0, 1.0};
     }
     // 2nd order
-    else if constexpr (intOrder == 2)
+    else if constexpr (IntOrder == 2)
     {
-        // Based on Karniadakis, Israeli and Orszag 1991, table IV
-        constexpr TData coeff[] = {4.0 / 3.0, -2.0 / 3.0, 4.0 / 3.0,
-                                   -1.0 / 3.0};
-
-        TData tmp = ((solutions[idx] * coeff[ind]) + ...);
-        tmp += inout[idx] * coeff[nSolution];
-        inout[idx] = tmp;
+        return std::array<TData, 4>{4.0 / 3.0, -2.0 / 3.0, 4.0 / 3.0,
+                                    -1.0 / 3.0};
     }
     // 3rd order
-    else if constexpr (intOrder == 3)
+    else if constexpr (IntOrder == 3)
     {
         // Based on Karniadakis, Israeli and Orszag 1991, table IV
-        constexpr TData coeff[] = {18.0 / 11.0, -18.0 / 11.0, 6.0 / 11.0,
-                                   18.0 / 11.0, -9.0 / 11.0,  2.0 / 11.0};
-
-        TData tmp = ((solutions[idx] * coeff[ind]) + ...);
-        tmp += inout[idx] * coeff[nSolution];
-        inout[idx] = tmp;
+        return std::array<TData, 6>{18.0 / 11.0, -18.0 / 11.0, 6.0 / 11.0,
+                                    18.0 / 11.0, -9.0 / 11.0,  2.0 / 11.0};
     }
     // 4th order
-    else if constexpr (intOrder == 4)
+    else if constexpr (IntOrder == 4)
     {
         // Based on Asher, Ruuth and Wetton 1995, equation (33)
-        constexpr TData coeff[] = {48.0 / 25.0,  -72.0 / 25.0, 48.0 / 25.0,
-                                   -12.0 / 25.0, 48.0 / 25.0,  -36.0 / 25.0,
-                                   16.0 / 25.0,  -3.0 / 25.0};
-
-        TData tmp = ((solutions[idx] * coeff[ind]) + ...);
-        tmp += inout[idx] * coeff[nSolution];
-        inout[idx] = tmp;
+        return std::array<TData, 8>{48.0 / 25.0,  -72.0 / 25.0, 48.0 / 25.0,
+                                    -12.0 / 25.0, 48.0 / 25.0,  -36.0 / 25.0,
+                                    16.0 / 25.0,  -3.0 / 25.0};
     }
 }
 
-// Kernel Launchers.
-#if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
-// Currently, argument pack can't be captured in a device lambda. Explicit
-// kernel must be used (instead of nektar::parallel_for)
-template <typename TData, typename... TDatas>
-__global__ void ExtrapolateIMEXKernelLauncher(const size_t nsize,
-                                              TData *__restrict inout,
-                                              TDatas *__restrict... solutions)
+template <typename Scheme, typename TData, unsigned int... ind,
+          typename... TDatas>
+NEK_DEVICE_INLINE static
+    typename std::enable_if<std::is_same_v<Scheme, IMEXscheme>, void>::type
+    UpdateSolutionKernelImpl(const size_t idx, TData *__restrict inout,
+                             std::integer_sequence<unsigned int, ind...>,
+                             const TDatas *__restrict... solutions)
 {
-    const size_t idx0   = threadIdx.x + blockIdx.x * blockDim.x;
-    const size_t stride = blockDim.x * gridDim.x;
+    constexpr unsigned int nSolution = sizeof...(solutions);
+    constexpr unsigned int IntOrder  = (nSolution + 1) / 2;
 
-    for (size_t idx = idx0; idx < nsize; idx += stride)
-    {
-        ExtrapolateIMEXKernelImpl(
-            idx, inout,
-            std::make_integer_sequence<unsigned int, sizeof...(solutions)>(),
-            solutions...);
-    }
-}
+    constexpr auto coeff = GetIMEXCoefficients<IntOrder, TData>();
 
-template <typename ExecSpace, typename TData, typename... TDatas>
-NEK_FORCE_INLINE static void ExtrapolateIMEXKernel(const size_t nsize,
-                                                   TData *inout,
-                                                   const TDatas *...solutions)
-{
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
-
-    ExtrapolateIMEXKernelLauncher<<<gridSize, blockSize>>>(nsize, inout,
-                                                           solutions...);
-    CHECK_LAST_HIPCUDA_ERROR();
+    TData tmp = ((solutions[idx] * coeff[ind]) + ...);
+    tmp += inout[idx] * coeff[nSolution];
+    inout[idx] = tmp;
 }
-#else
-template <typename ExecSpace, typename TData, typename... TDatas>
-NEK_FORCE_INLINE static void ExtrapolateIMEXKernel(const size_t nsize,
-                                                   TData *inout,
-                                                   const TDatas *...solutions)
-{
-    Nektar::parallel_for<ExecSpace>(
-        0, nsize, NEKTAR_LAMBDA(const size_t idx) {
-            ExtrapolateIMEXKernelImpl(
-                idx, inout,
-                std::make_integer_sequence<unsigned int,
-                                           sizeof...(solutions)>(),
-                solutions...);
-        });
-}
-#endif
 
 } // namespace Nektar::Operators::detail
+
+#include "Operators/TimeOps/TimeOpHelper.hpp"

@@ -39,93 +39,47 @@
 namespace Nektar::Operators::detail
 {
 
-template <typename TData, unsigned int... ind, typename... TDatas>
-NEK_DEVICE_INLINE static void ExtrapolateBDFKernelImpl(
-    const size_t idx, TData *__restrict inout,
-    std::integer_sequence<unsigned int, ind...>,
-    const TDatas *__restrict... solutions)
+class BDFScheme;
+
+template <unsigned int IntOrder, typename TData>
+NEK_DEVICE_INLINE static constexpr auto GetBDFCoefficients(void)
 {
-    constexpr unsigned int nSolution = sizeof...(solutions);
-    constexpr unsigned int intOrder  = nSolution + 1;
-
-    // 2n order
-    if constexpr (intOrder == 2)
+    // 2nd order
+    if constexpr (IntOrder == 2)
     {
-        constexpr TData coeff[] = {4.0 / 3.0, -1.0 / 3.0};
-
-        TData tmp = ((solutions[idx] * coeff[ind]) + ...);
-        tmp += inout[idx] * coeff[nSolution];
-        inout[idx] = tmp;
+        return std::array<TData, 2>{4.0 / 3.0, -1.0 / 3.0};
     }
     // 3rd order
-    else if constexpr (intOrder == 3)
+    else if constexpr (IntOrder == 3)
     {
-        constexpr TData coeff[] = {18.0 / 11.0, -9.0 / 11.0, 2.0 / 11.0};
-
-        TData tmp = ((solutions[idx] * coeff[ind]) + ...);
-        tmp += inout[idx] * coeff[nSolution];
-        inout[idx] = tmp;
+        return std::array<TData, 3>{18.0 / 11.0, -9.0 / 11.0, 2.0 / 11.0};
     }
     // 4th order
-    else if constexpr (intOrder == 4)
+    else if constexpr (IntOrder == 4)
     {
-        constexpr TData coeff[] = {48.0 / 25.0, -36.0 / 25.0, 16.0 / 25.0,
-                                   -3.0 / 25.0};
-
-        TData tmp = ((solutions[idx] * coeff[ind]) + ...);
-        tmp += inout[idx] * coeff[nSolution];
-        inout[idx] = tmp;
+        return std::array<TData, 4>{48.0 / 25.0, -36.0 / 25.0, 16.0 / 25.0,
+                                    -3.0 / 25.0};
     }
 }
 
-// Kernel Launchers.
-#if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
-// Currently, argument pack can't be captured in a device lambda. Explicit
-// kernel must be used (instead of nektar::parallel_for)
-template <typename TData, typename... TDatas>
-__global__ void ExtrapolateBDFKernelLauncher(
-    const size_t nsize, TData *__restrict inout,
-    const TDatas *__restrict... solutions)
+template <typename Scheme, typename TData, unsigned int... ind,
+          typename... TDatas>
+NEK_DEVICE_INLINE static
+    typename std::enable_if<std::is_same_v<Scheme, BDFScheme>, void>::type
+    UpdateSolutionKernelImpl(const size_t idx, TData *__restrict inout,
+                             std::integer_sequence<unsigned int, ind...>,
+                             const TDatas *__restrict... solutions)
 {
-    const size_t idx0   = threadIdx.x + blockIdx.x * blockDim.x;
-    const size_t stride = blockDim.x * gridDim.x;
+    constexpr unsigned int nSolution = sizeof...(solutions);
+    constexpr unsigned int IntOrder  = nSolution + 1;
 
-    for (size_t idx = idx0; idx < nsize; idx += stride)
-    {
-        ExtrapolateBDFKernelImpl(
-            idx, inout,
-            std::make_integer_sequence<unsigned int, sizeof...(solutions)>(),
-            solutions...);
-    }
-}
+    constexpr auto coeff = GetBDFCoefficients<IntOrder, TData>();
 
-template <typename ExecSpace, typename TData, typename... TDatas>
-NEK_FORCE_INLINE static void ExtrapolateBDFKernel(const size_t nsize,
-                                                  TData *inout,
-                                                  const TDatas *...solutions)
-{
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
-
-    ExtrapolateBDFKernelLauncher<<<gridSize, blockSize>>>(nsize, inout,
-                                                          solutions...);
-    CHECK_LAST_HIPCUDA_ERROR();
+    TData tmp = ((solutions[idx] * coeff[ind]) + ...);
+    tmp += inout[idx] * coeff[nSolution];
+    inout[idx] = tmp;
 }
-#else
-template <typename ExecSpace, typename TData, typename... TDatas>
-NEK_FORCE_INLINE static void ExtrapolateBDFKernel(const size_t nsize,
-                                                  TData *inout,
-                                                  const TDatas *...solutions)
-{
-    Nektar::parallel_for<ExecSpace>(
-        0, nsize, NEKTAR_LAMBDA(const size_t idx) {
-            ExtrapolateBDFKernelImpl(
-                idx, inout,
-                std::make_integer_sequence<unsigned int,
-                                           sizeof...(solutions)>(),
-                solutions...);
-        });
-}
-#endif
 
 } // namespace Nektar::Operators::detail
+
+#include "Operators/TimeOps/TimeOpHelper.hpp"

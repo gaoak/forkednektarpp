@@ -72,7 +72,6 @@ public:
     }
 
 protected:
-    // Extrapolation coefficient of implicit scheme
     TData m_gamma;
 
     void v_Apply(Field<TData, FieldState::Phys> &inout) override
@@ -111,7 +110,7 @@ protected:
 
             // Advance in time with startup
             startup->SetTime(this->m_time);
-            startup->SetNumStep(this->m_step);
+            startup->SetStep(this->m_step);
             startup->Apply(inout);
 
             // Move solutions back to higher-order BDF
@@ -138,7 +137,7 @@ protected:
                 this->RollOver(inout, this->m_solutions);
 
                 // Do extrapolation.
-                Extrapolate(
+                UpdateSolution(
                     inout,
                     std::make_integer_sequence<unsigned int, IntOrder - 1>());
             }
@@ -154,8 +153,8 @@ protected:
     }
 
     template <unsigned int... ind>
-    void Extrapolate(Field<TData, FieldState::Phys> &inout,
-                     std::integer_sequence<unsigned int, ind...>)
+    void UpdateSolution(Field<TData, FieldState::Phys> &inout,
+                        std::integer_sequence<unsigned int, ind...>)
     {
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
@@ -166,7 +165,7 @@ protected:
             auto nphys =
                 inoutBlock.GetNumData() * inoutBlock.GetNumComponents();
 
-            ExtrapolateBDFKernel<ExecSpace>(
+            UpdateSolutionKernel<ExecSpace, BDFScheme>(
                 nphys * nelmt,
                 inoutBlock.template GetPtr<MemSpace, ReadWrite>(),
                 (this->m_solutions[ind]
@@ -177,8 +176,6 @@ protected:
 
     /*
      *  Setup gamma coefficient for BDF.
-     *  Note the extrapolation coefficients are defined inside the
-     *  ExtrapolateBDFKernel.
      */
     void SetCoefficients()
     {

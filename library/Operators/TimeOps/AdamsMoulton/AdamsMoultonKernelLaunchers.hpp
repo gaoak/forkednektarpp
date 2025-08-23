@@ -39,85 +39,44 @@
 namespace Nektar::Operators::detail
 {
 
-template <typename TData, unsigned int... ind, typename... TDatas>
-NEK_DEVICE_INLINE static void ExtrapolateAdamsMoultonKernelImpl(
-    const size_t idx, const TData dt, TData *__restrict inout,
-    std::integer_sequence<unsigned int, ind...>,
-    const TDatas *__restrict... implicits)
+class AdamsMoultonScheme;
+
+template <unsigned int IntOrder, typename TData>
+NEK_DEVICE_INLINE static constexpr auto GetAdamsMoultonCoefficients(void)
 {
-    constexpr unsigned int intOrder = sizeof...(implicits) + 1;
-
     // 2nd order
-    if constexpr (intOrder == 2)
+    if constexpr (IntOrder == 2)
     {
-        constexpr TData coeff[] = {1.0 / 2.0};
-
-        inout[idx] += dt * ((implicits[idx] * coeff[ind]) + ...);
+        return std::array<TData, 1>{1.0 / 2.0};
     }
     // 3rd order
-    else if constexpr (intOrder == 3)
+    else if constexpr (IntOrder == 3)
     {
-        constexpr TData coeff[] = {8.0 / 12.0, -1.0 / 12.0};
-
-        inout[idx] += dt * ((implicits[idx] * coeff[ind]) + ...);
+        return std::array<TData, 2>{8.0 / 12.0, -1.0 / 12.0};
     }
     // 4th order
-    else if constexpr (intOrder == 4)
+    else if constexpr (IntOrder == 4)
     {
-        constexpr TData coeff[] = {19.0 / 24.0, -5.0 / 24.0, 1.0 / 24.0};
-
-        inout[idx] += dt * ((implicits[idx] * coeff[ind]) + ...);
+        return std::array<TData, 3>{19.0 / 24.0, -5.0 / 24.0, 1.0 / 24.0};
     }
 }
 
-// Kernel Launchers.
-#if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
-// Currently, argument pack can't be captured in a device lambda. Explicit
-// kernel must be used (instead of nektar::parallel_for)
-template <typename TData, typename... TDatas>
-__global__ void ExtrapolateAdamsMoultonKernelLauncher(
-    const size_t nsize, const TData dt, TData *__restrict inout,
-    const TDatas *__restrict... implicits)
+template <typename Scheme, typename TData, unsigned int... ind,
+          typename... TDatas>
+NEK_DEVICE_INLINE static
+    typename std::enable_if<std::is_same_v<Scheme, AdamsMoultonScheme>,
+                            void>::type
+    UpdateSolutionKernelImpl(const size_t idx, TData *__restrict inout,
+                             std::integer_sequence<unsigned int, ind...>,
+                             const TDatas *__restrict... implicits)
 {
-    const size_t idx0   = threadIdx.x + blockIdx.x * blockDim.x;
-    const size_t stride = blockDim.x * gridDim.x;
+    constexpr unsigned int IntOrder = sizeof...(implicits) + 1;
 
-    for (size_t idx = idx0; idx < nsize; idx += stride)
-    {
-        ExtrapolateAdamsMoultonKernelImpl(
-            idx, dt, inout,
-            std::make_integer_sequence<unsigned int, sizeof...(implicits)>(),
-            implicits...);
-    }
-}
+    constexpr auto coeff = GetAdamsMoultonCoefficients<IntOrder, TData>();
 
-template <typename ExecSpace, typename TData, typename... TDatas>
-NEK_FORCE_INLINE static void ExtrapolateAdamsMoultonKernel(
-    const size_t nsize, const TData dt, TData *inout,
-    const TDatas *...implicits)
-{
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
-
-    ExtrapolateAdamsMoultonKernelLauncher<<<gridSize, blockSize>>>(
-        nsize, dt, inout, implicits...);
-    CHECK_LAST_HIPCUDA_ERROR();
+    inout[idx] += ((implicits[idx] * coeff[ind]) + ...);
 }
-#else
-template <typename ExecSpace, typename TData, typename... TDatas>
-NEK_FORCE_INLINE static void ExtrapolateAdamsMoultonKernel(
-    const size_t nsize, const TData dt, TData *inout,
-    const TDatas *...implicits)
-{
-    Nektar::parallel_for<ExecSpace>(
-        0, nsize, NEKTAR_LAMBDA(const size_t idx) {
-            ExtrapolateAdamsMoultonKernelImpl(
-                idx, dt, inout,
-                std::make_integer_sequence<unsigned int,
-                                           sizeof...(implicits)>(),
-                implicits...);
-        });
-}
-#endif
 
 } // namespace Nektar::Operators::detail
+
+#include "Operators/TimeOps/TimeOpHelper.hpp"
