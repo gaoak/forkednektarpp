@@ -46,5 +46,13 @@
         <VARIABLES>
             <V ID="0">u</V>
         </VARIABLES>
-    </CONDITIONS>
-</NEKTAR>
+        <BOUNDARYREGIONS>
+            <B ID="0"> C[2] </B>
+        </BOUNDARYREGIONS>
+        <BOUNDARYCONDITIONS>
+            <REGION REF="0">
+                <D VAR="u" VALUE="0.0" />
+            </REGION>
+            <BOUNDARYCONDITIONS>
+            </CONDITIONS>
+        </NEKTAR>

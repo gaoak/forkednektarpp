@@ -66,6 +66,12 @@ void PreconditionerDiagonal::v_InitObject()
 {
 }
 
+const NekDouble *PreconditionerDiagonal::v_GetPreconditionerPtr()
+{
+    // returns the non-dirichlet diagonal as global dofs
+    return m_diagonals.data();
+}
+
 void PreconditionerDiagonal::v_BuildPreconditioner()
 {
     GlobalSysSolnType solvertype = m_locToGloMap.lock()->GetGlobalSysSolnType();

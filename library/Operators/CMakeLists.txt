@@ -34,18 +34,9 @@ ENDIF()
 # Macro for each operator.
 MACRO(ADD_OPERATOR dir)
 
-    # Extract operator name form directory if it exists.
     IF(IS_DIRECTORY ${dir})
         GET_FILENAME_COMPONENT(name "${dir}" NAME)
     ELSE()
-        CONTINUE()
-    ENDIF()
-
-    # Skip those files.
-    IF( ("${name}" STREQUAL "Common") OR
-        ("${name}" STREQUAL "Field") OR
-        ("${name}" STREQUAL "LoopExecution") OR
-        ("${name}" STREQUAL "MathKernels"))
         CONTINUE()
     ENDIF()
 
@@ -128,11 +119,7 @@ ENDMACRO()
 MACRO(ADD_ELMT_OPERATOR dir)
 
     # Extract operator name form directory if it exists.
-    IF(IS_DIRECTORY ${dir})
-        GET_FILENAME_COMPONENT(name "${dir}" NAME)
-    ELSE()
-        CONTINUE()
-    ENDIF()
+    GET_FILENAME_COMPONENT(name "${dir}" NAME)
 
     SET(NAME_HEADERS ${name}_HEADERS)
     SET(NAME_SOURCES ${name}_SOURCES)
@@ -430,6 +417,18 @@ MACRO(ADD_ELMT_OPERATOR dir)
 ENDMACRO()
 
 
+# Macro for single operator.
+MACRO(ADD_SINGLE_OPERATOR dir opname)
+
+  SET(FactoryDeclName "${opname}${ExecSpace}${TData}.${SOURCE_EXT}")
+  CONFIGURE_FILE(${dir}/${opname}FactoryDec.cpp.in
+                 ${FactoryDeclName})
+  SET(OPERATORS_SOURCES  ${OPERATORS_SOURCES}  ${FactoryDeclName})
+  MESSAGE("Adding operator with a ${ExecSpace} implementation: "
+                 "${FactoryDeclName}")
+ENDMACRO()
+
+
 # Macro for each operator.
 MACRO(ADD_TIME_OPERATOR dir)
 
@@ -560,12 +559,53 @@ SET(GROUP_SOURCES ${OPERATORS_SOURCES})
 
 # Loop through all of the directories which contain operators and add
 # their source and header files.
-FILE(GLOB children ./* ElmtOps/* GlobalLinSysOps/* PreconOps/* BndCondOps/*)
+FILE(GLOB children AddTraceIntegral  BndCondOps/*  ElmtOps/*  GlobalLinSysOps/* PreconOps/*)
+
 FOREACH(child ${children})
+   MESSAGE("Child : " "${child}")
     ADD_OPERATOR(${child})
 ENDFOREACH()
+  MESSAGE("Sources 0 : " "${OPERATORS_SOURCES}")
 
-# Loop through all of the directories which contain operators and add
+# add operators manually 
+
+  #Serial double cases
+  SET(TData double)
+
+  SET(EXEC_MEM_SPACE_TAG NEKTAR_DEFAULT_HOST_TAG)
+  SET(ExecSpace Serial)
+  SET(SOURCE_EXT cpp)
+
+  ADD_SINGLE_OPERATOR(AssmbScatr AssmbScatr)
+  ADD_SINGLE_OPERATOR(AssmbScatr AssmbScatrZeroDir)
+
+  #AVX double cases
+  IF (AVX IN_LIST ExecSpaces)
+    SET(EXEC_MEM_SPACE_TAG NEKTAR_DEFAULT_DEVICE_TAG)
+    SET(ExecSpace AVX)
+    SET(SOURCE_EXT cpp)
+
+    ADD_SINGLE_OPERATOR(AssmbScatr AssmbScatr)
+    ADD_SINGLE_OPERATOR(AssmbScatr AssmbScatrZeroDir)
+  #Device double cases
+  ELSEIF (Device IN_LIST ExecSpaces)
+    SET(EXEC_MEM_SPACE_TAG NEKTAR_DEFAULT_DEVICE_TAG)
+    SET(ExecSpace Device)
+    IF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_CUDA)
+         SET(SOURCE_EXT cu)
+    ELSEIF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_HIP)
+         SET(SOURCE_EXT hip)
+    ELSE()
+  	 SET(SOURCE_EXT cpp)
+    ENDIF()
+
+    ADD_SINGLE_OPERATOR(AssmbScatr AssmbScatr)
+    ADD_SINGLE_OPERATOR(AssmbScatr AssmbScatrZeroDir)
+  ENDIF()
+
+  MESSAGE("Sources 1 : " "${OPERATORS_SOURCES}")
+
+# Loop through all of the directories which contain block operators and add
 # their source and header files.
 FILE(GLOB children ElmtOps/*)
 FOREACH(child ${children})

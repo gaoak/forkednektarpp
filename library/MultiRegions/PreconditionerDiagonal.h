@@ -76,6 +76,8 @@ protected:
 
     void v_InitObject() override;
 
+    const NekDouble *v_GetPreconditionerPtr() override;
+
     void v_DoPreconditioner(const Array<OneD, NekDouble> &pInput,
                             Array<OneD, NekDouble> &pOutput,
                             const bool &IsLocal = false) override;

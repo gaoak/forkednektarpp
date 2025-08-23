@@ -40,21 +40,31 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename TData>
-void SetDiagonalKernel(const unsigned int nmTot, const size_t nelmt,
-                       const unsigned int mode, const TData val, TData *outptr)
+void SetModeBlkKernel(const unsigned mode, const size_t nelmtgrps,
+                      const unsigned width, const unsigned numdata,
+                      const TData val, TData *blkptr)
 {
     Nektar::parallel_for<ExecSpace>(
-        0, nelmt, NEKTAR_LAMBDA(size_t e) { outptr[e * nmTot + mode] = val; });
+        0, nelmtgrps * width, NEKTAR_LAMBDA(size_t idx) {
+            unsigned e = idx / width;
+            unsigned i = idx % width;
+
+            blkptr[(e * numdata + mode) * width + i] = val;
+        });
 }
 
 template <typename ExecSpace, typename TData>
-void CopyDiagonalKernel(const unsigned int nmTot, const size_t nelmt,
-                        const unsigned int mode, const TData *inptr,
-                        TData *outptr)
+void CopyModeBlkKernel(const unsigned mode, const size_t nelmtgrps,
+                       const unsigned width, const unsigned numdata,
+                       const TData *fromblkptr, TData *toblkptr)
 {
     Nektar::parallel_for<ExecSpace>(
-        0, nelmt, NEKTAR_LAMBDA(size_t e) {
-            outptr[e * nmTot + mode] = inptr[e * nmTot + mode];
+        0, nelmtgrps * width, NEKTAR_LAMBDA(size_t idx) {
+            unsigned e = idx / width;
+            unsigned i = idx % width;
+
+            toblkptr[(e * numdata + mode) * width + i] =
+                fromblkptr[(e * numdata + mode) * width + i];
         });
 }
 

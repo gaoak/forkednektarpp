@@ -14,7 +14,7 @@
             <V ID="5"> 1.0 0.0 0.0 </V>
             <V ID="6"> -1.0 1.0 0.0 </V>
             <V ID="7"> 0.0 1.0 0.0 </V>
-            <V ID="8"> 1.0 1.0 0.0 </V>
+            <V ID="8"> 1.1 1.1 0.0 </V>
         </VERTEX>
 
         <EDGE>
@@ -71,5 +71,14 @@
         <VARIABLES>
             <V ID="0">u</V>
         </VARIABLES>
+        <BOUNDARYREGIONS>
+            <B ID="0"> C[2] </B>
+        </BOUNDARYREGIONS>
+        <BOUNDARYCONDITIONS>
+            <REGION REF="0">
+                <D VAR="u" VALUE="0.0" />
+            </REGION>
+        </BOUNDARYCONDITIONS>
+
     </CONDITIONS>
 </NEKTAR>

@@ -42,82 +42,23 @@ NEK_FORCE_INLINE static
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                             void>::type
-    AssembleKernel(const unsigned int nsize, const int *assmbPtr,
-                   const TData *signPtr, const TData *inptr, TData *outptr)
+    AssembleScatrKernel(const unsigned nvals, const unsigned *GSInfo,
+                        const int *sign, TData *inoutptr)
 {
-    for (unsigned int i = 0; i < nsize; i++)
-    {
-        outptr[assmbPtr[i]] += signPtr[i] * inptr[i];
-    }
-}
+    const unsigned *offset = GSInfo + 1;
+    const unsigned *ind    = GSInfo + nvals + 2;
 
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
-                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                            void>::type
-    AssembleKernel(const unsigned int nsize, const int *assmbPtr,
-                   const TData sign, const TData *inptr, TData *outptr)
-{
-    for (unsigned int i = 0; i < nsize; i++)
+    for (unsigned idx = 0; idx < nvals; ++idx)
     {
-        outptr[assmbPtr[i]] += sign * inptr[i];
-    }
-}
-
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
-                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                            void>::type
-    AssembleKernel(const unsigned int nsize, const int *assmbPtr,
-                   const TData *inptr, TData *outptr)
-{
-    for (unsigned int i = 0; i < nsize; i++)
-    {
-        outptr[assmbPtr[i]] += inptr[i];
-    }
-}
-
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
-                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                            void>::type
-    GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
-                        const TData *signPtr, const TData *inptr, TData *outptr)
-{
-    for (unsigned int i = 0; i < nsize; i++)
-    {
-        outptr[i] = signPtr[i] * inptr[assmbPtr[i]];
-    }
-}
-
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
-                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                            void>::type
-    GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
-                        const TData sign, const TData *inptr, TData *outptr)
-{
-    for (unsigned int i = 0; i < nsize; i++)
-    {
-        outptr[i] = sign * inptr[assmbPtr[i]];
-    }
-}
-
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
-                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                            void>::type
-    GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
-                        const TData *inptr, TData *outptr)
-{
-    for (unsigned int i = 0; i < nsize; i++)
-    {
-        outptr[i] = inptr[assmbPtr[i]];
+        TData ass = 0;
+        for (unsigned j = offset[idx]; j < offset[idx + 1]; ++j)
+        {
+            ass += inoutptr[ind[j]] * sign[j];
+        }
+        for (unsigned j = offset[idx]; j < offset[idx + 1]; ++j)
+        {
+            inoutptr[ind[j]] = ass * sign[j];
+        }
     }
 }
 

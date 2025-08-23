@@ -39,6 +39,7 @@
 #include "Operators/BndCondOps/NeuBndCond/NeuBndCondOp.hpp"
 
 #include "Operators/BndCondOps/NeuBndCond/NeuBndCondKernels.hpp"
+#include "Operators/Utils/UtilsKernels.hpp"
 
 using namespace Nektar;
 using namespace Nektar::MultiRegions;
@@ -193,36 +194,52 @@ protected:
             return;
         }
 
+        ASSERTL0(inout.GetNumComponents() == 1,
+                 "Not yet set up for multiple components");
+
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
         {
-            auto nbndCoeffBlock = m_nBndCoeffBlock[blk];
+            auto nbndCoeffBlk = m_nBndCoeffBlock[blk];
 
-            if (nbndCoeffBlock == 0)
+            if (nbndCoeffBlk == 0)
             {
                 continue;
             }
 
+            auto &inoutBlk = inout.GetBlocks()[blk];
+
             // Initialize pointers.
-            auto inoutptr =
-                inout.GetBlocks()[blk].template GetPtr<MemSpace, ReadWrite>();
-            auto mapPtr = m_map[blk].template GetPtr<MemSpace, ReadOnly>();
+            auto inoutPtr = inoutBlk.template GetPtr<MemSpace, ReadWrite>();
+            auto mapPtr   = m_map[blk].template GetPtr<MemSpace, ReadOnly>();
             auto bndcoeffPtr =
                 m_bndCoeff[blk].template GetPtr<MemSpace, ReadOnly>();
             auto signPtr =
                 m_signChange ? m_sign[blk].template GetPtr<MemSpace, ReadOnly>()
                              : nullptr;
 
+            // if block is interlaced deInterleave block since currently mapping
+            // set up assuming serial alignment
+            auto inoutWidth = inoutBlk.GetInterleaveWidth();
+            if (inoutWidth != 1)
+            {
+                deInterleave<ExecSpace>(inoutWidth,
+                                        inoutBlk.GetNumElementsWithPadding() /
+                                            inoutWidth,
+                                        inoutBlk.GetNumData(), inoutPtr);
+                inoutBlk.template SetInterleaveWidth<TData>(1);
+            }
+
             // Add weak boundary conditions to the forcing.
             if (m_signChange)
             {
-                NeuBndCondKernel<ExecSpace>(nbndCoeffBlock, signPtr, mapPtr,
-                                            bndcoeffPtr, inoutptr);
+                NeuBndCondKernel<ExecSpace>(nbndCoeffBlk, signPtr, mapPtr,
+                                            bndcoeffPtr, inoutPtr);
             }
             else
             {
-                NeuBndCondKernel<ExecSpace>(nbndCoeffBlock, mapPtr, bndcoeffPtr,
-                                            inoutptr);
+                NeuBndCondKernel<ExecSpace>(nbndCoeffBlk, mapPtr, bndcoeffPtr,
+                                            inoutPtr);
             }
         }
     }

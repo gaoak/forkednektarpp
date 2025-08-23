@@ -41,6 +41,7 @@
 
 #include "Operators/BndCondOps/RobBndCond/RobBndCondDeviceKernels.hpp"
 #include "Operators/BndCondOps/RobBndCond/RobBndCondSerialAVXKernels.hpp"
+#include "Operators/Utils/UtilsKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -281,8 +282,38 @@ protected:
             return;
         }
 
+        ASSERTL0(in.GetNumComponents() == 1,
+                 "Not yet set up for multiple components");
+
+        // if block is interlaced deInterleave block since currently mapping
+        // set up assuming serial alignment
+        for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
+        {
+            auto &inBlk  = in.GetBlocks()[blk];
+            auto &outBlk = out.GetBlocks()[blk];
+            auto inPtr   = inBlk.template GetPtr<MemSpace, ReadWrite>();
+            auto outPtr  = outBlk.template GetPtr<MemSpace, ReadWrite>();
+
+            auto inWidth = inBlk.GetInterleaveWidth();
+            if (inWidth != 1)
+            {
+                deInterleave<ExecSpace>(
+                    inWidth, inBlk.GetNumElementsWithPadding() / inWidth,
+                    inBlk.GetNumData(), inPtr);
+                inBlk.template SetInterleaveWidth<TData>(1);
+            }
+            auto outWidth = outBlk.GetInterleaveWidth();
+            if (outWidth != 1)
+            {
+                deInterleave<ExecSpace>(
+                    outWidth, outBlk.GetNumElementsWithPadding() / outWidth,
+                    outBlk.GetNumData(), outPtr);
+                inBlk.template SetInterleaveWidth<TData>(1);
+            }
+        }
+
         // Get pointers.
-        auto inptr   = in.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>();
+        auto inPtr   = in.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>();
         auto matPtr  = m_mat.template GetPtr<MemSpace, ReadOnly>();
         auto mapPtr  = m_map.template GetPtr<MemSpace, ReadOnly>();
         auto signPtr = m_sign.template GetPtr<MemSpace, ReadOnly>();
@@ -290,7 +321,7 @@ protected:
         auto offsetPtr    = m_offset.template GetPtr<MemSpace, ReadOnly>();
         auto matOffsetPtr = m_matOffset.template GetPtr<MemSpace, ReadOnly>();
         auto mapOffsetPtr = m_mapOffset.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = out.GetBlocks()[0].template GetPtr<MemSpace, WriteOnly>();
+        auto outPtr = out.GetBlocks()[0].template GetPtr<MemSpace, WriteOnly>();
 
         // Apply Robin boundary conditions.
         auto dimension = this->m_expansionList->GetExp(0)->GetShapeDimension();
@@ -299,12 +330,12 @@ protected:
             if (negflag)
             {
                 RobBndCond1DKernel<ExecSpace, true>(
-                    m_nBndEdge, offsetPtr, matPtr, mapPtr, inptr, outptr);
+                    m_nBndEdge, offsetPtr, matPtr, mapPtr, inPtr, outPtr);
             }
             else
             {
                 RobBndCond1DKernel<ExecSpace, false>(
-                    m_nBndEdge, offsetPtr, matPtr, mapPtr, inptr, outptr);
+                    m_nBndEdge, offsetPtr, matPtr, mapPtr, inPtr, outPtr);
             }
         }
         else if (dimension == 2)
@@ -313,13 +344,13 @@ protected:
             {
                 RobBndCond2DKernel<ExecSpace, true>(
                     m_nmaxcoeff, m_nBndEdge, ncoeffPtr, offsetPtr, matOffsetPtr,
-                    mapOffsetPtr, matPtr, mapPtr, signPtr, inptr, outptr);
+                    mapOffsetPtr, matPtr, mapPtr, signPtr, inPtr, outPtr);
             }
             else
             {
                 RobBndCond2DKernel<ExecSpace, false>(
                     m_nmaxcoeff, m_nBndEdge, ncoeffPtr, offsetPtr, matOffsetPtr,
-                    mapOffsetPtr, matPtr, mapPtr, signPtr, inptr, outptr);
+                    mapOffsetPtr, matPtr, mapPtr, signPtr, inPtr, outPtr);
             }
         }
     }

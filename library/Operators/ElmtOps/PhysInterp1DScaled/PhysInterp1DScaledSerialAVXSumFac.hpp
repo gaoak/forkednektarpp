@@ -96,17 +96,23 @@ protected:
     std::vector<unsigned int> m_nm;
     std::vector<unsigned int> m_nq;
     std::vector<const simd_t *> m_B;
+#if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
+    // flag to ensure we only get one warning for alignment otherwise CI system
+    // is saturated with warnings
+    bool m_warnOnce = false;
+#endif
 
     void v_Apply(BlockAccessor<TData> &inblock,
                  BlockAccessor<TData> &outblock) override
     {
-        // Check alignment.
-        WARNINGL1(inblock.GetAlignment() == simd_t::alignment,
-                  "Input Field are not aligned to the required alignment "
-                  "for the SIMD vector type.");
-        WARNINGL1(outblock.GetAlignment() == simd_t::alignment,
-                  "Output Field are not aligned to the required alignment "
-                  "for the SIMD vector type.");
+        WARNINGL1(
+            m_warnOnce || (inblock.GetAlignment() == simd_t::alignment &&
+                           outblock.GetAlignment() == simd_t::alignment),
+            "Input or output Field are not aligned to the required alignment "
+            "for the SIMD vector type.");
+#if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
+        m_warnOnce = true;
+#endif
 
         ASSERTL1(this->m_scale != -1.0,
                  "Scale factor has not been initialised");

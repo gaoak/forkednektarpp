@@ -149,7 +149,7 @@ public:
         if (m_storage == nullptr)
         {
             NEKERROR(Nektar::ErrorUtil::efatal,
-                     "MemoryRegion::GetPtr - Storage has not allocated.");
+                     "MemoryRegion::GetPtr - Storage is not allocated.");
         }
 
         if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
@@ -329,7 +329,7 @@ public:
         if (m_storage == nullptr)
         {
             NEKERROR(Nektar::ErrorUtil::efatal,
-                     "MemoryRegion::Initialize - Storage has not allocated.");
+                     "MemoryRegion::Initialize - Storage is not allocated.");
         }
 
         m_storage->template Initialize<MemSpace>(val, count, offset);
@@ -424,7 +424,7 @@ public:
         if (m_storage == nullptr)
         {
             NEKERROR(Nektar::ErrorUtil::efatal,
-                     "MemoryRegion::ToVector - Storage has not allocated.");
+                     "MemoryRegion::ToVector - Storage is not allocated.");
         }
 
         if constexpr (std::is_same_v<TDataOut, TData>)
@@ -459,7 +459,7 @@ public:
         if (m_storage == nullptr)
         {
             NEKERROR(Nektar::ErrorUtil::efatal,
-                     "MemoryRegion::ToArray - Storage has not allocated.");
+                     "MemoryRegion::ToArray - Storage is not allocated.");
         }
 
         if constexpr (std::is_same_v<TDataOut, TData>)
@@ -493,7 +493,7 @@ public:
         if (m_storage == nullptr)
         {
             NEKERROR(Nektar::ErrorUtil::efatal,
-                     "MemoryRegion::GetAlignment - Storage has not allocated.");
+                     "MemoryRegion::GetAlignment - Storage is not allocated.");
         }
 
         return m_storage->m_alignment;
@@ -507,9 +507,8 @@ public:
     {
         if (m_storage == nullptr)
         {
-            NEKERROR(
-                Nektar::ErrorUtil::efatal,
-                "MemoryRegion::GetDeviceRank - Storage has not allocated.");
+            NEKERROR(Nektar::ErrorUtil::efatal,
+                     "MemoryRegion::GetDeviceRank - Storage is not allocated.");
         }
 
         return m_storage->m_device_rank;
@@ -539,7 +538,7 @@ public:
         if (m_storage == nullptr)
         {
             NEKERROR(Nektar::ErrorUtil::efatal,
-                     "MemoryRegion::GetName - Storage has not allocated.");
+                     "MemoryRegion::GetName - Storage is not allocated.");
         }
 
         return m_storage->m_name;
@@ -591,7 +590,7 @@ private:
         {
             NEKERROR(
                 Nektar::ErrorUtil::efatal,
-                "MemoryRegion::CopyFromHostPtr - Storage has not allocated.");
+                "MemoryRegion::CopyFromHostPtr - Storage is not allocated.");
         }
 
         if constexpr (std::is_same_v<TDataIn, TData>)

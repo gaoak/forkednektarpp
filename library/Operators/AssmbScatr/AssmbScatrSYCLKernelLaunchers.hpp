@@ -44,124 +44,19 @@ template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                             void>::type
-    AssembleKernel(const unsigned int nsize, const int *assmbPtr,
-                   const TData *signPtr, const TData *inptr, TData *outptr)
+    AssembleScatrKernel(const unsigned nvals, const unsigned int *GSInfo,
+                        const int *sign, TData *inoutptr)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+    const unsigned int gridSize  = (nvals + blockSize - 1) / blockSize;
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
                          [=](sycl::nd_item<1> item_ct1) {
 #pragma forceinline
-                             AssembleKernel<>(nsize, assmbPtr, signPtr, inptr,
-                                              outptr, item_ct1);
-                         });
-    });
-}
-
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                            void>::type
-    AssembleKernel(const unsigned int nsize, const int *assmbPtr,
-                   const TData sign, const TData *inptr, TData *outptr)
-{
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
-
-    sycl::queue &Q = SYCLQueue::GetInstance();
-    Q.submit([=](sycl::handler &cgh) {
-        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
-                         [=](sycl::nd_item<1> item_ct1) {
-#pragma forceinline
-                             AssembleKernel<>(nsize, assmbPtr, sign, inptr,
-                                              outptr, item_ct1);
-                         });
-    });
-}
-
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                            void>::type
-    AssembleKernel(const unsigned int nsize, const int *assmbPtr,
-                   const TData *inptr, TData *outptr)
-{
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
-
-    sycl::queue &Q = SYCLQueue::GetInstance();
-    Q.submit([=](sycl::handler &cgh) {
-        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
-                         [=](sycl::nd_item<1> item_ct1) {
-#pragma forceinline
-                             AssembleKernel<>(nsize, assmbPtr, inptr, outptr,
-                                              item_ct1);
-                         });
-    });
-}
-
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                            void>::type
-    GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
-                        const TData *signPtr, const TData *inptr, TData *outptr)
-{
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
-
-    sycl::queue &Q = SYCLQueue::GetInstance();
-    Q.submit([=](sycl::handler &cgh) {
-        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
-                         [=](sycl::nd_item<1> item_ct1) {
-#pragma forceinline
-                             GlobalToLocalKernel<>(nsize, assmbPtr, signPtr,
-                                                   inptr, outptr, item_ct1);
-                         });
-    });
-}
-
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                            void>::type
-    GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
-                        const TData sign, const TData *inptr, TData *outptr)
-{
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
-
-    sycl::queue &Q = SYCLQueue::GetInstance();
-    Q.submit([=](sycl::handler &cgh) {
-        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
-                         [=](sycl::nd_item<1> item_ct1) {
-#pragma forceinline
-                             GlobalToLocalKernel<>(nsize, assmbPtr, sign, inptr,
-                                                   outptr, item_ct1);
-                         });
-    });
-}
-
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                            void>::type
-    GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
-                        const TData *inptr, TData *outptr)
-{
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
-
-    sycl::queue &Q = SYCLQueue::GetInstance();
-    Q.submit([=](sycl::handler &cgh) {
-        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
-                         [=](sycl::nd_item<1> item_ct1) {
-#pragma forceinline
-                             GlobalToLocalKernel<>(nsize, assmbPtr, inptr,
-                                                   outptr, item_ct1);
+                             AssembleScatrKernel<>(nvals, GSInfo, sign,
+                                                   inoutptr, item_ct1);
                          });
     });
 }
