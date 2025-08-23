@@ -36,7 +36,7 @@
 
 #include "Operators/PreconOps/NullPrecon/NullPreconOp.hpp"
 
-#include "Operators/AssmbScatr/AssmbScatrOp.hpp"
+#include "Operators/AssmbScatr/AssmbScatrOpImpl.hpp"
 
 using namespace Nektar;
 
@@ -52,8 +52,9 @@ public:
     NullPreconOpImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : NullPreconOp<TData>(expansionList)
     {
-        m_assmbScatrOp =
-            AssmbScatrOp<TData>::Create(this->m_expansionList, ExecSpace::name);
+        m_assmbScatrZeroDirOp =
+            std::make_unique<AssmbScatrZeroDirOpImpl<ExecSpace, TData>>(
+                this->m_expansionList);
     }
 
     // className - for OperatorFactory
@@ -68,12 +69,13 @@ public:
     }
 
 protected:
-    std::shared_ptr<AssmbScatrOp<TData>> m_assmbScatrOp;
+    std::unique_ptr<AssmbScatrZeroDirOpImpl<ExecSpace, TData>>
+        m_assmbScatrZeroDirOp;
 
     void v_Apply(Field<TData, FieldState::Coeff> &in,
                  Field<TData, FieldState::Coeff> &out) override
     {
-        m_assmbScatrOp->Apply(in, out, true);
+        m_assmbScatrZeroDirOp->Apply(in, out);
     }
 
     void v_Configure(

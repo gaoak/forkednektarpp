@@ -46,6 +46,7 @@
 
 #include "Operators/Common/BasisDataWarehouse.hpp"
 #include "Operators/Common/GeometricDataWarehouse.hpp"
+#include "Operators/Common/LocalToGlobalDataWarehouse.hpp"
 #include "Operators/Common/ModeIndexDataWarehouse.hpp"
 #include "Operators/Common/NekDataWarehouse.hpp"
 #include "Operators/Common/OperatorsDeclspec.hpp"

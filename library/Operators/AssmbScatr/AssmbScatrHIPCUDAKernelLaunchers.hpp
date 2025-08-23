@@ -40,68 +40,15 @@
 namespace Nektar::Operators::detail
 {
 
+// Kernel Launchers.
 template <typename TData>
-__global__ void AssembleKernelLauncher(const unsigned int nsize,
-                                       const int *__restrict__ assmbPtr,
-                                       const TData *__restrict__ signPtr,
-                                       const TData *__restrict__ inptr,
-                                       TData *__restrict__ outptr,
-                                       const hipcudaBlock1D &threadBlock)
-{
-    AssembleKernel<>(nsize, assmbPtr, signPtr, inptr, outptr, threadBlock);
-}
+__global__ void AssembleScatrKernelLauncher(
+    const unsigned int nvals, const unsigned *__restrict__ blkGSInfo,
+    const int *__restrict__ sign, TData *__restrict__ inoutptr,
+    const hipcudaBlock1D &threadBlock)
 
-template <typename TData>
-__global__ void AssembleKernelLauncher(const unsigned int nsize,
-                                       const int *__restrict__ assmbPtr,
-                                       const TData sign,
-                                       const TData *__restrict__ inptr,
-                                       TData *__restrict__ outptr,
-                                       const hipcudaBlock1D &threadBlock)
 {
-    AssembleKernel<>(nsize, assmbPtr, sign, inptr, outptr, threadBlock);
-}
-
-template <typename TData>
-__global__ void AssembleKernelLauncher(const unsigned int nsize,
-                                       const int *__restrict__ assmbPtr,
-                                       const TData *__restrict__ inptr,
-                                       TData *__restrict__ outptr,
-                                       const hipcudaBlock1D &threadBlock)
-{
-    AssembleKernel<>(nsize, assmbPtr, inptr, outptr, threadBlock);
-}
-
-template <typename TData>
-__global__ void GlobalToLocalKernelLauncher(const unsigned int nsize,
-                                            const int *__restrict__ assmbPtr,
-                                            const TData *__restrict__ signPtr,
-                                            const TData *__restrict__ inptr,
-                                            TData *__restrict__ outptr,
-                                            const hipcudaBlock1D &threadBlock)
-{
-    GlobalToLocalKernel<>(nsize, assmbPtr, signPtr, inptr, outptr, threadBlock);
-}
-
-template <typename TData>
-__global__ void GlobalToLocalKernelLauncher(const unsigned int nsize,
-                                            const int *__restrict__ assmbPtr,
-                                            const TData sign,
-                                            const TData *__restrict__ inptr,
-                                            TData *__restrict__ outptr,
-                                            const hipcudaBlock1D &threadBlock)
-{
-    GlobalToLocalKernel<>(nsize, assmbPtr, sign, inptr, outptr, threadBlock);
-}
-
-template <typename TData>
-__global__ void GlobalToLocalKernelLauncher(const unsigned int nsize,
-                                            const int *__restrict__ assmbPtr,
-                                            const TData *__restrict__ inptr,
-                                            TData *__restrict__ outptr,
-                                            const hipcudaBlock1D &threadBlock)
-{
-    GlobalToLocalKernel<>(nsize, assmbPtr, inptr, outptr, threadBlock);
+    AssembleScatrKernel<>(nvals, blkGSInfo, sign, inoutptr, threadBlock);
 }
 
 // Kernel Launchers.
@@ -109,89 +56,14 @@ template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                             void>::type
-    AssembleKernel(const unsigned int nsize, const int *assmbPtr,
-                   const TData *signPtr, const TData *inptr, TData *outptr)
+    AssembleScatrKernel(const unsigned int nvals, const unsigned *GSInfo,
+                        const int *sign, TData *inoutptr)
 {
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+    const unsigned blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned gridSize  = (nvals + blockSize - 1) / blockSize;
 
-    AssembleKernelLauncher<><<<gridSize, blockSize>>>(
-        nsize, assmbPtr, signPtr, inptr, outptr, hipcudaBlock1D());
-    CHECK_LAST_HIPCUDA_ERROR();
-}
-
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                            void>::type
-    AssembleKernel(const unsigned int nsize, const int *assmbPtr,
-                   const TData sign, const TData *inptr, TData *outptr)
-{
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
-
-    AssembleKernelLauncher<><<<gridSize, blockSize>>>(
-        nsize, assmbPtr, sign, inptr, outptr, hipcudaBlock1D());
-    CHECK_LAST_HIPCUDA_ERROR();
-}
-
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                            void>::type
-    AssembleKernel(const unsigned int nsize, const int *assmbPtr,
-                   const TData *inptr, TData *outptr)
-{
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
-
-    AssembleKernelLauncher<><<<gridSize, blockSize>>>(nsize, assmbPtr, inptr,
-                                                      outptr, hipcudaBlock1D());
-    CHECK_LAST_HIPCUDA_ERROR();
-}
-
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                            void>::type
-    GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
-                        const TData *signPtr, const TData *inptr, TData *outptr)
-{
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
-
-    GlobalToLocalKernelLauncher<><<<gridSize, blockSize>>>(
-        nsize, assmbPtr, signPtr, inptr, outptr, hipcudaBlock1D());
-    CHECK_LAST_HIPCUDA_ERROR();
-}
-
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                            void>::type
-    GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
-                        const TData sign, const TData *inptr, TData *outptr)
-{
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
-
-    GlobalToLocalKernelLauncher<><<<gridSize, blockSize>>>(
-        nsize, assmbPtr, sign, inptr, outptr, hipcudaBlock1D());
-    CHECK_LAST_HIPCUDA_ERROR();
-}
-
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                            void>::type
-    GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
-                        const TData *inptr, TData *outptr)
-{
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
-
-    GlobalToLocalKernelLauncher<><<<gridSize, blockSize>>>(
-        nsize, assmbPtr, inptr, outptr, hipcudaBlock1D());
+    AssembleScatrKernelLauncher<><<<gridSize, blockSize>>>(
+        nvals, GSInfo, sign, inoutptr, hipcudaBlock1D());
     CHECK_LAST_HIPCUDA_ERROR();
 }
 

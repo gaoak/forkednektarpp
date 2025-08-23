@@ -96,6 +96,8 @@ public:
 
     inline void BuildPreconditioner();
 
+    inline const NekDouble *GetPreconditionerPtr();
+
     inline void InitObject();
 
     Array<OneD, NekDouble> AssembleStaticCondGlobalDiagonals();
@@ -126,6 +128,11 @@ protected:
         int offset, int bndoffset, const std::shared_ptr<DNekScalMat> &loc_mat);
 
     virtual void v_InitObject();
+
+    virtual const NekDouble *v_GetPreconditionerPtr()
+    {
+        return nullptr;
+    };
 
     virtual void v_DoPreconditioner(const Array<OneD, NekDouble> &pInput,
                                     Array<OneD, NekDouble> &pOutput,
@@ -163,6 +170,14 @@ typedef std::shared_ptr<Preconditioner> PreconditionerSharedPtr;
 inline void Preconditioner::InitObject()
 {
     v_InitObject();
+}
+
+/**
+ *
+ */
+inline const NekDouble *Preconditioner::GetPreconditionerPtr()
+{
+    return v_GetPreconditionerPtr();
 }
 
 /**

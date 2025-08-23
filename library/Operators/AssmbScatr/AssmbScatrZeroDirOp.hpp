@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: AssmbScatrDeviceOnHostKernelLaunchers.hpp
+// File: AssmbScatrZeroDirOp.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,21 +34,48 @@
 
 #pragma once
 
-#if defined(NEKTAR_ENABLE_DEVICEONHOST)
+#include "Operators/Common/Operator.hpp"
 
-namespace Nektar::Operators::detail
+namespace Nektar::Operators
 {
 
-// Kernel Launchers.
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                            void>::type
-    AssembleScatrKernel(const unsigned nvals, const unsigned *GSInfo,
-                        const int *sign, TData *inoutptr)
+// AssmbScatr base class with Zero Dirichlet
+// Defines the apply operator to enforce apply parameter types
+template <typename TData> class AssmbScatrZeroDirOp : public Operator<TData>
 {
-    AssembleScatrKernel<>(nvals, GSInfo, sign, inoutptr, deviceOnHostBlock1D());
-}
+public:
+    static std::shared_ptr<AssmbScatrZeroDirOp<TData>> Create(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::string &execStr = "")
+    {
+        return Operator<TData>::template Create<AssmbScatrZeroDirOp>(
+            expansionList, execStr);
+    }
 
-} // namespace Nektar::Operators::detail
-#endif
+    static inline const std::string name = "AssmbScatrZeroDir";
+
+    void Apply(Field<TData, FieldState::Coeff> &in,
+               Field<TData, FieldState::Coeff> &out)
+    {
+        v_Apply(in, out);
+    }
+
+    void operator()(Field<TData, FieldState::Coeff> &in,
+                    Field<TData, FieldState::Coeff> &out)
+    {
+        v_Apply(in, out);
+    }
+
+protected:
+    AssmbScatrZeroDirOp(const MultiRegions::ExpListSharedPtr &expansionList)
+        : Operator<TData>(expansionList)
+    {
+    }
+
+    ~AssmbScatrZeroDirOp() override = default;
+
+    virtual void v_Apply(Field<TData, FieldState::Coeff> &in,
+                         Field<TData, FieldState::Coeff> &out) = 0;
+};
+
+} // namespace Nektar::Operators

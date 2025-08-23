@@ -70,6 +70,7 @@
 
 #include "Operators/Common/BasisDataWarehouse.hpp"
 #include "Operators/Common/GeometricDataWarehouse.hpp"
+#include "Operators/Common/LocalToGlobalDataWarehouse.hpp"
 #include "Operators/Common/ModeIndexDataWarehouse.hpp"
 #include "Operators/Common/StdMatDataWarehouse.hpp"
 
@@ -1884,6 +1885,12 @@ void ExpList::SetDataWarehouse(void)
     m_dataWarehouse
         ->RegisterDataCreatorClass<Nektar::Operators::VandemondeDataCreator>(
             vExpList);
+
+    m_dataWarehouse
+        ->RegisterDataCreatorClass<Nektar::Operators::LocalToGlobalDataCreator>(
+            vExpList);
+    m_dataWarehouse->RegisterDataCreatorClass<
+        Nektar::Operators::LocalToGlobalSignDataCreator>(vExpList);
 }
 
 /**

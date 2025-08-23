@@ -35,12 +35,18 @@
 #include "init_fields.hpp"
 
 #include "Operators/AssmbScatr/AssmbScatrOp.hpp"
+#include "Operators/AssmbScatr/AssmbScatrOpImpl.hpp"
+#include "Operators/AssmbScatr/AssmbScatrZeroDirOp.hpp"
 
 #include <LibUtilities/LinearAlgebra/NekLinSysIter.h>
 #include <MultiRegions/ContField.h>
 #include <MultiRegions/GlobalLinSysIterativeFull.h>
 
+#include <Operators/Common/Spaces.hpp>
+#include <Operators/Utils/UtilsKernels.hpp>
+
 using namespace Nektar::Operators;
+using namespace Nektar::Operators::detail;
 using namespace Nektar::LibUtilities;
 using namespace Nektar::MultiRegions;
 using namespace Nektar;
@@ -48,51 +54,103 @@ using namespace Nektar;
 class AssmbScatrField
     : public InitFields<double, FieldState::Coeff, FieldState::Coeff, ContField>
 {
+
 public:
     AssmbScatrField()
         : InitFields<double, FieldState::Coeff, FieldState::Coeff, ContField>()
     {
     }
 
-    void SetTestCase()
+    void SetTestCase(bool ZeroDir = false)
     {
         // Set initial conditions.
+        std::string execStr =
+            session->GetCmdLineArgument<std::string>("opExecSpace");
+
         for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
         {
             auto &block = fixt_in->GetBlocks()[blk];
             auto inptr =
                 block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-            for (size_t el = 0, cnt = 0; el < block.GetNumElements(); ++el)
+            for (unsigned int nc = 0; nc < fixt_in->GetNumComponents(); ++nc)
             {
-                for (unsigned int coeff = 0; coeff < block.GetNumData();
-                     ++coeff, ++cnt)
+                for (size_t el = 0, cnt = 0; el < block.GetNumElements(); ++el)
                 {
-                    inptr[cnt] = coeff;
+                    for (unsigned int coeff = 0; coeff < block.GetNumData();
+                         ++coeff, ++cnt)
+                    {
+                        inptr[cnt] = coeff + nc;
+                    }
                 }
+                inptr += block.size();
             }
         }
 
         // Compute expected solution.
-        ExpectedSolution();
+        ExpectedSolution(ZeroDir);
+
+        // reshape fixt_in
+        if (execStr == "AVX")
+        {
+            for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
+            {
+                auto &block = fixt_in->GetBlocks()[blk];
+                auto inptr =
+                    block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+                for (unsigned int nc = 0; nc < fixt_in->GetNumComponents();
+                     ++nc)
+                {
+                    // reshuffle data into simd_t width for AVX check
+                    ReshapeStorage<NektarSpaces::Serial,
+                                   NektarSpaces::vector_width<double>::value>(
+                        block.GetInterleaveWidth(),
+                        block.GetNumElementsWithPadding(), block.GetNumData(),
+                        inptr);
+                    inptr += block.size();
+                }
+
+                block.template SetInterleaveWidth<double>(
+                    NektarSpaces::vector_width<double>::value);
+            }
+        }
     }
 
-    void RunTestCase()
+    template <typename ExecSpace> void RunTestCase()
     {
         auto op = AssmbScatrOp<double>::Create(fixt_explist);
         op->Apply(*fixt_in, *fixt_out);
     }
 
-    void ExpectedSolution()
+    template <typename ExecSpace> void RunTestCaseZeroDir()
+    {
+        auto op = AssmbScatrZeroDirOp<double>::Create(fixt_explist);
+        op->Apply(*fixt_in, *fixt_out);
+    }
+
+    void ExpectedSolution(bool ZeroDir = false)
     {
         // Calculate expected result from Nektar++.
+        int compSize                 = fixt_in->GetNumComponents();
+        int ncoeffs                  = fixt_explist->GetNcoeffs();
         Array<OneD, double> incoeffs = fixt_in->ToArray();
-        Array<OneD, double> outcoeffs(fixt_explist->GetNcoeffs());
+        Array<OneD, double> outcoeffs(compSize * ncoeffs);
+        Array<OneD, NekDouble> tmp;
+
         auto map =
             std::dynamic_pointer_cast<MultiRegions::ContField>(fixt_explist)
                 ->GetLocalToGlobalMap();
-        map->Assemble(incoeffs, outcoeffs);
-        // Vmath::Zero(map->GetNumGlobalDirBndCoeffs(), outcoeff, 1);
-        map->GlobalToLocal(outcoeffs, outcoeffs);
+        for (int i = 0; i < compSize; ++i)
+        {
+            map->Assemble(incoeffs + i * ncoeffs,
+                          tmp = outcoeffs + i * ncoeffs);
+            if (ZeroDir)
+            {
+                Vmath::Zero(map->GetNumGlobalDirBndCoeffs(),
+                            tmp = outcoeffs + i * ncoeffs, 1);
+            }
+            map->GlobalToLocal(outcoeffs + i * ncoeffs,
+                               tmp = outcoeffs + i * ncoeffs);
+        }
         fixt_expected->CopyArray<NektarSpaces::HostSpace>(outcoeffs);
     }
 };

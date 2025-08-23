@@ -213,6 +213,18 @@ NEK_FORCE_INLINE static void DiffusionCoeffSegKernel(
         }
         else
         {
+            // Precompute Laplacian metricsp
+            df0 = df_ptr[0];
+
+            if (isConstVarDiff)
+            {
+                metric00 = df0 * df0 * d00;
+            }
+            else if (isConstVarDiff)
+            {
+                metric00 = df0 * df0;
+            }
+
             for (unsigned int i = 0; i < nqTot; ++i)
             {
                 deriv0[i] = metric00 * deriv0[i];
@@ -274,6 +286,8 @@ NEK_FORCE_INLINE static void DiffusionCoeffSegKernel(
         }
         else
         {
+            df0 = df_ptr[0];
+
             for (unsigned int i = 0; i < nq0; ++i)
             {
                 metric00 = df0 * df0 * d00;

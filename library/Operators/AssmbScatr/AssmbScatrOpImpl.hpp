@@ -40,6 +40,7 @@
 
 #include "Operators/AssmbScatr/AssmbScatrDeviceKernels.hpp"
 #include "Operators/AssmbScatr/AssmbScatrSerialAVXKernels.hpp"
+#include "Operators/Utils/UtilsKernels.hpp"
 
 using namespace Nektar;
 using namespace Nektar::MultiRegions;
@@ -48,7 +49,8 @@ using namespace Nektar::Operators;
 namespace Nektar::Operators::detail
 {
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, typename TData, bool ZERODIR = false,
+          bool SIGNCHANGE = true>
 class AssmbScatrOpImpl : public AssmbScatrOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
@@ -61,27 +63,9 @@ public:
             std::dynamic_pointer_cast<ContField>(this->m_expansionList);
         auto assmbMap = contfield->GetLocalToGlobalMap();
 
-        m_nDir       = assmbMap->GetNumGlobalDirBndCoeffs();
-        m_signChange = assmbMap->AssemblyMap::GetSignChange();
+        m_nDir = assmbMap->GetNumGlobalDirBndCoeffs();
 
-        auto nGlobal = assmbMap->GetNumGlobalCoeffs();
-
-        m_global = MemoryRegion<TData>::Create("AssmbScatr global", nGlobal,
-                                               ExecSpace::alignment);
-
-        auto map = assmbMap->GetLocalToGlobalMap();
-
-        m_map = MemoryRegion<int>::template FromArray<MemSpace, int>(
-            map, ExecSpace::alignment);
-
-        if (m_signChange)
-        {
-            auto sign = assmbMap->GetLocalToGlobalSign();
-
-            m_sign =
-                MemoryRegion<TData>::template FromArray<MemSpace, NekDouble>(
-                    sign, ExecSpace::alignment);
-        }
+        m_numComp = 0; // initialise to zero
     }
 
     // className - for OperatorFactory
@@ -91,130 +75,162 @@ public:
     static std::unique_ptr<Operator<TData>> Instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return std::make_unique<AssmbScatrOpImpl<ExecSpace, TData>>(
+        return std::make_unique<
+            AssmbScatrOpImpl<ExecSpace, TData, ZERODIR, SIGNCHANGE>>(
             expansionList);
     }
 
 protected:
-    MemoryRegion<TData> m_global;
-    MemoryRegion<TData> m_sign;
-    MemoryRegion<int> m_map;
-
-    bool m_signChange = false;
-    unsigned int m_nDir;
-
-    void v_Apply(Field<TData, FieldState::Coeff> &in,
-                 Field<TData, FieldState::Coeff> &out,
-                 const bool &zeroDir = false) override
+    void SetUpMaps(const unsigned numComp)
     {
-        // Local to global.
-        this->Assemble(in, m_global);
+        m_numComp = numComp;
+        auto blocks =
+            GetBlockAttributes<TData>(FieldState::Coeff, this->m_expansionList);
 
-        // Zeroing Dirichlet BC.
-        if (zeroDir && m_nDir > 0)
-        {
-            m_global.template Initialize<MemSpace>(0, m_nDir);
-        }
+        auto dataWarehouse = this->m_expansionList->GetDataWarehouseSharedPtr();
 
-        // Global to local.
-        this->GlobalToLocal(m_global, out);
+        // setup GS info of values interior to device
+        auto GSInfoKey = LocalToGlobalKey<TData>(m_nDir, m_numComp, ZERODIR);
+
+        m_gsInfo = dataWarehouse->template GetData<ExecSpace>(GSInfoKey);
+
+        // set up sign change array
+        m_gsSign = dataWarehouse->template GetData<ExecSpace>(
+            LocalToGlobalSignKey<TData>(m_nDir, m_numComp, ZERODIR,
+                                        SIGNCHANGE));
+
+        // get a copy of the host to evaluate offsets
+        auto hostGSInfo =
+            dataWarehouse->template GetData<NektarSpaces::Serial>(GSInfoKey);
+
+        m_nGids = hostGSInfo[0];
     }
 
-    void v_Assemble(Field<TData, FieldState::Coeff> &local,
-                    MemoryRegion<TData> &global,
-                    const bool &signChange = true) override
+    const unsigned *m_gsInfo;
+    const int *m_gsSign;
+    unsigned m_nGids;
+    unsigned m_numComp;
+    unsigned m_nDir;
+
+    void v_Apply(Field<TData, FieldState::Coeff> &in,
+                 Field<TData, FieldState::Coeff> &out) override
     {
-        // Initialize MemoryRegion pointers.
-        auto globalPtr = global.template GetPtr<MemSpace, WriteOnly>();
-        auto mapPtr    = m_map.template GetPtr<MemSpace, ReadOnly>();
-        auto signPtr   = m_signChange
-                             ? m_sign.template GetPtr<MemSpace, ReadOnly>()
-                             : nullptr;
+        ASSERTL1(in.GetBlocks()[0].size() == out.GetBlocks()[0].size(),
+                 "In and out blocks are of different size");
 
-        // Zero the output.
-        global.template Initialize<MemSpace>(0);
+        ASSERTL1(in.GetNumComponents() == out.GetNumComponents(),
+                 "In and out have different number of components");
 
-        // Loop over the blocks.
-        for (unsigned int blk = 0; blk < local.GetBlocks().size(); ++blk)
+        if (&in != &out)
         {
-            // Determine shape and type of the element.
-            auto &localblock = local.GetBlocks()[blk];
-            auto nelmt       = localblock.GetNumElements();
-            auto ncoeff      = localblock.GetNumData();
-
-            // Initialize pointer.
-            auto localPtr = localblock.template GetPtr<MemSpace, ReadOnly>();
-
-            if (m_signChange && signChange)
+            out.template Copy<MemSpace>(in);
+            for (unsigned blk = 0; blk < in.GetBlocks().size(); ++blk)
             {
-                AssembleKernel<ExecSpace>(ncoeff * nelmt, mapPtr, signPtr,
-                                          localPtr, globalPtr);
+                out.GetBlocks()[blk].template SetInterleaveWidth<TData>(
+                    in.GetBlocks()[blk].GetInterleaveWidth());
             }
-            else
-            {
-                AssembleKernel<ExecSpace>(ncoeff * nelmt, mapPtr, localPtr,
-                                          globalPtr);
-            }
+        }
 
-            // Increment pointers for the next element type.
-            localPtr += localblock.size();
-            mapPtr += ncoeff * nelmt;
-            signPtr += ncoeff * nelmt;
+        auto numComp = in.GetNumComponents();
+
+        // initialise gather scatter maps
+        if (m_numComp != numComp)
+        {
+            SetUpMaps(numComp);
+            m_numComp = numComp;
+        }
+
+        // reshape data into non-interleaved if ncessary
+        bool reshapeOutput = false;
+        for (unsigned blk = 0; blk < out.GetBlocks().size(); ++blk)
+        {
+            auto &inoutblk  = out.GetBlocks()[blk];
+            auto inoutwidth = inoutblk.GetInterleaveWidth();
+            if (inoutwidth != 1)
+            {
+                auto inoutPtr = inoutblk.template GetPtr<MemSpace, ReadWrite>();
+                unsigned blksize = inoutblk.size();
+                for (unsigned nc = 0; nc < m_numComp; ++nc)
+                {
+                    deInterleave<ExecSpace>(
+                        inoutwidth,
+                        inoutblk.GetNumElementsWithPadding() / inoutwidth,
+                        inoutblk.GetNumData(), inoutPtr + nc * blksize);
+                }
+                inoutblk.template SetInterleaveWidth<TData>(1);
+                reshapeOutput = true;
+            }
+        }
+
+        // Initialize pointer.
+        auto inoutPtr =
+            out.GetBlocks()[0].template GetPtr<MemSpace, ReadWrite>();
+
+        AssembleScatrKernel<ExecSpace>(m_nGids, m_gsInfo, m_gsSign, inoutPtr);
+
+        // reshape data into non-interleaved if ncessary
+        if ((&in != &out) && reshapeOutput)
+        {
+
+            for (unsigned blk = 0; blk < out.GetBlocks().size(); ++blk)
+            {
+                auto &outblk   = out.GetBlocks()[blk];
+                auto out_width = outblk.GetInterleaveWidth();
+                auto in_width  = in.GetBlocks()[blk].GetInterleaveWidth();
+
+                if (out_width != in_width)
+                {
+                    ASSERTL1(in_width ==
+                                 NektarSpaces::vector_width<TData>::value,
+                             "Unexpected width value");
+                    auto outPtr = outblk.template GetPtr<MemSpace, ReadWrite>();
+                    unsigned blksize = outblk.size();
+                    for (unsigned nc = 0; nc < m_numComp; ++nc)
+                    {
+                        interleave<NektarSpaces::vector_width<TData>::value,
+                                   ExecSpace>(
+                            outblk.GetNumElementsWithPadding() / in_width,
+                            outblk.GetNumData(), outPtr + nc * blksize);
+                    }
+                    outblk.template SetInterleaveWidth<TData>(in_width);
+                }
+            }
         }
 
         // TODO: Universal assembly on device.
-        auto contfield =
-            std::dynamic_pointer_cast<ContField>(this->m_expansionList);
-        if (contfield->GetSession()->GetComm()->GetRowComm()->GetSize() > 1)
+        if (this->m_expansionList->GetSession()
+                ->GetComm()
+                ->GetRowComm()
+                ->GetSize() > 1)
         {
-            auto globalArr = global.template ToArray<NekDouble>();
-
-            contfield->GetLocalToGlobalMap()->UniversalAssemble(globalArr);
-
-            global.template CopyArray<MemSpace, NekDouble>(globalArr);
-        }
-    }
-
-    void v_GlobalToLocal(MemoryRegion<TData> &global,
-                         Field<TData, FieldState::Coeff> &local) override
-    {
-        // Initialize MemoryRegion pointers.
-        auto globalPtr = global.template GetPtr<MemSpace, ReadOnly>();
-        auto mapPtr    = m_map.template GetPtr<MemSpace, ReadOnly>();
-        auto signPtr   = m_signChange
-                             ? m_sign.template GetPtr<MemSpace, ReadOnly>()
-                             : nullptr;
-
-        // Zero the output.
-        local.template Initialize<MemSpace>(0);
-
-        // Loop over the blocks.
-        for (unsigned int blk = 0; blk < local.GetBlocks().size(); ++blk)
-        {
-            // Determine shape and type of the element.
-            auto &block = local.GetBlocks()[blk];
-            auto nelmt  = block.GetNumElements();
-            auto ncoeff = block.GetNumData();
-
-            // Initialize pointer.
-            auto localPtr = block.template GetPtr<MemSpace, WriteOnly>();
-
-            if (m_signChange)
-            {
-                GlobalToLocalKernel<ExecSpace>(ncoeff * nelmt, mapPtr, signPtr,
-                                               globalPtr, localPtr);
-            }
-            else
-            {
-                GlobalToLocalKernel<ExecSpace>(ncoeff * nelmt, mapPtr,
-                                               globalPtr, localPtr);
-            }
-
-            // Increment pointers for the next element type.
-            mapPtr += ncoeff * nelmt;
-            signPtr += ncoeff * nelmt;
+            ASSERTL0(false, "Not set up for Multiple MPI processes");
         }
     }
 };
 
+// Specialised Assembly with Zero Dirichlet action
+template <typename ExecSpace, typename TData>
+class AssmbScatrZeroDirOpImpl
+    : public AssmbScatrOpImpl<ExecSpace, TData, true, true>
+{
+public:
+    AssmbScatrZeroDirOpImpl(const MultiRegions::ExpListSharedPtr &expansionList)
+        : AssmbScatrOpImpl<ExecSpace, TData, true, true>(expansionList)
+    {
+    }
+    static std::string className;
+};
+
+// Specialised Assembly with no sign change
+template <typename ExecSpace, typename TData>
+class AssmbScatrNoSignOpImpl
+    : public AssmbScatrOpImpl<ExecSpace, TData, false, false>
+{
+public:
+    AssmbScatrNoSignOpImpl(const MultiRegions::ExpListSharedPtr &expansionList)
+        : AssmbScatrOpImpl<ExecSpace, TData, false, false>(expansionList)
+    {
+    }
+    static std::string className;
+};
 } // namespace Nektar::Operators::detail

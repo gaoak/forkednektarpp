@@ -38,7 +38,7 @@
 
 #include "Operators/PreconOps/DiagPrecon/DiagPreconOp.hpp"
 
-#include "Operators/AssmbScatr/AssmbScatrOp.hpp"
+#include "Operators/AssmbScatr/AssmbScatrOpImpl.hpp"
 #include "Operators/BndCondOps/RobBndCond/RobBndCondOp.hpp"
 #include "Operators/MathKernels/MathKernels.hpp"
 
@@ -60,24 +60,12 @@ public:
     DiagPreconOpImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : DiagPreconOp<TData>(expansionList)
     {
-        auto contfield =
-            std::dynamic_pointer_cast<ContField>(this->m_expansionList);
-        auto assmbMap = contfield->GetLocalToGlobalMap();
-
-        bool isFull = assmbMap->GetGlobalSysSolnType() == eIterativeFull;
-        m_nGlobal   = (isFull) ? assmbMap->GetNumGlobalCoeffs()
-                               : assmbMap->GetNumGlobalBndCoeffs();
-        m_nDir      = assmbMap->GetNumGlobalDirBndCoeffs();
-
-        m_glodiag = MemoryRegion<TData>::Create("DiagPrecon diag", m_nGlobal,
-                                                ExecSpace::alignment);
-
-        m_wk = MemoryRegion<TData>::Create("DiagPrecon wk", m_nGlobal,
-                                           ExecSpace::alignment);
-
-        m_assmbScatrOp =
-            AssmbScatrOp<TData>::Create(this->m_expansionList, ExecSpace::name);
-
+        m_assmbScatrNoSignOp =
+            std::make_unique<AssmbScatrNoSignOpImpl<ExecSpace, TData>>(
+                this->m_expansionList);
+        m_assmbScatrZeroDirOp =
+            std::make_unique<AssmbScatrZeroDirOpImpl<ExecSpace, TData>>(
+                this->m_expansionList);
         m_robBCOp =
             RobBndCondOp<TData>::Create(this->m_expansionList, ExecSpace::name);
     }
@@ -94,9 +82,13 @@ public:
     }
 
 protected:
-    std::shared_ptr<AssmbScatrOp<TData>> m_assmbScatrOp;
+    std::unique_ptr<AssmbScatrNoSignOpImpl<ExecSpace, TData>>
+        m_assmbScatrNoSignOp;
+    std::unique_ptr<AssmbScatrZeroDirOpImpl<ExecSpace, TData>>
+        m_assmbScatrZeroDirOp;
     std::shared_ptr<RobBndCondOp<TData>> m_robBCOp;
 
+    Field<TData, FieldState::Coeff> m_invDiag;
     MemoryRegion<TData> m_glodiag;
     MemoryRegion<TData> m_wk;
 
@@ -106,17 +98,30 @@ protected:
     void v_Apply(Field<TData, FieldState::Coeff> &in,
                  Field<TData, FieldState::Coeff> &out) override
     {
-        m_assmbScatrOp->Assemble(in, m_wk);
+        ASSERTL1(in.size() == out.size(),
+                 "Input and output arrays are of different size");
 
-        auto diagPtr = m_glodiag.template GetPtr<MemSpace, ReadOnly>();
-        auto wkPtr   = m_wk.template GetPtr<MemSpace, ReadWrite>();
+        // assemble input assuming it has not already been done and zero
+        // Dirichlet valeus
+        m_assmbScatrZeroDirOp->Apply(in, out);
 
-        divKernel<ExecSpace>(m_nGlobal - m_nDir, wkPtr + m_nDir,
-                             diagPtr + m_nDir, wkPtr + m_nDir);
+        for (size_t blk = 0; blk < out.GetBlocks().size(); ++blk)
+        {
+            auto &outblock  = out.GetBlocks()[blk];
+            auto &diagblock = m_invDiag.GetBlocks()[blk];
 
-        m_wk.template Initialize<MemSpace>(0, m_nDir);
+            auto diagPtr = diagblock.template GetPtr<MemSpace, ReadOnly>();
+            auto outPtr  = outblock.template GetPtr<MemSpace, ReadWrite>();
 
-        m_assmbScatrOp->GlobalToLocal(m_wk, out);
+            auto blkSize =
+                outblock.GetNumElementsWithPadding() * outblock.GetNumData();
+
+            for (auto n = 0; n < outblock.GetNumComponents(); ++n)
+            {
+                mulKernel<ExecSpace>(blkSize, diagPtr, outPtr + n * blkSize,
+                                     outPtr + n * blkSize);
+            }
+        }
     }
 
     void v_Configure(
@@ -128,9 +133,8 @@ protected:
             GetBlockAttributes<TData>(FieldState::Coeff, this->m_expansionList);
 
         // Create local diagonal field.
-        Field<TData, FieldState::Coeff> locdiag =
-            Field<TData, FieldState::Coeff>::Create("Local diagonal", blocks, 1,
-                                                    1, ExecSpace::alignment);
+        m_invDiag = Field<TData, FieldState::Coeff>::Create(
+            "inverse diagonal", blocks, 1, 1, ExecSpace::alignment);
 
         // Create unit vector field to extract diagonal.
         Field<TData, FieldState::Coeff> unit_vec =
@@ -142,58 +146,108 @@ protected:
             Field<TData, FieldState::Coeff>::Create("DiagPrecon action", blocks,
                                                     1, 1, ExecSpace::alignment);
 
+        // intiialisating to 1 so padded elements can be inverted
+        m_invDiag.template Initialize<NektarSpaces::HostSpace>(1);
         // Initialize field.
-        locdiag.template Initialize<MemSpace>(0);
         unit_vec.template Initialize<MemSpace>(0);
-        m_glodiag.template Initialize<MemSpace>(0);
 
-        for (unsigned int blk = 0; blk < unit_vec.GetBlocks().size(); ++blk)
+        unsigned nCoeffMax = 0;
+        for (unsigned blk = 0; blk < unit_vec.GetBlocks().size(); ++blk)
         {
-            // Block dependent.
             auto &unitvecblock = unit_vec.GetBlocks()[blk];
-            auto &actionblock  = action.GetBlocks()[blk];
-            auto &diagblock    = locdiag.GetBlocks()[blk];
-            const auto nmTot   = unitvecblock.GetNumData();
-            const auto nelmt   = unitvecblock.GetNumElements();
+            const auto nCoeff  = unitvecblock.GetNumData();
 
-            for (unsigned int mode = 0; mode < nmTot; ++mode)
+            nCoeffMax = (nCoeff > nCoeffMax) ? nCoeff : nCoeffMax;
+        }
+
+        for (unsigned mode = 0; mode < nCoeffMax; ++mode)
+        {
+            for (unsigned blk = 0; blk < unit_vec.GetBlocks().size(); ++blk)
             {
-                // Set ith term in unit vector to be 1.
-                auto unitptr =
-                    unitvecblock.template GetPtr<MemSpace, WriteOnly>();
-                SetDiagonalKernel<ExecSpace>(nmTot, nelmt, mode, 1.0, unitptr);
+                auto &unitblk     = unit_vec.GetBlocks()[blk];
+                const auto nCoeff = unitblk.GetNumData();
 
-                // Apply the operator to unit vector and store in the
-                // action field.
-                op->Apply(unit_vec, action);
-                m_robBCOp->Apply(unit_vec, action);
+                if (mode < nCoeff)
+                {
+                    const auto numdata   = unitblk.GetNumData();
+                    const auto nelmtgrps = unitblk.GetNumElmtGroups();
+                    const auto width     = unitblk.GetInterleaveWidth();
+                    auto *blkptr =
+                        unitblk.template GetPtr<MemSpace, WriteOnly>();
 
-                // Copy the ith row term from the action field to get
-                // the ith diagonal.
-                auto actptr = actionblock.template GetPtr<MemSpace, ReadOnly>();
-                auto diagptr = diagblock.template GetPtr<MemSpace, WriteOnly>();
-                CopyDiagonalKernel<ExecSpace>(nmTot, nelmt, mode, actptr,
-                                              diagptr);
+                    // Set ith term in unit vector to be 1.
+                    SetModeBlkKernel<ExecSpace>(mode, nelmtgrps, width, numdata,
+                                                1.0, blkptr);
+                }
+            }
 
-                // Reset the ith term in the unit vector to be 0.
-                unitptr = unitvecblock.template GetPtr<MemSpace, WriteOnly>();
-                SetDiagonalKernel<ExecSpace>(nmTot, nelmt, mode, 0.0, unitptr);
+            // Apply the operator to unit vector and store in the
+            // action field -- ideallly could be a block operator rather than
+            // field operator
+            op->Apply(unit_vec, action);
+            m_robBCOp->Apply(unit_vec, action);
+
+            for (unsigned blk = 0; blk < unit_vec.GetBlocks().size(); ++blk)
+            {
+                auto &unitblk     = unit_vec.GetBlocks()[blk];
+                auto &actionblk   = action.GetBlocks()[blk];
+                auto &diagblk     = m_invDiag.GetBlocks()[blk];
+                const auto nCoeff = unitblk.GetNumData();
+
+                if (mode < nCoeff)
+                {
+                    const auto numdata   = unitblk.GetNumData();
+                    const auto nelmtgrps = unitblk.GetNumElmtGroups();
+                    const auto width     = unitblk.GetInterleaveWidth();
+                    auto *unitblkptr =
+                        unitblk.template GetPtr<MemSpace, WriteOnly>();
+                    auto *fromblkptr =
+                        actionblk.template GetPtr<MemSpace, ReadOnly>();
+                    auto *toblkptr =
+                        diagblk.template GetPtr<MemSpace, WriteOnly>();
+
+                    // Copy the ith row term from the action field to get
+                    // the ith diagonal.
+                    CopyModeBlkKernel<ExecSpace>(mode, nelmtgrps, width,
+                                                 numdata, fromblkptr, toblkptr);
+
+                    // Reset the ith term in the unit vector to be 0.
+                    SetModeBlkKernel<ExecSpace>(mode, nelmtgrps, width, numdata,
+                                                0.0, unitblkptr);
+                }
+                diagblk.template SetInterleaveWidth<TData>(
+                    actionblk.GetInterleaveWidth());
             }
         }
 
-        // Assembly.
-        m_assmbScatrOp->Assemble(locdiag, m_glodiag, false);
+        // Assembly and scatr  values (without a sign change)
+        m_assmbScatrNoSignOp->Apply(m_invDiag, m_invDiag);
 
         // TODO: Universal assembly on device.
         auto contfield =
             std::dynamic_pointer_cast<ContField>(this->m_expansionList);
         if (contfield->GetSession()->GetComm()->GetRowComm()->GetSize() > 1)
         {
-            auto glodiagArr = m_glodiag.template ToArray<NekDouble>();
+            ASSERTL0(false, "Needs setting up");
+        }
 
-            contfield->GetLocalToGlobalMap()->UniversalAssemble(glodiagArr);
+        // invert diagonal
+        for (unsigned blk = 0; blk < m_invDiag.GetBlocks().size(); ++blk)
+        {
+            // Block dependent.
+            auto &block = m_invDiag.GetBlocks()[blk];
+            auto diagptr =
+                block.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
 
-            m_glodiag.template CopyArray<MemSpace, NekDouble>(glodiagArr);
+            // set any zero terms to 1.0 - arises in variable p case.
+            // Could set this up as a math kernel operations?
+            for (unsigned n = 0; n < block.size(); ++n)
+            {
+                diagptr[n] = (diagptr[n] == 0.0) ? 1.0 : diagptr[n];
+            }
+
+            divKernel<NektarSpaces::Serial>(block.size(), 1.0, diagptr,
+                                            diagptr);
         }
     }
 };

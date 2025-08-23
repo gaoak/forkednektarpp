@@ -41,102 +41,29 @@
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
 namespace Nektar::Operators::detail
 {
-
 template <typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void AssembleKernel(const unsigned int nsize,
-                                             const int *__restrict__ assmbPtr,
-                                             const TData *__restrict__ signPtr,
-                                             const TData *__restrict__ inptr,
-                                             TData *__restrict__ outptr,
-                                             const TthreadBlock &threadBlock)
-{
-    const unsigned int idx0   = getGlobalIdx(threadBlock);
-    const unsigned int stride = getGlobalRange(threadBlock);
-
-    for (unsigned int idx = idx0; idx < nsize; idx += stride)
-    {
-        Nektar::atomic_add<NektarSpaces::GlobalScope>(
-            outptr + assmbPtr[idx], signPtr[idx] * inptr[idx]);
-    }
-}
-
-template <typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void AssembleKernel(const unsigned int nsize,
-                                             const int *__restrict__ assmbPtr,
-                                             const TData sign,
-                                             const TData *__restrict__ inptr,
-                                             TData *__restrict__ outptr,
-                                             const TthreadBlock &threadBlock)
-{
-    const unsigned int idx0   = getGlobalIdx(threadBlock);
-    const unsigned int stride = getGlobalRange(threadBlock);
-
-    for (unsigned int idx = idx0; idx < nsize; idx += stride)
-    {
-        Nektar::atomic_add<NektarSpaces::GlobalScope>(outptr + assmbPtr[idx],
-                                                      sign * inptr[idx]);
-    }
-}
-
-template <typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void AssembleKernel(const unsigned int nsize,
-                                             const int *__restrict__ assmbPtr,
-                                             const TData *__restrict__ inptr,
-                                             TData *__restrict__ outptr,
-                                             const TthreadBlock &threadBlock)
-{
-    const unsigned int idx0   = getGlobalIdx(threadBlock);
-    const unsigned int stride = getGlobalRange(threadBlock);
-
-    for (unsigned int idx = idx0; idx < nsize; idx += stride)
-    {
-        Nektar::atomic_add<NektarSpaces::GlobalScope>(outptr + assmbPtr[idx],
-                                                      inptr[idx]);
-    }
-}
-
-template <typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void GlobalToLocalKernel(
-    const unsigned int nsize, const int *__restrict__ assmbPtr,
-    const TData *__restrict__ signPtr, const TData *__restrict__ inptr,
-    TData *__restrict__ outptr, const TthreadBlock &threadBlock)
-{
-    const unsigned int idx0   = getGlobalIdx(threadBlock);
-    const unsigned int stride = getGlobalRange(threadBlock);
-
-    for (unsigned int idx = idx0; idx < nsize; idx += stride)
-    {
-        outptr[idx] = signPtr[idx] * inptr[assmbPtr[idx]];
-    }
-}
-
-template <typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void GlobalToLocalKernel(
-    const unsigned int nsize, const int *__restrict__ assmbPtr,
-    const TData sign, const TData *__restrict__ inptr,
-    TData *__restrict__ outptr, const TthreadBlock &threadBlock)
-{
-    const unsigned int idx0   = getGlobalIdx(threadBlock);
-    const unsigned int stride = getGlobalRange(threadBlock);
-
-    for (unsigned int idx = idx0; idx < nsize; idx += stride)
-    {
-        outptr[idx] = sign * inptr[assmbPtr[idx]];
-    }
-}
-
-template <typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void GlobalToLocalKernel(
-    const unsigned int nsize, const int *__restrict__ assmbPtr,
-    const TData *__restrict__ inptr, TData *__restrict__ outptr,
+NEK_DEVICE_INLINE static void AssembleScatrKernel(
+    const unsigned nvals, const unsigned *__restrict__ GSInfo,
+    const int *__restrict__ sign, TData *__restrict__ inoutptr,
     const TthreadBlock &threadBlock)
 {
-    const unsigned int idx0   = getGlobalIdx(threadBlock);
-    const unsigned int stride = getGlobalRange(threadBlock);
+    const unsigned idx0   = getGlobalIdx(threadBlock);
+    const unsigned stride = getGlobalRange(threadBlock);
 
-    for (unsigned int idx = idx0; idx < nsize; idx += stride)
+    const unsigned *offset = GSInfo + 1;
+    const unsigned *ind    = GSInfo + nvals + 2;
+
+    for (unsigned idx = idx0; idx < nvals; idx += stride)
     {
-        outptr[idx] = inptr[assmbPtr[idx]];
+        TData ass = 0;
+        for (unsigned j = offset[idx]; j < offset[idx + 1]; ++j)
+        {
+            ass += inoutptr[ind[j]] * sign[j];
+        }
+        for (unsigned j = offset[idx]; j < offset[idx + 1]; ++j)
+        {
+            inoutptr[ind[j]] = ass * sign[j];
+        }
     }
 }
 

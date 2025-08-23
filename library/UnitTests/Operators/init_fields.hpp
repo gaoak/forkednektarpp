@@ -542,12 +542,12 @@ public:
                 return false;
             }
 
-            size_t MisMatchcnt = 0, total = 0;
-
             for (unsigned int n = 0;
                  n < fixt_out->GetNumComponents() * fixt_out->GetNumHomoModes();
                  ++n)
             {
+                size_t MisMatchcnt = 0, total = 0;
+
                 for (size_t el = 0, cnt = 0;
                      el < fixt_out->GetBlocks()[blk].GetNumElements(); ++el)
                 {
@@ -570,14 +570,15 @@ public:
 
                 outptr += fixt_out->GetBlocks()[blk].size();
                 expptr += fixt_expected->GetBlocks()[blk].size();
-            }
 
-            if (MisMatchcnt)
-            {
-                std::cout << "Number of mismatches in block " << blk << " is "
-                          << MisMatchcnt << " out of " << total << std::endl;
+                if (MisMatchcnt)
+                {
+                    std::cout << "Number of mismatches in component " << n
+                              << " on block " << blk << " is " << MisMatchcnt
+                              << " out of " << total << std::endl;
 
-                isMatch = false;
+                    isMatch = false;
+                }
             }
         }
 

@@ -55,29 +55,15 @@ public:
     static inline const std::string name = "AssmbScatr";
 
     void Apply(Field<TData, FieldState::Coeff> &in,
-               Field<TData, FieldState::Coeff> &out,
-               const bool &zeroDir = false)
+               Field<TData, FieldState::Coeff> &out)
     {
-        v_Apply(in, out, zeroDir);
+        v_Apply(in, out);
     }
 
     void operator()(Field<TData, FieldState::Coeff> &in,
-                    Field<TData, FieldState::Coeff> &out,
-                    const bool &zeroDir = false)
+                    Field<TData, FieldState::Coeff> &out)
     {
-        v_Apply(in, out, zeroDir);
-    }
-
-    void Assemble(Field<TData, FieldState::Coeff> &in, MemoryRegion<TData> &out,
-                  const bool &signChange = true)
-    {
-        v_Assemble(in, out, signChange);
-    }
-
-    void GlobalToLocal(MemoryRegion<TData> &in,
-                       Field<TData, FieldState::Coeff> &out)
-    {
-        v_GlobalToLocal(in, out);
+        v_Apply(in, out);
     }
 
 protected:
@@ -89,15 +75,7 @@ protected:
     ~AssmbScatrOp() override = default;
 
     virtual void v_Apply(Field<TData, FieldState::Coeff> &in,
-                         Field<TData, FieldState::Coeff> &out,
-                         const bool &zeroDir = false) = 0;
-
-    virtual void v_Assemble(Field<TData, FieldState::Coeff> &in,
-                            MemoryRegion<TData> &out,
-                            const bool &signChange = true) = 0;
-
-    virtual void v_GlobalToLocal(MemoryRegion<TData> &in,
-                                 Field<TData, FieldState::Coeff> &out) = 0;
+                         Field<TData, FieldState::Coeff> &out) = 0;
 };
 
 } // namespace Nektar::Operators

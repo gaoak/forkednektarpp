@@ -308,6 +308,19 @@ public:
         return m_num_homo_modes;
     }
 
+    /**
+     * @brief initialize the storage memory.
+     *
+     * @param val   - value to set
+     * @param count - number of values
+     */
+    template <typename MemSpace>
+    void Initialize(const TData val, const size_t count = 0,
+                    const size_t offset = 0)
+    {
+        m_memory_region.template Initialize<MemSpace>(val, count, offset);
+    }
+
 private:
     // Note: m_field is a pointer to a Field object from which the current
     // BlockAccessor object belong to.

@@ -43,9 +43,21 @@
 #define TEST_ASSMBSCATR(test_name, test, tol)                                  \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        Configure();                                                           \
+        Configure(2, 2);                                                       \
         SetTestCase();                                                         \
-        RunTestCase();                                                         \
+        RunTestCase<NektarSpaces::Serial>();                                   \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            BOOST_TEST(Compare(tol));                                          \
+        }                                                                      \
+    }
+
+#define TEST_ASSMBSCATR_ZERODIR(test_name, test, tol)                          \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        Configure(1, 1);                                                       \
+        SetTestCase(true);                                                     \
+        RunTestCaseZeroDir<NektarSpaces::Serial>();                            \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
             BOOST_TEST(Compare(tol));                                          \
@@ -53,6 +65,8 @@
     }
 
 BOOST_AUTO_TEST_SUITE(TestAssmbScatr)
+
+TEST_ASSMBSCATR(assmbscatr_seg, Seg, 1.0E-12)
 
 TEST_ASSMBSCATR(assmbscatr_quad, Quad, 1.0E-12)
 
@@ -66,7 +80,12 @@ TEST_ASSMBSCATR(assmbscatr_tri_varp, TriVarP, 1.0E-12)
 
 TEST_ASSMBSCATR(assmbscatr_square_all_elements, SquareAllElements, 1.0E-12)
 
+TEST_ASSMBSCATR_ZERODIR(assmbscatr_square_all_elements_zerodir,
+                        SquareAllElements, 1.0E-12)
+
 TEST_ASSMBSCATR(assmbscatr_hex, Hex, 1.0E-12)
+
+TEST_ASSMBSCATR_ZERODIR(assmbscatr_hex_zerodir, Hex, 1.0E-12)
 
 TEST_ASSMBSCATR(assmbscatr_hex_sem, HexSEM, 1.0E-12)
 
@@ -87,5 +106,8 @@ TEST_ASSMBSCATR(assmbscatr_tet_varp, TetVarP, 1.0E-12)
 TEST_ASSMBSCATR(assmbscatr_cube_prism_hex, CubePrismHex, 1.0E-12)
 
 TEST_ASSMBSCATR(assmbscatr_cube_all_elements, CubeAllElements, 1.0E-12)
+
+TEST_ASSMBSCATR_ZERODIR(assmbscatr_cube_all_elements_zerodir, CubeAllElements,
+                        1.0E-12)
 
 BOOST_AUTO_TEST_SUITE_END()

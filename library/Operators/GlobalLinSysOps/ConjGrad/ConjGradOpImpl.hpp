@@ -36,6 +36,7 @@
 
 #include <MultiRegions/ContField.h>
 
+#include "Operators/AssmbScatr/AssmbScatrOpImpl.hpp"
 #include "Operators/GlobalLinSysOps/ConjGrad/ConjGradOp.hpp"
 
 #include <iomanip>
@@ -89,9 +90,12 @@ public:
                                                m_tol, 1.0E-09);
 
         // Set operators.
-        m_math = Math(ExecSpace::name);
-        m_assmbScatrOp =
-            AssmbScatrOp<TData>::Create(this->m_expansionList, ExecSpace::name);
+        m_math         = Math(ExecSpace::name);
+        m_assmbScatrOp = std::make_unique<AssmbScatrOpImpl<ExecSpace, TData>>(
+            this->m_expansionList);
+        m_assmbScatrZeroDirOp =
+            std::make_unique<AssmbScatrZeroDirOpImpl<ExecSpace, TData>>(
+                this->m_expansionList);
         m_robBndCondOp =
             RobBndCondOp<TData>::Create(this->m_expansionList, ExecSpace::name);
         m_rowComm = contfield->GetSession()->GetComm()->GetRowComm();
@@ -113,8 +117,10 @@ public:
 
 protected:
     LibUtilities::CommSharedPtr m_rowComm = nullptr;
+    std::unique_ptr<AssmbScatrOpImpl<ExecSpace, TData>> m_assmbScatrOp;
+    std::unique_ptr<AssmbScatrZeroDirOpImpl<ExecSpace, TData>>
+        m_assmbScatrZeroDirOp;
 
-    std::shared_ptr<AssmbScatrOp<TData>> m_assmbScatrOp;
     std::shared_ptr<RobBndCondOp<TData>> m_robBndCondOp;
 
     Math m_math;
@@ -141,14 +147,15 @@ protected:
 
         // Convergence parameters.
         unsigned int totalIterations = 0;
-        TData rhsMagnitude, mu, eps;
+        TData rhsMagnitude, mu;
         TData alpha, beta, rho, rho_new;
+        long double eps;
 
         // Copy RHS into initial residual.
         m_r_A.template Copy<MemSpace>(in);
 
         // Assembly (communication).
-        m_assmbScatrOp->Apply(m_r_A, m_wk, true);
+        m_assmbScatrZeroDirOp->Apply(m_r_A, m_wk);
         m_vExchange[2] = m_math.ddot(m_wk, m_r_A);
 
         // Calculate rhs magnitude.
@@ -218,7 +225,7 @@ protected:
 
             m_robBndCondOp->Apply(m_w_A, m_s_A);
 
-            m_assmbScatrOp->Apply(m_r_A, m_wk, true);
+            m_assmbScatrZeroDirOp->Apply(m_r_A, m_wk);
 
             // <r_{k+1}, w_{k+1}>
             m_vExchange[0] = m_math.ddot(m_r_A, m_w_A);
@@ -240,6 +247,8 @@ protected:
             // Test if norm is within tolerance.
             if (eps < m_tol * m_tol * rhsMagnitude)
             {
+                std::cout << "iterations: " << totalIterations
+                          << " eps: " << sqrt(fabs((double)eps)) << std::endl;
                 break;
             }
 
