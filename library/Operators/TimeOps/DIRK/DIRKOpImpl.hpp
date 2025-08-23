@@ -158,8 +158,8 @@ protected:
         if constexpr (Stage < NStage())
         {
             // Compute stage
-            StageSolution(inout,
-                          std::make_integer_sequence<unsigned int, Stage>());
+            UpdateStage(inout,
+                        std::make_integer_sequence<unsigned int, Stage>());
 
             // Do next stage
             Staging<Stage + 1>(inout);
@@ -167,8 +167,8 @@ protected:
     }
 
     template <unsigned int... ind>
-    void StageSolution(Field<TData, FieldState::Phys> &inout,
-                       std::integer_sequence<unsigned int, ind...>)
+    void UpdateStage(Field<TData, FieldState::Phys> &inout,
+                     std::integer_sequence<unsigned int, ind...>)
     {
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
@@ -179,7 +179,7 @@ protected:
             auto nphys =
                 inoutBlock.GetNumData() * inoutBlock.GetNumComponents();
 
-            StageSolutionDIRKKernel<ExecSpace, IntOrder>(
+            UpdateStageKernel<ExecSpace, DIRKscheme, IntOrder>(
                 nphys * nelmt,
                 inoutBlock.template GetPtr<MemSpace, ReadWrite>(),
                 this->m_solutions[0]
@@ -204,7 +204,7 @@ protected:
             auto nphys =
                 inoutBlock.GetNumData() * inoutBlock.GetNumComponents();
 
-            UpdateDIRKKernel<ExecSpace, IntOrder>(
+            UpdateSolutionKernel<ExecSpace, DIRKscheme, IntOrder>(
                 nphys * nelmt,
                 inoutBlock.template GetPtr<MemSpace, ReadWrite>(),
                 this->m_solutions[0]

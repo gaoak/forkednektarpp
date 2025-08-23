@@ -238,7 +238,7 @@ public:
         m_time = time;
     }
 
-    void SetNumStep(const unsigned int &step)
+    void SetStep(const unsigned int &step)
     {
         m_step = step;
     }
@@ -253,7 +253,7 @@ public:
         return m_time;
     }
 
-    unsigned int GetNumStep(void) const
+    unsigned int GetStep(void) const
     {
         return m_step;
     }

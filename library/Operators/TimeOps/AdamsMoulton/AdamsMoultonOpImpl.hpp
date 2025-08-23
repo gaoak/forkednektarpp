@@ -99,7 +99,7 @@ protected:
 
             // Advance in time with startup
             startup->SetTime(this->m_time);
-            startup->SetNumStep(this->m_step);
+            startup->SetStep(this->m_step);
             startup->Apply(inout);
 
             // Move implicits back to higher-order AdamsMoulton
@@ -126,7 +126,7 @@ protected:
             if constexpr (IntOrder > 1)
             {
                 // Do extrapolation.
-                Extrapolate(
+                UpdateSolution(
                     inout,
                     std::make_integer_sequence<unsigned int, IntOrder - 1>());
             }
@@ -142,8 +142,8 @@ protected:
 
             // Update implicit derivative
             sub<ExecSpace>(inout, this->m_implicits[0], this->m_implicits[0]);
-            mul<ExecSpace>(1.0 / (m_gamma * this->m_timestep),
-                           this->m_implicits[0], this->m_implicits[0]);
+            mul<ExecSpace>(1.0 / m_gamma, this->m_implicits[0],
+                           this->m_implicits[0]);
 
             // Increment step and time
             this->m_time += this->m_timestep;
@@ -152,8 +152,8 @@ protected:
     }
 
     template <unsigned int... ind>
-    void Extrapolate(Field<TData, FieldState::Phys> &inout,
-                     std::integer_sequence<unsigned int, ind...>)
+    void UpdateSolution(Field<TData, FieldState::Phys> &inout,
+                        std::integer_sequence<unsigned int, ind...>)
     {
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
@@ -164,8 +164,8 @@ protected:
             auto nphys =
                 inoutBlock.GetNumData() * inoutBlock.GetNumComponents();
 
-            ExtrapolateAdamsMoultonKernel<ExecSpace>(
-                nphys * nelmt, this->m_timestep,
+            UpdateSolutionKernel<ExecSpace, AdamsMoultonScheme>(
+                nphys * nelmt,
                 inoutBlock.template GetPtr<MemSpace, ReadWrite>(),
                 (this->m_implicits[ind]
                      .GetBlocks()[blk]
@@ -175,8 +175,6 @@ protected:
 
     /*
      *  Setup gamma coefficient for AdamsMoulton.
-     *  Note the extrapolation coefficients are defined inside the
-     *  ExtrapolateAdamsMoultonKernel.
      */
     void SetCoefficients()
     {

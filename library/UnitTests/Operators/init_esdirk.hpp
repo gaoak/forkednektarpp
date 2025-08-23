@@ -97,7 +97,7 @@ public:
 
         // Initialise timestepping operator
         // Loop all steps
-        while (op->GetNumStep() < numsteps)
+        while (op->GetStep() < numsteps)
         {
             // Evolve PDE for one timestep
             op->Apply(*fixt_out);

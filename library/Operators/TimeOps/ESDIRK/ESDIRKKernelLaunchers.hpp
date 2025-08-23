@@ -39,17 +39,12 @@
 namespace Nektar::Operators::detail
 {
 
-template <unsigned int IntOrder, typename TData, unsigned int... ind,
-          typename... TDatas>
-NEK_DEVICE_INLINE static void StageSolutionESDIRKKernelImpl(
-    const size_t idx, TData *__restrict inout, const TData *__restrict solution,
-    std::integer_sequence<unsigned int, ind...>,
-    const TDatas *__restrict... implicits)
+class ESDIRKscheme;
+
+template <unsigned int IntOrder, typename TData>
+NEK_DEVICE_INLINE static constexpr auto GetESDIRKCoefficients(void)
 {
     constexpr TData ConstSqrt2 = 1.414213562373095;
-
-    constexpr unsigned int stage    = sizeof...(implicits);
-    constexpr unsigned int indStart = (stage * (stage - 1)) / 2;
 
     // 2nd order
     if constexpr (IntOrder == 2)
@@ -61,7 +56,7 @@ NEK_DEVICE_INLINE static void StageSolutionESDIRKKernelImpl(
         constexpr TData lambda = (2.0 - ConstSqrt2) / 2.0;
 
         // clang-format off
-        constexpr TData coeff[] =
+        return std::array<TData, 3>
                 {   // 1st stage
                     lambda,
                     // 2nd stage
@@ -69,9 +64,6 @@ NEK_DEVICE_INLINE static void StageSolutionESDIRKKernelImpl(
                     ( 1.0 - 2.0 * lambda) / (4 * lambda)
                 };
         // clang-format on
-
-        inout[idx] =
-            solution[idx] + ((implicits[idx] * coeff[indStart + ind]) + ...);
     }
     // 3rd order
     else if constexpr (IntOrder == 3)
@@ -81,7 +73,7 @@ NEK_DEVICE_INLINE static void StageSolutionESDIRKKernelImpl(
         // differential equations. A review. No. NF1676L-19716. 2016.
 
         // clang-format off
-        constexpr TData coeff[] =
+        return std::array<TData, 10> 
                 {   // 1st stage
                     9.0 / 40.0,
                     // 2n stage
@@ -98,9 +90,6 @@ NEK_DEVICE_INLINE static void StageSolutionESDIRKKernelImpl(
     ConstSqrt2)), 5827.0 / 7560.0
                 };
         // clang-format on
-
-        inout[idx] =
-            solution[idx] + ((implicits[idx] * coeff[indStart + ind]) + ...);
     }
     // 4th order
     else if constexpr (IntOrder == 4)
@@ -109,7 +98,7 @@ NEK_DEVICE_INLINE static void StageSolutionESDIRKKernelImpl(
         // Diagonally implicit Runge-Kutta methods for ordinary
         // differential equations. A review. No. NF1676L-19716. 2016.
         // clang-format off
-        constexpr TData coeff[] =
+        return std::array<TData, 15> 
                 {  // 1st stage
                    0.25,
                    // 2nd stage
@@ -130,18 +119,11 @@ NEK_DEVICE_INLINE static void StageSolutionESDIRKKernelImpl(
                   -16.0 * (-22922.0 + 3525.0 * ConstSqrt2) / 571953.0,
                   -15625.0 * (97.0 + 376.0 * ConstSqrt2) / 90749876.0};
         // clang-format on
-
-        inout[idx] =
-            solution[idx] + ((implicits[idx] * coeff[indStart + ind]) + ...);
     }
 }
 
-template <unsigned int IntOrder, typename TData, unsigned int... ind,
-          typename... TDatas>
-NEK_DEVICE_INLINE static void UpdateESDIRKKernelImpl(
-    const size_t idx, TData *__restrict inout, const TData *__restrict solution,
-    std::integer_sequence<unsigned int, ind...>,
-    const TDatas *__restrict... implicits)
+template <unsigned int IntOrder, typename TData>
+NEK_DEVICE_INLINE static constexpr auto GetESDIRKCoefficients2(void)
 {
     constexpr TData ConstSqrt2 = 1.414213562373095;
 
@@ -154,28 +136,23 @@ NEK_DEVICE_INLINE static void UpdateESDIRKKernelImpl(
         // clang-format off
         constexpr TData lambda = (2.0 - ConstSqrt2) / 2.0;
 
-        constexpr TData coeff[] = {
+        return std::array<TData, 3>{
                     (-1.0 + 6.0 * lambda - 4 * lambda * lambda) / (4 * lambda),
                     ( 1.0 - 2.0 * lambda) / (4 * lambda), lambda};
-
-        inout[idx] = solution[idx] + ((implicits[idx] * coeff[ind]) + ...);
     }
-    // 3rd order
     else if constexpr (IntOrder == 3)
     {
         // See: Kennedy, Christopher A., and Mark H. Carpenter.
         // Diagonally implicit Runge-Kutta methods for ordinary
         // differential equations. A review. No. NF1676L-19716. 2016.
         // clang-format off
-        constexpr TData coeff[] = {(2398.0 + 1205.0 * ConstSqrt2) /
+        return std::array<TData, 5>{(2398.0 + 1205.0 * ConstSqrt2) /
                                        (2835.0 * (4.0 + 3.0 * ConstSqrt2)),
                                    (2398.0 + 1205.0 * ConstSqrt2) /
                                        (2835.0 * (4.0 + 3.0 * ConstSqrt2)),
                                    -2374.0 * (1.0 + 2.0 * ConstSqrt2) /
                                        (2835.0 * (5.0 + 3.0 * ConstSqrt2)),
                                    5827.0 / 7560.0, 9.0 / 40.0};
-
-        inout[idx] = solution[idx] + ((implicits[idx] * coeff[ind]) + ...);
     }
     // 4th order
     else if constexpr (IntOrder == 4)
@@ -184,118 +161,48 @@ NEK_DEVICE_INLINE static void UpdateESDIRKKernelImpl(
         // Diagonally implicit Runge-Kutta methods for ordinary
         // differential equations. A review. No. NF1676L-19716. 2016.
         // clang-format off
-        constexpr TData coeff[] = {
+        return std::array<TData, 6>{
             (1181.0 - 987.0 * ConstSqrt2) / 13782.0,
             (1181.0 - 987.0 * ConstSqrt2) / 13782.0,
             47.0 * (-267.0 + 1783.0 * ConstSqrt2) / 273343.0,
             -16.0 * (-22922.0 + 3525.0 * ConstSqrt2) / 571953.0,
             -15625.0 * (97.0 + 376.0 * ConstSqrt2) / 90749876.0,
             0.25};
-
-        inout[idx] = solution[idx] + ((implicits[idx] * coeff[ind]) + ...);
     }
 }
 
-// Kernel Launchers.
-#if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
-// Currently, argument pack can't be captured in a device lambda. Explicit
-// kernel must be used (instead of nektar::parallel_for)
-template <unsigned int IntOrder, typename TData, typename... TDatas>
-__global__ void StageSolutionESDIRKKernelLauncher(
-    const size_t nsize, TData *__restrict inout,
-    const TData *__restrict solution, const TDatas *__restrict... implicits)
-{
-    const size_t idx0   = threadIdx.x + blockIdx.x * blockDim.x;
-    const size_t stride = blockDim.x * gridDim.x;
-
-    for (size_t idx = idx0; idx < nsize; idx += stride)
-    {
-        StageSolutionESDIRKKernelImpl<IntOrder>(
-            idx, inout, solution,
-            std::make_integer_sequence<unsigned int, sizeof...(implicits)>(),
-            implicits...);
-    }
-}
-
-template <unsigned int IntOrder, typename TData, typename... TDatas>
-__global__ void UpdateESDIRKKernelLauncher(const size_t nsize,
-                                         TData *__restrict inout,
-                                         const TData *__restrict solution,
-                                         const TDatas *__restrict... implicits)
-{
-    const size_t idx0   = threadIdx.x + blockIdx.x * blockDim.x;
-    const size_t stride = blockDim.x * gridDim.x;
-
-    for (size_t idx = idx0; idx < nsize; idx += stride)
-    {
-        UpdateESDIRKKernelImpl<IntOrder>(
-            idx, inout, solution,
-            std::make_integer_sequence<unsigned int, sizeof...(implicits)>(),
-            implicits...);
-    }
-}
-
-template <typename ExecSpace, unsigned int IntOrder, typename TData,
+template <typename Scheme, unsigned int IntOrder, typename TData, unsigned int... ind,
           typename... TDatas>
-NEK_FORCE_INLINE static void StageSolutionESDIRKKernel(const size_t nsize,
-                                                     TData *inout,
-                                                     const TData *solution,
-                                                     const TDatas *...implicits)
+NEK_DEVICE_INLINE static
+    typename std::enable_if<std::is_same_v<Scheme, ESDIRKscheme>, void>::type
+UpdateStageKernelImpl(
+    const size_t idx, TData *__restrict inout, const TData *__restrict solution,
+    std::integer_sequence<unsigned int, ind...>,
+    const TDatas *__restrict... implicits)
 {
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+    constexpr unsigned int stage    = sizeof...(implicits);
+    constexpr unsigned int indStart = (stage * (stage - 1)) / 2;
 
-    StageSolutionESDIRKKernelLauncher<IntOrder>
-        <<<gridSize, blockSize>>>(nsize, inout, solution, implicits...);
-    CHECK_LAST_HIPCUDA_ERROR();
+    constexpr auto coeff = GetESDIRKCoefficients<IntOrder, TData>();
+
+    inout[idx] =
+        solution[idx] + ((implicits[idx] * coeff[indStart + ind]) + ...);
 }
 
-template <typename ExecSpace, unsigned int IntOrder, typename TData,
-          typename... TDatas>
-NEK_FORCE_INLINE static void UpdateESDIRKKernel(const size_t nsize, TData *inout,
-                                              const TData *solution,
-                                              const TDatas *...implicits)
+template <typename Scheme, unsigned int IntOrder, typename TData,
+          unsigned int... ind, typename... TDatas>
+NEK_DEVICE_INLINE static
+    typename std::enable_if<std::is_same_v<Scheme, ESDIRKscheme>, void>::type
+    UpdateSolutionKernelImpl(const size_t idx, TData *__restrict inout,
+                             const TData *__restrict solution,
+                             std::integer_sequence<unsigned int, ind...>,
+                             const TDatas *__restrict... implicits)
 {
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+    constexpr auto coeff = GetESDIRKCoefficients2<IntOrder, TData>();
 
-    UpdateESDIRKKernelLauncher<IntOrder>
-        <<<gridSize, blockSize>>>(nsize, inout, solution, implicits...);
-    CHECK_LAST_HIPCUDA_ERROR();
+    inout[idx] = solution[idx] + ((implicits[idx] * coeff[ind]) + ...);
 }
-#else
-template <typename ExecSpace, unsigned int IntOrder, typename TData,
-          typename... TDatas>
-NEK_FORCE_INLINE static void StageSolutionESDIRKKernel(const size_t nsize,
-                                                     TData *inout,
-                                                     const TData *solution,
-                                                     const TDatas *...implicits)
-{
-    Nektar::parallel_for<ExecSpace>(
-        0, nsize, NEKTAR_LAMBDA(const size_t idx) {
-            StageSolutionESDIRKKernelImpl<IntOrder>(
-                idx, inout, solution,
-                std::make_integer_sequence<unsigned int,
-                                           sizeof...(implicits)>(),
-                implicits...);
-        });
-}
-
-template <typename ExecSpace, unsigned int IntOrder, typename TData,
-          typename... TDatas>
-NEK_FORCE_INLINE static void UpdateESDIRKKernel(const size_t nsize, TData *inout,
-                                              const TData *solution,
-                                              const TDatas *...implicits)
-{
-    Nektar::parallel_for<ExecSpace>(
-        0, nsize, NEKTAR_LAMBDA(const size_t idx) {
-            UpdateESDIRKKernelImpl<IntOrder>(
-                idx, inout, solution,
-                std::make_integer_sequence<unsigned int,
-                                           sizeof...(implicits)>(),
-                implicits...);
-        });
-}
-#endif
 
 } // namespace Nektar::Operators::detail
+
+#include "Operators/TimeOps/TimeOpHelper.hpp"
