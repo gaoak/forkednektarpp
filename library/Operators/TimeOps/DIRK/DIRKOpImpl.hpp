@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: RungeKuttaOpImpl.hpp
+// File: DIRKOpImpl.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,8 +34,8 @@
 
 #pragma once
 
-#include "Operators/TimeOps/RungeKutta/RungeKuttaKernelLaunchers.hpp"
-#include "Operators/TimeOps/RungeKutta/RungeKuttaOp.hpp"
+#include "Operators/TimeOps/DIRK/DIRKKernelLaunchers.hpp"
+#include "Operators/TimeOps/DIRK/DIRKOp.hpp"
 
 using namespace Nektar;
 using namespace Nektar::MultiRegions;
@@ -44,17 +44,17 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, unsigned int IntOrder, typename TData>
-class RungeKuttaOpImpl : public RungeKuttaOp<TData>
+class DIRKOpImpl : public DIRKOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
     // Compile-time check for valid integration order
-    static_assert(IntOrder >= 1 && IntOrder <= 5,
-                  "The RungeKuttaOp class is only implemented for order 1-5.");
+    static_assert(IntOrder >= 1 && IntOrder <= 3,
+                  "The DIRKOp class is only implemented for order 1-3.");
 
 public:
-    RungeKuttaOpImpl(const ExpListSharedPtr &expansionList)
-        : RungeKuttaOp<TData>(expansionList)
+    DIRKOpImpl(const ExpListSharedPtr &expansionList)
+        : DIRKOp<TData>(expansionList)
     {
     }
 
@@ -65,18 +65,27 @@ public:
     static std::unique_ptr<Operator<TData>> Instantiate(
         const ExpListSharedPtr &expansionList)
     {
-        return std::make_unique<RungeKuttaOpImpl<ExecSpace, IntOrder, TData>>(
+        return std::make_unique<DIRKOpImpl<ExecSpace, IntOrder, TData>>(
             expansionList);
     }
 
 protected:
+    static constexpr TData ConstSqrt2 = 1.414213562373095;
+    static constexpr TData lambda2    = (2.0 - ConstSqrt2) / 2.0;
+    static constexpr TData lambda3    = 0.4358665215;
+
     // clang-format off
-    static constexpr TData m_coeff_t[5][6] = 
-            {{0.0, 0.0, 0.0, 0.0, 0.0, 0.0},
-             {0.0, 1./2., 0.0, 0.0, 0.0, 0.0},
-             {0.0, 1./2., 3./4., 0.0, 0.0, 0.0},
-             {0.0, 1./2., 1./2., 1.0, 0.0, 0.0},
-             {0.0, 1./4., 1./4., 1./2., 3./4., 1.0}};
+    static constexpr TData m_coeff_t[3][3] = 
+            {{1.0, 0.0, 0.0},
+             {lambda2, 1.0, 0.0},
+             {lambda3, (1.0 + lambda3) / 2.0, 1.0}};
+    // clang-format on
+
+    // clang-format off
+    static constexpr TData m_lambda[3][3] =
+            {{1.0, 0.0, 0.0},
+             {lambda2, lambda2, 0.0},
+             {lambda3, lambda3, lambda3}};
     // clang-format on
 
     static constexpr unsigned int NStage()
@@ -93,22 +102,14 @@ protected:
         {
             return 3;
         }
-        else if constexpr (IntOrder == 4)
-        {
-            return 4;
-        }
-        else if constexpr (IntOrder == 5)
-        {
-            return 6;
-        }
     }
 
     void v_Apply(Field<TData, FieldState::Phys> &inout) override
     {
-        // Check that explicit function is defined for IMEX
-        ASSERTL0(this->m_explicitFunctor,
-                 "RungeKutta schemes require a DoExplicit method. Define with "
-                 "RungeKuttaOp->DefineExplicit().");
+        // Check that implicit function is defined for DIRK
+        ASSERTL0(this->m_implicitFunctor,
+                 "DIRK schemes require a DoImplicit method. Define with "
+                 "DIRKOp->DefineImplicit().");
 
         // Allocate memory
         if (this->m_solutions.size() == 0)
@@ -120,9 +121,9 @@ protected:
                 ExecSpace::alignment));
         }
 
-        while (this->m_explicits.size() < NStage())
+        while (this->m_implicits.size() < NStage())
         {
-            this->m_explicits.push_back(Field<TData, FieldState::Phys>::Create(
+            this->m_implicits.push_back(Field<TData, FieldState::Phys>::Create(
                 GetBlockAttributes<TData>(FieldState::Phys,
                                           this->m_expansionList),
                 inout.GetNumComponents(), inout.GetNumHomoModes(),
@@ -144,10 +145,15 @@ protected:
     void Staging(Field<TData, FieldState::Phys> &inout)
     {
         // Compute residual
-        this->DoExplicit(inout, this->m_explicits[Stage - 1],
+        this->DoImplicit(inout, this->m_implicits[Stage - 1],
                          this->m_time + m_coeff_t[IntOrder - 1][Stage - 1] *
                                             this->m_timestep,
-                         this->m_timestep);
+                         m_lambda[IntOrder - 1][Stage - 1] * this->m_timestep);
+        sub<ExecSpace>(this->m_implicits[Stage - 1], inout,
+                       this->m_implicits[Stage - 1]);
+        mul<ExecSpace>(1.0 / m_lambda[IntOrder - 1][Stage - 1],
+                       this->m_implicits[Stage - 1],
+                       this->m_implicits[Stage - 1]);
 
         if constexpr (Stage < NStage())
         {
@@ -173,13 +179,13 @@ protected:
             auto nphys =
                 inoutBlock.GetNumData() * inoutBlock.GetNumComponents();
 
-            StageSolutionRungeKuttaKernel<ExecSpace, IntOrder>(
+            StageSolutionDIRKKernel<ExecSpace, IntOrder>(
                 nphys * nelmt,
                 inoutBlock.template GetPtr<MemSpace, ReadWrite>(),
                 this->m_solutions[0]
                     .GetBlocks()[blk]
                     .template GetPtr<MemSpace, ReadOnly>(),
-                (this->m_explicits[ind]
+                (this->m_implicits[ind]
                      .GetBlocks()[blk]
                      .template GetPtr<MemSpace, ReadOnly>())...);
         }
@@ -198,13 +204,13 @@ protected:
             auto nphys =
                 inoutBlock.GetNumData() * inoutBlock.GetNumComponents();
 
-            UpdateRungeKuttaKernel<ExecSpace, IntOrder>(
+            UpdateDIRKKernel<ExecSpace, IntOrder>(
                 nphys * nelmt,
                 inoutBlock.template GetPtr<MemSpace, ReadWrite>(),
                 this->m_solutions[0]
                     .GetBlocks()[blk]
                     .template GetPtr<MemSpace, ReadOnly>(),
-                (this->m_explicits[ind]
+                (this->m_implicits[ind]
                      .GetBlocks()[blk]
                      .template GetPtr<MemSpace, ReadOnly>())...);
         }
