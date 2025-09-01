@@ -53,16 +53,14 @@
 
 BOOST_AUTO_TEST_SUITE(TestAdamsMoulton)
 
-// Tolerance matches 1st order
 TEST_AdamsMoulton(adams_moulton_order_1, segment_order_1, 2, 1)
 
-    // Tolerance matches 2nd order
     TEST_AdamsMoulton(adams_moulton_order_2, segment_order_2, 2, 2)
 
-    // Tolerance matches 3rd order (TODO: fix restart)
+    // (TODO: fix restart)
     TEST_AdamsMoulton(adams_moulton_order_3, segment_order_3, 2, 2)
 
-    // Tolerance matches 4th order (TODO: fix restart)
+    // (TODO: fix restart)
     TEST_AdamsMoulton(adams_moulton_order_4, segment_order_4, 2, 2)
 
         BOOST_AUTO_TEST_SUITE_END()

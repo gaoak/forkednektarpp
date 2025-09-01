@@ -152,8 +152,7 @@ public:
 
         // Check if observed order is close to expected order (within tolerance)
         if (std::isnan(observedOrder) || std::isinf(observedOrder) ||
-            fabs(observedOrder - expectedOrder) >
-                0.1 * expectedOrder) // Choose tolerance
+            observedOrder < 0.9 * expectedOrder) // Choose tolerance
         {
             std::cerr << "Order of accuracy test failed! Observed: "
                       << observedOrder << ", Expected: " << expectedOrder

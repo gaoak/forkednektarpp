@@ -47,8 +47,7 @@ public:
     static std::shared_ptr<TimeOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &method = "", const unsigned int &order = 0,
-        const std::string &variant = "", const std::string &execStr = "",
-        const double &timestep = 0.0)
+        const std::string &variant = "", const std::string &execStr = "")
     {
         auto session = expansionList->GetSession();
 
@@ -71,11 +70,6 @@ public:
                 ? session->GetCmdLineArgument<std::string>("opExecSpace")
                 : execStr;
 
-        double timestep0 =
-            (timestep == 0.0)
-                ? expansionList->GetSession()->GetParameter("TimeStep")
-                : timestep;
-
         // Set key.
         std::string requestedKey =
             method0 + variant0 + std::to_string(order0) + execStr0;
@@ -96,7 +90,7 @@ public:
             factory.CreateInstance(requestedKey, expansionList));
 
         // Set operator meta data
-        op->m_timestep = timestep0;
+        op->m_timestep = expansionList->GetSession()->GetParameter("TimeStep");
 
         return op;
     }

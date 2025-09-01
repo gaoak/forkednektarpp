@@ -53,13 +53,10 @@
 
 BOOST_AUTO_TEST_SUITE(TestESDIRK)
 
-// Tolerance matches 2nd order
 TEST_ESDIRK(esdirk_order_2, segment_order_2, 2, 2)
 
-// Tolerance matches 3rd order
 TEST_ESDIRK(esdirk_order_3, segment_order_3, 2, 3)
 
-// Tolerance matches 4th order
 TEST_ESDIRK(esdirk_order_4, segment_order_4, 2, 4)
 
 BOOST_AUTO_TEST_SUITE_END()

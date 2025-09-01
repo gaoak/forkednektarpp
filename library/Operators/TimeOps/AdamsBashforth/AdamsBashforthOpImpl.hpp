@@ -105,19 +105,20 @@ protected:
             this->m_step++;
         }
 
-        if (this->m_explicits.size() < IntOrder)
-        {
-            // Allocate new storage
-            this->m_explicits.push_back(Field<TData, FieldState::Phys>::Create(
-                GetBlockAttributes<TData>(FieldState::Phys,
-                                          this->m_expansionList),
-                inout.GetNumComponents(), inout.GetNumHomoModes(),
-                ExecSpace::alignment));
-        }
-
         // After startup
         if (this->m_step + 1 >= IntOrder)
         {
+            if (this->m_explicits.size() < IntOrder)
+            {
+                // Allocate new storage
+                this->m_explicits.push_back(
+                    Field<TData, FieldState::Phys>::Create(
+                        GetBlockAttributes<TData>(FieldState::Phys,
+                                                  this->m_expansionList),
+                        inout.GetNumComponents(), inout.GetNumHomoModes(),
+                        ExecSpace::alignment));
+            }
+
             if constexpr (IntOrder > 1)
             {
                 this->RollOver(this->m_explicits);
