@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_adams_bashforth.cpp
+// File: CNABKernelLaunchers.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,35 +32,38 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestAdamsBashforth
+#pragma once
 
-#include "init_timeop.hpp"
+#include "Operators/LoopExecution/LoopExecution.hpp"
 
-#include <boost/test/tools/output_test_stream.hpp>
-#include <iostream>
-#include <memory>
+namespace Nektar::Operators::detail
+{
 
-#define TEST_AdamsBashforth(test_name, test, nvar, order)                      \
-    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
-    {                                                                          \
-        Configure(nvar, nvar);                                                 \
-        SetTestCase(1.0, 0.0);                                                 \
-        boost::test_tools::output_test_stream output;                          \
-        {                                                                      \
-            BOOST_TEST(CheckOrderOfAccuracy("AdamsBashforth", order));         \
-        }                                                                      \
-    }
+class CNABscheme;
 
-BOOST_AUTO_TEST_SUITE(TestAdamsBashforth)
+template <typename TData>
+NEK_DEVICE_INLINE static constexpr auto GetCNABCoefficients(void)
+{
+    return std::array<TData, 4>{1.0 / 2.0, 3.0 / 2.0, -1.0 / 2.0, 1.0};
+}
 
-TEST_AdamsBashforth(adams_bashforth_order_1, segment_order_1, 2, 1)
+template <typename Scheme, typename TData, unsigned int... ind,
+          typename... TDatas>
+NEK_DEVICE_INLINE static
+    typename std::enable_if<std::is_same_v<Scheme, CNABscheme>, void>::type
+    UpdateSolutionKernelImpl(const size_t idx, TData *__restrict inout,
+                             std::integer_sequence<unsigned int, ind...>,
+                             const TDatas *__restrict... solutions)
+{
+    constexpr unsigned int nSolution = sizeof...(solutions);
 
-    TEST_AdamsBashforth(adams_bashforth_order_2, segment_order_2, 2, 2)
+    constexpr auto coeff = GetCNABCoefficients<TData>();
 
-    // (TODO: fix restart)
-    TEST_AdamsBashforth(adams_bashforth_order_3, segment_order_3, 2, 2)
+    TData tmp = ((solutions[idx] * coeff[ind]) + ...);
+    tmp += inout[idx] * coeff[nSolution];
+    inout[idx] = tmp;
+}
 
-    // (TODO: fix restart)
-    TEST_AdamsBashforth(adams_bashforth_order_4, segment_order_4, 2, 2)
+} // namespace Nektar::Operators::detail
 
-        BOOST_AUTO_TEST_SUITE_END()
+#include "Operators/TimeOps/TimeOpHelper.hpp"

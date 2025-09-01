@@ -54,7 +54,14 @@ public:
 
     static inline const std::string name = "IMEX";
 
+    void SaveImplicit(const bool save_implicit)
+    {
+        m_save_implicit = save_implicit;
+    }
+
 protected:
+    bool m_save_implicit = false;
+
     IMEXOp(const MultiRegions::ExpListSharedPtr &expansionList)
         : TimeOp<TData>(expansionList)
     {

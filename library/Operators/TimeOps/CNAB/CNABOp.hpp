@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_adams_bashforth.cpp
+// File: CNABOp.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,35 +32,35 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestAdamsBashforth
+#pragma once
 
-#include "init_timeop.hpp"
+#include "Operators/TimeOps/TimeOp.hpp"
 
-#include <boost/test/tools/output_test_stream.hpp>
-#include <iostream>
-#include <memory>
+namespace Nektar::Operators
+{
 
-#define TEST_AdamsBashforth(test_name, test, nvar, order)                      \
-    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
-    {                                                                          \
-        Configure(nvar, nvar);                                                 \
-        SetTestCase(1.0, 0.0);                                                 \
-        boost::test_tools::output_test_stream output;                          \
-        {                                                                      \
-            BOOST_TEST(CheckOrderOfAccuracy("AdamsBashforth", order));         \
-        }                                                                      \
+// CNAB base class
+// Defines the apply operator to enforce apply parameter types
+template <typename TData> class CNABOp : public TimeOp<TData>
+{
+public:
+    static std::shared_ptr<CNABOp<TData>> Create(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const unsigned int &order = 0, const std::string &execStr = "")
+    {
+        return std::dynamic_pointer_cast<CNABOp<TData>>(
+            TimeOp<TData>::Create(expansionList, name, order, "", execStr));
     }
 
-BOOST_AUTO_TEST_SUITE(TestAdamsBashforth)
+    static inline const std::string name = "CNAB";
 
-TEST_AdamsBashforth(adams_bashforth_order_1, segment_order_1, 2, 1)
+protected:
+    CNABOp(const MultiRegions::ExpListSharedPtr &expansionList)
+        : TimeOp<TData>(expansionList)
+    {
+    }
 
-    TEST_AdamsBashforth(adams_bashforth_order_2, segment_order_2, 2, 2)
+    ~CNABOp() override = default;
+};
 
-    // (TODO: fix restart)
-    TEST_AdamsBashforth(adams_bashforth_order_3, segment_order_3, 2, 2)
-
-    // (TODO: fix restart)
-    TEST_AdamsBashforth(adams_bashforth_order_4, segment_order_4, 2, 2)
-
-        BOOST_AUTO_TEST_SUITE_END()
+} // namespace Nektar::Operators

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_adams_bashforth.cpp
+// File: test_mcnab.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestAdamsBashforth
+#define BOOST_TEST_MODULE TestMCNAB
 
 #include "init_timeop.hpp"
 
@@ -40,27 +40,19 @@
 #include <iostream>
 #include <memory>
 
-#define TEST_AdamsBashforth(test_name, test, nvar, order)                      \
+#define TEST_MCNAB(test_name, test, nvar, order)                               \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
         Configure(nvar, nvar);                                                 \
-        SetTestCase(1.0, 0.0);                                                 \
+        SetTestCase(1.0, -10.0);                                               \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
-            BOOST_TEST(CheckOrderOfAccuracy("AdamsBashforth", order));         \
+            BOOST_TEST(CheckOrderOfAccuracy("MCNAB", order));                  \
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestAdamsBashforth)
+BOOST_AUTO_TEST_SUITE(TestMCNAB)
 
-TEST_AdamsBashforth(adams_bashforth_order_1, segment_order_1, 2, 1)
+TEST_MCNAB(mcnab_order_2, segment_order_2, 2, 2)
 
-    TEST_AdamsBashforth(adams_bashforth_order_2, segment_order_2, 2, 2)
-
-    // (TODO: fix restart)
-    TEST_AdamsBashforth(adams_bashforth_order_3, segment_order_3, 2, 2)
-
-    // (TODO: fix restart)
-    TEST_AdamsBashforth(adams_bashforth_order_4, segment_order_4, 2, 2)
-
-        BOOST_AUTO_TEST_SUITE_END()
+BOOST_AUTO_TEST_SUITE_END()

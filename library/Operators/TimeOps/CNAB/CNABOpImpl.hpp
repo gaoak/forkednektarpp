@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: AdamsMoultonOpImpl.hpp
+// File: CNABOpImpl.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,9 +34,9 @@
 
 #pragma once
 
-#include "Operators/MathKernels/MathKernels.hpp"
-#include "Operators/TimeOps/AdamsMoulton/AdamsMoultonKernelLaunchers.hpp"
-#include "Operators/TimeOps/AdamsMoulton/AdamsMoultonOp.hpp"
+#include "Operators/TimeOps/CNAB/CNABKernelLaunchers.hpp"
+#include "Operators/TimeOps/CNAB/CNABOp.hpp"
+#include "Operators/TimeOps/IMEX/IMEXOp.hpp"
 
 using namespace Nektar;
 using namespace Nektar::MultiRegions;
@@ -45,21 +45,18 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, unsigned int IntOrder, typename TData>
-class AdamsMoultonOpImpl : public AdamsMoultonOp<TData>
+class CNABOpImpl : public CNABOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
     // Compile-time check for valid integration order
-    static_assert(
-        IntOrder >= 1 && IntOrder <= 4,
-        "The AdamsMoultonOp class is only implemented for order 1-4.");
+    static_assert(IntOrder == 2,
+                  "The CNABOp class is only implemented for order 2.");
 
 public:
-    AdamsMoultonOpImpl(const ExpListSharedPtr &expansionList)
-        : AdamsMoultonOp<TData>(expansionList)
+    CNABOpImpl(const ExpListSharedPtr &expansionList)
+        : CNABOp<TData>(expansionList)
     {
-        // Initialize coefficients at construction time
-        SetCoefficients();
     }
 
     // className - for OperatorFactory
@@ -69,54 +66,63 @@ public:
     static std::unique_ptr<Operator<TData>> Instantiate(
         const ExpListSharedPtr &expansionList)
     {
-        return std::make_unique<AdamsMoultonOpImpl<ExecSpace, IntOrder, TData>>(
+        return std::make_unique<CNABOpImpl<ExecSpace, IntOrder, TData>>(
             expansionList);
     }
 
 protected:
-    TData m_gamma;
+    TData m_gamma = 1.0 / 2.0;
 
     void v_Apply(Field<TData, FieldState::Phys> &inout) override
     {
-        // Check that implicit function is defined for IMEX
-        ASSERTL0(
-            this->m_implicitFunctor,
-            "AdamsMoulton schemes require a DoImplicit method. Define with "
-            "AdamsMoultonOp->DefineImplicit().");
+        // Check that implicit function call is defined for CNAB
+        ASSERTL0(this->m_implicitFunctor,
+                 "CNAB schemes require a DoImplicit method. Define with "
+                 "CNABOp->DefineImplicit().");
+
+        // Check that explicit function is defined for CNAB
+        ASSERTL0(this->m_explicitFunctor,
+                 "CNAB schemes require a DoExplicit method. Define with "
+                 "CNABOp->DefineExplicit().");
 
         // Startup
-        while (this->m_step + 1 < IntOrder)
+        if (this->m_step == 0)
         {
-            // Initialise AdamsMoulton and hand-over the m_implicits deque
-            auto startup = AdamsMoultonOp<TData>::Create(
-                this->m_expansionList, this->m_step + 1, ExecSpace::name);
+            // Initialise IMEX and hand-over the m_solutions deque
+            auto startup = IMEXOp<TData>::Create(this->m_expansionList, 1,
+                                                 ExecSpace::name);
+            startup->SaveImplicit(true);
 
-            // Copy functors from outer/higher-order AdamsMoulton scheme
+            // Copy functors from outer/higher-order CNAB scheme
             startup->CopyFunctorsFrom(*this);
 
-            // Move implicits to startup
+            // Move solutions to startup
             startup->SetImplicits(this->TakeImplicits());
+            startup->SetExplicits(this->TakeExplicits());
+            startup->SetSolutions(this->TakeSolutions());
 
             // Advance in time with startup
             startup->SetTime(this->m_time);
             startup->SetStep(this->m_step);
             startup->Apply(inout);
 
-            // Move implicits back to higher-order AdamsMoulton
+            // Move solutions back to this CNAB
             this->SetImplicits(startup->TakeImplicits());
+            this->SetExplicits(startup->TakeExplicits());
+            this->SetSolutions(startup->TakeSolutions());
 
             // Increment step and time
             this->m_time += this->m_timestep;
             this->m_step++;
         }
-
         // After startup
-        if (this->m_step + 1 >= IntOrder)
+        else
         {
-            if (this->m_implicits.size() < IntOrder)
+            // After startup
+            if (this->m_explicits.size() < IntOrder)
             {
                 // Allocate new storage
-                this->m_implicits.push_back(
+                this->m_explicits.push_back(
                     Field<TData, FieldState::Phys>::Create(
                         GetBlockAttributes<TData>(FieldState::Phys,
                                                   this->m_expansionList),
@@ -124,24 +130,20 @@ protected:
                         ExecSpace::alignment));
             }
 
-            if constexpr (IntOrder > 1)
-            {
-                // Do extrapolation.
-                UpdateSolution(
-                    inout,
-                    std::make_integer_sequence<unsigned int, IntOrder - 1>());
-            }
+            this->RollOver(this->m_explicits);
 
-            // Use this->m_implicits[0] as temporary storage for extrapolated
-            // solution
-            this->RollOver(inout, this->m_implicits);
+            this->DoExplicit(inout, this->m_explicits[0], this->m_time,
+                             this->m_timestep);
+
+            // Do extrapolation.
+            UpdateSolution(inout);
 
             // Compute next time step
+            this->m_implicits[0].template Copy<MemSpace>(inout);
+
             this->DoImplicit(this->m_implicits[0], inout,
                              this->m_time + this->m_timestep,
                              m_gamma * this->m_timestep);
-
-            // Update implicit derivative
             sub<ExecSpace>(inout, this->m_implicits[0], this->m_implicits[0]);
             mul<ExecSpace>(1.0 / m_gamma, this->m_implicits[0],
                            this->m_implicits[0]);
@@ -152,9 +154,7 @@ protected:
         }
     }
 
-    template <unsigned int... ind>
-    void UpdateSolution(Field<TData, FieldState::Phys> &inout,
-                        std::integer_sequence<unsigned int, ind...>)
+    void UpdateSolution(Field<TData, FieldState::Phys> &inout)
     {
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
@@ -165,35 +165,18 @@ protected:
             auto nphys =
                 inoutBlock.GetNumData() * inoutBlock.GetNumComponents();
 
-            UpdateSolutionKernel<ExecSpace, AdamsMoultonScheme>(
+            UpdateSolutionKernel<ExecSpace, CNABscheme>(
                 nphys * nelmt,
                 inoutBlock.template GetPtr<MemSpace, ReadWrite>(),
-                (this->m_implicits[ind]
-                     .GetBlocks()[blk]
-                     .template GetPtr<MemSpace, ReadOnly>())...);
-        }
-    }
-
-    /*
-     *  Setup gamma coefficient for AdamsMoulton.
-     */
-    void SetCoefficients()
-    {
-        if constexpr (IntOrder == 1)
-        {
-            m_gamma = 1.0;
-        }
-        else if constexpr (IntOrder == 2)
-        {
-            m_gamma = 1.0 / 2.0;
-        }
-        else if constexpr (IntOrder == 3)
-        {
-            m_gamma = 5.0 / 12.0;
-        }
-        else if constexpr (IntOrder == 4)
-        {
-            m_gamma = 9.0 / 24.0;
+                this->m_implicits[0]
+                    .GetBlocks()[blk]
+                    .template GetPtr<MemSpace, ReadOnly>(),
+                this->m_explicits[0]
+                    .GetBlocks()[blk]
+                    .template GetPtr<MemSpace, ReadOnly>(),
+                this->m_explicits[1]
+                    .GetBlocks()[blk]
+                    .template GetPtr<MemSpace, ReadOnly>());
         }
     }
 };

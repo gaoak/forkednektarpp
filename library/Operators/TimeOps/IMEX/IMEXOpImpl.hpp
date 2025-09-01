@@ -127,19 +127,20 @@ protected:
             this->m_step++;
         }
 
-        if (this->m_explicits.size() < IntOrder)
-        {
-            // Allocate new storage
-            this->m_explicits.push_back(Field<TData, FieldState::Phys>::Create(
-                GetBlockAttributes<TData>(FieldState::Phys,
-                                          this->m_expansionList),
-                inout.GetNumComponents(), inout.GetNumHomoModes(),
-                ExecSpace::alignment));
-        }
-
         // After startup
         if (this->m_step + 1 >= IntOrder)
         {
+            if (this->m_explicits.size() < IntOrder)
+            {
+                // Allocate new storage
+                this->m_explicits.push_back(
+                    Field<TData, FieldState::Phys>::Create(
+                        GetBlockAttributes<TData>(FieldState::Phys,
+                                                  this->m_expansionList),
+                        inout.GetNumComponents(), inout.GetNumHomoModes(),
+                        ExecSpace::alignment));
+            }
+
             // UpdateSolution previous solutions, explicit part, and sum up
             if constexpr (IntOrder > 1)
             {
@@ -162,8 +163,37 @@ protected:
                 std::make_integer_sequence<unsigned int, IntOrder - 1>());
 
             // Compute next time step
-            this->DoImplicit(inout, inout, this->m_time + this->m_timestep,
-                             m_gamma * this->m_timestep);
+            if (this->m_save_implicit)
+            {
+                if (this->m_implicits.size() < IntOrder)
+                {
+                    // Allocate new storage
+                    this->m_implicits.push_back(
+                        Field<TData, FieldState::Phys>::Create(
+                            GetBlockAttributes<TData>(FieldState::Phys,
+                                                      this->m_expansionList),
+                            inout.GetNumComponents(), inout.GetNumHomoModes(),
+                            ExecSpace::alignment));
+                }
+
+                // Rollover previous solutions
+                this->RollOver(this->m_implicits);
+
+                this->m_implicits[0].template Copy<MemSpace>(inout);
+
+                this->DoImplicit(this->m_implicits[0], inout,
+                                 this->m_time + this->m_timestep,
+                                 m_gamma * this->m_timestep);
+                sub<ExecSpace>(inout, this->m_implicits[0],
+                               this->m_implicits[0]);
+                mul<ExecSpace>(1.0 / m_gamma, this->m_implicits[0],
+                               this->m_implicits[0]);
+            }
+            else
+            {
+                this->DoImplicit(inout, inout, this->m_time + this->m_timestep,
+                                 m_gamma * this->m_timestep);
+            }
 
             // Increment step and time
             this->m_time += this->m_timestep;

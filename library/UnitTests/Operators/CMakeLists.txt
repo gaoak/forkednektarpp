@@ -43,6 +43,10 @@ ADD_NEKTAR_EXECUTABLE(test_runge_kutta
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_runge_kutta.cpp)
 ADD_NEKTAR_EXECUTABLE(test_adams_bashforth
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_adams_bashforth.cpp)
+ADD_NEKTAR_EXECUTABLE(test_cnab
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_cnab.cpp)
+ADD_NEKTAR_EXECUTABLE(test_mcnab
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mcnab.cpp)
 ADD_NEKTAR_EXECUTABLE(test_dirk
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_dirk.cpp)
 ADD_NEKTAR_EXECUTABLE(test_esdirk
@@ -121,6 +125,8 @@ SET_UNIT_TEST(Dirichlet_serial test_dirichlet Serial none FALSE)
 SET_UNIT_TEST(Neumann_serial test_neumann Serial none FALSE)
 SET_UNIT_TEST(RungeKutta_serial test_runge_kutta Serial none FALSE)
 SET_UNIT_TEST(AdamsBashforth_serial test_adams_bashforth Serial none FALSE)
+SET_UNIT_TEST(CNAB_serial test_cnab Serial none FALSE)
+SET_UNIT_TEST(MCNAB_serial test_mcnab Serial none FALSE)
 SET_UNIT_TEST(DIRK_serial test_dirk Serial none FALSE)
 SET_UNIT_TEST(ESDIRK_serial test_esdirk Serial none FALSE)
 SET_UNIT_TEST(AdamsMoulton_serial test_adams_moulton Serial none FALSE)
@@ -171,6 +177,8 @@ IF (${NEKTAR_ENABLE_SIMD})
     SET_UNIT_TEST(Neumann_avx test_neumann AVX none FALSE)
     SET_UNIT_TEST(RungeKutta_avx test_runge_kutta AVX none FALSE)
     SET_UNIT_TEST(AdamsBashforth_avx test_adams_bashforth AVX none FALSE)
+    SET_UNIT_TEST(CNAB_avx test_cnab AVX none FALSE)
+    SET_UNIT_TEST(MCNAB_avx test_mcnab AVX none FALSE)
     SET_UNIT_TEST(DIRK_avx test_dirk AVX none FALSE)
     SET_UNIT_TEST(ESDIRK_avx test_esdirk AVX none FALSE)
     SET_UNIT_TEST(AdamsMoulton_avx test_adams_moulton AVX none FALSE)
@@ -228,6 +236,8 @@ IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABL
     SET_UNIT_TEST(Neumann_device test_neumann Device none FALSE)
     SET_UNIT_TEST(RungeKutta_device test_runge_kutta Device none FALSE)
     SET_UNIT_TEST(AdamsBashforth_device test_adams_bashforth Device none FALSE)
+    SET_UNIT_TEST(CNAB_device test_cnab Device none FALSE)
+    SET_UNIT_TEST(MCNAB_device test_mcnab Device none FALSE)
     SET_UNIT_TEST(DIRK_device test_dirk Device none FALSE)
     SET_UNIT_TEST(ESDIRK_device test_esdirk Device none FALSE)
     SET_UNIT_TEST(AdamsMoulton_device test_adams_moulton Device none FALSE)
