@@ -42,15 +42,14 @@ namespace Nektar::Operators::detail
 class RKscheme;
 
 template <unsigned int IntOrder, typename TData>
-NEK_DEVICE_INLINE static constexpr auto GetRungeKuttaCoefficients(void)
+NEK_DEVICE_INLINE static constexpr auto GetRungeKuttaStageCoefficients(void)
 {
     // 2nd order
     if constexpr (IntOrder == 2)
     {
         // clang-format off
         return std::array<TData, 1>
-                {  1./2. };
-                // {  1.0. }; // SSP
+                {  1.0/2.0 };
         // clang-format on
     }
     // 3rd order
@@ -58,10 +57,8 @@ NEK_DEVICE_INLINE static constexpr auto GetRungeKuttaCoefficients(void)
     {
         // clang-format off
         return std::array<TData, 3>
-                {  1./2.,
-                      0.,   3./4. };
-                //{   1.,
-                //    1./4.,   1./4. }; // SSP
+                {  1.0/2.0,
+                       0.0,   3.0/4.0 };
         // clang-format on
     }
     // 4th order
@@ -69,9 +66,9 @@ NEK_DEVICE_INLINE static constexpr auto GetRungeKuttaCoefficients(void)
     {
         // clang-format off
         return std::array<TData, 6>
-                {  1./2.,
-                      0.,   1./2.,
-                      0.,      0.,      1. };
+                {  1.0/2.0,
+                       0.0,   1.0/2.0,
+                       0.0,       0.0,      1.0 };
         // clang-format on
     }
     // 5th order
@@ -79,17 +76,17 @@ NEK_DEVICE_INLINE static constexpr auto GetRungeKuttaCoefficients(void)
     {
         // clang-format off
         return std::array<TData, 18>
-                {  1./4.,
-                   1./8.,   1./8.,
-                      0.,  -1./2.,      1.,
-                  3./16.,      0.,      0.,  9./16.,
-                  -3./7.,   2./7.,  12./7., -12./7.,   8./7. };
+                {  1.0/4.0,
+                   1.0/8.0,   1.0/8.0,
+                       0.0,  -1.0/2.0,       1.0,
+                  3.0/16.0,       0.0,       0.0,  9.0/16.0,
+                  -3.0/7.0,   2.0/7.0,  12.0/7.0, -12.0/7.0,   8.0/7.0 };
         // clang-format on
     }
 }
 
 template <unsigned int IntOrder, typename TData>
-NEK_DEVICE_INLINE static constexpr auto GetRungeKuttaCoefficients2(void)
+NEK_DEVICE_INLINE static constexpr auto GetRungeKuttaCoefficients(void)
 {
     // 1st order
     if constexpr (IntOrder == 1)
@@ -100,13 +97,11 @@ NEK_DEVICE_INLINE static constexpr auto GetRungeKuttaCoefficients2(void)
     if constexpr (IntOrder == 2)
     {
         return std::array<TData, 2>{0.0, 1.0};
-        // return std::array<TData, 2>{1.0 / 2.0, 1.0 / 2.0}; // SSP
     }
     // 3rd order
     else if constexpr (IntOrder == 3)
     {
         return std::array<TData, 3>{2.0 / 9.0, 3.0 / 9.0, 4.0 / 9.0};
-        // return std::array<TData, 2>{1.0 / 6.0, 1.0 / 6.0, 4.0 / 6.0}; // SSP
     }
     // 4th order
     else if constexpr (IntOrder == 4)
@@ -133,7 +128,7 @@ NEK_DEVICE_INLINE static
     constexpr unsigned int stage    = sizeof...(explicits);
     constexpr unsigned int indStart = (stage * (stage - 1)) / 2;
 
-    constexpr auto coeff = GetRungeKuttaCoefficients<IntOrder, TData>();
+    constexpr auto coeff = GetRungeKuttaStageCoefficients<IntOrder, TData>();
 
     inout[idx] =
         solution[idx] + ((explicits[idx] * coeff[indStart + ind]) + ...);
@@ -148,7 +143,7 @@ NEK_DEVICE_INLINE static
                              std::integer_sequence<unsigned int, ind...>,
                              const TDatas *__restrict... explicits)
 {
-    constexpr auto coeff = GetRungeKuttaCoefficients2<IntOrder, TData>();
+    constexpr auto coeff = GetRungeKuttaCoefficients<IntOrder, TData>();
 
     inout[idx] = solution[idx] + ((explicits[idx] * coeff[ind]) + ...);
 }

@@ -41,6 +41,8 @@ ADD_NEKTAR_EXECUTABLE(test_neumann
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_neumann.cpp)
 ADD_NEKTAR_EXECUTABLE(test_runge_kutta
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_runge_kutta.cpp)
+ADD_NEKTAR_EXECUTABLE(test_runge_kutta_ssp
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_runge_kutta_ssp.cpp)
 ADD_NEKTAR_EXECUTABLE(test_adams_bashforth
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_adams_bashforth.cpp)
 ADD_NEKTAR_EXECUTABLE(test_cnab
@@ -124,6 +126,7 @@ SET_UNIT_TEST(AssmbScatr_serial test_assmbscatr Serial none FALSE)
 SET_UNIT_TEST(Dirichlet_serial test_dirichlet Serial none FALSE)
 SET_UNIT_TEST(Neumann_serial test_neumann Serial none FALSE)
 SET_UNIT_TEST(RungeKutta_serial test_runge_kutta Serial none FALSE)
+SET_UNIT_TEST(RungeKuttaSSP_serial test_runge_kutta_ssp Serial none FALSE)
 SET_UNIT_TEST(AdamsBashforth_serial test_adams_bashforth Serial none FALSE)
 SET_UNIT_TEST(CNAB_serial test_cnab Serial none FALSE)
 SET_UNIT_TEST(MCNAB_serial test_mcnab Serial none FALSE)
@@ -176,6 +179,7 @@ IF (${NEKTAR_ENABLE_SIMD})
     SET_UNIT_TEST(Dirichlet_avx  test_dirichlet AVX none FALSE)
     SET_UNIT_TEST(Neumann_avx test_neumann AVX none FALSE)
     SET_UNIT_TEST(RungeKutta_avx test_runge_kutta AVX none FALSE)
+    SET_UNIT_TEST(RungeKuttaSSP_avx test_runge_kutta_ssp AVX none FALSE)
     SET_UNIT_TEST(AdamsBashforth_avx test_adams_bashforth AVX none FALSE)
     SET_UNIT_TEST(CNAB_avx test_cnab AVX none FALSE)
     SET_UNIT_TEST(MCNAB_avx test_mcnab AVX none FALSE)
@@ -235,6 +239,7 @@ IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABL
     SET_UNIT_TEST(Dirichlet_device test_dirichlet Device none FALSE)
     SET_UNIT_TEST(Neumann_device test_neumann Device none FALSE)
     SET_UNIT_TEST(RungeKutta_device test_runge_kutta Device none FALSE)
+    SET_UNIT_TEST(RungeKuttaSSP_device test_runge_kutta_ssp Device none FALSE)
     SET_UNIT_TEST(AdamsBashforth_device test_adams_bashforth Device none FALSE)
     SET_UNIT_TEST(CNAB_device test_cnab Device none FALSE)
     SET_UNIT_TEST(MCNAB_device test_mcnab Device none FALSE)

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: RungeKuttaOpImpl.hpp
+// File: RungeKuttaSSPOpImpl.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,8 +34,8 @@
 
 #pragma once
 
-#include "Operators/TimeOps/RungeKutta/RungeKuttaKernelLaunchers.hpp"
-#include "Operators/TimeOps/RungeKutta/RungeKuttaOp.hpp"
+#include "Operators/TimeOps/RungeKuttaSSP/RungeKuttaSSPKernelLaunchers.hpp"
+#include "Operators/TimeOps/RungeKuttaSSP/RungeKuttaSSPOp.hpp"
 
 using namespace Nektar;
 using namespace Nektar::MultiRegions;
@@ -44,17 +44,18 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, unsigned int IntOrder, typename TData>
-class RungeKuttaOpImpl : public RungeKuttaOp<TData>
+class RungeKuttaSSPOpImpl : public RungeKuttaSSPOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
     // Compile-time check for valid integration order
-    static_assert(IntOrder >= 1 && IntOrder <= 5,
-                  "The RungeKuttaOp class is only implemented for order 1-5.");
+    static_assert(
+        IntOrder >= 1 && IntOrder <= 3,
+        "The RungeKuttaSSPOp class is only implemented for order 1-3.");
 
 public:
-    RungeKuttaOpImpl(const ExpListSharedPtr &expansionList)
-        : RungeKuttaOp<TData>(expansionList)
+    RungeKuttaSSPOpImpl(const ExpListSharedPtr &expansionList)
+        : RungeKuttaSSPOp<TData>(expansionList)
     {
     }
 
@@ -65,8 +66,8 @@ public:
     static std::unique_ptr<Operator<TData>> Instantiate(
         const ExpListSharedPtr &expansionList)
     {
-        return std::make_unique<RungeKuttaOpImpl<ExecSpace, IntOrder, TData>>(
-            expansionList);
+        return std::make_unique<
+            RungeKuttaSSPOpImpl<ExecSpace, IntOrder, TData>>(expansionList);
     }
 
 protected:
@@ -83,28 +84,14 @@ protected:
         {
             // clang-format off
             return std::array<TData, 2>
-            {  0.0, 1.0 / 2.0 };
+            {  0.0, 1.0 };
             // clang-format on
         }
         else if constexpr (IntOrder == 3)
         {
             // clang-format off
             return std::array<TData, 3>
-            {  0.0, 1.0 / 2.0, 3.0/ 4.0 };
-            // clang-format on
-        }
-        else if constexpr (IntOrder == 4)
-        {
-            // clang-format off
-            return std::array<TData, 4>
-            {  0.0, 1.0 / 2.0, 1.0/ 2.0, 1.0 };
-            // clang-format on
-        }
-        else if constexpr (IntOrder == 5)
-        {
-            // clang-format off
-            return std::array<TData, 6>
-            {  0.0, 1.0 / 4.0, 1.0/ 4.0, 1.0 / 2.0, 3.0 / 4.0, 1.0 };
+            {  0.0, 1.0, 1.0/2.0 };
             // clang-format on
         }
     }
@@ -123,22 +110,15 @@ protected:
         {
             return 3;
         }
-        else if constexpr (IntOrder == 4)
-        {
-            return 4;
-        }
-        else if constexpr (IntOrder == 5)
-        {
-            return 6;
-        }
     }
 
     void v_Apply(Field<TData, FieldState::Phys> &inout) override
     {
         // Check that explicit function is defined for IMEX
-        ASSERTL0(this->m_explicitFunctor,
-                 "RungeKutta schemes require a DoExplicit method. Define with "
-                 "RungeKuttaOp->DefineExplicit().");
+        ASSERTL0(
+            this->m_explicitFunctor,
+            "RungeKuttaSSP schemes require a DoExplicit method. Define with "
+            "RungeKuttaSSPOp->DefineExplicit().");
 
         // Allocate memory
         if (this->m_solutions.size() == 0)
@@ -203,7 +183,7 @@ protected:
             auto nphys =
                 inoutBlock.GetNumData() * inoutBlock.GetNumComponents();
 
-            UpdateStageKernel<ExecSpace, RKscheme, IntOrder>(
+            UpdateStageKernel<ExecSpace, RKSSPscheme, IntOrder>(
                 nphys * nelmt,
                 inoutBlock.template GetPtr<MemSpace, ReadWrite>(),
                 this->m_solutions[0]
@@ -228,7 +208,7 @@ protected:
             auto nphys =
                 inoutBlock.GetNumData() * inoutBlock.GetNumComponents();
 
-            UpdateSolutionKernel<ExecSpace, RKscheme, IntOrder>(
+            UpdateSolutionKernel<ExecSpace, RKSSPscheme, IntOrder>(
                 nphys * nelmt,
                 inoutBlock.template GetPtr<MemSpace, ReadWrite>(),
                 this->m_solutions[0]
