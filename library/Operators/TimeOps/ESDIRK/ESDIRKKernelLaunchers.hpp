@@ -42,7 +42,7 @@ namespace Nektar::Operators::detail
 class ESDIRKscheme;
 
 template <unsigned int IntOrder, typename TData>
-NEK_DEVICE_INLINE static constexpr auto GetESDIRKCoefficients(void)
+NEK_DEVICE_INLINE static constexpr auto GetESDIRKStageCoefficients(void)
 {
     constexpr TData ConstSqrt2 = 1.414213562373095;
 
@@ -123,7 +123,7 @@ NEK_DEVICE_INLINE static constexpr auto GetESDIRKCoefficients(void)
 }
 
 template <unsigned int IntOrder, typename TData>
-NEK_DEVICE_INLINE static constexpr auto GetESDIRKCoefficients2(void)
+NEK_DEVICE_INLINE static constexpr auto GetESDIRKCoefficients(void)
 {
     constexpr TData ConstSqrt2 = 1.414213562373095;
 
@@ -183,7 +183,7 @@ UpdateStageKernelImpl(
     constexpr unsigned int stage    = sizeof...(implicits);
     constexpr unsigned int indStart = (stage * (stage - 1)) / 2;
 
-    constexpr auto coeff = GetESDIRKCoefficients<IntOrder, TData>();
+    constexpr auto coeff = GetESDIRKStageCoefficients<IntOrder, TData>();
 
     inout[idx] =
         solution[idx] + ((implicits[idx] * coeff[indStart + ind]) + ...);
@@ -198,7 +198,7 @@ NEK_DEVICE_INLINE static
                              std::integer_sequence<unsigned int, ind...>,
                              const TDatas *__restrict... implicits)
 {
-    constexpr auto coeff = GetESDIRKCoefficients2<IntOrder, TData>();
+    constexpr auto coeff = GetESDIRKCoefficients<IntOrder, TData>();
 
     inout[idx] = solution[idx] + ((implicits[idx] * coeff[ind]) + ...);
 }
