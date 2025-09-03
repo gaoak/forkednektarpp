@@ -43,7 +43,8 @@ using namespace Nektar::MultiRegions;
 namespace Nektar::Operators::detail
 {
 
-template <typename ExecSpace, unsigned int IntOrder, typename TData>
+template <typename ExecSpace, typename Scheme, unsigned int IntOrder,
+          typename TData>
 class IMEXOpImpl : public IMEXOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
@@ -67,7 +68,7 @@ public:
     static std::unique_ptr<Operator<TData>> Instantiate(
         const ExpListSharedPtr &expansionList)
     {
-        return std::make_unique<IMEXOpImpl<ExecSpace, IntOrder, TData>>(
+        return std::make_unique<IMEXOpImpl<ExecSpace, Scheme, IntOrder, TData>>(
             expansionList);
     }
 
@@ -87,7 +88,7 @@ protected:
                  "IMEXOp->DefineExplicit().");
 
         // Startup
-        while (this->m_step + 1 < IntOrder)
+        if (this->m_step + 1 < IntOrder)
         {
             // Save initial solution
             auto initial = Field<TData, FieldState::Phys>::Create(
@@ -215,7 +216,7 @@ protected:
             auto nphys =
                 inoutBlock.GetNumData() * inoutBlock.GetNumComponents();
 
-            UpdateSolutionKernel<ExecSpace, IMEXscheme>(
+            UpdateSolutionKernel<ExecSpace, Scheme>(
                 nphys * nelmt,
                 inoutBlock.template GetPtr<MemSpace, ReadWrite>(),
                 (this->m_explicits[Ind]

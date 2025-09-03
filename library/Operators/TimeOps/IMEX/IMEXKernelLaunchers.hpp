@@ -39,7 +39,7 @@
 namespace Nektar::Operators::detail
 {
 
-class IMEXscheme;
+class IMEXScheme;
 
 template <unsigned int IntOrder, typename TData>
 NEK_DEVICE_INLINE static constexpr auto GetIMEXCoefficients(void)
@@ -75,7 +75,7 @@ NEK_DEVICE_INLINE static constexpr auto GetIMEXCoefficients(void)
 template <typename Scheme, typename TData, unsigned int... ind,
           typename... TDatas>
 NEK_DEVICE_INLINE static
-    typename std::enable_if<std::is_same_v<Scheme, IMEXscheme>, void>::type
+    typename std::enable_if<std::is_same_v<Scheme, IMEXScheme>, void>::type
     UpdateSolutionKernelImpl(const size_t idx, TData *__restrict inout,
                              std::integer_sequence<unsigned int, ind...>,
                              const TDatas *__restrict... solutions)

@@ -456,73 +456,93 @@ MACRO(ADD_TIME_OPERATOR dir)
     SET(CONFIG_FILE TimeOps/TimeOperatorFactoryDec.cpp.in)
 
     # Set timeintegration order
+    SET(Variants Dummy)
     IF (${name} STREQUAL "RungeKutta")
-        SET(TimeIntegrationOrders 1 2 3 4 5)
-    ELSEIF (${name} STREQUAL "RungeKuttaSSP")
-        SET(TimeIntegrationOrders 1 2 3)
+        LIST(APPEND Variants SSP)
     ELSEIF (${name} STREQUAL "DIRK")
-        SET(TimeIntegrationOrders 1 2 3)
-    ELSEIF (${name} STREQUAL "ESDIRK")
-        SET(TimeIntegrationOrders 2 3 4)
+        LIST(APPEND Variants _ES)
     ELSEIF (${name} STREQUAL "CNAB")
-        SET(TimeIntegrationOrders 2)
-    ELSEIF (${name} STREQUAL "MCNAB")
-        SET(TimeIntegrationOrders 2)
-    ELSE()
-        SET(TimeIntegrationOrders 1 2 3 4)
+        LIST(APPEND Variants Modified)
     ENDIF()
 
-    # Loop through each possible execution space.
-    FOREACH (ExecSpace IN LISTS ExecSpaces)
-
-        # Set file extension.
-        SET(HEADER_EXT hpp)
-        IF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_CUDA)
-            SET(SOURCE_EXT cu)
-        ELSEIF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_HIP)
-            SET(SOURCE_EXT hip)
+    FOREACH (Variant IN LISTS Variants)
+        # Set timeintegration order
+        IF (${name} STREQUAL "RungeKutta") 
+            IF ("${Variant}" STREQUAL "Dummy")
+                SET(TimeIntegrationOrders 1 2 3 4 5)
+            ELSEIF ("${Variant}" STREQUAL "SSP")
+                SET(TimeIntegrationOrders 1 2 3)
+            ENDIF()
+        ELSEIF (${name} STREQUAL "DIRK")
+            IF ("${Variant}" STREQUAL "Dummy")
+                SET(TimeIntegrationOrders 1 2 3)
+            ELSEIF ("${Variant}" STREQUAL "_ES")
+                SET(TimeIntegrationOrders 2 3 4)
+            ENDIF()
+        ELSEIF (${name} STREQUAL "CNAB")
+            SET(TimeIntegrationOrders 2)
         ELSE()
-            SET(SOURCE_EXT cpp)
+            SET(TimeIntegrationOrders 1 2 3 4)
         ENDIF()
 
-        # Set execuation space - see Spaces.hpp
-        IF("${ExecSpace}" STREQUAL "Serial")
-            SET(EXEC_MEM_SPACE_TAG NEKTAR_DEFAULT_HOST_TAG)
-        ELSE()
-            SET(EXEC_MEM_SPACE_TAG NEKTAR_DEFAULT_DEVICE_TAG)
-        ENDIF()
+        # Loop through each possible execution space.
+        FOREACH (ExecSpace IN LISTS ExecSpaces)
 
-        # Loop through each possible data type.
-        FOREACH (TData IN LISTS DataTypes)
-            FOREACH (IntOrder IN LISTS TimeIntegrationOrders)
-                # Set up the name used for the .cpp declaration file.
-                SET(FactoryDeclName ${name}${ExecSpace}${TData}Order${IntOrder}.${SOURCE_EXT})
+            # Set file extension.
+            SET(HEADER_EXT hpp)
+            IF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_CUDA)
+                SET(SOURCE_EXT cu)
+            ELSEIF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_HIP)
+                SET(SOURCE_EXT hip)
+            ELSE()
+                SET(SOURCE_EXT cpp)
+            ENDIF()
 
-                # Get the source and header files for this operator,
-                # execution space, and implementation.
-                SET(CURRENT_HEADERS ${name}_${ExecSpace}_HEADERS)
-                SET(CURRENT_SOURCES ${name}_${ExecSpace}_SOURCES)
+            # Set execuation space - see Spaces.hpp
+            IF("${ExecSpace}" STREQUAL "Serial")
+                SET(EXEC_MEM_SPACE_TAG NEKTAR_DEFAULT_HOST_TAG)
+            ELSE()
+                SET(EXEC_MEM_SPACE_TAG NEKTAR_DEFAULT_DEVICE_TAG)
+            ENDIF()
 
-                # Get the headers matching the name and execution space
-                FILE(GLOB ${CURRENT_HEADERS} RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-                        ${dir}/${name}${ExecSpace}*.hpp)
+            IF ("${Variant}" STREQUAL "Dummy")
+                SET(Variant "")
+            ENDIF()
 
-                # Found a impl header.
-                IF(EXISTS "${dir}/${name}OpImpl.hpp")
-                    FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                            "${dir}/${name}OpImpl.hpp")
-                    SET(IMPL_HEADER "#include \"${include_file}\"")
-                ELSE()
-                    CONTINUE() # This avoid creating a *.cpp file
-                ENDIF()
+            # Loop through each possible data type.
+            FOREACH (TData IN LISTS DataTypes)
 
-                # Create the cpp file from the implementation file.
-                CONFIGURE_FILE(${CONFIG_FILE} ${FactoryDeclName})
+                FOREACH (IntOrder IN LISTS TimeIntegrationOrders)
+                    # Set up the name used for the .cpp declaration file.
+                    SET(FactoryDeclName ${name}${Variant}${ExecSpace}${TData}Order${IntOrder}.${SOURCE_EXT})
 
-                # Add the respective cpp file.
-                SET(${NAME_HEADERS} ${${NAME_HEADERS}} ${${CURRENT_HEADERS}})
-                SET(${CURRENT_SOURCES} ${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName})
-                SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${${CURRENT_SOURCES}})
+                    # Get the source and header files for this operator,
+                    # execution space, and implementation.
+                    SET(CURRENT_HEADERS ${name}_${ExecSpace}_HEADERS)
+                    SET(CURRENT_SOURCES ${name}_${ExecSpace}_SOURCES)
+
+                    # Get the headers matching the name and execution space
+                    FILE(GLOB ${CURRENT_HEADERS} RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+                            ${dir}/${name}${ExecSpace}*.hpp)
+
+                    # Found a impl header.
+                    IF(EXISTS "${dir}/${name}OpImpl.hpp")
+                        FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                                "${dir}/${name}OpImpl.hpp")
+                        SET(IMPL_HEADER "#include \"${include_file}\"")
+                        MESSAGE("Adding operator with a ${ExecSpace} Generic implementation: " "${FactoryDeclName}")
+                    ELSE()
+                        CONTINUE() # This avoid creating a *.cpp file
+                    ENDIF()
+
+                    # Create the cpp file from the implementation file.
+                    CONFIGURE_FILE(${CONFIG_FILE} ${FactoryDeclName})
+
+                    # Add the respective cpp file.
+                    SET(${NAME_HEADERS} ${${NAME_HEADERS}} ${${CURRENT_HEADERS}})
+                    SET(${CURRENT_SOURCES} ${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName})
+                    SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${${CURRENT_SOURCES}})
+                ENDFOREACH()
             ENDFOREACH()
         ENDFOREACH()
     ENDFOREACH()

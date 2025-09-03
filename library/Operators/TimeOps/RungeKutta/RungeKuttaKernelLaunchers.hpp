@@ -39,7 +39,48 @@
 namespace Nektar::Operators::detail
 {
 
-class RKscheme;
+class RungeKuttaScheme;
+class RungeKuttaSSPScheme;
+
+template <unsigned int IntOrder, typename TData>
+static constexpr auto GetRungeKuttaTimeCoefficients(void)
+{
+    if constexpr (IntOrder == 1)
+    {
+        // clang-format off
+        return std::array<TData, 1>
+        {  0.0 };
+        // clang-format on
+    }
+    else if constexpr (IntOrder == 2)
+    {
+        // clang-format off
+        return std::array<TData, 2>
+        {  0.0, 1.0 / 2.0 };
+        // clang-format on
+    }
+    else if constexpr (IntOrder == 3)
+    {
+        // clang-format off
+        return std::array<TData, 3>
+        {  0.0, 1.0 / 2.0, 3.0/ 4.0 };
+        // clang-format on
+    }
+    else if constexpr (IntOrder == 4)
+    {
+        // clang-format off
+        return std::array<TData, 4>
+        {  0.0, 1.0 / 2.0, 1.0/ 2.0, 1.0 };
+        // clang-format on
+    }
+    else if constexpr (IntOrder == 5)
+    {
+        // clang-format off
+        return std::array<TData, 6>
+        {  0.0, 1.0 / 4.0, 1.0/ 4.0, 1.0 / 2.0, 3.0 / 4.0, 1.0 };
+        // clang-format on
+    }
+}
 
 template <unsigned int IntOrder, typename TData>
 NEK_DEVICE_INLINE static constexpr auto GetRungeKuttaStageCoefficients(void)
@@ -116,10 +157,119 @@ NEK_DEVICE_INLINE static constexpr auto GetRungeKuttaCoefficients(void)
     }
 }
 
+template <unsigned int IntOrder, typename TData>
+static constexpr auto GetRungeKuttaSSPTimeCoefficients(void)
+{
+    if constexpr (IntOrder == 1)
+    {
+        // clang-format off
+        return std::array<TData, 1>
+        {  0.0 };
+        // clang-format on
+    }
+    else if constexpr (IntOrder == 2)
+    {
+        // clang-format off
+        return std::array<TData, 2>
+        {  0.0, 1.0 };
+        // clang-format on
+    }
+    else if constexpr (IntOrder == 3)
+    {
+        // clang-format off
+        return std::array<TData, 3>
+        {  0.0, 1.0, 1.0/2.0 };
+        // clang-format on
+    }
+}
+
+template <unsigned int IntOrder, typename TData>
+NEK_DEVICE_INLINE static constexpr auto GetRungeKuttaSSPStageCoefficients(void)
+{
+    // 2nd order
+    if constexpr (IntOrder == 2)
+    {
+        // clang-format off
+        return std::array<TData, 1>
+                {  1.0 };
+        // clang-format on
+    }
+    // 3rd order
+    else if constexpr (IntOrder == 3)
+    {
+        // clang-format off
+        return std::array<TData, 3>
+                {  1.0,
+                   1.0/4.0,   1.0/4.0 };
+        // clang-format on
+    }
+}
+
+template <unsigned int IntOrder, typename TData>
+NEK_DEVICE_INLINE static constexpr auto GetRungeKuttaSSPCoefficients(void)
+{
+    // 1st order
+    if constexpr (IntOrder == 1)
+    {
+        return std::array<TData, 1>{1.0};
+    }
+    // 2nd order
+    if constexpr (IntOrder == 2)
+    {
+        return std::array<TData, 2>{1.0 / 2.0, 1.0 / 2.0};
+    }
+    // 3rd order
+    else if constexpr (IntOrder == 3)
+    {
+        return std::array<TData, 3>{1.0 / 6.0, 1.0 / 6.0, 4.0 / 6.0};
+    }
+}
+
+template <typename Scheme, unsigned int IntOrder, typename TData>
+NEK_DEVICE_INLINE static constexpr auto GetRungeKuttaTimeCoefficients(void)
+{
+    if constexpr (std::is_same_v<Scheme, RungeKuttaScheme>)
+    {
+        return GetRungeKuttaTimeCoefficients<IntOrder, TData>();
+    }
+    else if constexpr (std::is_same_v<Scheme, RungeKuttaSSPScheme>)
+    {
+        return GetRungeKuttaSSPTimeCoefficients<IntOrder, TData>();
+    }
+}
+
+template <typename Scheme, unsigned int IntOrder, typename TData>
+NEK_DEVICE_INLINE static constexpr auto GetRungeKuttaStageCoefficients(void)
+{
+    if constexpr (std::is_same_v<Scheme, RungeKuttaScheme>)
+    {
+        return GetRungeKuttaStageCoefficients<IntOrder, TData>();
+    }
+    else if constexpr (std::is_same_v<Scheme, RungeKuttaSSPScheme>)
+    {
+        return GetRungeKuttaSSPStageCoefficients<IntOrder, TData>();
+    }
+}
+
+template <typename Scheme, unsigned int IntOrder, typename TData>
+NEK_DEVICE_INLINE static constexpr auto GetRungeKuttaCoefficients(void)
+{
+    if constexpr (std::is_same_v<Scheme, RungeKuttaScheme>)
+    {
+        return GetRungeKuttaCoefficients<IntOrder, TData>();
+    }
+    else if constexpr (std::is_same_v<Scheme, RungeKuttaSSPScheme>)
+    {
+        return GetRungeKuttaSSPCoefficients<IntOrder, TData>();
+    }
+}
+
 template <typename Scheme, unsigned int IntOrder, typename TData,
           unsigned int... ind, typename... TDatas>
 NEK_DEVICE_INLINE static
-    typename std::enable_if<std::is_same_v<Scheme, RKscheme>, void>::type
+    typename std::enable_if<std::is_same_v<Scheme, RungeKuttaScheme> ||
+                                std::is_same_v<Scheme, RungeKuttaSSPScheme>,
+                            void>::type
     UpdateStageKernelImpl(const size_t idx, TData *__restrict inout,
                           const TData *__restrict solution,
                           std::integer_sequence<unsigned int, ind...>,
@@ -128,7 +278,8 @@ NEK_DEVICE_INLINE static
     constexpr unsigned int stage    = sizeof...(explicits);
     constexpr unsigned int indStart = (stage * (stage - 1)) / 2;
 
-    constexpr auto coeff = GetRungeKuttaStageCoefficients<IntOrder, TData>();
+    constexpr auto coeff =
+        GetRungeKuttaStageCoefficients<Scheme, IntOrder, TData>();
 
     inout[idx] =
         solution[idx] + ((explicits[idx] * coeff[indStart + ind]) + ...);
@@ -137,13 +288,15 @@ NEK_DEVICE_INLINE static
 template <typename Scheme, unsigned int IntOrder, typename TData,
           unsigned int... ind, typename... TDatas>
 NEK_DEVICE_INLINE static
-    typename std::enable_if<std::is_same_v<Scheme, RKscheme>, void>::type
+    typename std::enable_if<std::is_same_v<Scheme, RungeKuttaScheme> ||
+                                std::is_same_v<Scheme, RungeKuttaSSPScheme>,
+                            void>::type
     UpdateSolutionKernelImpl(const size_t idx, TData *__restrict inout,
                              const TData *__restrict solution,
                              std::integer_sequence<unsigned int, ind...>,
                              const TDatas *__restrict... explicits)
 {
-    constexpr auto coeff = GetRungeKuttaCoefficients<IntOrder, TData>();
+    constexpr auto coeff = GetRungeKuttaCoefficients<Scheme, IntOrder, TData>();
 
     inout[idx] = solution[idx] + ((explicits[idx] * coeff[ind]) + ...);
 }

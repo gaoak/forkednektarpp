@@ -43,19 +43,28 @@ using namespace Nektar::MultiRegions;
 namespace Nektar::Operators::detail
 {
 
-template <typename ExecSpace, unsigned int IntOrder, typename TData>
+template <typename ExecSpace, typename Scheme, unsigned int IntOrder,
+          typename TData>
 class DIRKOpImpl : public DIRKOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
-
-    // Compile-time check for valid integration order
-    static_assert(IntOrder >= 1 && IntOrder <= 3,
-                  "The DIRKOp class is only implemented for order 1-3.");
 
 public:
     DIRKOpImpl(const ExpListSharedPtr &expansionList)
         : DIRKOp<TData>(expansionList)
     {
+        // Compile-time check for valid integration order
+        if constexpr (std::is_same_v<Scheme, DIRKScheme>)
+        {
+            static_assert(IntOrder >= 1 && IntOrder <= 3,
+                          "The DIRK scheme is only implemented for order 1-3.");
+        }
+        else if constexpr (std::is_same_v<Scheme, DIRK_ESScheme>)
+        {
+            static_assert(
+                IntOrder >= 2 && IntOrder <= 4,
+                "The DIRK_ES scheme is only implemented for order 1-4.");
+        }
     }
 
     // className - for OperatorFactory
@@ -65,42 +74,42 @@ public:
     static std::unique_ptr<Operator<TData>> Instantiate(
         const ExpListSharedPtr &expansionList)
     {
-        return std::make_unique<DIRKOpImpl<ExecSpace, IntOrder, TData>>(
+        return std::make_unique<DIRKOpImpl<ExecSpace, Scheme, IntOrder, TData>>(
             expansionList);
     }
 
 protected:
-    static constexpr TData ConstSqrt2 = 1.414213562373095;
-    static constexpr TData lambda2    = (2.0 - ConstSqrt2) / 2.0;
-    static constexpr TData lambda3    = 0.4358665215;
-
-    // clang-format off
-    static constexpr TData m_coeff_t[3][3] = 
-            {{1.0, 0.0, 0.0},
-             {lambda2, 1.0, 0.0},
-             {lambda3, (1.0 + lambda3) / 2.0, 1.0}};
-    // clang-format on
-
-    // clang-format off
-    static constexpr TData m_lambda[3][3] =
-            {{1.0, 0.0, 0.0},
-             {lambda2, lambda2, 0.0},
-             {lambda3, lambda3, lambda3}};
-    // clang-format on
-
     static constexpr unsigned int NStage()
     {
-        if constexpr (IntOrder == 1)
+        if constexpr (std::is_same_v<Scheme, DIRKScheme>)
         {
-            return 1;
+            if constexpr (IntOrder == 1)
+            {
+                return 1;
+            }
+            else if constexpr (IntOrder == 2)
+            {
+                return 2;
+            }
+            else if constexpr (IntOrder == 3)
+            {
+                return 3;
+            }
         }
-        else if constexpr (IntOrder == 2)
+        else if constexpr (std::is_same_v<Scheme, DIRK_ESScheme>)
         {
-            return 2;
-        }
-        else if constexpr (IntOrder == 3)
-        {
-            return 3;
+            if constexpr (IntOrder == 2)
+            {
+                return 3;
+            }
+            else if constexpr (IntOrder == 3)
+            {
+                return 5;
+            }
+            else if constexpr (IntOrder == 4)
+            {
+                return 6;
+            }
         }
     }
 
@@ -110,6 +119,13 @@ protected:
         ASSERTL0(this->m_implicitFunctor,
                  "DIRK schemes require a DoImplicit method. Define with "
                  "DIRKOp->DefineImplicit().");
+        if constexpr (std::is_same_v<Scheme, DIRK_ESScheme>)
+        {
+            // Check that implicit function is defined for ESDIRK
+            ASSERTL0(this->m_explicitFunctor,
+                     "DIRK_ES schemes require a DoExplicit method. Define with "
+                     "DIRKOp->DefineExplicit().");
+        }
 
         // Allocate memory
         if (this->m_solutions.size() == 0)
@@ -145,15 +161,26 @@ protected:
     void Staging(Field<TData, FieldState::Phys> &inout)
     {
         // Compute residual
-        this->DoImplicit(inout, this->m_implicits[Stage - 1],
-                         this->m_time + m_coeff_t[IntOrder - 1][Stage - 1] *
-                                            this->m_timestep,
-                         m_lambda[IntOrder - 1][Stage - 1] * this->m_timestep);
-        sub<ExecSpace>(this->m_implicits[Stage - 1], inout,
-                       this->m_implicits[Stage - 1]);
-        mul<ExecSpace>(1.0 / m_lambda[IntOrder - 1][Stage - 1],
-                       this->m_implicits[Stage - 1],
-                       this->m_implicits[Stage - 1]);
+        constexpr auto coeff =
+            GetDIRKTimeCoefficients<Scheme, IntOrder, TData>()[Stage - 1];
+        constexpr auto lambda =
+            GetDIRKLambdaCoefficients<Scheme, IntOrder, TData>()[Stage - 1];
+        if constexpr (lambda == 0.0)
+        {
+            this->DoExplicit(inout, this->m_implicits[Stage - 1],
+                             this->m_time + coeff * this->m_timestep,
+                             this->m_timestep);
+        }
+        else
+        {
+            this->DoImplicit(inout, this->m_implicits[Stage - 1],
+                             this->m_time + coeff * this->m_timestep,
+                             lambda * this->m_timestep);
+            sub<ExecSpace>(this->m_implicits[Stage - 1], inout,
+                           this->m_implicits[Stage - 1]);
+            mul<ExecSpace>(1.0 / lambda, this->m_implicits[Stage - 1],
+                           this->m_implicits[Stage - 1]);
+        }
 
         if constexpr (Stage < NStage())
         {
@@ -179,7 +206,7 @@ protected:
             auto nphys =
                 inoutBlock.GetNumData() * inoutBlock.GetNumComponents();
 
-            UpdateStageKernel<ExecSpace, DIRKscheme, IntOrder>(
+            UpdateStageKernel<ExecSpace, Scheme, IntOrder>(
                 nphys * nelmt,
                 inoutBlock.template GetPtr<MemSpace, ReadWrite>(),
                 this->m_solutions[0]
@@ -204,7 +231,7 @@ protected:
             auto nphys =
                 inoutBlock.GetNumData() * inoutBlock.GetNumComponents();
 
-            UpdateSolutionKernel<ExecSpace, DIRKscheme, IntOrder>(
+            UpdateSolutionKernel<ExecSpace, Scheme, IntOrder>(
                 nphys * nelmt,
                 inoutBlock.template GetPtr<MemSpace, ReadWrite>(),
                 this->m_solutions[0]

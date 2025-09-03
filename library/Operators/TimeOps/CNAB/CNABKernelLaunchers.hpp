@@ -39,25 +39,36 @@
 namespace Nektar::Operators::detail
 {
 
-class CNABscheme;
+class CNABScheme;
+class CNABModifiedScheme;
 
-template <typename TData>
+template <typename Scheme, typename TData>
 NEK_DEVICE_INLINE static constexpr auto GetCNABCoefficients(void)
 {
-    return std::array<TData, 4>{1.0 / 2.0, 3.0 / 2.0, -1.0 / 2.0, 1.0};
+    if constexpr (std::is_same_v<Scheme, CNABScheme>)
+    {
+        return std::array<TData, 4>{1.0 / 2.0, 3.0 / 2.0, -1.0 / 2.0, 1.0};
+    }
+    else if constexpr (std::is_same_v<Scheme, CNABModifiedScheme>)
+    {
+        return std::array<TData, 5>{3.0 / 8.0, 1.0 / 16.0, 3.0 / 2.0,
+                                    -1.0 / 2.0, 1.0};
+    }
 }
 
 template <typename Scheme, typename TData, unsigned int... ind,
           typename... TDatas>
 NEK_DEVICE_INLINE static
-    typename std::enable_if<std::is_same_v<Scheme, CNABscheme>, void>::type
+    typename std::enable_if<std::is_same_v<Scheme, CNABScheme> ||
+                                std::is_same_v<Scheme, CNABModifiedScheme>,
+                            void>::type
     UpdateSolutionKernelImpl(const size_t idx, TData *__restrict inout,
                              std::integer_sequence<unsigned int, ind...>,
                              const TDatas *__restrict... solutions)
 {
     constexpr unsigned int nSolution = sizeof...(solutions);
 
-    constexpr auto coeff = GetCNABCoefficients<TData>();
+    constexpr auto coeff = GetCNABCoefficients<Scheme, TData>();
 
     TData tmp = ((solutions[idx] * coeff[ind]) + ...);
     tmp += inout[idx] * coeff[nSolution];
