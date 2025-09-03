@@ -44,7 +44,8 @@ using namespace Nektar::MultiRegions;
 namespace Nektar::Operators::detail
 {
 
-template <typename ExecSpace, unsigned int IntOrder, typename TData>
+template <typename ExecSpace, typename Scheme, unsigned int IntOrder,
+          typename TData>
 class CNABOpImpl : public CNABOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
@@ -66,12 +67,39 @@ public:
     static std::unique_ptr<Operator<TData>> Instantiate(
         const ExpListSharedPtr &expansionList)
     {
-        return std::make_unique<CNABOpImpl<ExecSpace, IntOrder, TData>>(
+        return std::make_unique<CNABOpImpl<ExecSpace, Scheme, IntOrder, TData>>(
             expansionList);
     }
 
 protected:
-    TData m_gamma = 1.0 / 2.0;
+    static constexpr unsigned int Nimplicit(void)
+    {
+        if constexpr (std::is_same_v<Scheme, CNABScheme>)
+        {
+            return 1;
+        }
+        else if constexpr (std::is_same_v<Scheme, CNABModifiedScheme>)
+        {
+            return 2;
+        }
+    }
+
+    static constexpr unsigned int Nexplicit(void)
+    {
+        return 2;
+    }
+
+    static constexpr TData gamma(void)
+    {
+        if constexpr (std::is_same_v<Scheme, CNABScheme>)
+        {
+            return 1.0 / 2.0;
+        }
+        else if constexpr (std::is_same_v<Scheme, CNABModifiedScheme>)
+        {
+            return 9.0 / 16.0;
+        }
+    }
 
     void v_Apply(Field<TData, FieldState::Phys> &inout) override
     {
@@ -86,7 +114,7 @@ protected:
                  "CNABOp->DefineExplicit().");
 
         // Startup
-        if (this->m_step == 0)
+        if (this->m_step + 1 <= Nimplicit())
         {
             // Initialise IMEX and hand-over the m_solutions deque
             auto startup = IMEXOp<TData>::Create(this->m_expansionList, 1,
@@ -110,6 +138,17 @@ protected:
             this->SetImplicits(startup->TakeImplicits());
             this->SetExplicits(startup->TakeExplicits());
             this->SetSolutions(startup->TakeSolutions());
+
+            // Allocate new storage
+            if (this->m_step == 0 && Nimplicit() == 2)
+            {
+                this->m_implicits.push_back(
+                    Field<TData, FieldState::Phys>::Create(
+                        GetBlockAttributes<TData>(FieldState::Phys,
+                                                  this->m_expansionList),
+                        inout.GetNumComponents(), inout.GetNumHomoModes(),
+                        ExecSpace::alignment));
+            }
 
             // Increment step and time
             this->m_time += this->m_timestep;
@@ -136,16 +175,21 @@ protected:
                              this->m_timestep);
 
             // Do extrapolation.
-            UpdateSolution(inout);
+            UpdateSolution(
+                inout, std::make_integer_sequence<unsigned int, Nimplicit()>(),
+                std::make_integer_sequence<unsigned int, Nexplicit()>());
+
+            // Rollover previous solutions
+            this->RollOver(this->m_implicits);
 
             // Compute next time step
             this->m_implicits[0].template Copy<MemSpace>(inout);
 
             this->DoImplicit(this->m_implicits[0], inout,
                              this->m_time + this->m_timestep,
-                             m_gamma * this->m_timestep);
+                             gamma() * this->m_timestep);
             sub<ExecSpace>(inout, this->m_implicits[0], this->m_implicits[0]);
-            mul<ExecSpace>(1.0 / m_gamma, this->m_implicits[0],
+            mul<ExecSpace>(1.0 / gamma(), this->m_implicits[0],
                            this->m_implicits[0]);
 
             // Increment step and time
@@ -154,7 +198,10 @@ protected:
         }
     }
 
-    void UpdateSolution(Field<TData, FieldState::Phys> &inout)
+    template <unsigned int... ind, unsigned int... ind2>
+    void UpdateSolution(Field<TData, FieldState::Phys> &inout,
+                        std::integer_sequence<unsigned int, ind...>,
+                        std::integer_sequence<unsigned int, ind2...>)
     {
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
@@ -165,18 +212,15 @@ protected:
             auto nphys =
                 inoutBlock.GetNumData() * inoutBlock.GetNumComponents();
 
-            UpdateSolutionKernel<ExecSpace, CNABscheme>(
+            UpdateSolutionKernel<ExecSpace, Scheme>(
                 nphys * nelmt,
                 inoutBlock.template GetPtr<MemSpace, ReadWrite>(),
-                this->m_implicits[0]
-                    .GetBlocks()[blk]
-                    .template GetPtr<MemSpace, ReadOnly>(),
-                this->m_explicits[0]
-                    .GetBlocks()[blk]
-                    .template GetPtr<MemSpace, ReadOnly>(),
-                this->m_explicits[1]
-                    .GetBlocks()[blk]
-                    .template GetPtr<MemSpace, ReadOnly>());
+                (this->m_implicits[ind]
+                     .GetBlocks()[blk]
+                     .template GetPtr<MemSpace, ReadOnly>())...,
+                (this->m_explicits[ind2]
+                     .GetBlocks()[blk]
+                     .template GetPtr<MemSpace, ReadOnly>())...);
         }
     }
 };

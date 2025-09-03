@@ -43,19 +43,29 @@ using namespace Nektar::MultiRegions;
 namespace Nektar::Operators::detail
 {
 
-template <typename ExecSpace, unsigned int IntOrder, typename TData>
+template <typename ExecSpace, typename Scheme, unsigned int IntOrder,
+          typename TData>
 class RungeKuttaOpImpl : public RungeKuttaOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
-
-    // Compile-time check for valid integration order
-    static_assert(IntOrder >= 1 && IntOrder <= 5,
-                  "The RungeKuttaOp class is only implemented for order 1-5.");
 
 public:
     RungeKuttaOpImpl(const ExpListSharedPtr &expansionList)
         : RungeKuttaOp<TData>(expansionList)
     {
+        // Compile-time check for valid integration order
+        if constexpr (std::is_same_v<Scheme, RungeKuttaScheme>)
+        {
+            static_assert(
+                IntOrder >= 1 && IntOrder <= 5,
+                "The RungeKutta scheme is only implemented for order 1-5.");
+        }
+        else if constexpr (std::is_same_v<Scheme, RungeKuttaSSPScheme>)
+        {
+            static_assert(
+                IntOrder >= 1 && IntOrder <= 5,
+                "The RungeKuttaSSP scheme is only implemented for order 1-3.");
+        }
     }
 
     // className - for OperatorFactory
@@ -65,71 +75,51 @@ public:
     static std::unique_ptr<Operator<TData>> Instantiate(
         const ExpListSharedPtr &expansionList)
     {
-        return std::make_unique<RungeKuttaOpImpl<ExecSpace, IntOrder, TData>>(
+        return std::make_unique<
+            RungeKuttaOpImpl<ExecSpace, Scheme, IntOrder, TData>>(
             expansionList);
     }
 
 protected:
-    static constexpr auto GetRungeKuttaSSPTimeCoefficients(void)
-    {
-        if constexpr (IntOrder == 1)
-        {
-            // clang-format off
-            return std::array<TData, 1>
-              {  0.0 };
-            // clang-format on
-        }
-        else if constexpr (IntOrder == 2)
-        {
-            // clang-format off
-            return std::array<TData, 2>
-            {  0.0, 1.0 / 2.0 };
-            // clang-format on
-        }
-        else if constexpr (IntOrder == 3)
-        {
-            // clang-format off
-            return std::array<TData, 3>
-            {  0.0, 1.0 / 2.0, 3.0/ 4.0 };
-            // clang-format on
-        }
-        else if constexpr (IntOrder == 4)
-        {
-            // clang-format off
-            return std::array<TData, 4>
-            {  0.0, 1.0 / 2.0, 1.0/ 2.0, 1.0 };
-            // clang-format on
-        }
-        else if constexpr (IntOrder == 5)
-        {
-            // clang-format off
-            return std::array<TData, 6>
-            {  0.0, 1.0 / 4.0, 1.0/ 4.0, 1.0 / 2.0, 3.0 / 4.0, 1.0 };
-            // clang-format on
-        }
-    }
-
     static constexpr unsigned int NStage()
     {
-        if constexpr (IntOrder == 1)
+        if constexpr (std::is_same_v<Scheme, RungeKuttaScheme>)
         {
-            return 1;
+            if constexpr (IntOrder == 1)
+            {
+                return 1;
+            }
+            else if constexpr (IntOrder == 2)
+            {
+                return 2;
+            }
+            else if constexpr (IntOrder == 3)
+            {
+                return 3;
+            }
+            else if constexpr (IntOrder == 4)
+            {
+                return 4;
+            }
+            else if constexpr (IntOrder == 5)
+            {
+                return 6;
+            }
         }
-        else if constexpr (IntOrder == 2)
+        else if constexpr (std::is_same_v<Scheme, RungeKuttaSSPScheme>)
         {
-            return 2;
-        }
-        else if constexpr (IntOrder == 3)
-        {
-            return 3;
-        }
-        else if constexpr (IntOrder == 4)
-        {
-            return 4;
-        }
-        else if constexpr (IntOrder == 5)
-        {
-            return 6;
+            if constexpr (IntOrder == 1)
+            {
+                return 1;
+            }
+            else if constexpr (IntOrder == 2)
+            {
+                return 2;
+            }
+            else if constexpr (IntOrder == 3)
+            {
+                return 3;
+            }
         }
     }
 
@@ -174,7 +164,8 @@ protected:
     void Staging(Field<TData, FieldState::Phys> &inout)
     {
         // Compute residual
-        auto coeff = GetRungeKuttaSSPTimeCoefficients()[Stage - 1];
+        constexpr auto coeff =
+            GetRungeKuttaTimeCoefficients<Scheme, IntOrder, TData>()[Stage - 1];
         this->DoExplicit(inout, this->m_explicits[Stage - 1],
                          this->m_time + coeff * this->m_timestep,
                          this->m_timestep);
@@ -203,7 +194,7 @@ protected:
             auto nphys =
                 inoutBlock.GetNumData() * inoutBlock.GetNumComponents();
 
-            UpdateStageKernel<ExecSpace, RKscheme, IntOrder>(
+            UpdateStageKernel<ExecSpace, Scheme, IntOrder>(
                 nphys * nelmt,
                 inoutBlock.template GetPtr<MemSpace, ReadWrite>(),
                 this->m_solutions[0]
@@ -228,7 +219,7 @@ protected:
             auto nphys =
                 inoutBlock.GetNumData() * inoutBlock.GetNumComponents();
 
-            UpdateSolutionKernel<ExecSpace, RKscheme, IntOrder>(
+            UpdateSolutionKernel<ExecSpace, Scheme, IntOrder>(
                 nphys * nelmt,
                 inoutBlock.template GetPtr<MemSpace, ReadWrite>(),
                 this->m_solutions[0]

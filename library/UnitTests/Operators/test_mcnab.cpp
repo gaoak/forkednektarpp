@@ -47,7 +47,7 @@
         SetTestCase(1.0, -10.0);                                               \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
-            BOOST_TEST(CheckOrderOfAccuracy("MCNAB", order));                  \
+            BOOST_TEST(CheckOrderOfAccuracy("CNABModified", order));           \
         }                                                                      \
     }
 

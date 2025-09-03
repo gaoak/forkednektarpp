@@ -43,7 +43,8 @@ using namespace Nektar::MultiRegions;
 namespace Nektar::Operators::detail
 {
 
-template <typename ExecSpace, unsigned int IntOrder, typename TData>
+template <typename ExecSpace, typename Scheme, unsigned int IntOrder,
+          typename TData>
 class AdamsBashforthOpImpl : public AdamsBashforthOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
@@ -67,7 +68,8 @@ public:
         const ExpListSharedPtr &expansionList)
     {
         return std::make_unique<
-            AdamsBashforthOpImpl<ExecSpace, IntOrder, TData>>(expansionList);
+            AdamsBashforthOpImpl<ExecSpace, Scheme, IntOrder, TData>>(
+            expansionList);
     }
 
 protected:
@@ -80,7 +82,7 @@ protected:
             "AdamsBashforthOp->DefineExplicit().");
 
         // Startup
-        while (this->m_step + 1 < IntOrder)
+        if (this->m_step + 1 < IntOrder)
         {
             // Initialise AdamsBashforth and hand-over the m_explicits deque
             auto startup = AdamsBashforthOp<TData>::Create(
@@ -150,7 +152,7 @@ protected:
             auto nphys =
                 inoutBlock.GetNumData() * inoutBlock.GetNumComponents();
 
-            UpdateSolutionKernel<ExecSpace, AdamsBashforthScheme>(
+            UpdateSolutionKernel<ExecSpace, Scheme>(
                 nphys * nelmt,
                 inoutBlock.template GetPtr<MemSpace, ReadWrite>(),
                 (this->m_explicits[ind]

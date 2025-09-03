@@ -43,7 +43,8 @@ using namespace Nektar::MultiRegions;
 namespace Nektar::Operators::detail
 {
 
-template <typename ExecSpace, unsigned int IntOrder, typename TData>
+template <typename ExecSpace, typename Scheme, unsigned int IntOrder,
+          typename TData>
 class BDFOpImpl : public BDFOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
@@ -67,7 +68,7 @@ public:
     static std::unique_ptr<Operator<TData>> Instantiate(
         const ExpListSharedPtr &expansionList)
     {
-        return std::make_unique<BDFOpImpl<ExecSpace, IntOrder, TData>>(
+        return std::make_unique<BDFOpImpl<ExecSpace, Scheme, IntOrder, TData>>(
             expansionList);
     }
 
@@ -83,7 +84,7 @@ protected:
                  "BDFOp->DefineImplicit().");
 
         // Startup
-        while (this->m_step + 1 < IntOrder)
+        if (this->m_step + 1 < IntOrder)
         {
             // Save initial solution
             auto initial = Field<TData, FieldState::Phys>::Create(
@@ -165,7 +166,7 @@ protected:
             auto nphys =
                 inoutBlock.GetNumData() * inoutBlock.GetNumComponents();
 
-            UpdateSolutionKernel<ExecSpace, BDFScheme>(
+            UpdateSolutionKernel<ExecSpace, Scheme>(
                 nphys * nelmt,
                 inoutBlock.template GetPtr<MemSpace, ReadWrite>(),
                 (this->m_solutions[ind]
