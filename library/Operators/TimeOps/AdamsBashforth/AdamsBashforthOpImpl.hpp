@@ -36,6 +36,7 @@
 
 #include "Operators/TimeOps/AdamsBashforth/AdamsBashforthKernelLaunchers.hpp"
 #include "Operators/TimeOps/AdamsBashforth/AdamsBashforthOp.hpp"
+#include "Operators/TimeOps/RungeKutta/RungeKuttaOp.hpp"
 
 using namespace Nektar;
 using namespace Nektar::MultiRegions;
@@ -84,35 +85,39 @@ protected:
         // Startup
         if (this->m_step + 1 < IntOrder)
         {
-            // Initialise AdamsBashforth and hand-over the m_explicits deque
-            auto startup = AdamsBashforthOp<TData>::Create(
-                this->m_expansionList, this->m_step + 1, ExecSpace::name);
+            // Allocate new storage
+            this->m_explicits.push_front(Field<TData, FieldState::Phys>::Create(
+                GetBlockAttributes<TData>(FieldState::Phys,
+                                          this->m_expansionList),
+                inout.GetNumComponents(), inout.GetNumHomoModes(),
+                ExecSpace::alignment));
 
-            // Copy functors from outer/higher-order AdamsBashforth scheme
+            // Compute explicit terms
+            this->DoExplicit(inout, this->m_explicits[0], this->m_time,
+                             this->m_timestep);
+
+            // Initialise RungeKutta scheme
+            auto startup = RungeKuttaOp<TData>::Create(
+                this->m_expansionList, IntOrder, ExecSpace::name);
+
+            // Copy functors from AdamsBashforth scheme
             startup->CopyFunctorsFrom(*this);
-
-            // Move explicits to startup
-            startup->SetExplicits(this->TakeExplicits());
 
             // Advance in time with startup
             startup->SetTime(this->m_time);
             startup->SetStep(this->m_step);
             startup->Apply(inout);
 
-            // Move explicits back to higher-order AdamsBashforth
-            this->SetExplicits(startup->TakeExplicits());
-
             // Increment step and time
             this->m_time += this->m_timestep;
             this->m_step++;
         }
-
         // After startup
-        if (this->m_step + 1 >= IntOrder)
+        else
         {
+            // Allocate new storage
             if (this->m_explicits.size() < IntOrder)
             {
-                // Allocate new storage
                 this->m_explicits.push_back(
                     Field<TData, FieldState::Phys>::Create(
                         GetBlockAttributes<TData>(FieldState::Phys,
@@ -126,6 +131,7 @@ protected:
                 this->RollOver(this->m_explicits);
             }
 
+            // Compute explicit terms
             this->DoExplicit(inout, this->m_explicits[0], this->m_time,
                              this->m_timestep);
 

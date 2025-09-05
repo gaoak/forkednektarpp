@@ -36,6 +36,7 @@
 
 #include "Operators/TimeOps/BDF/BDFKernelLaunchers.hpp"
 #include "Operators/TimeOps/BDF/BDFOp.hpp"
+#include "Operators/TimeOps/DIRK/DIRKOp.hpp"
 
 using namespace Nektar;
 using namespace Nektar::MultiRegions;
@@ -87,49 +88,33 @@ protected:
         if (this->m_step + 1 < IntOrder)
         {
             // Save initial solution
-            auto initial = Field<TData, FieldState::Phys>::Create(
+            this->m_solutions.push_front(Field<TData, FieldState::Phys>::Create(
                 "timestep n-" + std::to_string(this->m_step + 1),
                 GetBlockAttributes<TData>(FieldState::Phys,
                                           this->m_expansionList),
                 inout.GetNumComponents(), inout.GetNumHomoModes(),
-                ExecSpace::alignment);
-            initial.template Copy<MemSpace>(
-                (this->m_step == 0) ? inout : this->m_solutions.back());
+                ExecSpace::alignment));
 
-            // Initialise BDF and hand-over the m_solutions deque
-            auto startup = BDFOp<TData>::Create(
-                this->m_expansionList, this->m_step + 1, ExecSpace::name);
+            this->m_solutions[0].template Copy<MemSpace>(inout);
+
+            // Initialise DIRK scheme
+            auto startup = DIRKOp<TData>::Create(
+                this->m_expansionList, std::min(3u, IntOrder), ExecSpace::name);
 
             // Copy functors from outer/higher-order BDF scheme
             startup->CopyFunctorsFrom(*this);
-
-            // Move solutions to startup
-            if (this->m_step > 0)
-            {
-                startup->SetSolutions(this->TakeSolutions());
-            }
 
             // Advance in time with startup
             startup->SetTime(this->m_time);
             startup->SetStep(this->m_step);
             startup->Apply(inout);
 
-            // Move solutions back to higher-order BDF
-            if (this->m_step > 0)
-            {
-                this->SetSolutions(startup->TakeSolutions());
-            }
-
-            // Save initial solution to m_solutions
-            this->m_solutions.push_back(std::move(initial));
-
             // Increment step and time
             this->m_time += this->m_timestep;
             this->m_step++;
         }
-
         // After startup
-        if (this->m_step + 1 >= IntOrder)
+        else
         {
             if constexpr (IntOrder > 1)
             {
