@@ -57,10 +57,8 @@ TEST_BDF(bdf_order_1, segment_order_1, 2, 1)
 
 TEST_BDF(bdf_order_2, segment_order_2, 2, 2)
 
-// (TODO: fix restart)
-TEST_BDF(bdf_order_3, segment_order_3, 2, 2)
+TEST_BDF(bdf_order_3, segment_order_3, 2, 3)
 
-// (TODO: fix restart)
-TEST_BDF(bdf_order_4, segment_order_4, 2, 2)
+TEST_BDF(bdf_order_4, segment_order_4, 2, 4)
 
 BOOST_AUTO_TEST_SUITE_END()
