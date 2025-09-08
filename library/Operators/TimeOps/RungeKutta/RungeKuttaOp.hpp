@@ -46,10 +46,12 @@ template <typename TData> class RungeKuttaOp : public TimeOp<TData>
 public:
     static std::shared_ptr<RungeKuttaOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
-        const unsigned int &order = 0, const std::string &execStr = "")
+        const unsigned int &order = 0, const std::string &variant = "",
+        const std::string &execStr = "")
     {
         return std::dynamic_pointer_cast<RungeKuttaOp<TData>>(
-            TimeOp<TData>::Create(expansionList, name, order, "", execStr));
+            TimeOp<TData>::Create(expansionList, name, order, variant,
+                                  execStr));
     }
 
     static inline const std::string name = "RungeKutta";

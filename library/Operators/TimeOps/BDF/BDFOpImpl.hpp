@@ -98,8 +98,9 @@ protected:
             this->m_solutions[0].template Copy<MemSpace>(inout);
 
             // Initialise DIRK scheme
-            auto startup = DIRKOp<TData>::Create(
-                this->m_expansionList, std::min(3u, IntOrder), ExecSpace::name);
+            auto maxOrder = std::min(3u, IntOrder);
+            auto startup  = DIRKOp<TData>::Create(this->m_expansionList,
+                                                  maxOrder, "", ExecSpace::name);
 
             // Copy functors from outer/higher-order BDF scheme
             startup->CopyFunctorsFrom(*this);

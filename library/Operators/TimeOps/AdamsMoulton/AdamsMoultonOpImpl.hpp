@@ -37,6 +37,7 @@
 #include "Operators/MathKernels/MathKernels.hpp"
 #include "Operators/TimeOps/AdamsMoulton/AdamsMoultonKernelLaunchers.hpp"
 #include "Operators/TimeOps/AdamsMoulton/AdamsMoultonOp.hpp"
+#include "Operators/TimeOps/DIRK/DIRKOp.hpp"
 
 using namespace Nektar;
 using namespace Nektar::MultiRegions;
@@ -89,31 +90,62 @@ protected:
         // Startup
         if (this->m_step + 1 < IntOrder)
         {
-            // Initialise AdamsMoulton and hand-over the m_implicits deque
-            auto startup = AdamsMoultonOp<TData>::Create(
-                this->m_expansionList, this->m_step + 1, ExecSpace::name);
+            // Use DIRK scheme as startup
+            if (this->m_explicitFunctor)
+            {
+                // Allocate new storage
+                this->m_implicits.push_front(
+                    Field<TData, FieldState::Phys>::Create(
+                        GetBlockAttributes<TData>(FieldState::Phys,
+                                                  this->m_expansionList),
+                        inout.GetNumComponents(), inout.GetNumHomoModes(),
+                        ExecSpace::alignment));
 
-            // Copy functors from outer/higher-order AdamsMoulton scheme
-            startup->CopyFunctorsFrom(*this);
+                // Initialise AdamsMoulton and hand-over the m_implicits deque
+                auto maxOrder = std::min(3u, IntOrder);
+                auto startup  = DIRKOp<TData>::Create(
+                    this->m_expansionList, maxOrder, "", ExecSpace::name);
 
-            // Move implicits to startup
-            startup->SetImplicits(this->TakeImplicits());
+                // Copy functors from outer/higher-order AdamsMoulton scheme
+                startup->CopyFunctorsFrom(*this);
 
-            // Advance in time with startup
-            startup->SetTime(this->m_time);
-            startup->SetStep(this->m_step);
-            startup->Apply(inout);
+                // Advance in time with startup
+                startup->SetTime(this->m_time);
+                startup->SetStep(this->m_step);
+                startup->Apply(inout);
 
-            // Move implicits back to higher-order AdamsMoulton
-            this->SetImplicits(startup->TakeImplicits());
+                // Compute implicit terms
+                this->DoExplicit(inout, this->m_implicits[0], this->m_time,
+                                 this->m_timestep);
+            }
+            // Use lower-order Adams-Moulton scheme as startup
+            else
+            {
+                // Initialise AdamsMoulton and hand-over the m_implicits deque
+                auto startup = AdamsMoultonOp<TData>::Create(
+                    this->m_expansionList, this->m_step + 1, ExecSpace::name);
+
+                // Copy functors from outer/higher-order AdamsMoulton scheme
+                startup->CopyFunctorsFrom(*this);
+
+                // Move implicits to startup
+                startup->SetImplicits(this->TakeImplicits());
+
+                // Advance in time with startup
+                startup->SetTime(this->m_time);
+                startup->SetStep(this->m_step);
+                startup->Apply(inout);
+
+                // Move implicits back to higher-order AdamsMoulton
+                this->SetImplicits(startup->TakeImplicits());
+            }
 
             // Increment step and time
             this->m_time += this->m_timestep;
             this->m_step++;
         }
-
         // After startup
-        if (this->m_step + 1 >= IntOrder)
+        else
         {
             if (this->m_implicits.size() < IntOrder)
             {
