@@ -157,7 +157,6 @@ protected:
         // After startup
         else
         {
-            // After startup
             if (this->m_explicits.size() < IntOrder)
             {
                 // Allocate new storage

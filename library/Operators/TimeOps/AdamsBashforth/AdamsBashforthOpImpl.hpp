@@ -98,7 +98,7 @@ protected:
 
             // Initialise RungeKutta scheme
             auto startup = RungeKuttaOp<TData>::Create(
-                this->m_expansionList, IntOrder, ExecSpace::name);
+                this->m_expansionList, IntOrder, "", ExecSpace::name);
 
             // Copy functors from AdamsBashforth scheme
             startup->CopyFunctorsFrom(*this);

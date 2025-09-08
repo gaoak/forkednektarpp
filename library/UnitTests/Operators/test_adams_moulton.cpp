@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestAdamsMoulton
 
-#include "init_timeop.hpp"
+#include "init_esdirk.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
@@ -44,7 +44,7 @@
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
         Configure(nvar, nvar);                                                 \
-        SetTestCase(0.0, -10.0);                                               \
+        SetTestCase(-10.0);                                                    \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
             BOOST_TEST(CheckOrderOfAccuracy("AdamsMoulton", order));           \
@@ -57,10 +57,8 @@ TEST_AdamsMoulton(adams_moulton_order_1, segment_order_1, 2, 1)
 
     TEST_AdamsMoulton(adams_moulton_order_2, segment_order_2, 2, 2)
 
-    // (TODO: fix restart)
-    TEST_AdamsMoulton(adams_moulton_order_3, segment_order_3, 2, 2)
+        TEST_AdamsMoulton(adams_moulton_order_3, segment_order_3, 2, 3)
 
-    // (TODO: fix restart)
-    TEST_AdamsMoulton(adams_moulton_order_4, segment_order_4, 2, 2)
+            TEST_AdamsMoulton(adams_moulton_order_4, segment_order_4, 2, 4)
 
-        BOOST_AUTO_TEST_SUITE_END()
+                BOOST_AUTO_TEST_SUITE_END()
