@@ -40,7 +40,7 @@
 #include <iostream>
 #include <memory>
 
-#define TEST_AdamsBashforth(test_name, test, nvar, order)                      \
+#define TEST_SCHEME(test_name, test, nvar, order)                              \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
         Configure(nvar, nvar);                                                 \
@@ -53,12 +53,12 @@
 
 BOOST_AUTO_TEST_SUITE(TestAdamsBashforth)
 
-TEST_AdamsBashforth(adams_bashforth_order_1, segment_order_1, 2, 1)
+TEST_SCHEME(adams_bashforth_order_1, segment, 2, 1)
 
-    TEST_AdamsBashforth(adams_bashforth_order_2, segment_order_2, 2, 2)
+TEST_SCHEME(adams_bashforth_order_2, segment, 2, 2)
 
-        TEST_AdamsBashforth(adams_bashforth_order_3, segment_order_3, 2, 3)
+TEST_SCHEME(adams_bashforth_order_3, segment, 2, 3)
 
-            TEST_AdamsBashforth(adams_bashforth_order_4, segment_order_4, 2, 4)
+TEST_SCHEME(adams_bashforth_order_4, segment, 2, 4)
 
-                BOOST_AUTO_TEST_SUITE_END()
+BOOST_AUTO_TEST_SUITE_END()

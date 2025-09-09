@@ -121,7 +121,7 @@ protected:
                  "DIRKOp->DefineImplicit().");
         if constexpr (std::is_same_v<Scheme, DIRK_ESScheme>)
         {
-            // Check that implicit function is defined for ESDIRK
+            // Check that explicit function is defined for ESDIRK
             ASSERTL0(this->m_explicitFunctor,
                      "DIRK_ES schemes require a DoExplicit method. Define with "
                      "DIRKOp->DefineExplicit().");

@@ -52,6 +52,20 @@ NEK_DEVICE_INLINE static
 {
 }
 
+template <typename Scheme, unsigned int ImpStage, unsigned int ExpStage,
+          unsigned int IntOrder, typename TData, unsigned int... ind,
+          typename... TDatas>
+NEK_DEVICE_INLINE static
+    typename std::enable_if<std::is_same_v<Scheme, Noscheme>, void>::type
+    UpdateStageKernelImpl(
+        [[maybe_unused]] const size_t idx,
+        [[maybe_unused]] TData *__restrict inout,
+        [[maybe_unused]] const TData *__restrict solution,
+        std::integer_sequence<unsigned int, ind...>,
+        [[maybe_unused]] const TDatas *__restrict... solutions)
+{
+}
+
 template <typename Scheme, typename TData, unsigned int... ind,
           typename... TDatas>
 NEK_DEVICE_INLINE static
@@ -66,6 +80,20 @@ NEK_DEVICE_INLINE static
 
 template <typename Scheme, unsigned int IntOrder, typename TData,
           unsigned int... ind, typename... TDatas>
+NEK_DEVICE_INLINE static
+    typename std::enable_if<std::is_same_v<Scheme, Noscheme>, void>::type
+    UpdateSolutionKernelImpl(
+        [[maybe_unused]] const size_t idx,
+        [[maybe_unused]] TData *__restrict inout,
+        [[maybe_unused]] const TData *__restrict solution,
+        std::integer_sequence<unsigned int, ind...>,
+        [[maybe_unused]] const TDatas *__restrict... solutions)
+{
+}
+
+template <typename Scheme, unsigned int ImpStage, unsigned int ExpStage,
+          unsigned int IntOrder, typename TData, unsigned int... ind,
+          typename... TDatas>
 NEK_DEVICE_INLINE static
     typename std::enable_if<std::is_same_v<Scheme, Noscheme>, void>::type
     UpdateSolutionKernelImpl(
@@ -94,6 +122,25 @@ __global__ void UpdateStageKernelLauncher(const size_t nsize,
     for (size_t idx = idx0; idx < nsize; idx += stride)
     {
         UpdateStageKernelImpl<Scheme, IntOrder>(
+            idx, inout, solution,
+            std::make_integer_sequence<unsigned int, sizeof...(solutions)>(),
+            solutions...);
+    }
+}
+
+template <typename Scheme, unsigned int ImpStage, unsigned int ExpStage,
+          unsigned int IntOrder, typename TData, typename... TDatas>
+__global__ void UpdateStageKernelLauncher(const size_t nsize,
+                                          TData *__restrict inout,
+                                          const TData *__restrict solution,
+                                          const TDatas *__restrict... solutions)
+{
+    const size_t idx0   = threadIdx.x + blockIdx.x * blockDim.x;
+    const size_t stride = blockDim.x * gridDim.x;
+
+    for (size_t idx = idx0; idx < nsize; idx += stride)
+    {
+        UpdateStageKernelImpl<Scheme, ImpStage, ExpStage, IntOrder>(
             idx, inout, solution,
             std::make_integer_sequence<unsigned int, sizeof...(solutions)>(),
             solutions...);
@@ -135,6 +182,24 @@ __global__ void UpdateSolutionKernelLauncher(
     }
 }
 
+template <typename Scheme, unsigned int ImpStage, unsigned int ExpStage,
+          unsigned int IntOrder, typename TData, typename... TDatas>
+__global__ void UpdateSolutionKernelLauncher(
+    const size_t nsize, TData *__restrict inout,
+    const TData *__restrict solution, const TDatas *__restrict... solutions)
+{
+    const size_t idx0   = threadIdx.x + blockIdx.x * blockDim.x;
+    const size_t stride = blockDim.x * gridDim.x;
+
+    for (size_t idx = idx0; idx < nsize; idx += stride)
+    {
+        UpdateSolutionKernelImpl<Scheme, ImpStage, ExpStage, IntOrder>(
+            idx, inout, solution,
+            std::make_integer_sequence<unsigned int, sizeof...(solutions)>(),
+            solutions...);
+    }
+}
+
 template <typename ExecSpace, typename Scheme, unsigned int IntOrder,
           typename TData, typename... TDatas>
 NEK_FORCE_INLINE static void UpdateStageKernel(const size_t nsize, TData *inout,
@@ -145,6 +210,21 @@ NEK_FORCE_INLINE static void UpdateStageKernel(const size_t nsize, TData *inout,
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     UpdateStageKernelLauncher<Scheme, IntOrder>
+        <<<gridSize, blockSize>>>(nsize, inout, solution, solutions...);
+    CHECK_LAST_HIPCUDA_ERROR();
+}
+
+template <typename ExecSpace, typename Scheme, unsigned int ImpStage,
+          unsigned int ExpStage, unsigned int IntOrder, typename TData,
+          typename... TDatas>
+NEK_FORCE_INLINE static void UpdateStageKernel(const size_t nsize, TData *inout,
+                                               const TData *solution,
+                                               const TDatas *...solutions)
+{
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+
+    UpdateStageKernelLauncher<Scheme, ImpStage, ExpStage, IntOrder>
         <<<gridSize, blockSize>>>(nsize, inout, solution, solutions...);
     CHECK_LAST_HIPCUDA_ERROR();
 }
@@ -178,6 +258,22 @@ NEK_FORCE_INLINE static void UpdateSolutionKernel(const size_t nsize,
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
+template <typename ExecSpace, typename Scheme, unsigned int ImpStage,
+          unsigned int ExpStage, unsigned int IntOrder, typename TData,
+          typename... TDatas>
+NEK_FORCE_INLINE static void UpdateSolutionKernel(const size_t nsize,
+                                                  TData *inout,
+                                                  const TData *solution,
+                                                  const TDatas *...solutions)
+{
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+
+    UpdateSolutionKernelLauncher<Scheme, ImpStage, ExpStage, IntOrder>
+        <<<gridSize, blockSize>>>(nsize, inout, solution, solutions...);
+    CHECK_LAST_HIPCUDA_ERROR();
+}
+
 #else
 template <typename ExecSpace, typename Scheme, unsigned int IntOrder,
           typename TData, typename... TDatas>
@@ -188,6 +284,23 @@ NEK_FORCE_INLINE static void UpdateStageKernel(const size_t nsize, TData *inout,
     Nektar::parallel_for<ExecSpace>(
         0, nsize, NEKTAR_LAMBDA(const size_t idx) {
             UpdateStageKernelImpl<Scheme, IntOrder>(
+                idx, inout, solution,
+                std::make_integer_sequence<unsigned int,
+                                           sizeof...(solutions)>(),
+                solutions...);
+        });
+}
+
+template <typename ExecSpace, typename Scheme, unsigned int ImpStage,
+          unsigned int ExpStage, unsigned int IntOrder, typename TData,
+          typename... TDatas>
+NEK_FORCE_INLINE static void UpdateStageKernel(const size_t nsize, TData *inout,
+                                               const TData *solution,
+                                               const TDatas *...solutions)
+{
+    Nektar::parallel_for<ExecSpace>(
+        0, nsize, NEKTAR_LAMBDA(const size_t idx) {
+            UpdateStageKernelImpl<Scheme, ImpStage, ExpStage, IntOrder>(
                 idx, inout, solution,
                 std::make_integer_sequence<unsigned int,
                                            sizeof...(solutions)>(),
@@ -221,6 +334,24 @@ NEK_FORCE_INLINE static void UpdateSolutionKernel(const size_t nsize,
     Nektar::parallel_for<ExecSpace>(
         0, nsize, NEKTAR_LAMBDA(const size_t idx) {
             UpdateSolutionKernelImpl<Scheme, IntOrder>(
+                idx, inout, solution,
+                std::make_integer_sequence<unsigned int,
+                                           sizeof...(solutions)>(),
+                solutions...);
+        });
+}
+
+template <typename ExecSpace, typename Scheme, unsigned int ImpStage,
+          unsigned int ExpStage, unsigned int IntOrder, typename TData,
+          typename... TDatas>
+NEK_FORCE_INLINE static void UpdateSolutionKernel(const size_t nsize,
+                                                  TData *inout,
+                                                  const TData *solution,
+                                                  const TDatas *...solutions)
+{
+    Nektar::parallel_for<ExecSpace>(
+        0, nsize, NEKTAR_LAMBDA(const size_t idx) {
+            UpdateSolutionKernelImpl<Scheme, ImpStage, ExpStage, IntOrder>(
                 idx, inout, solution,
                 std::make_integer_sequence<unsigned int,
                                            sizeof...(solutions)>(),

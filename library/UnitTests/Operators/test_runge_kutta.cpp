@@ -40,27 +40,33 @@
 #include <iostream>
 #include <memory>
 
-#define TEST_RungeKutta(test_name, test, nvar, order)                          \
+#define TEST_SCHEME(test_name, test, nvar, scheme, order)                      \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
         Configure(nvar, nvar);                                                 \
         SetTestCase(1.0, 0.0);                                                 \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
-            BOOST_TEST(CheckOrderOfAccuracy("RungeKutta", order));             \
+            BOOST_TEST(CheckOrderOfAccuracy(scheme, order));                   \
         }                                                                      \
     }
 
 BOOST_AUTO_TEST_SUITE(TestRungeKutta)
 
-TEST_RungeKutta(runge_kutta_order_1, segment_order_1, 2, 1)
+TEST_SCHEME(rk_order_1, segment, 2, "RungeKutta", 1)
 
-    TEST_RungeKutta(runge_kutta_order_2, segment_order_2, 2, 2)
+TEST_SCHEME(rk_order_2, segment, 2, "RungeKutta", 2)
 
-        TEST_RungeKutta(runge_kutta_order_3, segment_order_3, 2, 3)
+TEST_SCHEME(rk_order_3, segment, 2, "RungeKutta", 3)
 
-            TEST_RungeKutta(runge_kutta_order_4, segment_order_4, 2, 4)
+TEST_SCHEME(rk_order_4, segment, 2, "RungeKutta", 4)
 
-    // TEST_RungeKutta(runge_kutta_order_5, segment_order_5, 2, 5)
+// TEST_SCHEME(rk_order_5, segment, 2, "RungeKutta", 5)
 
-    BOOST_AUTO_TEST_SUITE_END()
+TEST_SCHEME(rk_ssp_order_1, segment, 2, "RungeKuttaSSP", 1)
+
+TEST_SCHEME(rk_ssp_order_2, segment, 2, "RungeKuttaSSP", 2)
+
+TEST_SCHEME(rk_ssp_order_3, segment, 2, "RungeKuttaSSP", 3)
+
+BOOST_AUTO_TEST_SUITE_END()

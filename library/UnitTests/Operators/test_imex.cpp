@@ -40,7 +40,7 @@
 #include <iostream>
 #include <memory>
 
-#define TEST_IMEX(test_name, test, nvar, order)                                \
+#define TEST_SCHEME(test_name, test, nvar, order)                              \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
         Configure(nvar, nvar);                                                 \
@@ -53,14 +53,12 @@
 
 BOOST_AUTO_TEST_SUITE(TestIMEX)
 
-TEST_IMEX(imex_order_1, segment_order_1, 2, 1)
+TEST_SCHEME(imex_order_1, segment, 2, 1)
 
-TEST_IMEX(imex_order_2, segment_order_2, 2, 2)
+TEST_SCHEME(imex_order_2, segment, 2, 2)
 
-// (TODO: fix restart)
-TEST_IMEX(imex_order_3, segment_order_3, 2, 2)
+TEST_SCHEME(imex_order_3, segment, 2, 3)
 
-// (TODO: fix restart)
-TEST_IMEX(imex_order_4, segment_order_4, 2, 2)
+TEST_SCHEME(imex_order_4, segment, 2, 4)
 
 BOOST_AUTO_TEST_SUITE_END()
