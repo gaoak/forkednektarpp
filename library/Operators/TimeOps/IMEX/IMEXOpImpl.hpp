@@ -36,6 +36,7 @@
 
 #include "Operators/TimeOps/IMEX/IMEXKernelLaunchers.hpp"
 #include "Operators/TimeOps/IMEX/IMEXOp.hpp"
+#include "Operators/TimeOps/IMEXdirk/IMEXdirkOp.hpp"
 
 using namespace Nektar;
 using namespace Nektar::MultiRegions;
@@ -90,46 +91,47 @@ protected:
         // Startup
         if (this->m_step + 1 < IntOrder)
         {
-            // Save initial solution
-            auto initial = Field<TData, FieldState::Phys>::Create(
-                "implicit n-" + std::to_string(this->m_step + 1),
+            // Allocate new storage
+            this->m_explicits.push_front(Field<TData, FieldState::Phys>::Create(
                 GetBlockAttributes<TData>(FieldState::Phys,
                                           this->m_expansionList),
                 inout.GetNumComponents(), inout.GetNumHomoModes(),
-                ExecSpace::alignment);
-            initial.template Copy<MemSpace>(
-                (this->m_step == 0) ? inout : this->m_solutions.back());
+                ExecSpace::alignment));
 
-            // Initialise IMEX and hand-over the m_solutions deque
-            auto startup = IMEXOp<TData>::Create(
-                this->m_expansionList, this->m_step + 1, ExecSpace::name);
+            // Compute explicit terms
+            this->DoExplicit(inout, this->m_explicits[0], this->m_time,
+                             this->m_timestep);
+
+            // Save initial solution
+            this->m_solutions.push_front(Field<TData, FieldState::Phys>::Create(
+                "timestep n-" + std::to_string(this->m_step + 1),
+                GetBlockAttributes<TData>(FieldState::Phys,
+                                          this->m_expansionList),
+                inout.GetNumComponents(), inout.GetNumHomoModes(),
+                ExecSpace::alignment));
+
+            this->m_solutions[0].template Copy<MemSpace>(inout);
+
+            // Initialise IMEXdirk
+            auto maxOrder = std::min(3u, IntOrder);
+            std::string variant =
+                std::to_string(maxOrder) + std::to_string(maxOrder + 1);
+            auto startup = IMEXdirkOp<TData>::Create(
+                this->m_expansionList, maxOrder, variant, ExecSpace::name);
 
             // Copy functors from outer/higher-order IMEX scheme
             startup->CopyFunctorsFrom(*this);
-
-            // Move solutions to startup
-            startup->SetExplicits(this->TakeExplicits());
-            startup->SetSolutions(this->TakeSolutions());
 
             // Advance in time with startup
             startup->SetTime(this->m_time);
             startup->SetStep(this->m_step);
             startup->Apply(inout);
 
-            // Move solutions back to this IMEX
-            this->SetExplicits(startup->TakeExplicits());
-            this->SetSolutions(startup->TakeSolutions());
-
-            // Save initial solution to m_solutions
-            this->m_solutions.push_back(std::move(initial));
-
             // Increment step and time
             this->m_time += this->m_timestep;
             this->m_step++;
         }
-
-        // After startup
-        if (this->m_step + 1 >= IntOrder)
+        else
         {
             if (this->m_explicits.size() < IntOrder)
             {

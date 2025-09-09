@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_mcnab.cpp
+// File: IMEXdirkOp.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,27 +32,37 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestMCNAB
+#pragma once
 
-#include "init_timeop.hpp"
+#include "Operators/TimeOps/TimeOp.hpp"
 
-#include <boost/test/tools/output_test_stream.hpp>
-#include <iostream>
-#include <memory>
+namespace Nektar::Operators
+{
 
-#define TEST_MCNAB(test_name, test, nvar, order)                               \
-    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
-    {                                                                          \
-        Configure(nvar, nvar);                                                 \
-        SetTestCase(1.0, -10.0);                                               \
-        boost::test_tools::output_test_stream output;                          \
-        {                                                                      \
-            BOOST_TEST(CheckOrderOfAccuracy("CNABModified", order));           \
-        }                                                                      \
+// IMEXdirk base class
+// Defines the apply operator to enforce apply parameter types
+template <typename TData> class IMEXdirkOp : public TimeOp<TData>
+{
+public:
+    static std::shared_ptr<IMEXdirkOp<TData>> Create(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const unsigned int &order = 0, const std::string &variant = "",
+        const std::string &execStr = "")
+    {
+        return std::dynamic_pointer_cast<IMEXdirkOp<TData>>(
+            TimeOp<TData>::Create(expansionList, name, order, variant,
+                                  execStr));
     }
 
-BOOST_AUTO_TEST_SUITE(TestMCNAB)
+    static inline const std::string name = "IMEXdirk";
 
-TEST_MCNAB(mcnab_order_2, segment_order_2, 2, 2)
+protected:
+    IMEXdirkOp(const MultiRegions::ExpListSharedPtr &expansionList)
+        : TimeOp<TData>(expansionList)
+    {
+    }
 
-BOOST_AUTO_TEST_SUITE_END()
+    ~IMEXdirkOp() override = default;
+};
+
+} // namespace Nektar::Operators

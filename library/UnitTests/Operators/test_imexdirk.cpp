@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_esdirk.cpp
+// File: test_imexdirk.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,31 +32,41 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestESDIRK
+#define BOOST_TEST_MODULE TestIMEX
 
-#include "init_esdirk.hpp"
+#include "init_timeop.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
 #include <memory>
 
-#define TEST_ESDIRK(test_name, test, nvar, order)                              \
+#define TEST_SCHEME(test_name, test, nvar, scheme, order)                      \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
         Configure(nvar, nvar);                                                 \
-        SetTestCase(-10.0);                                                    \
+        SetTestCase(1.0, -10.0);                                               \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
-            BOOST_TEST(CheckOrderOfAccuracy("DIRK_ES", order));                \
+            BOOST_TEST(CheckOrderOfAccuracy(scheme, order));                   \
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestESDIRK)
+BOOST_AUTO_TEST_SUITE(TestIMEX)
 
-TEST_ESDIRK(esdirk_order_2, segment_order_2, 2, 2)
+TEST_SCHEME(imexdirk111, segment, 2, "IMEXdirk11", 1)
 
-TEST_ESDIRK(esdirk_order_3, segment_order_3, 2, 3)
+TEST_SCHEME(imexdirk121, segment, 2, "IMEXdirk12", 1)
 
-TEST_ESDIRK(esdirk_order_4, segment_order_4, 2, 4)
+TEST_SCHEME(imexdirk122, segment, 2, "IMEXdirk12", 2)
+
+TEST_SCHEME(imexdirk222, segment, 2, "IMEXdirk22", 2)
+
+TEST_SCHEME(imexdirk232, segment, 2, "IMEXdirk23", 2)
+
+TEST_SCHEME(imexdirk233, segment, 2, "IMEXdirk23", 3)
+
+TEST_SCHEME(imexdirk343, segment, 2, "IMEXdirk34", 3)
+
+TEST_SCHEME(imexdirk443, segment, 2, "IMEXdirk44", 3)
 
 BOOST_AUTO_TEST_SUITE_END()

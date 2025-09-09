@@ -29,16 +29,18 @@
         </ELEMENT>
 
         <COMPOSITE>
-            <C ID="0"> S[0-9] </C>
+            <C ID="0"> S[0-4] </C>
+            <C ID="3"> S[5-9] </C>
             <C ID="1"> V[0]   </C>
             <C ID="2"> V[10]  </C>
         </COMPOSITE>
 
-        <DOMAIN> C[0] </DOMAIN>
+        <DOMAIN> C[0,3] </DOMAIN>
     </GEOMETRY>
 
     <EXPANSIONS>
         <E COMPOSITE="C[0]" FIELDS="u" TYPE="MODIFIED" NUMMODES="4"/>
+        <E COMPOSITE="C[3]" FIELDS="u" TYPE="MODIFIED" NUMMODES="7"/>
     </EXPANSIONS>
 
     <CONDITIONS>

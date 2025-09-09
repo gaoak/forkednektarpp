@@ -86,13 +86,14 @@ public:
         ExpectedSolution(final_time);
     }
 
-    void RunTestCase(const std::string scheme, unsigned int numsteps)
+    void RunTestCase(const std::string scheme, unsigned int order,
+                     unsigned int numsteps)
     {
         // Copy fixt_in to fixt_out since operator uses apply with inout type
         fixt_out->Copy<NektarSpaces::HostSpace>(*fixt_in);
 
         // Initialise Time-stepping operator
-        auto op = TimeOp<double>::Create(fixt_explist, scheme);
+        auto op = TimeOp<double>::Create(fixt_explist, scheme, order);
         op->DefineExplicit(&TimeOpField::DoRHS, this);
         op->DefineImplicit(&TimeOpField::DoLHS, this);
 
@@ -116,7 +117,7 @@ public:
                  *fixt_expected);
     }
 
-    bool CheckOrderOfAccuracy(std::string scheme, int expectedOrder)
+    bool CheckOrderOfAccuracy(std::string scheme, unsigned int order)
     {
         double final_time = 0.5;
 
@@ -129,7 +130,7 @@ public:
             session->SetParameter("TimeStep", dt);
 
             // Run simulation
-            RunTestCase(scheme, final_time / dt);
+            RunTestCase(scheme, order, final_time / dt);
 
             // Compute error at final time (L2 norm; adapt as needed)
             math.sub(*fixt_out, *fixt_expected, *fixt_out);
@@ -152,11 +153,10 @@ public:
 
         // Check if observed order is close to expected order (within tolerance)
         if (std::isnan(observedOrder) || std::isinf(observedOrder) ||
-            observedOrder < 0.9 * expectedOrder) // Choose tolerance
+            observedOrder < 0.9 * order) // Choose tolerance
         {
             std::cerr << "Order of accuracy test failed! Observed: "
-                      << observedOrder << ", Expected: " << expectedOrder
-                      << std::endl;
+                      << observedOrder << ", Expected: " << order << std::endl;
             return false;
         }
         else
@@ -203,8 +203,4 @@ protected:
         }                                                                      \
     };
 
-TEST(segment_order_1, "run/segment_time_order_1.xml")
-TEST(segment_order_2, "run/segment_time_order_2.xml")
-TEST(segment_order_3, "run/segment_time_order_3.xml")
-TEST(segment_order_4, "run/segment_time_order_4.xml")
-TEST(segment_order_5, "run/segment_time_order_5.xml")
+TEST(segment, "run/segment.xml")

@@ -453,7 +453,11 @@ MACRO(ADD_TIME_OPERATOR dir)
 
     # These operator have an additional argument for the FieldState
     # which requires two delcarations.
-    SET(CONFIG_FILE TimeOps/TimeOperatorFactoryDec.cpp.in)
+    IF (${name} STREQUAL "IMEXdirk")
+         SET(CONFIG_FILE TimeOps/IMEXdirk/IMEXdirkOpFactoryDec.cpp.in)
+    ELSE() 
+         SET(CONFIG_FILE TimeOps/TimeOperatorFactoryDec.cpp.in)
+    ENDIF()
 
     # Set timeintegration order
     SET(Variants Dummy)
@@ -479,6 +483,10 @@ MACRO(ADD_TIME_OPERATOR dir)
             ELSEIF ("${Variant}" STREQUAL "_ES")
                 SET(TimeIntegrationOrders 2 3 4)
             ENDIF()
+        ELSEIF (${name} STREQUAL "IMEXdirk")
+            SET(TimeIntegrationImpStages 1 1 1 2 2 2 3 4)
+            SET(TimeIntegrationExpStages 1 2 2 2 3 3 4 4)
+            SET(TimeIntegrationOrders 1 1 2 2 2 3 3 3)
         ELSEIF (${name} STREQUAL "CNAB")
             SET(TimeIntegrationOrders 2)
         ELSE()
@@ -511,10 +519,18 @@ MACRO(ADD_TIME_OPERATOR dir)
 
             # Loop through each possible data type.
             FOREACH (TData IN LISTS DataTypes)
-
-                FOREACH (IntOrder IN LISTS TimeIntegrationOrders)
+                LIST(LENGTH TimeIntegrationOrders NINDEX)
+                MATH(EXPR NINDEX "${NINDEX} - 1")
+                FOREACH (INDEX RANGE ${NINDEX})
+                    LIST(GET TimeIntegrationOrders ${INDEX} IntOrder)
                     # Set up the name used for the .cpp declaration file.
-                    SET(FactoryDeclName ${name}${Variant}${ExecSpace}${TData}Order${IntOrder}.${SOURCE_EXT})
+                    IF (${name} STREQUAL "IMEXdirk")
+                        LIST(GET TimeIntegrationImpStages ${INDEX} ImpStage)
+                        LIST(GET TimeIntegrationExpStages ${INDEX} ExpStage)
+                        SET(FactoryDeclName ${name}${Variant}${ExecSpace}${TData}${ImpStage}${ExpStage}Order${IntOrder}.${SOURCE_EXT})
+                    ELSE()
+                        SET(FactoryDeclName ${name}${Variant}${ExecSpace}${TData}Order${IntOrder}.${SOURCE_EXT})
+                    ENDIF()
 
                     # Get the source and header files for this operator,
                     # execution space, and implementation.

@@ -34,29 +34,35 @@
 
 #define BOOST_TEST_MODULE TestDIRK
 
-#include "init_timeop.hpp"
+#include "init_timeop_v2.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
 #include <memory>
 
-#define TEST_DIRK(test_name, test, nvar, order)                                \
+#define TEST_SCHEME(test_name, test, nvar, scheme, order)                      \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
         Configure(nvar, nvar);                                                 \
-        SetTestCase(0.0, -10.0);                                               \
+        SetTestCase(-10.0);                                                    \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
-            BOOST_TEST(CheckOrderOfAccuracy("DIRK", order));                   \
+            BOOST_TEST(CheckOrderOfAccuracy(scheme, order));                   \
         }                                                                      \
     }
 
 BOOST_AUTO_TEST_SUITE(TestDIRK)
 
-TEST_DIRK(dirk_order_1, segment_order_1, 2, 1)
+TEST_SCHEME(dirk_order_1, segment, 2, "DIRK", 1)
 
-TEST_DIRK(dirk_order_2, segment_order_2, 2, 2)
+TEST_SCHEME(dirk_order_2, segment, 2, "DIRK", 2)
 
-TEST_DIRK(dirk_order_3, segment_order_3, 2, 3)
+TEST_SCHEME(dirk_order_3, segment, 2, "DIRK", 3)
+
+TEST_SCHEME(esdirk_order_2, segment, 2, "DIRK_ES", 2)
+
+TEST_SCHEME(esdirk_order_3, segment, 2, "DIRK_ES", 3)
+
+TEST_SCHEME(esdirk_order_4, segment, 2, "DIRK_ES", 4)
 
 BOOST_AUTO_TEST_SUITE_END()
