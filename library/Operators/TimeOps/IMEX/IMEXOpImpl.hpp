@@ -50,7 +50,7 @@ class IMEXOpImpl : public IMEXOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
-    // Compile-time check for valid integration order
+    // Compile-time check for valid integration order.
     static_assert(IntOrder >= 1 && IntOrder <= 4,
                   "The IMEXOp class is only implemented for order 1-4.");
 
@@ -58,7 +58,7 @@ public:
     IMEXOpImpl(const ExpListSharedPtr &expansionList)
         : IMEXOp<TData>(expansionList)
     {
-        // Initialize coefficients at construction time
+        // Initialize coefficients at construction time.
         SetCoefficients();
     }
 
@@ -78,31 +78,31 @@ protected:
 
     void v_Apply(Field<TData, FieldState::Phys> &inout) override
     {
-        // Check that implicit function call is defined for IMEX
+        // Check that implicit function call is defined.
         ASSERTL0(this->m_implicitFunctor,
                  "IMEX schemes require a DoImplicit method. Define with "
                  "IMEXOp->DefineImplicit().");
 
-        // Check that explicit function is defined for IMEX
+        // Check that explicit function is defined.
         ASSERTL0(this->m_explicitFunctor,
                  "IMEX schemes require a DoExplicit method. Define with "
                  "IMEXOp->DefineExplicit().");
 
-        // Startup
+        // Startup.
         if (this->m_step + 1 < IntOrder)
         {
-            // Allocate new storage
+            // Allocate new storage.
             this->m_explicits.push_front(Field<TData, FieldState::Phys>::Create(
                 GetBlockAttributes<TData>(FieldState::Phys,
                                           this->m_expansionList),
                 inout.GetNumComponents(), inout.GetNumHomoModes(),
                 ExecSpace::alignment));
 
-            // Compute explicit terms
+            // Compute explicit terms.
             this->DoExplicit(inout, this->m_explicits[0], this->m_time,
                              this->m_timestep);
 
-            // Save initial solution
+            // Save initial solution.
             this->m_solutions.push_front(Field<TData, FieldState::Phys>::Create(
                 "timestep n-" + std::to_string(this->m_step + 1),
                 GetBlockAttributes<TData>(FieldState::Phys,
@@ -112,30 +112,30 @@ protected:
 
             this->m_solutions[0].template Copy<MemSpace>(inout);
 
-            // Initialise IMEXdirk
+            // Initialise IMEXdirk.
             auto maxOrder = std::min(3u, IntOrder);
             std::string variant =
                 std::to_string(maxOrder) + std::to_string(maxOrder + 1);
             auto startup = IMEXdirkOp<TData>::Create(
                 this->m_expansionList, maxOrder, variant, ExecSpace::name);
 
-            // Copy functors from outer/higher-order IMEX scheme
+            // Copy functors from outer/higher-order IMEX scheme.
             startup->CopyFunctorsFrom(*this);
 
-            // Advance in time with startup
+            // Advance in time with startup.
             startup->SetTime(this->m_time);
             startup->SetStep(this->m_step);
             startup->Apply(inout);
 
-            // Increment step and time
+            // Increment step and time.
             this->m_time += this->m_timestep;
             this->m_step++;
         }
         else
         {
+            // Allocate new storage.
             if (this->m_explicits.size() < IntOrder)
             {
-                // Allocate new storage
                 this->m_explicits.push_back(
                     Field<TData, FieldState::Phys>::Create(
                         GetBlockAttributes<TData>(FieldState::Phys,
@@ -144,19 +144,23 @@ protected:
                         ExecSpace::alignment));
             }
 
-            // UpdateSolution previous solutions, explicit part, and sum up
+            // UpdateSolution previous solutions, explicit part, and sum up.
             if constexpr (IntOrder > 1)
             {
-                // Rollover previous explicit parts
+                // Rollover previous explicit parts.
                 this->RollOver(this->m_explicits);
             }
 
+            // Ensure solution is in correct space.
+            this->DoProjection(inout, inout, this->m_time);
+
+            // Compute explicit term.
             this->DoExplicit(inout, this->m_explicits[0], this->m_time,
                              this->m_timestep);
 
             if constexpr (IntOrder > 1)
             {
-                // Rollover previous solutions
+                // Rollover previous solutions.
                 this->RollOver(inout, this->m_solutions);
             }
 
@@ -165,12 +169,12 @@ protected:
                 inout, std::make_integer_sequence<unsigned int, IntOrder>(),
                 std::make_integer_sequence<unsigned int, IntOrder - 1>());
 
-            // Compute next time step
+            // Compute next time step.
             if (this->m_save_implicit)
             {
+                // Allocate new storage.
                 if (this->m_implicits.size() < IntOrder)
                 {
-                    // Allocate new storage
                     this->m_implicits.push_back(
                         Field<TData, FieldState::Phys>::Create(
                             GetBlockAttributes<TData>(FieldState::Phys,
@@ -179,14 +183,15 @@ protected:
                             ExecSpace::alignment));
                 }
 
-                // Rollover previous solutions
-                this->RollOver(this->m_implicits);
+                // Rollover previous solutions.
+                this->RollOver(inout, this->m_implicits);
 
-                this->m_implicits[0].template Copy<MemSpace>(inout);
-
+                // Update solution.
                 this->DoImplicit(this->m_implicits[0], inout,
                                  this->m_time + this->m_timestep,
                                  m_gamma * this->m_timestep);
+
+                // Compute implicit terms.
                 sub<ExecSpace>(inout, this->m_implicits[0],
                                this->m_implicits[0]);
                 mul<ExecSpace>(1.0 / m_gamma, this->m_implicits[0],
@@ -194,11 +199,12 @@ protected:
             }
             else
             {
+                // Update solution.
                 this->DoImplicit(inout, inout, this->m_time + this->m_timestep,
                                  m_gamma * this->m_timestep);
             }
 
-            // Increment step and time
+            // Increment step and time.
             this->m_time += this->m_timestep;
             this->m_step++;
         }
@@ -214,13 +220,14 @@ protected:
         {
             // Determine shape and type of the element.
             auto &inoutBlock = inout.GetBlocks()[blk];
-            auto nelmt       = inoutBlock.GetNumElementsWithPadding();
-            auto nphys =
-                inoutBlock.GetNumData() * inoutBlock.GetNumComponents();
+            auto nsize       = inoutBlock.GetNumElementsWithPadding() *
+                         inoutBlock.GetNumData() *
+                         inoutBlock.GetNumComponents() *
+                         inoutBlock.GetNumHomoModes();
 
+            // Compute new solution.
             UpdateSolutionKernel<ExecSpace, Scheme>(
-                nphys * nelmt,
-                inoutBlock.template GetPtr<MemSpace, ReadWrite>(),
+                nsize, inoutBlock.template GetPtr<MemSpace, ReadWrite>(),
                 (this->m_explicits[Ind]
                      .GetBlocks()[blk]
                      .template GetPtr<MemSpace, ReadOnly>())...,

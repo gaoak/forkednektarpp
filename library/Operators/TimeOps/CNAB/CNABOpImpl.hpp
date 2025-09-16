@@ -50,7 +50,7 @@ class CNABOpImpl : public CNABOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
-    // Compile-time check for valid integration order
+    // Compile-time check for valid integration order.
     static_assert(IntOrder == 2,
                   "The CNABOp class is only implemented for order 2.");
 
@@ -103,43 +103,43 @@ protected:
 
     void v_Apply(Field<TData, FieldState::Phys> &inout) override
     {
-        // Check that implicit function call is defined for CNAB
+        // Check that implicit function call is defined.
         ASSERTL0(this->m_implicitFunctor,
                  "CNAB schemes require a DoImplicit method. Define with "
                  "CNABOp->DefineImplicit().");
 
-        // Check that explicit function is defined for CNAB
+        // Check that explicit function is defined.
         ASSERTL0(this->m_explicitFunctor,
                  "CNAB schemes require a DoExplicit method. Define with "
                  "CNABOp->DefineExplicit().");
 
-        // Startup
+        // Startup.
         if (this->m_step + 1 <= Nimplicit())
         {
-            // Initialise IMEX and hand-over the m_solutions deque
+            // Initialise IMEX and hand-over the m_solutions deque.
             auto startup = IMEXOp<TData>::Create(this->m_expansionList, 1,
                                                  ExecSpace::name);
             startup->SaveImplicit(true);
 
-            // Copy functors from outer/higher-order CNAB scheme
+            // Copy functors from outer/higher-order CNAB scheme.
             startup->CopyFunctorsFrom(*this);
 
-            // Move solutions to startup
+            // Move solutions to startup.
             startup->SetImplicits(this->TakeImplicits());
             startup->SetExplicits(this->TakeExplicits());
             startup->SetSolutions(this->TakeSolutions());
 
-            // Advance in time with startup
+            // Advance in time with startup.
             startup->SetTime(this->m_time);
             startup->SetStep(this->m_step);
             startup->Apply(inout);
 
-            // Move solutions back to this CNAB
+            // Move solutions back to this CNAB.
             this->SetImplicits(startup->TakeImplicits());
             this->SetExplicits(startup->TakeExplicits());
             this->SetSolutions(startup->TakeSolutions());
 
-            // Allocate new storage
+            // Allocate new storage.
             if (this->m_step == 0 && Nimplicit() == 2)
             {
                 this->m_implicits.push_back(
@@ -150,16 +150,16 @@ protected:
                         ExecSpace::alignment));
             }
 
-            // Increment step and time
+            // Increment step and time.
             this->m_time += this->m_timestep;
             this->m_step++;
         }
-        // After startup
+        // After startup.
         else
         {
+            // Allocate new storage.
             if (this->m_explicits.size() < IntOrder)
             {
-                // Allocate new storage
                 this->m_explicits.push_back(
                     Field<TData, FieldState::Phys>::Create(
                         GetBlockAttributes<TData>(FieldState::Phys,
@@ -170,6 +170,10 @@ protected:
 
             this->RollOver(this->m_explicits);
 
+            // Ensure solution is in correct space.
+            this->DoProjection(inout, inout, this->m_time);
+
+            // Compute explicit term.
             this->DoExplicit(inout, this->m_explicits[0], this->m_time,
                              this->m_timestep);
 
@@ -178,20 +182,20 @@ protected:
                 inout, std::make_integer_sequence<unsigned int, Nimplicit()>(),
                 std::make_integer_sequence<unsigned int, Nexplicit()>());
 
-            // Rollover previous solutions
-            this->RollOver(this->m_implicits);
+            // Rollover previous solutions.
+            this->RollOver(inout, this->m_implicits);
 
-            // Compute next time step
-            this->m_implicits[0].template Copy<MemSpace>(inout);
-
+            // Update solution.
             this->DoImplicit(this->m_implicits[0], inout,
                              this->m_time + this->m_timestep,
                              gamma() * this->m_timestep);
+
+            // Compute implicit terms.
             sub<ExecSpace>(inout, this->m_implicits[0], this->m_implicits[0]);
             mul<ExecSpace>(1.0 / gamma(), this->m_implicits[0],
                            this->m_implicits[0]);
 
-            // Increment step and time
+            // Increment step and time.
             this->m_time += this->m_timestep;
             this->m_step++;
         }
@@ -207,13 +211,14 @@ protected:
         {
             // Determine shape and type of the element.
             auto &inoutBlock = inout.GetBlocks()[blk];
-            auto nelmt       = inoutBlock.GetNumElementsWithPadding();
-            auto nphys =
-                inoutBlock.GetNumData() * inoutBlock.GetNumComponents();
+            auto nsize       = inoutBlock.GetNumElementsWithPadding() *
+                         inoutBlock.GetNumData() *
+                         inoutBlock.GetNumComponents() *
+                         inoutBlock.GetNumHomoModes();
 
+            // Compute new solution.
             UpdateSolutionKernel<ExecSpace, Scheme>(
-                nphys * nelmt,
-                inoutBlock.template GetPtr<MemSpace, ReadWrite>(),
+                nsize, inoutBlock.template GetPtr<MemSpace, ReadWrite>(),
                 (this->m_implicits[ind]
                      .GetBlocks()[blk]
                      .template GetPtr<MemSpace, ReadOnly>())...,

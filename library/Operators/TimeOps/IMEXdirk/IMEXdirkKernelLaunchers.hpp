@@ -414,7 +414,7 @@ template <typename Scheme, unsigned int ImpStage, unsigned int ExpStage,
           typename... TDatas>
 NEK_DEVICE_INLINE static
     typename std::enable_if<std::is_same_v<Scheme, IMEXdirkScheme>, void>::type
-    UpdateStageKernelImpl(const size_t idx, TData *__restrict inout,
+    UpdateStageKernelImpl(const size_t idx, TData *__restrict out,
                           const TData *__restrict solution,
                           std::integer_sequence<unsigned int, ind...>,
                           const TDatas *__restrict... residuals)
@@ -426,8 +426,7 @@ NEK_DEVICE_INLINE static
     constexpr auto coeff =
         GetIMEXdirkStageCoefficients<ImpStage, ExpStage, IntOrder, TData>();
 
-    inout[idx] =
-        solution[idx] + ((residuals[idx] * coeff[indStart + ind]) + ...);
+    out[idx] = solution[idx] + ((residuals[idx] * coeff[indStart + ind]) + ...);
 }
 
 template <typename Scheme, unsigned int ImpStage, unsigned int ExpStage,
@@ -435,7 +434,7 @@ template <typename Scheme, unsigned int ImpStage, unsigned int ExpStage,
           typename... TDatas>
 NEK_DEVICE_INLINE static
     typename std::enable_if<std::is_same_v<Scheme, IMEXdirkScheme>, void>::type
-    UpdateSolutionKernelImpl(const size_t idx, TData *__restrict inout,
+    UpdateSolutionKernelImpl(const size_t idx, TData *__restrict out,
                              const TData *__restrict solution,
                              std::integer_sequence<unsigned int, ind...>,
                              const TDatas *__restrict... residuals)
@@ -443,7 +442,7 @@ NEK_DEVICE_INLINE static
     constexpr auto coeff =
         GetIMEXdirkCoefficients<ImpStage, ExpStage, IntOrder, TData>();
 
-    inout[idx] = solution[idx] + ((residuals[idx] * coeff[ind]) + ...);
+    out[idx] = solution[idx] + ((residuals[idx] * coeff[ind]) + ...);
 }
 
 } // namespace Nektar::Operators::detail
