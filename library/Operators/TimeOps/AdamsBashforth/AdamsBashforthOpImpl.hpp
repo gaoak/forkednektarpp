@@ -50,7 +50,7 @@ class AdamsBashforthOpImpl : public AdamsBashforthOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
-    // Compile-time check for valid integration order
+    // Compile-time check for valid integration order.
     static_assert(
         IntOrder >= 1 && IntOrder <= 4,
         "The AdamsBashforthOp class is only implemented for order 1-4.");
@@ -76,46 +76,46 @@ public:
 protected:
     void v_Apply(Field<TData, FieldState::Phys> &inout) override
     {
-        // Check that explicit function is defined for IMEX
+        // Check that explicit function is defined.
         ASSERTL0(
             this->m_explicitFunctor,
             "AdamsBashforth schemes require a DoExplicit method. Define with "
             "AdamsBashforthOp->DefineExplicit().");
 
-        // Startup
+        // Startup.
         if (this->m_step + 1 < IntOrder)
         {
-            // Allocate new storage
+            // Allocate new storage.
             this->m_explicits.push_front(Field<TData, FieldState::Phys>::Create(
                 GetBlockAttributes<TData>(FieldState::Phys,
                                           this->m_expansionList),
                 inout.GetNumComponents(), inout.GetNumHomoModes(),
                 ExecSpace::alignment));
 
-            // Compute explicit terms
+            // Compute explicit terms.
             this->DoExplicit(inout, this->m_explicits[0], this->m_time,
                              this->m_timestep);
 
-            // Initialise RungeKutta scheme
+            // Initialise RungeKutta scheme.
             auto startup = RungeKuttaOp<TData>::Create(
                 this->m_expansionList, IntOrder, "", ExecSpace::name);
 
-            // Copy functors from AdamsBashforth scheme
+            // Copy functors from AdamsBashforth scheme.
             startup->CopyFunctorsFrom(*this);
 
-            // Advance in time with startup
+            // Advance in time with startup.
             startup->SetTime(this->m_time);
             startup->SetStep(this->m_step);
             startup->Apply(inout);
 
-            // Increment step and time
+            // Increment step and time.
             this->m_time += this->m_timestep;
             this->m_step++;
         }
-        // After startup
+        // After startup.
         else
         {
-            // Allocate new storage
+            // Allocate new storage.
             if (this->m_explicits.size() < IntOrder)
             {
                 this->m_explicits.push_back(
@@ -131,7 +131,10 @@ protected:
                 this->RollOver(this->m_explicits);
             }
 
-            // Compute explicit terms
+            // Ensure solution is in correct space.
+            this->DoProjection(inout, inout, this->m_time);
+
+            // Compute explicit terms.
             this->DoExplicit(inout, this->m_explicits[0], this->m_time,
                              this->m_timestep);
 
@@ -139,7 +142,7 @@ protected:
             UpdateSolution(
                 inout, std::make_integer_sequence<unsigned int, IntOrder>());
 
-            // Increment step and time
+            // Increment step and time.
             this->m_time += this->m_timestep;
             this->m_step++;
         }
@@ -154,13 +157,14 @@ protected:
         {
             // Determine shape and type of the element.
             auto &inoutBlock = inout.GetBlocks()[blk];
-            auto nelmt       = inoutBlock.GetNumElementsWithPadding();
-            auto nphys =
-                inoutBlock.GetNumData() * inoutBlock.GetNumComponents();
+            auto nsize       = inoutBlock.GetNumElementsWithPadding() *
+                         inoutBlock.GetNumData() *
+                         inoutBlock.GetNumComponents() *
+                         inoutBlock.GetNumHomoModes();
 
+            // Compute new solution.
             UpdateSolutionKernel<ExecSpace, Scheme>(
-                nphys * nelmt,
-                inoutBlock.template GetPtr<MemSpace, ReadWrite>(),
+                nsize, inoutBlock.template GetPtr<MemSpace, ReadWrite>(),
                 (this->m_explicits[ind]
                      .GetBlocks()[blk]
                      .template GetPtr<MemSpace, ReadOnly>())...);

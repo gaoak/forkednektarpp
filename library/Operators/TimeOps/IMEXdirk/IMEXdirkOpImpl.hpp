@@ -53,7 +53,7 @@ public:
     IMEXdirkOpImpl(const ExpListSharedPtr &expansionList)
         : IMEXdirkOp<TData>(expansionList)
     {
-        // Compile-time check for valid integration order
+        // Compile-time check for valid integration order.
         constexpr auto check =
             // IMEX Dirk 1 1 1 : Forward - Backward Euler IMEX
             (ImpStage == 1 && ExpStage == 1 && IntOrder == 1) ||
@@ -93,16 +93,16 @@ public:
 protected:
     void v_Apply(Field<TData, FieldState::Phys> &inout) override
     {
-        // Check that implicit function is defined for IMEXdirk
+        // Check that implicit function is defined.
         ASSERTL0(this->m_implicitFunctor,
                  "IMEXdirk schemes require a DoImplicit method. Define with "
                  "IMEXdirkOp->DefineImplicit().");
-        // Check that explicit function is defined for IMEXdirk
+        // Check that explicit function is defined.
         ASSERTL0(this->m_explicitFunctor,
                  "IMEXdirk schemes require a DoExplicit method. Define with "
                  "IMEXdirkOp->DefineExplicit().");
 
-        // Allocate memory
+        // Allocate memory.
         if (this->m_solutions.size() == 0)
         {
             this->m_solutions.push_back(Field<TData, FieldState::Phys>::Create(
@@ -130,14 +130,16 @@ protected:
                 ExecSpace::alignment));
         }
 
-        // Apply IMEX dirk scheme
-        this->m_solutions[0].template Copy<MemSpace>(inout);
+        // Ensure solution is in correct space.
+        this->DoProjection(inout, this->m_solutions[0], this->m_time);
+
+        // Apply IMEX dirk scheme.
         Staging<1>(inout);
         UpdateSolution(inout,
                        std::make_integer_sequence<unsigned int, ImpStage>(),
                        std::make_integer_sequence<unsigned int, ExpStage>());
 
-        // Increment step and time
+        // Increment step and time.
         this->m_time += this->m_timestep;
         this->m_step++;
     }
@@ -145,19 +147,27 @@ protected:
     template <unsigned int Stage>
     void Staging(Field<TData, FieldState::Phys> &inout)
     {
-        // Compute residual
         constexpr auto coeff0 =
             GetIMEXdirkTimeCoefficients<ImpStage, ExpStage, IntOrder,
                                         TData>()[Stage - 1];
 
+        // Ensure solution is in correct space.
+        if constexpr (Stage != 1)
+        {
+            this->DoProjection(inout, inout,
+                               this->m_time + coeff0 * this->m_timestep);
+        }
+
+        // Compute explicit terms.
         this->DoExplicit(inout, this->m_explicits[Stage - 1],
                          this->m_time + coeff0 * this->m_timestep,
                          this->m_timestep);
 
+        // Compute implicit terms.
         if constexpr (Stage <= ImpStage)
         {
-            // Compute stage
-            UpdateStage(inout,
+            // Compute stage.
+            UpdateStage(this->m_implicits[Stage - 1],
                         std::make_integer_sequence<unsigned int, Stage - 1>(),
                         std::make_integer_sequence<unsigned int, Stage>());
 
@@ -168,19 +178,22 @@ protected:
                 GetIMEXdirkLambdaCoefficients<ImpStage, ExpStage, IntOrder,
                                               TData>()[Stage - 1];
 
-            this->m_implicits[Stage - 1].template Copy<MemSpace>(inout);
+            // Update solution.
             this->DoImplicit(this->m_implicits[Stage - 1], inout,
                              this->m_time + coeff1 * this->m_timestep,
                              lambda1 * this->m_timestep);
+
+            // Compute implicit terms.
             sub<ExecSpace>(inout, this->m_implicits[Stage - 1],
                            this->m_implicits[Stage - 1]);
             mul<ExecSpace>(1.0 / lambda1, this->m_implicits[Stage - 1],
                            this->m_implicits[Stage - 1]);
         }
 
+        // Recursive loop over stages.
         if constexpr (Stage < ExpStage)
         {
-            // Do next stage
+            // Do next stage.
             Staging<Stage + 1>(inout);
         }
     }
@@ -195,13 +208,14 @@ protected:
         {
             // Determine shape and type of the element.
             auto &inoutBlock = inout.GetBlocks()[blk];
-            auto nelmt       = inoutBlock.GetNumElementsWithPadding();
-            auto nphys =
-                inoutBlock.GetNumData() * inoutBlock.GetNumComponents();
+            auto nsize       = inoutBlock.GetNumElementsWithPadding() *
+                         inoutBlock.GetNumData() *
+                         inoutBlock.GetNumComponents() *
+                         inoutBlock.GetNumHomoModes();
 
+            // Compute stage solution.
             UpdateStageKernel<ExecSpace, Scheme, ImpStage, ExpStage, IntOrder>(
-                nphys * nelmt,
-                inoutBlock.template GetPtr<MemSpace, ReadWrite>(),
+                nsize, inoutBlock.template GetPtr<MemSpace, WriteOnly>(),
                 this->m_solutions[0]
                     .GetBlocks()[blk]
                     .template GetPtr<MemSpace, ReadOnly>(),
@@ -224,14 +238,15 @@ protected:
         {
             // Determine shape and type of the element.
             auto &inoutBlock = inout.GetBlocks()[blk];
-            auto nelmt       = inoutBlock.GetNumElementsWithPadding();
-            auto nphys =
-                inoutBlock.GetNumData() * inoutBlock.GetNumComponents();
+            auto nsize       = inoutBlock.GetNumElementsWithPadding() *
+                         inoutBlock.GetNumData() *
+                         inoutBlock.GetNumComponents() *
+                         inoutBlock.GetNumHomoModes();
 
+            // Compute new solution.
             UpdateSolutionKernel<ExecSpace, Scheme, ImpStage, ExpStage,
                                  IntOrder>(
-                nphys * nelmt,
-                inoutBlock.template GetPtr<MemSpace, ReadWrite>(),
+                nsize, inoutBlock.template GetPtr<MemSpace, WriteOnly>(),
                 this->m_solutions[0]
                     .GetBlocks()[blk]
                     .template GetPtr<MemSpace, ReadOnly>(),

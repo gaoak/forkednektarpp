@@ -386,7 +386,7 @@ template <typename Scheme, unsigned int IntOrder, typename TData,
           unsigned int... ind, typename... TDatas>
 NEK_DEVICE_INLINE static
     typename std::enable_if<std::is_same_v<Scheme, DIRKScheme> || std::is_same_v<Scheme, DIRK_ESScheme>, void>::type
-    UpdateStageKernelImpl(const size_t idx, TData *__restrict inout,
+    UpdateStageKernelImpl(const size_t idx, TData *__restrict out,
                           const TData *__restrict solution,
                           std::integer_sequence<unsigned int, ind...>,
                           const TDatas *__restrict... implicits)
@@ -396,7 +396,7 @@ NEK_DEVICE_INLINE static
 
     constexpr auto coeff = GetDIRKStageCoefficients<Scheme, IntOrder, TData>();
 
-    inout[idx] =
+    out[idx] =
         solution[idx] + ((implicits[idx] * coeff[indStart + ind]) + ...);
 }
 
@@ -404,14 +404,14 @@ template <typename Scheme, unsigned int IntOrder, typename TData,
           unsigned int... ind, typename... TDatas>
 NEK_DEVICE_INLINE static
     typename std::enable_if<std::is_same_v<Scheme, DIRKScheme> || std::is_same_v<Scheme, DIRK_ESScheme>, void>::type
-    UpdateSolutionKernelImpl(const size_t idx, TData *__restrict inout,
+    UpdateSolutionKernelImpl(const size_t idx, TData *__restrict out,
                              const TData *__restrict solution,
                              std::integer_sequence<unsigned int, ind...>,
                              const TDatas *__restrict... implicits)
 {
     constexpr auto coeff = GetDIRKCoefficients<Scheme, IntOrder, TData>();
 
-    inout[idx] = solution[idx] + ((implicits[idx] * coeff[ind]) + ...);
+    out[idx] = solution[idx] + ((implicits[idx] * coeff[ind]) + ...);
 }
 
 } // namespace Nektar::Operators::detail

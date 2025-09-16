@@ -96,6 +96,7 @@ public:
         auto op = TimeOp<double>::Create(fixt_explist, scheme, order);
         op->DefineExplicit(&TimeOpField::DoRHS, this);
         op->DefineImplicit(&TimeOpField::DoLHS, this);
+        op->DefineProjection(&TimeOpField::DoProjection, this);
 
         // Initialise timestepping operator
         // Loop all steps
@@ -190,6 +191,14 @@ protected:
     {
         // Multiply solution by factor
         math.mul(m_alpha * factor, in, out);
+    }
+
+    void DoProjection(Field<double, FieldState::Phys> &in,
+                      Field<double, FieldState::Phys> &out,
+                      [[maybe_unused]] const double &time)
+    {
+        // Multiply solution by factor
+        math.mul(1.0, in, out);
     }
 };
 

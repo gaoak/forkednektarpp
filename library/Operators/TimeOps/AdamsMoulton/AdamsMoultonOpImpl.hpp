@@ -51,7 +51,7 @@ class AdamsMoultonOpImpl : public AdamsMoultonOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
-    // Compile-time check for valid integration order
+    // Compile-time check for valid integration order.
     static_assert(
         IntOrder >= 1 && IntOrder <= 4,
         "The AdamsMoultonOp class is only implemented for order 1-4.");
@@ -60,7 +60,7 @@ public:
     AdamsMoultonOpImpl(const ExpListSharedPtr &expansionList)
         : AdamsMoultonOp<TData>(expansionList)
     {
-        // Initialize coefficients at construction time
+        // Initialize coefficients at construction time.
         SetCoefficients();
     }
 
@@ -81,19 +81,19 @@ protected:
 
     void v_Apply(Field<TData, FieldState::Phys> &inout) override
     {
-        // Check that implicit function is defined for IMEX
+        // Check that implicit function is defined.
         ASSERTL0(
             this->m_implicitFunctor,
             "AdamsMoulton schemes require a DoImplicit method. Define with "
             "AdamsMoultonOp->DefineImplicit().");
 
-        // Startup
+        // Startup.
         if (this->m_step + 1 < IntOrder)
         {
-            // Use DIRK scheme as startup
+            // Use DIRK scheme as startup.
             if (this->m_explicitFunctor)
             {
-                // Allocate new storage
+                // Allocate new storage.
                 this->m_implicits.push_front(
                     Field<TData, FieldState::Phys>::Create(
                         GetBlockAttributes<TData>(FieldState::Phys,
@@ -101,55 +101,55 @@ protected:
                         inout.GetNumComponents(), inout.GetNumHomoModes(),
                         ExecSpace::alignment));
 
-                // Initialise AdamsMoulton and hand-over the m_implicits deque
+                // Initialise AdamsMoulton and hand-over the m_implicits deque.
                 auto maxOrder = std::min(3u, IntOrder);
                 auto startup  = DIRKOp<TData>::Create(
                     this->m_expansionList, maxOrder, "", ExecSpace::name);
 
-                // Copy functors from outer/higher-order AdamsMoulton scheme
+                // Copy functors from outer/higher-order AdamsMoulton scheme.
                 startup->CopyFunctorsFrom(*this);
 
-                // Advance in time with startup
+                // Advance in time with startup.
                 startup->SetTime(this->m_time);
                 startup->SetStep(this->m_step);
                 startup->Apply(inout);
 
-                // Compute implicit terms
+                // Compute implicit terms.
                 this->DoExplicit(inout, this->m_implicits[0], this->m_time,
                                  this->m_timestep);
             }
-            // Use lower-order Adams-Moulton scheme as startup
+            // Use lower-order Adams-Moulton scheme as startup.
             else
             {
-                // Initialise AdamsMoulton and hand-over the m_implicits deque
+                // Initialise AdamsMoulton and hand-over the m_implicits deque.
                 auto startup = AdamsMoultonOp<TData>::Create(
                     this->m_expansionList, this->m_step + 1, ExecSpace::name);
 
-                // Copy functors from outer/higher-order AdamsMoulton scheme
+                // Copy functors from outer/higher-order AdamsMoulton scheme.
                 startup->CopyFunctorsFrom(*this);
 
-                // Move implicits to startup
+                // Move implicits to startup.
                 startup->SetImplicits(this->TakeImplicits());
 
-                // Advance in time with startup
+                // Advance in time with startup.
                 startup->SetTime(this->m_time);
                 startup->SetStep(this->m_step);
                 startup->Apply(inout);
 
-                // Move implicits back to higher-order AdamsMoulton
+                // Move implicits back to higher-order AdamsMoulton.
                 this->SetImplicits(startup->TakeImplicits());
             }
 
-            // Increment step and time
+            // Increment step and time.
             this->m_time += this->m_timestep;
             this->m_step++;
         }
-        // After startup
+        // After startup.
         else
         {
+            // Allocate new storage.
             if (this->m_implicits.size() < IntOrder)
             {
-                // Allocate new storage
                 this->m_implicits.push_back(
                     Field<TData, FieldState::Phys>::Create(
                         GetBlockAttributes<TData>(FieldState::Phys,
@@ -158,29 +158,29 @@ protected:
                         ExecSpace::alignment));
             }
 
+            // Do extrapolation.
             if constexpr (IntOrder > 1)
             {
-                // Do extrapolation.
                 UpdateSolution(
                     inout,
                     std::make_integer_sequence<unsigned int, IntOrder - 1>());
             }
 
             // Use this->m_implicits[0] as temporary storage for extrapolated
-            // solution
+            // solution.
             this->RollOver(inout, this->m_implicits);
 
-            // Compute next time step
+            // Compute next time step.
             this->DoImplicit(this->m_implicits[0], inout,
                              this->m_time + this->m_timestep,
                              m_gamma * this->m_timestep);
 
-            // Update implicit derivative
+            // Update implicit derivative.
             sub<ExecSpace>(inout, this->m_implicits[0], this->m_implicits[0]);
             mul<ExecSpace>(1.0 / m_gamma, this->m_implicits[0],
                            this->m_implicits[0]);
 
-            // Increment step and time
+            // Increment step and time.
             this->m_time += this->m_timestep;
             this->m_step++;
         }
@@ -195,13 +195,14 @@ protected:
         {
             // Determine shape and type of the element.
             auto &inoutBlock = inout.GetBlocks()[blk];
-            auto nelmt       = inoutBlock.GetNumElementsWithPadding();
-            auto nphys =
-                inoutBlock.GetNumData() * inoutBlock.GetNumComponents();
+            auto nsize       = inoutBlock.GetNumElementsWithPadding() *
+                         inoutBlock.GetNumData() *
+                         inoutBlock.GetNumComponents() *
+                         inoutBlock.GetNumHomoModes();
 
+            // Compute new solutions.
             UpdateSolutionKernel<ExecSpace, Scheme>(
-                nphys * nelmt,
-                inoutBlock.template GetPtr<MemSpace, ReadWrite>(),
+                nsize, inoutBlock.template GetPtr<MemSpace, ReadWrite>(),
                 (this->m_implicits[ind]
                      .GetBlocks()[blk]
                      .template GetPtr<MemSpace, ReadOnly>())...);

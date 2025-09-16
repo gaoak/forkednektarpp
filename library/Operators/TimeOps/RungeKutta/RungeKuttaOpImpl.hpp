@@ -125,12 +125,12 @@ protected:
 
     void v_Apply(Field<TData, FieldState::Phys> &inout) override
     {
-        // Check that explicit function is defined for IMEX
+        // Check that explicit function is defined.
         ASSERTL0(this->m_explicitFunctor,
                  "RungeKutta schemes require a DoExplicit method. Define with "
                  "RungeKuttaOp->DefineExplicit().");
 
-        // Allocate memory
+        // Allocate memory.
         if (this->m_solutions.size() == 0)
         {
             this->m_solutions.push_back(Field<TData, FieldState::Phys>::Create(
@@ -149,13 +149,15 @@ protected:
                 ExecSpace::alignment));
         }
 
-        // Apply Runge-Kutta scheme
-        this->m_solutions[0].template Copy<MemSpace>(inout);
+        // Ensure solution is in correct space.
+        this->DoProjection(inout, this->m_solutions[0], this->m_time);
+
+        // Apply Runge-Kutta scheme.
         Staging<1>(inout);
         UpdateSolution(inout,
                        std::make_integer_sequence<unsigned int, NStage()>());
 
-        // Increment step and time
+        // Increment step and time.
         this->m_time += this->m_timestep;
         this->m_step++;
     }
@@ -163,40 +165,49 @@ protected:
     template <unsigned int Stage>
     void Staging(Field<TData, FieldState::Phys> &inout)
     {
-        // Compute residual
         constexpr auto coeff =
             GetRungeKuttaTimeCoefficients<Scheme, IntOrder, TData>()[Stage - 1];
+
+        // Ensure solution is in correct space.
+        if constexpr (Stage != 1)
+        {
+            this->DoProjection(inout, inout,
+                               this->m_time + coeff * this->m_timestep);
+        }
+
+        // Compute explicit term.
         this->DoExplicit(inout, this->m_explicits[Stage - 1],
                          this->m_time + coeff * this->m_timestep,
                          this->m_timestep);
 
+        // Recursive loop over stages.
         if constexpr (Stage < NStage())
         {
-            // Compute stage
+            // Compute stage.
             UpdateStage(inout,
                         std::make_integer_sequence<unsigned int, Stage>());
 
-            // Do next stage
+            // Do next stage.
             Staging<Stage + 1>(inout);
         }
     }
 
     template <unsigned int... ind>
-    void UpdateStage(Field<TData, FieldState::Phys> &inout,
+    void UpdateStage(Field<TData, FieldState::Phys> &out,
                      std::integer_sequence<unsigned int, ind...>)
     {
         // Loop over the blocks.
-        for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
+        for (unsigned int blk = 0; blk < out.GetBlocks().size(); ++blk)
         {
             // Determine shape and type of the element.
-            auto &inoutBlock = inout.GetBlocks()[blk];
-            auto nelmt       = inoutBlock.GetNumElementsWithPadding();
-            auto nphys =
-                inoutBlock.GetNumData() * inoutBlock.GetNumComponents();
+            auto &outBlock = out.GetBlocks()[blk];
+            auto nsize     = outBlock.GetNumElementsWithPadding() *
+                         outBlock.GetNumData() * outBlock.GetNumComponents() *
+                         outBlock.GetNumHomoModes();
 
+            // Compute stage solution.
             UpdateStageKernel<ExecSpace, Scheme, IntOrder>(
-                nphys * nelmt,
-                inoutBlock.template GetPtr<MemSpace, ReadWrite>(),
+                nsize, outBlock.template GetPtr<MemSpace, WriteOnly>(),
                 this->m_solutions[0]
                     .GetBlocks()[blk]
                     .template GetPtr<MemSpace, ReadOnly>(),
@@ -207,21 +218,21 @@ protected:
     }
 
     template <unsigned int... ind>
-    void UpdateSolution(Field<TData, FieldState::Phys> &inout,
+    void UpdateSolution(Field<TData, FieldState::Phys> &out,
                         std::integer_sequence<unsigned int, ind...>)
     {
         // Loop over the blocks.
-        for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
+        for (unsigned int blk = 0; blk < out.GetBlocks().size(); ++blk)
         {
             // Determine shape and type of the element.
-            auto &inoutBlock = inout.GetBlocks()[blk];
-            auto nelmt       = inoutBlock.GetNumElementsWithPadding();
-            auto nphys =
-                inoutBlock.GetNumData() * inoutBlock.GetNumComponents();
+            auto &outBlock = out.GetBlocks()[blk];
+            auto nsize     = outBlock.GetNumElementsWithPadding() *
+                         outBlock.GetNumData() * outBlock.GetNumComponents() *
+                         outBlock.GetNumHomoModes();
 
+            // Compute new solution.
             UpdateSolutionKernel<ExecSpace, Scheme, IntOrder>(
-                nphys * nelmt,
-                inoutBlock.template GetPtr<MemSpace, ReadWrite>(),
+                nsize, outBlock.template GetPtr<MemSpace, WriteOnly>(),
                 this->m_solutions[0]
                     .GetBlocks()[blk]
                     .template GetPtr<MemSpace, ReadOnly>(),

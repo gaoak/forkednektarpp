@@ -53,7 +53,7 @@ public:
     DIRKOpImpl(const ExpListSharedPtr &expansionList)
         : DIRKOp<TData>(expansionList)
     {
-        // Compile-time check for valid integration order
+        // Compile-time check for valid integration order.
         if constexpr (std::is_same_v<Scheme, DIRKScheme>)
         {
             static_assert(IntOrder >= 1 && IntOrder <= 3,
@@ -115,19 +115,19 @@ protected:
 
     void v_Apply(Field<TData, FieldState::Phys> &inout) override
     {
-        // Check that implicit function is defined for DIRK
+        // Check that implicit function is defined.
         ASSERTL0(this->m_implicitFunctor,
                  "DIRK schemes require a DoImplicit method. Define with "
                  "DIRKOp->DefineImplicit().");
         if constexpr (std::is_same_v<Scheme, DIRK_ESScheme>)
         {
-            // Check that explicit function is defined for ESDIRK
+            // Check that explicit function is defined.
             ASSERTL0(this->m_explicitFunctor,
                      "DIRK_ES schemes require a DoExplicit method. Define with "
                      "DIRKOp->DefineExplicit().");
         }
 
-        // Allocate memory
+        // Allocate memory.
         if (this->m_solutions.size() == 0)
         {
             this->m_solutions.push_back(Field<TData, FieldState::Phys>::Create(
@@ -146,13 +146,24 @@ protected:
                 ExecSpace::alignment));
         }
 
-        // Apply Runge-Kutta scheme
-        this->m_solutions[0].template Copy<MemSpace>(inout);
+        // Ensure solution is in correct space.
+        constexpr auto lambda =
+            GetDIRKLambdaCoefficients<Scheme, IntOrder, TData>()[0];
+        if constexpr (lambda == 0.0)
+        {
+            this->DoProjection(inout, this->m_solutions[0], this->m_time);
+        }
+        else
+        {
+            this->m_solutions[0].template Copy<MemSpace>(inout);
+        }
+
+        // Apply Runge-Kutta scheme.
         Staging<1>(inout);
         UpdateSolution(inout,
                        std::make_integer_sequence<unsigned int, NStage()>());
 
-        // Increment step and time
+        // Increment step and time.
         this->m_time += this->m_timestep;
         this->m_step++;
     }
@@ -160,7 +171,7 @@ protected:
     template <unsigned int Stage>
     void Staging(Field<TData, FieldState::Phys> &inout)
     {
-        // Compute residual
+        // Compute explicit/implicit terms.
         constexpr auto coeff =
             GetDIRKTimeCoefficients<Scheme, IntOrder, TData>()[Stage - 1];
         constexpr auto lambda =
@@ -173,42 +184,46 @@ protected:
         }
         else
         {
+            // Update solution.
             this->DoImplicit(inout, this->m_implicits[Stage - 1],
                              this->m_time + coeff * this->m_timestep,
                              lambda * this->m_timestep);
+
+            // Compute implicit terms.
             sub<ExecSpace>(this->m_implicits[Stage - 1], inout,
                            this->m_implicits[Stage - 1]);
             mul<ExecSpace>(1.0 / lambda, this->m_implicits[Stage - 1],
                            this->m_implicits[Stage - 1]);
         }
 
+        // Recursive loop over stages.
         if constexpr (Stage < NStage())
         {
-            // Compute stage
+            // Compute stage.
             UpdateStage(inout,
                         std::make_integer_sequence<unsigned int, Stage>());
 
-            // Do next stage
+            // Do next stage.
             Staging<Stage + 1>(inout);
         }
     }
 
     template <unsigned int... ind>
-    void UpdateStage(Field<TData, FieldState::Phys> &inout,
+    void UpdateStage(Field<TData, FieldState::Phys> &out,
                      std::integer_sequence<unsigned int, ind...>)
     {
         // Loop over the blocks.
-        for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
+        for (unsigned int blk = 0; blk < out.GetBlocks().size(); ++blk)
         {
             // Determine shape and type of the element.
-            auto &inoutBlock = inout.GetBlocks()[blk];
-            auto nelmt       = inoutBlock.GetNumElementsWithPadding();
-            auto nphys =
-                inoutBlock.GetNumData() * inoutBlock.GetNumComponents();
+            auto &outBlock = out.GetBlocks()[blk];
+            auto nsize     = outBlock.GetNumElementsWithPadding() *
+                         outBlock.GetNumData() * outBlock.GetNumComponents() *
+                         outBlock.GetNumHomoModes();
 
+            // Compute stage solution.
             UpdateStageKernel<ExecSpace, Scheme, IntOrder>(
-                nphys * nelmt,
-                inoutBlock.template GetPtr<MemSpace, ReadWrite>(),
+                nsize, outBlock.template GetPtr<MemSpace, WriteOnly>(),
                 this->m_solutions[0]
                     .GetBlocks()[blk]
                     .template GetPtr<MemSpace, ReadOnly>(),
@@ -219,21 +234,21 @@ protected:
     }
 
     template <unsigned int... ind>
-    void UpdateSolution(Field<TData, FieldState::Phys> &inout,
+    void UpdateSolution(Field<TData, FieldState::Phys> &out,
                         std::integer_sequence<unsigned int, ind...>)
     {
         // Loop over the blocks.
-        for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
+        for (unsigned int blk = 0; blk < out.GetBlocks().size(); ++blk)
         {
             // Determine shape and type of the element.
-            auto &inoutBlock = inout.GetBlocks()[blk];
-            auto nelmt       = inoutBlock.GetNumElementsWithPadding();
-            auto nphys =
-                inoutBlock.GetNumData() * inoutBlock.GetNumComponents();
+            auto &outBlock = out.GetBlocks()[blk];
+            auto nsize     = outBlock.GetNumElementsWithPadding() *
+                         outBlock.GetNumData() * outBlock.GetNumComponents() *
+                         outBlock.GetNumHomoModes();
 
+            // Compute new solution.
             UpdateSolutionKernel<ExecSpace, Scheme, IntOrder>(
-                nphys * nelmt,
-                inoutBlock.template GetPtr<MemSpace, ReadWrite>(),
+                nsize, outBlock.template GetPtr<MemSpace, WriteOnly>(),
                 this->m_solutions[0]
                     .GetBlocks()[blk]
                     .template GetPtr<MemSpace, ReadOnly>(),

@@ -50,7 +50,7 @@ class BDFOpImpl : public BDFOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
-    // Compile-time check for valid integration order
+    // Compile-time check for valid integration order.
     static_assert(IntOrder >= 1 && IntOrder <= 4,
                   "The BDFOp class is only implemented for order 1-4.");
 
@@ -58,7 +58,7 @@ public:
     BDFOpImpl(const ExpListSharedPtr &expansionList)
         : BDFOp<TData>(expansionList)
     {
-        // Initialize coefficients at construction time
+        // Initialize coefficients at construction time.
         SetCoefficients();
     }
 
@@ -78,16 +78,16 @@ protected:
 
     void v_Apply(Field<TData, FieldState::Phys> &inout) override
     {
-        // Check that implicit function call is defined for BDF
+        // Check that implicit function call is defined.
         ASSERTL0(this->m_implicitFunctor,
                  "BDF schemes "
                  "require a DoImplicit method. Define with "
                  "BDFOp->DefineImplicit().");
 
-        // Startup
+        // Startup.
         if (this->m_step + 1 < IntOrder)
         {
-            // Save initial solution
+            // Save initial solution.
             this->m_solutions.push_front(Field<TData, FieldState::Phys>::Create(
                 "timestep n-" + std::to_string(this->m_step + 1),
                 GetBlockAttributes<TData>(FieldState::Phys,
@@ -97,24 +97,24 @@ protected:
 
             this->m_solutions[0].template Copy<MemSpace>(inout);
 
-            // Initialise DIRK scheme
+            // Initialise DIRK scheme.
             auto maxOrder = std::min(3u, IntOrder);
             auto startup  = DIRKOp<TData>::Create(this->m_expansionList,
                                                   maxOrder, "", ExecSpace::name);
 
-            // Copy functors from outer/higher-order BDF scheme
+            // Copy functors from outer/higher-order BDF scheme.
             startup->CopyFunctorsFrom(*this);
 
-            // Advance in time with startup
+            // Advance in time with startup.
             startup->SetTime(this->m_time);
             startup->SetStep(this->m_step);
             startup->Apply(inout);
 
-            // Increment step and time
+            // Increment step and time.
             this->m_time += this->m_timestep;
             this->m_step++;
         }
-        // After startup
+        // After startup.
         else
         {
             if constexpr (IntOrder > 1)
@@ -129,11 +129,11 @@ protected:
                     std::make_integer_sequence<unsigned int, IntOrder - 1>());
             }
 
-            // Compute next time step
+            // Compute next time step.
             this->DoImplicit(inout, inout, this->m_time + this->m_timestep,
                              m_gamma * this->m_timestep);
 
-            // Increment step and time
+            // Increment step and time.
             this->m_time += this->m_timestep;
             this->m_step++;
         }
@@ -148,13 +148,14 @@ protected:
         {
             // Determine shape and type of the element.
             auto &inoutBlock = inout.GetBlocks()[blk];
-            auto nelmt       = inoutBlock.GetNumElementsWithPadding();
-            auto nphys =
-                inoutBlock.GetNumData() * inoutBlock.GetNumComponents();
+            auto nsize       = inoutBlock.GetNumElementsWithPadding() *
+                         inoutBlock.GetNumData() *
+                         inoutBlock.GetNumComponents() *
+                         inoutBlock.GetNumHomoModes();
 
+            // Compute new solution.
             UpdateSolutionKernel<ExecSpace, Scheme>(
-                nphys * nelmt,
-                inoutBlock.template GetPtr<MemSpace, ReadWrite>(),
+                nsize, inoutBlock.template GetPtr<MemSpace, ReadWrite>(),
                 (this->m_solutions[ind]
                      .GetBlocks()[blk]
                      .template GetPtr<MemSpace, ReadOnly>())...);
