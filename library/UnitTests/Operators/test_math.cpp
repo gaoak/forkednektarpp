@@ -47,6 +47,24 @@
 
 BOOST_AUTO_TEST_SUITE(TestMath)
 
+BOOST_FIXTURE_TEST_CASE(abskernel, MathField)
+{
+    Configure();
+    SetTestCase();
+
+    // std results
+    MathField::abs();
+
+    // Backend results
+    math.abs(*fixt_in, *fixt_out);
+
+    // Check results
+    boost::test_tools::output_test_stream output;
+    {
+        BOOST_TEST(Compare(1.0E-15));
+    }
+}
+
 BOOST_FIXTURE_TEST_CASE(negkernel, MathField)
 {
     Configure();
@@ -57,6 +75,25 @@ BOOST_FIXTURE_TEST_CASE(negkernel, MathField)
 
     // Backend results
     math.neg(*fixt_in, *fixt_out);
+
+    // Check results
+    boost::test_tools::output_test_stream output;
+    {
+        BOOST_TEST(Compare(1.0E-15));
+    }
+}
+
+BOOST_FIXTURE_TEST_CASE(sqrtkernel, MathField)
+{
+    Configure();
+    SetTestCase();
+
+    // std results
+    MathField::sqrt();
+
+    // Backend results
+    math.abs(*fixt_in, *fixt_in2);
+    math.sqrt(*fixt_in2, *fixt_out);
 
     // Check results
     boost::test_tools::output_test_stream output;

@@ -45,6 +45,48 @@ namespace Nektar::Operators
 {
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
+void abs(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    if (x.size() != y.size())
+    {
+        std::stringstream msg;
+
+        msg << "MathKernel::abs - Memory size mismatch between Field";
+        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+    }
+
+    for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
+    {
+        auto in   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        auto out  = y.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
+        auto size = x.GetBlocks()[blk].size() * x.GetNumComponents();
+
+        absKernel<ExecSpace>(size, in, out);
+    }
+}
+
+template <typename ExecSpace, typename TData>
+void abs(MemoryRegion<TData> &x, MemoryRegion<TData> &y)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    if (x.size() != y.size())
+    {
+        std::stringstream msg;
+
+        msg << "MathKernel::abs - Memory size mismatch between Field";
+        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+    }
+
+    auto nsize = x.size();
+    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
+    auto yptr  = y.template GetPtr<MemSpace, WriteOnly>();
+    absKernel<ExecSpace>(nsize, xptr, yptr);
+}
+
+template <typename ExecSpace, typename TData, FieldState TFieldState>
 void neg(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y)
 {
     using MemSpace = typename ExecSpace::memory_space;
@@ -84,6 +126,48 @@ void neg(MemoryRegion<TData> &x, MemoryRegion<TData> &y)
     auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
     auto yptr  = y.template GetPtr<MemSpace, WriteOnly>();
     negKernel<ExecSpace>(nsize, xptr, yptr);
+}
+
+template <typename ExecSpace, typename TData, FieldState TFieldState>
+void sqrt(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    if (x.size() != y.size())
+    {
+        std::stringstream msg;
+
+        msg << "MathKernel::sqrt - Memory size mismatch between Field";
+        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+    }
+
+    for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
+    {
+        auto in   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        auto out  = y.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
+        auto size = x.GetBlocks()[blk].size() * x.GetNumComponents();
+
+        sqrtKernel<ExecSpace>(size, in, out);
+    }
+}
+
+template <typename ExecSpace, typename TData>
+void sqrt(MemoryRegion<TData> &x, MemoryRegion<TData> &y)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    if (x.size() != y.size())
+    {
+        std::stringstream msg;
+
+        msg << "MathKernel::sqrt - Memory size mismatch between Field";
+        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+    }
+
+    auto nsize = x.size();
+    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
+    auto yptr  = y.template GetPtr<MemSpace, WriteOnly>();
+    sqrtKernel<ExecSpace>(nsize, xptr, yptr);
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>

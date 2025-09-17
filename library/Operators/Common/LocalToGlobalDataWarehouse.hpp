@@ -366,7 +366,8 @@ public:
                 }
                 else // not sure this case will be used.
                 {
-                    ptr[cnt++] = (l2gmap[idx] < numDir) ? 0 : abs(sign[idx]);
+                    ptr[cnt++] =
+                        (l2gmap[idx] < numDir) ? 0 : std::abs(sign[idx]);
                 }
             }
         }
@@ -397,7 +398,7 @@ public:
                 }
                 else
                 {
-                    ptr[cnt++] = abs(sign[idx]);
+                    ptr[cnt++] = std::abs(sign[idx]);
                 }
             }
         }

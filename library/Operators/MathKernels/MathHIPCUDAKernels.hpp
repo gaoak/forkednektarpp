@@ -179,6 +179,18 @@ __device__ inline double2 operator+(const double2 &a, const double &b)
 }
 
 template <typename TData>
+__global__ void absKernel(const size_t nsize, const TData *x, TData *y)
+{
+    size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
+    size_t stride = blockDim.x * gridDim.x;
+
+    for (size_t idx = idx0; idx < nsize; idx += stride)
+    {
+        y[idx] = std::abs(x[idx]);
+    }
+}
+
+template <typename TData>
 __global__ void negKernel(const size_t nsize, const TData *x, TData *y)
 {
     size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
@@ -187,6 +199,18 @@ __global__ void negKernel(const size_t nsize, const TData *x, TData *y)
     for (size_t idx = idx0; idx < nsize; idx += stride)
     {
         y[idx] = -x[idx];
+    }
+}
+
+template <typename TData>
+__global__ void sqrtKernel(const size_t nsize, const TData *x, TData *y)
+{
+    size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
+    size_t stride = blockDim.x * gridDim.x;
+
+    for (size_t idx = idx0; idx < nsize; idx += stride)
+    {
+        y[idx] = std::sqrt(x[idx]);
     }
 }
 
@@ -1005,12 +1029,36 @@ __global__ void linfnormKernel(const size_t nsize, const TData *x, TData *out)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
+absKernel(const size_t nsize, const TData *x, TData *y)
+{
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+
+    absKernel<<<gridSize, blockSize>>>(nsize, x, y);
+    CHECK_LAST_HIPCUDA_ERROR();
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
 negKernel(const size_t nsize, const TData *x, TData *y)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     negKernel<<<gridSize, blockSize>>>(nsize, x, y);
+    CHECK_LAST_HIPCUDA_ERROR();
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
+sqrtKernel(const size_t nsize, const TData *x, TData *y)
+{
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+
+    sqrtKernel<<<gridSize, blockSize>>>(nsize, x, y);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
