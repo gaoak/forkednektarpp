@@ -60,7 +60,13 @@ public:
     }
 
     template <typename T>
+    OPERATORS_EXPORT void abs(T &x, T &y, const std::string &execSpace = "");
+
+    template <typename T>
     OPERATORS_EXPORT void neg(T &x, T &y, const std::string &execSpace = "");
+
+    template <typename T>
+    OPERATORS_EXPORT void sqrt(T &x, T &y, const std::string &execSpace = "");
 
     template <typename T>
     OPERATORS_EXPORT void add(T &x, T &y, T &z,

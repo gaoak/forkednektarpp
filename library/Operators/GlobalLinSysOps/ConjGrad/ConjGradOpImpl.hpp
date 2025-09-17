@@ -248,7 +248,8 @@ protected:
             if (eps < m_tol * m_tol * rhsMagnitude)
             {
                 std::cout << "iterations: " << totalIterations
-                          << " eps: " << sqrt(fabs((double)eps)) << std::endl;
+                          << " eps: " << std::sqrt(std::fabs((double)eps))
+                          << std::endl;
                 break;
             }
 

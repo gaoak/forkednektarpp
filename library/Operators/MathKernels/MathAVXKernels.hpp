@@ -52,6 +52,82 @@ namespace Nektar
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                                void>::type
+absKernel(const size_t nsize, const TData *x, TData *y)
+{
+    using namespace tinysimd;
+    using simd_t = simd<TData>;
+
+    size_t cnt = nsize;
+
+    // Vectorized loop unroll 4x
+    while (cnt >= 4 * simd_t::width)
+    {
+        simd_t xChunk0, xChunk1, xChunk2, xChunk3;
+
+        xChunk0.load(x, is_aligned);
+        xChunk1.load(x + simd_t::width, is_aligned);
+        xChunk2.load(x + 2 * simd_t::width, is_aligned);
+        xChunk3.load(x + 3 * simd_t::width, is_aligned);
+
+        simd_t yChunk0 = abs(xChunk0);
+        simd_t yChunk1 = abs(xChunk1);
+        simd_t yChunk2 = abs(xChunk2);
+        simd_t yChunk3 = abs(xChunk3);
+
+        yChunk0.store(y, is_aligned);
+        yChunk1.store(y + simd_t::width, is_aligned);
+        yChunk2.store(y + 2 * simd_t::width, is_aligned);
+        yChunk3.store(y + 3 * simd_t::width, is_aligned);
+
+        x += 4 * simd_t::width;
+        y += 4 * simd_t::width;
+        cnt -= 4 * simd_t::width;
+    }
+
+    // Unroll 2x
+    while (cnt >= 2 * simd_t::width)
+    {
+        simd_t xChunk0, xChunk1;
+
+        xChunk0.load(x, is_aligned);
+        xChunk1.load(x + simd_t::width, is_aligned);
+
+        simd_t yChunk0 = abs(xChunk0);
+        simd_t yChunk1 = abs(xChunk1);
+
+        yChunk0.store(y, is_aligned);
+        yChunk1.store(y + simd_t::width, is_aligned);
+
+        x += 2 * simd_t::width;
+        y += 2 * simd_t::width;
+        cnt -= 2 * simd_t::width;
+    }
+
+    // Vectorized loop
+    while (cnt >= simd_t::width)
+    {
+        simd_t xChunk;
+        xChunk.load(x, is_aligned);
+        simd_t yChunk = abs(xChunk);
+        yChunk.store(y, is_aligned);
+        x += simd_t::width;
+        y += simd_t::width;
+        cnt -= simd_t::width;
+    }
+
+    // Spillover loop
+    while (cnt)
+    {
+        *y = std::abs(*x);
+        ++x;
+        ++y;
+        --cnt;
+    }
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                               void>::type
 negKernel(const size_t nsize, const TData *x, TData *y)
 {
     using namespace tinysimd;
@@ -133,6 +209,54 @@ negKernel(const size_t nsize, const TData *x, TData *y)
         // y = -x;
         *y = -(*x);
         // update pointers
+        ++x;
+        ++y;
+        --cnt;
+    }
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                               void>::type
+sqrtKernel(const size_t nsize, const TData *x, TData *y)
+{
+    using namespace tinysimd;
+    using simd_t = simd<TData>;
+    size_t cnt   = nsize;
+
+    while (cnt >= 4 * simd_t::width)
+    {
+        simd_t xChunk0, xChunk1, xChunk2, xChunk3;
+        xChunk0.load(x, is_aligned);
+        xChunk1.load(x + simd_t::width, is_aligned);
+        xChunk2.load(x + 2 * simd_t::width, is_aligned);
+        xChunk3.load(x + 3 * simd_t::width, is_aligned);
+
+        simd_t yChunk0 = sqrt(xChunk0), yChunk1 = sqrt(xChunk1),
+               yChunk2 = sqrt(xChunk2), yChunk3 = sqrt(xChunk3);
+
+        yChunk0.store(y, is_aligned);
+        yChunk1.store(y + simd_t::width, is_aligned);
+        yChunk2.store(y + 2 * simd_t::width, is_aligned);
+        yChunk3.store(y + 3 * simd_t::width, is_aligned);
+
+        x += 4 * simd_t::width;
+        y += 4 * simd_t::width;
+        cnt -= 4 * simd_t::width;
+    }
+    while (cnt >= simd_t::width)
+    {
+        simd_t xvChunk;
+        xvChunk.load(x, is_aligned);
+        simd_t yvChunk = sqrt(xvChunk);
+        yvChunk.store(y, is_aligned);
+        x += simd_t::width;
+        y += simd_t::width;
+        cnt -= simd_t::width;
+    }
+    while (cnt)
+    {
+        *y = std::sqrt(*x);
         ++x;
         ++y;
         --cnt;

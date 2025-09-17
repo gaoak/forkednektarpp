@@ -219,7 +219,8 @@ protected:
                           << "       GMRES iterations made = "
                           << m_totalIterations << " using tolerance of "
                           << m_tol << " (error = "
-                          << sqrt(eps * m_prec_factor / m_rhs_magnitude) << ")";
+                          << std::sqrt(eps * m_prec_factor / m_rhs_magnitude)
+                          << ")";
 
                 std::cout << " WITH (GMRES eps = " << eps
                           << " REAL eps= " << eps1 << ")";
@@ -304,9 +305,9 @@ protected:
             }
         }
 
-        mul<ExecSpace>(sqrt(m_prec_factor), m_r0, m_r0);
+        mul<ExecSpace>(std::sqrt(m_prec_factor), m_r0, m_r0);
         eps *= m_prec_factor;
-        eta[0] = sqrt(eps);
+        eta[0] = std::sqrt(eps);
 
         // Give an order for the entries in Hessenburg matrix.
         for (unsigned int nd = 0; nd < m_LinSysMaxStorage; ++nd)
@@ -484,13 +485,13 @@ protected:
         else if (std::abs(hh) > std::abs(dd))
         {
             temp_dbl = -dd / hh;
-            s[idtem] = 1.0 / sqrt(1.0 + temp_dbl * temp_dbl);
+            s[idtem] = 1.0 / std::sqrt(1.0 + temp_dbl * temp_dbl);
             c[idtem] = temp_dbl * s[idtem];
         }
         else
         {
             temp_dbl = -hh / dd;
-            c[idtem] = 1.0 / sqrt(1.0 + temp_dbl * temp_dbl);
+            c[idtem] = 1.0 / std::sqrt(1.0 + temp_dbl * temp_dbl);
             s[idtem] = temp_dbl * c[idtem];
         }
 

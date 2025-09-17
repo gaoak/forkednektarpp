@@ -105,6 +105,22 @@ public:
         }
     }
 
+    void abs()
+    {
+        for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
+        {
+            auto x = fixt_in->GetBlocks()[blk]
+                         .GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+            auto y = fixt_expected->GetBlocks()[blk]
+                         .GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+            auto size = fixt_in->GetBlocks()[blk].GetNumElements() *
+                        fixt_in->GetBlocks()[blk].GetNumData();
+
+            std::transform(x, x + size, y,
+                           [](const double &xi) { return std::abs(xi); });
+        }
+    }
+
     void neg()
     {
         for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
@@ -117,6 +133,25 @@ public:
                         fixt_in->GetBlocks()[blk].GetNumData();
             std::transform(x, x + size, y,
                            [](const double &xi) { return -xi; });
+        }
+    }
+
+    void sqrt()
+    {
+        for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
+        {
+            auto x = fixt_in->GetBlocks()[blk]
+                         .GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+            auto y = fixt_expected->GetBlocks()[blk]
+                         .GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+            auto size = fixt_in->GetBlocks()[blk].GetNumElements() *
+                        fixt_in->GetBlocks()[blk].GetNumData();
+
+            // If inputs might be negative and want to avoid NaNs,
+            // replace std::sqrt(xi) with std::sqrt(std::abs(xi)).
+            std::transform(x, x + size, y, [](const double &xi) {
+                return std::sqrt(std::abs(xi));
+            });
         }
     }
 

@@ -46,6 +46,32 @@ static void *internal_device_buffer = nullptr;
 static void *internal_host_buffer   = nullptr;
 #endif
 
+template <typename T> void Math::abs(T &x, T &y, const std::string &execSpace)
+{
+    auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
+
+    if (execSpace0 == "Serial")
+    {
+        Nektar::Operators::abs<NektarSpaces::Serial>(x, y);
+    }
+#if defined(NEKTAR_ENABLE_SIMD)
+    else if (execSpace0 == "AVX")
+    {
+        Nektar::Operators::abs<NektarSpaces::AVX>(x, y);
+    }
+#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
+    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
+    else if (execSpace0 == "Device")
+    {
+        Nektar::Operators::abs<NektarSpaces::Device>(x, y);
+    }
+#endif
+    else
+    {
+        ASSERTL0(false, "Unknown Execution space: " + execSpace)
+    }
+}
+
 template <typename T> void Math::neg(T &x, T &y, const std::string &execSpace)
 {
     auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
@@ -64,6 +90,32 @@ template <typename T> void Math::neg(T &x, T &y, const std::string &execSpace)
     else if (execSpace0 == "Device")
     {
         Nektar::Operators::neg<NektarSpaces::Device>(x, y);
+    }
+#endif
+    else
+    {
+        ASSERTL0(false, "Unknown Execution space: " + execSpace)
+    }
+}
+
+template <typename T> void Math::sqrt(T &x, T &y, const std::string &execSpace)
+{
+    auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
+
+    if (execSpace0 == "Serial")
+    {
+        Nektar::Operators::sqrt<NektarSpaces::Serial>(x, y);
+    }
+#if defined(NEKTAR_ENABLE_SIMD)
+    else if (execSpace0 == "AVX")
+    {
+        Nektar::Operators::sqrt<NektarSpaces::AVX>(x, y);
+    }
+#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
+    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
+    else if (execSpace0 == "Device")
+    {
+        Nektar::Operators::sqrt<NektarSpaces::Device>(x, y);
     }
 #endif
     else
@@ -617,6 +669,26 @@ typename T::value_type Math::linfnorm(T &x, const std::string &execSpace)
     return out;
 }
 
+// abs template specialization.
+template void Math::abs<Field<double, FieldState::Phys>>(
+    Field<double, FieldState::Phys> &x, Field<double, FieldState::Phys> &y,
+    const std::string &execSpace);
+template void Math::abs<Field<float, FieldState::Phys>>(
+    Field<float, FieldState::Phys> &x, Field<float, FieldState::Phys> &y,
+    const std::string &execSpace);
+template void Math::abs<Field<double, FieldState::Coeff>>(
+    Field<double, FieldState::Coeff> &x, Field<double, FieldState::Coeff> &y,
+    const std::string &execSpace);
+template void Math::abs<Field<float, FieldState::Coeff>>(
+    Field<float, FieldState::Coeff> &x, Field<float, FieldState::Coeff> &y,
+    const std::string &execSpace);
+template void Math::abs<MemoryRegion<double>>(MemoryRegion<double> &x,
+                                              MemoryRegion<double> &y,
+                                              const std::string &execSpace);
+template void Math::abs<MemoryRegion<float>>(MemoryRegion<float> &x,
+                                             MemoryRegion<float> &y,
+                                             const std::string &execSpace);
+
 // neg template specialization.
 template void Math::neg<Field<double, FieldState::Phys>>(
     Field<double, FieldState::Phys> &x, Field<double, FieldState::Phys> &y,
@@ -636,6 +708,26 @@ template void Math::neg<MemoryRegion<double>>(MemoryRegion<double> &x,
 template void Math::neg<MemoryRegion<float>>(MemoryRegion<float> &x,
                                              MemoryRegion<float> &y,
                                              const std::string &execSpace);
+
+// sqrt template specialization.
+template void Math::sqrt<Field<double, FieldState::Phys>>(
+    Field<double, FieldState::Phys> &x, Field<double, FieldState::Phys> &y,
+    const std::string &execSpace);
+template void Math::sqrt<Field<float, FieldState::Phys>>(
+    Field<float, FieldState::Phys> &x, Field<float, FieldState::Phys> &y,
+    const std::string &execSpace);
+template void Math::sqrt<Field<double, FieldState::Coeff>>(
+    Field<double, FieldState::Coeff> &x, Field<double, FieldState::Coeff> &y,
+    const std::string &execSpace);
+template void Math::sqrt<Field<float, FieldState::Coeff>>(
+    Field<float, FieldState::Coeff> &x, Field<float, FieldState::Coeff> &y,
+    const std::string &execSpace);
+template void Math::sqrt<MemoryRegion<double>>(MemoryRegion<double> &x,
+                                               MemoryRegion<double> &y,
+                                               const std::string &execSpace);
+template void Math::sqrt<MemoryRegion<float>>(MemoryRegion<float> &x,
+                                              MemoryRegion<float> &y,
+                                              const std::string &execSpace);
 
 // add template specialization.
 template void Math::add<Field<double, FieldState::Phys>>(

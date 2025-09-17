@@ -49,9 +49,27 @@ namespace Nektar
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial>,
                                void>::type
+absKernel(const size_t nsize, const TData *x, TData *y)
+{
+    std::transform(x, x + nsize, y,
+                   [](const TData &xi) { return std::abs(xi); });
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial>,
+                               void>::type
 negKernel(const size_t nsize, const TData *x, TData *y)
 {
     std::transform(x, x + nsize, y, std::negate<TData>());
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial>,
+                               void>::type
+sqrtKernel(const size_t nsize, const TData *x, TData *y)
+{
+    std::transform(x, x + nsize, y,
+                   [](const TData &xi) { return std::sqrt(xi); });
 }
 
 template <typename ExecSpace, typename TData>

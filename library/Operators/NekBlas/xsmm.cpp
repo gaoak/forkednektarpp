@@ -38,6 +38,23 @@
 #include "libxsmm.h"
 
 template <typename THandle, typename TData>
+typename std::enable_if<std::is_same_v<THandle, xsmmHandle_t>, void>::type NekGemv(
+    THandle, std::string transpose, const int M, const int N, const TData alpha,
+    const TData *A, const int lda, const TData *x, const int incx,
+    const TData beta, TData *y, const int incy)
+{
+    ASSERTL0(transpose == "N", "libxsmm: transpose not supported in Gemv");
+
+    // Gemv is just Gemm with a single column vector
+    int lda0  = lda;
+    int incx0 = incx;
+    int incy0 = incy;
+    int n     = 1;
+    libxsmm_gemm(nullptr, nullptr, M, n, N, &alpha, A, &lda0, x, &incx0, &beta,
+                 y, &incy0);
+}
+
+template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, xsmmHandle_t>, void>::type NekGemm(
     [[maybe_unused]] THandle handle, std::string transposeA,
     std::string transposeB, const int M, const int N, const int K,
@@ -143,6 +160,16 @@ NekGemmGroupedBatched([[maybe_unused]] THandle handle, std::string transposeA,
         }
     }
 }
+
+template void NekGemv<xsmmHandle_t, float>(xsmmHandle_t, std::string, int, int,
+                                           float, const float *, int,
+                                           const float *, int, float, float *,
+                                           int);
+
+template void NekGemv<xsmmHandle_t, double>(xsmmHandle_t, std::string, int, int,
+                                            double, const double *, int,
+                                            const double *, int, double,
+                                            double *, int);
 
 template void NekGemm<xsmmHandle_t, float>(
     xsmmHandle_t handle, std::string transposeA, std::string transposeB,

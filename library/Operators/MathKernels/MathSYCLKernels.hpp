@@ -48,12 +48,60 @@ namespace Nektar
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
+absKernel(const size_t nsize, const TData *x, TData *y)
+{
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+
+    sycl::queue &Q = SYCLQueue::GetInstance();
+    Q.submit([=](sycl::handler &cgh) {
+        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
+                         [=](sycl::nd_item<1> indx) {
+                             size_t idx0   = indx.get_global_id(0);
+                             size_t stride = indx.get_global_range(0);
+
+                             for (size_t idx = idx0; idx < nsize; idx += stride)
+                             {
+                                 y[idx] = sycl::fabs(x[idx]);
+                             }
+                         });
+    });
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
 negKernel(const size_t nsize, const TData *x, TData *y)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
         cgh.parallel_for(sycl::range<1>(nsize),
                          [=](sycl::id<1> indx) { y[indx] = -x[indx]; });
+    });
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
+sqrtKernel(const size_t nsize, const TData *x, TData *y)
+{
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+
+    sycl::queue &Q = SYCLQueue::GetInstance();
+    Q.submit([=](sycl::handler &cgh) {
+        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
+                         [=](sycl::nd_item<1> indx) {
+                             size_t idx0   = indx.get_global_id(0);
+                             size_t stride = indx.get_global_range(0);
+
+                             for (size_t idx = idx0; idx < nsize; idx += stride)
+                             {
+                                 // sycl::sqrt selects the device overload
+                                 // (float/double)
+                                 y[idx] = sycl::sqrt(x[idx]);
+                             }
+                         });
     });
 }
 
