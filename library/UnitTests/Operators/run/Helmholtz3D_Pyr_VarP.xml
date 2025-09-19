@@ -114,7 +114,7 @@
         </BOUNDARYCONDITIONS>
 
         <FUNCTION NAME="Forcing">
-            <E VAR="u" VALUE="-(Lambda+3*PI*PI/4)*sin(PI/2*x)*sin(PI/2*y)*sin(PI/2*z)" />
+            <E VAR="u" VALUE="-(Lambda+3*PI*PI/4)*sin(PI/2*x)*sin(PI/2*y)*sin(PI/2*z)*exp(-t)" />
         </FUNCTION>
 
         <FUNCTION NAME="ExactSolution">

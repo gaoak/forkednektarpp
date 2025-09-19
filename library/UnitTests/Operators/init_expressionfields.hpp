@@ -68,12 +68,19 @@ public:
                     for (unsigned int phys = 0; phys < block.GetNumData();
                          ++phys, ++cnt)
                     {
-                        inptr[cnt] = 1.0;
+                        inptr[cnt] = 1.0 + n;
                     }
                 }
                 inptr += block.size();
             }
         }
+        // Set both to zero such that adding the forcing gives the same result
+        fixt_out->Initialize<NektarSpaces::HostSpace>(0.0);
+        fixt_expected->Initialize<NektarSpaces::HostSpace>(0.0);
+
+        // Define time and scalar
+        m_time  = 0.1;
+        m_scale = 2.0;
 
         // Compute expected solution.
         ExpectedSolution();
@@ -82,6 +89,8 @@ public:
     void RunTestCase()
     {
         auto op = ExpressionOp<double>::Create(fixt_explist, "Forcing");
+        op->SetTime(m_time);
+        op->SetScale(m_scale);
         op->Apply(*fixt_in, *fixt_out);
     }
 
@@ -100,8 +109,19 @@ public:
         Array<OneD, double> z(nphys);
         fixt_explist->GetCoords(x, y, z);
 
-        // Add forcing to fixt_in
+        // Copy fixt_in into NektarArray
         Array<OneD, double> inphys = fixt_in->ToArray();
+
+        // Gather fielddata (coordinates, time and EVARS)
+        std::vector<Array<OneD, const double>> fielddata;
+        fielddata.push_back(x);
+        fielddata.push_back(y);
+        fielddata.push_back(z);
+        fielddata.push_back(Array<OneD, double>(nphys, m_time));
+        for (unsigned int i = 0; i < nVariables; ++i)
+        {
+            fielddata.push_back(inphys + i * nphys);
+        }
 
         // Evaluate function from session file
         if (session->DefinesFunction("Forcing"))
@@ -114,15 +134,18 @@ public:
 
                 // Get and evaluate function
                 auto func = session->GetFunction("Forcing", i);
-                func->Evaluate(x, y, z, fce_var);
+                func->Evaluate(fielddata, fce_var);
 
-                // Append to input data
-                Vmath::Vadd(nphys, inphys + i * nphys, 1, fce_var, 1, fce_var,
-                            1);
+                // Multiply by scalar and add to input data
+                Vmath::Smul(nphys, m_scale, fce_var, 1, fce_var, 1);
             }
             fixt_expected->CopyArray<NektarSpaces::HostSpace>(fce);
         }
     }
+
+protected:
+    double m_time;
+    double m_scale;
 };
 
 #define TEST(type, filename)                                                   \
@@ -148,3 +171,9 @@ TEST(Helmholtz3D_Pyr, "run/Helmholtz3D_Pyr_VarP.xml")
 TEST(Helmholtz3D_Tet, "run/Helmholtz3D_Tet_VarP.xml")
 
 TEST(Helmholtz3D_3C, "run/Helmholtz3D_Hex_multicomponent.xml")
+
+TEST(Seg_3C_Evars, "run/segment_multicomponent_evars.xml")
+
+TEST(QuadTri_2C_Evars, "run/quadtri_multicomponent_evars.xml")
+
+TEST(Hex_3C_Evars, "run/hex_multicomponent_evars.xml")

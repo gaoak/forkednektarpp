@@ -68,4 +68,10 @@ TEST_EXPRESSION(expression3d_tet, Helmholtz3D_Tet, 1, 1.0E-12)
 
 TEST_EXPRESSION(expression3d_3c, Helmholtz3D_3C, 3, 1.0E-12)
 
+TEST_EXPRESSION(expression_seg_evars, Seg_3C_Evars, 3, 1.0E-12)
+
+TEST_EXPRESSION(expression_quad_tri_evars, QuadTri_2C_Evars, 2, 1.0E-12)
+
+TEST_EXPRESSION(expression_hex_evars, Hex_3C_Evars, 3, 1.0E-12)
+
 BOOST_AUTO_TEST_SUITE_END()

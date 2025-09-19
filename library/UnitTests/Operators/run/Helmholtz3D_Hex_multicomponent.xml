@@ -198,9 +198,9 @@
         </BOUNDARYCONDITIONS>
 
         <FUNCTION NAME="Forcing">
-            <E VAR="u" VALUE="-(Lambda + 3*A*A)*sin(A*x)*sin(A*y)*sin(A*z)" />
-            <E VAR="v" VALUE="-(Lambda + 3*B*B)*sin(B*x)*sin(B*y)*sin(B*z)" />
-            <E VAR="w" VALUE="-(Lambda + 3*C*C)*sin(C*x)*sin(C*y)*sin(C*z)" />
+            <E VAR="u" VALUE="-(Lambda + 3*A*A)*sin(A*x)*sin(A*y)*sin(A*z)*exp(-t)" />
+            <E VAR="v" VALUE="-(Lambda + 3*B*B)*sin(B*x)*sin(B*y)*sin(B*z)*exp(-2*t)" />
+            <E VAR="w" VALUE="-(Lambda + 3*C*C)*sin(C*x)*sin(C*y)*sin(C*z)*exp(-3*t)" />
         </FUNCTION>
 
         <FUNCTION NAME="ExactSolution">
