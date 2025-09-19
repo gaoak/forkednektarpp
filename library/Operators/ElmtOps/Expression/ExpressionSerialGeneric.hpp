@@ -75,6 +75,10 @@ protected:
     unsigned int m_dimension;
     unsigned int m_coordDim;
     unsigned int m_nqTot;
+    std::vector<unsigned int> m_numEvars;
+
+    TData m_time;
+    TData m_scale;
 
     std::vector<LibUtilities::EquationSharedPtr> m_expressions;
 
@@ -82,6 +86,8 @@ protected:
                  BlockAccessor<TData> &outblock) override
     {
         const auto nelmt = inblock.GetNumElements();
+        const auto compSize =
+            inblock.GetNumData() * inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -94,44 +100,86 @@ protected:
                             inblock.GetNumElements(), false));
 
         // Loop over components.
+        unsigned int nc;
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
+            // Get component index
+            nc = n / inblock.GetNumHomoModes();
+
+            // Pre-allocate vector for point-wise fielddata
+            std::vector<TData> fielddata(m_numEvars[nc]);
+
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
                 inblock.GetInterleaveWidth(),
                 inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
                 (TData *)inptr);
 
+            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                outblock.GetInterleaveWidth(),
+                outblock.GetNumElementsWithPadding(), outblock.GetNumData(),
+                (TData *)outptr);
+
             // Evaluate expression.
             auto coordptr = coordptr_init;
             for (size_t e = 0, cnt = 0; e < nelmt; e++)
             {
                 // Kernel operation.
+                unsigned int nev;
+                TData fce = 0.0;
                 for (unsigned int pt = 0; pt < m_nqTot; ++pt, ++cnt)
                 {
+                    // Gather fielddata
+                    fielddata[0] = *(coordptr);
+                    fielddata[1] = *(coordptr + 1);
+                    fielddata[2] = *(coordptr + 2);
+                    fielddata[3] = m_time;
+
+                    // Add EVARS, if required
+                    // Note we assume that inblock holds all fields as
+                    // components
+                    nev = 0;
+                    for (unsigned i = 4; i < m_numEvars[nc]; i++, nev++)
+                    {
+                        fielddata[i] = *(inptr + nev * compSize + cnt);
+                    }
+
                     // Evaluate the function assuming fixed input of x, y and z
                     // coordinate.
-                    auto fce = m_expressions[n]->Evaluate(
-                        *(coordptr), *(coordptr + 1), *(coordptr + 2));
+                    fce = m_expressions[n]->Evaluate(fielddata);
 
                     // Add fce to outptr.
-                    *(outptr + cnt) = *(inptr + cnt) + fce;
+                    *(outptr + cnt) += m_scale * fce;
 
                     coordptr += m_dimension;
                 }
             }
 
             // Increment pointer.
-            inptr += inblock.size();
             outptr += outblock.size();
         }
     }
 
     void v_SetExpressions(
-        std::vector<LibUtilities::EquationSharedPtr> &exprs) override
+        const std::vector<LibUtilities::EquationSharedPtr> &exprs) override
     {
         this->m_expressions = exprs;
+    }
+
+    void v_SetTime(const TData &time) override
+    {
+        this->m_time = time;
+    }
+
+    void v_SetScale(const TData &scale) override
+    {
+        this->m_scale = scale;
+    }
+
+    void v_SetNumEvars(const std::vector<unsigned int> &numEvars) override
+    {
+        this->m_numEvars = numEvars;
     }
 };
 

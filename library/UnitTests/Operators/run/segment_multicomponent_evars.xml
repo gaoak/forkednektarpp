@@ -33,8 +33,8 @@
     </GEOMETRY>
 
     <EXPANSIONS>
-        <E COMPOSITE="C[0]" NUMMODES="8" FIELDS="u" TYPE="MODIFIED" />
-        <E COMPOSITE="C[3]" NUMMODES="8" FIELDS="u" TYPE="MODIFIED" />
+        <E COMPOSITE="C[0]" NUMMODES="8" FIELDS="u,v,w" TYPE="MODIFIED" />
+        <E COMPOSITE="C[3]" NUMMODES="8" FIELDS="u,v,w" TYPE="MODIFIED" />
     </EXPANSIONS>
 
     <CONDITIONS>
@@ -46,41 +46,25 @@
             <I PROPERTY="Projection"       VALUE="Continuous"/>
         </SOLVERINFO>
 
-        <TIMEINTEGRATIONSCHEME>
-            <METHOD> BDFImplicit </METHOD>
-            <ORDER> 1 </ORDER>
-        </TIMEINTEGRATIONSCHEME>
-
         <PARAMETERS>
             <P> Lambda    = 10 </P>
             <P> IterativeSolverTolerance = 1e-14 </P>
+            <P> A = PI/2 </P>
+            <P> B = PI/4 </P>
+            <P> C = PI/8 </P>
             <P> TimeStep = 1e-4 </P>
         </PARAMETERS>
 
         <VARIABLES>
             <V ID="0"> u </V>
+            <V ID="1"> v </V>
+            <V ID="2"> w </V>
         </VARIABLES>
 
-        <BOUNDARYREGIONS>
-            <B ID="0"> C[1] </B>
-            <B ID="1"> C[2] </B>
-        </BOUNDARYREGIONS>
-
-        <BOUNDARYCONDITIONS>
-            <REGION REF="0">
-                <D VAR="u" VALUE="cos(PI*x)" />
-            </REGION>
-            <REGION REF="1">
-                <N VAR="u" VALUE="-PI*sin(PI*x)" />
-            </REGION>
-        </BOUNDARYCONDITIONS>
-
         <FUNCTION NAME="Forcing">
-            <E VAR="u" VALUE="-(Lambda + PI*PI)*cos(PI*x)*exp(-t)" />
-        </FUNCTION>
-
-        <FUNCTION NAME="ExactSolution">
-            <E VAR="u" VALUE="cos(PI*x)" />
+            <E VAR="u" EVARS="u v w" VALUE="-(Lambda + 3*A*A)*sin(A*x)*exp(-t)+w+v" />
+            <E VAR="v" EVARS="u v w" VALUE="-(Lambda + 3*B*B)*sin(B*x)*exp(-2*t)+u+w+v" />
+            <E VAR="w" EVARS="u v w" VALUE="-(Lambda + 3*C*C)*sin(C*x)*exp(-3*t)+v+u" />
         </FUNCTION>
 
     </CONDITIONS>

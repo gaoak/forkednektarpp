@@ -154,12 +154,7 @@
     </GEOMETRY>
 
     <EXPANSIONS>
-        <E COMPOSITE="C[0]"
-            BASISTYPE="Modified_A,Modified_A,Modified_A"
-            NUMMODES="4,6,8"
-            POINTSTYPE="GaussLobattoLegendre,GaussLobattoLegendre,GaussLobattoLegendre"
-            NUMPOINTS="5,7,9"
-            FIELDS="u" />
+        <E COMPOSITE="C[0]" NUMMODES="6" TYPE="MODIFIED" FIELDS="u,v,w" />
     </EXPANSIONS>
 
     <CONDITIONS>
@@ -170,37 +165,26 @@
             <I PROPERTY="Projection"       VALUE="Continuous"/>
         </SOLVERINFO>
 
-        <TIMEINTEGRATIONSCHEME>
-            <METHOD> BDFImplicit </METHOD>
-            <ORDER> 1 </ORDER>
-        </TIMEINTEGRATIONSCHEME>
-
         <PARAMETERS>
             <P> Lambda    = 1 </P>
             <P> IterativeSolverTolerance = 1e-14 </P>
+            <P> A = PI/2 </P>
+            <P> B = PI/4 </P>
+            <P> C = PI/8 </P>
             <P> TimeStep = 1e-4 </P>
         </PARAMETERS>
 
         <VARIABLES>
             <V ID="0"> u </V>
+            <V ID="1"> v </V>
+            <V ID="2"> w </V>
         </VARIABLES>
 
-        <BOUNDARYREGIONS>
-            <B ID="0"> C[1-6] </B>
-        </BOUNDARYREGIONS>
-
-        <BOUNDARYCONDITIONS>
-            <REGION REF="0">
-                <D VAR="u" VALUE="sin(PI/2*x)*sin(PI/2*y)*sin(PI/2*z)" />
-            </REGION>
-        </BOUNDARYCONDITIONS>
-
         <FUNCTION NAME="Forcing">
-            <E VAR="u" VALUE="-(Lambda + 3*PI*PI/4)*sin(PI/2*x)*sin(PI/2*y)*sin(PI/2*z)*exp(-t)" />
+            <E VAR="u" EVARS="u v w" VALUE="-(Lambda + 3*A*A)*sin(A*x)*sin(A*y)*sin(A*z)*exp(-t) + u + v + w" />
+            <E VAR="v" EVARS="u v w" VALUE="-(Lambda + 3*B*B)*sin(B*x)*sin(B*y)*sin(B*z)*exp(-2*t) + u + w" />
+            <E VAR="w" EVARS="u v w" VALUE="-(Lambda + 3*C*C)*sin(C*x)*sin(C*y)*sin(C*z)*exp(-3*t) + v" />
         </FUNCTION>
 
-        <FUNCTION NAME="ExactSolution">
-            <E VAR="u" VALUE="sin(PI/2*x)*sin(PI/2*y)*sin(PI/2*z)" />
-        </FUNCTION>
     </CONDITIONS>
 </NEKTAR>

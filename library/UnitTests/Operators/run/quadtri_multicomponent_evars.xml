@@ -225,8 +225,8 @@
     </GEOMETRY>
 
     <EXPANSIONS>
-        <E COMPOSITE="C[0]" NUMMODES="7" FIELDS="u" TYPE="MODIFIED" />
-        <E COMPOSITE="C[1]" NUMMODES="7" FIELDS="u" TYPE="MODIFIED" />
+        <E COMPOSITE="C[0]" NUMMODES="7" FIELDS="u,v" TYPE="MODIFIED" />
+        <E COMPOSITE="C[1]" NUMMODES="7" FIELDS="u,v" TYPE="MODIFIED" />
     </EXPANSIONS>
 
     <CONDITIONS>
@@ -238,75 +238,24 @@
             <I PROPERTY="Projection"       VALUE="Continuous"/>
         </SOLVERINFO>
 
-        <TIMEINTEGRATIONSCHEME>
-            <METHOD> BDFImplicit </METHOD>
-            <ORDER> 3 </ORDER>
-        </TIMEINTEGRATIONSCHEME>
-
         <PARAMETERS>
             <P> Lambda    = 10 </P>
             <P> IterativeSolverTolerance = 1e-14 </P>
+            <P> A = PI/2 </P>
+            <P> B = PI/4 </P>
+            <P> C = PI/8 </P>
             <P> TimeStep = 1e-4 </P>
         </PARAMETERS>
 
         <VARIABLES>
             <V ID="0"> u </V>
+            <V ID="1"> v </V>
         </VARIABLES>
 
-        <BOUNDARYREGIONS>
-            <B ID="0"> C[2] </B>
-            <B ID="1"> C[3] </B>
-            <B ID="2"> C[4] </B>
-            <B ID="3"> C[5] </B>
-            <B ID="4"> C[6] </B>
-            <B ID="5"> C[7] </B>
-            <B ID="6"> C[8] </B>
-            <B ID="7"> C[9] </B>
-            <B ID="8"> C[10] </B>
-        </BOUNDARYREGIONS>
-
-        <BOUNDARYCONDITIONS>
-            <REGION REF="0">
-                <D VAR="u" VALUE="sin(PI*x)*sin(PI*y)-1" />
-            </REGION>
-            <REGION REF="1">
-                <R VAR="u" VALUE="sin(PI*x)*sin(PI*y)-1-PI*sin(PI*x)*cos(PI*y)"
-                    PRIMCOEFF="1" />
-            </REGION>
-            <REGION REF="2">
-                <D VAR="u" VALUE="sin(PI*x)*sin(PI*y)-1" />
-            </REGION>
-            <REGION REF="3">
-                <N VAR="u"
-                    VALUE="(5/sqrt(61))*PI*cos(PI*x)*sin(PI*y)-(6/sqrt(61))*PI*sin(PI*x)*cos(PI*y)" />
-            </REGION>
-            <REGION REF="4">
-                <D VAR="u" VALUE="sin(PI*x)*sin(PI*y)-1" />
-            </REGION>
-            <REGION REF="5">
-                <N VAR="u" VALUE="PI*cos(PI*x)*sin(PI*y)" />
-            </REGION>
-            <REGION REF="6">
-                <D VAR="u" VALUE="sin(PI*x)*sin(PI*y)-1" />
-            </REGION>
-            <REGION REF="7">
-                <R VAR="u"
-                    VALUE="sin(PI*x)*sin(PI*y) -1+ (5/sqrt(61))*PI*cos(PI*x)*sin(PI*y)+(6/sqrt(61))*PI*sin(PI*x)*cos(PI*y)"
-                    PRIMCOEFF="1" />
-            </REGION>
-            <REGION REF="8">
-                <D VAR="u" VALUE="sin(PI*x)*sin(PI*y)-1" />
-            </REGION>
-        </BOUNDARYCONDITIONS>
-
         <FUNCTION NAME="Forcing">
-            <E VAR="u" VALUE="-Lambda*(sin(PI*x)*sin(PI*y)-1) - 2*PI*PI*sin(PI*x)*sin(PI*y)*exp(-t)" />
+            <E VAR="u" EVARS="u v" VALUE="-(Lambda + 3*A*A)*sin(A*x)*sin(A*y)*exp(-t)+v+u" />
+            <E VAR="v" EVARS="u v" VALUE="-(Lambda + 3*B*B)*sin(B*x)*sin(B*y)*exp(-2*t)+u" />
         </FUNCTION>
-
-        <FUNCTION NAME="ExactSolution">
-            <E VAR="u" VALUE="sin(PI*x)*sin(PI*y)-1" />
-        </FUNCTION>
-
     </CONDITIONS>
 
 </NEKTAR>

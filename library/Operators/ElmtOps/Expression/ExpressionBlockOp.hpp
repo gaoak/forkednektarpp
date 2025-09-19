@@ -53,9 +53,25 @@ public:
 
     static inline const std::string name = "BlockExpression";
 
-    void SetExpressions(std::vector<LibUtilities::EquationSharedPtr> &exprs)
+    void SetExpressions(
+        const std::vector<LibUtilities::EquationSharedPtr> &exprs)
     {
         v_SetExpressions(exprs);
+    }
+
+    void SetTime(const TData &time)
+    {
+        v_SetTime(time);
+    }
+
+    void SetScale(const TData &scale)
+    {
+        v_SetScale(scale);
+    }
+
+    void SetNumEvars(const std::vector<unsigned int> &numEvars)
+    {
+        v_SetNumEvars(numEvars);
     }
 
 protected:
@@ -70,7 +86,13 @@ protected:
     ~ExpressionBlockOp() override = default;
 
     virtual void v_SetExpressions(
-        std::vector<LibUtilities::EquationSharedPtr> &exprs) = 0;
+        const std::vector<LibUtilities::EquationSharedPtr> &exprs) = 0;
+
+    virtual void v_SetTime(const TData &time) = 0;
+
+    virtual void v_SetScale(const TData &scale) = 0;
+
+    virtual void v_SetNumEvars(const std::vector<unsigned int> &numEvars) = 0;
 };
 
 } // namespace Nektar::Operators

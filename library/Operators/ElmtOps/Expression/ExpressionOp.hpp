@@ -59,26 +59,63 @@ public:
                 ExpressionOp, ExpressionBlockOp>(expansionList, execStr,
                                                  implStr);
 
-        auto session    = expansionList->GetSession();
-        auto nvariables = session->GetVariables().size();
+        auto session   = expansionList->GetSession();
+        auto numFields = session->GetVariables().size();
+
+        // Gather all expressions defined in session file
+        std::vector<LibUtilities::EquationSharedPtr> expressions;
+        std::vector<unsigned int> numEvars;
+        for (unsigned int nf = 0; nf < numFields; ++nf)
+        {
+            // Read expression for each component
+            expressions.push_back(
+                expansionList->GetSession()->GetFunction(exprStr, nf));
+
+            // Check if we use EVARS (expression variables)
+            // Note that by default we use 4 variables: x, y, z, t
+            auto variableList = expressions[nf]->GetVlist();
+            std::vector<std::string> vars;
+            boost::split(vars, variableList, boost::is_any_of(", "));
+            numEvars.push_back(vars.size());
+        }
 
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < op->m_blockOp.size(); ++blk)
         {
-            // Read expression for each component
-            std::vector<LibUtilities::EquationSharedPtr> expressions;
-            for (unsigned int nvar = 0; nvar < nvariables; ++nvar)
-            {
-                expressions.push_back(
-                    expansionList->GetSession()->GetFunction(exprStr, nvar));
-            }
-
+            // Set expressions for each component
             op->m_blockOp[blk]->SetExpressions(expressions);
+
+            // Set number of expression variables
+            op->m_blockOp[blk]->SetNumEvars(numEvars);
+
+            // Note: m_time defaults to 0.0
+            op->m_blockOp[blk]->SetTime(0.0);
+
+            // Default scale to 1.0
+            op->m_blockOp[blk]->SetScale(1.0);
         }
         return op;
     }
 
     static inline const std::string name = "Expression";
+
+    void SetTime(const TData &time)
+    {
+        // Loop over the blocks.
+        for (unsigned int blk = 0; blk < m_blockOp.size(); ++blk)
+        {
+            this->m_blockOp[blk]->SetTime(time);
+        }
+    }
+
+    void SetScale(const TData &scale)
+    {
+        // Loop over the blocks.
+        for (unsigned int blk = 0; blk < m_blockOp.size(); ++blk)
+        {
+            this->m_blockOp[blk]->SetScale(scale);
+        }
+    }
 
 protected:
     std::vector<std::shared_ptr<ExpressionBlockOp<TData>>> m_blockOp;
