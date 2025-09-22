@@ -101,6 +101,9 @@ protected:
         ASSERTL0(this->m_explicitFunctor,
                  "IMEXdirk schemes require a DoExplicit method. Define with "
                  "IMEXdirkOp->DefineExplicit().");
+        ASSERTL0(this->m_projectionFunctor,
+                 "IMEXdirk schemes require a DoProjection method. Define with "
+                 "IMEXdirkOp->DefineProjection().");
 
         // Allocate memory.
         if (this->m_solutions.size() == 0)

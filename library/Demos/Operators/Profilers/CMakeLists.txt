@@ -1,11 +1,9 @@
 SET(ProfilerMathKernelsSource SOURCES ProfilerMathKernels.cpp)
-
 SET(ProfilerElmtOps SOURCES ProfilerElmtOps.cpp)
-
+SET(ProfilerTimeOps SOURCES ProfilerTimeOps.cpp)
 SET(ProfilerBP SOURCES ProfilerBP.cpp)
 
 ADD_SOLVER_EXECUTABLE(ProfilerMathKernels SOURCES ${ProfilerMathKernelsSource})
-
 ADD_SOLVER_EXECUTABLE(ProfilerElmtOps SOURCES ${ProfilerElmtOps})
-
+ADD_SOLVER_EXECUTABLE(ProfilerTimeOps SOURCES ${ProfilerTimeOps})
 ADD_SOLVER_EXECUTABLE(ProfilerBP SOURCES ${ProfilerBP})

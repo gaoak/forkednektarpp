@@ -81,6 +81,10 @@ protected:
             this->m_explicitFunctor,
             "AdamsBashforth schemes require a DoExplicit method. Define with "
             "AdamsBashforthOp->DefineExplicit().");
+        ASSERTL0(
+            this->m_projectionFunctor,
+            "AdamsBashforth schemes require a DoProjection method. Define with "
+            "AdamsBashforthOp->DefineProjection().");
 
         // Startup.
         if (this->m_step + 1 < IntOrder)

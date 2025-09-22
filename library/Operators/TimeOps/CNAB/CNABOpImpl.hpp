@@ -112,6 +112,9 @@ protected:
         ASSERTL0(this->m_explicitFunctor,
                  "CNAB schemes require a DoExplicit method. Define with "
                  "CNABOp->DefineExplicit().");
+        ASSERTL0(this->m_projectionFunctor,
+                 "CNAB schemes require a DoProjection method. Define with "
+                 "CNABOp->DefineProjection().");
 
         // Startup.
         if (this->m_step + 1 <= Nimplicit())

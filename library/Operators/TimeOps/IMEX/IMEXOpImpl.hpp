@@ -87,6 +87,9 @@ protected:
         ASSERTL0(this->m_explicitFunctor,
                  "IMEX schemes require a DoExplicit method. Define with "
                  "IMEXOp->DefineExplicit().");
+        ASSERTL0(this->m_projectionFunctor,
+                 "IMEX schemes require a DoProjection method. Define with "
+                 "IMEXOp->DefineProjection().");
 
         // Startup.
         if (this->m_step + 1 < IntOrder)

@@ -129,6 +129,10 @@ protected:
         ASSERTL0(this->m_explicitFunctor,
                  "RungeKutta schemes require a DoExplicit method. Define with "
                  "RungeKuttaOp->DefineExplicit().");
+        ASSERTL0(
+            this->m_projectionFunctor,
+            "RungeKutta schemes require a DoProjection method. Define with "
+            "RungeKuttaOp->DefineProjection().");
 
         // Allocate memory.
         if (this->m_solutions.size() == 0)
