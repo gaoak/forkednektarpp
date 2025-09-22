@@ -125,6 +125,10 @@ protected:
             ASSERTL0(this->m_explicitFunctor,
                      "DIRK_ES schemes require a DoExplicit method. Define with "
                      "DIRKOp->DefineExplicit().");
+            ASSERTL0(
+                this->m_projectionFunctor,
+                "DIRK_ES schemes require a DoProjection method. Define with "
+                "DIRKOp->DefineProjection().");
         }
 
         // Allocate memory.
