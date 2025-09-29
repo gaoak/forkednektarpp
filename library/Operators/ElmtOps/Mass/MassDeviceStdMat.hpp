@@ -75,10 +75,21 @@ public:
                 ? exp->GetNodalPointsKey().GetPointsType()
                 : LibUtilities::eNoPointsType;
 
-        m_bwdmat = dataWarehouse->template GetData<ExecSpace>(StdMatKey<TData>(
-            basisKeys, m_shapeType, eBwdTransStdMat, nodalType));
-        m_ipbmat = dataWarehouse->template GetData<ExecSpace>(StdMatKey<TData>(
-            basisKeys, m_shapeType, eIProductWRTBaseStdMat, nodalType));
+        if (m_isDeformed)
+        {
+            m_bwdmat =
+                dataWarehouse->template GetData<ExecSpace>(StdMatKey<TData>(
+                    basisKeys, m_shapeType, eBwdTransStdMat, nodalType));
+            m_ipbmat =
+                dataWarehouse->template GetData<ExecSpace>(StdMatKey<TData>(
+                    basisKeys, m_shapeType, eIProductWRTBaseStdMat, nodalType));
+        }
+        else
+        {
+            m_massmat =
+                dataWarehouse->template GetData<ExecSpace>(StdMatKey<TData>(
+                    basisKeys, m_shapeType, eMassStdMat, nodalType));
+        }
     }
 
     // className - for BlockOperatorFactory
@@ -105,6 +116,7 @@ protected:
     unsigned int m_nqTot;
     const TData *m_bwdmat;
     const TData *m_ipbmat;
+    const TData *m_massmat;
     MemoryRegion<TData> m_bwd;
 
     void v_Apply(BlockAccessor<TData> &inblock,
@@ -146,27 +158,35 @@ protected:
                 inblock.GetInterleaveWidth(), nelmtTot, inblock.GetNumData(),
                 (TData *)inptr);
 
-            // Step 1: BwdTrans
-            // Perform matrix-matrix multiply.
-            NekGemm(handle, "N", "N", m_nqTot, nelmtTot, m_nmTot, 1.0, m_bwdmat,
-                    m_nqTot, inptr, m_nmTot, 0.0, bwdptr, m_nqTot);
-
-            // Step 2: IProduct
-            // Multiply by jacobian.
             if (m_isDeformed)
             {
+                // Step 1: BwdTrans
+                // Perform matrix-matrix multiply.
+                NekGemm(handle, "N", "N", m_nqTot, nelmtTot, m_nmTot, 1.0,
+                        m_bwdmat, m_nqTot, inptr, m_nmTot, 0.0, bwdptr,
+                        m_nqTot);
+
+                // Multiply by jacobian.
                 MultiplyByJacobianKernel<ExecSpace, true>(
                     m_nqTot, nelmt, nhomo, jacptr, bwdptr, bwdptr, 1.0);
+
+                // Step 2: IProduct
+                // Perform matrix-matrix multiply.
+                NekGemm(handle, "N", "N", m_nmTot, nelmtTot, m_nqTot, 1.0,
+                        m_ipbmat, m_nmTot, bwdptr, m_nqTot, 0.0, outptr,
+                        m_nmTot);
             }
             else
             {
-                MultiplyByJacobianKernel<ExecSpace, false>(
-                    m_nqTot, nelmt, nhomo, jacptr, bwdptr, bwdptr, 1.0);
-            }
+                // Perform matrix-matrix multiply.
+                NekGemm(handle, "N", "N", m_nmTot, nelmtTot, m_nmTot, 1.0,
+                        m_massmat, m_nmTot, inptr, m_nmTot, 0.0, outptr,
+                        m_nmTot);
 
-            // Perform matrix-matrix multiply.
-            NekGemm(handle, "N", "N", m_nmTot, nelmtTot, m_nqTot, 1.0, m_ipbmat,
-                    m_nmTot, bwdptr, m_nqTot, 0.0, outptr, m_nmTot);
+                // Multiply by jacobian.
+                MultiplyByJacobianKernel<ExecSpace, false>(
+                    m_nmTot, nelmt, nhomo, jacptr, outptr, outptr, 1.0);
+            }
 
             // Increment pointers.
             inptr += inblock.size() * inblock.GetNumHomoModes();

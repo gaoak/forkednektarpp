@@ -78,11 +78,21 @@ public:
                 ? exp->GetNodalPointsKey().GetPointsType()
                 : LibUtilities::eNoPointsType;
 
-        m_bwdmat = dataWarehouse->template GetData<ExecSpace>(StdMatKey<TData>(
-            basisKeys, m_shapeType, eBwdTransStdMatTranspose, nodalType));
-        m_ipbmat = dataWarehouse->template GetData<ExecSpace>(
-            StdMatKey<TData>(basisKeys, m_shapeType,
-                             eIProductWRTBaseStdMatTranspose, nodalType));
+        if (m_isDeformed)
+        {
+            m_bwdmat = dataWarehouse->template GetData<ExecSpace>(
+                StdMatKey<TData>(basisKeys, m_shapeType,
+                                 eBwdTransStdMatTranspose, nodalType));
+            m_ipbmat = dataWarehouse->template GetData<ExecSpace>(
+                StdMatKey<TData>(basisKeys, m_shapeType,
+                                 eIProductWRTBaseStdMatTranspose, nodalType));
+        }
+        else
+        {
+            m_massmat =
+                dataWarehouse->template GetData<ExecSpace>(StdMatKey<TData>(
+                    basisKeys, m_shapeType, eMassStdMatTranspose, nodalType));
+        }
     }
 
     // className - for BlockOperatorFactory
@@ -107,6 +117,7 @@ protected:
     unsigned int m_coordDim;
     unsigned int m_nmTot;
     unsigned int m_nqTot;
+    const TData *m_massmat;
     const TData *m_bwdmat;
     const TData *m_ipbmat;
     MemoryRegion<TData> m_bwd;
@@ -140,6 +151,8 @@ protected:
             simd_t::width, m_nqTot, m_nmTot, 1.0, 0.0);
         auto ipb_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
             simd_t::width, m_nmTot, m_nqTot, 1.0, 0.0);
+        auto mass_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
+            simd_t::width, m_nmTot, m_nmTot, 1.0, 0.0);
 
         // Get interleave parameter.
         const auto interleave_width = inblock.GetInterleaveWidth();
@@ -166,35 +179,43 @@ protected:
                         interleave_width, chunkSize, m_nmTot, (TData *)inptr);
                 }
 
-                // Step 1: BwdTrans
-                // Perform matrix-matrix multiply.
-                bwd_kernel(inptr, m_bwdmat, bwdptr);
-
-                // Step 2: IProduct
-                // Multiply by jacobian.
                 if (m_isDeformed)
                 {
+                    // Step 1: BwdTrans
+                    // Perform matrix-matrix multiply.
+                    bwd_kernel(inptr, m_bwdmat, bwdptr);
+
+                    // Multiply by jacobian.
                     MultiplyByJacobianKernel<ExecSpace, true>(
                         m_nqTot, 1, reinterpret_cast<const simd_t *>(jacptr),
                         reinterpret_cast<const simd_t *>(bwdptr),
                         reinterpret_cast<simd_t *>(bwdptr), 1.0);
+
+                    // Step 2: IProduct
+                    // Perform matrix-matrix multiply.
+                    ipb_kernel(bwdptr, m_ipbmat, outptr);
+
+                    // Increment pointers.
+                    inptr += m_nmTot * simd_t::width;
+                    outptr += m_nmTot * simd_t::width;
                     jacptr += m_nqTot * simd_t::width;
                 }
                 else
                 {
+                    // Perform matrix-matrix multiply.
+                    mass_kernel(inptr, m_massmat, outptr);
+
+                    // Multiply by jacobian.
                     MultiplyByJacobianKernel<ExecSpace, false>(
-                        m_nqTot, 1, reinterpret_cast<const simd_t *>(jacptr),
-                        reinterpret_cast<const simd_t *>(bwdptr),
-                        reinterpret_cast<simd_t *>(bwdptr), 1.0);
+                        m_nmTot, 1, reinterpret_cast<const simd_t *>(jacptr),
+                        reinterpret_cast<const simd_t *>(outptr),
+                        reinterpret_cast<simd_t *>(outptr), 1.0);
+
+                    // Increment pointers.
+                    inptr += m_nmTot * simd_t::width;
+                    outptr += m_nmTot * simd_t::width;
                     jacptr += simd_t::width;
                 }
-
-                // Perform matrix-matrix multiply.
-                ipb_kernel(bwdptr, m_ipbmat, outptr);
-
-                // Increment pointers.
-                inptr += m_nmTot * simd_t::width;
-                outptr += m_nmTot * simd_t::width;
             }
         }
 
