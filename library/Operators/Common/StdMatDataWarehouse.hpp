@@ -70,7 +70,9 @@ enum StdMatType
     eIProductWRTDerivBaseStdMatTranspose = 8,
     ePhysInterpStdMat                    = 9,
     ePhysInterpStdMatTranspose           = 10,
-    eMultiplyByElmtInvMassStdMat         = 11,
+    eMassStdMat                          = 11,
+    eMassStdMatTranspose                 = 12,
+    eMultiplyByElmtInvMassStdMat         = 13,
 };
 
 class StdMatDataCreator;
@@ -496,6 +498,42 @@ public:
                         // Copy to mat with stride nmTot
                         Vmath::Vcopy(nqTot, &t[0], 1, &mat[i], nmTot);
                     }
+                }
+
+                return MemoryRegion<TData>::template FromArray<MemSpace>(
+                    mat, alignment);
+            }
+            break;
+            case eMassStdMat:
+            {
+                Nektar::StdRegions::StdMatrixKey mkey(
+                    StdRegions::eMass, stdExp->DetShapeType(), *stdExp);
+                Array<OneD, NekDouble> tmp(nmTot), t;
+                Array<OneD, NekDouble> mat(nmTot * nmTot);
+                for (unsigned int i = 0; i < nmTot; ++i)
+                {
+                    Vmath::Zero(nmTot, tmp, 1);
+                    tmp[i] = 1.0;
+                    stdExp->MassMatrixOp(tmp, t = mat + i * nmTot, mkey);
+                }
+
+                return MemoryRegion<TData>::template FromArray<MemSpace>(
+                    mat, alignment);
+            }
+            break;
+            case eMassStdMatTranspose:
+            {
+                Nektar::StdRegions::StdMatrixKey mkey(
+                    StdRegions::eMass, stdExp->DetShapeType(), *stdExp);
+                Array<OneD, NekDouble> tmp(nmTot), t(nmTot);
+                Array<OneD, NekDouble> mat(nmTot * nmTot);
+                for (unsigned int i = 0; i < nmTot; ++i)
+                {
+                    Vmath::Zero(nmTot, tmp, 1);
+                    tmp[i] = 1.0;
+                    stdExp->MassMatrixOp(tmp, t, mkey);
+                    // copy to mat with stride nmTot
+                    Vmath::Vcopy(nmTot, &t[0], 1, &mat[i], nmTot);
                 }
 
                 return MemoryRegion<TData>::template FromArray<MemSpace>(
