@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: AdamsMoultonOp.hpp
+// File: IMEXSDCKernelLaunchers.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,34 +34,52 @@
 
 #pragma once
 
-#include "Operators/TimeOps/TimeOp.hpp"
+#include "Operators/LoopExecution/LoopExecution.hpp"
 
-namespace Nektar::Operators
+namespace Nektar::Operators::detail
 {
 
-// AdamsMoulton base class
-// Defines the apply operator to enforce apply parameter types
-template <typename TData> class AdamsMoultonOp : public TimeOp<TData>
+template <typename ExecSpace, typename TData>
+NEK_FORCE_INLINE static void IterateIMEXSDCSolutionKernel(
+    const unsigned int nsize, const TData dtn, const TData *in,
+    const TData *sfint, TData *inout)
 {
-public:
-    static std::shared_ptr<AdamsMoultonOp<TData>> Create(
-        const MultiRegions::ExpListSharedPtr &expansionList,
-        const unsigned int &order = 0, const std::string &execStr = "")
-    {
-        return std::dynamic_pointer_cast<AdamsMoultonOp<TData>>(
-            TimeOp<TData>::Create(expansionList, name, order, "",
-                                  std::vector<TData>{}, execStr));
-    }
+    Nektar::parallel_for<ExecSpace>(
+        0, nsize, NEKTAR_LAMBDA(const size_t idx) {
+            TData tmp  = in[idx];
+            TData tmp1 = inout[idx];
+            tmp -= dtn * tmp1;
+            tmp += sfint[idx];
+            inout[idx] = tmp;
+        });
+}
 
-    static inline const std::string name = "AdamsMoulton";
+template <typename ExecSpace, typename TData>
+NEK_FORCE_INLINE static void IterateIMEXSDCSolutionKernel(
+    const unsigned int nsize, const TData dtn, const TData *in,
+    const TData *explicits, const TData *sfint, TData *inout)
+{
+    Nektar::parallel_for<ExecSpace>(
+        0, nsize, NEKTAR_LAMBDA(const size_t idx) {
+            TData tmp  = in[idx];
+            TData tmp1 = inout[idx];
+            tmp += dtn * explicits[idx];
+            tmp -= dtn * tmp1;
+            tmp += sfint[idx];
+            inout[idx] = tmp;
+        });
+}
 
-protected:
-    AdamsMoultonOp(const MultiRegions::ExpListSharedPtr &expansionList)
-        : TimeOp<TData>(expansionList)
-    {
-    }
+template <typename ExecSpace, typename TData>
+NEK_FORCE_INLINE static void UpdateIMEXIntegratedResidualKernel(
+    const unsigned int nsize, const TData dtn, const TData *explicits,
+    TData *out)
+{
+    Nektar::parallel_for<ExecSpace>(
+        0, nsize, NEKTAR_LAMBDA(const size_t idx) {
+            // Add explicit contribution to SFint
+            out[idx] -= dtn * explicits[idx];
+        });
+}
 
-    ~AdamsMoultonOp() override = default;
-};
-
-} // namespace Nektar::Operators
+} // namespace Nektar::Operators::detail

@@ -47,7 +47,7 @@
         SetTestCase(-10.0);                                                    \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
-            BOOST_TEST(CheckOrderOfAccuracy("AdamsMoulton", order));           \
+            BOOST_TEST(CheckOrderOfAccuracy("AdamsMoulton", "", order));       \
         }                                                                      \
     }
 

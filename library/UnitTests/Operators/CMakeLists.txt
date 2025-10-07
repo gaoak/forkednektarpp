@@ -55,6 +55,12 @@ ADD_NEKTAR_EXECUTABLE(test_imex
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_imex.cpp)
 ADD_NEKTAR_EXECUTABLE(test_imexdirk
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_imexdirk.cpp)
+ADD_NEKTAR_EXECUTABLE(test_explicit_sdc
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_explicit_sdc.cpp)
+ADD_NEKTAR_EXECUTABLE(test_implicit_sdc
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_implicit_sdc.cpp)
+ADD_NEKTAR_EXECUTABLE(test_imex_sdc
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_imex_sdc.cpp)
 
 ADD_NEKTAR_EXECUTABLE(test_multiplybyelmtinvmass
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_multiplybyelmtinvmass.cpp)
@@ -129,6 +135,9 @@ SET_UNIT_TEST(BDF_serial test_bdf Serial none FALSE)
 SET_UNIT_TEST(CNAB_serial test_cnab Serial none FALSE)
 SET_UNIT_TEST(IMEX_serial test_imex Serial none FALSE)
 SET_UNIT_TEST(IMEXdirk_serial test_imexdirk Serial none FALSE)
+SET_UNIT_TEST(Explicit_SDC_serial test_explicit_sdc Serial none FALSE)
+SET_UNIT_TEST(Implicit_SDC_serial test_implicit_sdc Serial none FALSE)
+SET_UNIT_TEST(IMEX_SDC_serial test_imex_sdc Serial none FALSE)
 
 # Serial generic
 SET_UNIT_TEST(MultiplyByElmtInvMass_serial_generic test_multiplybyelmtinvmass Serial Generic FALSE)
@@ -180,6 +189,9 @@ IF (${NEKTAR_ENABLE_SIMD})
     SET_UNIT_TEST(CNAB_avx test_cnab AVX none FALSE)
     SET_UNIT_TEST(IMEX_avx test_imex AVX none FALSE)
     SET_UNIT_TEST(IMEXdirk_avx test_imexdirk AVX none FALSE)
+    SET_UNIT_TEST(Explicit_SDC_avx test_explicit_sdc AVX none FALSE)
+    SET_UNIT_TEST(Implicit_SDC_avx test_implicit_sdc AVX none FALSE)
+    SET_UNIT_TEST(IMEX_SDC_avx test_imex_sdc AVX none FALSE)
 ENDIF()
 
 # AVX generic
@@ -238,6 +250,9 @@ IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABL
     SET_UNIT_TEST(CNAB_device test_cnab Device none FALSE)
     SET_UNIT_TEST(IMEX_device test_imex Device none FALSE)
     SET_UNIT_TEST(IMEXdirk_device test_imexdirk Device none FALSE)
+    SET_UNIT_TEST(Explicit_SDC_device test_explicit_sdc Device none FALSE)
+    SET_UNIT_TEST(Implicit_SDC_device test_implicit_sdc Device none FALSE)
+    SET_UNIT_TEST(IMEX_SDC_device test_imex_sdc Device none FALSE)
 ENDIF()
 
 # Device generic

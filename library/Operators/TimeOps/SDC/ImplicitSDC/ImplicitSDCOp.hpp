@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_runge_kutta.cpp
+// File: ImplicitSDCOp.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,41 +32,40 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestRungeKutta
+#pragma once
 
-#include "init_timeop.hpp"
+#include "Operators/TimeOps/SDC/SDCOp.hpp"
+#include <LibUtilities/Foundations/Points.h>
+#include <LibUtilities/Polylib/Polylib.h>
 
-#include <boost/test/tools/output_test_stream.hpp>
-#include <iostream>
-#include <memory>
+namespace Nektar::Operators
+{
 
-#define TEST_SCHEME(test_name, test, nvar, scheme, variant, order)             \
-    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
-    {                                                                          \
-        Configure(nvar, nvar);                                                 \
-        SetTestCase(1.0, 0.0);                                                 \
-        boost::test_tools::output_test_stream output;                          \
-        {                                                                      \
-            BOOST_TEST(CheckOrderOfAccuracy(scheme, variant, order));          \
-        }                                                                      \
+// ImplicitSDC base class
+// Defines the apply operator to enforce apply parameter types
+template <typename TData> class ImplicitSDCOp : public SDCOp<TData>
+{
+public:
+    static std::shared_ptr<ImplicitSDCOp<TData>> Create(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const unsigned int &order = 0, const std::string &variant = "",
+        const std::vector<TData> freeParams = std::vector<TData>{},
+        const std::string &execStr          = "")
+    {
+        return std::dynamic_pointer_cast<ImplicitSDCOp<TData>>(
+            TimeOp<TData>::Create(expansionList, name, order, variant,
+                                  freeParams, execStr));
     }
 
-BOOST_AUTO_TEST_SUITE(TestRungeKutta)
+    static inline const std::string name = "ImplicitSDC";
 
-TEST_SCHEME(rk_order_1, segment, 2, "RungeKutta", "", 1)
+protected:
+    ImplicitSDCOp(const MultiRegions::ExpListSharedPtr &expansionList)
+        : SDCOp<TData>(expansionList)
+    {
+    }
 
-TEST_SCHEME(rk_order_2, segment, 2, "RungeKutta", "", 2)
+    ~ImplicitSDCOp() override = default;
+};
 
-TEST_SCHEME(rk_order_3, segment, 2, "RungeKutta", "", 3)
-
-TEST_SCHEME(rk_order_4, segment, 2, "RungeKutta", "", 4)
-
-TEST_SCHEME(rk_order_5, segment, 2, "RungeKutta", "", 5)
-
-TEST_SCHEME(rk_ssp_order_1, segment, 2, "RungeKutta", "SSP", 1)
-
-TEST_SCHEME(rk_ssp_order_2, segment, 2, "RungeKutta", "SSP", 2)
-
-TEST_SCHEME(rk_ssp_order_3, segment, 2, "RungeKutta", "SSP", 3)
-
-BOOST_AUTO_TEST_SUITE_END()
+} // namespace Nektar::Operators
