@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_runge_kutta.cpp
+// File: ImplicitSDCKernelLaunchers.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,41 +32,25 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestRungeKutta
+#pragma once
 
-#include "init_timeop.hpp"
+#include "Operators/LoopExecution/LoopExecution.hpp"
 
-#include <boost/test/tools/output_test_stream.hpp>
-#include <iostream>
-#include <memory>
+namespace Nektar::Operators::detail
+{
 
-#define TEST_SCHEME(test_name, test, nvar, scheme, variant, order)             \
-    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
-    {                                                                          \
-        Configure(nvar, nvar);                                                 \
-        SetTestCase(1.0, 0.0);                                                 \
-        boost::test_tools::output_test_stream output;                          \
-        {                                                                      \
-            BOOST_TEST(CheckOrderOfAccuracy(scheme, variant, order));          \
-        }                                                                      \
-    }
+template <typename ExecSpace, typename TData>
+NEK_FORCE_INLINE static void IterateImplicitSDCSolutionKernel(
+    const unsigned int nsize, const TData dtn, const TData *in,
+    const TData *implicits, const TData *sfint, TData *out)
+{
+    Nektar::parallel_for<ExecSpace>(
+        0, nsize, NEKTAR_LAMBDA(const size_t idx) {
+            TData tmp = in[idx];
+            tmp -= dtn * implicits[idx];
+            tmp += sfint[idx];
+            out[idx] = tmp;
+        });
+}
 
-BOOST_AUTO_TEST_SUITE(TestRungeKutta)
-
-TEST_SCHEME(rk_order_1, segment, 2, "RungeKutta", "", 1)
-
-TEST_SCHEME(rk_order_2, segment, 2, "RungeKutta", "", 2)
-
-TEST_SCHEME(rk_order_3, segment, 2, "RungeKutta", "", 3)
-
-TEST_SCHEME(rk_order_4, segment, 2, "RungeKutta", "", 4)
-
-TEST_SCHEME(rk_order_5, segment, 2, "RungeKutta", "", 5)
-
-TEST_SCHEME(rk_ssp_order_1, segment, 2, "RungeKutta", "SSP", 1)
-
-TEST_SCHEME(rk_ssp_order_2, segment, 2, "RungeKutta", "SSP", 2)
-
-TEST_SCHEME(rk_ssp_order_3, segment, 2, "RungeKutta", "SSP", 3)
-
-BOOST_AUTO_TEST_SUITE_END()
+} // namespace Nektar::Operators::detail

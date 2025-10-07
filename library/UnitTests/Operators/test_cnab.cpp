@@ -40,21 +40,21 @@
 #include <iostream>
 #include <memory>
 
-#define TEST_SCHEME(test_name, test, nvar, scheme, order)                      \
+#define TEST_SCHEME(test_name, test, nvar, scheme, variant, order)             \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
         Configure(nvar, nvar);                                                 \
         SetTestCase(1.0, -10.0);                                               \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
-            BOOST_TEST(CheckOrderOfAccuracy(scheme, order));                   \
+            BOOST_TEST(CheckOrderOfAccuracy(scheme, variant, order));          \
         }                                                                      \
     }
 
 BOOST_AUTO_TEST_SUITE(TestCNAB)
 
-TEST_SCHEME(cnab_order_2, segment, 2, "CNAB", 2)
+TEST_SCHEME(cnab_order_2, segment, 2, "CNAB", "", 2)
 
-TEST_SCHEME(mcnab_order_2, segment, 2, "CNABModified", 2)
+TEST_SCHEME(mcnab_order_2, segment, 2, "CNAB", "Modified", 2)
 
 BOOST_AUTO_TEST_SUITE_END()

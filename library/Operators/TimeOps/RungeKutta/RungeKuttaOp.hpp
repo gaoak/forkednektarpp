@@ -51,7 +51,7 @@ public:
     {
         return std::dynamic_pointer_cast<RungeKuttaOp<TData>>(
             TimeOp<TData>::Create(expansionList, name, order, variant,
-                                  execStr));
+                                  std::vector<TData>{}, execStr));
     }
 
     static inline const std::string name = "RungeKutta";

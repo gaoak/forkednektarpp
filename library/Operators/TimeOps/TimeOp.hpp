@@ -47,7 +47,9 @@ public:
     static std::shared_ptr<TimeOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &method = "", const unsigned int &order = 0,
-        const std::string &variant = "", const std::string &execStr = "")
+        const std::string &variant          = "",
+        const std::vector<TData> freeParams = std::vector<TData>{},
+        const std::string &execStr          = "")
     {
         auto session = expansionList->GetSession();
 
@@ -71,8 +73,19 @@ public:
                 : execStr;
 
         // Set key.
-        std::string requestedKey =
-            method0 + variant0 + std::to_string(order0) + execStr0;
+        std::string requestedKey;
+
+        if (method0 == "ExplicitSDC" || method0 == "ImplicitSDC" ||
+            method0 == "IMEXSDC")
+        {
+            // Specialization for SDC
+            requestedKey = method0 + execStr0;
+        }
+        else
+        {
+            requestedKey =
+                method0 + variant0 + std::to_string(order0) + execStr0;
+        }
 
         // Get operator factory.
         OperatorFactory<TData> &factory = GetOperatorFactory<TData>();
@@ -91,6 +104,12 @@ public:
 
         // Set operator meta data
         op->m_timestep = expansionList->GetSession()->GetParameter("TimeStep");
+        op->m_order    = order0;
+        op->m_variant  = variant0;
+        op->m_freeParams =
+            (freeParams.size() == 0)
+                ? expansionList->GetSession()->GetTimeIntScheme().freeParams
+                : freeParams;
 
         return op;
     }
@@ -257,6 +276,9 @@ protected:
     unsigned int m_step = 0;
     TData m_time        = 0.0;
     TData m_timestep    = 0.0;
+    unsigned int m_order;
+    std::string m_variant;
+    std::vector<TData> m_freeParams;
 
     // Storage for previous solutions in Fields
     // and memory region for pointer access on device

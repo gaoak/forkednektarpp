@@ -86,14 +86,17 @@ public:
         ExpectedSolution(final_time);
     }
 
-    void RunTestCase(const std::string scheme, unsigned int order,
-                     unsigned int numsteps)
+    void RunTestCase(const std::string scheme, const std::string variant,
+                     const unsigned int order,
+                     const std::vector<double> freeParams,
+                     const unsigned int numsteps)
     {
         // Copy fixt_in to fixt_out since operator uses apply with inout type
         fixt_out->Copy<NektarSpaces::HostSpace>(*fixt_in);
 
         // Initialise Time-stepping operator
-        auto op = TimeOp<double>::Create(fixt_explist, scheme, order);
+        auto op = TimeOp<double>::Create(fixt_explist, scheme, order, variant,
+                                         freeParams);
         op->DefineExplicit(&TimeOpField::DoRHS, this);
         op->DefineImplicit(&TimeOpField::DoLHS, this);
         op->DefineProjection(&TimeOpField::DoProjection, this);
@@ -107,7 +110,7 @@ public:
         }
     }
 
-    void ExpectedSolution(double final_time)
+    void ExpectedSolution(const double final_time)
     {
         // We solve the analytic problem du/dt = \alpha u + \beta u,
         // where \alpha is mild parameter leading to the explicit part
@@ -118,11 +121,50 @@ public:
                  *fixt_expected);
     }
 
-    bool CheckOrderOfAccuracy(std::string scheme, unsigned int order)
+    bool CheckOrderOfAccuracy(const std::string scheme,
+                              const std::string variant,
+                              const unsigned int order,
+                              const std::vector<double> freeParams = {})
     {
         double final_time = 0.5;
 
-        std::vector<double> timesteps = {0.1, 0.05, 0.01, 0.005, 0.001};
+        std::vector<double> timesteps;
+
+        if (order <= 2)
+        {
+            timesteps = {0.1, 0.05, 0.025, 0.01, 0.005, 0.001, 0.0005};
+        }
+        else if (order <= 3)
+        {
+            timesteps = {0.1, 0.05, 0.025, 0.01, 0.005, 0.001};
+        }
+        else if (order == 4)
+        {
+            timesteps = {0.1, 0.05, 0.02, 0.01, 0.005};
+        }
+        else if (order == 5)
+        {
+            if (scheme == "IMEXSDC")
+            {
+                timesteps = {0.1, 0.05, 0.02, 0.01, 0.005};
+            }
+            else
+            {
+                timesteps = {0.1, 0.05, 0.02, 0.01};
+            }
+        }
+        else
+        {
+            if (scheme == "IMEXSDC")
+            {
+                timesteps = {0.1, 0.05, 0.02, 0.01, 0.005};
+            }
+            else
+            {
+                timesteps = {0.2, 0.1, 0.05};
+            }
+        }
+
         std::vector<double> errors;
 
         for (double dt : timesteps)
@@ -131,7 +173,7 @@ public:
             session->SetParameter("TimeStep", dt);
 
             // Run simulation
-            RunTestCase(scheme, order, final_time / dt);
+            RunTestCase(scheme, variant, order, freeParams, final_time / dt);
 
             // Compute error at final time (L2 norm; adapt as needed)
             math.sub(*fixt_out, *fixt_expected, *fixt_out);

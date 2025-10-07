@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_runge_kutta.cpp
+// File: test_imex_sdc.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestRungeKutta
+#define BOOST_TEST_MODULE TestIMEXSDC
 
 #include "init_timeop.hpp"
 
@@ -40,33 +40,33 @@
 #include <iostream>
 #include <memory>
 
-#define TEST_SCHEME(test_name, test, nvar, scheme, variant, order)             \
+#define TEST_SCHEME(test_name, test, nvar, scheme, variant, order, freeparam)  \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
         Configure(nvar, nvar);                                                 \
-        SetTestCase(1.0, 0.0);                                                 \
+        SetTestCase(1.0, -10.0);                                               \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
-            BOOST_TEST(CheckOrderOfAccuracy(scheme, variant, order));          \
+            BOOST_TEST(                                                        \
+                CheckOrderOfAccuracy(scheme, variant, order, freeparam));      \
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestRungeKutta)
+BOOST_AUTO_TEST_SUITE(TestIMEXSDC)
 
-TEST_SCHEME(rk_order_1, segment, 2, "RungeKutta", "", 1)
+TEST_SCHEME(sdc_grl_order_3, segment, 2, "IMEXSDC", "GaussRadauLegendre", 3,
+            (std::vector<double>{1.0, 2}))
 
-TEST_SCHEME(rk_order_2, segment, 2, "RungeKutta", "", 2)
+TEST_SCHEME(sdc_grl_order_5, segment, 2, "IMEXSDC", "GaussRadauLegendre", 5,
+            (std::vector<double>{1.0, 3}))
 
-TEST_SCHEME(rk_order_3, segment, 2, "RungeKutta", "", 3)
+// TEST_SCHEME(sdc_ggl_order_2, segment, 2, "IMEXSDC", "GaussGaussLegendre", 2,
+//             (std::vector<double>{1.0, 1}))
 
-TEST_SCHEME(rk_order_4, segment, 2, "RungeKutta", "", 4)
+TEST_SCHEME(sdc_ggl_order_4, segment, 2, "IMEXSDC", "GaussGaussLegendre", 4,
+            (std::vector<double>{1.0, 2}))
 
-TEST_SCHEME(rk_order_5, segment, 2, "RungeKutta", "", 5)
-
-TEST_SCHEME(rk_ssp_order_1, segment, 2, "RungeKutta", "SSP", 1)
-
-TEST_SCHEME(rk_ssp_order_2, segment, 2, "RungeKutta", "SSP", 2)
-
-TEST_SCHEME(rk_ssp_order_3, segment, 2, "RungeKutta", "SSP", 3)
+TEST_SCHEME(sdc_ggl_order_6, segment, 2, "IMEXSDC", "GaussGaussLegendre", 6,
+            (std::vector<double>{1.0, 3}))
 
 BOOST_AUTO_TEST_SUITE_END()

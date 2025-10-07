@@ -49,8 +49,9 @@ public:
         const unsigned int &order = 0, const std::string &variant = "",
         const std::string &execStr = "")
     {
-        return std::dynamic_pointer_cast<DIRKOp<TData>>(TimeOp<TData>::Create(
-            expansionList, name, order, variant, execStr));
+        return std::dynamic_pointer_cast<DIRKOp<TData>>(
+            TimeOp<TData>::Create(expansionList, name, order, variant,
+                                  std::vector<TData>{}, execStr));
     }
 
     static inline const std::string name = "DIRK";
