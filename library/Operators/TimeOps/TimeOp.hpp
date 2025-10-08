@@ -81,6 +81,12 @@ public:
             // Specialization for SDC
             requestedKey = method0 + execStr0;
         }
+        else if (method0 == "ExplicitGEM" || method0 == "ImplicitGEM" ||
+                 method0 == "IMEXGEM")
+        {
+            // Specialization for GEM
+            requestedKey = method0 + execStr0;
+        }
         else
         {
             requestedKey =

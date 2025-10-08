@@ -78,8 +78,8 @@ protected:
 
         // Check that implicit function is defined.
         ASSERTL0(this->m_implicitFunctor,
-                 "IMEXSDC schemes require a DoIMEX method. Define with "
-                 "IMEXSDCOp->DefineIMEX().");
+                 "IMEXSDC schemes require a DoImplicit method. Define with "
+                 "IMEXSDCOp->DefineImplicit().");
 
         // Initialize.
         if (!this->m_initialized)
