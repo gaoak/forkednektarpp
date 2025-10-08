@@ -142,24 +142,25 @@ public:
         }
         else if (order == 5)
         {
-            if (scheme == "IMEXSDC")
+            if (scheme == "ImplicitSDC" || scheme == "IMEXSDC" ||
+                scheme == "ImplicitGEM" || scheme == "IMEXGEM")
             {
                 timesteps = {0.1, 0.05, 0.02, 0.01, 0.005};
             }
             else
             {
-                timesteps = {0.1, 0.05, 0.02, 0.01};
+                timesteps = {0.2, 0.1, 0.05, 0.025};
             }
         }
         else
         {
             if (scheme == "IMEXSDC")
             {
-                timesteps = {0.1, 0.05, 0.02, 0.01};
+                timesteps = {0.1, 0.05, 0.02, 0.01, 0.005};
             }
             else
             {
-                timesteps = {0.2, 0.1, 0.05};
+                timesteps = {0.4, 0.2, 0.1};
             }
         }
 
