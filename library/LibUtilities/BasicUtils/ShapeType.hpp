@@ -220,17 +220,8 @@ inline constexpr int getNumberOfCoefficients(int Na, int Nb, int Nc)
                        "than order in 'c' direction");
     ASSERTL1(Nb <= Nc, "order in 'b' direction is higher "
                        "than order in 'c' direction");
-    int nCoef = 0;
-    for (int a = 0; a < Na; ++a)
-    {
-        for (int b = 0; b < Nb - a; ++b)
-        {
-            for (int c = 0; c < Nc - a - b; ++c)
-            {
-                ++nCoef;
-            }
-        }
-    }
+    int nCoef = Na * Nb * Nc - Na * Nc * (Na - 1) / 2 - Na * Nb * (Nb - 1) / 2 +
+                Na * (Na - 1) * (Na - 2) / 6;
     return nCoef;
 }
 inline constexpr int getNumberOfBndCoefficients(int Na, int Nb, int Nc)

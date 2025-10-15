@@ -87,8 +87,7 @@ PoolAllocator<SpatialDomains::HexGeom>
 namespace SpatialDomains
 {
 
-template <typename T>
-using GeomMap = boost::container::flat_map<int, unique_ptr_objpool<T>>;
+template <typename T> using GeomMap = std::map<int, unique_ptr_objpool<T>>;
 
 // Point geom type defs
 typedef unique_ptr_objpool<PointGeom> PointGeomUniquePtr;
@@ -572,35 +571,35 @@ public:
     {
         if constexpr (std::is_same_v<T, PointGeom>)
         {
-            m_pointGeoms[id] = std::move(geom);
+            m_pointGeoms.insert(std::make_pair(id, std::move(geom)));
         }
         else if constexpr (std::is_same_v<T, SegGeom>)
         {
-            m_segGeoms[id] = std::move(geom);
+            m_segGeoms.insert(std::make_pair(id, std::move(geom)));
         }
         else if constexpr (std::is_same_v<T, QuadGeom>)
         {
-            m_quadGeoms[id] = std::move(geom);
+            m_quadGeoms.insert(std::make_pair(id, std::move(geom)));
         }
         else if constexpr (std::is_same_v<T, TriGeom>)
         {
-            m_triGeoms[id] = std::move(geom);
+            m_triGeoms.insert(std::make_pair(id, std::move(geom)));
         }
         else if constexpr (std::is_same_v<T, TetGeom>)
         {
-            m_tetGeoms[id] = std::move(geom);
+            m_tetGeoms.insert(std::make_pair(id, std::move(geom)));
         }
         else if constexpr (std::is_same_v<T, PyrGeom>)
         {
-            m_pyrGeoms[id] = std::move(geom);
+            m_pyrGeoms.insert(std::make_pair(id, std::move(geom)));
         }
         else if constexpr (std::is_same_v<T, PrismGeom>)
         {
-            m_prismGeoms[id] = std::move(geom);
+            m_prismGeoms.insert(std::make_pair(id, std::move(geom)));
         }
         else if constexpr (std::is_same_v<T, HexGeom>)
         {
-            m_hexGeoms[id] = std::move(geom);
+            m_hexGeoms.insert(std::make_pair(id, std::move(geom)));
         }
         else
         {

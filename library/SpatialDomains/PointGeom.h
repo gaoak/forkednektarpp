@@ -39,8 +39,6 @@
 #include <SpatialDomains/Geometry0D.h>
 #include <SpatialDomains/SpatialDomainsDeclspec.h>
 
-#include <boost/container/flat_map.hpp>
-
 #include <memory>
 
 namespace Nektar::SpatialDomains

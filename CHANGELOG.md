@@ -10,9 +10,16 @@ v5.9.0
 - Remove deprecated TimeIntegrationMethod in SolverInfo (!2061)
 - Some fix for PhysInterp1D (!2081)
 - Use std::unordered_map instead of std::map for NekFactory (!2103)
-- Replace `std::shared_ptr` with `std::unique_ptr` inside SpatialDomains (!2112)
+- Replace `std::shared_ptr` with `std::unique_ptr` inside SpatialDomains (!2112, !2222)
 - Fix output messages clobbering error info in Lagrangian filter (!2200, !2202)
 - Unified IProductWRTDerivBaseOp align vector function for all 3D shapes (!2203)
+- Added a formula for the number of modes in a tetrahedron (!2205)
+- Remove duplicate IMEX Gear time-integration variant (!2225)
+- Fix bug in Neumann boundary condition for LinearAdvectionDiffusionReactionSolve (!2231)
+
+**ADRSolver**
+- Add implicit UnsteadyAdvection for continuous Galerkin (!2231)
+- Fixed performance regression after removal of eVECTOR_WRAPPER in !1848 (!2239)
 
 **CardiacEPSolver**
 - Add script for converting CellML models into Nektar++ cell model code (!2185)
@@ -20,9 +27,10 @@ v5.9.0
 **NekMesh**
 - Minor Bug-fix for industrial pipeline !2057 (!2135)
 - Scaling the mesh nodes (!2115)
-
+- Improved Isoparametric Splitting for O-type Prisms "bl" legacy, which kept as "blold" (!1757)
 **CI**
 - Disable CWIPI on Fedora (!2199)
+- Update Annulus test to run more efficiently (!1220)
 
 v5.8.0
 ------

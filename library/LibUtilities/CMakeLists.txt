@@ -283,7 +283,6 @@ SET(TimeIntegrationHeaders
         ./TimeIntegration/DIRKTimeIntegrationSchemes.h
         ./TimeIntegration/IMEXTimeIntegrationSchemes.h
         ./TimeIntegration/IMEXdirkTimeIntegrationSchemes.h
-        ./TimeIntegration/IMEXGearTimeIntegrationScheme.h
         ./TimeIntegration/IMEXTimeIntegrationSchemeSDC.h
         ./TimeIntegration/ImplicitTimeIntegrationSchemeSDC.h
         ./TimeIntegration/MCNABTimeIntegrationScheme.h
