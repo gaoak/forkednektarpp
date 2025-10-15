@@ -65,7 +65,7 @@ elif [[ $BUILD_TYPE == "full" ]]; then
     fi
     if [[ $BUILD_CUDA == "on" ]]; then
         # Load CUDA on Linux
-        [[ $OS_VERSION != "macos" ]] && module load cuda/12.6.2
+        [[ $OS_VERSION != "macos" ]] && module load cuda/13.0.2
 
         # Enable CUDA in CMake configuration
         CMAKEARGS+=("-DNEKTAR_ENABLE_CUDA:BOOL=ON")

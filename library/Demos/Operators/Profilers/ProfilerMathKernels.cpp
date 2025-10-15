@@ -203,14 +203,25 @@ int main(void)
     std::cout << "Device Properties " << std::endl;
     std::cout << "--------------------------------" << std::endl;
     printf("  Device name: %s\n", prop.name);
+#if CUDART_VERSION >= 13000
+    int memoryClockRate;
+    cudaDeviceGetAttribute(&memoryClockRate, cudaDevAttrMemoryClockRate, 0);
+    printf("  Memory Clock Rate (KHz): %d\n", memoryClockRate);
+#else
     printf("  Memory Clock Rate (KHz): %d\n", prop.memoryClockRate);
+#endif
     printf("  Memory Bus Width (bits): %d\n", prop.memoryBusWidth);
     printf("  Total Global Memory (bytes): %ld\n", prop.totalGlobalMem);
     printf("  Shared Memory per Block (bytes): %ld\n", prop.sharedMemPerBlock);
     printf("  Shared Memory per Multiprocessor (bytes): %ld\n",
            prop.sharedMemPerMultiprocessor);
+#if CUDART_VERSION >= 13000
+    printf("  Peak Memory Bandwidth (GB/s): %f\n",
+           2.0 * memoryClockRate * (prop.memoryBusWidth / 8) / 1.0e6);
+#else
     printf("  Peak Memory Bandwidth (GB/s): %f\n",
            2.0 * prop.memoryClockRate * (prop.memoryBusWidth / 8) / 1.0e6);
+#endif
     printf("  Number of multiprocessors: %d\n", prop.multiProcessorCount);
 #elif defined(NEKTAR_ENABLE_HIP)
     hipDeviceProp_t prop;
