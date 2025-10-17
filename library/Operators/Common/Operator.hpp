@@ -37,7 +37,6 @@
 #include <string>
 
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
-#include <LibUtilities/BasicUtils/MiscUtils.hpp>
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
 #include <LibUtilities/BasicUtils/NekInline.hpp>
 #include <LibUtilities/Communication/Comm.h>

@@ -18,7 +18,6 @@ SET(BasicUtilsHeaders
     ./BasicUtils/ErrorUtil.hpp
     ./BasicUtils/Interpolator.h
     ./BasicUtils/HashUtils.hpp
-    ./BasicUtils/MiscUtils.hpp
     ./BasicUtils/NekManager.hpp
     ./BasicUtils/NekFactory.hpp
     ./BasicUtils/ParseUtils.h
@@ -51,7 +50,6 @@ SET(BasicUtilsSources
 ./BasicUtils/FieldIO.cpp
 ./BasicUtils/FieldIOXml.cpp
 ./BasicUtils/Interpolator.cpp
-./BasicUtils/MiscUtils.cpp
 ./BasicUtils/ParseUtils.cpp
 ./BasicUtils/PtsField.cpp
 ./BasicUtils/PtsIO.cpp
@@ -450,11 +448,6 @@ IF( NEKTAR_USE_MPI )
         ADD_DEPENDENCIES(LibUtilities openmpi-1.10.3)
     ENDIF()
 ENDIF( NEKTAR_USE_MPI )
-
-# MSVC
-IF(MSVC)
-    TARGET_LINK_LIBRARIES(LibUtilities LINK_PUBLIC "Dbghelp.lib")
-ENDIF()
 
 # Lapack and Blas
 IF(NOT BLAS_LAPACK_BUILTIN)

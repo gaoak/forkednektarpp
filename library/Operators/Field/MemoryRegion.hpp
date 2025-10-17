@@ -35,7 +35,6 @@
 #pragma once
 
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
-#include <LibUtilities/BasicUtils/MiscUtils.hpp>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 
 #include "Operators/Field/MemoryStorage.hpp"
