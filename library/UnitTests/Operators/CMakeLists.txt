@@ -31,6 +31,8 @@ IF(BOOST_TEST_DYN_LINK)
         ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY})
 ENDIF()
 
+ADD_NEKTAR_EXECUTABLE(test_comm
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_comm.cpp)
 ADD_NEKTAR_EXECUTABLE(test_math
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_math.cpp)
 ADD_NEKTAR_EXECUTABLE(test_assmbscatr
@@ -116,20 +118,44 @@ ENDIF()
 
 # Macro
 MACRO(SET_UNIT_TEST testname name execspace implementation mpi_flag)
-    IF (${mpi_flag})
-        ADD_TEST(
-          NAME Operators${testname}MPI
-          COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 2 ${CMAKE_CURRENT_BINARY_DIR}/${name} --detect_memory_leaks=0 -- ${execspace} ${implementation}
-      )
+    IF (CMAKE_BUILD_TYPE STREQUAL "Debug")
+        SET(name-ext "${name}-g")
+    ELSEIF (CMAKE_BUILD_TYPE STREQUAL "MinSizeRel")
+        SET(name-ext "${name}-ms")
+    ELSEIF (CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+        SET(name-ext "${name}-rg")
+    ELSE()
+        SET(name-ext "${name}")
+    ENDIF()
+
+    IF (${mpi_flag} AND NEKTAR_USE_MPI)
+        IF (MSVC)
+            ADD_TEST(
+              NAME Operators${testname}_MPI
+              COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 2 ${name-ext}
+                      --detect_memory_leaks=0 -- ${execspace} ${implementation}
+            )
+        ELSE()
+            ADD_TEST(
+              NAME Operators${testname}_MPI
+              COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 2 ${CMAKE_CURRENT_BINARY_DIR}/${name-ext}
+                      --detect_memory_leaks=0 -- ${execspace} ${implementation}
+            )
+        ENDIF()
     ELSE()
         ADD_TEST(
           NAME Operators${testname} 
-          COMMAND ${name} --detect_memory_leaks=0 -- ${execspace} ${implementation})
+          COMMAND ${name-ext} --detect_memory_leaks=0 -- ${execspace} ${implementation})
     ENDIF()
 ENDMACRO()
 
+IF (NEKTAR_USE_MPI)
+    SET_UNIT_TEST(Comm_host test_comm HostSpace none TRUE)
+    SET_UNIT_TEST(Comm_device test_comm DeviceSpace none TRUE)
+ENDIF()
+
 # Serial
-SET_UNIT_TEST(Math_serial test_math Serial none  FALSE)
+SET_UNIT_TEST(Math_serial test_math Serial none FALSE)
 SET_UNIT_TEST(AssmbScatr_serial test_assmbscatr Serial none FALSE)
 SET_UNIT_TEST(Dirichlet_serial test_dirichlet Serial none FALSE)
 SET_UNIT_TEST(Neumann_serial test_neumann Serial none FALSE)
@@ -186,7 +212,7 @@ SET_UNIT_TEST(PhysInterp1DScaled_serial_sumfac test_physinterp1dscaled Serial Su
 
 # AVX
 IF (${NEKTAR_ENABLE_SIMD})
-    SET_UNIT_TEST(Math_avx test_math AVX none  FALSE)
+    SET_UNIT_TEST(Math_avx test_math AVX none FALSE)
     SET_UNIT_TEST(AssmbScatr_avx test_assmbscatr AVX none FALSE)
     SET_UNIT_TEST(Dirichlet_avx  test_dirichlet AVX none FALSE)
     SET_UNIT_TEST(Neumann_avx test_neumann AVX none FALSE)
@@ -250,7 +276,7 @@ ENDIF()
 
 # Device
 IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABLE_DEVICEONHOST)
-    SET_UNIT_TEST(Math_device test_math Device none  FALSE)
+    SET_UNIT_TEST(Math_device test_math Device none FALSE)
     SET_UNIT_TEST(AssmbScatr_device test_assmbscatr Device none FALSE)
     SET_UNIT_TEST(Dirichlet_device test_dirichlet Device none FALSE)
     SET_UNIT_TEST(Neumann_device test_neumann Device none FALSE)
