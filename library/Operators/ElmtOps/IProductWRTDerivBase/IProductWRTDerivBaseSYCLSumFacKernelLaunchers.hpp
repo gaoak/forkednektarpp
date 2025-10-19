@@ -231,7 +231,6 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
     const TData *df, const TData *jac, const TData *in, TData *out, TData *wsp)
 {
 #if defined(NEKTAR_DEBUG)
-
     IProductWRTDerivBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                  DEFORMED>(
         ncoord, nm0, nm1, nq0, nq1, nelmt, inoffset, isModified, index0, basis0,
