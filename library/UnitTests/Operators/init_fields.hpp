@@ -187,7 +187,7 @@ public:
 
         if (session)
         {
-            session->Finalise();
+            // session->Finalise();
         }
     }
 
