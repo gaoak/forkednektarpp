@@ -219,7 +219,6 @@ NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
     TData *wsp, const TData scale = 1.0)
 {
 #if defined(NEKTAR_DEBUG)
-
     IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation, SCALE,
                             APPEND, DEFORMED>(
         nm0, nm1, nq0, nq1, nelmt, isModified, index0, basis0, basis1, w0, w1,

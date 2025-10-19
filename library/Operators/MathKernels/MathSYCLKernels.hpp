@@ -629,7 +629,6 @@ reduceSumKernel(const size_t nsize, const TData *x, TData *out)
         GetDeviceProperties::TotalGlobalMemory() -= internalSYCLBufferSize;
     }
 
-    TData *buffer = (TData *)internalSYCLBuffer;
 #if defined(USE_SYCL_BUILTIN_REDUCER)
     sycl::property_list initializer =
         init ? sycl::property_list{sycl::property::reduction::
@@ -640,6 +639,7 @@ reduceSumKernel(const size_t nsize, const TData *x, TData *out)
         sycl::reduction(out, sycl::plus<>(), initializer),
         [=](sycl::id<1> indx, auto &reducer) { reducer += x[indx]; });
 #else
+    TData *buffer                = (TData *)internalSYCLBuffer;
     reduceSumKernel<true>(gridSize, blockSize, nsize, x, buffer);
     reduceSumKernel<init>(1, gridSize, gridSize, buffer, out);
 #endif
@@ -667,7 +667,6 @@ reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
         GetDeviceProperties::TotalGlobalMemory() -= internalSYCLBufferSize;
     }
 
-    TData *buffer = (TData *)internalSYCLBuffer;
 #if defined(USE_SYCL_BUILTIN_REDUCER)
     sycl::property_list initializer =
         init ? sycl::property_list{sycl::property::reduction::
@@ -678,6 +677,7 @@ reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
         sycl::reduction(out, sycl::maximum<>(), initializer),
         [=](sycl::id<1> indx, auto &reducer) { reducer.combine(x[indx]); });
 #else
+    TData *buffer                = (TData *)internalSYCLBuffer;
     reduceMaxKernel<true>(gridSize, blockSize, nsize, x, buffer);
     reduceMaxKernel<init>(1, gridSize, gridSize, buffer, out);
 #endif
@@ -705,7 +705,6 @@ reduceMinKernel(const size_t nsize, const TData *x, TData *out)
         GetDeviceProperties::TotalGlobalMemory() -= internalSYCLBufferSize;
     }
 
-    TData *buffer = (TData *)internalSYCLBuffer;
 #if defined(USE_SYCL_BUILTIN_REDUCER)
     sycl::property_list initializer =
         init ? sycl::property_list{sycl::property::reduction::
@@ -716,6 +715,7 @@ reduceMinKernel(const size_t nsize, const TData *x, TData *out)
         sycl::reduction(out, sycl::minimum<>(), initializer),
         [=](sycl::id<1> indx, auto &reducer) { reducer.combine(x[indx]); });
 #else
+    TData *buffer                = (TData *)internalSYCLBuffer;
     reduceMinKernel<true>(gridSize, blockSize, nsize, x, buffer);
     reduceMinKernel<init>(1, gridSize, gridSize, buffer, out);
 #endif
@@ -743,7 +743,6 @@ ddotKernel(const size_t nsize, const TData *x, const TData *y, TData *out)
         GetDeviceProperties::TotalGlobalMemory() -= internalSYCLBufferSize;
     }
 
-    TData *buffer = (TData *)internalSYCLBuffer;
 #if defined(USE_SYCL_BUILTIN_REDUCER)
     sycl::property_list initializer =
         init ? sycl::property_list{sycl::property::reduction::
@@ -754,6 +753,7 @@ ddotKernel(const size_t nsize, const TData *x, const TData *y, TData *out)
         sycl::reduction(out, sycl::plus<>(), initializer),
         [=](sycl::id<1> indx, auto &reducer) { reducer += x[indx] * y[indx]; });
 #else
+    TData *buffer                = (TData *)internalSYCLBuffer;
     ddotKernel<true>(gridSize, blockSize, nsize, x, y, buffer);
     reduceSumKernel<init>(1, gridSize, gridSize, buffer, out);
 #endif
@@ -781,7 +781,6 @@ l1normKernel(const size_t nsize, const TData *x, TData *out)
         GetDeviceProperties::TotalGlobalMemory() -= internalSYCLBufferSize;
     }
 
-    TData *buffer = (TData *)internalSYCLBuffer;
 #if defined(USE_SYCL_BUILTIN_REDUCER)
     sycl::property_list initializer =
         init ? sycl::property_list{sycl::property::reduction::
@@ -793,6 +792,7 @@ l1normKernel(const size_t nsize, const TData *x, TData *out)
                        reducer += sycl::fabs(x[indx]);
                    });
 #else
+    TData *buffer                = (TData *)internalSYCLBuffer;
     l1normKernel<true>(gridSize, blockSize, nsize, x, buffer);
     reduceSumKernel<init>(1, gridSize, gridSize, buffer, out);
 #endif
@@ -820,7 +820,6 @@ l2normKernel(const size_t nsize, const TData *x, TData *out)
         GetDeviceProperties::TotalGlobalMemory() -= internalSYCLBufferSize;
     }
 
-    TData *buffer = (TData *)internalSYCLBuffer;
 #if defined(USE_SYCL_BUILTIN_REDUCER)
     sycl::property_list initializer =
         init ? sycl::property_list{sycl::property::reduction::
@@ -831,6 +830,7 @@ l2normKernel(const size_t nsize, const TData *x, TData *out)
         sycl::reduction(out, sycl::plus<>(), initializer),
         [=](sycl::id<1> indx, auto &reducer) { reducer += x[indx] * x[indx]; });
 #else
+    TData *buffer                = (TData *)internalSYCLBuffer;
     l2normKernel<true>(gridSize, blockSize, nsize, x, buffer);
     reduceSumKernel<init>(1, gridSize, gridSize, buffer, out);
 #endif
@@ -858,7 +858,6 @@ lpnormKernel(const size_t nsize, const int p, const TData *x, TData *out)
         GetDeviceProperties::TotalGlobalMemory() -= internalSYCLBufferSize;
     }
 
-    TData *buffer = (TData *)internalSYCLBuffer;
 #if defined(USE_SYCL_BUILTIN_REDUCER)
     sycl::property_list initializer =
         init ? sycl::property_list{sycl::property::reduction::
@@ -870,6 +869,7 @@ lpnormKernel(const size_t nsize, const int p, const TData *x, TData *out)
                        reducer += sycl::pown(sycl::fabs(x[indx]), p);
                    });
 #else
+    TData *buffer                = (TData *)internalSYCLBuffer;
     lpnormKernel<true>(gridSize, blockSize, nsize, p, x, buffer);
     reduceSumKernel<init>(1, gridSize, gridSize, buffer, out);
 #endif
@@ -897,7 +897,6 @@ linfnormKernel(const size_t nsize, const TData *x, TData *out)
         GetDeviceProperties::TotalGlobalMemory() -= internalSYCLBufferSize;
     }
 
-    TData *buffer = (TData *)internalSYCLBuffer;
 #if defined(USE_SYCL_BUILTIN_REDUCER)
     sycl::property_list initializer =
         init ? sycl::property_list{sycl::property::reduction::
@@ -909,6 +908,7 @@ linfnormKernel(const size_t nsize, const TData *x, TData *out)
                        reducer.combine(sycl::fabs(x[indx]));
                    });
 #else
+    TData *buffer                = (TData *)internalSYCLBuffer;
     linfnormKernel<true>(gridSize, blockSize, nsize, x, buffer);
     reduceMaxKernel<init>(1, gridSize, gridSize, buffer, out);
 #endif
