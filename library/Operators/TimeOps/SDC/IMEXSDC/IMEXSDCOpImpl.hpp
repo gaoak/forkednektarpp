@@ -71,9 +71,6 @@ protected:
         ASSERTL0(this->m_explicitRhsFunctor,
                  "IMEXSDC schemes require a DoExplicitRhs method. Define with "
                  "IMEXSDCOp->DefineExplicitRhs().");
-        ASSERTL0(this->m_projectionFunctor,
-                 "IMEXSDC schemes require a DoProjection method. Define with "
-                 "ExplicitSDCOp->DefineProjection().");
         ASSERTL0(this->m_implicitFunctor,
                  "IMEXSDC schemes require a DoImplicit method. Define with "
                  "IMEXSDCOp->DefineImplicit().");
@@ -158,9 +155,6 @@ protected:
             this->m_tau.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
 
         // First quadrature.
-        this->DoProjection(this->m_solutions[0], this->m_solutions[0],
-                           this->m_time);
-
         if (this->m_first_quadrature)
         {
             ASSERTL0(

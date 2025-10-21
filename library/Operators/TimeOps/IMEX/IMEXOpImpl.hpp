@@ -82,9 +82,6 @@ protected:
         ASSERTL0(this->m_explicitRhsFunctor,
                  "IMEX schemes require a DoExplicitRhs method. Define with "
                  "IMEXOp->DefineExplicit().");
-        ASSERTL0(this->m_projectionFunctor,
-                 "IMEX schemes require a DoProjection method. Define with "
-                 "IMEXOp->DefineProjection().");
         ASSERTL0(this->m_implicitFunctor,
                  "IMEX schemes require a DoImplicit method. Define with "
                  "IMEXOp->DefineImplicit().");
@@ -151,9 +148,6 @@ protected:
                 // Rollover previous explicit parts.
                 this->RollOver(this->m_explicits);
             }
-
-            // Ensure solution is in correct space.
-            this->DoProjection(inout, inout, this->m_time);
 
             // Compute explicit term.
             this->DoExplicitRhs(inout, this->m_explicits[0], this->m_time,

@@ -97,9 +97,6 @@ protected:
         ASSERTL0(this->m_explicitRhsFunctor,
                  "IMEXdirk schemes require a DoExplicitRhs method. Define with "
                  "IMEXdirkOp->DefineExplicit().");
-        ASSERTL0(this->m_projectionFunctor,
-                 "IMEXdirk schemes require a DoProjection method. Define with "
-                 "IMEXdirkOp->DefineProjection().");
         ASSERTL0(this->m_implicitFunctor,
                  "IMEXdirk schemes require a DoImplicit method. Define with "
                  "IMEXdirkOp->DefineImplicit().");
@@ -132,8 +129,7 @@ protected:
                 ExecSpace::alignment));
         }
 
-        // Ensure solution is in correct space.
-        this->DoProjection(inout, this->m_solutions[0], this->m_time);
+        this->m_solutions[0].template Copy<MemSpace>(inout);
 
         // Apply IMEX dirk scheme.
         Staging<1>(inout);
@@ -152,13 +148,6 @@ protected:
         constexpr auto coeff0 =
             GetIMEXdirkTimeCoefficients<ImpStage, ExpStage, IntOrder,
                                         TData>()[Stage - 1];
-
-        // Ensure solution is in correct space.
-        if constexpr (Stage != 1)
-        {
-            this->DoProjection(inout, inout,
-                               this->m_time + coeff0 * this->m_timestep);
-        }
 
         // Compute explicit terms.
         this->DoExplicitRhs(inout, this->m_explicits[Stage - 1],
