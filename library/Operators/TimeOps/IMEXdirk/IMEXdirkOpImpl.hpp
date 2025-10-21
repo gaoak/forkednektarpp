@@ -93,17 +93,16 @@ public:
 protected:
     void v_Apply(Field<TData, FieldState::Phys> &inout) override
     {
-        // Check that implicit function is defined.
-        ASSERTL0(this->m_implicitFunctor,
-                 "IMEXdirk schemes require a DoImplicit method. Define with "
-                 "IMEXdirkOp->DefineImplicit().");
-        // Check that explicit function is defined.
-        ASSERTL0(this->m_explicitFunctor,
-                 "IMEXdirk schemes require a DoExplicit method. Define with "
+        // Check that required functions are defined.
+        ASSERTL0(this->m_explicitRhsFunctor,
+                 "IMEXdirk schemes require a DoExplicitRhs method. Define with "
                  "IMEXdirkOp->DefineExplicit().");
         ASSERTL0(this->m_projectionFunctor,
                  "IMEXdirk schemes require a DoProjection method. Define with "
                  "IMEXdirkOp->DefineProjection().");
+        ASSERTL0(this->m_implicitFunctor,
+                 "IMEXdirk schemes require a DoImplicit method. Define with "
+                 "IMEXdirkOp->DefineImplicit().");
 
         // Allocate memory.
         if (this->m_solutions.size() == 0)
@@ -162,9 +161,9 @@ protected:
         }
 
         // Compute explicit terms.
-        this->DoExplicit(inout, this->m_explicits[Stage - 1],
-                         this->m_time + coeff0 * this->m_timestep,
-                         this->m_timestep);
+        this->DoExplicitRhs(inout, this->m_explicits[Stage - 1],
+                            this->m_time + coeff0 * this->m_timestep,
+                            this->m_timestep);
 
         // Compute implicit terms.
         if constexpr (Stage <= ImpStage)

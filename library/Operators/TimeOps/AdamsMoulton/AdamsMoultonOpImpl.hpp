@@ -81,45 +81,16 @@ protected:
 
     void v_Apply(Field<TData, FieldState::Phys> &inout) override
     {
-        // Check that implicit function is defined.
-        ASSERTL0(
-            this->m_implicitFunctor,
-            "AdamsMoulton schemes require a DoImplicit method. Define with "
-            "AdamsMoultonOp->DefineImplicit().");
+        // Check that required functions are defined.
+        ASSERTL0(this->m_implicitFunctor,
+                 "AdamsMoulton schemes require a DoImplicit method. Define "
+                 "with AdamsMoultonOp->DefineImplicit().");
 
         // Startup.
         if (this->m_step + 1 < IntOrder)
         {
-            // Use DIRK scheme as startup.
-            if (this->m_explicitFunctor)
-            {
-                // Allocate new storage.
-                this->m_implicits.push_front(
-                    Field<TData, FieldState::Phys>::Create(
-                        GetBlockAttributes<TData>(FieldState::Phys,
-                                                  this->m_expansionList),
-                        inout.GetNumComponents(), inout.GetNumHomoModes(),
-                        ExecSpace::alignment));
-
-                // Initialise AdamsMoulton and hand-over the m_implicits deque.
-                auto maxOrder = std::min(3u, IntOrder);
-                auto startup  = DIRKOp<TData>::Create(
-                    this->m_expansionList, maxOrder, "", ExecSpace::name);
-
-                // Copy functors from outer/higher-order AdamsMoulton scheme.
-                startup->CopyFunctorsFrom(*this);
-
-                // Advance in time with startup.
-                startup->SetTime(this->m_time);
-                startup->SetStep(this->m_step);
-                startup->Apply(inout);
-
-                // Compute implicit terms.
-                this->DoExplicit(inout, this->m_implicits[0], this->m_time,
-                                 this->m_timestep);
-            }
             // Use lower-order Adams-Moulton scheme as startup.
-            else
+            if constexpr (IntOrder <= 2)
             {
                 // Initialise AdamsMoulton and hand-over the m_implicits deque.
                 auto startup = AdamsMoultonOp<TData>::Create(
@@ -138,6 +109,39 @@ protected:
 
                 // Move implicits back to higher-order AdamsMoulton.
                 this->SetImplicits(startup->TakeImplicits());
+            }
+            // Use DIRK scheme as startup.
+            else
+            {
+                ASSERTL0(this->m_implicitRhsFunctor,
+                         "AdamsMoulton schemes wiht order > 2 require a "
+                         "DoImplicitRhs method. Define "
+                         "with AdamsMoultonOp->DefineImplicitRhs().");
+
+                // Allocate new storage.
+                this->m_implicits.push_front(
+                    Field<TData, FieldState::Phys>::Create(
+                        GetBlockAttributes<TData>(FieldState::Phys,
+                                                  this->m_expansionList),
+                        inout.GetNumComponents(), inout.GetNumHomoModes(),
+                        ExecSpace::alignment));
+
+                // Initialise startup and hand-over the m_implicits deque.
+                auto maxOrder = std::min(3u, IntOrder);
+                auto startup  = DIRKOp<TData>::Create(
+                    this->m_expansionList, maxOrder, "", ExecSpace::name);
+
+                // Copy functors from outer/higher-order AdamsMoulton scheme.
+                startup->CopyFunctorsFrom(*this);
+
+                // Advance in time with startup.
+                startup->SetTime(this->m_time);
+                startup->SetStep(this->m_step);
+                startup->Apply(inout);
+
+                // Compute implicit terms.
+                this->DoImplicitRhs(inout, this->m_implicits[0], this->m_time,
+                                    this->m_timestep);
             }
 
             // Increment step and time.

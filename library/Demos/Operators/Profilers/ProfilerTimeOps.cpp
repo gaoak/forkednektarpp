@@ -62,12 +62,22 @@ public:
         math.mul(factor, in, out);
     }
 
-    void DoRHS(Field<double, FieldState::Phys> &in,
-               Field<double, FieldState::Phys> &out,
-               [[maybe_unused]] const double &time, const double &factor)
+    void DoExplicitRHS(Field<double, FieldState::Phys> &in,
+                       Field<double, FieldState::Phys> &out,
+                       [[maybe_unused]] const double &time,
+                       const double &factor)
     {
         // Multiply solution by factor
         math.mul(m_alpha * factor, in, out);
+    }
+
+    void DoImplicitRHS(Field<double, FieldState::Phys> &in,
+                       Field<double, FieldState::Phys> &out,
+                       [[maybe_unused]] const double &time,
+                       const double &factor)
+    {
+        // Multiply solution by factor
+        math.mul(m_beta * factor, in, out);
     }
 
     void DoProjection(Field<double, FieldState::Phys> &in,
@@ -156,7 +166,8 @@ int main(int argc, char *argv[])
     auto solver = DummySolver(execName);
 
     auto timeOp = TimeOp<TData>::Create(expList, method, timeOrder);
-    timeOp->DefineExplicit(&DummySolver::DoRHS, &solver);
+    timeOp->DefineExplicitRhs(&DummySolver::DoExplicitRHS, &solver);
+    timeOp->DefineImplicitRhs(&DummySolver::DoImplicitRHS, &solver);
     timeOp->DefineImplicit(&DummySolver::DoLHS, &solver);
 
     // Warm up solves.

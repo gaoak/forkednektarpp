@@ -68,10 +68,11 @@ public:
 protected:
     void v_Apply(Field<TData, FieldState::Phys> &inout) override
     {
-        // Check that explicit function is defined.
-        ASSERTL0(this->m_explicitFunctor,
-                 "ExplicitSDC schemes require a DoExplicit method. Define with "
-                 "ExplicitSDCOp->DefineExplicit().");
+        // Check that required functions are defined.
+        ASSERTL0(
+            this->m_explicitRhsFunctor,
+            "ExplicitSDC schemes require a DoExplicitRhs method. Define with "
+            "ExplicitSDCOp->DefineExplicit().");
         ASSERTL0(
             this->m_projectionFunctor,
             "ExplicitSDC schemes require a DoProjection method. Define with "
@@ -145,9 +146,9 @@ protected:
             this->DoProjection(this->m_solutions[n], this->m_solutions[n],
                                this->m_time + this->m_timestep * tau[n]);
 
-            this->DoExplicit(this->m_solutions[n], this->m_residuals[n],
-                             this->m_time + this->m_timestep * tau[n],
-                             this->m_timestep);
+            this->DoExplicitRhs(this->m_solutions[n], this->m_residuals[n],
+                                this->m_time + this->m_timestep * tau[n],
+                                this->m_timestep);
 
             // Use explicit Euler as a first guess.
             if (n < this->m_nQuadPts - 1)
@@ -233,9 +234,9 @@ protected:
             // Compute residual.
             this->DoProjection(this->m_solutions[n], this->m_solutions[n],
                                this->m_time + this->m_timestep * tau[n]);
-            this->DoExplicit(this->m_solutions[n], this->m_residuals[n],
-                             this->m_time + this->m_timestep * tau[n],
-                             this->m_timestep);
+            this->DoExplicitRhs(this->m_solutions[n], this->m_residuals[n],
+                                this->m_time + this->m_timestep * tau[n],
+                                this->m_timestep);
         }
     }
 };

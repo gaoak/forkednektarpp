@@ -67,7 +67,7 @@ public:
 protected:
     void v_Apply(Field<TData, FieldState::Phys> &inout) override
     {
-        // Check that implicit function is defined.
+        // Check that required functions are defined.
         ASSERTL0(this->m_implicitFunctor,
                  "ImplicitGEM schemes require a DoImplicit method. Define with "
                  "ImplicitGEMOp->DefineImplicit().");

@@ -78,10 +78,9 @@ protected:
 
     void v_Apply(Field<TData, FieldState::Phys> &inout) override
     {
-        // Check that implicit function call is defined.
+        // Check that required functions are defined.
         ASSERTL0(this->m_implicitFunctor,
-                 "BDF schemes "
-                 "require a DoImplicit method. Define with "
+                 "BDF schemes require a DoImplicit method. Define with "
                  "BDFOp->DefineImplicit().");
 
         // Startup.

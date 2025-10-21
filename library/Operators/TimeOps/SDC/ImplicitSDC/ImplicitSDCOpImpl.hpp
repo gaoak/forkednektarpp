@@ -68,7 +68,7 @@ public:
 protected:
     void v_Apply(Field<TData, FieldState::Phys> &inout) override
     {
-        // Check that implicit function is defined.
+        // Check that required functions are defined.
         ASSERTL0(this->m_implicitFunctor,
                  "ImplicitSDC schemes require a DoImplicit method. Define with "
                  "ImplicitSDCOp->DefineImplicit().");
@@ -139,22 +139,20 @@ protected:
 
         if (this->m_first_quadrature)
         {
-            // Check that explicit function is defined.
-            ASSERTL0(
-                this->m_explicitFunctor,
-                "ImplicitSDC schemes require a DoExplicit method. Define with "
-                "ImplicitSDCOp->DefineExplicit().");
+            // Check that implicitRhs function is defined.
+            ASSERTL0(this->m_implicitRhsFunctor,
+                     "ImplicitSDC schemes require a DoImplicitRhs method. "
+                     "Define with ImplicitSDCOp->DefineExplicit().");
             ASSERTL0(this->m_projectionFunctor,
-                     "ExplicitSDC schemes require a DoProjection method. "
-                     "Define with "
-                     "ExplicitSDCOp->DefineProjection().");
+                     "ImplicitSDC schemes require a DoProjection method. "
+                     "Define with ImplicitSDCOp->DefineProjection().");
 
             // Compute residual.
             this->DoProjection(this->m_solutions[0], this->m_solutions[0],
                                this->m_time);
 
-            this->DoExplicit(this->m_solutions[0], this->m_residuals[0],
-                             this->m_time, this->m_timestep);
+            this->DoImplicitRhs(this->m_solutions[0], this->m_residuals[0],
+                                this->m_time, this->m_timestep);
         }
 
         // Loop over quadrature.

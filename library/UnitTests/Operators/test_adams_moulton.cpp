@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestAdamsMoulton
 
-#include "init_timeop_v2.hpp"
+#include "init_timeop.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
@@ -44,7 +44,7 @@
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
         Configure(nvar, nvar);                                                 \
-        SetTestCase(-10.0);                                                    \
+        SetTestCase(0.0, -10.0);                                               \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
             BOOST_TEST(CheckOrderOfAccuracy("AdamsMoulton", "", order));       \

@@ -67,10 +67,11 @@ public:
 protected:
     void v_Apply(Field<TData, FieldState::Phys> &inout) override
     {
-        // Check that explicit function is defined.
-        ASSERTL0(this->m_explicitFunctor,
-                 "ExplicitGEM schemes require a DoExplicit method. Define with "
-                 "ExplicitGEMOp->DefineExplicit().");
+        // Check that required functions are defined.
+        ASSERTL0(
+            this->m_explicitRhsFunctor,
+            "ExplicitGEM schemes require a DoExplicitRhs method. Define with "
+            "ExplicitGEMOp->DefineExplicitRhs().");
         ASSERTL0(
             this->m_projectionFunctor,
             "ExplicitGEM schemes require a DoProjection method. Define with "
@@ -121,8 +122,8 @@ protected:
             this->m_initialized = true;
         }
 
-        this->DoExplicit(inout, this->m_explicits[0], this->m_time,
-                         this->m_timestep);
+        this->DoExplicitRhs(inout, this->m_explicits[0], this->m_time,
+                            this->m_timestep);
 
         if (this->m_variant == "")
         {
@@ -140,7 +141,7 @@ protected:
                     // For other stages, compute new rhs.
                     else
                     {
-                        this->DoExplicit(
+                        this->DoExplicitRhs(
                             this->m_solutions[k - 2], this->m_explicits[1],
                             this->m_time + (k - 1) * (this->m_timestep / m),
                             this->m_timestep);
@@ -173,7 +174,7 @@ protected:
                 // Compute new rhs for midpoint stage
                 for (unsigned int k = 2; k <= 2 * m; ++k)
                 {
-                    this->DoExplicit(
+                    this->DoExplicitRhs(
                         this->m_solutions[k - 2], this->m_explicits[1],
                         this->m_time + (k - 1) * (this->m_timestep / (2 * m)),
                         this->m_timestep);

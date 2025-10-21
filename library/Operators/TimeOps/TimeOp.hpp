@@ -142,9 +142,17 @@ public:
         functorType2;
 
     template <typename FuncPointerT, typename ObjectPointerT>
-    void DefineExplicit(FuncPointerT func, ObjectPointerT obj)
+    void DefineExplicitRhs(FuncPointerT func, ObjectPointerT obj)
     {
-        m_explicitFunctor =
+        m_explicitRhsFunctor =
+            std::bind(func, obj, std::placeholders::_1, std::placeholders::_2,
+                      std::placeholders::_3, std::placeholders::_4);
+    }
+
+    template <typename FuncPointerT, typename ObjectPointerT>
+    void DefineImplicitRhs(FuncPointerT func, ObjectPointerT obj)
+    {
+        m_implicitRhsFunctor =
             std::bind(func, obj, std::placeholders::_1, std::placeholders::_2,
                       std::placeholders::_3, std::placeholders::_4);
     }
@@ -165,15 +173,26 @@ public:
                       std::placeholders::_3, std::placeholders::_4);
     }
 
-    void DoExplicit(Field<TData, FieldState::Phys> &in,
-                    Field<TData, FieldState::Phys> &out, const TData &time,
-                    const TData &factor) const
+    void DoExplicitRhs(Field<TData, FieldState::Phys> &in,
+                       Field<TData, FieldState::Phys> &out, const TData &time,
+                       const TData &factor) const
     {
-        ASSERTL1(m_explicitFunctor,
-                 "Explicit functor should be defined for this time "
-                 "integration scheme. Use DefineExplicit() within "
+        ASSERTL1(m_explicitRhsFunctor,
+                 "DoExplicitRhs functor should be defined for this time "
+                 "integration scheme. Use DefineExplicitRhs() within "
                  "solver definition.");
-        m_explicitFunctor(in, out, time, factor);
+        m_explicitRhsFunctor(in, out, time, factor);
+    }
+
+    void DoImplicitRhs(Field<TData, FieldState::Phys> &in,
+                       Field<TData, FieldState::Phys> &out, const TData &time,
+                       const TData &factor) const
+    {
+        ASSERTL1(m_implicitRhsFunctor,
+                 "DoImplicitRhs functor should be defined for this time "
+                 "integration scheme. Use DefineImplicitRhs() within "
+                 "solver definition.");
+        m_implicitRhsFunctor(in, out, time, factor);
     }
 
     void DoProjection(Field<TData, FieldState::Phys> &in,
@@ -201,9 +220,10 @@ public:
     void CopyFunctorsFrom(const TimeOp<TData> &src)
     {
         // functors and relevant booleans
-        this->m_implicitFunctor   = src.m_implicitFunctor;
-        this->m_explicitFunctor   = src.m_explicitFunctor;
-        this->m_projectionFunctor = src.m_projectionFunctor;
+        this->m_implicitFunctor    = src.m_implicitFunctor;
+        this->m_explicitRhsFunctor = src.m_explicitRhsFunctor;
+        this->m_implicitRhsFunctor = src.m_implicitRhsFunctor;
+        this->m_projectionFunctor  = src.m_projectionFunctor;
     }
 
     // Move‐out
@@ -300,7 +320,8 @@ protected:
 
     // Functors to explicit, projection and implicit part of time integration
     functorType1 m_projectionFunctor;
-    functorType2 m_explicitFunctor;
+    functorType2 m_explicitRhsFunctor;
+    functorType2 m_implicitRhsFunctor;
     functorType2 m_implicitFunctor;
 
     TimeOp(const MultiRegions::ExpListSharedPtr &expansionList)

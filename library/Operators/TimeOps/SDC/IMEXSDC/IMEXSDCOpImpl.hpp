@@ -67,16 +67,13 @@ public:
 protected:
     void v_Apply(Field<TData, FieldState::Phys> &inout) override
     {
-        // Check that explicit function is defined.
-        ASSERTL0(this->m_explicitFunctor,
-                 "IMEXSDC schemes require a DoExplicit method. Define with "
-                 "IMEXSDCOp->DefineExplicit().");
+        // Check that required functions are defined.
+        ASSERTL0(this->m_explicitRhsFunctor,
+                 "IMEXSDC schemes require a DoExplicitRhs method. Define with "
+                 "IMEXSDCOp->DefineExplicitRhs().");
         ASSERTL0(this->m_projectionFunctor,
-                 "IMEXSDC schemes require a DoProjection method. "
-                 "Define with "
+                 "IMEXSDC schemes require a DoProjection method. Define with "
                  "ExplicitSDCOp->DefineProjection().");
-
-        // Check that implicit function is defined.
         ASSERTL0(this->m_implicitFunctor,
                  "IMEXSDC schemes require a DoImplicit method. Define with "
                  "IMEXSDCOp->DefineImplicit().");
@@ -128,10 +125,6 @@ protected:
             this->m_residuals[0].template Initialize<MemSpace>(0.0);
 
             this->m_initialized = true;
-
-            ASSERTL0(!this->m_first_quadrature,
-                     "Quadrature type that include the left end point (e.g. "
-                     "GaussLobattoLegendre) should not be used for IMEXSDC");
         }
 
         // Store the initial values.
@@ -164,9 +157,27 @@ protected:
         auto tau =
             this->m_tau.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
 
-        // Loop over quadrature.
+        // First quadrature.
         this->DoProjection(this->m_solutions[0], this->m_solutions[0],
                            this->m_time);
+
+        if (this->m_first_quadrature)
+        {
+            ASSERTL0(
+                this->m_implicitRhsFunctor,
+                "IMEXSDC schemes with quadrature type that include the left "
+                "end point (e.g GaussLobattoLegendre) require a DoImplicitRhs "
+                "method. Define with IMEXSDCOp->DefineImplicitRhs().");
+
+            this->DoExplicitRhs(this->m_solutions[0], this->m_explicits[0],
+                                this->m_time, this->m_timestep);
+            this->DoImplicitRhs(this->m_solutions[0], this->m_implicits[0],
+                                this->m_time, this->m_timestep);
+            add<ExecSpace>(this->m_explicits[0], this->m_implicits[0],
+                           this->m_residuals[0]);
+        }
+
+        // Loop over quadrature.
         for (unsigned int n = 1; n < this->m_nQuadPts; ++n)
         {
             TData dtn = tau[n] - tau[n - 1];
@@ -187,9 +198,9 @@ protected:
                            this->m_implicits[n]);
 
             // Compute explicit terms.
-            this->DoExplicit(this->m_solutions[n], this->m_explicits[n],
-                             this->m_time + this->m_timestep * tau[n],
-                             this->m_timestep);
+            this->DoExplicitRhs(this->m_solutions[n], this->m_explicits[n],
+                                this->m_time + this->m_timestep * tau[n],
+                                this->m_timestep);
 
             // Compute total residual.
             add<ExecSpace>(this->m_explicits[n], this->m_implicits[n],
@@ -280,9 +291,9 @@ protected:
                            this->m_implicits[n]);
 
             // Compute explicit terms.
-            this->DoExplicit(this->m_solutions[n], this->m_explicits[n],
-                             this->m_time + this->m_timestep * tau[n],
-                             this->m_timestep);
+            this->DoExplicitRhs(this->m_solutions[n], this->m_explicits[n],
+                                this->m_time + this->m_timestep * tau[n],
+                                this->m_timestep);
 
             // Compute total residual.
             add<ExecSpace>(this->m_explicits[n], this->m_implicits[n],
