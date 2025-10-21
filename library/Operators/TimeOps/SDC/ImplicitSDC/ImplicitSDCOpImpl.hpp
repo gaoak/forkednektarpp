@@ -143,14 +143,8 @@ protected:
             ASSERTL0(this->m_implicitRhsFunctor,
                      "ImplicitSDC schemes require a DoImplicitRhs method. "
                      "Define with ImplicitSDCOp->DefineExplicit().");
-            ASSERTL0(this->m_projectionFunctor,
-                     "ImplicitSDC schemes require a DoProjection method. "
-                     "Define with ImplicitSDCOp->DefineProjection().");
 
             // Compute residual.
-            this->DoProjection(this->m_solutions[0], this->m_solutions[0],
-                               this->m_time);
-
             this->DoImplicitRhs(this->m_solutions[0], this->m_residuals[0],
                                 this->m_time, this->m_timestep);
         }

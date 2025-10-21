@@ -107,9 +107,6 @@ protected:
         ASSERTL0(this->m_explicitRhsFunctor,
                  "CNAB schemes require a DoExplicitRhs method. Define with "
                  "CNABOp->DefineExplicit().");
-        ASSERTL0(this->m_projectionFunctor,
-                 "CNAB schemes require a DoProjection method. Define with "
-                 "CNABOp->DefineProjection().");
         ASSERTL0(this->m_implicitFunctor,
                  "CNAB schemes require a DoImplicit method. Define with "
                  "CNABOp->DefineImplicit().");
@@ -170,9 +167,6 @@ protected:
             }
 
             this->RollOver(this->m_explicits);
-
-            // Ensure solution is in correct space.
-            this->DoProjection(inout, inout, this->m_time);
 
             // Compute explicit term.
             this->DoExplicitRhs(inout, this->m_explicits[0], this->m_time,
