@@ -68,20 +68,6 @@ protected:
 
     void v_Apply(Field<TData, FieldState::Phys> &inout) override
     {
-        // Check that explicit function is defined.
-        ASSERTL0(this->m_explicitFunctor,
-                 "ExplicitGEM schemes require a DoExplicit method. Define with "
-                 "ExplicitGEMOp->DefineExplicit().");
-        ASSERTL0(
-            this->m_projectionFunctor,
-            "ExplicitGEM schemes require a DoProjection method. Define with "
-            "ExplicitGEMOp->DefineProjection().");
-
-        // Check that implicit function is defined.
-        ASSERTL0(this->m_implicitFunctor,
-                 "IMEXGEM schemes require a DoImplicit method. Define with "
-                 "IMEXGEMOp->DefineIMEX().");
-
         // Initialize.
         if (!this->m_initialized)
         {

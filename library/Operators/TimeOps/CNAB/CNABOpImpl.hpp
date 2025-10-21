@@ -103,18 +103,16 @@ protected:
 
     void v_Apply(Field<TData, FieldState::Phys> &inout) override
     {
-        // Check that implicit function call is defined.
-        ASSERTL0(this->m_implicitFunctor,
-                 "CNAB schemes require a DoImplicit method. Define with "
-                 "CNABOp->DefineImplicit().");
-
-        // Check that explicit function is defined.
-        ASSERTL0(this->m_explicitFunctor,
-                 "CNAB schemes require a DoExplicit method. Define with "
+        // Check that required functions are defined.
+        ASSERTL0(this->m_explicitRhsFunctor,
+                 "CNAB schemes require a DoExplicitRhs method. Define with "
                  "CNABOp->DefineExplicit().");
         ASSERTL0(this->m_projectionFunctor,
                  "CNAB schemes require a DoProjection method. Define with "
                  "CNABOp->DefineProjection().");
+        ASSERTL0(this->m_implicitFunctor,
+                 "CNAB schemes require a DoImplicit method. Define with "
+                 "CNABOp->DefineImplicit().");
 
         // Startup.
         if (this->m_step + 1 <= Nimplicit())
@@ -177,8 +175,8 @@ protected:
             this->DoProjection(inout, inout, this->m_time);
 
             // Compute explicit term.
-            this->DoExplicit(inout, this->m_explicits[0], this->m_time,
-                             this->m_timestep);
+            this->DoExplicitRhs(inout, this->m_explicits[0], this->m_time,
+                                this->m_timestep);
 
             // Do extrapolation.
             UpdateSolution(

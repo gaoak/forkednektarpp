@@ -125,10 +125,11 @@ protected:
 
     void v_Apply(Field<TData, FieldState::Phys> &inout) override
     {
-        // Check that explicit function is defined.
-        ASSERTL0(this->m_explicitFunctor,
-                 "RungeKutta schemes require a DoExplicit method. Define with "
-                 "RungeKuttaOp->DefineExplicit().");
+        // Check that required functions are defined.
+        ASSERTL0(
+            this->m_explicitRhsFunctor,
+            "RungeKutta schemes require a DoExplicitRhs method. Define with "
+            "RungeKuttaOp->DefineExplicit().");
         ASSERTL0(
             this->m_projectionFunctor,
             "RungeKutta schemes require a DoProjection method. Define with "
@@ -180,9 +181,9 @@ protected:
         }
 
         // Compute explicit term.
-        this->DoExplicit(inout, this->m_explicits[Stage - 1],
-                         this->m_time + coeff * this->m_timestep,
-                         this->m_timestep);
+        this->DoExplicitRhs(inout, this->m_explicits[Stage - 1],
+                            this->m_time + coeff * this->m_timestep,
+                            this->m_timestep);
 
         // Recursive loop over stages.
         if constexpr (Stage < NStage())

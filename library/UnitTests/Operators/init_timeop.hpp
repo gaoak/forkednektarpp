@@ -97,7 +97,8 @@ public:
         // Initialise Time-stepping operator
         auto op = TimeOp<double>::Create(fixt_explist, scheme, order, variant,
                                          freeParams);
-        op->DefineExplicit(&TimeOpField::DoRHS, this);
+        op->DefineExplicitRhs(&TimeOpField::DoExplicitRHS, this);
+        op->DefineImplicitRhs(&TimeOpField::DoImplicitRHS, this);
         op->DefineImplicit(&TimeOpField::DoLHS, this);
         op->DefineProjection(&TimeOpField::DoProjection, this);
 
@@ -228,12 +229,22 @@ protected:
         math.mul(factor, in, out);
     }
 
-    void DoRHS(Field<double, FieldState::Phys> &in,
-               Field<double, FieldState::Phys> &out,
-               [[maybe_unused]] const double &time, const double &factor)
+    void DoExplicitRHS(Field<double, FieldState::Phys> &in,
+                       Field<double, FieldState::Phys> &out,
+                       [[maybe_unused]] const double &time,
+                       const double &factor)
     {
         // Multiply solution by factor
         math.mul(m_alpha * factor, in, out);
+    }
+
+    void DoImplicitRHS(Field<double, FieldState::Phys> &in,
+                       Field<double, FieldState::Phys> &out,
+                       [[maybe_unused]] const double &time,
+                       const double &factor)
+    {
+        // Multiply solution by factor
+        math.mul(m_beta * factor, in, out);
     }
 
     void DoProjection(Field<double, FieldState::Phys> &in,

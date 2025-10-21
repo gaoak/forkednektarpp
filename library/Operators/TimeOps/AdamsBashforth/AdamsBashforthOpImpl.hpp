@@ -76,15 +76,13 @@ public:
 protected:
     void v_Apply(Field<TData, FieldState::Phys> &inout) override
     {
-        // Check that explicit function is defined.
-        ASSERTL0(
-            this->m_explicitFunctor,
-            "AdamsBashforth schemes require a DoExplicit method. Define with "
-            "AdamsBashforthOp->DefineExplicit().");
-        ASSERTL0(
-            this->m_projectionFunctor,
-            "AdamsBashforth schemes require a DoProjection method. Define with "
-            "AdamsBashforthOp->DefineProjection().");
+        // Check that required functions are defined.
+        ASSERTL0(this->m_explicitRhsFunctor,
+                 "AdamsBashforth schemes require a DoExplicitRhs method. "
+                 "Define with AdamsBashforthOp->DefineExplicit().");
+        ASSERTL0(this->m_projectionFunctor,
+                 "AdamsBashforth schemes require a DoProjection method. Define "
+                 "with AdamsBashforthOp->DefineProjection().");
 
         // Startup.
         if (this->m_step + 1 < IntOrder)
@@ -97,8 +95,8 @@ protected:
                 ExecSpace::alignment));
 
             // Compute explicit terms.
-            this->DoExplicit(inout, this->m_explicits[0], this->m_time,
-                             this->m_timestep);
+            this->DoExplicitRhs(inout, this->m_explicits[0], this->m_time,
+                                this->m_timestep);
 
             // Initialise RungeKutta scheme.
             auto startup = RungeKuttaOp<TData>::Create(
@@ -139,8 +137,8 @@ protected:
             this->DoProjection(inout, inout, this->m_time);
 
             // Compute explicit terms.
-            this->DoExplicit(inout, this->m_explicits[0], this->m_time,
-                             this->m_timestep);
+            this->DoExplicitRhs(inout, this->m_explicits[0], this->m_time,
+                                this->m_timestep);
 
             // Do extrapolation.
             UpdateSolution(

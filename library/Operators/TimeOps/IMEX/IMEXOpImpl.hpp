@@ -78,18 +78,16 @@ protected:
 
     void v_Apply(Field<TData, FieldState::Phys> &inout) override
     {
-        // Check that implicit function call is defined.
-        ASSERTL0(this->m_implicitFunctor,
-                 "IMEX schemes require a DoImplicit method. Define with "
-                 "IMEXOp->DefineImplicit().");
-
-        // Check that explicit function is defined.
-        ASSERTL0(this->m_explicitFunctor,
-                 "IMEX schemes require a DoExplicit method. Define with "
+        // Check that required functions are defined.
+        ASSERTL0(this->m_explicitRhsFunctor,
+                 "IMEX schemes require a DoExplicitRhs method. Define with "
                  "IMEXOp->DefineExplicit().");
         ASSERTL0(this->m_projectionFunctor,
                  "IMEX schemes require a DoProjection method. Define with "
                  "IMEXOp->DefineProjection().");
+        ASSERTL0(this->m_implicitFunctor,
+                 "IMEX schemes require a DoImplicit method. Define with "
+                 "IMEXOp->DefineImplicit().");
 
         // Startup.
         if (this->m_step + 1 < IntOrder)
@@ -102,8 +100,8 @@ protected:
                 ExecSpace::alignment));
 
             // Compute explicit terms.
-            this->DoExplicit(inout, this->m_explicits[0], this->m_time,
-                             this->m_timestep);
+            this->DoExplicitRhs(inout, this->m_explicits[0], this->m_time,
+                                this->m_timestep);
 
             // Save initial solution.
             this->m_solutions.push_front(Field<TData, FieldState::Phys>::Create(
@@ -158,8 +156,8 @@ protected:
             this->DoProjection(inout, inout, this->m_time);
 
             // Compute explicit term.
-            this->DoExplicit(inout, this->m_explicits[0], this->m_time,
-                             this->m_timestep);
+            this->DoExplicitRhs(inout, this->m_explicits[0], this->m_time,
+                                this->m_timestep);
 
             if constexpr (IntOrder > 1)
             {

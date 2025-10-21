@@ -115,20 +115,18 @@ protected:
 
     void v_Apply(Field<TData, FieldState::Phys> &inout) override
     {
-        // Check that implicit function is defined.
+        // Check that required functions are defined.
         ASSERTL0(this->m_implicitFunctor,
                  "DIRK schemes require a DoImplicit method. Define with "
                  "DIRKOp->DefineImplicit().");
         if constexpr (std::is_same_v<Scheme, DIRK_ESScheme>)
         {
-            // Check that explicit function is defined.
-            ASSERTL0(this->m_explicitFunctor,
-                     "DIRK_ES schemes require a DoExplicit method. Define with "
-                     "DIRKOp->DefineExplicit().");
-            ASSERTL0(
-                this->m_projectionFunctor,
-                "DIRK_ES schemes require a DoProjection method. Define with "
-                "DIRKOp->DefineProjection().");
+            ASSERTL0(this->m_implicitRhsFunctor,
+                     "DIRK_ES schemes require a DoImplicitRhs method. Define "
+                     "with DIRKOp->DefineImplicitRhs().");
+            ASSERTL0(this->m_projectionFunctor,
+                     "DIRK_ES schemes require a DoProjection method. Define "
+                     "with DIRKOp->DefineProjection().");
         }
 
         // Allocate memory.
@@ -182,9 +180,9 @@ protected:
             GetDIRKLambdaCoefficients<Scheme, IntOrder, TData>()[Stage - 1];
         if constexpr (lambda == 0.0)
         {
-            this->DoExplicit(inout, this->m_implicits[Stage - 1],
-                             this->m_time + coeff * this->m_timestep,
-                             this->m_timestep);
+            this->DoImplicitRhs(inout, this->m_implicits[Stage - 1],
+                                this->m_time + coeff * this->m_timestep,
+                                this->m_timestep);
         }
         else
         {
