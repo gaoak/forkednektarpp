@@ -137,10 +137,6 @@ NEK_FORCE_INLINE static void IProductWRTBase1DKernel(
     const size_t nelmt, const TData *basis0, const TData *w0, const TData *jac,
     const TData *in, TData *out, const TData scale = 1.0)
 {
-#if defined(NEKTAR_DEBUG)
-    IProductWRTBase1DKernel<ExecSpace, Implementation, SCALE, APPEND, DEFORMED>(
-        nm0, nq0, nelmt, basis0, w0, jac, in, out, scale);
-#else
     sycl::queue &Q = SYCLQueue::GetInstance();
 
     const unsigned int shmemsize =
@@ -164,7 +160,6 @@ NEK_FORCE_INLINE static void IProductWRTBase1DKernel(
                     nelmt, basis0, w0, jac, in, out, scale, shmemptr, item_ct1);
             });
     });
-#endif
 }
 
 // Non-size based version.
@@ -218,12 +213,6 @@ NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
     const TData *nodToMod, const TData *jac, const TData *in, TData *out,
     TData *wsp, const TData scale = 1.0)
 {
-#if defined(NEKTAR_DEBUG)
-    IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation, SCALE,
-                            APPEND, DEFORMED>(
-        nm0, nm1, nq0, nq1, nelmt, isModified, index0, basis0, basis1, w0, w1,
-        nodToMod, jac, in, out, wsp, scale);
-#else
     sycl::queue &Q = SYCLQueue::GetInstance();
 
     const unsigned int nmTot =
@@ -252,7 +241,6 @@ NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
                                  shmemptr, item_ct1);
                          });
     });
-#endif
 }
 
 // Non-size based version.
@@ -310,13 +298,6 @@ NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
     const TData *w2, const TData *nodToMod, const TData *jac, const TData *in,
     TData *out, TData *wsp, const TData scale = 1.0)
 {
-#if defined(NEKTAR_DEBUG)
-
-    IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation, SCALE,
-                            APPEND, DEFORMED>(
-        nm0, nm1, nm2, nq0, nq1, nq2, nelmt, isModified, index0, index1, index2,
-        basis0, basis1, basis2, w0, w1, w2, nodToMod, jac, in, out, wsp, scale);
-#else
     sycl::queue &Q = SYCLQueue::GetInstance();
 
     const unsigned int nmTot =
@@ -346,7 +327,6 @@ NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
                     shmemptr, item_ct1);
             });
     });
-#endif
 }
 
 } // namespace Nektar::Operators::detail

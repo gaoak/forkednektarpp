@@ -126,10 +126,6 @@ NEK_FORCE_INLINE static void BwdTrans1DKernel(const size_t nelmt,
                                               const TData *basis0,
                                               const TData *in, TData *out)
 {
-#if defined(NEKTAR_DEBUG)
-    BwdTrans1DKernel<ExecSpace, Implementation>(nm0, nq0, nelmt, basis0, in,
-                                                out);
-#else
     sycl::queue &Q = SYCLQueue::GetInstance();
 
     const unsigned int shmemsize =
@@ -150,7 +146,6 @@ NEK_FORCE_INLINE static void BwdTrans1DKernel(const size_t nelmt,
                                  nelmt, basis0, in, out, shmemptr, item_ct1);
                          });
     });
-#endif
 }
 
 // Non-size based version.
@@ -198,11 +193,6 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(
     const TData *basis1, const TData *nodToMod, const TData *in, TData *out,
     TData *wsp)
 {
-#if defined(NEKTAR_DEBUG)
-    BwdTrans2DKernel<SHAPE_TYPE, ExecSpace, Implementation>(
-        nm0, nm1, nq0, nq1, nelmt, isModified, basis0, basis1, nodToMod, in,
-        out, wsp);
-#else
     sycl::queue &Q = SYCLQueue::GetInstance();
 
     constexpr unsigned int nmTot =
@@ -228,7 +218,6 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(
                                  in, out, wsp, shmemptr, item_ct1);
                          });
     });
-#endif
 }
 
 // Non-size based version.
@@ -281,11 +270,6 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
     const TData *basis2, const TData *nodToMod, const TData *in, TData *out,
     TData *wsp)
 {
-#if defined(NEKTAR_DEBUG)
-    BwdTrans3DKernel<SHAPE_TYPE, ExecSpace, Implementation>(
-        nm0, nm1, nm2, nq0, nq1, nq2, nelmt, isModified, index0, index1, basis0,
-        basis1, basis2, nodToMod, in, out, wsp);
-#else
     sycl::queue &Q = SYCLQueue::GetInstance();
 
     constexpr unsigned int nmTot =
@@ -312,7 +296,6 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
                                  shmemptr, item_ct1);
                          });
     });
-#endif
 }
 
 } // namespace Nektar::Operators::detail

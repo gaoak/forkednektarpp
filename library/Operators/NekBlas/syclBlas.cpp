@@ -45,20 +45,27 @@ using namespace oneapi::mkl;
 
 template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, sycl::queue>, void>::type NekGemm(
-    THandle queue, std::string transposeA, std::string transposeB,
-    const std::int64_t M, const std::int64_t N, const std::int64_t K,
-    const TData alpha, const TData *a, const std::int64_t lda, const TData *b,
-    const std::int64_t ldb, const TData beta, TData *c, const std::int64_t ldc)
+    [[maybe_unused]] THandle queue, std::string transposeA,
+    std::string transposeB, const std::int64_t M, const std::int64_t N,
+    const std::int64_t K, const TData alpha, const TData *a,
+    const std::int64_t lda, const TData *b, const std::int64_t ldb,
+    const TData beta, TData *c, const std::int64_t ldc)
 {
+#if __has_include("oneapi/mkl.hpp") || __has_include("oneapi/math.hpp")
     auto transA = (transposeA == "N") ? transpose::N : transpose::T;
     auto transB = (transposeB == "N") ? transpose::N : transpose::T;
     blas::column_major::gemm(queue, transA, transB, M, N, K, alpha, a, lda, b,
                              ldb, beta, c, ldc);
+#else
+    queue.wait();
+    NekGemm(blasHandle_t(), transposeA, transposeB, M, N, K, alpha, a, lda, b,
+            ldb, beta, c, ldc);
+#endif
 }
 
 template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, sycl::queue>, void>::type
-NekGemmStridedBatched(THandle queue, std::string transposeA,
+NekGemmStridedBatched([[maybe_unused]] THandle queue, std::string transposeA,
                       std::string transposeB, const std::int64_t M,
                       const std::int64_t N, const std::int64_t K,
                       const TData alpha, const TData *a, const std::int64_t lda,
@@ -67,6 +74,7 @@ NekGemmStridedBatched(THandle queue, std::string transposeA,
                       const TData beta, TData *c, const std::int64_t ldc,
                       const std::int64_t strideC, const std::int64_t batchSize)
 {
+#if __has_include("oneapi/mkl.hpp") || __has_include("oneapi/math.hpp")
     std::vector<std::int64_t> Mvec(batchSize), Nvec(batchSize), Kvec(batchSize);
     std::vector<std::int64_t> lda_vec(batchSize), ldb_vec(batchSize),
         ldc_vec(batchSize);
@@ -96,11 +104,17 @@ NekGemmStridedBatched(THandle queue, std::string transposeA,
     blas::column_major::gemm_batch(queue, transA, transB, M, N, K, alpha, a,
                                    lda, strideA, b, ldb, strideB, beta, c, ldc,
                                    strideC, batchSize);*/
+#else
+    queue.wait();
+    NekGemmStridedBatched(blasHandle_t(), transposeA, transposeB, M, N, K,
+                          alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc,
+                          strideC, batchSize);
+#endif
 }
 
 template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, sycl::queue>, void>::type
-NekGemmGroupedBatched(THandle handle, std::string transposeA,
+NekGemmGroupedBatched([[maybe_unused]] THandle queue, std::string transposeA,
                       std::string transposeB, const std::int64_t *M,
                       const std::int64_t *N, const std::int64_t *K,
                       const TData alpha, TData const *const *Aarray,
@@ -108,6 +122,7 @@ NekGemmGroupedBatched(THandle handle, std::string transposeA,
                       const std::int64_t *ldb, const TData beta, TData **Carray,
                       const std::int64_t *ldc, const std::int64_t batchSize)
 {
+#if __has_include("oneapi/mkl.hpp") || __has_include("oneapi/math.hpp")
     std::vector<transpose> transA(batchSize);
     std::vector<transpose> transB(batchSize);
     std::vector<std::int64_t> groupSize(batchSize);
@@ -126,52 +141,66 @@ NekGemmGroupedBatched(THandle handle, std::string transposeA,
     TData **Cdev;
     GetDeviceProperties::CheckGlobalMemoryUsage(3 * sizeof(TData *) *
                                                 batchSize);
-    Adev = (const TData **)sycl::malloc_device(sizeof(TData *) * batchSize,
-                                               handle);
-    Bdev = (const TData **)sycl::malloc_device(sizeof(TData *) * batchSize,
-                                               handle);
-    Cdev = (TData **)sycl::malloc_device(sizeof(TData *) * batchSize, handle);
+    Adev =
+        (const TData **)sycl::malloc_device(sizeof(TData *) * batchSize, queue);
+    Bdev =
+        (const TData **)sycl::malloc_device(sizeof(TData *) * batchSize, queue);
+    Cdev = (TData **)sycl::malloc_device(sizeof(TData *) * batchSize, queue);
     GetDeviceProperties::TotalGlobalMemory() -= 3 * sizeof(TData *) * batchSize;
-    handle.memcpy(Adev, Aarray, sizeof(TData *) * batchSize).wait();
-    handle.memcpy(Bdev, Barray, sizeof(TData *) * batchSize).wait();
-    handle.memcpy(Cdev, Carray, sizeof(TData *) * batchSize).wait();
+    queue.memcpy(Adev, Aarray, sizeof(TData *) * batchSize).wait();
+    queue.memcpy(Bdev, Barray, sizeof(TData *) * batchSize).wait();
+    queue.memcpy(Cdev, Carray, sizeof(TData *) * batchSize).wait();
 
 #if __has_include("oneapi/math.hpp")
     blas::column_major::gemm_batch(
-        handle, transA.data(), transB.data(), (std::int64_t *)M,
+        queue, transA.data(), transB.data(), (std::int64_t *)M,
         (std::int64_t *)N, (std::int64_t *)K, alpha_array.data(), Adev,
         (std::int64_t *)lda, Bdev, (std::int64_t *)ldb, beta_array.data(), Cdev,
         (std::int64_t *)ldc, batchSize, groupSize.data());
 #elif __has_include("oneapi/mkl.hpp")
-    blas::column_major::gemm_batch(handle, transA.data(), transB.data(), M, N,
-                                   K, alpha_array.data(), Adev, lda, Bdev, ldb,
+    blas::column_major::gemm_batch(queue, transA.data(), transB.data(), M, N, K,
+                                   alpha_array.data(), Adev, lda, Bdev, ldb,
                                    beta_array.data(), Cdev, ldc, batchSize,
                                    groupSize.data());
 #endif
 
-    handle.wait();
-    sycl::free(Adev, handle);
-    sycl::free(Bdev, handle);
-    sycl::free(Cdev, handle);
+    queue.wait();
+    sycl::free(Adev, queue);
+    sycl::free(Bdev, queue);
+    sycl::free(Cdev, queue);
     GetDeviceProperties::TotalGlobalMemory() += 3 * sizeof(TData *) * batchSize;
+#else
+    ASSERTL0(false, "NekGemmGroupedBatched not yet implemented")
+    queue.wait();
+    NekGemmGroupedBatched(blasHandle_t(), transposeA, transposeB,
+                          (const int *)M, (const int *)N, (const int *)K, alpha,
+                          Aarray, (const int *)lda, Barray, (const int *)ldb,
+                          beta, Carray, (const int *)ldc, batchSize);
+#endif
 }
 
 template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, sycl::queue>, void>::type NekGemv(
-    THandle handle, std::string transpose, const std::int64_t M,
+    [[maybe_unused]] THandle queue, std::string transpose, const std::int64_t M,
     const std::int64_t N, const TData alpha, const TData *a,
     const std::int64_t lda, const TData *x, const std::int64_t incx,
     const TData beta, TData *y, const std::int64_t incy)
 {
+#if __has_include("oneapi/mkl.hpp") || __has_include("oneapi/math.hpp")
     auto trans = (transpose == "N") ? transpose::N : transpose::T;
 
-    blas::column_major::gemv(handle, trans, M, N, alpha, a, lda, x, incx, beta,
+    blas::column_major::gemv(queue, trans, M, N, alpha, a, lda, x, incx, beta,
                              y, incy);
+#else
+    queue.wait();
+    NekGemv(blasHandle_t(), transpose, M, N, alpha, a, lda, x, incx, beta, y,
+            incy);
+#endif
 }
 
 template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, sycl::queue>, void>::type
-NekGemvStridedBatched(THandle handle, std::string transpose,
+NekGemvStridedBatched([[maybe_unused]] THandle queue, std::string transpose,
                       const std::int64_t M, const std::int64_t N,
                       const TData alpha, const TData *a, const std::int64_t lda,
                       const std::int64_t strideA, const TData *x,
@@ -179,19 +208,20 @@ NekGemvStridedBatched(THandle handle, std::string transpose,
                       const TData beta, TData *y, const std::int64_t incy,
                       const std::int64_t strideY, const std::int64_t batchSize)
 {
+#if __has_include("oneapi/mkl.hpp") || __has_include("oneapi/math.hpp")
 #if __has_include("oneapi/math.hpp")
-    // Not yet implemented within oneMath.
+    ASSERTL0(false, "gemv_batch not yet implemented in oneMath")
+#endif
     auto trans = (transpose == "N") ? transpose::N : transpose::T;
 
-    blas::column_major::gemv_batch(handle, trans, M, N, alpha, a, lda, strideA,
+    blas::column_major::gemv_batch(queue, trans, M, N, alpha, a, lda, strideA,
                                    x, incx, strideX, beta, y, incy, strideY,
                                    batchSize);
-#elif __has_include("oneapi/mkl.hpp")
-    auto trans = (transpose == "N") ? transpose::N : transpose::T;
-
-    blas::column_major::gemv_batch(handle, trans, M, N, alpha, a, lda, strideA,
-                                   x, incx, strideX, beta, y, incy, strideY,
-                                   batchSize);
+#else
+    queue.wait();
+    NekGemvStridedBatched(blasHandle_t(), transpose, M, N, alpha, a, lda,
+                          strideA, x, incx, strideX, beta, y, incy, strideY,
+                          batchSize);
 #endif
 }
 
@@ -227,33 +257,33 @@ template void NekGemmStridedBatched<sycl::queue, double>(
     const std::int64_t batchSize);
 
 template void NekGemmGroupedBatched<sycl::queue, float>(
-    sycl::queue handle, std::string transposeA, std::string transposeB,
+    sycl::queue queue, std::string transposeA, std::string transposeB,
     const std::int64_t *m, const std::int64_t *n, const std::int64_t *k,
     const float alpha, float const *const *Aarray, const std::int64_t *lda,
     float const *const *Barray, const std::int64_t *ldb, const float beta,
     float **Carray, const std::int64_t *ldc, const std::int64_t batchSize);
 
 template void NekGemmGroupedBatched<sycl::queue, double>(
-    sycl::queue handle, std::string transposeA, std::string transposeB,
+    sycl::queue queue, std::string transposeA, std::string transposeB,
     const std::int64_t *M, const std::int64_t *N, const std::int64_t *K,
     const double alpha, double const *const *Aarray, const std::int64_t *lda,
     double const *const *Barray, const std::int64_t *ldb, const double beta,
     double **Carray, const std::int64_t *ldc, const std::int64_t batchSize);
 
 template void NekGemv<sycl::queue, float>(
-    sycl::queue handle, std::string transpose, const std::int64_t M,
+    sycl::queue queue, std::string transpose, const std::int64_t M,
     const std::int64_t N, const float alpha, const float *a,
     const std::int64_t lda, const float *x, const std::int64_t incx,
     const float beta, float *y, const std::int64_t incy);
 
 template void NekGemv<sycl::queue, double>(
-    sycl::queue handle, std::string transpose, const std::int64_t M,
+    sycl::queue queue, std::string transpose, const std::int64_t M,
     const std::int64_t N, const double alpha, const double *a,
     const std::int64_t lda, const double *x, const std::int64_t incx,
     const double beta, double *y, const std::int64_t incy);
 
 template void NekGemvStridedBatched<sycl::queue, float>(
-    sycl::queue handle, std::string transpose, const std::int64_t M,
+    sycl::queue queue, std::string transpose, const std::int64_t M,
     const std::int64_t N, const float alpha, const float *a,
     const std::int64_t lda, const std::int64_t strideA, const float *x,
     const std::int64_t incx, const std::int64_t strideX, const float beta,
@@ -261,7 +291,7 @@ template void NekGemvStridedBatched<sycl::queue, float>(
     const std::int64_t batchSize);
 
 template void NekGemvStridedBatched<sycl::queue, double>(
-    sycl::queue handle, std::string transpose, const std::int64_t M,
+    sycl::queue queue, std::string transpose, const std::int64_t M,
     const std::int64_t N, const double alpha, const double *a,
     const std::int64_t lda, const std::int64_t strideA, const double *x,
     const std::int64_t incx, const std::int64_t strideX, const double beta,

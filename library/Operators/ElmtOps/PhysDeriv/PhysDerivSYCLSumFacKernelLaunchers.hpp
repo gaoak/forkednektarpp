@@ -124,10 +124,6 @@ NEK_FORCE_INLINE static void PhysDeriv1DKernel(const size_t nelmt,
                                                const TData *D0, const TData *df,
                                                const TData *in, TData *out)
 {
-#if defined(NEKTAR_DEBUG)
-    PhysDeriv1DKernel<ExecSpace, Implementation, DEFORMED>(
-        ncoord, nq0, nelmt, outoffset, D0, df, in, out);
-#else
     sycl::queue &Q = SYCLQueue::GetInstance();
 
     const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nq0);
@@ -142,7 +138,6 @@ NEK_FORCE_INLINE static void PhysDeriv1DKernel(const size_t nelmt,
                     nelmt, outoffset, D0, df, in, out, item_ct1);
             });
     });
-#endif
 }
 
 // Non-size based version.
@@ -191,10 +186,6 @@ NEK_FORCE_INLINE static void PhysDeriv2DKernel(const size_t nelmt,
                                                const TData *df, const TData *in,
                                                TData *out)
 {
-#if defined(NEKTAR_DEBUG)
-    PhysDeriv2DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
-        ncoord, nq0, nq1, nelmt, outoffset, D0, D1, f0, f1, df, in, out);
-#else
     sycl::queue &Q = SYCLQueue::GetInstance();
 
     const unsigned int shmemsize =
@@ -219,7 +210,6 @@ NEK_FORCE_INLINE static void PhysDeriv2DKernel(const size_t nelmt,
                                  shmemptr, item_ct1);
                          });
     });
-#endif
 }
 
 // Non-size based version.
@@ -268,11 +258,6 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel(
     const TData *f1m, const TData *f2, const TData *df, const TData *in,
     TData *out)
 {
-#if defined(NEKTAR_DEBUG)
-    PhysDeriv3DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
-        nq0, nq1, nq2, nelmt, outoffset, D0, D1, D2, f0, f1, f1m, f2, df, in,
-        out);
-#else
     sycl::queue &Q = SYCLQueue::GetInstance();
 
     const unsigned int shmemsize =
@@ -297,7 +282,6 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel(
                                  df, in, out, shmemptr, item_ct1);
                          });
     });
-#endif
 }
 
 } // namespace Nektar::Operators::detail

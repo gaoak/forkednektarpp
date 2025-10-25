@@ -63,33 +63,43 @@ elif [[ $BUILD_TYPE == "full" ]]; then
     elif [[ $BUILD_SIMD == "avx512" ]]; then
         CMAKEARGS+=("-DNEKTAR_ENABLE_SIMD_AVX512:BOOL=ON")
     fi
-    if [[ $BUILD_CUDA == "on" ]]; then
+    if [[ $BUILD_DEVICEONHOST == "on" ]]; then
+        CMAKEARGS+=("-DNEKTAR_ENABLE_DEVICEONHOST:BOOL=ON")
+    elif [[ $BUILD_CUDA == "on" ]]; then
         # Load CUDA on Linux
         [[ $OS_VERSION != "macos" ]] && module load cuda/13.0.2
 
         # Enable CUDA in CMake configuration
         CMAKEARGS+=("-DNEKTAR_ENABLE_CUDA:BOOL=ON")
         CMAKEARGS+=("-DNEKTAR_DEVICE_ARCH=sm_86")
-    fi
-    if [[ $BUILD_DEVICEONHOST == "on" ]]; then
-        CMAKEARGS+=("-DNEKTAR_ENABLE_DEVICEONHOST:BOOL=ON")
-    fi
-    if [[ $BUILD_SYCL == "Default" ]]; then
-        # Load Intel compiler module for SYCL support on Linux
-        [[ $OS_VERSION != "macos" ]] && module load intel/compiler intel/mkl
+    elif [[ $BUILD_SYCL == "Default" ]]; then
+        if [[ $BUILD_CXX == "acpp" ]]; then
+            # Load AdaptiveCpp compiler module for SYCL support on Linux
+            [[ $OS_VERSION != "macos" ]] && module load adaptive-cpp
 
-        # Change SYCL environment variable
-        export CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE=64K
+            # Change environment variable
+            export OMP_NUM_THREADS=1
+        elif [[ $BUILD_CXX == "icpx" ]]; then
+            # Load Intel compiler module for SYCL support on Linux
+            [[ $OS_VERSION != "macos" ]] && module load intel/compiler intel/mkl
+
+            # Change SYCL environment variable
+            export CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE=64K
+        fi
 
         # Enable SYCL in CMake configuration
         CMAKEARGS+=("-DNEKTAR_ENABLE_SYCL:STRING=Default")
     elif [[ $BUILD_SYCL == "CUDA" ]]; then
-        # Load CUDA and Intel compiler module for SYCL support on Linux
-        [[ $OS_VERSION != "macos" ]] && module load cuda/12.6.2 llvm/intel-6.2.0
+        if [[ $BUILD_CXX == "acpp" ]]; then
+            # Load LLVM support on Linux
+            [[ $OS_VERSION != "macos" ]] && module load adaptive-cpp
+        elif [[ $BUILD_CXX == "icpx" ]]; then
+            # Load CUDA and Intel compiler module for SYCL support on Linux
+            [[ $OS_VERSION != "macos" ]] && module load cuda/12.6.2 llvm/intel-6.2.0
+        fi
 
         # Enable SYCL in CMake configuration
         CMAKEARGS+=("-DNEKTAR_ENABLE_SYCL:STRING=CUDA")
-        CMAKEARGS+=("-DNEKTAR_DEVICE_ARCH=sm_86")
     fi
 elif [[ $BUILD_TYPE == "performance" ]]; then
     CMAKEARGS=(..
