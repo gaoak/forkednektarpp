@@ -453,6 +453,10 @@ public:
     inline const Array<OneD, const NekDouble> &GetCoeffs() const;
     /// Impose Dirichlet Boundary Conditions onto Array
     inline void ImposeDirichletConditions(Array<OneD, NekDouble> &outarray);
+    /// Add Neumann Boundary Condition forcing to Array
+    inline void ImposeNeumannConditions(Array<OneD, NekDouble> &outarray);
+    /// Add Robin Boundary Condition forcing to Array
+    inline void ImposeRobinConditions(Array<OneD, NekDouble> &outarray);
     /// Fill Bnd Condition expansion from the values stored in expansion
     inline void FillBndCondFromField(const Array<OneD, NekDouble> coeffs);
     /// Fill Bnd Condition expansion in nreg from the values
@@ -836,10 +840,23 @@ public:
     /// Copy and fill the Periodic boundaries
     inline void PeriodicBwdCopy(const Array<OneD, const NekDouble> &Fwd,
                                 Array<OneD, NekDouble> &Bwd);
+    /// Rotate Bwd trace for rotational periodicity boundaries
+    /// when the flow is perpendicular to the rotation axis
+    inline void PeriodicBwdRot(Array<OneD, Array<OneD, NekDouble>> &Bwd);
+    /// Rotate Bwd trace derivative for rotational periodicity boundaries
+    /// when the flow is perpendicular to the rotation axis
+    inline void PeriodicDeriveBwdRot(TensorOfArray3D<NekDouble> &Bwd);
+    /// Rotate local Bwd trace across a rotational interface
+    /// when the flow is perpendicular to the rotation axis
+    inline void RotLocalBwdTrace(Array<OneD, Array<OneD, NekDouble>> &Bwd);
+    /// Rotate local Bwd trace derivatives across a rotational interface
+    /// when the flow is perpendicular to the rotation axis
+    inline void RotLocalBwdDeriveTrace(TensorOfArray3D<NekDouble> &Bwd);
     inline const std::vector<bool> &GetLeftAdjacentFaces(void) const;
     inline void ExtractTracePhys(Array<OneD, NekDouble> &outarray);
     inline void ExtractTracePhys(const Array<OneD, const NekDouble> &inarray,
-                                 Array<OneD, NekDouble> &outarray);
+                                 Array<OneD, NekDouble> &outarray,
+                                 bool gridVelocity = false);
     inline const Array<OneD, const SpatialDomains::BoundaryConditionShPtr> &
     GetBndConditions();
     inline Array<OneD, SpatialDomains::BoundaryConditionShPtr> &
@@ -1082,6 +1099,13 @@ public:
         return m_coll_phys_offset[n];
     }
 
+    MULTI_REGIONS_EXPORT inline const Array<OneD,
+                                            const Array<OneD, NekDouble>> &
+    GetGridVelocity()
+    {
+        return m_gridVelocity;
+    }
+
 protected:
     /// Data Warehouse
     std::shared_ptr<Nektar::Operators::NekDataWarehouse> m_dataWarehouse;
@@ -1177,6 +1201,8 @@ protected:
     bool m_WaveSpace;
     /// Mapping from geometry ID of element to index inside #m_exp
     std::unordered_map<int, int> m_elmtToExpId;
+    /// Grid velocity at quadrature points
+    Array<OneD, Array<OneD, NekDouble>> m_gridVelocity;
     /// This function assembles the block diagonal matrix of local
     /// matrices of the type \a mtype.
     const DNekScalBlkMatSharedPtr GenBlockMatrix(const GlobalMatrixKey &gkey);
@@ -1260,10 +1286,18 @@ protected:
                                         Array<OneD, NekDouble> &weightjmp);
     virtual void v_PeriodicBwdCopy(const Array<OneD, const NekDouble> &Fwd,
                                    Array<OneD, NekDouble> &Bwd);
+    virtual void v_PeriodicBwdRot(Array<OneD, Array<OneD, NekDouble>> &Bwd);
+
+    virtual void v_PeriodicDeriveBwdRot(TensorOfArray3D<NekDouble> &Bwd);
+    virtual void v_RotLocalBwdTrace(Array<OneD, Array<OneD, NekDouble>> &Bwd);
+
+    virtual void v_RotLocalBwdDeriveTrace(TensorOfArray3D<NekDouble> &Bwd);
+
     virtual const std::vector<bool> &v_GetLeftAdjacentFaces(void) const;
     virtual void v_ExtractTracePhys(Array<OneD, NekDouble> &outarray);
     virtual void v_ExtractTracePhys(const Array<OneD, const NekDouble> &inarray,
-                                    Array<OneD, NekDouble> &outarray);
+                                    Array<OneD, NekDouble> &outarray,
+                                    bool gridVelocity = false);
     virtual void v_MultiplyByInvMassMatrix(
         const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray);
@@ -1297,6 +1331,8 @@ protected:
 
     // wrapper functions about virtual functions
     virtual void v_ImposeDirichletConditions(Array<OneD, NekDouble> &outarray);
+    virtual void v_ImposeNeumannConditions(Array<OneD, NekDouble> &outarray);
+    virtual void v_ImposeRobinConditions(Array<OneD, NekDouble> &outarray);
     virtual void v_FillBndCondFromField(const Array<OneD, NekDouble> coeffs);
     virtual void v_FillBndCondFromField(const int nreg,
                                         const Array<OneD, NekDouble> coeffs);
@@ -2003,6 +2039,14 @@ inline void ExpList::ImposeDirichletConditions(Array<OneD, NekDouble> &outarray)
 {
     v_ImposeDirichletConditions(outarray);
 }
+inline void ExpList::ImposeNeumannConditions(Array<OneD, NekDouble> &outarray)
+{
+    v_ImposeNeumannConditions(outarray);
+}
+inline void ExpList::ImposeRobinConditions(Array<OneD, NekDouble> &outarray)
+{
+    v_ImposeRobinConditions(outarray);
+}
 inline void ExpList::FillBndCondFromField(const Array<OneD, NekDouble> coeffs)
 {
     v_FillBndCondFromField(coeffs);
@@ -2277,6 +2321,26 @@ inline void ExpList::PeriodicBwdCopy(const Array<OneD, const NekDouble> &Fwd,
 {
     v_PeriodicBwdCopy(Fwd, Bwd);
 }
+inline void ExpList::PeriodicBwdRot(Array<OneD, Array<OneD, NekDouble>> &Bwd)
+{
+    v_PeriodicBwdRot(Bwd);
+}
+
+inline void ExpList::PeriodicDeriveBwdRot(TensorOfArray3D<NekDouble> &Bwd)
+{
+    v_PeriodicDeriveBwdRot(Bwd);
+}
+
+inline void ExpList::RotLocalBwdTrace(Array<OneD, Array<OneD, NekDouble>> &Bwd)
+{
+    v_RotLocalBwdTrace(Bwd);
+}
+
+inline void ExpList::RotLocalBwdDeriveTrace(TensorOfArray3D<NekDouble> &Bwd)
+{
+    v_RotLocalBwdDeriveTrace(Bwd);
+}
+
 inline const std::vector<bool> &ExpList::GetLeftAdjacentFaces(void) const
 {
     return v_GetLeftAdjacentFaces();
@@ -2287,9 +2351,9 @@ inline void ExpList::ExtractTracePhys(Array<OneD, NekDouble> &outarray)
 }
 inline void ExpList::ExtractTracePhys(
     const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray)
+    Array<OneD, NekDouble> &outarray, bool gridVelocity)
 {
-    v_ExtractTracePhys(inarray, outarray);
+    v_ExtractTracePhys(inarray, outarray, gridVelocity);
 }
 inline const Array<OneD, const SpatialDomains::BoundaryConditionShPtr> &ExpList::
     GetBndConditions()

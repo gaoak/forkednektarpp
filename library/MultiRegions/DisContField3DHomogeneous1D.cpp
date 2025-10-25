@@ -326,7 +326,7 @@ void DisContField3DHomogeneous1D::v_ExtractTracePhys(
  */
 void DisContField3DHomogeneous1D::v_ExtractTracePhys(
     const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray)
+    Array<OneD, NekDouble> &outarray, [[maybe_unused]] bool gridVelocity)
 {
     int nPoints_plane = m_planes[0]->GetTotPoints();
     int nTracePts     = m_planes[0]->GetTrace()->GetTotPoints();
@@ -644,13 +644,13 @@ void DisContField3DHomogeneous1D::v_EvaluateBoundaryConditions(
 
                 if (exprbcs != "")
                 {
-                    LibUtilities::Equation condition =
+                    LibUtilities::EquationSharedPtr condition =
                         std::static_pointer_cast<
                             SpatialDomains::DirichletBoundaryCondition>(
                             m_bndConditions[i])
                             ->m_dirichletCondition;
 
-                    condition.Evaluate(x0, x1, x2, time, valuesExp);
+                    condition->Evaluate(x0, x1, x2, time, valuesExp);
                 }
 
                 Vmath::Vmul(npoints, valuesExp, 1, valuesFile, 1,
@@ -679,14 +679,14 @@ void DisContField3DHomogeneous1D::v_EvaluateBoundaryConditions(
                 }
                 else
                 {
-                    LibUtilities::Equation condition =
+                    LibUtilities::EquationSharedPtr condition =
                         std::static_pointer_cast<
                             SpatialDomains::NeumannBoundaryCondition>(
                             m_bndConditions[i])
                             ->m_neumannCondition;
 
-                    condition.Evaluate(x0, x1, x2, time,
-                                       locExpList->UpdatePhys());
+                    condition->Evaluate(x0, x1, x2, time,
+                                        locExpList->UpdatePhys());
                 }
 
                 locExpList->IProductWRTBase(locExpList->GetPhys(),
@@ -710,14 +710,14 @@ void DisContField3DHomogeneous1D::v_EvaluateBoundaryConditions(
                 }
                 else
                 {
-                    LibUtilities::Equation condition =
+                    LibUtilities::EquationSharedPtr condition =
                         std::static_pointer_cast<
                             SpatialDomains::RobinBoundaryCondition>(
                             m_bndConditions[i])
                             ->m_robinFunction;
 
-                    condition.Evaluate(x0, x1, x2, time,
-                                       locExpList->UpdatePhys());
+                    condition->Evaluate(x0, x1, x2, time,
+                                        locExpList->UpdatePhys());
                 }
 
                 locExpList->IProductWRTBase(locExpList->GetPhys(),

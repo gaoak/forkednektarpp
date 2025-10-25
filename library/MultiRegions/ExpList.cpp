@@ -5177,7 +5177,8 @@ void ExpList::v_ExtractTracePhys(
 
 void ExpList::v_ExtractTracePhys(
     [[maybe_unused]] const Array<OneD, const NekDouble> &inarray,
-    [[maybe_unused]] Array<OneD, NekDouble> &outarray)
+    [[maybe_unused]] Array<OneD, NekDouble> &outarray,
+    [[maybe_unused]] bool gridVelocity)
 {
     NEKERROR(ErrorUtil::efatal,
              "This method is not defined or valid for this class type");
@@ -5335,6 +5336,20 @@ void ExpList::v_NormVectorIProductWRTBase(
 }
 
 void ExpList::v_ImposeDirichletConditions(
+    [[maybe_unused]] Array<OneD, NekDouble> &outarray)
+{
+    NEKERROR(ErrorUtil::efatal,
+             "This method is not defined or valid for this class type");
+}
+
+void ExpList::v_ImposeNeumannConditions(
+    [[maybe_unused]] Array<OneD, NekDouble> &outarray)
+{
+    NEKERROR(ErrorUtil::efatal,
+             "This method is not defined or valid for this class type");
+}
+
+void ExpList::v_ImposeRobinConditions(
     [[maybe_unused]] Array<OneD, NekDouble> &outarray)
 {
     NEKERROR(ErrorUtil::efatal,
@@ -5711,6 +5726,30 @@ void ExpList::v_PeriodicBwdCopy(
     [[maybe_unused]] Array<OneD, NekDouble> &Bwd)
 {
     NEKERROR(ErrorUtil::efatal, "v_PeriodicBwdCopy not defined");
+}
+
+void ExpList::v_PeriodicBwdRot(
+    [[maybe_unused]] Array<OneD, Array<OneD, NekDouble>> &Bwd)
+{
+    NEKERROR(ErrorUtil::efatal, "v_PeriodicBwdRot not defined");
+}
+
+void ExpList::v_PeriodicDeriveBwdRot(
+    [[maybe_unused]] TensorOfArray3D<NekDouble> &Bwd)
+{
+    NEKERROR(ErrorUtil::efatal, "v_PeriodicDeriveBwdRot not defined");
+}
+
+void ExpList::v_RotLocalBwdTrace(
+    [[maybe_unused]] Array<OneD, Array<OneD, NekDouble>> &Bwd)
+{
+    NEKERROR(ErrorUtil::efatal, "v_RotLocalBwdTrace not defined");
+}
+
+void ExpList::v_RotLocalBwdDeriveTrace(
+    [[maybe_unused]] TensorOfArray3D<NekDouble> &Bwd)
+{
+    NEKERROR(ErrorUtil::efatal, "v_RotLocalBwdDeriveTrace not defined");
 }
 
 /**
