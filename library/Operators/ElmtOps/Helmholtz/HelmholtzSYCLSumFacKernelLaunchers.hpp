@@ -151,11 +151,6 @@ NEK_FORCE_INLINE static void Helmholtz1DKernel(
     const TData *coeff, const TData *in, TData *out, TData *wsp,
     const TData lambda = 1.0)
 {
-#if defined(NEKTAR_DEBUG)
-    Helmholtz1DKernel<ExecSpace, Implementation, DEFORMED>(
-        ncoord, nm0, nq0, nelmt, basis0, D0, w0, df, jac, coeff, in, out, wsp,
-        lambda);
-#else
     sycl::queue &Q = SYCLQueue::GetInstance();
 
     const unsigned int shmemsize =
@@ -178,7 +173,6 @@ NEK_FORCE_INLINE static void Helmholtz1DKernel(
                     lambda, shmemptr, item_ct1);
             });
     });
-#endif
 }
 
 // Non-size based version.
@@ -233,11 +227,6 @@ NEK_FORCE_INLINE static void Helmholtz2DKernel(
     const TData *jac, const TData *coeff, const TData *in, TData *out,
     TData *wsp, const TData lambda = 1.0)
 {
-#if defined(NEKTAR_DEBUG)
-    Helmholtz2DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
-        ncoord, nm0, nm1, nq0, nq1, nelmt, isModified, index0, basis0, basis1,
-        D0, D1, w0, w1, f0, f1, nodToMod, df, jac, coeff, in, out, wsp, lambda);
-#else
     sycl::queue &Q = SYCLQueue::GetInstance();
 
     constexpr unsigned int nmTot =
@@ -265,7 +254,6 @@ NEK_FORCE_INLINE static void Helmholtz2DKernel(
                     lambda, shmemptr, item_ct1);
             });
     });
-#endif
 }
 
 // Non-size based version.
@@ -327,12 +315,6 @@ NEK_FORCE_INLINE static void Helmholtz3DKernel(
     const TData *df, const TData *jac, const TData *coeff, const TData *in,
     TData *out, TData *wsp, const TData lambda = 1.0)
 {
-#if defined(NEKTAR_DEBUG)
-    Helmholtz3DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
-        nm0, nm1, nm2, nq0, nq1, nq2, nelmt, isModified, index0, index1, index2,
-        index3, basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2,
-        nodToMod, df, jac, coeff, in, out, wsp, lambda);
-#else
     sycl::queue &Q = SYCLQueue::GetInstance();
 
     constexpr unsigned int nmTot =
@@ -361,7 +343,6 @@ NEK_FORCE_INLINE static void Helmholtz3DKernel(
                     item_ct1);
             });
     });
-#endif
 }
 
 } // namespace Nektar::Operators::detail

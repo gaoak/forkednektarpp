@@ -150,7 +150,7 @@ struct vector_width
 #elif defined(SYCL_ENABLE_CPU)
 struct vector_width
 {
-    static constexpr unsigned int value = 64u;
+    static constexpr unsigned int value = 1u;
 };
 #else
 struct vector_width

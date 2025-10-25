@@ -1,0 +1,38 @@
+#
+# NektarAdaptiveCpp.cmake
+#
+# Sets up cmake variables needed for using SYCL in Nektar++
+#
+
+SET(BOOST_MIN_VERSION "1.82.0")
+
+ADD_DEFINITIONS(-DNEKTAR_ENABLE_SYCL)
+ADD_DEFINITIONS(-DUSE_SYCL_BUILTIN_REDUCER)
+
+IF (NEKTAR_ENABLE_SYCL STREQUAL "Default")
+    SET(ACPP_TARGETS "generic")
+    ADD_DEFINITIONS(-DSYCL_ENABLE_CPU)
+ELSEIF (NEKTAR_ENABLE_SYCL STREQUAL "CUDA")
+    SET(CUDA_SEPARABLE_COMPILATION ON)
+    IF (NEKTAR_DEVICE_ARCH)
+        SET(ACPP_TARGETS "cuda:${NEKTAR_DEVICE_ARCH}")
+    ELSE()
+        SET(ACPP_TARGETS "generic")
+    ENDIF()
+    ADD_DEFINITIONS(-DSYCL_ENABLE_CUDA)
+ELSEIF (NEKTAR_ENABLE_SYCL STREQUAL "HIP")
+    IF (NEKTAR_DEVICE_ARCH)
+        SET(ACPP_TARGETS "hip:${NEKTAR_DEVICE_ARCH}")
+    ELSE()
+        SET(ACPP_TARGETS "generic")
+    ENDIF()
+    ADD_DEFINITIONS(-DSYCL_ENABLE_HIP)
+ENDIF()
+
+IF (NEKTAR_ENABLE_SYCL STREQUAL "Default")
+    SET(CMAKE_CXX_FLAGS "--acpp-targets=${ACPP_TARGETS} -O3 -march=native -Wno-nan-infinity-disabled  -Wno-pass-failed")
+ELSE()
+    SET(CMAKE_CXX_FLAGS "--acpp-targets=${ACPP_TARGETS} -O3 -Wno-nan-infinity-disabled  -Wno-pass-failed")
+ENDIF()
+
+INCLUDE(NektarOneMath)

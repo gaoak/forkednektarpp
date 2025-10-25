@@ -244,24 +244,11 @@ include:
 debian-trixie-default-build-env:
   <<: *build-env-debian-template-default
 
-debian-trixie-default-intel-llvm-build-env:
-  <<: *build-env-debian-template-default
-  tags:
-    - gpu
-
 debian-trixie-full-build-env:
   <<: *build-env-debian-template-full
   needs: ["debian-trixie-default-build-env"]
   variables:
     PIP_FLAGS: "--break-system-packages"
-
-debian-trixie-full-intel-llvm-build-env:
-  <<: *build-env-debian-template-full
-  needs: ["debian-trixie-default-intel-llvm-build-env"]
-  variables:
-    PIP_FLAGS: "--break-system-packages"
-  tags:
-    - gpu
 
 debian-bookworm-default-build-env:
   <<: *build-env-debian-template-default
@@ -316,14 +303,22 @@ debian-trixie-full-clang19-build-and-test:
     DISABLE_CWIPI: true
     BUILD_DEVICEONHOST: "on"
 
-debian-trixie-full-intel-llvm-build-and-test:
+debian-trixie-full-acpp-build-and-test:
   <<: *build-and-test-template
-  needs: ["debian-trixie-full-intel-llvm-build-env"]
+  needs: ["debian-trixie-full-build-env"]
+  variables:
+    DOCKER_FLAGS: "-v /apps:/apps"
+    DISABLE_CWIPI: true
+    BUILD_CXX: acpp
+    BUILD_SYCL: "Default"
+
+debian-trixie-full-acpp-cuda-build-and-test:
+  <<: *build-and-test-template
+  needs: ["debian-trixie-full-build-env"]
   variables:
     DOCKER_FLAGS: "--runtime nvidia --gpus=all -v /apps:/apps"
-    BUILD_CC: clang-21
-    BUILD_CXX: clang-21
     DISABLE_CWIPI: true
+    BUILD_CXX: acpp
     BUILD_SYCL: "CUDA"
   tags:
     - gpu
@@ -363,15 +358,6 @@ debian-bookworm-full-avx512-build-and-test:
   tags:
     - avx512
 
-debian-bookworm-full-icpx-build-and-test:
-  <<: *build-and-test-template
-  needs: ["debian-bookworm-full-build-env"]
-  variables:
-    DOCKER_FLAGS: "-v /apps:/apps"
-    BUILD_CC: icx
-    BUILD_CXX: icpx
-    BUILD_SYCL: "Default"
-
 # COMPILER WARNINGS
 debian-trixie-default-warnings:
   <<: *compiler-warning-template
@@ -393,9 +379,13 @@ debian-trixie-full-clang19-warnings:
   <<: *compiler-warning-template
   needs: ["debian-trixie-full-clang19-build-and-test"]
 
-debian-trixie-full-intel-llvm-warnings:
+debian-trixie-full-acpp-warnings:
   <<: *compiler-warning-template
-  needs: ["debian-trixie-full-intel-llvm-build-and-test"]
+  needs: ["debian-trixie-full-acpp-build-and-test"]
+
+debian-trixie-full-acpp-cuda-warnings:
+  <<: *compiler-warning-template
+  needs: ["debian-trixie-full-acpp-cuda-build-and-test"]
 
 debian-bookworm-default-warnings:
   <<: *compiler-warning-template
@@ -412,10 +402,6 @@ debian-bookworm-full-avx2-warnings:
 debian-bookworm-full-avx512-warnings:
   <<: *compiler-warning-template
   needs: ["debian-bookworm-full-avx512-build-and-test"]
-
-debian-bookworm-full-icpx-warnings:
-  <<: *compiler-warning-template
-  needs: ["debian-bookworm-full-icpx-build-and-test"]
 
 debian-bookworm-performance-warnings:
   <<: *compiler-warning-template
@@ -519,20 +505,9 @@ ubuntu-noble-full-build-env:
 ubuntu-jammy-default-build-env:
   <<: *build-env-ubuntu-template-default
 
-ubuntu-jammy-default-cuda-build-env:
-  <<: *build-env-ubuntu-template-default
-  tags:
-    - gpu
-
 ubuntu-jammy-full-build-env:
   <<: *build-env-ubuntu-template-full
   needs: ["ubuntu-jammy-default-build-env"]
-
-ubuntu-jammy-full-cuda-build-env:
-  <<: *build-env-ubuntu-template-full
-  needs: ["ubuntu-jammy-default-cuda-build-env"]
-  tags:
-    - gpu
 
 ubuntu-focal-default-build-env:
   <<: *build-env-ubuntu-template-default
@@ -550,15 +525,6 @@ ubuntu-jammy-full-build-and-test:
   needs: ["ubuntu-jammy-full-build-env"]
   variables:
     BUILD_DEVICEONHOST: "on"
-
-ubuntu-jammy-full-cuda-build-and-test:
-  <<: *build-and-test-template
-  needs: ["ubuntu-jammy-full-cuda-build-env"]
-  variables:
-    DOCKER_FLAGS: "--runtime nvidia --gpus=all -v /apps:/apps"
-    BUILD_CUDA: "on"
-  tags:
-    - gpu
 
 ubuntu-focal-default-build-and-test:
   <<: *build-and-test-template
@@ -603,6 +569,15 @@ ubuntu-noble-full-clang18-avx512-build-and-test:
   tags:
     - avx512
 
+ubuntu-noble-full-cuda-build-and-test:
+  <<: *build-and-test-template
+  needs: ["ubuntu-noble-full-build-env"]
+  variables:
+    DOCKER_FLAGS: "--runtime nvidia --gpus=all -v /apps:/apps"
+    BUILD_CUDA: "on"
+  tags:
+    - gpu
+
 ubuntu-jammy-full-avx512-coverage:
   <<: *build-and-test-template
   needs: ["ubuntu-jammy-full-build-env"]
@@ -626,10 +601,6 @@ ubuntu-jammy-default-warnings:
 ubuntu-jammy-full-warnings:
   <<: *compiler-warning-template
   needs: ["ubuntu-jammy-full-build-and-test"]
-
-ubuntu-jammy-full-cuda-warnings:
-  <<: *compiler-warning-template
-  needs: ["ubuntu-jammy-full-cuda-build-and-test"]
 
 ubuntu-focal-default-warnings:
   <<: *compiler-warning-template
@@ -658,6 +629,10 @@ ubuntu-noble-full-clang18-avx2-warnings:
 ubuntu-noble-full-clang18-avx512-warnings:
   <<: *compiler-warning-template
   needs: ["ubuntu-noble-full-clang18-avx512-build-and-test"]
+
+ubuntu-noble-full-cuda-warnings:
+  <<: *compiler-warning-template
+  needs: ["ubuntu-noble-full-cuda-build-and-test"]
 
 
 ## UNCOMPILED FILES
