@@ -274,8 +274,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                        interleave_width, chunkSize, nqTot, (TData *)inptr);
+                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                              interleave_width, chunkSize,
+                                              nqTot, (TData *)inptr);
                 }
 
                 // Get the basic derivative.
@@ -366,8 +367,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                        interleave_width, chunkSize, nqTot, (TData *)inptr);
+                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                              interleave_width, chunkSize,
+                                              nqTot, (TData *)inptr);
                 }
 
                 // Get the basic derivative.
@@ -460,8 +462,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                        interleave_width, chunkSize, nqTot, (TData *)inptr);
+                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                              interleave_width, chunkSize,
+                                              nqTot, (TData *)inptr);
                 }
 
                 // Results written to outvec0, outvec1.
@@ -552,8 +555,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                        interleave_width, chunkSize, nqTot, (TData *)inptr);
+                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                              interleave_width, chunkSize,
+                                              nqTot, (TData *)inptr);
                 }
 
                 // Results written to outvec0, outvec1.
@@ -650,8 +654,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                        interleave_width, chunkSize, nqTot, (TData *)inptr);
+                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                              interleave_width, chunkSize,
+                                              nqTot, (TData *)inptr);
                 }
 
                 // Get the basic derivative.
@@ -741,8 +746,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                        interleave_width, chunkSize, nqTot, (TData *)inptr);
+                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                              interleave_width, chunkSize,
+                                              nqTot, (TData *)inptr);
                 }
 
                 // Get the basic derivative.

@@ -111,15 +111,15 @@ protected:
             std::vector<TData> fielddata(m_numEvars[nc]);
 
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(),
-                inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
-                (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      inblock.GetInterleaveWidth(),
+                                      inblock.GetNumElementsWithPadding(),
+                                      inblock.GetNumData(), (TData *)inptr);
 
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                outblock.GetInterleaveWidth(),
-                outblock.GetNumElementsWithPadding(), outblock.GetNumData(),
-                (TData *)outptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      outblock.GetInterleaveWidth(),
+                                      outblock.GetNumElementsWithPadding(),
+                                      outblock.GetNumData(), (TData *)outptr);
 
             // Evaluate expression.
             auto coordptr = coordptr_init;

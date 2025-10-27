@@ -296,8 +296,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                        interleave_width, chunkSize, nmTot, (TData *)inptr);
+                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                              interleave_width, chunkSize,
+                                              nmTot, (TData *)inptr);
                 }
 
                 // Step 1: BwdTrans.
@@ -374,8 +375,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                        interleave_width, chunkSize, nmTot, (TData *)inptr);
+                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                              interleave_width, chunkSize,
+                                              nmTot, (TData *)inptr);
                 }
 
                 // Step 1: BwdTrans.
@@ -462,8 +464,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                        interleave_width, chunkSize, nmTot, (TData *)inptr);
+                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                              interleave_width, chunkSize,
+                                              nmTot, (TData *)inptr);
                 }
 
                 // Step 1: BwdTrans.
@@ -548,8 +551,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                        interleave_width, chunkSize, nmTot, (TData *)inptr);
+                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                              interleave_width, chunkSize,
+                                              nmTot, (TData *)inptr);
                 }
 
                 // Step 1: BwdTrans.
@@ -642,8 +646,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                        interleave_width, chunkSize, nmTot, (TData *)inptr);
+                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                              interleave_width, chunkSize,
+                                              nmTot, (TData *)inptr);
                 }
 
                 // Step 1: BwdTrans.
@@ -731,8 +736,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                        interleave_width, chunkSize, nmTot, (TData *)inptr);
+                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                              interleave_width, chunkSize,
+                                              nmTot, (TData *)inptr);
                 }
 
                 // Step 1: BwdTrans.

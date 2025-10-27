@@ -395,9 +395,9 @@ protected:
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
-                (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      inblock.GetInterleaveWidth(), nelmt,
+                                      inblock.GetNumData(), (TData *)inptr);
 
             // IProduct kernel.
             Mass1DKernel<ExecSpace, Implementation, DEFORMED>(
@@ -451,9 +451,9 @@ protected:
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
-                (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      inblock.GetInterleaveWidth(), nelmt,
+                                      inblock.GetNumData(), (TData *)inptr);
 
             // IProduct kernel.
             Mass1DKernel<ExecSpace, Implementation, DEFORMED, nm0, nq0>(
@@ -514,9 +514,9 @@ protected:
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
-                (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      inblock.GetInterleaveWidth(), nelmt,
+                                      inblock.GetNumData(), (TData *)inptr);
 
             // IProduct kernel.
             Mass2DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
@@ -574,9 +574,9 @@ protected:
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
-                (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      inblock.GetInterleaveWidth(), nelmt,
+                                      inblock.GetNumData(), (TData *)inptr);
 
             // IProduct kernel.
             Mass2DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED, nm0,
@@ -640,9 +640,9 @@ protected:
         for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
-                (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      inblock.GetInterleaveWidth(), nelmt,
+                                      inblock.GetNumData(), (TData *)inptr);
 
             // IProduct kernel.
             Mass3DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
@@ -700,9 +700,9 @@ protected:
         for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
-                (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      inblock.GetInterleaveWidth(), nelmt,
+                                      inblock.GetNumData(), (TData *)inptr);
 
             // IProduct kernel.
             Mass3DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED, nm0,

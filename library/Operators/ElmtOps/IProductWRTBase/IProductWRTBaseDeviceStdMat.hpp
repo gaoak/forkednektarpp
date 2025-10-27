@@ -139,9 +139,9 @@ protected:
         for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nelmtTot, inblock.GetNumData(),
-                (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      inblock.GetInterleaveWidth(), nelmtTot,
+                                      inblock.GetNumData(), (TData *)inptr);
 
             // Multiply by jacobian.
             if (m_isDeformed)

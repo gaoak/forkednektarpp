@@ -127,10 +127,10 @@ protected:
             for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
             {
                 // Reshape, if necessary.
-                ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                    inblock.GetInterleaveWidth(),
-                    inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
-                    (TData *)inptr);
+                ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                          inblock.GetInterleaveWidth(),
+                                          inblock.GetNumElementsWithPadding(),
+                                          inblock.GetNumData(), (TData *)inptr);
 
                 // Perform batched matrix-vector multiply.
                 NekGemmStridedBatched(
@@ -154,10 +154,10 @@ protected:
             for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
             {
                 // Reshape, if necessary.
-                ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                    inblock.GetInterleaveWidth(),
-                    inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
-                    (TData *)inptr);
+                ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                          inblock.GetInterleaveWidth(),
+                                          inblock.GetNumElementsWithPadding(),
+                                          inblock.GetNumData(), (TData *)inptr);
 
                 // Perform matrix-matrix multiply.
                 NekGemm(handle, "N", "N", m_nmTot, nelmt, m_nmTot, alpha,

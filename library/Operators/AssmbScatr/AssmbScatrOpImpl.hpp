@@ -187,8 +187,8 @@ protected:
                     unsigned blksize = outblk.size();
                     for (unsigned nc = 0; nc < m_numComp; ++nc)
                     {
-                        interleave<NektarSpaces::vector_width<TData>::value,
-                                   ExecSpace>(
+                        interleave<ExecSpace>(
+                            NektarSpaces::vector_width<TData>::value,
                             outblk.GetNumElementsWithPadding() / in_width,
                             outblk.GetNumData(), outPtr + nc * blksize);
                     }

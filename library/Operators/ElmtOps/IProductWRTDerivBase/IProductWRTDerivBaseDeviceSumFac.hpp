@@ -418,9 +418,9 @@ protected:
             // Reshape, if necessary.
             for (unsigned int d = 0; d < m_coordDim; ++d)
             {
-                ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                    inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
-                    (TData *)inptr + d * inoffset);
+                ReshapeStorage<ExecSpace>(
+                    m_implInterleaveWidth, inblock.GetInterleaveWidth(), nelmt,
+                    inblock.GetNumData(), (TData *)inptr + d * inoffset);
             }
 
             // IProduct kernel.
@@ -488,9 +488,9 @@ protected:
             // Reshape, if necessary.
             for (unsigned int d = 0; d < m_coordDim; ++d)
             {
-                ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                    inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
-                    (TData *)inptr + d * inoffset);
+                ReshapeStorage<ExecSpace>(
+                    m_implInterleaveWidth, inblock.GetInterleaveWidth(), nelmt,
+                    inblock.GetNumData(), (TData *)inptr + d * inoffset);
             }
 
             // IProduct kernel.
@@ -566,9 +566,9 @@ protected:
             // Reshape, if necessary.
             for (unsigned int d = 0; d < m_coordDim; ++d)
             {
-                ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                    inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
-                    (TData *)inptr + d * inoffset);
+                ReshapeStorage<ExecSpace>(
+                    m_implInterleaveWidth, inblock.GetInterleaveWidth(), nelmt,
+                    inblock.GetNumData(), (TData *)inptr + d * inoffset);
             }
 
             // IProduct kernel.
@@ -641,9 +641,9 @@ protected:
             // Reshape, if necessary.
             for (unsigned int d = 0; d < m_coordDim; ++d)
             {
-                ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                    inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
-                    (TData *)inptr + d * inoffset);
+                ReshapeStorage<ExecSpace>(
+                    m_implInterleaveWidth, inblock.GetInterleaveWidth(), nelmt,
+                    inblock.GetNumData(), (TData *)inptr + d * inoffset);
             }
 
             // IProduct kernel.
@@ -720,9 +720,9 @@ protected:
             // Reshape, if necessary.
             for (unsigned int d = 0; d < m_coordDim; ++d)
             {
-                ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                    inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
-                    (TData *)inptr + d * inblock.size());
+                ReshapeStorage<ExecSpace>(
+                    m_implInterleaveWidth, inblock.GetInterleaveWidth(), nelmt,
+                    inblock.GetNumData(), (TData *)inptr + d * inblock.size());
             }
 
             // IProduct kernel.
@@ -790,9 +790,9 @@ protected:
             // Reshape, if necessary.
             for (unsigned int d = 0; d < m_coordDim; ++d)
             {
-                ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                    inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
-                    (TData *)inptr + d * inblock.size());
+                ReshapeStorage<ExecSpace>(
+                    m_implInterleaveWidth, inblock.GetInterleaveWidth(), nelmt,
+                    inblock.GetNumData(), (TData *)inptr + d * inblock.size());
             }
 
             // IProduct kernel.

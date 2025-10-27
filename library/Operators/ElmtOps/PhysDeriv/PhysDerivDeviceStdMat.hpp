@@ -124,9 +124,9 @@ protected:
         for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nelmtTot, inblock.GetNumData(),
-                (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      inblock.GetInterleaveWidth(), nelmtTot,
+                                      inblock.GetNumData(), (TData *)inptr);
 
             // Perform matrix-matrix multiply.
             for (unsigned int d = 0; d < m_dimension; d++)

@@ -260,9 +260,9 @@ protected:
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
-                (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      inblock.GetInterleaveWidth(), nelmt,
+                                      inblock.GetNumData(), (TData *)inptr);
 
             // Calculate derivative.
             PhysDerivSegKernel<ExecSpace>(m_coordDim, m_dimension, nq0, nelmt,
@@ -310,9 +310,9 @@ protected:
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
-                (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      inblock.GetInterleaveWidth(), nelmt,
+                                      inblock.GetNumData(), (TData *)inptr);
 
             // Calculate derivative.
             PhysDerivQuadKernel<ExecSpace>(m_coordDim, m_dimension, nq0, nq1,
@@ -360,9 +360,9 @@ protected:
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
-                (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      inblock.GetInterleaveWidth(), nelmt,
+                                      inblock.GetNumData(), (TData *)inptr);
 
             // Calculate derivative.
             PhysDerivTriKernel<ExecSpace>(m_coordDim, m_dimension, nq0, nq1,
@@ -411,9 +411,9 @@ protected:
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
-                (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      inblock.GetInterleaveWidth(), nelmt,
+                                      inblock.GetNumData(), (TData *)inptr);
 
             // Calculate derivative.
             PhysDerivHexKernel<ExecSpace>(m_coordDim, m_dimension, nq0, nq1,
@@ -463,9 +463,9 @@ protected:
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
-                (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      inblock.GetInterleaveWidth(), nelmt,
+                                      inblock.GetNumData(), (TData *)inptr);
 
             // Calculate derivative.
             PhysDerivPrismKernel<ExecSpace>(
@@ -514,9 +514,9 @@ protected:
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
-                (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      inblock.GetInterleaveWidth(), nelmt,
+                                      inblock.GetNumData(), (TData *)inptr);
 
             // Calculate derivative.
             PhysDerivPyrKernel<ExecSpace>(
@@ -565,9 +565,9 @@ protected:
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
-                (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      inblock.GetInterleaveWidth(), nelmt,
+                                      inblock.GetNumData(), (TData *)inptr);
 
             // Calculate derivative.
             PhysDerivTetKernel<ExecSpace>(

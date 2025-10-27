@@ -247,10 +247,10 @@ protected:
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(),
-                inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
-                (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      inblock.GetInterleaveWidth(),
+                                      inblock.GetNumElementsWithPadding(),
+                                      inblock.GetNumData(), (TData *)inptr);
 
             // IProduct.
             IProductWRTBaseSegSumFacKernel<ExecSpace>(
@@ -303,10 +303,10 @@ protected:
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(),
-                inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
-                (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      inblock.GetInterleaveWidth(),
+                                      inblock.GetNumElementsWithPadding(),
+                                      inblock.GetNumData(), (TData *)inptr);
 
             // IProduct.
             IProductWRTBaseQuadSumFacKernel<ExecSpace>(
@@ -366,10 +366,10 @@ protected:
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(),
-                inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
-                (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      inblock.GetInterleaveWidth(),
+                                      inblock.GetNumElementsWithPadding(),
+                                      inblock.GetNumData(), (TData *)inptr);
 
             // IProduct.
             IProductWRTBaseTriSumFacKernel<ExecSpace>(
@@ -430,10 +430,10 @@ protected:
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(),
-                inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
-                (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      inblock.GetInterleaveWidth(),
+                                      inblock.GetNumElementsWithPadding(),
+                                      inblock.GetNumData(), (TData *)inptr);
 
             // IProduct.
             IProductWRTBaseHexSumFacKernel<ExecSpace>(
@@ -496,10 +496,10 @@ protected:
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(),
-                inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
-                (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      inblock.GetInterleaveWidth(),
+                                      inblock.GetNumElementsWithPadding(),
+                                      inblock.GetNumData(), (TData *)inptr);
 
             // IProduct.
             IProductWRTBasePrismSumFacKernel<ExecSpace>(
@@ -568,10 +568,10 @@ protected:
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(),
-                inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
-                (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      inblock.GetInterleaveWidth(),
+                                      inblock.GetNumElementsWithPadding(),
+                                      inblock.GetNumData(), (TData *)inptr);
 
             // IProduct.
             IProductWRTBasePyrSumFacKernel<ExecSpace>(
@@ -640,10 +640,10 @@ protected:
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(),
-                inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
-                (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      inblock.GetInterleaveWidth(),
+                                      inblock.GetNumElementsWithPadding(),
+                                      inblock.GetNumData(), (TData *)inptr);
 
             // IProduct.
             IProductWRTBaseTetSumFacKernel<ExecSpace>(

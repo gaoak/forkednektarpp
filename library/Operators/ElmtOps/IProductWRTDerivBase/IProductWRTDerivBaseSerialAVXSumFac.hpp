@@ -331,8 +331,9 @@ protected:
                 {
                     for (unsigned int d = 0; d < m_coordDim; ++d)
                     {
-                        ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                            interleave_width, chunkSize, nq0,
+                        ReshapeStorage<ExecSpace>(
+                            m_implInterleaveWidth, interleave_width, chunkSize,
+                            nq0,
                             (TData *)(inptr + d * inoffset * simd_t::width));
                     }
                 }
@@ -421,8 +422,9 @@ protected:
                 {
                     for (unsigned int d = 0; d < m_coordDim; ++d)
                     {
-                        ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                            interleave_width, chunkSize, nq0,
+                        ReshapeStorage<ExecSpace>(
+                            m_implInterleaveWidth, interleave_width, chunkSize,
+                            nq0,
                             (TData *)(inptr + d * inoffset * simd_t::width));
                     }
                 }
@@ -529,8 +531,9 @@ protected:
                 {
                     for (unsigned int d = 0; d < m_coordDim; ++d)
                     {
-                        ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                            interleave_width, chunkSize, nqTot,
+                        ReshapeStorage<ExecSpace>(
+                            m_implInterleaveWidth, interleave_width, chunkSize,
+                            nqTot,
                             (TData *)(inptr + d * inoffset * simd_t::width));
                     }
                 }
@@ -637,8 +640,9 @@ protected:
                 {
                     for (unsigned int d = 0; d < m_coordDim; ++d)
                     {
-                        ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                            interleave_width, chunkSize, nqTot,
+                        ReshapeStorage<ExecSpace>(
+                            m_implInterleaveWidth, interleave_width, chunkSize,
+                            nqTot,
                             (TData *)(inptr + d * inoffset * simd_t::width));
                     }
                 }
@@ -751,9 +755,9 @@ protected:
                 {
                     for (unsigned int d = 0; d < 3; ++d)
                     {
-                        ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                            interleave_width, chunkSize, nqTot,
-                            (TData *)(inptr + d * inblock.size()));
+                        ReshapeStorage<ExecSpace>(
+                            m_implInterleaveWidth, interleave_width, chunkSize,
+                            nqTot, (TData *)(inptr + d * inblock.size()));
                     }
                 }
 
@@ -860,9 +864,9 @@ protected:
                 {
                     for (unsigned int d = 0; d < 3; ++d)
                     {
-                        ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                            interleave_width, chunkSize, nqTot,
-                            (TData *)(inptr + d * inblock.size()));
+                        ReshapeStorage<ExecSpace>(
+                            m_implInterleaveWidth, interleave_width, chunkSize,
+                            nqTot, (TData *)(inptr + d * inblock.size()));
                     }
                 }
 

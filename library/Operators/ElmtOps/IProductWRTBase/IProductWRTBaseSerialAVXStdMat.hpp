@@ -157,8 +157,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                        interleave_width, chunkSize, m_nqTot, (TData *)inptr);
+                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                              interleave_width, chunkSize,
+                                              m_nqTot, (TData *)inptr);
                 }
 
                 // Multiply by jacobian.

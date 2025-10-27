@@ -101,8 +101,8 @@ public:
                      ++nc)
                 {
                     // reshuffle data into simd_t width for AVX check
-                    ReshapeStorage<NektarSpaces::Serial,
-                                   NektarSpaces::vector_width<double>::value>(
+                    ReshapeStorage<NektarSpaces::Serial>(
+                        NektarSpaces::vector_width<double>::value,
                         block.GetInterleaveWidth(),
                         block.GetNumElementsWithPadding(), block.GetNumData(),
                         inptr);

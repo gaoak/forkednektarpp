@@ -37,13 +37,13 @@
 namespace Nektar
 {
 
-template <unsigned int interleaveWidth, typename ExecSpace, typename TData>
+template <typename ExecSpace, typename TData>
 inline
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                             void>::type
-    interleave(const size_t numElmtGroups, const unsigned int npts,
-               TData *inout)
+    interleave(const unsigned int interleaveWidth, const size_t numElmtGroups,
+               const unsigned int npts, TData *inout)
 {
     const unsigned int elmtGroupSize = npts * interleaveWidth;
     std::vector<TData> wsp(elmtGroupSize);
