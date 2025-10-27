@@ -126,9 +126,9 @@ protected:
         for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nelmtTot, inblock.GetNumData(),
-                (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      inblock.GetInterleaveWidth(), nelmtTot,
+                                      inblock.GetNumData(), (TData *)inptr);
 
             // Perform matrix-matrix multiply.
             NekGemm(handle, "N", "N", m_nqTot, nelmtTot, m_nmTot, 1.0, m_matptr,

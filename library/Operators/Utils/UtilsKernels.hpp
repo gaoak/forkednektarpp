@@ -50,14 +50,15 @@ namespace Nektar::Operators
  * vectorised instructions. At the moment this routine reshapes from VW0 to
  * VW1 by first reshaping from VW0 to a vector width of 1, and then to VW1.
  *
- * @tparam  interleaveWidth     Target vector width.
+ * @tparam  targInterleaveWidth     Target vector width.
  * @tparam  alignment           Memory alignment to use.
  */
-template <typename ExecSpace, unsigned int interleaveWidth, typename TData>
-void ReshapeStorage(const unsigned int currInterleaveWidth, const size_t nelmt,
+template <typename ExecSpace, typename TData>
+void ReshapeStorage(const unsigned int targInterleaveWidth,
+                    const unsigned int currInterleaveWidth, const size_t nelmt,
                     const unsigned int ndata, TData *inoutptr)
 {
-    if (currInterleaveWidth != interleaveWidth)
+    if (currInterleaveWidth != targInterleaveWidth)
     {
         // Reshape to scalar shape, if necessary
         if (currInterleaveWidth != 1)
@@ -68,14 +69,14 @@ void ReshapeStorage(const unsigned int currInterleaveWidth, const size_t nelmt,
         }
 
         // Reshape to required shape, if necessary
-        if (interleaveWidth != 1)
+        if (targInterleaveWidth != 1)
         {
             ASSERTL0(
-                nelmt % interleaveWidth == 0,
+                nelmt % targInterleaveWidth == 0,
                 "Number of elements is not divisible by interleave width.");
 
-            interleave<interleaveWidth, ExecSpace>(nelmt / interleaveWidth,
-                                                   ndata, inoutptr);
+            interleave<ExecSpace>(targInterleaveWidth,
+                                  nelmt / targInterleaveWidth, ndata, inoutptr);
         }
     }
 }

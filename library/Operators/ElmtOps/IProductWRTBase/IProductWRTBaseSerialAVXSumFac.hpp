@@ -285,8 +285,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                        interleave_width, chunkSize, nqTot, (TData *)inptr);
+                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                              interleave_width, chunkSize,
+                                              nqTot, (TData *)inptr);
                 }
 
                 // IProduct Kernel.
@@ -355,8 +356,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                        interleave_width, chunkSize, nqTot, (TData *)inptr);
+                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                              interleave_width, chunkSize,
+                                              nqTot, (TData *)inptr);
                 }
 
                 // IProduct Kernel.
@@ -436,8 +438,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                        interleave_width, chunkSize, nqTot, (TData *)inptr);
+                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                              interleave_width, chunkSize,
+                                              nqTot, (TData *)inptr);
                 }
 
                 // IProduct Kernel.
@@ -515,8 +518,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                        interleave_width, chunkSize, nqTot, (TData *)inptr);
+                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                              interleave_width, chunkSize,
+                                              nqTot, (TData *)inptr);
                 }
 
                 // IProduct Kernel.
@@ -601,8 +605,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                        interleave_width, chunkSize, nqTot, (TData *)inptr);
+                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                              interleave_width, chunkSize,
+                                              nqTot, (TData *)inptr);
                 }
 
                 // IProduct Kernel.
@@ -682,8 +687,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                        interleave_width, chunkSize, nqTot, (TData *)inptr);
+                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                              interleave_width, chunkSize,
+                                              nqTot, (TData *)inptr);
                 }
 
                 // IProduct Kernel.

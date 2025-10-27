@@ -134,9 +134,9 @@ void ReshapeToScalar(Field<TData, stateOut> &in)
         for (unsigned int component = 0; component < in.GetNumComponents();
              component++)
         {
-            ReshapeStorage<NektarSpaces::Serial, 1>(
-                block.GetInterleaveWidth(), numElmtsPad * in.GetNumHomoModes(),
-                block.GetNumData(),
+            ReshapeStorage<NektarSpaces::Serial>(
+                1, block.GetInterleaveWidth(),
+                numElmtsPad * in.GetNumHomoModes(), block.GetNumData(),
                 inptr + component * block.size() * in.GetNumHomoModes());
         }
 

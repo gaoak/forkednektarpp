@@ -279,9 +279,10 @@ protected:
         this->m_advVel       = advVel.template GetPtr<MemSpace, ReadWrite>();
         for (unsigned int n = 0; n < nVel; n++)
         {
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                interleaveWidth, advVel.GetNumElementsWithPadding(),
-                advVel.GetNumData(), this->m_advVel + n * advVel.size());
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                      advVel.GetNumElementsWithPadding(),
+                                      advVel.GetNumData(),
+                                      this->m_advVel + n * advVel.size());
         }
         advVel.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
@@ -376,8 +377,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                        interleave_width, chunkSize, nmTot, (TData *)inptr);
+                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                              interleave_width, chunkSize,
+                                              nmTot, (TData *)inptr);
                 }
 
                 // Step 1: BwdTrans.
@@ -485,8 +487,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                        interleave_width, chunkSize, nmTot, (TData *)inptr);
+                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                              interleave_width, chunkSize,
+                                              nmTot, (TData *)inptr);
                 }
 
                 // Step 1: BwdTrans.
@@ -608,8 +611,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                        interleave_width, chunkSize, nmTot, (TData *)inptr);
+                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                              interleave_width, chunkSize,
+                                              nmTot, (TData *)inptr);
                 }
 
                 // Step 1: BwdTrans.
@@ -737,8 +741,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                        interleave_width, chunkSize, nmTot, (TData *)inptr);
+                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                              interleave_width, chunkSize,
+                                              nmTot, (TData *)inptr);
                 }
 
                 // Step 1: BwdTrans.
@@ -877,8 +882,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                        interleave_width, chunkSize, nmTot, (TData *)inptr);
+                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                              interleave_width, chunkSize,
+                                              nmTot, (TData *)inptr);
                 }
 
                 // Step 1: BwdTrans.
@@ -1014,8 +1020,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                        interleave_width, chunkSize, nmTot, (TData *)inptr);
+                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                              interleave_width, chunkSize,
+                                              nmTot, (TData *)inptr);
                 }
 
                 // Step 1: BwdTrans.

@@ -318,9 +318,10 @@ protected:
         this->m_advVel       = advVel.template GetPtr<MemSpace, ReadWrite>();
         for (unsigned int n = 0; n < nVel; n++)
         {
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                interleaveWidth, advVel.GetNumElementsWithPadding(),
-                advVel.GetNumData(), this->m_advVel + n * advVel.size());
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                      advVel.GetNumElementsWithPadding(),
+                                      advVel.GetNumData(),
+                                      this->m_advVel + n * advVel.size());
         }
         advVel.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
@@ -484,9 +485,9 @@ protected:
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
-                (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      inblock.GetInterleaveWidth(), nelmt,
+                                      inblock.GetNumData(), (TData *)inptr);
 
             // LinAdvDiffReaction kernel.
             LinAdvDiffReaction1DKernel<ExecSpace, Implementation, DEFORMED>(
@@ -553,9 +554,9 @@ protected:
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
-                (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      inblock.GetInterleaveWidth(), nelmt,
+                                      inblock.GetNumData(), (TData *)inptr);
 
             // LinAdvDiffReaction kernel.
             LinAdvDiffReaction1DKernel<ExecSpace, Implementation, DEFORMED, nm0,
@@ -631,9 +632,9 @@ protected:
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
-                (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      inblock.GetInterleaveWidth(), nelmt,
+                                      inblock.GetNumData(), (TData *)inptr);
 
             // LinAdvDiffReaction kernel.
             LinAdvDiffReaction2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
@@ -707,9 +708,9 @@ protected:
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
-                (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      inblock.GetInterleaveWidth(), nelmt,
+                                      inblock.GetNumData(), (TData *)inptr);
 
             // LinAdvDiffReaction kernel.
             LinAdvDiffReaction2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
@@ -788,9 +789,9 @@ protected:
         for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
-                (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      inblock.GetInterleaveWidth(), nelmt,
+                                      inblock.GetNumData(), (TData *)inptr);
 
             // LinAdvDiffReaction kernel.
             LinAdvDiffReaction3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
@@ -864,9 +865,9 @@ protected:
         for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nelmt, inblock.GetNumData(),
-                (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      inblock.GetInterleaveWidth(), nelmt,
+                                      inblock.GetNumData(), (TData *)inptr);
 
             // LinAdvDiffReaction kernel.
             LinAdvDiffReaction3DKernel<SHAPE_TYPE, ExecSpace, Implementation,

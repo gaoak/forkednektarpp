@@ -305,10 +305,10 @@ protected:
         for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(),
-                inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
-                (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      inblock.GetInterleaveWidth(),
+                                      inblock.GetNumElementsWithPadding(),
+                                      inblock.GetNumData(), (TData *)inptr);
 
             // Apply derivative.
             ApplyDeriv<ExecSpace>(dim, coordDim, nelmt, nq0, nm0, inblocksize,
@@ -376,10 +376,10 @@ protected:
         for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(),
-                inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
-                (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      inblock.GetInterleaveWidth(),
+                                      inblock.GetNumElementsWithPadding(),
+                                      inblock.GetNumData(), (TData *)inptr);
 
             // Apply derivative.
             ApplyDeriv<ExecSpace>(dim, coordDim, nelmt, nqTot, nmTot,
@@ -462,10 +462,10 @@ protected:
         for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(),
-                inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
-                (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      inblock.GetInterleaveWidth(),
+                                      inblock.GetNumElementsWithPadding(),
+                                      inblock.GetNumData(), (TData *)inptr);
 
             // Apply derivative.
             ApplyDeriv<ExecSpace>(dim, coordDim, nelmt, nqTot, nmTot,
@@ -555,10 +555,10 @@ protected:
         for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(),
-                inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
-                (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      inblock.GetInterleaveWidth(),
+                                      inblock.GetNumElementsWithPadding(),
+                                      inblock.GetNumData(), (TData *)inptr);
 
             // Apply derivative.
             ApplyDeriv<ExecSpace>(dim, coordDim, nelmt, nqTot, nmTot,
@@ -654,10 +654,10 @@ protected:
         for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(),
-                inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
-                (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      inblock.GetInterleaveWidth(),
+                                      inblock.GetNumElementsWithPadding(),
+                                      inblock.GetNumData(), (TData *)inptr);
 
             // Apply derivative.
             ApplyDeriv<ExecSpace>(dim, coordDim, nelmt, nqTot, nmTot,
@@ -763,10 +763,10 @@ protected:
         for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(),
-                inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
-                (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      inblock.GetInterleaveWidth(),
+                                      inblock.GetNumElementsWithPadding(),
+                                      inblock.GetNumData(), (TData *)inptr);
 
             // Apply derivative.
             ApplyDeriv<ExecSpace>(dim, coordDim, nelmt, nqTot, nmTot,
@@ -872,10 +872,10 @@ protected:
         for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(),
-                inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
-                (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      inblock.GetInterleaveWidth(),
+                                      inblock.GetNumElementsWithPadding(),
+                                      inblock.GetNumData(), (TData *)inptr);
 
             // Apply derivative.
             ApplyDeriv<ExecSpace>(dim, coordDim, nelmt, nqTot, nmTot,

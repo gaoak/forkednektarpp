@@ -184,10 +184,10 @@ protected:
             auto advptr = this->m_advVel;
 
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(),
-                inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
-                (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      inblock.GetInterleaveWidth(),
+                                      inblock.GetNumElementsWithPadding(),
+                                      inblock.GetNumData(), (TData *)inptr);
 
             // Step 1: BwdTrans
             // Perform matrix-matrix multiply.
@@ -291,9 +291,10 @@ protected:
         this->m_advVel       = advVel.template GetPtr<MemSpace, ReadWrite>();
         for (unsigned int n = 0; n < nVel; n++)
         {
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                interleaveWidth, advVel.GetNumElementsWithPadding(),
-                advVel.GetNumData(), this->m_advVel + n * advVel.size());
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                      advVel.GetNumElementsWithPadding(),
+                                      advVel.GetNumData(),
+                                      this->m_advVel + n * advVel.size());
         }
         advVel.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }

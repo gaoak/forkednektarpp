@@ -149,15 +149,16 @@ protected:
             // Reshape, if necessary.
             for (unsigned int d = 0; d < m_coordDim; ++d)
             {
-                ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                    inblock.GetInterleaveWidth(), nelmtTot,
-                    inblock.GetNumData(), (TData *)inptr + d * inblock.size());
+                ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                          inblock.GetInterleaveWidth(),
+                                          nelmtTot, inblock.GetNumData(),
+                                          (TData *)inptr + d * inblock.size());
             }
             if (this->m_append)
             {
-                ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                    outblock.GetInterleaveWidth(), nelmtTot,
-                    outblock.GetNumData(), outptr);
+                ReshapeStorage<ExecSpace>(
+                    m_implInterleaveWidth, outblock.GetInterleaveWidth(),
+                    nelmtTot, outblock.GetNumData(), outptr);
             }
 
             // Multiply by derivative factor and Jacobian.

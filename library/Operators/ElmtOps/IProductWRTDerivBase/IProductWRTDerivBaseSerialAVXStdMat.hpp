@@ -170,16 +170,17 @@ protected:
                 {
                     for (unsigned int d = 0; d < m_coordDim; ++d)
                     {
-                        ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                            interleave_width, chunkSize, m_nqTot,
+                        ReshapeStorage<ExecSpace>(
+                            m_implInterleaveWidth, interleave_width, chunkSize,
+                            m_nqTot,
                             (TData *)inptr +
                                 d * inblock.size() * inblock.GetNumHomoModes());
                     }
                     /*if (this->m_append)
                     {
-                        ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                                outblock.GetInterleaveWidth(), chunkSize,
-                                m_nmTot, outptr);
+                        ReshapeStorage<ExecSpace>(
+                                m_implInterleaveWidth,
+                    outblock.GetInterleaveWidth(), chunkSize, m_nmTot, outptr);
                     }*/
                 }
 
