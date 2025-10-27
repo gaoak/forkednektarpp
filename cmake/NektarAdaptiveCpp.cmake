@@ -30,9 +30,9 @@ ELSEIF (NEKTAR_ENABLE_SYCL STREQUAL "HIP")
 ENDIF()
 
 IF (NEKTAR_ENABLE_SYCL STREQUAL "Default")
-    SET(CMAKE_CXX_FLAGS "--acpp-targets=${ACPP_TARGETS} -O3 -march=native -Wno-nan-infinity-disabled  -Wno-pass-failed")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --acpp-targets=${ACPP_TARGETS} -O3 -march=native -Wno-nan-infinity-disabled -Wno-pass-failed ")
 ELSE()
-    SET(CMAKE_CXX_FLAGS "--acpp-targets=${ACPP_TARGETS} -O3 -Wno-nan-infinity-disabled  -Wno-pass-failed")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --acpp-targets=${ACPP_TARGETS} -O3 -Wno-nan-infinity-disabled -Wno-pass-failed ")
 ENDIF()
 
 INCLUDE(NektarOneMath)

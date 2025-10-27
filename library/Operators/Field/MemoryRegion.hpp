@@ -192,14 +192,12 @@ public:
      * @param name         - name of the memory region
      * @param size         - size of memory
      * @param alignment    - memory alignment
-     * @param device_rank  - device (GPU) rank id
      * @param memAllocType - [ePageable, ePinned]
      *
      * @return MemoryRegion<TData>
      */
     static MemoryRegion<TData> Create(
         const std::string name, const size_t size, const size_t alignment,
-        const unsigned int device_rank   = nekGetDevice(),
         const MemAllocType &memAllocType = ePageable)
     {
         auto mr = MemoryRegion();
@@ -208,7 +206,7 @@ public:
                  "Unknown memAllocType option");
 
         mr.m_storage = std::make_unique<MemoryStorage<TData>>(
-            name, size, alignment, device_rank, memAllocType);
+            name, size, alignment, memAllocType);
 
         return mr;
     }
@@ -219,27 +217,25 @@ public:
      *
      * @param size         - size of memory
      * @param alignment    - memory alignment
-     * @param device_rank  - device (GPU) rank id
      * @param memAllocType - [ePageable, ePinned]
      *
      * @return MemoryRegion<TData>
      */
     static MemoryRegion<TData> Create(
         const size_t size, const size_t alignment,
-        const unsigned int device_rank   = nekGetDevice(),
         const MemAllocType &memAllocType = ePageable)
     {
-        return MemoryRegion<TData>::Create("", size, alignment, device_rank,
-                                           memAllocType);
+        return MemoryRegion<TData>::Create("", size, alignment, memAllocType);
     }
 
     /**
      * @brief Static templated creation method. This method creates a
      *        new MemoryRegion that copies data from a std::vector
      *
-     * @param name        - name of the memory region
-     * @param array       - std::vector to copy from
-     * @param alignment   - Memory alignment to use.
+     * @param name         - name of the memory region
+     * @param array        - std::vector to copy from
+     * @param alignment    - Memory alignment to use.
+     * @param memAllocType - [ePageable, ePinned]
      *
      * @return MemoryRegion<TData>
      */
@@ -247,10 +243,10 @@ public:
               class Alloc = std::allocator<TDataIn>>
     static MemoryRegion<TData> FromVector(
         const std::string name, std::vector<TDataIn, Alloc> const &array,
-        const size_t alignment, const unsigned int device_rank = nekGetDevice())
+        const size_t alignment, const MemAllocType &memAllocType = ePageable)
     {
         auto mr = MemoryRegion<TData>::Create(name, array.size(), alignment,
-                                              device_rank);
+                                              memAllocType);
         mr.template CopyFromHostPtr<MemSpace>(array.data(), array.size());
         return mr;
     }
@@ -259,8 +255,9 @@ public:
      * @brief Static templated creation method. This method creates a
      *        new MemoryRegion that copies data from a std::vector
      *
-     * @param array       - std::vector to copy from
-     * @param alignment   - Memory alignment to use.
+     * @param array        - std::vector to copy from
+     * @param alignment    - Memory alignment to use.
+     * @param memAllocType - [ePageable, ePinned]
      *
      * @return MemoryRegion<TData>
      */
@@ -268,10 +265,10 @@ public:
               class Alloc = std::allocator<TDataIn>>
     static MemoryRegion<TData> FromVector(
         std::vector<TDataIn, Alloc> const &array, const size_t alignment,
-        const unsigned int device_rank = nekGetDevice())
+        const MemAllocType &memAllocType = ePageable)
     {
         return MemoryRegion<TData>::template FromVector<MemSpace, TDataIn>(
-            "", array, alignment, device_rank);
+            "", array, alignment, memAllocType);
     }
 
     /**
@@ -279,9 +276,10 @@ public:
      *        new MemoryRegion that copies data from a
      *        Nektar::Array<Nektar::OneD, TDataIn>
      *
-     * @param name        - name of the memory region
-     * @param array       - Nektar::Array to copy from
-     * @param alignment   - Memory alignment to use.
+     * @param name         - name of the memory region
+     * @param array        - Nektar::Array to copy from
+     * @param alignment    - Memory alignment to use.
+     * @param memAllocType - [ePageable, ePinned]
      *
      * @return MemoryRegion<TData>
      */
@@ -289,10 +287,10 @@ public:
     static MemoryRegion<TData> FromArray(
         const std::string name,
         Nektar::Array<Nektar::OneD, TDataIn> const &array,
-        const size_t alignment, const unsigned int device_rank = nekGetDevice())
+        const size_t alignment, const MemAllocType &memAllocType = ePageable)
     {
         auto mr = MemoryRegion<TData>::Create(name, array.size(), alignment,
-                                              device_rank);
+                                              memAllocType);
         mr.template CopyFromHostPtr<MemSpace>(array.data(), array.size());
         return mr;
     }
@@ -301,18 +299,19 @@ public:
      * @brief Static templated creation method. This method creates a
      *        new MemoryRegion that copies data from an Nektar::Array
      *
-     * @param array     - Nektar::Array to copy from
-     * @param alignment - Memory alignment to use.
+     * @param array        - Nektar::Array to copy from
+     * @param alignment    - Memory alignment to use.
+     * @param memAllocType - [ePageable, ePinned]
      *
      * @return MemoryRegion<TData>
      */
     template <typename MemSpace, typename TDataIn>
     static MemoryRegion<TData> FromArray(
         Nektar::Array<Nektar::OneD, TDataIn> const &array,
-        const size_t alignment, const unsigned int device_rank = nekGetDevice())
+        const size_t alignment, const MemAllocType &memAllocType = ePageable)
     {
         return MemoryRegion<TData>::template FromArray<MemSpace, TDataIn>(
-            "", array, alignment, device_rank);
+            "", array, alignment, memAllocType);
     }
 
     /**
@@ -341,7 +340,6 @@ public:
      */
     template <typename MemSpace> void Copy(MemoryRegion &rhs)
     {
-        nekSetDevice(this->GetDeviceRank());
         if (this->size() != rhs.size())
         {
             std::stringstream msg;
@@ -496,21 +494,6 @@ public:
         }
 
         return m_storage->m_alignment;
-    }
-
-    /**
-     * @brief Get the storage device rank.
-     *
-     */
-    unsigned int GetDeviceRank() const
-    {
-        if (m_storage == nullptr)
-        {
-            NEKERROR(Nektar::ErrorUtil::efatal,
-                     "MemoryRegion::GetDeviceRank - Storage is not allocated.");
-        }
-
-        return m_storage->m_device_rank;
     }
 
     /**

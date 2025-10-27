@@ -64,19 +64,16 @@ public:
      * @param name         - name
      * @param size         - size of memory
      * @param alignment    - memory alignment
-     * @param device_rank  - device (GPU) rank id
      * @param memAllocType - [ePageable, ePinned]
      */
     MemoryStorage(const std::string name, const size_t size,
-                  const size_t alignment, const unsigned int device_rank,
-                  const MemAllocType &memAllocType)
+                  const size_t alignment, const MemAllocType &memAllocType)
     {
         m_host_owned   = true;
         m_device_owned = true;
         m_name         = name;
         m_size         = size;
         m_alignment    = alignment;
-        m_device_rank  = device_rank;
         m_memAllocType = memAllocType;
 
         m_host         = nullptr;
@@ -94,8 +91,8 @@ public:
         : m_host_owned(rhs.m_host_owned), m_device_owned(rhs.m_device_owned),
           m_host(rhs.m_host), m_device(rhs.m_device), m_size(rhs.m_size),
           m_alignment(rhs.m_alignment), m_host_valid(rhs.m_host_valid),
-          m_device_valid(rhs.m_device_valid), m_device_rank(rhs.m_device_rank),
-          m_name(rhs.m_name), m_memAllocType(rhs.m_memAllocType)
+          m_device_valid(rhs.m_device_valid), m_name(rhs.m_name),
+          m_memAllocType(rhs.m_memAllocType)
     {
         rhs.m_host_owned   = true;
         rhs.m_device_owned = true;
@@ -105,7 +102,6 @@ public:
         rhs.m_alignment    = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
         rhs.m_host_valid   = false;
         rhs.m_device_valid = false;
-        rhs.m_device_rank  = 0;
         rhs.m_name         = "";
         rhs.m_memAllocType = ePageable;
     }
@@ -116,7 +112,6 @@ public:
      */
     ~MemoryStorage()
     {
-        // nekSetDevice(m_device_rank);
         if (m_device && m_device_owned)
         {
             deviceFree(m_device, m_size * sizeof(TData), m_alignment);
@@ -142,7 +137,6 @@ public:
         m_alignment    = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
         m_host_valid   = false;
         m_device_valid = false;
-        m_device_rank  = 0;
         m_name         = "";
         m_memAllocType = ePageable;
     }
@@ -173,7 +167,6 @@ protected:
         m_alignment    = rhs.m_alignment;
         m_host_valid   = rhs.m_host_valid;
         m_device_valid = rhs.m_device_valid;
-        m_device_rank  = rhs.m_device_rank;
         m_name         = rhs.m_name;
         m_memAllocType = rhs.m_memAllocType;
 
@@ -185,7 +178,6 @@ protected:
         rhs.m_alignment    = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
         rhs.m_host_valid   = false;
         rhs.m_device_valid = false;
-        rhs.m_device_rank  = 0;
         rhs.m_name         = "";
         rhs.m_memAllocType = ePageable;
 
@@ -372,7 +364,6 @@ protected:
      */
     TData *GetWriteOnlyDevicePtr()
     {
-        // nekSetDevice(m_device_rank);
         if (!m_device)
         {
             deviceMalloc(&m_device, m_size * sizeof(TData), m_alignment);
@@ -430,7 +421,6 @@ protected:
     void Initialize(const TData val, const size_t count = 0,
                     const size_t offset = 0)
     {
-        // nekSetDevice(m_device_rank);
         if (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
         {
             if (!m_host)
@@ -521,7 +511,6 @@ protected:
     void CopyFromHostPtr(const TData *src, const size_t size,
                          const size_t offset = 0)
     {
-        // nekSetDevice(m_device_rank);
         if (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
         {
             if (!m_host)
@@ -569,7 +558,6 @@ protected:
      */
     void HostToDeviceCopy(void)
     {
-        // nekSetDevice(m_device_rank);
         if (!m_device_valid)
         {
             if (!m_host && m_size > 0)
@@ -612,7 +600,6 @@ protected:
      */
     void DeviceToHostCopy(void)
     {
-        // nekSetDevice(m_device_rank);
         if (!m_host_valid)
         {
             if (!m_device && m_size > 0)
@@ -669,7 +656,6 @@ protected:
 
     bool m_host_valid   = false; // Flag indicating that the host data is valid
     bool m_device_valid = false; ///< Flag indicating the device data is valid
-    unsigned int m_device_rank = 0; // Index indicating device ID.
     std::string m_name{""};
     MemAllocType m_memAllocType{ePageable};
 };
