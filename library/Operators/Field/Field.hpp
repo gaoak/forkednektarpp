@@ -279,16 +279,6 @@ public:
     }
 
     /**
-     * @brief Gets the device rank of the memory region block.
-     *
-     * @return unsigned int
-     */
-    unsigned int GetDeviceRank() const
-    {
-        return m_memory_region.GetDeviceRank();
-    }
-
-    /**
      * @brief Gets the number of components.
      *
      * @return unsigned int
@@ -853,14 +843,13 @@ public:
     {
         auto field =
             Field(name, components, num_homo_modes, alignment, memAllocType);
-        unsigned int device_rank = nekGetDevice();
         for (unsigned int blk = 0; blk < blockAttr.size(); ++blk)
         {
             auto nsize = blockAttr[blk].size() * field.GetNumComponents() *
                          field.GetNumHomoModes();
             auto mr = MemoryRegion<TData>::Create(
                 field.m_name + std::to_string(blk), nsize, field.m_alignment,
-                device_rank);
+                memAllocType);
             field.m_block_accessors.push_back(BlockAccessor(
                 blockAttr[blk], std::move(mr), &field, field.GetNumComponents(),
                 field.GetNumHomoModes()));
@@ -911,14 +900,13 @@ public:
     {
         auto field = Field(name, num_components, num_homo_modes, alignment,
                            memAllocType);
-        unsigned int device_rank = nekGetDevice();
         for (unsigned int blk = 0; blk < blockAttr.size(); ++blk)
         {
             auto nsize = blockAttr[blk].size() * field.GetNumComponents() *
                          field.GetNumHomoModes();
             auto mr = MemoryRegion<TData>::Create(
                 field.m_name + std::to_string(blk), nsize, field.m_alignment,
-                device_rank);
+                memAllocType);
             field.m_block_accessors.push_back(BlockAccessor(
                 blockAttr[blk], std::move(mr), &field, field.GetNumComponents(),
                 field.GetNumHomoModes()));
