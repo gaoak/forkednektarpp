@@ -947,7 +947,7 @@ Operators::MemoryRegion<T> Comm::Gather(const int rootProc,
 
     unsigned nOut = amRoot ? GetSize() * nEl : 0;
     Operators::MemoryRegion<T> ans =
-        Operators::MemoryRegion<T>::Create(nOut, val.GetAlignment());
+        Operators::MemoryRegion<T>(nOut, val.GetAlignment());
 
     if (m_gpu_aware)
     {
@@ -1011,7 +1011,7 @@ Operators::MemoryRegion<T> Comm::Scatter(const int rootProc,
     unsigned nEl = pData.size() / GetSize();
 
     Operators::MemoryRegion<T> ans =
-        Operators::MemoryRegion<T>::Create(nEl, pData.GetAlignment());
+        Operators::MemoryRegion<T>(nEl, pData.GetAlignment());
 
     if (m_gpu_aware)
     {

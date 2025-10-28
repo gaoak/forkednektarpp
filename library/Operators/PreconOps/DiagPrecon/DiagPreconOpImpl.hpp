@@ -133,18 +133,18 @@ protected:
             GetBlockAttributes<TData>(FieldState::Coeff, this->m_expansionList);
 
         // Create local diagonal field.
-        m_invDiag = Field<TData, FieldState::Coeff>::Create(
-            "inverse diagonal", blocks, 1, 1, ExecSpace::alignment);
+        m_invDiag = Field<TData, FieldState::Coeff>("inverse diagonal", blocks,
+                                                    1, 1, ExecSpace::alignment);
 
         // Create unit vector field to extract diagonal.
         Field<TData, FieldState::Coeff> unit_vec =
-            Field<TData, FieldState::Coeff>::Create(
-                "DiagPrecon unit vec", blocks, 1, 1, ExecSpace::alignment);
+            Field<TData, FieldState::Coeff>("DiagPrecon unit vec", blocks, 1, 1,
+                                            ExecSpace::alignment);
 
         // Create action field to receive column action from unit vector.
         Field<TData, FieldState::Coeff> action =
-            Field<TData, FieldState::Coeff>::Create("DiagPrecon action", blocks,
-                                                    1, 1, ExecSpace::alignment);
+            Field<TData, FieldState::Coeff>("DiagPrecon action", blocks, 1, 1,
+                                            ExecSpace::alignment);
 
         // intiialisating to 1 so padded elements can be inverted
         m_invDiag.template Initialize<NektarSpaces::HostSpace>(1);

@@ -139,8 +139,8 @@ protected:
         // Allocate storage.
         if (m_bwd.size() == 0)
         {
-            m_bwd = MemoryRegion<TData>::Create(simd_t::width * m_nqTot,
-                                                ExecSpace::alignment);
+            m_bwd = MemoryRegion<TData>(simd_t::width * m_nqTot,
+                                        ExecSpace::alignment);
         }
 
         // Get workspace pointer.

@@ -68,8 +68,8 @@ public:
 
         auto blocks_in =
             GetBlockAttributes<double>(FieldState::Phys, fixt_explist);
-        auto f_in = Field<double, FieldState::Phys>::Create("f_in2", blocks_in,
-                                                            1, 1, alignment);
+        auto f_in = Field<double, FieldState::Phys>("f_in2", blocks_in, 1, 1,
+                                                    alignment);
         fixt_in2  = new Field<double, FieldState::Phys>(std::move(f_in));
 
         Array<OneD, double> x(fixt_explist->GetTotPoints());

@@ -88,7 +88,7 @@ protected:
         if (this->m_step + 1 < IntOrder)
         {
             // Allocate new storage.
-            this->m_explicits.push_front(Field<TData, FieldState::Phys>::Create(
+            this->m_explicits.push_front(Field<TData, FieldState::Phys>(
                 GetBlockAttributes<TData>(FieldState::Phys,
                                           this->m_expansionList),
                 inout.GetNumComponents(), inout.GetNumHomoModes(),
@@ -120,12 +120,11 @@ protected:
             // Allocate new storage.
             if (this->m_explicits.size() < IntOrder)
             {
-                this->m_explicits.push_back(
-                    Field<TData, FieldState::Phys>::Create(
-                        GetBlockAttributes<TData>(FieldState::Phys,
-                                                  this->m_expansionList),
-                        inout.GetNumComponents(), inout.GetNumHomoModes(),
-                        ExecSpace::alignment));
+                this->m_explicits.push_back(Field<TData, FieldState::Phys>(
+                    GetBlockAttributes<TData>(FieldState::Phys,
+                                              this->m_expansionList),
+                    inout.GetNumComponents(), inout.GetNumHomoModes(),
+                    ExecSpace::alignment));
             }
 
             if constexpr (IntOrder > 1)

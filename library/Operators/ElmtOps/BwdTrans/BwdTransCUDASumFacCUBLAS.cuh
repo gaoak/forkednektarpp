@@ -204,7 +204,7 @@ protected:
         size_t wspsize = GetSharedWorkspaceSize(shapeType, nelmt, nm0, nm1, nm2,
                                                 nq0, nq1, nq2);
 
-        return MemoryRegion<TData>::Create(wspsize, ExecSpace::alignment);
+        return MemoryRegion<TData>(wspsize, ExecSpace::alignment);
     }
 
     // Fuction definitions for each shape type.

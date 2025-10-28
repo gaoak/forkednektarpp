@@ -104,7 +104,7 @@ protected:
         // Allocate memory.
         if (this->m_solutions.size() == 0)
         {
-            this->m_solutions.push_back(Field<TData, FieldState::Phys>::Create(
+            this->m_solutions.push_back(Field<TData, FieldState::Phys>(
                 GetBlockAttributes<TData>(FieldState::Phys,
                                           this->m_expansionList),
                 inout.GetNumComponents(), inout.GetNumHomoModes(),
@@ -113,7 +113,7 @@ protected:
 
         while (this->m_implicits.size() < ImpStage)
         {
-            this->m_implicits.push_back(Field<TData, FieldState::Phys>::Create(
+            this->m_implicits.push_back(Field<TData, FieldState::Phys>(
                 GetBlockAttributes<TData>(FieldState::Phys,
                                           this->m_expansionList),
                 inout.GetNumComponents(), inout.GetNumHomoModes(),
@@ -122,7 +122,7 @@ protected:
 
         while (this->m_explicits.size() < ExpStage)
         {
-            this->m_explicits.push_back(Field<TData, FieldState::Phys>::Create(
+            this->m_explicits.push_back(Field<TData, FieldState::Phys>(
                 GetBlockAttributes<TData>(FieldState::Phys,
                                           this->m_expansionList),
                 inout.GetNumComponents(), inout.GetNumHomoModes(),

@@ -115,7 +115,8 @@ public:
      * @param memAllocType - [ePageable, ePinned]
      */
     MemoryRegion(const std::string name, const size_t size,
-                 const size_t alignment, const MemAllocType &memAllocType)
+                 const size_t alignment,
+                 const MemAllocType &memAllocType = ePageable)
     {
         m_allocated = true;
 
@@ -130,6 +131,19 @@ public:
         m_device       = nullptr;
         m_host_valid   = false;
         m_device_valid = false;
+    }
+
+    /**
+     * @brief Constructor methods - create a new memory region.
+     *
+     * @param size         - size of memory
+     * @param alignment    - memory alignment
+     * @param memAllocType - [ePageable, ePinned]
+     */
+    MemoryRegion(const size_t size, const size_t alignment,
+                 const MemAllocType &memAllocType = ePageable)
+        : MemoryRegion<TData>("", size, alignment, memAllocType)
+    {
     }
 
     /**
@@ -287,41 +301,6 @@ public:
 
     /**
      * @brief Static templated creation method. This method creates a
-     *        new MemoryRegion.
-     *
-     * @param name         - name of the memory region
-     * @param size         - size of memory
-     * @param alignment    - memory alignment
-     * @param memAllocType - [ePageable, ePinned]
-     *
-     * @return MemoryRegion<TData>
-     */
-    static MemoryRegion<TData> Create(
-        const std::string name, const size_t size, const size_t alignment,
-        const MemAllocType &memAllocType = ePageable)
-    {
-        return MemoryRegion<TData>(name, size, alignment, memAllocType);
-    }
-
-    /**
-     * @brief Static templated creation method. This method creates a
-     *        new MemoryRegion.
-     *
-     * @param size         - size of memory
-     * @param alignment    - memory alignment
-     * @param memAllocType - [ePageable, ePinned]
-     *
-     * @return MemoryRegion<TData>
-     */
-    static MemoryRegion<TData> Create(
-        const size_t size, const size_t alignment,
-        const MemAllocType &memAllocType = ePageable)
-    {
-        return MemoryRegion<TData>::Create("", size, alignment, memAllocType);
-    }
-
-    /**
-     * @brief Static templated creation method. This method creates a
      *        new MemoryRegion that copies data from a std::vector
      *
      * @param name         - name of the memory region
@@ -337,8 +316,8 @@ public:
         const std::string name, std::vector<TDataIn, Alloc> const &array,
         const size_t alignment, const MemAllocType &memAllocType = ePageable)
     {
-        auto mr = MemoryRegion<TData>::Create(name, array.size(), alignment,
-                                              memAllocType);
+        auto mr =
+            MemoryRegion<TData>(name, array.size(), alignment, memAllocType);
         mr.template CopyFromHostPtr<MemSpace>(array.data(), array.size());
         return mr;
     }
@@ -381,8 +360,8 @@ public:
         Nektar::Array<Nektar::OneD, TDataIn> const &array,
         const size_t alignment, const MemAllocType &memAllocType = ePageable)
     {
-        auto mr = MemoryRegion<TData>::Create(name, array.size(), alignment,
-                                              memAllocType);
+        auto mr =
+            MemoryRegion<TData>(name, array.size(), alignment, memAllocType);
         mr.template CopyFromHostPtr<MemSpace>(array.data(), array.size());
         return mr;
     }

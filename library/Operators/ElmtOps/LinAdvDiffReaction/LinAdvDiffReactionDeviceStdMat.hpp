@@ -59,8 +59,7 @@ public:
     LinAdvDiffReactionBlockOpImpl(const LocalRegions::ExpansionSharedPtr &exp,
                                   NekDataWarehouseSharedPtr dataWarehouse)
         : LinAdvDiffReactionBlockOp<TData>(exp, dataWarehouse),
-          m_diffCoeff(
-              MemoryRegion<TData>::Create("LinAdvDiffReaction diffCoeff",
+          m_diffCoeff(MemoryRegion<TData>("LinAdvDiffReaction diffCoeff",
                                           exp->GetCoordim() * exp->GetCoordim(),
                                           __STDCPP_DEFAULT_NEW_ALIGNMENT__))
     {
@@ -166,10 +165,10 @@ protected:
         // Allocate storage.
         if (m_bwd.size() == 0)
         {
-            m_bwd   = MemoryRegion<TData>::Create(nelmtTot * m_nqTot,
-                                                  ExecSpace::alignment);
-            m_deriv = MemoryRegion<TData>::Create(
-                m_coordDim * nelmtTot * m_nqTot, ExecSpace::alignment);
+            m_bwd =
+                MemoryRegion<TData>(nelmtTot * m_nqTot, ExecSpace::alignment);
+            m_deriv = MemoryRegion<TData>(m_coordDim * nelmtTot * m_nqTot,
+                                          ExecSpace::alignment);
         }
 
         // Get workspace pointer.

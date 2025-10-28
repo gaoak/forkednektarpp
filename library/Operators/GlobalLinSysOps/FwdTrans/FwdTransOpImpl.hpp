@@ -53,11 +53,11 @@ class FwdTransOpImpl : public FwdTransOp<TData>
 public:
     FwdTransOpImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : FwdTransOp<TData>(expansionList),
-          m_rhs(Field<TData, FieldState::Coeff>::Create(
+          m_rhs(Field<TData, FieldState::Coeff>(
               "FwdTrans RHS",
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1, 1,
               ExecSpace::alignment)),
-          m_tmp(Field<TData, FieldState::Coeff>::Create(
+          m_tmp(Field<TData, FieldState::Coeff>(
               "FwdTrans TMP",
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1, 1,
               ExecSpace::alignment))

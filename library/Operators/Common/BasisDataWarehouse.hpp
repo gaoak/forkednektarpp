@@ -244,7 +244,7 @@ public:
             break;
             default:
                 NEKERROR(ErrorUtil::efatal, "invalid basis data requested.");
-                return MemoryRegion<TData>::Create(0, alignment);
+                return MemoryRegion<TData>(0, alignment);
                 break;
         }
     }
@@ -301,7 +301,7 @@ public:
 
         auto ncoeffs = expPtr->GetNcoeffs();
 
-        auto vdm    = MemoryRegion<TData>::Create(ncoeffs * ncoeffs, alignment);
+        auto vdm    = MemoryRegion<TData>(ncoeffs * ncoeffs, alignment);
         auto vdmptr = vdm.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
         DNekMatSharedPtr vdmMat;

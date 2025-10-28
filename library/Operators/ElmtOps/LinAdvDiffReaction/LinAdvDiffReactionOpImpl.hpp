@@ -71,7 +71,7 @@ protected:
             GetBlockAttributes<TData>(FieldState::Phys, this->m_expansionList,
                                       1);
 
-        this->m_advVel = Field<TData, FieldState::Phys>::Create(
+        this->m_advVel = Field<TData, FieldState::Phys>(
             "Advection Field", physBlockAttributes, nVel, 1,
             ExecSpace::alignment);
 

@@ -153,7 +153,7 @@ public:
             const auto memsize =
                 num_elmt_groups * interleave_width * expPtr->GetTotPoints();
             Array<OneD, Array<OneD, NekDouble>> jacArray(interleave_width);
-            auto jac = MemoryRegion<TData>::Create(memsize, alignment);
+            auto jac = MemoryRegion<TData>(memsize, alignment);
             auto jacptr =
                 jac.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
@@ -189,8 +189,8 @@ public:
         // Regular geometry.
         else
         {
-            auto jac = MemoryRegion<TData>::Create(
-                num_elmt_groups * interleave_width, alignment);
+            auto jac = MemoryRegion<TData>(num_elmt_groups * interleave_width,
+                                           alignment);
             auto jacptr =
                 jac.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
@@ -244,7 +244,7 @@ public:
             // Allocate memory and get pointer.
             const auto memsize = num_elmt_groups * interleave_width *
                                  expPtr->GetTotPoints() * nDim * nCoord;
-            auto df = MemoryRegion<TData>::Create(memsize, alignment);
+            auto df = MemoryRegion<TData>(memsize, alignment);
             auto dfptr =
                 df.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
@@ -285,7 +285,7 @@ public:
         // Regular geometry.
         else
         {
-            auto df = MemoryRegion<TData>::Create(
+            auto df = MemoryRegion<TData>(
                 num_elmt_groups * interleave_width * nDim * nCoord, alignment);
             auto dfptr =
                 df.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
@@ -342,7 +342,7 @@ public:
         // Allocate memory and get pointer.
         const auto memsize =
             num_elmt_groups * interleave_width * expPtr->GetTotPoints() * nDim;
-        auto crds = MemoryRegion<TData>::Create(memsize, alignment);
+        auto crds = MemoryRegion<TData>(memsize, alignment);
         auto crdptr =
             crds.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 

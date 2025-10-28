@@ -51,9 +51,9 @@ public:
     LinAdvDiffReactionBlockOpImpl(const LocalRegions::ExpansionSharedPtr &exp,
                                   NekDataWarehouseSharedPtr dataWarehouse)
         : LinAdvDiffReactionBlockOp<TData>(exp, dataWarehouse),
-          m_diffCoeff(MemoryRegion<TData>::Create(
-              "LinAdvDiffReaction diffCoeff",
-              exp->GetCoordim() * exp->GetCoordim(), ExecSpace::alignment))
+          m_diffCoeff(MemoryRegion<TData>("LinAdvDiffReaction diffCoeff",
+                                          exp->GetCoordim() * exp->GetCoordim(),
+                                          ExecSpace::alignment))
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -400,7 +400,7 @@ protected:
         auto wspsize = GetWorkspaceSize(shapeType, nelmt, ncoord, nq0, nq1, nq2,
                                         nm0, nm1, nm2);
 
-        return MemoryRegion<TData>::Create(wspsize, ExecSpace::alignment);
+        return MemoryRegion<TData>(wspsize, ExecSpace::alignment);
     }
 
     void SegBlock(BlockAccessor<TData> &inblock,

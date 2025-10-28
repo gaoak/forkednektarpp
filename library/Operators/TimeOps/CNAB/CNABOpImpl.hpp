@@ -140,12 +140,11 @@ protected:
             // Allocate new storage.
             if (this->m_step == 0 && Nimplicit() == 2)
             {
-                this->m_implicits.push_back(
-                    Field<TData, FieldState::Phys>::Create(
-                        GetBlockAttributes<TData>(FieldState::Phys,
-                                                  this->m_expansionList),
-                        inout.GetNumComponents(), inout.GetNumHomoModes(),
-                        ExecSpace::alignment));
+                this->m_implicits.push_back(Field<TData, FieldState::Phys>(
+                    GetBlockAttributes<TData>(FieldState::Phys,
+                                              this->m_expansionList),
+                    inout.GetNumComponents(), inout.GetNumHomoModes(),
+                    ExecSpace::alignment));
             }
 
             // Increment step and time.
@@ -158,12 +157,11 @@ protected:
             // Allocate new storage.
             if (this->m_explicits.size() < IntOrder)
             {
-                this->m_explicits.push_back(
-                    Field<TData, FieldState::Phys>::Create(
-                        GetBlockAttributes<TData>(FieldState::Phys,
-                                                  this->m_expansionList),
-                        inout.GetNumComponents(), inout.GetNumHomoModes(),
-                        ExecSpace::alignment));
+                this->m_explicits.push_back(Field<TData, FieldState::Phys>(
+                    GetBlockAttributes<TData>(FieldState::Phys,
+                                              this->m_expansionList),
+                    inout.GetNumComponents(), inout.GetNumHomoModes(),
+                    ExecSpace::alignment));
             }
 
             this->RollOver(this->m_explicits);

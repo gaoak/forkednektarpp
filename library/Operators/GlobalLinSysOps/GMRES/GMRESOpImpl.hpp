@@ -55,18 +55,18 @@ class GMRESOpImpl : public GMRESOp<TData>
 public:
     GMRESOpImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : GMRESOp<TData>(expansionList),
-          m_w(Field<TData, FieldState::Coeff>::Create(
+          m_w(Field<TData, FieldState::Coeff>(
               "GMRES w",
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1, 1,
               ExecSpace::alignment)),
-          m_wk(Field<TData, FieldState::Coeff>::Create(
+          m_wk(Field<TData, FieldState::Coeff>(
               "GMRES wk",
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1, 1,
               ExecSpace::alignment)),
-          m_r0(Field<TData, FieldState::Coeff>::Create(
+          m_r0(Field<TData, FieldState::Coeff>(
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1, 1,
               ExecSpace::alignment)),
-          m_solution(Field<TData, FieldState::Coeff>::Create(
+          m_solution(Field<TData, FieldState::Coeff>(
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1, 1,
               ExecSpace::alignment))
     {
@@ -113,7 +113,7 @@ public:
         // Restarted Gmres(m) process.
         if (m_NekLinSysRightPrecon)
         {
-            m_V1 = Field<TData, FieldState::Coeff>::Create(
+            m_V1 = Field<TData, FieldState::Coeff>(
                 GetBlockAttributes<TData>(FieldState::Coeff,
                                           this->m_expansionList),
                 1, 1, ExecSpace::alignment);
@@ -327,7 +327,7 @@ protected:
         // Scalar multiplication.
         if (m_Vtotal.size() == 0)
         {
-            m_Vtotal.push_back(Field<TData, FieldState::Coeff>::Create(
+            m_Vtotal.push_back(Field<TData, FieldState::Coeff>(
                 GetBlockAttributes<TData>(FieldState::Coeff,
                                           this->m_expansionList),
                 1, 1, ExecSpace::alignment));
@@ -346,7 +346,7 @@ protected:
         {
             if (m_Vtotal.size() == nd + 1)
             {
-                m_Vtotal.push_back(Field<TData, FieldState::Coeff>::Create(
+                m_Vtotal.push_back(Field<TData, FieldState::Coeff>(
                     GetBlockAttributes<TData>(FieldState::Coeff,
                                               this->m_expansionList),
                     1, 1, ExecSpace::alignment));

@@ -190,7 +190,7 @@ public:
 
         // Decalare memory for all local to global informaiton.
         auto LocToGlo =
-            MemoryRegion<value_type>::Create(nvalstot + 2 + nidx, alignment);
+            MemoryRegion<value_type>(nvalstot + 2 + nidx, alignment);
         auto ptr =
             LocToGlo.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
@@ -312,7 +312,7 @@ public:
         auto nidx  = gsinfo[nvals + 1];
 
         // Decalare memory for all local to global information.
-        auto LocToGloSign = MemoryRegion<value_type>::Create(nidx, alignment);
+        auto LocToGloSign = MemoryRegion<value_type>(nidx, alignment);
         auto ptr =
             LocToGloSign.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 

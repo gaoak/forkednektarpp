@@ -76,13 +76,13 @@ protected:
                                           : this->m_order;
             for (unsigned int m = 0; m < npts; ++m)
             {
-                this->m_T.push_back(Field<TData, FieldState::Phys>::Create(
+                this->m_T.push_back(Field<TData, FieldState::Phys>(
                     GetBlockAttributes<TData>(FieldState::Phys,
                                               this->m_expansionList),
                     inout.GetNumComponents(), inout.GetNumHomoModes(),
                     ExecSpace::alignment));
 
-                this->m_T0.push_back(Field<TData, FieldState::Phys>::Create(
+                this->m_T0.push_back(Field<TData, FieldState::Phys>(
                     GetBlockAttributes<TData>(FieldState::Phys,
                                               this->m_expansionList),
                     inout.GetNumComponents(), inout.GetNumHomoModes(),

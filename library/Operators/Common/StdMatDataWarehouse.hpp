@@ -554,7 +554,7 @@ public:
             break;
             default:
                 NEKERROR(ErrorUtil::efatal, "invalid StdMat requested.");
-                return MemoryRegion<TData>::Create(0, alignment);
+                return MemoryRegion<TData>(0, alignment);
                 break;
         }
     }

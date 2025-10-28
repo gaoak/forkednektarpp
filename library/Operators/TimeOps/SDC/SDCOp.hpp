@@ -208,10 +208,10 @@ protected:
             interp, ExecSpace::alignment);
 
         // Buffer for memory transfer
-        this->m_mr0 = MemoryRegion<const TData *>::Create(this->m_nQuadPts,
-                                                          ExecSpace::alignment);
-        this->m_mr1 = MemoryRegion<TData *>::Create(this->m_nQuadPts,
-                                                    ExecSpace::alignment);
+        this->m_mr0 =
+            MemoryRegion<const TData *>(this->m_nQuadPts, ExecSpace::alignment);
+        this->m_mr1 =
+            MemoryRegion<TData *>(this->m_nQuadPts, ExecSpace::alignment);
     }
 
     template <typename ExecSpace>
