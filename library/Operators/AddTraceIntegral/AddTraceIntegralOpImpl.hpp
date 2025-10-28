@@ -52,7 +52,7 @@ class AddTraceIntegralOpImpl : public AddTraceIntegralOp<TData>
 public:
     AddTraceIntegralOpImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : AddTraceIntegralOp<TData>(std::move(expansionList)),
-          m_trace(Field<TData, FieldState::Coeff>::Create(
+          m_trace(Field<TData, FieldState::Coeff>(
               GetBlockAttributes<TData>(FieldState::Coeff,
                                         expansionList->GetTrace()),
               1, 1, ExecSpace::alignment))

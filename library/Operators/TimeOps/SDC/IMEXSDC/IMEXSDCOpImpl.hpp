@@ -82,39 +82,35 @@ protected:
 
             for (unsigned int m = 0; m < this->m_nQuadPts; ++m)
             {
-                this->m_SFint.push_back(Field<TData, FieldState::Phys>::Create(
+                this->m_SFint.push_back(Field<TData, FieldState::Phys>(
                     GetBlockAttributes<TData>(FieldState::Phys,
                                               this->m_expansionList),
                     inout.GetNumComponents(), inout.GetNumHomoModes(),
                     ExecSpace::alignment));
 
-                this->m_solutions.push_back(
-                    Field<TData, FieldState::Phys>::Create(
-                        GetBlockAttributes<TData>(FieldState::Phys,
-                                                  this->m_expansionList),
-                        inout.GetNumComponents(), inout.GetNumHomoModes(),
-                        ExecSpace::alignment));
+                this->m_solutions.push_back(Field<TData, FieldState::Phys>(
+                    GetBlockAttributes<TData>(FieldState::Phys,
+                                              this->m_expansionList),
+                    inout.GetNumComponents(), inout.GetNumHomoModes(),
+                    ExecSpace::alignment));
 
-                this->m_explicits.push_back(
-                    Field<TData, FieldState::Phys>::Create(
-                        GetBlockAttributes<TData>(FieldState::Phys,
-                                                  this->m_expansionList),
-                        inout.GetNumComponents(), inout.GetNumHomoModes(),
-                        ExecSpace::alignment));
+                this->m_explicits.push_back(Field<TData, FieldState::Phys>(
+                    GetBlockAttributes<TData>(FieldState::Phys,
+                                              this->m_expansionList),
+                    inout.GetNumComponents(), inout.GetNumHomoModes(),
+                    ExecSpace::alignment));
 
-                this->m_implicits.push_back(
-                    Field<TData, FieldState::Phys>::Create(
-                        GetBlockAttributes<TData>(FieldState::Phys,
-                                                  this->m_expansionList),
-                        inout.GetNumComponents(), inout.GetNumHomoModes(),
-                        ExecSpace::alignment));
+                this->m_implicits.push_back(Field<TData, FieldState::Phys>(
+                    GetBlockAttributes<TData>(FieldState::Phys,
+                                              this->m_expansionList),
+                    inout.GetNumComponents(), inout.GetNumHomoModes(),
+                    ExecSpace::alignment));
 
-                this->m_residuals.push_back(
-                    Field<TData, FieldState::Phys>::Create(
-                        GetBlockAttributes<TData>(FieldState::Phys,
-                                                  this->m_expansionList),
-                        inout.GetNumComponents(), inout.GetNumHomoModes(),
-                        ExecSpace::alignment));
+                this->m_residuals.push_back(Field<TData, FieldState::Phys>(
+                    GetBlockAttributes<TData>(FieldState::Phys,
+                                              this->m_expansionList),
+                    inout.GetNumComponents(), inout.GetNumHomoModes(),
+                    ExecSpace::alignment));
             }
 
             this->m_SFint[0].template Initialize<MemSpace>(0.0);

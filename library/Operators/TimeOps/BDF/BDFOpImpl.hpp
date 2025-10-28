@@ -87,7 +87,7 @@ protected:
         if (this->m_step + 1 < IntOrder)
         {
             // Save initial solution.
-            this->m_solutions.push_front(Field<TData, FieldState::Phys>::Create(
+            this->m_solutions.push_front(Field<TData, FieldState::Phys>(
                 "timestep n-" + std::to_string(this->m_step + 1),
                 GetBlockAttributes<TData>(FieldState::Phys,
                                           this->m_expansionList),

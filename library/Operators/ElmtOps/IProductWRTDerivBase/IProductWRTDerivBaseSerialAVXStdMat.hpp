@@ -131,8 +131,8 @@ protected:
         // Allocate storage.
         if (m_wsp.size() == 0)
         {
-            m_wsp = MemoryRegion<TData>::Create(
-                m_dimension * simd_t::width * m_nqTot, ExecSpace::alignment);
+            m_wsp = MemoryRegion<TData>(m_dimension * simd_t::width * m_nqTot,
+                                        ExecSpace::alignment);
         }
 
         // Get workspace pointer.

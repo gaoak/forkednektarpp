@@ -141,8 +141,8 @@ int main(int argc, char *argv[])
     auto blocksIn = GetBlockAttributes<TData>(FieldState::Phys, expList);
 
     // Create fields.
-    auto fIn = Field<TData, FieldState::Phys>::Create(
-        "f_in", blocksIn, nIn * nComp, 1, alignment);
+    auto fIn = Field<TData, FieldState::Phys>("f_in", blocksIn, nIn * nComp, 1,
+                                              alignment);
 
     // Set random output.
     srand(0);

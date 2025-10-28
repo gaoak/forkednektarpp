@@ -267,7 +267,7 @@ protected:
     {
         auto wspsize = GetWorkspaceSize(shapeType, nelmt, nm0, nm1, nm2);
 
-        return MemoryRegion<TData>::Create(wspsize, ExecSpace::alignment);
+        return MemoryRegion<TData>(wspsize, ExecSpace::alignment);
     }
 
     void SegBlock(BlockAccessor<TData> &inblock,

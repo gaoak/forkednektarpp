@@ -119,12 +119,11 @@ protected:
                          "with AdamsMoultonOp->DefineImplicitRhs().");
 
                 // Allocate new storage.
-                this->m_implicits.push_front(
-                    Field<TData, FieldState::Phys>::Create(
-                        GetBlockAttributes<TData>(FieldState::Phys,
-                                                  this->m_expansionList),
-                        inout.GetNumComponents(), inout.GetNumHomoModes(),
-                        ExecSpace::alignment));
+                this->m_implicits.push_front(Field<TData, FieldState::Phys>(
+                    GetBlockAttributes<TData>(FieldState::Phys,
+                                              this->m_expansionList),
+                    inout.GetNumComponents(), inout.GetNumHomoModes(),
+                    ExecSpace::alignment));
 
                 // Initialise startup and hand-over the m_implicits deque.
                 auto maxOrder = std::min(3u, IntOrder);
@@ -154,12 +153,11 @@ protected:
             // Allocate new storage.
             if (this->m_implicits.size() < IntOrder)
             {
-                this->m_implicits.push_back(
-                    Field<TData, FieldState::Phys>::Create(
-                        GetBlockAttributes<TData>(FieldState::Phys,
-                                                  this->m_expansionList),
-                        inout.GetNumComponents(), inout.GetNumHomoModes(),
-                        ExecSpace::alignment));
+                this->m_implicits.push_back(Field<TData, FieldState::Phys>(
+                    GetBlockAttributes<TData>(FieldState::Phys,
+                                              this->m_expansionList),
+                    inout.GetNumComponents(), inout.GetNumHomoModes(),
+                    ExecSpace::alignment));
             }
 
             // Do extrapolation.

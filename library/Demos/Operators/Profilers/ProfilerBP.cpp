@@ -117,13 +117,13 @@ int main(int argc, char *argv[])
         GetBlockAttributes<TData>(FieldState::Coeff, expList);
 
     // Create fields.
-    auto fIn = Field<TData, FieldState::Coeff>::Create(
-        "f_in", blocksIn, nIn * nComp, 1, alignment);
-    auto fOut = Field<TData, FieldState::Coeff>::Create(
-        "f_out", blocksOut, nOut * nComp, 1, alignment);
-    auto fOutCorrect = Field<TData, FieldState::Coeff>::Create(
+    auto fIn = Field<TData, FieldState::Coeff>("f_in", blocksIn, nIn * nComp, 1,
+                                               alignment);
+    auto fOut        = Field<TData, FieldState::Coeff>("f_out", blocksOut,
+                                                nOut * nComp, 1, alignment);
+    auto fOutCorrect = Field<TData, FieldState::Coeff>(
         "f_out_correct", blocksOutCorrect, nOut * nComp, 1, alignment);
-    auto fOutCorrectAssemb = Field<TData, FieldState::Coeff>::Create(
+    auto fOutCorrectAssemb = Field<TData, FieldState::Coeff>(
         "f_out_correct_assemb", blocksOutCorrectAssemb, nOut * nComp, 1,
         alignment);
 

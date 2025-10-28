@@ -55,11 +55,11 @@ class HelmSolveOpImpl : public HelmSolveOp<TData>
 public:
     HelmSolveOpImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : HelmSolveOp<TData>(expansionList),
-          m_rhs(Field<TData, FieldState::Coeff>::Create(
+          m_rhs(Field<TData, FieldState::Coeff>(
               "HelmSolve RHS",
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1, 1,
               ExecSpace::alignment)),
-          m_tmp(Field<TData, FieldState::Coeff>::Create(
+          m_tmp(Field<TData, FieldState::Coeff>(
               "HelmSolve TMP",
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1, 1,
               ExecSpace::alignment))

@@ -90,7 +90,7 @@ protected:
         if (this->m_step + 1 < IntOrder)
         {
             // Allocate new storage.
-            this->m_explicits.push_front(Field<TData, FieldState::Phys>::Create(
+            this->m_explicits.push_front(Field<TData, FieldState::Phys>(
                 GetBlockAttributes<TData>(FieldState::Phys,
                                           this->m_expansionList),
                 inout.GetNumComponents(), inout.GetNumHomoModes(),
@@ -101,7 +101,7 @@ protected:
                                 this->m_timestep);
 
             // Save initial solution.
-            this->m_solutions.push_front(Field<TData, FieldState::Phys>::Create(
+            this->m_solutions.push_front(Field<TData, FieldState::Phys>(
                 "timestep n-" + std::to_string(this->m_step + 1),
                 GetBlockAttributes<TData>(FieldState::Phys,
                                           this->m_expansionList),
@@ -134,12 +134,11 @@ protected:
             // Allocate new storage.
             if (this->m_explicits.size() < IntOrder)
             {
-                this->m_explicits.push_back(
-                    Field<TData, FieldState::Phys>::Create(
-                        GetBlockAttributes<TData>(FieldState::Phys,
-                                                  this->m_expansionList),
-                        inout.GetNumComponents(), inout.GetNumHomoModes(),
-                        ExecSpace::alignment));
+                this->m_explicits.push_back(Field<TData, FieldState::Phys>(
+                    GetBlockAttributes<TData>(FieldState::Phys,
+                                              this->m_expansionList),
+                    inout.GetNumComponents(), inout.GetNumHomoModes(),
+                    ExecSpace::alignment));
             }
 
             // UpdateSolution previous solutions, explicit part, and sum up.
@@ -170,12 +169,11 @@ protected:
                 // Allocate new storage.
                 if (this->m_implicits.size() < IntOrder)
                 {
-                    this->m_implicits.push_back(
-                        Field<TData, FieldState::Phys>::Create(
-                            GetBlockAttributes<TData>(FieldState::Phys,
-                                                      this->m_expansionList),
-                            inout.GetNumComponents(), inout.GetNumHomoModes(),
-                            ExecSpace::alignment));
+                    this->m_implicits.push_back(Field<TData, FieldState::Phys>(
+                        GetBlockAttributes<TData>(FieldState::Phys,
+                                                  this->m_expansionList),
+                        inout.GetNumComponents(), inout.GetNumHomoModes(),
+                        ExecSpace::alignment));
                 }
 
                 // Rollover previous solutions.

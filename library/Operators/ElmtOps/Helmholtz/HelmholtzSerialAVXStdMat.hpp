@@ -58,9 +58,9 @@ public:
     HelmholtzBlockOpImpl(const LocalRegions::ExpansionSharedPtr &exp,
                          NekDataWarehouseSharedPtr dataWarehouse)
         : HelmholtzBlockOp<TData>(exp, dataWarehouse),
-          m_diffCoeff(MemoryRegion<TData>::Create(
-              "Helmholtz diffCoeff", exp->GetCoordim() * exp->GetCoordim(),
-              __STDCPP_DEFAULT_NEW_ALIGNMENT__))
+          m_diffCoeff(MemoryRegion<TData>("Helmholtz diffCoeff",
+                                          exp->GetCoordim() * exp->GetCoordim(),
+                                          __STDCPP_DEFAULT_NEW_ALIGNMENT__))
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -159,10 +159,10 @@ protected:
         // Allocate storage.
         if (m_bwd.size() == 0)
         {
-            m_bwd   = MemoryRegion<TData>::Create(simd_t::width * m_nqTot,
-                                                  ExecSpace::alignment);
-            m_deriv = MemoryRegion<TData>::Create(
-                m_coordDim * simd_t::width * m_nqTot, ExecSpace::alignment);
+            m_bwd   = MemoryRegion<TData>(simd_t::width * m_nqTot,
+                                        ExecSpace::alignment);
+            m_deriv = MemoryRegion<TData>(m_coordDim * simd_t::width * m_nqTot,
+                                          ExecSpace::alignment);
         }
 
         // Get workspace pointer.
