@@ -34,6 +34,7 @@
 
 #include "init_fields.hpp"
 
+#include "Operators/AssmbScatr/AssmbScatrZeroDirOp.hpp"
 #include "Operators/PreconOps/NullPrecon/NullPreconOp.hpp"
 
 #include <MultiRegions/GlobalLinSys.h>
@@ -79,8 +80,10 @@ public:
 
     void RunTestCase()
     {
-        auto op = NullPreconOp<double>::Create(fixt_explist);
-        op->Apply(*fixt_in, *fixt_out);
+        auto assmb = AssmbScatrZeroDirOp<double>::Create(fixt_explist);
+        auto op    = NullPreconOp<double>::Create(fixt_explist);
+        assmb->Apply(*fixt_in, *fixt_out);
+        op->Apply(*fixt_out, *fixt_out);
     }
 
     void ExpectedSolution()
