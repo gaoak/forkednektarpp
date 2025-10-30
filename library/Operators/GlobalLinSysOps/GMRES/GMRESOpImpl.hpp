@@ -279,6 +279,7 @@ protected:
         // Apply preconditioner.
         if (m_NekLinSysLeftPrecon)
         {
+            m_assmbScatrZeroDirOp->Apply(m_r0, m_r0);
             this->m_precon->Apply(m_r0, m_r0);
         }
 
@@ -361,7 +362,8 @@ protected:
             // Apply preconditioner.
             if (m_NekLinSysRightPrecon)
             {
-                this->m_precon->Apply(m_Vtotal[nd], V1);
+                m_assmbScatrZeroDirOp->Apply(m_Vtotal[nd], V1);
+                this->m_precon->Apply(V1, V1);
             }
 
             auto idtem    = id[nd];
@@ -409,6 +411,7 @@ protected:
         // Apply preconditioner.
         if (m_NekLinSysRightPrecon)
         {
+            m_assmbScatrZeroDirOp->Apply(m_solution, m_solution);
             this->m_precon->Apply(m_solution, m_solution);
         }
 
@@ -432,6 +435,7 @@ protected:
         // Apply preconditioner.
         if (m_NekLinSysLeftPrecon)
         {
+            m_assmbScatrZeroDirOp->Apply(w, w);
             this->m_precon->Apply(w, w);
         }
 

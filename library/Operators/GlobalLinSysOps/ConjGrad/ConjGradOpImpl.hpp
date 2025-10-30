@@ -154,8 +154,10 @@ protected:
         // Copy RHS into initial residual.
         m_r_A.template Copy<MemSpace>(in);
 
-        // Assembly (communication).
+        // Apply preconditioner.
         m_assmbScatrZeroDirOp->Apply(m_r_A, m_wk);
+        this->m_precon->Apply(m_wk, m_w_A);
+
         m_vExchange[2] = m_math.ddot(m_wk, m_r_A);
 
         // Calculate rhs magnitude.
@@ -172,9 +174,6 @@ protected:
         {
             return;
         }
-
-        // Apply preconditioner.
-        this->m_precon->Apply(m_r_A, m_w_A);
 
         // Perform the method-specific matrix-vector multiply operation.
         this->m_lhs->Apply(m_w_A, m_s_A);
@@ -217,15 +216,14 @@ protected:
             daxpy<ExecSpace>(-alpha, m_q_A, m_r_A, m_r_A);
 
             // Apply preconditioner.
-            this->m_precon->Apply(m_r_A, m_w_A);
+            m_assmbScatrZeroDirOp->Apply(m_r_A, m_wk);
+            this->m_precon->Apply(m_wk, m_w_A);
 
             // Perform the method-specific matrix-vector multiply
             // operation.
             this->m_lhs->Apply(m_w_A, m_s_A);
 
             m_robBndCondOp->Apply(m_w_A, m_s_A);
-
-            m_assmbScatrZeroDirOp->Apply(m_r_A, m_wk);
 
             // <r_{k+1}, w_{k+1}>
             m_vExchange[0] = m_math.ddot(m_r_A, m_w_A);

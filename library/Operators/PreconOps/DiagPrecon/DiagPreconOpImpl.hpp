@@ -63,9 +63,6 @@ public:
         m_assmbScatrNoSignOp =
             std::make_unique<AssmbScatrNoSignOpImpl<ExecSpace, TData>>(
                 this->m_expansionList);
-        m_assmbScatrZeroDirOp =
-            std::make_unique<AssmbScatrZeroDirOpImpl<ExecSpace, TData>>(
-                this->m_expansionList);
         m_robBCOp =
             RobBndCondOp<TData>::Create(this->m_expansionList, ExecSpace::name);
     }
@@ -84,8 +81,6 @@ public:
 protected:
     std::unique_ptr<AssmbScatrNoSignOpImpl<ExecSpace, TData>>
         m_assmbScatrNoSignOp;
-    std::unique_ptr<AssmbScatrZeroDirOpImpl<ExecSpace, TData>>
-        m_assmbScatrZeroDirOp;
     std::shared_ptr<RobBndCondOp<TData>> m_robBCOp;
 
     Field<TData, FieldState::Coeff> m_invDiag;
@@ -101,24 +96,22 @@ protected:
         ASSERTL1(in.size() == out.size(),
                  "Input and output arrays are of different size");
 
-        // assemble input assuming it has not already been done and zero
-        // Dirichlet valeus
-        m_assmbScatrZeroDirOp->Apply(in, out);
-
         for (size_t blk = 0; blk < out.GetBlocks().size(); ++blk)
         {
+            auto &inblock   = in.GetBlocks()[blk];
             auto &outblock  = out.GetBlocks()[blk];
             auto &diagblock = m_invDiag.GetBlocks()[blk];
 
+            auto inPtr   = inblock.template GetPtr<MemSpace, ReadOnly>();
+            auto outPtr  = outblock.template GetPtr<MemSpace, WriteOnly>();
             auto diagPtr = diagblock.template GetPtr<MemSpace, ReadOnly>();
-            auto outPtr  = outblock.template GetPtr<MemSpace, ReadWrite>();
 
             auto blkSize =
                 outblock.GetNumElementsWithPadding() * outblock.GetNumData();
 
             for (auto n = 0; n < outblock.GetNumComponents(); ++n)
             {
-                mulKernel<ExecSpace>(blkSize, diagPtr, outPtr + n * blkSize,
+                mulKernel<ExecSpace>(blkSize, diagPtr, inPtr + n * blkSize,
                                      outPtr + n * blkSize);
             }
         }

@@ -34,6 +34,7 @@
 
 #include "init_fields.hpp"
 
+#include "Operators/AssmbScatr/AssmbScatrZeroDirOp.hpp"
 #include "Operators/ElmtOps/Helmholtz/HelmholtzOp.hpp"
 #include "Operators/PreconOps/DiagPrecon/DiagPreconOp.hpp"
 
@@ -88,9 +89,12 @@ public:
     {
         auto op     = HelmholtzOp<double>::Create(fixt_explist);
         auto precon = DiagPreconOp<double>::Create(fixt_explist);
+        auto assmb  = AssmbScatrZeroDirOp<double>::Create(fixt_explist);
+
         op->SetLambda(m_lambda);
         precon->Configure(op);
-        precon->Apply(*fixt_in, *fixt_out);
+        assmb->Apply(*fixt_in, *fixt_out);
+        precon->Apply(*fixt_out, *fixt_out);
     }
 
     void ExpectedSolution()
