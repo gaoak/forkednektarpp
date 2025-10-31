@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
-//  File: DomainRange.h
+//  File: ProcessForceDecomposeBnd.h
 //
 //  For more information, please see: http://www.nektar.info/
 //
@@ -28,46 +28,55 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 //  DEALINGS IN THE SOFTWARE.
 //
-//  Description: Finds Min and Max X,Y,Z points of a specific domain
-//
+//  Description: Computes boundary force element using weighted pressure source
+//  theory.
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-#ifndef NEKTAR_LIB_LIBUTILITIES_BASSICUTILS_DOMAINRANGE_HPP
-#define NEKTAR_LIB_LIBUTILITIES_BASSICUTILS_DOMAINRANGE_HPP
+#ifndef FIELDUTILS_PROCESSFORCEDECOMPOSEBND_H
+#define FIELDUTILS_PROCESSFORCEDECOMPOSEBND_H
 
-#include <memory>
+#include "ProcessBoundaryExtract.h"
+#include "ProcessForceDecompose.h"
 
-#include <LibUtilities/BasicConst/NektarUnivTypeDefs.hpp>
-#include <LibUtilities/BasicUtils/ShapeType.hpp>
-#include <set>
-
-namespace Nektar::LibUtilities
+namespace Nektar::FieldUtils
 {
 
-// set restriction on domain range for post-processing.
-struct DomainRange
+/**
+ * @brief This processing module calculates the wall shear stress and adds it
+ * as an extra-field to the output file, and writes it to a surface output file.
+ */
+class ProcessForceDecomposeBnd : public ProcessForceDecompose
 {
-    bool m_doXrange = false;
-    NekDouble m_xmin;
-    NekDouble m_xmax;
-    bool m_doYrange = false;
-    NekDouble m_ymin;
-    NekDouble m_ymax;
-    bool m_doZrange = false;
-    NekDouble m_zmin;
-    NekDouble m_zmax;
+public:
+    /// Creates an instance of this class
+    static std::shared_ptr<Module> create(FieldSharedPtr f)
+    {
+        return MemoryManager<ProcessForceDecomposeBnd>::AllocateSharedPtr(f);
+    }
+    static ModuleKey className;
 
-    bool m_checkShape = false;
-    LibUtilities::ShapeType m_shapeType;
+    ProcessForceDecomposeBnd(FieldSharedPtr f);
+    ~ProcessForceDecomposeBnd() override;
 
-    unsigned m_compElmts = 0;
-    std::set<unsigned> m_comps;
-    std::set<int> m_traceIDs;
+    /// Write mesh to output file.
+    void v_Process(po::variables_map &vm) override;
+
+    std::string v_GetModuleName() override
+    {
+        return "ProcessForceDecomposeBnd";
+    }
+
+    std::string v_GetModuleDescription() override
+    {
+        return "Calculating force decomposition";
+    }
+
+    ModulePriority v_GetModulePriority() override
+    {
+        return eBndExtraction;
+    }
 };
+} // namespace Nektar::FieldUtils
 
-typedef std::shared_ptr<DomainRange> DomainRangeShPtr;
-static DomainRangeShPtr NullDomainRangeShPtr;
-
-} // namespace Nektar::LibUtilities
 #endif

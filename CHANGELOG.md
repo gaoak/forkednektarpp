@@ -22,12 +22,15 @@ v5.9.0
 - Use MPI_Comm_split instead of MPI_Cart_create and MPI_Cart_sub (!2250)
 - Fix handling of PointGeom and PointExp for Collections and Fields (!2252)
 - Tidy-up GMRES verbose output (!1804)
+- Add a copy constructor method for boundary expansions and do not call partitioner in hdf5 input mesh if run in serial (!2241)
 - Remove duplicate StdPhysDeriv overload function (!2254)
 - Add EvaluateAtPoint interface in Equation (!2255)
 - Enable GenMatrix routine for SegExp (!2260)
 - Enforce const consitency in Comm class (!2261)
 - Add GetEquation to BoundaryCondition and ImposeNeumann/RobinConditions (!2257)
 - Adjustments to `NekLinSys` classes for future multigrid capability (!1811)
+- Avoid multiple data copy in NekFFTW (!2268)
+- Add FieldConvert modules to perform force decomposition for incompressible flows (!1531)
 
 **ADRSolver**
 - Add implicit UnsteadyAdvection for continuous Galerkin (!2231)
@@ -45,6 +48,9 @@ v5.9.0
 - Disable CWIPI on Fedora (!2199)
 - Update Annulus test to run more efficiently (!1220)
 - Add testing and packaging for Debian Trixie (!2249)
+
+**FieldConvert**
+- Added a comprange feature to just select element touching a composite surface for more efficient boundary processing (!2241)
 
 v5.8.0
 ------

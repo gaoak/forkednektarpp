@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
-//  File: DomainRange.h
+//  File: ProcessForceDecomposeVol.h
 //
 //  For more information, please see: http://www.nektar.info/
 //
@@ -28,46 +28,54 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 //  DEALINGS IN THE SOFTWARE.
 //
-//  Description: Finds Min and Max X,Y,Z points of a specific domain
-//
+//  Description: Computes volume force element using weighted pressure source
+//  theory.
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-#ifndef NEKTAR_LIB_LIBUTILITIES_BASSICUTILS_DOMAINRANGE_HPP
-#define NEKTAR_LIB_LIBUTILITIES_BASSICUTILS_DOMAINRANGE_HPP
+#ifndef FIELDUTILS_PROCESSFORCEDECOMPOSEVOL_H
+#define FIELDUTILS_PROCESSFORCEDECOMPOSEVOL_H
 
-#include <memory>
-
-#include <LibUtilities/BasicConst/NektarUnivTypeDefs.hpp>
-#include <LibUtilities/BasicUtils/ShapeType.hpp>
-#include <set>
-
-namespace Nektar::LibUtilities
+#include "../Module.h"
+#include "ProcessForceDecompose.h"
+namespace Nektar::FieldUtils
 {
 
-// set restriction on domain range for post-processing.
-struct DomainRange
+/**
+ * @brief This processing module calculates the Q Criterion and adds it
+ * as an extra-field to the output file.
+ */
+class ProcessForceDecomposeVol : public ProcessForceDecompose
 {
-    bool m_doXrange = false;
-    NekDouble m_xmin;
-    NekDouble m_xmax;
-    bool m_doYrange = false;
-    NekDouble m_ymin;
-    NekDouble m_ymax;
-    bool m_doZrange = false;
-    NekDouble m_zmin;
-    NekDouble m_zmax;
+public:
+    /// Creates an instance of this class
+    static std::shared_ptr<Module> create(FieldSharedPtr f)
+    {
+        return MemoryManager<ProcessForceDecomposeVol>::AllocateSharedPtr(f);
+    }
+    static ModuleKey className;
 
-    bool m_checkShape = false;
-    LibUtilities::ShapeType m_shapeType;
+    ProcessForceDecomposeVol(FieldSharedPtr f);
+    ~ProcessForceDecomposeVol() override;
 
-    unsigned m_compElmts = 0;
-    std::set<unsigned> m_comps;
-    std::set<int> m_traceIDs;
+    /// Write mesh to output file.
+    void v_Process(po::variables_map &vm) override;
+
+    std::string v_GetModuleName() override
+    {
+        return "ProcessForceDecomposeVol";
+    }
+
+    std::string v_GetModuleDescription() override
+    {
+        return "Calculating Q Criterion";
+    }
+
+    ModulePriority v_GetModulePriority() override
+    {
+        return eModifyExp;
+    }
 };
+} // namespace Nektar::FieldUtils
 
-typedef std::shared_ptr<DomainRange> DomainRangeShPtr;
-static DomainRangeShPtr NullDomainRangeShPtr;
-
-} // namespace Nektar::LibUtilities
 #endif
