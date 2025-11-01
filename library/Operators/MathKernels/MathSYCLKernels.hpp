@@ -404,6 +404,57 @@ void ddotKernel(const unsigned int gridSize, const unsigned int blockSize,
 }
 
 template <bool init, typename TData>
+void ddotKernel(const unsigned int gridSize, const unsigned int blockSize,
+                const size_t nsize, const unsigned int *mask, const TData *x,
+                const TData *y, TData *out)
+{
+    sycl::queue &Q = SYCLQueue::GetInstance();
+    Q.submit([=](sycl::handler &cgh) {
+        sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
+
+        cgh.parallel_for(
+            sycl::nd_range<1>(gridSize * blockSize, blockSize),
+            [=](sycl::nd_item<1> indx) {
+                const size_t lid = indx.get_local_id(0);
+                size_t gid       = indx.get_global_id(0);
+
+                if (init && lid == 0)
+                {
+                    out[indx.get_group(0)] = 0.0;
+                }
+
+                indx.barrier(sycl::access::fence_space::local_space);
+
+                TData tmp = 0.0;
+                while (gid < nsize)
+                {
+                    tmp += mask[gid] * x[gid] * y[gid];
+                    gid += indx.get_global_range(0);
+                }
+                scratch[lid] = tmp;
+
+                indx.barrier(sycl::access::fence_space::local_space);
+
+                unsigned int n = NektarSpaces::Device::maximumBlockSize / 2;
+                while (n > 0)
+                {
+                    if (blockSize > n && lid < n && lid + n < blockSize)
+                    {
+                        scratch[lid] += scratch[lid + n];
+                    }
+                    indx.barrier(sycl::access::fence_space::local_space);
+                    n /= 2;
+                }
+
+                if (lid == 0)
+                {
+                    out[indx.get_group(0)] += scratch[0];
+                }
+            });
+    });
+}
+
+template <bool init, typename TData>
 void l1normKernel(const unsigned int gridSize, const unsigned int blockSize,
                   const size_t nsize, const TData *x, TData *out)
 {
@@ -755,6 +806,46 @@ ddotKernel(const size_t nsize, const TData *x, const TData *y, TData *out)
 #else
     TData *buffer                = (TData *)internalSYCLBuffer;
     ddotKernel<true>(gridSize, blockSize, nsize, x, y, buffer);
+    reduceSumKernel<init>(1, gridSize, gridSize, buffer, out);
+#endif
+}
+
+template <typename ExecSpace, bool init, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
+ddotKernel(const size_t nsize, const unsigned int *mask, const TData *x,
+           const TData *y, TData *out)
+{
+#if defined(USE_SYCL_BUILTIN_REDUCER)
+    const unsigned int gridSize = NektarSpaces::Device::maximumBlockSize;
+#else
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+#endif
+
+    sycl::queue &Q = SYCLQueue::GetInstance();
+
+    if (internalSYCLBuffer == nullptr)
+    {
+        const unsigned int internalSYCLBufferSize = sizeof(TData) * gridSize;
+        GetDeviceProperties::CheckGlobalMemoryUsage(internalSYCLBufferSize);
+        internalSYCLBuffer = sycl::malloc_device(internalSYCLBufferSize, Q);
+        GetDeviceProperties::TotalGlobalMemory() -= internalSYCLBufferSize;
+    }
+
+#if defined(USE_SYCL_BUILTIN_REDUCER)
+    sycl::property_list initializer =
+        init ? sycl::property_list{sycl::property::reduction::
+                                       initialize_to_identity{}}
+             : sycl::property_list{};
+    Q.parallel_for(sycl::range<1>(nsize),
+                   sycl::reduction(out, sycl::plus<>(), initializer),
+                   [=](sycl::id<1> indx, auto &reducer) {
+                       reducer += mask[indx] * x[indx] * y[indx];
+                   });
+#else
+    TData *buffer                = (TData *)internalSYCLBuffer;
+    ddotKernel<true>(gridSize, blockSize, nsize, mask, x, y, buffer);
     reduceSumKernel<init>(1, gridSize, gridSize, buffer, out);
 #endif
 }

@@ -630,6 +630,61 @@ void ddot(MemoryRegion<TData> &x, MemoryRegion<TData> &y, TData *out)
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
+void ddot(Field<unsigned int, TFieldState> &mask, Field<TData, TFieldState> &x,
+          Field<TData, TFieldState> &y, TData *out)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    if (x.size() != y.size())
+    {
+        std::stringstream msg;
+
+        msg << "MathKernel::ddot - Memory size mismatch between Field";
+        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+    }
+
+    for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
+    {
+        auto maskptr =
+            mask.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        auto yptr   = y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        auto &block = x.GetBlocks()[blk];
+        auto size   = block.GetNumElements() * block.GetNumData() *
+                    x.GetNumComponents() * x.GetNumHomoModes();
+        if (blk == 0)
+        {
+            ddotKernel<ExecSpace, true>(size, maskptr, xptr, yptr, out);
+        }
+        else
+        {
+            ddotKernel<ExecSpace, false>(size, maskptr, xptr, yptr, out);
+        }
+    }
+}
+
+template <typename ExecSpace, typename TData>
+void ddot(MemoryRegion<unsigned int> &mask, MemoryRegion<TData> &x,
+          MemoryRegion<TData> &y, TData *out)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    if (x.size() != y.size())
+    {
+        std::stringstream msg;
+
+        msg << "MathKernel::ddot - Memory size mismatch between Field";
+        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+    }
+
+    auto maskptr = mask.template GetPtr<MemSpace, ReadOnly>();
+    auto xptr    = x.template GetPtr<MemSpace, ReadOnly>();
+    auto yptr    = y.template GetPtr<MemSpace, ReadOnly>();
+    auto nsize   = x.size();
+    ddotKernel<ExecSpace, true>(nsize, maskptr, xptr, yptr, out);
+}
+
+template <typename ExecSpace, typename TData, FieldState TFieldState>
 void l1norm(Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;

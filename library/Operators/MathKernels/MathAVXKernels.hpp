@@ -1388,6 +1388,23 @@ ddotKernel(const size_t nsize, const TData *x, const TData *y, TData *out)
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                                void>::type
+ddotKernel(const size_t nsize, const unsigned int *mask, const TData *x,
+           const TData *y, TData *out)
+{
+    if (init)
+    {
+        *out = 0.0;
+    }
+
+    for (size_t i = 0; i < nsize; i++)
+    {
+        *out += mask[i] * x[i] * y[i];
+    }
+}
+
+template <typename ExecSpace, bool init, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                               void>::type
 l1normKernel(const size_t nsize, const TData *x, TData *out)
 {
     using namespace tinysimd;
