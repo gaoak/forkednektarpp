@@ -310,9 +310,11 @@ inline void deviceMemcpy(TData *dst, const TData *src, const size_t size)
     else if constexpr (std::is_same_v<MemCopy, HostToDevice>)
     {
 #if defined(NEKTAR_ENABLE_CUDA)
-        CHECK_HIPCUDA_ERROR(cudaMemcpy(dst, src, size, cudaMemcpyHostToDevice));
+        CHECK_HIPCUDA_ERROR(
+            cudaMemcpyAsync(dst, src, size, cudaMemcpyHostToDevice));
 #elif defined(NEKTAR_ENABLE_HIP)
-        CHECK_HIPCUDA_ERROR(hipMemcpy(dst, src, size, hipMemcpyHostToDevice));
+        CHECK_HIPCUDA_ERROR(
+            hipMemcpyAsync(dst, src, size, hipMemcpyHostToDevice));
 #elif defined(NEKTAR_ENABLE_SYCL)
         sycl::queue &Q = SYCLQueue::GetInstance();
         Q.memcpy(dst, src, size).wait();
@@ -324,9 +326,10 @@ inline void deviceMemcpy(TData *dst, const TData *src, const size_t size)
     {
 #if defined(NEKTAR_ENABLE_CUDA)
         CHECK_HIPCUDA_ERROR(
-            cudaMemcpy(dst, src, size, cudaMemcpyDeviceToDevice));
+            cudaMemcpyAsync(dst, src, size, cudaMemcpyDeviceToDevice));
 #elif defined(NEKTAR_ENABLE_HIP)
-        CHECK_HIPCUDA_ERROR(hipMemcpy(dst, src, size, hipMemcpyDeviceToDevice));
+        CHECK_HIPCUDA_ERROR(
+            hipMemcpyAsync(dst, src, size, hipMemcpyDeviceToDevice));
 #elif defined(NEKTAR_ENABLE_SYCL)
         sycl::queue &Q = SYCLQueue::GetInstance();
         Q.memcpy(dst, src, size).wait();
