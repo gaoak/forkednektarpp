@@ -112,6 +112,10 @@ public:
     OPERATORS_EXPORT typename T::value_type ddot(
         T &x, T &y, const std::string &execSpace = "");
 
+    template <typename M, typename T>
+    OPERATORS_EXPORT typename T::value_type ddot(
+        M &mask, T &x, T &y, const std::string &execSpace = "");
+
     template <typename T>
     OPERATORS_EXPORT typename T::value_type l1norm(
         T &x, const std::string &execSpace = "");

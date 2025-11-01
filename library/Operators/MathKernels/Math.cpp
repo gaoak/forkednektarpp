@@ -492,6 +492,51 @@ typename T::value_type Math::ddot(T &x, T &y, const std::string &execSpace)
     return out;
 }
 
+template <typename M, typename T>
+typename T::value_type Math::ddot(M &mask, T &x, T &y,
+                                  const std::string &execSpace)
+{
+    auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
+
+    typename T::value_type out = 0.0;
+    if (execSpace0 == "Serial")
+    {
+        Nektar::Operators::ddot<NektarSpaces::Serial>(mask, x, y, &out);
+    }
+#if defined(NEKTAR_ENABLE_SIMD)
+    else if (execSpace0 == "AVX")
+    {
+        Nektar::Operators::ddot<NektarSpaces::AVX>(mask, x, y, &out);
+    }
+#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
+    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
+    else if (execSpace0 == "Device")
+    {
+        if (internal_device_buffer == nullptr)
+        {
+            Nektar::deviceMalloc(&internal_device_buffer,
+                                 sizeof(typename T::value_type),
+                                 NektarSpaces::Device::alignment);
+            Nektar::hostMallocPinned(&internal_host_buffer,
+                                     sizeof(typename T::value_type),
+                                     NektarSpaces::Device::alignment);
+        }
+        Nektar::Operators::ddot<NektarSpaces::Device>(
+            mask, x, y, (typename T::value_type *)internal_device_buffer);
+        Nektar::deviceMemcpy<DeviceToHost>(internal_host_buffer,
+                                           internal_device_buffer,
+                                           sizeof(typename T::value_type));
+        out = *(typename T::value_type *)internal_host_buffer;
+    }
+#endif
+    else
+    {
+        ASSERTL0(false, "Unknown Execution space: " + execSpace)
+    }
+
+    return out;
+}
+
 template <typename T>
 typename T::value_type Math::l1norm(T &x, const std::string &execSpace)
 {
@@ -946,6 +991,33 @@ template double Math::ddot<MemoryRegion<double>>(MemoryRegion<double> &x,
 template float Math::ddot<MemoryRegion<float>>(MemoryRegion<float> &x,
                                                MemoryRegion<float> &y,
                                                const std::string &execSpace);
+
+template double Math::ddot<Field<unsigned int, FieldState::Phys>,
+                           Field<double, FieldState::Phys>>(
+    Field<unsigned int, FieldState::Phys> &mask,
+    Field<double, FieldState::Phys> &x, Field<double, FieldState::Phys> &y,
+    const std::string &execSpace);
+template float Math::ddot<Field<unsigned int, FieldState::Phys>,
+                          Field<float, FieldState::Phys>>(
+    Field<unsigned int, FieldState::Phys> &mask,
+    Field<float, FieldState::Phys> &x, Field<float, FieldState::Phys> &y,
+    const std::string &execSpace);
+template double Math::ddot<Field<unsigned int, FieldState::Coeff>,
+                           Field<double, FieldState::Coeff>>(
+    Field<unsigned int, FieldState::Coeff> &mask,
+    Field<double, FieldState::Coeff> &x, Field<double, FieldState::Coeff> &y,
+    const std::string &execSpace);
+template float Math::ddot<Field<unsigned int, FieldState::Coeff>,
+                          Field<float, FieldState::Coeff>>(
+    Field<unsigned int, FieldState::Coeff> &mask,
+    Field<float, FieldState::Coeff> &x, Field<float, FieldState::Coeff> &y,
+    const std::string &execSpace);
+template double Math::ddot<MemoryRegion<unsigned int>, MemoryRegion<double>>(
+    MemoryRegion<unsigned int> &mask, MemoryRegion<double> &x,
+    MemoryRegion<double> &y, const std::string &execSpace);
+template float Math::ddot<MemoryRegion<unsigned int>, MemoryRegion<float>>(
+    MemoryRegion<unsigned int> &mask, MemoryRegion<float> &x,
+    MemoryRegion<float> &y, const std::string &execSpace);
 
 // l1norm template specialization.
 template double Math::l1norm<Field<double, FieldState::Phys>>(
