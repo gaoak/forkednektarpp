@@ -78,7 +78,8 @@ public:
           m_p_A(Field<TData, FieldState::Coeff>(
               "ConjGrad wk",
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1, 1,
-              ExecSpace::alignment))
+              ExecSpace::alignment)),
+          m_vExchange(MemoryRegion<TData>(4, ExecSpace::alignment, ePinned))
     {
         auto contfield =
             std::dynamic_pointer_cast<ContField>(this->m_expansionList);
@@ -90,7 +91,6 @@ public:
                                                m_tol, 1.0E-09);
 
         // Set operators.
-        m_math         = Math(ExecSpace::name);
         m_assmbScatrOp = std::make_unique<AssmbScatrOpImpl<ExecSpace, TData>>(
             this->m_expansionList);
         m_assmbScatrZeroDirOp =
@@ -99,9 +99,6 @@ public:
         m_robBndCondOp =
             RobBndCondOp<TData>::Create(this->m_expansionList, ExecSpace::name);
         m_rowComm = contfield->GetSession()->GetComm()->GetRowComm();
-
-        // Allocate array storage.
-        m_vExchange = std::vector<TData>(4, 0.0);
     }
 
     // className - for OperatorFactory
@@ -123,8 +120,6 @@ protected:
 
     std::shared_ptr<RobBndCondOp<TData>> m_robBndCondOp;
 
-    Math m_math;
-
     Field<TData, FieldState::Coeff> m_w_A;
     Field<TData, FieldState::Coeff> m_s_A;
     Field<TData, FieldState::Coeff> m_r_A;
@@ -132,7 +127,7 @@ protected:
     Field<TData, FieldState::Coeff> m_q_A;
     Field<TData, FieldState::Coeff> m_p_A;
 
-    std::vector<TData> m_vExchange;
+    MemoryRegion<TData> m_vExchange;
 
     TData m_tol;
     unsigned int m_maxIter;
@@ -158,16 +153,26 @@ protected:
         m_assmbScatrZeroDirOp->Apply(m_r_A, m_wk);
         this->m_precon->Apply(m_wk, m_w_A);
 
-        m_vExchange[2] = m_math.ddot(m_wk, m_r_A);
+        // Reset device memory.
+        auto exchange = m_vExchange.template GetPtr<MemSpace, WriteOnly>();
+
+        // <r_{0}, r_{0}>
+        ddot<ExecSpace>(m_wk, m_r_A, exchange + 2);
 
         // Calculate rhs magnitude.
         m_assmbScatrOp->Apply(m_r_A, m_wk);
-        m_vExchange[3] = m_math.ddot(in, m_wk);
+        ddot<ExecSpace>(in, m_wk, exchange + 3);
 
-        m_rowComm->AllReduce(m_vExchange, Nektar::LibUtilities::ReduceSum);
+        // Communication.
+        m_rowComm->AllReduce<MemSpace>(m_vExchange,
+                                       Nektar::LibUtilities::ReduceSum);
 
-        eps          = m_vExchange[2];
-        rhsMagnitude = (m_vExchange[3] > 1.0e-6) ? m_vExchange[3] : 1.0;
+        // Host-to-device copy.
+        auto exchangeHost =
+            m_vExchange.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+
+        eps          = exchangeHost[2];
+        rhsMagnitude = (exchangeHost[3] > 1.0e-6) ? exchangeHost[3] : 1.0;
 
         // If the input residual is less than tolerance then skip solve.
         if (eps < m_tol * m_tol * rhsMagnitude)
@@ -180,14 +185,26 @@ protected:
 
         m_robBndCondOp->Apply(m_w_A, m_s_A);
 
-        m_vExchange[0] = m_math.ddot(m_r_A, m_w_A);
+        // Reset device memory.
+        m_vExchange.template GetPtr<MemSpace, WriteOnly>();
 
-        m_vExchange[1] = m_math.ddot(m_s_A, m_w_A);
+        // <r_{1}, w_{1}>
+        ddot<ExecSpace>(m_r_A, m_w_A, exchange + 0);
 
-        m_rowComm->AllReduce(m_vExchange, Nektar::LibUtilities::ReduceSum);
+        // <s_{1}, w_{1}>
+        ddot<ExecSpace>(m_s_A, m_w_A, exchange + 1);
 
-        rho             = m_vExchange[0];
-        mu              = m_vExchange[1];
+        // Communication.
+        m_rowComm->AllReduce<MemSpace>(m_vExchange,
+                                       Nektar::LibUtilities::ReduceSum);
+
+        // Host-to-device copy.
+        exchangeHost =
+            m_vExchange.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+
+        // Initialize search direction.
+        rho             = exchangeHost[0];
+        mu              = exchangeHost[1];
         beta            = 0.0;
         alpha           = rho / mu;
         totalIterations = 1;
@@ -219,26 +236,35 @@ protected:
             m_assmbScatrZeroDirOp->Apply(m_r_A, m_wk);
             this->m_precon->Apply(m_wk, m_w_A);
 
-            // Perform the method-specific matrix-vector multiply
-            // operation.
+            // Perform the method-specific matrix-vector multiply operation.
             this->m_lhs->Apply(m_w_A, m_s_A);
 
             m_robBndCondOp->Apply(m_w_A, m_s_A);
 
+            // Reset device memory.
+            m_vExchange.template GetPtr<MemSpace, WriteOnly>();
+
             // <r_{k+1}, w_{k+1}>
-            m_vExchange[0] = m_math.ddot(m_r_A, m_w_A);
+            ddot<ExecSpace>(m_r_A, m_w_A, exchange + 0);
 
             // <s_{k+1}, w_{k+1}>
-            m_vExchange[1] = m_math.ddot(m_s_A, m_w_A);
+            ddot<ExecSpace>(m_s_A, m_w_A, exchange + 1);
 
             // <r_{k+1}, r_{k+1}>
-            m_vExchange[2] = m_math.ddot(m_wk, m_r_A);
+            ddot<ExecSpace>(m_wk, m_r_A, exchange + 2);
 
-            m_rowComm->AllReduce(m_vExchange, Nektar::LibUtilities::ReduceSum);
+            // Communication.
+            m_rowComm->AllReduce<MemSpace>(m_vExchange,
+                                           Nektar::LibUtilities::ReduceSum);
 
-            rho_new = m_vExchange[0];
-            mu      = m_vExchange[1];
-            eps     = m_vExchange[2];
+            // Host-to-device copy.
+            exchangeHost =
+                m_vExchange
+                    .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+
+            rho_new = exchangeHost[0];
+            mu      = exchangeHost[1];
+            eps     = exchangeHost[2];
 
             ++totalIterations;
 
