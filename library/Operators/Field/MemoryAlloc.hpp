@@ -242,9 +242,9 @@ inline void deviceMemset(TData *dst, const int val, const size_t size)
     }
 
 #if defined(NEKTAR_ENABLE_CUDA)
-    CHECK_HIPCUDA_ERROR(cudaMemset((void *)dst, val, size));
+    CHECK_HIPCUDA_ERROR(cudaMemsetAsync((void *)dst, val, size));
 #elif defined(NEKTAR_ENABLE_HIP)
-    CHECK_HIPCUDA_ERROR(hipMemset((void *)dst, val, size));
+    CHECK_HIPCUDA_ERROR(hipMemsetAsync((void *)dst, val, size));
 #elif defined(NEKTAR_ENABLE_SYCL)
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.memset((void *)dst, val, size);
