@@ -53,6 +53,13 @@ struct DeviceToDevice
 {
 };
 
+// Memory allocation type
+enum MemAllocType
+{
+    ePageable,
+    ePinned
+};
+
 template <typename TData>
 void deviceFillKernelLauncher(TData *dst, const TData val, const size_t size);
 
@@ -274,7 +281,9 @@ inline void deviceFill(TData *dst, const TData val, const size_t size)
 }
 
 template <typename MemCopy, typename TData>
-inline void deviceMemcpy(TData *dst, const TData *src, const size_t size)
+inline void deviceMemcpy(
+    TData *dst, const TData *src, const size_t size,
+    [[maybe_unused]] const MemAllocType memAllocType = ePageable)
 {
     if (size == 0)
     {
@@ -310,14 +319,37 @@ inline void deviceMemcpy(TData *dst, const TData *src, const size_t size)
     else if constexpr (std::is_same_v<MemCopy, HostToDevice>)
     {
 #if defined(NEKTAR_ENABLE_CUDA)
-        CHECK_HIPCUDA_ERROR(
-            cudaMemcpyAsync(dst, src, size, cudaMemcpyHostToDevice));
+        if (memAllocType == ePinned)
+        {
+            CHECK_HIPCUDA_ERROR(
+                cudaMemcpyAsync(dst, src, size, cudaMemcpyHostToDevice));
+        }
+        else
+        {
+            CHECK_HIPCUDA_ERROR(
+                cudaMemcpy(dst, src, size, cudaMemcpyHostToDevice));
+        }
 #elif defined(NEKTAR_ENABLE_HIP)
-        CHECK_HIPCUDA_ERROR(
-            hipMemcpyAsync(dst, src, size, hipMemcpyHostToDevice));
+        if (memAllocType == ePinned)
+        {
+            CHECK_HIPCUDA_ERROR(
+                hipMemcpyAsync(dst, src, size, hipMemcpyHostToDevice));
+        }
+        else
+        {
+            CHECK_HIPCUDA_ERROR(
+                hipMemcpy(dst, src, size, hipMemcpyHostToDevice));
+        }
 #elif defined(NEKTAR_ENABLE_SYCL)
         sycl::queue &Q = SYCLQueue::GetInstance();
-        Q.memcpy(dst, src, size).wait();
+        if (memAllocType == ePinned)
+        {
+            Q.memcpy(dst, src, size);
+        }
+        else
+        {
+            Q.memcpy(dst, src, size).wait();
+        }
 #else
         memcpy(dst, src, size);
 #endif
@@ -332,7 +364,7 @@ inline void deviceMemcpy(TData *dst, const TData *src, const size_t size)
             hipMemcpyAsync(dst, src, size, hipMemcpyDeviceToDevice));
 #elif defined(NEKTAR_ENABLE_SYCL)
         sycl::queue &Q = SYCLQueue::GetInstance();
-        Q.memcpy(dst, src, size).wait();
+        Q.memcpy(dst, src, size);
 #else
         memcpy(dst, src, size);
 #endif

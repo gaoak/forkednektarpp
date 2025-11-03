@@ -64,13 +64,6 @@ struct ReadWrite
 {
 };
 
-// Memory allocation type
-enum MemAllocType
-{
-    ePageable,
-    ePinned
-};
-
 // const_if metafunction return "const T" type if B = true and "T" type
 // otherwise.
 template <bool B, typename TData = void> struct const_if
@@ -906,7 +899,8 @@ private:
 
             if constexpr (std::is_same_v<TDataIn, TData>)
             {
-                deviceMemcpy<HostToDevice>(dst, src, size * sizeof(TData));
+                deviceMemcpy<HostToDevice>(dst, src, size * sizeof(TData),
+                                           m_memAllocType);
             }
             else
             {
@@ -947,8 +941,8 @@ private:
             // Make sure the host data is valid. It might not be.
             if (m_host_valid)
             {
-                deviceMemcpy<HostToDevice>(m_device, m_host,
-                                           m_size * sizeof(TData));
+                deviceMemcpy<HostToDevice>(
+                    m_device, m_host, m_size * sizeof(TData), m_memAllocType);
             }
             else
             {
