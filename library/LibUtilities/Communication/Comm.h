@@ -557,8 +557,6 @@ void Comm::AllReduce(Operators::MemoryRegion<T> &pData, enum ReduceOperator pOp)
     {
         v_AllReduce(pData.template GetPtr<MemSpace, ReadWrite>(), pData.size(),
                     CommDataTypeTraits<T>::GetDataType(), pOp);
-        // For reduction, final result is copied to the host.
-        pData.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
     }
     else
     {
