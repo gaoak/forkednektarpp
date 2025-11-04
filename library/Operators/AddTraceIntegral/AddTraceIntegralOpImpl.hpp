@@ -35,6 +35,7 @@
 #pragma once
 
 #include "Operators/AddTraceIntegral/AddTraceIntegralOp.hpp"
+#include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/AddTraceIntegral/AddTraceIntegralDeviceKernels.hpp"
 #include "Operators/AddTraceIntegral/AddTraceIntegralSerialAVXKernels.hpp"
@@ -77,10 +78,11 @@ public:
             return;
         }
 
-        // Compute block bound.
+        // Compute trace block bound.
         auto traceBlocks = GetBlockAttributes<TData>(FieldState::Coeff,
                                                      expansionList->GetTrace());
         std::vector<size_t> traceBlockBound(traceBlocks.size());
+        std::vector<std::vector<size_t>> toInterleavedTraceBlock;
         size_t traceBound = 0;
         for (unsigned int blk = 0; blk < traceBlocks.size(); ++blk)
         {
@@ -89,11 +91,36 @@ public:
             const auto nelmt  = block.GetNumElements();
             traceBound += nelmt * ncoeff;
             traceBlockBound[blk] = traceBound;
+
+            // Mapping to interleaved format for trace block.
+            toInterleavedTraceBlock.push_back(
+                std::vector<size_t>(block.size()));
+            auto ptr = toInterleavedTraceBlock[blk].data();
+            for (size_t e = 0;
+                 e < block.GetNumElmtGroups(
+                         NektarSpaces::vector_width<TData>::value);
+                 e++)
+            {
+                for (unsigned int l = 0;
+                     l < NektarSpaces::vector_width<TData>::value; l++)
+                {
+                    for (unsigned int i = 0; i < ncoeff; i++)
+                    {
+                        ptr[l * ncoeff + i] =
+                            l + (e * block.GetNumData() + i) *
+                                    NektarSpaces::vector_width<TData>::value;
+                    }
+                }
+                ptr += block.GetNumData() *
+                       NektarSpaces::vector_width<TData>::value;
+            }
         }
 
+        // Compute block bound.
         auto blocks =
             GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
         std::vector<size_t> blockBound(blocks.size());
+        std::vector<std::vector<size_t>> toInterleavedBlock;
         size_t bound = 0;
         for (unsigned int blk = 0; blk < blocks.size(); ++blk)
         {
@@ -102,9 +129,32 @@ public:
             const auto nelmt  = block.GetNumElements();
             bound += nelmt * ncoeff;
             blockBound[blk] = bound;
+
+            // Mapping to interleaved format for block.
+            toInterleavedBlock.push_back(std::vector<size_t>(block.size()));
+            auto ptr = toInterleavedBlock[blk].data();
+            for (size_t e = 0;
+                 e < block.GetNumElmtGroups(
+                         NektarSpaces::vector_width<TData>::value);
+                 e++)
+            {
+                for (unsigned int l = 0;
+                     l < NektarSpaces::vector_width<TData>::value; l++)
+                {
+                    for (unsigned int i = 0; i < ncoeff; i++)
+                    {
+                        ptr[l * ncoeff + i] =
+                            l + (e * block.GetNumData() + i) *
+                                    NektarSpaces::vector_width<TData>::value;
+                    }
+                }
+                ptr += block.GetNumData() *
+                       NektarSpaces::vector_width<TData>::value;
+            }
         }
 
-        std::vector<std::tuple<size_t, size_t, size_t>> traceToTraceReordered(
+        // Re-order to avoid race condition on GPUs.
+        std::vector<std::tuple<size_t, size_t, int>> traceToTraceReordered(
             m_nFwdBwdCoeffs);
         if (m_nFwdBwdCoeffs > 0)
         {
@@ -116,8 +166,8 @@ public:
             }
             std::sort(std::begin(traceToTraceReordered),
                       std::end(traceToTraceReordered),
-                      [](std::tuple<size_t, size_t, size_t> const &t1,
-                         std::tuple<size_t, size_t, size_t> const &t2) {
+                      [](std::tuple<size_t, size_t, int> const &t1,
+                         std::tuple<size_t, size_t, int> const &t2) {
                           return std::get<1>(t1) < std::get<1>(t2);
                       });
         }
@@ -182,10 +232,45 @@ public:
             }
             else
             {
-                traceCoeffsToElmtMapBlock[blk0].push_back(
-                    std::get<0>(traceToTraceReordered[i]) - offset0);
-                traceCoeffsToElmtTraceBlock[blk0].push_back(
-                    std::get<1>(traceToTraceReordered[i]) - offset1);
+                // TODO: This should be update on a per block basis
+                std::string execStr =
+                    expansionList->GetSession()
+                        ->GetCmdLineArgument<std::string>("opExecSpace");
+                std::string implStr =
+                    expansionList->GetSession()
+                        ->GetCmdLineArgument<std::string>("opImpl");
+
+                if ((execStr == "AVX" && implStr == "StdMat") ||
+                    (execStr == "AVX" && implStr == "SumFac") ||
+                    (execStr == "Device" && implStr == "SumFac"))
+                {
+                    traceCoeffsToElmtMapBlock[blk0].push_back(
+                        toInterleavedBlock[blk0][std::get<0>(
+                                                     traceToTraceReordered[i]) -
+                                                 offset0]);
+                }
+                else
+                {
+                    traceCoeffsToElmtMapBlock[blk0].push_back(
+                        std::get<0>(traceToTraceReordered[i]) - offset0);
+                }
+
+                // TODO: This should be update on a per trace block basis
+                if ((execStr == "AVX" && implStr == "StdMat") ||
+                    (execStr == "AVX" && implStr == "SumFac") ||
+                    (execStr == "Device" && implStr == "SumFac"))
+                {
+                    traceCoeffsToElmtTraceBlock[blk0].push_back(
+                        toInterleavedTraceBlock
+                            [blk1]
+                            [std::get<1>(traceToTraceReordered[i]) - offset1]);
+                }
+                else
+                {
+                    traceCoeffsToElmtTraceBlock[blk0].push_back(
+                        std::get<1>(traceToTraceReordered[i]) - offset1);
+                }
+
                 traceCoeffsToElmtSignBlock[blk0].push_back(
                     std::get<2>(traceToTraceReordered[i]));
                 nFwdBwdCoeffsBlock[blk0]++;
@@ -243,6 +328,33 @@ protected:
             // Initialize pointers.
             auto tracePtr =
                 m_trace.GetBlocks()[blk1].template GetPtr<MemSpace, ReadOnly>();
+
+            // TODO: This should be update on a per trace block basis
+            std::string execStr =
+                this->m_expansionList->GetSession()
+                    ->template GetCmdLineArgument<std::string>("opExecSpace");
+            std::string implStr =
+                this->m_expansionList->GetSession()
+                    ->template GetCmdLineArgument<std::string>("opImpl");
+
+            // Check interleaving for trace block.
+            if ((execStr == "AVX" && implStr == "StdMat") ||
+                (execStr == "AVX" && implStr == "SumFac") ||
+                (execStr == "Device" && implStr == "SumFac"))
+            {
+                auto tracePtr = m_trace.GetBlocks()[blk1]
+                                    .template GetPtr<MemSpace, ReadWrite>();
+
+                ReshapeStorage<ExecSpace>(
+                    NektarSpaces::vector_width<TData>::value,
+                    m_trace.GetBlocks()[blk1].GetInterleaveWidth(),
+                    m_trace.GetBlocks()[blk1].GetNumElementsWithPadding(),
+                    m_trace.GetBlocks()[blk1].GetNumData(), tracePtr);
+
+                m_trace.GetBlocks()[blk1].template SetInterleaveWidth<TData>(
+                    NektarSpaces::vector_width<TData>::value);
+            }
+
             for (unsigned int blk0 = 0; blk0 < out.GetBlocks().size(); ++blk0)
             {
                 auto nFwdBwdCoeffsBlock = m_nFwdBwdCoeffsBlock[blk1][blk0];
@@ -252,20 +364,53 @@ protected:
                     // Initialize pointers.
                     auto outptr = out.GetBlocks()[blk0]
                                       .template GetPtr<MemSpace, ReadWrite>();
+                    auto traceCoeffsToElmtMapPtr =
+                        m_traceCoeffsToElmtMap[blk1][blk0]
+                            .template GetPtr<MemSpace, ReadOnly>();
                     auto traceCoeffsToElmtSignPtr =
                         m_traceCoeffsToElmtSign[blk1][blk0]
                             .template GetPtr<MemSpace, ReadOnly>();
                     auto traceCoeffsToElmtTracePtr =
                         m_traceCoeffsToElmtTrace[blk1][blk0]
                             .template GetPtr<MemSpace, ReadOnly>();
-                    auto traceCoeffsToElmtMapPtr =
-                        m_traceCoeffsToElmtMap[blk1][blk0]
-                            .template GetPtr<MemSpace, ReadOnly>();
 
+                    // TODO: This should be update on a per block basis
+                    std::string execStr =
+                        this->m_expansionList->GetSession()
+                            ->template GetCmdLineArgument<std::string>(
+                                "opExecSpace");
+                    std::string implStr =
+                        this->m_expansionList->GetSession()
+                            ->template GetCmdLineArgument<std::string>(
+                                "opImpl");
+
+                    // Check interleaving for output block.
+                    if ((execStr == "AVX" && implStr == "StdMat") ||
+                        (execStr == "AVX" && implStr == "SumFac") ||
+                        (execStr == "Device" && implStr == "SumFac"))
+                    {
+                        ReshapeStorage<ExecSpace>(
+                            NektarSpaces::vector_width<TData>::value,
+                            out.GetBlocks()[blk0].GetInterleaveWidth(),
+                            out.GetBlocks()[blk0].GetNumElementsWithPadding(),
+                            out.GetBlocks()[blk0].GetNumData(), outptr);
+                    }
+
+                    // AddTraceIntegralKernel.
                     AddTraceIntegralKernel<ExecSpace>(
                         nFwdBwdCoeffsBlock, traceCoeffsToElmtMapPtr,
                         traceCoeffsToElmtSignPtr, traceCoeffsToElmtTracePtr,
                         tracePtr, outptr);
+
+                    // Update interleaving for output block.
+                    if ((execStr == "AVX" && implStr == "StdMat") ||
+                        (execStr == "AVX" && implStr == "SumFac") ||
+                        (execStr == "Device" && implStr == "SumFac"))
+                    {
+                        out.GetBlocks()[blk0]
+                            .template SetInterleaveWidth<TData>(
+                                NektarSpaces::vector_width<TData>::value);
+                    }
                 }
             }
         }

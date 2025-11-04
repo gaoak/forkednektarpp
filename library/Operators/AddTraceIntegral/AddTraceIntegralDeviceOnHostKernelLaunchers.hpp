@@ -55,17 +55,6 @@ NEK_FORCE_INLINE static
         traceCoeffsToElmtTracePtr, tracePtr, outptr, deviceOnHostBlock1D());
 }
 
-template <typename ExecSpace>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                            void>::type
-    ReOrderMapKernel([[maybe_unused]] const size_t nsize,
-                     [[maybe_unused]] size_t *traceCoeffsToElmtMapPtr,
-                     [[maybe_unused]] int *traceCoeffsToElmtSignPtr,
-                     [[maybe_unused]] size_t *traceCoeffsToElmtTracePtr)
-{
-}
-
 } // namespace Nektar::Operators::detail
 
 #endif

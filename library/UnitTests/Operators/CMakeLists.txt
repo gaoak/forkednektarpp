@@ -240,7 +240,7 @@ ENDIF()
 
 # AVX StdMat
 IF (${NEKTAR_ENABLE_SIMD})
-    # SET_UNIT_TEST(AddTraceIntegral_avx_stdmat test_addtraceintegral AVX StdMat FALSE)
+    SET_UNIT_TEST(AddTraceIntegral_avx_stdmat test_addtraceintegral AVX StdMat FALSE)
     SET_UNIT_TEST(BwdTrans_avx_stdmat test_bwdtrans AVX StdMat FALSE)
     SET_UNIT_TEST(DiagPrecon_avx_stdmat test_diagprecon AVX StdMat FALSE)
     # SET_UNIT_TEST(FwdTrans_avx_stdmat AVX StdMat test_fwdtrans AVX StdMat FALSE)
@@ -258,7 +258,7 @@ ENDIF()
 
 # AVX SumFac
 IF (${NEKTAR_ENABLE_SIMD})
-    # SET_UNIT_TEST(AddTraceIntegral_avx_sumfac test_addtraceintegral AVX SumFac FALSE)
+    SET_UNIT_TEST(AddTraceIntegral_avx_sumfac test_addtraceintegral AVX SumFac FALSE)
     SET_UNIT_TEST(BwdTrans_avx_sumfac test_bwdtrans AVX SumFac FALSE)
     SET_UNIT_TEST(DiagPrecon_avx_sumfac test_diagprecon AVX SumFac FALSE)
     # SET_UNIT_TEST(FwdTrans_avx_sumfac Serial StdMat test_fwdtrans AVX SumFac FALSE)
@@ -322,7 +322,7 @@ ENDIF()
 
 # Device SumFac
 IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABLE_DEVICEONHOST)
-    #SET_UNIT_TEST(AddTraceIntegral_device_sumfac test_addtraceintegral Device SumFac FALSE)
+    SET_UNIT_TEST(AddTraceIntegral_device_sumfac test_addtraceintegral Device SumFac FALSE)
     SET_UNIT_TEST(BwdTrans_device_sumfac test_bwdtrans Device SumFac FALSE)
     # SET_UNIT_TEST(DiagPrecon_device_sumfac test_diagprecon Device SumFac FALSE)
     # SET_UNIT_TEST(FwdTrans_device_sumfac Serial StdMat test_fwdtrans Device SumFac FALSE)
