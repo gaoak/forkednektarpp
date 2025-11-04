@@ -55,14 +55,172 @@ NEK_DEVICE_INLINE static void AssembleScatrKernel(
 
     for (unsigned idx = idx0; idx < nvals; idx += stride)
     {
-        TData ass = 0;
-        for (unsigned j = offset[idx]; j < offset[idx + 1]; ++j)
+        TData ass            = 0;
+        const unsigned start = offset[idx];
+        const unsigned end   = offset[idx + 1];
+        for (unsigned j = start; j < end; ++j)
         {
             ass += inoutptr[ind[j]] * sign[j];
         }
-        for (unsigned j = offset[idx]; j < offset[idx + 1]; ++j)
+        for (unsigned j = start; j < end; ++j)
         {
             inoutptr[ind[j]] = ass * sign[j];
+        }
+    }
+}
+
+template <typename TthreadBlock, typename TData>
+NEK_DEVICE_INLINE static void AssembleScatrKernel(
+    const unsigned nvals, const unsigned *nassemble, const unsigned *index,
+    const int *sign, TData *inoutptr, unsigned width,
+    const TthreadBlock &threadBlock)
+{
+    const unsigned idx0   = getGlobalIdx(threadBlock);
+    const unsigned stride = getGlobalRange(threadBlock);
+
+    for (unsigned idx = idx0; idx < nvals; idx += stride)
+    {
+        TData ass = 0;
+        // this will determine the offset for index and sign data
+        // could be pre-caclculated and passed.
+        unsigned cnt = 0;
+        for (unsigned i = width; i <= idx; i += width)
+        {
+            cnt += nassemble[(i - width) / width * width] * width;
+        }
+
+        const unsigned i       = idx % width;
+        const unsigned nassemb = nassemble[idx];
+        for (unsigned j = 0; j < nassemb; ++j)
+        {
+            ass += inoutptr[index[cnt + j * width + i]] *
+                   sign[cnt + j * width + i];
+        }
+
+        for (unsigned j = 0; j < nassemb; ++j)
+        {
+            inoutptr[index[cnt + j * width + i]] =
+                ass * sign[cnt + j * width + i];
+        }
+    }
+}
+
+template <typename TthreadBlock, typename TData>
+NEK_DEVICE_INLINE static void AssembleScatrKernel(
+    const unsigned nvals, const unsigned *nassemble, const unsigned *index,
+    const unsigned *offset, const int *sign, TData *inoutptr,
+    const TthreadBlock &threadBlock, const unsigned WIDTH)
+{
+    const unsigned idx0   = getGlobalIdx(threadBlock);
+    const unsigned stride = getGlobalRange(threadBlock);
+
+    for (unsigned idx = idx0; idx < nvals; idx += stride)
+    {
+        TData ass = 0;
+
+        const unsigned nassemb = nassemble[idx];
+        for (unsigned j = 0; j < nassemb; ++j)
+        {
+            ass += inoutptr[index[offset[idx] + j * WIDTH]] *
+                   sign[offset[idx] + j * WIDTH];
+        }
+
+        for (unsigned j = 0; j < nassemb; ++j)
+        {
+            inoutptr[index[offset[idx] + j * WIDTH]] =
+                ass * sign[offset[idx] + j * WIDTH];
+        }
+    }
+}
+
+template <typename TthreadBlock, typename TData>
+NEK_DEVICE_INLINE static void AssembleScatrBndKernel(
+    const unsigned nvals, const unsigned *GSInfo, const int *sign,
+    TData *inoutptr, TData *bndptr, const TthreadBlock &threadBlock)
+{
+    const unsigned idx0   = getGlobalIdx(threadBlock);
+    const unsigned stride = getGlobalRange(threadBlock);
+
+    const unsigned *offset = GSInfo + 1;
+    const unsigned *ind    = GSInfo + nvals + 2;
+
+    for (unsigned idx = idx0; idx < nvals; idx += stride)
+    {
+        TData ass  = 0;
+        auto start = offset[idx];
+        auto nidx  = ind[start];
+        auto nbnd  = ind[start + 1];
+
+        // cannot evalaute cnt at end of loop since may only accesss
+        // loop once in GPU. So following hack just calculated cnt
+        unsigned cnt = 0;
+        for (unsigned i = 0; i < idx; ++i)
+        {
+            cnt += ind[offset[i]];
+        }
+
+        start += 2;
+        // assemble values
+        for (unsigned j = 0; j < nidx; ++j)
+        {
+            ass += inoutptr[ind[start + j]] * sign[cnt + j];
+        }
+        // copy assembled values back to local values
+        for (unsigned j = 0; j < nidx; ++j)
+        {
+            inoutptr[ind[start + j]] = ass * sign[cnt + j];
+        }
+        // put assembled values into boudnary array
+        start += nidx;
+        for (unsigned j = 0; j < nbnd; ++j)
+        {
+            bndptr[ind[start + j]] = ass;
+        }
+    }
+}
+
+template <typename TthreadBlock, typename TData>
+NEK_DEVICE_INLINE static void AssembleFromBndKernel(
+    const unsigned nvals, const unsigned *GSInfo, const int *sign,
+    const TData *bndptr, TData *inoutptr, const TthreadBlock &threadBlock)
+{
+    const unsigned idx0   = getGlobalIdx(threadBlock);
+    const unsigned stride = getGlobalRange(threadBlock);
+
+    const unsigned *offset = GSInfo + 1;
+    const unsigned *ind    = GSInfo + nvals + 2;
+
+    for (unsigned idx = idx0; idx < nvals; idx += stride)
+    {
+        // cannot evalaute cnt at end of loop since may only accesss
+        // loop once in GPU. So following hack just calculated cnt
+        unsigned cnt = 0;
+        for (unsigned i = 0; i < idx; ++i)
+        {
+            cnt += ind[offset[i]];
+        }
+
+        TData ass  = 0;
+        auto start = offset[idx];
+        auto nidx  = ind[start];
+        auto nbnd  = ind[start + 1];
+        start += 2;
+
+        auto startbnd = start + nidx;
+
+        // assemble bndptr components wtih local ids
+        for (unsigned j = 0; j < nbnd; ++j)
+        {
+            ass += bndptr[ind[startbnd + j]];
+        }
+
+        // add in local point in rank ordered assembly
+        ass += inoutptr[ind[start]] * sign[cnt];
+
+        // copy rank ordered assembled values back to local values
+        for (unsigned j = 0; j < nidx; ++j)
+        {
+            inoutptr[ind[start + j]] = ass * sign[cnt + j];
         }
     }
 }

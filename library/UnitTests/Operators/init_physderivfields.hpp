@@ -50,18 +50,18 @@ public:
 
     void RunTestCase()
     {
-        auto op = PhysDerivOp<double>::Create(fixt_explist);
+        auto op = PhysDerivOp<double>::Create(fixt_explist[0]);
         op->Apply(*fixt_in, *fixt_out);
     }
     void SetTestCase()
     {
         // Set initial conditions.
-        auto coordim   = fixt_explist->GetCoordim(0);
-        auto totpoints = fixt_explist->GetTotPoints();
+        auto coordim   = fixt_explist[0]->GetCoordim(0);
+        auto totpoints = fixt_explist[0]->GetTotPoints();
         Array<OneD, double> x(totpoints);
         Array<OneD, double> y(totpoints);
         Array<OneD, double> z(totpoints);
-        fixt_explist->GetCoords(x, y, z);
+        fixt_explist[0]->GetCoords(x, y, z);
         if (coordim == 1)
         {
             Vmath::Fill(totpoints, 1.0, y, 1);
@@ -91,11 +91,12 @@ public:
                         // that basis exists
                         unsigned int M[3];
                         M[0] = M[1] = M[2] =
-                            fixt_explist->GetExp(el)->GetNumPoints(0);
+                            fixt_explist[0]->GetExp(el)->GetNumPoints(0);
                         for (unsigned int i = 1;
-                             i < fixt_explist->GetExp(el)->GetNumBases(); ++i)
+                             i < fixt_explist[0]->GetExp(el)->GetNumBases();
+                             ++i)
                         {
-                            M[i] = fixt_explist->GetExp(el)->GetNumPoints(i);
+                            M[i] = fixt_explist[0]->GetExp(el)->GetNumPoints(i);
                         }
 
                         for (unsigned int phys = 0; phys < block.GetNumData();
@@ -131,8 +132,8 @@ public:
     {
         // Calculate expected result from Nektar++
         const unsigned int compSize = fixt_in->GetNumComponents();
-        const unsigned int coordim  = fixt_explist->GetCoordim(0);
-        const size_t nphys          = fixt_explist->GetTotPoints();
+        const unsigned int coordim  = fixt_explist[0]->GetCoordim(0);
+        const size_t nphys          = fixt_explist[0]->GetTotPoints();
         Array<OneD, double> inphys  = fixt_in->ToArray();
         Array<OneD, double> outphys(compSize * coordim * nphys);
 
@@ -141,8 +142,8 @@ public:
             Array<OneD, double> outphys0 = outphys + i * nphys * coordim;
             Array<OneD, double> outphys1 = outphys0 + nphys;
             Array<OneD, double> outphys2 = outphys1 + nphys;
-            fixt_explist->PhysDeriv(inphys + i * nphys, outphys0, outphys1,
-                                    outphys2);
+            fixt_explist[0]->PhysDeriv(inphys + i * nphys, outphys0, outphys1,
+                                       outphys2);
         }
         fixt_expected->CopyArray<NektarSpaces::HostSpace>(outphys);
     }

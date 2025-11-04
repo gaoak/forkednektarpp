@@ -540,14 +540,14 @@ int AssemblyMap::v_GetGlobalToUniversalMapUnique(
     return 0;
 }
 
-const Array<OneD, const int> &AssemblyMap::v_GetLocalToGlobalMap()
+const Array<OneD, const int> &AssemblyMap::v_GetLocalToGlobalMap() const
 {
     NEKERROR(ErrorUtil::efatal, "Not defined for this type of mapping.");
     static Array<OneD, const int> result;
     return result;
 }
 
-const Array<OneD, const int> &AssemblyMap::v_GetGlobalToUniversalMap()
+const Array<OneD, const int> &AssemblyMap::v_GetGlobalToUniversalMap() const
 {
     NEKERROR(ErrorUtil::efatal, "Not defined for this type of mapping.");
     static Array<OneD, const int> result;
@@ -617,15 +617,6 @@ void AssemblyMap::v_UniversalAssemble(
     // Do nothing here since multi-level static condensation uses a
     // AssemblyMap and thus will call this routine in serial.
 }
-
-void AssemblyMap::v_UniversalAssemble(
-    [[maybe_unused]] Array<OneD, NekDouble> &pGlobal,
-    [[maybe_unused]] int offset) const
-{
-    // Do nothing here since multi-level static condensation uses a
-    // AssemblyMap and thus will call this routine in serial.
-}
-
 int AssemblyMap::v_GetFullSystemBandWidth() const
 {
     NEKERROR(ErrorUtil::efatal, "Not defined for this type of mapping.");
@@ -720,12 +711,12 @@ int AssemblyMap::GetGlobalToUniversalMapUnique(const int i) const
     return v_GetGlobalToUniversalMapUnique(i);
 }
 
-const Array<OneD, const int> &AssemblyMap::GetLocalToGlobalMap()
+const Array<OneD, const int> &AssemblyMap::GetLocalToGlobalMap() const
 {
     return v_GetLocalToGlobalMap();
 }
 
-const Array<OneD, const int> &AssemblyMap::GetGlobalToUniversalMap()
+const Array<OneD, const int> &AssemblyMap::GetGlobalToUniversalMap() const
 {
     return v_GetGlobalToUniversalMap();
 }
@@ -791,12 +782,6 @@ void AssemblyMap::UniversalAssemble(Array<OneD, NekDouble> &pGlobal) const
 void AssemblyMap::UniversalAssemble(NekVector<NekDouble> &pGlobal) const
 {
     v_UniversalAssemble(pGlobal.GetPtr());
-}
-
-void AssemblyMap::UniversalAssemble(Array<OneD, NekDouble> &pGlobal,
-                                    int offset) const
-{
-    v_UniversalAssemble(pGlobal, offset);
 }
 
 void AssemblyMap::PatchLocalToGlobal(const Array<OneD, const NekDouble> &loc,
@@ -1271,21 +1256,6 @@ void AssemblyMap::UniversalAssembleBnd(Array<OneD, NekDouble> &pGlobal) const
 void AssemblyMap::UniversalAssembleBnd(NekVector<NekDouble> &pGlobal) const
 {
     UniversalAssembleBnd(pGlobal.GetPtr());
-}
-
-void AssemblyMap::UniversalAssembleBnd(Array<OneD, NekDouble> &pGlobal,
-                                       int offset) const
-{
-    Array<OneD, NekDouble> tmp(offset);
-    if (offset > 0)
-    {
-        Vmath::Vcopy(offset, pGlobal, 1, tmp, 1);
-    }
-    UniversalAssembleBnd(pGlobal);
-    if (offset > 0)
-    {
-        Vmath::Vcopy(offset, tmp, 1, pGlobal, 1);
-    }
 }
 
 void AssemblyMap::UniversalAbsMaxBnd(Array<OneD, NekDouble> &bndvals)

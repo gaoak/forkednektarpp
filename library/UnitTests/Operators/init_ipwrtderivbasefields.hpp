@@ -80,16 +80,16 @@ public:
 
     void RunTestCase()
     {
-        auto op = IProductWRTDerivBaseOp<double>::Create(fixt_explist);
+        auto op = IProductWRTDerivBaseOp<double>::Create(fixt_explist[0]);
         op->Apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution()
     {
         // Calculate expected result from Nektar++
-        const size_t ncoeffs        = fixt_explist->GetNcoeffs();
-        const size_t nphys          = fixt_explist->GetTotPoints();
-        const unsigned int coordim  = fixt_explist->GetCoordim(0);
+        const size_t ncoeffs        = fixt_explist[0]->GetNcoeffs();
+        const size_t nphys          = fixt_explist[0]->GetTotPoints();
+        const unsigned int coordim  = fixt_explist[0]->GetCoordim(0);
         const unsigned int compSize = fixt_out->GetNumComponents();
 
         Array<OneD, double> inphys = fixt_in->ToArray();
@@ -103,8 +103,8 @@ public:
             {
                 inphysarray[j] = inphysarray[j - 1] + nphys;
             }
-            fixt_explist->IProductWRTDerivBase(inphysarray,
-                                               tmp = outcoeffs + i * ncoeffs);
+            fixt_explist[0]->IProductWRTDerivBase(
+                inphysarray, tmp = outcoeffs + i * ncoeffs);
         }
         fixt_expected->CopyArray<NektarSpaces::HostSpace>(outcoeffs);
     }

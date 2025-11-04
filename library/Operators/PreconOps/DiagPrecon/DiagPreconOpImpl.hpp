@@ -216,14 +216,6 @@ protected:
         // Assembly and scatr  values (without a sign change)
         m_assmbScatrNoSignOp->Apply(m_invDiag, m_invDiag);
 
-        // TODO: Universal assembly on device.
-        auto contfield =
-            std::dynamic_pointer_cast<ContField>(this->m_expansionList);
-        if (contfield->GetSession()->GetComm()->GetRowComm()->GetSize() > 1)
-        {
-            ASSERTL0(false, "Needs setting up");
-        }
-
         // invert diagonal
         for (unsigned blk = 0; blk < m_invDiag.GetBlocks().size(); ++blk)
         {

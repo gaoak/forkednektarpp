@@ -2567,13 +2567,21 @@ void AssemblyMapCG::SetUpUniversalC0ContMap(const ExpList &locExp,
         tmp[i] = m_globalToUniversalMap[i];
     }
 
-    m_gsh    = Gs::Init(tmp, vRowComm, verbose);
     m_bndGsh = Gs::Init(tmp2, vRowComm, verbose);
+    // note we are still initialising m_gsh here since it is used in other
+    // operations beyond just assembly that is replaced below
+    m_gsh = Gs::Init(tmp, vRowComm, verbose);
+
+    // this is needed for redesign calls to DataWarehouse
+    m_cgcomm = std::make_unique<AssemblyCommCG>(vRowComm, tmp);
+
     Gs::Unique(tmp, vRowComm);
+
     for (unsigned int i = 0; i < m_numGlobalCoeffs; ++i)
     {
         m_globalToUniversalMapUnique[i] = (tmp[i] >= 0 ? 1 : 0);
     }
+
     for (unsigned int i = 0; i < m_numGlobalBndCoeffs; ++i)
     {
         m_globalToUniversalBndMapUnique[i] = (tmp2[i] >= 0 ? 1 : 0);
@@ -2691,8 +2699,10 @@ AssemblyMapSharedPtr AssemblyMapCG::v_LinearSpaceMap(const ExpList &locexp,
         {
             tmp[i] = returnval->m_globalToUniversalMap[i];
         }
+
         returnval->m_gsh = Gs::Init(tmp, vRowComm, verbose);
         Gs::Unique(tmp, vRowComm);
+
         for (unsigned int i = 0; i < nglocoeffs; ++i)
         {
             returnval->m_globalToUniversalMapUnique[i] = (tmp[i] >= 0 ? 1 : 0);
@@ -2775,12 +2785,13 @@ int AssemblyMapCG::v_GetGlobalToUniversalMapUnique(const int i) const
     return m_globalToUniversalMapUnique[i];
 }
 
-const Array<OneD, const int> &AssemblyMapCG::v_GetLocalToGlobalMap(void)
+const Array<OneD, const int> &AssemblyMapCG::v_GetLocalToGlobalMap(void) const
 {
     return m_localToGlobalMap;
 }
 
-const Array<OneD, const int> &AssemblyMapCG::v_GetGlobalToUniversalMap(void)
+const Array<OneD, const int> &AssemblyMapCG::v_GetGlobalToUniversalMap(
+    void) const
 {
     return m_globalToUniversalMap;
 }
@@ -2908,15 +2919,6 @@ void AssemblyMapCG::v_Assemble(const NekVector<NekDouble> &loc,
 void AssemblyMapCG::v_UniversalAssemble(Array<OneD, NekDouble> &pGlobal) const
 {
     Gs::Gather(pGlobal, Gs::gs_add, m_gsh);
-}
-
-void AssemblyMapCG::v_UniversalAssemble(Array<OneD, NekDouble> &pGlobal,
-                                        int offset) const
-{
-    Array<OneD, NekDouble> tmp(offset);
-    Vmath::Vcopy(offset, pGlobal, 1, tmp, 1);
-    UniversalAssemble(pGlobal);
-    Vmath::Vcopy(offset, tmp, 1, pGlobal, 1);
 }
 
 int AssemblyMapCG::v_GetFullSystemBandWidth() const

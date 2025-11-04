@@ -55,7 +55,7 @@
 #define TEST_ASSMBSCATR_ZERODIR(test_name, test, tol)                          \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        Configure(1, 1);                                                       \
+        Configure(2, 2);                                                       \
         SetTestCase(true);                                                     \
         RunTestCaseZeroDir<NektarSpaces::Serial>();                            \
         boost::test_tools::output_test_stream output;                          \
@@ -69,6 +69,8 @@ BOOST_AUTO_TEST_SUITE(TestAssmbScatr)
 TEST_ASSMBSCATR(assmbscatr_seg, Seg, 1.0E-12)
 
 TEST_ASSMBSCATR(assmbscatr_quad, Quad, 1.0E-12)
+
+TEST_ASSMBSCATR_ZERODIR(assmbscatr_quad_zerodir, Quad, 1.0E-12)
 
 TEST_ASSMBSCATR(assmbscatr_quad_sem, QuadSEM, 1.0E-12)
 

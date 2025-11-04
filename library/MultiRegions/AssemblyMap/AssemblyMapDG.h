@@ -109,9 +109,9 @@ protected:
 
     int v_GetGlobalToUniversalMapUnique(const int i) const override;
 
-    const Array<OneD, const int> &v_GetLocalToGlobalMap() override;
+    const Array<OneD, const int> &v_GetLocalToGlobalMap() const override;
 
-    const Array<OneD, const int> &v_GetGlobalToUniversalMap() override;
+    const Array<OneD, const int> &v_GetGlobalToUniversalMap() const override;
 
     const Array<OneD, const int> &v_GetGlobalToUniversalMapUnique() override;
 
@@ -136,9 +136,6 @@ protected:
                     NekVector<NekDouble> &global) const override;
 
     void v_UniversalAssemble(Array<OneD, NekDouble> &pGlobal) const override;
-
-    void v_UniversalAssemble(Array<OneD, NekDouble> &pGlobal,
-                             int offset) const override;
 
     int v_GetFullSystemBandWidth() const override;
 }; // class

@@ -67,16 +67,16 @@ public:
         math = Math(execName);
 
         auto blocks_in =
-            GetBlockAttributes<double>(FieldState::Phys, fixt_explist);
+            GetBlockAttributes<double>(FieldState::Phys, fixt_explist[0]);
         auto f_in = Field<double, FieldState::Phys>("f_in2", blocks_in, 1, 1,
                                                     alignment);
         fixt_in2  = new Field<double, FieldState::Phys>(std::move(f_in));
 
-        Array<OneD, double> x(fixt_explist->GetTotPoints());
-        Array<OneD, double> y(fixt_explist->GetTotPoints());
-        Array<OneD, double> z(fixt_explist->GetTotPoints());
-        Array<OneD, double> fce(fixt_explist->GetTotPoints());
-        fixt_explist->GetCoords(x, y, z);
+        Array<OneD, double> x(fixt_explist[0]->GetTotPoints());
+        Array<OneD, double> y(fixt_explist[0]->GetTotPoints());
+        Array<OneD, double> z(fixt_explist[0]->GetTotPoints());
+        Array<OneD, double> fce(fixt_explist[0]->GetTotPoints());
+        fixt_explist[0]->GetCoords(x, y, z);
 
         auto func1 = session->GetFunction("Forcing", 0);
         func1->Evaluate(x, y, z, fce);

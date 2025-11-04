@@ -117,13 +117,31 @@ public:
 
     template <typename ExecSpace> void RunTestCase()
     {
-        auto op = AssmbScatrOp<double>::Create(fixt_explist);
+        auto op = AssmbScatrOp<double>::Create(fixt_explist[0]);
+        // setup assembly map cg for multiple components.
+        std::vector<MultiRegions::AssemblyMapCGSharedPtr> assemblyMap;
+        for (auto &e : fixt_explist)
+        {
+            auto contfield =
+                std::dynamic_pointer_cast<MultiRegions::ContField>(e);
+            assemblyMap.push_back(contfield->GetLocalToGlobalMap());
+        }
+        op->SetAssemblyMap(assemblyMap);
         op->Apply(*fixt_in, *fixt_out);
     }
 
     template <typename ExecSpace> void RunTestCaseZeroDir()
     {
-        auto op = AssmbScatrZeroDirOp<double>::Create(fixt_explist);
+        auto op = AssmbScatrZeroDirOp<double>::Create(fixt_explist[0]);
+        // setup assembly map cg for multiple components.
+        std::vector<MultiRegions::AssemblyMapCGSharedPtr> assemblyMap;
+        for (auto &e : fixt_explist)
+        {
+            auto contfield =
+                std::dynamic_pointer_cast<MultiRegions::ContField>(e);
+            assemblyMap.push_back(contfield->GetLocalToGlobalMap());
+        }
+        op->SetAssemblyMap(assemblyMap);
         op->Apply(*fixt_in, *fixt_out);
     }
 
@@ -131,16 +149,16 @@ public:
     {
         // Calculate expected result from Nektar++.
         int compSize                 = fixt_in->GetNumComponents();
-        int ncoeffs                  = fixt_explist->GetNcoeffs();
+        int ncoeffs                  = fixt_explist[0]->GetNcoeffs();
         Array<OneD, double> incoeffs = fixt_in->ToArray();
         Array<OneD, double> outcoeffs(compSize * ncoeffs);
         Array<OneD, NekDouble> tmp;
 
-        auto map =
-            std::dynamic_pointer_cast<MultiRegions::ContField>(fixt_explist)
-                ->GetLocalToGlobalMap();
         for (int i = 0; i < compSize; ++i)
         {
+            auto map = std::dynamic_pointer_cast<MultiRegions::ContField>(
+                           fixt_explist[i])
+                           ->GetLocalToGlobalMap();
             map->Assemble(incoeffs + i * ncoeffs,
                           tmp = outcoeffs + i * ncoeffs);
             if (ZeroDir)

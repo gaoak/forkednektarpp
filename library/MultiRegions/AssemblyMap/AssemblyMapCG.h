@@ -41,6 +41,8 @@
 #include <MultiRegions/ExpList.h>
 #include <MultiRegions/MultiRegionsDeclspec.h>
 
+#include <MultiRegions/AssemblyMap/AssemblyCommCG.h>
+
 namespace Nektar::MultiRegions
 {
 static std::map<int, int> NullIntIntMap;
@@ -101,6 +103,17 @@ public:
         return m_parallelDirBndSign;
     }
 
+    // Get Send Receive entries for CG Comm
+    MULTI_REGIONS_EXPORT const std::vector<size_t> &GetSREntries() const
+    {
+        return m_cgcomm->GetSREntries();
+    }
+    /// Get Rank from which recieved ranks is sent
+    MULTI_REGIONS_EXPORT const std::vector<unsigned> &GetFromRank() const
+    {
+        return m_cgcomm->GetFromRank();
+    }
+
 protected:
     /// Integer map of local coeffs to global space
     Array<OneD, int> m_localToGlobalMap;
@@ -140,6 +153,8 @@ protected:
     /// Set indicating the local coeffs just touching parallel
     /// dirichlet boundary that have a sign change
     std::set<int> m_parallelDirBndSign;
+    std::unique_ptr<AssemblyCommCG> m_cgcomm;
+    std::unique_ptr<AssemblyCommCG> m_cgcommBnd;
 
     MULTI_REGIONS_EXPORT int CreateGraph(
         const ExpList &locExp, const BndCondExp &bndCondExp,
@@ -167,10 +182,10 @@ protected:
         const int i) const override;
 
     MULTI_REGIONS_EXPORT const Array<OneD, const int> &v_GetLocalToGlobalMap()
-        override;
+        const override;
 
     MULTI_REGIONS_EXPORT const Array<OneD, const int> &v_GetGlobalToUniversalMap()
-        override;
+        const override;
 
     MULTI_REGIONS_EXPORT const Array<OneD, const int> &
     v_GetGlobalToUniversalMapUnique() override;
@@ -203,9 +218,6 @@ protected:
 
     MULTI_REGIONS_EXPORT void v_UniversalAssemble(
         Array<OneD, NekDouble> &pGlobal) const override;
-
-    MULTI_REGIONS_EXPORT void v_UniversalAssemble(
-        Array<OneD, NekDouble> &pGlobal, int offset) const override;
 
     MULTI_REGIONS_EXPORT int v_GetFullSystemBandWidth() const override;
 

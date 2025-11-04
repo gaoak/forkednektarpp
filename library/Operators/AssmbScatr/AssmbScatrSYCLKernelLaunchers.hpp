@@ -61,6 +61,73 @@ NEK_FORCE_INLINE static
     });
 }
 
+template <typename ExecSpace, typename TData, unsigned WIDTH>
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                            void>::type
+    AssembleScatrKernel(const unsigned nvals, const unsigned *nassemble,
+                        const unsigned int *index, const unsigned *offset,
+                        const int *sign, TData *inoutptr)
+{
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int gridSize  = (nvals + blockSize - 1) / blockSize;
+
+    sycl::queue &Q = SYCLQueue::GetInstance();
+    Q.submit([=](sycl::handler &cgh) {
+        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
+                         [=](sycl::nd_item<1> item_ct1) {
+#pragma forceinline
+                             AssembleScatrKernel<>(nvals, nassemble, index,
+                                                   offset, sign, inoutptr,
+                                                   item_ct1, WIDTH);
+                         });
+    });
+}
+
+template <typename ExecSpace, typename TData>
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                            void>::type
+    AssembleScatrBndKernel(const unsigned nvals, const unsigned *GSInfo,
+                           const int *sign, TData *inoutptr, TData *bndptr)
+{
+    const unsigned blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned gridSize  = (nvals + blockSize - 1) / blockSize;
+
+    sycl::queue &Q = SYCLQueue::GetInstance();
+    Q.submit([=](sycl::handler &cgh) {
+        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
+                         [=](sycl::nd_item<1> item_ct1) {
+#pragma forceinline
+                             AssembleScatrBndKernel<>(nvals, GSInfo, sign,
+                                                      inoutptr, bndptr,
+                                                      item_ct1);
+                         });
+    });
+}
+
+template <typename ExecSpace, typename TData>
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                            void>::type
+    AssembleFromBndKernel(const unsigned nvals, const unsigned *GSInfo,
+                          const int *sign, const TData *bndptr, TData *inoutptr)
+{
+    const unsigned blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned gridSize  = (nvals + blockSize - 1) / blockSize;
+
+    sycl::queue &Q = SYCLQueue::GetInstance();
+    Q.submit([=](sycl::handler &cgh) {
+        cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
+                         [=](sycl::nd_item<1> item_ct1) {
+#pragma forceinline
+                             AssembleFromBndKernel<>(nvals, GSInfo, sign,
+                                                     bndptr, inoutptr,
+                                                     item_ct1);
+                         });
+    });
+}
+
 } // namespace Nektar::Operators::detail
 
 #endif

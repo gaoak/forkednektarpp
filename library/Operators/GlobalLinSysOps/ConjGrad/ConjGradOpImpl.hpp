@@ -84,12 +84,6 @@ public:
         auto contfield =
             std::dynamic_pointer_cast<ContField>(this->m_expansionList);
 
-        // Set parameters.
-        contfield->GetSession()->LoadParameter("NekLinSysMaxIterations",
-                                               m_maxIter, 5000);
-        contfield->GetSession()->LoadParameter("IterativeSolverTolerance",
-                                               m_tol, 1.0E-09);
-
         // Set operators.
         m_assmbScatrOp = std::make_unique<AssmbScatrOpImpl<ExecSpace, TData>>(
             this->m_expansionList);
@@ -99,6 +93,13 @@ public:
         m_robBndCondOp =
             RobBndCondOp<TData>::Create(this->m_expansionList, ExecSpace::name);
         m_rowComm = contfield->GetSession()->GetComm()->GetRowComm();
+        m_root    = m_rowComm->GetRank() == 0;
+
+        // Set parameters.
+        contfield->GetSession()->LoadParameter("NekLinSysMaxIterations",
+                                               m_maxIter, 5000);
+        contfield->GetSession()->LoadParameter("IterativeSolverTolerance",
+                                               m_tol, 1.0E-09);
     }
 
     // className - for OperatorFactory
@@ -117,6 +118,7 @@ protected:
     std::unique_ptr<AssmbScatrOpImpl<ExecSpace, TData>> m_assmbScatrOp;
     std::unique_ptr<AssmbScatrZeroDirOpImpl<ExecSpace, TData>>
         m_assmbScatrZeroDirOp;
+    bool m_root;
 
     std::shared_ptr<RobBndCondOp<TData>> m_robBndCondOp;
 
@@ -129,8 +131,8 @@ protected:
 
     MemoryRegion<TData> m_vExchange;
 
-    TData m_tol;
-    unsigned int m_maxIter;
+    TData m_tol            = 0.0;
+    unsigned int m_maxIter = 0;
 
     void v_Apply(Field<TData, FieldState::Coeff> &in,
                  Field<TData, FieldState::Coeff> &out) override
@@ -271,9 +273,12 @@ protected:
             // Test if norm is within tolerance.
             if (eps < m_tol * m_tol * rhsMagnitude)
             {
-                std::cout << "iterations: " << totalIterations
-                          << " eps: " << std::sqrt(std::fabs((double)eps))
-                          << std::endl;
+                if (m_root)
+                {
+                    std::cout << "iterations: " << totalIterations
+                              << " eps: " << std::sqrt((double)eps)
+                              << " rhs_mag: " << rhsMagnitude << std::endl;
+                }
                 break;
             }
 

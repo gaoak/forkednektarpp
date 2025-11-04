@@ -149,6 +149,7 @@ MACRO(SET_UNIT_TEST testname name execspace implementation mpi_flag)
     ENDIF()
 ENDMACRO()
 
+# Comm
 IF (NEKTAR_USE_MPI)
     SET_UNIT_TEST(Comm_host test_comm HostSpace none TRUE)
     SET_UNIT_TEST(Comm_device test_comm DeviceSpace none TRUE)
@@ -173,6 +174,9 @@ SET_UNIT_TEST(IMEX_SDC_serial test_imex_sdc Serial none FALSE)
 SET_UNIT_TEST(Explicit_GEM_serial test_explicit_gem Serial none FALSE)
 SET_UNIT_TEST(Implicit_GEM_serial test_implicit_gem Serial none FALSE)
 SET_UNIT_TEST(IMEX_GEM_serial test_imex_gem Serial none FALSE)
+IF (NEKTAR_USE_MPI)
+    SET_UNIT_TEST(AssmbScatr_serial test_assmbscatr Serial none TRUE)
+ENDIF()
 
 # Serial generic
 SET_UNIT_TEST(MultiplyByElmtInvMass_serial_generic test_multiplybyelmtinvmass Serial Generic FALSE)
@@ -209,6 +213,9 @@ SET_UNIT_TEST(Mass_serial_sumfac test_mass Serial SumFac FALSE)
 SET_UNIT_TEST(NullPrecon_serial_sumfac test_nullprecon Serial SumFac FALSE)
 SET_UNIT_TEST(PhysDeriv_serial_sumfac test_physderiv Serial SumFac FALSE)
 SET_UNIT_TEST(PhysInterp1DScaled_serial_sumfac test_physinterp1dscaled Serial SumFac FALSE)
+IF (NEKTAR_USE_MPI)
+    SET_UNIT_TEST(HelmSolve_conjgrad_serial test_helmsolve_conjgrad Serial SumFac TRUE)
+ENDIF()
 
 # AVX
 IF (${NEKTAR_ENABLE_SIMD})
@@ -230,6 +237,9 @@ IF (${NEKTAR_ENABLE_SIMD})
     SET_UNIT_TEST(Explicit_GEM_avx test_explicit_gem AVX none FALSE)
     SET_UNIT_TEST(Implicit_GEM_avx test_implicit_gem AVX none FALSE)
     SET_UNIT_TEST(IMEX_GEM_avx test_imex_gem AVX none FALSE)
+    IF (NEKTAR_USE_MPI)
+        SET_UNIT_TEST(AssmbScatr_avx test_assmbscatr AVX none TRUE)
+    ENDIF()
 ENDIF()
 
 # AVX generic
@@ -274,6 +284,7 @@ IF (${NEKTAR_ENABLE_SIMD})
     SET_UNIT_TEST(PhysInterp1DScaled_avx_sumfac test_physinterp1dscaled AVX SumFac FALSE)
 ENDIF()
 
+
 # Device
 IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABLE_DEVICEONHOST)
     SET_UNIT_TEST(Math_device test_math Device none FALSE)
@@ -294,6 +305,11 @@ IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABL
     SET_UNIT_TEST(Explicit_GEM_device test_explicit_gem Device none FALSE)
     SET_UNIT_TEST(Implicit_GEM_device test_implicit_gem Device none FALSE)
     SET_UNIT_TEST(IMEX_GEM_device test_imex_gem Device none FALSE)
+    IF (NEKTAR_USE_MPI)
+        IF (NOT NEKTAR_ENABLE_SYCL STREQUAL "CUDA")
+            SET_UNIT_TEST(AssmbScatr_device test_assmbscatr Device none TRUE)
+        ENDIF()
+    ENDIF()
 ENDIF()
 
 # Device generic
@@ -328,7 +344,7 @@ IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABL
     # SET_UNIT_TEST(FwdTrans_device_sumfac Serial StdMat test_fwdtrans Device SumFac FALSE)
     SET_UNIT_TEST(Helmholtz_device_sumfac test_helmholtz Device SumFac FALSE)
     # SET_UNIT_TEST(HelmSolve_conjgrad_device_sumfac test_helmsolve_conjgrad Device SumFac FALSE)
-    # SET_UNIT_TEST(HelmSolve_gmres_device_sumfac AVX StdMat test_helmsolve_gmres Device SumFac FALSE)
+    # SET_UNIT_TEST(HelmSolve_gmres_device_sumfac test_helmsolve_gmres Device SumFac FALSE)
     SET_UNIT_TEST(IProductWRTBase_device_sumfac test_ipwrtbase Device SumFac FALSE)
     SET_UNIT_TEST(IProductWRTDerivBase_device_sumfac test_ipwrtderivbase Device SumFac FALSE)
     SET_UNIT_TEST(LinAdvDiffReaction_device_sumfac test_linadvdiffreaction Device SumFac FALSE)

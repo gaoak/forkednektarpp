@@ -1902,11 +1902,20 @@ void ExpList::SetDataWarehouse(void)
         ->RegisterDataCreatorClass<Nektar::Operators::VandemondeDataCreator>(
             vExpList);
 
-    m_dataWarehouse
-        ->RegisterDataCreatorClass<Nektar::Operators::LocalToGlobalDataCreator>(
-            vExpList);
     m_dataWarehouse->RegisterDataCreatorClass<
-        Nektar::Operators::LocalToGlobalSignDataCreator>(vExpList);
+        Nektar::Operators::DeviceLocalToGlobalDataCreator>(vExpList);
+    m_dataWarehouse->RegisterDataCreatorClass<
+        Nektar::Operators::DeviceLocalToGlobalNumAssembleCreator>(vExpList);
+    m_dataWarehouse->RegisterDataCreatorClass<
+        Nektar::Operators::DeviceLocalToGlobalIndexCreator>(vExpList);
+    m_dataWarehouse->RegisterDataCreatorClass<
+        Nektar::Operators::DeviceLocalToGlobalIndexOffsetCreator>(vExpList);
+    m_dataWarehouse->RegisterDataCreatorClass<
+        Nektar::Operators::DeviceLocalToGlobalSignCreator>(vExpList);
+    m_dataWarehouse->RegisterDataCreatorClass<
+        Nektar::Operators::DeviceBndLocalToGlobalDataCreator>(vExpList);
+    m_dataWarehouse->RegisterDataCreatorClass<
+        Nektar::Operators::DeviceBndLocalToGlobalSignCreator>(vExpList);
 }
 
 /**

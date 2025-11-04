@@ -62,7 +62,7 @@ public:
 
     void RunTestCase()
     {
-        auto op = NeuBndCondOp<double>::Create(fixt_explist);
+        auto op = NeuBndCondOp<double>::Create(fixt_explist[0]);
         op->Apply(*fixt_out);
     }
 
@@ -70,7 +70,7 @@ public:
     {
         fixt_expected->template Initialize<NektarSpaces::HostSpace>(0.0);
 
-        auto op = NeuBndCondOp<double>::Create(fixt_explist, "Serial");
+        auto op = NeuBndCondOp<double>::Create(fixt_explist[0], "Serial");
         op->Apply(*fixt_expected);
     }
 };

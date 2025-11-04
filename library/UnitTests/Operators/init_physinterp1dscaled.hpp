@@ -80,7 +80,7 @@ public:
 
     void RunTestCase(const double scale)
     {
-        auto op = PhysInterp1DScaledOp<double>::Create(fixt_explist);
+        auto op = PhysInterp1DScaledOp<double>::Create(fixt_explist[0]);
         op->SetScaleFactor(scale);
         op->Apply(*fixt_in, *fixt_out);
     }
@@ -88,8 +88,8 @@ public:
     void ExpectedSolution(double scale)
     {
         const unsigned int compSize = fixt_in->GetNumComponents();
-        const size_t nphys          = fixt_explist->GetTotPoints();
-        const size_t nphys1D        = fixt_explist->Get1DScaledTotPoints(scale);
+        const size_t nphys          = fixt_explist[0]->GetTotPoints();
+        const size_t nphys1D = fixt_explist[0]->Get1DScaledTotPoints(scale);
 
         // Calculate expected result from Nektar++
         Array<OneD, double> inphys = fixt_in->ToArray();
@@ -97,8 +97,8 @@ public:
 
         for (unsigned int i = 0; i < compSize; ++i)
         {
-            fixt_explist->PhysInterp1DScaled(scale, inphys + i * nphys,
-                                             tmp = outphys + i * nphys1D);
+            fixt_explist[0]->PhysInterp1DScaled(scale, inphys + i * nphys,
+                                                tmp = outphys + i * nphys1D);
         }
         fixt_expected->CopyArray<NektarSpaces::HostSpace>(outphys);
     }

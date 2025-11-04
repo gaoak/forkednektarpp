@@ -56,16 +56,17 @@ class AssmbScatrOpImpl : public AssmbScatrOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
+    // scalar version
     AssmbScatrOpImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : AssmbScatrOp<TData>(expansionList)
     {
         auto contfield =
             std::dynamic_pointer_cast<ContField>(this->m_expansionList);
-        auto assmbMap = contfield->GetLocalToGlobalMap();
 
-        m_nDir = assmbMap->GetNumGlobalDirBndCoeffs();
+        auto assmbMap = std::dynamic_pointer_cast<MultiRegions::AssemblyMapCG>(
+            contfield->GetLocalToGlobalMap());
 
-        m_numComp = 0; // initialise to zero
+        m_assemblyMap.push_back(assmbMap);
     }
 
     // className - for OperatorFactory
@@ -81,36 +82,155 @@ public:
     }
 
 protected:
-    void SetUpMaps(const unsigned numComp)
+    // #define ORIG_ASS_SCA
+#ifdef ORIG_ASS_SCA
+    const unsigned *m_gsInfo = nullptr;
+#else
+    const unsigned *m_gsNumAssmb = nullptr;
+    const unsigned *m_gsIndex    = nullptr;
+    const unsigned *m_gsOffset   = nullptr;
+    static constexpr unsigned m_device_width =
+        NektarSpaces::vector_width<double>::value;
+#endif
+    const int *m_gsSign         = nullptr;
+    const unsigned *m_gsBndInfo = nullptr;
+    const int *m_gsBndSign      = nullptr;
+    /// number of internal device  dofs ot assemble.
+    unsigned m_nGids;
+    /// number of inter device boundary dofs to assemble
+    unsigned m_nBndGids;
+    /// number of components mappings are setup for
+    unsigned m_numAssemblyComps = 0;
+    /// A vector of legacy assemblyCG maps for generation of boundary mappings
+    std::vector<MultiRegions::AssemblyMapCGSharedPtr> m_assemblyMap;
+
+    /// flag to identify when method is setup for parallel communication
+    bool m_isParallel;
+    /// A pointer to the assembly communication for inter device commonication
+    std::unique_ptr<MultiRegions::AssemblyCommCG> m_assmbCommCG;
+    /// Buffer to place send data for inter device communication
+    MemoryRegion<TData> m_send_buffer;
+    /// Buffer to receive data into  for inter device communication
+    MemoryRegion<TData> m_recv_buffer;
+
+    void v_SetAssemblyMap(
+        std::vector<MultiRegions::AssemblyMapCGSharedPtr> &assemblyMap) override
     {
-        m_numComp = numComp;
+        m_assemblyMap = assemblyMap;
+    }
+
+    void SetUpMaps(unsigned numComps)
+    {
+        ASSERTL1(numComps == m_assemblyMap.size(),
+                 "The number of assembly maps is not the same as the number of "
+                 "components requested. Have you set up maps using "
+                 "SetAssemblyMaps()");
+
+        m_numAssemblyComps = numComps;
+
         auto blocks =
             GetBlockAttributes<TData>(FieldState::Coeff, this->m_expansionList);
 
         auto dataWarehouse = this->m_expansionList->GetDataWarehouseSharedPtr();
 
+#ifdef ORIG_ASS_SCA
+        auto GSInfoKey = DeviceLocalToGlobalKey<TData>(m_assemblyMap, ZERODIR);
         // setup GS info of values interior to device
-        auto GSInfoKey = LocalToGlobalKey<TData>(m_nDir, m_numComp, ZERODIR);
-
         m_gsInfo = dataWarehouse->template GetData<ExecSpace>(GSInfoKey);
+        // set up sign change array
+        m_gsSign = dataWarehouse->template GetData<ExecSpace>(
+            DeviceLocalToGlobalSignKey<TData>(m_assemblyMap, ZERODIR,
+                                              SIGNCHANGE));
+#else
+        auto GSInfoKey = DeviceLocalToGlobalKey<TData>(m_assemblyMap, ZERODIR,
+                                                       m_device_width);
+        // setup GS info of values interior to device
+        auto GSNumAssmbKey = DeviceLocalToGlobalNumAssembleKey<TData>(
+            m_assemblyMap, ZERODIR, m_device_width);
+        m_gsNumAssmb =
+            dataWarehouse->template GetData<ExecSpace>(GSNumAssmbKey);
+
+        auto GSIndexKey = DeviceLocalToGlobalIndexKey<TData>(
+            m_assemblyMap, ZERODIR, m_device_width);
+        m_gsIndex = dataWarehouse->template GetData<ExecSpace>(GSIndexKey);
+
+        auto GSOffsetKey = DeviceLocalToGlobalIndexOffsetKey<TData>(
+            m_assemblyMap, ZERODIR, m_device_width);
+        m_gsOffset = dataWarehouse->template GetData<ExecSpace>(GSOffsetKey);
 
         // set up sign change array
         m_gsSign = dataWarehouse->template GetData<ExecSpace>(
-            LocalToGlobalSignKey<TData>(m_nDir, m_numComp, ZERODIR,
-                                        SIGNCHANGE));
+            DeviceLocalToGlobalSignKey<TData>(m_assemblyMap, ZERODIR,
+                                              SIGNCHANGE, m_device_width));
+#endif
 
         // get a copy of the host to evaluate offsets
         auto hostGSInfo =
             dataWarehouse->template GetData<NektarSpaces::Serial>(GSInfoKey);
 
         m_nGids = hostGSInfo[0];
-    }
 
-    const unsigned *m_gsInfo;
-    const int *m_gsSign;
-    unsigned m_nGids;
-    unsigned m_numComp;
-    unsigned m_nDir;
+        auto vCommRow =
+            this->m_expansionList->GetSession()->GetComm()->GetRowComm();
+        m_isParallel = (vCommRow->GetSize() > 1) ? true : false;
+
+        if (m_isParallel)
+        {
+            auto globalToUniMap  = m_assemblyMap[0]->GetGlobalToUniversalMap();
+            auto numGlobalCoeffs = m_assemblyMap[0]->GetNumGlobalCoeffs();
+            auto numGlobalBndCoeffs = m_assemblyMap[0]->GetNumGlobalBndCoeffs();
+            Nektar::Array<OneD, long> tmp(numGlobalCoeffs);
+            Vmath::Zero(numGlobalCoeffs, tmp, 1);
+            for (unsigned int i = 0; i < numGlobalBndCoeffs; ++i)
+            {
+                tmp[i] = globalToUniMap[i];
+            }
+            m_assmbCommCG =
+                std::make_unique<MultiRegions::AssemblyCommCG>(vCommRow, tmp);
+
+            auto numComp = m_assemblyMap.size();
+
+            // setup GS info of values parallal boundary of device
+            auto GSBndInfoKey = DeviceBndLocalToGlobalKey<TData>(numComp);
+
+            m_gsBndInfo =
+                dataWarehouse->template GetData<ExecSpace>(GSBndInfoKey);
+
+            // set up sign array
+            m_gsBndSign = dataWarehouse->template GetData<ExecSpace>(
+                DeviceBndLocalToGlobalSignKey<TData>(m_assemblyMap, ZERODIR,
+                                                     SIGNCHANGE));
+
+            // get a copy of the host to evaluate offsets
+            auto hostGSBndInfo =
+                dataWarehouse->template GetData<NektarSpaces::Serial>(
+                    GSBndInfoKey);
+
+            m_nBndGids = hostGSBndInfo[0];
+
+            auto nbuf = m_assmbCommCG->GetSREntries().size() * numComp;
+
+            m_send_buffer =
+                MemoryRegion<TData>(nbuf, ExecSpace::alignment, ePinned);
+            m_send_buffer.template Initialize<NektarSpaces::HostSpace>(0);
+
+            auto sendPtr =
+                m_send_buffer
+                    .template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
+
+            m_recv_buffer =
+                MemoryRegion<TData>(nbuf, ExecSpace::alignment, ePinned);
+            m_recv_buffer.template Initialize<NektarSpaces::HostSpace>(0);
+
+            auto recvPtr =
+                m_recv_buffer
+                    .template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
+
+            // this now seems dangerous since we are now resetting explist
+            // communicator!
+            m_assmbCommCG->InitSendRecvComms(nbuf, sendPtr, recvPtr, numComp);
+        }
+    }
 
     void v_Apply(Field<TData, FieldState::Coeff> &in,
                  Field<TData, FieldState::Coeff> &out) override
@@ -133,11 +253,11 @@ protected:
 
         auto numComp = in.GetNumComponents();
 
-        // initialise gather scatter maps
-        if (m_numComp != numComp)
+        if (numComp != m_numAssemblyComps)
         {
+            // set up local to global device and device boundary maps for this
+            // number of components
             SetUpMaps(numComp);
-            m_numComp = numComp;
         }
 
         // reshape data into non-interleaved if ncessary
@@ -150,7 +270,7 @@ protected:
             {
                 auto inoutPtr = inoutblk.template GetPtr<MemSpace, ReadWrite>();
                 unsigned blksize = inoutblk.size();
-                for (unsigned nc = 0; nc < m_numComp; ++nc)
+                for (unsigned nc = 0; nc < numComp; ++nc)
                 {
                     deInterleave<ExecSpace>(
                         inoutwidth,
@@ -166,12 +286,39 @@ protected:
         auto inoutPtr =
             out.GetBlocks()[0].template GetPtr<MemSpace, ReadWrite>();
 
+        if (m_isParallel)
+        {
+            // setup send buffer pointer
+            auto sendPtr = m_send_buffer.template GetPtr<MemSpace, WriteOnly>();
+            //  assemble data into boundary send buffer
+            AssembleScatrBndKernel<ExecSpace>(m_nBndGids, m_gsBndInfo,
+                                              m_gsBndSign, inoutPtr, sendPtr);
+            // Get Pointer to ensure data on host
+            m_send_buffer.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+            // start  comms
+            m_assmbCommCG->BeginComm();
+        }
+
+#ifdef ORIG_ASS_SCA
         AssembleScatrKernel<ExecSpace>(m_nGids, m_gsInfo, m_gsSign, inoutPtr);
+#else
+        AssembleScatrKernel<ExecSpace, TData, m_device_width>(
+            m_nGids, m_gsNumAssmb, m_gsIndex, m_gsOffset, m_gsSign, inoutPtr);
+#endif
+        if (m_isParallel)
+        {
+            // finish comms and syncronize
+            m_assmbCommCG->EndComm();
+            // Get Pointer to ensure data on device or host as required
+            auto recvPtr = m_recv_buffer.template GetPtr<MemSpace, ReadOnly>();
+            // Assemble from updated boundary data
+            AssembleFromBndKernel<ExecSpace>(m_nBndGids, m_gsBndInfo,
+                                             m_gsBndSign, recvPtr, inoutPtr);
+        }
 
         // reshape data into non-interleaved if ncessary
         if ((&in != &out) && reshapeOutput)
         {
-
             for (unsigned blk = 0; blk < out.GetBlocks().size(); ++blk)
             {
                 auto &outblk   = out.GetBlocks()[blk];
@@ -185,7 +332,7 @@ protected:
                              "Unexpected width value");
                     auto outPtr = outblk.template GetPtr<MemSpace, ReadWrite>();
                     unsigned blksize = outblk.size();
-                    for (unsigned nc = 0; nc < m_numComp; ++nc)
+                    for (unsigned nc = 0; nc < numComp; ++nc)
                     {
                         interleave<ExecSpace>(
                             NektarSpaces::vector_width<TData>::value,
@@ -195,15 +342,6 @@ protected:
                     outblk.template SetInterleaveWidth<TData>(in_width);
                 }
             }
-        }
-
-        // TODO: Universal assembly on device.
-        if (this->m_expansionList->GetSession()
-                ->GetComm()
-                ->GetRowComm()
-                ->GetSize() > 1)
-        {
-            ASSERTL0(false, "Not set up for Multiple MPI processes");
         }
     }
 };

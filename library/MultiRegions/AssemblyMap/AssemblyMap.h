@@ -85,9 +85,11 @@ public:
 
     MULTI_REGIONS_EXPORT int GetGlobalToUniversalMapUnique(const int i) const;
 
-    MULTI_REGIONS_EXPORT const Array<OneD, const int> &GetLocalToGlobalMap();
+    MULTI_REGIONS_EXPORT const Array<OneD, const int> &GetLocalToGlobalMap()
+        const;
 
-    MULTI_REGIONS_EXPORT const Array<OneD, const int> &GetGlobalToUniversalMap();
+    MULTI_REGIONS_EXPORT const Array<OneD, const int> &GetGlobalToUniversalMap()
+        const;
 
     MULTI_REGIONS_EXPORT const Array<OneD, const int> &
     GetGlobalToUniversalMapUnique();
@@ -123,9 +125,6 @@ public:
 
     MULTI_REGIONS_EXPORT void UniversalAssemble(
         NekVector<NekDouble> &pGlobal) const;
-
-    MULTI_REGIONS_EXPORT void UniversalAssemble(Array<OneD, NekDouble> &pGlobal,
-                                                int offset) const;
 
     MULTI_REGIONS_EXPORT void UniversalAbsMaxBnd(
         Array<OneD, NekDouble> &bndvals);
@@ -250,9 +249,6 @@ public:
 
     MULTI_REGIONS_EXPORT void UniversalAssembleBnd(
         NekVector<NekDouble> &pGlobal) const;
-
-    MULTI_REGIONS_EXPORT void UniversalAssembleBnd(
-        Array<OneD, NekDouble> &pGlobal, int offset) const;
 
     MULTI_REGIONS_EXPORT int GetFullSystemBandWidth() const;
 
@@ -456,9 +452,9 @@ protected:
 
     virtual int v_GetGlobalToUniversalMapUnique(const int i) const;
 
-    virtual const Array<OneD, const int> &v_GetLocalToGlobalMap();
+    virtual const Array<OneD, const int> &v_GetLocalToGlobalMap() const;
 
-    virtual const Array<OneD, const int> &v_GetGlobalToUniversalMap();
+    virtual const Array<OneD, const int> &v_GetGlobalToUniversalMap() const;
 
     virtual const Array<OneD, const int> &v_GetGlobalToUniversalMapUnique();
 
@@ -483,9 +479,6 @@ protected:
                             NekVector<NekDouble> &global) const;
 
     virtual void v_UniversalAssemble(Array<OneD, NekDouble> &pGlobal) const;
-
-    virtual void v_UniversalAssemble(Array<OneD, NekDouble> &pGlobal,
-                                     int offset) const;
 
     virtual int v_GetFullSystemBandWidth() const;
 

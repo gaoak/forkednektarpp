@@ -53,6 +53,6 @@
             <REGION REF="0">
                 <D VAR="u" VALUE="0.0" />
             </REGION>
-            <BOUNDARYCONDITIONS>
-            </CONDITIONS>
-        </NEKTAR>
+        </BOUNDARYCONDITIONS>
+    </CONDITIONS>
+</NEKTAR>

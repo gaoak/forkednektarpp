@@ -192,7 +192,7 @@
     <CONDITIONS>
         <SOLVERINFO>
             <I PROPERTY="GLOBALSYSSOLN"    VALUE="IterativeFull" />
-            <I PROPERTY="LinSysIterSolver" VALUE="ConjugateGradientLoc"/>
+            <I PROPERTY="LinSysIterSolver" VALUE="ConjugateGradient"/>
             <I PROPERTY="Preconditioner"   VALUE="Diagonal"/>
             <I PROPERTY="Projection"       VALUE="Continuous"/>
         </SOLVERINFO>

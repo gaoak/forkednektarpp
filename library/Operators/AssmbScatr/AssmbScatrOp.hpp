@@ -66,6 +66,12 @@ public:
         v_Apply(in, out);
     }
 
+    void SetAssemblyMap(
+        std::vector<MultiRegions::AssemblyMapCGSharedPtr> &assemblyMap)
+    {
+        v_SetAssemblyMap(assemblyMap);
+    }
+
 protected:
     AssmbScatrOp(const MultiRegions::ExpListSharedPtr &expansionList)
         : Operator<TData>(expansionList)
@@ -76,6 +82,9 @@ protected:
 
     virtual void v_Apply(Field<TData, FieldState::Coeff> &in,
                          Field<TData, FieldState::Coeff> &out) = 0;
+
+    virtual void v_SetAssemblyMap(
+        std::vector<MultiRegions::AssemblyMapCGSharedPtr> &assemblyMap) = 0;
 };
 
 } // namespace Nektar::Operators

@@ -842,12 +842,12 @@ int AssemblyMapDG::v_GetGlobalToUniversalMapUnique(const int i) const
     return m_globalToUniversalBndMapUnique[i];
 }
 
-const Array<OneD, const int> &AssemblyMapDG::v_GetLocalToGlobalMap()
+const Array<OneD, const int> &AssemblyMapDG::v_GetLocalToGlobalMap() const
 {
     return m_localToGlobalBndMap;
 }
 
-const Array<OneD, const int> &AssemblyMapDG::v_GetGlobalToUniversalMap()
+const Array<OneD, const int> &AssemblyMapDG::v_GetGlobalToUniversalMap() const
 {
     return m_globalToUniversalBndMap;
 }
@@ -901,12 +901,6 @@ void AssemblyMapDG::v_Assemble(const NekVector<NekDouble> &loc,
 void AssemblyMapDG::v_UniversalAssemble(Array<OneD, NekDouble> &pGlobal) const
 {
     Gs::Gather(pGlobal, Gs::gs_add, m_gsh);
-}
-
-void AssemblyMapDG::v_UniversalAssemble(Array<OneD, NekDouble> &pGlobal,
-                                        int offset) const
-{
-    AssemblyMap::v_UniversalAssemble(pGlobal, offset);
 }
 
 int AssemblyMapDG::v_GetFullSystemBandWidth() const

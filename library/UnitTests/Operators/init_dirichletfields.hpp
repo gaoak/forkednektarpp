@@ -61,15 +61,15 @@ public:
 
     void RunTestCase()
     {
-        auto op = DirBndCondOp<double>::Create(fixt_explist);
+        auto op = DirBndCondOp<double>::Create(fixt_explist[0]);
         op->Apply(*fixt_out);
     }
 
     void ExpectedSolution()
     {
         // Calculate expected result from Nektar++
-        Array<OneD, double> outcoeffs(fixt_explist->GetNcoeffs(), 0.0);
-        fixt_explist->ImposeDirichletConditions(outcoeffs);
+        Array<OneD, double> outcoeffs(fixt_explist[0]->GetNcoeffs(), 0.0);
+        fixt_explist[0]->ImposeDirichletConditions(outcoeffs);
         fixt_expected->CopyArray<NektarSpaces::HostSpace>(outcoeffs);
     }
 };

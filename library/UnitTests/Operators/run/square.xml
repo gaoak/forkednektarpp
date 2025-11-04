@@ -108,8 +108,9 @@
         <NekMeshCommandLine>square_sem.xml square_unc.xml:xml:uncompress </NekMeshCommandLine>
     </Metadata>
     <EXPANSIONS>
-        <E COMPOSITE="C[0]" NUMMODES="4" TYPE="MODIFIED" FIELDS="u" />
+        <E COMPOSITE="C[0]" NUMMODES="4" TYPE="MODIFIED" FIELDS="u,v" />
     </EXPANSIONS>
+
     <CONDITIONS>
         <SOLVERINFO>
             <I PROPERTY="GLOBALSYSSOLN"    VALUE="IterativeFull" />
@@ -121,6 +122,19 @@
         </PARAMETERS>
         <VARIABLES>
             <V ID="0">u</V>
+            <V ID="1">v</V>
         </VARIABLES>
+
+        <BOUNDARYREGIONS>
+            <B ID="0"> C[1] </B>
+        </BOUNDARYREGIONS>
+
+        <BOUNDARYCONDITIONS>
+            <REGION REF="0">
+                <N VAR="u" VALUE="0.0" />
+                <D VAR="v" VALUE="0.0" />
+            </REGION>
+        </BOUNDARYCONDITIONS>
+
     </CONDITIONS>
 </NEKTAR>

@@ -50,5 +50,51 @@ NEK_FORCE_INLINE static
     AssembleScatrKernel<>(nvals, GSInfo, sign, inoutptr, deviceOnHostBlock1D());
 }
 
+template <typename ExecSpace, typename TData>
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                            void>::type
+    AssembleScatrKernel(const unsigned nvals, const unsigned *nassemble,
+                        const unsigned *index, const int *sign, TData *inoutptr,
+                        const unsigned width)
+{
+    AssembleScatrKernel<>(nvals, nassemble, index, sign, inoutptr, width,
+                          deviceOnHostBlock1D());
+}
+
+template <typename ExecSpace, typename TData, unsigned WIDTH>
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                            void>::type
+    AssembleScatrKernel(const unsigned nvals, const unsigned *nassemble,
+                        const unsigned *index, const unsigned *offset,
+                        const int *sign, TData *inoutptr)
+{
+    AssembleScatrKernel<>(nvals, nassemble, index, offset, sign, inoutptr,
+                          deviceOnHostBlock1D(), WIDTH);
+}
+
+template <typename ExecSpace, typename TData>
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                            void>::type
+    AssembleScatrBndKernel(const unsigned nvals, const unsigned *GSInfo,
+                           const int *sign, TData *inoutptr, TData *bndptr)
+{
+    AssembleScatrBndKernel<>(nvals, GSInfo, sign, inoutptr, bndptr,
+                             deviceOnHostBlock1D());
+}
+
+template <typename ExecSpace, typename TData>
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                            void>::type
+    AssembleFromBndKernel(const unsigned nvals, const unsigned *GSInfo,
+                          const int *sign, const TData *bndptr, TData *inoutptr)
+{
+    AssembleFromBndKernel<>(nvals, GSInfo, sign, bndptr, inoutptr,
+                            deviceOnHostBlock1D());
+}
+
 } // namespace Nektar::Operators::detail
 #endif

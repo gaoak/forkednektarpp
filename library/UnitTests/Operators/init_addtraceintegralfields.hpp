@@ -77,7 +77,7 @@ public:
 
     void RunTestCase()
     {
-        auto op = AddTraceIntegralOp<double>::Create(fixt_explist);
+        auto op = AddTraceIntegralOp<double>::Create(fixt_explist[0]);
         op->Apply(*fixt_in, *fixt_out);
     }
 
@@ -85,8 +85,8 @@ public:
     {
         // Calculate expected result from Nektar++.
         Array<OneD, double> inTracephys = fixt_in->ToArray();
-        Array<OneD, double> outcoeffs(fixt_explist->GetNcoeffs(), 0.0);
-        fixt_explist->AddTraceIntegral(inTracephys, outcoeffs);
+        Array<OneD, double> outcoeffs(fixt_explist[0]->GetNcoeffs(), 0.0);
+        fixt_explist[0]->AddTraceIntegral(inTracephys, outcoeffs);
         fixt_expected->CopyArray<NektarSpaces::HostSpace>(outcoeffs);
     }
 };
