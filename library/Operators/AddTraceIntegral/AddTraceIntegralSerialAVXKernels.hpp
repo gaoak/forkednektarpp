@@ -58,38 +58,4 @@ NEK_FORCE_INLINE static
     }
 }
 
-template <typename ExecSpace>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
-                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                            void>::type
-    ReOrderMapKernel(const size_t nsize, size_t *traceCoeffsToElmtMapPtr,
-                     int *traceCoeffsToElmtSignPtr,
-                     size_t *traceCoeffsToElmtTracePtr)
-{
-    // sort the trace map and get the permutation
-    std::vector<size_t> permutation(nsize);
-    std::iota(permutation.begin(), permutation.end(), 0);
-    std::sort(permutation.begin(), permutation.end(), [&](size_t i, size_t j) {
-        return traceCoeffsToElmtTracePtr[i] < traceCoeffsToElmtTracePtr[j];
-    });
-    // apply the permutation to the map and sign
-    std::vector<size_t> tempMap(nsize);
-    std::vector<int> tempSign(nsize);
-    std::vector<size_t> tempTrace(nsize);
-    for (size_t i = 0; i < nsize; i++)
-    {
-        tempMap[i]   = traceCoeffsToElmtMapPtr[permutation[i]];
-        tempSign[i]  = traceCoeffsToElmtSignPtr[permutation[i]];
-        tempTrace[i] = traceCoeffsToElmtTracePtr[permutation[i]];
-    }
-    // copy back to the original map and sign
-    for (size_t i = 0; i < nsize; i++)
-    {
-        traceCoeffsToElmtMapPtr[i]   = tempMap[i];
-        traceCoeffsToElmtSignPtr[i]  = tempSign[i];
-        traceCoeffsToElmtTracePtr[i] = tempTrace[i];
-    }
-}
-
 } // namespace Nektar::Operators::detail
