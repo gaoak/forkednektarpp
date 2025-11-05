@@ -899,8 +899,7 @@ private:
 
             if constexpr (std::is_same_v<TDataIn, TData>)
             {
-                deviceMemcpy<HostToDevice>(dst, src, size * sizeof(TData),
-                                           m_memAllocType);
+                deviceMemcpy<HostToDevice>(dst, src, size * sizeof(TData));
             }
             else
             {
