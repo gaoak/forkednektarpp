@@ -146,14 +146,14 @@ protected:
             // Multiply by jacobian.
             if (m_isDeformed)
             {
-                MultiplyByJacobianKernel<ExecSpace, true>(m_nqTot, nelmt, nhomo,
+                MultiplyByJacobianKernel<ExecSpace, true>(nelmt, m_nqTot, nhomo,
                                                           jacptr, inptr, wspptr,
                                                           this->m_scale);
             }
             else
             {
                 MultiplyByJacobianKernel<ExecSpace, false>(
-                    m_nqTot, nelmt, nhomo, jacptr, inptr, wspptr,
+                    nelmt, m_nqTot, nhomo, jacptr, inptr, wspptr,
                     this->m_scale);
             }
 

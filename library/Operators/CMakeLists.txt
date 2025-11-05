@@ -353,13 +353,7 @@ MACRO(ADD_ELMT_OPERATOR dir)
                     FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
                         "${dir}/${name}DeviceSumFac.hpp")
                     SET(IMPL_HEADER "#include \"${include_file}\"")
-                    # Found general kernel
-                    IF(EXISTS "${dir}/${name}DeviceSumFacKernels.hpp")
-                        MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation and a generic device kernel: " "${FactoryDeclName}")
-                    # No kernel found, generic implementation
-                    ELSE()
-                        MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
-                    ENDIF()
+                    MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
 
                 # ----------------- ADDED FOR CUBLAS IMPLEMENTATION -----------------#
                 # Found a CUDA SumFacCUBLAS header.
@@ -376,16 +370,7 @@ MACRO(ADD_ELMT_OPERATOR dir)
                     FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
                         "${dir}/${name}DeviceGeneric.hpp")
                     SET(IMPL_HEADER "#include \"${include_file}\"")
-                    # Found a general kernel
-                    IF(EXISTS "${dir}/${name}DeviceKernels.hpp")
-                        MESSAGE("Adding operator with a ${ExecSpace} Generic implementation and a generic device kernel: " "${FactoryDeclName}")
-                    # Found specific kernel
-                    ELSEIF(EXISTS "${dir}/${name}${ExecSpace}Kernels.hpp")
-                        MESSAGE("Adding operator with a ${ExecSpace} Generic implementation and a specific ${ExecSpace} kernel: " "${FactoryDeclName}")
-                    # No kernel found, generic implementation
-                    ELSE()
-                        CONTINUE() # This avoid creating a *.cpp file
-                    ENDIF()
+                    MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
 
                 # No implementation, skip.
                 ELSE()

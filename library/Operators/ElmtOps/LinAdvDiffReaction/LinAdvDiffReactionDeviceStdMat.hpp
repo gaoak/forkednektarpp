@@ -227,12 +227,12 @@ protected:
             if (m_isDeformed)
             {
                 MultiplyByJacobianKernel<ExecSpace, true>(
-                    m_nqTot, nelmt, nhomo, jacptr, bwdptr, bwdptr, 1.0);
+                    nelmt, m_nqTot, nhomo, jacptr, bwdptr, bwdptr, 1.0);
             }
             else
             {
                 MultiplyByJacobianKernel<ExecSpace, false>(
-                    m_nqTot, nelmt, nhomo, jacptr, bwdptr, bwdptr, 1.0);
+                    nelmt, m_nqTot, nhomo, jacptr, bwdptr, bwdptr, 1.0);
             }
 
             // Perform matrix-matrix multiply.

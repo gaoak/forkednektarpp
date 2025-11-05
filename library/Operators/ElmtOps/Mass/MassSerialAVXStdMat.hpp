@@ -120,7 +120,7 @@ protected:
     const TData *m_massmat;
     const TData *m_bwdmat;
     const TData *m_ipbmat;
-    MemoryRegion<TData> m_bwd;
+    MemoryRegion<TData> m_wsp;
 
     void v_Apply(BlockAccessor<TData> &inblock,
                  BlockAccessor<TData> &outblock) override
@@ -137,14 +137,14 @@ protected:
                                inblock.GetNumElements()));
 
         // Allocate storage.
-        if (m_bwd.size() == 0)
+        if (m_wsp.size() == 0)
         {
-            m_bwd = MemoryRegion<TData>(simd_t::width * m_nqTot,
+            m_wsp = MemoryRegion<TData>(simd_t::width * m_nqTot,
                                         ExecSpace::alignment);
         }
 
         // Get workspace pointer.
-        auto bwdptr = m_bwd.template GetPtr<MemSpace, WriteOnly>();
+        auto wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
 
         // Dispatch kernel.
         auto bwd_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
@@ -184,17 +184,17 @@ protected:
                 {
                     // Step 1: BwdTrans
                     // Perform matrix-matrix multiply.
-                    bwd_kernel(inptr, m_bwdmat, bwdptr);
+                    bwd_kernel(inptr, m_bwdmat, wspptr);
 
                     // Multiply by jacobian.
                     MultiplyByJacobianKernel<ExecSpace, true>(
-                        m_nqTot, 1, reinterpret_cast<const simd_t *>(jacptr),
-                        reinterpret_cast<const simd_t *>(bwdptr),
-                        reinterpret_cast<simd_t *>(bwdptr), 1.0);
+                        1, m_nqTot, reinterpret_cast<const simd_t *>(jacptr),
+                        reinterpret_cast<const simd_t *>(wspptr),
+                        reinterpret_cast<simd_t *>(wspptr), 1.0);
 
                     // Step 2: IProduct
                     // Perform matrix-matrix multiply.
-                    ipb_kernel(bwdptr, m_ipbmat, outptr);
+                    ipb_kernel(wspptr, m_ipbmat, outptr);
 
                     // Increment pointers.
                     inptr += m_nmTot * simd_t::width;
@@ -208,7 +208,7 @@ protected:
 
                     // Multiply by jacobian.
                     MultiplyByJacobianKernel<ExecSpace, false>(
-                        m_nmTot, 1, reinterpret_cast<const simd_t *>(jacptr),
+                        1, m_nmTot, reinterpret_cast<const simd_t *>(jacptr),
                         reinterpret_cast<const simd_t *>(outptr),
                         reinterpret_cast<simd_t *>(outptr), 1.0);
 

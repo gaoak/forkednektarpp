@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: MultiplyByElmtInvMassHIPCUDAKernelLaunchers.hpp
+// File: MultiplyByElmtInvMassSerialAVXGenericKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,39 +34,35 @@
 
 #pragma once
 
-#if (defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)) ||                    \
-    (defined(NEKTAR_ENABLE_HIP) && defined(__HIPCC__))
-
 namespace Nektar::Operators::detail
 {
 
-template <typename TData>
-__global__ void DivideByJacobianKernelLauncher(
-    const size_t nsize, const unsigned int nmTot,
-    const TData *__restrict__ jacptr, TData *__restrict__ outptr,
-    const hipcudaBlock1D &threadBlock)
-{
-    DivideByJacobianKernel<>(nsize, nmTot, jacptr, outptr, threadBlock);
-}
-
-// Launchers
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                             void>::type
-    DivideByJacobianKernel(const size_t nelmt, const unsigned int nmTot,
-                           const TData *jacptr, TData *outptr)
+    DivideByJacobianKernel(const size_t nelmt, const unsigned int nqTot,
+                           const TData *jacptr, const TData *inptr,
+                           TData *outptr)
 {
-    const size_t nsize = nelmt * nmTot;
-
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = (nelmt + blockSize - 1u) / blockSize;
-
-    DivideByJacobianKernelLauncher<><<<gridSize, blockSize>>>(
-        nsize, nmTot, jacptr, outptr, hipcudaBlock1D());
-    CHECK_LAST_HIPCUDA_ERROR();
+    if constexpr (DEFORMED)
+    {
+        for (size_t i = 0; i < nelmt * nqTot; ++i)
+        {
+            outptr[i] = inptr[i] / jacptr[i];
+        }
+    }
+    else
+    {
+        for (size_t e = 0; e < nelmt; ++e)
+        {
+            for (unsigned int i = 0; i < nqTot; ++i)
+            {
+                outptr[e * nqTot + i] = inptr[e * nqTot + i] / jacptr[e];
+            }
+        }
+    }
 }
 
 } // namespace Nektar::Operators::detail
-
-#endif

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: MultiplyByElmtInvMassGeneric.hpp
+// File: MultiplyByElmtInvMassDeviceGeneric.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -41,8 +41,7 @@
 #include "Operators/NekBlas/NekBlas.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
-#include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassDeviceKernels.hpp"
-#include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassSerialAVXKernels.hpp"
+#include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassDeviceGenericKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -75,8 +74,15 @@ public:
         {
             basisKeys[d] = exp->GetBasis(d)->GetBasisKey();
         }
-        m_matptr = dataWarehouse->template GetData<ExecSpace>(StdMatKey<TData>(
-            basisKeys, m_shapeType, eMultiplyByElmtInvMassStdMat));
+
+        LibUtilities::PointsType nodalType =
+            (exp->IsNodalNonTensorialExp())
+                ? exp->GetNodalPointsKey().GetPointsType()
+                : LibUtilities::eNoPointsType;
+
+        m_invmassptr =
+            dataWarehouse->template GetData<ExecSpace>(StdMatKey<TData>(
+                basisKeys, m_shapeType, eInvMassStdMat, nodalType));
     }
 
     // className - for BlockOperatorFactory
@@ -101,15 +107,18 @@ protected:
     unsigned int m_coordDim;
     unsigned int m_nmTot;
     unsigned int m_nqTot;
-    const TData *m_matptr;
-    MemoryRegion<TData> m_invmass;
+    const TData *m_invmassptr;
+    MemoryRegion<TData> m_dinvmass;
 
     void v_Apply(BlockAccessor<TData> &inblock,
                  BlockAccessor<TData> &outblock) override
     {
         auto handle = NekHandle<ExecSpace>::GetInstance();
 
-        const auto nelmt = inblock.GetNumElements();
+        const auto nhomo = inblock.GetNumHomoModes();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
+        const auto nelmtTot =
+            inblock.GetNumElementsWithPadding() * inblock.GetNumHomoModes();
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -117,67 +126,59 @@ protected:
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        const TData alpha = 1.0;
-        const TData beta  = 0.0;
-        if (m_isDeformed)
+        // Loop over components.
+        for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
-            auto dmatptr =
-                this->m_invmass.template GetPtr<MemSpace, ReadOnly>();
-            // Loop over components.
-            for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      inblock.GetInterleaveWidth(),
+                                      inblock.GetNumElementsWithPadding(),
+                                      inblock.GetNumData(), (TData *)inptr);
+
+            if (m_isDeformed)
             {
-                // Reshape, if necessary.
-                ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                          inblock.GetInterleaveWidth(),
-                                          inblock.GetNumElementsWithPadding(),
-                                          inblock.GetNumData(), (TData *)inptr);
+                // Fetch deformed mass matrix.
+                auto dmatptr =
+                    this->m_dinvmass.template GetPtr<MemSpace, ReadOnly>();
 
                 // Perform batched matrix-vector multiply.
-                NekGemmStridedBatched(
-                    handle, "N", "N", m_nmTot, 1, m_nmTot, alpha, dmatptr,
-                    m_nmTot, m_nmTot * m_nmTot, inptr, m_nmTot, m_nmTot, beta,
-                    outptr, m_nmTot, m_nmTot, nelmt);
-
-                // Increment pointer.
-                inptr += inblock.size();
-                outptr += outblock.size();
+                NekGemmStridedBatched(handle, "N", "N", m_nmTot, 1, m_nmTot,
+                                      1.0, dmatptr, m_nmTot, m_nmTot * m_nmTot,
+                                      inptr, m_nmTot, m_nmTot, 0.0, outptr,
+                                      m_nmTot, m_nmTot, nelmtTot);
             }
-        }
-        else
-        {
-            // Fetch jacobian.
-            auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
-                JacobianKey<TData>(inblock.GetExpIdx(), 1,
-                                   inblock.GetNumElements()));
-
-            // Loop over components.
-            for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+            else
             {
-                // Reshape, if necessary.
-                ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                          inblock.GetInterleaveWidth(),
-                                          inblock.GetNumElementsWithPadding(),
-                                          inblock.GetNumData(), (TData *)inptr);
+                // Fetch Jacobian.
+                auto jacptr =
+                    this->m_dataWarehouse->template GetData<ExecSpace>(
+                        JacobianKey<TData>(inblock.GetExpIdx(),
+                                           m_implInterleaveWidth,
+                                           inblock.GetNumElements()));
 
                 // Perform matrix-matrix multiply.
-                NekGemm(handle, "N", "N", m_nmTot, nelmt, m_nmTot, alpha,
-                        m_matptr, m_nmTot, inptr, m_nmTot, beta, outptr,
+                NekGemm(handle, "N", "N", m_nmTot, nelmtTot, m_nmTot, 1.0,
+                        m_invmassptr, m_nmTot, inptr, m_nmTot, 0.0, outptr,
                         m_nmTot);
 
                 // Divide by Jacobian.
-                DivideByJacobianKernel<ExecSpace>(nelmt, m_nmTot, jacptr,
-                                                  outptr);
-
-                // Increment pointer.
-                inptr += inblock.size();
-                outptr += outblock.size();
+                DivideByJacobianKernel<ExecSpace, false>(
+                    nelmt, m_nmTot, nhomo, jacptr, outptr, outptr);
             }
+
+            // Increment pointers.
+            inptr += inblock.size() * inblock.GetNumHomoModes();
+            outptr += outblock.size() * outblock.GetNumHomoModes();
         }
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 
     void v_SetInvMassMatrix(std::vector<TData> &invmass) override
     {
-        this->m_invmass =
+        this->m_dinvmass =
             MemoryRegion<TData>::template FromVector<MemSpace, TData>(
                 invmass, ExecSpace::alignment);
     }

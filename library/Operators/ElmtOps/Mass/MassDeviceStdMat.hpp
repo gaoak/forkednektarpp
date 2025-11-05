@@ -117,7 +117,7 @@ protected:
     const TData *m_bwdmat;
     const TData *m_ipbmat;
     const TData *m_massmat;
-    MemoryRegion<TData> m_bwd;
+    MemoryRegion<TData> m_wsp;
 
     void v_Apply(BlockAccessor<TData> &inblock,
                  BlockAccessor<TData> &outblock) override
@@ -141,14 +141,14 @@ protected:
                                inblock.GetNumElements()));
 
         // Allocate storage.
-        if (m_bwd.size() == 0)
+        if (m_wsp.size() == 0)
         {
-            m_bwd =
+            m_wsp =
                 MemoryRegion<TData>(nelmtTot * m_nqTot, ExecSpace::alignment);
         }
 
         // Get workspace pointer.
-        auto bwdptr = m_bwd.template GetPtr<MemSpace, WriteOnly>();
+        auto wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
 
         // Loop over components.
         for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
@@ -163,17 +163,17 @@ protected:
                 // Step 1: BwdTrans
                 // Perform matrix-matrix multiply.
                 NekGemm(handle, "N", "N", m_nqTot, nelmtTot, m_nmTot, 1.0,
-                        m_bwdmat, m_nqTot, inptr, m_nmTot, 0.0, bwdptr,
+                        m_bwdmat, m_nqTot, inptr, m_nmTot, 0.0, wspptr,
                         m_nqTot);
 
                 // Multiply by jacobian.
                 MultiplyByJacobianKernel<ExecSpace, true>(
-                    m_nqTot, nelmt, nhomo, jacptr, bwdptr, bwdptr, 1.0);
+                    nelmt, m_nqTot, nhomo, jacptr, wspptr, wspptr, 1.0);
 
                 // Step 2: IProduct
                 // Perform matrix-matrix multiply.
                 NekGemm(handle, "N", "N", m_nmTot, nelmtTot, m_nqTot, 1.0,
-                        m_ipbmat, m_nmTot, bwdptr, m_nqTot, 0.0, outptr,
+                        m_ipbmat, m_nmTot, wspptr, m_nqTot, 0.0, outptr,
                         m_nmTot);
             }
             else
@@ -185,7 +185,7 @@ protected:
 
                 // Multiply by jacobian.
                 MultiplyByJacobianKernel<ExecSpace, false>(
-                    m_nmTot, nelmt, nhomo, jacptr, outptr, outptr, 1.0);
+                    nelmt, m_nmTot, nhomo, jacptr, outptr, outptr, 1.0);
             }
 
             // Increment pointers.

@@ -38,7 +38,7 @@
 
 template <typename ExecSpace, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void MultiplyByJacobianKernel(
-    const unsigned int nqTot, const size_t nelmt, const unsigned int nhomo,
+    const size_t nelmt, const unsigned int nqTot, const unsigned int nhomo,
     const TData *jacptr, const TData *inptr, TData *outptr, const TData scale)
 {
     if constexpr (DEFORMED)

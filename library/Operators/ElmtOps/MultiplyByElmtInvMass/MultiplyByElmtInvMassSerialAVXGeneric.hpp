@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: IProductWRTBaseSerialAVXStdMat.hpp
+// File: MultiplyByElmtInvMassSerialAVXGeneric.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,33 +28,39 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: Implementation of the elemental inverse mass operator for the
+// standard matrix approach.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
 
-#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp"
+#include <LocalRegions/Expansion.h>
+
+#include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp"
 #include "Operators/NekBlas/NekBlas.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
-#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseSerialAVXStdMatKernels.hpp"
+#include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassSerialAVXGenericKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename Implementation, typename TData>
-class IProductWRTBaseBlockOpImpl : public IProductWRTBaseBlockOp<TData>
+class MultiplyByElmtInvMassBlockOpImpl
+    : public MultiplyByElmtInvMassBlockOp<TData>
 {
     using simd_t =
         typename simd_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                               TData>::type;
+
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    IProductWRTBaseBlockOpImpl(const LocalRegions::ExpansionSharedPtr &exp,
-                               NekDataWarehouseSharedPtr dataWarehouse)
-        : IProductWRTBaseBlockOp<TData>(exp, dataWarehouse)
+    MultiplyByElmtInvMassBlockOpImpl(
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse)
+        : MultiplyByElmtInvMassBlockOp<TData>(exp, dataWarehouse)
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -78,9 +84,9 @@ public:
                 ? exp->GetNodalPointsKey().GetPointsType()
                 : LibUtilities::eNoPointsType;
 
-        m_matptr = dataWarehouse->template GetData<ExecSpace>(
-            StdMatKey<TData>(basisKeys, m_shapeType,
-                             eIProductWRTBaseStdMatTranspose, nodalType));
+        m_invmassptr =
+            dataWarehouse->template GetData<ExecSpace>(StdMatKey<TData>(
+                basisKeys, m_shapeType, eInvMassStdMatTranspose, nodalType));
     }
 
     // className - for BlockOperatorFactory
@@ -92,7 +98,7 @@ public:
         NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
-            IProductWRTBaseBlockOpImpl<ExecSpace, Implementation, TData>>(
+            MultiplyByElmtInvMassBlockOpImpl<ExecSpace, Implementation, TData>>(
             exp, dataWarehouse);
     }
 
@@ -105,8 +111,8 @@ protected:
     unsigned int m_coordDim;
     unsigned int m_nmTot;
     unsigned int m_nqTot;
-    const TData *m_matptr;
-    MemoryRegion<TData> m_wsp;
+    const TData *m_invmassptr;
+    MemoryRegion<TData> m_dinvmass;
 
     void v_Apply(BlockAccessor<TData> &inblock,
                  BlockAccessor<TData> &outblock) override
@@ -117,21 +123,6 @@ protected:
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Fetch Jacobian.
-        auto jacptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
-            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                               inblock.GetNumElements()));
-
-        // Allocate storage.
-        if (m_wsp.size() == 0)
-        {
-            m_wsp = MemoryRegion<TData>(simd_t::width * m_nqTot,
-                                        ExecSpace::alignment);
-        }
-
-        // Get workspace pointer.
-        auto wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
-
         // Get interleave parameter.
         const auto interleave_width = inblock.GetInterleaveWidth();
         const auto width_ratio      = (interleave_width == 1)
@@ -140,58 +131,101 @@ protected:
         const auto chunkSize =
             std::max(m_implInterleaveWidth, interleave_width);
 
-        // Dispatch kernel.
-        auto gemm_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
-            simd_t::width, m_nmTot, m_nqTot, 1.0, 0.0);
-
         // Loop over components.
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
-            auto jacptr = jacptr_init;
-
-            // Loop over element groups.
-            for (size_t e = 0;
-                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
+            if (m_isDeformed)
             {
-                // Reshape, if necessary.
-                if (e % width_ratio == 0)
-                {
-                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleave_width, chunkSize,
-                                              m_nqTot, (TData *)inptr);
-                }
+                // Fetch deformed mass matrix.
+                auto dmatptr =
+                    this->m_dinvmass.template GetPtr<MemSpace, ReadOnly>();
 
-                // Multiply by jacobian.
-                if (m_isDeformed)
+                // Loop over element groups.
+                for (size_t e = 0;
+                     e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
                 {
-                    MultiplyByJacobianKernel<ExecSpace, true>(
-                        1, m_nqTot, reinterpret_cast<const simd_t *>(jacptr),
-                        reinterpret_cast<const simd_t *>(inptr),
-                        reinterpret_cast<simd_t *>(wspptr), this->m_scale);
-                    jacptr += m_nqTot * simd_t::width;
+                    // Reshape, if necessary.
+                    if (e % width_ratio == 0)
+                    {
+                        ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                                  interleave_width, chunkSize,
+                                                  m_nmTot, (TData *)inptr);
+                    }
+
+                    // Perform batched matrix-vector multiply.
+                    if constexpr (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
+                    {
+                        NekGemvStridedBatched(
+                            blasHandle_t(), "N", m_nmTot, m_nmTot, 1.0, dmatptr,
+                            m_nmTot, m_nmTot * m_nmTot, inptr, simd_t::width, 1,
+                            0.0, outptr, simd_t::width, 1, simd_t::width);
+                    }
+                    else
+                    {
+                        NekGemvStridedBatched(
+                            blasHandle_t(), "N", m_nmTot, m_nmTot, 1.0, dmatptr,
+                            m_nmTot, m_nmTot * m_nmTot, inptr, 1, m_nmTot, 0.0,
+                            outptr, 1, m_nmTot, simd_t::width);
+                    }
+
+                    // Increment pointers.
+                    inptr += m_nmTot * simd_t::width;
+                    outptr += m_nmTot * simd_t::width;
+                    dmatptr += m_nmTot * m_nmTot * simd_t::width;
                 }
-                else
+            }
+            else
+            {
+                // Fetch Jacobian.
+                auto jacptr =
+                    this->m_dataWarehouse->template GetData<ExecSpace>(
+                        JacobianKey<TData>(inblock.GetExpIdx(),
+                                           m_implInterleaveWidth,
+                                           inblock.GetNumElements()));
+
+                // Dispatch kernel.
+                auto invmass_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
+                    simd_t::width, m_nmTot, m_nmTot, 1.0, 0.0);
+
+                // Loop over element groups.
+                for (size_t e = 0;
+                     e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
                 {
-                    MultiplyByJacobianKernel<ExecSpace, false>(
-                        1, m_nqTot, reinterpret_cast<const simd_t *>(jacptr),
-                        reinterpret_cast<const simd_t *>(inptr),
-                        reinterpret_cast<simd_t *>(wspptr), this->m_scale);
+                    // Reshape, if necessary.
+                    if (e % width_ratio == 0)
+                    {
+                        ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                                  interleave_width, chunkSize,
+                                                  m_nmTot, (TData *)inptr);
+                    }
+                    // Perform matrix-matrix multiply.
+                    invmass_kernel(inptr, m_invmassptr, outptr);
+
+                    // Divide by Jacobian.
+                    DivideByJacobianKernel<ExecSpace, false>(
+                        1, m_nmTot, reinterpret_cast<const simd_t *>(jacptr),
+                        reinterpret_cast<const simd_t *>(outptr),
+                        reinterpret_cast<simd_t *>(outptr));
+
+                    // Increment pointers.
+                    inptr += m_nmTot * simd_t::width;
+                    outptr += m_nmTot * simd_t::width;
                     jacptr += simd_t::width;
                 }
-
-                // Perform matrix-matrix multiply.
-                gemm_kernel(wspptr, m_matptr, outptr);
-
-                // Increment pointers.
-                inptr += m_nqTot * simd_t::width;
-                outptr += m_nmTot * simd_t::width;
             }
         }
 
         // Set to new interleave width.
         inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+    }
+
+    void v_SetInvMassMatrix(std::vector<TData> &invmass) override
+    {
+        this->m_dinvmass =
+            MemoryRegion<TData>::template FromVector<MemSpace, TData>(
+                invmass, ExecSpace::alignment);
     }
 };
 

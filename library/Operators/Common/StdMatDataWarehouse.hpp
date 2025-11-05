@@ -72,7 +72,8 @@ enum StdMatType
     ePhysInterpStdMatTranspose           = 10,
     eMassStdMat                          = 11,
     eMassStdMatTranspose                 = 12,
-    eMultiplyByElmtInvMassStdMat         = 13,
+    eInvMassStdMat                       = 13,
+    eInvMassStdMatTranspose              = 14,
 };
 
 class StdMatDataCreator;
@@ -540,14 +541,31 @@ public:
                     mat, alignment);
             }
             break;
-            case eMultiplyByElmtInvMassStdMat:
+            case eInvMassStdMat:
             {
                 Nektar::StdRegions::StdMatrixKey mkey(
                     StdRegions::eInvMass, stdExp->DetShapeType(), *stdExp);
                 const auto &InvMass = stdExp->GetStdMatrix(mkey);
-                Array<OneD, NekDouble> mat(InvMass->GetStorageSize());
+                Array<OneD, NekDouble> mat(nmTot * nmTot);
                 std::copy_n(InvMass->GetRawPtr(), nmTot * nmTot, mat.data());
 
+                return MemoryRegion<TData>::template FromArray<MemSpace>(
+                    mat, alignment);
+            }
+            break;
+            case eInvMassStdMatTranspose:
+            {
+                Nektar::StdRegions::StdMatrixKey mkey(
+                    StdRegions::eInvMass, stdExp->DetShapeType(), *stdExp);
+                const auto &InvMass = stdExp->GetStdMatrix(mkey);
+                Array<OneD, NekDouble> mat(nmTot * nmTot);
+
+                // copy to mat with stride nmTot
+                for (unsigned int i = 0; i < nmTot; ++i)
+                {
+                    Vmath::Vcopy(nmTot, &InvMass->GetRawPtr()[i * nmTot], 1,
+                                 &mat[i], nmTot);
+                }
                 return MemoryRegion<TData>::template FromArray<MemSpace>(
                     mat, alignment);
             }
