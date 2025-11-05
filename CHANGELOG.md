@@ -31,6 +31,7 @@ v5.9.0
 - Adjustments to `NekLinSys` classes for future multigrid capability (!1811)
 - Avoid multiple data copy in NekFFTW (!2268)
 - Add FieldConvert modules to perform force decomposition for incompressible flows (!1531)
+- Deprecate use of IO_CheckSteps in favour of CheckpointFilter (!2197)
 
 **ADRSolver**
 - Add implicit UnsteadyAdvection for continuous Galerkin (!2231)
@@ -43,6 +44,7 @@ v5.9.0
 - Minor Bug-fix for industrial pipeline !2057 (!2135)
 - Scaling the mesh nodes (!2115)
 - Improved Isoparametric Splitting for O-type Prisms "bl" legacy, which kept as "blold" (!1757)
+- Read Gmsh V2.2 meshes without Physical Boundaries specified. Use CAD ID tag. (!2278)
 
 **CI and Packaging**
 - Disable CWIPI on Fedora (!2199)
