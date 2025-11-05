@@ -214,13 +214,13 @@ protected:
             if (m_isDeformed)
             {
                 MultiplyByJacobianKernel<ExecSpace, true>(
-                    m_nqTot, nelmt, nhomo, jacptr, bwdptr, bwdptr,
+                    nelmt, m_nqTot, nhomo, jacptr, bwdptr, bwdptr,
                     this->m_lambda);
             }
             else
             {
                 MultiplyByJacobianKernel<ExecSpace, false>(
-                    m_nqTot, nelmt, nhomo, jacptr, bwdptr, bwdptr,
+                    nelmt, m_nqTot, nhomo, jacptr, bwdptr, bwdptr,
                     this->m_lambda);
             }
 

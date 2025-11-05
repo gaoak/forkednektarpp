@@ -70,11 +70,12 @@ public:
             const auto nmTot = exp->GetNcoeffs();
             const auto deformed =
                 exp->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed;
-            const auto nelmt = blocks[blk].GetNumElements();
+            const auto nelmt    = blocks[blk].GetNumElements();
+            const auto nelmtPad = blocks[blk].GetNumElementsWithPadding();
 
             if (deformed)
             {
-                dmat.resize(nelmt * nmTot * nmTot);
+                dmat.resize(nelmtPad * nmTot * nmTot);
                 auto dmatptr = dmat.data();
                 for (size_t e = 0; e < nelmt; ++e)
                 {
@@ -110,6 +111,9 @@ protected:
     {
         ASSERTL1(in.GetNumComponents() == out.GetNumComponents(),
                  "Number of input and output components differ");
+
+        ASSERTL1(in.GetNumHomoModes() == out.GetNumHomoModes(),
+                 "Number of input and output homogeneous modes differ");
 
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)

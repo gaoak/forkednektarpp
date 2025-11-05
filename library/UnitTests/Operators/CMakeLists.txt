@@ -244,7 +244,7 @@ ENDIF()
 
 # AVX generic
 IF (${NEKTAR_ENABLE_SIMD})
-    # SET_UNIT_TEST(MultiplyByElmtInvMass_avx_generic test_multiplybyelmtinvmass AVX Generic FALSE)
+    SET_UNIT_TEST(MultiplyByElmtInvMass_avx_generic test_multiplybyelmtinvmass AVX Generic FALSE)
     # SET_UNIT_TEST(expression_avx_generic test_expression AVX Generic FALSE)
 ENDIF()
 

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: MultiplyByElmtInvMassSerialAVXKernels.hpp
+// File: MultiplyByElmtInvMassDeviceGenericKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,24 +34,27 @@
 
 #pragma once
 
-namespace Nektar::Operators::detail
-{
+#include "Operators/LoopExecution/LoopExecution.hpp"
 
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
-                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                            void>::type
-    DivideByJacobianKernel(const size_t nelmt, const unsigned int nmTot,
-                           const TData *jacptr, TData *outptr)
+template <typename ExecSpace, bool DEFORMED, typename TData>
+NEK_FORCE_INLINE static void DivideByJacobianKernel(
+    const size_t nelmt, const unsigned int nqTot, const unsigned int nhomo,
+    const TData *jacptr, const TData *inptr, TData *outptr)
 {
-    for (size_t e = 0; e < nelmt; e++)
+    if constexpr (DEFORMED)
     {
-        for (unsigned int i = 0; i < nmTot; i++)
-        {
-            outptr[nmTot * e + i] /= jacptr[e];
-        }
+        Nektar::parallel_for<ExecSpace>(
+            0, nelmt * nqTot * nhomo, NEKTAR_LAMBDA(const size_t idx) {
+                size_t e    = idx % (nelmt * nqTot);
+                outptr[idx] = inptr[idx] / jacptr[e];
+            });
+    }
+    else
+    {
+        Nektar::parallel_for<ExecSpace>(
+            0, nelmt * nqTot * nhomo, NEKTAR_LAMBDA(const size_t idx) {
+                size_t e    = (idx % (nelmt * nqTot)) / nqTot;
+                outptr[idx] = inptr[idx] / jacptr[e];
+            });
     }
 }
-
-} // namespace Nektar::Operators::detail

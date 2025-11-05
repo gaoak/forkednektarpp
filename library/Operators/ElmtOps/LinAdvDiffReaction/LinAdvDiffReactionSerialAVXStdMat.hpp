@@ -254,14 +254,14 @@ protected:
                 if (m_isDeformed)
                 {
                     MultiplyByJacobianKernel<ExecSpace, true>(
-                        m_nqTot, 1, reinterpret_cast<const simd_t *>(jacptr),
+                        1, m_nqTot, reinterpret_cast<const simd_t *>(jacptr),
                         reinterpret_cast<const simd_t *>(bwdptr),
                         reinterpret_cast<simd_t *>(bwdptr), 1.0);
                 }
                 else
                 {
                     MultiplyByJacobianKernel<ExecSpace, false>(
-                        m_nqTot, 1, reinterpret_cast<const simd_t *>(jacptr),
+                        1, m_nqTot, reinterpret_cast<const simd_t *>(jacptr),
                         reinterpret_cast<const simd_t *>(bwdptr),
                         reinterpret_cast<simd_t *>(bwdptr), 1.0);
                 }
