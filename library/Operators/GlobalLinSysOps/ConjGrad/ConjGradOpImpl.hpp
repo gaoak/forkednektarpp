@@ -39,6 +39,8 @@
 #include "Operators/AssmbScatr/AssmbScatrOpImpl.hpp"
 #include "Operators/GlobalLinSysOps/ConjGrad/ConjGradOp.hpp"
 
+#include "Operators/GlobalLinSysOps/ConjGrad/ConjGradKernels.hpp"
+
 #include <iomanip>
 
 using namespace Nektar;
@@ -222,17 +224,9 @@ protected:
                 return;
             }
 
-            // Compute new search direction p_k.
-            daxpy<ExecSpace>(beta, m_p_A, m_w_A, m_p_A);
-
-            // Compute new search direction q_k.
-            daxpy<ExecSpace>(beta, m_q_A, m_s_A, m_q_A);
-
-            // Update solution x_{k+1}.
-            daxpy<ExecSpace>(alpha, m_p_A, out, out);
-
-            // Update residual vector r_{k+1}.
-            daxpy<ExecSpace>(-alpha, m_q_A, m_r_A, m_r_A);
+            // Compute new search direction.
+            UpdateConjGradSearchDirection<ExecSpace>(alpha, beta, m_w_A, m_s_A,
+                                                     m_p_A, m_q_A, m_r_A, out);
 
             // Apply preconditioner.
             m_assmbScatrZeroDirOp->Apply(m_r_A, m_wk);
