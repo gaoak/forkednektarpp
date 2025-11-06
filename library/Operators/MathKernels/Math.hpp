@@ -100,13 +100,25 @@ public:
     OPERATORS_EXPORT typename T::value_type reduceSum(
         T &x, const std::string &execSpace = "");
 
+    template <typename M, typename T>
+    OPERATORS_EXPORT typename T::value_type reduceSum(
+        M &mask, T &x, const std::string &execSpace = "");
+
     template <typename T>
     OPERATORS_EXPORT typename T::value_type reduceMax(
         T &x, const std::string &execSpace = "");
 
+    template <typename M, typename T>
+    OPERATORS_EXPORT typename T::value_type reduceMax(
+        M &mask, T &x, const std::string &execSpace = "");
+
     template <typename T>
     OPERATORS_EXPORT typename T::value_type reduceMin(
         T &x, const std::string &execSpace = "");
+
+    template <typename M, typename T>
+    OPERATORS_EXPORT typename T::value_type reduceMin(
+        M &mask, T &x, const std::string &execSpace = "");
 
     template <typename T>
     OPERATORS_EXPORT typename T::value_type ddot(
@@ -120,17 +132,33 @@ public:
     OPERATORS_EXPORT typename T::value_type l1norm(
         T &x, const std::string &execSpace = "");
 
+    template <typename M, typename T>
+    OPERATORS_EXPORT typename T::value_type l1norm(
+        M &mask, T &x, const std::string &execSpace = "");
+
     template <typename T>
     OPERATORS_EXPORT typename T::value_type l2norm(
         T &, const std::string &execSpace = "");
+
+    template <typename M, typename T>
+    OPERATORS_EXPORT typename T::value_type l2norm(
+        M &mask, T &, const std::string &execSpace = "");
 
     template <typename T>
     OPERATORS_EXPORT typename T::value_type lpnorm(
         const unsigned int p, T &x, const std::string &execSpace = "");
 
+    template <typename M, typename T>
+    OPERATORS_EXPORT typename T::value_type lpnorm(
+        const unsigned int p, M &mask, T &x, const std::string &execSpace = "");
+
     template <typename T>
     OPERATORS_EXPORT typename T::value_type linfnorm(
         T &x, const std::string &execSpace = "");
+
+    template <typename M, typename T>
+    OPERATORS_EXPORT typename T::value_type linfnorm(
+        M &mask, T &x, const std::string &execSpace = "");
 
 private:
     std::string m_defaultExecSpace;
