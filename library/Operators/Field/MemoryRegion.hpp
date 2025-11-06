@@ -990,8 +990,8 @@ private:
             // Make sure the device data is valid. It might not be.
             if (m_device_valid)
             {
-                deviceMemcpy<DeviceToHost>(m_host, m_device,
-                                           m_size * sizeof(TData));
+                deviceMemcpy<DeviceToHost>(
+                    m_host, m_device, m_size * sizeof(TData), m_memAllocType);
             }
             else
             {
