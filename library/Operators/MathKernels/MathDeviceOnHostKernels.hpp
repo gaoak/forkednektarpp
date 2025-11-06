@@ -146,6 +146,16 @@ reduceSumKernel(const size_t nsize, const TData *x, TData *out)
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
+reduceSumKernel(const size_t nsize, const unsigned int *mask, const TData *x,
+                TData *out)
+{
+    TData initializer = init ? 0.0 : *out;
+    *out              = std::inner_product(mask, mask + nsize, x, initializer);
+}
+
+template <typename ExecSpace, bool init, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
 reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
 {
     TData initializer = init ? std::numeric_limits<TData>::min() : *out;
@@ -155,10 +165,44 @@ reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
+reduceMaxKernel(const size_t nsize, const unsigned int *mask, const TData *x,
+                TData *out)
+{
+    if (init)
+    {
+        *out = std::numeric_limits<TData>::min();
+    }
+
+    for (size_t i = 0; i < nsize; i++)
+    {
+        *out = mask[i] ? std::max(*out, x[i]) : *out;
+    }
+}
+
+template <typename ExecSpace, bool init, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
 reduceMinKernel(const size_t nsize, const TData *x, TData *out)
 {
     TData initializer = init ? std::numeric_limits<TData>::min() : *out;
     *out = std::min(initializer, *(std::min_element(x, x + nsize)));
+}
+
+template <typename ExecSpace, bool init, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
+reduceMinKernel(const size_t nsize, const unsigned int *mask, const TData *x,
+                TData *out)
+{
+    if (init)
+    {
+        *out = std::numeric_limits<TData>::max();
+    }
+
+    for (size_t i = 0; i < nsize; i++)
+    {
+        *out = mask[i] ? std::min(*out, x[i]) : *out;
+    }
 }
 
 template <typename ExecSpace, bool init, typename TData>
@@ -201,12 +245,46 @@ l1normKernel(const size_t nsize, const TData *x, TData *out)
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
+l1normKernel(const size_t nsize, const unsigned int *mask, const TData *x,
+             TData *out)
+{
+    if (init)
+    {
+        *out = 0.0;
+    }
+
+    for (size_t i = 0; i < nsize; i++)
+    {
+        *out += mask[i] * std::abs(x[i]);
+    }
+}
+
+template <typename ExecSpace, bool init, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
 l2normKernel(const size_t nsize, const TData *x, TData *out)
 {
     TData initializer = init ? 0.0 : *out;
     *out              = std::accumulate(
         x, x + nsize, initializer,
         [](const TData &acc, const TData &val) { return acc + val * val; });
+}
+
+template <typename ExecSpace, bool init, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
+l2normKernel(const size_t nsize, const unsigned int *mask, const TData *x,
+             TData *out)
+{
+    if (init)
+    {
+        *out = 0.0;
+    }
+
+    for (size_t i = 0; i < nsize; i++)
+    {
+        *out += mask[i] * x[i] * x[i];
+    }
 }
 
 template <typename ExecSpace, bool init, typename TData>
@@ -225,6 +303,23 @@ lpnormKernel(const size_t nsize, const unsigned int p, const TData *x,
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
+lpnormKernel(const size_t nsize, const unsigned int p, const unsigned int *mask,
+             const TData *x, TData *out)
+{
+    if (init)
+    {
+        *out = 0.0;
+    }
+
+    for (size_t i = 0; i < nsize; i++)
+    {
+        *out += mask[i] * std::pow(std::abs(x[i]), p);
+    }
+}
+
+template <typename ExecSpace, bool init, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
 linfnormKernel(const size_t nsize, const TData *x, TData *out)
 {
     TData initializer = init ? std::numeric_limits<TData>::min() : *out;
@@ -232,6 +327,23 @@ linfnormKernel(const size_t nsize, const TData *x, TData *out)
                                         [](const TData &acc, const TData &val) {
                                return std::max(acc, std::abs(val));
                            });
+}
+
+template <typename ExecSpace, bool init, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
+linfnormKernel(const size_t nsize, const unsigned int *mask, const TData *x,
+               TData *out)
+{
+    if (init)
+    {
+        *out = std::numeric_limits<TData>::min();
+    }
+
+    for (size_t i = 0; i < nsize; i++)
+    {
+        *out = mask[i] ? std::max(*out, std::abs(x[i])) : *out;
+    }
 }
 
 } // namespace Nektar

@@ -1080,6 +1080,17 @@ reduceSumKernel(const size_t nsize, const TData *x, TData *out)
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                                void>::type
+reduceSumKernel(const size_t nsize, const unsigned int *mask, const TData *x,
+                TData *out)
+{
+    // TODO: SIMD/AVX
+    TData initializer = init ? 0.0 : *out;
+    *out              = std::inner_product(mask, mask + nsize, x, initializer);
+}
+
+template <typename ExecSpace, bool init, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                               void>::type
 reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
 {
     using namespace tinysimd;
@@ -1177,6 +1188,24 @@ reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                                void>::type
+reduceMaxKernel(const size_t nsize, const unsigned int *mask, const TData *x,
+                TData *out)
+{
+    // TODO: SIMD/AVX
+    if (init)
+    {
+        *out = std::numeric_limits<TData>::min();
+    }
+
+    for (size_t i = 0; i < nsize; i++)
+    {
+        *out = mask[i] ? std::max(*out, x[i]) : *out;
+    }
+}
+
+template <typename ExecSpace, bool init, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                               void>::type
 reduceMinKernel(const size_t nsize, const TData *x, TData *out)
 {
     using namespace tinysimd;
@@ -1268,6 +1297,24 @@ reduceMinKernel(const size_t nsize, const TData *x, TData *out)
         // update pointers
         ++x;
         --cnt;
+    }
+}
+
+template <typename ExecSpace, bool init, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                               void>::type
+reduceMinKernel(const size_t nsize, const unsigned int *mask, const TData *x,
+                TData *out)
+{
+    // TODO: SIMD/AVX
+    if (init)
+    {
+        *out = std::numeric_limits<TData>::max();
+    }
+
+    for (size_t i = 0; i < nsize; i++)
+    {
+        *out = mask[i] ? std::min(*out, x[i]) : *out;
     }
 }
 
@@ -1391,6 +1438,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
 ddotKernel(const size_t nsize, const unsigned int *mask, const TData *x,
            const TData *y, TData *out)
 {
+    // TODO: SIMD/AVX
     if (init)
     {
         *out = 0.0;
@@ -1502,6 +1550,24 @@ l1normKernel(const size_t nsize, const TData *x, TData *out)
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                                void>::type
+l1normKernel(const size_t nsize, const unsigned int *mask, const TData *x,
+             TData *out)
+{
+    // TODO: SIMD/AVX
+    if (init)
+    {
+        *out = 0.0;
+    }
+
+    for (size_t i = 0; i < nsize; i++)
+    {
+        *out += mask[i] * std::abs(x[i]);
+    }
+}
+
+template <typename ExecSpace, bool init, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                               void>::type
 l2normKernel(const size_t nsize, const TData *x, TData *out)
 {
     using namespace tinysimd;
@@ -1599,6 +1665,24 @@ l2normKernel(const size_t nsize, const TData *x, TData *out)
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                                void>::type
+l2normKernel(const size_t nsize, const unsigned int *mask, const TData *x,
+             TData *out)
+{
+    // TODO: SIMD/AVX
+    if (init)
+    {
+        *out = 0.0;
+    }
+
+    for (size_t i = 0; i < nsize; i++)
+    {
+        *out += mask[i] * x[i] * x[i];
+    }
+}
+
+template <typename ExecSpace, bool init, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                               void>::type
 lpnormKernel(const size_t nsize, const unsigned int p, const TData *x,
              TData *out)
 {
@@ -1608,6 +1692,24 @@ lpnormKernel(const size_t nsize, const unsigned int p, const TData *x,
                                         [&](const TData &acc, const TData &val) {
                                return acc + std::pow(std::abs(val), p);
                            });
+}
+
+template <typename ExecSpace, bool init, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                               void>::type
+lpnormKernel(const size_t nsize, const unsigned int p, const unsigned int *mask,
+             const TData *x, TData *out)
+{
+    // TODO: SIMD/AVX
+    if (init)
+    {
+        *out = 0.0;
+    }
+
+    for (size_t i = 0; i < nsize; i++)
+    {
+        *out += mask[i] * std::pow(std::abs(x[i]), p);
+    }
 }
 
 template <typename ExecSpace, bool init, typename TData>
@@ -1704,6 +1806,24 @@ linfnormKernel(const size_t nsize, const TData *x, TData *out)
         // update pointers
         ++x;
         --cnt;
+    }
+}
+
+template <typename ExecSpace, bool init, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                               void>::type
+linfnormKernel(const size_t nsize, const unsigned int *mask, const TData *x,
+               TData *out)
+{
+    // TODO: SIMD/AVX
+    if (init)
+    {
+        *out = std::numeric_limits<TData>::min();
+    }
+
+    for (size_t i = 0; i < nsize; i++)
+    {
+        *out = mask[i] ? std::max(*out, std::abs(x[i])) : *out;
     }
 }
 
