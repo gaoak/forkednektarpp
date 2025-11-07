@@ -40,43 +40,92 @@ using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
 
-class MathField : public InitFields<double, FieldState::Phys, FieldState::Phys,
-                                    MultiRegions::ExpList>
+class MathField
 {
 public:
     MathField()
-        : InitFields<double, FieldState::Phys, FieldState::Phys,
-                     MultiRegions::ExpList>()
     {
         meshName = "run/Helmholtz3D_Hex_AllBCs_P6.xml";
     }
 
     ~MathField()
     {
+        BOOST_TEST_MESSAGE("teardown fixture");
+
+        if (fixt_in)
+        {
+            delete fixt_in;
+        }
         if (fixt_in2)
         {
             delete fixt_in2;
         }
+        if (fixt_out)
+        {
+            delete fixt_out;
+        }
+        if (fixt_expected)
+        {
+            delete fixt_expected;
+        }
+    }
+
+    void Configure()
+    {
+        BOOST_TEST_MESSAGE("Creating input and output fields");
+
+        // Construct a fake command-line argument array to be fed to
+        // Session::Reader::CreateInstance. The first element stands for
+        // the name of the executable which, in our case, doesn't matter.
+        int argc    = 2;
+        char **argv = new char *[argc];
+        argv[0]     = strdup("exe_name");
+        argv[1]     = meshName.data();
+
+        session    = LibUtilities::SessionReader::CreateInstance(argc, argv);
+        auto graph = SpatialDomains::MeshGraphIO::Read(session);
+
+        if (session->GetComm())
+        {
+            auto rank        = session->GetComm()->GetRank();
+            auto num_device  = nekGetDeviceCount();
+            auto device_rank = rank % num_device;
+            nekSetDevice(device_rank);
+        }
+
+        fixt_explist = MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
+            session, graph, true, "u", Collections::eNoCollection);
+
+        std::string execName(
+            boost::unit_test::framework::master_test_suite().argv[1]);
+        auto alignment = Nektar::GetExecSpaceAlignment(execName);
+        auto blocks =
+            GetBlockAttributes<double>(FieldState::Phys, fixt_explist);
+        auto f_in =
+            Field<double, FieldState::Phys>("f_in", blocks, 1, 1, alignment);
+        auto f_in2 =
+            Field<double, FieldState::Phys>("f_in2", blocks, 1, 1, alignment);
+        auto f_out =
+            Field<double, FieldState::Phys>("f_out", blocks, 1, 1, alignment);
+        auto f_expected = Field<double, FieldState::Phys>("f_expected", blocks,
+                                                          1, 1, alignment);
+        fixt_in         = new Field<double, FieldState::Phys>(std::move(f_in));
+        fixt_in2        = new Field<double, FieldState::Phys>(std::move(f_in2));
+        fixt_out        = new Field<double, FieldState::Phys>(std::move(f_out));
+        fixt_expected =
+            new Field<double, FieldState::Phys>(std::move(f_expected));
+
+        math = Math(execName);
     }
 
     void SetTestCase()
     {
-        std::string execName =
-            session->GetCmdLineArgument<std::string>("opExecSpace");
 
-        math = Math(execName);
-
-        auto blocks_in =
-            GetBlockAttributes<double>(FieldState::Phys, fixt_explist[0]);
-        auto f_in = Field<double, FieldState::Phys>("f_in2", blocks_in, 1, 1,
-                                                    alignment);
-        fixt_in2  = new Field<double, FieldState::Phys>(std::move(f_in));
-
-        Array<OneD, double> x(fixt_explist[0]->GetTotPoints());
-        Array<OneD, double> y(fixt_explist[0]->GetTotPoints());
-        Array<OneD, double> z(fixt_explist[0]->GetTotPoints());
-        Array<OneD, double> fce(fixt_explist[0]->GetTotPoints());
-        fixt_explist[0]->GetCoords(x, y, z);
+        Array<OneD, double> x(fixt_explist->GetTotPoints());
+        Array<OneD, double> y(fixt_explist->GetTotPoints());
+        Array<OneD, double> z(fixt_explist->GetTotPoints());
+        Array<OneD, double> fce(fixt_explist->GetTotPoints());
+        fixt_explist->GetCoords(x, y, z);
 
         auto func1 = session->GetFunction("Forcing", 0);
         func1->Evaluate(x, y, z, fce);
@@ -372,7 +421,119 @@ public:
         return out;
     }
 
+    /**
+     * @brief Compare this field to another field, with absolute
+     * tolerance tol. Two fields must have same storage shape
+     * and same components.
+     *
+     * @return bool
+     */
+    bool Compare(double tol)
+    {
+        auto rank = session->GetComm()->GetRank();
+
+        if (fixt_expected->GetNumComponents() != fixt_out->GetNumComponents())
+        {
+            std::cout << "Mismatch of number of components." << std::endl;
+            return false;
+        }
+
+        if (fixt_expected->GetNumHomoModes() != fixt_out->GetNumHomoModes())
+        {
+            std::cout << "Mismatch of number of homogeneous modes."
+                      << std::endl;
+            return false;
+        }
+
+        if (fixt_expected->GetBlocks().size() != fixt_out->GetBlocks().size())
+        {
+            std::cout << "Mismatch of block size." << std::endl;
+            return false;
+        }
+
+        bool isMatch = true;
+
+        if (rank == 0)
+        {
+            printf("#elm #pts output               expected            "
+                   "difference\n");
+        }
+        for (unsigned int blk = 0; blk < fixt_out->GetBlocks().size(); ++blk)
+        {
+            const double *outptr =
+                fixt_out->GetBlocks()[blk]
+                    .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+            const double *expptr =
+                fixt_expected->GetBlocks()[blk]
+                    .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+
+            if ((fixt_out->GetBlocks()[blk].GetNumElements() !=
+                 fixt_expected->GetBlocks()[blk].GetNumElements()) ||
+                (fixt_out->GetBlocks()[blk].GetNumData() !=
+                 fixt_expected->GetBlocks()[blk].GetNumData()))
+            {
+                std::cout << "Mismatch of block structure." << std::endl;
+                return false;
+            }
+
+            for (unsigned int n = 0;
+                 n < fixt_out->GetNumComponents() * fixt_out->GetNumHomoModes();
+                 ++n)
+            {
+                size_t MisMatchcnt = 0, total = 0;
+
+                for (size_t el = 0, cnt = 0;
+                     el < fixt_out->GetBlocks()[blk].GetNumElements(); ++el)
+                {
+                    for (unsigned int pts = 0;
+                         pts < fixt_out->GetBlocks()[blk].GetNumData();
+                         ++pts, ++cnt)
+                    {
+                        if (std::isnan(outptr[cnt]) ||
+                            std::isinf(outptr[cnt]) ||
+                            std::abs(outptr[cnt] - expptr[cnt]) > tol)
+                        {
+                            printf("%04lu %04u %20.16f %20.16f %20.16f\n", el,
+                                   pts, outptr[cnt], expptr[cnt],
+                                   std::abs(outptr[cnt] - expptr[cnt]));
+                            MisMatchcnt++;
+                        }
+                        total++;
+                    }
+                }
+
+                outptr += fixt_out->GetBlocks()[blk].size();
+                expptr += fixt_expected->GetBlocks()[blk].size();
+
+                if (MisMatchcnt)
+                {
+                    std::cout << "Number of mismatches in component " << n
+                              << " on block " << blk << " is " << MisMatchcnt
+                              << " out of " << total << " on rank: " << rank
+                              << std::endl;
+                    isMatch = false;
+                }
+            }
+        }
+
+        if (isMatch)
+        {
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+
 protected:
-    Field<double, FieldState::Phys> *fixt_in2 = nullptr;
+    std::string meshName                           = "";
+    Field<double, FieldState::Phys> *fixt_in       = nullptr;
+    Field<double, FieldState::Phys> *fixt_in2      = nullptr;
+    Field<double, FieldState::Phys> *fixt_out      = nullptr;
+    Field<double, FieldState::Phys> *fixt_expected = nullptr;
+    std::shared_ptr<MultiRegions::ExpList> fixt_explist;
+    LibUtilities::SessionReaderSharedPtr session;
+    std::string testModule{STRVX(BOOST_TEST_MODULE)};
     Math math;
 };

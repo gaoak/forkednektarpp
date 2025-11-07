@@ -90,6 +90,49 @@ inline
     }
 }
 
+template <typename ExecSpace, bool init, typename Reduction, typename Functor>
+inline
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                            void>::type
+    parallel_reduce(const size_t begin, const size_t end,
+                    const Functor &functor, typename Reduction::value_type *red)
+{
+    using TData = typename Reduction::value_type;
+
+    if (init)
+    {
+        if constexpr (std::is_same_v<Reduction, Nektar::ReduceSum<TData>>)
+        {
+            *red = 0.0;
+        }
+        else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMax<TData>>)
+        {
+            *red = std::numeric_limits<TData>::min();
+        }
+        else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMin<TData>>)
+        {
+            *red = std::numeric_limits<TData>::max();
+        }
+    }
+
+    for (size_t i = begin; i < end; ++i)
+    {
+        if constexpr (std::is_same_v<Reduction, Nektar::ReduceSum<TData>>)
+        {
+            *red += functor(i);
+        }
+        else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMax<TData>>)
+        {
+            *red = std::max(*red, functor(i));
+        }
+        else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMin<TData>>)
+        {
+            *red = std::min(*red, functor(i));
+        }
+    }
+}
+
 template <typename ExecSpace, typename Reduction, typename Functor>
 inline
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
@@ -98,25 +141,7 @@ inline
     parallel_reduce(const size_t begin, const size_t end,
                     const Functor &functor, typename Reduction::value_type &red)
 {
-    using TData = typename Reduction::value_type;
-
-    if constexpr (std::is_same_v<Reduction, Nektar::ReduceSum<TData>>)
-    {
-        red = 0.0;
-    }
-    else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMax<TData>>)
-    {
-        red = std::numeric_limits<TData>::min();
-    }
-    else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMin<TData>>)
-    {
-        red = std::numeric_limits<TData>::max();
-    }
-
-    for (size_t i = begin; i < end; ++i)
-    {
-        functor(i, red);
-    }
+    parallel_reduce<ExecSpace, true, Reduction>(begin, end, functor, &red);
 }
 
 } // namespace Nektar

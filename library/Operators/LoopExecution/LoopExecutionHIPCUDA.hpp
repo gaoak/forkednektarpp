@@ -42,7 +42,10 @@
 namespace Nektar
 {
 
-static void *internalHIPCUDABuffer = nullptr;
+static void *internalHIPCUDABuffer                 = nullptr;
+static void *internalHIPCUDADeviceBuffer           = nullptr;
+static void *internalHIPCUDAHostBuffer             = nullptr;
+static unsigned int internalHIPCUDAMaxDataSizeByte = 16;
 
 template <typename ExecSpace, typename Scope, typename TData>
 NEK_DEVICE_INLINE
@@ -93,7 +96,7 @@ __global__ void parallel_for(const size_t begin, const size_t end,
     }
 }
 
-template <typename TData, typename Functor>
+template <bool init, typename TData, typename Functor>
 __global__ void reduceSumKernel(const size_t begin, const size_t end,
                                 TData *buffer, const Functor functor)
 {
@@ -107,7 +110,7 @@ __global__ void reduceSumKernel(const size_t begin, const size_t end,
     auto warp  = cg::tiled_partition<warpsize>(block);
     TData v    = 0;
 
-    if (block.thread_rank() == 0)
+    if (init && block.thread_rank() == 0)
     {
         buffer[block.group_index().x] = 0.0;
     }
@@ -116,7 +119,7 @@ __global__ void reduceSumKernel(const size_t begin, const size_t end,
 
     for (size_t tid = begin + grid.thread_rank(); tid < end; tid += grid.size())
     {
-        functor(tid, v);
+        v += functor(tid);
     }
 
     warp.sync();
@@ -133,7 +136,7 @@ __global__ void reduceSumKernel(const size_t begin, const size_t end,
     }
 }
 
-template <typename TData, typename Functor>
+template <bool init, typename TData, typename Functor>
 __global__ void reduceMaxKernel(const size_t begin, const size_t end,
                                 TData *buffer, const Functor functor)
 {
@@ -148,7 +151,7 @@ __global__ void reduceMaxKernel(const size_t begin, const size_t end,
     auto warp  = cg::tiled_partition<warpsize>(block);
     TData v    = min;
 
-    if (block.thread_rank() == 0)
+    if (init && block.thread_rank() == 0)
     {
         buffer[block.group_index().x] = min;
     }
@@ -157,7 +160,7 @@ __global__ void reduceMaxKernel(const size_t begin, const size_t end,
 
     for (size_t tid = begin + grid.thread_rank(); tid < end; tid += grid.size())
     {
-        functor(tid, v);
+        v = std::max(v, functor(tid));
     }
 
     warp.sync();
@@ -173,7 +176,7 @@ __global__ void reduceMaxKernel(const size_t begin, const size_t end,
     }
 }
 
-template <typename TData, typename Functor>
+template <bool init, typename TData, typename Functor>
 __global__ void reduceMinKernel(const size_t begin, const size_t end,
                                 TData *buffer, const Functor functor)
 {
@@ -188,7 +191,7 @@ __global__ void reduceMinKernel(const size_t begin, const size_t end,
     auto warp  = cg::tiled_partition<warpsize>(block);
     TData v    = max;
 
-    if (block.thread_rank() == 0)
+    if (init && block.thread_rank() == 0)
     {
         buffer[block.group_index().x] = max;
     }
@@ -197,7 +200,7 @@ __global__ void reduceMinKernel(const size_t begin, const size_t end,
 
     for (size_t tid = begin + grid.thread_rank(); tid < end; tid += grid.size())
     {
-        functor(tid, v);
+        v = std::min(v, functor(tid));
     }
 
     warp.sync();
@@ -226,21 +229,21 @@ parallel_for(const size_t begin, const size_t end, const Functor &functor)
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
-template <typename ExecSpace, typename Reduction, typename Functor>
+template <typename ExecSpace, bool init, typename Reduction, typename Functor>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
                 typename Reduction::value_type *out)
 {
+    using TData = typename Reduction::value_type;
+
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
-
-    using TData = typename Reduction::value_type;
 
     if (internalHIPCUDABuffer == nullptr)
     {
         const unsigned int internalHIPCUDABufferSize =
-            sizeof(TData) * (gridSize + 1);
+            internalHIPCUDAMaxDataSizeByte * gridSize;
         GetDeviceProperties::CheckGlobalMemoryUsage(internalHIPCUDABufferSize);
 #if defined(NEKTAR_ENABLE_CUDA)
         CHECK_HIPCUDA_ERROR(
@@ -253,43 +256,84 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
     }
 
     TData *buffer = (TData *)internalHIPCUDABuffer;
-    TData *d_out  = (TData *)internalHIPCUDABuffer + gridSize;
     if constexpr (std::is_same_v<Reduction, Nektar::ReduceSum<TData>>)
     {
-        reduceSumKernel<<<gridSize, blockSize>>>(begin, end, buffer, functor);
+        reduceSumKernel<true>
+            <<<gridSize, blockSize>>>(begin, end, buffer, functor);
         CHECK_LAST_HIPCUDA_ERROR();
-        reduceSumKernel<<<1, gridSize>>>(
-            0, gridSize, out,
-            [=] __device__(const size_t i, TData &ans) { ans += buffer[i]; });
+        reduceSumKernel<init>
+            <<<1, gridSize>>>(0, gridSize, out, [=] __device__(const size_t i) {
+                return buffer[i];
+            });
         CHECK_LAST_HIPCUDA_ERROR();
     }
     else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMax<TData>>)
     {
-        reduceMaxKernel<<<gridSize, blockSize>>>(begin, end, buffer, functor);
+        reduceMaxKernel<true>
+            <<<gridSize, blockSize>>>(begin, end, buffer, functor);
         CHECK_LAST_HIPCUDA_ERROR();
-        reduceMaxKernel<<<1, gridSize>>>(
-            0, gridSize, out, [=] __device__(const size_t i, TData &ans) {
-                ans = std::max(ans, buffer[i]);
+        reduceMaxKernel<init>
+            <<<1, gridSize>>>(0, gridSize, out, [=] __device__(const size_t i) {
+                return buffer[i];
             });
         CHECK_LAST_HIPCUDA_ERROR();
     }
     else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMin<TData>>)
     {
-        reduceMinKernel<<<gridSize, blockSize>>>(begin, end, buffer, functor);
+        reduceMinKernel<true>
+            <<<gridSize, blockSize>>>(begin, end, buffer, functor);
         CHECK_LAST_HIPCUDA_ERROR();
-        reduceMinKernel<<<1, gridSize>>>(
-            0, gridSize, out, [=] __device__(const size_t i, TData &ans) {
-                ans = std::min(ans, buffer[i]);
+        reduceMinKernel<init>
+            <<<1, gridSize>>>(0, gridSize, out, [=] __device__(const size_t i) {
+                return buffer[i];
             });
         CHECK_LAST_HIPCUDA_ERROR();
     }
+}
+
+template <typename ExecSpace, typename Reduction, typename Functor>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
+parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
+                typename Reduction::value_type &out)
+{
+    using TData = typename Reduction::value_type;
+
+    if (internalHIPCUDAHostBuffer == nullptr)
+    {
+        GetDeviceProperties::CheckGlobalMemoryUsage(
+            internalHIPCUDAMaxDataSizeByte);
 #if defined(NEKTAR_ENABLE_CUDA)
-    CHECK_HIPCUDA_ERROR(
-        cudaMemcpy(out, d_out, sizeof(TData), cudaMemcpyDeviceToHost));
+        CHECK_HIPCUDA_ERROR(cudaMallocHost(&internalHIPCUDAHostBuffer,
+                                           internalHIPCUDAMaxDataSizeByte));
+        CHECK_HIPCUDA_ERROR(cudaMalloc(&internalHIPCUDADeviceBuffer,
+                                       internalHIPCUDAMaxDataSizeByte));
 #elif defined(NEKTAR_ENABLE_HIP)
-    CHECK_HIPCUDA_ERROR(
-        hipMemcpy(out, d_out, sizeof(TData), hipMemcpyDeviceToHost));
+        CHECK_HIPCUDA_ERROR(hipHostMalloc(&internalHIPCUDAHostBuffer,
+                                          internalHIPCUDAMaxDataSizeByte));
+        CHECK_HIPCUDA_ERROR(hipMalloc(&internalHIPCUDADeviceBuffer,
+                                      internalHIPCUDAMaxDataSizeByte));
 #endif
+        GetDeviceProperties::TotalGlobalMemory() -=
+            internalHIPCUDAMaxDataSizeByte;
+    }
+
+    parallel_reduce<ExecSpace, true, Reduction>(
+        begin, end, functor, (TData *)internalHIPCUDADeviceBuffer);
+
+#if defined(NEKTAR_ENABLE_CUDA)
+    CHECK_HIPCUDA_ERROR(cudaMemcpyAsync(internalHIPCUDAHostBuffer,
+                                        internalHIPCUDADeviceBuffer,
+                                        sizeof(TData), cudaMemcpyDeviceToHost));
+    CHECK_HIPCUDA_ERROR(cudaStreamSynchronize(0));
+#elif defined(NEKTAR_ENABLE_HIP)
+    CHECK_HIPCUDA_ERROR(hipMemcpyAsync(internalHIPCUDAHostBuffer,
+                                       internalHIPCUDADeviceBuffer,
+                                       sizeof(TData), hipMemcpyDeviceToHost));
+    CHECK_HIPCUDA_ERROR(hipStreamSynchronize(0));
+#endif
+
+    out = *(TData *)internalHIPCUDAHostBuffer;
 }
 
 } // namespace Nektar

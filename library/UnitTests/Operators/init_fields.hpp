@@ -184,11 +184,6 @@ public:
         {
             delete fixt_expected;
         }
-
-        if (session)
-        {
-            // session->Finalise();
-        }
     }
 
     void Configure(const unsigned int nin = 1, const unsigned int nout = 1,
