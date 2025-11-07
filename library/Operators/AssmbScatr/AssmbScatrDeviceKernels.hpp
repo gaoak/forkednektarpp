@@ -105,30 +105,30 @@ NEK_DEVICE_INLINE static void AssembleScatrKernel(
     }
 }
 
-template <typename TthreadBlock, typename TData>
+template <const unsigned WIDTH, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void AssembleScatrKernel(
     const unsigned nvals, const unsigned *nassemble, const unsigned *index,
     const unsigned *offset, const int *sign, TData *inoutptr,
-    const TthreadBlock &threadBlock, const unsigned WIDTH)
+    const TthreadBlock &threadBlock)
 {
     const unsigned idx0   = getGlobalIdx(threadBlock);
     const unsigned stride = getGlobalRange(threadBlock);
 
     for (unsigned idx = idx0; idx < nvals; idx += stride)
     {
-        TData ass = 0;
-
+        TData ass              = 0;
+        const unsigned ioffset = offset[idx];
         const unsigned nassemb = nassemble[idx];
         for (unsigned j = 0; j < nassemb; ++j)
         {
-            ass += inoutptr[index[offset[idx] + j * WIDTH]] *
-                   sign[offset[idx] + j * WIDTH];
+            const unsigned ind = ioffset + j * WIDTH;
+            ass += inoutptr[index[ind]] * sign[ind];
         }
 
         for (unsigned j = 0; j < nassemb; ++j)
         {
-            inoutptr[index[offset[idx] + j * WIDTH]] =
-                ass * sign[offset[idx] + j * WIDTH];
+            const unsigned ind   = ioffset + j * WIDTH;
+            inoutptr[index[ind]] = ass * sign[ind];
         }
     }
 }
