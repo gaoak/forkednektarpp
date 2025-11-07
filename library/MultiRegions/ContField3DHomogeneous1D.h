@@ -78,9 +78,11 @@ protected:
                                 const Array<OneD, NekDouble> coeffs) override;
 
     /// Template method virtual forwarded for LocalToGlobal()
+    using DisContField3DHomogeneous1D::v_LocalToGlobal;
     void v_LocalToGlobal(bool useComm) override;
 
     /// Template method virtual forwarded for GlobalToLocal()
+    using DisContField3DHomogeneous1D::v_GlobalToLocal;
     void v_GlobalToLocal(void) override;
 
     /// Solves the three-dimensional Helmholtz equation, subject to the

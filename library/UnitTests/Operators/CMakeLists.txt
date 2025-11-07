@@ -35,6 +35,13 @@ ADD_NEKTAR_EXECUTABLE(test_comm
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_comm.cpp)
 ADD_NEKTAR_EXECUTABLE(test_math
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_math.cpp)
+IF(NEKTAR_ENABLE_CUDA)
+    ADD_NEKTAR_EXECUTABLE(test_parallel_reduce
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_parallel_reduce.cu)
+ELSE()
+    ADD_NEKTAR_EXECUTABLE(test_parallel_reduce
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_parallel_reduce.cpp)
+ENDIF()
 ADD_NEKTAR_EXECUTABLE(test_assmbscatr
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_assmbscatr.cpp)
 ADD_NEKTAR_EXECUTABLE(test_dirichlet
@@ -157,6 +164,7 @@ ENDIF()
 
 # Serial
 SET_UNIT_TEST(Math_serial test_math Serial none FALSE)
+SET_UNIT_TEST(Parallel_reduce_serial test_parallel_reduce Serial none FALSE)
 SET_UNIT_TEST(AssmbScatr_serial test_assmbscatr Serial none FALSE)
 SET_UNIT_TEST(Dirichlet_serial test_dirichlet Serial none FALSE)
 SET_UNIT_TEST(Neumann_serial test_neumann Serial none FALSE)
@@ -220,6 +228,7 @@ ENDIF()
 # AVX
 IF (${NEKTAR_ENABLE_SIMD})
     SET_UNIT_TEST(Math_avx test_math AVX none FALSE)
+    SET_UNIT_TEST(Parallel_reduce_avx test_parallel_reduce AVX none FALSE)
     SET_UNIT_TEST(AssmbScatr_avx test_assmbscatr AVX none FALSE)
     SET_UNIT_TEST(Dirichlet_avx  test_dirichlet AVX none FALSE)
     SET_UNIT_TEST(Neumann_avx test_neumann AVX none FALSE)
@@ -288,6 +297,7 @@ ENDIF()
 # Device
 IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABLE_DEVICEONHOST)
     SET_UNIT_TEST(Math_device test_math Device none FALSE)
+    SET_UNIT_TEST(Parallel_reduce_device test_parallel_reduce Device none FALSE)
     SET_UNIT_TEST(AssmbScatr_device test_assmbscatr Device none FALSE)
     SET_UNIT_TEST(Dirichlet_device test_dirichlet Device none FALSE)
     SET_UNIT_TEST(Neumann_device test_neumann Device none FALSE)
