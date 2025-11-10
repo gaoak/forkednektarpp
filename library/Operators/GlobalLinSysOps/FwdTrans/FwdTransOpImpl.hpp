@@ -40,7 +40,7 @@
 #include "Operators/BndCondOps/RobBndCond/RobBndCondOp.hpp"
 #include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp"
 #include "Operators/ElmtOps/Mass/MassOp.hpp"
-#include "Operators/MathKernels/MathKernels.hpp"
+#include "Operators/Math/Math.hpp"
 
 namespace Nektar::Operators::detail
 {

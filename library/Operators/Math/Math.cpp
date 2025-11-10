@@ -34,8 +34,8 @@
 
 #include "Operators/Field/Field.hpp"
 
-#include "Operators/MathKernels/Math.hpp"
-#include "Operators/MathKernels/MathKernels.hpp"
+#include "Operators/Math/Math.hpp"
+#include "Operators/Math/MathKernels.hpp"
 
 namespace Nektar::Operators
 {

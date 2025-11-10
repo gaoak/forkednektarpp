@@ -34,7 +34,7 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/MathKernels/Math.hpp"
+#include "Operators/Math/Math.hpp"
 #include "Operators/TimeOps/TimeOp.hpp"
 
 using namespace Nektar::Operators;

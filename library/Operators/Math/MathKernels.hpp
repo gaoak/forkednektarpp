@@ -35,11 +35,11 @@
 #pragma once
 
 #include "Operators/Field/Field.hpp"
-#include "Operators/MathKernels/MathAVXKernels.hpp"
-#include "Operators/MathKernels/MathDeviceOnHostKernels.hpp"
-#include "Operators/MathKernels/MathHIPCUDAKernels.hpp"
-#include "Operators/MathKernels/MathSYCLKernels.hpp"
-#include "Operators/MathKernels/MathSerialKernels.hpp"
+#include "Operators/Math/MathAVXKernels.hpp"
+#include "Operators/Math/MathDeviceOnHostKernels.hpp"
+#include "Operators/Math/MathHIPCUDAKernels.hpp"
+#include "Operators/Math/MathSYCLKernels.hpp"
+#include "Operators/Math/MathSerialKernels.hpp"
 
 namespace Nektar::Operators
 {
@@ -59,11 +59,15 @@ void abs(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y)
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
-        auto in   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto out  = y.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
-        auto size = x.GetBlocks()[blk].size() * x.GetNumComponents();
+        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
+        auto size = x.GetBlocks()[blk].size() * x.GetNumComponents() *
+                    x.GetNumHomoModes();
 
-        absKernel<ExecSpace>(size, in, out);
+        absKernel<ExecSpace>(size, xptr, yptr);
+
+        y.GetBlocks()[blk].template SetInterleaveWidth<TData>(
+            x.GetBlocks()[blk].GetInterleaveWidth());
     }
 }
 
@@ -80,9 +84,10 @@ void abs(MemoryRegion<TData> &x, MemoryRegion<TData> &y)
         NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
     }
 
-    auto nsize = x.size();
     auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
     auto yptr  = y.template GetPtr<MemSpace, WriteOnly>();
+    auto nsize = x.size();
+
     absKernel<ExecSpace>(nsize, xptr, yptr);
 }
 
@@ -105,7 +110,11 @@ void neg(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y)
         auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
         auto size = x.GetBlocks()[blk].size() * x.GetNumComponents() *
                     x.GetNumHomoModes();
+
         negKernel<ExecSpace>(size, xptr, yptr);
+
+        y.GetBlocks()[blk].template SetInterleaveWidth<TData>(
+            x.GetBlocks()[blk].GetInterleaveWidth());
     }
 }
 
@@ -122,9 +131,10 @@ void neg(MemoryRegion<TData> &x, MemoryRegion<TData> &y)
         NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
     }
 
-    auto nsize = x.size();
     auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
     auto yptr  = y.template GetPtr<MemSpace, WriteOnly>();
+    auto nsize = x.size();
+
     negKernel<ExecSpace>(nsize, xptr, yptr);
 }
 
@@ -143,11 +153,15 @@ void sqrt(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y)
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
-        auto in   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto out  = y.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
-        auto size = x.GetBlocks()[blk].size() * x.GetNumComponents();
+        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
+        auto size = x.GetBlocks()[blk].size() * x.GetNumComponents() *
+                    x.GetNumHomoModes();
 
-        sqrtKernel<ExecSpace>(size, in, out);
+        sqrtKernel<ExecSpace>(size, xptr, yptr);
+
+        y.GetBlocks()[blk].template SetInterleaveWidth<TData>(
+            x.GetBlocks()[blk].GetInterleaveWidth());
     }
 }
 
@@ -164,9 +178,10 @@ void sqrt(MemoryRegion<TData> &x, MemoryRegion<TData> &y)
         NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
     }
 
-    auto nsize = x.size();
     auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
     auto yptr  = y.template GetPtr<MemSpace, WriteOnly>();
+    auto nsize = x.size();
+
     sqrtKernel<ExecSpace>(nsize, xptr, yptr);
 }
 
@@ -186,12 +201,21 @@ void add(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
+        WARNINGL1(x.GetBlocks()[blk].GetInterleaveWidth() ==
+                      y.GetBlocks()[blk].GetInterleaveWidth(),
+                  "MathKernels::add - Inconsistent interleave format between "
+                  "input Fields");
+
         auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto zptr = z.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
         auto size = x.GetBlocks()[blk].size() * x.GetNumComponents() *
                     x.GetNumHomoModes();
+
         addKernel<ExecSpace>(size, xptr, yptr, zptr);
+
+        z.GetBlocks()[blk].template SetInterleaveWidth<TData>(
+            x.GetBlocks()[blk].GetInterleaveWidth());
     }
 }
 
@@ -208,10 +232,11 @@ void add(MemoryRegion<TData> &x, MemoryRegion<TData> &y, MemoryRegion<TData> &z)
         NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
     }
 
-    auto nsize = x.size();
     auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
     auto yptr  = y.template GetPtr<MemSpace, ReadOnly>();
     auto zptr  = z.template GetPtr<MemSpace, WriteOnly>();
+    auto nsize = x.size();
+
     addKernel<ExecSpace>(nsize, xptr, yptr, zptr);
 }
 
@@ -231,12 +256,21 @@ void sub(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
+        WARNINGL1(x.GetBlocks()[blk].GetInterleaveWidth() ==
+                      y.GetBlocks()[blk].GetInterleaveWidth(),
+                  "MathKernels::sub - Inconsistent interleave format between "
+                  "input Fields");
+
         auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto zptr = z.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
         auto size = x.GetBlocks()[blk].size() * x.GetNumComponents() *
                     x.GetNumHomoModes();
+
         subKernel<ExecSpace>(size, xptr, yptr, zptr);
+
+        z.GetBlocks()[blk].template SetInterleaveWidth<TData>(
+            x.GetBlocks()[blk].GetInterleaveWidth());
     }
 }
 
@@ -253,30 +287,12 @@ void sub(MemoryRegion<TData> &x, MemoryRegion<TData> &y, MemoryRegion<TData> &z)
         NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
     }
 
-    auto nsize = x.size();
     auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
     auto yptr  = y.template GetPtr<MemSpace, ReadOnly>();
     auto zptr  = z.template GetPtr<MemSpace, WriteOnly>();
-    subKernel<ExecSpace>(nsize, xptr, yptr, zptr);
-}
-
-template <typename ExecSpace, typename TData>
-void mul(const TData alpha, MemoryRegion<TData> &x, MemoryRegion<TData> &y)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    if (x.size() != y.size())
-    {
-        std::stringstream msg;
-
-        msg << "MathKernel::div - Memory size mismatch between Field";
-        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
-    }
-
     auto nsize = x.size();
-    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
-    auto yptr  = y.template GetPtr<MemSpace, WriteOnly>();
-    mulKernel<ExecSpace>(nsize, alpha, xptr, yptr);
+
+    subKernel<ExecSpace>(nsize, xptr, yptr, zptr);
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
@@ -299,8 +315,32 @@ void mul(const TData alpha, Field<TData, TFieldState> &x,
         auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
         auto size = x.GetBlocks()[blk].size() * x.GetNumComponents() *
                     x.GetNumHomoModes();
+
         mulKernel<ExecSpace>(size, alpha, xptr, yptr);
+
+        y.GetBlocks()[blk].template SetInterleaveWidth<TData>(
+            x.GetBlocks()[blk].GetInterleaveWidth());
     }
+}
+
+template <typename ExecSpace, typename TData>
+void mul(const TData alpha, MemoryRegion<TData> &x, MemoryRegion<TData> &y)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    if (x.size() != y.size())
+    {
+        std::stringstream msg;
+
+        msg << "MathKernel::div - Memory size mismatch between Field";
+        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+    }
+
+    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
+    auto yptr  = y.template GetPtr<MemSpace, WriteOnly>();
+    auto nsize = x.size();
+
+    mulKernel<ExecSpace>(nsize, alpha, xptr, yptr);
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
@@ -319,12 +359,21 @@ void mul(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
+        WARNINGL1(x.GetBlocks()[blk].GetInterleaveWidth() ==
+                      y.GetBlocks()[blk].GetInterleaveWidth(),
+                  "MathKernels::mul - Inconsistent interleave format between "
+                  "input Fields");
+
         auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto zptr = z.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
         auto size = x.GetBlocks()[blk].size() * x.GetNumComponents() *
                     x.GetNumHomoModes();
+
         mulKernel<ExecSpace>(size, xptr, yptr, zptr);
+
+        z.GetBlocks()[blk].template SetInterleaveWidth<TData>(
+            x.GetBlocks()[blk].GetInterleaveWidth());
     }
 }
 
@@ -341,10 +390,11 @@ void mul(MemoryRegion<TData> &x, MemoryRegion<TData> &y, MemoryRegion<TData> &z)
         NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
     }
 
-    auto nsize = x.size();
     auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
     auto yptr  = y.template GetPtr<MemSpace, ReadOnly>();
     auto zptr  = z.template GetPtr<MemSpace, WriteOnly>();
+    auto nsize = x.size();
+
     mulKernel<ExecSpace>(nsize, xptr, yptr, zptr);
 }
 
@@ -368,8 +418,32 @@ void div(const TData alpha, Field<TData, TFieldState> &x,
         auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
         auto size = x.GetBlocks()[blk].size() * x.GetNumComponents() *
                     x.GetNumHomoModes();
+
         divKernel<ExecSpace>(size, alpha, xptr, yptr);
+
+        y.GetBlocks()[blk].template SetInterleaveWidth<TData>(
+            x.GetBlocks()[blk].GetInterleaveWidth());
     }
+}
+
+template <typename ExecSpace, typename TData>
+void div(const TData alpha, MemoryRegion<TData> &x, MemoryRegion<TData> &y)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    if (x.size() != y.size())
+    {
+        std::stringstream msg;
+
+        msg << "MathKernel::div - Memory size mismatch between Field";
+        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+    }
+
+    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
+    auto yptr  = y.template GetPtr<MemSpace, WriteOnly>();
+    auto nsize = x.size();
+
+    divKernel<ExecSpace>(nsize, alpha, xptr, yptr);
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
@@ -388,32 +462,22 @@ void div(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
+        WARNINGL1(x.GetBlocks()[blk].GetInterleaveWidth() ==
+                      y.GetBlocks()[blk].GetInterleaveWidth(),
+                  "MathKernel::div - Inconsistent interleave format between "
+                  "input Fields");
+
         auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto zptr = z.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
         auto size = x.GetBlocks()[blk].size() * x.GetNumComponents() *
                     x.GetNumHomoModes();
+
         divKernel<ExecSpace>(size, xptr, yptr, zptr);
+
+        z.GetBlocks()[blk].template SetInterleaveWidth<TData>(
+            x.GetBlocks()[blk].GetInterleaveWidth());
     }
-}
-
-template <typename ExecSpace, typename TData>
-void div(const TData alpha, MemoryRegion<TData> &x, MemoryRegion<TData> &y)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    if (x.size() != y.size())
-    {
-        std::stringstream msg;
-
-        msg << "MathKernel::div - Memory size mismatch between Field";
-        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
-    }
-
-    auto nsize = x.size();
-    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
-    auto yptr  = y.template GetPtr<MemSpace, WriteOnly>();
-    divKernel<ExecSpace>(nsize, alpha, xptr, yptr);
 }
 
 template <typename ExecSpace, typename TData>
@@ -429,10 +493,11 @@ void div(MemoryRegion<TData> &x, MemoryRegion<TData> &y, MemoryRegion<TData> &z)
         NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
     }
 
-    auto nsize = x.size();
     auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
     auto yptr  = y.template GetPtr<MemSpace, ReadOnly>();
     auto zptr  = z.template GetPtr<MemSpace, WriteOnly>();
+    auto nsize = x.size();
+
     divKernel<ExecSpace>(nsize, xptr, yptr, zptr);
 }
 
@@ -452,12 +517,21 @@ void daxpy(const TData alpha, Field<TData, TFieldState> &x,
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
+        WARNINGL1(x.GetBlocks()[blk].GetInterleaveWidth() ==
+                      y.GetBlocks()[blk].GetInterleaveWidth(),
+                  "MathKernel::daxpy - Inconsistent interleave format between "
+                  "input Fields");
+
         auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto zptr = z.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
         auto size = x.GetBlocks()[blk].size() * x.GetNumComponents() *
                     x.GetNumHomoModes();
+
         daxpyKernel<ExecSpace>(size, alpha, xptr, yptr, zptr);
+
+        z.GetBlocks()[blk].template SetInterleaveWidth<TData>(
+            x.GetBlocks()[blk].GetInterleaveWidth());
     }
 }
 
@@ -475,10 +549,11 @@ void daxpy(const TData alpha, MemoryRegion<TData> &x, MemoryRegion<TData> &y,
         NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
     }
 
-    auto nsize = x.size();
     auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
     auto yptr  = y.template GetPtr<MemSpace, ReadOnly>();
     auto zptr  = z.template GetPtr<MemSpace, WriteOnly>();
+    auto nsize = x.size();
+
     daxpyKernel<ExecSpace>(nsize, alpha, xptr, yptr, zptr);
 }
 
@@ -493,6 +568,7 @@ void reduceSum(Field<TData, TFieldState> &x, TData *out)
         auto &block = x.GetBlocks()[blk];
         auto size   = block.GetNumElements() * block.GetNumData() *
                     x.GetNumComponents() * x.GetNumHomoModes();
+
         if (blk == 0)
         {
             reduceSumKernel<ExecSpace, true>(size, xptr, out);
@@ -511,6 +587,7 @@ void reduceSum(MemoryRegion<TData> &x, TData *out)
 
     auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
     auto nsize = x.size();
+
     reduceSumKernel<ExecSpace, true>(nsize, xptr, out);
 }
 
@@ -522,12 +599,18 @@ void reduceSum(Field<unsigned int, TFieldState> &mask,
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
+        WARNINGL1(mask.GetBlocks()[blk].GetInterleaveWidth() ==
+                      x.GetBlocks()[blk].GetInterleaveWidth(),
+                  "MathKernesl::reduceSum - Inconsistent interleave format "
+                  "between input Fields");
+
         auto maskptr =
             mask.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto &block = x.GetBlocks()[blk];
         auto size   = block.GetNumElements() * block.GetNumData() *
                     x.GetNumComponents() * x.GetNumHomoModes();
+
         if (blk == 0)
         {
             reduceSumKernel<ExecSpace, true>(size, maskptr, xptr, out);
@@ -548,6 +631,7 @@ void reduceSum(MemoryRegion<unsigned int> &mask, MemoryRegion<TData> &x,
     auto maskptr = mask.template GetPtr<MemSpace, ReadOnly>();
     auto xptr    = x.template GetPtr<MemSpace, ReadOnly>();
     auto nsize   = x.size();
+
     reduceSumKernel<ExecSpace, true>(nsize, maskptr, xptr, out);
 }
 
@@ -562,6 +646,7 @@ void reduceMax(Field<TData, TFieldState> &x, TData *out)
         auto &block = x.GetBlocks()[blk];
         auto size   = block.GetNumElements() * block.GetNumData() *
                     x.GetNumComponents() * x.GetNumHomoModes();
+
         if (blk == 0)
         {
             reduceMaxKernel<ExecSpace, true>(size, xptr, out);
@@ -580,6 +665,7 @@ void reduceMax(MemoryRegion<TData> &x, TData *out)
 
     auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
     auto nsize = x.size();
+
     reduceMaxKernel<ExecSpace, true>(nsize, xptr, out);
 }
 
@@ -591,12 +677,18 @@ void reduceMax(Field<unsigned int, TFieldState> &mask,
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
+        WARNINGL1(mask.GetBlocks()[blk].GetInterleaveWidth() ==
+                      x.GetBlocks()[blk].GetInterleaveWidth(),
+                  "MathKernels::reduceMax - Inconsistent interleave format "
+                  "between input Fields");
+
         auto maskptr =
             mask.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto &block = x.GetBlocks()[blk];
         auto size   = block.GetNumElements() * block.GetNumData() *
                     x.GetNumComponents() * x.GetNumHomoModes();
+
         if (blk == 0)
         {
             reduceMaxKernel<ExecSpace, true>(size, maskptr, xptr, out);
@@ -617,6 +709,7 @@ void reduceMax(MemoryRegion<unsigned int> &mask, MemoryRegion<TData> &x,
     auto maskptr = mask.template GetPtr<MemSpace, ReadOnly>();
     auto xptr    = x.template GetPtr<MemSpace, ReadOnly>();
     auto nsize   = x.size();
+
     reduceMaxKernel<ExecSpace, true>(nsize, maskptr, xptr, out);
 }
 
@@ -631,6 +724,7 @@ void reduceMin(Field<TData, TFieldState> &x, TData *out)
         auto &block = x.GetBlocks()[blk];
         auto size   = block.GetNumElements() * block.GetNumData() *
                     x.GetNumComponents() * x.GetNumHomoModes();
+
         if (blk == 0)
         {
             reduceMinKernel<ExecSpace, true>(size, xptr, out);
@@ -649,6 +743,7 @@ void reduceMin(MemoryRegion<TData> &x, TData *out)
 
     auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
     auto nsize = x.size();
+
     reduceMinKernel<ExecSpace, true>(nsize, xptr, out);
 }
 
@@ -660,12 +755,18 @@ void reduceMin(Field<unsigned int, TFieldState> &mask,
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
+        WARNINGL1(mask.GetBlocks()[blk].GetInterleaveWidth() ==
+                      x.GetBlocks()[blk].GetInterleaveWidth(),
+                  "MathKernels::reduceMin - Inconsistent interleave format "
+                  "between input Fields");
+
         auto maskptr =
             mask.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto &block = x.GetBlocks()[blk];
         auto size   = block.GetNumElements() * block.GetNumData() *
                     x.GetNumComponents() * x.GetNumHomoModes();
+
         if (blk == 0)
         {
             reduceMinKernel<ExecSpace, true>(size, maskptr, xptr, out);
@@ -686,6 +787,7 @@ void reduceMin(MemoryRegion<unsigned int> &mask, MemoryRegion<TData> &x,
     auto maskptr = mask.template GetPtr<MemSpace, ReadOnly>();
     auto xptr    = x.template GetPtr<MemSpace, ReadOnly>();
     auto nsize   = x.size();
+
     reduceMinKernel<ExecSpace, true>(nsize, maskptr, xptr, out);
 }
 
@@ -705,11 +807,17 @@ void ddot(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
+        WARNINGL1(x.GetBlocks()[blk].GetInterleaveWidth() ==
+                      y.GetBlocks()[blk].GetInterleaveWidth(),
+                  "MathKernels::ddot - Inconsistent interleave format between "
+                  "input Fields");
+
         auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto yptr   = y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto &block = x.GetBlocks()[blk];
         auto size   = block.GetNumElements() * block.GetNumData() *
                     x.GetNumComponents() * x.GetNumHomoModes();
+
         if (blk == 0)
         {
             ddotKernel<ExecSpace, true>(size, xptr, yptr, out);
@@ -737,6 +845,7 @@ void ddot(MemoryRegion<TData> &x, MemoryRegion<TData> &y, TData *out)
     auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
     auto yptr  = y.template GetPtr<MemSpace, ReadOnly>();
     auto nsize = x.size();
+
     ddotKernel<ExecSpace, true>(nsize, xptr, yptr, out);
 }
 
@@ -756,6 +865,13 @@ void ddot(Field<unsigned int, TFieldState> &mask, Field<TData, TFieldState> &x,
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
+        WARNINGL1((mask.GetBlocks()[blk].GetInterleaveWidth() ==
+                   x.GetBlocks()[blk].GetInterleaveWidth()) &&
+                      (mask.GetBlocks()[blk].GetInterleaveWidth() ==
+                       y.GetBlocks()[blk].GetInterleaveWidth()),
+                  "MathKernels::ddot - Inconsistent interleave format between "
+                  "input Fields");
+
         auto maskptr =
             mask.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
@@ -763,6 +879,7 @@ void ddot(Field<unsigned int, TFieldState> &mask, Field<TData, TFieldState> &x,
         auto &block = x.GetBlocks()[blk];
         auto size   = block.GetNumElements() * block.GetNumData() *
                     x.GetNumComponents() * x.GetNumHomoModes();
+
         if (blk == 0)
         {
             ddotKernel<ExecSpace, true>(size, maskptr, xptr, yptr, out);
@@ -792,6 +909,7 @@ void ddot(MemoryRegion<unsigned int> &mask, MemoryRegion<TData> &x,
     auto xptr    = x.template GetPtr<MemSpace, ReadOnly>();
     auto yptr    = y.template GetPtr<MemSpace, ReadOnly>();
     auto nsize   = x.size();
+
     ddotKernel<ExecSpace, true>(nsize, maskptr, xptr, yptr, out);
 }
 
@@ -806,6 +924,7 @@ void l1norm(Field<TData, TFieldState> &x, TData *out)
         auto &block = x.GetBlocks()[blk];
         auto size   = block.GetNumElements() * block.GetNumData() *
                     x.GetNumComponents() * x.GetNumHomoModes();
+
         if (blk == 0)
         {
             l1normKernel<ExecSpace, true>(size, xptr, out);
@@ -824,6 +943,7 @@ void l1norm(MemoryRegion<TData> &x, TData *out)
 
     auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
     auto nsize = x.size();
+
     l1normKernel<ExecSpace, true>(nsize, xptr, out);
 }
 
@@ -835,12 +955,18 @@ void l1norm(Field<unsigned int, TFieldState> &mask,
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
+        WARNINGL1(mask.GetBlocks()[blk].GetInterleaveWidth() ==
+                      x.GetBlocks()[blk].GetInterleaveWidth(),
+                  "MathKernels::l1norm - Inconsistent interleave format "
+                  "between input Fields");
+
         auto maskptr =
             mask.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto &block = x.GetBlocks()[blk];
         auto size   = block.GetNumElements() * block.GetNumData() *
                     x.GetNumComponents() * x.GetNumHomoModes();
+
         if (blk == 0)
         {
             l1normKernel<ExecSpace, true>(size, maskptr, xptr, out);
@@ -861,6 +987,7 @@ void l1norm(MemoryRegion<unsigned int> &mask, MemoryRegion<TData> &x,
     auto maskptr = mask.template GetPtr<MemSpace, ReadOnly>();
     auto xptr    = x.template GetPtr<MemSpace, ReadOnly>();
     auto nsize   = x.size();
+
     l1normKernel<ExecSpace, true>(nsize, maskptr, xptr, out);
 }
 
@@ -875,6 +1002,7 @@ void l2norm(Field<TData, TFieldState> &x, TData *out)
         auto &block = x.GetBlocks()[blk];
         auto size   = block.GetNumElements() * block.GetNumData() *
                     x.GetNumComponents() * x.GetNumHomoModes();
+
         if (blk == 0)
         {
             l2normKernel<ExecSpace, true>(size, xptr, out);
@@ -893,6 +1021,7 @@ void l2norm(MemoryRegion<TData> &x, TData *out)
 
     auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
     auto nsize = x.size();
+
     l2normKernel<ExecSpace, true>(nsize, xptr, out);
 }
 
@@ -904,12 +1033,18 @@ void l2norm(Field<unsigned int, TFieldState> &mask,
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
+        WARNINGL1(mask.GetBlocks()[blk].GetInterleaveWidth() ==
+                      x.GetBlocks()[blk].GetInterleaveWidth(),
+                  "MathKernels::l2norm - Inconsistent interleave format "
+                  "between input Fields");
+
         auto maskptr =
             mask.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto &block = x.GetBlocks()[blk];
         auto size   = block.GetNumElements() * block.GetNumData() *
                     x.GetNumComponents() * x.GetNumHomoModes();
+
         if (blk == 0)
         {
             l2normKernel<ExecSpace, true>(size, maskptr, xptr, out);
@@ -930,6 +1065,7 @@ void l2norm(MemoryRegion<unsigned int> &mask, MemoryRegion<TData> &x,
     auto maskptr = mask.template GetPtr<MemSpace, ReadOnly>();
     auto xptr    = x.template GetPtr<MemSpace, ReadOnly>();
     auto nsize   = x.size();
+
     l2normKernel<ExecSpace, true>(nsize, maskptr, xptr, out);
 }
 
@@ -944,6 +1080,7 @@ void lpnorm(const unsigned int p, Field<TData, TFieldState> &x, TData *out)
         auto &block = x.GetBlocks()[blk];
         auto size   = block.GetNumElements() * block.GetNumData() *
                     x.GetNumComponents() * x.GetNumHomoModes();
+
         if (blk == 0)
         {
             lpnormKernel<ExecSpace, true>(size, p, xptr, out);
@@ -962,6 +1099,7 @@ void lpnorm(const unsigned int p, MemoryRegion<TData> &x, TData *out)
 
     auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
     auto nsize = x.size();
+
     lpnormKernel<ExecSpace, true>(nsize, p, xptr, out);
 }
 
@@ -973,12 +1111,18 @@ void lpnorm(const unsigned int p, Field<unsigned int, TFieldState> &mask,
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
+        WARNINGL1(mask.GetBlocks()[blk].GetInterleaveWidth() ==
+                      x.GetBlocks()[blk].GetInterleaveWidth(),
+                  "MathKernels::lpnorm - Inconsistent interleave format "
+                  "between input Fields");
+
         auto maskptr =
             mask.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto &block = x.GetBlocks()[blk];
         auto size   = block.GetNumElements() * block.GetNumData() *
                     x.GetNumComponents() * x.GetNumHomoModes();
+
         if (blk == 0)
         {
             lpnormKernel<ExecSpace, true>(size, p, maskptr, xptr, out);
@@ -999,6 +1143,7 @@ void lpnorm(const unsigned int p, MemoryRegion<unsigned int> &mask,
     auto maskptr = mask.template GetPtr<MemSpace, ReadOnly>();
     auto xptr    = x.template GetPtr<MemSpace, ReadOnly>();
     auto nsize   = x.size();
+
     lpnormKernel<ExecSpace, true>(nsize, p, maskptr, xptr, out);
 }
 
@@ -1013,6 +1158,7 @@ void linfnorm(Field<TData, TFieldState> &x, TData *out)
         auto &block = x.GetBlocks()[blk];
         auto size   = block.GetNumElements() * block.GetNumData() *
                     x.GetNumComponents() * x.GetNumHomoModes();
+
         if (blk == 0)
         {
             linfnormKernel<ExecSpace, true>(size, xptr, out);
@@ -1031,6 +1177,7 @@ void linfnorm(MemoryRegion<TData> &x, TData *out)
 
     auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
     auto nsize = x.size();
+
     linfnormKernel<ExecSpace, true>(nsize, xptr, out);
 }
 
@@ -1042,12 +1189,18 @@ void linfnorm(Field<unsigned int, TFieldState> &mask,
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
+        WARNINGL1(mask.GetBlocks()[blk].GetInterleaveWidth() ==
+                      x.GetBlocks()[blk].GetInterleaveWidth(),
+                  "MathKernels::linfnorm - Inconsistent interleave format "
+                  "between input Fields");
+
         auto maskptr =
             mask.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto &block = x.GetBlocks()[blk];
         auto size   = block.GetNumElements() * block.GetNumData() *
                     x.GetNumComponents() * x.GetNumHomoModes();
+
         if (blk == 0)
         {
             linfnormKernel<ExecSpace, true>(size, maskptr, xptr, out);
@@ -1068,6 +1221,7 @@ void linfnorm(MemoryRegion<unsigned int> &mask, MemoryRegion<TData> &x,
     auto maskptr = mask.template GetPtr<MemSpace, ReadOnly>();
     auto xptr    = x.template GetPtr<MemSpace, ReadOnly>();
     auto nsize   = x.size();
+
     linfnormKernel<ExecSpace, true>(nsize, maskptr, xptr, out);
 }
 

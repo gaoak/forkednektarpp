@@ -123,11 +123,20 @@ __global__ void reduceSumKernel(const size_t begin, const size_t end,
     }
 
     warp.sync();
+#if defined(NEKTAR_ENABLE_CUDA)
     v += warp.shfl_down(v, 16); // |
     v += warp.shfl_down(v, 8);  // | warp level
     v += warp.shfl_down(v, 4);  // | reduce here
     v += warp.shfl_down(v, 2);  // |
     v += warp.shfl_down(v, 1);  // |
+#elif defined(NEKTAR_ENABLE_HIP)
+    v += warp.shfl_down(v, 32);             // |
+    v += warp.shfl_down(v, 16);             // |
+    v += warp.shfl_down(v, 8);              // | warp level
+    v += warp.shfl_down(v, 4);              // | reduce here
+    v += warp.shfl_down(v, 2);              // |
+    v += warp.shfl_down(v, 1);              // |
+#endif
 
     // use atomicAdd to sum over warps
     if (warp.thread_rank() == 0)
@@ -164,11 +173,20 @@ __global__ void reduceMaxKernel(const size_t begin, const size_t end,
     }
 
     warp.sync();
+#if defined(NEKTAR_ENABLE_CUDA)
     v = std::max(v, warp.shfl_down(v, 16)); // |
     v = std::max(v, warp.shfl_down(v, 8));  // | warp level
     v = std::max(v, warp.shfl_down(v, 4));  // | reduce here
     v = std::max(v, warp.shfl_down(v, 2));  // |
     v = std::max(v, warp.shfl_down(v, 1));  // |
+#elif defined(NEKTAR_ENABLE_HIP)
+    v = std::max(v, warp.shfl_down(v, 32)); // |
+    v = std::max(v, warp.shfl_down(v, 16)); // |
+    v = std::max(v, warp.shfl_down(v, 8));  // | warp level
+    v = std::max(v, warp.shfl_down(v, 4));  // | reduce here
+    v = std::max(v, warp.shfl_down(v, 2));  // |
+    v = std::max(v, warp.shfl_down(v, 1));  // |
+#endif
 
     if (warp.thread_rank() == 0)
     {
@@ -204,11 +222,20 @@ __global__ void reduceMinKernel(const size_t begin, const size_t end,
     }
 
     warp.sync();
+#if defined(NEKTAR_ENABLE_CUDA)
     v = std::min(v, warp.shfl_down(v, 16)); // |
     v = std::min(v, warp.shfl_down(v, 8));  // | warp level
     v = std::min(v, warp.shfl_down(v, 4));  // | reduce here
     v = std::min(v, warp.shfl_down(v, 2));  // |
     v = std::min(v, warp.shfl_down(v, 1));  // |
+#elif defined(NEKTAR_ENABLE_HIP)
+    v = std::min(v, warp.shfl_down(v, 32)); // |
+    v = std::min(v, warp.shfl_down(v, 16)); // |
+    v = std::min(v, warp.shfl_down(v, 8));  // | warp level
+    v = std::min(v, warp.shfl_down(v, 4));  // | reduce here
+    v = std::min(v, warp.shfl_down(v, 2));  // |
+    v = std::min(v, warp.shfl_down(v, 1));  // |
+#endif
 
     if (warp.thread_rank() == 0)
     {

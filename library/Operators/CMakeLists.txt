@@ -428,7 +428,7 @@ MACRO(ADD_TIME_OPERATOR dir)
     IF( ("${name}" STREQUAL "Common") OR
     ("${name}" STREQUAL "Field") OR
     ("${name}" STREQUAL "LoopExecution") OR
-    ("${name}" STREQUAL "MathKernels"))
+    ("${name}" STREQUAL "Math"))
         CONTINUE()
     ENDIF()
 
@@ -579,7 +579,7 @@ SET(OPERATORS_HEADERS
     Common/DeviceProperties.hpp
     Field/MemoryAlloc.hpp
     ElmtOps/BlockOperator.hpp
-    MathKernels/Math.hpp
+    Math/Math.hpp
     NekBlas/NekBlas.hpp
     NekBlas/blasHandle.hpp
     )
@@ -730,14 +730,14 @@ IF(NEKTAR_ENABLE_SIMD)
     SET(OPERATORS_HEADERS
       ${OPERATORS_HEADERS}
       NekBlas/libXSMMDispatchWrapper.hpp
-      MathKernels/Math.cpp
+      Math/Math.cpp
     )
 # CUDA specific file
 ELSEIF(NEKTAR_ENABLE_CUDA)
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
        Field/MemoryAlloc.cu
-       MathKernels/Math.cu
+       Math/Math.cu
     )
 
     SET(OPERATORS_DEPENDS
@@ -748,7 +748,7 @@ ELSEIF(NEKTAR_ENABLE_HIP)
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
        Field/MemoryAlloc.hip
-       MathKernels/Math.cpp
+       Math/Math.cpp
     )
 
     SET(OPERATORS_DEPENDS
@@ -763,7 +763,7 @@ ELSEIF(NEKTAR_ENABLE_SYCL)
 
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
-      MathKernels/Math.cpp
+      Math/Math.cpp
       Common/SYCLQueue.cpp
     )
 
@@ -773,7 +773,7 @@ ELSEIF(NEKTAR_ENABLE_SYCL)
 ELSE()
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
-      MathKernels/Math.cpp
+      Math/Math.cpp
     )
 ENDIF()
 

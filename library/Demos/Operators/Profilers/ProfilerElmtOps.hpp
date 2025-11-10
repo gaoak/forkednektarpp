@@ -46,7 +46,7 @@
 #include <Operators/ElmtOps/PhysDeriv/PhysDerivOp.hpp>
 #include <Operators/Field/Field.hpp>
 #include <Operators/LoopExecution/LoopExecution.hpp>
-#include <Operators/MathKernels/MathKernels.hpp>
+#include <Operators/Math/MathKernels.hpp>
 #include <Operators/Utils/UtilsKernels.hpp>
 
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
