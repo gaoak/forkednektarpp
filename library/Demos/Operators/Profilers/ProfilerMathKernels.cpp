@@ -36,7 +36,7 @@
 #include <iomanip>
 #include <iostream>
 
-#include "Operators/MathKernels/Math.hpp"
+#include "Operators/Math/Math.hpp"
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <LibUtilities/BasicUtils/Timer.h>
 #include <Operators/Field/Field.hpp>
@@ -325,7 +325,7 @@ int main(void)
     ProfilerDaxpy<double, true>(2 << 24);
 
     // Benchmark.
-    for (unsigned int i = 0; i < 24; i++)
+    for (unsigned int i = 4; i < 24; i++)
     {
         ProfilerDaxpy<double>(2 << i);
     }

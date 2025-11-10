@@ -42,7 +42,7 @@
 #include "Operators/ElmtOps/Helmholtz/HelmholtzOp.hpp"
 #include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp"
 #include "Operators/ElmtOps/Mass/MassOp.hpp"
-#include "Operators/MathKernels/MathKernels.hpp"
+#include "Operators/Math/MathKernels.hpp"
 
 namespace Nektar::Operators::detail
 {

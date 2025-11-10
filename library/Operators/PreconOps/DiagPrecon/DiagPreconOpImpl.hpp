@@ -40,7 +40,7 @@
 
 #include "Operators/AssmbScatr/AssmbScatrOpImpl.hpp"
 #include "Operators/BndCondOps/RobBndCond/RobBndCondOp.hpp"
-#include "Operators/MathKernels/MathKernels.hpp"
+#include "Operators/Math/MathKernels.hpp"
 
 #include "Operators/PreconOps/DiagPrecon/DiagPreconKernels.hpp"
 

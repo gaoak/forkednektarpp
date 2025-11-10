@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Operators/MathKernels/Math.hpp"
+#include "Operators/Math/Math.hpp"
 #include <Operators/TimeOps/TimeOp.hpp>
 
 #include <LibUtilities/BasicUtils/Timer.h>

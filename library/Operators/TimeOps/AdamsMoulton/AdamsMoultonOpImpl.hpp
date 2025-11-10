@@ -34,7 +34,6 @@
 
 #pragma once
 
-#include "Operators/MathKernels/MathKernels.hpp"
 #include "Operators/TimeOps/AdamsMoulton/AdamsMoultonKernelLaunchers.hpp"
 #include "Operators/TimeOps/AdamsMoulton/AdamsMoultonOp.hpp"
 #include "Operators/TimeOps/DIRK/DIRKOp.hpp"

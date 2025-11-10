@@ -37,7 +37,7 @@
 #include <StdRegions/StdExpansion.h>
 
 #include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseOp.hpp"
-#include "Operators/MathKernels/MathKernels.hpp"
+#include "Operators/Math/MathKernels.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseCUDASumFacCUBLASHelper.cuh"
