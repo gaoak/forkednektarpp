@@ -75,10 +75,10 @@ using namespace Nektar::LibUtilities;
 /// Compute the expected results of certain operator from the expList
 void GetExpectedResults(const std::string &opName,
                         const MultiRegions::ExpListSharedPtr &expList,
-                        const Array<OneD, NekDouble> &inArr,
-                        const Array<OneD, Array<OneD, NekDouble>> &inArrays,
-                        Array<OneD, NekDouble> &outArr,
-                        Array<OneD, Array<OneD, NekDouble>> &outArrays)
+                        const unsigned int nComp, const unsigned int nIn,
+                        const unsigned int nOut,
+                        const Array<OneD, double> &inArr,
+                        Array<OneD, double> &outArr)
 {
     if (opName == "BwdTrans")
     {
@@ -100,13 +100,20 @@ void GetExpectedResults(const std::string &opName,
     }
     else if (opName == "PhysDeriv")
     {
+        Array<OneD, Array<OneD, double>> outArrays(nOut);
         for (unsigned int d = 0; d < outArrays.size(); d++)
         {
+            outArrays[d] = outArr + d * outArr.size() / nOut / nComp;
             expList->PhysDeriv(d, inArr, outArrays[d]);
         }
     }
     else if (opName == "IProductWRTDerivBase")
     {
+        Array<OneD, Array<OneD, double>> inArrays(nIn);
+        for (unsigned int d = 0; d < nIn; d++)
+        {
+            inArrays[d] = inArr + d * inArr.size() / nIn / nComp;
+        }
         expList->IProductWRTDerivBase(inArrays, outArr);
     }
     else if (opName == "Helmholtz")
@@ -150,7 +157,7 @@ void ReshapeToScalar(Field<TData, stateOut> &in)
 /// blocks, setting verbose may cause the display content too big to read.
 void PrintBlockInfo(const MultiRegions::ExpListSharedPtr &expList,
                     const std::vector<BlockAttributes> &blocks,
-                    std::vector<NekDouble> &rankL1Err)
+                    std::vector<double> &rankL1Err)
 {
     auto comm                 = expList->GetComm();
     unsigned int nrank        = comm->GetSize();
@@ -295,7 +302,7 @@ void PrintBlockInfo(const MultiRegions::ExpListSharedPtr &expList,
 /// number of dofs.
 template <typename TData>
 void PrintProfileResult(const CommSharedPtr comm,
-                        std::vector<NekDouble> &rankElapsed,
+                        std::vector<double> &rankElapsed,
                         const std::vector<BlockAttributes> &inblocks,
                         const std::vector<BlockAttributes> &outblocks)
 {
@@ -320,9 +327,9 @@ void PrintProfileResult(const CommSharedPtr comm,
 
     if (comm->GetRank() == 0)
     {
-        NekDouble maxElapsed = Vmath::Vmax(nrank, allRankElapsed.data(), 1);
-        NekDouble minElapsed = Vmath::Vmin(nrank, allRankElapsed.data(), 1);
-        NekDouble aveElapsed =
+        double maxElapsed = Vmath::Vmax(nrank, allRankElapsed.data(), 1);
+        double minElapsed = Vmath::Vmin(nrank, allRankElapsed.data(), 1);
+        double aveElapsed =
             Vmath::Vsum(nrank, allRankElapsed.data(), 1) / nrank;
 
         // Collect throughput for each rank:
@@ -330,10 +337,10 @@ void PrintProfileResult(const CommSharedPtr comm,
         // and the elapsed time in that rank. The total throughput is the sum of
         // all rank. So the total throughput by this way will not be identical
         // to total dofs divided by the total (min/ave/max) elapsed time.
-        NekDouble inThroughput  = 0.0;
-        NekDouble outThroughput = 0.0;
-        size_t totInDofs        = 0;
-        size_t totOutDofs       = 0;
+        double inThroughput  = 0.0;
+        double outThroughput = 0.0;
+        size_t totInDofs     = 0;
+        size_t totOutDofs    = 0;
         for (unsigned int rank = 0; rank < nrank; rank++)
         {
             inThroughput += allRankNumInDofs[rank] / allRankElapsed[rank];
@@ -392,9 +399,9 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
     }
     if (opName == "LinAdvDiffReaction")
     {
-        Array<OneD, NekDouble> vel(expList->GetCoordim(0) *
-                                       (size_t)expList->GetNpoints(),
-                                   1.0); // prevent overflow
+        Array<OneD, double> vel(expList->GetCoordim(0) *
+                                    (size_t)expList->GetNpoints(),
+                                1.0); // prevent overflow
         std::dynamic_pointer_cast<LinAdvDiffReactionOp<TData>>(oper)->SetLambda(
             -1.0);
         std::dynamic_pointer_cast<LinAdvDiffReactionOp<TData>>(oper)->SetAdvVel(
@@ -415,37 +422,29 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
                                       alignment);
 
     // Initialize the in field to random non-zeros: 1 2 3 4 ...
-    auto &inblk = in.GetBlocks();
-    for (size_t i = 0; i < inblk.size(); ++i)
+    for (size_t i = 0; i < in.GetBlocks().size(); ++i)
     {
-        auto inptr =
-            inblk[i].template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+        auto inptr = in.GetBlocks()[i]
+                         .template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
         for (unsigned int n = 0; n < nIn * nComp; n++)
         {
-            for (size_t j = 0; j < inblk[i].size(); ++j)
+            for (size_t j = 0; j < in.GetBlocks()[i].size(); ++j)
             {
-                inptr[j] = (j + (n + 1.0)) / inblk.size();
+                inptr[j] = (j + (n + 1.0)) / in.GetBlocks().size();
             }
-            inptr += inblk.size();
+            inptr += in.GetBlocks().size();
         }
     }
 
+    // Initialize the out field to zero
+    out.template Initialize<NektarSpaces::HostSpace>(0.0);
+
     // Create input and output Array for explist.
-    Array<OneD, NekDouble> inArr = in.template ToArray<NekDouble>();
-    Array<OneD, NekDouble> outArr(out.size());
-    Array<OneD, Array<OneD, NekDouble>> inArrays(nIn);
-    Array<OneD, Array<OneD, NekDouble>> outArrays(nOut);
-    for (unsigned int d = 0; d < nIn; d++)
-    {
-        inArrays[d] = inArr + d * inArr.size() / nIn / nComp;
-    }
-    for (unsigned int d = 0; d < nOut; d++)
-    {
-        outArrays[d] = outArr + d * outArr.size() / nOut / nComp;
-    }
+    Array<OneD, double> inArr  = in.template ToArray<double>();
+    Array<OneD, double> outArr = out.template ToArray<double>();
 
     // Get expected results from expList.
-    GetExpectedResults(opName, expList, inArr, inArrays, outArr, outArrays);
+    GetExpectedResults(opName, expList, nComp, nIn, nOut, inArr, outArr);
 
     // Warm-up : fill the cache and memory, and let core temperature/freq
     // stabilized.
@@ -475,7 +474,7 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
 
     comm->Block();
 
-    auto rankL1Error = std::vector<NekDouble>(1, 0.0);
+    auto rankL1Error = std::vector<double>(1, 0.0);
 
     // Print block information and get the total number of dofs.
     if (comm->GetRank() == 0)
@@ -498,7 +497,7 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
     // If we compare float results with double results, then it is
     // reasonable to have some mismatched values (e.g., > 1e-4)
     ReshapeToScalar(out);
-    Array<OneD, NekDouble> tmpArr = out.template ToArray<NekDouble>();
+    Array<OneD, double> tmpArr = out.template ToArray<double>();
     for (size_t i = 0, cnt = 0; i < tmpArr.size(); ++i)
     {
         if (opName == "LinAdvDiffReaction")
@@ -533,6 +532,6 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
     comm->Block();
 
     // Collect elapsed time and compute the max, min, and average.
-    auto rankElapsed = std::vector<NekDouble>(1, timer.TimePerTest(Ntest));
+    auto rankElapsed = std::vector<double>(1, timer.TimePerTest(Ntest));
     PrintProfileResult<TData>(comm, rankElapsed, blocks_in, blocks_out);
 }
