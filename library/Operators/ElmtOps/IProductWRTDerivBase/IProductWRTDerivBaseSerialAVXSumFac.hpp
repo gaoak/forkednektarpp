@@ -297,9 +297,7 @@ protected:
                                   inblock.GetNumElements(), false));
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Workspace for kernels.
@@ -307,17 +305,16 @@ protected:
         std::vector<simd_t, tinysimd::allocator<simd_t>> tmp0(nq0);
 
         // Get interleave parameter.
-        const auto interleave_width = inblock.GetInterleaveWidth();
-        const auto width_ratio      = (interleave_width == 1)
-                                          ? 1
-                                          : interleave_width / m_implInterleaveWidth;
-        const auto chunkSize =
-            std::max(m_implInterleaveWidth, interleave_width);
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+        const auto width_ratio     = (interleaveWidth == 1)
+                                         ? 1
+                                         : interleaveWidth / m_implInterleaveWidth;
+        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
         // Loop over components.
-        const auto inoffset = nq0 *
-                              inblock.GetNumElmtGroups(m_implInterleaveWidth) *
-                              inblock.GetNumHomoModes();
+        const auto inoffset = inblock.size() * inblock.GetNumHomoModes();
+        const auto inoffset_vec =
+            inblock.size() * inblock.GetNumHomoModes() / simd_t::width;
         for (unsigned int n = 0;
              n < outblock.GetNumComponents() * outblock.GetNumHomoModes(); ++n)
         {
@@ -332,20 +329,36 @@ protected:
                     for (unsigned int d = 0; d < m_coordDim; ++d)
                     {
                         ReshapeStorage<ExecSpace>(
-                            m_implInterleaveWidth, interleave_width, chunkSize,
-                            nq0,
-                            (TData *)(inptr + d * inoffset * simd_t::width));
+                            m_implInterleaveWidth, interleaveWidth, chunkSize,
+                            nq0, (TData *)(inptr + d * inoffset));
                     }
                 }
 
                 StdAlignDerivBase1D<DEFORMED>(
                     nq0, m_coordDim, reinterpret_cast<const simd_t *>(dfptr),
-                    df_tmp, inoffset, reinterpret_cast<const simd_t *>(inptr),
-                    tmp0.data());
+                    df_tmp, inoffset_vec,
+                    reinterpret_cast<const simd_t *>(inptr), tmp0.data());
                 IProductSegKernel<false, false, DEFORMED>(
                     nm0, nq0, tmp0.data(), m_DB[0], m_W[0],
                     reinterpret_cast<const simd_t *>(jacptr),
                     reinterpret_cast<simd_t *>(outptr));
+
+                // Reshape back, if necessary.
+                if (e % width_ratio == width_ratio - 1)
+                {
+                    for (unsigned int d = 0; d < m_coordDim; ++d)
+                    {
+                        ReshapeStorage<ExecSpace>(
+                            interleaveWidth, m_implInterleaveWidth, chunkSize,
+                            nq0,
+                            (TData *)inptr + d * inoffset -
+                                (width_ratio - 1) * nq0 * simd_t::width);
+                    }
+                    ReshapeStorage<ExecSpace>(
+                        interleaveWidth, m_implInterleaveWidth, chunkSize, nm0,
+                        (TData *)outptr -
+                            (width_ratio - 1) * nm0 * simd_t::width);
+                }
 
                 // Increment pointers for the next elmt group.
                 inptr += nq0 * simd_t::width;
@@ -358,13 +371,12 @@ protected:
             // advanced one component in the above.
             if ((n + 1) % inblock.GetNumHomoModes() == 0)
             {
-                inptr += (m_coordDim - 1) * inoffset * simd_t::width;
+                inptr += (m_coordDim - 1) * inoffset;
             }
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
     // Size based template version.
@@ -388,9 +400,7 @@ protected:
                                   inblock.GetNumElements(), false));
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Workspace for kernels.
@@ -398,17 +408,16 @@ protected:
         std::vector<simd_t, tinysimd::allocator<simd_t>> tmp0(nq0);
 
         // Get interleave parameter.
-        const auto interleave_width = inblock.GetInterleaveWidth();
-        const auto width_ratio      = (interleave_width == 1)
-                                          ? 1
-                                          : interleave_width / m_implInterleaveWidth;
-        const auto chunkSize =
-            std::max(m_implInterleaveWidth, interleave_width);
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+        const auto width_ratio     = (interleaveWidth == 1)
+                                         ? 1
+                                         : interleaveWidth / m_implInterleaveWidth;
+        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
         // Loop over components.
-        const auto inoffset = nq0 *
-                              inblock.GetNumElmtGroups(m_implInterleaveWidth) *
-                              inblock.GetNumHomoModes();
+        const auto inoffset = inblock.size() * inblock.GetNumHomoModes();
+        const auto inoffset_vec =
+            inblock.size() * inblock.GetNumHomoModes() / simd_t::width;
         for (unsigned int n = 0;
              n < outblock.GetNumComponents() * outblock.GetNumHomoModes(); ++n)
         {
@@ -423,20 +432,37 @@ protected:
                     for (unsigned int d = 0; d < m_coordDim; ++d)
                     {
                         ReshapeStorage<ExecSpace>(
-                            m_implInterleaveWidth, interleave_width, chunkSize,
-                            nq0,
-                            (TData *)(inptr + d * inoffset * simd_t::width));
+                            m_implInterleaveWidth, interleaveWidth, chunkSize,
+                            nq0, (TData *)(inptr + d * inoffset));
                     }
                 }
 
                 StdAlignDerivBase1D<DEFORMED>(
                     nq0, m_coordDim, reinterpret_cast<const simd_t *>(dfptr),
-                    df_tmp, inoffset, reinterpret_cast<const simd_t *>(inptr),
-                    tmp0.data());
+                    df_tmp, inoffset_vec,
+                    reinterpret_cast<const simd_t *>(inptr), tmp0.data());
                 IProductSegKernel<false, false, DEFORMED>(
                     nm0, nq0, tmp0.data(), m_DB[0], m_W[0],
                     reinterpret_cast<const simd_t *>(jacptr),
                     reinterpret_cast<simd_t *>(outptr));
+
+                // Reshape back, if necessary.
+                if (e % width_ratio == width_ratio - 1)
+                {
+                    for (unsigned int d = 0; d < m_coordDim; ++d)
+                    {
+                        ReshapeStorage<ExecSpace>(
+                            interleaveWidth, m_implInterleaveWidth, chunkSize,
+                            nq0,
+                            (TData *)inptr +
+                                d * inblock.size() * inblock.GetNumHomoModes() -
+                                (width_ratio - 1) * nq0 * simd_t::width);
+                    }
+                    ReshapeStorage<ExecSpace>(
+                        interleaveWidth, m_implInterleaveWidth, chunkSize, nm0,
+                        (TData *)outptr -
+                            (width_ratio - 1) * nm0 * simd_t::width);
+                }
 
                 // Increment pointers for the next elmt group.
                 inptr += nq0 * simd_t::width;
@@ -449,13 +475,12 @@ protected:
             // advanced one component in the above.
             if ((n + 1) % inblock.GetNumHomoModes() == 0)
             {
-                inptr += (m_coordDim - 1) * inoffset * simd_t::width;
+                inptr += (m_coordDim - 1) * inoffset;
             }
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
     // Non-size based operator.
@@ -490,9 +515,7 @@ protected:
                                   inblock.GetNumElements(), false));
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Workspace for kernels.
@@ -507,17 +530,16 @@ protected:
         std::vector<simd_t, tinysimd::allocator<simd_t>> tmp2(nqTot);
 
         // Get interleave parameter.
-        const auto interleave_width = inblock.GetInterleaveWidth();
-        const auto width_ratio      = (interleave_width == 1)
-                                          ? 1
-                                          : interleave_width / m_implInterleaveWidth;
-        const auto chunkSize =
-            std::max(m_implInterleaveWidth, interleave_width);
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+        const auto width_ratio     = (interleaveWidth == 1)
+                                         ? 1
+                                         : interleaveWidth / m_implInterleaveWidth;
+        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
         // Loop over components.
-        const auto inoffset = nqTot *
-                              inblock.GetNumElmtGroups(m_implInterleaveWidth) *
-                              inblock.GetNumHomoModes();
+        const auto inoffset = inblock.size() * inblock.GetNumHomoModes();
+        const auto inoffset_vec =
+            inblock.size() * inblock.GetNumHomoModes() / simd_t::width;
         for (unsigned int n = 0;
              n < outblock.GetNumComponents() * outblock.GetNumHomoModes(); ++n)
         {
@@ -532,24 +554,41 @@ protected:
                     for (unsigned int d = 0; d < m_coordDim; ++d)
                     {
                         ReshapeStorage<ExecSpace>(
-                            m_implInterleaveWidth, interleave_width, chunkSize,
-                            nqTot,
-                            (TData *)(inptr + d * inoffset * simd_t::width));
+                            m_implInterleaveWidth, interleaveWidth, chunkSize,
+                            nqTot, (TData *)(inptr + d * inoffset));
                     }
                 }
 
                 StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(
                     nq0, nq1, m_coordDim,
-                    reinterpret_cast<const simd_t *>(dfptr), df_tmp, inoffset,
-                    reinterpret_cast<const simd_t *>(inptr), tmpPtr, m_f[0],
-                    m_f[1], reinterpret_cast<const simd_t *>(jacptr), m_W[0],
-                    m_W[1]);
+                    reinterpret_cast<const simd_t *>(dfptr), df_tmp,
+                    inoffset_vec, reinterpret_cast<const simd_t *>(inptr),
+                    tmpPtr, m_f[0], m_f[1],
+                    reinterpret_cast<const simd_t *>(jacptr), m_W[0], m_W[1]);
                 SumDerivTensor2DKernel<simd_t>(nq0, nq1, tmpPtr[0], tmpPtr[1],
                                                m_D[0], m_D[1], tmp2.data());
                 IProduct2DKernel<SHAPE_TYPE, false, false, simd_t>(
                     nm0, nm1, nq0, nq1, m_isModified, tmp2.data(), m_B[0],
                     m_B[1], m_nodToModTrans, wsp.data(),
                     reinterpret_cast<simd_t *>(outptr), 1.0);
+
+                // Reshape back, if necessary.
+                if (e % width_ratio == width_ratio - 1)
+                {
+                    for (unsigned int d = 0; d < m_coordDim; ++d)
+                    {
+                        ReshapeStorage<ExecSpace>(
+                            interleaveWidth, m_implInterleaveWidth, chunkSize,
+                            nqTot,
+                            (TData *)inptr + d * inoffset -
+                                (width_ratio - 1) * nqTot * simd_t::width);
+                    }
+                    ReshapeStorage<ExecSpace>(
+                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        nmTot,
+                        (TData *)outptr -
+                            (width_ratio - 1) * nmTot * simd_t::width);
+                }
 
                 // Increment pointers for the next elmt group.
                 inptr += nqTot * simd_t::width;
@@ -562,13 +601,12 @@ protected:
             // advanced one component in the above.
             if ((n + 1) % inblock.GetNumHomoModes() == 0)
             {
-                inptr += (m_coordDim - 1) * inoffset * simd_t::width;
+                inptr += (m_coordDim - 1) * inoffset;
             }
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
     // Size based template version.
@@ -599,9 +637,7 @@ protected:
                                   inblock.GetNumElements(), false));
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Workspace for kernels.
@@ -616,17 +652,16 @@ protected:
         std::vector<simd_t, tinysimd::allocator<simd_t>> tmp2(nqTot);
 
         // Get interleave parameter.
-        const auto interleave_width = inblock.GetInterleaveWidth();
-        const auto width_ratio      = (interleave_width == 1)
-                                          ? 1
-                                          : interleave_width / m_implInterleaveWidth;
-        const auto chunkSize =
-            std::max(m_implInterleaveWidth, interleave_width);
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+        const auto width_ratio     = (interleaveWidth == 1)
+                                         ? 1
+                                         : interleaveWidth / m_implInterleaveWidth;
+        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
         // Loop over components.
-        const auto inoffset = nqTot *
-                              inblock.GetNumElmtGroups(m_implInterleaveWidth) *
-                              inblock.GetNumHomoModes();
+        const auto inoffset = inblock.size() * inblock.GetNumHomoModes();
+        const auto inoffset_vec =
+            inblock.size() * inblock.GetNumHomoModes() / simd_t::width;
         for (unsigned int n = 0;
              n < outblock.GetNumComponents() * outblock.GetNumHomoModes(); ++n)
         {
@@ -641,24 +676,41 @@ protected:
                     for (unsigned int d = 0; d < m_coordDim; ++d)
                     {
                         ReshapeStorage<ExecSpace>(
-                            m_implInterleaveWidth, interleave_width, chunkSize,
-                            nqTot,
-                            (TData *)(inptr + d * inoffset * simd_t::width));
+                            m_implInterleaveWidth, interleaveWidth, chunkSize,
+                            nqTot, (TData *)(inptr + d * inoffset));
                     }
                 }
 
                 StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(
                     nq0, nq1, m_coordDim,
-                    reinterpret_cast<const simd_t *>(dfptr), df_tmp, inoffset,
-                    reinterpret_cast<const simd_t *>(inptr), tmpPtr, m_f[0],
-                    m_f[1], reinterpret_cast<const simd_t *>(jacptr), m_W[0],
-                    m_W[1]);
+                    reinterpret_cast<const simd_t *>(dfptr), df_tmp,
+                    inoffset_vec, reinterpret_cast<const simd_t *>(inptr),
+                    tmpPtr, m_f[0], m_f[1],
+                    reinterpret_cast<const simd_t *>(jacptr), m_W[0], m_W[1]);
                 SumDerivTensor2DKernel<simd_t>(nq0, nq1, tmpPtr[0], tmpPtr[1],
                                                m_D[0], m_D[1], tmp2.data());
                 IProduct2DKernel<SHAPE_TYPE, false, false, simd_t>(
                     nm0, nm1, nq0, nq1, m_isModified, tmp2.data(), m_B[0],
                     m_B[1], m_nodToModTrans, wsp.data(),
                     reinterpret_cast<simd_t *>(outptr), 1.0);
+
+                // Reshape back, if necessary.
+                if (e % width_ratio == width_ratio - 1)
+                {
+                    for (unsigned int d = 0; d < m_coordDim; ++d)
+                    {
+                        ReshapeStorage<ExecSpace>(
+                            interleaveWidth, m_implInterleaveWidth, chunkSize,
+                            nqTot,
+                            (TData *)inptr + d * inoffset -
+                                (width_ratio - 1) * nqTot * simd_t::width);
+                    }
+                    ReshapeStorage<ExecSpace>(
+                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        nmTot,
+                        (TData *)outptr -
+                            (width_ratio - 1) * nmTot * simd_t::width);
+                }
 
                 // Increment pointers for the next elmt group.
                 inptr += nqTot * simd_t::width;
@@ -671,13 +723,12 @@ protected:
             // advanced one component in the above.
             if ((n + 1) % inblock.GetNumHomoModes() == 0)
             {
-                inptr += (m_coordDim - 1) * inoffset * simd_t::width;
+                inptr += (m_coordDim - 1) * inoffset;
             }
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
     // Non-size based operator.
@@ -714,9 +765,7 @@ protected:
                                   inblock.GetNumElements(), false));
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Workspace for kernels.
@@ -735,12 +784,11 @@ protected:
         std::vector<simd_t, tinysimd::allocator<simd_t>> df_tmp(ndf);
 
         // Get interleave parameter.
-        const auto interleave_width = inblock.GetInterleaveWidth();
-        const auto width_ratio      = (interleave_width == 1)
-                                          ? 1
-                                          : interleave_width / m_implInterleaveWidth;
-        const auto chunkSize =
-            std::max(m_implInterleaveWidth, interleave_width);
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+        const auto width_ratio     = (interleaveWidth == 1)
+                                         ? 1
+                                         : interleaveWidth / m_implInterleaveWidth;
+        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
         // Loop over components.
         for (unsigned int n = 0; n < outblock.GetNumComponents(); ++n)
@@ -756,7 +804,7 @@ protected:
                     for (unsigned int d = 0; d < 3; ++d)
                     {
                         ReshapeStorage<ExecSpace>(
-                            m_implInterleaveWidth, interleave_width, chunkSize,
+                            m_implInterleaveWidth, interleaveWidth, chunkSize,
                             nqTot, (TData *)(inptr + d * inblock.size()));
                     }
                 }
@@ -777,6 +825,24 @@ protected:
                     wsp1.data(), wsp2.data(),
                     reinterpret_cast<simd_t *>(outptr), 1.0);
 
+                // Reshape back, if necessary.
+                if (e % width_ratio == width_ratio - 1)
+                {
+                    for (unsigned int d = 0; d < 3; ++d)
+                    {
+                        ReshapeStorage<ExecSpace>(
+                            interleaveWidth, m_implInterleaveWidth, chunkSize,
+                            nqTot,
+                            (TData *)inptr + d * inblock.size() -
+                                (width_ratio - 1) * nqTot * simd_t::width);
+                    }
+                    ReshapeStorage<ExecSpace>(
+                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        nmTot,
+                        (TData *)outptr -
+                            (width_ratio - 1) * nmTot * simd_t::width);
+                }
+
                 // Increment pointers for the next elmt group.
                 inptr += nqTot * simd_t::width;
                 outptr += nmTot * simd_t::width;
@@ -786,13 +852,11 @@ protected:
 
             // Advance input by m_coordDim-1 componennts since have already
             // advanced one component in the above.
-            inptr += nqTot * inblock.GetNumElmtGroups(m_implInterleaveWidth) *
-                     2 * simd_t::width;
+            inptr += 2 * inblock.size();
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
     // Size based template version.
@@ -823,9 +887,7 @@ protected:
                                   inblock.GetNumElements(), false));
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Workspace for kernels.
@@ -844,12 +906,11 @@ protected:
         std::vector<simd_t, tinysimd::allocator<simd_t>> df_tmp(ndf);
 
         // Get interleave parameter.
-        const auto interleave_width = inblock.GetInterleaveWidth();
-        const auto width_ratio      = (interleave_width == 1)
-                                          ? 1
-                                          : interleave_width / m_implInterleaveWidth;
-        const auto chunkSize =
-            std::max(m_implInterleaveWidth, interleave_width);
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+        const auto width_ratio     = (interleaveWidth == 1)
+                                         ? 1
+                                         : interleaveWidth / m_implInterleaveWidth;
+        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
         // Loop over components.
         for (unsigned int n = 0; n < outblock.GetNumComponents(); ++n)
@@ -865,7 +926,7 @@ protected:
                     for (unsigned int d = 0; d < 3; ++d)
                     {
                         ReshapeStorage<ExecSpace>(
-                            m_implInterleaveWidth, interleave_width, chunkSize,
+                            m_implInterleaveWidth, interleaveWidth, chunkSize,
                             nqTot, (TData *)(inptr + d * inblock.size()));
                     }
                 }
@@ -886,6 +947,24 @@ protected:
                     wsp1.data(), wsp2.data(),
                     reinterpret_cast<simd_t *>(outptr), 1.0);
 
+                // Reshape back, if necessary.
+                if (e % width_ratio == width_ratio - 1)
+                {
+                    for (unsigned int d = 0; d < 3; ++d)
+                    {
+                        ReshapeStorage<ExecSpace>(
+                            interleaveWidth, m_implInterleaveWidth, chunkSize,
+                            nqTot,
+                            (TData *)inptr + d * inblock.size() -
+                                (width_ratio - 1) * nqTot * simd_t::width);
+                    }
+                    ReshapeStorage<ExecSpace>(
+                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        nmTot,
+                        (TData *)outptr -
+                            (width_ratio - 1) * nmTot * simd_t::width);
+                }
+
                 // Increment pointers for the next elmt group.
                 inptr += nqTot * simd_t::width;
                 outptr += nmTot * simd_t::width;
@@ -895,13 +974,11 @@ protected:
 
             // Advance input by m_coordDim-1 componennts since have already
             // advanced one component in the above.
-            inptr += nqTot * inblock.GetNumElmtGroups(m_implInterleaveWidth) *
-                     2 * simd_t::width;
+            inptr += 2 * inblock.size();
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 };
 

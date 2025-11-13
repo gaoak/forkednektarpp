@@ -90,14 +90,15 @@ protected:
             inblock.GetNumData() * inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         auto coordptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
             CoordKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                             inblock.GetNumElements(), false));
+
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
 
         // Loop over components.
         unsigned int nc;
@@ -111,13 +112,11 @@ protected:
             std::vector<TData> fielddata(m_numEvars[nc]);
 
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                      inblock.GetInterleaveWidth(),
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
                                       inblock.GetNumElementsWithPadding(),
                                       inblock.GetNumData(), (TData *)inptr);
 
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                      outblock.GetInterleaveWidth(),
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
                                       outblock.GetNumElementsWithPadding(),
                                       outblock.GetNumData(), (TData *)outptr);
 
@@ -156,9 +155,21 @@ protected:
                 }
             }
 
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      inblock.GetNumElementsWithPadding(),
+                                      inblock.GetNumData(), (TData *)inptr);
+
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      outblock.GetNumElementsWithPadding(),
+                                      outblock.GetNumData(), (TData *)outptr);
+
             // Increment pointer.
             outptr += outblock.size();
         }
+
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
     void v_SetExpressions(

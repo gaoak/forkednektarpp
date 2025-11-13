@@ -110,27 +110,24 @@ protected:
                                   inblock.GetNumElements(), false));
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Get interleave parameter.
-        const auto interleave_width = inblock.GetInterleaveWidth();
-        const auto width_ratio      = (interleave_width == 1)
-                                          ? 1
-                                          : interleave_width / m_implInterleaveWidth;
-        const auto chunkSize =
-            std::max(m_implInterleaveWidth, interleave_width);
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+        const auto width_ratio     = (interleaveWidth == 1)
+                                         ? 1
+                                         : interleaveWidth / m_implInterleaveWidth;
+        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
         // Dispatch kernel.
         auto gemm_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
             simd_t::width, m_nqTot, m_nqTot, 1.0, 0.0);
 
         // Loop over components.
-        const auto outoffset =
-            m_nqTot * outblock.GetNumElmtGroups(m_implInterleaveWidth) *
-            outblock.GetNumHomoModes();
+        const auto outoffset = outblock.size() * outblock.GetNumHomoModes();
+        const auto outoffset_vec =
+            outblock.size() * outblock.GetNumHomoModes() / simd_t::width;
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
@@ -144,24 +141,23 @@ protected:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleave_width, chunkSize,
+                                              interleaveWidth, chunkSize,
                                               m_nqTot, (TData *)inptr);
                 }
 
                 // Perform matrix-matrix multiply.
-                for (unsigned int d = 0; d < m_dimension; d++)
+                for (unsigned int d = 0; d < m_coordDim; d++)
                 {
                     gemm_kernel(inptr, m_matptr + d * m_nqTot * m_nqTot,
-                                outptr + d * outblock.size() *
-                                             outblock.GetNumHomoModes());
+                                outptr + d * outoffset);
                 }
 
                 // Multiply by derivative factor.
                 if (m_isDeformed)
                 {
                     MultiplyByDerivFactorKernel<ExecSpace, true>(
-                        m_nqTot, m_coordDim, m_dimension, 1, outoffset,
-                        outoffset, reinterpret_cast<const simd_t *>(dfptr),
+                        m_nqTot, m_coordDim, m_dimension, 1, outoffset_vec,
+                        outoffset_vec, reinterpret_cast<const simd_t *>(dfptr),
                         reinterpret_cast<const simd_t *>(outptr),
                         reinterpret_cast<simd_t *>(outptr));
                     dfptr += m_coordDim * m_dimension * m_nqTot * simd_t::width;
@@ -169,11 +165,29 @@ protected:
                 else
                 {
                     MultiplyByDerivFactorKernel<ExecSpace, false>(
-                        m_nqTot, m_coordDim, m_dimension, 1, outoffset,
-                        outoffset, reinterpret_cast<const simd_t *>(dfptr),
+                        m_nqTot, m_coordDim, m_dimension, 1, outoffset_vec,
+                        outoffset_vec, reinterpret_cast<const simd_t *>(dfptr),
                         reinterpret_cast<const simd_t *>(outptr),
                         reinterpret_cast<simd_t *>(outptr));
                     dfptr += m_coordDim * m_dimension * simd_t::width;
+                }
+
+                // Reshape back, if necessary.
+                if (e % width_ratio == width_ratio - 1)
+                {
+                    ReshapeStorage<ExecSpace>(
+                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        m_nqTot,
+                        (TData *)inptr -
+                            (width_ratio - 1) * m_nqTot * simd_t::width);
+                    for (unsigned int d = 0; d < m_coordDim; d++)
+                    {
+                        ReshapeStorage<ExecSpace>(
+                            interleaveWidth, m_implInterleaveWidth, chunkSize,
+                            m_nqTot,
+                            (TData *)outptr + d * outoffset -
+                                (width_ratio - 1) * m_nqTot * simd_t::width);
+                    }
                 }
 
                 // Increment pointer.
@@ -183,13 +197,12 @@ protected:
 
             if ((n + 1) % outblock.GetNumHomoModes() == 0)
             {
-                outptr += (m_coordDim - 1) * outoffset * simd_t::width;
+                outptr += (m_coordDim - 1) * outoffset;
             }
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 };
 

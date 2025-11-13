@@ -220,12 +220,10 @@ protected:
     {
         const auto nm0   = m_nm[0];
         const auto nq0   = m_nq[0];
-        const auto nelmt = inblock.GetNumElements();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Fetch Jacobian data.
@@ -243,28 +241,36 @@ protected:
         // Get workspace pointer.
         auto wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
 
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                      inblock.GetInterleaveWidth(),
-                                      inblock.GetNumElementsWithPadding(),
-                                      inblock.GetNumData(), (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
 
             // IProduct.
             IProductWRTBaseSegSumFacKernel<ExecSpace>(
                 nq0, nm0, nelmt, m_B[0], m_W[0], jacptr, inptr, outptr, wspptr,
                 m_isDeformed);
 
+            // Reshape back, if necessary.
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, outblock.GetNumData(), outptr);
+
             // Increment pointers.
             inptr += inblock.size();
             outptr += outblock.size();
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
     void QuadBlock(BlockAccessor<TData> &inblock,
@@ -276,12 +282,10 @@ protected:
         const auto nq1   = m_nq[1];
         const auto nqTot = m_nqTot;
         const auto nmTot = m_nmTot;
-        const auto nelmt = inblock.GetNumElements();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Fetch Jacobian data.
@@ -299,28 +303,36 @@ protected:
         // Get workspace pointer.
         auto wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
 
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                      inblock.GetInterleaveWidth(),
-                                      inblock.GetNumElementsWithPadding(),
-                                      inblock.GetNumData(), (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
 
             // IProduct.
             IProductWRTBaseQuadSumFacKernel<ExecSpace>(
                 nq0, nm0, nq1, nm1, nqTot, nmTot, nelmt, m_B[0], m_B[1], m_W[0],
                 m_W[1], jacptr, inptr, outptr, wspptr, m_isDeformed);
 
+            // Reshape back, if necessary.
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, outblock.GetNumData(), outptr);
+
             // Increment pointers.
             inptr += inblock.size();
             outptr += outblock.size();
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
     void TriBlock(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
@@ -329,14 +341,12 @@ protected:
         const auto nm1   = m_nm[1];
         const auto nq0   = m_nq[0];
         const auto nq1   = m_nq[1];
-        const auto nelmt = inblock.GetNumElements();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
         const auto nqTot = m_nqTot;
         const auto nmTot = m_nmTot;
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Fetch Jacobian data.
@@ -362,20 +372,29 @@ protected:
         // Get workspace pointer.
         auto wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
 
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                      inblock.GetInterleaveWidth(),
-                                      inblock.GetNumElementsWithPadding(),
-                                      inblock.GetNumData(), (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
 
             // IProduct.
             IProductWRTBaseTriSumFacKernel<ExecSpace>(
                 nq0, nm0, nq1, nm1, nqTot, nmTot, nelmt, m_B[0], m_B[1], m_W[0],
                 m_W[1], jacptr, inptr, outptr, wspptr, m_isDeformed,
                 m_isModified, streams);
+
+            // Reshape back, if necessary.
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, outblock.GetNumData(), outptr);
 
             // Increment pointers.
             inptr += inblock.size();
@@ -388,9 +407,8 @@ protected:
             cudaStreamDestroy(streams[s]);
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
     void HexBlock(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
@@ -401,14 +419,12 @@ protected:
         const auto nq0   = m_nq[0];
         const auto nq1   = m_nq[1];
         const auto nq2   = m_nq[2];
-        const auto nelmt = inblock.GetNumElements();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
         const auto nqTot = m_nqTot;
         const auto nmTot = m_nmTot;
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Fetch Jacobian data.
@@ -426,14 +442,16 @@ protected:
         // Get workspace pointer.
         auto wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
 
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                      inblock.GetInterleaveWidth(),
-                                      inblock.GetNumElementsWithPadding(),
-                                      inblock.GetNumData(), (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
 
             // IProduct.
             IProductWRTBaseHexSumFacKernel<ExecSpace>(
@@ -441,14 +459,20 @@ protected:
                 m_B[1], m_B[2], m_W[0], m_W[1], m_W[2], jacptr, inptr, outptr,
                 wspptr, m_isDeformed);
 
+            // Reshape back, if necessary.
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, outblock.GetNumData(), outptr);
+
             // Increment pointers.
             inptr += inblock.size();
             outptr += outblock.size();
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
     void PrismBlock(BlockAccessor<TData> &inblock,
@@ -460,14 +484,12 @@ protected:
         const auto nq0   = m_nq[0];
         const auto nq1   = m_nq[1];
         const auto nq2   = m_nq[2];
-        const auto nelmt = inblock.GetNumElements();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
         const auto nqTot = m_nqTot;
         const auto nmTot = m_nmTot;
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Fetch Jacobian data.
@@ -492,20 +514,29 @@ protected:
         // Get workspace pointer.
         auto wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
 
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                      inblock.GetInterleaveWidth(),
-                                      inblock.GetNumElementsWithPadding(),
-                                      inblock.GetNumData(), (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
 
             // IProduct.
             IProductWRTBasePrismSumFacKernel<ExecSpace>(
                 nq0, nm0, nq1, nm1, nq2, nm2, nqTot, nmTot, nelmt, m_B[0],
                 m_B[1], m_B[2], m_W[0], m_W[1], m_W[2], jacptr, inptr, outptr,
                 wspptr, m_isDeformed, m_isModified, streams);
+
+            // Reshape back, if necessary.
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, outblock.GetNumData(), outptr);
 
             // Increment pointers.
             inptr += inblock.size();
@@ -518,9 +549,8 @@ protected:
             cudaStreamDestroy(streams[s]);
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
     void PyrBlock(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
@@ -531,14 +561,12 @@ protected:
         const auto nq0   = m_nq[0];
         const auto nq1   = m_nq[1];
         const auto nq2   = m_nq[2];
-        const auto nelmt = inblock.GetNumElements();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
         const auto nqTot = m_nqTot;
         const auto nmTot = m_nmTot;
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Fetch Jacobian data.
@@ -564,20 +592,29 @@ protected:
         // Get workspace pointer.
         auto wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
 
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                      inblock.GetInterleaveWidth(),
-                                      inblock.GetNumElementsWithPadding(),
-                                      inblock.GetNumData(), (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
 
             // IProduct.
             IProductWRTBasePyrSumFacKernel<ExecSpace>(
                 nq0, nm0, nq1, nm1, nq2, nm2, nqTot, nmTot, nelmt, m_B[0],
                 m_B[1], m_B[2], m_W[0], m_W[1], m_W[2], jacptr, inptr, outptr,
                 wspptr, m_isDeformed, m_isModified, streams);
+
+            // Reshape back, if necessary.
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, outblock.GetNumData(), outptr);
 
             // Increment pointers.
             inptr += inblock.size();
@@ -590,9 +627,8 @@ protected:
             cudaStreamDestroy(streams[s]);
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
     void TetBlock(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
@@ -603,14 +639,12 @@ protected:
         const auto nq0   = m_nq[0];
         const auto nq1   = m_nq[1];
         const auto nq2   = m_nq[2];
-        const auto nelmt = inblock.GetNumElements();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
         const auto nqTot = m_nqTot;
         const auto nmTot = m_nmTot;
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Fetch Jacobian data.
@@ -636,20 +670,29 @@ protected:
         // Get workspace pointer.
         auto wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
 
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                      inblock.GetInterleaveWidth(),
-                                      inblock.GetNumElementsWithPadding(),
-                                      inblock.GetNumData(), (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
 
             // IProduct.
             IProductWRTBaseTetSumFacKernel<ExecSpace>(
                 nq0, nm0, nq1, nm1, nq2, nm2, nqTot, nmTot, nelmt, m_B[0],
                 m_B[1], m_B[2], m_W[0], m_W[1], m_W[2], jacptr, inptr, outptr,
                 wspptr, m_isDeformed, m_isModified, streams);
+
+            // Reshape back, if necessary.
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, outblock.GetNumData(), outptr);
 
             // Increment pointers.
             inptr += inblock.size();
@@ -662,9 +705,8 @@ protected:
             cudaStreamDestroy(streams[s]);
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 };
 

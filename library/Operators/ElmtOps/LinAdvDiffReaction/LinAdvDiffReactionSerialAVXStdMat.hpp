@@ -97,10 +97,8 @@ public:
             StdMatKey<TData>(basisKeys, m_shapeType,
                              eIProductWRTDerivBaseStdMatTranspose, nodalType));
 
-        m_diffCoeff.template Initialize<MemSpace>(0);
-
         TData *diffCoeff =
-            m_diffCoeff.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
+            m_diffCoeff.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
         for (unsigned int d = 0; d < m_coordDim; d++)
         {
@@ -153,9 +151,7 @@ protected:
             this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Allocate storage.
@@ -172,12 +168,11 @@ protected:
         auto derivptr = m_deriv.template GetPtr<MemSpace, WriteOnly>();
 
         // Get interleave parameter.
-        const auto interleave_width = inblock.GetInterleaveWidth();
-        const auto width_ratio      = (interleave_width == 1)
-                                          ? 1
-                                          : interleave_width / m_implInterleaveWidth;
-        const auto chunkSize =
-            std::max(m_implInterleaveWidth, interleave_width);
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+        const auto width_ratio     = (interleaveWidth == 1)
+                                         ? 1
+                                         : interleaveWidth / m_implInterleaveWidth;
+        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
         // Dispatch kernel.
         auto bwd_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
@@ -208,7 +203,7 @@ protected:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleave_width, chunkSize,
+                                              interleaveWidth, chunkSize,
                                               m_nmTot, (TData *)inptr);
                 }
 
@@ -304,6 +299,21 @@ protected:
                                m_ipdmat + d * m_nqTot * m_nmTot, outptr);
                 }
 
+                // Reshape back, if necessary.
+                if (e % width_ratio == width_ratio - 1)
+                {
+                    ReshapeStorage<ExecSpace>(
+                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        m_nmTot,
+                        (TData *)inptr -
+                            (width_ratio - 1) * m_nmTot * simd_t::width);
+                    ReshapeStorage<ExecSpace>(
+                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        m_nmTot,
+                        (TData *)outptr -
+                            (width_ratio - 1) * m_nmTot * simd_t::width);
+                }
+
                 // Increment pointers.
                 inptr += m_nmTot * simd_t::width;
                 outptr += m_nmTot * simd_t::width;
@@ -311,9 +321,8 @@ protected:
             }
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
     void v_SetLambda(const TData &lambda) override
@@ -324,8 +333,8 @@ protected:
     void v_SetAdvVel(const unsigned int nVel,
                      BlockAccessor<TData> &advVel) override
     {
-        auto interleaveWidth = advVel.GetInterleaveWidth();
-        this->m_advVel       = advVel.template GetPtr<MemSpace, ReadWrite>();
+        const auto interleaveWidth = advVel.GetInterleaveWidth();
+        this->m_advVel = advVel.template GetPtr<MemSpace, ReadWrite>();
         for (unsigned int n = 0; n < nVel; n++)
         {
             ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,

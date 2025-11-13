@@ -241,18 +241,15 @@ protected:
                                   inblock.GetNumElements(), false));
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Get interleave parameter.
-        const auto interleave_width = inblock.GetInterleaveWidth();
-        const auto width_ratio      = (interleave_width == 1)
-                                          ? 1
-                                          : interleave_width / m_implInterleaveWidth;
-        const auto chunkSize =
-            std::max(m_implInterleaveWidth, interleave_width);
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+        const auto width_ratio     = (interleaveWidth == 1)
+                                         ? 1
+                                         : interleaveWidth / m_implInterleaveWidth;
+        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
         // Loop over components.
         const auto compOffset =
@@ -275,8 +272,8 @@ protected:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleave_width, chunkSize,
-                                              nqTot, (TData *)inptr);
+                                              interleaveWidth, chunkSize, nqTot,
+                                              (TData *)inptr);
                 }
 
                 // Get the basic derivative.
@@ -288,6 +285,24 @@ protected:
                 PhysDeriv1DKernel<SHAPE_TYPE, DEFORMED>(
                     nq0, m_coordDim, reinterpret_cast<const simd_t *>(dfptr),
                     outvec);
+
+                // Reshape back, if necessary.
+                if (e % width_ratio == width_ratio - 1)
+                {
+                    ReshapeStorage<ExecSpace>(
+                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        nqTot,
+                        (TData *)inptr -
+                            (width_ratio - 1) * nqTot * simd_t::width);
+                    for (unsigned int d = 0; d < m_coordDim; d++)
+                    {
+                        ReshapeStorage<ExecSpace>(
+                            interleaveWidth, m_implInterleaveWidth, chunkSize,
+                            nqTot,
+                            (TData *)outvec[d] -
+                                (width_ratio - 1) * nqTot * simd_t::width);
+                    }
+                }
 
                 // Increment pointers for the next elmt group.
                 dfptr += dfsize * simd_t::width;
@@ -309,9 +324,8 @@ protected:
             }
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
     // Size based template version.
@@ -335,18 +349,15 @@ protected:
                                   inblock.GetNumElements(), false));
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Get interleave parameter.
-        const auto interleave_width = inblock.GetInterleaveWidth();
-        const auto width_ratio      = (interleave_width == 1)
-                                          ? 1
-                                          : interleave_width / m_implInterleaveWidth;
-        const auto chunkSize =
-            std::max(m_implInterleaveWidth, interleave_width);
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+        const auto width_ratio     = (interleaveWidth == 1)
+                                         ? 1
+                                         : interleaveWidth / m_implInterleaveWidth;
+        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
         // Loop over components.
         const auto compOffset =
@@ -368,8 +379,8 @@ protected:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleave_width, chunkSize,
-                                              nqTot, (TData *)inptr);
+                                              interleaveWidth, chunkSize, nqTot,
+                                              (TData *)inptr);
                 }
 
                 // Get the basic derivative.
@@ -381,6 +392,24 @@ protected:
                 PhysDeriv1DKernel<SHAPE_TYPE, DEFORMED>(
                     nq0, coordDim, reinterpret_cast<const simd_t *>(dfptr),
                     outvec);
+
+                // Reshape back, if necessary.
+                if (e % width_ratio == width_ratio - 1)
+                {
+                    ReshapeStorage<ExecSpace>(
+                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        nqTot,
+                        (TData *)inptr -
+                            (width_ratio - 1) * nqTot * simd_t::width);
+                    for (unsigned int d = 0; d < m_coordDim; d++)
+                    {
+                        ReshapeStorage<ExecSpace>(
+                            interleaveWidth, m_implInterleaveWidth, chunkSize,
+                            nqTot,
+                            (TData *)outvec[d] -
+                                (width_ratio - 1) * nqTot * simd_t::width);
+                    }
+                }
 
                 // Increment pointers for the next elmt group.
                 dfptr += dfsize * simd_t::width;
@@ -402,9 +431,8 @@ protected:
             }
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
     // Non-size based operator.
@@ -430,18 +458,15 @@ protected:
                                   inblock.GetNumElements(), false));
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Get interleave parameter.
-        const auto interleave_width = inblock.GetInterleaveWidth();
-        const auto width_ratio      = (interleave_width == 1)
-                                          ? 1
-                                          : interleave_width / m_implInterleaveWidth;
-        const auto chunkSize =
-            std::max(m_implInterleaveWidth, interleave_width);
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+        const auto width_ratio     = (interleaveWidth == 1)
+                                         ? 1
+                                         : interleaveWidth / m_implInterleaveWidth;
+        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
         // Loop over components.
         const auto compOffset =
@@ -463,8 +488,8 @@ protected:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleave_width, chunkSize,
-                                              nqTot, (TData *)inptr);
+                                              interleaveWidth, chunkSize, nqTot,
+                                              (TData *)inptr);
                 }
 
                 // Results written to outvec0, outvec1.
@@ -476,6 +501,24 @@ protected:
                 PhysDeriv2DKernel<SHAPE_TYPE, DEFORMED>(
                     nq0, nq1, m_coordDim, m_Z[0], m_Z[1],
                     reinterpret_cast<const simd_t *>(dfptr), outvec);
+
+                // Reshape back, if necessary.
+                if (e % width_ratio == width_ratio - 1)
+                {
+                    ReshapeStorage<ExecSpace>(
+                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        nqTot,
+                        (TData *)inptr -
+                            (width_ratio - 1) * nqTot * simd_t::width);
+                    for (unsigned int d = 0; d < m_coordDim; d++)
+                    {
+                        ReshapeStorage<ExecSpace>(
+                            interleaveWidth, m_implInterleaveWidth, chunkSize,
+                            nqTot,
+                            (TData *)outvec[d] -
+                                (width_ratio - 1) * nqTot * simd_t::width);
+                    }
+                }
 
                 // Increment pointers for the next elmt group.
                 dfptr += dfsize * simd_t::width;
@@ -497,9 +540,8 @@ protected:
             }
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
     // Size based template version.
@@ -523,18 +565,15 @@ protected:
                                   inblock.GetNumElements(), false));
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Get interleave parameter.
-        const auto interleave_width = inblock.GetInterleaveWidth();
-        const auto width_ratio      = (interleave_width == 1)
-                                          ? 1
-                                          : interleave_width / m_implInterleaveWidth;
-        const auto chunkSize =
-            std::max(m_implInterleaveWidth, interleave_width);
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+        const auto width_ratio     = (interleaveWidth == 1)
+                                         ? 1
+                                         : interleaveWidth / m_implInterleaveWidth;
+        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
         // Loop over components.
         const auto compOffset =
@@ -556,8 +595,8 @@ protected:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleave_width, chunkSize,
-                                              nqTot, (TData *)inptr);
+                                              interleaveWidth, chunkSize, nqTot,
+                                              (TData *)inptr);
                 }
 
                 // Results written to outvec0, outvec1.
@@ -569,6 +608,24 @@ protected:
                 PhysDeriv2DKernel<SHAPE_TYPE, DEFORMED>(
                     nq0, nq1, coordDim, m_Z[0], m_Z[1],
                     reinterpret_cast<const simd_t *>(dfptr), outvec);
+
+                // Reshape back, if necessary.
+                if (e % width_ratio == width_ratio - 1)
+                {
+                    ReshapeStorage<ExecSpace>(
+                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        nqTot,
+                        (TData *)inptr -
+                            (width_ratio - 1) * nqTot * simd_t::width);
+                    for (unsigned int d = 0; d < m_coordDim; d++)
+                    {
+                        ReshapeStorage<ExecSpace>(
+                            interleaveWidth, m_implInterleaveWidth, chunkSize,
+                            nqTot,
+                            (TData *)outvec[d] -
+                                (width_ratio - 1) * nqTot * simd_t::width);
+                    }
+                }
 
                 // Increment pointers for the next elmt group.
                 dfptr += dfsize * simd_t::width;
@@ -590,9 +647,8 @@ protected:
             }
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
     // Non-size based operator.
@@ -619,9 +675,7 @@ protected:
                                   inblock.GetNumElements(), false));
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Workspace for kernels - also checks preconditions.
@@ -631,12 +685,11 @@ protected:
             wsp1(wsp1Size);
 
         // Get interleave parameter.
-        const auto interleave_width = inblock.GetInterleaveWidth();
-        const auto width_ratio      = (interleave_width == 1)
-                                          ? 1
-                                          : interleave_width / m_implInterleaveWidth;
-        const auto chunkSize =
-            std::max(m_implInterleaveWidth, interleave_width);
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+        const auto width_ratio     = (interleaveWidth == 1)
+                                         ? 1
+                                         : interleaveWidth / m_implInterleaveWidth;
+        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
         // Loop over components.
         const auto compOffset =
@@ -655,8 +708,8 @@ protected:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleave_width, chunkSize,
-                                              nqTot, (TData *)inptr);
+                                              interleaveWidth, chunkSize, nqTot,
+                                              (TData *)inptr);
                 }
 
                 // Get the basic derivative.
@@ -669,6 +722,24 @@ protected:
                     nq0, nq1, nq2, m_Z[0], m_Z[1], m_Z[2],
                     reinterpret_cast<const simd_t *>(dfptr), wsp0.data(),
                     wsp1.data(), outvec[0], outvec[1], outvec[2]);
+
+                // Reshape back, if necessary.
+                if (e % width_ratio == width_ratio - 1)
+                {
+                    ReshapeStorage<ExecSpace>(
+                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        nqTot,
+                        (TData *)inptr -
+                            (width_ratio - 1) * nqTot * simd_t::width);
+                    for (unsigned int d = 0; d < m_coordDim; d++)
+                    {
+                        ReshapeStorage<ExecSpace>(
+                            interleaveWidth, m_implInterleaveWidth, chunkSize,
+                            nqTot,
+                            (TData *)outvec[d] -
+                                (width_ratio - 1) * nqTot * simd_t::width);
+                    }
+                }
 
                 // Increment pointers for the next elmt group.
                 dfptr += dfsize * simd_t::width;
@@ -685,9 +756,8 @@ protected:
             outvec[2] += 2 * compOffset;
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
     // Size based template version.
@@ -711,9 +781,7 @@ protected:
                                   inblock.GetNumElements(), false));
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Workspace for kernels - also checks preconditions.
@@ -723,12 +791,11 @@ protected:
             wsp1(wsp1Size);
 
         // Get interleave parameter.
-        const auto interleave_width = inblock.GetInterleaveWidth();
-        const auto width_ratio      = (interleave_width == 1)
-                                          ? 1
-                                          : interleave_width / m_implInterleaveWidth;
-        const auto chunkSize =
-            std::max(m_implInterleaveWidth, interleave_width);
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+        const auto width_ratio     = (interleaveWidth == 1)
+                                         ? 1
+                                         : interleaveWidth / m_implInterleaveWidth;
+        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
         // Loop over components.
         const auto compOffset =
@@ -747,8 +814,8 @@ protected:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleave_width, chunkSize,
-                                              nqTot, (TData *)inptr);
+                                              interleaveWidth, chunkSize, nqTot,
+                                              (TData *)inptr);
                 }
 
                 // Get the basic derivative.
@@ -761,6 +828,24 @@ protected:
                     nq0, nq1, nq2, m_Z[0], m_Z[1], m_Z[2],
                     reinterpret_cast<const simd_t *>(dfptr), wsp0.data(),
                     wsp1.data(), outvec[0], outvec[1], outvec[2]);
+
+                // Reshape back, if necessary.
+                if (e % width_ratio == width_ratio - 1)
+                {
+                    ReshapeStorage<ExecSpace>(
+                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        nqTot,
+                        (TData *)inptr -
+                            (width_ratio - 1) * nqTot * simd_t::width);
+                    for (unsigned int d = 0; d < m_coordDim; d++)
+                    {
+                        ReshapeStorage<ExecSpace>(
+                            interleaveWidth, m_implInterleaveWidth, chunkSize,
+                            nqTot,
+                            (TData *)outvec[d] -
+                                (width_ratio - 1) * nqTot * simd_t::width);
+                    }
+                }
 
                 // Increment pointers for the next elmt group.
                 dfptr += dfsize * simd_t::width;
@@ -777,9 +862,8 @@ protected:
             outvec[2] += 2 * compOffset;
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 };
 
