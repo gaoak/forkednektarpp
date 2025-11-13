@@ -90,10 +90,8 @@ public:
         m_ipdmat = dataWarehouse->template GetData<ExecSpace>(StdMatKey<TData>(
             basisKeys, m_shapeType, eIProductWRTDerivBaseStdMat, nodalType));
 
-        m_diffCoeff.template Initialize<MemSpace>(0);
-
         TData *diffCoeff =
-            m_diffCoeff.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
+            m_diffCoeff.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
         for (unsigned int d = 0; d < m_coordDim; d++)
         {
@@ -142,9 +140,7 @@ protected:
             inblock.GetNumElementsWithPadding() * inblock.GetNumHomoModes();
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Fetch Jacobian and deriv factors.
@@ -170,15 +166,17 @@ protected:
         auto bwdptr   = m_bwd.template GetPtr<MemSpace, WriteOnly>();
         auto derivptr = m_deriv.template GetPtr<MemSpace, WriteOnly>();
 
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+
         // Loop over components.
         const auto derivoffset = m_nqTot * nelmtTot;
         for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                      inblock.GetInterleaveWidth(),
-                                      inblock.GetNumElementsWithPadding(),
-                                      inblock.GetNumData(), (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
 
             // Step 1: BwdTrans
             // Perform matrix-matrix multiply.
@@ -257,14 +255,20 @@ protected:
                         m_nmTot);
             }
 
+            // Reshape back, if necessary.
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmtTot, inblock.GetNumData(),
+                                      (TData *)inptr);
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmtTot, outblock.GetNumData(), outptr);
+
             // Increment pointers.
             inptr += inblock.size() * inblock.GetNumHomoModes();
             outptr += outblock.size() * outblock.GetNumHomoModes();
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
     void v_SetLambda(const TData &lambda) override

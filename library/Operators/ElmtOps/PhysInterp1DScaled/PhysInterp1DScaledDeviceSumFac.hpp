@@ -283,32 +283,39 @@ protected:
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
 
         // Loop over components.
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                      inblock.GetInterleaveWidth(), nelmt,
-                                      inblock.GetNumData(), (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
 
             // BwdTrans kernel.
             BwdTrans1DKernel<ExecSpace, Implementation>(nm0, nq0, nelmt, m_B[0],
                                                         inptr, outptr);
+
+            // Reshape back, if necessary.
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, outblock.GetNumData(), outptr);
 
             // Increment pointer.
             inptr += inblock.size();
             outptr += outblock.size();
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
     // Size based template version.
@@ -319,32 +326,39 @@ protected:
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
 
         // Loop over components.
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                      inblock.GetInterleaveWidth(), nelmt,
-                                      inblock.GetNumData(), (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
 
             // BwdTrans kernel.
             BwdTrans1DKernel<ExecSpace, Implementation, nm0, nq0>(
                 nelmt, m_B[0], inptr, outptr);
+
+            // Reshape back, if necessary.
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, outblock.GetNumData(), outptr);
 
             // Increment pointer.
             inptr += inblock.size();
             outptr += outblock.size();
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
     // Non-size based operator.
@@ -361,9 +375,7 @@ protected:
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Set workspace.
@@ -382,28 +394,37 @@ protected:
 
         const TData *nodToMod = nullptr;
 
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+
         // Loop over components.
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                      inblock.GetInterleaveWidth(), nelmt,
-                                      inblock.GetNumData(), (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
 
             // BwdTrans kernel.
             BwdTrans2DKernel<LibUtilities::Quad, ExecSpace, Implementation>(
                 nm0, nm1, nq0, nq1, nelmt, false, m_B[0], m_B[1], nodToMod,
                 inptr, outptr, wspptr);
 
+            // Reshape back, if necessary.
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, outblock.GetNumData(), outptr);
+
             // Increment pointer.
             inptr += inblock.size();
             outptr += outblock.size();
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
     // Size based template version.
@@ -415,9 +436,7 @@ protected:
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Set workspace.
@@ -436,28 +455,37 @@ protected:
 
         const TData *nodToMod = nullptr;
 
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+
         // Loop over components.
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                      inblock.GetInterleaveWidth(), nelmt,
-                                      inblock.GetNumData(), (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
 
             // BwdTrans kernel.
             BwdTrans2DKernel<LibUtilities::Quad, ExecSpace, Implementation, nm0,
                              nm1, nq0, nq1>(nelmt, false, m_B[0], m_B[1],
                                             nodToMod, inptr, outptr, wspptr);
 
+            // Reshape back, if necessary.
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, outblock.GetNumData(), outptr);
+
             // Increment pointer.
             inptr += inblock.size();
             outptr += outblock.size();
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
     // Non-size based operator.
@@ -476,9 +504,7 @@ protected:
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Set workspace.
@@ -497,27 +523,36 @@ protected:
 
         const TData *nodToMod = nullptr;
 
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+
         // Loop over components.
         for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                      inblock.GetInterleaveWidth(), nelmt,
-                                      inblock.GetNumData(), (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
 
             // BwdTrans kernel.
             BwdTrans3DKernel<LibUtilities::Hex, ExecSpace, Implementation>(
                 nm0, nm1, nm2, nq0, nq1, nq2, nelmt, false, nullptr, nullptr,
                 m_B[0], m_B[1], m_B[2], nodToMod, inptr, outptr, wspptr);
 
+            // Reshape back, if necessary.
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, outblock.GetNumData(), outptr);
+
             // Increment pointer.
             inptr += inblock.size();
             outptr += outblock.size();
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
     // Size based template version.
@@ -529,9 +564,7 @@ protected:
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Set workspace.
@@ -550,13 +583,16 @@ protected:
 
         const TData *nodToMod = nullptr;
 
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+
         // Loop over components.
         for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                      inblock.GetInterleaveWidth(), nelmt,
-                                      inblock.GetNumData(), (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
 
             // BwdTrans kernel.
             BwdTrans3DKernel<LibUtilities::Hex, ExecSpace, Implementation, nm0,
@@ -564,14 +600,20 @@ protected:
                 nelmt, false, nullptr, nullptr, m_B[0], m_B[1], m_B[2],
                 nodToMod, inptr, outptr, wspptr);
 
+            // Reshape back, if necessary.
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, outblock.GetNumData(), outptr);
+
             // Increment pointer.
             inptr += inblock.size();
             outptr += outblock.size();
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 };
 

@@ -234,12 +234,10 @@ protected:
     {
         // Shape size.
         const auto nq0   = m_nq[0];
-        const auto nelmt = inblock.GetNumElements();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Fetch deriv factors data.
@@ -256,27 +254,36 @@ protected:
         // Get workspace pointer.
         auto wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
 
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+
         // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                      inblock.GetInterleaveWidth(), nelmt,
-                                      inblock.GetNumData(), (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
 
             // Calculate derivative.
             PhysDerivSegKernel<ExecSpace>(m_coordDim, m_dimension, nq0, nelmt,
                                           outblock.size(), m_D[0], dfptr, inptr,
                                           outptr, wspptr, m_isDeformed);
 
+            // Reshape back, if necessary.
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, outblock.GetNumData(), outptr);
+
             // Increment pointers.
             inptr += inblock.size();
             outptr += m_coordDim * outblock.size();
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
     void QuadBlock(BlockAccessor<TData> &inblock,
@@ -285,12 +292,10 @@ protected:
         const auto nq0   = m_nq[0];
         const auto nq1   = m_nq[1];
         const auto nqTot = m_nqTot;
-        const auto nelmt = inblock.GetNumElements();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Fetch deriv factors data.
@@ -307,12 +312,16 @@ protected:
         // Get workspace pointer.
         auto wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
 
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+
+        // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                      inblock.GetInterleaveWidth(), nelmt,
-                                      inblock.GetNumData(), (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
 
             // Calculate derivative.
             PhysDerivQuadKernel<ExecSpace>(m_coordDim, m_dimension, nq0, nq1,
@@ -320,14 +329,20 @@ protected:
                                            m_D[0], m_D[1], dfptr, inptr, outptr,
                                            wspptr, m_isDeformed);
 
+            // Reshape back, if necessary.
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, outblock.GetNumData(), outptr);
+
             // Increment pointers.
             inptr += inblock.size();
             outptr += m_coordDim * outblock.size();
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
     void TriBlock(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
@@ -335,12 +350,10 @@ protected:
         const auto nq0   = m_nq[0];
         const auto nq1   = m_nq[1];
         const auto nqTot = m_nqTot;
-        const auto nelmt = inblock.GetNumElements();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Fetch deriv factors data.
@@ -357,12 +370,16 @@ protected:
         // Get workspace pointer.
         auto wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
 
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+
+        // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                      inblock.GetInterleaveWidth(), nelmt,
-                                      inblock.GetNumData(), (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
 
             // Calculate derivative.
             PhysDerivTriKernel<ExecSpace>(m_coordDim, m_dimension, nq0, nq1,
@@ -370,14 +387,20 @@ protected:
                                           m_D[1], m_f[0], m_f[1], dfptr, inptr,
                                           outptr, wspptr, m_isDeformed);
 
+            // Reshape back, if necessary.
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, outblock.GetNumData(), outptr);
+
             // Increment pointers.
             inptr += inblock.size();
             outptr += m_coordDim * outblock.size();
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
     void HexBlock(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
@@ -386,12 +409,10 @@ protected:
         const auto nq1   = m_nq[1];
         const auto nq2   = m_nq[2];
         const auto nqTot = m_nqTot;
-        const auto nelmt = inblock.GetNumElements();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Fetch deriv factors data.
@@ -408,12 +429,16 @@ protected:
         // Get workspace pointer.
         auto wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
 
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+
+        // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                      inblock.GetInterleaveWidth(), nelmt,
-                                      inblock.GetNumData(), (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
 
             // Calculate derivative.
             PhysDerivHexKernel<ExecSpace>(m_coordDim, m_dimension, nq0, nq1,
@@ -421,14 +446,20 @@ protected:
                                           m_D[0], m_D[1], m_D[2], dfptr, inptr,
                                           outptr, wspptr, m_isDeformed);
 
+            // Reshape back, if necessary.
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, outblock.GetNumData(), outptr);
+
             // Increment pointers.
             inptr += inblock.size();
             outptr += m_coordDim * outblock.size();
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
     void PrismBlock(BlockAccessor<TData> &inblock,
@@ -438,12 +469,10 @@ protected:
         const auto nq1   = m_nq[1];
         const auto nq2   = m_nq[2];
         const auto nqTot = m_nqTot;
-        const auto nelmt = inblock.GetNumElements();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Fetch deriv factors data.
@@ -460,12 +489,16 @@ protected:
         // Get workspace pointer.
         auto wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
 
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+
+        // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                      inblock.GetInterleaveWidth(), nelmt,
-                                      inblock.GetNumData(), (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
 
             // Calculate derivative.
             PhysDerivPrismKernel<ExecSpace>(
@@ -473,14 +506,20 @@ protected:
                 outblock.size(), m_D[0], m_D[1], m_D[2], m_f[0], m_f[3], dfptr,
                 inptr, outptr, wspptr, m_isDeformed);
 
+            // Reshape back, if necessary.
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, outblock.GetNumData(), outptr);
+
             // Increment pointers.
             inptr += inblock.size();
             outptr += m_coordDim * outblock.size();
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
     void PyrBlock(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
@@ -489,12 +528,10 @@ protected:
         const auto nq1   = m_nq[1];
         const auto nq2   = m_nq[2];
         const auto nqTot = m_nqTot;
-        const auto nelmt = inblock.GetNumElements();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Fetch deriv factors data.
@@ -511,12 +548,16 @@ protected:
         // Get workspace pointer.
         auto wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
 
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+
+        // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                      inblock.GetInterleaveWidth(), nelmt,
-                                      inblock.GetNumData(), (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
 
             // Calculate derivative.
             PhysDerivPyrKernel<ExecSpace>(
@@ -524,14 +565,20 @@ protected:
                 outblock.size(), m_D[0], m_D[1], m_D[2], m_f[0], m_f[1], m_f[3],
                 dfptr, inptr, outptr, wspptr, m_isDeformed);
 
+            // Reshape back, if necessary.
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, outblock.GetNumData(), outptr);
+
             // Increment pointers.
             inptr += inblock.size();
             outptr += m_coordDim * outblock.size();
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
     void TetBlock(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
@@ -540,12 +587,10 @@ protected:
         const auto nq1   = m_nq[1];
         const auto nq2   = m_nq[2];
         const auto nqTot = m_nqTot;
-        const auto nelmt = inblock.GetNumElements();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Fetch deriv factors data.
@@ -562,12 +607,16 @@ protected:
         // Get workspace pointer.
         auto wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
 
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+
+        // Loop over components.
         for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                      inblock.GetInterleaveWidth(), nelmt,
-                                      inblock.GetNumData(), (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
 
             // Calculate derivative.
             PhysDerivTetKernel<ExecSpace>(
@@ -575,14 +624,20 @@ protected:
                 outblock.size(), m_D[0], m_D[1], m_D[2], m_f[0], m_f[1], m_f[2],
                 m_f[3], dfptr, inptr, outptr, wspptr, m_isDeformed);
 
+            // Reshape back, if necessary.
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, outblock.GetNumData(), outptr);
+
             // Increment pointers.
             inptr += inblock.size();
             outptr += m_coordDim * outblock.size();
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 };
 

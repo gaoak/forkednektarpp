@@ -118,18 +118,15 @@ protected:
                  BlockAccessor<TData> &outblock) override
     {
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Get interleave parameter.
-        const auto interleave_width = inblock.GetInterleaveWidth();
-        const auto width_ratio      = (interleave_width == 1)
-                                          ? 1
-                                          : interleave_width / m_implInterleaveWidth;
-        const auto chunkSize =
-            std::max(m_implInterleaveWidth, interleave_width);
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+        const auto width_ratio     = (interleaveWidth == 1)
+                                         ? 1
+                                         : interleaveWidth / m_implInterleaveWidth;
+        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
         // Loop over components.
         for (unsigned int n = 0;
@@ -149,7 +146,7 @@ protected:
                     if (e % width_ratio == 0)
                     {
                         ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                                  interleave_width, chunkSize,
+                                                  interleaveWidth, chunkSize,
                                                   m_nmTot, (TData *)inptr);
                     }
 
@@ -167,6 +164,21 @@ protected:
                             blasHandle_t(), "N", m_nmTot, m_nmTot, 1.0, dmatptr,
                             m_nmTot, m_nmTot * m_nmTot, inptr, 1, m_nmTot, 0.0,
                             outptr, 1, m_nmTot, simd_t::width);
+                    }
+
+                    // Reshape back, if necessary.
+                    if (e % width_ratio == width_ratio - 1)
+                    {
+                        ReshapeStorage<ExecSpace>(
+                            interleaveWidth, m_implInterleaveWidth, chunkSize,
+                            m_nmTot,
+                            (TData *)inptr -
+                                (width_ratio - 1) * m_nmTot * simd_t::width);
+                        ReshapeStorage<ExecSpace>(
+                            interleaveWidth, m_implInterleaveWidth, chunkSize,
+                            m_nmTot,
+                            (TData *)outptr -
+                                (width_ratio - 1) * m_nmTot * simd_t::width);
                     }
 
                     // Increment pointers.
@@ -196,7 +208,7 @@ protected:
                     if (e % width_ratio == 0)
                     {
                         ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                                  interleave_width, chunkSize,
+                                                  interleaveWidth, chunkSize,
                                                   m_nmTot, (TData *)inptr);
                     }
                     // Perform matrix-matrix multiply.
@@ -208,6 +220,21 @@ protected:
                         reinterpret_cast<const simd_t *>(outptr),
                         reinterpret_cast<simd_t *>(outptr));
 
+                    // Reshape back, if necessary.
+                    if (e % width_ratio == width_ratio - 1)
+                    {
+                        ReshapeStorage<ExecSpace>(
+                            interleaveWidth, m_implInterleaveWidth, chunkSize,
+                            m_nmTot,
+                            (TData *)inptr -
+                                (width_ratio - 1) * m_nmTot * simd_t::width);
+                        ReshapeStorage<ExecSpace>(
+                            interleaveWidth, m_implInterleaveWidth, chunkSize,
+                            m_nmTot,
+                            (TData *)outptr -
+                                (width_ratio - 1) * m_nmTot * simd_t::width);
+                    }
+
                     // Increment pointers.
                     inptr += m_nmTot * simd_t::width;
                     outptr += m_nmTot * simd_t::width;
@@ -216,9 +243,8 @@ protected:
             }
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
     void v_SetInvMassMatrix(std::vector<TData> &invmass) override

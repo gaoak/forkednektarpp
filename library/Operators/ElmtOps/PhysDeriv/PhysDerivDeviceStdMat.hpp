@@ -109,9 +109,7 @@ protected:
             inblock.GetNumElementsWithPadding() * inblock.GetNumHomoModes();
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Fetch derivative factor.
@@ -119,14 +117,18 @@ protected:
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), true));
 
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+
         // Loop over components.
+        const auto inoffset  = inblock.size() * inblock.GetNumHomoModes();
         const auto outoffset = outblock.size() * outblock.GetNumHomoModes();
         for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                      inblock.GetInterleaveWidth(), nelmtTot,
-                                      inblock.GetNumData(), (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                      nelmtTot, inblock.GetNumData(),
+                                      (TData *)inptr);
 
             // Perform matrix-matrix multiply.
             for (unsigned int d = 0; d < m_dimension; d++)
@@ -150,14 +152,20 @@ protected:
                     outoffset, dfptr, outptr, outptr);
             }
 
+            for (unsigned int d = 0; d < m_coordDim; d++)
+            {
+                ReshapeStorage<ExecSpace>(
+                    interleaveWidth, m_implInterleaveWidth, nelmtTot, m_nqTot,
+                    (TData *)outptr + d * outoffset);
+            }
+
             // Increment pointer.
-            inptr += inblock.size() * inblock.GetNumHomoModes();
-            outptr += m_coordDim * outblock.size() * outblock.GetNumHomoModes();
+            inptr += inoffset;
+            outptr += m_coordDim * outoffset;
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 };
 

@@ -272,12 +272,10 @@ protected:
         const auto coordDim    = m_coordDim;
         const auto ndf         = dim * coordDim;
         const auto inblocksize = inblock.size();
-        const auto nelmt       = inblock.GetNumElements();
+        const auto nelmt       = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Fetch Jacobian data.
@@ -301,14 +299,16 @@ protected:
         auto wspptr    = m_wsp.template GetPtr<MemSpace, WriteOnly>();
         TData *wsp2ptr = wspptr + nelmt * nq0;
 
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+
         // Loop over components.
         for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                      inblock.GetInterleaveWidth(),
-                                      inblock.GetNumElementsWithPadding(),
-                                      inblock.GetNumData(), (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
 
             // Apply derivative.
             ApplyDeriv<ExecSpace>(dim, coordDim, nelmt, nq0, nm0, inblocksize,
@@ -319,14 +319,20 @@ protected:
                 nq0, nm0, nelmt, m_dB[0], m_W[0], jacptr, wspptr, outptr,
                 wsp2ptr, m_isDeformed);
 
+            // Reshape back, if necessary.
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, outblock.GetNumData(), outptr);
+
             // Increment pointers.
             inptr += m_coordDim * inblock.size();
             outptr += outblock.size();
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
     void QuadBlock(BlockAccessor<TData> &inblock,
@@ -341,13 +347,11 @@ protected:
         const auto ndf         = dim * coordDim;
         const auto nmTot       = m_nmTot;
         const auto nqTot       = m_nqTot;
-        const auto nelmt       = inblock.GetNumElements();
+        const auto nelmt       = inblock.GetNumElementsWithPadding();
         const auto inblocksize = inblock.size();
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Fetch Jacobian data.
@@ -372,14 +376,16 @@ protected:
         TData *tmp2ptr = tmpptr + nelmt * max(nqTot, nmTot);
         TData *wspptr  = tmp2ptr + nelmt * max(nqTot, nmTot);
 
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+
         // Loop over components.
         for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                      inblock.GetInterleaveWidth(),
-                                      inblock.GetNumElementsWithPadding(),
-                                      inblock.GetNumData(), (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
 
             // Apply derivative.
             ApplyDeriv<ExecSpace>(dim, coordDim, nelmt, nqTot, nmTot,
@@ -398,14 +404,20 @@ protected:
             // Sum dimensions.
             Nektar::addKernel<ExecSpace>(nelmt * nmTot, outptr, tmpptr, outptr);
 
+            // Reshape back, if necessary.
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, outblock.GetNumData(), outptr);
+
             // Increment pointers.
             inptr += m_coordDim * inblock.size();
             outptr += outblock.size();
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
     void TriBlock(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
@@ -419,13 +431,11 @@ protected:
         const auto ndf         = dim * coordDim;
         const auto nmTot       = m_nmTot;
         const auto nqTot       = m_nqTot;
-        const auto nelmt       = inblock.GetNumElements();
+        const auto nelmt       = inblock.GetNumElementsWithPadding();
         const auto inblocksize = inblock.size();
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Fetch Jacobian data.
@@ -458,14 +468,16 @@ protected:
         TData *tmp2ptr = tmpptr + nelmt * max(nqTot, nmTot);
         TData *wspptr  = tmp2ptr + nelmt * max(nqTot, nmTot);
 
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+
         // Loop over components.
         for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                      inblock.GetInterleaveWidth(),
-                                      inblock.GetNumElementsWithPadding(),
-                                      inblock.GetNumData(), (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
 
             // Apply derivative.
             ApplyDeriv<ExecSpace>(dim, coordDim, nelmt, nqTot, nmTot,
@@ -490,6 +502,13 @@ protected:
             // Sum dimensions.
             Nektar::addKernel<ExecSpace>(nelmt * nmTot, tmpptr, outptr, outptr);
 
+            // Reshape back, if necessary.
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, outblock.GetNumData(), outptr);
+
             // Increment pointers.
             inptr += m_coordDim * inblock.size();
             outptr += outblock.size();
@@ -501,9 +520,8 @@ protected:
             cudaStreamDestroy(streams[s]);
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
     void HexBlock(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
@@ -517,15 +535,13 @@ protected:
         const auto dim         = m_dimension;
         const auto coordDim    = m_coordDim;
         const auto ndf         = dim * coordDim;
-        const auto nelmt       = inblock.GetNumElements();
+        const auto nelmt       = inblock.GetNumElementsWithPadding();
         const auto inblocksize = inblock.size();
         const auto nqTot       = m_nqTot;
         const auto nmTot       = m_nmTot;
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Fetch Jacobian data.
@@ -551,14 +567,16 @@ protected:
         TData *tmp3ptr = tmp2ptr + nelmt * max(nqTot, nmTot);
         TData *wspptr  = tmp3ptr + nelmt * max(nqTot, nmTot);
 
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+
         // Loop over components.
         for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                      inblock.GetInterleaveWidth(),
-                                      inblock.GetNumElementsWithPadding(),
-                                      inblock.GetNumData(), (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
 
             // Apply derivative.
             ApplyDeriv<ExecSpace>(dim, coordDim, nelmt, nqTot, nmTot,
@@ -587,14 +605,20 @@ protected:
             // Add final dimension.
             Nektar::addKernel<ExecSpace>(nelmt * nmTot, tmpptr, outptr, outptr);
 
+            // Reshape back, if necessary.
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, outblock.GetNumData(), outptr);
+
             // Increment pointers.
             inptr += m_coordDim * inblock.size();
             outptr += outblock.size();
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
     void PrismBlock(BlockAccessor<TData> &inblock,
@@ -609,15 +633,13 @@ protected:
         const auto dim         = m_dimension;
         const auto coordDim    = m_coordDim;
         const auto ndf         = dim * coordDim;
-        const auto nelmt       = inblock.GetNumElements();
+        const auto nelmt       = inblock.GetNumElementsWithPadding();
         const auto inblocksize = inblock.size();
         const auto nqTot       = m_nqTot;
         const auto nmTot       = m_nmTot;
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Fetch Jacobian data.
@@ -650,14 +672,16 @@ protected:
         TData *tmp3ptr = tmp2ptr + nelmt * max(nqTot, nmTot);
         TData *wspptr  = tmp3ptr + nelmt * max(nqTot, nmTot);
 
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+
         // Loop over components.
         for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                      inblock.GetInterleaveWidth(),
-                                      inblock.GetNumElementsWithPadding(),
-                                      inblock.GetNumData(), (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
 
             // Apply derivative.
             ApplyDeriv<ExecSpace>(dim, coordDim, nelmt, nqTot, nmTot,
@@ -690,6 +714,13 @@ protected:
             // Add final dimension.
             Nektar::addKernel<ExecSpace>(nelmt * nmTot, tmpptr, outptr, outptr);
 
+            // Reshape back, if necessary.
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, outblock.GetNumData(), outptr);
+
             // Increment pointers.
             inptr += m_coordDim * inblock.size();
             outptr += outblock.size();
@@ -701,9 +732,8 @@ protected:
             cudaStreamDestroy(streams[i]);
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
     void PyrBlock(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
@@ -717,15 +747,13 @@ protected:
         const auto dim         = m_dimension;
         const auto coordDim    = m_coordDim;
         const auto ndf         = dim * coordDim;
-        const auto nelmt       = inblock.GetNumElements();
+        const auto nelmt       = inblock.GetNumElementsWithPadding();
         const auto inblocksize = inblock.size();
         const auto nqTot       = m_nqTot;
         const auto nmTot       = m_nmTot;
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Fetch Jacobian data.
@@ -759,14 +787,16 @@ protected:
         TData *tmp3ptr = tmp2ptr + nelmt * max(nqTot, nmTot);
         TData *wspptr  = tmp3ptr + nelmt * max(nqTot, nmTot);
 
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+
         // Loop over components.
         for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                      inblock.GetInterleaveWidth(),
-                                      inblock.GetNumElementsWithPadding(),
-                                      inblock.GetNumData(), (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
 
             // Apply derivative.
             ApplyDeriv<ExecSpace>(dim, coordDim, nelmt, nqTot, nmTot,
@@ -799,6 +829,13 @@ protected:
             // Add final dimension.
             Nektar::addKernel<ExecSpace>(nelmt * nmTot, tmpptr, outptr, outptr);
 
+            // Reshape back, if necessary.
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, outblock.GetNumData(), outptr);
+
             // Increment pointers.
             inptr += m_coordDim * inblock.size();
             outptr += outblock.size();
@@ -810,9 +847,8 @@ protected:
             cudaStreamDestroy(streams[s]);
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
     void TetBlock(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
@@ -826,15 +862,13 @@ protected:
         const auto dim         = m_dimension;
         const auto coordDim    = m_coordDim;
         const auto ndf         = dim * coordDim;
-        const auto nelmt       = inblock.GetNumElements();
+        const auto nelmt       = inblock.GetNumElementsWithPadding();
         const auto inblocksize = inblock.size();
         const auto nqTot       = m_nqTot;
         const auto nmTot       = m_nmTot;
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Fetch Jacobian data.
@@ -868,14 +902,16 @@ protected:
         TData *tmp3ptr = tmp2ptr + nelmt * max(nqTot, nmTot);
         TData *wspptr  = tmp3ptr + nelmt * max(nqTot, nmTot);
 
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+
         // Loop over components.
         for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                      inblock.GetInterleaveWidth(),
-                                      inblock.GetNumElementsWithPadding(),
-                                      inblock.GetNumData(), (TData *)inptr);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
 
             // Apply derivative.
             ApplyDeriv<ExecSpace>(dim, coordDim, nelmt, nqTot, nmTot,
@@ -908,6 +944,13 @@ protected:
             // Add final dimension.
             Nektar::addKernel<ExecSpace>(nelmt * nmTot, tmpptr, outptr, outptr);
 
+            // Reshape back, if necessary.
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, inblock.GetNumData(),
+                                      (TData *)inptr);
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, outblock.GetNumData(), outptr);
+
             // Increment pointers.
             inptr += m_coordDim * inblock.size();
             outptr += outblock.size();
@@ -919,9 +962,8 @@ protected:
             cudaStreamDestroy(streams[s]);
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 };
 

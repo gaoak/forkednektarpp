@@ -127,30 +127,6 @@ void GetExpectedResults(const std::string &opName,
     }
 }
 
-/// Reshape the storage of the field, to match the layout of legacy Nektar
-/// Array, for result comparison.
-template <typename TData, FieldState stateOut>
-void ReshapeToScalar(Field<TData, stateOut> &in)
-{
-    for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
-    {
-        auto &block = in.GetBlocks()[blk];
-        TData *inptr =
-            block.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
-        auto numElmtsPad = block.GetNumElementsWithPadding();
-        for (unsigned int component = 0; component < in.GetNumComponents();
-             component++)
-        {
-            ReshapeStorage<NektarSpaces::Serial>(
-                1, block.GetInterleaveWidth(),
-                numElmtsPad * in.GetNumHomoModes(), block.GetNumData(),
-                inptr + component * block.size() * in.GetNumHomoModes());
-        }
-
-        block.template SetInterleaveWidth<TData>(1);
-    }
-}
-
 /// Print the block information. If _verbose_=true, then print the block
 /// information for each rank. If _verbose_=false, then only print the
 /// total information for each rank. Caution: for many ranks and many
@@ -436,7 +412,7 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
         }
     }
 
-    // Initialize the out field to zero
+    // Initialize the out field to zero.
     out.template Initialize<NektarSpaces::HostSpace>(0.0);
 
     // Create input and output Array for explist.
@@ -445,6 +421,28 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
 
     // Get expected results from expList.
     GetExpectedResults(opName, expList, nComp, nIn, nOut, inArr, outArr);
+
+    // Reshape.
+    auto interleaveWidth = (implName == "SumFac" || execName == "AVX")
+                               ? NektarSpaces::vector_width<TData>::value
+                               : 1;
+    for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
+    {
+        auto &inblock = in.GetBlocks()[blk];
+        TData *inptr =
+            inblock.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
+        for (unsigned int component = 0; component < in.GetNumComponents();
+             component++)
+        {
+            ReshapeStorage<NektarSpaces::Serial>(
+                interleaveWidth, inblock.GetInterleaveWidth(),
+                inblock.GetNumElementsWithPadding() * in.GetNumHomoModes(),
+                inblock.GetNumData(),
+                inptr + component * inblock.size() * in.GetNumHomoModes());
+        }
+
+        inblock.template SetInterleaveWidth<TData>(interleaveWidth);
+    }
 
     // Warm-up : fill the cache and memory, and let core temperature/freq
     // stabilized.
@@ -493,10 +491,28 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
                   << "Device may not be invoked!" << std::endl;
     }
 
+    // Reshape to scalar
+    for (unsigned int blk = 0; blk < out.GetBlocks().size(); ++blk)
+    {
+        auto &outblock = out.GetBlocks()[blk];
+        TData *outptr =
+            outblock.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
+        for (unsigned int component = 0; component < out.GetNumComponents();
+             component++)
+        {
+            ReshapeStorage<NektarSpaces::Serial>(
+                1, outblock.GetInterleaveWidth(),
+                outblock.GetNumElementsWithPadding() * out.GetNumHomoModes(),
+                outblock.GetNumData(),
+                outptr + component * outblock.size() * out.GetNumHomoModes());
+        }
+
+        outblock.template SetInterleaveWidth<TData>(1);
+    }
+
     // Then check if results match with expected
     // If we compare float results with double results, then it is
     // reasonable to have some mismatched values (e.g., > 1e-4)
-    ReshapeToScalar(out);
     Array<OneD, double> tmpArr = out.template ToArray<double>();
     for (size_t i = 0, cnt = 0; i < tmpArr.size(); ++i)
     {

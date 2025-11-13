@@ -116,9 +116,7 @@ protected:
             inblock.GetNumElementsWithPadding() * inblock.GetNumHomoModes();
 
         // Initialize pointers.
-        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = this->m_append
                           ? outblock.template GetPtr<MemSpace, ReadWrite>()
                           : outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -141,24 +139,21 @@ protected:
         // Get workspace pointer.
         auto wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
 
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+
         // Loop over components.
         const auto inoffset  = inblock.size() * inblock.GetNumHomoModes();
+        const auto outoffset = outblock.size() * outblock.GetNumHomoModes();
         const auto wspoffset = m_nqTot * nelmtTot;
         for (unsigned int n = 0; n < outblock.GetNumComponents(); ++n)
         {
             // Reshape, if necessary.
             for (unsigned int d = 0; d < m_coordDim; ++d)
             {
-                ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                          inblock.GetInterleaveWidth(),
-                                          nelmtTot, inblock.GetNumData(),
-                                          (TData *)inptr + d * inblock.size());
-            }
-            if (this->m_append)
-            {
                 ReshapeStorage<ExecSpace>(
-                    m_implInterleaveWidth, outblock.GetInterleaveWidth(),
-                    nelmtTot, outblock.GetNumData(), outptr);
+                    m_implInterleaveWidth, interleaveWidth, nelmtTot,
+                    inblock.GetNumData(), (TData *)inptr + d * inoffset);
             }
 
             // Multiply by derivative factor and Jacobian.
@@ -187,14 +182,23 @@ protected:
                         m_nmTot);
             }
 
+            // Reshape back, if necessary.
+            for (unsigned int d = 0; d < m_coordDim; ++d)
+            {
+                ReshapeStorage<ExecSpace>(
+                    interleaveWidth, m_implInterleaveWidth, nelmtTot,
+                    inblock.GetNumData(), (TData *)inptr + d * inoffset);
+            }
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmtTot, outblock.GetNumData(), outptr);
+
             // Increment pointers.
-            inptr += m_coordDim * inblock.size() * inblock.GetNumHomoModes();
-            outptr += outblock.size() * outblock.GetNumHomoModes();
+            inptr += m_coordDim * inoffset;
+            outptr += outoffset;
         }
 
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 };
 
