@@ -83,9 +83,11 @@ NEK_DEVICE_INLINE
     Nektar::atomic_min<Scope>(dest, val);
 }
 
-template <typename Functor>
-__global__ void parallel_for(const size_t begin, const size_t end,
-                             const Functor functor)
+template <typename Functor,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void parallel_for(const size_t begin,
+                                                          const size_t end,
+                                                          const Functor functor)
 {
     size_t i = begin + blockDim.x * blockIdx.x + threadIdx.x;
 
