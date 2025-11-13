@@ -75,8 +75,33 @@ public:
             m_D.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
                 BasisDataKey<simd_t>(exp->GetBasis(d)->GetBasisKey(),
                                      eDerivative)));
-            m_Z.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
-                BasisDataKey<simd_t>(exp->GetBasis(d)->GetBasisKey(), eZeros)));
+        }
+
+        if (m_dimension == 2)
+        {
+            // Fetch geometric factors.
+            m_f.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<simd_t>(this->m_exp->GetBasis(0)->GetBasisKey(),
+                                     eHalfMultOnePlusZero)));
+            m_f.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<simd_t>(this->m_exp->GetBasis(1)->GetBasisKey(),
+                                     eTwoOverOneMinusZero)));
+        }
+        else if (m_dimension == 3)
+        {
+            // Fetch geometric factors.
+            m_f.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<simd_t>(this->m_exp->GetBasis(0)->GetBasisKey(),
+                                     eHalfMultOnePlusZero)));
+            m_f.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<simd_t>(this->m_exp->GetBasis(1)->GetBasisKey(),
+                                     eHalfMultOnePlusZero)));
+            m_f.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<simd_t>(this->m_exp->GetBasis(1)->GetBasisKey(),
+                                     eTwoOverOneMinusZero)));
+            m_f.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+                BasisDataKey<simd_t>(this->m_exp->GetBasis(2)->GetBasisKey(),
+                                     eTwoOverOneMinusZero)));
         }
     }
 
@@ -104,7 +129,7 @@ protected:
     std::vector<unsigned int> m_nm;
     std::vector<unsigned int> m_nq;
     std::vector<const simd_t *> m_D;
-    std::vector<const simd_t *> m_Z;
+    std::vector<const simd_t *> m_f;
 #if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
     // flag to ensure we only get one warning for alignment otherwise CI system
     // is saturated with warnings
@@ -499,7 +524,7 @@ protected:
 
                 // Calculate physical derivative.
                 PhysDeriv2DKernel<SHAPE_TYPE, DEFORMED>(
-                    nq0, nq1, m_coordDim, m_Z[0], m_Z[1],
+                    nq0, nq1, m_coordDim, m_f[0], m_f[1],
                     reinterpret_cast<const simd_t *>(dfptr), outvec);
 
                 // Reshape back, if necessary.
@@ -606,7 +631,7 @@ protected:
 
                 // Calculate physical derivative.
                 PhysDeriv2DKernel<SHAPE_TYPE, DEFORMED>(
-                    nq0, nq1, coordDim, m_Z[0], m_Z[1],
+                    nq0, nq1, coordDim, m_f[0], m_f[1],
                     reinterpret_cast<const simd_t *>(dfptr), outvec);
 
                 // Reshape back, if necessary.
@@ -719,7 +744,7 @@ protected:
 
                 // Calculate physical derivative.
                 PhysDeriv3DKernel<SHAPE_TYPE, DEFORMED>(
-                    nq0, nq1, nq2, m_Z[0], m_Z[1], m_Z[2],
+                    nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
                     reinterpret_cast<const simd_t *>(dfptr), wsp0.data(),
                     wsp1.data(), outvec[0], outvec[1], outvec[2]);
 
@@ -825,7 +850,7 @@ protected:
 
                 // Calculate physical derivative.
                 PhysDeriv3DKernel<SHAPE_TYPE, DEFORMED>(
-                    nq0, nq1, nq2, m_Z[0], m_Z[1], m_Z[2],
+                    nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
                     reinterpret_cast<const simd_t *>(dfptr), wsp0.data(),
                     wsp1.data(), outvec[0], outvec[1], outvec[2]);
 
