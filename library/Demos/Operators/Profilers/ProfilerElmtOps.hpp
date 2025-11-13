@@ -522,7 +522,8 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
         }
 
         // Print out first 100 mismatched values.
-        if (abs(tmpArr[i] - outArr[i]) > 1e-4 && cnt < 100)
+        if (abs(tmpArr[i] - outArr[i]) > 1e-4 * std::sqrt(L2 / tmpArr.size()) &&
+            cnt < 100)
         {
             std::cout << "i=" << i << " computed result = " << tmpArr[i]
                       << " expected result = " << outArr[i] << std::endl;
