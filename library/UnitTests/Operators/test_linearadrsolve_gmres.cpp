@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_helmsolve_conjgrad.cpp
+// File: test_linearadrsolve_gmres.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,15 +32,15 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestHelmSolveConjGrad
+#define BOOST_TEST_MODULE TestLinearADRSolveGMRES
 
-#include "init_helmsolve_conjgradfields.hpp"
+#include "init_linearadrsolve_gmresfields.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
 #include <memory>
 
-#define TEST_HELMSOLVE(test_name, test, tol)                                   \
+#define TEST_LINEARADRSOLVE(test_name, test, tol)                              \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
         Configure();                                                           \
@@ -52,20 +52,20 @@
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestHelmSolveConjGrad)
+BOOST_AUTO_TEST_SUITE(TestLinearADRSolveGMRES)
 
-TEST_HELMSOLVE(helmsolve_seg, Helmholtz1D_Seg, 1.0E-12)
+TEST_LINEARADRSOLVE(linearadrsolve_seg, Helmholtz1D_Seg, 1.0E-12)
 
-TEST_HELMSOLVE(helmsolve_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-10)
+TEST_LINEARADRSOLVE(linearadrsolve_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-10)
 
-// TEST_HELMSOLVE(helmsolve_all_bcs, Helmholtz2D_AllBCs, 1.0E-12)
+// TEST_LINEARADRSOLVE(linearadrsolve_all_bcs, Helmholtz2D_AllBCs, 1.0E-10)
 
-TEST_HELMSOLVE(helmsolve_hex, Helmholtz3D_Hex, 1.0E-10)
+TEST_LINEARADRSOLVE(linearadrsolve_hex, Helmholtz3D_Hex, 1.0E-10)
 
-TEST_HELMSOLVE(helmsolve_prism, Helmholtz3D_Prism, 1.0E-10)
+TEST_LINEARADRSOLVE(linearadrsolve_prism, Helmholtz3D_Prism, 1.0E-10)
 
-TEST_HELMSOLVE(helmsolve_pyr, Helmholtz3D_Pyr, 1.0E-10)
+TEST_LINEARADRSOLVE(linearadrsolve_pyr, Helmholtz3D_Pyr, 3.0E-10)
 
-TEST_HELMSOLVE(helmsolve_tet, Helmholtz3D_Tet, 1.0E-10)
+TEST_LINEARADRSOLVE(linearadrsolve_tet, Helmholtz3D_Tet, 1.0E-10)
 
 BOOST_AUTO_TEST_SUITE_END()
