@@ -65,16 +65,16 @@ NEK_FORCE_INLINE static
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
-template <typename TData>
+template <const unsigned WIDTH, typename TData>
 __global__ void AssembleScatrKernelLauncher(
     const unsigned nvals, const unsigned *__restrict__ nassemble,
     const unsigned *__restrict__ index, const unsigned *__restrict__ offset,
     const int *__restrict__ sign, TData *__restrict__ inoutptr,
-    const hipcudaBlock1D &threadBlock, const unsigned width)
+    const hipcudaBlock1D &threadBlock)
 
 {
-    AssembleScatrKernel<>(nvals, nassemble, index, offset, sign, inoutptr,
-                          threadBlock, width);
+    AssembleScatrKernel<WIDTH>(nvals, nassemble, index, offset, sign, inoutptr,
+                               threadBlock);
 }
 
 template <typename ExecSpace, typename TData, unsigned WIDTH>
@@ -88,9 +88,8 @@ NEK_FORCE_INLINE static
     const unsigned blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned gridSize  = (nvals + blockSize - 1) / blockSize;
 
-    AssembleScatrKernelLauncher<>
-        <<<gridSize, blockSize>>>(nvals, nassemble, index, offset, sign,
-                                  inoutptr, hipcudaBlock1D(), WIDTH);
+    AssembleScatrKernelLauncher<WIDTH><<<gridSize, blockSize>>>(
+        nvals, nassemble, index, offset, sign, inoutptr, hipcudaBlock1D());
     CHECK_LAST_HIPCUDA_ERROR();
 }
 

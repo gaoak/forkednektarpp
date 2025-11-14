@@ -70,8 +70,8 @@ NEK_FORCE_INLINE static
                         const unsigned *index, const unsigned *offset,
                         const int *sign, TData *inoutptr)
 {
-    AssembleScatrKernel<>(nvals, nassemble, index, offset, sign, inoutptr,
-                          deviceOnHostBlock1D(), WIDTH);
+    AssembleScatrKernel<WIDTH>(nvals, nassemble, index, offset, sign, inoutptr,
+                               deviceOnHostBlock1D());
 }
 
 template <typename ExecSpace, typename TData>

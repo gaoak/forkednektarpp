@@ -77,9 +77,9 @@ NEK_FORCE_INLINE static
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
                          [=](sycl::nd_item<1> item_ct1) {
 #pragma forceinline
-                             AssembleScatrKernel<>(nvals, nassemble, index,
-                                                   offset, sign, inoutptr,
-                                                   item_ct1, WIDTH);
+                             AssembleScatrKernel<WIDTH>(nvals, nassemble, index,
+                                                        offset, sign, inoutptr,
+                                                        item_ct1);
                          });
     });
 }
