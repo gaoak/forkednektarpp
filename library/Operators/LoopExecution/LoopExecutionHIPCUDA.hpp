@@ -98,9 +98,10 @@ __global__ __launch_bounds__(blockSize) void parallel_for(const size_t begin,
     }
 }
 
-template <bool init, typename TData, typename Functor>
-__global__ void reduceSumKernel(const size_t begin, const size_t end,
-                                TData *buffer, const Functor functor)
+template <bool init, typename TData, typename Functor,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void reduceSumKernel(
+    const size_t begin, const size_t end, TData *buffer, const Functor functor)
 {
     // Implementation based on reduce7 of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
@@ -112,9 +113,12 @@ __global__ void reduceSumKernel(const size_t begin, const size_t end,
     auto warp  = cg::tiled_partition<warpsize>(block);
     TData v    = 0;
 
-    if (init && block.thread_rank() == 0)
+    if constexpr (init)
     {
-        buffer[block.group_index().x] = 0.0;
+        if (block.thread_rank() == 0)
+        {
+            buffer[block.group_index().x] = 0.0;
+        }
     }
 
     block.sync();
@@ -147,9 +151,10 @@ __global__ void reduceSumKernel(const size_t begin, const size_t end,
     }
 }
 
-template <bool init, typename TData, typename Functor>
-__global__ void reduceMaxKernel(const size_t begin, const size_t end,
-                                TData *buffer, const Functor functor)
+template <bool init, typename TData, typename Functor,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void reduceMaxKernel(
+    const size_t begin, const size_t end, TData *buffer, const Functor functor)
 {
     // Implementation based on reduce7 of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
@@ -162,9 +167,12 @@ __global__ void reduceMaxKernel(const size_t begin, const size_t end,
     auto warp  = cg::tiled_partition<warpsize>(block);
     TData v    = min;
 
-    if (init && block.thread_rank() == 0)
+    if constexpr (init)
     {
-        buffer[block.group_index().x] = min;
+        if (block.thread_rank() == 0)
+        {
+            buffer[block.group_index().x] = min;
+        }
     }
 
     block.sync();
@@ -196,9 +204,10 @@ __global__ void reduceMaxKernel(const size_t begin, const size_t end,
     }
 }
 
-template <bool init, typename TData, typename Functor>
-__global__ void reduceMinKernel(const size_t begin, const size_t end,
-                                TData *buffer, const Functor functor)
+template <bool init, typename TData, typename Functor,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void reduceMinKernel(
+    const size_t begin, const size_t end, TData *buffer, const Functor functor)
 {
     // Implementation based on reduce7 of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
@@ -211,9 +220,12 @@ __global__ void reduceMinKernel(const size_t begin, const size_t end,
     auto warp  = cg::tiled_partition<warpsize>(block);
     TData v    = max;
 
-    if (init && block.thread_rank() == 0)
+    if constexpr (init)
     {
-        buffer[block.group_index().x] = max;
+        if (block.thread_rank() == 0)
+        {
+            buffer[block.group_index().x] = max;
+        }
     }
 
     block.sync();
@@ -290,10 +302,9 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
         reduceSumKernel<true>
             <<<gridSize, blockSize>>>(begin, end, buffer, functor);
         CHECK_LAST_HIPCUDA_ERROR();
-        reduceSumKernel<init>
-            <<<1, gridSize>>>(0, gridSize, out, [=] __device__(const size_t i) {
-                return buffer[i];
-            });
+        reduceSumKernel<init><<<1, blockSize>>>(
+            0, gridSize, out,
+            [=] __device__(const size_t i) { return buffer[i]; });
         CHECK_LAST_HIPCUDA_ERROR();
     }
     else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMax<TData>>)
@@ -301,10 +312,9 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
         reduceMaxKernel<true>
             <<<gridSize, blockSize>>>(begin, end, buffer, functor);
         CHECK_LAST_HIPCUDA_ERROR();
-        reduceMaxKernel<init>
-            <<<1, gridSize>>>(0, gridSize, out, [=] __device__(const size_t i) {
-                return buffer[i];
-            });
+        reduceMaxKernel<init><<<1, blockSize>>>(
+            0, gridSize, out,
+            [=] __device__(const size_t i) { return buffer[i]; });
         CHECK_LAST_HIPCUDA_ERROR();
     }
     else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMin<TData>>)
@@ -312,10 +322,9 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
         reduceMinKernel<true>
             <<<gridSize, blockSize>>>(begin, end, buffer, functor);
         CHECK_LAST_HIPCUDA_ERROR();
-        reduceMinKernel<init>
-            <<<1, gridSize>>>(0, gridSize, out, [=] __device__(const size_t i) {
-                return buffer[i];
-            });
+        reduceMinKernel<init><<<1, blockSize>>>(
+            0, gridSize, out,
+            [=] __device__(const size_t i) { return buffer[i]; });
         CHECK_LAST_HIPCUDA_ERROR();
     }
 }

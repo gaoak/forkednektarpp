@@ -350,8 +350,11 @@ __global__ __launch_bounds__(blockSize) void sumNMatrixKernel(
     }
 }
 
-template <bool init, typename TData>
-__global__ void reduceSumKernel(const size_t nsize, const TData *x, TData *out)
+template <bool init, typename TData,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void reduceSumKernel(const size_t nsize,
+                                                             const TData *x,
+                                                             TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
@@ -436,9 +439,10 @@ __global__ void reduceSumKernel(const size_t nsize, const TData *x, TData *out)
     }
 }
 
-template <bool init, typename TData>
-__global__ void reduceSumKernel(const size_t nsize, const unsigned int *mask,
-                                const TData *x, TData *out)
+template <bool init, typename TData,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void reduceSumKernel(
+    const size_t nsize, const unsigned int *mask, const TData *x, TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
@@ -492,8 +496,11 @@ __global__ void reduceSumKernel(const size_t nsize, const unsigned int *mask,
     }
 }
 
-template <bool init, typename TData>
-__global__ void reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
+template <bool init, typename TData,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void reduceMaxKernel(const size_t nsize,
+                                                             const TData *x,
+                                                             TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
@@ -577,9 +584,10 @@ __global__ void reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
     }
 }
 
-template <bool init, typename TData>
-__global__ void reduceMaxKernel(const size_t nsize, const unsigned int *mask,
-                                const TData *x, TData *out)
+template <bool init, typename TData,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void reduceMaxKernel(
+    const size_t nsize, const unsigned int *mask, const TData *x, TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
@@ -633,8 +641,11 @@ __global__ void reduceMaxKernel(const size_t nsize, const unsigned int *mask,
     }
 }
 
-template <bool init, typename TData>
-__global__ void reduceMinKernel(const size_t nsize, const TData *x, TData *out)
+template <bool init, typename TData,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void reduceMinKernel(const size_t nsize,
+                                                             const TData *x,
+                                                             TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
@@ -718,9 +729,10 @@ __global__ void reduceMinKernel(const size_t nsize, const TData *x, TData *out)
     }
 }
 
-template <bool init, typename TData>
-__global__ void reduceMinKernel(const size_t nsize, const unsigned int *mask,
-                                const TData *x, TData *out)
+template <bool init, typename TData,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void reduceMinKernel(
+    const size_t nsize, const unsigned int *mask, const TData *x, TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
@@ -774,9 +786,12 @@ __global__ void reduceMinKernel(const size_t nsize, const unsigned int *mask,
     }
 }
 
-template <bool init, typename TData>
-__global__ void ddotKernel(const size_t nsize, const TData *x, const TData *y,
-                           TData *out)
+template <bool init, typename TData,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void ddotKernel(const size_t nsize,
+                                                        const TData *x,
+                                                        const TData *y,
+                                                        TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
@@ -865,9 +880,11 @@ __global__ void ddotKernel(const size_t nsize, const TData *x, const TData *y,
     }
 }
 
-template <bool init, typename TData>
-__global__ void ddotKernel(const size_t nsize, const unsigned int *mask,
-                           const TData *x, const TData *y, TData *out)
+template <bool init, typename TData,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void ddotKernel(
+    const size_t nsize, const unsigned int *mask, const TData *x,
+    const TData *y, TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
@@ -922,8 +939,11 @@ __global__ void ddotKernel(const size_t nsize, const unsigned int *mask,
     }
 }
 
-template <bool init, typename TData>
-__global__ void l1normKernel(const size_t nsize, const TData *x, TData *out)
+template <bool init, typename TData,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void l1normKernel(const size_t nsize,
+                                                          const TData *x,
+                                                          TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
@@ -936,9 +956,12 @@ __global__ void l1normKernel(const size_t nsize, const TData *x, TData *out)
     auto warp  = cg::tiled_partition<warpsize>(block);
     TData v    = 0;
 
-    if (block.thread_rank() == 0)
+    if constexpr (init)
     {
-        out[block.group_index().x] = 0.0;
+        if (block.thread_rank() == 0)
+        {
+            out[block.group_index().x] = 0.0;
+        }
     }
 
     block.sync();
@@ -1008,9 +1031,10 @@ __global__ void l1normKernel(const size_t nsize, const TData *x, TData *out)
     }
 }
 
-template <bool init, typename TData>
-__global__ void l1normKernel(const size_t nsize, const unsigned int *mask,
-                             const TData *x, TData *out)
+template <bool init, typename TData,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void l1normKernel(
+    const size_t nsize, const unsigned int *mask, const TData *x, TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
@@ -1022,9 +1046,12 @@ __global__ void l1normKernel(const size_t nsize, const unsigned int *mask,
     auto warp  = cg::tiled_partition<warpsize>(block);
     TData v    = 0;
 
-    if (block.thread_rank() == 0)
+    if constexpr (init)
     {
-        out[block.group_index().x] = 0.0;
+        if (block.thread_rank() == 0)
+        {
+            out[block.group_index().x] = 0.0;
+        }
     }
 
     block.sync();
@@ -1061,8 +1088,11 @@ __global__ void l1normKernel(const size_t nsize, const unsigned int *mask,
     }
 }
 
-template <bool init, typename TData>
-__global__ void l2normKernel(const size_t nsize, const TData *x, TData *out)
+template <bool init, typename TData,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void l2normKernel(const size_t nsize,
+                                                          const TData *x,
+                                                          TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
@@ -1149,9 +1179,10 @@ __global__ void l2normKernel(const size_t nsize, const TData *x, TData *out)
     }
 }
 
-template <bool init, typename TData>
-__global__ void l2normKernel(const size_t nsize, const unsigned int *mask,
-                             const TData *x, TData *out)
+template <bool init, typename TData,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void l2normKernel(
+    const size_t nsize, const unsigned int *mask, const TData *x, TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
@@ -1205,9 +1236,12 @@ __global__ void l2normKernel(const size_t nsize, const unsigned int *mask,
     }
 }
 
-template <bool init, typename TData>
-__global__ void lpnormKernel(const size_t nsize, const unsigned int p,
-                             const TData *x, TData *out)
+template <bool init, typename TData,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void lpnormKernel(const size_t nsize,
+                                                          const unsigned int p,
+                                                          const TData *x,
+                                                          TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
@@ -1297,10 +1331,11 @@ __global__ void lpnormKernel(const size_t nsize, const unsigned int p,
     }
 }
 
-template <bool init, typename TData>
-__global__ void lpnormKernel(const size_t nsize, const unsigned int p,
-                             const unsigned int *mask, const TData *x,
-                             TData *out)
+template <bool init, typename TData,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void lpnormKernel(
+    const size_t nsize, const unsigned int p, const unsigned int *mask,
+    const TData *x, TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
@@ -1354,8 +1389,11 @@ __global__ void lpnormKernel(const size_t nsize, const unsigned int p,
     }
 }
 
-template <bool init, typename TData>
-__global__ void linfnormKernel(const size_t nsize, const TData *x, TData *out)
+template <bool init, typename TData,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void linfnormKernel(const size_t nsize,
+                                                            const TData *x,
+                                                            TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
@@ -1439,9 +1477,10 @@ __global__ void linfnormKernel(const size_t nsize, const TData *x, TData *out)
     }
 }
 
-template <bool init, typename TData>
-__global__ void linfnormKernel(const size_t nsize, const unsigned int *mask,
-                               const TData *x, TData *out)
+template <bool init, typename TData,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void linfnormKernel(
+    const size_t nsize, const unsigned int *mask, const TData *x, TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
@@ -1655,7 +1694,7 @@ reduceSumKernel(const size_t nsize, const TData *x, TData *out)
     TData *buffer = (TData *)internalHIPCUDABuffer;
     reduceSumKernel<true><<<gridSize, blockSize>>>(nsize, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<init><<<1, gridSize>>>(gridSize, buffer, out);
+    reduceSumKernel<init><<<1, blockSize>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -1685,7 +1724,7 @@ reduceSumKernel(const size_t nsize, const unsigned int *mask, const TData *x,
     TData *buffer = (TData *)internalHIPCUDABuffer;
     reduceSumKernel<true><<<gridSize, blockSize>>>(nsize, mask, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<init><<<1, gridSize>>>(gridSize, buffer, out);
+    reduceSumKernel<init><<<1, blockSize>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -1714,7 +1753,7 @@ reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
     TData *buffer = (TData *)internalHIPCUDABuffer;
     reduceMaxKernel<true><<<gridSize, blockSize>>>(nsize, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceMaxKernel<init><<<1, gridSize>>>(gridSize, buffer, out);
+    reduceMaxKernel<init><<<1, blockSize>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -1744,7 +1783,7 @@ reduceMaxKernel(const size_t nsize, const unsigned int *mask, const TData *x,
     TData *buffer = (TData *)internalHIPCUDABuffer;
     reduceMaxKernel<true><<<gridSize, blockSize>>>(nsize, mask, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceMaxKernel<init><<<1, gridSize>>>(gridSize, buffer, out);
+    reduceMaxKernel<init><<<1, blockSize>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -1773,7 +1812,7 @@ reduceMinKernel(const size_t nsize, const TData *x, TData *out)
     TData *buffer = (TData *)internalHIPCUDABuffer;
     reduceMinKernel<true><<<gridSize, blockSize>>>(nsize, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceMinKernel<init><<<1, gridSize>>>(gridSize, buffer, out);
+    reduceMinKernel<init><<<1, blockSize>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -1803,7 +1842,7 @@ reduceMinKernel(const size_t nsize, const unsigned int *mask, const TData *x,
     TData *buffer = (TData *)internalHIPCUDABuffer;
     reduceMinKernel<true><<<gridSize, blockSize>>>(nsize, mask, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceMinKernel<init><<<1, gridSize>>>(gridSize, buffer, out);
+    reduceMinKernel<init><<<1, blockSize>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -1832,7 +1871,7 @@ ddotKernel(const size_t nsize, const TData *x, const TData *y, TData *out)
     TData *buffer = (TData *)internalHIPCUDABuffer;
     ddotKernel<true><<<gridSize, blockSize>>>(nsize, x, y, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<init><<<1, gridSize>>>(gridSize, buffer, out);
+    reduceSumKernel<init><<<1, blockSize>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -1862,7 +1901,7 @@ ddotKernel(const size_t nsize, const unsigned int *mask, const TData *x,
     TData *buffer = (TData *)internalHIPCUDABuffer;
     ddotKernel<true><<<gridSize, blockSize>>>(nsize, mask, x, y, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<init><<<1, gridSize>>>(gridSize, buffer, out);
+    reduceSumKernel<init><<<1, blockSize>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -1891,7 +1930,7 @@ l1normKernel(const size_t nsize, const TData *x, TData *out)
     TData *buffer = (TData *)internalHIPCUDABuffer;
     l1normKernel<true><<<gridSize, blockSize>>>(nsize, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<init><<<1, gridSize>>>(gridSize, buffer, out);
+    reduceSumKernel<init><<<1, blockSize>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -1921,7 +1960,7 @@ l1normKernel(const size_t nsize, const unsigned int *mask, const TData *x,
     TData *buffer = (TData *)internalHIPCUDABuffer;
     l1normKernel<true><<<gridSize, blockSize>>>(nsize, mask, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<init><<<1, gridSize>>>(gridSize, buffer, out);
+    reduceSumKernel<init><<<1, blockSize>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -1950,7 +1989,7 @@ l2normKernel(const size_t nsize, const TData *x, TData *out)
     TData *buffer = (TData *)internalHIPCUDABuffer;
     l2normKernel<true><<<gridSize, blockSize>>>(nsize, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<init><<<1, gridSize>>>(gridSize, buffer, out);
+    reduceSumKernel<init><<<1, blockSize>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -1980,7 +2019,7 @@ l2normKernel(const size_t nsize, const unsigned int *mask, const TData *x,
     TData *buffer = (TData *)internalHIPCUDABuffer;
     l2normKernel<true><<<gridSize, blockSize>>>(nsize, mask, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<init><<<1, gridSize>>>(gridSize, buffer, out);
+    reduceSumKernel<init><<<1, blockSize>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -2010,7 +2049,7 @@ lpnormKernel(const size_t nsize, const unsigned int p, const TData *x,
     TData *buffer = (TData *)internalHIPCUDABuffer;
     lpnormKernel<true><<<gridSize, blockSize>>>(nsize, p, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<init><<<1, gridSize>>>(gridSize, buffer, out);
+    reduceSumKernel<init><<<1, blockSize>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -2040,7 +2079,7 @@ lpnormKernel(const size_t nsize, const unsigned int p, const unsigned int *mask,
     TData *buffer = (TData *)internalHIPCUDABuffer;
     lpnormKernel<true><<<gridSize, blockSize>>>(nsize, p, mask, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<init><<<1, gridSize>>>(gridSize, buffer, out);
+    reduceSumKernel<init><<<1, blockSize>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -2069,7 +2108,7 @@ linfnormKernel(const size_t nsize, const TData *x, TData *out)
     TData *buffer = (TData *)internalHIPCUDABuffer;
     linfnormKernel<true><<<gridSize, blockSize>>>(nsize, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceMaxKernel<init><<<1, gridSize>>>(gridSize, buffer, out);
+    reduceMaxKernel<init><<<1, blockSize>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -2099,7 +2138,7 @@ linfnormKernel(const size_t nsize, const unsigned int *mask, const TData *x,
     TData *buffer = (TData *)internalHIPCUDABuffer;
     linfnormKernel<true><<<gridSize, blockSize>>>(nsize, mask, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceMaxKernel<init><<<1, gridSize>>>(gridSize, buffer, out);
+    reduceMaxKernel<init><<<1, blockSize>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
