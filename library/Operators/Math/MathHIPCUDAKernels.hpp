@@ -178,11 +178,13 @@ __device__ inline double2 operator+(const double2 &a, const double &b)
     return make_double2(a.x + b, a.y + b);
 }
 
-template <typename TData>
-__global__ void absKernel(const size_t nsize, const TData *x, TData *y)
+template <typename TData,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void absKernel(const size_t nsize,
+                                                       const TData *x, TData *y)
 {
-    size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
-    size_t stride = blockDim.x * gridDim.x;
+    const size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
+    const size_t stride = blockDim.x * gridDim.x;
 
     for (size_t idx = idx0; idx < nsize; idx += stride)
     {
@@ -190,11 +192,13 @@ __global__ void absKernel(const size_t nsize, const TData *x, TData *y)
     }
 }
 
-template <typename TData>
-__global__ void negKernel(const size_t nsize, const TData *x, TData *y)
+template <typename TData,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void negKernel(const size_t nsize,
+                                                       const TData *x, TData *y)
 {
-    size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
-    size_t stride = blockDim.x * gridDim.x;
+    const size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
+    const size_t stride = blockDim.x * gridDim.x;
 
     for (size_t idx = idx0; idx < nsize; idx += stride)
     {
@@ -202,11 +206,14 @@ __global__ void negKernel(const size_t nsize, const TData *x, TData *y)
     }
 }
 
-template <typename TData>
-__global__ void sqrtKernel(const size_t nsize, const TData *x, TData *y)
+template <typename TData,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void sqrtKernel(const size_t nsize,
+                                                        const TData *x,
+                                                        TData *y)
 {
-    size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
-    size_t stride = blockDim.x * gridDim.x;
+    const size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
+    const size_t stride = blockDim.x * gridDim.x;
 
     for (size_t idx = idx0; idx < nsize; idx += stride)
     {
@@ -214,12 +221,14 @@ __global__ void sqrtKernel(const size_t nsize, const TData *x, TData *y)
     }
 }
 
-template <typename TData>
-__global__ void addKernel(const size_t nsize, const TData *x, const TData *y,
-                          TData *z)
+template <typename TData,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void addKernel(const size_t nsize,
+                                                       const TData *x,
+                                                       const TData *y, TData *z)
 {
-    size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
-    size_t stride = blockDim.x * gridDim.x;
+    const size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
+    const size_t stride = blockDim.x * gridDim.x;
 
     for (size_t idx = idx0; idx < nsize; idx += stride)
     {
@@ -227,12 +236,105 @@ __global__ void addKernel(const size_t nsize, const TData *x, const TData *y,
     }
 }
 
-template <typename TData>
-__global__ void sumNMatrixKernel(const size_t nsize, const size_t n,
-                                 const TData *x, TData *y)
+template <typename TData,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void subKernel(const size_t nsize,
+                                                       const TData *x,
+                                                       const TData *y, TData *z)
 {
-    size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
-    size_t stride = blockDim.x * gridDim.x;
+    const size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
+    const size_t stride = blockDim.x * gridDim.x;
+
+    for (size_t idx = idx0; idx < nsize; idx += stride)
+    {
+        z[idx] = x[idx] - y[idx];
+    }
+}
+
+template <typename TData,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void mulKernel(const size_t nsize,
+                                                       const TData alpha,
+                                                       const TData *x, TData *y)
+{
+    const size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
+    const size_t stride = blockDim.x * gridDim.x;
+
+    for (size_t idx = idx0; idx < nsize; idx += stride)
+    {
+        y[idx] = alpha * x[idx];
+    }
+}
+
+template <typename TData,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void mulKernel(const size_t nsize,
+                                                       const TData *x,
+                                                       const TData *y, TData *z)
+{
+    const size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
+    const size_t stride = blockDim.x * gridDim.x;
+
+    for (size_t idx = idx0; idx < nsize; idx += stride)
+    {
+        z[idx] = x[idx] * y[idx];
+    }
+}
+
+template <typename TData,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void divKernel(const size_t nsize,
+                                                       const TData alpha,
+                                                       const TData *x, TData *y)
+{
+    const size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
+    const size_t stride = blockDim.x * gridDim.x;
+
+    for (size_t idx = idx0; idx < nsize; idx += stride)
+    {
+        y[idx] = alpha / x[idx];
+    }
+}
+
+template <typename TData,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void divKernel(const size_t nsize,
+                                                       const TData *x,
+                                                       const TData *y, TData *z)
+{
+    const size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
+    const size_t stride = blockDim.x * gridDim.x;
+
+    for (size_t idx = idx0; idx < nsize; idx += stride)
+    {
+        z[idx] = x[idx] / y[idx];
+    }
+}
+
+template <typename TData,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void daxpyKernel(const size_t nsize,
+                                                         const TData alpha,
+                                                         const TData *x,
+                                                         const TData *y,
+                                                         TData *z)
+{
+    const size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
+    const size_t stride = blockDim.x * gridDim.x;
+
+    for (size_t idx = idx0; idx < nsize; idx += stride)
+    {
+        z[idx] = alpha * x[idx] + y[idx];
+    }
+}
+
+template <typename TData,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void sumNMatrixKernel(
+    const size_t nsize, const size_t n, const TData *x, TData *y)
+{
+    const size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
+    const size_t stride = blockDim.x * gridDim.x;
 
     for (size_t idx = idx0; idx < nsize; idx += stride)
     {
@@ -245,84 +347,6 @@ __global__ void sumNMatrixKernel(const size_t nsize, const size_t n,
         }
 
         y[idx] = sum;
-    }
-}
-
-template <typename TData>
-__global__ void subKernel(const size_t nsize, const TData *x, const TData *y,
-                          TData *z)
-{
-    size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
-    size_t stride = blockDim.x * gridDim.x;
-
-    for (size_t idx = idx0; idx < nsize; idx += stride)
-    {
-        z[idx] = x[idx] - y[idx];
-    }
-}
-
-template <typename TData>
-__global__ void mulKernel(const size_t nsize, const TData alpha, const TData *x,
-                          TData *y)
-{
-    size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
-    size_t stride = blockDim.x * gridDim.x;
-
-    for (size_t idx = idx0; idx < nsize; idx += stride)
-    {
-        y[idx] = alpha * x[idx];
-    }
-}
-
-template <typename TData>
-__global__ void mulKernel(const size_t nsize, const TData *x, const TData *y,
-                          TData *z)
-{
-    size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
-    size_t stride = blockDim.x * gridDim.x;
-
-    for (size_t idx = idx0; idx < nsize; idx += stride)
-    {
-        z[idx] = x[idx] * y[idx];
-    }
-}
-
-template <typename TData>
-__global__ void divKernel(const size_t nsize, const TData alpha, const TData *x,
-                          TData *y)
-{
-    size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
-    size_t stride = blockDim.x * gridDim.x;
-
-    for (size_t idx = idx0; idx < nsize; idx += stride)
-    {
-        y[idx] = alpha / x[idx];
-    }
-}
-
-template <typename TData>
-__global__ void divKernel(const size_t nsize, const TData *x, const TData *y,
-                          TData *z)
-{
-    size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
-    size_t stride = blockDim.x * gridDim.x;
-
-    for (size_t idx = idx0; idx < nsize; idx += stride)
-    {
-        z[idx] = x[idx] / y[idx];
-    }
-}
-
-template <typename TData>
-__global__ void daxpyKernel(const size_t nsize, const TData alpha,
-                            const TData *x, const TData *y, TData *z)
-{
-    size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
-    size_t stride = blockDim.x * gridDim.x;
-
-    for (size_t idx = idx0; idx < nsize; idx += stride)
-    {
-        z[idx] = alpha * x[idx] + y[idx];
     }
 }
 
@@ -1524,18 +1548,6 @@ addKernel(const size_t nsize, const TData *x, const TData *y, TData *z)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-sumNMatrixKernel(const size_t nsize, const size_t n, const TData *x, TData *y)
-{
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
-
-    sumNMatrixKernel<<<gridSize, blockSize>>>(nsize, n, x, y);
-    CHECK_LAST_HIPCUDA_ERROR();
-}
-
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
 subKernel(const size_t nsize, const TData *x, const TData *y, TData *z)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
@@ -1603,6 +1615,18 @@ daxpyKernel(const size_t nsize, const TData alpha, const TData *x,
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     daxpyKernel<<<gridSize, blockSize>>>(nsize, alpha, x, y, z);
+    CHECK_LAST_HIPCUDA_ERROR();
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
+sumNMatrixKernel(const size_t nsize, const size_t n, const TData *x, TData *y)
+{
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+
+    sumNMatrixKernel<<<gridSize, blockSize>>>(nsize, n, x, y);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
