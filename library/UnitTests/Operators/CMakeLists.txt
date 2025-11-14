@@ -20,6 +20,7 @@
 
 # FwdTrans               create operator - DiagPrecon - Helmholtz1D_Seg, etc.
 # HelmSolve              create operator - DiagPrecon - Helmholtz1D_Seg, etc.
+# LinearADRSolve         create operator - DiagPrecon - Helmholtz1D_Seg, etc.
 
 # Dirichlet              only output - Nodepend - Helmholtz1D_Seg, etc.
 # Neumann                only output - Nodepend - Helmholtz1D_Seg, etc.
@@ -96,6 +97,8 @@ ADD_NEKTAR_EXECUTABLE(test_helmsolve_conjgrad
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_conjgrad.cpp)
 ADD_NEKTAR_EXECUTABLE(test_helmsolve_gmres
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_gmres.cpp)
+ADD_NEKTAR_EXECUTABLE(test_linearadrsolve_gmres
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linearadrsolve_gmres.cpp)
 ADD_NEKTAR_EXECUTABLE(test_ipwrtbase
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase.cpp)
 ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase
@@ -198,6 +201,7 @@ SET_UNIT_TEST(FwdTrans_serial_stdmat test_fwdtrans Serial StdMat FALSE)
 SET_UNIT_TEST(Helmholtz_serial_stdmat test_helmholtz Serial StdMat FALSE)
 SET_UNIT_TEST(HelmSolve_conjgrad_serial_stdmat test_helmsolve_conjgrad Serial StdMat FALSE)
 SET_UNIT_TEST(HelmSolve_gmres_serial_stdmat test_helmsolve_gmres Serial StdMat FALSE)
+SET_UNIT_TEST(LinearADRSolve_gmres_serial_stdmat test_linearadrsolve_gmres Serial StdMat FALSE)
 SET_UNIT_TEST(IProductWRTBase_serial_stdmat test_ipwrtbase Serial StdMat FALSE)
 SET_UNIT_TEST(IProductWRTDerivBase_serial_stdmat test_ipwrtderivbase Serial StdMat FALSE)
 SET_UNIT_TEST(LinAdvDiffReaction_serial_stdmat test_linadvdiffreaction Serial StdMat FALSE)
@@ -214,6 +218,7 @@ SET_UNIT_TEST(FwdTrans_serial_sumfac test_fwdtrans Serial SumFac FALSE)
 SET_UNIT_TEST(Helmholtz_serial_sumfac test_helmholtz Serial SumFac FALSE)
 SET_UNIT_TEST(HelmSolve_conjgrad_serial_sumfac test_helmsolve_conjgrad Serial SumFac FALSE)
 SET_UNIT_TEST(HelmSolve_gmres_serial_sumfac test_helmsolve_gmres Serial SumFac FALSE)
+SET_UNIT_TEST(LinearADRSolve_gmres_serial_sumfac test_linearadrsolve_gmres Serial SumFac FALSE)
 SET_UNIT_TEST(IProductWRTBase_serial_sumfac test_ipwrtbase Serial SumFac FALSE)
 SET_UNIT_TEST(IProductWRTDerivBase_serial_sumfac test_ipwrtderivbase Serial SumFac FALSE)
 SET_UNIT_TEST(LinAdvDiffReaction_serial_sumfac test_linadvdiffreaction Serial SumFac FALSE)
@@ -337,6 +342,7 @@ IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABL
     SET_UNIT_TEST(Helmholtz_device_stdmat test_helmholtz Device StdMat FALSE)
     SET_UNIT_TEST(HelmSolve_conjgrad_device_stdmat test_helmsolve_conjgrad Device StdMat FALSE)
     SET_UNIT_TEST(HelmSolve_gmres_device_stdmat test_helmsolve_gmres Device StdMat FALSE)
+    SET_UNIT_TEST(LinearADRSolve_gmres_device_stdmat test_linearadrsolve_gmres Device StdMat FALSE)
     SET_UNIT_TEST(IProductWRTBase_device_stdmat test_ipwrtbase Device StdMat FALSE)
     SET_UNIT_TEST(IProductWRTDerivBase_device_stdmat test_ipwrtderivbase Device StdMat FALSE)
     SET_UNIT_TEST(LinAdvDiffReaction_device_stdmat test_linadvdiffreaction Device StdMat FALSE)
@@ -373,6 +379,7 @@ IF(NEKTAR_ENABLE_CUDA OR NEKTAR_ENABLE_HIP OR NEKTAR_ENABLE_SYCL OR NEKTAR_ENABL
     SET_UNIT_TEST(Helmholtz_device_sumfactop test_helmholtz Device SumFacTOP FALSE)
     SET_UNIT_TEST(HelmSolve_conjgrad_device_sumfactop test_helmsolve_conjgrad Device SumFacTOP FALSE)
     SET_UNIT_TEST(HelmSolve_gmres_device_sumfactop test_helmsolve_gmres Device SumFacTOP FALSE)
+    SET_UNIT_TEST(LinearADRSolve_gmres_device_sumfactop test_linearadrsolve_gmres Device SumFacTOP FALSE)
     SET_UNIT_TEST(IProductWRTBase_device_sumfactop test_ipwrtbase Device SumFacTOP FALSE)
     SET_UNIT_TEST(IProductWRTDerivBase_device_sumfactop test_ipwrtderivbase Device SumFacTOP FALSE)
     SET_UNIT_TEST(LinAdvDiffReaction_device_sumfactop test_linadvdiffreaction Device SumFacTOP FALSE)

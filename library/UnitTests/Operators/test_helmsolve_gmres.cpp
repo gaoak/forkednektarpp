@@ -54,9 +54,7 @@
 
 BOOST_AUTO_TEST_SUITE(TestHelmSolveGMRES)
 
-#if !defined(NEKTAR_USE_MPI)
 TEST_HELMSOLVE(helmsolve_seg, Helmholtz1D_Seg, 1.0E-12)
-#endif
 
 TEST_HELMSOLVE(helmsolve_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-10)
 
