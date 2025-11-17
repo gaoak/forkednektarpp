@@ -22,7 +22,7 @@ const auto nq0 = m_nq[0];
             // loop case over quarature points 
             switch (nq0)
             {
-                BOOST_PP_FOR((MIN1D, MAX1D), LEV1TEST, LEV1UPDATE, OPERATOR);
+                BOOST_PP_FOR((MIN1D, MAXPLUSONE1D), LEV1TEST, LEV1UPDATE, OPERATOR);
             default:
                 OPERATOR_DEF;
                 break;
@@ -40,7 +40,7 @@ const auto nq0 = m_nq[0];
             // loop case over quarature points 
             switch (nq0)
             {
-                BOOST_PP_FOR((MIN1D, MAX1D), LEV1TEST, LEV1UPDATE, OPERATOR);
+                BOOST_PP_FOR((MIN1D, MAXPLUSONE1D), LEV1TEST, LEV1UPDATE, OPERATOR);
             default:
                 OPERATOR_DEF;
                 break;
@@ -58,7 +58,7 @@ const auto nq0 = m_nq[0];
             // loop case over quarature points 
             switch (nq0)
             {
-                BOOST_PP_FOR((MIN1D, MAX1D), LEV1TEST, LEV1UPDATE, OPERATOR);
+                BOOST_PP_FOR((MIN1D, MAXPLUSONE1D), LEV1TEST, LEV1UPDATE, OPERATOR);
             default:
                 OPERATOR_DEF;
                 break;
@@ -87,7 +87,7 @@ const auto nq0 = m_nq[0];
             // loop case over quarature points 
             switch (nq0)
             {
-                BOOST_PP_FOR((MIN1D, MAX1D), LEV1TEST, LEV1UPDATE, OPERATOR);
+                BOOST_PP_FOR((MIN1D, MAXPLUSONE1D), LEV1TEST, LEV1UPDATE, OPERATOR);
             default:
                 OPERATOR_DEF;
                 break;
@@ -105,7 +105,7 @@ const auto nq0 = m_nq[0];
             // loop case over quarature points 
             switch (nq0)
             {
-                BOOST_PP_FOR((MIN1D, MAX1D), LEV1TEST, LEV1UPDATE, OPERATOR);
+                BOOST_PP_FOR((MIN1D, MAXPLUSONE1D), LEV1TEST, LEV1UPDATE, OPERATOR);
             default:
                 OPERATOR_DEF;
                 break;
@@ -123,7 +123,7 @@ const auto nq0 = m_nq[0];
             // loop case over quarature points 
             switch (nq0)
             {
-                BOOST_PP_FOR((MIN1D, MAX1D), LEV1TEST, LEV1UPDATE, OPERATOR);
+                BOOST_PP_FOR((MIN1D, MAXPLUSONE1D), LEV1TEST, LEV1UPDATE, OPERATOR);
             default:
                 OPERATOR_DEF;
                 break;
@@ -170,7 +170,7 @@ const auto nq0 = m_nq[0];
             {
                 switch (nq0)
                 {
-                    BOOST_PP_FOR((MIN1D, MAX1D), LEV1TEST, LEV1UPDATE, OPERATOR);
+                    BOOST_PP_FOR((MIN1D, MAXPLUSONE1D), LEV1TEST, LEV1UPDATE, OPERATOR);
                 default:
                     OPERATOR_DEF;
                     break;
@@ -207,7 +207,7 @@ const auto nq0 = m_nq[0];
             {
                 switch (nq0)
                 {
-                    BOOST_PP_FOR((MIN1D, MAX1D), LEV1TEST, LEV1UPDATE, OPERATOR);
+                    BOOST_PP_FOR((MIN1D, MAXPLUSONE1D), LEV1TEST, LEV1UPDATE, OPERATOR);
                 default:
                     OPERATOR_DEF;
                     break;
@@ -255,7 +255,7 @@ const auto nq0 = m_nq[0];
             {
                 switch (nq0)
                 {
-                    BOOST_PP_FOR((MIN1D, MAX1D), LEV1TEST, LEV1UPDATE, OPERATOR);
+                    BOOST_PP_FOR((MIN1D, MAXPLUSONE1D), LEV1TEST, LEV1UPDATE, OPERATOR);
                 default:
                     OPERATOR_DEF;
                     break;
@@ -292,7 +292,7 @@ const auto nq0 = m_nq[0];
             {
                 switch (nq0)
                 {
-                    BOOST_PP_FOR((MIN1D, MAX1D), LEV1TEST, LEV1UPDATE, OPERATOR);
+                    BOOST_PP_FOR((MIN1D, MAXPLUSONE1D), LEV1TEST, LEV1UPDATE, OPERATOR);
                 default:
                     OPERATOR_DEF;
                     break;
@@ -317,7 +317,7 @@ const auto nq0 = m_nq[0];
         // Default case
 #undef OPERATOR_DEF
 #define OPERATOR_DEF                                                           \
-        Operator3D<LibUtilities::@Shape@, false>(input, output);
+        Operator3D<LibUtilities::@Shape@, true>(input, output);
 
 #if defined(SHAPE_TYPE_Hex)
 #undef OPERATOR
@@ -353,7 +353,7 @@ const auto nq0 = m_nq[0];
         {
             switch (nq0)
             {
-                BOOST_PP_FOR((MIN1D, MAX1D), LEV1TEST, LEV1UPDATE, OPERATOR);
+                BOOST_PP_FOR((MIN1D, MAXPLUSONE1D), LEV1TEST, LEV1UPDATE, OPERATOR);
             default:
                 OPERATOR_DEF;
                 break;
@@ -405,7 +405,7 @@ const auto nq0 = m_nq[0];
         {
             switch (nq0)
             {
-                BOOST_PP_FOR((MIN1D, MAX1D), LEV1TEST, LEV1UPDATE, OPERATOR);
+                BOOST_PP_FOR((MIN1D, MAXPLUSONE1D), LEV1TEST, LEV1UPDATE, OPERATOR);
             default:
                 OPERATOR_DEF;
                 break;
