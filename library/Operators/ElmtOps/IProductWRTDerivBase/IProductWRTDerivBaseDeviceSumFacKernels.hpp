@@ -411,7 +411,7 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase2DSumFacTOPKernel(
     const unsigned int idx0   = getLocalIdx(threadBlock);
     const unsigned int stride = getLocalRange(threadBlock);
 
-    for (unsigned int idx = idx0; idx < nq0 * nq1; idx += stride)
+    for (unsigned int idx = idx0; idx < nqTot; idx += stride)
     {
         const unsigned int i       = idx % nq0;
         const unsigned int j       = idx / nq0;
@@ -476,7 +476,7 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase3DSumFacTOPKernel(
     const unsigned int idx0   = getLocalIdx(threadBlock);
     const unsigned int stride = getLocalRange(threadBlock);
 
-    for (unsigned int idx = idx0; idx < nq0 * nq1 * nq2; idx += stride)
+    for (unsigned int idx = idx0; idx < nqTot; idx += stride)
     {
         const unsigned int i       = idx % nq0;
         const unsigned int j       = (idx / nq0) % nq1;
