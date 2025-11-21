@@ -336,7 +336,7 @@ private:
         const LocalRegions::Expansion *lep =
             dynamic_cast<const LocalRegions::Expansion *>(sep);
         m_deformed =
-            (lep->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed);
+            (lep->GetGeomFactors()->GetGtype() == SpatialDomains::eDeformed);
         m_jac = pGeomData->GetJac(pCollExp);
 
         m_wspSize = nqtot * m_numElmt;

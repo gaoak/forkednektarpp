@@ -69,7 +69,7 @@ public:
             const auto exp   = expansionList->GetExp(blocks[blk].GetExpIdx());
             const auto nmTot = exp->GetNcoeffs();
             const auto deformed =
-                exp->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed;
+                exp->GetGeomFactors()->GetGtype() == SpatialDomains::eDeformed;
             const auto nelmt    = blocks[blk].GetNumElements();
             const auto nelmtPad = blocks[blk].GetNumElementsWithPadding();
 

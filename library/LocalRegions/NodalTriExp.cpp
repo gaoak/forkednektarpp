@@ -52,11 +52,9 @@ NodalTriExp::NodalTriExp(const LibUtilities::BasisKey &Ba,
       StdNodalTriExp(Ba, Bb, Ntype), Expansion(geom), Expansion2D(geom),
       TriExp(Ba, Bb, geom),
       m_matrixManager(
-          std::bind(&Expansion2D::CreateMatrix, this, std::placeholders::_1),
-          std::string("NodalTriExpMatrix")),
+          std::bind(&Expansion2D::CreateMatrix, this, std::placeholders::_1)),
       m_staticCondMatrixManager(std::bind(&Expansion::CreateStaticCondMatrix,
-                                          this, std::placeholders::_1),
-                                std::string("NodalTriExpStaticCondMatrix"))
+                                          this, std::placeholders::_1))
 {
 }
 

@@ -50,11 +50,9 @@ NodalPrismExp::NodalPrismExp(const LibUtilities::BasisKey &Ba,
       StdPrismExp(Ba, Bb, Bc), StdNodalPrismExp(Ba, Bb, Bc, Ntype),
       Expansion(geom), Expansion3D(geom), PrismExp(Ba, Bb, Bc, geom),
       m_matrixManager(
-          std::bind(&Expansion3D::CreateMatrix, this, std::placeholders::_1),
-          std::string("NodalPrismExpMatrix")),
+          std::bind(&Expansion3D::CreateMatrix, this, std::placeholders::_1)),
       m_staticCondMatrixManager(std::bind(&Expansion::CreateStaticCondMatrix,
-                                          this, std::placeholders::_1),
-                                std::string("NodalPrismExpStaticCondMatrix"))
+                                          this, std::placeholders::_1))
 {
 }
 

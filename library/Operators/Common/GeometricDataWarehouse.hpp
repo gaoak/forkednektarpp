@@ -148,7 +148,7 @@ public:
         auto expPtr = m_expansionList->GetExp(exp_idx);
 
         // Deformed geometry.
-        if (expPtr->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed)
+        if (expPtr->GetGeomFactors()->GetGtype() == SpatialDomains::eDeformed)
         {
             const auto memsize =
                 num_elmt_groups * interleave_width * expPtr->GetTotPoints();
@@ -165,8 +165,8 @@ public:
                     if (el < num_elements)
                     {
                         jacArray[i] = m_expansionList->GetExp(exp_idx + el)
-                                          ->GetMetricInfo()
-                                          ->GetJac(expPtr->GetPointsKeys());
+                                          ->GetGeomFactors()
+                                          ->GetJac();
                     }
                     else
                     {
@@ -202,8 +202,8 @@ public:
                     if (el < num_elements)
                     {
                         auto &auxJac = m_expansionList->GetExp(exp_idx + el)
-                                           ->GetMetricInfo()
-                                           ->GetJac(expPtr->GetPointsKeys());
+                                           ->GetGeomFactors()
+                                           ->GetJac();
                         jacptr[el] = auxJac[0];
                     }
                     else
@@ -239,7 +239,7 @@ public:
         const auto range2 = transpose ? expPtr->GetTotPoints() : nDim * nCoord;
 
         // Deformed geometry.
-        if (expPtr->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed)
+        if (expPtr->GetGeomFactors()->GetGtype() == SpatialDomains::eDeformed)
         {
             // Allocate memory and get pointer.
             const auto memsize = num_elmt_groups * interleave_width *
@@ -264,9 +264,8 @@ public:
 
                                 auto &tmp =
                                     m_expansionList->GetExp(exp_idx + el + i)
-                                        ->GetMetricInfo()
-                                        ->GetDerivFactors(
-                                            expPtr->GetPointsKeys());
+                                        ->GetGeomFactors()
+                                        ->GetDerivFactors();
                                 *(dfptr++) = tmp[d][pt];
                             }
                             else
@@ -301,8 +300,8 @@ public:
                         {
                             auto &tmp =
                                 m_expansionList->GetExp(exp_idx + el + i)
-                                    ->GetMetricInfo()
-                                    ->GetDerivFactors(expPtr->GetPointsKeys());
+                                    ->GetGeomFactors()
+                                    ->GetDerivFactors();
                             *(dfptr++) = tmp[d][0];
                         }
                         else

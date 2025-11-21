@@ -162,7 +162,7 @@ void PrintBlockInfo(const MultiRegions::ExpListSharedPtr &expList,
 
         // Check the geometry type of the block: deformed or regular
         // if both types exist in the same rank, then it is labeled as mixed.
-        auto gtype = expList->GetExp(expId)->GetMetricInfo()->GetGtype();
+        auto gtype = expList->GetExp(expId)->GetGeomFactors()->GetGtype();
         if (gtype == SpatialDomains::eDeformed && rankGeomTypes[0] != 1)
         {
             rankGeomTypes[0] = 2; // Deformed

@@ -52,11 +52,9 @@ NodalTetExp::NodalTetExp(const LibUtilities::BasisKey &Ba,
       StdTetExp(Ba, Bb, Bc), StdNodalTetExp(Ba, Bb, Bc, Ntype), Expansion(geom),
       Expansion3D(geom), TetExp(Ba, Bb, Bc, geom),
       m_matrixManager(
-          std::bind(&Expansion3D::CreateMatrix, this, std::placeholders::_1),
-          std::string("NodalTetExpMatrix")),
+          std::bind(&Expansion3D::CreateMatrix, this, std::placeholders::_1)),
       m_staticCondMatrixManager(std::bind(&Expansion::CreateStaticCondMatrix,
-                                          this, std::placeholders::_1),
-                                std::string("NodalTetExpStaticCondMatrix"))
+                                          this, std::placeholders::_1))
 {
 }
 

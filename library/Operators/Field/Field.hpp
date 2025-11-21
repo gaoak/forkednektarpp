@@ -171,7 +171,7 @@ std::vector<BlockAttributes> GetBlockAttributes(
     {
         prevbasisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
     }
-    prevIsDeformed = expPtr->GetMetricInfo()->GetGtype();
+    prevIsDeformed = expPtr->GetGeomFactors()->GetGtype();
 
     // loop over elements
     for (size_t i = 1; i < explist->GetNumElmts(); i++)
@@ -184,7 +184,7 @@ std::vector<BlockAttributes> GetBlockAttributes(
             thisbasisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
         }
 
-        thisIsDeformed = expPtr->GetMetricInfo()->GetGtype();
+        thisIsDeformed = expPtr->GetGeomFactors()->GetGtype();
 
         // if the basis is the same as the previous one, increment the number of
         // elements

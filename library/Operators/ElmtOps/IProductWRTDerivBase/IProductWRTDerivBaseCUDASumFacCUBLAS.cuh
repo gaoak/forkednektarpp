@@ -60,7 +60,7 @@ public:
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
         m_isDeformed =
-            exp->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed;
+            exp->GetGeomFactors()->GetGtype() == SpatialDomains::eDeformed;
         m_dimension = exp->GetShapeDimension();
         m_coordDim  = exp->GetCoordim();
         m_nmTot     = exp->GetNcoeffs();
