@@ -101,6 +101,7 @@ elif [[ $BUILD_TYPE == "full" ]]; then
 
         # Enable SYCL in CMake configuration
         CMAKEARGS+=("-DNEKTAR_ENABLE_SYCL:STRING=CUDA")
+    fi
     if [[ $ENABLE_ALIGN_MEM == "true" ]]; then
         CMAKEARGS+=("-DNEKTAR_USE_MEMORY_POOLS:BOOL=OFF")
         CMAKEARGS+=("-DNEKTAR_USE_ALIGNED_MEM:BOOL=ON")
