@@ -64,7 +64,6 @@ elif [[ $BUILD_TYPE == "full" ]]; then
     elif [[ $BUILD_SIMD == "avx512" ]]; then
         CMAKEARGS+=("-DNEKTAR_ENABLE_SIMD_AVX512:BOOL=ON")
     fi
-<<<<<<< HEAD
     if [[ $BUILD_DEVICEONHOST == "on" ]]; then
         CMAKEARGS+=("-DNEKTAR_ENABLE_DEVICEONHOST:BOOL=ON")
     elif [[ $BUILD_CUDA == "on" ]]; then
