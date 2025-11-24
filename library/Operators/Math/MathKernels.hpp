@@ -592,8 +592,8 @@ void reduceSum(MemoryRegion<TData> &x, TData *out)
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-void reduceSum(Field<unsigned int, TFieldState> &mask,
-               Field<TData, TFieldState> &x, TData *out)
+void reduceSum(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
+               TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -623,8 +623,7 @@ void reduceSum(Field<unsigned int, TFieldState> &mask,
 }
 
 template <typename ExecSpace, typename TData>
-void reduceSum(MemoryRegion<unsigned int> &mask, MemoryRegion<TData> &x,
-               TData *out)
+void reduceSum(MemoryRegion<uint8_t> &mask, MemoryRegion<TData> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -670,8 +669,8 @@ void reduceMax(MemoryRegion<TData> &x, TData *out)
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-void reduceMax(Field<unsigned int, TFieldState> &mask,
-               Field<TData, TFieldState> &x, TData *out)
+void reduceMax(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
+               TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -701,8 +700,7 @@ void reduceMax(Field<unsigned int, TFieldState> &mask,
 }
 
 template <typename ExecSpace, typename TData>
-void reduceMax(MemoryRegion<unsigned int> &mask, MemoryRegion<TData> &x,
-               TData *out)
+void reduceMax(MemoryRegion<uint8_t> &mask, MemoryRegion<TData> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -748,8 +746,8 @@ void reduceMin(MemoryRegion<TData> &x, TData *out)
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-void reduceMin(Field<unsigned int, TFieldState> &mask,
-               Field<TData, TFieldState> &x, TData *out)
+void reduceMin(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
+               TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -779,8 +777,7 @@ void reduceMin(Field<unsigned int, TFieldState> &mask,
 }
 
 template <typename ExecSpace, typename TData>
-void reduceMin(MemoryRegion<unsigned int> &mask, MemoryRegion<TData> &x,
-               TData *out)
+void reduceMin(MemoryRegion<uint8_t> &mask, MemoryRegion<TData> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -850,7 +847,7 @@ void ddot(MemoryRegion<TData> &x, MemoryRegion<TData> &y, TData *out)
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-void ddot(Field<unsigned int, TFieldState> &mask, Field<TData, TFieldState> &x,
+void ddot(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
           Field<TData, TFieldState> &y, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
@@ -892,7 +889,7 @@ void ddot(Field<unsigned int, TFieldState> &mask, Field<TData, TFieldState> &x,
 }
 
 template <typename ExecSpace, typename TData>
-void ddot(MemoryRegion<unsigned int> &mask, MemoryRegion<TData> &x,
+void ddot(MemoryRegion<uint8_t> &mask, MemoryRegion<TData> &x,
           MemoryRegion<TData> &y, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
@@ -948,8 +945,8 @@ void l1norm(MemoryRegion<TData> &x, TData *out)
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-void l1norm(Field<unsigned int, TFieldState> &mask,
-            Field<TData, TFieldState> &x, TData *out)
+void l1norm(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
+            TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -979,8 +976,7 @@ void l1norm(Field<unsigned int, TFieldState> &mask,
 }
 
 template <typename ExecSpace, typename TData>
-void l1norm(MemoryRegion<unsigned int> &mask, MemoryRegion<TData> &x,
-            TData *out)
+void l1norm(MemoryRegion<uint8_t> &mask, MemoryRegion<TData> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -1026,8 +1022,8 @@ void l2norm(MemoryRegion<TData> &x, TData *out)
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-void l2norm(Field<unsigned int, TFieldState> &mask,
-            Field<TData, TFieldState> &x, TData *out)
+void l2norm(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
+            TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -1057,8 +1053,7 @@ void l2norm(Field<unsigned int, TFieldState> &mask,
 }
 
 template <typename ExecSpace, typename TData>
-void l2norm(MemoryRegion<unsigned int> &mask, MemoryRegion<TData> &x,
-            TData *out)
+void l2norm(MemoryRegion<uint8_t> &mask, MemoryRegion<TData> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -1104,7 +1099,7 @@ void lpnorm(const unsigned int p, MemoryRegion<TData> &x, TData *out)
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-void lpnorm(const unsigned int p, Field<unsigned int, TFieldState> &mask,
+void lpnorm(const unsigned int p, Field<uint8_t, TFieldState> &mask,
             Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
@@ -1135,7 +1130,7 @@ void lpnorm(const unsigned int p, Field<unsigned int, TFieldState> &mask,
 }
 
 template <typename ExecSpace, typename TData>
-void lpnorm(const unsigned int p, MemoryRegion<unsigned int> &mask,
+void lpnorm(const unsigned int p, MemoryRegion<uint8_t> &mask,
             MemoryRegion<TData> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
@@ -1182,8 +1177,8 @@ void linfnorm(MemoryRegion<TData> &x, TData *out)
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-void linfnorm(Field<unsigned int, TFieldState> &mask,
-              Field<TData, TFieldState> &x, TData *out)
+void linfnorm(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
+              TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -1213,8 +1208,7 @@ void linfnorm(Field<unsigned int, TFieldState> &mask,
 }
 
 template <typename ExecSpace, typename TData>
-void linfnorm(MemoryRegion<unsigned int> &mask, MemoryRegion<TData> &x,
-              TData *out)
+void linfnorm(MemoryRegion<uint8_t> &mask, MemoryRegion<TData> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 

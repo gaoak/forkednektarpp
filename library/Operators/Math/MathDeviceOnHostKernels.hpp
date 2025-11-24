@@ -146,7 +146,7 @@ reduceSumKernel(const size_t nsize, const TData *x, TData *out)
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-reduceSumKernel(const size_t nsize, const unsigned int *mask, const TData *x,
+reduceSumKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                 TData *out)
 {
     TData initializer = init ? 0.0 : *out;
@@ -165,7 +165,7 @@ reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-reduceMaxKernel(const size_t nsize, const unsigned int *mask, const TData *x,
+reduceMaxKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                 TData *out)
 {
     if (init)
@@ -191,7 +191,7 @@ reduceMinKernel(const size_t nsize, const TData *x, TData *out)
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-reduceMinKernel(const size_t nsize, const unsigned int *mask, const TData *x,
+reduceMinKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                 TData *out)
 {
     if (init)
@@ -217,7 +217,7 @@ ddotKernel(const size_t nsize, const TData *x, const TData *y, TData *out)
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-ddotKernel(const size_t nsize, const unsigned int *mask, const TData *x,
+ddotKernel(const size_t nsize, const uint8_t *mask, const TData *x,
            const TData *y, TData *out)
 {
     if (init)
@@ -245,7 +245,7 @@ l1normKernel(const size_t nsize, const TData *x, TData *out)
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-l1normKernel(const size_t nsize, const unsigned int *mask, const TData *x,
+l1normKernel(const size_t nsize, const uint8_t *mask, const TData *x,
              TData *out)
 {
     if (init)
@@ -273,7 +273,7 @@ l2normKernel(const size_t nsize, const TData *x, TData *out)
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-l2normKernel(const size_t nsize, const unsigned int *mask, const TData *x,
+l2normKernel(const size_t nsize, const uint8_t *mask, const TData *x,
              TData *out)
 {
     if (init)
@@ -303,7 +303,7 @@ lpnormKernel(const size_t nsize, const unsigned int p, const TData *x,
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-lpnormKernel(const size_t nsize, const unsigned int p, const unsigned int *mask,
+lpnormKernel(const size_t nsize, const unsigned int p, const uint8_t *mask,
              const TData *x, TData *out)
 {
     if (init)
@@ -332,7 +332,7 @@ linfnormKernel(const size_t nsize, const TData *x, TData *out)
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-linfnormKernel(const size_t nsize, const unsigned int *mask, const TData *x,
+linfnormKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                TData *out)
 {
     if (init)

@@ -1912,6 +1912,9 @@ void ExpList::SetDataWarehouse(void)
         Nektar::Operators::DeviceBndLocalToGlobalDataCreator>(vExpList);
     m_dataWarehouse->RegisterDataCreatorClass<
         Nektar::Operators::DeviceBndLocalToGlobalSignCreator>(vExpList);
+    m_dataWarehouse
+        ->RegisterDataCreatorClass<Nektar::Operators::LocalToGlobalMaskCreator>(
+            vExpList);
 }
 
 /**

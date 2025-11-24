@@ -247,8 +247,8 @@ void reduceSumKernel(const unsigned int gridSize, const unsigned int blockSize,
 
 template <bool init, typename TData>
 void reduceSumKernel(const unsigned int gridSize, const unsigned int blockSize,
-                     const size_t nsize, const unsigned int *mask,
-                     const TData *x, TData *out)
+                     const size_t nsize, const uint8_t *mask, const TData *x,
+                     TData *out)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
@@ -352,8 +352,8 @@ void reduceMaxKernel(const unsigned int gridSize, const unsigned int blockSize,
 
 template <bool init, typename TData>
 void reduceMaxKernel(const unsigned int gridSize, const unsigned int blockSize,
-                     const size_t nsize, const unsigned int *mask,
-                     const TData *x, TData *out)
+                     const size_t nsize, const uint8_t *mask, const TData *x,
+                     TData *out)
 {
     constexpr TData min = std::numeric_limits<TData>::min();
 
@@ -461,8 +461,8 @@ void reduceMinKernel(const unsigned int gridSize, const unsigned int blockSize,
 
 template <bool init, typename TData>
 void reduceMinKernel(const unsigned int gridSize, const unsigned int blockSize,
-                     const size_t nsize, const unsigned int *mask,
-                     const TData *x, TData *out)
+                     const size_t nsize, const uint8_t *mask, const TData *x,
+                     TData *out)
 {
     constexpr TData max = std::numeric_limits<TData>::max();
 
@@ -566,7 +566,7 @@ void ddotKernel(const unsigned int gridSize, const unsigned int blockSize,
 
 template <bool init, typename TData>
 void ddotKernel(const unsigned int gridSize, const unsigned int blockSize,
-                const size_t nsize, const unsigned int *mask, const TData *x,
+                const size_t nsize, const uint8_t *mask, const TData *x,
                 const TData *y, TData *out)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
@@ -667,7 +667,7 @@ void l1normKernel(const unsigned int gridSize, const unsigned int blockSize,
 
 template <bool init, typename TData>
 void l1normKernel(const unsigned int gridSize, const unsigned int blockSize,
-                  const size_t nsize, const unsigned int *mask, const TData *x,
+                  const size_t nsize, const uint8_t *mask, const TData *x,
                   TData *out)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
@@ -768,7 +768,7 @@ void l2normKernel(const unsigned int gridSize, const unsigned int blockSize,
 
 template <bool init, typename TData>
 void l2normKernel(const unsigned int gridSize, const unsigned int blockSize,
-                  const size_t nsize, const unsigned int *mask, const TData *x,
+                  const size_t nsize, const uint8_t *mask, const TData *x,
                   TData *out)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
@@ -869,7 +869,7 @@ void lpnormKernel(const unsigned int gridSize, const unsigned int blockSize,
 
 template <bool init, typename TData>
 void lpnormKernel(const unsigned int gridSize, const unsigned int blockSize,
-                  const size_t nsize, const int p, const unsigned int *mask,
+                  const size_t nsize, const int p, const uint8_t *mask,
                   const TData *x, TData *out)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
@@ -974,8 +974,8 @@ void linfnormKernel(const unsigned int gridSize, const unsigned int blockSize,
 
 template <bool init, typename TData>
 void linfnormKernel(const unsigned int gridSize, const unsigned int blockSize,
-                    const size_t nsize, const unsigned int *mask,
-                    const TData *x, TData *out)
+                    const size_t nsize, const uint8_t *mask, const TData *x,
+                    TData *out)
 {
     constexpr TData min = std::numeric_limits<TData>::min();
 
@@ -1068,7 +1068,7 @@ reduceSumKernel(const size_t nsize, const TData *x, TData *out)
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-reduceSumKernel(const size_t nsize, const unsigned int *mask, const TData *x,
+reduceSumKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                 TData *out)
 {
 #if defined(USE_SYCL_BUILTIN_REDUCER)
@@ -1146,7 +1146,7 @@ reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-reduceMaxKernel(const size_t nsize, const unsigned int *mask, const TData *x,
+reduceMaxKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                 TData *out)
 {
 #if defined(USE_SYCL_BUILTIN_REDUCER)
@@ -1227,7 +1227,7 @@ reduceMinKernel(const size_t nsize, const TData *x, TData *out)
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-reduceMinKernel(const size_t nsize, const unsigned int *mask, const TData *x,
+reduceMinKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                 TData *out)
 {
 #if defined(USE_SYCL_BUILTIN_REDUCER)
@@ -1308,7 +1308,7 @@ ddotKernel(const size_t nsize, const TData *x, const TData *y, TData *out)
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-ddotKernel(const size_t nsize, const unsigned int *mask, const TData *x,
+ddotKernel(const size_t nsize, const uint8_t *mask, const TData *x,
            const TData *y, TData *out)
 {
 #if defined(USE_SYCL_BUILTIN_REDUCER)
@@ -1387,7 +1387,7 @@ l1normKernel(const size_t nsize, const TData *x, TData *out)
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-l1normKernel(const size_t nsize, const unsigned int *mask, const TData *x,
+l1normKernel(const size_t nsize, const uint8_t *mask, const TData *x,
              TData *out)
 {
 #if defined(USE_SYCL_BUILTIN_REDUCER)
@@ -1465,7 +1465,7 @@ l2normKernel(const size_t nsize, const TData *x, TData *out)
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-l2normKernel(const size_t nsize, const unsigned int *mask, const TData *x,
+l2normKernel(const size_t nsize, const uint8_t *mask, const TData *x,
              TData *out)
 {
 #if defined(USE_SYCL_BUILTIN_REDUCER)
@@ -1544,7 +1544,7 @@ lpnormKernel(const size_t nsize, const int p, const TData *x, TData *out)
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-lpnormKernel(const size_t nsize, const int p, const unsigned int *mask,
+lpnormKernel(const size_t nsize, const int p, const uint8_t *mask,
              const TData *x, TData *out)
 {
 #if defined(USE_SYCL_BUILTIN_REDUCER)
@@ -1624,7 +1624,7 @@ linfnormKernel(const size_t nsize, const TData *x, TData *out)
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-linfnormKernel(const size_t nsize, const unsigned int *mask, const TData *x,
+linfnormKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                TData *out)
 {
 #if defined(USE_SYCL_BUILTIN_REDUCER)
