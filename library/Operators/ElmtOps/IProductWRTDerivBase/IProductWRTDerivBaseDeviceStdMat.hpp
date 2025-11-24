@@ -76,7 +76,7 @@ public:
                 ? exp->GetNodalPointsKey().GetPointsType()
                 : LibUtilities::eNoPointsType;
 
-        m_matptr = dataWarehouse->template GetData<ExecSpace>(StdMatKey<TData>(
+        m_matptr = dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
             basisKeys, m_shapeType, eIProductWRTDerivBaseStdMat, nodalType));
     }
 
@@ -122,18 +122,17 @@ protected:
                           : outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Fetch Jacobian and deriv factors.
-        auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
-        auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), true));
 
         // Allocate storage.
         if (m_wsp.size() == 0)
         {
-            m_wsp = MemoryRegion<TData>(m_dimension * nelmtTot * m_nqTot,
-                                        ExecSpace::alignment);
+            m_wsp = MemoryRegion<TData>(m_dimension * nelmtTot * m_nqTot);
         }
 
         // Get workspace pointer.

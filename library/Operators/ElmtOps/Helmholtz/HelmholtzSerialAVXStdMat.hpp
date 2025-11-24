@@ -58,9 +58,8 @@ public:
     HelmholtzBlockOpImpl(const LocalRegions::ExpansionSharedPtr &exp,
                          NekDataWarehouseSharedPtr dataWarehouse)
         : HelmholtzBlockOp<TData>(exp, dataWarehouse),
-          m_diffCoeff(MemoryRegion<TData>("Helmholtz diffCoeff",
-                                          exp->GetCoordim() * exp->GetCoordim(),
-                                          __STDCPP_DEFAULT_NEW_ALIGNMENT__))
+          m_diffCoeff(MemoryRegion<TData>(
+              "Helmholtz diffCoeff", exp->GetCoordim() * exp->GetCoordim()))
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -84,15 +83,14 @@ public:
                 ? exp->GetNodalPointsKey().GetPointsType()
                 : LibUtilities::eNoPointsType;
 
-        m_bwdmat = dataWarehouse->template GetData<ExecSpace>(StdMatKey<TData>(
+        m_bwdmat = dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
             basisKeys, m_shapeType, eBwdTransStdMatTranspose, nodalType));
-        m_ipbmat = dataWarehouse->template GetData<ExecSpace>(
+        m_ipbmat = dataWarehouse->template GetData<MemSpace>(
             StdMatKey<TData>(basisKeys, m_shapeType,
                              eIProductWRTBaseStdMatTranspose, nodalType));
-        m_derivmat =
-            dataWarehouse->template GetData<ExecSpace>(StdMatKey<TData>(
-                basisKeys, m_shapeType, ePhysDerivStdMatTranspose));
-        m_ipdmat = dataWarehouse->template GetData<ExecSpace>(
+        m_derivmat = dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
+            basisKeys, m_shapeType, ePhysDerivStdMatTranspose));
+        m_ipdmat   = dataWarehouse->template GetData<MemSpace>(
             StdMatKey<TData>(basisKeys, m_shapeType,
                              eIProductWRTDerivBaseStdMatTranspose, nodalType));
 
@@ -139,10 +137,10 @@ protected:
                  BlockAccessor<TData> &outblock) override
     {
         // Fetch Jacobian and deriv factors.
-        auto jacptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto jacptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
-        auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto dfptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), false));
         auto diffCoeffPtr =
@@ -155,10 +153,8 @@ protected:
         // Allocate storage.
         if (m_bwd.size() == 0)
         {
-            m_bwd   = MemoryRegion<TData>(simd_t::width * m_nqTot,
-                                        ExecSpace::alignment);
-            m_deriv = MemoryRegion<TData>(m_coordDim * simd_t::width * m_nqTot,
-                                          ExecSpace::alignment);
+            m_bwd   = MemoryRegion<TData>(simd_t::width * m_nqTot);
+            m_deriv = MemoryRegion<TData>(m_coordDim * simd_t::width * m_nqTot);
         }
 
         // Get workspace pointer.

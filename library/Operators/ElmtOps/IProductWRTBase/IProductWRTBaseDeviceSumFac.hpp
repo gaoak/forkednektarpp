@@ -69,9 +69,9 @@ public:
             m_nq.push_back(exp->GetNumPoints(d));
 
             // Fetch basis data.
-            m_B.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_B.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<TData>(exp->GetBasis(d)->GetBasisKey(), eBasis)));
-            m_W.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_W.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<TData>(exp->GetBasis(d)->GetBasisKey(),
                                     eWeights)));
         }
@@ -81,7 +81,7 @@ public:
             (m_shapeType == LibUtilities::eNodalTet))
         {
             // Fetch NodalToModal Matrix if required.
-            m_nodToMod = this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_nodToMod = this->m_dataWarehouse->template GetData<MemSpace>(
                 VandemondeKey<TData>(eNodalToModal, exp->GetElmtId()));
         }
         else
@@ -98,7 +98,7 @@ public:
                 std::is_same_v<Implementation, Operators::SumFacTOP>;
 
             m_index.push_back(
-                indexing ? this->m_dataWarehouse->template GetData<ExecSpace>(
+                indexing ? this->m_dataWarehouse->template GetData<MemSpace>(
                                ModeIndexKey(m_shapeType, m_nm[0], m_nm[1], 0))
                          : nullptr);
         }
@@ -119,21 +119,21 @@ public:
 
             m_index.push_back(
                 (indexingTet || indexingPrism || indexingPyr)
-                    ? this->m_dataWarehouse->template GetData<ExecSpace>(
+                    ? this->m_dataWarehouse->template GetData<MemSpace>(
                           ModeIndexKey(m_shapeType, m_nm[0], m_nm[1], m_nm[2],
                                        0))
                     : nullptr);
 
             m_index.push_back(
                 (indexingTet || indexingPrism || indexingPyr)
-                    ? this->m_dataWarehouse->template GetData<ExecSpace>(
+                    ? this->m_dataWarehouse->template GetData<MemSpace>(
                           ModeIndexKey(m_shapeType, m_nm[0], m_nm[1], m_nm[2],
                                        1))
                     : nullptr);
 
             m_index.push_back(
                 (indexingTet || indexingPrism)
-                    ? this->m_dataWarehouse->template GetData<ExecSpace>(
+                    ? this->m_dataWarehouse->template GetData<MemSpace>(
                           ModeIndexKey(m_shapeType, m_nm[0], m_nm[1], m_nm[2],
                                        2))
                     : nullptr);
@@ -305,7 +305,7 @@ protected:
         auto wspsize =
             GetWorkspaceSize(shapeType, nelmt, nq0, nq1, nq2, nm0, nm1, nm2);
 
-        return MemoryRegion<TData>(wspsize, ExecSpace::alignment);
+        return MemoryRegion<TData>(wspsize);
     }
 
     void SegBlock(BlockAccessor<TData> &inblock,
@@ -352,7 +352,7 @@ protected:
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Fetch Jacobian data.
-        auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
 
@@ -418,7 +418,7 @@ protected:
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Fetch Jacobian data.
-        auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
 
@@ -490,7 +490,7 @@ protected:
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Fetch Jacobian data.
-        auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
 
@@ -575,7 +575,7 @@ protected:
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Fetch Jacobian data.
-        auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
 
@@ -668,7 +668,7 @@ protected:
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Fetch Jacobian data.
-        auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
 
@@ -754,7 +754,7 @@ protected:
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Fetch Jacobian data.
-        auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
 

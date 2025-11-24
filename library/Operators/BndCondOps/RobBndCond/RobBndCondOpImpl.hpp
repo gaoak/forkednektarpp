@@ -123,13 +123,13 @@ public:
                 }
             }
 
-            m_mat = MemoryRegion<TData>::template FromVector<MemSpace, TData>(
-                mat, ExecSpace::alignment);
+            m_mat =
+                MemoryRegion<TData>::template FromVector<MemSpace, TData>(mat);
             m_map = MemoryRegion<size_t>::template FromVector<MemSpace, size_t>(
-                map, ExecSpace::alignment);
+                map);
             m_offset =
                 MemoryRegion<size_t>::template FromVector<MemSpace, size_t>(
-                    offset, ExecSpace::alignment);
+                    offset);
         }
         else if (expansionList->GetExp(0)->GetShapeDimension() == 2)
         {
@@ -219,23 +219,23 @@ public:
                 }
             }
 
-            m_mat = MemoryRegion<TData>::template FromVector<MemSpace, TData>(
-                mat, ExecSpace::alignment);
+            m_mat =
+                MemoryRegion<TData>::template FromVector<MemSpace, TData>(mat);
             m_map = MemoryRegion<size_t>::template FromVector<MemSpace, size_t>(
-                map, ExecSpace::alignment);
-            m_sign = MemoryRegion<int>::template FromVector<MemSpace, int>(
-                sign, ExecSpace::alignment);
+                map);
+            m_sign =
+                MemoryRegion<int>::template FromVector<MemSpace, int>(sign);
             m_nEdgeCoeff = MemoryRegion<unsigned int>::template FromVector<
-                MemSpace, unsigned int>(nEdgeCoeff, ExecSpace::alignment);
+                MemSpace, unsigned int>(nEdgeCoeff);
             m_offset =
                 MemoryRegion<size_t>::template FromVector<MemSpace, size_t>(
-                    offset, ExecSpace::alignment);
+                    offset);
             m_matOffset =
                 MemoryRegion<size_t>::template FromVector<MemSpace, size_t>(
-                    matOffset, ExecSpace::alignment);
+                    matOffset);
             m_mapOffset =
                 MemoryRegion<size_t>::template FromVector<MemSpace, size_t>(
-                    mapOffset, ExecSpace::alignment);
+                    mapOffset);
         }
         else if (expansionList->GetExp(0)->GetShapeDimension() == 3)
         {

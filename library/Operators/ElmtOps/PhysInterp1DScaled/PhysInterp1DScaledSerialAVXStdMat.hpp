@@ -210,7 +210,7 @@ protected:
         m_nqTot =
             std::accumulate(m_nq.begin(), m_nq.end(), 1, std::multiplies());
 
-        m_matptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+        m_matptr = this->m_dataWarehouse->template GetData<MemSpace>(
             StdMatKey<TData>(m_basisKeys, m_shapeType,
                              ePhysInterpStdMatTranspose, m_nodalType, m_nq));
     }

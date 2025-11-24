@@ -72,8 +72,7 @@ protected:
                                       1);
 
         this->m_advVel = Field<TData, FieldState::Phys>(
-            "Advection Field", physBlockAttributes, nVel, 1,
-            ExecSpace::alignment);
+            "Advection Field", physBlockAttributes, nVel, 1);
 
         this->m_advVel.template CopyArray<NektarSpaces::HostSpace>(Vel);
 

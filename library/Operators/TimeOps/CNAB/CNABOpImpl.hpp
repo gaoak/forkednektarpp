@@ -143,8 +143,7 @@ protected:
                 this->m_implicits.push_back(Field<TData, FieldState::Phys>(
                     GetBlockAttributes<TData>(FieldState::Phys,
                                               this->m_expansionList),
-                    inout.GetNumComponents(), inout.GetNumHomoModes(),
-                    ExecSpace::alignment));
+                    inout.GetNumComponents(), inout.GetNumHomoModes()));
             }
 
             // Increment step and time.
@@ -160,8 +159,7 @@ protected:
                 this->m_explicits.push_back(Field<TData, FieldState::Phys>(
                     GetBlockAttributes<TData>(FieldState::Phys,
                                               this->m_expansionList),
-                    inout.GetNumComponents(), inout.GetNumHomoModes(),
-                    ExecSpace::alignment));
+                    inout.GetNumComponents(), inout.GetNumHomoModes()));
             }
 
             this->RollOver(this->m_explicits);

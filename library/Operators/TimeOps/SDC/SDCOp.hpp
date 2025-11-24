@@ -183,8 +183,7 @@ protected:
                             ->GetZ()[i - offset];
             tau[i] = (tmp + 1.0) / 2.0;
         }
-        this->m_tau = MemoryRegion<TData>::template FromVector<MemSpace>(
-            tau, ExecSpace::alignment);
+        this->m_tau = MemoryRegion<TData>::template FromVector<MemSpace>(tau);
 
         // Compute integration matrix.
         unsigned int colOffset = this->m_first_quadrature ? 0 : 1;
@@ -194,8 +193,7 @@ protected:
         unsigned int nRows      = this->m_nQuadPts;
         std::vector<TData> QMat = std::vector(nRows * nCols, 0.0);
         Polylib::Qg(&QMat[rowOffset], &tau[colOffset], nCols);
-        this->m_QMat = MemoryRegion<TData>::template FromVector<MemSpace>(
-            QMat, ExecSpace::alignment);
+        this->m_QMat = MemoryRegion<TData>::template FromVector<MemSpace>(QMat);
 
         // Compute intepolation coefficient.
         std::vector<TData> interp(this->m_nQuadPts);
@@ -204,14 +202,12 @@ protected:
             interp[i] =
                 Polylib::hgj(i, 1.0, &tau[0], this->m_nQuadPts, 0.0, 0.0);
         }
-        this->m_interp = MemoryRegion<TData>::template FromVector<MemSpace>(
-            interp, ExecSpace::alignment);
+        this->m_interp =
+            MemoryRegion<TData>::template FromVector<MemSpace>(interp);
 
         // Buffer for memory transfer
-        this->m_mr0 =
-            MemoryRegion<const TData *>(this->m_nQuadPts, ExecSpace::alignment);
-        this->m_mr1 =
-            MemoryRegion<TData *>(this->m_nQuadPts, ExecSpace::alignment);
+        this->m_mr0 = MemoryRegion<const TData *>(this->m_nQuadPts);
+        this->m_mr1 = MemoryRegion<TData *>(this->m_nQuadPts);
     }
 
     template <typename ExecSpace>

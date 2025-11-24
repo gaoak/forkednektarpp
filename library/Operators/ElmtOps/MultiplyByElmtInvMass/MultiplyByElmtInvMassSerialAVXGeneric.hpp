@@ -85,7 +85,7 @@ public:
                 : LibUtilities::eNoPointsType;
 
         m_invmassptr =
-            dataWarehouse->template GetData<ExecSpace>(StdMatKey<TData>(
+            dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
                 basisKeys, m_shapeType, eInvMassStdMatTranspose, nodalType));
     }
 
@@ -190,11 +190,10 @@ protected:
             else
             {
                 // Fetch Jacobian.
-                auto jacptr =
-                    this->m_dataWarehouse->template GetData<ExecSpace>(
-                        JacobianKey<TData>(inblock.GetExpIdx(),
-                                           m_implInterleaveWidth,
-                                           inblock.GetNumElements()));
+                auto jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
+                    JacobianKey<TData>(inblock.GetExpIdx(),
+                                       m_implInterleaveWidth,
+                                       inblock.GetNumElements()));
 
                 // Dispatch kernel.
                 auto invmass_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
@@ -250,8 +249,7 @@ protected:
     void v_SetInvMassMatrix(std::vector<TData> &invmass) override
     {
         this->m_dinvmass =
-            MemoryRegion<TData>::template FromVector<MemSpace, TData>(
-                invmass, ExecSpace::alignment);
+            MemoryRegion<TData>::template FromVector<MemSpace, TData>(invmass);
     }
 };
 

@@ -72,15 +72,15 @@ public:
             m_nq.push_back(exp->GetNumPoints(d));
 
             // Fetch basis data.
-            m_B.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_B.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<simd_t>(exp->GetBasis(d)->GetBasisKey(), eBasis)));
-            m_DB.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_DB.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<simd_t>(exp->GetBasis(d)->GetBasisKey(),
                                      eBasisDerivative)));
-            m_D.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_D.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<simd_t>(exp->GetBasis(d)->GetBasisKey(),
                                      eDerivative)));
-            m_W.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_W.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<simd_t>(exp->GetBasis(d)->GetBasisKey(),
                                      eWeights)));
         }
@@ -88,26 +88,26 @@ public:
         if (m_dimension == 2)
         {
             // Fetch geometric factors.
-            m_f.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<simd_t>(exp->GetBasis(0)->GetBasisKey(),
                                      eHalfMultOnePlusZero)));
-            m_f.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<simd_t>(exp->GetBasis(1)->GetBasisKey(),
                                      eTwoOverOneMinusZero)));
         }
         else if (m_dimension == 3)
         {
             // Fetch geometric factors.
-            m_f.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<simd_t>(exp->GetBasis(0)->GetBasisKey(),
                                      eHalfMultOnePlusZero)));
-            m_f.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<simd_t>(exp->GetBasis(1)->GetBasisKey(),
                                      eHalfMultOnePlusZero)));
-            m_f.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<simd_t>(exp->GetBasis(1)->GetBasisKey(),
                                      eTwoOverOneMinusZero)));
-            m_f.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<simd_t>(exp->GetBasis(2)->GetBasisKey(),
                                      eTwoOverOneMinusZero)));
         }
@@ -132,14 +132,13 @@ public:
             (m_shapeType == LibUtilities::eNodalPrism))
         {
             // Fetch NodalToModal Matrix if required.
-            m_nodToMod = this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_nodToMod = this->m_dataWarehouse->template GetData<MemSpace>(
                 VandemondeKey<simd_t>(eNodalToModal, exp->GetElmtId()));
 
             // Fetch NodalToModal Matrix if required.
-            m_nodToModTrans =
-                this->m_dataWarehouse->template GetData<ExecSpace>(
-                    VandemondeKey<simd_t>(eNodalToModalTranspose,
-                                          exp->GetElmtId()));
+            m_nodToModTrans = this->m_dataWarehouse->template GetData<MemSpace>(
+                VandemondeKey<simd_t>(eNodalToModalTranspose,
+                                      exp->GetElmtId()));
         }
         else
         {
@@ -190,8 +189,8 @@ protected:
                  BlockAccessor<TData> &outblock) override
     {
         WARNINGL1(
-            m_warnOnce || (inblock.GetAlignment() == simd_t::alignment &&
-                           outblock.GetAlignment() == simd_t::alignment),
+            m_warnOnce || (inblock.GetAlignment() % simd_t::alignment == 0 &&
+                           outblock.GetAlignment() % simd_t::alignment == 0),
             "Input or output Field are not aligned to the required alignment "
             "for the SIMD vector type.");
 #if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
@@ -319,10 +318,10 @@ protected:
         }
 
         // Fetch Jacobian and deriv factors.
-        auto jacptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto jacptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
-        auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto dfptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), false));
 
@@ -432,10 +431,10 @@ protected:
         }
 
         // Fetch Jacobian and deriv factors.
-        auto jacptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto jacptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
-        auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto dfptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), false));
 
@@ -551,10 +550,10 @@ protected:
         }
 
         // Fetch Jacobian and deriv factors.
-        auto jacptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto jacptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
-        auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto dfptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), false));
 
@@ -676,10 +675,10 @@ protected:
         }
 
         // Fetch Jacobian and deriv factors.
-        auto jacptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto jacptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
-        auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto dfptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), false));
 
@@ -807,10 +806,10 @@ protected:
         }
 
         // Fetch Jacobian and deriv factors.
-        auto jacptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto jacptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
-        auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto dfptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), false));
 
@@ -938,10 +937,10 @@ protected:
         }
 
         // Fetch Jacobian and deriv factors.
-        auto jacptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto jacptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
-        auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto dfptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), false));
 

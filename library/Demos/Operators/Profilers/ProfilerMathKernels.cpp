@@ -53,8 +53,8 @@ void ProfilerReduction(const size_t size)
     Math math;
     Timer timer;
     const unsigned int ntests = 40;
-    auto x    = MemoryRegion<TData>("x", size, vec_t::alignment);
-    auto y    = MemoryRegion<TData>("y", size, vec_t::alignment);
+    auto x                    = MemoryRegion<TData>("x", size);
+    auto y                    = MemoryRegion<TData>("y", size);
     auto xptr = x.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
     auto yptr = y.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
     for (size_t i = 0; i < size; i++)
@@ -128,9 +128,9 @@ void ProfilerDaxpy(const size_t size)
     Math math;
     Timer timer;
     const unsigned int ntests = 40;
-    auto x    = MemoryRegion<TData>("x", size, vec_t::alignment);
-    auto y    = MemoryRegion<TData>("y", size, vec_t::alignment);
-    auto z    = MemoryRegion<TData>("z", size, vec_t::alignment);
+    auto x                    = MemoryRegion<TData>("x", size);
+    auto y                    = MemoryRegion<TData>("y", size);
+    auto z                    = MemoryRegion<TData>("z", size);
     auto xptr = x.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
     auto yptr = y.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
     for (size_t i = 0; i < size; i++)

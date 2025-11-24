@@ -87,14 +87,12 @@ protected:
                 this->m_T.push_back(Field<TData, FieldState::Phys>(
                     GetBlockAttributes<TData>(FieldState::Phys,
                                               this->m_expansionList),
-                    inout.GetNumComponents(), inout.GetNumHomoModes(),
-                    ExecSpace::alignment));
+                    inout.GetNumComponents(), inout.GetNumHomoModes()));
 
                 this->m_T0.push_back(Field<TData, FieldState::Phys>(
                     GetBlockAttributes<TData>(FieldState::Phys,
                                               this->m_expansionList),
-                    inout.GetNumComponents(), inout.GetNumHomoModes(),
-                    ExecSpace::alignment));
+                    inout.GetNumComponents(), inout.GetNumHomoModes()));
             }
 
             for (unsigned int m = 0; m < this->m_order; ++m)
@@ -102,21 +100,18 @@ protected:
                 this->m_solutions.push_back(Field<TData, FieldState::Phys>(
                     GetBlockAttributes<TData>(FieldState::Phys,
                                               this->m_expansionList),
-                    inout.GetNumComponents(), inout.GetNumHomoModes(),
-                    ExecSpace::alignment));
+                    inout.GetNumComponents(), inout.GetNumHomoModes()));
             }
 
             this->m_explicits.push_back(Field<TData, FieldState::Phys>(
                 GetBlockAttributes<TData>(FieldState::Phys,
                                           this->m_expansionList),
-                inout.GetNumComponents(), inout.GetNumHomoModes(),
-                ExecSpace::alignment));
+                inout.GetNumComponents(), inout.GetNumHomoModes()));
 
             this->m_explicits.push_back(Field<TData, FieldState::Phys>(
                 GetBlockAttributes<TData>(FieldState::Phys,
                                           this->m_expansionList),
-                inout.GetNumComponents(), inout.GetNumHomoModes(),
-                ExecSpace::alignment));
+                inout.GetNumComponents(), inout.GetNumHomoModes()));
 
             this->m_initialized = true;
         }

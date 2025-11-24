@@ -91,8 +91,7 @@ protected:
             this->m_explicits.push_front(Field<TData, FieldState::Phys>(
                 GetBlockAttributes<TData>(FieldState::Phys,
                                           this->m_expansionList),
-                inout.GetNumComponents(), inout.GetNumHomoModes(),
-                ExecSpace::alignment));
+                inout.GetNumComponents(), inout.GetNumHomoModes()));
 
             // Compute explicit terms.
             this->DoExplicitRhs(inout, this->m_explicits[0], this->m_time,
@@ -123,8 +122,7 @@ protected:
                 this->m_explicits.push_back(Field<TData, FieldState::Phys>(
                     GetBlockAttributes<TData>(FieldState::Phys,
                                               this->m_expansionList),
-                    inout.GetNumComponents(), inout.GetNumHomoModes(),
-                    ExecSpace::alignment));
+                    inout.GetNumComponents(), inout.GetNumHomoModes()));
             }
 
             if constexpr (IntOrder > 1)

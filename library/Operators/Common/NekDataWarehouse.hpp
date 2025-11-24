@@ -95,11 +95,10 @@ public:
     NekDataWarehouse()  = default;
     ~NekDataWarehouse() = default;
 
-    template <typename ExecSpace, typename DataKey>
+    template <typename MemSpace, typename DataKey>
     const typename DataKey::value_type *GetData(const DataKey &dataKey)
     {
-        using TData    = typename DataKey::value_type;
-        using MemSpace = typename ExecSpace::memory_space;
+        using TData = typename DataKey::value_type;
 
 #ifdef NEKTAR_USE_THREAD_SAFETY
         ReadLock vReadLock(m_mutex);
@@ -119,8 +118,7 @@ public:
                 auto dataCreator =
                     std::static_pointer_cast<typename DataKey::creator>(
                         it->second);
-                auto mr = dataCreator->template Create<MemSpace>(
-                    dataKey, ExecSpace::alignment);
+                auto mr = dataCreator->template Create<MemSpace>(dataKey);
                 it2->second.emplace(
                     idKey,
                     std::make_shared<MemoryRegion<TData>>(std::move(mr)));

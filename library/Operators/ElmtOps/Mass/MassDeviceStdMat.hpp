@@ -78,16 +78,16 @@ public:
         if (m_isDeformed)
         {
             m_bwdmat =
-                dataWarehouse->template GetData<ExecSpace>(StdMatKey<TData>(
+                dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
                     basisKeys, m_shapeType, eBwdTransStdMat, nodalType));
             m_ipbmat =
-                dataWarehouse->template GetData<ExecSpace>(StdMatKey<TData>(
+                dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
                     basisKeys, m_shapeType, eIProductWRTBaseStdMat, nodalType));
         }
         else
         {
             m_massmat =
-                dataWarehouse->template GetData<ExecSpace>(StdMatKey<TData>(
+                dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
                     basisKeys, m_shapeType, eMassStdMat, nodalType));
         }
     }
@@ -134,15 +134,14 @@ protected:
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Fetch Jacobian.
-        auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
 
         // Allocate storage.
         if (m_wsp.size() == 0)
         {
-            m_wsp =
-                MemoryRegion<TData>(nelmtTot * m_nqTot, ExecSpace::alignment);
+            m_wsp = MemoryRegion<TData>(nelmtTot * m_nqTot);
         }
 
         // Get workspace pointer.

@@ -56,8 +56,7 @@ BOOST_FIXTURE_TEST_CASE(bcast, InitComm)
 
     Configure();
     double val = 3.0;
-    auto bcast =
-        MemoryRegion<double>("Bcast", 10, __STDCPP_DEFAULT_NEW_ALIGNMENT__);
+    auto bcast = MemoryRegion<double>("Bcast", 10);
 
     // Initialize data.
     if (m_comm->GetRank() == 0)
@@ -98,10 +97,8 @@ BOOST_FIXTURE_TEST_CASE(send_and_recv, InitComm)
     Configure();
     double val0 = 3.0;
     double val1 = 5.0;
-    auto send =
-        MemoryRegion<double>("Send", 10, __STDCPP_DEFAULT_NEW_ALIGNMENT__);
-    auto recv =
-        MemoryRegion<double>("Recv", 10, __STDCPP_DEFAULT_NEW_ALIGNMENT__);
+    auto send   = MemoryRegion<double>("Send", 10);
+    auto recv   = MemoryRegion<double>("Recv", 10);
 
     // Initialize data.
     if (m_comm->GetRank() == 0)
@@ -181,10 +178,8 @@ BOOST_FIXTURE_TEST_CASE(sendrecv, InitComm)
     Configure();
     double val0 = 3.0;
     double val1 = 5.0;
-    auto send =
-        MemoryRegion<double>("Send", 10, __STDCPP_DEFAULT_NEW_ALIGNMENT__);
-    auto recv =
-        MemoryRegion<double>("Recv", 10, __STDCPP_DEFAULT_NEW_ALIGNMENT__);
+    auto send   = MemoryRegion<double>("Send", 10);
+    auto recv   = MemoryRegion<double>("Recv", 10);
 
     // Initialize data.
     if (m_comm->GetRank() == 0)
@@ -247,10 +242,9 @@ BOOST_FIXTURE_TEST_CASE(allreduce, InitComm)
         boost::unit_test::framework::master_test_suite().argv[1]);
 
     Configure();
-    double val0 = 3.0;
-    double val1 = 5.0;
-    auto reducer =
-        MemoryRegion<double>("Send", 10, __STDCPP_DEFAULT_NEW_ALIGNMENT__);
+    double val0  = 3.0;
+    double val1  = 5.0;
+    auto reducer = MemoryRegion<double>("Send", 10);
 
     // Initialize data.
     if (m_comm->GetRank() == 0)
@@ -303,10 +297,9 @@ BOOST_FIXTURE_TEST_CASE(scatter, InitComm)
         boost::unit_test::framework::master_test_suite().argv[1]);
 
     Configure();
-    double val0 = 3.0;
-    double val1 = 5.0;
-    auto scatter =
-        MemoryRegion<double>("Scatter", 20, __STDCPP_DEFAULT_NEW_ALIGNMENT__);
+    double val0  = 3.0;
+    double val1  = 5.0;
+    auto scatter = MemoryRegion<double>("Scatter", 20);
 
     // Initialize data.
     if (m_comm->GetRank() == 0)
@@ -361,10 +354,8 @@ BOOST_FIXTURE_TEST_CASE(alltoall, InitComm)
     Configure();
     double val0 = 3.0;
     double val1 = 5.0;
-    auto send =
-        MemoryRegion<double>("send", 20, __STDCPP_DEFAULT_NEW_ALIGNMENT__);
-    auto recv =
-        MemoryRegion<double>("recv", 20, __STDCPP_DEFAULT_NEW_ALIGNMENT__);
+    auto send   = MemoryRegion<double>("send", 20);
+    auto recv   = MemoryRegion<double>("recv", 20);
 
     // Initialize data.
     if (m_comm->GetRank() == 0)
@@ -439,7 +430,7 @@ BOOST_FIXTURE_TEST_CASE(gather, InitComm)
     Configure();
     double val0 = 3.0;
     double val1 = 5.0;
-    auto mr = MemoryRegion<double>("mr", 10, __STDCPP_DEFAULT_NEW_ALIGNMENT__);
+    auto mr     = MemoryRegion<double>("mr", 10);
 
     // Initialize data.
     if (m_comm->GetRank() == 0)
@@ -498,10 +489,8 @@ BOOST_FIXTURE_TEST_CASE(allgather, InitComm)
     Configure();
     double val0 = 3.0;
     double val1 = 5.0;
-    auto send =
-        MemoryRegion<double>("Send", 10, __STDCPP_DEFAULT_NEW_ALIGNMENT__);
-    auto recv =
-        MemoryRegion<double>("Recv", 20, __STDCPP_DEFAULT_NEW_ALIGNMENT__);
+    auto send   = MemoryRegion<double>("Send", 10);
+    auto recv   = MemoryRegion<double>("Recv", 20);
 
     // Initialize data.
     if (m_comm->GetRank() == 0)

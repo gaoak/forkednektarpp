@@ -51,9 +51,8 @@ public:
     HelmholtzBlockOpImpl(const LocalRegions::ExpansionSharedPtr &exp,
                          NekDataWarehouseSharedPtr dataWarehouse)
         : HelmholtzBlockOp<TData>(exp, dataWarehouse),
-          m_diffCoeff(MemoryRegion<TData>("Helmholtz diffCoeff",
-                                          exp->GetCoordim() * exp->GetCoordim(),
-                                          ExecSpace::alignment))
+          m_diffCoeff(MemoryRegion<TData>(
+              "Helmholtz diffCoeff", exp->GetCoordim() * exp->GetCoordim()))
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -72,15 +71,15 @@ public:
             m_nq.push_back(exp->GetNumPoints(d));
 
             // Fetch basis data.
-            m_B.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_B.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<TData>(exp->GetBasis(d)->GetBasisKey(), eBasis)));
-            m_DB.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_DB.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<TData>(exp->GetBasis(d)->GetBasisKey(),
                                     eBasisDerivative)));
-            m_D.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_D.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<TData>(exp->GetBasis(d)->GetBasisKey(),
                                     eDerivative)));
-            m_W.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_W.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<TData>(exp->GetBasis(d)->GetBasisKey(),
                                     eWeights)));
         }
@@ -90,7 +89,7 @@ public:
             (m_shapeType == LibUtilities::eNodalTet))
         {
             // Fetch NodalToModal Matrix if required.
-            m_nodToMod = this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_nodToMod = this->m_dataWarehouse->template GetData<MemSpace>(
                 VandemondeKey<TData>(eNodalToModal, exp->GetElmtId()));
         }
         else
@@ -101,10 +100,10 @@ public:
         if (m_dimension == 2)
         {
             // Fetch geometric factors.
-            m_f.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
                                     eHalfMultOnePlusZero)));
-            m_f.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
                                     eTwoOverOneMinusZero)));
 
@@ -114,23 +113,23 @@ public:
                  m_shapeType == LibUtilities::NodalTri) &&
                 std::is_same_v<Implementation, Operators::SumFacTOP>;
             m_index.push_back(
-                indexing ? this->m_dataWarehouse->template GetData<ExecSpace>(
+                indexing ? this->m_dataWarehouse->template GetData<MemSpace>(
                                ModeIndexKey(m_shapeType, m_nm[0], m_nm[1], 0))
                          : nullptr);
         }
         else if (m_dimension == 3)
         {
             // Fetch geometric factors.
-            m_f.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
                                     eHalfMultOnePlusZero)));
-            m_f.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
                                     eHalfMultOnePlusZero)));
-            m_f.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
                                     eTwoOverOneMinusZero)));
-            m_f.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<TData>(this->m_exp->GetBasis(2)->GetBasisKey(),
                                     eTwoOverOneMinusZero)));
 
@@ -148,25 +147,25 @@ public:
                 std::is_same_v<Implementation, Operators::SumFacTOP>;
             m_index.push_back(
                 (indexingTet || indexingPrism || indexingPyr)
-                    ? this->m_dataWarehouse->template GetData<ExecSpace>(
+                    ? this->m_dataWarehouse->template GetData<MemSpace>(
                           ModeIndexKey(m_shapeType, m_nm[0], m_nm[1], m_nm[2],
                                        0))
                     : nullptr);
             m_index.push_back(
                 (indexingTet || indexingPrism || indexingPyr)
-                    ? this->m_dataWarehouse->template GetData<ExecSpace>(
+                    ? this->m_dataWarehouse->template GetData<MemSpace>(
                           ModeIndexKey(m_shapeType, m_nm[0], m_nm[1], m_nm[2],
                                        1))
                     : nullptr);
             m_index.push_back(
                 (indexingTet || indexingPrism)
-                    ? this->m_dataWarehouse->template GetData<ExecSpace>(
+                    ? this->m_dataWarehouse->template GetData<MemSpace>(
                           ModeIndexKey(m_shapeType, m_nm[0], m_nm[1], m_nm[2],
                                        2))
                     : nullptr);
             m_index.push_back(
                 (indexingTet)
-                    ? this->m_dataWarehouse->template GetData<ExecSpace>(
+                    ? this->m_dataWarehouse->template GetData<MemSpace>(
                           ModeIndexKey(m_shapeType, m_nm[0], m_nm[1], m_nm[2],
                                        3))
                     : nullptr);
@@ -382,7 +381,7 @@ protected:
         auto wspsize = GetWorkspaceSize(shapeType, nelmt, ncoord, nq0, nq1, nq2,
                                         nm0, nm1, nm2);
 
-        return MemoryRegion<TData>(wspsize, ExecSpace::alignment);
+        return MemoryRegion<TData>(wspsize);
     }
 
     void SegBlock(BlockAccessor<TData> &inblock,
@@ -429,10 +428,10 @@ protected:
         // Fetch Jacobian and deriv factors.
         constexpr bool transpose =
             std::is_same_v<Implementation, Operators::SumFacTOP>;
-        auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
-        auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), transpose));
 
@@ -501,10 +500,10 @@ protected:
         // Fetch Jacobian and deriv factors.
         constexpr bool transpose =
             std::is_same_v<Implementation, Operators::SumFacTOP>;
-        auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
-        auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), transpose));
 
@@ -579,10 +578,10 @@ protected:
         // Fetch Jacobian and deriv factors.
         constexpr bool transpose =
             std::is_same_v<Implementation, Operators::SumFacTOP>;
-        auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
-        auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), transpose));
 
@@ -654,10 +653,10 @@ protected:
         // Fetch Jacobian and deriv factors.
         constexpr bool transpose =
             std::is_same_v<Implementation, Operators::SumFacTOP>;
-        auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
-        auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), transpose));
 
@@ -736,10 +735,10 @@ protected:
         // Fetch Jacobian and deriv factors.
         constexpr bool transpose =
             std::is_same_v<Implementation, Operators::SumFacTOP>;
-        auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
-        auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), transpose));
 
@@ -811,10 +810,10 @@ protected:
         // Fetch Jacobian and deriv factors.
         constexpr bool transpose =
             std::is_same_v<Implementation, Operators::SumFacTOP>;
-        auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
-        auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), transpose));
 

@@ -227,7 +227,7 @@ protected:
     {
         size_t wspsize = GetWorkspaceSize(shapeType, nelmt, nq0, nq1, nq2);
 
-        return MemoryRegion<TData>(wspsize, ExecSpace::alignment);
+        return MemoryRegion<TData>(wspsize);
     }
 
     void SegBlock(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
