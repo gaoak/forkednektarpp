@@ -136,9 +136,9 @@ protected:
 #ifdef ORIG_ASS_SCA
         auto GSInfoKey = DeviceLocalToGlobalKey<TData>(m_assemblyMap, ZERODIR);
         // setup GS info of values interior to device
-        m_gsInfo = dataWarehouse->template GetData<ExecSpace>(GSInfoKey);
+        m_gsInfo = dataWarehouse->template GetData<MemSpace>(GSInfoKey);
         // set up sign change array
-        m_gsSign = dataWarehouse->template GetData<ExecSpace>(
+        m_gsSign = dataWarehouse->template GetData<MemSpace>(
             DeviceLocalToGlobalSignKey<TData>(m_assemblyMap, ZERODIR,
                                               SIGNCHANGE));
 #else
@@ -147,26 +147,25 @@ protected:
         // setup GS info of values interior to device
         auto GSNumAssmbKey = DeviceLocalToGlobalNumAssembleKey<TData>(
             m_assemblyMap, ZERODIR, m_device_width);
-        m_gsNumAssmb =
-            dataWarehouse->template GetData<ExecSpace>(GSNumAssmbKey);
+        m_gsNumAssmb = dataWarehouse->template GetData<MemSpace>(GSNumAssmbKey);
 
         auto GSIndexKey = DeviceLocalToGlobalIndexKey<TData>(
             m_assemblyMap, ZERODIR, m_device_width);
-        m_gsIndex = dataWarehouse->template GetData<ExecSpace>(GSIndexKey);
+        m_gsIndex = dataWarehouse->template GetData<MemSpace>(GSIndexKey);
 
         auto GSOffsetKey = DeviceLocalToGlobalIndexOffsetKey<TData>(
             m_assemblyMap, ZERODIR, m_device_width);
-        m_gsOffset = dataWarehouse->template GetData<ExecSpace>(GSOffsetKey);
+        m_gsOffset = dataWarehouse->template GetData<MemSpace>(GSOffsetKey);
 
         // set up sign change array
-        m_gsSign = dataWarehouse->template GetData<ExecSpace>(
+        m_gsSign = dataWarehouse->template GetData<MemSpace>(
             DeviceLocalToGlobalSignKey<TData>(m_assemblyMap, ZERODIR,
                                               SIGNCHANGE, m_device_width));
 #endif
 
         // get a copy of the host to evaluate offsets
         auto hostGSInfo =
-            dataWarehouse->template GetData<NektarSpaces::Serial>(GSInfoKey);
+            dataWarehouse->template GetData<NektarSpaces::HostSpace>(GSInfoKey);
 
         m_nGids = hostGSInfo[0];
 
@@ -194,32 +193,30 @@ protected:
             auto GSBndInfoKey = DeviceBndLocalToGlobalKey<TData>(numComp);
 
             m_gsBndInfo =
-                dataWarehouse->template GetData<ExecSpace>(GSBndInfoKey);
+                dataWarehouse->template GetData<MemSpace>(GSBndInfoKey);
 
             // set up sign array
-            m_gsBndSign = dataWarehouse->template GetData<ExecSpace>(
+            m_gsBndSign = dataWarehouse->template GetData<MemSpace>(
                 DeviceBndLocalToGlobalSignKey<TData>(m_assemblyMap, ZERODIR,
                                                      SIGNCHANGE));
 
             // get a copy of the host to evaluate offsets
             auto hostGSBndInfo =
-                dataWarehouse->template GetData<NektarSpaces::Serial>(
+                dataWarehouse->template GetData<NektarSpaces::HostSpace>(
                     GSBndInfoKey);
 
             m_nBndGids = hostGSBndInfo[0];
 
             auto nbuf = m_assmbCommCG->GetSREntries().size() * numComp;
 
-            m_send_buffer =
-                MemoryRegion<TData>(nbuf, ExecSpace::alignment, ePinned);
+            m_send_buffer = MemoryRegion<TData>(nbuf, ePinned);
             m_send_buffer.template Initialize<NektarSpaces::HostSpace>(0);
 
             auto sendPtr =
                 m_send_buffer
                     .template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
 
-            m_recv_buffer =
-                MemoryRegion<TData>(nbuf, ExecSpace::alignment, ePinned);
+            m_recv_buffer = MemoryRegion<TData>(nbuf, ePinned);
             m_recv_buffer.template Initialize<NektarSpaces::HostSpace>(0);
 
             auto recvPtr =

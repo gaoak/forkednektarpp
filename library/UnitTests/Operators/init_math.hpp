@@ -96,25 +96,21 @@ public:
         fixt_explist = MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
             session, graph, true, "u", Collections::eNoCollection);
 
-        std::string execName(
-            boost::unit_test::framework::master_test_suite().argv[1]);
-        auto alignment = Nektar::GetExecSpaceAlignment(execName);
         auto blocks =
             GetBlockAttributes<double>(FieldState::Phys, fixt_explist);
-        auto f_in =
-            Field<double, FieldState::Phys>("f_in", blocks, 1, 1, alignment);
-        auto f_in2 =
-            Field<double, FieldState::Phys>("f_in2", blocks, 1, 1, alignment);
-        auto f_out =
-            Field<double, FieldState::Phys>("f_out", blocks, 1, 1, alignment);
-        auto f_expected = Field<double, FieldState::Phys>("f_expected", blocks,
-                                                          1, 1, alignment);
-        fixt_in         = new Field<double, FieldState::Phys>(std::move(f_in));
-        fixt_in2        = new Field<double, FieldState::Phys>(std::move(f_in2));
-        fixt_out        = new Field<double, FieldState::Phys>(std::move(f_out));
+        auto f_in  = Field<double, FieldState::Phys>("f_in", blocks, 1, 1);
+        auto f_in2 = Field<double, FieldState::Phys>("f_in2", blocks, 1, 1);
+        auto f_out = Field<double, FieldState::Phys>("f_out", blocks, 1, 1);
+        auto f_expected =
+            Field<double, FieldState::Phys>("f_expected", blocks, 1, 1);
+        fixt_in  = new Field<double, FieldState::Phys>(std::move(f_in));
+        fixt_in2 = new Field<double, FieldState::Phys>(std::move(f_in2));
+        fixt_out = new Field<double, FieldState::Phys>(std::move(f_out));
         fixt_expected =
             new Field<double, FieldState::Phys>(std::move(f_expected));
 
+        std::string execName(
+            boost::unit_test::framework::master_test_suite().argv[1]);
         math = Math(execName);
     }
 

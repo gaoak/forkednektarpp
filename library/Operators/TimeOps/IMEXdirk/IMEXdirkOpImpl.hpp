@@ -107,8 +107,7 @@ protected:
             this->m_solutions.push_back(Field<TData, FieldState::Phys>(
                 GetBlockAttributes<TData>(FieldState::Phys,
                                           this->m_expansionList),
-                inout.GetNumComponents(), inout.GetNumHomoModes(),
-                ExecSpace::alignment));
+                inout.GetNumComponents(), inout.GetNumHomoModes()));
         }
 
         while (this->m_implicits.size() < ImpStage)
@@ -116,8 +115,7 @@ protected:
             this->m_implicits.push_back(Field<TData, FieldState::Phys>(
                 GetBlockAttributes<TData>(FieldState::Phys,
                                           this->m_expansionList),
-                inout.GetNumComponents(), inout.GetNumHomoModes(),
-                ExecSpace::alignment));
+                inout.GetNumComponents(), inout.GetNumHomoModes()));
         }
 
         while (this->m_explicits.size() < ExpStage)
@@ -125,8 +123,7 @@ protected:
             this->m_explicits.push_back(Field<TData, FieldState::Phys>(
                 GetBlockAttributes<TData>(FieldState::Phys,
                                           this->m_expansionList),
-                inout.GetNumComponents(), inout.GetNumHomoModes(),
-                ExecSpace::alignment));
+                inout.GetNumComponents(), inout.GetNumHomoModes()));
         }
 
         this->m_solutions[0].template Copy<MemSpace>(inout);

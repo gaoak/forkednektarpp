@@ -545,18 +545,13 @@ public:
             blocks_out = GetBlockAttributes<TData>(stateOut, fixt_explist[0]);
         }
 
-        std::string execName =
-            session->GetCmdLineArgument<std::string>("opExecSpace");
-        alignment = Nektar::GetExecSpaceAlignment(execName);
-        auto f_in =
-            Field<TData, stateIn>("f_in", blocks_in, nin, nhomo, alignment);
-        auto f_out =
-            Field<TData, stateOut>("f_out", blocks_out, nout, nhomo, alignment);
-        auto f_expected = Field<TData, stateOut>("f_expected", blocks_out, nout,
-                                                 nhomo, alignment);
-        fixt_in         = new Field<TData, stateIn>(std::move(f_in));
-        fixt_out        = new Field<TData, stateOut>(std::move(f_out));
-        fixt_expected   = new Field<TData, stateOut>(std::move(f_expected));
+        auto f_in  = Field<TData, stateIn>("f_in", blocks_in, nin, nhomo);
+        auto f_out = Field<TData, stateOut>("f_out", blocks_out, nout, nhomo);
+        auto f_expected =
+            Field<TData, stateOut>("f_expected", blocks_out, nout, nhomo);
+        fixt_in       = new Field<TData, stateIn>(std::move(f_in));
+        fixt_out      = new Field<TData, stateOut>(std::move(f_out));
+        fixt_expected = new Field<TData, stateOut>(std::move(f_expected));
     }
 
     /**
@@ -695,7 +690,6 @@ protected:
     Field<TData, stateOut> *fixt_out      = nullptr;
     Field<TData, stateOut> *fixt_expected = nullptr;
     std::vector<std::shared_ptr<MultiRegions::ExpList>> fixt_explist;
-    size_t alignment;
     LibUtilities::SessionReaderSharedPtr session;
     std::string testModule{STRVX(BOOST_TEST_MODULE)};
 };

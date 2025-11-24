@@ -93,8 +93,7 @@ public:
 
     template <typename MemSpace, typename TData>
     MemoryRegion<value_type> Create(
-        const DeviceLocalToGlobalKey<TData> &LocToGloKey,
-        const size_t alignment)
+        const DeviceLocalToGlobalKey<TData> &LocToGloKey)
     {
         // Get Local To Global Map.
         auto zeroDir  = LocToGloKey.m_zeroDir;
@@ -247,8 +246,7 @@ public:
         }
 
         // Decalare memory for all local to global informaiton.
-        auto LocToGlo =
-            MemoryRegion<value_type>(nvalstot + 2 + nidx, alignment);
+        auto LocToGlo = MemoryRegion<value_type>(nvalstot + 2 + nidx);
         auto ptr =
             LocToGlo.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
@@ -345,8 +343,7 @@ public:
 
     template <typename MemSpace, typename TData>
     MemoryRegion<value_type> Create(
-        const DeviceLocalToGlobalNumAssembleKey<TData> &LocToGloKey,
-        const size_t alignment)
+        const DeviceLocalToGlobalNumAssembleKey<TData> &LocToGloKey)
     {
         // Get Local To Global Map.
         auto &loc2glo      = LocToGloKey.m_assemblyMap;
@@ -355,7 +352,7 @@ public:
         auto dataWarehouse = this->m_expansionList->GetDataWarehouseSharedPtr();
 
         const auto *gsinfo =
-            dataWarehouse->template GetData<NektarSpaces::Serial>(
+            dataWarehouse->template GetData<NektarSpaces::HostSpace>(
                 DeviceLocalToGlobalKey<TData>(loc2glo, zeroDir, width));
 
         auto nvals = gsinfo[0];
@@ -363,7 +360,7 @@ public:
             (nvals + (width - 1)) / width * width; // width aligned length
 
         // Decalare memory
-        auto LocToGlo = MemoryRegion<value_type>(nvalswidth, alignment);
+        auto LocToGlo = MemoryRegion<value_type>(nvalswidth);
         auto ptr =
             LocToGlo.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
@@ -433,8 +430,7 @@ public:
 
     template <typename MemSpace, typename TData>
     MemoryRegion<value_type> Create(
-        const DeviceLocalToGlobalIndexKey<TData> &LocToGloKey,
-        const size_t alignment)
+        const DeviceLocalToGlobalIndexKey<TData> &LocToGloKey)
     {
         // Get Local To Global Map.
         auto &loc2glo      = LocToGloKey.m_assemblyMap;
@@ -443,7 +439,7 @@ public:
         auto dataWarehouse = this->m_expansionList->GetDataWarehouseSharedPtr();
 
         const auto *gsinfo =
-            dataWarehouse->template GetData<NektarSpaces::Serial>(
+            dataWarehouse->template GetData<NektarSpaces::HostSpace>(
                 DeviceLocalToGlobalKey<TData>(loc2glo, zeroDir, width));
 
         auto nvals = gsinfo[0];
@@ -456,7 +452,7 @@ public:
         }
 
         // Decalare memory
-        auto LocToGlo = MemoryRegion<value_type>(nidx, alignment);
+        auto LocToGlo = MemoryRegion<value_type>(nidx);
         auto ptr =
             LocToGlo.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
@@ -553,8 +549,7 @@ public:
 
     template <typename MemSpace, typename TData>
     MemoryRegion<value_type> Create(
-        const DeviceLocalToGlobalIndexOffsetKey<TData> &LocToGloKey,
-        const size_t alignment)
+        const DeviceLocalToGlobalIndexOffsetKey<TData> &LocToGloKey)
     {
         // Get Local To Global Map.
         auto &loc2glo      = LocToGloKey.m_assemblyMap;
@@ -563,7 +558,7 @@ public:
         auto dataWarehouse = this->m_expansionList->GetDataWarehouseSharedPtr();
 
         const auto *gsinfo =
-            dataWarehouse->template GetData<NektarSpaces::Serial>(
+            dataWarehouse->template GetData<NektarSpaces::HostSpace>(
                 DeviceLocalToGlobalKey<TData>(loc2glo, zeroDir, width));
 
         auto nvals = gsinfo[0];
@@ -571,7 +566,7 @@ public:
             (nvals + (width - 1)) / width * width; // width aligned length
 
         // Decalare memory
-        auto LocToGlo = MemoryRegion<value_type>(nvalswidth, alignment);
+        auto LocToGlo = MemoryRegion<value_type>(nvalswidth);
         auto ptr =
             LocToGlo.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
@@ -754,8 +749,7 @@ public:
 
     template <typename MemSpace, typename TData>
     MemoryRegion<value_type> Create(
-        const DeviceLocalToGlobalSignKey<TData> &LocToGloKey,
-        const size_t alignment)
+        const DeviceLocalToGlobalSignKey<TData> &LocToGloKey)
     {
         // Get Local To Global Map.
         auto &loc2glo      = LocToGloKey.m_assemblyMap;
@@ -765,7 +759,7 @@ public:
         auto dataWarehouse = this->m_expansionList->GetDataWarehouseSharedPtr();
 
         const auto *gsinfo =
-            dataWarehouse->template GetData<NektarSpaces::Serial>(
+            dataWarehouse->template GetData<NektarSpaces::HostSpace>(
                 DeviceLocalToGlobalKey<TData>(loc2glo, zeroDir, width));
 
         auto nvals = gsinfo[0];
@@ -791,7 +785,7 @@ public:
         }
 
         // Decalare memory for all local to global information.
-        auto LocToGloSign = MemoryRegion<value_type>(nidx, alignment);
+        auto LocToGloSign = MemoryRegion<value_type>(nidx);
         auto ptr =
             LocToGloSign.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
@@ -877,8 +871,7 @@ public:
 
     template <typename MemSpace, typename TData>
     MemoryRegion<value_type> Create(
-        const DeviceBndLocalToGlobalKey<TData> &LocToGloKey,
-        const size_t alignment)
+        const DeviceBndLocalToGlobalKey<TData> &LocToGloKey)
     {
         // Get Local To Global Map.
         auto numComp = LocToGloKey.m_numComp;
@@ -1046,8 +1039,7 @@ public:
         }
 
         // Decalare memory for all local to global informaiton.
-        auto LocToGlo =
-            MemoryRegion<value_type>(nvalstot + 2 + nidx, alignment);
+        auto LocToGlo = MemoryRegion<value_type>(nvalstot + 2 + nidx);
         auto ptr =
             LocToGlo.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
@@ -1153,8 +1145,7 @@ public:
 
     template <typename MemSpace, typename TData>
     MemoryRegion<value_type> Create(
-        const DeviceBndLocalToGlobalSignKey<TData> &LocToGloKey,
-        const size_t alignment)
+        const DeviceBndLocalToGlobalSignKey<TData> &LocToGloKey)
     {
         auto &loc2glo      = LocToGloKey.m_assemblyMap;
         auto zeroDir       = LocToGloKey.m_zeroDir;
@@ -1162,7 +1153,7 @@ public:
         auto dataWarehouse = this->m_expansionList->GetDataWarehouseSharedPtr();
 
         const auto *gsinfo =
-            dataWarehouse->template GetData<NektarSpaces::Serial>(
+            dataWarehouse->template GetData<NektarSpaces::HostSpace>(
                 DeviceBndLocalToGlobalKey<TData>(loc2glo.size()));
 
         // extract lids from gsinfo
@@ -1180,7 +1171,7 @@ public:
         }
 
         // Decalare memory for all local to global information.
-        auto LocToGloSign = MemoryRegion<value_type>(lids.size(), alignment);
+        auto LocToGloSign = MemoryRegion<value_type>(lids.size());
         auto ptr =
             LocToGloSign.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
@@ -1232,10 +1223,8 @@ public:
 
     template <typename MemSpace, typename TData>
     MemoryRegion<value_type> Create(
-        [[maybe_unused]] const LocalToGlobalMaskKey<TData> &LocToGloKey,
-        const size_t alignment)
+        [[maybe_unused]] const LocalToGlobalMaskKey<TData> &LocToGloKey)
     {
-
         // Get Local To Global Map.
         auto contfield =
             std::dynamic_pointer_cast<MultiRegions::ContField>(m_expansionList);
@@ -1254,7 +1243,7 @@ public:
         }
 
         // Decalare memory for all local to global informaiton.
-        auto LocToGlo = MemoryRegion<value_type>(ntot, alignment);
+        auto LocToGlo = MemoryRegion<value_type>(ntot);
         auto ptr =
             LocToGlo.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 

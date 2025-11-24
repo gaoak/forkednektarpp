@@ -72,7 +72,7 @@ public:
             m_nq.push_back(exp->GetNumPoints(d));
 
             // Fetch basis data.
-            m_D.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_D.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<simd_t>(exp->GetBasis(d)->GetBasisKey(),
                                      eDerivative)));
         }
@@ -80,26 +80,26 @@ public:
         if (m_dimension == 2)
         {
             // Fetch geometric factors.
-            m_f.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<simd_t>(this->m_exp->GetBasis(0)->GetBasisKey(),
                                      eHalfMultOnePlusZero)));
-            m_f.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<simd_t>(this->m_exp->GetBasis(1)->GetBasisKey(),
                                      eTwoOverOneMinusZero)));
         }
         else if (m_dimension == 3)
         {
             // Fetch geometric factors.
-            m_f.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<simd_t>(this->m_exp->GetBasis(0)->GetBasisKey(),
                                      eHalfMultOnePlusZero)));
-            m_f.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<simd_t>(this->m_exp->GetBasis(1)->GetBasisKey(),
                                      eHalfMultOnePlusZero)));
-            m_f.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<simd_t>(this->m_exp->GetBasis(1)->GetBasisKey(),
                                      eTwoOverOneMinusZero)));
-            m_f.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<simd_t>(this->m_exp->GetBasis(2)->GetBasisKey(),
                                      eTwoOverOneMinusZero)));
         }
@@ -140,8 +140,8 @@ protected:
                  BlockAccessor<TData> &outblock) override
     {
         WARNINGL1(
-            m_warnOnce || (inblock.GetAlignment() == simd_t::alignment &&
-                           outblock.GetAlignment() == simd_t::alignment),
+            m_warnOnce || (inblock.GetAlignment() % simd_t::alignment == 0 &&
+                           outblock.GetAlignment() % simd_t::alignment == 0),
             "Input or output Field are not aligned to the required alignment "
             "for the SIMD vector type.");
 #if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
@@ -261,7 +261,7 @@ protected:
         }
 
         // Fetch deriv factors data.
-        auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto dfptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), false));
 
@@ -369,7 +369,7 @@ protected:
         }
 
         // Fetch deriv factors data.
-        auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto dfptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), false));
 
@@ -478,7 +478,7 @@ protected:
         }
 
         // Fetch deriv factors data.
-        auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto dfptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), false));
 
@@ -585,7 +585,7 @@ protected:
         }
 
         // Fetch deriv factors data.
-        auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto dfptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), false));
 
@@ -695,7 +695,7 @@ protected:
         }
 
         // Fetch deriv factors data.
-        auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto dfptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), false));
 
@@ -801,7 +801,7 @@ protected:
         }
 
         // Fetch deriv factors data.
-        auto dfptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto dfptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), false));
 

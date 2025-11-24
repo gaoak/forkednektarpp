@@ -56,7 +56,7 @@ public:
           m_trace(Field<TData, FieldState::Coeff>(
               GetBlockAttributes<TData>(FieldState::Coeff,
                                         expansionList->GetTrace()),
-              1, 1, ExecSpace::alignment))
+              1, 1))
     {
         m_trace.template Initialize<MemSpace>(0.0);
 
@@ -204,7 +204,7 @@ public:
                     m_traceCoeffsToElmtMap[blk1].push_back(
                         MemoryRegion<size_t>::template FromVector<MemSpace,
                                                                   size_t>(
-                            traceCoeffsToElmtMap, ExecSpace::alignment));
+                            traceCoeffsToElmtMap));
                     traceCoeffsToElmtMap.clear();
                 }
                 for (auto &traceCoeffsToElmtTrace : traceCoeffsToElmtTraceBlock)
@@ -212,14 +212,14 @@ public:
                     m_traceCoeffsToElmtTrace[blk1].push_back(
                         MemoryRegion<size_t>::template FromVector<MemSpace,
                                                                   size_t>(
-                            traceCoeffsToElmtTrace, ExecSpace::alignment));
+                            traceCoeffsToElmtTrace));
                     traceCoeffsToElmtTrace.clear();
                 }
                 for (auto &traceCoeffsToElmtSign : traceCoeffsToElmtSignBlock)
                 {
                     m_traceCoeffsToElmtSign[blk1].push_back(
                         MemoryRegion<int>::template FromVector<MemSpace, int>(
-                            traceCoeffsToElmtSign, ExecSpace::alignment));
+                            traceCoeffsToElmtSign));
                     traceCoeffsToElmtSign.clear();
                 }
                 offset1 = traceBlockBound[blk1];

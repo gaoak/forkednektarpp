@@ -183,16 +183,14 @@ public:
                 m_nBndCoeffBlock.push_back(nbndCoeffBlock);
                 m_bndCoeff.push_back(
                     MemoryRegion<TData>::template FromVector<MemSpace, TData>(
-                        bndCoeffBlock, ExecSpace::alignment));
+                        bndCoeffBlock));
                 m_map.push_back(
                     MemoryRegion<size_t>::template FromVector<MemSpace, size_t>(
-                        mapBlock, ExecSpace::alignment));
+                        mapBlock));
                 if (m_signChange)
                 {
-                    m_sign.push_back(
-                        MemoryRegion<TData>::template FromVector<MemSpace,
-                                                                 TData>(
-                            signBlock, ExecSpace::alignment));
+                    m_sign.push_back(MemoryRegion<TData>::template FromVector<
+                                     MemSpace, TData>(signBlock));
                 }
                 nbndCoeffBlock = 0;
                 bndCoeffBlock.clear();
@@ -246,7 +244,7 @@ public:
                         m_locid0[blk1].push_back(
                             MemoryRegion<size_t>::template FromVector<MemSpace,
                                                                       size_t>(
-                                locid0, ExecSpace::alignment));
+                                locid0));
                         locid0.clear();
                     }
                     for (auto &locid1 : locid1Block)
@@ -254,7 +252,7 @@ public:
                         m_locid1[blk1].push_back(
                             MemoryRegion<size_t>::template FromVector<MemSpace,
                                                                       size_t>(
-                                locid1, ExecSpace::alignment));
+                                locid1));
                         locid1.clear();
                     }
                     for (auto &locsign : locsignBlock)
@@ -262,7 +260,7 @@ public:
                         m_locsign[blk1].push_back(
                             MemoryRegion<TData>::template FromVector<MemSpace,
                                                                      TData>(
-                                locsign, ExecSpace::alignment));
+                                locsign));
                         locsign.clear();
                     }
                     offset1 = blockBound[blk1];
@@ -301,7 +299,7 @@ public:
                     m_nParDirBndSignBlock.push_back(nParDirBndSignBlock);
                     m_parDirBndSign.push_back(
                         MemoryRegion<int>::template FromVector<MemSpace, int>(
-                            parDirBndSignBlock, ExecSpace::alignment));
+                            parDirBndSignBlock));
                     nParDirBndSignBlock = 0;
                     parDirBndSignBlock.clear();
                     offset = blockBound[blk];
@@ -379,7 +377,6 @@ protected:
                              : nullptr;
 
             // if block is interlaced deInterleave block since currently mapping
-            // set up assuming serial alignment
             auto inoutWidth = inoutBlk.GetInterleaveWidth();
             if (inoutWidth != 1)
             {

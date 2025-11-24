@@ -135,16 +135,14 @@ public:
                 m_nBndCoeffBlock.push_back(nbndCoeffBlock);
                 m_bndCoeff.push_back(
                     MemoryRegion<TData>::template FromVector<MemSpace, TData>(
-                        bndCoeffBlock, ExecSpace::alignment));
+                        bndCoeffBlock));
                 m_map.push_back(
                     MemoryRegion<size_t>::template FromVector<MemSpace, size_t>(
-                        mapBlock, ExecSpace::alignment));
+                        mapBlock));
                 if (m_signChange)
                 {
-                    m_sign.push_back(
-                        MemoryRegion<TData>::template FromVector<MemSpace,
-                                                                 TData>(
-                            signBlock, ExecSpace::alignment));
+                    m_sign.push_back(MemoryRegion<TData>::template FromVector<
+                                     MemSpace, TData>(signBlock));
                 }
                 nbndCoeffBlock = 0;
                 bndCoeffBlock.clear();

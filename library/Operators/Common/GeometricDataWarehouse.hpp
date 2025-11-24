@@ -133,8 +133,7 @@ public:
     }
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<TData> Create(const JacobianKey<TData> &jacobianKey,
-                               const size_t alignment)
+    MemoryRegion<TData> Create(const JacobianKey<TData> &jacobianKey)
     {
         const auto vector_width = NektarSpaces::vector_width<TData>::value;
 
@@ -153,7 +152,7 @@ public:
             const auto memsize =
                 num_elmt_groups * interleave_width * expPtr->GetTotPoints();
             Array<OneD, Array<OneD, NekDouble>> jacArray(interleave_width);
-            auto jac = MemoryRegion<TData>(memsize, alignment);
+            auto jac = MemoryRegion<TData>(memsize);
             auto jacptr =
                 jac.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
@@ -189,8 +188,7 @@ public:
         // Regular geometry.
         else
         {
-            auto jac = MemoryRegion<TData>(num_elmt_groups * interleave_width,
-                                           alignment);
+            auto jac = MemoryRegion<TData>(num_elmt_groups * interleave_width);
             auto jacptr =
                 jac.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
@@ -218,8 +216,7 @@ public:
     }
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<TData> Create(const DerivFactorKey<TData> &derivFactorKey,
-                               const size_t alignment)
+    MemoryRegion<TData> Create(const DerivFactorKey<TData> &derivFactorKey)
     {
         const auto vector_width = NektarSpaces::vector_width<TData>::value;
 
@@ -244,7 +241,7 @@ public:
             // Allocate memory and get pointer.
             const auto memsize = num_elmt_groups * interleave_width *
                                  expPtr->GetTotPoints() * nDim * nCoord;
-            auto df = MemoryRegion<TData>(memsize, alignment);
+            auto df = MemoryRegion<TData>(memsize);
             auto dfptr =
                 df.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
@@ -284,8 +281,8 @@ public:
         // Regular geometry.
         else
         {
-            auto df = MemoryRegion<TData>(
-                num_elmt_groups * interleave_width * nDim * nCoord, alignment);
+            auto df = MemoryRegion<TData>(num_elmt_groups * interleave_width *
+                                          nDim * nCoord);
             auto dfptr =
                 df.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
@@ -319,10 +316,9 @@ public:
     }
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<TData> Create(const CoordKey<TData> &coordKey,
-                               const size_t alignment)
+    MemoryRegion<TData> Create(const CoordKey<TData> &coordKey)
     {
-        auto vector_width = NektarSpaces::vector_width<TData>::value;
+        const auto vector_width = NektarSpaces::vector_width<TData>::value;
 
         auto exp_idx          = coordKey.m_exp_idx;
         auto interleave_width = coordKey.m_interleave_width;
@@ -341,7 +337,7 @@ public:
         // Allocate memory and get pointer.
         const auto memsize =
             num_elmt_groups * interleave_width * expPtr->GetTotPoints() * nDim;
-        auto crds = MemoryRegion<TData>(memsize, alignment);
+        auto crds = MemoryRegion<TData>(memsize);
         auto crdptr =
             crds.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 

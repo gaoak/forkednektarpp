@@ -106,8 +106,8 @@ protected:
                  BlockAccessor<TData> &outblock) override
     {
         WARNINGL1(
-            m_warnOnce || (inblock.GetAlignment() == simd_t::alignment &&
-                           outblock.GetAlignment() == simd_t::alignment),
+            m_warnOnce || (inblock.GetAlignment() % simd_t::alignment == 0 &&
+                           outblock.GetAlignment() % simd_t::alignment == 0),
             "Input or output Field are not aligned to the required alignment "
             "for the SIMD vector type.");
 #if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
@@ -215,7 +215,7 @@ protected:
             }
 
             // Fetch basis data.
-            m_B.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_B.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<simd_t>(this->m_exp->GetBasis(d)->GetBasisKey(),
                                      eInterp, m_nq[d])));
         }

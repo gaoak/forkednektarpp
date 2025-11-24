@@ -132,17 +132,11 @@ int main(int argc, char *argv[])
     // Timer.
     Timer timer;
 
-    // Set alignment.
-    std::string execName =
-        session->GetCmdLineArgument<std::string>("opExecSpace");
-    size_t alignment = Nektar::GetExecSpaceAlignment(execName);
-
     // Create blocks.
     auto blocksIn = GetBlockAttributes<TData>(FieldState::Phys, expList);
 
     // Create fields.
-    auto fIn = Field<TData, FieldState::Phys>("f_in", blocksIn, nIn * nComp, 1,
-                                              alignment);
+    auto fIn = Field<TData, FieldState::Phys>("f_in", blocksIn, nIn * nComp, 1);
 
     // Set random output.
     srand(0);
@@ -163,6 +157,8 @@ int main(int argc, char *argv[])
 
     double timestep = 0.0001;
     session->SetParameter("TimeStep", timestep);
+    std::string execName =
+        session->GetCmdLineArgument<std::string>("opExecSpace");
     auto solver = DummySolver(execName);
 
     auto timeOp = TimeOp<TData>::Create(expList, method, timeOrder);

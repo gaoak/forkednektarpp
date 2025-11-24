@@ -93,8 +93,7 @@ protected:
             this->m_explicits.push_front(Field<TData, FieldState::Phys>(
                 GetBlockAttributes<TData>(FieldState::Phys,
                                           this->m_expansionList),
-                inout.GetNumComponents(), inout.GetNumHomoModes(),
-                ExecSpace::alignment));
+                inout.GetNumComponents(), inout.GetNumHomoModes()));
 
             // Compute explicit terms.
             this->DoExplicitRhs(inout, this->m_explicits[0], this->m_time,
@@ -105,8 +104,7 @@ protected:
                 "timestep n-" + std::to_string(this->m_step + 1),
                 GetBlockAttributes<TData>(FieldState::Phys,
                                           this->m_expansionList),
-                inout.GetNumComponents(), inout.GetNumHomoModes(),
-                ExecSpace::alignment));
+                inout.GetNumComponents(), inout.GetNumHomoModes()));
 
             this->m_solutions[0].template Copy<MemSpace>(inout);
 
@@ -137,8 +135,7 @@ protected:
                 this->m_explicits.push_back(Field<TData, FieldState::Phys>(
                     GetBlockAttributes<TData>(FieldState::Phys,
                                               this->m_expansionList),
-                    inout.GetNumComponents(), inout.GetNumHomoModes(),
-                    ExecSpace::alignment));
+                    inout.GetNumComponents(), inout.GetNumHomoModes()));
             }
 
             // UpdateSolution previous solutions, explicit part, and sum up.
@@ -172,8 +169,7 @@ protected:
                     this->m_implicits.push_back(Field<TData, FieldState::Phys>(
                         GetBlockAttributes<TData>(FieldState::Phys,
                                                   this->m_expansionList),
-                        inout.GetNumComponents(), inout.GetNumHomoModes(),
-                        ExecSpace::alignment));
+                        inout.GetNumComponents(), inout.GetNumHomoModes()));
                 }
 
                 // Rollover previous solutions.

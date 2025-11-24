@@ -200,7 +200,7 @@ protected:
             }
 
             // Fetch basis data.
-            m_B.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_B.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<TData>(this->m_exp->GetBasis(d)->GetBasisKey(),
                                     eInterp, m_nq[d])));
         }
@@ -239,7 +239,7 @@ protected:
     {
         auto wspsize = GetWorkspaceSize(shapeType, nelmt, nm0, nm1, nm2);
 
-        return MemoryRegion<TData>(wspsize, ExecSpace::alignment);
+        return MemoryRegion<TData>(wspsize);
     }
 
     void SegBlock(BlockAccessor<TData> &inblock,

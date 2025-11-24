@@ -663,13 +663,14 @@ protected:
      * @param num_components - Number of components.
      * @param num_homo_modes - Number of components.
      * @param memAllocType   - [ePageable, ePinned].
+     * @param alignment      - Memory alignment.
      */
     FieldBase(const std::string name, const unsigned int num_components,
-              const unsigned int num_homo_modes, const size_t alignment,
-              const MemAllocType &memAllocType)
+              const unsigned int num_homo_modes,
+              const MemAllocType &memAllocType, const size_t alignment)
         : m_name(name), m_component_names(num_components),
-          m_num_homo_modes(num_homo_modes), m_alignment(alignment),
-          m_memAllocType(memAllocType)
+          m_num_homo_modes(num_homo_modes), m_memAllocType(memAllocType),
+          m_alignment(alignment)
     {
     }
 
@@ -680,13 +681,14 @@ protected:
      * @param components     - Names of components for vector field.
      * @param num_homo_modes - Number of components.
      * @param memAllocType   - [ePageable, ePinned].
+     * @param alignment      - Memory alignment.
      */
     FieldBase(const std::string name, const std::vector<std::string> components,
-              const unsigned int num_homo_modes, const size_t alignment,
-              const MemAllocType &memAllocType)
+              const unsigned int num_homo_modes,
+              const MemAllocType &memAllocType, const size_t alignment)
         : m_name(name), m_component_names(components),
-          m_num_homo_modes(num_homo_modes), m_alignment(alignment),
-          m_memAllocType(memAllocType)
+          m_num_homo_modes(num_homo_modes), m_memAllocType(memAllocType),
+          m_alignment(alignment)
     {
     }
 
@@ -724,9 +726,9 @@ protected:
           m_component_names(std::move(rhs.m_component_names)),
           m_num_homo_modes(std::move(rhs.m_num_homo_modes)),
           m_host(std::move(rhs.m_host)), m_device(std::move(rhs.m_device)),
-          m_alignment(std::move(rhs.m_alignment)),
           m_block_accessors(std::move(rhs.m_block_accessors)),
-          m_memAllocType(std::move(rhs.m_memAllocType))
+          m_memAllocType(std::move(rhs.m_memAllocType)),
+          m_alignment(std::move(rhs.m_alignment))
     {
         for (auto &blocks : m_block_accessors)
         {
@@ -737,9 +739,9 @@ protected:
         rhs.m_num_homo_modes = 1;
         rhs.m_host           = nullptr;
         rhs.m_device         = nullptr;
-        rhs.m_alignment      = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
         rhs.m_block_accessors.clear();
         rhs.m_memAllocType = ePageable;
+        rhs.m_alignment    = NektarSpaces::memory_alignment::value;
     }
 
     /**
@@ -756,9 +758,9 @@ protected:
         m_num_homo_modes  = std::move(rhs.m_num_homo_modes);
         m_host            = std::move(rhs.m_host);
         m_device          = std::move(rhs.m_device);
-        m_alignment       = std::move(rhs.m_alignment);
         m_block_accessors = std::move(rhs.m_block_accessors);
         m_memAllocType    = std::move(rhs.m_memAllocType);
+        m_alignment       = std::move(rhs.m_alignment);
         for (auto &blocks : m_block_accessors)
         {
             blocks.m_field = this;
@@ -769,9 +771,9 @@ protected:
         rhs.m_num_homo_modes = 1;
         rhs.m_host           = nullptr;
         rhs.m_device         = nullptr;
-        rhs.m_alignment      = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
         rhs.m_block_accessors.clear();
         rhs.m_memAllocType = ePageable;
+        rhs.m_alignment    = NektarSpaces::memory_alignment::value;
         return *this;
     }
 
@@ -781,9 +783,9 @@ protected:
     unsigned int m_num_homo_modes = 1;
     TData *m_host                 = nullptr;
     TData *m_device               = nullptr;
-    size_t m_alignment            = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
     std::vector<BlockAccessor<TData>> m_block_accessors;
     MemAllocType m_memAllocType;
+    size_t m_alignment = NektarSpaces::memory_alignment::value;
 };
 
 /**
@@ -807,21 +809,22 @@ public:
      * @param blockAttr      - Block attributes.
      * @param num_components - Number of components.
      * @param num_homo_modes - Number of homogeneous modes.
-     * @param alignment      - Memory alignment to use.
      * @param memAllocType   - [ePageable, ePinned].
+     * @param alignment      - Memory alignment to use.
      */
     Field(const std::string name, const std::vector<BlockAttributes> blockAttr,
           const unsigned int num_components, const unsigned int num_homo_modes,
-          const size_t alignment, const MemAllocType &memAllocType = ePageable)
-        : FieldBase<TData>(name, num_components, num_homo_modes, alignment,
-                           memAllocType)
+          const MemAllocType &memAllocType = ePageable,
+          const size_t alignment = NektarSpaces::memory_alignment::value)
+        : FieldBase<TData>(name, num_components, num_homo_modes, memAllocType,
+                           alignment)
     {
         for (unsigned int blk = 0; blk < blockAttr.size(); ++blk)
         {
             auto nsize =
                 blockAttr[blk].size() * num_components * num_homo_modes;
             auto mr = MemoryRegion<TData>(name + std::to_string(blk), nsize,
-                                          alignment, memAllocType);
+                                          memAllocType, alignment);
             this->m_block_accessors.push_back(
                 BlockAccessor(blockAttr[blk], std::move(mr), this,
                               num_components, num_homo_modes));
@@ -834,14 +837,15 @@ public:
      * @param blockAttr      - Block attributes.
      * @param num_components - Number of components.
      * @param num_homo_modes - Number of homogeneous modes.
-     * @param alignment      - Memory alignment to use.
      * @param memAllocType   - [ePageable, ePinned].
+     * @param alignment      - Memory alignment to use.
      */
     Field(const std::vector<BlockAttributes> blockAttr,
           const unsigned int num_components, const unsigned int num_homo_modes,
-          const size_t alignment, const MemAllocType &memAllocType = ePageable)
+          const MemAllocType &memAllocType = ePageable,
+          const size_t alignment = NektarSpaces::memory_alignment::value)
         : Field<TData, TState>("", blockAttr, num_components, num_homo_modes,
-                               alignment, memAllocType)
+                               memAllocType, alignment)
     {
     }
 
@@ -852,22 +856,23 @@ public:
      * @param blockAttr      - Block attributes.
      * @param components     - Names of components for vector field.
      * @param num_homo_modes - Number of homogeneous modes.
-     * @param alignment      - Memory alignment to use.
      * @param memAllocType   - [ePageable, ePinned].
+     * @param alignment      - Memory alignment to use.
      */
     Field(const std::string name, const std::vector<BlockAttributes> blockAttr,
           const std::vector<std::string> components,
-          const unsigned int num_homo_modes, const size_t alignment,
-          const MemAllocType &memAllocType = ePageable)
-        : FieldBase<TData>(name, components, num_homo_modes, alignment,
-                           memAllocType)
+          const unsigned int num_homo_modes,
+          const MemAllocType &memAllocType = ePageable,
+          const size_t alignment = NektarSpaces::memory_alignment::value)
+        : FieldBase<TData>(name, components, num_homo_modes, memAllocType,
+                           alignment)
     {
         for (unsigned int blk = 0; blk < blockAttr.size(); ++blk)
         {
             auto nsize =
                 blockAttr[blk].size() * components.size() * num_homo_modes;
             auto mr = MemoryRegion<TData>(name + std::to_string(blk), nsize,
-                                          alignment, memAllocType);
+                                          memAllocType, alignment);
             this->m_block_accessors.push_back(
                 BlockAccessor(blockAttr[blk], std::move(mr), this,
                               components.size(), num_homo_modes));
@@ -880,15 +885,16 @@ public:
      * @param blockAttr      - Block attributes.
      * @param components     - Names of components for vector field.
      * @param num_homo_modes - Number of homogeneous modes.
-     * @param alignment      - Memory alignment to use.
      * @param memAllocType   - [ePageable, ePinned].
+     * @param alignment      - Memory alignment to use.
      */
     Field(const std::vector<BlockAttributes> blockAttr,
           const std::vector<std::string> components,
-          const unsigned int num_homo_modes, const size_t alignment,
-          const MemAllocType &memAllocType = ePageable)
+          const unsigned int num_homo_modes,
+          const MemAllocType &memAllocType = ePageable,
+          const size_t alignment = NektarSpaces::memory_alignment::value)
         : Field<TData, TState>("", blockAttr, components, num_homo_modes,
-                               alignment, memAllocType)
+                               memAllocType, alignment)
     {
     }
 

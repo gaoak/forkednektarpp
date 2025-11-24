@@ -125,7 +125,8 @@ NekGemmGroupedBatched(THandle handle, std::string transposeA,
         CHECK_HIPCUDA_ERROR(hipStreamDestroy(streams[s]));
     }
 
-    /*std::vector<hipblasOperation_t> transA(batchSize);
+    /*
+    std::vector<hipblasOperation_t> transA(batchSize);
     std::vector<hipblasOperation_t> transB(batchSize);
     std::vector<int> groupSize(batchSize);
     std::vector<TData> alpha_array(batchSize);
@@ -138,20 +139,45 @@ NekGemmGroupedBatched(THandle handle, std::string transposeA,
     std::fill(beta_array.begin(), beta_array.end(), beta);
     std::fill(groupSize.begin(), groupSize.end(), 1);
 
+    TData const **Adev;
+    TData const **Bdev;
+    TData **Cdev;
+    Nektar::deviceMalloc(&Adev, sizeof(TData *) * batchSize,
+                         NektarSpaces::memory_alignment::value);
+    Nektar::deviceMalloc(&Bdev, sizeof(TData *) * batchSize,
+                         NektarSpaces::memory_alignment::value);
+    Nektar::deviceMalloc(&Cdev, sizeof(TData *) * batchSize,
+                         NektarSpaces::memory_alignment::value);
+
+    Nektar::deviceMemcpy<Nektar::HostToDevice>(Adev, Aarray,
+                                               sizeof(TData *) * batchSize);
+    Nektar::deviceMemcpy<Nektar::HostToDevice>(Bdev, Barray,
+                                               sizeof(TData *) * batchSize);
+    Nektar::deviceMemcpy<Nektar::HostToDevice>(Cdev, Carray,
+                                               sizeof(TData *) * batchSize);
+
     if constexpr (std::is_same_v<TData, float>)
     {
-        HIPBLAS_CHECK(hipblasSgemmGroupedBatched(
+        HIPBLAS_CHECK(cublasSgemmGroupedBatched(
             handle, transA.data(), transB.data(), M, N, K, alpha_array.data(),
-            Aarray, lda, Barray, ldb, beta_array.data(), Carray, ldc, batchSize,
+            Adev, lda, Bdev, ldb, beta_array.data(), Cdev, ldc, batchSize,
             groupSize.data()));
     }
     else if constexpr (std::is_same_v<TData, double>)
     {
-        HIPBLAS_CHECK(hipblasDgemmGroupedBatched(
+        HIPBLAS_CHECK(cublasDgemmGroupedBatched(
             handle, transA.data(), transB.data(), M, N, K, alpha_array.data(),
-            Aarray, lda, Barray, ldb, beta_array.data(), Carray, ldc, batchSize,
+            Adev, lda, Bdev, ldb, beta_array.data(), Cdev, ldc, batchSize,
             groupSize.data()));
-    }*/
+    }
+
+    Nektar::deviceFree(Adev, sizeof(TData *) * batchSize,
+                       NektarSpaces::memory_alignment::value);
+    Nektar::deviceFree(Bdev, sizeof(TData *) * batchSize,
+                       NektarSpaces::memory_alignment::value);
+    Nektar::deviceFree(Cdev, sizeof(TData *) * batchSize,
+                       NektarSpaces::memory_alignment::value);
+    */
 }
 
 template <typename THandle, typename TData>

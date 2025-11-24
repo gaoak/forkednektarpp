@@ -93,7 +93,7 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        auto coordptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto coordptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
             CoordKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                             inblock.GetNumElements(), false));
 

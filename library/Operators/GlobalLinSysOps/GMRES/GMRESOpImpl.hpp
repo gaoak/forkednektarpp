@@ -57,18 +57,18 @@ public:
         : GMRESOp<TData>(expansionList),
           m_w(Field<TData, FieldState::Coeff>(
               "GMRES w",
-              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1, 1,
-              ExecSpace::alignment)),
+              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
+              1)),
           m_wk(Field<TData, FieldState::Coeff>(
               "GMRES wk",
-              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1, 1,
-              ExecSpace::alignment)),
+              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
+              1)),
           m_r0(Field<TData, FieldState::Coeff>(
-              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1, 1,
-              ExecSpace::alignment)),
+              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
+              1)),
           m_solution(Field<TData, FieldState::Coeff>(
-              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1, 1,
-              ExecSpace::alignment))
+              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
+              1))
     {
         auto contfield =
             std::dynamic_pointer_cast<ContField>(this->m_expansionList);
@@ -116,7 +116,7 @@ public:
             m_V1 = Field<TData, FieldState::Coeff>(
                 GetBlockAttributes<TData>(FieldState::Coeff,
                                           this->m_expansionList),
-                1, 1, ExecSpace::alignment);
+                1, 1);
         }
     }
 
@@ -331,7 +331,7 @@ protected:
             m_Vtotal.push_back(Field<TData, FieldState::Coeff>(
                 GetBlockAttributes<TData>(FieldState::Coeff,
                                           this->m_expansionList),
-                1, 1, ExecSpace::alignment));
+                1, 1));
         }
         mul<ExecSpace>(1.0 / eta[0], m_r0, m_Vtotal[0]);
 
@@ -350,7 +350,7 @@ protected:
                 m_Vtotal.push_back(Field<TData, FieldState::Coeff>(
                     GetBlockAttributes<TData>(FieldState::Coeff,
                                               this->m_expansionList),
-                    1, 1, ExecSpace::alignment));
+                    1, 1));
             }
             m_Vtotal[nd + 1].template Initialize<MemSpace>(0);
             std::fill_n(m_hes[nd].data(), m_LinSysMaxStorage + 1, 0.0);

@@ -96,8 +96,7 @@ public:
     ~BasisDataCreator() override = default;
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<TData> Create(const BasisDataKey<TData> &basisDataKey,
-                               const size_t alignment)
+    MemoryRegion<TData> Create(const BasisDataKey<TData> &basisDataKey)
     {
         const auto basis =
             LibUtilities::BasisManager()[basisDataKey.m_basisKey];
@@ -108,13 +107,13 @@ public:
             case eBasis:
             {
                 return MemoryRegion<TData>::template FromArray<MemSpace>(
-                    basis->GetBdata(), alignment);
+                    basis->GetBdata());
                 break;
             }
             case eBasisDerivative:
             {
                 return MemoryRegion<TData>::template FromArray<MemSpace>(
-                    basis->GetDbdata(), alignment);
+                    basis->GetDbdata());
                 break;
             }
             case eWeights:
@@ -183,20 +182,19 @@ public:
                     }
                 }
 
-                return MemoryRegion<TData>::template FromArray<MemSpace>(
-                    wTmp, alignment);
+                return MemoryRegion<TData>::template FromArray<MemSpace>(wTmp);
             }
             break;
             case eZeros:
             {
                 return MemoryRegion<TData>::template FromArray<MemSpace>(
-                    basis->GetZ(), alignment);
+                    basis->GetZ());
             }
             break;
             case eDerivative:
             {
                 return MemoryRegion<TData>::template FromArray<MemSpace>(
-                    basis->GetD()->GetPtr(), alignment);
+                    basis->GetD()->GetPtr());
             }
             break;
             case eInterp:
@@ -209,8 +207,7 @@ public:
                              ->GetI(pkey)
                              ->GetPtr();
 
-                return MemoryRegion<TData>::template FromArray<MemSpace>(
-                    I, alignment);
+                return MemoryRegion<TData>::template FromArray<MemSpace>(I);
             }
             break;
             case eHalfMultOnePlusZero:
@@ -223,8 +220,7 @@ public:
                     Tmp[i] = 0.5 * (1.0 + z[i]);
                 }
 
-                return MemoryRegion<TData>::template FromArray<MemSpace>(
-                    Tmp, alignment);
+                return MemoryRegion<TData>::template FromArray<MemSpace>(Tmp);
             }
             break;
             case eTwoOverOneMinusZero:
@@ -238,13 +234,12 @@ public:
                     Tmp[i] = 2 / (1.0 - z[i]);
                 }
 
-                return MemoryRegion<TData>::template FromArray<MemSpace>(
-                    Tmp, alignment);
+                return MemoryRegion<TData>::template FromArray<MemSpace>(Tmp);
             }
             break;
             default:
                 NEKERROR(ErrorUtil::efatal, "invalid basis data requested.");
-                return MemoryRegion<TData>(0, alignment);
+                return MemoryRegion<TData>(0);
                 break;
         }
     }
@@ -293,15 +288,14 @@ public:
     }
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<TData> Create(const VandemondeKey<TData> &vandemondeKey,
-                               const size_t alignment)
+    MemoryRegion<TData> Create(const VandemondeKey<TData> &vandemondeKey)
     {
         auto exp_idx = vandemondeKey.m_exp_idx;
         auto expPtr  = m_expansionList->GetExp(exp_idx);
 
         auto ncoeffs = expPtr->GetNcoeffs();
 
-        auto vdm    = MemoryRegion<TData>(ncoeffs * ncoeffs, alignment);
+        auto vdm    = MemoryRegion<TData>(ncoeffs * ncoeffs);
         auto vdmptr = vdm.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
         DNekMatSharedPtr vdmMat;

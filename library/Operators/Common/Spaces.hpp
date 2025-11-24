@@ -115,49 +115,49 @@ using default_fp_type = double;
 namespace NektarSpaces
 {
 
-// Device vector width
-template <typename TData>
+// Alignment
+struct memory_alignment
+{
 #if defined(NEKTAR_ENABLE_SIMD)
-struct vector_width
-{
-    static constexpr unsigned int value = tinysimd::simd<TData>::width;
-};
+    static constexpr size_t value = tinysimd::simd<double>::alignment;
 #elif defined(NEKTAR_ENABLE_CUDA)
-struct vector_width
-{
-    static constexpr unsigned int value = 32u;
-};
+    static constexpr size_t value       = 256u;
 #elif defined(NEKTAR_ENABLE_HIP)
-struct vector_width
-{
-    static constexpr unsigned int value = 64u;
-};
+    static constexpr size_t value                  = 128u;
 #elif defined(SYCL_ENABLE_CUDA)
-struct vector_width
-{
-    static constexpr unsigned int value = 32u;
-};
+    static constexpr size_t value                  = 256u;
 #elif defined(SYCL_ENABLE_HIP)
-struct vector_width
-{
-    static constexpr unsigned int value = 64u;
-};
+    static constexpr size_t value                  = 128u;
 #elif defined(SYCL_ENABLE_INTEL)
-struct vector_width
-{
-    static constexpr unsigned int value = 32u;
-};
+    static constexpr size_t value                  = 128u;
 #elif defined(SYCL_ENABLE_CPU)
-struct vector_width
-{
-    static constexpr unsigned int value = 1u;
-};
+    static constexpr size_t value       = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
 #else
-struct vector_width
-{
-    static constexpr unsigned int value = 1u;
-};
+    static constexpr size_t value       = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
 #endif
+};
+
+// Vector width
+template <typename TData> struct vector_width
+{
+#if defined(NEKTAR_ENABLE_SIMD)
+    static constexpr unsigned int value = tinysimd::simd<TData>::width;
+#elif defined(NEKTAR_ENABLE_CUDA)
+    static constexpr unsigned int value = 32u;
+#elif defined(NEKTAR_ENABLE_HIP)
+    static constexpr unsigned int value            = 64u;
+#elif defined(SYCL_ENABLE_CUDA)
+    static constexpr unsigned int value            = 32u;
+#elif defined(SYCL_ENABLE_HIP)
+    static constexpr unsigned int value            = 64u;
+#elif defined(SYCL_ENABLE_INTEL)
+    static constexpr unsigned int value            = 32u;
+#elif defined(SYCL_ENABLE_CPU)
+    static constexpr unsigned int value = 1u;
+#else
+    static constexpr unsigned int value = 1u;
+#endif
+};
 
 // Memory space.
 // Used to refer to any data in host memory.
@@ -180,21 +180,18 @@ struct Serial
 {
     static inline const std::string name = "Serial";
     using memory_space                   = NektarSpaces::HostSpace;
-    static constexpr size_t alignment    = tinysimd::simd<double>::alignment;
 };
 
 struct AVX
 {
     static inline const std::string name = "AVX";
     using memory_space                   = NektarSpaces::HostSpace;
-    static constexpr size_t alignment    = tinysimd::simd<double>::alignment;
 };
 
 struct Device
 {
     static inline const std::string name = "Device";
     using memory_space                   = NektarSpaces::DeviceSpace;
-    static constexpr size_t alignment    = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
 #if defined(NEKTAR_ENABLE_CUDA)
     static constexpr unsigned int defaultBlockSize = 256u;
     static constexpr unsigned int maximumBlockSize = 1024u;
@@ -265,28 +262,6 @@ struct LocalScope
 
 namespace Nektar
 {
-
-// Helper function
-[[maybe_unused]] static inline size_t GetExecSpaceAlignment(
-    const std::string &execspace)
-{
-    if (execspace == "Serial")
-    {
-        return NektarSpaces::Serial::alignment;
-    }
-    else if (execspace == "AVX")
-    {
-        return NektarSpaces::AVX::alignment;
-    }
-    else if (execspace == "Device")
-    {
-        return NektarSpaces::Device::alignment;
-    }
-    else
-    {
-        return NektarSpaces::Serial::alignment;
-    }
-}
 
 [[maybe_unused]] static inline void nekDeviceSynchronize(void)
 {

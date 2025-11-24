@@ -121,8 +121,7 @@ protected:
                 this->m_implicits.push_front(Field<TData, FieldState::Phys>(
                     GetBlockAttributes<TData>(FieldState::Phys,
                                               this->m_expansionList),
-                    inout.GetNumComponents(), inout.GetNumHomoModes(),
-                    ExecSpace::alignment));
+                    inout.GetNumComponents(), inout.GetNumHomoModes()));
 
                 // Initialise startup and hand-over the m_implicits deque.
                 auto maxOrder = std::min(3u, IntOrder);
@@ -155,8 +154,7 @@ protected:
                 this->m_implicits.push_back(Field<TData, FieldState::Phys>(
                     GetBlockAttributes<TData>(FieldState::Phys,
                                               this->m_expansionList),
-                    inout.GetNumComponents(), inout.GetNumHomoModes(),
-                    ExecSpace::alignment));
+                    inout.GetNumComponents(), inout.GetNumHomoModes()));
             }
 
             // Do extrapolation.

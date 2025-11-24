@@ -72,9 +72,9 @@ public:
             m_nq.push_back(exp->GetNumPoints(d));
 
             // Fetch basis data.
-            m_B.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_B.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<simd_t>(exp->GetBasis(d)->GetBasisKey(), eBasis)));
-            m_W.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_W.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<simd_t>(exp->GetBasis(d)->GetBasisKey(),
                                      eWeights)));
         }
@@ -84,10 +84,9 @@ public:
             (m_shapeType == LibUtilities::eNodalTet))
         {
             // Fetch NodalToModal Matrix if required.
-            m_nodToModTrans =
-                this->m_dataWarehouse->template GetData<ExecSpace>(
-                    VandemondeKey<simd_t>(eNodalToModalTranspose,
-                                          exp->GetElmtId()));
+            m_nodToModTrans = this->m_dataWarehouse->template GetData<MemSpace>(
+                VandemondeKey<simd_t>(eNodalToModalTranspose,
+                                      exp->GetElmtId()));
         }
         else
         {
@@ -131,8 +130,8 @@ protected:
                  BlockAccessor<TData> &outblock) override
     {
         WARNINGL1(
-            m_warnOnce || (inblock.GetAlignment() == simd_t::alignment &&
-                           outblock.GetAlignment() == simd_t::alignment),
+            m_warnOnce || (inblock.GetAlignment() % simd_t::alignment == 0 &&
+                           outblock.GetAlignment() % simd_t::alignment == 0),
             "Input or output Field are not aligned to the required alignment "
             "for the SIMD vector type.");
 #if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
@@ -254,7 +253,7 @@ protected:
         }
 
         // Fetch Jacobian.
-        auto jacptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto jacptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
 
@@ -336,7 +335,7 @@ protected:
         }
 
         // Fetch Jacobian.
-        auto jacptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto jacptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
 
@@ -424,7 +423,7 @@ protected:
         }
 
         // Fetch Jacobian.
-        auto jacptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto jacptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
 
@@ -515,7 +514,7 @@ protected:
         }
 
         // Fetch Jacobian.
-        auto jacptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto jacptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
 
@@ -612,7 +611,7 @@ protected:
         }
 
         // Fetch Jacobian.
-        auto jacptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto jacptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
 
@@ -705,7 +704,7 @@ protected:
         }
 
         // Fetch Jacobian.
-        auto jacptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto jacptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
 

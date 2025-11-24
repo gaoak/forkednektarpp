@@ -103,11 +103,6 @@ int main(int argc, char *argv[])
     // Timer.
     Timer timer;
 
-    // Set alignment.
-    std::string execName =
-        session->GetCmdLineArgument<std::string>("opExecSpace");
-    size_t alignment = Nektar::GetExecSpaceAlignment(execName);
-
     // Create blocks.
     auto blocksIn  = GetBlockAttributes<TData>(FieldState::Coeff, expList);
     auto blocksOut = GetBlockAttributes<TData>(FieldState::Coeff, expList);
@@ -117,15 +112,14 @@ int main(int argc, char *argv[])
         GetBlockAttributes<TData>(FieldState::Coeff, expList);
 
     // Create fields.
-    auto fIn = Field<TData, FieldState::Coeff>("f_in", blocksIn, nIn * nComp, 1,
-                                               alignment);
-    auto fOut        = Field<TData, FieldState::Coeff>("f_out", blocksOut,
-                                                nOut * nComp, 1, alignment);
+    auto fIn =
+        Field<TData, FieldState::Coeff>("f_in", blocksIn, nIn * nComp, 1);
+    auto fOut =
+        Field<TData, FieldState::Coeff>("f_out", blocksOut, nOut * nComp, 1);
     auto fOutCorrect = Field<TData, FieldState::Coeff>(
-        "f_out_correct", blocksOutCorrect, nOut * nComp, 1, alignment);
+        "f_out_correct", blocksOutCorrect, nOut * nComp, 1);
     auto fOutCorrectAssemb = Field<TData, FieldState::Coeff>(
-        "f_out_correct_assemb", blocksOutCorrectAssemb, nOut * nComp, 1,
-        alignment);
+        "f_out_correct_assemb", blocksOutCorrectAssemb, nOut * nComp, 1);
 
     // Set random output.
     srand(0);

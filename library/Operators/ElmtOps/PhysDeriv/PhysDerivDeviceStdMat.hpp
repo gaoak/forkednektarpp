@@ -70,7 +70,7 @@ public:
             basisKeys[d] = exp->GetBasis(d)->GetBasisKey();
         }
 
-        m_matptr = dataWarehouse->template GetData<ExecSpace>(
+        m_matptr = dataWarehouse->template GetData<MemSpace>(
             StdMatKey<TData>(basisKeys, m_shapeType, ePhysDerivStdMat));
     }
 
@@ -113,7 +113,7 @@ protected:
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Fetch derivative factor.
-        auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
             DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                   inblock.GetNumElements(), true));
 

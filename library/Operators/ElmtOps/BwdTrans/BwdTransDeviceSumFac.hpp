@@ -69,7 +69,7 @@ public:
             m_nq.push_back(exp->GetNumPoints(d));
 
             // Fetch basis data.
-            m_B.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_B.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<TData>(exp->GetBasis(d)->GetBasisKey(), eBasis)));
         }
 
@@ -78,7 +78,7 @@ public:
             (m_shapeType == LibUtilities::eNodalTet))
         {
             // Fetch NodalToModal Matrix if required.
-            m_nodToMod = this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_nodToMod = this->m_dataWarehouse->template GetData<MemSpace>(
                 VandemondeKey<TData>(eNodalToModal, exp->GetElmtId()));
         }
         else
@@ -95,12 +95,12 @@ public:
                  std::is_same_v<Implementation, Operators::SumFacTOP>);
 
             m_index.push_back(
-                indexing ? this->m_dataWarehouse->template GetData<ExecSpace>(
+                indexing ? this->m_dataWarehouse->template GetData<MemSpace>(
                                ModeIndexKey(m_shapeType, m_nm[0], m_nm[1],
                                             m_nm[2], 0))
                          : nullptr);
             m_index.push_back(
-                indexing ? this->m_dataWarehouse->template GetData<ExecSpace>(
+                indexing ? this->m_dataWarehouse->template GetData<MemSpace>(
                                ModeIndexKey(m_shapeType, m_nm[0], m_nm[1],
                                             m_nm[2], 3))
                          : nullptr);
@@ -267,7 +267,7 @@ protected:
     {
         auto wspsize = GetWorkspaceSize(shapeType, nelmt, nm0, nm1, nm2);
 
-        return MemoryRegion<TData>(wspsize, ExecSpace::alignment);
+        return MemoryRegion<TData>(wspsize);
     }
 
     void SegBlock(BlockAccessor<TData> &inblock,

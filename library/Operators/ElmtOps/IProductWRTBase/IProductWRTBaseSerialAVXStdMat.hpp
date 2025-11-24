@@ -78,7 +78,7 @@ public:
                 ? exp->GetNodalPointsKey().GetPointsType()
                 : LibUtilities::eNoPointsType;
 
-        m_matptr = dataWarehouse->template GetData<ExecSpace>(
+        m_matptr = dataWarehouse->template GetData<MemSpace>(
             StdMatKey<TData>(basisKeys, m_shapeType,
                              eIProductWRTBaseStdMatTranspose, nodalType));
     }
@@ -116,15 +116,14 @@ protected:
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Fetch Jacobian.
-        auto jacptr_init = this->m_dataWarehouse->template GetData<ExecSpace>(
+        auto jacptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
             JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
                                inblock.GetNumElements()));
 
         // Allocate storage.
         if (m_wsp.size() == 0)
         {
-            m_wsp = MemoryRegion<TData>(simd_t::width * m_nqTot,
-                                        ExecSpace::alignment);
+            m_wsp = MemoryRegion<TData>(simd_t::width * m_nqTot);
         }
 
         // Get workspace pointer.

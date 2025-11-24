@@ -384,18 +384,13 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
             expList->GetCoordim(0), vel);
     }
 
-    // Set alignment.
-    size_t alignment = Nektar::GetExecSpaceAlignment(execName);
-
     // Create blocks.
     auto blocks_in  = GetBlockAttributes<TData>(stateIn, expList);
     auto blocks_out = GetBlockAttributes<TData>(stateOut, expList);
 
     // Create fields.
-    auto in =
-        Field<TData, stateIn>("f_in", blocks_in, nIn * nComp, nHomo, alignment);
-    auto out = Field<TData, stateOut>("f_out", blocks_out, nOut * nComp, nHomo,
-                                      alignment);
+    auto in  = Field<TData, stateIn>("f_in", blocks_in, nIn * nComp, nHomo);
+    auto out = Field<TData, stateOut>("f_out", blocks_out, nOut * nComp, nHomo);
 
     // Initialize the in field to random non-zeros: 1 2 3 4 ...
     for (size_t i = 0; i < in.GetBlocks().size(); ++i)

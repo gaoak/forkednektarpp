@@ -91,8 +91,7 @@ protected:
                 "timestep n-" + std::to_string(this->m_step + 1),
                 GetBlockAttributes<TData>(FieldState::Phys,
                                           this->m_expansionList),
-                inout.GetNumComponents(), inout.GetNumHomoModes(),
-                ExecSpace::alignment));
+                inout.GetNumComponents(), inout.GetNumHomoModes()));
 
             this->m_solutions[0].template Copy<MemSpace>(inout);
 

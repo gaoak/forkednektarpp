@@ -82,14 +82,10 @@ public:
         fixt_explist = MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
             session, graph, true, "u", Collections::eNoCollection);
 
-        std::string execName(
-            boost::unit_test::framework::master_test_suite().argv[1]);
-        auto alignment = Nektar::GetExecSpaceAlignment(execName);
         auto blocks_in =
             GetBlockAttributes<double>(FieldState::Phys, fixt_explist);
-        auto f_in =
-            Field<double, FieldState::Phys>("f_in", blocks_in, 1, 1, alignment);
-        fixt_in = new Field<double, FieldState::Phys>(std::move(f_in));
+        auto f_in = Field<double, FieldState::Phys>("f_in", blocks_in, 1, 1);
+        fixt_in   = new Field<double, FieldState::Phys>(std::move(f_in));
     }
 
     void SetTestCase()

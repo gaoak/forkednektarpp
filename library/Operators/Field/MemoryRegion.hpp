@@ -104,12 +104,12 @@ public:
      *
      * @param name         - name
      * @param size         - size of memory
-     * @param alignment    - memory alignment
      * @param memAllocType - [ePageable, ePinned]
+     * @param alignment    - memory alignment
      */
     MemoryRegion(const std::string name, const size_t size,
-                 const size_t alignment,
-                 const MemAllocType &memAllocType = ePageable)
+                 const MemAllocType &memAllocType = ePageable,
+                 const size_t alignment = NektarSpaces::memory_alignment::value)
     {
         m_allocated = true;
 
@@ -117,8 +117,8 @@ public:
         m_device_owned = true;
         m_name         = name;
         m_size         = size;
-        m_alignment    = alignment;
         m_memAllocType = memAllocType;
+        m_alignment    = alignment;
 
         m_host         = nullptr;
         m_device       = nullptr;
@@ -130,12 +130,13 @@ public:
      * @brief Constructor methods - create a new memory region.
      *
      * @param size         - size of memory
-     * @param alignment    - memory alignment
      * @param memAllocType - [ePageable, ePinned]
+     * @param alignment    - memory alignment
      */
-    MemoryRegion(const size_t size, const size_t alignment,
-                 const MemAllocType &memAllocType = ePageable)
-        : MemoryRegion<TData>("", size, alignment, memAllocType)
+    MemoryRegion(const size_t size,
+                 const MemAllocType &memAllocType = ePageable,
+                 const size_t alignment = NektarSpaces::memory_alignment::value)
+        : MemoryRegion<TData>("", size, memAllocType, alignment)
     {
     }
 
@@ -158,7 +159,7 @@ public:
         rhs.m_host         = nullptr;
         rhs.m_device       = nullptr;
         rhs.m_size         = 0;
-        rhs.m_alignment    = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+        rhs.m_alignment    = NektarSpaces::memory_alignment::value;
         rhs.m_host_valid   = false;
         rhs.m_device_valid = false;
         rhs.m_name         = "";
@@ -194,7 +195,7 @@ public:
         m_host         = nullptr;
         m_device       = nullptr;
         m_size         = 0;
-        m_alignment    = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+        m_alignment    = NektarSpaces::memory_alignment::value;
         m_host_valid   = false;
         m_device_valid = false;
         m_name         = "";
@@ -235,7 +236,7 @@ public:
         rhs.m_host         = nullptr;
         rhs.m_device       = nullptr;
         rhs.m_size         = 0;
-        rhs.m_alignment    = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+        rhs.m_alignment    = NektarSpaces::memory_alignment::value;
         rhs.m_host_valid   = false;
         rhs.m_device_valid = false;
         rhs.m_name         = "";
@@ -298,8 +299,8 @@ public:
      *
      * @param name         - name of the memory region
      * @param array        - std::vector to copy from
-     * @param alignment    - Memory alignment to use.
      * @param memAllocType - [ePageable, ePinned]
+     * @param alignment    - Memory alignment to use.
      *
      * @return MemoryRegion<TData>
      */
@@ -307,10 +308,11 @@ public:
               class Alloc = std::allocator<TDataIn>>
     static MemoryRegion<TData> FromVector(
         const std::string name, std::vector<TDataIn, Alloc> const &array,
-        const size_t alignment, const MemAllocType &memAllocType = ePageable)
+        const MemAllocType &memAllocType = ePageable,
+        const size_t alignment = NektarSpaces::memory_alignment::value)
     {
         auto mr =
-            MemoryRegion<TData>(name, array.size(), alignment, memAllocType);
+            MemoryRegion<TData>(name, array.size(), memAllocType, alignment);
         mr.template CopyFromHostPtr<MemSpace>(array.data(), array.size());
         return mr;
     }
@@ -320,19 +322,20 @@ public:
      *        new MemoryRegion that copies data from a std::vector
      *
      * @param array        - std::vector to copy from
-     * @param alignment    - Memory alignment to use.
      * @param memAllocType - [ePageable, ePinned]
+     * @param alignment    - Memory alignment to use.
      *
      * @return MemoryRegion<TData>
      */
     template <typename MemSpace, typename TDataIn,
               class Alloc = std::allocator<TDataIn>>
     static MemoryRegion<TData> FromVector(
-        std::vector<TDataIn, Alloc> const &array, const size_t alignment,
-        const MemAllocType &memAllocType = ePageable)
+        std::vector<TDataIn, Alloc> const &array,
+        const MemAllocType &memAllocType = ePageable,
+        const size_t alignment = NektarSpaces::memory_alignment::value)
     {
         return MemoryRegion<TData>::template FromVector<MemSpace, TDataIn>(
-            "", array, alignment, memAllocType);
+            "", array, memAllocType, alignment);
     }
 
     /**
@@ -342,8 +345,8 @@ public:
      *
      * @param name         - name of the memory region
      * @param array        - Nektar::Array to copy from
-     * @param alignment    - Memory alignment to use.
      * @param memAllocType - [ePageable, ePinned]
+     * @param alignment    - Memory alignment to use.
      *
      * @return MemoryRegion<TData>
      */
@@ -351,10 +354,11 @@ public:
     static MemoryRegion<TData> FromArray(
         const std::string name,
         Nektar::Array<Nektar::OneD, TDataIn> const &array,
-        const size_t alignment, const MemAllocType &memAllocType = ePageable)
+        const MemAllocType &memAllocType = ePageable,
+        const size_t alignment = NektarSpaces::memory_alignment::value)
     {
         auto mr =
-            MemoryRegion<TData>(name, array.size(), alignment, memAllocType);
+            MemoryRegion<TData>(name, array.size(), memAllocType, alignment);
         mr.template CopyFromHostPtr<MemSpace>(array.data(), array.size());
         return mr;
     }
@@ -364,18 +368,19 @@ public:
      *        new MemoryRegion that copies data from an Nektar::Array
      *
      * @param array        - Nektar::Array to copy from
-     * @param alignment    - Memory alignment to use.
      * @param memAllocType - [ePageable, ePinned]
+     * @param alignment    - Memory alignment to use.
      *
      * @return MemoryRegion<TData>
      */
     template <typename MemSpace, typename TDataIn>
     static MemoryRegion<TData> FromArray(
         Nektar::Array<Nektar::OneD, TDataIn> const &array,
-        const size_t alignment, const MemAllocType &memAllocType = ePageable)
+        const MemAllocType &memAllocType = ePageable,
+        const size_t alignment = NektarSpaces::memory_alignment::value)
     {
         return MemoryRegion<TData>::template FromArray<MemSpace, TDataIn>(
-            "", array, alignment, memAllocType);
+            "", array, memAllocType, alignment);
     }
 
     /**
@@ -1061,7 +1066,7 @@ private:
     TData *m_host      = nullptr; /// < Host memory pointer
     TData *m_device    = nullptr; ///< Device memory pointer
     size_t m_size      = 0;
-    size_t m_alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+    size_t m_alignment = NektarSpaces::memory_alignment ::value;
 
     bool m_host_valid   = false; // Flag indicating that the host data is valid
     bool m_device_valid = false; ///< Flag indicating the device data is valid
