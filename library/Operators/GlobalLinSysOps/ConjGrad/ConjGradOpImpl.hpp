@@ -69,10 +69,6 @@ public:
               "ConjGrad r_A",
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1, 1,
               ExecSpace::alignment)),
-          m_wk(Field<TData, FieldState::Coeff>(
-              "ConjGrad wk",
-              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1, 1,
-              ExecSpace::alignment)),
           m_q_A(Field<TData, FieldState::Coeff>(
               "ConjGrad wk",
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1, 1,
@@ -81,7 +77,11 @@ public:
               "ConjGrad wk",
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1, 1,
               ExecSpace::alignment)),
-          m_vExchange(MemoryRegion<TData>(4, ExecSpace::alignment, ePinned))
+          m_mask(Field<std::uint8_t, FieldState::Coeff>(
+              "ConjGrad mask",
+              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1, 1,
+              ExecSpace::alignment)),
+          m_vExchange(MemoryRegion<TData>(3, ExecSpace::alignment, ePinned))
     {
         auto contfield =
             std::dynamic_pointer_cast<ContField>(this->m_expansionList);
@@ -102,6 +102,23 @@ public:
                                                m_maxIter, 5000);
         contfield->GetSession()->LoadParameter("IterativeSolverTolerance",
                                                m_tol, 1.0E-09);
+
+        // Fill mask.
+        auto dataWarehouse = this->m_expansionList->GetDataWarehouseSharedPtr();
+
+        auto maskptr = dataWarehouse->template GetData<NektarSpaces::Serial>(
+            LocalToGlobalMaskKey<TData>());
+        unsigned cnt = 0;
+        for (unsigned blk = 0; blk < m_mask.GetBlocks().size(); ++blk)
+        {
+            auto &block = m_mask.GetBlocks()[blk];
+            auto ptr =
+                block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+            for (unsigned i = 0; i < block.size(); ++i)
+            {
+                ptr[i] = maskptr[cnt++];
+            }
+        }
     }
 
     // className - for OperatorFactory
@@ -127,9 +144,9 @@ protected:
     Field<TData, FieldState::Coeff> m_w_A;
     Field<TData, FieldState::Coeff> m_s_A;
     Field<TData, FieldState::Coeff> m_r_A;
-    Field<TData, FieldState::Coeff> m_wk;
     Field<TData, FieldState::Coeff> m_q_A;
     Field<TData, FieldState::Coeff> m_p_A;
+    Field<std::uint8_t, FieldState::Coeff> m_mask;
 
     MemoryRegion<TData> m_vExchange;
 
@@ -139,10 +156,29 @@ protected:
     void v_Apply(Field<TData, FieldState::Coeff> &in,
                  Field<TData, FieldState::Coeff> &out) override
     {
-        // Set the fields to zero.
-        out.template Initialize<MemSpace>(0);
-        m_p_A.template Initialize<MemSpace>(0);
-        m_q_A.template Initialize<MemSpace>(0);
+        // Reshape mask if required.
+        for (unsigned blk = 0; blk < in.GetBlocks().size(); ++blk)
+        {
+            auto &inblk   = in.GetBlocks()[blk];
+            auto &maskblk = m_mask.GetBlocks()[blk];
+
+            if (inblk.GetInterleaveWidth() != maskblk.GetInterleaveWidth())
+            {
+                auto maskPtr = maskblk.template GetPtr<MemSpace, ReadWrite>();
+                auto numComp = maskblk.GetNumComponents();
+
+                for (unsigned nc = 0; nc < numComp; ++nc)
+                {
+                    ReshapeStorage<ExecSpace>(
+                        inblk.GetInterleaveWidth(),
+                        maskblk.GetInterleaveWidth(),
+                        maskblk.GetNumElementsWithPadding(),
+                        maskblk.GetNumData(), maskPtr + nc * maskblk.size());
+                }
+                maskblk.template SetInterleaveWidth<TData>(
+                    inblk.GetInterleaveWidth());
+            }
+        }
 
         // Convergence parameters.
         unsigned int totalIterations = 0;
@@ -150,33 +186,34 @@ protected:
         TData alpha, beta, rho, rho_new;
         long double eps;
 
-        // Copy RHS into initial residual.
-        m_r_A.template Copy<MemSpace>(in);
-
-        // Apply preconditioner.
-        m_assmbScatrZeroDirOp->Apply(m_r_A, m_wk);
-        this->m_precon->Apply(m_wk, m_w_A);
-
         // Reset device memory.
         auto exchange = m_vExchange.template GetPtr<MemSpace, WriteOnly>();
 
-        // <r_{0}, r_{0}>
-        ddot<ExecSpace>(m_wk, m_r_A, exchange + 2);
+        // Reset the fields to zero.
+        out.template Initialize<MemSpace>(0);
+        m_p_A.template Initialize<MemSpace>(0);
+        m_q_A.template Initialize<MemSpace>(0);
 
-        // Calculate rhs magnitude.
-        m_assmbScatrOp->Apply(m_r_A, m_wk);
-        ddot<ExecSpace>(in, m_wk, exchange + 3);
+        // Calculate inital rhs magnitude.
+        m_r_A.template Copy<MemSpace>(in);
+        m_assmbScatrOp->Apply(m_r_A);
+        ddot<ExecSpace>(in, m_r_A, exchange + 0);
+
+        // Copy RHS into initial residual and assemble with Zero Dirichlet BCs.
+        m_r_A.template Copy<MemSpace>(in);
+        m_assmbScatrZeroDirOp->Apply(m_r_A);
+        ddot<ExecSpace>(in, m_r_A, exchange + 1);
 
         // Communication.
         m_rowComm->AllReduce<MemSpace>(m_vExchange,
                                        Nektar::LibUtilities::ReduceSum);
 
-        // Host-to-device copy.
+        // Device-to-host copy.
         auto exchangeHost =
             m_vExchange.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
 
-        eps          = exchangeHost[2];
-        rhsMagnitude = (exchangeHost[3] > 1.0e-6) ? exchangeHost[3] : 1.0;
+        rhsMagnitude = (exchangeHost[0] > 1.0e-6) ? exchangeHost[0] : 1.0;
+        eps          = exchangeHost[1];
 
         // If the input residual is less than tolerance then skip solve.
         if (eps < m_tol * m_tol * rhsMagnitude)
@@ -184,29 +221,30 @@ protected:
             return;
         }
 
-        // Perform the method-specific matrix-vector multiply operation.
-        this->m_lhs->Apply(m_w_A, m_s_A);
-
-        m_robBndCondOp->Apply(m_w_A, m_s_A);
-
         // Reset device memory.
         m_vExchange.template GetPtr<MemSpace, WriteOnly>();
 
-        // <r_{1}, w_{1}>
-        ddot<ExecSpace>(m_r_A, m_w_A, exchange + 0);
+        // Apply preconditioner - output is assembled
+        this->m_precon->Apply(m_r_A, m_w_A);
 
-        // <s_{1}, w_{1}>
-        ddot<ExecSpace>(m_s_A, m_w_A, exchange + 1);
+        // <r_{1}, w_{1}>
+        ddot<ExecSpace>(m_mask, m_r_A, m_w_A, exchange + 0);
+
+        // Perform the method-specific matrix-vector multiply operation.
+        this->m_lhs->Apply(m_w_A, m_s_A);
+        m_robBndCondOp->Apply(m_w_A, m_s_A);
+
+        // <w_{1}, s_{1}> - standard ddot since m_s_A is in not assembled
+        ddot<ExecSpace>(m_w_A, m_s_A, exchange + 1);
 
         // Communication.
         m_rowComm->AllReduce<MemSpace>(m_vExchange,
                                        Nektar::LibUtilities::ReduceSum);
 
-        // Host-to-device copy.
+        // Device-to-host copy.
         exchangeHost =
             m_vExchange.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
 
-        // Initialize search direction.
         rho             = exchangeHost[0];
         mu              = exchangeHost[1];
         beta            = 0.0;
@@ -224,43 +262,46 @@ protected:
                 return;
             }
 
+            // Reset device memory.
+            m_vExchange.template GetPtr<MemSpace, WriteOnly>();
+
+            // Assemble matrix output from previous matrix-vector multiply
+            // could be moved around loop if optimal elsewhere.
+            m_assmbScatrZeroDirOp->Apply(m_s_A);
+
             // Compute new search direction.
             UpdateConjGradSearchDirection<ExecSpace>(alpha, beta, m_w_A, m_s_A,
                                                      m_p_A, m_q_A, m_r_A, out);
 
-            // Apply preconditioner.
-            m_assmbScatrZeroDirOp->Apply(m_r_A, m_wk);
-            this->m_precon->Apply(m_wk, m_w_A);
+            // <r_{k+1}, r_{k+1}>
+            ddot<ExecSpace>(m_mask, m_r_A, m_r_A, exchange + 0);
+
+            // Apply preconditioner - output is assumeed holding global dof
+            this->m_precon->Apply(m_r_A, m_w_A);
+
+            // <r_{k+1}, w_{k+1}>
+            ddot<ExecSpace>(m_mask, m_r_A, m_w_A, exchange + 1);
 
             // Perform the method-specific matrix-vector multiply operation.
             this->m_lhs->Apply(m_w_A, m_s_A);
 
             m_robBndCondOp->Apply(m_w_A, m_s_A);
 
-            // Reset device memory.
-            m_vExchange.template GetPtr<MemSpace, WriteOnly>();
-
-            // <r_{k+1}, w_{k+1}>
-            ddot<ExecSpace>(m_r_A, m_w_A, exchange + 0);
-
-            // <s_{k+1}, w_{k+1}>
-            ddot<ExecSpace>(m_s_A, m_w_A, exchange + 1);
-
-            // <r_{k+1}, r_{k+1}>
-            ddot<ExecSpace>(m_wk, m_r_A, exchange + 2);
+            // <w_{k+1}, s_{k+1}>
+            ddot<ExecSpace>(m_w_A, m_s_A, exchange + 2);
 
             // Communication.
             m_rowComm->AllReduce<MemSpace>(m_vExchange,
                                            Nektar::LibUtilities::ReduceSum);
 
-            // Host-to-device copy.
+            // Device-to-host copy.
             exchangeHost =
                 m_vExchange
                     .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
 
-            rho_new = exchangeHost[0];
-            mu      = exchangeHost[1];
-            eps     = exchangeHost[2];
+            eps     = exchangeHost[0];
+            rho_new = exchangeHost[1];
+            mu      = exchangeHost[2];
 
             ++totalIterations;
 

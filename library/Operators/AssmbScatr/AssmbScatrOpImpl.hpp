@@ -251,7 +251,12 @@ protected:
             }
         }
 
-        auto numComp = in.GetNumComponents();
+        v_Apply(out);
+    }
+
+    void v_Apply(Field<TData, FieldState::Coeff> &inout) override
+    {
+        auto numComp = inout.GetNumComponents();
 
         if (numComp != m_numAssemblyComps)
         {
@@ -262,10 +267,13 @@ protected:
 
         // reshape data into non-interleaved if ncessary
         bool reshapeOutput = false;
-        for (unsigned blk = 0; blk < out.GetBlocks().size(); ++blk)
+        std::vector<unsigned> save_width;
+        for (unsigned blk = 0; blk < inout.GetBlocks().size(); ++blk)
         {
-            auto &inoutblk  = out.GetBlocks()[blk];
+            auto &inoutblk  = inout.GetBlocks()[blk];
             auto inoutwidth = inoutblk.GetInterleaveWidth();
+            save_width.push_back(inoutwidth);
+
             if (inoutwidth != 1)
             {
                 auto inoutPtr = inoutblk.template GetPtr<MemSpace, ReadWrite>();
@@ -284,7 +292,7 @@ protected:
 
         // Initialize pointer.
         auto inoutPtr =
-            out.GetBlocks()[0].template GetPtr<MemSpace, ReadWrite>();
+            inout.GetBlocks()[0].template GetPtr<MemSpace, ReadWrite>();
 
         if (m_isParallel)
         {
@@ -316,30 +324,29 @@ protected:
                                              m_gsBndSign, recvPtr, inoutPtr);
         }
 
-        // reshape data into non-interleaved if ncessary
-        if ((&in != &out) && reshapeOutput)
+        // reshape data into non-interleaved if necessary
+        if (reshapeOutput)
         {
-            for (unsigned blk = 0; blk < out.GetBlocks().size(); ++blk)
+            for (unsigned blk = 0; blk < inout.GetBlocks().size(); ++blk)
             {
-                auto &outblk   = out.GetBlocks()[blk];
-                auto out_width = outblk.GetInterleaveWidth();
-                auto in_width  = in.GetBlocks()[blk].GetInterleaveWidth();
+                auto &inoutblk = inout.GetBlocks()[blk];
+                auto width     = save_width[blk];
 
-                if (out_width != in_width)
+                if (inoutblk.GetInterleaveWidth() != width)
                 {
-                    ASSERTL1(in_width ==
-                                 NektarSpaces::vector_width<TData>::value,
+                    ASSERTL1(width == NektarSpaces::vector_width<TData>::value,
                              "Unexpected width value");
-                    auto outPtr = outblk.template GetPtr<MemSpace, ReadWrite>();
-                    unsigned blksize = outblk.size();
+                    auto inoutPtr =
+                        inoutblk.template GetPtr<MemSpace, ReadWrite>();
+                    unsigned blksize = inoutblk.size();
                     for (unsigned nc = 0; nc < numComp; ++nc)
                     {
                         interleave<ExecSpace>(
                             NektarSpaces::vector_width<TData>::value,
-                            outblk.GetNumElementsWithPadding() / in_width,
-                            outblk.GetNumData(), outPtr + nc * blksize);
+                            inoutblk.GetNumElementsWithPadding() / width,
+                            inoutblk.GetNumData(), inoutPtr + nc * blksize);
                     }
-                    outblk.template SetInterleaveWidth<TData>(in_width);
+                    inoutblk.template SetInterleaveWidth<TData>(width);
                 }
             }
         }

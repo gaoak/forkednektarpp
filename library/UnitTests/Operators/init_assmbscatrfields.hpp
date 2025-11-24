@@ -61,6 +61,10 @@ public:
     {
     }
 
+    ~AssmbScatrField()
+    {
+    }
+
     void SetTestCase(bool ZeroDir = false)
     {
         // Set initial conditions.

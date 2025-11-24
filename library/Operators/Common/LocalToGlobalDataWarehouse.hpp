@@ -1114,7 +1114,6 @@ template <typename TData> class DeviceBndLocalToGlobalSignKey : public BaseKey
 
 public:
     using creator = DeviceBndLocalToGlobalSignCreator;
-    // typedef int8_t value_type;
     typedef int value_type;
 
     ~DeviceBndLocalToGlobalSignKey() override = default;
@@ -1193,6 +1192,117 @@ public:
 
     inline static const std::string m_name =
         "DeviceBndLocalToGlobalSignCreator";
+
+private:
+    MultiRegions::ExpListSharedPtr m_expansionList;
+};
+
+class LocalToGlobalMaskCreator;
+
+template <typename TData> class LocalToGlobalMaskKey : public BaseKey
+{
+    friend class LocalToGlobalMaskCreator;
+
+public:
+    using creator = LocalToGlobalMaskCreator;
+    typedef std::uint8_t value_type;
+
+    ~LocalToGlobalMaskKey() override = default;
+
+    LocalToGlobalMaskKey()
+    {
+        hash_combine(m_hash, typeid(value_type).name(), "LocalToGlobalMaskKey");
+    }
+
+private:
+};
+
+class LocalToGlobalMaskCreator : public DataCreatorClass
+{
+public:
+    ~LocalToGlobalMaskCreator() override = default;
+    LocalToGlobalMaskCreator(
+        const MultiRegions::ExpListSharedPtr &expansionList)
+        : m_expansionList(expansionList)
+    {
+    }
+
+    // does not matter which type we specify as template parameter here
+    using value_type = LocalToGlobalMaskKey<int>::value_type;
+
+    template <typename MemSpace, typename TData>
+    MemoryRegion<value_type> Create(
+        [[maybe_unused]] const LocalToGlobalMaskKey<TData> &LocToGloKey,
+        const size_t alignment)
+    {
+
+        // Get Local To Global Map.
+        auto contfield =
+            std::dynamic_pointer_cast<MultiRegions::ContField>(m_expansionList);
+        auto loc2glo = std::dynamic_pointer_cast<MultiRegions::AssemblyMapCG>(
+            contfield->GetLocalToGlobalMap());
+
+        auto l2gmap0 = loc2glo->GetLocalToGlobalMap();
+
+        auto blocks =
+            GetBlockAttributes<TData>(FieldState::Coeff, m_expansionList);
+        unsigned ntot = 0;
+        unsigned blk  = 0;
+        for (blk = 0; blk < blocks.size(); ++blk)
+        {
+            ntot += blocks[blk].size();
+        }
+
+        // Decalare memory for all local to global informaiton.
+        auto LocToGlo = MemoryRegion<value_type>(ntot, alignment);
+        auto ptr =
+            LocToGlo.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+
+        std::set<unsigned> done;
+        unsigned offset = 0;
+        unsigned cnt    = 0;
+        for (blk = 0; blk < blocks.size(); ++blk)
+        {
+            auto &block           = blocks[blk];
+            auto num_elements     = block.GetNumElements();
+            auto num_elements_pad = block.GetNumElementsWithPadding();
+            auto num_data         = block.GetNumData();
+
+            // Loop over chunks.
+            for (unsigned el = 0; el < num_elements; ++el)
+            {
+                for (unsigned j = 0; j < num_data; ++j)
+                {
+                    auto lid    = offset + el * num_data + j;
+                    auto gid    = l2gmap0[lid];
+                    auto unique = loc2glo->GetGlobalToUniversalMapUnique(gid);
+
+                    if (unique && done.count(gid) == 0)
+                    {
+                        ptr[cnt++] = 1;
+                        done.insert(gid);
+                    }
+                    else
+                    {
+                        ptr[cnt++] = 0;
+                    }
+                }
+            }
+
+            for (size_t el = num_elements; el < num_elements_pad; ++el)
+            {
+                for (unsigned j = 0; j < num_data; ++j)
+                {
+                    ptr[cnt++] = 0;
+                }
+            }
+
+            offset += num_data * num_elements;
+        }
+        return LocToGlo;
+    }
+
+    inline static const std::string m_name = "LocalToGlobalMaskCreator";
 
 private:
     MultiRegions::ExpListSharedPtr m_expansionList;

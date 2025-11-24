@@ -442,7 +442,7 @@ __global__ __launch_bounds__(blockSize) void reduceSumKernel(const size_t nsize,
 template <bool init, typename TData,
           unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
 __global__ __launch_bounds__(blockSize) void reduceSumKernel(
-    const size_t nsize, const unsigned int *mask, const TData *x, TData *out)
+    const size_t nsize, const uint8_t *mask, const TData *x, TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
@@ -587,7 +587,7 @@ __global__ __launch_bounds__(blockSize) void reduceMaxKernel(const size_t nsize,
 template <bool init, typename TData,
           unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
 __global__ __launch_bounds__(blockSize) void reduceMaxKernel(
-    const size_t nsize, const unsigned int *mask, const TData *x, TData *out)
+    const size_t nsize, const uint8_t *mask, const TData *x, TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
@@ -732,7 +732,7 @@ __global__ __launch_bounds__(blockSize) void reduceMinKernel(const size_t nsize,
 template <bool init, typename TData,
           unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
 __global__ __launch_bounds__(blockSize) void reduceMinKernel(
-    const size_t nsize, const unsigned int *mask, const TData *x, TData *out)
+    const size_t nsize, const uint8_t *mask, const TData *x, TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
@@ -882,9 +882,11 @@ __global__ __launch_bounds__(blockSize) void ddotKernel(const size_t nsize,
 
 template <bool init, typename TData,
           unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
-__global__ __launch_bounds__(blockSize) void ddotKernel(
-    const size_t nsize, const unsigned int *mask, const TData *x,
-    const TData *y, TData *out)
+__global__ __launch_bounds__(blockSize) void ddotKernel(const size_t nsize,
+                                                        const uint8_t *mask,
+                                                        const TData *x,
+                                                        const TData *y,
+                                                        TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
@@ -1033,8 +1035,10 @@ __global__ __launch_bounds__(blockSize) void l1normKernel(const size_t nsize,
 
 template <bool init, typename TData,
           unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
-__global__ __launch_bounds__(blockSize) void l1normKernel(
-    const size_t nsize, const unsigned int *mask, const TData *x, TData *out)
+__global__ __launch_bounds__(blockSize) void l1normKernel(const size_t nsize,
+                                                          const uint8_t *mask,
+                                                          const TData *x,
+                                                          TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
@@ -1181,8 +1185,10 @@ __global__ __launch_bounds__(blockSize) void l2normKernel(const size_t nsize,
 
 template <bool init, typename TData,
           unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
-__global__ __launch_bounds__(blockSize) void l2normKernel(
-    const size_t nsize, const unsigned int *mask, const TData *x, TData *out)
+__global__ __launch_bounds__(blockSize) void l2normKernel(const size_t nsize,
+                                                          const uint8_t *mask,
+                                                          const TData *x,
+                                                          TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
@@ -1333,9 +1339,11 @@ __global__ __launch_bounds__(blockSize) void lpnormKernel(const size_t nsize,
 
 template <bool init, typename TData,
           unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
-__global__ __launch_bounds__(blockSize) void lpnormKernel(
-    const size_t nsize, const unsigned int p, const unsigned int *mask,
-    const TData *x, TData *out)
+__global__ __launch_bounds__(blockSize) void lpnormKernel(const size_t nsize,
+                                                          const unsigned int p,
+                                                          const uint8_t *mask,
+                                                          const TData *x,
+                                                          TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
@@ -1479,8 +1487,10 @@ __global__ __launch_bounds__(blockSize) void linfnormKernel(const size_t nsize,
 
 template <bool init, typename TData,
           unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
-__global__ __launch_bounds__(blockSize) void linfnormKernel(
-    const size_t nsize, const unsigned int *mask, const TData *x, TData *out)
+__global__ __launch_bounds__(blockSize) void linfnormKernel(const size_t nsize,
+                                                            const uint8_t *mask,
+                                                            const TData *x,
+                                                            TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
@@ -1701,7 +1711,7 @@ reduceSumKernel(const size_t nsize, const TData *x, TData *out)
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-reduceSumKernel(const size_t nsize, const unsigned int *mask, const TData *x,
+reduceSumKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                 TData *out)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
@@ -1760,7 +1770,7 @@ reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-reduceMaxKernel(const size_t nsize, const unsigned int *mask, const TData *x,
+reduceMaxKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                 TData *out)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
@@ -1819,7 +1829,7 @@ reduceMinKernel(const size_t nsize, const TData *x, TData *out)
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-reduceMinKernel(const size_t nsize, const unsigned int *mask, const TData *x,
+reduceMinKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                 TData *out)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
@@ -1878,7 +1888,7 @@ ddotKernel(const size_t nsize, const TData *x, const TData *y, TData *out)
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-ddotKernel(const size_t nsize, const unsigned int *mask, const TData *x,
+ddotKernel(const size_t nsize, const uint8_t *mask, const TData *x,
            const TData *y, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
@@ -1937,7 +1947,7 @@ l1normKernel(const size_t nsize, const TData *x, TData *out)
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-l1normKernel(const size_t nsize, const unsigned int *mask, const TData *x,
+l1normKernel(const size_t nsize, const uint8_t *mask, const TData *x,
              TData *out)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
@@ -1996,7 +2006,7 @@ l2normKernel(const size_t nsize, const TData *x, TData *out)
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-l2normKernel(const size_t nsize, const unsigned int *mask, const TData *x,
+l2normKernel(const size_t nsize, const uint8_t *mask, const TData *x,
              TData *out)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
@@ -2056,7 +2066,7 @@ lpnormKernel(const size_t nsize, const unsigned int p, const TData *x,
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-lpnormKernel(const size_t nsize, const unsigned int p, const unsigned int *mask,
+lpnormKernel(const size_t nsize, const unsigned int p, const uint8_t *mask,
              const TData *x, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
@@ -2115,7 +2125,7 @@ linfnormKernel(const size_t nsize, const TData *x, TData *out)
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-linfnormKernel(const size_t nsize, const unsigned int *mask, const TData *x,
+linfnormKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                TData *out)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;

@@ -54,6 +54,11 @@ public:
 
     static inline const std::string name = "AssmbScatr";
 
+    void Apply(Field<TData, FieldState::Coeff> &inout)
+    {
+        v_Apply(inout);
+    }
+
     void Apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Coeff> &out)
     {
@@ -79,6 +84,8 @@ protected:
     }
 
     ~AssmbScatrOp() override = default;
+
+    virtual void v_Apply(Field<TData, FieldState::Coeff> &inout) = 0;
 
     virtual void v_Apply(Field<TData, FieldState::Coeff> &in,
                          Field<TData, FieldState::Coeff> &out) = 0;

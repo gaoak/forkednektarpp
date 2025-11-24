@@ -106,6 +106,15 @@ protected:
             auto outPtr  = outblock.template GetPtr<MemSpace, WriteOnly>();
             auto diagPtr = diagblock.template GetPtr<MemSpace, ReadOnly>();
 
+            auto in_width = inblock.GetInterleaveWidth();
+            if (in_width != diagblock.GetInterleaveWidth())
+            {
+                ReshapeStorage<ExecSpace>(
+                    in_width, diagblock.GetInterleaveWidth(),
+                    diagblock.GetNumElementsWithPadding(),
+                    diagblock.GetNumData(), (TData *)diagPtr);
+            }
+
             auto blkSize =
                 outblock.GetNumElementsWithPadding() * outblock.GetNumData();
 
@@ -114,6 +123,7 @@ protected:
                 mulKernel<ExecSpace>(blkSize, diagPtr, inPtr + n * blkSize,
                                      outPtr + n * blkSize);
             }
+            outblock.template SetInterleaveWidth<TData>(in_width);
         }
     }
 
@@ -214,7 +224,7 @@ protected:
         }
 
         // Assembly and scatr  values (without a sign change)
-        m_assmbScatrNoSignOp->Apply(m_invDiag, m_invDiag);
+        m_assmbScatrNoSignOp->Apply(m_invDiag);
 
         // invert diagonal
         for (unsigned blk = 0; blk < m_invDiag.GetBlocks().size(); ++blk)
