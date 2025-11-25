@@ -548,6 +548,8 @@ NEK_DEVICE_INLINE static TData warpReduceSum(
     tmp += __shfl_down_sync(0xffffffff, tmp, 4);
     tmp += __shfl_down_sync(0xffffffff, tmp, 2);
     tmp += __shfl_down_sync(0xffffffff, tmp, 1);
+    // Broadcast
+    tmp = __shfl_sync(0xffffffff, tmp, 0);
     return tmp;*/
 #elif defined(__HIPCC__)
     // Warp-level primitives
@@ -558,6 +560,8 @@ NEK_DEVICE_INLINE static TData warpReduceSum(
     tmp += __shfl_down(tmp, 4);
     tmp += __shfl_down(tmp, 2);
     tmp += __shfl_down(tmp, 1);
+    // Broadcast
+    tmp = __shfl(tmp, 0);
     return tmp;
 #endif
 }
@@ -580,6 +584,8 @@ NEK_DEVICE_INLINE static TData warpReduceMax(
     tmp = std::max(tmp, __shfl_down_sync(0xffffffff, tmp, 4));
     tmp = std::max(tmp, __shfl_down_sync(0xffffffff, tmp, 2));
     tmp = std::max(tmp, __shfl_down_sync(0xffffffff, tmp, 1));
+    // Broadcast
+    tmp = __shfl_sync(0xffffffff, tmp, 0);
     return tmp;*/
 #elif defined(__HIPCC__)
     // Warp-level primitives
@@ -590,6 +596,8 @@ NEK_DEVICE_INLINE static TData warpReduceMax(
     tmp      = std::max(tmp, __shfl_down(tmp, 4));
     tmp      = std::max(tmp, __shfl_down(tmp, 2));
     tmp      = std::max(tmp, __shfl_down(tmp, 1));
+    // Broadcast
+    tmp = __shfl(tmp, 0);
     return tmp;
 #endif
 }
@@ -612,6 +620,8 @@ NEK_DEVICE_INLINE static TData warpReduceMin(
     tmp = std::min(tmp, __shfl_down_sync(0xffffffff, tmp, 4));
     tmp = std::min(tmp, __shfl_down_sync(0xffffffff, tmp, 2));
     tmp = std::min(tmp, __shfl_down_sync(0xffffffff, tmp, 1));
+    // Broadcast
+    tmp = __shfl_sync(0xffffffff, tmp, 0);
     return tmp;*/
 #elif defined(__HIPCC__)
     // Warp-level primitives
@@ -622,6 +632,80 @@ NEK_DEVICE_INLINE static TData warpReduceMin(
     tmp      = std::min(tmp, __shfl_down(tmp, 4));
     tmp      = std::min(tmp, __shfl_down(tmp, 2));
     tmp      = std::min(tmp, __shfl_down(tmp, 1));
+    // Broadcast
+    tmp = __shfl(tmp, 0);
+    return tmp;
+#endif
+}
+
+template <typename TData>
+NEK_DEVICE_INLINE static TData warpReduceOr(
+    const TData val, [[maybe_unused]] const hipcudaBlock1D &threadBlock)
+{
+#if defined(__CUDACC__)
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+
+    auto block = cg::this_thread_block();
+    auto warp  = cg::tiled_partition<warpsize>(block);
+    return cg::reduce(warp, val, cg::bit_or<TData>());
+
+    /*// Warp-level primitives (keep it for now)
+    auto tmp = val;
+    tmp |= __shfl_down_sync(0xffffffff, tmp, 16);
+    tmp |= __shfl_down_sync(0xffffffff, tmp, 8);
+    tmp |= __shfl_down_sync(0xffffffff, tmp, 4);
+    tmp |= __shfl_down_sync(0xffffffff, tmp, 2);
+    tmp |= __shfl_down_sync(0xffffffff, tmp, 1);
+    // Broadcast
+    tmp = __shfl_sync(0xffffffff, tmp, 0);
+    return tmp;*/
+#elif defined(__HIPCC__)
+    // Warp-level primitives
+    auto tmp = val;
+    tmp |= __shfl_down(tmp, 32);
+    tmp |= __shfl_down(tmp, 16);
+    tmp |= __shfl_down(tmp, 8);
+    tmp |= __shfl_down(tmp, 4);
+    tmp |= __shfl_down(tmp, 2);
+    tmp |= __shfl_down(tmp, 1);
+    // Broadcast
+    tmp = __shfl(tmp, 0);
+    return tmp;
+#endif
+}
+
+template <typename TData>
+NEK_DEVICE_INLINE static TData warpReduceAnd(
+    const TData val, [[maybe_unused]] const hipcudaBlock1D &threadBlock)
+{
+#if defined(__CUDACC__)
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+
+    auto block = cg::this_thread_block();
+    auto warp  = cg::tiled_partition<warpsize>(block);
+    return cg::reduce(warp, val, cg::bit_and<TData>());
+
+    /*// Warp-level primitives (keep it for now)
+    auto tmp = val;
+    tmp &= __shfl_down_sync(0xffffffff, tmp, 16);
+    tmp &= __shfl_down_sync(0xffffffff, tmp, 8);
+    tmp &= __shfl_down_sync(0xffffffff, tmp, 4);
+    tmp &= __shfl_down_sync(0xffffffff, tmp, 2);
+    tmp &= __shfl_down_sync(0xffffffff, tmp, 1);
+    // Broadcast
+    tmp = __shfl_sync(0xffffffff, tmp, 0);
+    return tmp;*/
+#elif defined(__HIPCC__)
+    // Warp-level primitives
+    auto tmp = val;
+    tmp &= __shfl_down(tmp, 32);
+    tmp &= __shfl_down(tmp, 16);
+    tmp &= __shfl_down(tmp, 8);
+    tmp &= __shfl_down(tmp, 4);
+    tmp &= __shfl_down(tmp, 2);
+    tmp &= __shfl_down(tmp, 1);
+    // Broadcast
+    tmp = __shfl(tmp, 0);
     return tmp;
 #endif
 }
@@ -662,10 +746,62 @@ NEK_DEVICE_INLINE static void blockReduceMin(
     }
 }
 
+NEK_DEVICE_INLINE static int warpVoteAll(
+    int predictate, [[maybe_unused]] const hipcudaBlock1D &threadBlock)
+{
+#if defined(__CUDACC__)
+    return __all_sync(0xffffffff, predictate);
+#elif defined(__HIPCC__)
+    return __all(predictate);
+#endif
+}
+
+NEK_DEVICE_INLINE static int warpVoteAny(
+    int predictate, [[maybe_unused]] const hipcudaBlock1D &threadBlock)
+{
+#if defined(__CUDACC__)
+    return __any_sync(0xffffffff, predictate);
+#elif defined(__HIPCC__)
+    return __any(predictate);
+#endif
+}
+
+#if defined(__CUDACC__)
+NEK_DEVICE_INLINE static unsigned int warpBallot(
+    int predictate, [[maybe_unused]] const hipcudaBlock1D &threadBlock)
+{
+    return __ballot_sync(0xffffffff, predictate);
+}
+#elif defined(__HIPCC__)
+NEK_DEVICE_INLINE static unsigned long long warpBallot(
+    int predictate, [[maybe_unused]] const hipcudaBlock1D &threadBlock)
+{
+    return __ballot(predictate);
+}
+#endif
+
 NEK_DEVICE_INLINE void localBarrier(
     [[maybe_unused]] const hipcudaBlock1D &threadBlock)
 {
     __syncthreads();
+}
+
+NEK_DEVICE_INLINE int localBarrier_and(
+    int predictate, [[maybe_unused]] const hipcudaBlock1D &threadBlock)
+{
+    return __syncthreads_and(predictate);
+}
+
+NEK_DEVICE_INLINE int localBarrier_or(
+    int predictate, [[maybe_unused]] const hipcudaBlock1D &threadBlock)
+{
+    return __syncthreads_or(predictate);
+}
+
+NEK_DEVICE_INLINE int localBarrier_count(
+    int predictate, [[maybe_unused]] const hipcudaBlock1D &threadBlock)
+{
+    return __syncthreads_count(predictate);
 }
 
 #elif defined(NEKTAR_ENABLE_SYCL)
@@ -706,14 +842,16 @@ NEK_DEVICE_INLINE static unsigned int getBlockRange(
     return threadBlock.get_group_range(0);
 }
 
+template <int dim>
 NEK_DEVICE_INLINE static unsigned int getWarpIdx(
-    [[maybe_unused]] const sycl::nd_item<1> &threadBlock)
+    [[maybe_unused]] const sycl::nd_item<dim> &threadBlock)
 {
     return threadBlock.get_sub_group().get_group_id();
 }
 
+template <int dim>
 NEK_DEVICE_INLINE static unsigned int getLaneIdx(
-    [[maybe_unused]] const sycl::nd_item<1> &threadBlock)
+    [[maybe_unused]] const sycl::nd_item<dim> &threadBlock)
 {
     return threadBlock.get_sub_group().get_local_id();
 }
@@ -815,33 +953,49 @@ NEK_DEVICE_INLINE static void atomic_min(TData *const dest, const TData val)
     }
 }
 
-template <typename TData>
+template <int dim, typename TData>
 NEK_DEVICE_INLINE static TData warpReduceSum(
-    const TData val, const sycl::nd_item<1> &threadBlock)
+    const TData val, const sycl::nd_item<dim> &threadBlock)
 {
     return sycl::reduce_over_group(threadBlock.get_sub_group(), val,
                                    sycl::plus<>());
 }
 
-template <typename TData>
+template <int dim, typename TData>
 NEK_DEVICE_INLINE static TData warpReduceMax(
-    const TData val, const sycl::nd_item<1> &threadBlock)
+    const TData val, const sycl::nd_item<dim> &threadBlock)
 {
     return sycl::reduce_over_group(threadBlock.get_sub_group(), val,
                                    sycl::maximum<>());
 }
 
-template <typename TData>
+template <int dim, typename TData>
 NEK_DEVICE_INLINE static TData warpReduceMin(
-    const TData val, const sycl::nd_item<1> &threadBlock)
+    const TData val, const sycl::nd_item<dim> &threadBlock)
 {
     return sycl::reduce_over_group(threadBlock.get_sub_group(), val,
                                    sycl::minimum<>());
 }
 
-template <typename TData>
+template <int dim, typename TData>
+NEK_DEVICE_INLINE static TData warpReduceOr(
+    const TData val, const sycl::nd_item<dim> &threadBlock)
+{
+    return sycl::reduce_over_group(threadBlock.get_sub_group(), val,
+                                   sycl::bit_or<>());
+}
+
+template <int dim, typename TData>
+NEK_DEVICE_INLINE static TData warpReduceAnd(
+    const TData val, const sycl::nd_item<dim> &threadBlock)
+{
+    return sycl::reduce_over_group(threadBlock.get_sub_group(), val,
+                                   sycl::bit_and<>());
+}
+
+template <int dim, typename TData>
 NEK_DEVICE_INLINE static void blockReduceSum(
-    const TData val, const sycl::nd_item<1> &threadBlock, TData *red)
+    const TData val, const sycl::nd_item<dim> &threadBlock, TData *red)
 {
     auto tmp = warpReduceSum(val, threadBlock);
     if (getLaneIdx(threadBlock) == 0)
@@ -850,9 +1004,9 @@ NEK_DEVICE_INLINE static void blockReduceSum(
     }
 }
 
-template <typename TData>
+template <int dim, typename TData>
 NEK_DEVICE_INLINE static void blockReduceMax(
-    const TData val, const sycl::nd_item<1> &threadBlock, TData *red)
+    const TData val, const sycl::nd_item<dim> &threadBlock, TData *red)
 {
     auto tmp = warpReduceMax(val, threadBlock);
     if (getLaneIdx(threadBlock) == 0)
@@ -861,9 +1015,9 @@ NEK_DEVICE_INLINE static void blockReduceMax(
     }
 }
 
-template <typename TData>
+template <int dim, typename TData>
 NEK_DEVICE_INLINE static void blockReduceMin(
-    const TData val, const sycl::nd_item<1> &threadBlock, TData *red)
+    const TData val, const sycl::nd_item<dim> &threadBlock, TData *red)
 {
     auto tmp = warpReduceMin(val, threadBlock);
     if (getLaneIdx(threadBlock) == 0)
@@ -872,9 +1026,80 @@ NEK_DEVICE_INLINE static void blockReduceMin(
     }
 }
 
-NEK_DEVICE_INLINE void localBarrier(const sycl::nd_item<1> &threadBlock)
+template <int dim>
+NEK_DEVICE_INLINE static int warpVoteAll(int predictate,
+                                         const sycl::nd_item<dim> &threadBlock)
+{
+    auto warp = threadBlock.get_sub_group();
+    return sycl::all_of_group(warp, predictate);
+}
+
+template <int dim>
+NEK_DEVICE_INLINE static int warpVoteAny(int predictate,
+                                         const sycl::nd_item<dim> &threadBlock)
+{
+    auto warp = threadBlock.get_sub_group();
+    return sycl::any_of_group(warp, predictate);
+}
+
+#if defined(SYCL_ENABLE_CUDA)
+template <int dim>
+NEK_DEVICE_INLINE static unsigned int warpBallot(
+    int predictate, const sycl::nd_item<dim> &threadBlock)
+{
+    unsigned int tmp =
+        predictate ? (unsigned int)1 << getLaneIdx(threadBlock) : 0;
+    return warpReduceOr(tmp, threadBlock);
+}
+#elif defined(SYCL_ENABLE_HIP)
+template <int dim>
+NEK_DEVICE_INLINE static unsigned long long warpBallot(
+    int predictate, const sycl::nd_item<dim> &threadBlock)
+{
+    unsigned long long tmp =
+        predictate ? (unsigned long long)1 << getLaneIdx(threadBlock) : 0;
+    return warpReduceOr(tmp, threadBlock);
+}
+#else
+template <int dim>
+NEK_DEVICE_INLINE static unsigned int warpBallot(
+    int predictate, [[maybe_unused]] const sycl::nd_item<dim> &threadBlock)
+{
+    unsigned int tmp =
+        predictate ? (unsigned int)1 << getLaneIdx(threadBlock) : 0;
+    return warpReduceOr(tmp, threadBlock);
+}
+#endif
+
+template <int dim>
+NEK_DEVICE_INLINE void localBarrier(const sycl::nd_item<dim> &threadBlock)
 {
     threadBlock.barrier(sycl::access::fence_space::local_space);
+}
+
+template <int dim>
+NEK_DEVICE_INLINE int localBarrier_and(int predictate,
+                                       const sycl::nd_item<dim> &threadBlock)
+{
+    threadBlock.barrier(sycl::access::fence_space::local_space);
+    return sycl::all_of_group(threadBlock.get_group(), predictate);
+}
+
+template <int dim>
+NEK_DEVICE_INLINE int localBarrier_or(int predictate,
+                                      const sycl::nd_item<dim> &threadBlock)
+{
+    threadBlock.barrier(sycl::access::fence_space::local_space);
+    return sycl::any_of_group(threadBlock.get_group(), predictate);
+}
+
+template <int dim>
+NEK_DEVICE_INLINE int localBarrier_count(int predictate,
+                                         const sycl::nd_item<dim> &threadBlock)
+{
+    threadBlock.barrier(sycl::access::fence_space::local_space);
+    return sycl::reduce_over_group(threadBlock.get_group(), predictate ? 1 : 0,
+                                   sycl::plus<>());
 }
 
 #elif defined(NEKTAR_ENABLE_DEVICEONHOST)
@@ -970,6 +1195,20 @@ NEK_DEVICE_INLINE static TData warpReduceMin(
 }
 
 template <typename TData>
+NEK_DEVICE_INLINE static TData warpReduceOr(
+    const TData val, [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
+{
+    return val;
+}
+
+template <typename TData>
+NEK_DEVICE_INLINE static TData warpReduceAnd(
+    const TData val, [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
+{
+    return val;
+}
+
+template <typename TData>
 NEK_DEVICE_INLINE static void blockReduceSum(
     const TData val, [[maybe_unused]] const deviceOnHostBlock1D &threadBlock,
     TData *red)
@@ -993,9 +1232,45 @@ NEK_DEVICE_INLINE static void blockReduceMin(
     *red = std::min(*red, val);
 }
 
+NEK_DEVICE_INLINE static int warpVoteAll(
+    int predictate, [[maybe_unused]] deviceOnHostBlock1D &threadBlock)
+{
+    return predictate ? 1 : 0;
+}
+
+NEK_DEVICE_INLINE static int warpVoteAny(
+    int predictate, [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
+{
+    return predictate ? 1 : 0;
+}
+
+NEK_DEVICE_INLINE static int warpBallot(
+    int predictate, [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
+{
+    return predictate ? 1 : 0;
+}
+
 NEK_DEVICE_INLINE void localBarrier(
     [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
 {
+}
+
+NEK_DEVICE_INLINE int localBarrier_and(
+    int predictate, [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
+{
+    return predictate ? 1 : 0;
+}
+
+NEK_DEVICE_INLINE int localBarrier_or(
+    int predictate, [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
+{
+    return predictate ? 1 : 0;
+}
+
+NEK_DEVICE_INLINE int localBarrier_count(
+    int predictate, [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
+{
+    return predictate ? 1 : 0;
 }
 
 #endif
