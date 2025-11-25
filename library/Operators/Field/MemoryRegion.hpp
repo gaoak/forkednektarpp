@@ -141,7 +141,7 @@ public:
     }
 
     /**
-     * @brief Constructor methods - move from another MemoryStorage
+     * @brief Constructor methods - move from another MemoryRegion
      *
      * @param rhs - MemoryRegion to move from
      */
@@ -682,7 +682,7 @@ private:
         {
             // Throw an error.
             NEKERROR(Nektar::ErrorUtil::efatal,
-                     "MemoryStorage::GetReadOnlyHostPtr - "
+                     "MemoryRegion::GetReadOnlyHostPtr - "
                      "attempt to access host memory (" +
                          m_name + ") without it being allocated.");
         }
@@ -690,7 +690,7 @@ private:
         if (!m_host_valid && !m_device_valid)
         {
             NEKERROR(Nektar::ErrorUtil::efatal,
-                     "MemoryStorage::GetReadOnlyHostPtr - "
+                     "MemoryRegion::GetReadOnlyHostPtr - "
                      "attempt to get a host pointer (" +
                          m_name + ") before the data is initialized.");
         }
@@ -742,7 +742,7 @@ private:
         {
             // Throw an error.
             NEKERROR(Nektar::ErrorUtil::efatal,
-                     "MemoryStorage::GetReadWriteHostPtr - "
+                     "MemoryRegion::GetReadWriteHostPtr - "
                      "attempt to access host data (" +
                          m_name + ") without it being allocated.");
         }
@@ -750,7 +750,7 @@ private:
         if (!m_host_valid && !m_device_valid)
         {
             NEKERROR(Nektar::ErrorUtil::efatal,
-                     "MemoryStorage::GetReadWriteHostPtr - "
+                     "MemoryRegion::GetReadWriteHostPtr - "
                      "attempt to get a host pointer (" +
                          m_name + ") before the data is initialized.");
         }
@@ -775,7 +775,7 @@ private:
         {
             // Throw an error.
             NEKERROR(Nektar::ErrorUtil::efatal,
-                     "MemoryStorage::GetReadOnlyDevicePtr - "
+                     "MemoryRegion::GetReadOnlyDevicePtr - "
                      "attempt to access device memory (" +
                          m_name + ") without it being allocated.");
         }
@@ -783,7 +783,7 @@ private:
         if (!m_host_valid && !m_device_valid)
         {
             NEKERROR(Nektar::ErrorUtil::efatal,
-                     "MemoryStorage::GetReadOnlyDevicePtr - "
+                     "MemoryRegion::GetReadOnlyDevicePtr - "
                      "attempt to get a host pointer (" +
                          m_name + ") before the data is initialized.");
         }
@@ -827,7 +827,7 @@ private:
         {
             // Throw an error.
             NEKERROR(Nektar::ErrorUtil::efatal,
-                     "MemoryStorage::GetReadWriteDevicePtr - "
+                     "MemoryRegion::GetReadWriteDevicePtr - "
                      "attempt to access device memory (" +
                          m_name + ") without it being allocated.");
         }
@@ -835,7 +835,7 @@ private:
         if (!m_host_valid && !m_device_valid)
         {
             NEKERROR(Nektar::ErrorUtil::efatal,
-                     "MemoryStorage::GetReadWriteDevicePtr - "
+                     "MemoryRegion::GetReadWriteDevicePtr - "
                      "attempt to get a host pointer (" +
                          m_name + ") before the data is initialized.");
         }
@@ -930,7 +930,7 @@ private:
             if (!m_host && m_size > 0)
             {
                 NEKERROR(Nektar::ErrorUtil::efatal,
-                         "MemoryStorage::HostToDeviceCopy - attempt to "
+                         "MemoryRegion::HostToDeviceCopy - attempt to "
                          "transfer data from the host (" +
                              m_name +
                              ") without any "
@@ -952,7 +952,7 @@ private:
             {
                 // Throw an error.
                 NEKERROR(Nektar::ErrorUtil::efatal,
-                         "MemoryStorage::HostToDeviceCopy - attempt to "
+                         "MemoryRegion::HostToDeviceCopy - attempt to "
                          "transfer data (" +
                              m_name +
                              ") to the device without any "
@@ -972,7 +972,7 @@ private:
             if (!m_device && m_size > 0)
             {
                 NEKERROR(Nektar::ErrorUtil::efatal,
-                         "MemoryStorage::DeviceToHostCopy - attempt to "
+                         "MemoryRegion::DeviceToHostCopy - attempt to "
                          "transfer data from the device (" +
                              m_name +
                              ") without any "
@@ -1002,7 +1002,7 @@ private:
             {
                 // Throw an error.
                 NEKERROR(Nektar::ErrorUtil::efatal,
-                         "MemoryStorage::DeviceToHostCopy - attempt to "
+                         "MemoryRegion::DeviceToHostCopy - attempt to "
                          "transfer data (" +
                              m_name +
                              ") to the host without any "
@@ -1025,7 +1025,7 @@ private:
         {
             // Throw an error.
             NEKERROR(Nektar::ErrorUtil::efatal,
-                     "MemoryStorage::SetHostStorage - Host storage has already "
+                     "MemoryRegion::SetHostStorage - Host storage has already "
                      "been allocated");
         }
 
@@ -1049,7 +1049,7 @@ private:
             // Throw an error.
             NEKERROR(
                 Nektar::ErrorUtil::efatal,
-                "MemoryStorage::SetDeviceStorage - Device storage has already "
+                "MemoryRegion::SetDeviceStorage - Device storage has already "
                 "been allocated");
         }
 
