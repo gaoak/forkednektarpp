@@ -118,12 +118,10 @@ namespace NektarSpaces
 // Alignment
 struct memory_alignment
 {
-#if defined(NEKTAR_ENABLE_SIMD)
-    static constexpr size_t value = tinysimd::simd<double>::alignment;
-#elif defined(NEKTAR_ENABLE_CUDA)
-    static constexpr size_t value       = 256u;
+#if defined(NEKTAR_ENABLE_CUDA)
+    static constexpr size_t value = 256u;
 #elif defined(NEKTAR_ENABLE_HIP)
-    static constexpr size_t value                  = 128u;
+    static constexpr size_t value       = 128u;
 #elif defined(SYCL_ENABLE_CUDA)
     static constexpr size_t value                  = 256u;
 #elif defined(SYCL_ENABLE_HIP)
@@ -132,6 +130,8 @@ struct memory_alignment
     static constexpr size_t value                  = 128u;
 #elif defined(SYCL_ENABLE_CPU)
     static constexpr size_t value       = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+#elif defined(NEKTAR_ENABLE_SIMD)
+    static constexpr size_t value       = tinysimd::simd<double>::alignment;
 #else
     static constexpr size_t value       = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
 #endif
@@ -140,12 +140,10 @@ struct memory_alignment
 // Vector width
 template <typename TData> struct vector_width
 {
-#if defined(NEKTAR_ENABLE_SIMD)
-    static constexpr unsigned int value = tinysimd::simd<TData>::width;
-#elif defined(NEKTAR_ENABLE_CUDA)
+#if defined(NEKTAR_ENABLE_CUDA)
     static constexpr unsigned int value = 32u;
 #elif defined(NEKTAR_ENABLE_HIP)
-    static constexpr unsigned int value            = 64u;
+    static constexpr unsigned int value = 64u;
 #elif defined(SYCL_ENABLE_CUDA)
     static constexpr unsigned int value            = 32u;
 #elif defined(SYCL_ENABLE_HIP)
@@ -154,6 +152,8 @@ template <typename TData> struct vector_width
     static constexpr unsigned int value            = 32u;
 #elif defined(SYCL_ENABLE_CPU)
     static constexpr unsigned int value = 1u;
+#elif defined(NEKTAR_ENABLE_SIMD)
+    static constexpr unsigned int value = tinysimd::simd<TData>::width;
 #else
     static constexpr unsigned int value = 1u;
 #endif
@@ -215,16 +215,6 @@ struct Device
     static constexpr unsigned int maximumBlockSize = 1u;
 #endif
 };
-
-// Specify execution for CMakeList.txt
-#define NEKTAR_DEFAULT_HOST_TAG NektarSpaces::Serial
-
-#if defined(NEKTAR_ENABLE_SIMD)
-#define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::AVX
-#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
-#define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::Device
-#endif
 
 // These are used for LoopExecution.hpp
 // NEKTAR_LAMBDA
