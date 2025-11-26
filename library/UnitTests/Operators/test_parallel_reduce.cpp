@@ -86,7 +86,8 @@ BOOST_FIXTURE_TEST_CASE(sum, ReducerField)
                                     Nektar::ReduceSum<double>>(
                 0, size, [=](size_t i) { return x[i]; }, tmp);
         }
-#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
+#endif
+#if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||               \
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
         else if (execName == "Device")
         {
@@ -144,7 +145,8 @@ BOOST_FIXTURE_TEST_CASE(max, ReducerField)
                                     Nektar::ReduceMax<double>>(
                 0, size, [=](size_t i) { return x[i]; }, tmp);
         }
-#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
+#endif
+#if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||               \
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
         else if (execName == "Device")
         {
@@ -202,7 +204,8 @@ BOOST_FIXTURE_TEST_CASE(min, ReducerField)
                                     Nektar::ReduceMin<double>>(
                 0, size, [=](size_t i) { return x[i]; }, tmp);
         }
-#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
+#endif
+#if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||               \
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
         else if (execName == "Device")
         {

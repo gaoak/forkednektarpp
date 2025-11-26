@@ -711,8 +711,9 @@ protected:
             deviceFree(m_device, this->size(), m_alignment);
         }
 
-        m_host   = nullptr;
-        m_device = nullptr;
+        m_host      = nullptr;
+        m_device    = nullptr;
+        m_alignment = NektarSpaces::memory_alignment ::value;
     }
 
     /**
@@ -933,6 +934,8 @@ void AllocateFieldStorage(FieldBase<TData> *field)
 {
     if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
     {
+        size_t alignment_offset = 0;
+
         // Allocate contiguous host memory accross all MemoryRegions of the
         // field object.
         if (!field->m_host)
@@ -944,13 +947,23 @@ void AllocateFieldStorage(FieldBase<TData> *field)
             }
             else if (field->m_memAllocType == ePinned)
             {
-                hostMallocPinned(&field->m_host, field->size() * sizeof(TData),
+                // Add extra bytes for alignment provision
+                size_t aligned_bytes_size =
+                    field->size() * sizeof(TData) + field->m_alignment;
+                hostMallocPinned(&field->m_host, aligned_bytes_size,
                                  field->m_alignment);
+                // Compute offset in bytes for non-aligned memory.
+                if ((size_t)field->m_host % field->m_alignment)
+                {
+                    alignment_offset =
+                        field->m_alignment -
+                        (size_t)field->m_host % field->m_alignment;
+                }
             }
-            std::memset((void *)field->m_host, 0,
-                        field->size() * sizeof(TData));
+            // Get aligned memory pointer.
+            auto src = (TData *)((size_t)field->m_host + alignment_offset);
+            std::memset((void *)src, 0, field->size() * sizeof(TData));
 
-            auto src = field->m_host;
             for (unsigned int blk = 0; blk < field->m_block_accessors.size();
                  ++blk)
             {

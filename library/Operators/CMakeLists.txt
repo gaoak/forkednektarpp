@@ -61,11 +61,13 @@ MACRO(ADD_OPERATOR dir)
             SET(SOURCE_EXT cpp)
         ENDIF()
 
-        # Set execuation space - see Spaces.hpp
+        # Set execution space.
         IF("${ExecSpace}" STREQUAL "Serial")
-            SET(EXEC_MEM_SPACE_TAG NEKTAR_DEFAULT_HOST_TAG)
-        ELSE()
-            SET(EXEC_MEM_SPACE_TAG NEKTAR_DEFAULT_DEVICE_TAG)
+            SET(EXEC_MEM_SPACE_TAG NektarSpaces::Serial)
+        ELSEIF("${ExecSpace}" STREQUAL "AVX")
+            SET(EXEC_MEM_SPACE_TAG NektarSpaces::AVX)
+        ELSEIF("${ExecSpace}" STREQUAL "Device")
+            SET(EXEC_MEM_SPACE_TAG NektarSpaces::Device)
         ENDIF()
 
         # Loop through each possible data type.
@@ -220,11 +222,13 @@ MACRO(ADD_ELMT_OPERATOR dir)
             ENDIF()
         ENDIF()
 
-        # Set execuation space - see Spaces.hpp
+        # Set execution space.
         IF("${ExecSpace}" STREQUAL "Serial")
-            SET(EXEC_MEM_SPACE_TAG NEKTAR_DEFAULT_HOST_TAG)
-        ELSE()
-            SET(EXEC_MEM_SPACE_TAG NEKTAR_DEFAULT_DEVICE_TAG)
+            SET(EXEC_MEM_SPACE_TAG NektarSpaces::Serial)
+        ELSEIF("${ExecSpace}" STREQUAL "AVX")
+            SET(EXEC_MEM_SPACE_TAG NektarSpaces::AVX)
+        ELSEIF("${ExecSpace}" STREQUAL "Device")
+            SET(EXEC_MEM_SPACE_TAG NektarSpaces::Device)
         ENDIF()
 
         # Loop through each possible implementation.
@@ -499,11 +503,13 @@ MACRO(ADD_TIME_OPERATOR dir)
                 SET(SOURCE_EXT cpp)
             ENDIF()
 
-            # Set execuation space - see Spaces.hpp
+            # Set execution space.
             IF("${ExecSpace}" STREQUAL "Serial")
-                SET(EXEC_MEM_SPACE_TAG NEKTAR_DEFAULT_HOST_TAG)
-            ELSE()
-                SET(EXEC_MEM_SPACE_TAG NEKTAR_DEFAULT_DEVICE_TAG)
+                SET(EXEC_MEM_SPACE_TAG NektarSpaces::Serial)
+            ELSEIF("${ExecSpace}" STREQUAL "AVX")
+                SET(EXEC_MEM_SPACE_TAG NektarSpaces::AVX)
+            ELSEIF("${ExecSpace}" STREQUAL "Device")
+                SET(EXEC_MEM_SPACE_TAG NektarSpaces::Device)
             ENDIF()
 
             IF ("${Variant}" STREQUAL "Dummy")
@@ -611,7 +617,7 @@ ENDFOREACH()
   #Serial double cases
   SET(TData double)
 
-  SET(EXEC_MEM_SPACE_TAG NEKTAR_DEFAULT_HOST_TAG)
+  SET(EXEC_MEM_SPACE_TAG NektarSpaces::Serial)
   SET(ExecSpace Serial)
   SET(SOURCE_EXT cpp)
 
@@ -620,15 +626,17 @@ ENDFOREACH()
 
   #AVX double cases
   IF (AVX IN_LIST ExecSpaces)
-    SET(EXEC_MEM_SPACE_TAG NEKTAR_DEFAULT_DEVICE_TAG)
+    SET(EXEC_MEM_SPACE_TAG NektarSpaces::AVX)
     SET(ExecSpace AVX)
     SET(SOURCE_EXT cpp)
 
     ADD_SINGLE_OPERATOR(AssmbScatr AssmbScatr)
     ADD_SINGLE_OPERATOR(AssmbScatr AssmbScatrZeroDir)
+  ENDIF()
+
   #Device double cases
-  ELSEIF (Device IN_LIST ExecSpaces)
-    SET(EXEC_MEM_SPACE_TAG NEKTAR_DEFAULT_DEVICE_TAG)
+  IF (Device IN_LIST ExecSpaces)
+    SET(EXEC_MEM_SPACE_TAG NektarSpaces::Device)
     SET(ExecSpace Device)
     IF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_CUDA)
          SET(SOURCE_EXT cu)
@@ -681,8 +689,10 @@ IF(NEKTAR_ENABLE_SIMD)
       NekBlas/xsmmHandle.cpp
       NekBlas/xsmm.cpp
     )
+ENDIF()
+
 # MAGMA specific file
-ELSEIF(NEKTAR_ENABLE_MAGMA)
+IF(NEKTAR_ENABLE_MAGMA)
     SET(OPERATORS_HEADERS
       ${OPERATORS_HEADERS}
        NekBlas/magmaHandle.hpp
@@ -730,14 +740,14 @@ IF(NEKTAR_ENABLE_SIMD)
     SET(OPERATORS_HEADERS
       ${OPERATORS_HEADERS}
       NekBlas/libXSMMDispatchWrapper.hpp
-      Math/Math.cpp
     )
+ENDIF()
+
 # CUDA specific file
-ELSEIF(NEKTAR_ENABLE_CUDA)
+IF(NEKTAR_ENABLE_CUDA)
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
        Field/MemoryAlloc.cu
-       Math/Math.cu
     )
 
     SET(OPERATORS_DEPENDS
@@ -748,7 +758,6 @@ ELSEIF(NEKTAR_ENABLE_HIP)
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
        Field/MemoryAlloc.hip
-       Math/Math.cpp
     )
 
     SET(OPERATORS_DEPENDS
@@ -763,13 +772,24 @@ ELSEIF(NEKTAR_ENABLE_SYCL)
 
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
-      Math/Math.cpp
       Common/SYCLQueue.cpp
     )
 
     SET(OPERATORS_DEPENDS
       ${OPERATORS_DEPENDS}
       ${NEKTAR_SYCL_DEPENDS})
+ELSE()
+    SET(OPERATORS_SOURCES
+      ${OPERATORS_SOURCES}
+    )
+ENDIF()
+
+# CUDA specific file
+IF(NEKTAR_ENABLE_CUDA)
+    SET(OPERATORS_SOURCES
+      ${OPERATORS_SOURCES}
+      Math/Math.cu
+    )
 ELSE()
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}

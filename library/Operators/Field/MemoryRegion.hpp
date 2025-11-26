@@ -121,6 +121,7 @@ public:
         m_alignment    = alignment;
 
         m_host         = nullptr;
+        m_host_aligned = nullptr;
         m_device       = nullptr;
         m_host_valid   = false;
         m_device_valid = false;
@@ -148,15 +149,16 @@ public:
     MemoryRegion(MemoryRegion &&rhs)
         : m_allocated(rhs.m_allocated), m_host_owned(rhs.m_host_owned),
           m_device_owned(rhs.m_device_owned), m_host(rhs.m_host),
-          m_device(rhs.m_device), m_size(rhs.m_size),
-          m_alignment(rhs.m_alignment), m_host_valid(rhs.m_host_valid),
-          m_device_valid(rhs.m_device_valid), m_name(rhs.m_name),
-          m_memAllocType(rhs.m_memAllocType)
+          m_host_aligned(rhs.m_host_aligned), m_device(rhs.m_device),
+          m_size(rhs.m_size), m_alignment(rhs.m_alignment),
+          m_host_valid(rhs.m_host_valid), m_device_valid(rhs.m_device_valid),
+          m_name(rhs.m_name), m_memAllocType(rhs.m_memAllocType)
     {
         rhs.m_allocated    = false;
         rhs.m_host_owned   = true;
         rhs.m_device_owned = true;
         rhs.m_host         = nullptr;
+        rhs.m_host_aligned = nullptr;
         rhs.m_device       = nullptr;
         rhs.m_size         = 0;
         rhs.m_alignment    = NektarSpaces::memory_alignment::value;
@@ -193,6 +195,7 @@ public:
         m_host_owned   = true;
         m_device_owned = true;
         m_host         = nullptr;
+        m_host_aligned = nullptr;
         m_device       = nullptr;
         m_size         = 0;
         m_alignment    = NektarSpaces::memory_alignment::value;
@@ -222,6 +225,7 @@ public:
         m_host_owned   = rhs.m_host_owned;
         m_device_owned = rhs.m_device_owned;
         m_host         = rhs.m_host;
+        m_host_aligned = rhs.m_host_aligned;
         m_device       = rhs.m_device;
         m_size         = rhs.m_size;
         m_alignment    = rhs.m_alignment;
@@ -234,6 +238,7 @@ public:
         rhs.m_host_owned   = true;
         rhs.m_device_owned = true;
         rhs.m_host         = nullptr;
+        rhs.m_host_aligned = nullptr;
         rhs.m_device       = nullptr;
         rhs.m_size         = 0;
         rhs.m_alignment    = NektarSpaces::memory_alignment::value;
@@ -388,7 +393,7 @@ public:
      *
      * @param val    - value to set
      * @param count  - number of values
-     * @param offset - offset to m_host pointer
+     * @param offset - offset to m_host_aligned pointer
      */
     template <typename MemSpace>
     void Initialize(const TData val, const size_t count = 0,
@@ -402,24 +407,37 @@ public:
 
         if (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
         {
-            if (!m_host)
+            if (!m_host_aligned)
             {
                 if (m_memAllocType == ePinned)
                 {
-                    hostMallocPinned(&m_host, m_size * sizeof(TData),
-                                     m_alignment);
-                    std::memset((void *)m_host, 0, m_size * sizeof(TData));
+                    // Add extra bytes for alignment provision.
+                    size_t aligned_bytes_size =
+                        m_size * sizeof(TData) + m_alignment;
+                    hostMallocPinned(&m_host, aligned_bytes_size, m_alignment);
+                    // Get aligned memory pointer.
+                    if ((size_t)m_host % m_alignment)
+                    {
+                        m_host_aligned =
+                            (TData *)((size_t)m_host + m_alignment -
+                                      (size_t)m_host % m_alignment);
+                    }
+                    else
+                    {
+                        m_host_aligned = m_host;
+                    }
                 }
                 else
                 {
                     hostMalloc(&m_host, m_size * sizeof(TData), m_alignment);
-                    std::memset((void *)m_host, 0, m_size * sizeof(TData));
+                    m_host_aligned = m_host;
                 }
+                std::memset((void *)m_host_aligned, 0, m_size * sizeof(TData));
             }
 
             auto size = (count == 0) ? m_size : count;
 
-            TData *dst = m_host + offset;
+            TData *dst = m_host_aligned + offset;
 
             // If the value is zero, memset is the most efficent.
             if constexpr (std::is_floating_point_v<TData> ||
@@ -678,7 +696,7 @@ private:
      */
     const TData *GetReadOnlyHostPtr()
     {
-        if (!m_host && !m_device && m_size > 0)
+        if (!m_host_aligned && !m_device && m_size > 0)
         {
             // Throw an error.
             NEKERROR(Nektar::ErrorUtil::efatal,
@@ -699,7 +717,7 @@ private:
 
         m_host_valid = true;
 
-        return m_host;
+        return m_host_aligned;
     }
 
     /**
@@ -710,24 +728,37 @@ private:
      */
     TData *GetWriteOnlyHostPtr()
     {
-        if (!m_host)
+        if (!m_host_aligned)
         {
             if (m_memAllocType == ePinned)
             {
-                hostMallocPinned(&m_host, m_size * sizeof(TData), m_alignment);
-                std::memset((void *)m_host, 0, m_size * sizeof(TData));
+                // Add extra bytes for alignment provision.
+                size_t aligned_bytes_size =
+                    m_size * sizeof(TData) + m_alignment;
+                hostMallocPinned(&m_host, aligned_bytes_size, m_alignment);
+                // Get aligned memory pointer.
+                if ((size_t)m_host % m_alignment)
+                {
+                    m_host_aligned = (TData *)((size_t)m_host + m_alignment -
+                                               (size_t)m_host % m_alignment);
+                }
+                else
+                {
+                    m_host_aligned = m_host;
+                }
             }
             else
             {
                 hostMalloc(&m_host, m_size * sizeof(TData), m_alignment);
-                std::memset((void *)m_host, 0, m_size * sizeof(TData));
+                m_host_aligned = m_host;
             }
+            std::memset((void *)m_host_aligned, 0, m_size * sizeof(TData));
         }
 
         m_host_valid   = true;
         m_device_valid = false;
 
-        return m_host;
+        return m_host_aligned;
     }
 
     /**
@@ -738,7 +769,7 @@ private:
      */
     TData *GetReadWriteHostPtr()
     {
-        if (!m_host && !m_device && m_size > 0)
+        if (!m_host_aligned && !m_device && m_size > 0)
         {
             // Throw an error.
             NEKERROR(Nektar::ErrorUtil::efatal,
@@ -760,7 +791,7 @@ private:
         m_host_valid   = true;
         m_device_valid = false;
 
-        return m_host;
+        return m_host_aligned;
     }
 
     /**
@@ -771,7 +802,7 @@ private:
      */
     const TData *GetReadOnlyDevicePtr()
     {
-        if (!m_host && !m_device && m_size > 0)
+        if (!m_host_aligned && !m_device && m_size > 0)
         {
             // Throw an error.
             NEKERROR(Nektar::ErrorUtil::efatal,
@@ -823,7 +854,7 @@ private:
      */
     TData *GetReadWriteDevicePtr()
     {
-        if (!m_host && !m_device && m_size > 0)
+        if (!m_host_aligned && !m_device && m_size > 0)
         {
             // Throw an error.
             NEKERROR(Nektar::ErrorUtil::efatal,
@@ -853,7 +884,7 @@ private:
      *
      * @param src    - pointer data type TDataIn to copy from
      * @param size   - number of element of type TDataIn to copy
-     * @param offset - offset to m_host pointer
+     * @param offset - offset to m_host_aligned pointer
      */
     template <typename MemSpace, typename TDataIn>
     void CopyFromHostPtr(const TDataIn *src, const size_t size,
@@ -861,22 +892,35 @@ private:
     {
         if (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
         {
-            if (!m_host)
+            if (!m_host_aligned)
             {
                 if (m_memAllocType == ePinned)
                 {
-                    hostMallocPinned(&m_host, m_size * sizeof(TData),
-                                     m_alignment);
-                    std::memset((void *)m_host, 0, m_size * sizeof(TData));
+                    // Add extra bytes for alignment provision.
+                    size_t aligned_bytes_size =
+                        m_size * sizeof(TData) + m_alignment;
+                    hostMallocPinned(&m_host, aligned_bytes_size, m_alignment);
+                    // Get aligned memory pointer.
+                    if ((size_t)m_host % m_alignment)
+                    {
+                        m_host_aligned =
+                            (TData *)((size_t)m_host + m_alignment -
+                                      (size_t)m_host % m_alignment);
+                    }
+                    else
+                    {
+                        m_host_aligned = m_host;
+                    }
                 }
                 else
                 {
                     hostMalloc(&m_host, m_size * sizeof(TData), m_alignment);
-                    std::memset((void *)m_host, 0, m_size * sizeof(TData));
+                    m_host_aligned = m_host;
                 }
+                std::memset((void *)m_host_aligned, 0, m_size * sizeof(TData));
             }
 
-            TData *dst = m_host + offset;
+            TData *dst = m_host_aligned + offset;
 
             if constexpr (std::is_same_v<TDataIn, TData>)
             {
@@ -927,7 +971,7 @@ private:
     {
         if (!m_device_valid)
         {
-            if (!m_host && m_size > 0)
+            if (!m_host_aligned && m_size > 0)
             {
                 NEKERROR(Nektar::ErrorUtil::efatal,
                          "MemoryStorage::HostToDeviceCopy - attempt to "
@@ -945,8 +989,9 @@ private:
             // Make sure the host data is valid. It might not be.
             if (m_host_valid)
             {
-                deviceMemcpy<HostToDevice>(
-                    m_device, m_host, m_size * sizeof(TData), m_memAllocType);
+                deviceMemcpy<HostToDevice>(m_device, m_host_aligned,
+                                           m_size * sizeof(TData),
+                                           m_memAllocType);
             }
             else
             {
@@ -979,24 +1024,39 @@ private:
                              "valid device memory allocated.");
             }
 
-            if (!m_host)
+            if (!m_host_aligned)
             {
                 if (m_memAllocType == ePinned)
                 {
-                    hostMallocPinned(&m_host, m_size * sizeof(TData),
-                                     m_alignment);
+                    // Add extra bytes for alignment provision.
+                    size_t aligned_bytes_size =
+                        m_size * sizeof(TData) + m_alignment;
+                    hostMallocPinned(&m_host, aligned_bytes_size, m_alignment);
+                    // Get aligned memory pointer.
+                    if ((size_t)m_host % m_alignment)
+                    {
+                        m_host_aligned =
+                            (TData *)((size_t)m_host + m_alignment -
+                                      (size_t)m_host % m_alignment);
+                    }
+                    else
+                    {
+                        m_host_aligned = m_host;
+                    }
                 }
                 else
                 {
                     hostMalloc(&m_host, m_size * sizeof(TData), m_alignment);
+                    m_host_aligned = m_host;
                 }
             }
 
             // Make sure the device data is valid. It might not be.
             if (m_device_valid)
             {
-                deviceMemcpy<DeviceToHost>(
-                    m_host, m_device, m_size * sizeof(TData), m_memAllocType);
+                deviceMemcpy<DeviceToHost>(m_host_aligned, m_device,
+                                           m_size * sizeof(TData),
+                                           m_memAllocType);
             }
             else
             {
@@ -1018,6 +1078,8 @@ private:
      *
      * @param src - source pointer from Field
      *
+     * Note: It is the user responsability to guarantee that src has the proper
+     * alignment.
      */
     void SetHostStorage(TData *src)
     {
@@ -1029,8 +1091,9 @@ private:
                      "been allocated");
         }
 
-        m_host       = src;
-        m_host_owned = false;
+        m_host         = src;
+        m_host_aligned = src;
+        m_host_owned   = false;
     }
 
     /**
@@ -1063,10 +1126,11 @@ private:
                                 // by the current object.
     bool m_device_owned = true; // Flag indicating if the device pointer is
                                 // owned by the current object.
-    TData *m_host      = nullptr; /// < Host memory pointer
-    TData *m_device    = nullptr; ///< Device memory pointer
-    size_t m_size      = 0;
-    size_t m_alignment = NektarSpaces::memory_alignment ::value;
+    TData *m_host         = nullptr; /// < Host memory pointer
+    TData *m_host_aligned = nullptr; /// < Host (aligned) memory pointer
+    TData *m_device       = nullptr; ///< Device memory pointer
+    size_t m_size         = 0;
+    size_t m_alignment    = NektarSpaces::memory_alignment ::value;
 
     bool m_host_valid   = false; // Flag indicating that the host data is valid
     bool m_device_valid = false; ///< Flag indicating the device data is valid
