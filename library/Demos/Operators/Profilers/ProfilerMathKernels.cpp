@@ -89,9 +89,10 @@ void ProfilerReduction(const size_t size)
     }
     timer.Stop();
     TData time_avx = timer.Elapsed().count() / ntests;
+#endif
+
     // Device.
-#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
+#if defined(NEKTAR_ENABLE_DEVICE)
     math = Math("Device");
     TData result_device;
     timer.Start();
@@ -113,8 +114,8 @@ void ProfilerReduction(const size_t size)
                   << " "
 #if defined(NEKTAR_ENABLE_SIMD)
                   << 2 * sizeof(TData) * 1e-9 * size / time_avx << " "
-#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
+#endif
+#if defined(NEKTAR_ENABLE_DEVICE)
                   << 2 * sizeof(TData) * 1e-9 * size / time_device
 #endif
                   << std::endl;
@@ -162,9 +163,10 @@ void ProfilerDaxpy(const size_t size)
     }
     timer.Stop();
     TData time_avx = timer.Elapsed().count() / ntests;
-    // SYCL.
-#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
+#endif
+
+    // Device.
+#if defined(NEKTAR_ENABLE_DEVICE)
     math = Math("Device");
     timer.Start();
     for (unsigned int t = 0; t < ntests; ++t)
@@ -185,8 +187,8 @@ void ProfilerDaxpy(const size_t size)
                   << " "
 #if defined(NEKTAR_ENABLE_SIMD)
                   << 3 * sizeof(TData) * 1e-9 * size / time_avx << " "
-#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
+#endif
+#if defined(NEKTAR_ENABLE_DEVICE)
                   << 3 * sizeof(TData) * 1e-9 * size / time_device
 #endif
                   << std::endl;
@@ -294,8 +296,8 @@ int main(void)
     std::cout << "                      Serial";
 #if defined(NEKTAR_ENABLE_SIMD)
     std::cout << "      AVX";
-#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
+#endif
+#if defined(NEKTAR_ENABLE_DEVICE)
     std::cout << "      Device";
 #endif
     std::cout << std::endl;
@@ -315,8 +317,8 @@ int main(void)
     std::cout << "                      Serial";
 #if defined(NEKTAR_ENABLE_SIMD)
     std::cout << "      AVX";
-#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
+#endif
+#if defined(NEKTAR_ENABLE_DEVICE)
     std::cout << "      Device";
 #endif
     std::cout << std::endl;

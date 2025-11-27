@@ -164,8 +164,7 @@ template <typename TData> struct vector_width
 struct HostSpace
 {
 };
-#if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||               \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
+#if defined(NEKTAR_ENABLE_DEVICE)
 // Used to refer to any data in device memory.
 struct DeviceSpace
 {

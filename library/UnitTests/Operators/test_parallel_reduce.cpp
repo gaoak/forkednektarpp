@@ -87,8 +87,7 @@ BOOST_FIXTURE_TEST_CASE(sum, ReducerField)
                 0, size, [=](size_t i) { return x[i]; }, tmp);
         }
 #endif
-#if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||               \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
+#if defined(NEKTAR_ENABLE_DEVICE)
         else if (execName == "Device")
         {
             Nektar::parallel_reduce<NektarSpaces::Device,
@@ -146,8 +145,7 @@ BOOST_FIXTURE_TEST_CASE(max, ReducerField)
                 0, size, [=](size_t i) { return x[i]; }, tmp);
         }
 #endif
-#if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||               \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
+#if defined(NEKTAR_ENABLE_DEVICE)
         else if (execName == "Device")
         {
             Nektar::parallel_reduce<NektarSpaces::Device,
@@ -205,8 +203,7 @@ BOOST_FIXTURE_TEST_CASE(min, ReducerField)
                 0, size, [=](size_t i) { return x[i]; }, tmp);
         }
 #endif
-#if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||               \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
+#if defined(NEKTAR_ENABLE_DEVICE)
         else if (execName == "Device")
         {
             Nektar::parallel_reduce<NektarSpaces::Device,
