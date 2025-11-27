@@ -4,8 +4,6 @@
 # Sets up cmake variables needed for using SYCL in Nektar++
 #
 
-ADD_DEFINITIONS(-DNEKTAR_ENABLE_SYCL)
-
 IF (USE_SYCL_BUILTIN_REDUCER)
     ADD_DEFINITIONS(-DUSE_SYCL_BUILTIN_REDUCER)
 ENDIF()
