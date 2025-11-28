@@ -63,9 +63,8 @@ NEK_FORCE_INLINE static
 }
 // When thsse are defiend and the code is run in serial we have a mapping lay
 // out which is assuming with != 1 and so have access maps in a different manner
-#if (defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512) || \
-     defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||              \
-     defined(NEKTAR_ENABLE_SYCL))
+#if defined(NEKTAR_ENABLE_SIMD) || defined(NEKTAR_ENABLE_CUDA) ||              \
+    defined(NEKTAR_ENABLE_HIP) || defined(NEKTAR_ENABLE_SYCL)
 template <typename ExecSpace, typename TData, unsigned WIDTH>
 NEK_FORCE_INLINE static
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
