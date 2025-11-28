@@ -92,6 +92,8 @@ inline static void nekSetDevice([[maybe_unused]] unsigned int device_rank)
     CHECK_HIPCUDA_ERROR(hipSetDevice(device_rank));
 #elif defined(NEKTAR_ENABLE_SYCL)
     internalSYCLDeviceId = device_rank;
+#else
+    // Do nothing
 #endif
 }
 
@@ -247,6 +249,8 @@ inline void deviceMemset(TData *dst, const int val, const size_t size)
 #elif defined(NEKTAR_ENABLE_SYCL)
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.memset((void *)dst, val, size);
+#else
+    memset((void *)dst, val, size);
 #endif
 }
 
@@ -265,6 +269,8 @@ inline void deviceFill(TData *dst, const TData val, const size_t size)
 #elif defined(NEKTAR_ENABLE_SYCL)
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.fill(dst, val, size);
+#else
+    std::fill(dst, dst + size, val);
 #endif
 }
 
@@ -311,6 +317,8 @@ inline void deviceMemcpy(
 #elif defined(NEKTAR_ENABLE_SYCL)
         sycl::queue &Q = SYCLQueue::GetInstance();
         Q.memcpy(dst, src, size).wait();
+#else
+        memcpy(dst, src, size);
 #endif
     }
     else if constexpr (std::is_same_v<MemCopy, HostToDevice>)
@@ -347,6 +355,8 @@ inline void deviceMemcpy(
         {
             Q.memcpy(dst, src, size).wait();
         }
+#else
+        memcpy(dst, src, size);
 #endif
     }
     else if constexpr (std::is_same_v<MemCopy, DeviceToDevice>)
@@ -360,6 +370,8 @@ inline void deviceMemcpy(
 #elif defined(NEKTAR_ENABLE_SYCL)
         sycl::queue &Q = SYCLQueue::GetInstance();
         Q.memcpy(dst, src, size);
+#else
+        memcpy(dst, src, size);
 #endif
     }
 }
