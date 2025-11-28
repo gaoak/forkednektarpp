@@ -51,7 +51,7 @@ namespace Nektar::Operators
  * VW1 by first reshaping from VW0 to a vector width of 1, and then to VW1.
  *
  * @tparam  targInterleaveWidth     Target vector width.
- * @tparam  alignment           Memory alignment to use.
+ * @tparam  currInterleaveWidth     Current vector width.
  */
 template <typename ExecSpace, typename TData>
 void ReshapeStorage(const unsigned int targInterleaveWidth,

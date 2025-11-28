@@ -130,8 +130,7 @@ inline void hostMalloc(TData **src, const size_t size,
 }
 
 template <typename TData>
-inline void hostMallocPinned(TData **src, const size_t size,
-                             [[maybe_unused]] const size_t alignment)
+inline void hostMallocPinned(TData **src, const size_t size)
 {
     if (size > 0)
     {
@@ -143,8 +142,7 @@ inline void hostMallocPinned(TData **src, const size_t size,
         sycl::queue &Q = SYCLQueue::GetInstance();
         *src           = (TData *)sycl::malloc_host(size, Q);
 #else
-        *src = static_cast<TData *>(
-            ::operator new[](size, std::align_val_t(alignment)));
+        *src = (TData *)malloc(size);
 #endif
     }
     else
@@ -154,8 +152,7 @@ inline void hostMallocPinned(TData **src, const size_t size,
 }
 
 template <typename TData>
-inline void deviceMalloc(TData **src, const size_t size,
-                         [[maybe_unused]] const size_t alignment)
+inline void deviceMalloc(TData **src, const size_t size)
 {
     if (size > 0)
     {
@@ -173,8 +170,7 @@ inline void deviceMalloc(TData **src, const size_t size,
         *src           = (TData *)sycl::malloc_device(size, Q);
         GetDeviceProperties::TotalGlobalMemory() -= size;
 #else
-        *src = static_cast<TData *>(
-            ::operator new[](size, std::align_val_t(alignment)));
+        *src = (TData *)malloc(size);
 #endif
     }
     else
@@ -194,8 +190,7 @@ inline void hostFree(TData *src, [[maybe_unused]] const size_t alignment)
     operator delete[](src, std::align_val_t(alignment));
 }
 
-template <typename TData>
-inline void hostFreePinned(TData *src, [[maybe_unused]] const size_t alignment)
+template <typename TData> inline void hostFreePinned(TData *src)
 {
     if (src == nullptr)
     {
@@ -211,13 +206,12 @@ inline void hostFreePinned(TData *src, [[maybe_unused]] const size_t alignment)
     Q.wait();
     sycl::free(src, Q);
 #else
-    operator delete[](src, std::align_val_t(alignment));
+    free(src);
 #endif
 }
 
 template <typename TData>
-inline void deviceFree(TData *src, [[maybe_unused]] const size_t size,
-                       [[maybe_unused]] const size_t alignment)
+inline void deviceFree(TData *src, [[maybe_unused]] const size_t size)
 {
     if (src == nullptr)
     {
@@ -236,7 +230,7 @@ inline void deviceFree(TData *src, [[maybe_unused]] const size_t size,
     sycl::free(src, Q);
     GetDeviceProperties::TotalGlobalMemory() += size;
 #else
-    operator delete[](src, std::align_val_t(alignment));
+    free(src);
 #endif
 }
 
