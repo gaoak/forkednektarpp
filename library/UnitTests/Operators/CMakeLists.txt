@@ -231,7 +231,7 @@ IF (NEKTAR_USE_MPI)
 ENDIF()
 
 # AVX
-IF (${NEKTAR_ENABLE_SIMD})
+IF (NEKTAR_ENABLE_SIMD)
     SET_UNIT_TEST(Math_avx test_math AVX none FALSE)
     SET_UNIT_TEST(Parallel_reduce_avx test_parallel_reduce AVX none FALSE)
     SET_UNIT_TEST(AssmbScatr_avx test_assmbscatr AVX none FALSE)
@@ -257,13 +257,13 @@ IF (${NEKTAR_ENABLE_SIMD})
 ENDIF()
 
 # AVX generic
-IF (${NEKTAR_ENABLE_SIMD})
+IF (NEKTAR_ENABLE_SIMD)
     SET_UNIT_TEST(MultiplyByElmtInvMass_avx_generic test_multiplybyelmtinvmass AVX Generic FALSE)
     # SET_UNIT_TEST(expression_avx_generic test_expression AVX Generic FALSE)
 ENDIF()
 
 # AVX StdMat
-IF (${NEKTAR_ENABLE_SIMD})
+IF (NEKTAR_ENABLE_SIMD)
     SET_UNIT_TEST(AddTraceIntegral_avx_stdmat test_addtraceintegral AVX StdMat FALSE)
     SET_UNIT_TEST(BwdTrans_avx_stdmat test_bwdtrans AVX StdMat FALSE)
     SET_UNIT_TEST(DiagPrecon_avx_stdmat test_diagprecon AVX StdMat FALSE)
@@ -281,7 +281,7 @@ IF (${NEKTAR_ENABLE_SIMD})
 ENDIF()
 
 # AVX SumFac
-IF (${NEKTAR_ENABLE_SIMD})
+IF (NEKTAR_ENABLE_SIMD)
     SET_UNIT_TEST(AddTraceIntegral_avx_sumfac test_addtraceintegral AVX SumFac FALSE)
     SET_UNIT_TEST(BwdTrans_avx_sumfac test_bwdtrans AVX SumFac FALSE)
     SET_UNIT_TEST(DiagPrecon_avx_sumfac test_diagprecon AVX SumFac FALSE)

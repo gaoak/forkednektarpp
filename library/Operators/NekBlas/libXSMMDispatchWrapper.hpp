@@ -36,7 +36,7 @@
 
 #include "LibUtilities/BasicUtils/ErrorUtil.hpp"
 
-#if defined(NEKTAR_ENABLE_SIMD)
+#if __has_include("libxsmm.h")
 #include "libxsmm.h"
 #else
 #define LIBXSMM_PREFETCH_NONE 0
