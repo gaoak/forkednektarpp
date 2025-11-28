@@ -109,7 +109,7 @@ public:
      */
     MemoryRegion(const std::string name, const size_t size,
                  const MemAllocType &memAllocType = ePageable,
-                 const size_t alignment = NektarSpaces::memory_alignment::value)
+                 const size_t alignment = NektarSpaces::host_memory_alignment)
     {
         m_allocated = true;
 
@@ -136,7 +136,7 @@ public:
      */
     MemoryRegion(const size_t size,
                  const MemAllocType &memAllocType = ePageable,
-                 const size_t alignment = NektarSpaces::memory_alignment::value)
+                 const size_t alignment = NektarSpaces::host_memory_alignment)
         : MemoryRegion<TData>("", size, memAllocType, alignment)
     {
     }
@@ -161,7 +161,7 @@ public:
         rhs.m_host_aligned = nullptr;
         rhs.m_device       = nullptr;
         rhs.m_size         = 0;
-        rhs.m_alignment    = NektarSpaces::memory_alignment::value;
+        rhs.m_alignment    = NektarSpaces::host_memory_alignment;
         rhs.m_host_valid   = false;
         rhs.m_device_valid = false;
         rhs.m_name         = "";
@@ -176,14 +176,14 @@ public:
     {
         if (m_device && m_device_owned)
         {
-            deviceFree(m_device, m_size * sizeof(TData), m_alignment);
+            deviceFree(m_device, m_size * sizeof(TData));
         }
 
         if (m_host && m_host_owned)
         {
             if (m_memAllocType == ePinned)
             {
-                hostFreePinned(m_host, m_alignment);
+                hostFreePinned(m_host);
             }
             else
             {
@@ -198,7 +198,7 @@ public:
         m_host_aligned = nullptr;
         m_device       = nullptr;
         m_size         = 0;
-        m_alignment    = NektarSpaces::memory_alignment::value;
+        m_alignment    = NektarSpaces::host_memory_alignment;
         m_host_valid   = false;
         m_device_valid = false;
         m_name         = "";
@@ -241,7 +241,7 @@ public:
         rhs.m_host_aligned = nullptr;
         rhs.m_device       = nullptr;
         rhs.m_size         = 0;
-        rhs.m_alignment    = NektarSpaces::memory_alignment::value;
+        rhs.m_alignment    = NektarSpaces::host_memory_alignment;
         rhs.m_host_valid   = false;
         rhs.m_device_valid = false;
         rhs.m_name         = "";
@@ -314,7 +314,7 @@ public:
     static MemoryRegion<TData> FromVector(
         const std::string name, std::vector<TDataIn, Alloc> const &array,
         const MemAllocType &memAllocType = ePageable,
-        const size_t alignment = NektarSpaces::memory_alignment::value)
+        const size_t alignment           = NektarSpaces::host_memory_alignment)
     {
         auto mr =
             MemoryRegion<TData>(name, array.size(), memAllocType, alignment);
@@ -337,7 +337,7 @@ public:
     static MemoryRegion<TData> FromVector(
         std::vector<TDataIn, Alloc> const &array,
         const MemAllocType &memAllocType = ePageable,
-        const size_t alignment = NektarSpaces::memory_alignment::value)
+        const size_t alignment           = NektarSpaces::host_memory_alignment)
     {
         return MemoryRegion<TData>::template FromVector<MemSpace, TDataIn>(
             "", array, memAllocType, alignment);
@@ -360,7 +360,7 @@ public:
         const std::string name,
         Nektar::Array<Nektar::OneD, TDataIn> const &array,
         const MemAllocType &memAllocType = ePageable,
-        const size_t alignment = NektarSpaces::memory_alignment::value)
+        const size_t alignment           = NektarSpaces::host_memory_alignment)
     {
         auto mr =
             MemoryRegion<TData>(name, array.size(), memAllocType, alignment);
@@ -382,7 +382,7 @@ public:
     static MemoryRegion<TData> FromArray(
         Nektar::Array<Nektar::OneD, TDataIn> const &array,
         const MemAllocType &memAllocType = ePageable,
-        const size_t alignment = NektarSpaces::memory_alignment::value)
+        const size_t alignment           = NektarSpaces::host_memory_alignment)
     {
         return MemoryRegion<TData>::template FromArray<MemSpace, TDataIn>(
             "", array, memAllocType, alignment);
@@ -414,7 +414,7 @@ public:
                     // Add extra bytes for alignment provision.
                     size_t aligned_bytes_size =
                         m_size * sizeof(TData) + m_alignment;
-                    hostMallocPinned(&m_host, aligned_bytes_size, m_alignment);
+                    hostMallocPinned(&m_host, aligned_bytes_size);
                     // Get aligned memory pointer.
                     if ((size_t)m_host % m_alignment)
                     {
@@ -465,7 +465,7 @@ public:
         {
             if (!m_device)
             {
-                deviceMalloc(&m_device, m_size * sizeof(TData), m_alignment);
+                deviceMalloc(&m_device, m_size * sizeof(TData));
                 deviceMemset(m_device, 0, m_size * sizeof(TData));
             }
 
@@ -735,7 +735,7 @@ private:
                 // Add extra bytes for alignment provision.
                 size_t aligned_bytes_size =
                     m_size * sizeof(TData) + m_alignment;
-                hostMallocPinned(&m_host, aligned_bytes_size, m_alignment);
+                hostMallocPinned(&m_host, aligned_bytes_size);
                 // Get aligned memory pointer.
                 if ((size_t)m_host % m_alignment)
                 {
@@ -836,7 +836,7 @@ private:
     {
         if (!m_device)
         {
-            deviceMalloc(&m_device, m_size * sizeof(TData), m_alignment);
+            deviceMalloc(&m_device, m_size * sizeof(TData));
             deviceMemset(m_device, 0, m_size * sizeof(TData));
         }
 
@@ -899,7 +899,7 @@ private:
                     // Add extra bytes for alignment provision.
                     size_t aligned_bytes_size =
                         m_size * sizeof(TData) + m_alignment;
-                    hostMallocPinned(&m_host, aligned_bytes_size, m_alignment);
+                    hostMallocPinned(&m_host, aligned_bytes_size);
                     // Get aligned memory pointer.
                     if ((size_t)m_host % m_alignment)
                     {
@@ -940,7 +940,7 @@ private:
         {
             if (!m_device)
             {
-                deviceMalloc(&m_device, m_size * sizeof(TData), m_alignment);
+                deviceMalloc(&m_device, m_size * sizeof(TData));
                 deviceMemset(m_device, 0, m_size * sizeof(TData));
             }
 
@@ -983,7 +983,7 @@ private:
 
             if (!m_device)
             {
-                deviceMalloc(&m_device, m_size * sizeof(TData), m_alignment);
+                deviceMalloc(&m_device, m_size * sizeof(TData));
             }
 
             // Make sure the host data is valid. It might not be.
@@ -1031,7 +1031,7 @@ private:
                     // Add extra bytes for alignment provision.
                     size_t aligned_bytes_size =
                         m_size * sizeof(TData) + m_alignment;
-                    hostMallocPinned(&m_host, aligned_bytes_size, m_alignment);
+                    hostMallocPinned(&m_host, aligned_bytes_size);
                     // Get aligned memory pointer.
                     if ((size_t)m_host % m_alignment)
                     {
@@ -1130,7 +1130,7 @@ private:
     TData *m_host_aligned = nullptr; /// < Host (aligned) memory pointer
     TData *m_device       = nullptr; ///< Device memory pointer
     size_t m_size         = 0;
-    size_t m_alignment    = NektarSpaces::memory_alignment ::value;
+    size_t m_alignment    = NektarSpaces::host_memory_alignment;
 
     bool m_host_valid   = false; // Flag indicating that the host data is valid
     bool m_device_valid = false; ///< Flag indicating the device data is valid

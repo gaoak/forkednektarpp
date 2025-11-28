@@ -702,18 +702,18 @@ protected:
             }
             else if (m_memAllocType == ePinned)
             {
-                hostFreePinned(m_host, m_alignment);
+                hostFreePinned(m_host);
             }
         }
 
         if (m_device)
         {
-            deviceFree(m_device, this->size(), m_alignment);
+            deviceFree(m_device, this->size());
         }
 
         m_host      = nullptr;
         m_device    = nullptr;
-        m_alignment = NektarSpaces::memory_alignment ::value;
+        m_alignment = NektarSpaces::host_memory_alignment;
     }
 
     /**
@@ -742,7 +742,7 @@ protected:
         rhs.m_device         = nullptr;
         rhs.m_block_accessors.clear();
         rhs.m_memAllocType = ePageable;
-        rhs.m_alignment    = NektarSpaces::memory_alignment::value;
+        rhs.m_alignment    = NektarSpaces::host_memory_alignment;
     }
 
     /**
@@ -774,7 +774,7 @@ protected:
         rhs.m_device         = nullptr;
         rhs.m_block_accessors.clear();
         rhs.m_memAllocType = ePageable;
-        rhs.m_alignment    = NektarSpaces::memory_alignment::value;
+        rhs.m_alignment    = NektarSpaces::host_memory_alignment;
         return *this;
     }
 
@@ -786,7 +786,7 @@ protected:
     TData *m_device               = nullptr;
     std::vector<BlockAccessor<TData>> m_block_accessors;
     MemAllocType m_memAllocType;
-    size_t m_alignment = NektarSpaces::memory_alignment::value;
+    size_t m_alignment = NektarSpaces::host_memory_alignment;
 };
 
 /**
@@ -816,7 +816,7 @@ public:
     Field(const std::string name, const std::vector<BlockAttributes> blockAttr,
           const unsigned int num_components, const unsigned int num_homo_modes,
           const MemAllocType &memAllocType = ePageable,
-          const size_t alignment = NektarSpaces::memory_alignment::value)
+          const size_t alignment = NektarSpaces::host_memory_alignment)
         : FieldBase<TData>(name, num_components, num_homo_modes, memAllocType,
                            alignment)
     {
@@ -844,7 +844,7 @@ public:
     Field(const std::vector<BlockAttributes> blockAttr,
           const unsigned int num_components, const unsigned int num_homo_modes,
           const MemAllocType &memAllocType = ePageable,
-          const size_t alignment = NektarSpaces::memory_alignment::value)
+          const size_t alignment = NektarSpaces::host_memory_alignment)
         : Field<TData, TState>("", blockAttr, num_components, num_homo_modes,
                                memAllocType, alignment)
     {
@@ -864,7 +864,7 @@ public:
           const std::vector<std::string> components,
           const unsigned int num_homo_modes,
           const MemAllocType &memAllocType = ePageable,
-          const size_t alignment = NektarSpaces::memory_alignment::value)
+          const size_t alignment = NektarSpaces::host_memory_alignment)
         : FieldBase<TData>(name, components, num_homo_modes, memAllocType,
                            alignment)
     {
@@ -893,7 +893,7 @@ public:
           const std::vector<std::string> components,
           const unsigned int num_homo_modes,
           const MemAllocType &memAllocType = ePageable,
-          const size_t alignment = NektarSpaces::memory_alignment::value)
+          const size_t alignment = NektarSpaces::host_memory_alignment)
         : Field<TData, TState>("", blockAttr, components, num_homo_modes,
                                memAllocType, alignment)
     {
@@ -950,8 +950,7 @@ void AllocateFieldStorage(FieldBase<TData> *field)
                 // Add extra bytes for alignment provision
                 size_t aligned_bytes_size =
                     field->size() * sizeof(TData) + field->m_alignment;
-                hostMallocPinned(&field->m_host, aligned_bytes_size,
-                                 field->m_alignment);
+                hostMallocPinned(&field->m_host, aligned_bytes_size);
                 // Compute offset in bytes for non-aligned memory.
                 if ((size_t)field->m_host % field->m_alignment)
                 {
@@ -979,8 +978,7 @@ void AllocateFieldStorage(FieldBase<TData> *field)
         // field object.
         if (!field->m_device)
         {
-            deviceMalloc(&field->m_device, field->size() * sizeof(TData),
-                         field->m_alignment);
+            deviceMalloc(&field->m_device, field->size() * sizeof(TData));
             deviceMemset(field->m_device, 0, field->size() * sizeof(TData));
 
             auto src = field->m_device;

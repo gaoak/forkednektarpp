@@ -338,11 +338,9 @@ typename T::value_type Math::reduceSum(T &x, const std::string &execSpace)
         if (internal_device_buffer == nullptr)
         {
             Nektar::deviceMalloc(&internal_device_buffer,
-                                 internal_max_data_size_byte,
-                                 NektarSpaces::memory_alignment::value);
+                                 internal_max_data_size_byte);
             Nektar::hostMallocPinned(&internal_host_buffer,
-                                     internal_max_data_size_byte,
-                                     NektarSpaces::memory_alignment::value);
+                                     internal_max_data_size_byte);
         }
         Nektar::Operators::reduceSum<NektarSpaces::Device>(
             x, (typename T::value_type *)internal_device_buffer);
@@ -383,11 +381,9 @@ typename T::value_type Math::reduceSum(M &mask, T &x,
         if (internal_device_buffer == nullptr)
         {
             Nektar::deviceMalloc(&internal_device_buffer,
-                                 internal_max_data_size_byte,
-                                 NektarSpaces::memory_alignment::value);
+                                 internal_max_data_size_byte);
             Nektar::hostMallocPinned(&internal_host_buffer,
-                                     internal_max_data_size_byte,
-                                     NektarSpaces::memory_alignment::value);
+                                     internal_max_data_size_byte);
         }
         Nektar::Operators::reduceSum<NektarSpaces::Device>(
             mask, x, (typename T::value_type *)internal_device_buffer);
@@ -427,11 +423,9 @@ typename T::value_type Math::reduceMax(T &x, const std::string &execSpace)
         if (internal_device_buffer == nullptr)
         {
             Nektar::deviceMalloc(&internal_device_buffer,
-                                 internal_max_data_size_byte,
-                                 NektarSpaces::memory_alignment::value);
+                                 internal_max_data_size_byte);
             Nektar::hostMallocPinned(&internal_host_buffer,
-                                     internal_max_data_size_byte,
-                                     NektarSpaces::memory_alignment::value);
+                                     internal_max_data_size_byte);
         }
         Nektar::Operators::reduceMax<NektarSpaces::Device>(
             x, (typename T::value_type *)internal_device_buffer);
@@ -472,11 +466,9 @@ typename T::value_type Math::reduceMax(M &mask, T &x,
         if (internal_device_buffer == nullptr)
         {
             Nektar::deviceMalloc(&internal_device_buffer,
-                                 internal_max_data_size_byte,
-                                 NektarSpaces::memory_alignment::value);
+                                 internal_max_data_size_byte);
             Nektar::hostMallocPinned(&internal_host_buffer,
-                                     internal_max_data_size_byte,
-                                     NektarSpaces::memory_alignment::value);
+                                     internal_max_data_size_byte);
         }
         Nektar::Operators::reduceMax<NektarSpaces::Device>(
             mask, x, (typename T::value_type *)internal_device_buffer);
@@ -516,11 +508,9 @@ typename T::value_type Math::reduceMin(T &x, const std::string &execSpace)
         if (internal_device_buffer == nullptr)
         {
             Nektar::deviceMalloc(&internal_device_buffer,
-                                 internal_max_data_size_byte,
-                                 NektarSpaces::memory_alignment::value);
+                                 internal_max_data_size_byte);
             Nektar::hostMallocPinned(&internal_host_buffer,
-                                     internal_max_data_size_byte,
-                                     NektarSpaces::memory_alignment::value);
+                                     internal_max_data_size_byte);
         }
         Nektar::Operators::reduceMin<NektarSpaces::Device>(
             x, (typename T::value_type *)internal_device_buffer);
@@ -561,11 +551,9 @@ typename T::value_type Math::reduceMin(M &mask, T &x,
         if (internal_device_buffer == nullptr)
         {
             Nektar::deviceMalloc(&internal_device_buffer,
-                                 internal_max_data_size_byte,
-                                 NektarSpaces::memory_alignment::value);
+                                 internal_max_data_size_byte);
             Nektar::hostMallocPinned(&internal_host_buffer,
-                                     internal_max_data_size_byte,
-                                     NektarSpaces::memory_alignment::value);
+                                     internal_max_data_size_byte);
         }
         Nektar::Operators::reduceMin<NektarSpaces::Device>(
             mask, x, (typename T::value_type *)internal_device_buffer);
@@ -605,11 +593,9 @@ typename T::value_type Math::ddot(T &x, T &y, const std::string &execSpace)
         if (internal_device_buffer == nullptr)
         {
             Nektar::deviceMalloc(&internal_device_buffer,
-                                 internal_max_data_size_byte,
-                                 NektarSpaces::memory_alignment::value);
+                                 internal_max_data_size_byte);
             Nektar::hostMallocPinned(&internal_host_buffer,
-                                     internal_max_data_size_byte,
-                                     NektarSpaces::memory_alignment::value);
+                                     internal_max_data_size_byte);
         }
         Nektar::Operators::ddot<NektarSpaces::Device>(
             x, y, (typename T::value_type *)internal_device_buffer);
@@ -650,11 +636,9 @@ typename T::value_type Math::ddot(M &mask, T &x, T &y,
         if (internal_device_buffer == nullptr)
         {
             Nektar::deviceMalloc(&internal_device_buffer,
-                                 internal_max_data_size_byte,
-                                 NektarSpaces::memory_alignment::value);
+                                 internal_max_data_size_byte);
             Nektar::hostMallocPinned(&internal_host_buffer,
-                                     internal_max_data_size_byte,
-                                     NektarSpaces::memory_alignment::value);
+                                     internal_max_data_size_byte);
         }
         Nektar::Operators::ddot<NektarSpaces::Device>(
             mask, x, y, (typename T::value_type *)internal_device_buffer);
@@ -694,11 +678,9 @@ typename T::value_type Math::l1norm(T &x, const std::string &execSpace)
         if (internal_device_buffer == nullptr)
         {
             Nektar::deviceMalloc(&internal_device_buffer,
-                                 internal_max_data_size_byte,
-                                 NektarSpaces::memory_alignment::value);
+                                 internal_max_data_size_byte);
             Nektar::hostMallocPinned(&internal_host_buffer,
-                                     internal_max_data_size_byte,
-                                     NektarSpaces::memory_alignment::value);
+                                     internal_max_data_size_byte);
         }
         Nektar::Operators::l1norm<NektarSpaces::Device>(
             x, (typename T::value_type *)internal_device_buffer);
@@ -738,11 +720,9 @@ typename T::value_type Math::l1norm(M &mask, T &x, const std::string &execSpace)
         if (internal_device_buffer == nullptr)
         {
             Nektar::deviceMalloc(&internal_device_buffer,
-                                 internal_max_data_size_byte,
-                                 NektarSpaces::memory_alignment::value);
+                                 internal_max_data_size_byte);
             Nektar::hostMallocPinned(&internal_host_buffer,
-                                     internal_max_data_size_byte,
-                                     NektarSpaces::memory_alignment::value);
+                                     internal_max_data_size_byte);
         }
         Nektar::Operators::l1norm<NektarSpaces::Device>(
             mask, x, (typename T::value_type *)internal_device_buffer);
@@ -782,11 +762,9 @@ typename T::value_type Math::l2norm(T &x, const std::string &execSpace)
         if (internal_device_buffer == nullptr)
         {
             Nektar::deviceMalloc(&internal_device_buffer,
-                                 internal_max_data_size_byte,
-                                 NektarSpaces::memory_alignment::value);
+                                 internal_max_data_size_byte);
             Nektar::hostMallocPinned(&internal_host_buffer,
-                                     internal_max_data_size_byte,
-                                     NektarSpaces::memory_alignment::value);
+                                     internal_max_data_size_byte);
         }
         Nektar::Operators::l2norm<NektarSpaces::Device>(
             x, (typename T::value_type *)internal_device_buffer);
@@ -826,11 +804,9 @@ typename T::value_type Math::l2norm(M &mask, T &x, const std::string &execSpace)
         if (internal_device_buffer == nullptr)
         {
             Nektar::deviceMalloc(&internal_device_buffer,
-                                 internal_max_data_size_byte,
-                                 NektarSpaces::memory_alignment::value);
+                                 internal_max_data_size_byte);
             Nektar::hostMallocPinned(&internal_host_buffer,
-                                     internal_max_data_size_byte,
-                                     NektarSpaces::memory_alignment::value);
+                                     internal_max_data_size_byte);
         }
         Nektar::Operators::l2norm<NektarSpaces::Device>(
             mask, x, (typename T::value_type *)internal_device_buffer);
@@ -871,11 +847,9 @@ typename T::value_type Math::lpnorm(const unsigned int p, T &x,
         if (internal_device_buffer == nullptr)
         {
             Nektar::deviceMalloc(&internal_device_buffer,
-                                 internal_max_data_size_byte,
-                                 NektarSpaces::memory_alignment::value);
+                                 internal_max_data_size_byte);
             Nektar::hostMallocPinned(&internal_host_buffer,
-                                     internal_max_data_size_byte,
-                                     NektarSpaces::memory_alignment::value);
+                                     internal_max_data_size_byte);
         }
         Nektar::Operators::lpnorm<NektarSpaces::Device>(
             p, x, (typename T::value_type *)internal_device_buffer);
@@ -916,11 +890,9 @@ typename T::value_type Math::lpnorm(const unsigned int p, M &mask, T &x,
         if (internal_device_buffer == nullptr)
         {
             Nektar::deviceMalloc(&internal_device_buffer,
-                                 internal_max_data_size_byte,
-                                 NektarSpaces::memory_alignment::value);
+                                 internal_max_data_size_byte);
             Nektar::hostMallocPinned(&internal_host_buffer,
-                                     internal_max_data_size_byte,
-                                     NektarSpaces::memory_alignment::value);
+                                     internal_max_data_size_byte);
         }
         Nektar::Operators::lpnorm<NektarSpaces::Device>(
             p, mask, x, (typename T::value_type *)internal_device_buffer);
@@ -960,11 +932,9 @@ typename T::value_type Math::linfnorm(T &x, const std::string &execSpace)
         if (internal_device_buffer == nullptr)
         {
             Nektar::deviceMalloc(&internal_device_buffer,
-                                 internal_max_data_size_byte,
-                                 NektarSpaces::memory_alignment::value);
+                                 internal_max_data_size_byte);
             Nektar::hostMallocPinned(&internal_host_buffer,
-                                     internal_max_data_size_byte,
-                                     NektarSpaces::memory_alignment::value);
+                                     internal_max_data_size_byte);
         }
         Nektar::Operators::linfnorm<NektarSpaces::Device>(
             x, (typename T::value_type *)internal_device_buffer);
@@ -1005,11 +975,9 @@ typename T::value_type Math::linfnorm(M &mask, T &x,
         if (internal_device_buffer == nullptr)
         {
             Nektar::deviceMalloc(&internal_device_buffer,
-                                 internal_max_data_size_byte,
-                                 NektarSpaces::memory_alignment::value);
+                                 internal_max_data_size_byte);
             Nektar::hostMallocPinned(&internal_host_buffer,
-                                     internal_max_data_size_byte,
-                                     NektarSpaces::memory_alignment::value);
+                                     internal_max_data_size_byte);
         }
         Nektar::Operators::linfnorm<NektarSpaces::Device>(
             mask, x, (typename T::value_type *)internal_device_buffer);

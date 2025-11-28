@@ -116,44 +116,27 @@ namespace NektarSpaces
 {
 
 // Alignment
-struct memory_alignment
-{
-#if defined(NEKTAR_ENABLE_CUDA)
-    static constexpr size_t value = 256u;
-#elif defined(NEKTAR_ENABLE_HIP)
-    static constexpr size_t value       = 128u;
-#elif defined(SYCL_ENABLE_CUDA)
-    static constexpr size_t value                  = 256u;
-#elif defined(SYCL_ENABLE_HIP)
-    static constexpr size_t value                  = 128u;
-#elif defined(SYCL_ENABLE_INTEL)
-    static constexpr size_t value                  = 128u;
-#elif defined(SYCL_ENABLE_CPU)
-    static constexpr size_t value       = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
-#elif defined(NEKTAR_ENABLE_SIMD)
-    static constexpr size_t value       = tinysimd::simd<double>::alignment;
+#if defined(NEKTAR_ENABLE_SIMD)
+static constexpr size_t host_memory_alignment =
+    tinysimd::simd<double>::alignment;
 #else
-    static constexpr size_t value       = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+static constexpr size_t host_memory_alignment =
+    __STDCPP_DEFAULT_NEW_ALIGNMENT__;
 #endif
-};
 
 // Vector width
 template <typename TData> struct vector_width
 {
-#if defined(NEKTAR_ENABLE_CUDA)
+#if defined(NEKTAR_ENABLE_CUDA) || defined(SYCL_ENABLE_CUDA)
     static constexpr unsigned int value = 32u;
-#elif defined(NEKTAR_ENABLE_HIP)
+#elif defined(NEKTAR_ENABLE_HIP) || defined(SYCL_ENABLE_HIP)
     static constexpr unsigned int value = 64u;
-#elif defined(SYCL_ENABLE_CUDA)
-    static constexpr unsigned int value            = 32u;
-#elif defined(SYCL_ENABLE_HIP)
-    static constexpr unsigned int value            = 64u;
 #elif defined(SYCL_ENABLE_INTEL)
     static constexpr unsigned int value            = 32u;
-#elif defined(SYCL_ENABLE_CPU)
-    static constexpr unsigned int value = 1u;
 #elif defined(NEKTAR_ENABLE_SIMD)
     static constexpr unsigned int value = tinysimd::simd<TData>::width;
+#elif defined(SYCL_ENABLE_CPU)
+    static constexpr unsigned int value            = 1u;
 #else
     static constexpr unsigned int value = 1u;
 #endif
@@ -191,16 +174,10 @@ struct Device
 {
     static inline const std::string name = "Device";
     using memory_space                   = NektarSpaces::DeviceSpace;
-#if defined(NEKTAR_ENABLE_CUDA)
+#if defined(NEKTAR_ENABLE_CUDA) || defined(SYCL_ENABLE_CUDA)
     static constexpr unsigned int defaultBlockSize = 256u;
     static constexpr unsigned int maximumBlockSize = 1024u;
-#elif defined(NEKTAR_ENABLE_HIP)
-    static constexpr unsigned int defaultBlockSize = 256u;
-    static constexpr unsigned int maximumBlockSize = 1024u;
-#elif defined(SYCL_ENABLE_CUDA)
-    static constexpr unsigned int defaultBlockSize = 256u;
-    static constexpr unsigned int maximumBlockSize = 1024u;
-#elif defined(SYCL_ENABLE_HIP)
+#elif defined(NEKTAR_ENABLE_HIP) || defined(SYCL_ENABLE_HIP)
     static constexpr unsigned int defaultBlockSize = 256u;
     static constexpr unsigned int maximumBlockSize = 1024u;
 #elif defined(SYCL_ENABLE_INTEL)
