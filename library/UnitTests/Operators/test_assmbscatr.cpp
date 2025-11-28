@@ -45,7 +45,7 @@
     {                                                                          \
         Configure(2, 2);                                                       \
         SetTestCase();                                                         \
-        RunTestCase<NektarSpaces::Serial>();                                   \
+        RunTestCase();                                                         \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
             BOOST_TEST(Compare(tol));                                          \
@@ -57,7 +57,7 @@
     {                                                                          \
         Configure(2, 2);                                                       \
         SetTestCase(true);                                                     \
-        RunTestCaseZeroDir<NektarSpaces::Serial>();                            \
+        RunTestCaseZeroDir();                                                  \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
             BOOST_TEST(Compare(tol));                                          \

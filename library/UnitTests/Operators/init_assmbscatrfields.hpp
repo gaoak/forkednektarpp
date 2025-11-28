@@ -119,7 +119,7 @@ public:
         }
     }
 
-    template <typename ExecSpace> void RunTestCase()
+    void RunTestCase()
     {
         auto op = AssmbScatrOp<double>::Create(fixt_explist[0]);
         // setup assembly map cg for multiple components.
@@ -134,7 +134,7 @@ public:
         op->Apply(*fixt_in, *fixt_out);
     }
 
-    template <typename ExecSpace> void RunTestCaseZeroDir()
+    void RunTestCaseZeroDir()
     {
         auto op = AssmbScatrZeroDirOp<double>::Create(fixt_explist[0]);
         // setup assembly map cg for multiple components.
