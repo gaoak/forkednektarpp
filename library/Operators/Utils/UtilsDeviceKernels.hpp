@@ -113,7 +113,7 @@ NEK_DEVICE_INLINE static void MatVecKernel(const unsigned int ilane,
                                            const TData *__restrict__ in,
                                            TData *__restrict__ out)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     for (unsigned int i = 0u; i < nmTot; ++i)
     {

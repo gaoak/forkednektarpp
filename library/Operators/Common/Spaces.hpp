@@ -115,33 +115,6 @@ using default_fp_type = double;
 namespace NektarSpaces
 {
 
-// Alignment
-#if defined(NEKTAR_ENABLE_SIMD)
-static constexpr size_t host_memory_alignment =
-    tinysimd::simd<double>::alignment;
-#else
-static constexpr size_t host_memory_alignment =
-    __STDCPP_DEFAULT_NEW_ALIGNMENT__;
-#endif
-
-// Vector width
-template <typename TData> struct vector_width
-{
-#if defined(NEKTAR_ENABLE_CUDA) || defined(SYCL_ENABLE_CUDA)
-    static constexpr unsigned int value = 32u;
-#elif defined(NEKTAR_ENABLE_HIP) || defined(SYCL_ENABLE_HIP)
-    static constexpr unsigned int value = 64u;
-#elif defined(SYCL_ENABLE_INTEL)
-    static constexpr unsigned int value            = 32u;
-#elif defined(NEKTAR_ENABLE_SIMD)
-    static constexpr unsigned int value = tinysimd::simd<TData>::width;
-#elif defined(SYCL_ENABLE_CPU)
-    static constexpr unsigned int value            = 1u;
-#else
-    static constexpr unsigned int value = 1u;
-#endif
-};
-
 // Memory space.
 // Used to refer to any data in host memory.
 struct HostSpace
@@ -177,20 +150,90 @@ struct Device
 #if defined(NEKTAR_ENABLE_CUDA) || defined(SYCL_ENABLE_CUDA)
     static constexpr unsigned int defaultBlockSize = 256u;
     static constexpr unsigned int maximumBlockSize = 1024u;
+    static constexpr unsigned int warpSize         = 32u;
 #elif defined(NEKTAR_ENABLE_HIP) || defined(SYCL_ENABLE_HIP)
     static constexpr unsigned int defaultBlockSize = 256u;
     static constexpr unsigned int maximumBlockSize = 1024u;
+    static constexpr unsigned int warpSize         = 64u;
 #elif defined(SYCL_ENABLE_INTEL)
     static constexpr unsigned int defaultBlockSize = 128u;
     static constexpr unsigned int maximumBlockSize = 1024u;
+    static constexpr unsigned int warpSize         = 32u;
 #elif defined(SYCL_ENABLE_CPU)
     static constexpr unsigned int defaultBlockSize = 256u;
     static constexpr unsigned int maximumBlockSize = 1024u;
+    static constexpr unsigned int warpSize         = 1u;
 #else
     static constexpr unsigned int defaultBlockSize = 1u;
     static constexpr unsigned int maximumBlockSize = 1u;
+    static constexpr unsigned int warpSize         = 1u;
 #endif
 };
+
+// Alignment
+#if defined(NEKTAR_ENABLE_SIMD)
+static constexpr size_t host_memory_alignment =
+    tinysimd::simd<double>::alignment;
+#else
+static constexpr size_t host_memory_alignment =
+    __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+#endif
+
+// Vector width
+template <typename ExecSpace, typename TData> struct vector_width
+{
+};
+
+template <typename TData> struct vector_width<Serial, TData>
+{
+    static constexpr unsigned int value = 1u;
+};
+
+template <typename TData> struct vector_width<AVX, TData>
+{
+    static constexpr unsigned int value = tinysimd::simd<TData>::width;
+};
+
+template <typename TData> struct vector_width<Device, TData>
+{
+#if defined(NEKTAR_ENABLE_CUDA) || defined(SYCL_ENABLE_CUDA) ||                \
+    defined(NEKTAR_ENABLE_HIP) || defined(SYCL_ENABLE_HIP) ||                  \
+    defined(SYCL_ENABLE_INTEL)
+    static_assert(
+        Device::warpSize % tinysimd::simd<TData>::width == 0,
+        "AVX/Device back-ends interoperability requires device vector width "
+        "(warpsize) to be integer multiple of SIMD vector width");
+#endif
+    static constexpr unsigned int value = Device::warpSize;
+};
+
+template <typename TData> struct max_vector_width
+{
+    // Use maximum vector width for back-ends interoperability.
+    static constexpr unsigned int value = std::max(
+        vector_width<AVX, TData>::value, vector_width<Device, TData>::value);
+};
+
+template <typename TData>
+static unsigned int GetVectorWidth(const std::string &execName)
+{
+    if (execName == "Serial")
+    {
+        return NektarSpaces::vector_width<NektarSpaces::Serial, TData>::value;
+    }
+    else if (execName == "AVX")
+    {
+        return NektarSpaces::vector_width<NektarSpaces::AVX, TData>::value;
+    }
+    else if (execName == "Device")
+    {
+        return NektarSpaces::vector_width<NektarSpaces::Device, TData>::value;
+    }
+    else
+    {
+        return 0;
+    }
+}
 
 // These are used for LoopExecution.hpp
 // NEKTAR_LAMBDA
@@ -288,14 +331,14 @@ NEK_DEVICE_INLINE static unsigned int getBlockRange(
 NEK_DEVICE_INLINE static unsigned int getWarpIdx(
     [[maybe_unused]] const hipcudaBlock1D &threadBlock)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<double>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
     return getGlobalIdx(threadBlock) / warpsize;
 }
 
 NEK_DEVICE_INLINE static unsigned int getLaneIdx(
     [[maybe_unused]] const hipcudaBlock1D &threadBlock)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<double>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
     return getLocalIdx(threadBlock) % warpsize;
 }
 
@@ -501,7 +544,7 @@ NEK_DEVICE_INLINE static TData warpReduceSum(
     const TData val, [[maybe_unused]] const hipcudaBlock1D &threadBlock)
 {
 #if defined(__CUDACC__)
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     auto block = cg::this_thread_block();
     auto warp  = cg::tiled_partition<warpsize>(block);
@@ -537,7 +580,7 @@ NEK_DEVICE_INLINE static TData warpReduceMax(
     const TData val, [[maybe_unused]] const hipcudaBlock1D &threadBlock)
 {
 #if defined(__CUDACC__)
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     auto block = cg::this_thread_block();
     auto warp  = cg::tiled_partition<warpsize>(block);
@@ -573,7 +616,7 @@ NEK_DEVICE_INLINE static TData warpReduceMin(
     const TData val, [[maybe_unused]] const hipcudaBlock1D &threadBlock)
 {
 #if defined(__CUDACC__)
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     auto block = cg::this_thread_block();
     auto warp  = cg::tiled_partition<warpsize>(block);
@@ -609,7 +652,7 @@ NEK_DEVICE_INLINE static TData warpReduceOr(
     const TData val, [[maybe_unused]] const hipcudaBlock1D &threadBlock)
 {
 #if defined(__CUDACC__)
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     auto block = cg::this_thread_block();
     auto warp  = cg::tiled_partition<warpsize>(block);
@@ -645,7 +688,7 @@ NEK_DEVICE_INLINE static TData warpReduceAnd(
     const TData val, [[maybe_unused]] const hipcudaBlock1D &threadBlock)
 {
 #if defined(__CUDACC__)
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     auto block = cg::this_thread_block();
     auto warp  = cg::tiled_partition<warpsize>(block);

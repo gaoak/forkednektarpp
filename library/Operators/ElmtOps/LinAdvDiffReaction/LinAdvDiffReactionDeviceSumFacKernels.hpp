@@ -51,7 +51,7 @@ NEK_DEVICE_INLINE static void AddAdvection1DKernel(
     const TData *__restrict__ advVel0, const TData *__restrict__ deriv0,
     TData *__restrict__ out, const TData scale)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     // calculate advection term
     for (unsigned int i = 0u; i < nq0; ++i)
@@ -69,7 +69,7 @@ NEK_DEVICE_INLINE static void AddAdvection2DKernel(
     const TData *__restrict__ deriv0, const TData *__restrict__ deriv1,
     TData *__restrict__ out, const TData scale)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     // calculate advection term
     for (unsigned int i = 0u; i < nq0 * nq1; ++i)
@@ -90,7 +90,7 @@ NEK_DEVICE_INLINE static void AddAdvection3DKernel(
     const TData *__restrict__ deriv2, TData *__restrict__ out,
     const TData scale)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     // calculate advection term
     for (unsigned int i = 0u; i < nq0 * nq1 * nq2; ++i)
@@ -173,8 +173,7 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction1DKernel(
 
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
-        constexpr unsigned int warpsize =
-            NektarSpaces::vector_width<TData>::value;
+        constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
         size_t e = getGlobalIdx(threadBlock);
         while (e < nelmt)
@@ -258,8 +257,7 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction2DKernel(
 
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
-        constexpr unsigned int warpsize =
-            NektarSpaces::vector_width<TData>::value;
+        constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
         TData *s_f0 = nullptr;
         TData *s_f1 = nullptr;
@@ -532,8 +530,7 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction3DKernel(
 
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
-        constexpr unsigned int warpsize =
-            NektarSpaces::vector_width<TData>::value;
+        constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
         TData *s_f0  = nullptr;
         TData *s_f1  = nullptr;

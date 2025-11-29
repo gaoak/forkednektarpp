@@ -151,7 +151,8 @@ std::vector<BlockAttributes> GetBlockAttributes(
     FieldState state, const MultiRegions::ExpListSharedPtr explist,
     const unsigned interleave_width = 1)
 {
-    const auto vector_width = NektarSpaces::vector_width<TData>::value;
+    // Use maximum vector width for back-ends interoperability.
+    const auto vector_width = NektarSpaces::max_vector_width<TData>::value;
 
     std::vector<BlockAttributes> blockAttr;
 

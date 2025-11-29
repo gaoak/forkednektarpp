@@ -192,7 +192,7 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase1DSumFacKernel(
     const TData *__restrict__ df, const TData *__restrict__ jac,
     const TData *__restrict__ in, TData *__restrict__ out)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     for (unsigned int i = 0u; i < nq0; ++i)
     {
@@ -226,7 +226,7 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase2DSumFacKernel(
     const TData *__restrict__ jac, const TData *__restrict__ in,
     TData *__restrict__ out0, TData *__restrict__ out1)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     const unsigned int ndf = 2 * ncoord;
 
@@ -289,7 +289,7 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase3DSumFacKernel(
     TData *__restrict__ out0, TData *__restrict__ out1,
     TData *__restrict__ out2)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     constexpr unsigned int ndf = 9u;
 
@@ -556,8 +556,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase1DKernel(
 
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
-        constexpr unsigned int warpsize =
-            NektarSpaces::vector_width<TData>::value;
+        constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
         size_t e = getGlobalIdx(threadBlock);
         while (e < nelmt)
@@ -623,8 +622,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase2DKernel(
 
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
-        constexpr unsigned int warpsize =
-            NektarSpaces::vector_width<TData>::value;
+        constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
         TData *s_f0 = nullptr;
         TData *s_f1 = nullptr;
@@ -813,8 +811,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
 
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
-        constexpr unsigned int warpsize =
-            NektarSpaces::vector_width<TData>::value;
+        constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
         TData *s_f0  = nullptr;
         TData *s_f1  = nullptr;

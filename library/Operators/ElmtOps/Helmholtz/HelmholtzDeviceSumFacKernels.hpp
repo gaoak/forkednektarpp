@@ -178,7 +178,7 @@ NEK_DEVICE_INLINE static void ApplyMetric1DSumFacKernel(
     const TData *__restrict__ diffCoeff, const TData *__restrict__ in,
     TData *__restrict__ bwd, TData *out, const TData lambda)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     TData metric[3] = {0.0};
     if constexpr (!DEFORMED)
@@ -283,7 +283,7 @@ NEK_DEVICE_INLINE static void ApplyMetric2DSumFacKernel(
     const TData *__restrict__ in, TData *__restrict__ bwd,
     TData *__restrict__ out0, TData *__restrict__ out1, const TData lambda)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     const unsigned int ndf = 2 * ncoord;
 
@@ -448,7 +448,7 @@ NEK_DEVICE_INLINE static void ApplyMetric3DSumFacKernel(
     TData *__restrict__ out0, TData *__restrict__ out1,
     TData *__restrict__ out2, const TData lambda)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     constexpr unsigned int ndf = 9u;
 
@@ -1032,8 +1032,7 @@ NEK_DEVICE_INLINE static void Helmholtz1DKernel(
 
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
-        constexpr unsigned int warpsize =
-            NektarSpaces::vector_width<TData>::value;
+        constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
         size_t e = getGlobalIdx(threadBlock);
         while (e < nelmt)
@@ -1113,8 +1112,7 @@ NEK_DEVICE_INLINE static void Helmholtz2DKernel(
 
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
-        constexpr unsigned int warpsize =
-            NektarSpaces::vector_width<TData>::value;
+        constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
         TData *s_f0 = nullptr;
         TData *s_f1 = nullptr;
@@ -1382,8 +1380,7 @@ NEK_DEVICE_INLINE static void Helmholtz3DKernel(
 
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
-        constexpr unsigned int warpsize =
-            NektarSpaces::vector_width<TData>::value;
+        constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
         TData *s_f0  = nullptr;
         TData *s_f1  = nullptr;
