@@ -162,7 +162,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseSegSumFacKernel(
     const TData *__restrict__ jac, const TData *__restrict__ in,
     TData *__restrict__ out, const TData scale)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     for (unsigned int p = 0u; p < nm0; ++p)
     {
@@ -203,7 +203,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseSegSumFacKernel(
     const TData *__restrict__ basis0, const TData *__restrict__ in,
     TData *__restrict__ out, const TData scale)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     for (unsigned int p = 0u; p < nm0; ++p)
     {
@@ -239,7 +239,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacKernel(
     const TData *__restrict__ jac, const TData *__restrict__ in,
     TData *__restrict__ out, TData *__restrict__ wsp, const TData scale)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     for (unsigned int p = 0u; p < nm0; ++p)
     {
@@ -296,7 +296,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacKernel(
     const TData *__restrict__ in, TData *__restrict__ out,
     TData *__restrict__ wsp, const TData scale)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     for (unsigned int p = 0u; p < nm0; ++p)
     {
@@ -346,7 +346,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacKernel(
     const TData *__restrict__ jac, const TData *__restrict__ in,
     TData *__restrict__ out, TData *__restrict__ wsp, const TData scale)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     for (unsigned int p = 0u, mode_pq = 0u; p < nm0; ++p)
     {
@@ -440,7 +440,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacKernel(
     const TData *__restrict__ in, TData *__restrict__ out,
     TData *__restrict__ wsp, const TData scale)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     for (unsigned int p = 0u, mode_pq = 0u; p < nm0; ++p)
     {
@@ -518,7 +518,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacKernel(
     const TData *__restrict__ in, TData *__restrict__ out,
     TData *__restrict__ wsp0, TData *__restrict__ wsp1, const TData scale)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     for (unsigned int p = 0u; p < nm0; ++p)
     {
@@ -599,7 +599,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacKernel(
     const TData *__restrict__ in, TData *__restrict__ out,
     TData *__restrict__ wsp0, TData *__restrict__ wsp1, const TData scale)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     for (unsigned int p = 0u; p < nm0; ++p)
     {
@@ -673,7 +673,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacKernel(
     TData *__restrict__ out, TData *__restrict__ wsp0, TData *__restrict__ wsp1,
     const TData scale)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     for (unsigned int p = 0u, mode_pq = 0u, mode2 = 0u, mode_pqr = 0u; p < nm0;
          ++p)
@@ -848,7 +848,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacKernel(
     TData *__restrict__ out, TData *__restrict__ wsp0, TData *__restrict__ wsp1,
     const TData scale)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     for (unsigned int p = 0u, mode_pq = 0u, mode2 = 0u, mode_pqr = 0u; p < nm0;
          ++p)
@@ -997,7 +997,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacKernel(
     TData *__restrict__ out, TData *__restrict__ wsp0, TData *__restrict__ wsp1,
     const TData scale)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     for (unsigned int p = 0u, mode_pqr = 0u; p < nm0; ++p)
     {
@@ -1144,7 +1144,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacKernel(
     TData *__restrict__ out, TData *__restrict__ wsp0, TData *__restrict__ wsp1,
     const TData scale)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     for (unsigned int p = 0u, mode_pqr = 0u; p < nm0; ++p)
     {
@@ -1268,7 +1268,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacKernel(
     TData *__restrict__ out, TData *__restrict__ wsp0, TData *__restrict__ wsp1,
     const TData scale)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     for (unsigned int p = 0u, mode2 = 0u, mode_pqr = 0u; p < nm0; ++p)
     {
@@ -1446,7 +1446,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacKernel(
     TData *__restrict__ out, TData *__restrict__ wsp0, TData *__restrict__ wsp1,
     const TData scale)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     for (unsigned int p = 0u, mode2 = 0u, mode_pqr = 0u; p < nm0; ++p)
     {
@@ -2321,8 +2321,7 @@ NEK_DEVICE_INLINE static void IProductWRTBase1DKernel(
 
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
-        constexpr unsigned int warpsize =
-            NektarSpaces::vector_width<TData>::value;
+        constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
         size_t e = getGlobalIdx(threadBlock);
         while (e < nelmt)
@@ -2394,8 +2393,7 @@ NEK_DEVICE_INLINE static void IProductWRTBase2DKernel(
 
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
-        constexpr unsigned int warpsize =
-            NektarSpaces::vector_width<TData>::value;
+        constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
         size_t e = getGlobalIdx(threadBlock);
         while (e < nelmt)
@@ -2550,8 +2548,7 @@ NEK_DEVICE_INLINE static void IProductWRTBase3DKernel(
 
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
-        constexpr unsigned int warpsize =
-            NektarSpaces::vector_width<TData>::value;
+        constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
         size_t e = getGlobalIdx(threadBlock); // use size_t to prevent overflow
         while (e < nelmt)

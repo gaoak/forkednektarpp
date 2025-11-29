@@ -48,7 +48,7 @@ NEK_FORCE_INLINE static
                        const TData *matPtr, const size_t *mapPtr,
                        const TData *incoeffPtr, TData *coeffPtr)
 {
-    const unsigned int blockSize = NektarSpaces::vector_width<TData>::value;
+    const unsigned int blockSize = NektarSpaces::Device::warpSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     sycl::queue &Q = SYCLQueue::GetInstance();
@@ -75,7 +75,7 @@ NEK_FORCE_INLINE static
                        TData *coeffPtr)
 {
     const unsigned int shmemsize = sizeof(TData) * nmaxcoeff;
-    const unsigned int blockSize = NektarSpaces::vector_width<TData>::value;
+    const unsigned int blockSize = NektarSpaces::Device::warpSize;
     const unsigned int gridSize  = nsize;
 
     sycl::queue &Q = SYCLQueue::GetInstance();

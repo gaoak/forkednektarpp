@@ -145,7 +145,7 @@ NEK_DEVICE_INLINE static void BwdTransSegSumFacKernel(
     const TData *__restrict__ basis0, const TData *__restrict__ in,
     TData *__restrict__ out)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     for (unsigned int i = 0u; i < nq0; ++i)
     {
@@ -167,7 +167,7 @@ NEK_DEVICE_INLINE static void BwdTransQuadSumFacKernel(
     const TData *__restrict__ in, TData *__restrict__ out,
     TData *__restrict__ wsp)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     for (unsigned int i = 0u; i < nq0; ++i)
     {
@@ -205,7 +205,7 @@ NEK_DEVICE_INLINE static void BwdTransTriSumFacKernel(
     const TData *__restrict__ in, TData *__restrict__ out,
     TData *__restrict__ wsp)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     for (unsigned int j = 0u, cnt_ji = 0u; j < nq1; ++j)
     {
@@ -252,7 +252,7 @@ NEK_DEVICE_INLINE static void BwdTransHexSumFacKernel(
     const TData *__restrict__ in, TData *__restrict__ out,
     TData *__restrict__ wsp0, TData *__restrict__ wsp1)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     for (unsigned int i = 0u; i < nq0; ++i)
     {
@@ -310,7 +310,7 @@ NEK_DEVICE_INLINE static void BwdTransTetSumFacKernel(
     const TData *__restrict__ basis2, const TData *__restrict__ in,
     TData *__restrict__ out, TData *__restrict__ fpq, TData *__restrict__ fp)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
     {
@@ -401,7 +401,7 @@ NEK_DEVICE_INLINE static void BwdTransPrismSumFacKernel(
     const TData *__restrict__ basis2, const TData *__restrict__ in,
     TData *__restrict__ out, TData *__restrict__ fpq, TData *__restrict__ fp)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
     {
@@ -475,7 +475,7 @@ NEK_DEVICE_INLINE static void BwdTransPyrSumFacKernel(
     const TData *__restrict__ basis2, const TData *__restrict__ in,
     TData *__restrict__ out, TData *__restrict__ fpq, TData *__restrict__ fp)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
     {
@@ -1041,8 +1041,7 @@ NEK_DEVICE_INLINE static void BwdTrans1DKernel(
 {
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
-        constexpr unsigned int warpsize =
-            NektarSpaces::vector_width<TData>::value;
+        constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
         size_t e = getGlobalIdx(threadBlock);
         while (e < nelmt)
@@ -1085,8 +1084,7 @@ NEK_DEVICE_INLINE static void BwdTrans2DKernel(
 
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
-        constexpr unsigned int warpsize =
-            NektarSpaces::vector_width<TData>::value;
+        constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
         size_t e = getGlobalIdx(threadBlock);
         while (e < nelmt)
@@ -1213,8 +1211,7 @@ NEK_DEVICE_INLINE static void BwdTrans3DKernel(
 
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
-        constexpr unsigned int warpsize =
-            NektarSpaces::vector_width<TData>::value;
+        constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
         size_t e = getGlobalIdx(threadBlock); // use size_t to prevent overflow
         while (e < nelmt)

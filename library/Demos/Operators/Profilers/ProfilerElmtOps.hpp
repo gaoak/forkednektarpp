@@ -419,7 +419,7 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
 
     // Reshape.
     auto interleaveWidth = (implName == "SumFac" || execName == "AVX")
-                               ? NektarSpaces::vector_width<TData>::value
+                               ? NektarSpaces::GetVectorWidth<TData>(execName)
                                : 1;
     for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
     {

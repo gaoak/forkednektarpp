@@ -108,7 +108,7 @@ NEK_DEVICE_INLINE static void PhysDeriv1DSumFacKernel(
     const TData *__restrict__ df, const TData *__restrict__ in,
     TData *__restrict__ out)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     for (unsigned int i = 0u; i < nq0; ++i)
     {
@@ -138,7 +138,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor1DKernel(
     const TData *__restrict__ D0, const TData *__restrict__ in0,
     TData *__restrict__ out)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     for (unsigned int i = 0u; i < nq0; ++i)
     {
@@ -170,7 +170,7 @@ NEK_DEVICE_INLINE static void PhysDeriv2DSumFacKernel(
     [[maybe_unused]] const TData *__restrict__ f1, const TData *__restrict__ df,
     const TData *__restrict__ in, TData *__restrict__ out)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     const unsigned int ndf = 2 * ncoord;
 
@@ -228,7 +228,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor2DKernel(
     const TData *__restrict__ in0, const TData *__restrict__ in1,
     TData *__restrict__ out)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     for (unsigned int j = 0u, cnt_ji = 0u; j < nq1; ++j)
     {
@@ -274,7 +274,7 @@ NEK_DEVICE_INLINE static void PhysDeriv3DSumFacKernel(
     [[maybe_unused]] const TData *__restrict__ f2, const TData *__restrict__ df,
     const TData *__restrict__ in, TData *__restrict__ out)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     constexpr unsigned int ndf = 9u;
 
@@ -363,7 +363,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor3DKernel(
     const TData *__restrict__ in0, const TData *__restrict__ in1,
     const TData *__restrict__ in2, TData *__restrict__ out)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; k++)
     {
@@ -746,8 +746,7 @@ NEK_DEVICE_INLINE static void PhysDeriv1DKernel(
 
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
-        constexpr unsigned int warpsize =
-            NektarSpaces::vector_width<TData>::value;
+        constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
         size_t e = getGlobalIdx(threadBlock);
         while (e < nelmt)
@@ -794,8 +793,7 @@ NEK_DEVICE_INLINE static void PhysDeriv2DKernel(
 
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
-        constexpr unsigned int warpsize =
-            NektarSpaces::vector_width<TData>::value;
+        constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
         TData *s_f0 = nullptr;
         TData *s_f1 = nullptr;
@@ -885,8 +883,7 @@ NEK_DEVICE_INLINE static void PhysDeriv3DKernel(
 
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
-        constexpr unsigned int warpsize =
-            NektarSpaces::vector_width<TData>::value;
+        constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
         TData *s_f0  = nullptr;
         TData *s_f1  = nullptr;

@@ -90,7 +90,7 @@ protected:
     const unsigned *m_gsIndex    = nullptr;
     const unsigned *m_gsOffset   = nullptr;
     static constexpr unsigned m_device_width =
-        NektarSpaces::vector_width<double>::value;
+        NektarSpaces::vector_width<ExecSpace, double>::value;
 #endif
     const int *m_gsSign         = nullptr;
     const unsigned *m_gsBndInfo = nullptr;
@@ -331,15 +331,14 @@ protected:
 
                 if (inoutblk.GetInterleaveWidth() != width)
                 {
-                    ASSERTL1(width == NektarSpaces::vector_width<TData>::value,
-                             "Unexpected width value");
+                    ASSERTL1(width == m_device_width, "Unexpected width value");
                     auto inoutPtr =
                         inoutblk.template GetPtr<MemSpace, ReadWrite>();
                     unsigned blksize = inoutblk.size();
                     for (unsigned nc = 0; nc < numComp; ++nc)
                     {
                         interleave<ExecSpace>(
-                            NektarSpaces::vector_width<TData>::value,
+                            m_device_width,
                             inoutblk.GetNumElementsWithPadding() / width,
                             inoutblk.GetNumData(), inoutPtr + nc * blksize);
                     }

@@ -135,7 +135,8 @@ public:
     template <typename MemSpace, typename TData>
     MemoryRegion<TData> Create(const JacobianKey<TData> &jacobianKey)
     {
-        const auto vector_width = NektarSpaces::vector_width<TData>::value;
+        // Use maximum vector width for back-ends interoperability.
+        const auto vector_width = NektarSpaces::max_vector_width<TData>::value;
 
         const auto exp_idx          = jacobianKey.m_exp_idx;
         const auto interleave_width = jacobianKey.m_interleave_width;
@@ -218,7 +219,8 @@ public:
     template <typename MemSpace, typename TData>
     MemoryRegion<TData> Create(const DerivFactorKey<TData> &derivFactorKey)
     {
-        const auto vector_width = NektarSpaces::vector_width<TData>::value;
+        // Use maximum vector width for back-ends interoperability.
+        const auto vector_width = NektarSpaces::max_vector_width<TData>::value;
 
         const auto exp_idx          = derivFactorKey.m_exp_idx;
         const auto interleave_width = derivFactorKey.m_interleave_width;
@@ -318,7 +320,8 @@ public:
     template <typename MemSpace, typename TData>
     MemoryRegion<TData> Create(const CoordKey<TData> &coordKey)
     {
-        const auto vector_width = NektarSpaces::vector_width<TData>::value;
+        // Use maximum vector width for back-ends interoperability.
+        const auto vector_width = NektarSpaces::max_vector_width<TData>::value;
 
         auto exp_idx          = coordKey.m_exp_idx;
         auto interleave_width = coordKey.m_interleave_width;

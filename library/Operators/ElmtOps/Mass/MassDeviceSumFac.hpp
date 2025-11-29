@@ -158,7 +158,7 @@ public:
 protected:
     static constexpr unsigned int m_implInterleaveWidth =
         std::is_same_v<Implementation, Operators::SumFac>
-            ? NektarSpaces::vector_width<TData>::value
+            ? NektarSpaces::Device::warpSize
             : 1u;
 
     LibUtilities::ShapeType m_shapeType;

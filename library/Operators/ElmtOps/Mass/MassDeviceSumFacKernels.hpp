@@ -156,8 +156,7 @@ NEK_DEVICE_INLINE static void Mass1DKernel(
 
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
-        constexpr unsigned int warpsize =
-            NektarSpaces::vector_width<TData>::value;
+        constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
         size_t e = getGlobalIdx(threadBlock);
         while (e < nelmt)
@@ -233,8 +232,7 @@ NEK_DEVICE_INLINE static void Mass2DKernel(
 
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
-        constexpr unsigned int warpsize =
-            NektarSpaces::vector_width<TData>::value;
+        constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
         size_t e = getGlobalIdx(threadBlock);
         while (e < nelmt)
@@ -426,8 +424,7 @@ NEK_DEVICE_INLINE static void Mass3DKernel(
 
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
-        constexpr unsigned int warpsize =
-            NektarSpaces::vector_width<TData>::value;
+        constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
         size_t e = getGlobalIdx(threadBlock); // use size_t to prevent overflow
         while (e < nelmt)

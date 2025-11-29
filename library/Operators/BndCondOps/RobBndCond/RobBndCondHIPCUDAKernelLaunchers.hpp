@@ -79,7 +79,7 @@ NEK_FORCE_INLINE static
                        const TData *matPtr, const size_t *mapPtr,
                        const TData *incoeffPtr, TData *coeffPtr)
 {
-    const unsigned int blockSize = NektarSpaces::vector_width<TData>::value;
+    const unsigned int blockSize = NektarSpaces::Device::warpSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     RobBndCond1DKernelLauncher<negflag>
@@ -100,7 +100,7 @@ NEK_FORCE_INLINE static
                        TData *coeffPtr)
 {
     const unsigned int shmemsize = sizeof(TData) * nmaxcoeff;
-    const unsigned int blockSize = NektarSpaces::vector_width<TData>::value;
+    const unsigned int blockSize = NektarSpaces::Device::warpSize;
     const unsigned int gridSize  = nsize;
 
     RobBndCond2DKernelLauncher<negflag><<<gridSize, blockSize, shmemsize>>>(

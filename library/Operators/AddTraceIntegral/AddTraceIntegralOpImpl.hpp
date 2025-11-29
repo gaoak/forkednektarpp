@@ -98,21 +98,23 @@ public:
             auto ptr = toInterleavedTraceBlock[blk].data();
             for (size_t e = 0;
                  e < block.GetNumElmtGroups(
-                         NektarSpaces::vector_width<TData>::value);
+                         NektarSpaces::vector_width<ExecSpace, TData>::value);
                  e++)
             {
                 for (unsigned int l = 0;
-                     l < NektarSpaces::vector_width<TData>::value; l++)
+                     l < NektarSpaces::vector_width<ExecSpace, TData>::value;
+                     l++)
                 {
                     for (unsigned int i = 0; i < ncoeff; i++)
                     {
                         ptr[l * ncoeff + i] =
                             l + (e * block.GetNumData() + i) *
-                                    NektarSpaces::vector_width<TData>::value;
+                                    NektarSpaces::vector_width<ExecSpace,
+                                                               TData>::value;
                     }
                 }
                 ptr += block.GetNumData() *
-                       NektarSpaces::vector_width<TData>::value;
+                       NektarSpaces::vector_width<ExecSpace, TData>::value;
             }
         }
 
@@ -135,21 +137,23 @@ public:
             auto ptr = toInterleavedBlock[blk].data();
             for (size_t e = 0;
                  e < block.GetNumElmtGroups(
-                         NektarSpaces::vector_width<TData>::value);
+                         NektarSpaces::vector_width<ExecSpace, TData>::value);
                  e++)
             {
                 for (unsigned int l = 0;
-                     l < NektarSpaces::vector_width<TData>::value; l++)
+                     l < NektarSpaces::vector_width<ExecSpace, TData>::value;
+                     l++)
                 {
                     for (unsigned int i = 0; i < ncoeff; i++)
                     {
                         ptr[l * ncoeff + i] =
                             l + (e * block.GetNumData() + i) *
-                                    NektarSpaces::vector_width<TData>::value;
+                                    NektarSpaces::vector_width<ExecSpace,
+                                                               TData>::value;
                     }
                 }
                 ptr += block.GetNumData() *
-                       NektarSpaces::vector_width<TData>::value;
+                       NektarSpaces::vector_width<ExecSpace, TData>::value;
             }
         }
 
@@ -346,13 +350,13 @@ protected:
                                     .template GetPtr<MemSpace, ReadWrite>();
 
                 ReshapeStorage<ExecSpace>(
-                    NektarSpaces::vector_width<TData>::value,
+                    NektarSpaces::vector_width<ExecSpace, TData>::value,
                     m_trace.GetBlocks()[blk1].GetInterleaveWidth(),
                     m_trace.GetBlocks()[blk1].GetNumElementsWithPadding(),
                     m_trace.GetBlocks()[blk1].GetNumData(), tracePtr);
 
                 m_trace.GetBlocks()[blk1].template SetInterleaveWidth<TData>(
-                    NektarSpaces::vector_width<TData>::value);
+                    NektarSpaces::vector_width<ExecSpace, TData>::value);
             }
 
             for (unsigned int blk0 = 0; blk0 < out.GetBlocks().size(); ++blk0)
@@ -390,7 +394,7 @@ protected:
                         (execStr == "Device" && implStr == "SumFac"))
                     {
                         ReshapeStorage<ExecSpace>(
-                            NektarSpaces::vector_width<TData>::value,
+                            NektarSpaces::vector_width<ExecSpace, TData>::value,
                             out.GetBlocks()[blk0].GetInterleaveWidth(),
                             out.GetBlocks()[blk0].GetNumElementsWithPadding(),
                             out.GetBlocks()[blk0].GetNumData(), outptr);
@@ -409,7 +413,8 @@ protected:
                     {
                         out.GetBlocks()[blk0]
                             .template SetInterleaveWidth<TData>(
-                                NektarSpaces::vector_width<TData>::value);
+                                NektarSpaces::vector_width<ExecSpace,
+                                                           TData>::value);
                     }
                 }
             }
