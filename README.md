@@ -66,11 +66,11 @@ A minimalist compilation command example is shown below for each available backe
 
 ### AVX2 
     cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
-             -DNEKTAR_ENABLE_SIMD_AVX2=ON 
+             -DNEKTAR_ENABLE_SIMD=AVX2 
 
 ### AVX512 
     cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
-             -DNEKTAR_ENABLE_SIMD_AVX512=ON 
+             -DNEKTAR_ENABLE_SIMD=AVX512 
 
 ### CUDA
     cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
