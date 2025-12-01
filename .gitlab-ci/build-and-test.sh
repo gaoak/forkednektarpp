@@ -65,15 +65,15 @@ elif [[ $BUILD_TYPE == "full" ]]; then
         CMAKEARGS+=("-DNEKTAR_ENABLE_SIMD:STRING=AVX512")
     fi
     if [[ $BUILD_DEVICEONHOST == "on" ]]; then
-        CMAKEARGS+=("-DNEKTAR_ENABLE_DEVICEONHOST:BOOL=ON")
+        CMAKEARGS+=("-DNEKTAR_ENABLE_DEVICE:STRING=DEVICEONHOST")
     elif [[ $BUILD_CUDA == "on" ]]; then
         # Load CUDA on Linux
         [[ $OS_VERSION != "macos" ]] && module load cuda/13.0.2
 
         # Enable CUDA in CMake configuration
-        CMAKEARGS+=("-DNEKTAR_ENABLE_CUDA:BOOL=ON")
+        CMAKEARGS+=("-DNEKTAR_ENABLE_DEVICE:STRING=CUDA")
         CMAKEARGS+=("-DNEKTAR_DEVICE_ARCH=sm_86")
-    elif [[ $BUILD_SYCL == "Default" ]]; then
+    elif [[ $BUILD_SYCL == "CPU" ]]; then
         if [[ $BUILD_CXX == "acpp" ]]; then
             # Load AdaptiveCpp compiler module for SYCL support on Linux
             [[ $OS_VERSION != "macos" ]] && module load adaptive-cpp
@@ -89,7 +89,7 @@ elif [[ $BUILD_TYPE == "full" ]]; then
         fi
 
         # Enable SYCL in CMake configuration
-        CMAKEARGS+=("-DNEKTAR_ENABLE_SYCL:STRING=Default")
+        CMAKEARGS+=("-DNEKTAR_ENABLE_DEVICE:STRING=SYCL-CPU")
     elif [[ $BUILD_SYCL == "CUDA" ]]; then
         if [[ $BUILD_CXX == "acpp" ]]; then
             # Load LLVM support on Linux
@@ -100,7 +100,7 @@ elif [[ $BUILD_TYPE == "full" ]]; then
         fi
 
         # Enable SYCL in CMake configuration
-        CMAKEARGS+=("-DNEKTAR_ENABLE_SYCL:STRING=CUDA")
+        CMAKEARGS+=("-DNEKTAR_ENABLE_DEVICE:STRING=SYCL-CUDA")
     fi
     if [[ $ENABLE_ALIGN_MEM == "true" ]]; then
         CMAKEARGS+=("-DNEKTAR_USE_MEMORY_POOLS:BOOL=OFF")

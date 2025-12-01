@@ -74,7 +74,7 @@ A minimalist compilation command example is shown below for each available backe
 
 ### CUDA
     cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
-             -DNEKTAR_ENABLE_CUDA=ON \
+             -DNEKTAR_ENABLE_DEVICE=CUDA \
              -DNEKTAR_DEVICE_ARCH=sm_xx \ 
 
 Note:
@@ -85,7 +85,7 @@ Note:
 
 ### HIP
     cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
-             -DNEKTAR_ENABLE_HIP=ON \
+             -DNEKTAR_ENABLE_DEVICE=HIP \
              -DCMAKE_CXX_COMPILER=hipcc \
              -DNEKTAR_DEVICE_ARCH=gfxzzz \
 
@@ -96,16 +96,9 @@ Note:
 - For MI300, please use `gfxzzz=gfx942` 
 - For MI325, please use `gfxzzz=gfx942` 
 
-### Intel SYCL (Default)
-    export CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE=64K
-
-    cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
-             -DNEKTAR_ENABLE_SYCL=Default \
-             -DCMAKE_CXX_COMPILER="/path-to-intel-compiler/bin/icpx" 
-
 ### Intel SYCL (CUDA)
     cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
-             -DNEKTAR_ENABLE_SYCL=CUDA \
+             -DNEKTAR_ENABLE_DEVICE=SYCL-CUDA \
              -DNEKTAR_DEVICE_ARCH=sm_xx \ 
              -DCMAKE_CXX_COMPILER="/path-to-intel-compiler/bin/icpx" 
 
@@ -115,14 +108,9 @@ Note:
 - For A100, please use `sm_xx=sm_80` 
 - For V100, please use `sm_xx=sm_70` 
 
-### AdaptiveCpp SYCL (Default)
-    cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
-             -DNEKTAR_ENABLE_SYCL=Default \
-             -DCMAKE_CXX_COMPILER="/path-to-adaptivecpp-compiler/bin/acpp" 
-
 ### AdaptiveCpp SYCL (CUDA)
     cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
-             -DNEKTAR_ENABLE_SYCL=CUDA \
+             -DNEKTAR_ENABLE_DEVICE=SYCL-CUDA \
              -DCMAKE_CXX_COMPILER="/path-to-adaptivecpp-compiler/bin/acpp" 
  
 

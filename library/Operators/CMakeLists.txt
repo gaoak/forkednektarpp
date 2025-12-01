@@ -53,9 +53,9 @@ MACRO(ADD_OPERATOR dir)
     
         # Set file extension.
         SET(HEADER_EXT hpp)
-        IF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_CUDA)
+        IF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
             SET(SOURCE_EXT cu)
-        ELSEIF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_HIP)
+        ELSEIF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
             SET(SOURCE_EXT hip)
         ELSE()
             SET(SOURCE_EXT cpp)
@@ -168,9 +168,9 @@ MACRO(ADD_ELMT_OPERATOR dir)
     
         # Set file extension.
         SET(HEADER_EXT hpp)
-        IF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_CUDA)
+        IF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
             SET(SOURCE_EXT cu)
-        ELSEIF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_HIP)
+        ELSEIF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
             SET(SOURCE_EXT hip)
         ELSE()
             SET(SOURCE_EXT cpp)
@@ -361,7 +361,7 @@ MACRO(ADD_ELMT_OPERATOR dir)
 
                 # ----------------- ADDED FOR CUBLAS IMPLEMENTATION -----------------#
                 # Found a CUDA SumFacCUBLAS header.
-                ELSEIF((EXISTS "${dir}/${name}CUDASumFacCUBLAS.cuh") AND NEKTAR_ENABLE_CUDA AND
+                ELSEIF((EXISTS "${dir}/${name}CUDASumFacCUBLAS.cuh") AND (NEKTAR_ENABLE_DEVICE STREQUAL "CUDA") AND
                     ("${ExecSpace}" STREQUAL "Device") AND ("${Impl}" STREQUAL "SumFacMat"))
                     FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
                         "${dir}/${name}CUDASumFacCUBLAS.cuh")
@@ -495,9 +495,9 @@ MACRO(ADD_TIME_OPERATOR dir)
 
             # Set file extension.
             SET(HEADER_EXT hpp)
-            IF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_CUDA)
+            IF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
                 SET(SOURCE_EXT cu)
-            ELSEIF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_HIP)
+            ELSEIF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
                 SET(SOURCE_EXT hip)
             ELSE()
                 SET(SOURCE_EXT cpp)
@@ -638,9 +638,9 @@ ENDFOREACH()
   IF (Device IN_LIST ExecSpaces)
     SET(EXEC_MEM_SPACE_TAG NektarSpaces::Device)
     SET(ExecSpace Device)
-    IF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_CUDA)
+    IF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
          SET(SOURCE_EXT cu)
-    ELSEIF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_HIP)
+    ELSEIF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
          SET(SOURCE_EXT hip)
     ELSE()
   	 SET(SOURCE_EXT cpp)
@@ -710,7 +710,7 @@ IF(NEKTAR_ENABLE_MAGMA)
        NekBlas/magma.cpp
     )
 # CUBLAS specific file
-ELSEIF(NEKTAR_ENABLE_CUDA)
+ELSEIF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
     SET(OPERATORS_HEADERS
       ${OPERATORS_HEADERS}
        NekBlas/cuBlasHandle.hpp
@@ -722,7 +722,7 @@ ELSEIF(NEKTAR_ENABLE_CUDA)
        NekBlas/cuBlas.cpp
     )
 # HIPBLAS specific file
-ELSEIF(NEKTAR_ENABLE_HIP)
+ELSEIF(NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
     SET(OPERATORS_HEADERS
       ${OPERATORS_HEADERS}
        NekBlas/hipBlasHandle.hpp
@@ -734,7 +734,7 @@ ELSEIF(NEKTAR_ENABLE_HIP)
        NekBlas/hipBlas.cpp
     )
 # MKL specific file
-ELSEIF(NEKTAR_ENABLE_SYCL)
+ELSEIF(NEKTAR_ENABLE_DEVICE MATCHES "SYCL*")
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
       NekBlas/syclBlas.cpp
@@ -750,7 +750,7 @@ IF(NEKTAR_ENABLE_SIMD)
 ENDIF()
 
 # CUDA specific file
-IF(NEKTAR_ENABLE_CUDA)
+IF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
        Field/MemoryAlloc.cu
@@ -760,7 +760,7 @@ IF(NEKTAR_ENABLE_CUDA)
       ${OPERATORS_DEPENDS}
       ${NEKTAR_CUDA_DEPENDS})
 # HIP specific file
-ELSEIF(NEKTAR_ENABLE_HIP)
+ELSEIF(NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
        Field/MemoryAlloc.hip
@@ -770,7 +770,7 @@ ELSEIF(NEKTAR_ENABLE_HIP)
       ${OPERATORS_DEPENDS}
       ${NEKTAR_HIP_DEPENDS})
 # SYCL specific file
-ELSEIF(NEKTAR_ENABLE_SYCL)
+ELSEIF(NEKTAR_ENABLE_DEVICE MATCHES "SYCL*")
     SET(OPERATORS_HEADERS
       ${OPERATORS_HEADERS}
       Common/SYCLQueue.hpp
@@ -791,7 +791,7 @@ ELSE()
 ENDIF()
 
 # CUDA specific file
-IF(NEKTAR_ENABLE_CUDA)
+IF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
       Math/Math.cu
