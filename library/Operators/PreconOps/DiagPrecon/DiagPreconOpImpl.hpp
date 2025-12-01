@@ -106,6 +106,7 @@ protected:
             auto outPtr  = outblock.template GetPtr<MemSpace, WriteOnly>();
             auto diagPtr = diagblock.template GetPtr<MemSpace, ReadOnly>();
 
+            // Reshape, if necessary.
             auto in_width = inblock.GetInterleaveWidth();
             if (in_width != diagblock.GetInterleaveWidth())
             {
@@ -115,14 +116,16 @@ protected:
                     diagblock.GetNumData(), (TData *)diagPtr);
             }
 
+            // Apply diagonal preconditioner.
             auto blkSize =
                 outblock.GetNumElementsWithPadding() * outblock.GetNumData();
-
             for (auto n = 0; n < outblock.GetNumComponents(); ++n)
             {
                 mulKernel<ExecSpace>(blkSize, diagPtr, inPtr + n * blkSize,
                                      outPtr + n * blkSize);
             }
+
+            // Set output block to input interleave.
             outblock.template SetInterleaveWidth<TData>(in_width);
         }
     }
@@ -148,11 +151,10 @@ protected:
         Field<TData, FieldState::Coeff> action =
             Field<TData, FieldState::Coeff>("DiagPrecon action", blocks, 1, 1);
 
-        // intiialisating to 1 so padded elements can be inverted
-        m_invDiag.template Initialize<NektarSpaces::HostSpace>(1);
-        // Initialize field.
-        unit_vec.template Initialize<MemSpace>(0);
+        // Intialisating to 1 so padded elements can be inverted.
+        m_invDiag.template Initialize<MemSpace>(1);
 
+        // Compute maximum block nCoeff.
         unsigned nCoeffMax = 0;
         for (unsigned blk = 0; blk < unit_vec.GetBlocks().size(); ++blk)
         {
@@ -162,6 +164,7 @@ protected:
             nCoeffMax = (nCoeff > nCoeffMax) ? nCoeff : nCoeffMax;
         }
 
+        // Compute diagonal.
         for (unsigned mode = 0; mode < nCoeffMax; ++mode)
         {
             for (unsigned blk = 0; blk < unit_vec.GetBlocks().size(); ++blk)
@@ -171,21 +174,20 @@ protected:
 
                 if (mode < nCoeff)
                 {
-                    const auto numdata   = unitblk.GetNumData();
-                    const auto nelmtgrps = unitblk.GetNumElmtGroups();
-                    const auto width     = unitblk.GetInterleaveWidth();
+                    const bool isInterleaved =
+                        (unitblk.GetInterleaveWidth() != 1);
+                    const auto numdata = unitblk.GetNumData();
+                    const auto nelmt   = unitblk.GetNumElementsWithPadding();
                     auto *blkptr =
                         unitblk.template GetPtr<MemSpace, WriteOnly>();
 
                     // Set ith term in unit vector to be 1.
-                    SetModeBlkKernel<ExecSpace>(mode, nelmtgrps, width, numdata,
-                                                1.0, blkptr);
+                    SetModeBlkKernel<ExecSpace>(mode, nelmt, numdata, 1.0,
+                                                blkptr, isInterleaved);
                 }
             }
 
-            // Apply the operator to unit vector and store in the
-            // action field -- ideallly could be a block operator rather than
-            // field operator
+            // Apply the operator to unit vector and store in the action field.
             op->Apply(unit_vec, action);
             m_robBCOp->Apply(unit_vec, action);
 
@@ -198,9 +200,10 @@ protected:
 
                 if (mode < nCoeff)
                 {
-                    const auto numdata   = unitblk.GetNumData();
-                    const auto nelmtgrps = unitblk.GetNumElmtGroups();
-                    const auto width     = unitblk.GetInterleaveWidth();
+                    const bool isInterleaved =
+                        (unitblk.GetInterleaveWidth() != 1);
+                    const auto numdata = unitblk.GetNumData();
+                    const auto nelmt   = unitblk.GetNumElementsWithPadding();
                     auto *unitblkptr =
                         unitblk.template GetPtr<MemSpace, WriteOnly>();
                     auto *fromblkptr =
@@ -210,38 +213,32 @@ protected:
 
                     // Copy the ith row term from the action field to get
                     // the ith diagonal.
-                    CopyModeBlkKernel<ExecSpace>(mode, nelmtgrps, width,
-                                                 numdata, fromblkptr, toblkptr);
+                    CopyModeBlkKernel<ExecSpace>(mode, nelmt, numdata,
+                                                 fromblkptr, toblkptr,
+                                                 isInterleaved);
 
                     // Reset the ith term in the unit vector to be 0.
-                    SetModeBlkKernel<ExecSpace>(mode, nelmtgrps, width, numdata,
-                                                0.0, unitblkptr);
+                    SetModeBlkKernel<ExecSpace>(mode, nelmt, numdata, 0.0,
+                                                unitblkptr, isInterleaved);
                 }
+
+                // Set diagonal interleave format.
                 diagblk.template SetInterleaveWidth<TData>(
                     actionblk.GetInterleaveWidth());
             }
         }
 
-        // Assembly and scatr  values (without a sign change)
+        // Assembly and scatter values (without a sign change).
         m_assmbScatrNoSignOp->Apply(m_invDiag);
 
-        // invert diagonal
+        // Invert diagonal.
         for (unsigned blk = 0; blk < m_invDiag.GetBlocks().size(); ++blk)
         {
             // Block dependent.
-            auto &block = m_invDiag.GetBlocks()[blk];
-            auto diagptr =
-                block.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
+            auto &block  = m_invDiag.GetBlocks()[blk];
+            auto diagptr = block.template GetPtr<MemSpace, ReadWrite>();
 
-            // set any zero terms to 1.0 - arises in variable p case.
-            // Could set this up as a math kernel operations?
-            for (unsigned n = 0; n < block.size(); ++n)
-            {
-                diagptr[n] = (diagptr[n] == 0.0) ? 1.0 : diagptr[n];
-            }
-
-            divKernel<NektarSpaces::Serial>(block.size(), 1.0, diagptr,
-                                            diagptr);
+            InvDiagBlkKernel<ExecSpace>(block.size(), diagptr);
         }
     }
 };

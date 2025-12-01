@@ -185,6 +185,6 @@ NEK_DEVICE_INLINE static void MatVecQPKernel(const unsigned int nmTot,
 
 } // namespace Nektar
 
-#include "Operators/Utils/UtilsDeviceOnHostKernels.hpp"
-#include "Operators/Utils/UtilsHIPCUDAKernels.hpp"
-#include "Operators/Utils/UtilsSYCLKernels.hpp"
+#include "Operators/Utils/UtilsDeviceOnHostKernelLaunchers.hpp"
+#include "Operators/Utils/UtilsHIPCUDAKernelLaunchers.hpp"
+#include "Operators/Utils/UtilsSYCLKernelLaunchers.hpp"
