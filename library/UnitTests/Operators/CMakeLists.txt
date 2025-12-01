@@ -36,7 +36,7 @@ ADD_NEKTAR_EXECUTABLE(test_comm
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_comm.cpp)
 ADD_NEKTAR_EXECUTABLE(test_math
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_math.cpp)
-IF(NEKTAR_ENABLE_CUDA)
+IF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
     ADD_NEKTAR_EXECUTABLE(test_parallel_reduce
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_parallel_reduce.cu)
 ELSE()
@@ -115,7 +115,7 @@ ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled.cpp)
 
 # CUDA SumFacMat
-IF(NEKTAR_ENABLE_CUDA)
+IF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
     ADD_NEKTAR_EXECUTABLE(test_bwdtrans_device_sumfacmat
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_device_sumfacmat.cpp)
     ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_device_sumfacmat
@@ -321,7 +321,7 @@ IF(NEKTAR_ENABLE_DEVICE)
     SET_UNIT_TEST(Implicit_GEM_device test_implicit_gem Device none FALSE)
     SET_UNIT_TEST(IMEX_GEM_device test_imex_gem Device none FALSE)
     IF (NEKTAR_USE_MPI)
-        IF (NOT NEKTAR_ENABLE_SYCL STREQUAL "CUDA")
+        IF (NOT NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CUDA")
             SET_UNIT_TEST(AssmbScatr_device test_assmbscatr Device none TRUE)
         ENDIF()
     ENDIF()
@@ -390,7 +390,7 @@ IF(NEKTAR_ENABLE_DEVICE)
 ENDIF()
 
 # CUDA SumFacMat
-IF(NEKTAR_ENABLE_CUDA)
+IF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
     SET_UNIT_TEST(BwdTrans_device_sumfacmat test_bwdtrans_device_sumfacmat Device SumFacMat FALSE)
     SET_UNIT_TEST(IProductWRTBase_device_sumfacmat test_ipwrtbase_device_sumfacmat Device SumFacMat FALSE)
     SET_UNIT_TEST(IProductWRTDerivBase_device_sumfacmat test_ipwrtderivbase_device_sumfacmat Device SumFacMat FALSE)

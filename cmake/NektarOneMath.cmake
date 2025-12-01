@@ -10,8 +10,8 @@ ELSE()
     SET(ONEMATH_SYCL_IMPLEMENTATION "dpc++")
 ENDIF()
 
-IF (NEKTAR_ENABLE_SYCL STREQUAL "Default")
-    IF (NEKTAR_ENABLE_SYCL STREQUAL "Intel")
+IF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CPU")
+    IF (ONEMATH_SYCL_IMPLEMENTATION STREQUAL "dpc++")
         FIND_PACKAGE(MKL CONFIG REQUIRED)
         SET(NEKTAR_SYCL_DEPENDS MKL::MKL_SYCL)
     ENDIF()
@@ -25,7 +25,7 @@ ELSE()
         EXECUTE_PROCESS(COMMAND rm -rf ${TPSRC}/oneMath)
         EXECUTE_PROCESS(COMMAND rm -rf ${TPBUILD}/oneMath)
         EXECUTE_PROCESS(COMMAND git clone -b develop https://github.com/uxlfoundation/oneMath.git ${TPSRC}/oneMath)
-        IF (NEKTAR_ENABLE_SYCL STREQUAL "CUDA")
+        IF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CUDA")
             EXECUTE_PROCESS(COMMAND 
                         cmake ${TPSRC}/oneMath
                         -B ${TPBUILD}/oneMath
@@ -52,7 +52,7 @@ ELSE()
                         -DBUILD_EXAMPLES=OFF
                         -DCMAKE_INSTALL_PREFIX:PATH=${TPDIST})
             EXECUTE_PROCESS(COMMAND make install -j8 -C ${TPBUILD}/oneMath)
-        ELSEIF (NEKTAR_ENABLE_SYCL STREQUAL "HIP")
+        ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-HIP")
             EXECUTE_PROCESS(COMMAND 
                         cmake ${TPSRC}/oneMath
                         -B ${TPBUILD}/oneMath

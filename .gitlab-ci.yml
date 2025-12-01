@@ -311,7 +311,7 @@ debian-trixie-full-acpp-build-and-test:
     DOCKER_FLAGS: "-v /apps:/apps"
     DISABLE_CWIPI: true
     BUILD_CXX: acpp
-    BUILD_SYCL: "Default"
+    BUILD_SYCL: "CPU"
 
 debian-trixie-full-acpp-cuda-build-and-test:
   <<: *build-and-test-template
