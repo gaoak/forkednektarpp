@@ -70,6 +70,19 @@ using namespace std;
 namespace po = boost::program_options;
 namespace io = boost::iostreams;
 
+namespace Nektar::Operators
+{
+
+std::string cmdOpExecSpace =
+    Nektar::LibUtilities::SessionReader::RegisterCmdLineArgument(
+        "opExecSpace", "", "Specify default ExecSpace");
+
+std::string cmdOpImpl =
+    Nektar::LibUtilities::SessionReader::RegisterCmdLineArgument(
+        "opImpl", "", "Specify default Implementation");
+
+} // namespace Nektar::Operators
+
 namespace Nektar::LibUtilities
 {
 /**
@@ -170,6 +183,42 @@ CmdLineArgMap &SessionReader::GetCmdLineArgMap()
 {
     static CmdLineArgMap cmdLineArguments;
     return cmdLineArguments;
+}
+
+/**
+ * Returns map that provide configured backend to run for operators executed on
+ * serial.
+ *
+ * This list is populated through the #ParseOptimisations member function that
+ * is called during session initialisation in #InitSession.
+ */
+BackendMap &SessionReader::GetSerialBackendMap()
+{
+    return this->m_serialBackendInfo;
+}
+
+/**
+ * Returns map that provide configured backend to run for operators executed on
+ * AVX.
+ *
+ * This list is populated through the #ParseOptimisations member function that
+ * is called during session initialisation in #InitSession.
+ */
+BackendMap &SessionReader::GetAVXBackendMap()
+{
+    return this->m_avxBackendInfo;
+}
+
+/**
+ * Returns map that provide configured backend to run for operators executed on
+ * device.
+ *
+ * This list is populated through the #ParseOptimisations member function that
+ * is called during session initialisation in #InitSession.
+ */
+BackendMap &SessionReader::GetDeviceBackendMap()
+{
+    return this->m_deviceBackendInfo;
 }
 
 /**
@@ -360,6 +409,10 @@ void SessionReader::InitSession(const std::vector<std::string> &filenames)
 
     // Verify SOLVERINFO values
     VerifySolverInfo();
+
+    // Parse optimisations from XML and fill #m_hostBackendInfo and
+    // #m_deviceBackendInfo
+    ParseOptimisations();
 
     // Disable backups if NEKTAR_DISABLE_BACKUPS is set.
     if (std::getenv("NEKTAR_DISABLE_BACKUPS") != nullptr)
@@ -1678,6 +1731,90 @@ void SessionReader::CreateComm(int &argc, char *argv[])
         }
 
         m_comm = GetCommFactory().CreateInstance(vCommModule, argc, argv);
+    }
+}
+
+/**
+ * @brief Parse operator implementations from the session XML.
+ *
+ * Populates two maps:
+ *   - m_serialBackendInfo   from <OPTIMISATION>/<OPERATORS>/<SERIALBACKEND>
+ *   - m_avxBackendInfo   from <OPTIMISATION>/<OPERATORS>/<AVXBACKEND>
+ *   - m_deviceBackendInfo from <OPTIMISATION>/<OPERATORS>/<DEVICEBACKEND>
+ *
+ * For each child element under these backend sections, the element tag name
+ * (e.g. <MASS>) is uppercased and used as the operator key, and the element
+ * text (e.g. "StdMat") is stored as the implementation string.
+ *
+ * Example XML structure:
+ * @code
+ * <NEKTAR>
+ *   <OPTIMISATION>
+ *     <OPERATORS>
+ *       <SERIALBACKEND>
+ *         <MASS>StdMat</MASS>
+ *       </SERIALBACKEND>
+ *       <DEVICEBACKEND>
+ *         <MASS>StdMat</MASS>
+ *       </DEVICEBACKEND>
+ *     </OPERATORS>
+ *   </OPTIMISATION>
+ * </NEKTAR>
+ * @endcode
+ *
+ * Missing sections are skipped, existing maps are cleared on entry.
+ */
+void SessionReader::ParseOptimisations()
+{
+    // Reset previously parsed info.
+    m_serialBackendInfo.clear();
+    m_avxBackendInfo.clear();
+    m_deviceBackendInfo.clear();
+
+    // Navigate to <NEKTAR>/<OPTIMISATION>/<OPERATORS>.
+    TiXmlElement *optimisation =
+        m_xmlDoc->FirstChildElement("NEKTAR")->FirstChildElement(
+            "OPTIMISATION");
+    if (!optimisation)
+    {
+        return;
+    }
+
+    TiXmlElement *operators = optimisation->FirstChildElement("OPERATORS");
+    if (!operators)
+    {
+        return;
+    }
+
+    // Iterate over SERIAL, AVX, and DEVICE backends with a small (tag, map)
+    // table.
+    std::vector<std::pair<std::string, BackendMap *>> backends = {
+        {"SERIALBACKEND", &m_serialBackendInfo},
+        {"AVXBACKEND", &m_avxBackendInfo},
+        {"DEVICEBACKEND", &m_deviceBackendInfo}};
+
+    for (auto &b : backends)
+    {
+        TiXmlElement *backend = operators->FirstChildElement(b.first.c_str());
+        if (!backend)
+        {
+            continue; // backend section absent: skip
+        }
+
+        // Each child element is an operator: tag name is the operator,
+        // text content is the implementation string (e.g. "StdMat").
+        for (TiXmlElement *opElem = backend->FirstChildElement(); opElem;
+             opElem               = opElem->NextSiblingElement())
+        {
+            std::string opName = opElem->Value(); // e.g. "MASS"
+            boost::to_upper(opName);              // ensure UPPERCASE keys
+
+            const char *opImpl = opElem->GetText(); // e.g. "StdMat" / "SumFac"
+            if (opImpl && *opImpl)
+            {
+                (*b.second)[opName] = opImpl;
+            }
+        }
     }
 }
 

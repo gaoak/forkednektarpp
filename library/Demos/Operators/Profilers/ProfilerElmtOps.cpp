@@ -143,7 +143,7 @@ int main(int argc, char *argv[])
 
     // Print GPU properties.
     if (session->GetComm()->GetRank() == 0 &&
-        session->GetCmdLineArgument<std::string>("opExecSpace") == "Device")
+        Operator<double>::GetOpExecSpace(session) == "Device")
     {
 #if defined(NEKTAR_ENABLE_CUDA)
         cudaDeviceProp prop;

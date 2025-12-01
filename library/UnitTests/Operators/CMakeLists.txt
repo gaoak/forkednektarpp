@@ -32,6 +32,8 @@ IF(BOOST_TEST_DYN_LINK)
         ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY})
 ENDIF()
 
+ADD_NEKTAR_EXECUTABLE(test_optimization
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_optimization.cpp)
 ADD_NEKTAR_EXECUTABLE(test_comm
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_comm.cpp)
 ADD_NEKTAR_EXECUTABLE(test_math
@@ -158,6 +160,8 @@ MACRO(SET_UNIT_TEST testname name execspace implementation mpi_flag)
           COMMAND ${name-ext} --detect_memory_leaks=0 -- ${execspace} ${implementation})
     ENDIF()
 ENDMACRO()
+
+SET_UNIT_TEST(Optimization test_optimization none none FALSE)
 
 # Comm
 IF (NEKTAR_USE_MPI)

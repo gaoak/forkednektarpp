@@ -52,9 +52,8 @@ public:
     void SetTestCase(const double alpha, const double beta)
     {
         // Initialise math kernel
-        std::string execName =
-            session->GetCmdLineArgument<std::string>("opExecSpace");
-        math = Math(execName);
+        std::string execName = Operator<double>::GetOpExecSpace(session);
+        math                 = Math(execName);
 
         // Set initial value
         for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)

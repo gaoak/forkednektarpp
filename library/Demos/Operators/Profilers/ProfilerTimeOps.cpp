@@ -157,9 +157,8 @@ int main(int argc, char *argv[])
 
     double timestep = 0.0001;
     session->SetParameter("TimeStep", timestep);
-    std::string execName =
-        session->GetCmdLineArgument<std::string>("opExecSpace");
-    auto solver = DummySolver(execName);
+    std::string execName = Operator<double>::GetOpExecSpace(session);
+    auto solver          = DummySolver(execName);
 
     auto timeOp = TimeOp<TData>::Create(expList, method, timeOrder);
     timeOp->DefineExplicitRhs(&DummySolver::DoExplicitRHS, &solver);

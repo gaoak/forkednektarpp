@@ -35,6 +35,8 @@
 #pragma once
 
 #include "Operators/Common/Operator.hpp"
+#include <LibUtilities/BasicUtils/SessionReader.h>
+#include <tinyxml.h>
 
 namespace Nektar::Operators
 {
@@ -51,13 +53,14 @@ public:
     {
         auto session = expansionList->GetSession();
 
-        std::string execStr0 =
-            (execStr == "")
-                ? session->GetCmdLineArgument<std::string>("opExecSpace")
-                : execStr;
+        std::string execStr0 = (execStr == "")
+                                   ? Operator<TData>::GetOpExecSpace(session)
+                                   : execStr;
+
         std::string implStr0 =
-            (implStr == "") ? session->GetCmdLineArgument<std::string>("opImpl")
-                            : implStr;
+            (implStr == "")
+                ? GetOpImpl(TOperator<TData>::name, execStr0, session)
+                : implStr;
 
         auto op = Operator<TData>::template Create<TOperator>(expansionList,
                                                               execStr0);
@@ -85,6 +88,84 @@ public:
     void operator()(Field<TData, TFieldIn> &in, Field<TData, TFieldOut> &out)
     {
         v_Apply(in, out);
+    }
+
+    /**
+     * @brief Return the implementation for an operator.
+     *
+     * This looks up the implementation (e.g. "StdMat", "SumFac") for a
+     * given operator name and session from maps populated by
+     * ParseOptimisations().
+     *
+     * Lookup rules:
+     * - The map keys use the UPPERCASE of @p opName (e.g. "Mass" -> "MASS").
+     * - If opExecSpace == "Serial", the lookup is performed in
+     *   m_serialBackendInfo; otherwise in m_avxBackendInfo (for "AVX") or
+     * in deviceBackendInfo (for "Device").
+     * - If the operator is not found in the map for the set opExecSpace, the
+     * command-line arguments are consulted.
+     * - If the operator is not present in the command-line either the, an
+     * ASSERT is triggered.
+     *
+     * @param opName  Operator name (e.g. "Mass", "Helmholtz").
+     * @param session  Session reader to recover the relevant the maps and
+     * command-line arguemnts.
+     *
+     * @return std::string containing the implementation name (e.g. "SumFac",
+     * "StdMat").
+     */
+    static std::string GetOpImpl(const std::string &opName,
+                                 const std::string &opExecSpace,
+                                 LibUtilities::SessionReaderSharedPtr session)
+    {
+        if (session->DefinesCmdLineArgument("opImpl"))
+        {
+            return session->GetCmdLineArgument<std::string>("opImpl");
+        }
+
+        LibUtilities::BackendMap &serialBackendInfo =
+            session->GetSerialBackendMap();
+        LibUtilities::BackendMap &avxBackendInfo = session->GetAVXBackendMap();
+        LibUtilities::BackendMap &deviceBackendInfo =
+            session->GetDeviceBackendMap();
+
+        ASSERTL0(
+            opExecSpace == "Serial" || opExecSpace == "AVX" ||
+                opExecSpace == "Device",
+            "Operator execution space must be 'Serial', 'AVX', or, 'Device'");
+
+        // Keys are stored uppercased by ParseOptimisations().
+        const std::string opNameUpper = boost::to_upper_copy(opName);
+        if (opExecSpace == "Serial")
+        {
+            auto opImplIter = serialBackendInfo.find(opNameUpper);
+            if (opImplIter != serialBackendInfo.end())
+            {
+                return opImplIter->second;
+            }
+        }
+
+        if (opExecSpace == "AVX")
+        {
+            auto opImplIter = avxBackendInfo.find(opNameUpper);
+            if (opImplIter != avxBackendInfo.end())
+            {
+                return opImplIter->second;
+            }
+        }
+
+        if (opExecSpace == "Device")
+        {
+            auto opImplIter = deviceBackendInfo.find(opNameUpper);
+            if (opImplIter != deviceBackendInfo.end())
+            {
+                return opImplIter->second;
+            }
+        }
+
+        NEKERROR(ErrorUtil::efatal,
+                 "Implementation not found in optmisation file");
+        return "";
     }
 
 protected:

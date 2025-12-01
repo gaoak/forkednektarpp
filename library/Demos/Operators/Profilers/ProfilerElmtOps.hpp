@@ -360,10 +360,9 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
     auto oper = Op::Create(expList);
 
     // Set operator name tag.
-    auto session = expList->GetSession();
-    std::string execName =
-        session->GetCmdLineArgument<std::string>("opExecSpace");
-    std::string implName = session->GetCmdLineArgument<std::string>("opImpl");
+    auto session         = expList->GetSession();
+    std::string execName = Op::GetOpExecSpace(session);
+    std::string implName = Op::GetOpImpl(Op::name, execName, session);
     std::string opName   = oper->name;
     std::string dataType = (std::is_same_v<TData, double>) ? "Double" : "Float";
     auto tag             = opName + execName + implName + dataType;

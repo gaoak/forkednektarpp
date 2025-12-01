@@ -56,6 +56,7 @@ namespace Nektar::LibUtilities
 typedef std::map<std::string, std::string> SolverInfoMap;
 typedef std::map<std::string, NekDouble> ParameterMap;
 typedef std::map<std::string, std::string> GeometricInfoMap;
+typedef std::map<std::string, std::string> BackendMap;
 typedef std::vector<std::string> VariableList;
 typedef std::map<std::string, std::string> TagMap;
 typedef std::map<std::string, std::string> FilterParams;
@@ -397,6 +398,13 @@ public:
         TiXmlElement *&element, const size_t timeLevel,
         const bool enableCheck = true);
 
+    /// Serial backend map.
+    LIB_UTILITIES_EXPORT BackendMap &GetSerialBackendMap();
+    /// AVX backend map.
+    LIB_UTILITIES_EXPORT BackendMap &GetAVXBackendMap();
+    /// Device backend map.
+    LIB_UTILITIES_EXPORT BackendMap &GetDeviceBackendMap();
+
 private:
     boost::program_options::variables_map m_cmdLineOptions;
 
@@ -414,6 +422,12 @@ private:
     SolverInfoMap m_solverInfo;
     /// Geometric information properties.
     GeometricInfoMap m_geometricInfo;
+    /// Serial backend information properties.
+    BackendMap m_serialBackendInfo;
+    /// AVX backend information properties.
+    BackendMap m_avxBackendInfo;
+    /// Device backend information properties.
+    BackendMap m_deviceBackendInfo;
     /// Interpreter instance.
     InterpreterSharedPtr m_interpreter;
     /// Functions.
@@ -457,9 +471,14 @@ private:
     /// Parse the session name.
     std::string ParseSessionName(std::vector<std::string> &filenames);
 
+    /// Parse optimisatinos from XML and fill #m_deviceBackendInfo and
+    /// #m_hostBackendInfo
+    void ParseOptimisations();
+
     /// Loads an xml file into a tinyxml doc and decompresses if needed
     LIB_UTILITIES_EXPORT void LoadDoc(const std::string &pFilename,
                                       TiXmlDocument *pDoc) const;
+
     /// Creates an XML document from a list of input files.
     LIB_UTILITIES_EXPORT TiXmlDocument *MergeDoc(
         const std::vector<std::string> &pFilenames) const;

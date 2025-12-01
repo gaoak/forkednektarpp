@@ -67,10 +67,9 @@ public:
                 ? expansionList->GetSession()->GetTimeIntScheme().variant
                 : variant;
 
-        std::string execStr0 =
-            (execStr == "")
-                ? session->GetCmdLineArgument<std::string>("opExecSpace")
-                : execStr;
+        std::string execStr0 = (execStr == "")
+                                   ? Operator<TData>::GetOpExecSpace(session)
+                                   : execStr;
 
         // Set key.
         std::string requestedKey;
