@@ -65,7 +65,7 @@ NEK_FORCE_INLINE static
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
-template <const unsigned WIDTH, typename TData>
+template <typename TData>
 __global__ void AssembleScatrKernelLauncher(
     const unsigned nvals, const unsigned *__restrict__ nassemble,
     const unsigned *__restrict__ index, const unsigned *__restrict__ offset,
@@ -73,11 +73,11 @@ __global__ void AssembleScatrKernelLauncher(
     const hipcudaBlock1D &threadBlock)
 
 {
-    AssembleScatrKernel<WIDTH>(nvals, nassemble, index, offset, sign, inoutptr,
-                               threadBlock);
+    AssembleScatrKernel(nvals, nassemble, index, offset, sign, inoutptr,
+                        threadBlock);
 }
 
-template <typename ExecSpace, typename TData, unsigned WIDTH>
+template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                             void>::type
@@ -88,7 +88,7 @@ NEK_FORCE_INLINE static
     const unsigned blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned gridSize  = (nvals + blockSize - 1) / blockSize;
 
-    AssembleScatrKernelLauncher<WIDTH><<<gridSize, blockSize>>>(
+    AssembleScatrKernelLauncher<<<gridSize, blockSize>>>(
         nvals, nassemble, index, offset, sign, inoutptr, hipcudaBlock1D());
     CHECK_LAST_HIPCUDA_ERROR();
 }

@@ -72,9 +72,10 @@ NEK_DEVICE_INLINE static void AssembleScatrKernel(
 template <typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void AssembleScatrKernel(
     const unsigned nvals, const unsigned *nassemble, const unsigned *index,
-    const int *sign, TData *inoutptr, unsigned width,
-    const TthreadBlock &threadBlock)
+    const int *sign, TData *inoutptr, const TthreadBlock &threadBlock)
 {
+    constexpr unsigned int warpSize = NektarSpaces::Device::warpSize;
+
     const unsigned idx0   = getGlobalIdx(threadBlock);
     const unsigned stride = getGlobalRange(threadBlock);
 
@@ -84,33 +85,35 @@ NEK_DEVICE_INLINE static void AssembleScatrKernel(
         // this will determine the offset for index and sign data
         // could be pre-caclculated and passed.
         unsigned cnt = 0;
-        for (unsigned i = width; i <= idx; i += width)
+        for (unsigned i = warpSize; i <= idx; i += warpSize)
         {
-            cnt += nassemble[(i - width) / width * width] * width;
+            cnt += nassemble[(i - warpSize) / warpSize * warpSize] * warpSize;
         }
 
-        const unsigned i       = idx % width;
+        const unsigned i       = idx % warpSize;
         const unsigned nassemb = nassemble[idx];
         for (unsigned j = 0; j < nassemb; ++j)
         {
-            ass += inoutptr[index[cnt + j * width + i]] *
-                   sign[cnt + j * width + i];
+            ass += inoutptr[index[cnt + j * warpSize + i]] *
+                   sign[cnt + j * warpSize + i];
         }
 
         for (unsigned j = 0; j < nassemb; ++j)
         {
-            inoutptr[index[cnt + j * width + i]] =
-                ass * sign[cnt + j * width + i];
+            inoutptr[index[cnt + j * warpSize + i]] =
+                ass * sign[cnt + j * warpSize + i];
         }
     }
 }
 
-template <const unsigned WIDTH, typename TthreadBlock, typename TData>
+template <typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void AssembleScatrKernel(
     const unsigned nvals, const unsigned *nassemble, const unsigned *index,
     const unsigned *offset, const int *sign, TData *inoutptr,
     const TthreadBlock &threadBlock)
 {
+    constexpr unsigned int warpSize = NektarSpaces::Device::warpSize;
+
     const unsigned idx0   = getGlobalIdx(threadBlock);
     const unsigned stride = getGlobalRange(threadBlock);
 
@@ -121,13 +124,13 @@ NEK_DEVICE_INLINE static void AssembleScatrKernel(
         const unsigned nassemb = nassemble[idx];
         for (unsigned j = 0; j < nassemb; ++j)
         {
-            const unsigned ind = ioffset + j * WIDTH;
+            const unsigned ind = ioffset + j * warpSize;
             ass += inoutptr[index[ind]] * sign[ind];
         }
 
         for (unsigned j = 0; j < nassemb; ++j)
         {
-            const unsigned ind   = ioffset + j * WIDTH;
+            const unsigned ind   = ioffset + j * warpSize;
             inoutptr[index[ind]] = ass * sign[ind];
         }
     }

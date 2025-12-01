@@ -55,14 +55,13 @@ NEK_FORCE_INLINE static
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                             void>::type
     AssembleScatrKernel(const unsigned nvals, const unsigned *nassemble,
-                        const unsigned *index, const int *sign, TData *inoutptr,
-                        const unsigned width)
+                        const unsigned *index, const int *sign, TData *inoutptr)
 {
-    AssembleScatrKernel<>(nvals, nassemble, index, sign, inoutptr, width,
+    AssembleScatrKernel<>(nvals, nassemble, index, sign, inoutptr,
                           deviceOnHostBlock1D());
 }
 
-template <typename ExecSpace, typename TData, unsigned WIDTH>
+template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                             void>::type
@@ -70,8 +69,8 @@ NEK_FORCE_INLINE static
                         const unsigned *index, const unsigned *offset,
                         const int *sign, TData *inoutptr)
 {
-    AssembleScatrKernel<WIDTH>(nvals, nassemble, index, offset, sign, inoutptr,
-                               deviceOnHostBlock1D());
+    AssembleScatrKernel(nvals, nassemble, index, offset, sign, inoutptr,
+                        deviceOnHostBlock1D());
 }
 
 template <typename ExecSpace, typename TData>
