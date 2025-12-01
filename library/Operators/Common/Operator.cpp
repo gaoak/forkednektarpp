@@ -39,12 +39,6 @@ using namespace Nektar::LibUtilities;
 namespace Nektar::Operators
 {
 
-std::string cmdOpExecSpace = SessionReader::RegisterCmdLineArgument(
-    "opExecSpace", "", "Specify default ExecSpace");
-
-std::string cmdOpImpl = SessionReader::RegisterCmdLineArgument(
-    "opImpl", "", "Specify default Implementation");
-
 template <typename TData> OperatorFactory<TData> &GetOperatorFactory()
 {
     static OperatorFactory<TData> instance;

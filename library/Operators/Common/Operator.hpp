@@ -121,10 +121,9 @@ public:
     {
         auto session = expansionList->GetSession();
 
-        std::string execStr0 =
-            (execStr == "")
-                ? session->GetCmdLineArgument<std::string>("opExecSpace")
-                : execStr;
+        std::string execStr0 = (execStr == "")
+                                   ? Operator<TData>::GetOpExecSpace(session)
+                                   : execStr;
 
         std::string requestedKey = TOperator<TData>::name + execStr0;
 
@@ -141,6 +140,32 @@ public:
 
         return std::static_pointer_cast<TOperator<TData>>(
             factory.CreateInstance(requestedKey, expansionList));
+    }
+    /**
+     * @brief Return the execution space name ("opExecSpace") for an
+     * operator.
+     *
+     * This function returns the execution space selected for a given operator
+     * from the command-line argument "opExecSpace".
+     *
+     * otherwise ASSERTL1 is triggered.
+     *
+     * @param session  Session reader to recover the relevant command-line
+     * argument.
+     *
+     * @return std::string containing the implementation name (e.g. "Serial",
+     * "Device").
+     */
+    static std::string GetOpExecSpace(
+        std::shared_ptr<LibUtilities::SessionReader> session)
+    {
+        if (!session->DefinesCmdLineArgument("opExecSpace"))
+        {
+            NEKERROR(ErrorUtil::efatal,
+                     "No execution space specified for operator. Please "
+                     "specify using the command-line argument 'opExecSpace'.");
+        }
+        return session->GetCmdLineArgument<std::string>("opExecSpace");
     }
 
 protected:

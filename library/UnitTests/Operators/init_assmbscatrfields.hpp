@@ -68,8 +68,7 @@ public:
     void SetTestCase(bool ZeroDir = false)
     {
         // Set initial conditions.
-        std::string execStr =
-            session->GetCmdLineArgument<std::string>("opExecSpace");
+        std::string execStr = Operator<double>::GetOpExecSpace(session);
 
         for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
         {

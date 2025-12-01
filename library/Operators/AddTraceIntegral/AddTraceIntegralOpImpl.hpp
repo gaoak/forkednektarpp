@@ -237,12 +237,10 @@ public:
             else
             {
                 // TODO: This should be update on a per block basis
-                std::string execStr =
-                    expansionList->GetSession()
-                        ->GetCmdLineArgument<std::string>("opExecSpace");
-                std::string implStr =
-                    expansionList->GetSession()
-                        ->GetCmdLineArgument<std::string>("opImpl");
+                auto session        = expansionList->GetSession();
+                std::string execStr = Operator<TData>::GetOpExecSpace(session);
+                std::string implStr = m_IProductWRTBaseOp->GetOpImpl(
+                    m_IProductWRTBaseOp->name, ExecSpace::name, session);
 
                 if ((execStr == "AVX" && implStr == "StdMat") ||
                     (execStr == "AVX" && implStr == "SumFac") ||
@@ -333,13 +331,11 @@ protected:
             auto tracePtr =
                 m_trace.GetBlocks()[blk1].template GetPtr<MemSpace, ReadOnly>();
 
-            // TODO: This should be update on a per trace block basis
-            std::string execStr =
-                this->m_expansionList->GetSession()
-                    ->template GetCmdLineArgument<std::string>("opExecSpace");
-            std::string implStr =
-                this->m_expansionList->GetSession()
-                    ->template GetCmdLineArgument<std::string>("opImpl");
+            // TODO: This should be update on a per block basis
+            auto session        = this->m_expansionList->GetSession();
+            std::string execStr = Operator<TData>::GetOpExecSpace(session);
+            std::string implStr = m_IProductWRTBaseOp->GetOpImpl(
+                m_IProductWRTBaseOp->name, ExecSpace::name, session);
 
             // Check interleaving for trace block.
             if ((execStr == "AVX" && implStr == "StdMat") ||
@@ -380,13 +376,9 @@ protected:
 
                     // TODO: This should be update on a per block basis
                     std::string execStr =
-                        this->m_expansionList->GetSession()
-                            ->template GetCmdLineArgument<std::string>(
-                                "opExecSpace");
-                    std::string implStr =
-                        this->m_expansionList->GetSession()
-                            ->template GetCmdLineArgument<std::string>(
-                                "opImpl");
+                        Operator<TData>::GetOpExecSpace(session);
+                    std::string implStr = m_IProductWRTBaseOp->GetOpImpl(
+                        m_IProductWRTBaseOp->name, ExecSpace::name, session);
 
                     // Check interleaving for output block.
                     if ((execStr == "AVX" && implStr == "StdMat") ||
