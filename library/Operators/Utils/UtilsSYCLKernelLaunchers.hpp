@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: UtilsSYCLKernels.hpp
+// File: UtilsSYCLKernelLaunchers.hpp
 //
 // For more information, please see: http://www.nektar.info
 //

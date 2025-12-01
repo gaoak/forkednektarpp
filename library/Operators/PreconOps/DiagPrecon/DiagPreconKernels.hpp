@@ -40,31 +40,67 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename TData>
-void SetModeBlkKernel(const unsigned mode, const size_t nelmtgrps,
-                      const unsigned width, const unsigned numdata,
-                      const TData val, TData *blkptr)
+void SetModeBlkKernel(const unsigned mode, const size_t nelmt,
+                      const unsigned numdata, const TData val, TData *blkptr,
+                      const bool isInterleaved)
 {
-    Nektar::parallel_for<ExecSpace>(
-        0, nelmtgrps * width, NEKTAR_LAMBDA(size_t idx) {
-            unsigned e = idx / width;
-            unsigned i = idx % width;
+    if (isInterleaved)
+    {
+        Nektar::parallel_for<ExecSpace>(
+            0, nelmt, NEKTAR_LAMBDA(size_t idx) {
+                constexpr auto vector_width =
+                    NektarSpaces::vector_width<ExecSpace, TData>::value;
+                size_t e = idx / vector_width;
+                size_t i = idx % vector_width;
 
-            blkptr[(e * numdata + mode) * width + i] = val;
-        });
+                blkptr[(e * numdata + mode) * vector_width + i] = val;
+            });
+    }
+    else
+    {
+        Nektar::parallel_for<ExecSpace>(
+            0, nelmt, NEKTAR_LAMBDA(size_t idx) {
+                blkptr[(idx * numdata + mode)] = val;
+            });
+    }
 }
 
 template <typename ExecSpace, typename TData>
-void CopyModeBlkKernel(const unsigned mode, const size_t nelmtgrps,
-                       const unsigned width, const unsigned numdata,
-                       const TData *fromblkptr, TData *toblkptr)
+void CopyModeBlkKernel(const unsigned mode, const size_t nelmt,
+                       const unsigned numdata, const TData *fromblkptr,
+                       TData *toblkptr, const bool isInterleaved)
+{
+    if (isInterleaved)
+    {
+        Nektar::parallel_for<ExecSpace>(
+            0, nelmt, NEKTAR_LAMBDA(size_t idx) {
+                constexpr auto vector_width =
+                    NektarSpaces::vector_width<ExecSpace, TData>::value;
+                size_t e = idx / vector_width;
+                size_t i = idx % vector_width;
+
+                toblkptr[(e * numdata + mode) * vector_width + i] =
+                    fromblkptr[(e * numdata + mode) * vector_width + i];
+            });
+    }
+    else
+    {
+        Nektar::parallel_for<ExecSpace>(
+            0, nelmt, NEKTAR_LAMBDA(size_t idx) {
+                toblkptr[idx * numdata + mode] =
+                    fromblkptr[idx * numdata + mode];
+            });
+    }
+}
+
+template <typename ExecSpace, typename TData>
+void InvDiagBlkKernel(const size_t nsize, TData *diagblkptr)
 {
     Nektar::parallel_for<ExecSpace>(
-        0, nelmtgrps * width, NEKTAR_LAMBDA(size_t idx) {
-            unsigned e = idx / width;
-            unsigned i = idx % width;
-
-            toblkptr[(e * numdata + mode) * width + i] =
-                fromblkptr[(e * numdata + mode) * width + i];
+        0, nsize, NEKTAR_LAMBDA(size_t idx) {
+            // Set any zero terms to 1.0 - arises in variable p case.
+            diagblkptr[idx] = (diagblkptr[idx] == 0.0) ? diagblkptr[idx]
+                                                       : 1.0 / diagblkptr[idx];
         });
 }
 

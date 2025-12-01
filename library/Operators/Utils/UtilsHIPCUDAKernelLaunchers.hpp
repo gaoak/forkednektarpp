@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: UtilsHIPCUDAKernels.hpp
+// File: UtilsHIPCUDAKernelLaunchers.hpp
 //
 // For more information, please see: http://www.nektar.info
 //

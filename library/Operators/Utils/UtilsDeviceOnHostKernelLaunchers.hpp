@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: UtilsDeviceOnHostKernels.hpp
+// File: UtilsDeviceOnHostKernelLaunchers.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
