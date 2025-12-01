@@ -50,33 +50,33 @@ NEK_FORCE_INLINE static
 
     for (unsigned idx = 0; idx < nvals; ++idx)
     {
-        TData ass = 0;
-        for (unsigned j = offset[idx]; j < offset[idx + 1]; ++j)
+        TData ass            = 0;
+        const unsigned start = offset[idx];
+        const unsigned end   = offset[idx + 1];
+        for (unsigned j = start; j < end; ++j)
         {
             ass += inoutptr[ind[j]] * sign[j];
         }
-        for (unsigned j = offset[idx]; j < offset[idx + 1]; ++j)
+        for (unsigned j = start; j < end; ++j)
         {
             inoutptr[ind[j]] = ass * sign[j];
         }
     }
 }
-// When thsse are defiend and the code is run in serial we have a mapping lay
-// out which is assuming with != 1 and so have access maps in a different manner
-#if defined(NEKTAR_ENABLE_SIMD) || defined(NEKTAR_ENABLE_CUDA) ||              \
-    defined(NEKTAR_ENABLE_HIP) || defined(NEKTAR_ENABLE_SYCL)
-template <typename ExecSpace, typename TData, unsigned WIDTH>
+
+template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
-                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                             void>::type
     AssembleScatrKernel(const unsigned nvals, const unsigned *nassemble,
                         const unsigned *index, const unsigned *offset,
                         const int *sign, TData *inoutptr)
 {
-    for (unsigned idx = 0; idx < nvals; idx += WIDTH)
+    constexpr unsigned int vector_width =
+        NektarSpaces::vector_width<NektarSpaces::AVX, TData>::value;
+    for (unsigned idx = 0; idx < nvals; idx += vector_width)
     {
-        for (unsigned i = 0; i < WIDTH; ++i)
+        for (unsigned i = 0; i < vector_width; ++i)
         {
             TData ass =
                 inoutptr[index[offset[idx + i]]] * sign[offset[idx + i]];
@@ -85,23 +85,22 @@ NEK_FORCE_INLINE static
             // but not sure it will provide much asdditional speed.
             for (unsigned j = 1; j < nassemble[idx + i]; ++j)
             {
-                ass += inoutptr[index[offset[idx + i] + j * WIDTH]] *
-                       sign[offset[idx + i] + j * WIDTH];
+                ass += inoutptr[index[offset[idx + i] + j * vector_width]] *
+                       sign[offset[idx + i] + j * vector_width];
             }
 
             for (unsigned j = 0; j < nassemble[idx + i]; ++j)
             {
-                inoutptr[index[offset[idx + i] + j * WIDTH]] =
-                    ass * sign[offset[idx + i] + j * WIDTH];
+                inoutptr[index[offset[idx + i] + j * vector_width]] =
+                    ass * sign[offset[idx + i] + j * vector_width];
             }
         }
     }
 }
-#else
-template <typename ExecSpace, typename TData, unsigned WIDTH>
+
+template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
-                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial>,
                             void>::type
     AssembleScatrKernel(const unsigned nvals, const unsigned *nassemble,
                         const unsigned *ind,
@@ -110,8 +109,6 @@ NEK_FORCE_INLINE static
 
 {
     unsigned cnt = 0;
-
-    ASSERTL1(WIDTH == 1, "Assuming width=1 for Serial version");
 
     for (unsigned idx = 0; idx < nvals; ++idx)
     {
@@ -129,7 +126,6 @@ NEK_FORCE_INLINE static
         cnt += nassemble[idx];
     }
 }
-#endif
 
 template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static

@@ -307,8 +307,8 @@ protected:
 #ifdef ORIG_ASS_SCA
         AssembleScatrKernel<ExecSpace>(m_nGids, m_gsInfo, m_gsSign, inoutPtr);
 #else
-        AssembleScatrKernel<ExecSpace, TData, m_device_width>(
-            m_nGids, m_gsNumAssmb, m_gsIndex, m_gsOffset, m_gsSign, inoutPtr);
+        AssembleScatrKernel<ExecSpace>(m_nGids, m_gsNumAssmb, m_gsIndex,
+                                       m_gsOffset, m_gsSign, inoutPtr);
 #endif
         if (m_isParallel)
         {

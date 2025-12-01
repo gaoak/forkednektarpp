@@ -61,7 +61,7 @@ NEK_FORCE_INLINE static
     });
 }
 
-template <typename ExecSpace, typename TData, unsigned WIDTH>
+template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                             void>::type
@@ -77,9 +77,9 @@ NEK_FORCE_INLINE static
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
                          [=](sycl::nd_item<1> item_ct1) {
 #pragma forceinline
-                             AssembleScatrKernel<WIDTH>(nvals, nassemble, index,
-                                                        offset, sign, inoutptr,
-                                                        item_ct1);
+                             AssembleScatrKernel(nvals, nassemble, index,
+                                                 offset, sign, inoutptr,
+                                                 item_ct1);
                          });
     });
 }
