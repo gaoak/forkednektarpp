@@ -54,9 +54,10 @@ class MultiplyByElmtInvMassBlockOpImpl
 
 public:
     MultiplyByElmtInvMassBlockOpImpl(
+        const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse)
-        : MultiplyByElmtInvMassBlockOp<TData>(exp, dataWarehouse)
+        : MultiplyByElmtInvMassBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -83,6 +84,10 @@ public:
         m_invmassptr =
             dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
                 basisKeys, m_shapeType, eInvMassStdMat, nodalType));
+
+        // Fetch Jacobian.
+        m_jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
+            JacobianKey<TData>(block_idx, m_implInterleaveWidth));
     }
 
     // className - for BlockOperatorFactory
@@ -90,12 +95,13 @@ public:
 
     // Instantiation function for CreatorFunction in BlockOperatorFactory.
     static std::unique_ptr<BlockOperator<TData>> Instantiate(
+        const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
             MultiplyByElmtInvMassBlockOpImpl<ExecSpace, Implementation, TData>>(
-            exp, dataWarehouse);
+            block_idx, exp, dataWarehouse);
     }
 
 protected:
@@ -108,6 +114,7 @@ protected:
     unsigned int m_nmTot;
     unsigned int m_nqTot;
     const TData *m_invmassptr;
+    const TData *m_jacptr;
     MemoryRegion<TData> m_dinvmass;
 
     void v_Apply(BlockAccessor<TData> &inblock,
@@ -149,12 +156,6 @@ protected:
             }
             else
             {
-                // Fetch Jacobian.
-                auto jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
-                    JacobianKey<TData>(inblock.GetExpIdx(),
-                                       m_implInterleaveWidth,
-                                       inblock.GetNumElements()));
-
                 // Perform matrix-matrix multiply.
                 NekGemm(handle, "N", "N", m_nmTot, nelmtTot, m_nmTot, 1.0,
                         m_invmassptr, m_nmTot, inptr, m_nmTot, 0.0, outptr,
@@ -162,7 +163,7 @@ protected:
 
                 // Divide by Jacobian.
                 DivideByJacobianKernel<ExecSpace, false>(
-                    nelmt, m_nmTot, nhomo, jacptr, outptr, outptr);
+                    nelmt, m_nmTot, nhomo, m_jacptr, outptr, outptr);
             }
 
             // Reshape back, if necessary.

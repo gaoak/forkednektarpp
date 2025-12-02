@@ -44,12 +44,13 @@ class PhysInterp1DScaledBlockOp : public BlockOperator<TData>
 {
 public:
     static std::shared_ptr<PhysInterp1DScaledBlockOp<TData>> Create(
+        const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
         std::string implStr)
     {
         return BlockOperator<TData>::template Create<PhysInterp1DScaledBlockOp>(
-            exp, dataWarehouse, execStr, implStr);
+            block_idx, exp, dataWarehouse, execStr, implStr);
     }
 
     static inline const std::string name = "BlockPhysInterp1DScaled";
@@ -62,9 +63,10 @@ public:
 protected:
     TData m_scale = -1.0; // scaling factor
 
-    PhysInterp1DScaledBlockOp(const LocalRegions::ExpansionSharedPtr &exp,
+    PhysInterp1DScaledBlockOp(const unsigned int block_idx,
+                              const LocalRegions::ExpansionSharedPtr &exp,
                               NekDataWarehouseSharedPtr dataWarehouse)
-        : BlockOperator<TData>(exp, dataWarehouse)
+        : BlockOperator<TData>(block_idx, exp, dataWarehouse)
     {
     }
 

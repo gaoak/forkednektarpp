@@ -69,10 +69,10 @@ public:
             GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
 
         // Loop over the blocks.
-        for (auto &block : blocks)
+        for (unsigned int block_idx = 0; block_idx < blocks.size(); block_idx++)
         {
             op->m_blockOp.push_back(TBlockOperator<TData>::Create(
-                expansionList->GetExp(block.GetExpIdx()),
+                block_idx, expansionList->GetExp(blocks[block_idx].GetExpIdx()),
                 expansionList->GetDataWarehouseSharedPtr(), execStr0,
                 implStr0));
         }

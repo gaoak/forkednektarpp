@@ -52,9 +52,10 @@ class HelmholtzBlockOpImpl : public HelmholtzBlockOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    HelmholtzBlockOpImpl(const LocalRegions::ExpansionSharedPtr &exp,
+    HelmholtzBlockOpImpl(const unsigned int block_idx,
+                         const LocalRegions::ExpansionSharedPtr &exp,
                          NekDataWarehouseSharedPtr dataWarehouse)
-        : HelmholtzBlockOp<TData>(exp, dataWarehouse),
+        : HelmholtzBlockOp<TData>(block_idx, exp, dataWarehouse),
           m_diffCoeff(MemoryRegion<TData>(
               "Helmholtz diffCoeff", exp->GetCoordim() * exp->GetCoordim()))
     {
@@ -96,6 +97,12 @@ public:
         {
             diffCoeff[d * m_coordDim + d] = 1.0; // temporary solution
         }
+
+        // Fetch Jacobian and deriv factors.
+        m_jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
+            JacobianKey<TData>(block_idx, m_implInterleaveWidth));
+        m_dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
+            DerivFactorKey<TData>(block_idx, m_implInterleaveWidth, true));
     }
 
     // className - for BlockOperatorFactory
@@ -103,12 +110,13 @@ public:
 
     // Instantiation function for CreatorFunction in BlockOperatorFactory.
     static std::unique_ptr<BlockOperator<TData>> Instantiate(
+        const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
             HelmholtzBlockOpImpl<ExecSpace, Implementation, TData>>(
-            exp, dataWarehouse);
+            block_idx, exp, dataWarehouse);
     }
 
 protected:
@@ -124,6 +132,8 @@ protected:
     const TData *m_ipbmat;
     const TData *m_ipdmat;
     const TData *m_derivmat;
+    const TData *m_jacptr;
+    const TData *m_dfptr;
     MemoryRegion<TData> m_bwd;
     MemoryRegion<TData> m_deriv;
     MemoryRegion<TData> m_diffCoeff;
@@ -141,14 +151,6 @@ protected:
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
-
-        // Fetch Jacobian and deriv factors.
-        auto jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                               inblock.GetNumElements()));
-        auto dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                  inblock.GetNumElements(), true));
         auto diffCoeffPtr =
             this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
 
@@ -195,13 +197,13 @@ protected:
             {
                 MultiplyByDerivFactorKernel<ExecSpace, true>(
                     m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, derivoffset,
-                    derivoffset, dfptr, derivptr, derivptr);
+                    derivoffset, m_dfptr, derivptr, derivptr);
             }
             else
             {
                 MultiplyByDerivFactorKernel<ExecSpace, false>(
                     m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, derivoffset,
-                    derivoffset, dfptr, derivptr, derivptr);
+                    derivoffset, m_dfptr, derivptr, derivptr);
             }
 
             // Step 3: IProduct
@@ -209,13 +211,13 @@ protected:
             if (m_isDeformed)
             {
                 MultiplyByJacobianKernel<ExecSpace, true>(
-                    nelmt, m_nqTot, nhomo, jacptr, bwdptr, bwdptr,
+                    nelmt, m_nqTot, nhomo, m_jacptr, bwdptr, bwdptr,
                     this->m_lambda);
             }
             else
             {
                 MultiplyByJacobianKernel<ExecSpace, false>(
-                    nelmt, m_nqTot, nhomo, jacptr, bwdptr, bwdptr,
+                    nelmt, m_nqTot, nhomo, m_jacptr, bwdptr, bwdptr,
                     this->m_lambda);
             }
 
@@ -234,13 +236,13 @@ protected:
             {
                 MultiplyByJacobianAndDerivFactorKernel<ExecSpace, true>(
                     m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, derivoffset,
-                    derivoffset, jacptr, dfptr, derivptr, derivptr);
+                    derivoffset, m_jacptr, m_dfptr, derivptr, derivptr);
             }
             else
             {
                 MultiplyByJacobianAndDerivFactorKernel<ExecSpace, false>(
                     m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, derivoffset,
-                    derivoffset, jacptr, dfptr, derivptr, derivptr);
+                    derivoffset, m_jacptr, m_dfptr, derivptr, derivptr);
             }
 
             // Perform matrix-matrix multiply.

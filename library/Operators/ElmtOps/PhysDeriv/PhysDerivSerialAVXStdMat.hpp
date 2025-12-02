@@ -52,9 +52,10 @@ class PhysDerivBlockOpImpl : public PhysDerivBlockOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    PhysDerivBlockOpImpl(const LocalRegions::ExpansionSharedPtr &exp,
+    PhysDerivBlockOpImpl(const unsigned int block_idx,
+                         const LocalRegions::ExpansionSharedPtr &exp,
                          NekDataWarehouseSharedPtr dataWarehouse)
-        : PhysDerivBlockOp<TData>(exp, dataWarehouse)
+        : PhysDerivBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -75,6 +76,10 @@ public:
 
         m_matptr = dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
             basisKeys, m_shapeType, ePhysDerivStdMatTranspose));
+
+        // Fetch derivative factor.
+        m_dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
+            DerivFactorKey<TData>(block_idx, m_implInterleaveWidth, false));
     }
 
     // className - for BlockOperatorFactory
@@ -82,12 +87,13 @@ public:
 
     // Instantiation function for CreatorFunction in BlockOperatorFactory.
     static std::unique_ptr<BlockOperator<TData>> Instantiate(
+        const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
             PhysDerivBlockOpImpl<ExecSpace, Implementation, TData>>(
-            exp, dataWarehouse);
+            block_idx, exp, dataWarehouse);
     }
 
 protected:
@@ -100,15 +106,11 @@ protected:
     unsigned int m_nmTot;
     unsigned int m_nqTot;
     const TData *m_matptr;
+    const TData *m_dfptr;
 
     void v_Apply(BlockAccessor<TData> &inblock,
                  BlockAccessor<TData> &outblock) override
     {
-        // Fetch derivative factor.
-        auto dfptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
-            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                  inblock.GetNumElements(), false));
-
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -131,7 +133,7 @@ protected:
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
-            auto dfptr = dfptr_init;
+            auto dfptr = m_dfptr;
 
             // Loop over element groups.
             for (size_t e = 0;

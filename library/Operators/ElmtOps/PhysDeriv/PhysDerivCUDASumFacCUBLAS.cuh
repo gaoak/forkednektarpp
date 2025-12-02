@@ -48,9 +48,10 @@ class PhysDerivBlockOpImpl : public PhysDerivBlockOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    PhysDerivBlockOpImpl(const LocalRegions::ExpansionSharedPtr &exp,
+    PhysDerivBlockOpImpl(const unsigned int block_idx,
+                         const LocalRegions::ExpansionSharedPtr &exp,
                          NekDataWarehouseSharedPtr dataWarehouse)
-        : PhysDerivBlockOp<TData>(exp, dataWarehouse)
+        : PhysDerivBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -101,6 +102,10 @@ public:
                 BasisDataKey<TData>(this->m_exp->GetBasis(2)->GetBasisKey(),
                                     eTwoOverOneMinusZero)));
         }
+
+        // Fetch deriv factors data.
+        m_dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+            DerivFactorKey<TData>(block_idx, m_implInterleaveWidth, false));
     }
 
     // className - for BlockOperatorFactory
@@ -108,12 +113,13 @@ public:
 
     // Instantiation function for CreatorFunction in BlockOperatorFactory.
     static std::unique_ptr<BlockOperator<TData>> Instantiate(
+        const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
             PhysDerivBlockOpImpl<ExecSpace, Implementation, TData>>(
-            exp, dataWarehouse);
+            block_idx, exp, dataWarehouse);
     }
 
 protected:
@@ -130,6 +136,7 @@ protected:
     std::vector<const TData *> m_D;
     std::vector<const TData *> m_f;
     MemoryRegion<TData> m_wsp;
+    const TData *m_dfptr;
 
     void v_Apply(BlockAccessor<TData> &inblock,
                  BlockAccessor<TData> &outblock) override
@@ -240,11 +247,6 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Fetch deriv factors data.
-        auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
-            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                  inblock.GetNumElements(), false));
-
         // Set workspace.
         if (m_wsp.size() == 0)
         {
@@ -267,8 +269,8 @@ protected:
 
             // Calculate derivative.
             PhysDerivSegKernel<ExecSpace>(m_coordDim, m_dimension, nq0, nelmt,
-                                          outblock.size(), m_D[0], dfptr, inptr,
-                                          outptr, wspptr, m_isDeformed);
+                                          outblock.size(), m_D[0], m_dfptr,
+                                          inptr, outptr, wspptr, m_isDeformed);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
@@ -298,11 +300,6 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Fetch deriv factors data.
-        auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
-            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                  inblock.GetNumElements(), false));
-
         // Set workspace.
         if (m_wsp.size() == 0)
         {
@@ -326,8 +323,8 @@ protected:
             // Calculate derivative.
             PhysDerivQuadKernel<ExecSpace>(m_coordDim, m_dimension, nq0, nq1,
                                            nqTot, nelmt, outblock.size(),
-                                           m_D[0], m_D[1], dfptr, inptr, outptr,
-                                           wspptr, m_isDeformed);
+                                           m_D[0], m_D[1], m_dfptr, inptr,
+                                           outptr, wspptr, m_isDeformed);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
@@ -356,11 +353,6 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Fetch deriv factors data.
-        auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
-            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                  inblock.GetNumElements(), false));
-
         // Set workspace.
         if (m_wsp.size() == 0)
         {
@@ -384,8 +376,8 @@ protected:
             // Calculate derivative.
             PhysDerivTriKernel<ExecSpace>(m_coordDim, m_dimension, nq0, nq1,
                                           nqTot, nelmt, outblock.size(), m_D[0],
-                                          m_D[1], m_f[0], m_f[1], dfptr, inptr,
-                                          outptr, wspptr, m_isDeformed);
+                                          m_D[1], m_f[0], m_f[1], m_dfptr,
+                                          inptr, outptr, wspptr, m_isDeformed);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
@@ -415,11 +407,6 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Fetch deriv factors data.
-        auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
-            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                  inblock.GetNumElements(), false));
-
         // Set workspace.
         if (m_wsp.size() == 0)
         {
@@ -443,8 +430,8 @@ protected:
             // Calculate derivative.
             PhysDerivHexKernel<ExecSpace>(m_coordDim, m_dimension, nq0, nq1,
                                           nq2, nqTot, nelmt, outblock.size(),
-                                          m_D[0], m_D[1], m_D[2], dfptr, inptr,
-                                          outptr, wspptr, m_isDeformed);
+                                          m_D[0], m_D[1], m_D[2], m_dfptr,
+                                          inptr, outptr, wspptr, m_isDeformed);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
@@ -475,11 +462,6 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Fetch deriv factors data.
-        auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
-            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                  inblock.GetNumElements(), false));
-
         // Set workspace.
         if (m_wsp.size() == 0)
         {
@@ -503,8 +485,8 @@ protected:
             // Calculate derivative.
             PhysDerivPrismKernel<ExecSpace>(
                 m_coordDim, m_dimension, nq0, nq1, nq2, nqTot, nelmt,
-                outblock.size(), m_D[0], m_D[1], m_D[2], m_f[0], m_f[3], dfptr,
-                inptr, outptr, wspptr, m_isDeformed);
+                outblock.size(), m_D[0], m_D[1], m_D[2], m_f[0], m_f[3],
+                m_dfptr, inptr, outptr, wspptr, m_isDeformed);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
@@ -534,11 +516,6 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Fetch deriv factors data.
-        auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
-            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                  inblock.GetNumElements(), false));
-
         // Set workspace.
         if (m_wsp.size() == 0)
         {
@@ -563,7 +540,7 @@ protected:
             PhysDerivPyrKernel<ExecSpace>(
                 m_coordDim, m_dimension, nq0, nq1, nq2, nqTot, nelmt,
                 outblock.size(), m_D[0], m_D[1], m_D[2], m_f[0], m_f[1], m_f[3],
-                dfptr, inptr, outptr, wspptr, m_isDeformed);
+                m_dfptr, inptr, outptr, wspptr, m_isDeformed);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
@@ -593,11 +570,6 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Fetch deriv factors data.
-        auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
-            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                  inblock.GetNumElements(), false));
-
         // Set workspace.
         if (m_wsp.size() == 0)
         {
@@ -622,7 +594,7 @@ protected:
             PhysDerivTetKernel<ExecSpace>(
                 m_coordDim, m_dimension, nq0, nq1, nq2, nqTot, nelmt,
                 outblock.size(), m_D[0], m_D[1], m_D[2], m_f[0], m_f[1], m_f[2],
-                m_f[3], dfptr, inptr, outptr, wspptr, m_isDeformed);
+                m_f[3], m_dfptr, inptr, outptr, wspptr, m_isDeformed);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,

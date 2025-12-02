@@ -49,9 +49,10 @@ class PhysDerivBlockOpImpl : public PhysDerivBlockOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    PhysDerivBlockOpImpl(const LocalRegions::ExpansionSharedPtr &exp,
+    PhysDerivBlockOpImpl(const unsigned int block_idx,
+                         const LocalRegions::ExpansionSharedPtr &exp,
                          NekDataWarehouseSharedPtr dataWarehouse)
-        : PhysDerivBlockOp<TData>(exp, dataWarehouse)
+        : PhysDerivBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -72,6 +73,10 @@ public:
 
         m_matptr = dataWarehouse->template GetData<MemSpace>(
             StdMatKey<TData>(basisKeys, m_shapeType, ePhysDerivStdMat));
+
+        // Fetch derivative factor.
+        m_dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
+            DerivFactorKey<TData>(block_idx, m_implInterleaveWidth, true));
     }
 
     // className - for BlockOperatorFactory
@@ -79,12 +84,13 @@ public:
 
     // Instantiation function for CreatorFunction in BlockOperatorFactory.
     static std::unique_ptr<BlockOperator<TData>> Instantiate(
+        const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
             PhysDerivBlockOpImpl<ExecSpace, Implementation, TData>>(
-            exp, dataWarehouse);
+            block_idx, exp, dataWarehouse);
     }
 
 protected:
@@ -97,6 +103,7 @@ protected:
     unsigned int m_nmTot;
     unsigned int m_nqTot;
     const TData *m_matptr;
+    const TData *m_dfptr;
 
     void v_Apply(BlockAccessor<TData> &inblock,
                  BlockAccessor<TData> &outblock) override
@@ -111,11 +118,6 @@ protected:
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
-
-        // Fetch derivative factor.
-        auto dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                  inblock.GetNumElements(), true));
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
@@ -143,13 +145,13 @@ protected:
             {
                 MultiplyByDerivFactorKernel<ExecSpace, true>(
                     m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, outoffset,
-                    outoffset, dfptr, outptr, outptr);
+                    outoffset, m_dfptr, outptr, outptr);
             }
             else
             {
                 MultiplyByDerivFactorKernel<ExecSpace, false>(
                     m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, outoffset,
-                    outoffset, dfptr, outptr, outptr);
+                    outoffset, m_dfptr, outptr, outptr);
             }
 
             for (unsigned int d = 0; d < m_coordDim; d++)

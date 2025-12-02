@@ -48,9 +48,10 @@ class MassBlockOpImpl : public MassBlockOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    MassBlockOpImpl(const LocalRegions::ExpansionSharedPtr &exp,
+    MassBlockOpImpl(const unsigned int block_idx,
+                    const LocalRegions::ExpansionSharedPtr &exp,
                     NekDataWarehouseSharedPtr dataWarehouse)
-        : MassBlockOp<TData>(exp, dataWarehouse)
+        : MassBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -80,9 +81,22 @@ public:
             (m_shapeType == LibUtilities::eNodalPrism) ||
             (m_shapeType == LibUtilities::eNodalTet))
         {
+            std::vector<LibUtilities::BasisKey> basisKeys(
+                m_dimension, LibUtilities::NullBasisKey);
+            for (unsigned int d = 0; d < m_dimension; d++)
+            {
+                basisKeys[d] = exp->GetBasis(d)->GetBasisKey();
+            }
+
+            LibUtilities::PointsType nodalType =
+                (exp->IsNodalNonTensorialExp())
+                    ? exp->GetNodalPointsKey().GetPointsType()
+                    : LibUtilities::eNoPointsType;
+
             // Fetch NodalToModal Matrix if required.
-            m_nodToMod = this->m_dataWarehouse->template GetData<MemSpace>(
-                VandemondeKey<TData>(eNodalToModal, exp->GetElmtId()));
+            m_nodToMod =
+                dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
+                    basisKeys, m_shapeType, eNodalToModal, nodalType));
         }
         else
         {
@@ -140,6 +154,10 @@ public:
                                        3))
                     : nullptr);
         }
+
+        // Fetch Jacobian data.
+        m_jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
+            JacobianKey<TData>(block_idx, m_implInterleaveWidth));
     }
 
     // className - for BlockOperatorFactory
@@ -147,11 +165,12 @@ public:
 
     // Instantiation function for CreatorFunction in BlockOperatorFactory.
     static std::unique_ptr<BlockOperator<TData>> Instantiate(
+        const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
-            MassBlockOpImpl<ExecSpace, Implementation, TData>>(exp,
+            MassBlockOpImpl<ExecSpace, Implementation, TData>>(block_idx, exp,
                                                                dataWarehouse);
     }
 
@@ -173,6 +192,7 @@ protected:
     std::vector<const unsigned int *> m_index;
     MemoryRegion<TData> m_wsp;
     const TData *m_nodToMod;
+    const TData *m_jacptr;
 
     void v_Apply(BlockAccessor<TData> &inblock,
                  BlockAccessor<TData> &outblock) override
@@ -365,11 +385,6 @@ protected:
 
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
-        // Fetch Jacobian data.
-        auto jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                               inblock.GetNumElements()));
-
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -402,7 +417,8 @@ protected:
 
             // IProduct kernel.
             Mass1DKernel<ExecSpace, Implementation, DEFORMED>(
-                nm0, nq0, nelmt, m_B[0], m_W[0], jacptr, wspptr, inptr, outptr);
+                nm0, nq0, nelmt, m_B[0], m_W[0], m_jacptr, wspptr, inptr,
+                outptr);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
@@ -427,11 +443,6 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         const auto nelmt = inblock.GetNumElementsWithPadding();
-
-        // Fetch Jacobian data.
-        auto jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                               inblock.GetNumElements()));
 
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
@@ -465,7 +476,7 @@ protected:
 
             // IProduct kernel.
             Mass1DKernel<ExecSpace, Implementation, DEFORMED, nm0, nq0>(
-                nelmt, m_B[0], m_W[0], jacptr, wspptr, inptr, outptr);
+                nelmt, m_B[0], m_W[0], m_jacptr, wspptr, inptr, outptr);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
@@ -496,11 +507,6 @@ protected:
         const auto nq1 = m_nq[1];
 
         const auto nelmt = inblock.GetNumElementsWithPadding();
-
-        // Fetch Jacobian data.
-        auto jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                               inblock.GetNumElements()));
 
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
@@ -536,7 +542,7 @@ protected:
             // IProduct kernel.
             Mass2DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
                 nm0, nm1, nq0, nq1, nelmt, m_isModified, m_index[0], m_B[0],
-                m_B[1], m_W[0], m_W[1], m_nodToMod, jacptr, wspptr, inptr,
+                m_B[1], m_W[0], m_W[1], m_nodToMod, m_jacptr, wspptr, inptr,
                 outptr);
 
             // Reshape back, if necessary.
@@ -563,11 +569,6 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         const auto nelmt = inblock.GetNumElementsWithPadding();
-
-        // Fetch Jacobian data.
-        auto jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                               inblock.GetNumElements()));
 
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
@@ -604,7 +605,7 @@ protected:
             Mass2DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED, nm0,
                          nm1, nq0, nq1>(nelmt, m_isModified, m_index[0], m_B[0],
                                         m_B[1], m_W[0], m_W[1], m_nodToMod,
-                                        jacptr, wspptr, inptr, outptr);
+                                        m_jacptr, wspptr, inptr, outptr);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
@@ -637,11 +638,6 @@ protected:
         const auto nq2 = m_nq[2];
 
         const auto nelmt = inblock.GetNumElementsWithPadding();
-
-        // Fetch Jacobian data.
-        auto jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                               inblock.GetNumElements()));
 
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
@@ -677,7 +673,7 @@ protected:
             Mass3DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
                 nm0, nm1, nm2, nq0, nq1, nq2, nelmt, m_isModified, m_index[0],
                 m_index[1], m_index[2], m_index[3], m_B[0], m_B[1], m_B[2],
-                m_W[0], m_W[1], m_W[2], m_nodToMod, jacptr, wspptr, inptr,
+                m_W[0], m_W[1], m_W[2], m_nodToMod, m_jacptr, wspptr, inptr,
                 outptr);
 
             // Reshape back, if necessary.
@@ -704,11 +700,6 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         const auto nelmt = inblock.GetNumElementsWithPadding();
-
-        // Fetch Jacobian data.
-        auto jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                               inblock.GetNumElements()));
 
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
@@ -745,7 +736,7 @@ protected:
                          nm1, nm2, nq0, nq1, nq2>(
                 nelmt, m_isModified, m_index[0], m_index[1], m_index[2],
                 m_index[3], m_B[0], m_B[1], m_B[2], m_W[0], m_W[1], m_W[2],
-                m_nodToMod, jacptr, wspptr, inptr, outptr);
+                m_nodToMod, m_jacptr, wspptr, inptr, outptr);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,

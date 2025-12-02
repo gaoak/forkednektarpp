@@ -48,10 +48,9 @@ template <typename TData> class BlockOperator;
 
 // BlockOperator factory singleton
 template <typename TData>
-using BlockOperatorFactory =
-    Nektar::LibUtilities::NekFactory<std::string, BlockOperator<TData>,
-                                     const LocalRegions::ExpansionSharedPtr &,
-                                     NekDataWarehouseSharedPtr>;
+using BlockOperatorFactory = Nektar::LibUtilities::NekFactory<
+    std::string, BlockOperator<TData>, const unsigned int,
+    const LocalRegions::ExpansionSharedPtr &, NekDataWarehouseSharedPtr>;
 
 // BlockOperator factory singleton
 template <typename TData>
@@ -64,6 +63,7 @@ public:
 
     template <template <typename> typename TOperator>
     static std::shared_ptr<TOperator<TData>> Create(
+        const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
         std::string implStr)
@@ -82,7 +82,8 @@ public:
         }
 
         return std::static_pointer_cast<TOperator<TData>>(
-            factory.CreateInstance(requestedKey, exp, dataWarehouse));
+            factory.CreateInstance(requestedKey, block_idx, exp,
+                                   dataWarehouse));
     }
 
     void Apply(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
@@ -97,12 +98,14 @@ public:
     }
 
 protected:
+    unsigned int m_block_idx;
     LocalRegions::ExpansionSharedPtr m_exp;
     NekDataWarehouseSharedPtr m_dataWarehouse;
 
-    BlockOperator(const LocalRegions::ExpansionSharedPtr &exp,
+    BlockOperator(const unsigned int block_idx,
+                  const LocalRegions::ExpansionSharedPtr &exp,
                   NekDataWarehouseSharedPtr dataWarehouse)
-        : m_exp(exp), m_dataWarehouse(dataWarehouse)
+        : m_block_idx(block_idx), m_exp(exp), m_dataWarehouse(dataWarehouse)
     {
     }
 

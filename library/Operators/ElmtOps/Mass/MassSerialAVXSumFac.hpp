@@ -54,9 +54,10 @@ class MassBlockOpImpl : public MassBlockOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    MassBlockOpImpl(const LocalRegions::ExpansionSharedPtr &exp,
+    MassBlockOpImpl(const unsigned int block_idx,
+                    const LocalRegions::ExpansionSharedPtr &exp,
                     NekDataWarehouseSharedPtr dataWarehouse)
-        : MassBlockOp<TData>(exp, dataWarehouse)
+        : MassBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -85,20 +86,35 @@ public:
             (m_shapeType == LibUtilities::eNodalTet) ||
             (m_shapeType == LibUtilities::eNodalPrism))
         {
-            // Fetch NodalToModal Matrix if required.
-            m_nodToMod = this->m_dataWarehouse->template GetData<MemSpace>(
-                VandemondeKey<simd_t>(eNodalToModal, exp->GetElmtId()));
+            std::vector<LibUtilities::BasisKey> basisKeys(
+                m_dimension, LibUtilities::NullBasisKey);
+            for (unsigned int d = 0; d < m_dimension; d++)
+            {
+                basisKeys[d] = exp->GetBasis(d)->GetBasisKey();
+            }
+
+            LibUtilities::PointsType nodalType =
+                (exp->IsNodalNonTensorialExp())
+                    ? exp->GetNodalPointsKey().GetPointsType()
+                    : LibUtilities::eNoPointsType;
 
             // Fetch NodalToModal Matrix if required.
-            m_nodToModTrans = this->m_dataWarehouse->template GetData<MemSpace>(
-                VandemondeKey<simd_t>(eNodalToModalTranspose,
-                                      exp->GetElmtId()));
+            m_nodToMod =
+                dataWarehouse->template GetData<MemSpace>(StdMatKey<simd_t>(
+                    basisKeys, m_shapeType, eNodalToModal, nodalType));
+            m_nodToModTrans =
+                dataWarehouse->template GetData<MemSpace>(StdMatKey<simd_t>(
+                    basisKeys, m_shapeType, eNodalToModalTranspose, nodalType));
         }
         else
         {
             m_nodToMod      = (const simd_t *)nullptr;
             m_nodToModTrans = (const simd_t *)nullptr;
         }
+
+        // Fetch Jacobian.
+        m_jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
+            JacobianKey<TData>(block_idx, m_implInterleaveWidth));
     }
 
     // className - for BlockOperatorFactory
@@ -106,11 +122,12 @@ public:
 
     // Instantiation function for CreatorFunction in BlockOperatorFactory.
     static std::unique_ptr<BlockOperator<TData>> Instantiate(
+        const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
-            MassBlockOpImpl<ExecSpace, Implementation, TData>>(exp,
+            MassBlockOpImpl<ExecSpace, Implementation, TData>>(block_idx, exp,
                                                                dataWarehouse);
     }
 
@@ -128,6 +145,8 @@ protected:
     std::vector<const simd_t *> m_W;
     const simd_t *m_nodToMod;
     const simd_t *m_nodToModTrans;
+    const TData *m_jacptr;
+    const TData *m_dfptr;
 #if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
     // flag to ensure we only get one warning for alignment otherwise CI system
     // is saturated with warnings
@@ -260,11 +279,6 @@ protected:
             jacSize *= nqTot;
         }
 
-        // Fetch Jacobian.
-        auto jacptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
-            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                               inblock.GetNumElements()));
-
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -283,7 +297,7 @@ protected:
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
-            auto jacptr = jacptr_init;
+            auto jacptr = m_jacptr;
 
             // Loop over element groups.
             for (size_t e = 0;
@@ -350,11 +364,6 @@ protected:
             jacSize *= nqTot;
         }
 
-        // Fetch Jacobian.
-        auto jacptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
-            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                               inblock.GetNumElements()));
-
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -373,7 +382,7 @@ protected:
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
-            auto jacptr = jacptr_init;
+            auto jacptr = m_jacptr;
 
             // Loop over element groups.
             for (size_t e = 0;
@@ -446,11 +455,6 @@ protected:
             jacSize *= nqTot;
         }
 
-        // Fetch Jacobian.
-        auto jacptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
-            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                               inblock.GetNumElements()));
-
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -473,7 +477,7 @@ protected:
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
-            auto jacptr = jacptr_init;
+            auto jacptr = m_jacptr;
 
             // Loop over element groups.
             for (size_t e = 0;
@@ -544,11 +548,6 @@ protected:
             jacSize *= nqTot;
         }
 
-        // Fetch Jacobian.
-        auto jacptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
-            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                               inblock.GetNumElements()));
-
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -571,7 +570,7 @@ protected:
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
-            auto jacptr = jacptr_init;
+            auto jacptr = m_jacptr;
 
             // Loop over element groups.
             for (size_t e = 0;
@@ -648,11 +647,6 @@ protected:
             jacSize *= nqTot;
         }
 
-        // Fetch Jacobian.
-        auto jacptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
-            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                               inblock.GetNumElements()));
-
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -677,7 +671,7 @@ protected:
         // Loop over components.
         for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
-            auto jacptr = jacptr_init;
+            auto jacptr = m_jacptr;
 
             // Loop over element groups.
             for (size_t e = 0;
@@ -749,11 +743,6 @@ protected:
             jacSize *= nqTot;
         }
 
-        // Fetch Jacobian.
-        auto jacptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
-            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                               inblock.GetNumElements()));
-
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -778,7 +767,7 @@ protected:
         // Loop over components.
         for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
-            auto jacptr = jacptr_init;
+            auto jacptr = m_jacptr;
 
             // Loop over element groups.
             for (size_t e = 0;

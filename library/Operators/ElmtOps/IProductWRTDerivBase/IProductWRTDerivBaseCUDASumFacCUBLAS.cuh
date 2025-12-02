@@ -53,9 +53,10 @@ class IProductWRTDerivBaseBlockOpImpl
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    IProductWRTDerivBaseBlockOpImpl(const LocalRegions::ExpansionSharedPtr &exp,
+    IProductWRTDerivBaseBlockOpImpl(const unsigned int block_idx,
+                                    const LocalRegions::ExpansionSharedPtr &exp,
                                     NekDataWarehouseSharedPtr dataWarehouse)
-        : IProductWRTDerivBaseBlockOp<TData>(exp, dataWarehouse)
+        : IProductWRTDerivBaseBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -128,6 +129,14 @@ public:
                             eTwoOverOneMinusZero)));
             }
         }
+
+        // Fetch Jacobian data.
+        m_jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+            JacobianKey<TData>(block_idx, m_implInterleaveWidth));
+
+        // Fetch DerivFactor data.
+        m_dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+            DerivFactorKey<TData>(block_idx, m_implInterleaveWidth, false));
     }
 
     // className - for BlockOperatorFactory
@@ -135,12 +144,13 @@ public:
 
     // Instantiation function for CreatorFunction in BlockOperatorFactory.
     static std::unique_ptr<BlockOperator<TData>> Instantiate(
+        const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
             IProductWRTDerivBaseBlockOpImpl<ExecSpace, Implementation, TData>>(
-            exp, dataWarehouse);
+            block_idx, exp, dataWarehouse);
     }
 
 protected:
@@ -159,6 +169,8 @@ protected:
     std::vector<const TData *> m_W;
     std::vector<const TData *> m_f;
     MemoryRegion<TData> m_wsp;
+    const TData *m_jacptr;
+    const TData *m_dfptr;
 
     void v_Apply(BlockAccessor<TData> &inblock,
                  BlockAccessor<TData> &outblock) override
@@ -278,16 +290,6 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Fetch Jacobian data.
-        auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
-            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                               inblock.GetNumElements()));
-
-        // Fetch DerivFactor data.
-        auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
-            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                  inblock.GetNumElements(), false));
-
         // Set workspace.
         if (m_wsp.size() == 0)
         {
@@ -312,11 +314,11 @@ protected:
 
             // Apply derivative.
             ApplyDeriv<ExecSpace>(dim, coordDim, nelmt, nq0, nm0, inblocksize,
-                                  ndf, inptr, dfptr, wspptr, m_isDeformed);
+                                  ndf, inptr, m_dfptr, wspptr, m_isDeformed);
 
             // IProduct kernel.
             IProductWRTBaseSegSumFacKernel<ExecSpace>(
-                nq0, nm0, nelmt, m_dB[0], m_W[0], jacptr, wspptr, outptr,
+                nq0, nm0, nelmt, m_dB[0], m_W[0], m_jacptr, wspptr, outptr,
                 wsp2ptr, m_isDeformed);
 
             // Reshape back, if necessary.
@@ -354,16 +356,6 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Fetch Jacobian data.
-        auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
-            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                               inblock.GetNumElements()));
-
-        // Fetch DerivFactor data.
-        auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
-            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                  inblock.GetNumElements(), false));
-
         // Set workspace.
         if (m_wsp.size() == 0)
         {
@@ -389,17 +381,18 @@ protected:
 
             // Apply derivative.
             ApplyDeriv<ExecSpace>(dim, coordDim, nelmt, nqTot, nmTot,
-                                  inblocksize, ndf, inptr, dfptr, tmpptr,
+                                  inblocksize, ndf, inptr, m_dfptr, tmpptr,
                                   m_isDeformed);
 
             // IProduct.
             IProductWRTBaseQuadSumFacKernel<ExecSpace>(
                 nq0, nm0, nq1, nm1, nqTot, nmTot, nelmt, m_dB[0], m_B[1],
-                m_W[0], m_W[1], jacptr, tmpptr, outptr, wspptr, m_isDeformed);
+                m_W[0], m_W[1], m_jacptr, tmpptr, outptr, wspptr, m_isDeformed);
 
             IProductWRTBaseQuadSumFacKernel<ExecSpace>(
                 nq0, nm0, nq1, nm1, nqTot, nmTot, nelmt, m_B[0], m_dB[1],
-                m_W[0], m_W[1], jacptr, tmp2ptr, tmpptr, wspptr, m_isDeformed);
+                m_W[0], m_W[1], m_jacptr, tmp2ptr, tmpptr, wspptr,
+                m_isDeformed);
 
             // Sum dimensions.
             Nektar::addKernel<ExecSpace>(nelmt * nmTot, outptr, tmpptr, outptr);
@@ -438,16 +431,6 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Fetch Jacobian data.
-        auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
-            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                               inblock.GetNumElements()));
-
-        // Fetch DerivFactor data.
-        auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
-            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                  inblock.GetNumElements(), false));
-
         // Create CUDA Streams.
         const unsigned int nStreams = 2;
         std::vector<cudaStream_t> streams(nStreams);
@@ -481,7 +464,7 @@ protected:
 
             // Apply derivative.
             ApplyDeriv<ExecSpace>(dim, coordDim, nelmt, nqTot, nmTot,
-                                  inblocksize, ndf, inptr, dfptr, tmpptr,
+                                  inblocksize, ndf, inptr, m_dfptr, tmpptr,
                                   m_isDeformed);
 
             // Apply factors.
@@ -491,12 +474,12 @@ protected:
             // IProduct.
             IProductWRTBaseTriSumFacKernel<ExecSpace>(
                 nq0, nm0, nq1, nm1, nqTot, nmTot, nelmt, m_dB[0], m_B[1],
-                m_W[0], m_W[1], jacptr, tmpptr, outptr, wspptr, m_isDeformed,
+                m_W[0], m_W[1], m_jacptr, tmpptr, outptr, wspptr, m_isDeformed,
                 m_isModified, streams);
 
             IProductWRTBaseTriSumFacKernel<ExecSpace>(
                 nq0, nm0, nq1, nm1, nqTot, nmTot, nelmt, m_B[0], m_dB[1],
-                m_W[0], m_W[1], jacptr, tmp2ptr, tmpptr, wspptr, m_isDeformed,
+                m_W[0], m_W[1], m_jacptr, tmp2ptr, tmpptr, wspptr, m_isDeformed,
                 m_isModified, streams);
 
             // Sum dimensions.
@@ -544,16 +527,6 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Fetch Jacobian data.
-        auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
-            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                               inblock.GetNumElements()));
-
-        // Fetch DerivFactor data.
-        auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
-            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                  inblock.GetNumElements(), false));
-
         // Set workspace.
         if (m_wsp.size() == 0)
         {
@@ -580,18 +553,18 @@ protected:
 
             // Apply derivative.
             ApplyDeriv<ExecSpace>(dim, coordDim, nelmt, nqTot, nmTot,
-                                  inblocksize, ndf, inptr, dfptr, tmpptr,
+                                  inblocksize, ndf, inptr, m_dfptr, tmpptr,
                                   m_isDeformed);
 
             // IProduct.
             IProductWRTBaseHexSumFacKernel<ExecSpace>(
                 nq0, nm0, nq1, nm1, nq2, nm2, nqTot, nmTot, nelmt, m_dB[0],
-                m_B[1], m_B[2], m_W[0], m_W[1], m_W[2], jacptr, tmpptr, outptr,
-                wspptr, m_isDeformed);
+                m_B[1], m_B[2], m_W[0], m_W[1], m_W[2], m_jacptr, tmpptr,
+                outptr, wspptr, m_isDeformed);
 
             IProductWRTBaseHexSumFacKernel<ExecSpace>(
                 nq0, nm0, nq1, nm1, nq2, nm2, nqTot, nmTot, nelmt, m_B[0],
-                m_dB[1], m_B[2], m_W[0], m_W[1], m_W[2], jacptr, tmp2ptr,
+                m_dB[1], m_B[2], m_W[0], m_W[1], m_W[2], m_jacptr, tmp2ptr,
                 tmpptr, wspptr, m_isDeformed);
 
             // Add dimensions 1,2.
@@ -599,7 +572,7 @@ protected:
 
             IProductWRTBaseHexSumFacKernel<ExecSpace>(
                 nq0, nm0, nq1, nm1, nq2, nm2, nqTot, nmTot, nelmt, m_B[0],
-                m_B[1], m_dB[2], m_W[0], m_W[1], m_W[2], jacptr, tmp3ptr,
+                m_B[1], m_dB[2], m_W[0], m_W[1], m_W[2], m_jacptr, tmp3ptr,
                 tmpptr, wspptr, m_isDeformed);
 
             // Add final dimension.
@@ -642,16 +615,6 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Fetch Jacobian data.
-        auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
-            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                               inblock.GetNumElements()));
-
-        // Fetch DerivFactor data.
-        auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
-            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                  inblock.GetNumElements(), false));
-
         // Create CUDA streams.
         std::vector<cudaStream_t> streams(nm0);
         for (unsigned int i = 0; i < nm0; ++i)
@@ -685,7 +648,7 @@ protected:
 
             // Apply derivative.
             ApplyDeriv<ExecSpace>(dim, coordDim, nelmt, nqTot, nmTot,
-                                  inblocksize, ndf, inptr, dfptr, tmpptr,
+                                  inblocksize, ndf, inptr, m_dfptr, tmpptr,
                                   m_isDeformed);
 
             // Apply factors.
@@ -695,12 +658,12 @@ protected:
             // IProduct.
             IProductWRTBasePrismSumFacKernel<ExecSpace>(
                 nq0, nm0, nq1, nm1, nq2, nm2, nqTot, nmTot, nelmt, m_dB[0],
-                m_B[1], m_B[2], m_W[0], m_W[1], m_W[2], jacptr, tmpptr, outptr,
-                wspptr, m_isDeformed, m_isModified, streams);
+                m_B[1], m_B[2], m_W[0], m_W[1], m_W[2], m_jacptr, tmpptr,
+                outptr, wspptr, m_isDeformed, m_isModified, streams);
 
             IProductWRTBasePrismSumFacKernel<ExecSpace>(
                 nq0, nm0, nq1, nm1, nq2, nm2, nqTot, nmTot, nelmt, m_B[0],
-                m_dB[1], m_B[2], m_W[0], m_W[1], m_W[2], jacptr, tmp2ptr,
+                m_dB[1], m_B[2], m_W[0], m_W[1], m_W[2], m_jacptr, tmp2ptr,
                 tmpptr, wspptr, m_isDeformed, m_isModified, streams);
 
             // Add dimensions 1,2.
@@ -708,7 +671,7 @@ protected:
 
             IProductWRTBasePrismSumFacKernel<ExecSpace>(
                 nq0, nm0, nq1, nm1, nq2, nm2, nqTot, nmTot, nelmt, m_B[0],
-                m_B[1], m_dB[2], m_W[0], m_W[1], m_W[2], jacptr, tmp3ptr,
+                m_B[1], m_dB[2], m_W[0], m_W[1], m_W[2], m_jacptr, tmp3ptr,
                 tmpptr, wspptr, m_isDeformed, m_isModified, streams);
 
             // Add final dimension.
@@ -756,16 +719,6 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Fetch Jacobian data.
-        auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
-            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                               inblock.GetNumElements()));
-
-        // Fetch DerivFactor data.
-        auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
-            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                  inblock.GetNumElements(), false));
-
         // Create CUDA Streams.
         const unsigned int nStreams = 32;
         std::vector<cudaStream_t> streams(nStreams);
@@ -800,7 +753,7 @@ protected:
 
             // Apply derivative.
             ApplyDeriv<ExecSpace>(dim, coordDim, nelmt, nqTot, nmTot,
-                                  inblocksize, ndf, inptr, dfptr, tmpptr,
+                                  inblocksize, ndf, inptr, m_dfptr, tmpptr,
                                   m_isDeformed);
 
             // Apply factors.
@@ -810,12 +763,12 @@ protected:
             // IProduct.
             IProductWRTBasePyrSumFacKernel<ExecSpace>(
                 nq0, nm0, nq1, nm1, nq2, nm2, nqTot, nmTot, nelmt, m_dB[0],
-                m_B[1], m_B[2], m_W[0], m_W[1], m_W[2], jacptr, tmpptr, outptr,
-                wspptr, m_isDeformed, m_isModified, streams);
+                m_B[1], m_B[2], m_W[0], m_W[1], m_W[2], m_jacptr, tmpptr,
+                outptr, wspptr, m_isDeformed, m_isModified, streams);
 
             IProductWRTBasePyrSumFacKernel<ExecSpace>(
                 nq0, nm0, nq1, nm1, nq2, nm2, nqTot, nmTot, nelmt, m_B[0],
-                m_dB[1], m_B[2], m_W[0], m_W[1], m_W[2], jacptr, tmp2ptr,
+                m_dB[1], m_B[2], m_W[0], m_W[1], m_W[2], m_jacptr, tmp2ptr,
                 tmpptr, wspptr, m_isDeformed, m_isModified, streams);
 
             // Add dimensions 1,2.
@@ -823,7 +776,7 @@ protected:
 
             IProductWRTBasePyrSumFacKernel<ExecSpace>(
                 nq0, nm0, nq1, nm1, nq2, nm2, nqTot, nmTot, nelmt, m_B[0],
-                m_B[1], m_dB[2], m_W[0], m_W[1], m_W[2], jacptr, tmp3ptr,
+                m_B[1], m_dB[2], m_W[0], m_W[1], m_W[2], m_jacptr, tmp3ptr,
                 tmpptr, wspptr, m_isDeformed, m_isModified, streams);
 
             // Add final dimension.
@@ -871,16 +824,6 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Fetch Jacobian data.
-        auto jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
-            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                               inblock.GetNumElements()));
-
-        // Fetch DerivFactor data.
-        auto dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
-            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                  inblock.GetNumElements(), false));
-
         // Create CUDA Streams.
         const unsigned int nStreams = 8;
         std::vector<cudaStream_t> streams(nStreams);
@@ -915,7 +858,7 @@ protected:
 
             // Apply derivative.
             ApplyDeriv<ExecSpace>(dim, coordDim, nelmt, nqTot, nmTot,
-                                  inblocksize, ndf, inptr, dfptr, tmpptr,
+                                  inblocksize, ndf, inptr, m_dfptr, tmpptr,
                                   m_isDeformed);
 
             // Apply factors.
@@ -925,12 +868,12 @@ protected:
             // IProduct.
             IProductWRTBaseTetSumFacKernel<ExecSpace>(
                 nq0, nm0, nq1, nm1, nq2, nm2, nqTot, nmTot, nelmt, m_dB[0],
-                m_B[1], m_B[2], m_W[0], m_W[1], m_W[2], jacptr, tmpptr, outptr,
-                wspptr, m_isDeformed, m_isModified, streams);
+                m_B[1], m_B[2], m_W[0], m_W[1], m_W[2], m_jacptr, tmpptr,
+                outptr, wspptr, m_isDeformed, m_isModified, streams);
 
             IProductWRTBaseTetSumFacKernel<ExecSpace>(
                 nq0, nm0, nq1, nm1, nq2, nm2, nqTot, nmTot, nelmt, m_B[0],
-                m_dB[1], m_B[2], m_W[0], m_W[1], m_W[2], jacptr, tmp2ptr,
+                m_dB[1], m_B[2], m_W[0], m_W[1], m_W[2], m_jacptr, tmp2ptr,
                 tmpptr, wspptr, m_isDeformed, m_isModified, streams);
 
             // Add dimensions 1,2.
@@ -938,7 +881,7 @@ protected:
 
             IProductWRTBaseTetSumFacKernel<ExecSpace>(
                 nq0, nm0, nq1, nm1, nq2, nm2, nqTot, nmTot, nelmt, m_B[0],
-                m_B[1], m_dB[2], m_W[0], m_W[1], m_W[2], jacptr, tmp3ptr,
+                m_B[1], m_dB[2], m_W[0], m_W[1], m_W[2], m_jacptr, tmp3ptr,
                 tmpptr, wspptr, m_isDeformed, m_isModified, streams);
 
             // Add final dimension.

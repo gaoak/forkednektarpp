@@ -35,6 +35,8 @@
 #pragma once
 
 #include <MultiRegions/ExpList.h>
+#include <MultiRegions/ExpListHomogeneous1D.h>
+#include <MultiRegions/ExpListHomogeneous2D.h>
 
 #include "MemoryRegion.hpp"
 
@@ -156,67 +158,37 @@ std::vector<BlockAttributes> GetBlockAttributes(
 
     std::vector<BlockAttributes> blockAttr;
 
-    // initialize the first block using the first element
-    auto expPtr        = explist->GetExp(0);
-    int prevIsDeformed = -1, thisIsDeformed = -1;
-    std::vector<LibUtilities::BasisKey> prevbasisKeys(
-        expPtr->GetNumBases(), LibUtilities::NullBasisKey);
-    std::vector<LibUtilities::BasisKey> thisbasisKeys(
-        expPtr->GetNumBases(), LibUtilities::NullBasisKey);
-
-    size_t exp_idx      = 0;
-    size_t num_elements = 1;
-    unsigned int ndata  = state == FieldState::Phys ? expPtr->GetTotPoints()
-                                                    : expPtr->GetNcoeffs();
-    for (unsigned int d = 0; d < expPtr->GetNumBases(); d++)
+    Collections::CollectionVector colls;
+    auto explistHomo1D =
+        std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(explist);
+    auto explistHomo2D =
+        std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous2D>(explist);
+    if (explistHomo1D)
     {
-        prevbasisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
+        colls = explistHomo1D->GetPlane(0)->GetCollections();
     }
-    prevIsDeformed = expPtr->GetGeomFactors()->GetGtype();
-
-    // loop over elements
-    for (size_t i = 1; i < explist->GetNumElmts(); i++)
+    else if (explistHomo2D)
     {
-        expPtr = explist->GetExp(i);
-
-        // fetch basiskeys of current element
-        for (unsigned int d = 0; d < expPtr->GetNumBases(); d++)
-        {
-            thisbasisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
-        }
-
-        thisIsDeformed = expPtr->GetGeomFactors()->GetGtype();
-
-        // if the basis is the same as the previous one, increment the number of
-        // elements
-        if (thisbasisKeys == prevbasisKeys && thisIsDeformed == prevIsDeformed)
-        {
-            num_elements++;
-        }
-        else // if not, create a new block with the number of elements = 1
-        {
-            size_t num_elements_with_padding =
-                ((num_elements + vector_width - 1) / vector_width) *
-                vector_width;
-            blockAttr.push_back({exp_idx, num_elements,
-                                 num_elements_with_padding, ndata,
-                                 interleave_width});
-
-            // update ndata for a new block
-            exp_idx        = i;
-            num_elements   = 1;
-            ndata          = state == FieldState::Phys ? expPtr->GetTotPoints()
-                                                       : expPtr->GetNcoeffs();
-            prevbasisKeys  = thisbasisKeys;
-            prevIsDeformed = thisIsDeformed;
-        }
+        colls = explistHomo2D->GetLine(0)->GetCollections();
+    }
+    else
+    {
+        colls = explist->GetCollections();
     }
 
-    // update the padding elements for the last block
-    size_t num_elements_with_padding =
-        ((num_elements + vector_width - 1) / vector_width) * vector_width;
-    blockAttr.push_back({exp_idx, num_elements, num_elements_with_padding,
-                         ndata, interleave_width});
+    for (auto &coll : colls)
+    {
+        auto expPtr               = coll.GetExpVector()[0];
+        const size_t exp_idx      = expPtr->GetElmtId();
+        const size_t num_elements = coll.GetExpVector().size();
+        const unsigned int ndata  = state == FieldState::Phys
+                                        ? expPtr->GetTotPoints()
+                                        : expPtr->GetNcoeffs();
+        size_t num_elements_with_padding =
+            ((num_elements + vector_width - 1) / vector_width) * vector_width;
+        blockAttr.push_back({exp_idx, num_elements, num_elements_with_padding,
+                             ndata, interleave_width});
+    }
 
     return blockAttr;
 }

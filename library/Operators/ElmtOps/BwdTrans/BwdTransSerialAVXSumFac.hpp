@@ -51,9 +51,10 @@ class BwdTransBlockOpImpl : public BwdTransBlockOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    BwdTransBlockOpImpl(const LocalRegions::ExpansionSharedPtr &exp,
+    BwdTransBlockOpImpl(const unsigned int block_idx,
+                        const LocalRegions::ExpansionSharedPtr &exp,
                         NekDataWarehouseSharedPtr dataWarehouse)
-        : BwdTransBlockOp<TData>(exp, dataWarehouse)
+        : BwdTransBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -80,9 +81,22 @@ public:
             (m_shapeType == LibUtilities::eNodalPrism) ||
             (m_shapeType == LibUtilities::eNodalTet))
         {
+            std::vector<LibUtilities::BasisKey> basisKeys(
+                m_dimension, LibUtilities::NullBasisKey);
+            for (unsigned int d = 0; d < m_dimension; d++)
+            {
+                basisKeys[d] = exp->GetBasis(d)->GetBasisKey();
+            }
+
+            LibUtilities::PointsType nodalType =
+                (exp->IsNodalNonTensorialExp())
+                    ? exp->GetNodalPointsKey().GetPointsType()
+                    : LibUtilities::eNoPointsType;
+
             // Fetch NodalToModal Matrix if required.
-            m_nodToMod = this->m_dataWarehouse->template GetData<MemSpace>(
-                VandemondeKey<simd_t>(eNodalToModal, exp->GetElmtId()));
+            m_nodToMod =
+                dataWarehouse->template GetData<MemSpace>(StdMatKey<simd_t>(
+                    basisKeys, m_shapeType, eNodalToModal, nodalType));
         }
         else
         {
@@ -95,12 +109,13 @@ public:
 
     // Instantiation function for CreatorFunction in BlockOperatorFactory.
     static std::unique_ptr<BlockOperator<TData>> Instantiate(
+        const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
             BwdTransBlockOpImpl<ExecSpace, Implementation, TData>>(
-            exp, dataWarehouse);
+            block_idx, exp, dataWarehouse);
     }
 
 protected:

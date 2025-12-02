@@ -48,9 +48,10 @@ class PhysInterp1DScaledBlockOpImpl : public PhysInterp1DScaledBlockOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    PhysInterp1DScaledBlockOpImpl(const LocalRegions::ExpansionSharedPtr &exp,
+    PhysInterp1DScaledBlockOpImpl(const unsigned int block_idx,
+                                  const LocalRegions::ExpansionSharedPtr &exp,
                                   NekDataWarehouseSharedPtr dataWarehouse)
-        : PhysInterp1DScaledBlockOp<TData>(exp, dataWarehouse)
+        : PhysInterp1DScaledBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -73,12 +74,13 @@ public:
 
     // Instantiation function for CreatorFunction in BlockOperatorFactory.
     static std::unique_ptr<BlockOperator<TData>> Instantiate(
+        const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
             PhysInterp1DScaledBlockOpImpl<ExecSpace, Implementation, TData>>(
-            exp, dataWarehouse);
+            block_idx, exp, dataWarehouse);
     }
 
 protected:
