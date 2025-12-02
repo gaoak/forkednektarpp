@@ -34,7 +34,9 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/PhysInterp1DScaled/PhysInterp1DScaledOp.hpp"
+#include <LibUtilities/SimdLib/tinysimd.hpp>
+
+#include "Operators/ElmtOps/PhysInterp1DScaled/PhysInterp1DScaledBlockOp.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
 // interpolation is just a bwd trans from a nodal basis so using these kernels

@@ -54,18 +54,13 @@ public:
         auto session = expansionList->GetSession();
 
         std::string method0 =
-            (method == "")
-                ? expansionList->GetSession()->GetTimeIntScheme().method
-                : method;
+            (method == "") ? session->GetTimeIntScheme().method : method;
 
         unsigned int order0 =
-            (order == 0) ? expansionList->GetSession()->GetTimeIntScheme().order
-                         : order;
+            (order == 0) ? session->GetTimeIntScheme().order : order;
 
         std::string variant0 =
-            (variant == "")
-                ? expansionList->GetSession()->GetTimeIntScheme().variant
-                : variant;
+            (variant == "") ? session->GetTimeIntScheme().variant : variant;
 
         std::string execStr0 = (execStr == "")
                                    ? Operator<TData>::GetOpExecSpace(session)
@@ -108,13 +103,12 @@ public:
             factory.CreateInstance(requestedKey, expansionList));
 
         // Set operator meta data
-        op->m_timestep = expansionList->GetSession()->GetParameter("TimeStep");
-        op->m_order    = order0;
-        op->m_variant  = variant0;
-        op->m_freeParams =
-            (freeParams.size() == 0)
-                ? expansionList->GetSession()->GetTimeIntScheme().freeParams
-                : freeParams;
+        op->m_timestep   = session->GetParameter("TimeStep");
+        op->m_order      = order0;
+        op->m_variant    = variant0;
+        op->m_freeParams = (freeParams.size() == 0)
+                               ? session->GetTimeIntScheme().freeParams
+                               : freeParams;
 
         return op;
     }

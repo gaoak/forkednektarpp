@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionOp.hpp"
+#include "Operators/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionBlockOp.hpp"
 #include "Operators/NekBlas/NekBlas.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 

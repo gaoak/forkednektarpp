@@ -104,10 +104,9 @@ public:
                                                m_tol, 1.0E-09);
 
         // Fill mask.
-        auto dataWarehouse = this->m_expansionList->GetDataWarehouseSharedPtr();
-
-        auto maskptr = dataWarehouse->template GetData<NektarSpaces::HostSpace>(
-            LocalToGlobalMaskKey<TData>());
+        auto maskptr =
+            this->m_dataWarehouse->template GetData<NektarSpaces::HostSpace>(
+                LocalToGlobalMaskKey<TData>());
         unsigned cnt = 0;
         for (unsigned blk = 0; blk < m_mask.GetBlocks().size(); ++blk)
         {

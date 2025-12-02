@@ -131,14 +131,12 @@ protected:
         auto blocks =
             GetBlockAttributes<TData>(FieldState::Coeff, this->m_expansionList);
 
-        auto dataWarehouse = this->m_expansionList->GetDataWarehouseSharedPtr();
-
 #ifdef ORIG_ASS_SCA
         auto GSInfoKey = DeviceLocalToGlobalKey<TData>(m_assemblyMap, ZERODIR);
         // setup GS info of values interior to device
-        m_gsInfo = dataWarehouse->template GetData<MemSpace>(GSInfoKey);
+        m_gsInfo = this->m_dataWarehouse->template GetData<MemSpace>(GSInfoKey);
         // set up sign change array
-        m_gsSign = dataWarehouse->template GetData<MemSpace>(
+        m_gsSign = this->m_dataWarehouse->template GetData<MemSpace>(
             DeviceLocalToGlobalSignKey<TData>(m_assemblyMap, ZERODIR,
                                               SIGNCHANGE));
 #else
@@ -147,25 +145,29 @@ protected:
         // setup GS info of values interior to device
         auto GSNumAssmbKey = DeviceLocalToGlobalNumAssembleKey<TData>(
             m_assemblyMap, ZERODIR, m_device_width);
-        m_gsNumAssmb = dataWarehouse->template GetData<MemSpace>(GSNumAssmbKey);
+        m_gsNumAssmb =
+            this->m_dataWarehouse->template GetData<MemSpace>(GSNumAssmbKey);
 
         auto GSIndexKey = DeviceLocalToGlobalIndexKey<TData>(
             m_assemblyMap, ZERODIR, m_device_width);
-        m_gsIndex = dataWarehouse->template GetData<MemSpace>(GSIndexKey);
+        m_gsIndex =
+            this->m_dataWarehouse->template GetData<MemSpace>(GSIndexKey);
 
         auto GSOffsetKey = DeviceLocalToGlobalIndexOffsetKey<TData>(
             m_assemblyMap, ZERODIR, m_device_width);
-        m_gsOffset = dataWarehouse->template GetData<MemSpace>(GSOffsetKey);
+        m_gsOffset =
+            this->m_dataWarehouse->template GetData<MemSpace>(GSOffsetKey);
 
         // set up sign change array
-        m_gsSign = dataWarehouse->template GetData<MemSpace>(
+        m_gsSign = this->m_dataWarehouse->template GetData<MemSpace>(
             DeviceLocalToGlobalSignKey<TData>(m_assemblyMap, ZERODIR,
                                               SIGNCHANGE, m_device_width));
 #endif
 
         // get a copy of the host to evaluate offsets
         auto hostGSInfo =
-            dataWarehouse->template GetData<NektarSpaces::HostSpace>(GSInfoKey);
+            this->m_dataWarehouse->template GetData<NektarSpaces::HostSpace>(
+                GSInfoKey);
 
         m_nGids = hostGSInfo[0];
 
@@ -193,17 +195,17 @@ protected:
             auto GSBndInfoKey = DeviceBndLocalToGlobalKey<TData>(numComp);
 
             m_gsBndInfo =
-                dataWarehouse->template GetData<MemSpace>(GSBndInfoKey);
+                this->m_dataWarehouse->template GetData<MemSpace>(GSBndInfoKey);
 
             // set up sign array
-            m_gsBndSign = dataWarehouse->template GetData<MemSpace>(
+            m_gsBndSign = this->m_dataWarehouse->template GetData<MemSpace>(
                 DeviceBndLocalToGlobalSignKey<TData>(m_assemblyMap, ZERODIR,
                                                      SIGNCHANGE));
 
             // get a copy of the host to evaluate offsets
             auto hostGSBndInfo =
-                dataWarehouse->template GetData<NektarSpaces::HostSpace>(
-                    GSBndInfoKey);
+                this->m_dataWarehouse
+                    ->template GetData<NektarSpaces::HostSpace>(GSBndInfoKey);
 
             m_nBndGids = hostGSBndInfo[0];
 

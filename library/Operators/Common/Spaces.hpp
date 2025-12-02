@@ -112,6 +112,16 @@
 
 using default_fp_type = double;
 
+template <bool B, typename TData> struct simd_type_if
+{
+    typedef tinysimd::scalarT<TData> type;
+};
+
+template <typename TData> struct simd_type_if<true, TData>
+{
+    typedef tinysimd::simd<TData> type;
+};
+
 namespace NektarSpaces
 {
 

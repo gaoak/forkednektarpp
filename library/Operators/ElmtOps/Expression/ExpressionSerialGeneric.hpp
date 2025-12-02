@@ -34,7 +34,9 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/Expression/ExpressionOp.hpp"
+#include <LibUtilities/SimdLib/tinysimd.hpp>
+
+#include "Operators/ElmtOps/Expression/ExpressionBlockOp.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
 namespace Nektar::Operators::detail

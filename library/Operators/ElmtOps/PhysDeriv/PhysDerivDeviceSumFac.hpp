@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/PhysDeriv/PhysDerivOp.hpp"
+#include "Operators/ElmtOps/PhysDeriv/PhysDerivBlockOp.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/PhysDeriv/PhysDerivDeviceSumFacKernels.hpp"
