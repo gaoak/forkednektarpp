@@ -48,9 +48,10 @@ class PhysDerivBlockOpImpl : public PhysDerivBlockOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    PhysDerivBlockOpImpl(const LocalRegions::ExpansionSharedPtr &exp,
+    PhysDerivBlockOpImpl(const unsigned int block_idx,
+                         const LocalRegions::ExpansionSharedPtr &exp,
                          NekDataWarehouseSharedPtr dataWarehouse)
-        : PhysDerivBlockOp<TData>(exp, dataWarehouse)
+        : PhysDerivBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -100,6 +101,12 @@ public:
                 BasisDataKey<TData>(this->m_exp->GetBasis(2)->GetBasisKey(),
                                     eTwoOverOneMinusZero)));
         }
+
+        // Fetch deriv factors data.
+        constexpr bool transpose =
+            std::is_same_v<Implementation, Operators::SumFacTOP>;
+        m_dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
+            DerivFactorKey<TData>(block_idx, m_implInterleaveWidth, transpose));
     }
 
     // className - for BlockOperatorFactory
@@ -107,12 +114,13 @@ public:
 
     // Instantiation function for CreatorFunction in BlockOperatorFactory.
     static std::unique_ptr<BlockOperator<TData>> Instantiate(
+        const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
             PhysDerivBlockOpImpl<ExecSpace, Implementation, TData>>(
-            exp, dataWarehouse);
+            block_idx, exp, dataWarehouse);
     }
 
 protected:
@@ -130,6 +138,7 @@ protected:
     std::vector<unsigned int> m_nq;
     std::vector<const TData *> m_D;
     std::vector<const TData *> m_f;
+    const TData *m_dfptr;
 
     void v_Apply(BlockAccessor<TData> &inblock,
                  BlockAccessor<TData> &outblock) override
@@ -241,13 +250,6 @@ protected:
 
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
-        // Fetch deriv factors data.
-        constexpr bool transpose =
-            std::is_same_v<Implementation, Operators::SumFacTOP>;
-        auto dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                  inblock.GetNumElements(), transpose));
-
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -267,7 +269,7 @@ protected:
 
             // Calculate derivative.
             PhysDeriv1DKernel<ExecSpace, Implementation, DEFORMED>(
-                m_coordDim, nq0, nelmt, outoffset, m_D[0], dfptr, inptr,
+                m_coordDim, nq0, nelmt, outoffset, m_D[0], m_dfptr, inptr,
                 outptr);
 
             // Reshape back, if necessary.
@@ -302,13 +304,6 @@ protected:
     {
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
-        // Fetch deriv factors data.
-        constexpr bool transpose =
-            std::is_same_v<Implementation, Operators::SumFacTOP>;
-        auto dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                  inblock.GetNumElements(), transpose));
-
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -328,7 +323,7 @@ protected:
 
             // Calculate derivative.
             PhysDeriv1DKernel<ExecSpace, Implementation, DEFORMED, coordDim,
-                              nq0>(nelmt, outoffset, m_D[0], dfptr, inptr,
+                              nq0>(nelmt, outoffset, m_D[0], m_dfptr, inptr,
                                    outptr);
 
             // Reshape back, if necessary.
@@ -366,13 +361,6 @@ protected:
 
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
-        // Fetch deriv factors data.
-        constexpr bool transpose =
-            std::is_same_v<Implementation, Operators::SumFacTOP>;
-        auto dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                  inblock.GetNumElements(), transpose));
-
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -393,7 +381,7 @@ protected:
             // Calculate derivative.
             PhysDeriv2DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
                 m_coordDim, nq0, nq1, nelmt, outoffset, m_D[0], m_D[1], m_f[0],
-                m_f[1], dfptr, inptr, outptr);
+                m_f[1], m_dfptr, inptr, outptr);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
@@ -427,13 +415,6 @@ protected:
     {
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
-        // Fetch deriv factors data.
-        constexpr bool transpose =
-            std::is_same_v<Implementation, Operators::SumFacTOP>;
-        auto dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                  inblock.GetNumElements(), transpose));
-
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -454,8 +435,8 @@ protected:
             // Calculate derivative.
             PhysDeriv2DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED,
                               coordDim, nq0, nq1>(nelmt, outoffset, m_D[0],
-                                                  m_D[1], m_f[0], m_f[1], dfptr,
-                                                  inptr, outptr);
+                                                  m_D[1], m_f[0], m_f[1],
+                                                  m_dfptr, inptr, outptr);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
@@ -493,13 +474,6 @@ protected:
 
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
-        // Fetch deriv factors data.
-        constexpr bool transpose =
-            std::is_same_v<Implementation, Operators::SumFacTOP>;
-        auto dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                  inblock.GetNumElements(), transpose));
-
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -518,7 +492,7 @@ protected:
             // Calculate derivative.
             PhysDeriv3DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
                 nq0, nq1, nq2, nelmt, outblock.size(), m_D[0], m_D[1], m_D[2],
-                m_f[0], m_f[1], m_f[2], m_f[3], dfptr, inptr, outptr);
+                m_f[0], m_f[1], m_f[2], m_f[3], m_dfptr, inptr, outptr);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
@@ -549,13 +523,6 @@ protected:
     {
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
-        // Fetch deriv factors data.
-        constexpr bool transpose =
-            std::is_same_v<Implementation, Operators::SumFacTOP>;
-        auto dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                  inblock.GetNumElements(), transpose));
-
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -575,7 +542,7 @@ protected:
             PhysDeriv3DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED,
                               nq0, nq1, nq2>(
                 nelmt, outblock.size(), m_D[0], m_D[1], m_D[2], m_f[0], m_f[1],
-                m_f[2], m_f[3], dfptr, inptr, outptr);
+                m_f[2], m_f[3], m_dfptr, inptr, outptr);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,

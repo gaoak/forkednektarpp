@@ -46,14 +46,18 @@ class ExpressionBlockOpImpl : public ExpressionBlockOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    ExpressionBlockOpImpl(const LocalRegions::ExpansionSharedPtr &exp,
+    ExpressionBlockOpImpl(const unsigned int block_idx,
+                          const LocalRegions::ExpansionSharedPtr &exp,
                           NekDataWarehouseSharedPtr dataWarehouse)
-        : ExpressionBlockOp<TData>(exp, dataWarehouse)
+        : ExpressionBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         // Determine shape and type of the element.
         m_dimension = exp->GetShapeDimension();
         m_coordDim  = exp->GetCoordim();
         m_nqTot     = exp->GetTotPoints();
+
+        m_coordptr = this->m_dataWarehouse->template GetData<MemSpace>(
+            CoordKey<TData>(block_idx, m_implInterleaveWidth, false));
     }
 
     // className - for BlockOperatorFactory
@@ -61,12 +65,13 @@ public:
 
     // Instantiation function for CreatorFunction in BlockOperatorFactory.
     static std::unique_ptr<BlockOperator<TData>> Instantiate(
+        const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
             ExpressionBlockOpImpl<ExecSpace, Implementation, TData>>(
-            exp, dataWarehouse);
+            block_idx, exp, dataWarehouse);
     }
 
 protected:
@@ -76,6 +81,7 @@ protected:
     unsigned int m_coordDim;
     unsigned int m_nqTot;
     std::vector<unsigned int> m_numEvars;
+    const TData *m_coordptr;
 
     TData m_time;
     TData m_scale;
@@ -92,10 +98,6 @@ protected:
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
-
-        auto coordptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
-            CoordKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                            inblock.GetNumElements(), false));
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
@@ -121,7 +123,7 @@ protected:
                                       outblock.GetNumData(), (TData *)outptr);
 
             // Evaluate expression.
-            auto coordptr = coordptr_init;
+            auto coordptr = m_coordptr;
             for (size_t e = 0, cnt = 0; e < nelmt; e++)
             {
                 // Kernel operation.

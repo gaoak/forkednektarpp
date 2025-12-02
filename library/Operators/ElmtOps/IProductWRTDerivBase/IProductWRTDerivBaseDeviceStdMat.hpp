@@ -50,9 +50,10 @@ class IProductWRTDerivBaseBlockOpImpl
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    IProductWRTDerivBaseBlockOpImpl(const LocalRegions::ExpansionSharedPtr &exp,
+    IProductWRTDerivBaseBlockOpImpl(const unsigned int block_idx,
+                                    const LocalRegions::ExpansionSharedPtr &exp,
                                     NekDataWarehouseSharedPtr dataWarehouse)
-        : IProductWRTDerivBaseBlockOp<TData>(exp, dataWarehouse)
+        : IProductWRTDerivBaseBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -78,6 +79,12 @@ public:
 
         m_matptr = dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
             basisKeys, m_shapeType, eIProductWRTDerivBaseStdMat, nodalType));
+
+        // Fetch Jacobian and deriv factors.
+        m_jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
+            JacobianKey<TData>(block_idx, m_implInterleaveWidth));
+        m_dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
+            DerivFactorKey<TData>(block_idx, m_implInterleaveWidth, true));
     }
 
     // className - for BlockOperatorFactory
@@ -85,12 +92,13 @@ public:
 
     // Instantiation function for CreatorFunction in BlockOperatorFactory.
     static std::unique_ptr<BlockOperator<TData>> Instantiate(
+        const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
             IProductWRTDerivBaseBlockOpImpl<ExecSpace, Implementation, TData>>(
-            exp, dataWarehouse);
+            block_idx, exp, dataWarehouse);
     }
 
 protected:
@@ -103,6 +111,8 @@ protected:
     unsigned int m_nmTot;
     unsigned int m_nqTot;
     const TData *m_matptr;
+    const TData *m_jacptr;
+    const TData *m_dfptr;
     MemoryRegion<TData> m_wsp;
 
     void v_Apply(BlockAccessor<TData> &inblock,
@@ -120,14 +130,6 @@ protected:
         auto outptr = this->m_append
                           ? outblock.template GetPtr<MemSpace, ReadWrite>()
                           : outblock.template GetPtr<MemSpace, WriteOnly>();
-
-        // Fetch Jacobian and deriv factors.
-        auto jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                               inblock.GetNumElements()));
-        auto dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                  inblock.GetNumElements(), true));
 
         // Allocate storage.
         if (m_wsp.size() == 0)
@@ -160,13 +162,13 @@ protected:
             {
                 MultiplyByJacobianAndDerivFactorKernel<ExecSpace, true>(
                     m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, inoffset,
-                    wspoffset, jacptr, dfptr, inptr, wspptr);
+                    wspoffset, m_jacptr, m_dfptr, inptr, wspptr);
             }
             else
             {
                 MultiplyByJacobianAndDerivFactorKernel<ExecSpace, false>(
                     m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, inoffset,
-                    wspoffset, jacptr, dfptr, inptr, wspptr);
+                    wspoffset, m_jacptr, m_dfptr, inptr, wspptr);
             }
 
             // Perform matrix-matrix multiply.

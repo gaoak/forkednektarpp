@@ -49,9 +49,10 @@ class IProductWRTDerivBaseBlockOpImpl
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    IProductWRTDerivBaseBlockOpImpl(const LocalRegions::ExpansionSharedPtr &exp,
+    IProductWRTDerivBaseBlockOpImpl(const unsigned int block_idx,
+                                    const LocalRegions::ExpansionSharedPtr &exp,
                                     NekDataWarehouseSharedPtr dataWarehouse)
-        : IProductWRTDerivBaseBlockOp<TData>(exp, dataWarehouse)
+        : IProductWRTDerivBaseBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -87,9 +88,22 @@ public:
             (m_shapeType == LibUtilities::eNodalPrism) ||
             (m_shapeType == LibUtilities::eNodalTet))
         {
+            std::vector<LibUtilities::BasisKey> basisKeys(
+                m_dimension, LibUtilities::NullBasisKey);
+            for (unsigned int d = 0; d < m_dimension; d++)
+            {
+                basisKeys[d] = exp->GetBasis(d)->GetBasisKey();
+            }
+
+            LibUtilities::PointsType nodalType =
+                (exp->IsNodalNonTensorialExp())
+                    ? exp->GetNodalPointsKey().GetPointsType()
+                    : LibUtilities::eNoPointsType;
+
             // Fetch NodalToModal Matrix if required.
-            m_nodToMod = this->m_dataWarehouse->template GetData<MemSpace>(
-                VandemondeKey<TData>(eNodalToModal, exp->GetElmtId()));
+            m_nodToMod =
+                dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
+                    basisKeys, m_shapeType, eNodalToModal, nodalType));
         }
         else
         {
@@ -163,6 +177,14 @@ public:
                                        2))
                     : nullptr);
         }
+
+        // Fetch Jacobian and deriv factors.
+        constexpr bool transpose =
+            std::is_same_v<Implementation, Operators::SumFacTOP>;
+        m_jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
+            JacobianKey<TData>(block_idx, m_implInterleaveWidth));
+        m_dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
+            DerivFactorKey<TData>(block_idx, m_implInterleaveWidth, transpose));
     }
 
     // className - for BlockOperatorFactory
@@ -170,12 +192,13 @@ public:
 
     // Instantiation function for CreatorFunction in BlockOperatorFactory.
     static std::unique_ptr<BlockOperator<TData>> Instantiate(
+        const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
             IProductWRTDerivBaseBlockOpImpl<ExecSpace, Implementation, TData>>(
-            exp, dataWarehouse);
+            block_idx, exp, dataWarehouse);
     }
 
 protected:
@@ -199,6 +222,8 @@ protected:
     std::vector<const unsigned int *> m_index;
     MemoryRegion<TData> m_wsp;
     const TData *m_nodToMod;
+    const TData *m_jacptr;
+    const TData *m_dfptr;
 
     void v_Apply(BlockAccessor<TData> &inblock,
                  BlockAccessor<TData> &outblock) override
@@ -380,16 +405,6 @@ protected:
 
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
-        // Fetch Jacobian and deriv factors.
-        constexpr bool transpose =
-            std::is_same_v<Implementation, Operators::SumFacTOP>;
-        auto jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                               inblock.GetNumElements()));
-        auto dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                  inblock.GetNumElements(), transpose));
-
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -426,8 +441,8 @@ protected:
 
             // IProduct kernel.
             IProductWRTDerivBase1DKernel<ExecSpace, Implementation, DEFORMED>(
-                m_coordDim, nm0, nq0, nelmt, inoffset, m_DB[0], m_W[0], dfptr,
-                jacptr, inptr, outptr, wspptr);
+                m_coordDim, nm0, nq0, nelmt, inoffset, m_DB[0], m_W[0], m_dfptr,
+                m_jacptr, inptr, outptr, wspptr);
 
             // Reshape back, if necessary.
             for (unsigned int d = 0; d < m_coordDim; ++d)
@@ -459,16 +474,6 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         const auto nelmt = inblock.GetNumElementsWithPadding();
-
-        // Fetch Jacobian and deriv factors.
-        constexpr bool transpose =
-            std::is_same_v<Implementation, Operators::SumFacTOP>;
-        auto jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                               inblock.GetNumElements()));
-        auto dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                  inblock.GetNumElements(), transpose));
 
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
@@ -507,7 +512,7 @@ protected:
             // IProduct kernel.
             IProductWRTDerivBase1DKernel<ExecSpace, Implementation, DEFORMED,
                                          nm0, nq0>(
-                m_coordDim, nelmt, inoffset, m_DB[0], m_W[0], dfptr, jacptr,
+                m_coordDim, nelmt, inoffset, m_DB[0], m_W[0], m_dfptr, m_jacptr,
                 inptr, outptr, wspptr);
 
             // Reshape back, if necessary.
@@ -546,16 +551,6 @@ protected:
         const auto nq1 = m_nq[1];
 
         const auto nelmt = inblock.GetNumElementsWithPadding();
-
-        // Fetch Jacobian and deriv factors.
-        constexpr bool transpose =
-            std::is_same_v<Implementation, Operators::SumFacTOP>;
-        auto jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                               inblock.GetNumElements()));
-        auto dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                  inblock.GetNumElements(), transpose));
 
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
@@ -597,7 +592,7 @@ protected:
                                          DEFORMED>(
                 m_coordDim, nm0, nm1, nq0, nq1, nelmt, inoffset, m_isModified,
                 m_index[0], m_B[0], m_B[1], m_D[0], m_D[1], m_W[0], m_W[1],
-                m_f[0], m_f[1], m_nodToMod, dfptr, jacptr, inptr, outptr,
+                m_f[0], m_f[1], m_nodToMod, m_dfptr, m_jacptr, inptr, outptr,
                 wspptr);
 
             // Reshape back, if necessary.
@@ -631,16 +626,6 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         const auto nelmt = inblock.GetNumElementsWithPadding();
-
-        // Fetch Jacobian and deriv factors.
-        constexpr bool transpose =
-            std::is_same_v<Implementation, Operators::SumFacTOP>;
-        auto jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                               inblock.GetNumElements()));
-        auto dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                  inblock.GetNumElements(), transpose));
 
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
@@ -682,7 +667,7 @@ protected:
                                          DEFORMED, nm0, nm1, nq0, nq1>(
                 m_coordDim, nelmt, inoffset, m_isModified, m_index[0], m_B[0],
                 m_B[1], m_D[0], m_D[1], m_W[0], m_W[1], m_f[0], m_f[1],
-                m_nodToMod, dfptr, jacptr, inptr, outptr, wspptr);
+                m_nodToMod, m_dfptr, m_jacptr, inptr, outptr, wspptr);
 
             // Reshape back, if necessary.
             for (unsigned int d = 0; d < m_coordDim; ++d)
@@ -723,16 +708,6 @@ protected:
 
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
-        // Fetch Jacobian and deriv factors.
-        constexpr bool transpose =
-            std::is_same_v<Implementation, Operators::SumFacTOP>;
-        auto jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                               inblock.GetNumElements()));
-        auto dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                  inblock.GetNumElements(), transpose));
-
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -772,7 +747,7 @@ protected:
                 nm0, nm1, nm2, nq0, nq1, nq2, nelmt, inblock.size(),
                 m_isModified, m_index[0], m_index[1], m_index[2], m_B[0],
                 m_B[1], m_B[2], m_D[0], m_D[1], m_D[2], m_W[0], m_W[1], m_W[2],
-                m_f[0], m_f[1], m_f[2], m_f[3], m_nodToMod, dfptr, jacptr,
+                m_f[0], m_f[1], m_f[2], m_f[3], m_nodToMod, m_dfptr, m_jacptr,
                 inptr, outptr, wspptr);
 
             // Reshape back, if necessary.
@@ -802,16 +777,6 @@ protected:
                     BlockAccessor<TData> &outblock)
     {
         const auto nelmt = inblock.GetNumElementsWithPadding();
-
-        // Fetch Jacobian and deriv factors.
-        constexpr bool transpose =
-            std::is_same_v<Implementation, Operators::SumFacTOP>;
-        auto jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                               inblock.GetNumElements()));
-        auto dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                  inblock.GetNumElements(), transpose));
 
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
@@ -853,7 +818,7 @@ protected:
                 nelmt, inblock.size(), m_isModified, m_index[0], m_index[1],
                 m_index[2], m_B[0], m_B[1], m_B[2], m_D[0], m_D[1], m_D[2],
                 m_W[0], m_W[1], m_W[2], m_f[0], m_f[1], m_f[2], m_f[3],
-                m_nodToMod, dfptr, jacptr, inptr, outptr, wspptr);
+                m_nodToMod, m_dfptr, m_jacptr, inptr, outptr, wspptr);
 
             // Reshape back, if necessary.
             for (unsigned int d = 0; d < m_coordDim; ++d)

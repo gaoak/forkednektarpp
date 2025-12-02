@@ -74,6 +74,9 @@ enum StdMatType
     eMassStdMatTranspose                 = 12,
     eInvMassStdMat                       = 13,
     eInvMassStdMatTranspose              = 14,
+    eNodalToModal                        = 15,
+    eNodalToModalTranspose               = 16,
+    eModalToNodal                        = 17
 };
 
 class StdMatDataCreator;
@@ -553,6 +556,72 @@ public:
                                  &mat[i], nmTot);
                 }
                 return MemoryRegion<TData>::template FromArray<MemSpace>(mat);
+            }
+            break;
+            case eNodalToModal:
+            {
+                StdRegions::StdMatrixKey Nkey(
+                    StdRegions::eInvNBasisTrans, stdExp->DetShapeType(),
+                    *stdExp, StdRegions::NullConstFactorMap,
+                    StdRegions::NullVarCoeffMap, nodaltype);
+                auto vdmMat = stdExp->GetStdMatrix(Nkey);
+
+                auto vdm = MemoryRegion<TData>(nmTot * nmTot);
+                auto vdmptr =
+                    vdm.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+                unsigned int cnt = 0;
+                for (unsigned int i = 0; i < nmTot; ++i)
+                {
+                    for (unsigned int j = 0; j < nmTot; ++j, ++cnt)
+                    {
+                        vdmptr[cnt] = vdmMat->GetValue(i, j);
+                    }
+                }
+                return vdm;
+            }
+            break;
+            case eModalToNodal:
+            {
+                StdRegions::StdMatrixKey Nkey(
+                    StdRegions::eNBasisTrans, stdExp->DetShapeType(), *stdExp,
+                    StdRegions::NullConstFactorMap, StdRegions::NullVarCoeffMap,
+                    nodaltype);
+                auto vdmMat = stdExp->GetStdMatrix(Nkey);
+
+                auto vdm = MemoryRegion<TData>(nmTot * nmTot);
+                auto vdmptr =
+                    vdm.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+                unsigned int cnt = 0;
+                for (unsigned int i = 0; i < nmTot; ++i)
+                {
+                    for (unsigned int j = 0; j < nmTot; ++j, ++cnt)
+                    {
+                        vdmptr[cnt] = vdmMat->GetValue(i, j);
+                    }
+                }
+                return vdm;
+            }
+            break;
+            case eNodalToModalTranspose:
+            {
+                StdRegions::StdMatrixKey Nkey(
+                    StdRegions::eInvNBasisTrans, stdExp->DetShapeType(),
+                    *stdExp, StdRegions::NullConstFactorMap,
+                    StdRegions::NullVarCoeffMap, nodaltype);
+                auto vdmMat = stdExp->GetStdMatrix(Nkey);
+
+                auto vdm = MemoryRegion<TData>(nmTot * nmTot);
+                auto vdmptr =
+                    vdm.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+                unsigned int cnt = 0;
+                for (unsigned int i = 0; i < nmTot; ++i)
+                {
+                    for (unsigned int j = 0; j < nmTot; ++j, ++cnt)
+                    {
+                        vdmptr[cnt] = vdmMat->GetValue(j, i);
+                    }
+                }
+                return vdm;
             }
             break;
             default:

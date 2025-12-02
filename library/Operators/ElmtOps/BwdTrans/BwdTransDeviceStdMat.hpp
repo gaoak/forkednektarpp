@@ -47,9 +47,10 @@ class BwdTransBlockOpImpl : public BwdTransBlockOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    BwdTransBlockOpImpl(const LocalRegions::ExpansionSharedPtr &exp,
+    BwdTransBlockOpImpl(const unsigned int block_idx,
+                        const LocalRegions::ExpansionSharedPtr &exp,
                         NekDataWarehouseSharedPtr dataWarehouse)
-        : BwdTransBlockOp<TData>(exp, dataWarehouse)
+        : BwdTransBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -82,12 +83,13 @@ public:
 
     // Instantiation function for CreatorFunction in BlockOperatorFactory.
     static std::unique_ptr<BlockOperator<TData>> Instantiate(
+        const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
             BwdTransBlockOpImpl<ExecSpace, Implementation, TData>>(
-            exp, dataWarehouse);
+            block_idx, exp, dataWarehouse);
     }
 
 protected:

@@ -56,9 +56,10 @@ class LinAdvDiffReactionBlockOpImpl : public LinAdvDiffReactionBlockOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    LinAdvDiffReactionBlockOpImpl(const LocalRegions::ExpansionSharedPtr &exp,
+    LinAdvDiffReactionBlockOpImpl(const unsigned int block_idx,
+                                  const LocalRegions::ExpansionSharedPtr &exp,
                                   NekDataWarehouseSharedPtr dataWarehouse)
-        : LinAdvDiffReactionBlockOp<TData>(exp, dataWarehouse),
+        : LinAdvDiffReactionBlockOp<TData>(block_idx, exp, dataWarehouse),
           m_diffCoeff(
               MemoryRegion<TData>("LinAdvDiffReaction diffCoeff",
                                   exp->GetCoordim() * exp->GetCoordim()))
@@ -103,6 +104,12 @@ public:
         {
             diffCoeff[d * m_coordDim + d] = 1.0; // temporary solution
         }
+
+        // Fetch Jacobian and deriv factors.
+        m_jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
+            JacobianKey<TData>(block_idx, m_implInterleaveWidth));
+        m_dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
+            DerivFactorKey<TData>(block_idx, m_implInterleaveWidth, false));
     }
 
     // className - for BlockOperatorFactory
@@ -110,12 +117,13 @@ public:
 
     // Instantiation function for CreatorFunction in BlockOperatorFactory.
     static std::unique_ptr<BlockOperator<TData>> Instantiate(
+        const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
             LinAdvDiffReactionBlockOpImpl<ExecSpace, Implementation, TData>>(
-            exp, dataWarehouse);
+            block_idx, exp, dataWarehouse);
     }
 
 protected:
@@ -131,6 +139,8 @@ protected:
     const TData *m_ipbmat;
     const TData *m_ipdmat;
     const TData *m_derivmat;
+    const TData *m_jacptr;
+    const TData *m_dfptr;
     MemoryRegion<TData> m_bwd;
     MemoryRegion<TData> m_deriv;
     MemoryRegion<TData> m_diffCoeff;
@@ -139,13 +149,6 @@ protected:
     void v_Apply(BlockAccessor<TData> &inblock,
                  BlockAccessor<TData> &outblock) override
     {
-        // Fetch Jacobian and deriv factors.
-        auto jacptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
-            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                               inblock.GetNumElements()));
-        auto dfptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
-            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                  inblock.GetNumElements(), false));
         auto diffCoeffPtr =
             this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
 
@@ -189,8 +192,8 @@ protected:
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
             auto advptr = this->m_advVel;
-            auto jacptr = jacptr_init;
-            auto dfptr  = dfptr_init;
+            auto jacptr = m_jacptr;
+            auto dfptr  = m_dfptr;
 
             // Loop over element groups.
             for (size_t e = 0;

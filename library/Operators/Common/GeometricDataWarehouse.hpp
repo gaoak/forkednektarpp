@@ -56,18 +56,16 @@ public:
 
     ~JacobianKey() override = default;
 
-    JacobianKey(const size_t exp_idx, const unsigned int interleave_width,
-                const size_t num_elements)
-        : m_exp_idx(exp_idx), m_num_elements(num_elements),
-          m_interleave_width(interleave_width)
+    JacobianKey(const unsigned int block_idx,
+                const unsigned int interleave_width)
+        : m_block_idx(block_idx), m_interleave_width(interleave_width)
     {
-        hash_combine(m_hash, m_exp_idx, m_interleave_width, m_num_elements,
+        hash_combine(m_hash, m_block_idx, m_interleave_width,
                      typeid(value_type).name(), "JacobianKey");
     }
 
 private:
-    size_t m_exp_idx;
-    size_t m_num_elements;
+    unsigned int m_block_idx;
     unsigned int m_interleave_width;
 };
 
@@ -81,18 +79,17 @@ public:
 
     ~DerivFactorKey() override = default;
 
-    DerivFactorKey(const size_t exp_idx, const unsigned int interleave_width,
-                   const size_t num_elements, const bool transpose)
-        : m_exp_idx(exp_idx), m_num_elements(num_elements),
-          m_interleave_width(interleave_width), m_transpose(transpose)
+    DerivFactorKey(const unsigned int block_idx,
+                   const unsigned int interleave_width, const bool transpose)
+        : m_block_idx(block_idx), m_interleave_width(interleave_width),
+          m_transpose(transpose)
     {
-        hash_combine(m_hash, m_exp_idx, m_interleave_width, m_num_elements,
-                     m_transpose, typeid(value_type).name(), "DerivFactorKey");
+        hash_combine(m_hash, m_block_idx, m_interleave_width, m_transpose,
+                     typeid(value_type).name(), "DerivFactorKey");
     }
 
 private:
-    size_t m_exp_idx;
-    size_t m_num_elements;
+    unsigned int m_block_idx;
     unsigned int m_interleave_width;
     bool m_transpose;
 };
@@ -107,18 +104,17 @@ public:
 
     ~CoordKey() override = default;
 
-    CoordKey(const size_t exp_idx, const unsigned int interleave_width,
-             const size_t num_elements, const bool transpose)
-        : m_exp_idx(exp_idx), m_num_elements(num_elements),
-          m_interleave_width(interleave_width), m_transpose(transpose)
+    CoordKey(const unsigned block_idx, const unsigned int interleave_width,
+             const bool transpose)
+        : m_block_idx(block_idx), m_interleave_width(interleave_width),
+          m_transpose(transpose)
     {
-        hash_combine(m_hash, m_exp_idx, m_interleave_width, m_num_elements,
-                     m_transpose, typeid(value_type).name(), "CoordKey");
+        hash_combine(m_hash, m_block_idx, m_interleave_width, m_transpose,
+                     typeid(value_type).name(), "CoordKey");
     }
 
 private:
-    size_t m_exp_idx;
-    size_t m_num_elements;
+    unsigned int m_block_idx;
     unsigned int m_interleave_width;
     bool m_transpose;
 };
@@ -138,17 +134,20 @@ public:
         // Use maximum vector width for back-ends interoperability.
         const auto vector_width = NektarSpaces::max_vector_width<TData>::value;
 
-        const auto exp_idx          = jacobianKey.m_exp_idx;
+        const auto block_idx        = jacobianKey.m_block_idx;
         const auto interleave_width = jacobianKey.m_interleave_width;
-        const auto num_elements     = jacobianKey.m_num_elements;
+
+        auto coll               = GetCollection(m_expansionList, block_idx);
+        auto expPtr             = coll.GetExpVector()[0];
+        const auto exp_idx      = expPtr->GetElmtId();
+        const auto num_elements = coll.GetExpVector().size();
         const auto num_elmt_groups =
             ((num_elements + vector_width - 1) / vector_width) * vector_width /
             interleave_width;
 
-        auto expPtr = m_expansionList->GetExp(exp_idx);
-
         // Deformed geometry.
-        if (expPtr->GetGeomFactors()->GetGtype() == SpatialDomains::eDeformed)
+        if (m_expansionList->GetExp(exp_idx)->GetGeomFactors()->GetGtype() ==
+            SpatialDomains::eDeformed)
         {
             const auto memsize =
                 num_elmt_groups * interleave_width * expPtr->GetTotPoints();
@@ -222,15 +221,17 @@ public:
         // Use maximum vector width for back-ends interoperability.
         const auto vector_width = NektarSpaces::max_vector_width<TData>::value;
 
-        const auto exp_idx          = derivFactorKey.m_exp_idx;
+        const auto block_idx        = derivFactorKey.m_block_idx;
         const auto interleave_width = derivFactorKey.m_interleave_width;
-        const auto num_elements     = derivFactorKey.m_num_elements;
         const auto transpose        = derivFactorKey.m_transpose;
+
+        auto coll               = GetCollection(m_expansionList, block_idx);
+        auto expPtr             = coll.GetExpVector()[0];
+        const auto exp_idx      = expPtr->GetElmtId();
+        const auto num_elements = coll.GetExpVector().size();
         const auto num_elmt_groups =
             ((num_elements + vector_width - 1) / vector_width) * vector_width /
             interleave_width;
-
-        auto expPtr       = m_expansionList->GetExp(exp_idx);
         const auto nDim   = expPtr->GetShapeDimension();
         const auto nCoord = expPtr->GetCoordim();
 
@@ -238,7 +239,8 @@ public:
         const auto range2 = transpose ? expPtr->GetTotPoints() : nDim * nCoord;
 
         // Deformed geometry.
-        if (expPtr->GetGeomFactors()->GetGtype() == SpatialDomains::eDeformed)
+        if (m_expansionList->GetExp(exp_idx)->GetGeomFactors()->GetGtype() ==
+            SpatialDomains::eDeformed)
         {
             // Allocate memory and get pointer.
             const auto memsize = num_elmt_groups * interleave_width *
@@ -323,17 +325,19 @@ public:
         // Use maximum vector width for back-ends interoperability.
         const auto vector_width = NektarSpaces::max_vector_width<TData>::value;
 
-        auto exp_idx          = coordKey.m_exp_idx;
-        auto interleave_width = coordKey.m_interleave_width;
-        auto num_elements     = coordKey.m_num_elements;
-        auto transpose        = coordKey.m_transpose;
-        auto num_elmt_groups =
+        const auto block_idx        = coordKey.m_block_idx;
+        const auto interleave_width = coordKey.m_interleave_width;
+        const auto transpose        = coordKey.m_transpose;
+
+        auto coll               = GetCollection(m_expansionList, block_idx);
+        auto expPtr             = coll.GetExpVector()[0];
+        const auto exp_idx      = expPtr->GetElmtId();
+        const auto num_elements = coll.GetExpVector().size();
+        const auto num_elmt_groups =
             ((num_elements + vector_width - 1) / vector_width) * vector_width /
             interleave_width;
 
-        auto expPtr     = m_expansionList->GetExp(exp_idx);
-        const auto nDim = expPtr->GetShapeDimension();
-
+        const auto nDim   = expPtr->GetShapeDimension();
         const auto range1 = transpose ? nDim : expPtr->GetTotPoints();
         const auto range2 = transpose ? expPtr->GetTotPoints() : nDim;
 

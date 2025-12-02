@@ -43,20 +43,22 @@ template <typename TData> class BwdTransBlockOp : public BlockOperator<TData>
 {
 public:
     static std::shared_ptr<BwdTransBlockOp<TData>> Create(
+        const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
         std::string implStr)
     {
         return BlockOperator<TData>::template Create<BwdTransBlockOp>(
-            exp, dataWarehouse, execStr, implStr);
+            block_idx, exp, dataWarehouse, execStr, implStr);
     }
 
     static inline const std::string name = "BlockBwdTrans";
 
 protected:
-    BwdTransBlockOp(const LocalRegions::ExpansionSharedPtr &exp,
+    BwdTransBlockOp(const unsigned int block_idx,
+                    const LocalRegions::ExpansionSharedPtr &exp,
                     NekDataWarehouseSharedPtr dataWarehouse)
-        : BlockOperator<TData>(exp, dataWarehouse)
+        : BlockOperator<TData>(block_idx, exp, dataWarehouse)
     {
     }
 

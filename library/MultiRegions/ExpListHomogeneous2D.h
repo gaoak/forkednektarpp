@@ -111,6 +111,11 @@ public:
         Direction edir, const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &out_d);
 
+    ExpListSharedPtr &GetLine(int n)
+    {
+        return m_lines[n];
+    }
+
     /// FFT variables
     bool m_useFFT;
     LibUtilities::NektarFFTSharedPtr m_FFT_y;

@@ -49,9 +49,10 @@ class MassBlockOpImpl : public MassBlockOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    MassBlockOpImpl(const LocalRegions::ExpansionSharedPtr &exp,
+    MassBlockOpImpl(const unsigned int block_idx,
+                    const LocalRegions::ExpansionSharedPtr &exp,
                     NekDataWarehouseSharedPtr dataWarehouse)
-        : MassBlockOp<TData>(exp, dataWarehouse)
+        : MassBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -90,6 +91,10 @@ public:
                 dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
                     basisKeys, m_shapeType, eMassStdMat, nodalType));
         }
+
+        // Fetch Jacobian.
+        m_jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
+            JacobianKey<TData>(block_idx, m_implInterleaveWidth));
     }
 
     // className - for BlockOperatorFactory
@@ -97,11 +102,12 @@ public:
 
     // Instantiation function for CreatorFunction in BlockOperatorFactory.
     static std::unique_ptr<BlockOperator<TData>> Instantiate(
+        const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
-            MassBlockOpImpl<ExecSpace, Implementation, TData>>(exp,
+            MassBlockOpImpl<ExecSpace, Implementation, TData>>(block_idx, exp,
                                                                dataWarehouse);
     }
 
@@ -117,6 +123,7 @@ protected:
     const TData *m_bwdmat;
     const TData *m_ipbmat;
     const TData *m_massmat;
+    const TData *m_jacptr;
     MemoryRegion<TData> m_wsp;
 
     void v_Apply(BlockAccessor<TData> &inblock,
@@ -132,11 +139,6 @@ protected:
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
-
-        // Fetch Jacobian.
-        auto jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            JacobianKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                               inblock.GetNumElements()));
 
         // Allocate storage.
         if (m_wsp.size() == 0)
@@ -168,7 +170,7 @@ protected:
 
                 // Multiply by jacobian.
                 MultiplyByJacobianKernel<ExecSpace, true>(
-                    nelmt, m_nqTot, nhomo, jacptr, wspptr, wspptr, 1.0);
+                    nelmt, m_nqTot, nhomo, m_jacptr, wspptr, wspptr, 1.0);
 
                 // Step 2: IProduct
                 // Perform matrix-matrix multiply.
@@ -185,7 +187,7 @@ protected:
 
                 // Multiply by jacobian.
                 MultiplyByJacobianKernel<ExecSpace, false>(
-                    nelmt, m_nmTot, nhomo, jacptr, outptr, outptr, 1.0);
+                    nelmt, m_nmTot, nhomo, m_jacptr, outptr, outptr, 1.0);
             }
 
             // Reshape back, if necessary.

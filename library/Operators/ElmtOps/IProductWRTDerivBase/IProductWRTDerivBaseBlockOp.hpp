@@ -44,12 +44,14 @@ class IProductWRTDerivBaseBlockOp : public BlockOperator<TData>
 {
 public:
     static std::shared_ptr<IProductWRTDerivBaseBlockOp<TData>> Create(
+        const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
         std::string implStr)
     {
         return BlockOperator<TData>::template Create<
-            IProductWRTDerivBaseBlockOp>(exp, dataWarehouse, execStr, implStr);
+            IProductWRTDerivBaseBlockOp>(block_idx, exp, dataWarehouse, execStr,
+                                         implStr);
     }
 
     static inline const std::string name = "BlockIProductWRTDerivBase";
@@ -62,9 +64,10 @@ public:
 protected:
     bool m_append = false;
 
-    IProductWRTDerivBaseBlockOp(const LocalRegions::ExpansionSharedPtr &exp,
+    IProductWRTDerivBaseBlockOp(const unsigned int block_idx,
+                                const LocalRegions::ExpansionSharedPtr &exp,
                                 NekDataWarehouseSharedPtr dataWarehouse)
-        : BlockOperator<TData>(exp, dataWarehouse)
+        : BlockOperator<TData>(block_idx, exp, dataWarehouse)
     {
     }
 

@@ -51,9 +51,10 @@ class PhysDerivBlockOpImpl : public PhysDerivBlockOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    PhysDerivBlockOpImpl(const LocalRegions::ExpansionSharedPtr &exp,
+    PhysDerivBlockOpImpl(const unsigned int block_idx,
+                         const LocalRegions::ExpansionSharedPtr &exp,
                          NekDataWarehouseSharedPtr dataWarehouse)
-        : PhysDerivBlockOp<TData>(exp, dataWarehouse)
+        : PhysDerivBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -103,6 +104,10 @@ public:
                 BasisDataKey<simd_t>(this->m_exp->GetBasis(2)->GetBasisKey(),
                                      eTwoOverOneMinusZero)));
         }
+
+        // Fetch deriv factors data.
+        m_dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
+            DerivFactorKey<TData>(block_idx, m_implInterleaveWidth, false));
     }
 
     // className - for BlockOperatorFactory
@@ -110,12 +115,13 @@ public:
 
     // Instantiation function for CreatorFunction in BlockOperatorFactory.
     static std::unique_ptr<BlockOperator<TData>> Instantiate(
+        const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
             PhysDerivBlockOpImpl<ExecSpace, Implementation, TData>>(
-            exp, dataWarehouse);
+            block_idx, exp, dataWarehouse);
     }
 
 protected:
@@ -130,6 +136,7 @@ protected:
     std::vector<unsigned int> m_nq;
     std::vector<const simd_t *> m_D;
     std::vector<const simd_t *> m_f;
+    const TData *m_dfptr;
 #if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
     // flag to ensure we only get one warning for alignment otherwise CI system
     // is saturated with warnings
@@ -260,11 +267,6 @@ protected:
             dfsize *= nqTot;
         }
 
-        // Fetch deriv factors data.
-        auto dfptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
-            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                  inblock.GetNumElements(), false));
-
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -288,7 +290,7 @@ protected:
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
-            auto dfptr = dfptr_init;
+            auto dfptr = m_dfptr;
 
             for (size_t e = 0;
                  e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
@@ -368,11 +370,6 @@ protected:
             dfsize *= nqTot;
         }
 
-        // Fetch deriv factors data.
-        auto dfptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
-            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                  inblock.GetNumElements(), false));
-
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -396,7 +393,7 @@ protected:
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
-            auto dfptr = dfptr_init;
+            auto dfptr = m_dfptr;
             for (size_t e = 0;
                  e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
             {
@@ -477,11 +474,6 @@ protected:
             dfsize *= nqTot;
         }
 
-        // Fetch deriv factors data.
-        auto dfptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
-            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                  inblock.GetNumElements(), false));
-
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -505,7 +497,7 @@ protected:
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
-            auto dfptr = dfptr_init;
+            auto dfptr = m_dfptr;
             for (size_t e = 0;
                  e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
             {
@@ -584,11 +576,6 @@ protected:
             dfsize *= nqTot;
         }
 
-        // Fetch deriv factors data.
-        auto dfptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
-            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                  inblock.GetNumElements(), false));
-
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -612,7 +599,7 @@ protected:
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
-            auto dfptr = dfptr_init;
+            auto dfptr = m_dfptr;
             for (size_t e = 0;
                  e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
             {
@@ -694,11 +681,6 @@ protected:
             dfsize *= nqTot;
         }
 
-        // Fetch deriv factors data.
-        auto dfptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
-            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                  inblock.GetNumElements(), false));
-
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -725,7 +707,7 @@ protected:
         outvec[2] = reinterpret_cast<simd_t *>(outptr) + 2 * compOffset;
         for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
-            auto dfptr = dfptr_init;
+            auto dfptr = m_dfptr;
             for (size_t e = 0;
                  e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
             {
@@ -800,11 +782,6 @@ protected:
             dfsize *= nqTot;
         }
 
-        // Fetch deriv factors data.
-        auto dfptr_init = this->m_dataWarehouse->template GetData<MemSpace>(
-            DerivFactorKey<TData>(inblock.GetExpIdx(), m_implInterleaveWidth,
-                                  inblock.GetNumElements(), false));
-
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -831,7 +808,7 @@ protected:
         outvec[2] = reinterpret_cast<simd_t *>(outptr) + 2 * compOffset;
         for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
-            auto dfptr = dfptr_init;
+            auto dfptr = m_dfptr;
             for (size_t e = 0;
                  e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
             {

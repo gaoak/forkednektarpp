@@ -1894,9 +1894,6 @@ void ExpList::SetDataWarehouse(void)
     m_dataWarehouse
         ->RegisterDataCreatorClass<Nektar::Operators::GeometricDataCreator>(
             vExpList);
-    m_dataWarehouse
-        ->RegisterDataCreatorClass<Nektar::Operators::VandemondeDataCreator>(
-            vExpList);
 
     m_dataWarehouse->RegisterDataCreatorClass<
         Nektar::Operators::DeviceLocalToGlobalDataCreator>(vExpList);

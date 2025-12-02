@@ -44,12 +44,13 @@ class LinAdvDiffReactionBlockOp : public BlockOperator<TData>
 {
 public:
     static std::shared_ptr<LinAdvDiffReactionBlockOp<TData>> Create(
+        const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
         std::string implStr)
     {
         return BlockOperator<TData>::template Create<LinAdvDiffReactionBlockOp>(
-            exp, dataWarehouse, execStr, implStr);
+            block_idx, exp, dataWarehouse, execStr, implStr);
     }
 
     static inline const std::string name = "BlockLinAdvDiffReaction";
@@ -67,9 +68,10 @@ public:
 protected:
     TData m_lambda;
 
-    LinAdvDiffReactionBlockOp(const LocalRegions::ExpansionSharedPtr &exp,
+    LinAdvDiffReactionBlockOp(const unsigned int block_idx,
+                              const LocalRegions::ExpansionSharedPtr &exp,
                               NekDataWarehouseSharedPtr dataWarehouse)
-        : BlockOperator<TData>(exp, dataWarehouse)
+        : BlockOperator<TData>(block_idx, exp, dataWarehouse)
     {
     }
 
