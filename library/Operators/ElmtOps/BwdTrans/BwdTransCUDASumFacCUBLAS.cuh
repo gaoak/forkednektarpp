@@ -71,7 +71,7 @@ public:
             m_nq.push_back(exp->GetNumPoints(d));
 
             // Fetch basis data.
-            m_B.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_B.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<TData>(exp->GetBasis(d)->GetBasisKey(), eBasis)));
         }
     }

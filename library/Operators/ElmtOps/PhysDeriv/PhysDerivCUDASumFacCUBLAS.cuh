@@ -71,7 +71,7 @@ public:
             m_nq.push_back(exp->GetNumPoints(d));
 
             // Fetch basis data.
-            m_D.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_D.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<TData>(exp->GetBasis(d)->GetBasisKey(),
                                     eDerivative)));
         }
@@ -79,32 +79,32 @@ public:
         if (m_dimension == 2)
         {
             // Fetch geometric factors.
-            m_f.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
                                     eHalfMultOnePlusZero)));
-            m_f.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
                                     eTwoOverOneMinusZero)));
         }
         else if (m_dimension == 3)
         {
             // Fetch geometric factors.
-            m_f.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
                                     eHalfMultOnePlusZero)));
-            m_f.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
                                     eHalfMultOnePlusZero)));
-            m_f.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
                                     eTwoOverOneMinusZero)));
-            m_f.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<TData>(this->m_exp->GetBasis(2)->GetBasisKey(),
                                     eTwoOverOneMinusZero)));
         }
 
         // Fetch deriv factors data.
-        m_dfptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+        m_dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
             DerivFactorKey<TData>(block_idx, m_implInterleaveWidth, false));
     }
 
