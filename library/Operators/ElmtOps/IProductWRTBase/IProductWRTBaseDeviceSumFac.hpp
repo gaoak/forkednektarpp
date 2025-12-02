@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp"
+#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseBlockOp.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseDeviceSumFacKernels.hpp"

@@ -34,7 +34,9 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp"
+#include <LibUtilities/SimdLib/tinysimd.hpp>
+
+#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseBlockOp.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseSerialAVXSumFacKernels.hpp"

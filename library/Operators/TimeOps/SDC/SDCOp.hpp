@@ -34,6 +34,7 @@
 
 #pragma once
 
+#include <LibUtilities/Foundations/ManagerAccess.h>
 #include <LibUtilities/Foundations/Points.h>
 #include <LibUtilities/Polylib/Polylib.h>
 #include <Operators/TimeOps/TimeOp.hpp>

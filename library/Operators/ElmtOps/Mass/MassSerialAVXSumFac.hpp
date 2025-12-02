@@ -37,7 +37,9 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/Mass/MassOp.hpp"
+#include <LibUtilities/SimdLib/tinysimd.hpp>
+
+#include "Operators/ElmtOps/Mass/MassBlockOp.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/Mass/MassSerialAVXSumFacKernels.hpp"

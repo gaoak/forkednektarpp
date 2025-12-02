@@ -34,7 +34,9 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/Helmholtz/HelmholtzOp.hpp"
+#include <LibUtilities/SimdLib/tinysimd.hpp>
+
+#include "Operators/ElmtOps/Helmholtz/HelmholtzBlockOp.hpp"
 #include "Operators/NekBlas/NekBlas.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 

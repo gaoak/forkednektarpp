@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/BwdTrans/BwdTransOp.hpp"
+#include "Operators/ElmtOps/BwdTrans/BwdTransBlockOp.hpp"
 #include "Operators/NekBlas/NekBlas.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 

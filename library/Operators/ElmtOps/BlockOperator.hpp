@@ -37,11 +37,42 @@
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
 #include <LocalRegions/Expansion.h>
 
+#include "Operators/Common/BasisDataWarehouse.hpp"
+#include "Operators/Common/GeometricDataWarehouse.hpp"
+#include "Operators/Common/ModeIndexDataWarehouse.hpp"
 #include "Operators/Common/NekDataWarehouse.hpp"
+#include "Operators/Common/StdMatDataWarehouse.hpp"
+
 #include "Operators/Field/Field.hpp"
 
 namespace Nektar::Operators
 {
+
+// Core implementation types.
+struct StdMat
+{
+    static inline const std::string name = "StdMat";
+};
+
+struct SumFac
+{
+    static inline const std::string name = "SumFac";
+};
+
+struct SumFacTOP
+{
+    static inline const std::string name = "SumFacTOP";
+};
+
+struct SumFacMat
+{
+    static constexpr char name[] = "SumFacMat";
+};
+
+struct Generic
+{
+    static inline const std::string name = "Generic";
+};
 
 // Forward-declare the BlockOperator base class so we can define the factory
 template <typename TData> class BlockOperator;
@@ -112,5 +143,47 @@ protected:
     virtual void v_Apply(BlockAccessor<TData> &inblock,
                          BlockAccessor<TData> &outblock) = 0;
 };
+
+template <typename Implementation>
+NEK_FORCE_INLINE static constexpr unsigned int GetDeviceBlockSize(
+    [[maybe_unused]] const unsigned int blockSize)
+{
+    if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+    {
+        constexpr auto warpsize = NektarSpaces::Device::warpSize;
+        return warpsize;
+    }
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacTOP>)
+    {
+        constexpr auto warpsize = NektarSpaces::Device::warpSize;
+        return std::min(((blockSize + warpsize - 1u) / warpsize) * warpsize,
+                        NektarSpaces::Device::defaultBlockSize);
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+template <typename Implementation>
+NEK_FORCE_INLINE static constexpr unsigned int GetDeviceGridSize(
+    const size_t nelmt)
+{
+    size_t maxGridSize = 2147483647;
+
+    if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+    {
+        constexpr auto warpsize = NektarSpaces::Device::warpSize;
+        return std::min((nelmt + warpsize - 1u) / warpsize, maxGridSize);
+    }
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacTOP>)
+    {
+        return std::min(nelmt, maxGridSize);
+    }
+    else
+    {
+        return 0;
+    }
+}
 
 } // namespace Nektar::Operators

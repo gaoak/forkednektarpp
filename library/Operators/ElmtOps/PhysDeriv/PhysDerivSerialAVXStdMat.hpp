@@ -34,7 +34,9 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/PhysDeriv/PhysDerivOp.hpp"
+#include <LibUtilities/SimdLib/tinysimd.hpp>
+
+#include "Operators/ElmtOps/PhysDeriv/PhysDerivBlockOp.hpp"
 #include "Operators/NekBlas/NekBlas.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 

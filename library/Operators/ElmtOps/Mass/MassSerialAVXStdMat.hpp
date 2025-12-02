@@ -34,7 +34,9 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/Mass/MassOp.hpp"
+#include <LibUtilities/SimdLib/tinysimd.hpp>
+
+#include "Operators/ElmtOps/Mass/MassBlockOp.hpp"
 #include "Operators/NekBlas/NekBlas.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
