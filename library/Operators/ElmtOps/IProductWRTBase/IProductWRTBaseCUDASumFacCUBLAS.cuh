@@ -71,17 +71,17 @@ public:
             m_nq.push_back(exp->GetNumPoints(d));
 
             // Fetch basis data.
-            m_B.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_B.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<TData>(exp->GetBasis(d)->GetBasisKey(), eBasis)));
 
             // Fetch integration weights
-            m_W.push_back(this->m_dataWarehouse->template GetData<ExecSpace>(
+            m_W.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 BasisDataKey<TData>(exp->GetBasis(d)->GetBasisKey(),
                                     eWeights)));
         }
 
         // Fetch Jacobian data.
-        m_jacptr = this->m_dataWarehouse->template GetData<ExecSpace>(
+        m_jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
             JacobianKey<TData>(block_idx, m_implInterleaveWidth));
     }
 
