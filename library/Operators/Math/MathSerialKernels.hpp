@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "Operators/LoopExecution/LoopExecution.hpp"
+#include "Operators/Common/Spaces.hpp"
 
 #include <algorithm>
 #include <cmath>

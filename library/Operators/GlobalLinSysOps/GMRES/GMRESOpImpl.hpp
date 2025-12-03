@@ -34,8 +34,6 @@
 
 #pragma once
 
-#include <MultiRegions/ContField.h>
-
 #include "Operators/AssmbScatr/AssmbScatrOpImpl.hpp"
 #include "Operators/GlobalLinSysOps/GMRES/GMRESOp.hpp"
 
@@ -70,25 +68,21 @@ public:
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
               1))
     {
-        auto contfield =
-            std::dynamic_pointer_cast<ContField>(this->m_expansionList);
+        auto session = expansionList->GetSession();
 
         // Set parameters.
-        contfield->GetSession()->LoadParameter("NekLinSysMaxIterations",
-                                               m_NekLinSysMaxIterations, 5000);
-        contfield->GetSession()->LoadParameter("LinSysMaxStorage",
-                                               m_LinSysMaxStorage, 5000);
-        contfield->GetSession()->LoadParameter("IterativeSolverTolerance",
-                                               m_tol, 1.0E-09);
-        contfield->GetSession()->LoadParameter("GMRESMaxHessMatBand",
-                                               m_KrylovMaxHessMatBand,
-                                               m_LinSysMaxStorage + 1);
-        contfield->GetSession()->MatchSolverInfo("GMRESLeftPrecon", "True",
-                                                 m_NekLinSysLeftPrecon, false);
-        contfield->GetSession()->MatchSolverInfo("GMRESRightPrecon", "True",
-                                                 m_NekLinSysRightPrecon, true);
-        contfield->GetSession()->MatchSolverInfo(
-            "GMRESCentralDifference", "True", m_GMRESCentralDifference, false);
+        session->LoadParameter("NekLinSysMaxIterations",
+                               m_NekLinSysMaxIterations, 5000);
+        session->LoadParameter("LinSysMaxStorage", m_LinSysMaxStorage, 5000);
+        session->LoadParameter("IterativeSolverTolerance", m_tol, 1.0E-09);
+        session->LoadParameter("GMRESMaxHessMatBand", m_KrylovMaxHessMatBand,
+                               m_LinSysMaxStorage + 1);
+        session->MatchSolverInfo("GMRESLeftPrecon", "True",
+                                 m_NekLinSysLeftPrecon, false);
+        session->MatchSolverInfo("GMRESRightPrecon", "True",
+                                 m_NekLinSysRightPrecon, true);
+        session->MatchSolverInfo("GMRESCentralDifference", "True",
+                                 m_GMRESCentralDifference, false);
 
         // Set operators.
         m_math         = Math(ExecSpace::name);
@@ -99,7 +93,7 @@ public:
                 this->m_expansionList);
         m_robBndCondOp =
             RobBndCondOp<TData>::Create(this->m_expansionList, ExecSpace::name);
-        m_rowComm = contfield->GetSession()->GetComm()->GetRowComm();
+        m_rowComm = session->GetComm()->GetRowComm();
 
         // Allocate array storage.
         m_hes   = std::vector<std::vector<TData>>(m_LinSysMaxStorage);

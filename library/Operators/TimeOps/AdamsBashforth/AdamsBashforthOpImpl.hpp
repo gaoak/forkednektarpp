@@ -34,9 +34,10 @@
 
 #pragma once
 
-#include "Operators/TimeOps/AdamsBashforth/AdamsBashforthKernelLaunchers.hpp"
 #include "Operators/TimeOps/AdamsBashforth/AdamsBashforthOp.hpp"
 #include "Operators/TimeOps/RungeKutta/RungeKuttaOp.hpp"
+
+#include "Operators/TimeOps/AdamsBashforth/AdamsBashforthKernelLaunchers.hpp"
 
 using namespace Nektar;
 using namespace Nektar::MultiRegions;

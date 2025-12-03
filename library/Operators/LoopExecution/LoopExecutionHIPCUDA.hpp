@@ -42,11 +42,6 @@
 namespace Nektar
 {
 
-static void *internalHIPCUDABuffer                 = nullptr;
-static void *internalHIPCUDADeviceBuffer           = nullptr;
-static void *internalHIPCUDAHostBuffer             = nullptr;
-static unsigned int internalHIPCUDAMaxDataSizeByte = 16;
-
 template <typename ExecSpace, typename Scope, typename TData>
 NEK_DEVICE_INLINE
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,

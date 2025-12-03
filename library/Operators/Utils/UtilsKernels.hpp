@@ -34,7 +34,6 @@
 
 #pragma once
 
-#include "Operators/LoopExecution/LoopExecution.hpp"
 #include "Operators/Utils/UtilsDeviceKernels.hpp"
 #include "Operators/Utils/UtilsSerialAVXKernels.hpp"
 

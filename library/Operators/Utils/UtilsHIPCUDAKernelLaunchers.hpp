@@ -34,6 +34,8 @@
 
 #pragma once
 
+#include "Operators/Common/Spaces.hpp"
+
 #if (defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)) ||                    \
     (defined(NEKTAR_ENABLE_HIP) && defined(__HIPCC__))
 

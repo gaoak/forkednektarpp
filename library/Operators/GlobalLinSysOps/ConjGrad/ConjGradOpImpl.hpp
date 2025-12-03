@@ -34,8 +34,6 @@
 
 #pragma once
 
-#include <MultiRegions/ContField.h>
-
 #include "Operators/AssmbScatr/AssmbScatrOpImpl.hpp"
 #include "Operators/GlobalLinSysOps/ConjGrad/ConjGradOp.hpp"
 
@@ -83,8 +81,7 @@ public:
               1)),
           m_vExchange(MemoryRegion<TData>(3, ePinned))
     {
-        auto contfield =
-            std::dynamic_pointer_cast<ContField>(this->m_expansionList);
+        auto session = expansionList->GetSession();
 
         // Set operators.
         m_assmbScatrOp = std::make_unique<AssmbScatrOpImpl<ExecSpace, TData>>(
@@ -94,14 +91,12 @@ public:
                 this->m_expansionList);
         m_robBndCondOp =
             RobBndCondOp<TData>::Create(this->m_expansionList, ExecSpace::name);
-        m_rowComm = contfield->GetSession()->GetComm()->GetRowComm();
+        m_rowComm = session->GetComm()->GetRowComm();
         m_root    = m_rowComm->GetRank() == 0;
 
         // Set parameters.
-        contfield->GetSession()->LoadParameter("NekLinSysMaxIterations",
-                                               m_maxIter, 5000);
-        contfield->GetSession()->LoadParameter("IterativeSolverTolerance",
-                                               m_tol, 1.0E-09);
+        session->LoadParameter("NekLinSysMaxIterations", m_maxIter, 5000);
+        session->LoadParameter("IterativeSolverTolerance", m_tol, 1.0E-09);
 
         // Fill mask.
         auto maskptr =

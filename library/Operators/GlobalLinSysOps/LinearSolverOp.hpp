@@ -34,12 +34,11 @@
 
 #pragma once
 
-#include "Operators/Common/Operator.hpp"
+#include "Operators/AssmbScatr/AssmbScatrOp.hpp"
+#include "Operators/BndCondOps/RobBndCond/RobBndCondOp.hpp"
 #include "Operators/ElmtOps/ElmtOp.hpp"
 #include "Operators/PreconOps/PreconOp.hpp"
 
-#include "Operators/AssmbScatr/AssmbScatrOp.hpp"
-#include "Operators/BndCondOps/RobBndCond/RobBndCondOp.hpp"
 #include "Operators/Math/Math.hpp"
 #include "Operators/Math/MathKernels.hpp"
 

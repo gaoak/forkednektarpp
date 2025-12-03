@@ -34,9 +34,10 @@
 
 #pragma once
 
-#include "Operators/TimeOps/CNAB/CNABKernelLaunchers.hpp"
 #include "Operators/TimeOps/CNAB/CNABOp.hpp"
 #include "Operators/TimeOps/IMEX/IMEXOp.hpp"
+
+#include "Operators/TimeOps/CNAB/CNABKernelLaunchers.hpp"
 
 using namespace Nektar;
 using namespace Nektar::MultiRegions;

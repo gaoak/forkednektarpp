@@ -34,6 +34,8 @@
 
 #pragma once
 
+#include "Operators/Common/Spaces.hpp"
+
 #if defined(NEKTAR_ENABLE_DEVICEONHOST)
 
 namespace Nektar

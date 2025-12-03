@@ -34,8 +34,6 @@
 
 #pragma once
 
-#include <MultiRegions/ContField.h>
-
 #include "Operators/PreconOps/DiagPrecon/DiagPreconOp.hpp"
 
 #include "Operators/AssmbScatr/AssmbScatrOpImpl.hpp"

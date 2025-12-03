@@ -34,9 +34,10 @@
 
 #pragma once
 
-#include "Operators/TimeOps/BDF/BDFKernelLaunchers.hpp"
 #include "Operators/TimeOps/BDF/BDFOp.hpp"
 #include "Operators/TimeOps/DIRK/DIRKOp.hpp"
+
+#include "Operators/TimeOps/BDF/BDFKernelLaunchers.hpp"
 
 using namespace Nektar;
 using namespace Nektar::MultiRegions;

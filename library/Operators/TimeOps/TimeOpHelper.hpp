@@ -34,6 +34,8 @@
 
 #pragma once
 
+#include "Operators/LoopExecution/LoopExecution.hpp"
+
 namespace Nektar::Operators::detail
 {
 
