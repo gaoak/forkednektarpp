@@ -1894,23 +1894,8 @@ void ExpList::SetDataWarehouse(void)
     m_dataWarehouse
         ->RegisterDataCreatorClass<Nektar::Operators::GeometricDataCreator>(
             vExpList);
-
-    m_dataWarehouse->RegisterDataCreatorClass<
-        Nektar::Operators::DeviceLocalToGlobalDataCreator>(vExpList);
-    m_dataWarehouse->RegisterDataCreatorClass<
-        Nektar::Operators::DeviceLocalToGlobalNumAssembleCreator>(vExpList);
-    m_dataWarehouse->RegisterDataCreatorClass<
-        Nektar::Operators::DeviceLocalToGlobalIndexCreator>(vExpList);
-    m_dataWarehouse->RegisterDataCreatorClass<
-        Nektar::Operators::DeviceLocalToGlobalIndexOffsetCreator>(vExpList);
-    m_dataWarehouse->RegisterDataCreatorClass<
-        Nektar::Operators::DeviceLocalToGlobalSignCreator>(vExpList);
-    m_dataWarehouse->RegisterDataCreatorClass<
-        Nektar::Operators::DeviceBndLocalToGlobalDataCreator>(vExpList);
-    m_dataWarehouse->RegisterDataCreatorClass<
-        Nektar::Operators::DeviceBndLocalToGlobalSignCreator>(vExpList);
     m_dataWarehouse
-        ->RegisterDataCreatorClass<Nektar::Operators::LocalToGlobalMaskCreator>(
+        ->RegisterDataCreatorClass<Nektar::Operators::LocalToGlobalDataCreator>(
             vExpList);
 }
 

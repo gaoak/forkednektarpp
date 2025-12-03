@@ -47,14 +47,14 @@
 namespace Nektar::Operators
 {
 
-class DeviceLocalToGlobalDataCreator;
+class LocalToGlobalDataCreator;
 
 template <typename TData> class DeviceLocalToGlobalKey : public BaseKey
 {
-    friend class DeviceLocalToGlobalDataCreator;
+    friend class LocalToGlobalDataCreator;
 
 public:
-    using creator = DeviceLocalToGlobalDataCreator;
+    using creator = LocalToGlobalDataCreator;
     typedef unsigned value_type;
 
     ~DeviceLocalToGlobalKey() override = default;
@@ -78,23 +78,211 @@ private:
     unsigned m_width;
 };
 
-class DeviceLocalToGlobalDataCreator : public DataCreatorClass
+template <typename TData>
+class DeviceLocalToGlobalNumAssembleKey : public BaseKey
+{
+    friend class LocalToGlobalDataCreator;
+
+public:
+    using creator = LocalToGlobalDataCreator;
+    typedef unsigned value_type;
+
+    ~DeviceLocalToGlobalNumAssembleKey() override = default;
+
+    DeviceLocalToGlobalNumAssembleKey(
+        std::vector<MultiRegions::AssemblyMapCGSharedPtr> assemblyMap,
+        bool zeroDir, unsigned width)
+        : m_assemblyMap(assemblyMap), m_zeroDir(zeroDir), m_width(width)
+    {
+        for (auto &e : m_assemblyMap)
+        {
+            hash_combine(m_hash, e.get());
+        }
+        hash_combine(m_hash, m_zeroDir, m_width, typeid(value_type).name(),
+                     "DeviceLocalToGlobaNumAssemblelKey");
+    }
+
+private:
+    std::vector<MultiRegions::AssemblyMapCGSharedPtr> m_assemblyMap;
+    bool m_zeroDir;
+    unsigned m_width;
+};
+
+template <typename TData> class DeviceLocalToGlobalIndexKey : public BaseKey
+{
+    friend class LocalToGlobalDataCreator;
+
+public:
+    using creator = LocalToGlobalDataCreator;
+    typedef unsigned value_type;
+
+    ~DeviceLocalToGlobalIndexKey() override = default;
+
+    DeviceLocalToGlobalIndexKey(
+        std::vector<MultiRegions::AssemblyMapCGSharedPtr> assemblyMap,
+        bool zeroDir, unsigned width)
+        : m_assemblyMap(assemblyMap), m_zeroDir(zeroDir), m_width(width)
+    {
+        for (auto &e : m_assemblyMap)
+        {
+            hash_combine(m_hash, e.get());
+        }
+        hash_combine(m_hash, m_zeroDir, m_width, typeid(value_type).name(),
+                     "DeviceLocalToGlobaIndexlKey");
+    }
+
+private:
+    std::vector<MultiRegions::AssemblyMapCGSharedPtr> m_assemblyMap;
+    bool m_zeroDir;
+    unsigned m_width;
+};
+
+template <typename TData>
+class DeviceLocalToGlobalIndexOffsetKey : public BaseKey
+{
+    friend class LocalToGlobalDataCreator;
+
+public:
+    using creator = LocalToGlobalDataCreator;
+    typedef unsigned value_type;
+
+    ~DeviceLocalToGlobalIndexOffsetKey() override = default;
+
+    DeviceLocalToGlobalIndexOffsetKey(
+        std::vector<MultiRegions::AssemblyMapCGSharedPtr> assemblyMap,
+        bool zeroDir, unsigned width)
+        : m_assemblyMap(assemblyMap), m_zeroDir(zeroDir), m_width(width)
+    {
+        for (auto &e : m_assemblyMap)
+        {
+            hash_combine(m_hash, e.get());
+        }
+        hash_combine(m_hash, m_zeroDir, m_width, typeid(value_type).name(),
+                     "DeviceLocalToGlobaIndexOffsetlKey");
+    }
+
+private:
+    std::vector<MultiRegions::AssemblyMapCGSharedPtr> m_assemblyMap;
+    bool m_zeroDir;
+    unsigned m_width;
+};
+
+template <typename TData> class DeviceLocalToGlobalSignKey : public BaseKey
+{
+    friend class LocalToGlobalDataCreator;
+
+public:
+    using creator = LocalToGlobalDataCreator;
+    // typedef int8_t value_type;
+    typedef int value_type;
+
+    ~DeviceLocalToGlobalSignKey() override = default;
+
+    DeviceLocalToGlobalSignKey(
+        std::vector<MultiRegions::AssemblyMapCGSharedPtr> assemblyMap,
+        bool zeroDir, bool signChange, unsigned width = 1)
+        : m_assemblyMap(assemblyMap), m_zeroDir(zeroDir),
+          m_signChange(signChange), m_width(width)
+    {
+        for (auto &e : m_assemblyMap)
+        {
+            hash_combine(m_hash, e.get());
+        }
+        hash_combine(m_hash, m_zeroDir, m_signChange, m_width,
+                     typeid(value_type).name(), "DeviceLocalToGlobalSignKey");
+    }
+
+private:
+    std::vector<MultiRegions::AssemblyMapCGSharedPtr> m_assemblyMap;
+    bool m_zeroDir;
+    bool m_signChange;
+    unsigned m_width;
+};
+
+template <typename TData> class DeviceBndLocalToGlobalSignKey : public BaseKey
+{
+    friend class LocalToGlobalDataCreator;
+
+public:
+    using creator = LocalToGlobalDataCreator;
+    typedef int value_type;
+
+    ~DeviceBndLocalToGlobalSignKey() override = default;
+
+    DeviceBndLocalToGlobalSignKey(
+        std::vector<MultiRegions::AssemblyMapCGSharedPtr> &assemblyMap,
+        bool zeroDir, bool signChange)
+        : m_assemblyMap(assemblyMap), m_zeroDir(zeroDir),
+          m_signChange(signChange)
+    {
+        for (auto &e : m_assemblyMap)
+        {
+            hash_combine(m_hash, e.get());
+        }
+        hash_combine(m_hash, m_zeroDir, m_signChange, typeid(value_type).name(),
+                     "DeviceLocalToGlobalSignKey");
+    }
+
+private:
+    std::vector<MultiRegions::AssemblyMapCGSharedPtr> m_assemblyMap;
+    bool m_zeroDir;
+    bool m_signChange;
+};
+
+template <typename TData> class DeviceBndLocalToGlobalKey : public BaseKey
+{
+    friend class LocalToGlobalDataCreator;
+
+public:
+    using creator = LocalToGlobalDataCreator;
+    typedef unsigned value_type;
+
+    ~DeviceBndLocalToGlobalKey() override = default;
+
+    DeviceBndLocalToGlobalKey(unsigned numComp) : m_numComp(numComp)
+    {
+        hash_combine(m_hash, m_numComp, typeid(value_type).name(),
+                     "DeviceBndLocalToGlobalKey");
+    }
+
+private:
+    unsigned m_numComp;
+};
+
+template <typename TData> class LocalToGlobalMaskKey : public BaseKey
+{
+    friend class LocalToGlobalDatareator;
+
+public:
+    using creator = LocalToGlobalDataCreator;
+    typedef std::uint8_t value_type;
+
+    ~LocalToGlobalMaskKey() override = default;
+
+    LocalToGlobalMaskKey()
+    {
+        hash_combine(m_hash, typeid(value_type).name(), "LocalToGlobalMaskKey");
+    }
+
+private:
+};
+
+class LocalToGlobalDataCreator : public DataCreatorClass
 {
 public:
-    ~DeviceLocalToGlobalDataCreator() override = default;
-    DeviceLocalToGlobalDataCreator(
+    ~LocalToGlobalDataCreator() override = default;
+    LocalToGlobalDataCreator(
         const MultiRegions::ExpListSharedPtr &expansionList)
         : m_expansionList(expansionList)
     {
     }
 
-    // does not matter which type we specify as template parameter here
-    using value_type = DeviceLocalToGlobalKey<double>::value_type;
-
     template <typename MemSpace, typename TData>
-    MemoryRegion<value_type> Create(
+    MemoryRegion<typename DeviceLocalToGlobalKey<TData>::value_type> Create(
         const DeviceLocalToGlobalKey<TData> &LocToGloKey)
     {
+        using value_type = typename DeviceLocalToGlobalKey<TData>::value_type;
+
         // Get Local To Global Map.
         auto zeroDir  = LocToGloKey.m_zeroDir;
         auto &loc2glo = LocToGloKey.m_assemblyMap;
@@ -290,61 +478,13 @@ public:
         return LocToGlo;
     }
 
-    inline static const std::string m_name = "DeviceLocalToGlobalDataCreator";
-
-private:
-    MultiRegions::ExpListSharedPtr m_expansionList;
-};
-
-class DeviceLocalToGlobalNumAssembleCreator;
-
-template <typename TData>
-class DeviceLocalToGlobalNumAssembleKey : public BaseKey
-{
-    friend class DeviceLocalToGlobalNumAssembleCreator;
-
-public:
-    using creator = DeviceLocalToGlobalNumAssembleCreator;
-    typedef unsigned value_type;
-
-    ~DeviceLocalToGlobalNumAssembleKey() override = default;
-
-    DeviceLocalToGlobalNumAssembleKey(
-        std::vector<MultiRegions::AssemblyMapCGSharedPtr> assemblyMap,
-        bool zeroDir, unsigned width)
-        : m_assemblyMap(assemblyMap), m_zeroDir(zeroDir), m_width(width)
-    {
-        for (auto &e : m_assemblyMap)
-        {
-            hash_combine(m_hash, e.get());
-        }
-        hash_combine(m_hash, m_zeroDir, m_width, typeid(value_type).name(),
-                     "DeviceLocalToGlobaNumAssemblelKey");
-    }
-
-private:
-    std::vector<MultiRegions::AssemblyMapCGSharedPtr> m_assemblyMap;
-    bool m_zeroDir;
-    unsigned m_width;
-};
-
-class DeviceLocalToGlobalNumAssembleCreator : public DataCreatorClass
-{
-public:
-    ~DeviceLocalToGlobalNumAssembleCreator() override = default;
-    DeviceLocalToGlobalNumAssembleCreator(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-        : m_expansionList(expansionList)
-    {
-    }
-
-    // does not matter which type we specify as template parameter here
-    using value_type = DeviceLocalToGlobalNumAssembleKey<double>::value_type;
-
     template <typename MemSpace, typename TData>
-    MemoryRegion<value_type> Create(
-        const DeviceLocalToGlobalNumAssembleKey<TData> &LocToGloKey)
+    MemoryRegion<typename DeviceLocalToGlobalNumAssembleKey<TData>::value_type>
+    Create(const DeviceLocalToGlobalNumAssembleKey<TData> &LocToGloKey)
     {
+        using value_type =
+            typename DeviceLocalToGlobalNumAssembleKey<TData>::value_type;
+
         // Get Local To Global Map.
         auto &loc2glo      = LocToGloKey.m_assemblyMap;
         auto zeroDir       = LocToGloKey.m_zeroDir;
@@ -377,61 +517,13 @@ public:
         return LocToGlo;
     }
 
-    inline static const std::string m_name =
-        "DeviceLocalToGlobalNumAssembleCreator";
-
-private:
-    MultiRegions::ExpListSharedPtr m_expansionList;
-};
-
-class DeviceLocalToGlobalIndexCreator;
-
-template <typename TData> class DeviceLocalToGlobalIndexKey : public BaseKey
-{
-    friend class DeviceLocalToGlobalIndexCreator;
-
-public:
-    using creator = DeviceLocalToGlobalIndexCreator;
-    typedef unsigned value_type;
-
-    ~DeviceLocalToGlobalIndexKey() override = default;
-
-    DeviceLocalToGlobalIndexKey(
-        std::vector<MultiRegions::AssemblyMapCGSharedPtr> assemblyMap,
-        bool zeroDir, unsigned width)
-        : m_assemblyMap(assemblyMap), m_zeroDir(zeroDir), m_width(width)
-    {
-        for (auto &e : m_assemblyMap)
-        {
-            hash_combine(m_hash, e.get());
-        }
-        hash_combine(m_hash, m_zeroDir, m_width, typeid(value_type).name(),
-                     "DeviceLocalToGlobaIndexlKey");
-    }
-
-private:
-    std::vector<MultiRegions::AssemblyMapCGSharedPtr> m_assemblyMap;
-    bool m_zeroDir;
-    unsigned m_width;
-};
-
-class DeviceLocalToGlobalIndexCreator : public DataCreatorClass
-{
-public:
-    ~DeviceLocalToGlobalIndexCreator() override = default;
-    DeviceLocalToGlobalIndexCreator(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-        : m_expansionList(expansionList)
-    {
-    }
-
-    // does not matter which type we specify as template parameter here
-    using value_type = DeviceLocalToGlobalIndexKey<double>::value_type;
-
     template <typename MemSpace, typename TData>
-    MemoryRegion<value_type> Create(
+    MemoryRegion<typename DeviceLocalToGlobalIndexKey<TData>::value_type> Create(
         const DeviceLocalToGlobalIndexKey<TData> &LocToGloKey)
     {
+        using value_type =
+            typename DeviceLocalToGlobalIndexKey<TData>::value_type;
+
         // Get Local To Global Map.
         auto &loc2glo      = LocToGloKey.m_assemblyMap;
         auto zeroDir       = LocToGloKey.m_zeroDir;
@@ -496,61 +588,13 @@ public:
         return LocToGlo;
     }
 
-    inline static const std::string m_name = "DeviceLocalToGlobalIndexCreator";
-
-private:
-    MultiRegions::ExpListSharedPtr m_expansionList;
-};
-
-class DeviceLocalToGlobalIndexOffsetCreator;
-
-template <typename TData>
-class DeviceLocalToGlobalIndexOffsetKey : public BaseKey
-{
-    friend class DeviceLocalToGlobalIndexOffsetCreator;
-
-public:
-    using creator = DeviceLocalToGlobalIndexOffsetCreator;
-    typedef unsigned value_type;
-
-    ~DeviceLocalToGlobalIndexOffsetKey() override = default;
-
-    DeviceLocalToGlobalIndexOffsetKey(
-        std::vector<MultiRegions::AssemblyMapCGSharedPtr> assemblyMap,
-        bool zeroDir, unsigned width)
-        : m_assemblyMap(assemblyMap), m_zeroDir(zeroDir), m_width(width)
-    {
-        for (auto &e : m_assemblyMap)
-        {
-            hash_combine(m_hash, e.get());
-        }
-        hash_combine(m_hash, m_zeroDir, m_width, typeid(value_type).name(),
-                     "DeviceLocalToGlobaIndexOffsetlKey");
-    }
-
-private:
-    std::vector<MultiRegions::AssemblyMapCGSharedPtr> m_assemblyMap;
-    bool m_zeroDir;
-    unsigned m_width;
-};
-
-class DeviceLocalToGlobalIndexOffsetCreator : public DataCreatorClass
-{
-public:
-    ~DeviceLocalToGlobalIndexOffsetCreator() override = default;
-    DeviceLocalToGlobalIndexOffsetCreator(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-        : m_expansionList(expansionList)
-    {
-    }
-
-    // does not matter which type we specify as template parameter here
-    using value_type = DeviceLocalToGlobalIndexOffsetKey<double>::value_type;
-
     template <typename MemSpace, typename TData>
-    MemoryRegion<value_type> Create(
-        const DeviceLocalToGlobalIndexOffsetKey<TData> &LocToGloKey)
+    MemoryRegion<typename DeviceLocalToGlobalIndexOffsetKey<TData>::value_type>
+    Create(const DeviceLocalToGlobalIndexOffsetKey<TData> &LocToGloKey)
     {
+        using value_type =
+            typename DeviceLocalToGlobalIndexOffsetKey<TData>::value_type;
+
         // Get Local To Global Map.
         auto &loc2glo      = LocToGloKey.m_assemblyMap;
         auto zeroDir       = LocToGloKey.m_zeroDir;
@@ -571,7 +615,8 @@ public:
             LocToGlo.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
         // Determine the offset for index and sign data
-        // possibly could be in LocalToGlobalDatawarehouse if used elsewhere
+        // possibly could be in LocalToGlobalDatawarehouse if used
+        // elsewhere
         unsigned cnt = 0;
         for (unsigned i = 0; i < nvals; i += width)
         {
@@ -587,170 +632,13 @@ public:
         return LocToGlo;
     }
 
-    inline static const std::string m_name =
-        "DeviceLocalToGlobalIndexOffsetCreator";
-
-private:
-    MultiRegions::ExpListSharedPtr m_expansionList;
-};
-
-// generate a list of the local indices in Nek-block format deduce the
-// local coefficient entry of each index to use the sign array from legacy
-// code.
-
-template <typename TData>
-void FillSignArray(
-    std::vector<unsigned> &index, const MultiRegions::ExpListSharedPtr &expList,
-    const std::vector<MultiRegions::AssemblyMapCGSharedPtr> &loc2glo,
-    bool zeroDir, bool signChange, int *out)
-{
-    auto numComp = loc2glo.size();
-
-    Array<OneD, unsigned> ndir(numComp);
-    for (unsigned i = 0; i < numComp; ++i)
-    {
-        ndir[i] = loc2glo[i]->GetNumGlobalDirBndCoeffs();
-    }
-
-    auto sign = loc2glo[0]->GetSignChange()
-                    ? loc2glo[0]->GetLocalToGlobalSign()
-                    : Array<OneD, double>(expList->GetNcoeffs(), 1.0);
-
-    auto blocks = GetBlockAttributes<TData>(FieldState::Coeff, expList);
-
-    auto nblks = blocks.size();
-    std::vector<unsigned> blkoffset(nblks + 1);
-    std::vector<unsigned> coeffoffset(nblks);
-    blkoffset[0] = 0;
-
-    unsigned offset = 0;
-    for (unsigned blk = 0; blk < nblks; ++blk)
-    {
-        blkoffset[blk + 1] = blkoffset[blk] + blocks[blk].size() * numComp;
-        coeffoffset[blk]   = offset;
-        offset += blocks[blk].GetNumElements() * blocks[blk].GetNumData();
-    }
-
-    // Fill the pointer with sign of local index.
-    unsigned cnt = 0;
-    if (zeroDir)
-    {
-        for (auto idx : index)
-        {
-            unsigned nc = 0;
-            for (int blk = 0; blk < nblks; ++blk)
-            {
-                if ((idx >= blkoffset[blk]) && (idx < blkoffset[blk + 1]))
-                {
-                    // offset index to this block
-                    idx -= blkoffset[blk];
-                    // offset index for number of components;
-                    nc  = idx / blocks[blk].size();
-                    idx = idx % blocks[blk].size();
-                    // add back in coeff offset to be able to access legacy
-                    // index
-                    idx += coeffoffset[blk];
-                    break;
-                }
-            }
-
-            if (signChange)
-            {
-                out[cnt++] = (loc2glo[nc]->GetLocalToGlobalMap(idx) < ndir[nc])
-                                 ? 0
-                                 : sign[idx];
-            }
-            else // not sure this case will be used.
-            {
-                out[cnt++] = (loc2glo[nc]->GetLocalToGlobalMap(idx) < ndir[nc])
-                                 ? 0
-                                 : std::abs(sign[idx]);
-            }
-        }
-    }
-    else
-    {
-        for (auto idx : index)
-        {
-            // Evaluate legacy index of point
-            for (int blk = 0; blk < nblks; ++blk)
-            {
-                if ((idx >= blkoffset[blk]) && (idx < blkoffset[blk + 1]))
-                {
-                    // offset index to this block
-                    idx -= blkoffset[blk];
-                    // offset index for number of components;
-                    idx = idx % blocks[blk].size();
-                    // add back in coeff offset to be able to access legacy
-                    // index
-                    idx += coeffoffset[blk];
-                    break;
-                }
-            }
-
-            if (signChange)
-            {
-                out[cnt++] = sign[idx];
-            }
-            else
-            {
-                out[cnt++] = std::abs(sign[idx]);
-            }
-        }
-    }
-}
-
-class DeviceLocalToGlobalSignCreator;
-
-template <typename TData> class DeviceLocalToGlobalSignKey : public BaseKey
-{
-    friend class DeviceLocalToGlobalSignCreator;
-
-public:
-    using creator = DeviceLocalToGlobalSignCreator;
-    // typedef int8_t value_type;
-    typedef int value_type;
-
-    ~DeviceLocalToGlobalSignKey() override = default;
-
-    DeviceLocalToGlobalSignKey(
-        std::vector<MultiRegions::AssemblyMapCGSharedPtr> assemblyMap,
-        bool zeroDir, bool signChange, unsigned width = 1)
-        : m_assemblyMap(assemblyMap), m_zeroDir(zeroDir),
-          m_signChange(signChange), m_width(width)
-    {
-        for (auto &e : m_assemblyMap)
-        {
-            hash_combine(m_hash, e.get());
-        }
-        hash_combine(m_hash, m_zeroDir, m_signChange, m_width,
-                     typeid(value_type).name(), "DeviceLocalToGlobalSignKey");
-    }
-
-private:
-    std::vector<MultiRegions::AssemblyMapCGSharedPtr> m_assemblyMap;
-    bool m_zeroDir;
-    bool m_signChange;
-    unsigned m_width;
-};
-
-class DeviceLocalToGlobalSignCreator : public DataCreatorClass
-{
-public:
-    ~DeviceLocalToGlobalSignCreator() override = default;
-    DeviceLocalToGlobalSignCreator(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-        : m_expansionList(expansionList)
-    {
-    }
-
-    // does not matter which type we specify as template parameter here
-    using value_type = DeviceLocalToGlobalSignKey<double>::value_type;
-
     template <typename MemSpace, typename TData>
-    MemoryRegion<value_type> Create(
+    MemoryRegion<typename DeviceLocalToGlobalSignKey<TData>::value_type> Create(
         const DeviceLocalToGlobalSignKey<TData> &LocToGloKey)
     {
+        using value_type =
+            typename DeviceLocalToGlobalSignKey<TData>::value_type;
+
         // Get Local To Global Map.
         auto &loc2glo      = LocToGloKey.m_assemblyMap;
         auto zeroDir       = LocToGloKey.m_zeroDir;
@@ -777,7 +665,8 @@ public:
         FillSignArray<TData>(index, this->m_expansionList, loc2glo, zeroDir,
                              signChange, sign.data());
 
-        // calculate number of sign values as sum of i*width point times width
+        // calculate number of sign values as sum of i*width point times
+        // width
         nidx = 0;
         for (unsigned i = 0; i < nvals; i += width)
         {
@@ -828,51 +717,13 @@ public:
         return LocToGloSign;
     }
 
-    inline static const std::string m_name = "DeviceLocalToGlobalSignCreator";
-
-private:
-    MultiRegions::ExpListSharedPtr m_expansionList;
-};
-
-class DeviceBndLocalToGlobalDataCreator;
-
-template <typename TData> class DeviceBndLocalToGlobalKey : public BaseKey
-{
-    friend class DeviceBndLocalToGlobalDataCreator;
-
-public:
-    using creator = DeviceBndLocalToGlobalDataCreator;
-    typedef unsigned value_type;
-
-    ~DeviceBndLocalToGlobalKey() override = default;
-
-    DeviceBndLocalToGlobalKey(unsigned numComp) : m_numComp(numComp)
-    {
-        hash_combine(m_hash, m_numComp, typeid(value_type).name(),
-                     "DeviceBndLocalToGlobalKey");
-    }
-
-private:
-    unsigned m_numComp;
-};
-
-class DeviceBndLocalToGlobalDataCreator : public DataCreatorClass
-{
-public:
-    ~DeviceBndLocalToGlobalDataCreator() override = default;
-    DeviceBndLocalToGlobalDataCreator(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-        : m_expansionList(expansionList)
-    {
-    }
-
-    // does not matter which type we specify as template parameter here
-    using value_type = DeviceBndLocalToGlobalKey<double>::value_type;
-
     template <typename MemSpace, typename TData>
-    MemoryRegion<value_type> Create(
+    MemoryRegion<typename DeviceBndLocalToGlobalKey<TData>::value_type> Create(
         const DeviceBndLocalToGlobalKey<TData> &LocToGloKey)
     {
+        using value_type =
+            typename DeviceBndLocalToGlobalKey<TData>::value_type;
+
         // Get Local To Global Map.
         auto numComp = LocToGloKey.m_numComp;
 
@@ -915,12 +766,12 @@ public:
             coeff_offset += blksize;
         }
 
-        // At this point we have a list of global ids on parallel boundary
-        // and the related blocks and ids within the blocks that are
-        // connected to this global id.
+        // At this point we have a list of global ids on parallel
+        // boundary and the related blocks and ids within the blocks
+        // that are connected to this global id.
 
-        // Get vector of send receive entries of gids in order that are required
-        // for communication in AssemblyCommCG
+        // Get vector of send receive entries of gids in order that are
+        // required for communication in AssemblyCommCG
         auto SREntries = loc2glo->GetSREntries();
         // Get from rank index of each sent/receive entry to ensure rank
         // ordering of assemble points for inter node consistency
@@ -970,7 +821,8 @@ public:
                 {
                     std::pair<std::vector<unsigned>, std::vector<unsigned>>
                         data;
-                    // offset for number of points and assemble order point
+                    // offset for number of points and assemble order
+                    // point
                     nidx += 3;
 
                     // gather the local ids
@@ -992,10 +844,11 @@ public:
             }
         }
 
-        // now have a list of sorted values containing a vector of local points
-        // and a vector of global boundary entries. Next sort global boundary
-        // entries into rank order so that boundary assembly is acheived in rank
-        // order for consistency. Also identify order of this rank
+        // now have a list of sorted values containing a vector of local
+        // points and a vector of global boundary entries. Next sort
+        // global boundary entries into rank order so that boundary
+        // assembly is acheived in rank order for consistency. Also
+        // identify order of this rank
         std::map<unsigned, unsigned> LocRankOrder;
         for (auto &vals : SortVals)
         {
@@ -1050,8 +903,8 @@ public:
         //  ptr[3] = ....
         //  ptr[nvals+1] = total number of indices that follow
         //
-        //  ptr[nvals+1 +0] = number of local indices to be assembled (nloc)
-        //  ptr[nvals+1 +1] = number of bnd index to write (nbnd)
+        //  ptr[nvals+1 +0] = number of local indices to be assembled
+        //  (nloc) ptr[nvals+1 +1] = number of bnd index to write (nbnd)
         //  ptr[nvals+1 +2] = local index of point to be assembled
         //  ptr[nvals+1 +x] = ..
         //  ptr[nvals+1 +nloc  ] = index of boundary point to write into
@@ -1091,62 +944,14 @@ public:
 
         return LocToGlo;
     }
-    inline static const std::string m_name =
-        "DeviceBndLocalToGlobalDataCreator";
-
-private:
-    MultiRegions::ExpListSharedPtr m_expansionList;
-};
-
-class DeviceBndLocalToGlobalSignCreator;
-
-template <typename TData> class DeviceBndLocalToGlobalSignKey : public BaseKey
-{
-    friend class DeviceBndLocalToGlobalSignCreator;
-
-public:
-    using creator = DeviceBndLocalToGlobalSignCreator;
-    typedef int value_type;
-
-    ~DeviceBndLocalToGlobalSignKey() override = default;
-
-    DeviceBndLocalToGlobalSignKey(
-        std::vector<MultiRegions::AssemblyMapCGSharedPtr> &assemblyMap,
-        bool zeroDir, bool signChange)
-        : m_assemblyMap(assemblyMap), m_zeroDir(zeroDir),
-          m_signChange(signChange)
-    {
-        for (auto &e : m_assemblyMap)
-        {
-            hash_combine(m_hash, e.get());
-        }
-        hash_combine(m_hash, m_zeroDir, m_signChange, typeid(value_type).name(),
-                     "DeviceLocalToGlobalSignKey");
-    }
-
-private:
-    std::vector<MultiRegions::AssemblyMapCGSharedPtr> m_assemblyMap;
-    bool m_zeroDir;
-    bool m_signChange;
-};
-
-class DeviceBndLocalToGlobalSignCreator : public DataCreatorClass
-{
-public:
-    ~DeviceBndLocalToGlobalSignCreator() override = default;
-    DeviceBndLocalToGlobalSignCreator(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-        : m_expansionList(expansionList)
-    {
-    }
-
-    // does not matter which type we specify as template parameter here
-    using value_type = DeviceBndLocalToGlobalSignKey<double>::value_type;
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<value_type> Create(
+    MemoryRegion<typename DeviceBndLocalToGlobalSignKey<TData>::value_type> Create(
         const DeviceBndLocalToGlobalSignKey<TData> &LocToGloKey)
     {
+        using value_type =
+            typename DeviceBndLocalToGlobalSignKey<TData>::value_type;
+
         auto &loc2glo      = LocToGloKey.m_assemblyMap;
         auto zeroDir       = LocToGloKey.m_zeroDir;
         auto signChange    = LocToGloKey.m_signChange;
@@ -1181,50 +986,12 @@ public:
         return LocToGloSign;
     }
 
-    inline static const std::string m_name =
-        "DeviceBndLocalToGlobalSignCreator";
-
-private:
-    MultiRegions::ExpListSharedPtr m_expansionList;
-};
-
-class LocalToGlobalMaskCreator;
-
-template <typename TData> class LocalToGlobalMaskKey : public BaseKey
-{
-    friend class LocalToGlobalMaskCreator;
-
-public:
-    using creator = LocalToGlobalMaskCreator;
-    typedef std::uint8_t value_type;
-
-    ~LocalToGlobalMaskKey() override = default;
-
-    LocalToGlobalMaskKey()
-    {
-        hash_combine(m_hash, typeid(value_type).name(), "LocalToGlobalMaskKey");
-    }
-
-private:
-};
-
-class LocalToGlobalMaskCreator : public DataCreatorClass
-{
-public:
-    ~LocalToGlobalMaskCreator() override = default;
-    LocalToGlobalMaskCreator(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-        : m_expansionList(expansionList)
-    {
-    }
-
-    // does not matter which type we specify as template parameter here
-    using value_type = LocalToGlobalMaskKey<int>::value_type;
-
     template <typename MemSpace, typename TData>
-    MemoryRegion<value_type> Create(
+    MemoryRegion<typename LocalToGlobalMaskKey<TData>::value_type> Create(
         [[maybe_unused]] const LocalToGlobalMaskKey<TData> &LocToGloKey)
     {
+        using value_type = typename LocalToGlobalMaskKey<TData>::value_type;
+
         // Get Local To Global Map.
         auto contfield =
             std::dynamic_pointer_cast<MultiRegions::ContField>(m_expansionList);
@@ -1291,10 +1058,115 @@ public:
         return LocToGlo;
     }
 
-    inline static const std::string m_name = "LocalToGlobalMaskCreator";
+    inline static const std::string m_name = "LocalToGlobalCreator";
 
 private:
     MultiRegions::ExpListSharedPtr m_expansionList;
+
+    template <typename TData>
+    void FillSignArray(
+        std::vector<unsigned> &index,
+        const MultiRegions::ExpListSharedPtr &expList,
+        const std::vector<MultiRegions::AssemblyMapCGSharedPtr> &loc2glo,
+        bool zeroDir, bool signChange, int *out)
+    {
+        auto numComp = loc2glo.size();
+
+        Array<OneD, unsigned> ndir(numComp);
+        for (unsigned i = 0; i < numComp; ++i)
+        {
+            ndir[i] = loc2glo[i]->GetNumGlobalDirBndCoeffs();
+        }
+
+        auto sign = loc2glo[0]->GetSignChange()
+                        ? loc2glo[0]->GetLocalToGlobalSign()
+                        : Array<OneD, double>(expList->GetNcoeffs(), 1.0);
+
+        auto blocks = GetBlockAttributes<TData>(FieldState::Coeff, expList);
+
+        auto nblks = blocks.size();
+        std::vector<unsigned> blkoffset(nblks + 1);
+        std::vector<unsigned> coeffoffset(nblks);
+        blkoffset[0] = 0;
+
+        unsigned offset = 0;
+        for (unsigned blk = 0; blk < nblks; ++blk)
+        {
+            blkoffset[blk + 1] = blkoffset[blk] + blocks[blk].size() * numComp;
+            coeffoffset[blk]   = offset;
+            offset += blocks[blk].GetNumElements() * blocks[blk].GetNumData();
+        }
+
+        // Fill the pointer with sign of local index.
+        unsigned cnt = 0;
+        if (zeroDir)
+        {
+            for (auto idx : index)
+            {
+                unsigned nc = 0;
+                for (int blk = 0; blk < nblks; ++blk)
+                {
+                    if ((idx >= blkoffset[blk]) && (idx < blkoffset[blk + 1]))
+                    {
+                        // offset index to this block
+                        idx -= blkoffset[blk];
+                        // offset index for number of components;
+                        nc  = idx / blocks[blk].size();
+                        idx = idx % blocks[blk].size();
+                        // add back in coeff offset to be able to access legacy
+                        // index
+                        idx += coeffoffset[blk];
+                        break;
+                    }
+                }
+
+                if (signChange)
+                {
+                    out[cnt++] =
+                        (loc2glo[nc]->GetLocalToGlobalMap(idx) < ndir[nc])
+                            ? 0
+                            : sign[idx];
+                }
+                else // not sure this case will be used.
+                {
+                    out[cnt++] =
+                        (loc2glo[nc]->GetLocalToGlobalMap(idx) < ndir[nc])
+                            ? 0
+                            : std::abs(sign[idx]);
+                }
+            }
+        }
+        else
+        {
+            for (auto idx : index)
+            {
+                // Evaluate legacy index of point
+                for (int blk = 0; blk < nblks; ++blk)
+                {
+                    if ((idx >= blkoffset[blk]) && (idx < blkoffset[blk + 1]))
+                    {
+                        // offset index to this block
+                        idx -= blkoffset[blk];
+                        // offset index for number of components;
+                        idx = idx % blocks[blk].size();
+                        // add back in coeff offset to be able to access legacy
+                        // index
+                        idx += coeffoffset[blk];
+                        break;
+                    }
+                }
+
+                if (signChange)
+                {
+                    out[cnt++] = sign[idx];
+                }
+                else
+                {
+                    out[cnt++] = std::abs(sign[idx]);
+                }
+            }
+        }
+    }
 };
 
 } // namespace Nektar::Operators
