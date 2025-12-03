@@ -34,8 +34,9 @@
 
 #pragma once
 
-#include "Operators/TimeOps/SDC/IMEXSDC/IMEXSDCKernelLaunchers.hpp"
 #include "Operators/TimeOps/SDC/IMEXSDC/IMEXSDCOp.hpp"
+
+#include "Operators/TimeOps/SDC/IMEXSDC/IMEXSDCKernelLaunchers.hpp"
 
 using namespace Nektar;
 using namespace Nektar::MultiRegions;

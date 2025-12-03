@@ -34,9 +34,10 @@
 
 #pragma once
 
-#include "Operators/TimeOps/AdamsMoulton/AdamsMoultonKernelLaunchers.hpp"
 #include "Operators/TimeOps/AdamsMoulton/AdamsMoultonOp.hpp"
 #include "Operators/TimeOps/DIRK/DIRKOp.hpp"
+
+#include "Operators/TimeOps/AdamsMoulton/AdamsMoultonKernelLaunchers.hpp"
 
 using namespace Nektar;
 using namespace Nektar::MultiRegions;

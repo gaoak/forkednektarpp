@@ -36,7 +36,7 @@
 
 #if defined(NEKTAR_ENABLE_DEVICEONHOST)
 
-#include "Operators/LoopExecution/LoopExecution.hpp"
+#include "Operators/Common/Spaces.hpp"
 
 #include <cmath>
 #include <cstddef>

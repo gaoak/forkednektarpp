@@ -39,11 +39,6 @@
 namespace Nektar
 {
 
-static void *internalSYCLBuffer                 = nullptr;
-static void *internalSYCLDeviceBuffer           = nullptr;
-static void *internalSYCLHostBuffer             = nullptr;
-static unsigned int internalSYCLMaxDataSizeByte = 16;
-
 template <typename ExecSpace, typename Scope, typename TData>
 NEK_DEVICE_INLINE
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,

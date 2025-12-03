@@ -34,8 +34,9 @@
 
 #pragma once
 
-#include "Operators/TimeOps/SDC/ImplicitSDC/ImplicitSDCKernelLaunchers.hpp"
 #include "Operators/TimeOps/SDC/ImplicitSDC/ImplicitSDCOp.hpp"
+
+#include "Operators/TimeOps/SDC/ImplicitSDC/ImplicitSDCKernelLaunchers.hpp"
 
 using namespace Nektar;
 using namespace Nektar::MultiRegions;

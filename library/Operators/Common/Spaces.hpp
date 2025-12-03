@@ -300,6 +300,11 @@ class hipcudaBlock1D
 #if (defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)) ||                    \
     (defined(NEKTAR_ENABLE_HIP) && defined(__HIPCC__))
 
+static void *internalHIPCUDABuffer                 = nullptr;
+static void *internalHIPCUDADeviceBuffer           = nullptr;
+static void *internalHIPCUDAHostBuffer             = nullptr;
+static unsigned int internalHIPCUDAMaxDataSizeByte = 16;
+
 namespace cg = cooperative_groups;
 
 NEK_DEVICE_INLINE static unsigned int getLocalIdx(
@@ -824,6 +829,11 @@ NEK_DEVICE_INLINE int localBarrier_count(
 }
 
 #elif defined(NEKTAR_ENABLE_SYCL)
+
+static void *internalSYCLBuffer                 = nullptr;
+static void *internalSYCLDeviceBuffer           = nullptr;
+static void *internalSYCLHostBuffer             = nullptr;
+static unsigned int internalSYCLMaxDataSizeByte = 16;
 
 NEK_DEVICE_INLINE static unsigned int getLocalIdx(
     [[maybe_unused]] const sycl::nd_item<1> &threadBlock)

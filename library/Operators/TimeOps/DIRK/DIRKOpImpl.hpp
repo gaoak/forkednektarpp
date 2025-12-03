@@ -34,8 +34,9 @@
 
 #pragma once
 
-#include "Operators/TimeOps/DIRK/DIRKKernelLaunchers.hpp"
 #include "Operators/TimeOps/DIRK/DIRKOp.hpp"
+
+#include "Operators/TimeOps/DIRK/DIRKKernelLaunchers.hpp"
 
 using namespace Nektar;
 using namespace Nektar::MultiRegions;

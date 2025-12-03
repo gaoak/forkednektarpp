@@ -37,7 +37,7 @@
 #if (defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)) ||                    \
     (defined(NEKTAR_ENABLE_HIP) && defined(__HIPCC__))
 
-#include "Operators/LoopExecution/LoopExecution.hpp"
+#include "Operators/Common/Spaces.hpp"
 
 namespace Nektar
 {

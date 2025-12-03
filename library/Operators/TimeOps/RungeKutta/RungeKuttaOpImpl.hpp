@@ -34,8 +34,9 @@
 
 #pragma once
 
-#include "Operators/TimeOps/RungeKutta/RungeKuttaKernelLaunchers.hpp"
 #include "Operators/TimeOps/RungeKutta/RungeKuttaOp.hpp"
+
+#include "Operators/TimeOps/RungeKutta/RungeKuttaKernelLaunchers.hpp"
 
 using namespace Nektar;
 using namespace Nektar::MultiRegions;

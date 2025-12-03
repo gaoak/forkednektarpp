@@ -35,8 +35,6 @@
 #pragma once
 
 #include "Operators/TimeOps/GEM/GEMOp.hpp"
-#include <LibUtilities/Foundations/Points.h>
-#include <LibUtilities/Polylib/Polylib.h>
 
 namespace Nektar::Operators
 {

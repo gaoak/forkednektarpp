@@ -35,6 +35,7 @@
 #pragma once
 
 #include "Operators/Field/Field.hpp"
+
 #include "Operators/Math/MathAVXKernels.hpp"
 #include "Operators/Math/MathDeviceOnHostKernels.hpp"
 #include "Operators/Math/MathHIPCUDAKernels.hpp"

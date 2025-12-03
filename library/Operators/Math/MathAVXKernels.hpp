@@ -36,7 +36,7 @@
 
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 
-#include "Operators/LoopExecution/LoopExecution.hpp"
+#include "Operators/Common/Spaces.hpp"
 
 #include <cmath>
 #include <cstddef>

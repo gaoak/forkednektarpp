@@ -35,6 +35,7 @@
 #pragma once
 
 #include "Operators/AddTraceIntegral/AddTraceIntegralOp.hpp"
+#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/AddTraceIntegral/AddTraceIntegralDeviceKernels.hpp"

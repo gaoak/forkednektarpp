@@ -34,8 +34,9 @@
 
 #pragma once
 
-#include "Operators/TimeOps/IMEXdirk/IMEXdirkKernelLaunchers.hpp"
 #include "Operators/TimeOps/IMEXdirk/IMEXdirkOp.hpp"
+
+#include "Operators/TimeOps/IMEXdirk/IMEXdirkKernelLaunchers.hpp"
 
 using namespace Nektar;
 using namespace Nektar::MultiRegions;
