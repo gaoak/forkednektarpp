@@ -102,7 +102,8 @@
 #include <hip/hip_cooperative_groups.h>
 #endif
 
-#if defined(__CUDACC__) || defined(__HIPCC__) || defined(__SYCL_DEVICE_ONLY__)
+#if defined(__CUDACC__) || defined(__HIPCC__) ||                               \
+    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
 #define DEVICE_COMPILE_ONLY
 #endif
 
@@ -268,6 +269,17 @@ static unsigned int GetVectorWidth(const std::string &execName)
 #define NEK_DEVICE_INLINE NEK_FORCE_INLINE
 #endif
 
+// NEK_KERNEL_KERNEL
+#if defined(NEKTAR_ENABLE_CUDA) && defined(DEVICE_COMPILE_ONLY)
+#define NEK_DEVICE_KERNEL __global__
+#elif defined(NEKTAR_ENABLE_HIP) && defined(DEVICE_COMPILE_ONLY)
+#define NEK_DEVICE_KERNEL __global__
+#elif defined(NEKTAR_ENABLE_SYCL)
+#define NEK_DEVICE_KERNEL NEK_FORCE_INLINE
+#else
+#define NEK_DEVICE_KERNEL NEK_FORCE_INLINE
+#endif
+
 // Memory scope for atomic.
 struct GlobalScope
 {
@@ -299,6 +311,24 @@ class hipcudaBlock1D
 
 #if (defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)) ||                    \
     (defined(NEKTAR_ENABLE_HIP) && defined(__HIPCC__))
+
+#define __LAUNCH_BOUNDS__(x) __launch_bounds__(x)
+
+#define FETCH_SHARED_MEMORY(ptr)                                               \
+    extern __shared__ __align__(sizeof(TData)) unsigned char __shmemptr[];     \
+    ptr = __shmemptr
+
+#define DEVICE_1DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZE, BLOCKSIZE, SHMEMSIZE,  \
+                                      STREAM, ...)                             \
+    unsigned char *shmemptr = nullptr;                                         \
+    KERNEL<<<GRIDSIZE, BLOCKSIZE, SHMEMSIZE, STREAM>>>(__VA_ARGS__, shmemptr,  \
+                                                       hipcudaBlock1D());      \
+    CHECK_LAST_HIPCUDA_ERROR();
+
+#define DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(KERNEL, GRIDSIZE, BLOCKSIZE,     \
+                                              STREAM, ...)                     \
+    KERNEL<<<GRIDSIZE, BLOCKSIZE, 0, STREAM>>>(__VA_ARGS__, hipcudaBlock1D()); \
+    CHECK_LAST_HIPCUDA_ERROR();
 
 static void *internalHIPCUDABuffer                 = nullptr;
 static void *internalHIPCUDADeviceBuffer           = nullptr;
@@ -830,6 +860,33 @@ NEK_DEVICE_INLINE int localBarrier_count(
 
 #elif defined(NEKTAR_ENABLE_SYCL)
 
+#define __LAUNCH_BOUNDS__(x)
+
+#define FETCH_SHARED_MEMORY(ptr)
+
+#define DEVICE_1DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZE, BLOCKSIZE, SHMEMSIZE,  \
+                                      STREAM, ...)                             \
+    sycl::queue &Q = SYCLQueue::GetInstance();                                 \
+    Q.submit([=](sycl::handler &cgh) {                                         \
+        sycl::local_accessor<unsigned char, 1> shmem(                          \
+            sycl::range<1>(SHMEMSIZE), cgh);                                   \
+        cgh.parallel_for(sycl::nd_range<1>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),   \
+                         [=](sycl::nd_item<1> item_ct1) {                      \
+                             auto shmemptr = &shmem[0];                        \
+                             KERNEL(__VA_ARGS__, shmemptr, item_ct1);          \
+                         });                                                   \
+    });
+
+#define DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(KERNEL, GRIDSIZE, BLOCKSIZE,     \
+                                              STREAM, ...)                     \
+    sycl::queue &Q = SYCLQueue::GetInstance();                                 \
+    Q.submit([=](sycl::handler &cgh) {                                         \
+        cgh.parallel_for(sycl::nd_range<1>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),   \
+                         [=](sycl::nd_item<1> item_ct1) {                      \
+                             KERNEL(__VA_ARGS__, item_ct1);                    \
+                         });                                                   \
+    });
+
 static void *internalSYCLBuffer                 = nullptr;
 static void *internalSYCLDeviceBuffer           = nullptr;
 static void *internalSYCLHostBuffer             = nullptr;
@@ -1135,6 +1192,28 @@ NEK_DEVICE_INLINE int localBarrier_count(int predictate,
 class deviceOnHostBlock1D
 {
 };
+
+template <typename TData> static void nektar_unused([[maybe_unused]] TData x)
+{
+    return;
+}
+
+#define FETCH_SHARED_MEMORY(ptr)
+
+#define __LAUNCH_BOUNDS__(x)
+
+#define DEVICE_1DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZE, BLOCKSIZE, SHMEMSIZE,  \
+                                      STREAM, ...)                             \
+    nektar_unused(GRIDSIZE);                                                   \
+    nektar_unused(BLOCKSIZE);                                                  \
+    std::vector<unsigned char> shmem(SHMEMSIZE);                               \
+    KERNEL(__VA_ARGS__, shmem.data(), deviceOnHostBlock1D());
+
+#define DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(KERNEL, GRIDSIZE, BLOCKSIZE,     \
+                                              STREAM, ...)                     \
+    nektar_unused(GRIDSIZE);                                                   \
+    nektar_unused(BLOCKSIZE);                                                  \
+    KERNEL(__VA_ARGS__, deviceOnHostBlock1D());
 
 NEK_DEVICE_INLINE static unsigned int getLocalIdx(
     [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)

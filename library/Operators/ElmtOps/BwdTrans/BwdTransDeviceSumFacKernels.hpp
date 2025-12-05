@@ -42,6 +42,7 @@
 namespace Nektar::Operators::detail
 {
 
+#if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 // Helper function
 template <typename Implementation>
 inline unsigned int BwdTransSharedMemorySize(const unsigned int nq0,
@@ -1036,7 +1037,8 @@ template <typename Implementation, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void BwdTrans1DKernel(
     const unsigned int nm0, const unsigned int nq0, const size_t nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ in,
-    TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ shmemptr,
+    TData *__restrict__ out,
+    [[maybe_unused]] unsigned char *__restrict__ shmemptr,
     const TthreadBlock &threadBlock)
 {
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
@@ -1077,7 +1079,7 @@ NEK_DEVICE_INLINE static void BwdTrans2DKernel(
     const TData *__restrict__ basis1, const TData *__restrict__ nodToMod,
     const TData *__restrict__ in, TData *__restrict__ out,
     [[maybe_unused]] TData *__restrict__ wsp,
-    [[maybe_unused]] TData *__restrict__ shmemptr,
+    [[maybe_unused]] unsigned char *__restrict__ shmemptr,
     const TthreadBlock &threadBlock)
 {
     const unsigned int nqTot = nq0 * nq1;
@@ -1133,7 +1135,7 @@ NEK_DEVICE_INLINE static void BwdTrans2DKernel(
             nmode1 = nmTot;
         }
 
-        TData *s_wsp0   = shmemptr;
+        TData *s_wsp0   = (TData *)shmemptr;
         TData *s_wsp1   = s_wsp0 + nmTot;
         TData *s_basis0 = s_wsp1 + offset;
         TData *s_basis1 = s_basis0 + nm0 * nq0;
@@ -1204,7 +1206,7 @@ NEK_DEVICE_INLINE static void BwdTrans3DKernel(
     const TData *__restrict__ basis2, const TData *__restrict__ nodToMod,
     const TData *__restrict__ in, TData *__restrict__ out,
     [[maybe_unused]] TData *__restrict__ wsp,
-    [[maybe_unused]] TData *__restrict__ shmemptr,
+    [[maybe_unused]] unsigned char *__restrict__ shmemptr,
     const TthreadBlock &threadBlock)
 {
     const unsigned int nqTot = nq0 * nq1 * nq2;
@@ -1321,7 +1323,7 @@ NEK_DEVICE_INLINE static void BwdTrans3DKernel(
             nmode2  = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
         }
 
-        TData *s_wsp0   = shmemptr;
+        TData *s_wsp0   = (TData *)shmemptr;
         TData *s_wsp1   = s_wsp0 + nmTot;
         TData *s_wsp2   = s_wsp1 + offset0;
         TData *s_basis0 = s_wsp2 + offset1;
@@ -1404,8 +1406,271 @@ NEK_DEVICE_INLINE static void BwdTrans3DKernel(
     }
 }
 
-} // namespace Nektar::Operators::detail
+// Non-size based version.
+template <typename Implementation, typename TthreadBlock, typename TData>
+NEK_DEVICE_KERNEL void BwdTrans1DKernelLauncher(
+    const unsigned int nm0, const unsigned int nq0, const size_t nelmt,
+    const TData *__restrict__ basis0, const TData *__restrict__ in,
+    TData *__restrict__ out, unsigned char *shmemptr,
+    const TthreadBlock &threadBlock)
+{
+    FETCH_SHARED_MEMORY(shmemptr);
 
-#include "Operators/ElmtOps/BwdTrans/BwdTransDeviceOnHostSumFacKernelLaunchers.hpp"
-#include "Operators/ElmtOps/BwdTrans/BwdTransHIPCUDASumFacKernelLaunchers.hpp"
-#include "Operators/ElmtOps/BwdTrans/BwdTransSYCLSumFacKernelLaunchers.hpp"
+    BwdTrans1DKernel<Implementation>(nm0, nq0, nelmt, basis0, in, out, shmemptr,
+                                     threadBlock);
+}
+
+// Size based template version.
+template <
+    typename Implementation, unsigned int nm0, unsigned int nq0,
+    typename TthreadBlock, typename TData,
+    unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(nq0)>
+NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(maxThreadPerBlock)
+    BwdTrans1DKernelLauncher(const size_t nelmt,
+                             const TData *__restrict__ basis0,
+                             const TData *__restrict__ in,
+                             TData *__restrict__ out, unsigned char *shmemptr,
+                             const TthreadBlock &threadBlock)
+{
+    FETCH_SHARED_MEMORY(shmemptr);
+
+    BwdTrans1DKernel<Implementation>(nm0, nq0, nelmt, basis0, in, out, shmemptr,
+                                     threadBlock);
+}
+
+// Non-size based version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename TthreadBlock, typename TData>
+NEK_DEVICE_KERNEL void BwdTrans2DKernelLauncher(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
+    const unsigned int nq0, const unsigned int nq1, const size_t nelmt,
+    const bool isModified, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ nodToMod,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp, unsigned char *shmemptr,
+    const TthreadBlock &threadBlock)
+{
+    FETCH_SHARED_MEMORY(shmemptr);
+
+    BwdTrans2DKernel<SHAPE_TYPE, Implementation>(
+        nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, basis0, basis1, nodToMod,
+        in, out, wsp, shmemptr, threadBlock);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          unsigned int nm0, unsigned int nm1, unsigned int nmTot,
+          unsigned int nq0, unsigned int nq1, typename TthreadBlock,
+          typename TData,
+          unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(
+              LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1))>
+NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(maxThreadPerBlock)
+    BwdTrans2DKernelLauncher(const size_t nelmt, const bool isModified,
+                             const TData *__restrict__ basis0,
+                             const TData *__restrict__ basis1,
+                             const TData *__restrict__ nodToMod,
+                             const TData *__restrict__ in,
+                             TData *__restrict__ out, TData *__restrict__ wsp,
+                             unsigned char *shmemptr,
+                             const TthreadBlock &threadBlock)
+{
+    FETCH_SHARED_MEMORY(shmemptr);
+
+    BwdTrans2DKernel<SHAPE_TYPE, Implementation>(
+        nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, basis0, basis1, nodToMod,
+        in, out, wsp, shmemptr, threadBlock);
+}
+
+// Non-size based version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename TthreadBlock, typename TData>
+NEK_DEVICE_KERNEL void BwdTrans3DKernelLauncher(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
+    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nq2, const size_t nelmt, const bool isModified,
+    const unsigned int *index0, const unsigned int *index1,
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ nodToMod,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp, unsigned char *shmemptr,
+    const TthreadBlock &threadBlock)
+{
+    FETCH_SHARED_MEMORY(shmemptr);
+
+    BwdTrans3DKernel<SHAPE_TYPE, Implementation>(
+        nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
+        basis0, basis1, basis2, nodToMod, in, out, wsp, shmemptr, threadBlock);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          unsigned int nm0, unsigned int nm1, unsigned int nm2,
+          unsigned int nmTot, unsigned int nq0, unsigned int nq1,
+          unsigned int nq2, typename TthreadBlock, typename TData,
+          unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(
+              LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2))>
+NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(maxThreadPerBlock)
+    BwdTrans3DKernelLauncher(
+        const size_t nelmt, const bool isModified, const unsigned int *index0,
+        const unsigned int *index1, const TData *__restrict__ basis0,
+        const TData *__restrict__ basis1, const TData *__restrict__ basis2,
+        const TData *__restrict__ nodToMod, const TData *__restrict__ in,
+        TData *__restrict__ out, TData *__restrict__ wsp,
+        unsigned char *shmemptr, const TthreadBlock &threadBlock)
+{
+    FETCH_SHARED_MEMORY(shmemptr);
+
+    BwdTrans3DKernel<SHAPE_TYPE, Implementation>(
+        nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
+        basis0, basis1, basis2, nodToMod, in, out, wsp, shmemptr, threadBlock);
+}
+
+// Kernel Launchers.
+// Non-size based version.
+template <typename ExecSpace, typename Implementation, typename TData>
+NEK_FORCE_INLINE static void BwdTrans1DKernel(const unsigned int nm0,
+                                              const unsigned int nq0,
+                                              const size_t nelmt,
+                                              const TData *basis0,
+                                              const TData *in, TData *out)
+{
+    const unsigned int shmemsize =
+        sizeof(TData) * BwdTransSharedMemorySize<Implementation>(nq0, nm0);
+    const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nq0);
+    const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
+    DEVICE_1DGRID_KERNEL_LAUNCHER(BwdTrans1DKernelLauncher<Implementation>,
+                                  gridsize, blocksize, shmemsize, 0, nm0, nq0,
+                                  nelmt, basis0, in, out);
+}
+
+// Size based template version.
+template <typename ExecSpace, typename Implementation, unsigned int nm0,
+          unsigned int nq0, typename TData>
+NEK_FORCE_INLINE static void BwdTrans1DKernel(const size_t nelmt,
+                                              const TData *basis0,
+                                              const TData *in, TData *out)
+{
+    const unsigned int shmemsize =
+        sizeof(TData) * BwdTransSharedMemorySize<Implementation>(nq0, nm0);
+    const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nq0);
+    const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
+    DEVICE_1DGRID_KERNEL_LAUNCHER(
+        (BwdTrans1DKernelLauncher<Implementation, nm0, nq0>), gridsize,
+        blocksize, shmemsize, 0, nelmt, basis0, in, out);
+}
+
+// Non-size based version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, typename TData>
+NEK_FORCE_INLINE static void BwdTrans2DKernel(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
+    const unsigned int nq1, const size_t nelmt, const bool isModified,
+    const TData *basis0, const TData *basis1, const TData *nodToMod,
+    const TData *in, TData *out, TData *wsp)
+{
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
+    const unsigned int shmemsize =
+        sizeof(TData) * BwdTransSharedMemorySize<SHAPE_TYPE, Implementation>(
+                            nq0, nq1, nm0, nm1);
+    const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
+    const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
+    DEVICE_1DGRID_KERNEL_LAUNCHER(
+        (BwdTrans2DKernelLauncher<SHAPE_TYPE, Implementation>), gridsize,
+        blocksize, shmemsize, 0, nm0, nm1, nmTot, nq0, nq1, nelmt, isModified,
+        basis0, basis1, nodToMod, in, out, wsp);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, unsigned int nm0, unsigned int nm1,
+          unsigned int nq0, unsigned int nq1, typename TData>
+NEK_FORCE_INLINE static void BwdTrans2DKernel(
+    const size_t nelmt, const bool isModified, const TData *basis0,
+    const TData *basis1, const TData *nodToMod, const TData *in, TData *out,
+    TData *wsp)
+{
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
+    const unsigned int shmemsize =
+        sizeof(TData) * BwdTransSharedMemorySize<SHAPE_TYPE, Implementation>(
+                            nq0, nq1, nm0, nm1);
+    const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
+    const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
+    DEVICE_1DGRID_KERNEL_LAUNCHER(
+        (BwdTrans2DKernelLauncher<SHAPE_TYPE, Implementation, nm0, nm1, nmTot,
+                                  nq0, nq1>),
+        gridsize, blocksize, shmemsize, 0, nelmt, isModified, basis0, basis1,
+        nodToMod, in, out, wsp);
+}
+
+// Non-size based version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, typename TData>
+NEK_FORCE_INLINE static void BwdTrans3DKernel(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const size_t nelmt, const bool isModified, const unsigned int *index0,
+    const unsigned int *index1, const TData *basis0, const TData *basis1,
+    const TData *basis2, const TData *nodToMod, const TData *in, TData *out,
+    TData *wsp)
+{
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+    const unsigned int shmemsize =
+        sizeof(TData) * BwdTransSharedMemorySize<SHAPE_TYPE, Implementation>(
+                            nq0, nq1, nq2, nm0, nm1, nm2);
+    const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
+    const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
+    DEVICE_1DGRID_KERNEL_LAUNCHER(
+        (BwdTrans3DKernelLauncher<SHAPE_TYPE, Implementation>), gridsize,
+        blocksize, shmemsize, 0, nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
+        isModified, index0, index1, basis0, basis1, basis2, nodToMod, in, out,
+        wsp);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, unsigned int nm0, unsigned int nm1,
+          unsigned int nm2, unsigned int nq0, unsigned int nq1,
+          unsigned int nq2, typename TData>
+NEK_FORCE_INLINE static void BwdTrans3DKernel(
+    const size_t nelmt, const bool isModified, const unsigned int *index0,
+    const unsigned int *index1, const TData *basis0, const TData *basis1,
+    const TData *basis2, const TData *nodToMod, const TData *in, TData *out,
+    TData *wsp)
+{
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+    const unsigned int shmemsize =
+        sizeof(TData) * BwdTransSharedMemorySize<SHAPE_TYPE, Implementation>(
+                            nq0, nq1, nq2, nm0, nm1, nm2);
+    const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
+    const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
+    DEVICE_1DGRID_KERNEL_LAUNCHER(
+        (BwdTrans3DKernelLauncher<SHAPE_TYPE, Implementation, nm0, nm1, nm2,
+                                  nmTot, nq0, nq1, nq2>),
+        gridsize, blocksize, shmemsize, 0, nelmt, isModified, index0, index1,
+        basis0, basis1, basis2, nodToMod, in, out, wsp);
+}
+#endif
+
+} // namespace Nektar::Operators::detail

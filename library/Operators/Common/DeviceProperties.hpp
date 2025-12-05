@@ -97,8 +97,7 @@ private:
             CHECK_HIPCUDA_ERROR(cudaGetDeviceProperties(&prop[id], id));
         }
     }
-}; // namespace GetDeviceProperties
-
+};
 #elif defined(NEKTAR_ENABLE_HIP)
 class GetDeviceProperties
 {
@@ -157,8 +156,7 @@ private:
             CHECK_HIPCUDA_ERROR(hipGetDeviceProperties(&prop[id], id));
         }
     }
-}; // namespace GetDeviceProperties
-
+};
 #elif defined(NEKTAR_ENABLE_SYCL)
 class GetDeviceProperties
 {
@@ -219,6 +217,34 @@ private:
                 id, device.get_info<sycl::info::device::max_compute_units>());
         }
     }
-}; // namespace GetDeviceProperties
+};
+#elif defined(NEKTAR_ENABLE_DEVICEONHOST)
+class GetDeviceProperties
+{
+public:
+    static size_t SharedMemoryPerBlock(void)
+    {
+        return std::numeric_limits<size_t>::max();
+    }
 
+    static size_t TotalGlobalMemory(void)
+    {
+        return std::numeric_limits<size_t>::max();
+    }
+
+    static int NumMultiProcessors(void)
+    {
+        return 0;
+    }
+
+    static void CheckSharedMemoryUsage([[maybe_unused]] const size_t shmemsize)
+    {
+    }
+
+    static void CheckGlobalMemoryUsage([[maybe_unused]] const size_t memsize)
+    {
+    }
+
+private:
+};
 #endif

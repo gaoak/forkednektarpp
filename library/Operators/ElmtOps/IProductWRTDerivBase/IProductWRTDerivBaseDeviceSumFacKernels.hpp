@@ -45,6 +45,7 @@
 namespace Nektar::Operators::detail
 {
 
+#if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 // Helper function
 template <typename Implementation>
 inline unsigned int IProductWRTDerivBaseSharedMemorySize(
@@ -547,7 +548,8 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase1DKernel(
     const TData *__restrict__ dbasis0, const TData *__restrict__ w0,
     const TData *__restrict__ df, const TData *__restrict__ jac,
     const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp, TData *__restrict__ shmemptr,
+    TData *__restrict__ wsp,
+    [[maybe_unused]] unsigned char *__restrict__ shmemptr,
     const TthreadBlock &threadBlock)
 {
     const unsigned int ndf     = ncoord;
@@ -578,7 +580,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase1DKernel(
     }
     else if constexpr (std::is_same_v<Implementation, Operators::SumFacTOP>)
     {
-        TData *deriv = shmemptr;
+        TData *deriv = (TData *)shmemptr;
 
         size_t e = getBlockIdx(threadBlock);
         while (e < nelmt)
@@ -613,7 +615,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase2DKernel(
     const TData *__restrict__ nodToMod, const TData *__restrict__ df,
     const TData *__restrict__ jac, const TData *__restrict__ in,
     TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ wsp,
-    TData *__restrict__ shmemptr, const TthreadBlock &threadBlock)
+    unsigned char *__restrict__ shmemptr, const TthreadBlock &threadBlock)
 {
     const unsigned int ndf     = 2 * ncoord;
     const unsigned int nqTot   = nq0 * nq1;
@@ -631,7 +633,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase2DKernel(
         if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
                       SHAPE_TYPE == LibUtilities::NodalTri)
         {
-            s_f0 = shmemptr;
+            s_f0 = (TData *)shmemptr;
             s_f1 = s_f0 + nq0;
 
             const unsigned int idx0   = getLocalIdx(threadBlock);
@@ -717,7 +719,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase2DKernel(
             nmode1 = nmTot;
         }
 
-        TData *deriv0    = shmemptr;
+        TData *deriv0    = (TData *)shmemptr;
         TData *deriv1    = deriv0 + nqTot;
         TData *deriv     = deriv1 + nqTot;
         TData *s_wsp0    = deriv + nqTot;
@@ -801,8 +803,8 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
     const TData *__restrict__ f2, const TData *__restrict__ nodToMod,
     const TData *__restrict__ df, const TData *__restrict__ jac,
     const TData *__restrict__ in, TData *__restrict__ out,
-    [[maybe_unused]] TData *__restrict__ wsp, TData *__restrict__ shmemptr,
-    const TthreadBlock &threadBlock)
+    [[maybe_unused]] TData *__restrict__ wsp,
+    unsigned char *__restrict__ shmemptr, const TthreadBlock &threadBlock)
 {
     constexpr unsigned int ndf = 9u;
     const unsigned int nqTot   = nq0 * nq1 * nq2;
@@ -824,7 +826,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
         if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
                       SHAPE_TYPE == LibUtilities::NodalTet)
         {
-            s_f0  = shmemptr;
+            s_f0  = (TData *)shmemptr;
             s_f1  = s_f0 + nq0;
             s_f1m = s_f1 + nq1;
             s_f2  = s_f1m + nq1;
@@ -850,7 +852,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
         else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
                            SHAPE_TYPE == LibUtilities::NodalPrism)
         {
-            s_f0 = shmemptr;
+            s_f0 = (TData *)shmemptr;
             s_f2 = s_f0 + nq0;
 
             for (unsigned int idx = idx0; idx < nq0; idx += stride)
@@ -867,7 +869,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
-            s_f0 = shmemptr;
+            s_f0 = (TData *)shmemptr;
             s_f1 = s_f0 + nq0;
             s_f2 = s_f1 + nq1;
 
@@ -1025,7 +1027,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
             nmode2  = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
         }
 
-        TData *deriv0    = shmemptr;
+        TData *deriv0    = (TData *)shmemptr;
         TData *deriv1    = deriv0 + nqTot;
         TData *deriv2    = deriv1 + nqTot;
         TData *deriv     = deriv2 + nqTot;
@@ -1125,8 +1127,340 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DKernel(
     }
 }
 
-} // namespace Nektar::Operators::detail
+// Non-size based version.
+template <typename Implementation, bool DEFORMED, typename TthreadBlock,
+          typename TData>
+NEK_DEVICE_KERNEL void IProductWRTDerivBase1DKernelLauncher(
+    const unsigned int ncoord, const unsigned int nm0, const unsigned int nq0,
+    const size_t nelmt, const unsigned int inoffset,
+    const TData *__restrict__ dbasis0, const TData *__restrict__ w0,
+    const TData *__restrict__ df, const TData *__restrict__ jac,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp, unsigned char *shmemptr,
+    const TthreadBlock &threadBlock)
+{
+    FETCH_SHARED_MEMORY(shmemptr);
 
-#include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseDeviceOnHostSumFacKernelLaunchers.hpp"
-#include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseHIPCUDASumFacKernelLaunchers.hpp"
-#include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseSYCLSumFacKernelLaunchers.hpp"
+    IProductWRTDerivBase1DKernel<Implementation, DEFORMED>(
+        ncoord, nm0, nq0, nelmt, inoffset, dbasis0, w0, df, jac, in, out, wsp,
+        shmemptr, threadBlock);
+}
+
+// Size based template version.
+template <
+    typename Implementation, bool DEFORMED, unsigned int nm0, unsigned int nq0,
+    typename TthreadBlock, typename TData,
+    unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(nq0)>
+NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(maxThreadPerBlock)
+    IProductWRTDerivBase1DKernelLauncher(
+        const unsigned int ncoord, const size_t nelmt,
+        const unsigned int inoffset, const TData *__restrict__ dbasis0,
+        const TData *__restrict__ w0, const TData *__restrict__ df,
+        const TData *__restrict__ jac, const TData *__restrict__ in,
+        TData *__restrict__ out, TData *__restrict__ wsp,
+        unsigned char *shmemptr, const TthreadBlock &threadBlock)
+{
+    FETCH_SHARED_MEMORY(shmemptr);
+
+    IProductWRTDerivBase1DKernel<Implementation, DEFORMED>(
+        ncoord, nm0, nq0, nelmt, inoffset, dbasis0, w0, df, jac, in, out, wsp,
+        shmemptr, threadBlock);
+}
+
+// Non-size based version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TthreadBlock, typename TData>
+NEK_DEVICE_KERNEL void IProductWRTDerivBase2DKernelLauncher(
+    const unsigned int ncoord, const unsigned int nm0, const unsigned int nm1,
+    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
+    const size_t nelmt, const unsigned int inoffset, const bool isModified,
+    const unsigned int *__restrict__ index0, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ D0,
+    const TData *__restrict__ D1, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ f0,
+    const TData *__restrict__ f1, const TData *__restrict__ nodToMod,
+    const TData *__restrict__ df, const TData *__restrict__ jac,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp, unsigned char *shmemptr,
+    const TthreadBlock &threadBlock)
+{
+    FETCH_SHARED_MEMORY(shmemptr);
+
+    IProductWRTDerivBase2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
+        ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, inoffset, isModified, index0,
+        basis0, basis1, D0, D1, w0, w1, f0, f1, nodToMod, df, jac, in, out, wsp,
+        shmemptr, threadBlock);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, unsigned int nm0, unsigned int nm1, unsigned int nmTot,
+          unsigned int nq0, unsigned int nq1, typename TthreadBlock,
+          typename TData,
+          unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(
+              LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1))>
+NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(maxThreadPerBlock)
+    IProductWRTDerivBase2DKernelLauncher(
+        const unsigned int ncoord, const size_t nelmt,
+        const unsigned int inoffset, const bool isModified,
+        const unsigned int *__restrict__ index0,
+        const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+        const TData *__restrict__ D0, const TData *__restrict__ D1,
+        const TData *__restrict__ w0, const TData *__restrict__ w1,
+        const TData *__restrict__ f0, const TData *__restrict__ f1,
+        const TData *__restrict__ nodToMod, const TData *__restrict__ df,
+        const TData *__restrict__ jac, const TData *__restrict__ in,
+        TData *__restrict__ out, TData *__restrict__ wsp,
+        unsigned char *shmemptr, const TthreadBlock &threadBlock)
+{
+    FETCH_SHARED_MEMORY(shmemptr);
+
+    IProductWRTDerivBase2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
+        ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, inoffset, isModified, index0,
+        basis0, basis1, D0, D1, w0, w1, f0, f1, nodToMod, df, jac, in, out, wsp,
+        shmemptr, threadBlock);
+}
+
+// Non-size based version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TthreadBlock, typename TData>
+NEK_DEVICE_KERNEL void IProductWRTDerivBase3DKernelLauncher(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
+    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nq2, const size_t nelmt, const unsigned int inoffset,
+    const bool isModified, const unsigned int *__restrict__ index0,
+    const unsigned int *__restrict__ index1,
+    const unsigned int *__restrict__ index2, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ basis2,
+    const TData *__restrict__ D0, const TData *__restrict__ D1,
+    const TData *__restrict__ D2, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ w2,
+    const TData *__restrict__ f0, const TData *__restrict__ f1,
+    const TData *__restrict__ f1m, const TData *__restrict__ f2,
+    const TData *__restrict__ nodToMod, const TData *__restrict__ df,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ wsp, unsigned char *shmemptr,
+    const TthreadBlock &threadBlock)
+{
+    FETCH_SHARED_MEMORY(shmemptr);
+
+    IProductWRTDerivBase3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
+        nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, inoffset, isModified,
+        index0, index1, index2, basis0, basis1, basis2, D0, D1, D2, w0, w1, w2,
+        f0, f1, f1m, f2, nodToMod, df, jac, in, out, wsp, shmemptr,
+        threadBlock);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, unsigned int nm0, unsigned int nm1, unsigned int nm2,
+          unsigned int nmTot, unsigned int nq0, unsigned int nq1,
+          unsigned int nq2, typename TthreadBlock, typename TData,
+          unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(
+              LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2))>
+NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(maxThreadPerBlock)
+    IProductWRTDerivBase3DKernelLauncher(
+        const size_t nelmt, const unsigned int inoffset, const bool isModified,
+        const unsigned int *__restrict__ index0,
+        const unsigned int *__restrict__ index1,
+        const unsigned int *__restrict__ index2,
+        const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+        const TData *__restrict__ basis2, const TData *__restrict__ D0,
+        const TData *__restrict__ D1, const TData *__restrict__ D2,
+        const TData *__restrict__ w0, const TData *__restrict__ w1,
+        const TData *__restrict__ w2, const TData *__restrict__ f0,
+        const TData *__restrict__ f1, const TData *__restrict__ f1m,
+        const TData *__restrict__ f2, const TData *__restrict__ nodToMod,
+        const TData *__restrict__ df, const TData *__restrict__ jac,
+        const TData *__restrict__ in, TData *__restrict__ out,
+        TData *__restrict__ wsp, unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
+{
+    FETCH_SHARED_MEMORY(shmemptr);
+
+    IProductWRTDerivBase3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
+        nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, inoffset, isModified,
+        index0, index1, index2, basis0, basis1, basis2, D0, D1, D2, w0, w1, w2,
+        f0, f1, f1m, f2, nodToMod, df, jac, in, out, wsp, shmemptr,
+        threadBlock);
+}
+
+// Kernel Launchers.
+// Non-size based version.
+template <typename ExecSpace, typename Implementation, bool DEFORMED,
+          typename TData>
+NEK_FORCE_INLINE static void IProductWRTDerivBase1DKernel(
+    const unsigned int ncoord, const unsigned int nm0, const unsigned int nq0,
+    const size_t nelmt, const unsigned int inoffset, const TData *dbasis0,
+    const TData *w0, const TData *df, const TData *jac, const TData *in,
+    TData *out, TData *wsp)
+{
+    const unsigned int shmemsize =
+        sizeof(TData) *
+        IProductWRTDerivBaseSharedMemorySize<Implementation>(nq0, nm0);
+    const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nq0);
+    const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
+    DEVICE_1DGRID_KERNEL_LAUNCHER(
+        (IProductWRTDerivBase1DKernelLauncher<Implementation, DEFORMED>),
+        gridsize, blocksize, shmemsize, 0, ncoord, nm0, nq0, nelmt, inoffset,
+        dbasis0, w0, df, jac, in, out, wsp);
+}
+
+// Size based template version.
+template <typename ExecSpace, typename Implementation, bool DEFORMED,
+          unsigned int nm0, unsigned int nq0, typename TData>
+NEK_FORCE_INLINE static void IProductWRTDerivBase1DKernel(
+    const unsigned int ncoord, const size_t nelmt, const unsigned int inoffset,
+    const TData *dbasis0, const TData *w0, const TData *df, const TData *jac,
+    const TData *in, TData *out, TData *wsp)
+{
+    const unsigned int shmemsize =
+        sizeof(TData) *
+        IProductWRTDerivBaseSharedMemorySize<Implementation>(nq0, nm0);
+    const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nq0);
+    const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
+    DEVICE_1DGRID_KERNEL_LAUNCHER(
+        (IProductWRTDerivBase1DKernelLauncher<Implementation, DEFORMED, nm0,
+                                              nq0>),
+        gridsize, blocksize, shmemsize, 0, ncoord, nelmt, inoffset, dbasis0, w0,
+        df, jac, in, out, wsp);
+}
+
+// Non-size based version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool DEFORMED, typename TData>
+NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
+    const unsigned int ncoord, const unsigned int nm0, const unsigned int nm1,
+    const unsigned int nq0, const unsigned int nq1, const size_t nelmt,
+    const unsigned int inoffset, const bool isModified,
+    const unsigned int *index0, const TData *basis0, const TData *basis1,
+    const TData *D0, const TData *D1, const TData *w0, const TData *w1,
+    const TData *f0, const TData *f1, const TData *nodToMod, const TData *df,
+    const TData *jac, const TData *in, TData *out, TData *wsp)
+{
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
+    const unsigned int shmemsize =
+        sizeof(TData) *
+        IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
+            nq0, nq1, nm0, nm1);
+    const unsigned int blocksize =
+        GetDeviceBlockSize<Implementation>(nq0 * nq1);
+    const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
+
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
+    DEVICE_1DGRID_KERNEL_LAUNCHER(
+        (IProductWRTDerivBase2DKernelLauncher<SHAPE_TYPE, Implementation,
+                                              DEFORMED>),
+        gridsize, blocksize, shmemsize, 0, ncoord, nm0, nm1, nmTot, nq0, nq1,
+        nelmt, inoffset, isModified, index0, basis0, basis1, D0, D1, w0, w1, f0,
+        f1, nodToMod, df, jac, in, out, wsp);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool DEFORMED, unsigned int nm0,
+          unsigned int nm1, unsigned int nq0, unsigned int nq1, typename TData>
+NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
+    const unsigned int ncoord, const size_t nelmt, const unsigned int inoffset,
+    const bool isModified, const unsigned int *index0, const TData *basis0,
+    const TData *basis1, const TData *D0, const TData *D1, const TData *w0,
+    const TData *w1, const TData *f0, const TData *f1, const TData *nodToMod,
+    const TData *df, const TData *jac, const TData *in, TData *out, TData *wsp)
+{
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
+    const unsigned int shmemsize =
+        sizeof(TData) *
+        IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
+            nq0, nq1, nm0, nm1);
+    const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
+    const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
+    DEVICE_1DGRID_KERNEL_LAUNCHER(
+        (IProductWRTDerivBase2DKernelLauncher<
+            SHAPE_TYPE, Implementation, DEFORMED, nm0, nm1, nmTot, nq0, nq1>),
+        gridsize, blocksize, shmemsize, 0, ncoord, nelmt, inoffset, isModified,
+        index0, basis0, basis1, D0, D1, w0, w1, f0, f1, nodToMod, df, jac, in,
+        out, wsp);
+}
+
+// Non-size based version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool DEFORMED, typename TData>
+NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const size_t nelmt, const unsigned int inoffset, const bool isModified,
+    const unsigned int *index0, const unsigned int *index1,
+    const unsigned int *index2, const TData *basis0, const TData *basis1,
+    const TData *basis2, const TData *D0, const TData *D1, const TData *D2,
+    const TData *w0, const TData *w1, const TData *w2, const TData *f0,
+    const TData *f1, const TData *f1m, const TData *f2, const TData *nodToMod,
+    const TData *df, const TData *jac, const TData *in, TData *out, TData *wsp)
+{
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+    const unsigned int shmemsize =
+        sizeof(TData) *
+        IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
+            nq0, nq1, nq2, nm0, nm1, nm2);
+    const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
+    const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
+    DEVICE_1DGRID_KERNEL_LAUNCHER(
+        (IProductWRTDerivBase3DKernelLauncher<SHAPE_TYPE, Implementation,
+                                              DEFORMED>),
+        gridsize, blocksize, shmemsize, 0, nm0, nm1, nm2, nmTot, nq0, nq1, nq2,
+        nelmt, inoffset, isModified, index0, index1, index2, basis0, basis1,
+        basis2, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2, nodToMod, df, jac, in,
+        out, wsp);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool DEFORMED, unsigned int nm0,
+          unsigned int nm1, unsigned int nm2, unsigned int nq0,
+          unsigned int nq1, unsigned int nq2, typename TData>
+NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
+    const size_t nelmt, const unsigned int inoffset, const bool isModified,
+    const unsigned int *index0, const unsigned int *index1,
+    const unsigned int *index2, const TData *basis0, const TData *basis1,
+    const TData *basis2, const TData *D0, const TData *D1, const TData *D2,
+    const TData *w0, const TData *w1, const TData *w2, const TData *f0,
+    const TData *f1, const TData *f1m, const TData *f2, const TData *nodToMod,
+    const TData *df, const TData *jac, const TData *in, TData *out, TData *wsp)
+{
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+    const unsigned int shmemsize =
+        sizeof(TData) *
+        IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
+            nq0, nq1, nq2, nm0, nm1, nm2);
+    const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
+    const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
+    DEVICE_1DGRID_KERNEL_LAUNCHER(
+        (IProductWRTDerivBase3DKernelLauncher<SHAPE_TYPE, Implementation,
+                                              DEFORMED, nm0, nm1, nm2, nmTot,
+                                              nq0, nq1, nq2>),
+        gridsize, blocksize, shmemsize, 0, nelmt, inoffset, isModified, index0,
+        index1, index2, basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, f0, f1,
+        f1m, f2, nodToMod, df, jac, in, out, wsp);
+}
+#endif
+
+} // namespace Nektar::Operators::detail

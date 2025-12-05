@@ -34,14 +34,15 @@
 
 #pragma once
 
+#include "Operators/Common/Spaces.hpp"
+#include "Operators/Field/MemoryAlloc.hpp"
+
 namespace Nektar
 {
 
-#if (defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)) ||                    \
-    (defined(NEKTAR_ENABLE_HIP) && defined(__HIPCC__)) ||                      \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
+#if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 template <typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void interleaveKernel(
+NEK_DEVICE_KERNEL static void interleaveKernel(
     const unsigned int interleaveWidth, const size_t numElmtGroups,
     const unsigned int npts, TData *buffer, TData *inout,
     const TthreadBlock &threadBlock)
@@ -74,7 +75,7 @@ NEK_DEVICE_INLINE static void interleaveKernel(
 }
 
 template <typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void deInterleaveKernel(
+NEK_DEVICE_KERNEL static void deInterleaveKernel(
     const unsigned int interleaveWidth, const size_t numElmtGroups,
     const unsigned int npts, TData *buffer, TData *inout,
     const TthreadBlock &threadBlock)
@@ -181,10 +182,65 @@ NEK_DEVICE_INLINE static void MatVecQPKernel(const unsigned int nmTot,
 
     localBarrier(threadBlock);
 }
+
+#if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP)
+template <typename TData>
+__global__ void interleaveKernel(const unsigned int interleaveWidth,
+                                 size_t numElmtGroups, const unsigned int npts,
+                                 TData *buffer, TData *inout)
+{
+    interleaveKernel<>(interleaveWidth, numElmtGroups, npts, buffer, inout,
+                       hipcudaBlock1D());
+}
+
+template <typename TData>
+__global__ void deInterleaveKernel(const unsigned int interleaveWidth,
+                                   size_t numElmtGroups,
+                                   const unsigned int npts, TData *buffer,
+                                   TData *inout)
+{
+    deInterleaveKernel<>(interleaveWidth, numElmtGroups, npts, buffer, inout,
+                         hipcudaBlock1D());
+}
+#endif
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
+interleave(const unsigned int interleaveWidth, const size_t numElmtGroups,
+           const unsigned int npts, TData *inout)
+{
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int gridSize  = numElmtGroups;
+    const size_t bufferSize =
+        sizeof(TData) * interleaveWidth * numElmtGroups * npts;
+
+    TData *buffer;
+    deviceMalloc(&buffer, bufferSize);
+    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(interleaveKernel<>, gridSize,
+                                          blockSize, 0, interleaveWidth,
+                                          numElmtGroups, npts, buffer, inout);
+    deviceFree(buffer, bufferSize);
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
+deInterleave(const unsigned int interleaveWidth, size_t numElmtGroups,
+             const unsigned int npts, TData *inout)
+{
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int gridSize  = numElmtGroups;
+    const size_t bufferSize =
+        sizeof(TData) * interleaveWidth * numElmtGroups * npts;
+
+    TData *buffer;
+    deviceMalloc(&buffer, bufferSize);
+    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(deInterleaveKernel<>, gridSize,
+                                          blockSize, 0, interleaveWidth,
+                                          numElmtGroups, npts, buffer, inout);
+    deviceFree(buffer, bufferSize);
+}
 #endif
 
 } // namespace Nektar
-
-#include "Operators/Utils/UtilsDeviceOnHostKernelLaunchers.hpp"
-#include "Operators/Utils/UtilsHIPCUDAKernelLaunchers.hpp"
-#include "Operators/Utils/UtilsSYCLKernelLaunchers.hpp"
