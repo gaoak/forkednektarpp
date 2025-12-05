@@ -42,6 +42,7 @@
 namespace Nektar::Operators::detail
 {
 
+#if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 // Helper function
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation>
 inline constexpr unsigned int PhysDerivSharedMemorySize(const unsigned int nq0,
@@ -784,7 +785,7 @@ NEK_DEVICE_INLINE static void PhysDeriv2DKernel(
     const TData *__restrict__ D0, const TData *__restrict__ D1,
     const TData *__restrict__ f0, const TData *__restrict__ f1,
     const TData *__restrict__ df, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ shmemptr,
+    TData *__restrict__ out, unsigned char *__restrict__ shmemptr,
     const TthreadBlock &threadBlock)
 {
     const unsigned int ndf    = 2 * ncoord;
@@ -805,7 +806,7 @@ NEK_DEVICE_INLINE static void PhysDeriv2DKernel(
         if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
                       SHAPE_TYPE == LibUtilities::NodalTri)
         {
-            s_f0 = shmemptr;
+            s_f0 = (TData *)shmemptr;
             s_f1 = s_f0 + nq0;
 
             for (unsigned int idx = idx0; idx < nq0; idx += stride)
@@ -837,7 +838,7 @@ NEK_DEVICE_INLINE static void PhysDeriv2DKernel(
     }
     else if constexpr (std::is_same_v<Implementation, Operators::SumFacTOP>)
     {
-        TData *s_wsp0             = shmemptr;
+        TData *s_wsp0             = (TData *)shmemptr;
         const unsigned int idx0   = getLocalIdx(threadBlock);
         const unsigned int stride = getLocalRange(threadBlock);
 
@@ -875,7 +876,7 @@ NEK_DEVICE_INLINE static void PhysDeriv3DKernel(
     const TData *__restrict__ f1, const TData *__restrict__ f1m,
     const TData *__restrict__ f2, const TData *__restrict__ df,
     const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ shmemptr, const TthreadBlock &threadBlock)
+    unsigned char *__restrict__ shmemptr, const TthreadBlock &threadBlock)
 {
     constexpr unsigned int ndf = 9u;
     const unsigned int nqTot   = nq0 * nq1 * nq2;
@@ -897,7 +898,7 @@ NEK_DEVICE_INLINE static void PhysDeriv3DKernel(
         if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
                       SHAPE_TYPE == LibUtilities::NodalTet)
         {
-            s_f0  = shmemptr;
+            s_f0  = (TData *)shmemptr;
             s_f1  = s_f0 + nq0;
             s_f1m = s_f1 + nq1;
             s_f2  = s_f1m + nq1;
@@ -923,7 +924,7 @@ NEK_DEVICE_INLINE static void PhysDeriv3DKernel(
         else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
                            SHAPE_TYPE == LibUtilities::NodalPrism)
         {
-            s_f0 = shmemptr;
+            s_f0 = (TData *)shmemptr;
             s_f2 = s_f0 + nq0;
 
             for (unsigned int idx = idx0; idx < nq0; idx += stride)
@@ -940,7 +941,7 @@ NEK_DEVICE_INLINE static void PhysDeriv3DKernel(
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
-            s_f0 = shmemptr;
+            s_f0 = (TData *)shmemptr;
             s_f1 = s_f0 + nq0;
             s_f2 = s_f1 + nq1;
 
@@ -978,7 +979,7 @@ NEK_DEVICE_INLINE static void PhysDeriv3DKernel(
     }
     else if constexpr (std::is_same_v<Implementation, Operators::SumFacTOP>)
     {
-        TData *s_wsp0             = shmemptr;
+        TData *s_wsp0             = (TData *)shmemptr;
         const unsigned int idx0   = getLocalIdx(threadBlock);
         const unsigned int stride = getLocalRange(threadBlock);
 
@@ -1006,8 +1007,252 @@ NEK_DEVICE_INLINE static void PhysDeriv3DKernel(
     }
 }
 
-} // namespace Nektar::Operators::detail
+// Non-size based version.
+template <typename Implementation, bool DEFORMED, typename TthreadBlock,
+          typename TData>
+NEK_DEVICE_KERNEL void PhysDeriv1DKernelLauncher(
+    const unsigned int ncoord, const unsigned int nq0, const size_t nelmt,
+    const unsigned int outoffset, const TData *__restrict__ D0,
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out, const TthreadBlock &threadBlock)
+{
+    PhysDeriv1DKernel<Implementation, DEFORMED>(ncoord, nq0, nelmt, outoffset,
+                                                D0, df, in, out, threadBlock);
+}
 
-#include "Operators/ElmtOps/PhysDeriv/PhysDerivDeviceOnHostSumFacKernelLaunchers.hpp"
-#include "Operators/ElmtOps/PhysDeriv/PhysDerivHIPCUDASumFacKernelLaunchers.hpp"
-#include "Operators/ElmtOps/PhysDeriv/PhysDerivSYCLSumFacKernelLaunchers.hpp"
+// Size based template version.
+template <
+    typename Implementation, bool DEFORMED, unsigned int ncoord,
+    unsigned int nq0, typename TthreadBlock, typename TData/*,
+    unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(nq0)*/>
+NEK_DEVICE_KERNEL void /*__LAUNCH_BOUNDS__(maxThreadPerBlock)*/
+    PhysDeriv1DKernelLauncher(const size_t nelmt, const unsigned int outoffset, const TData *__restrict__ D0,
+                              const TData *__restrict__ df,
+                              const TData *__restrict__ in,
+                              TData *__restrict__ out, const TthreadBlock &threadBlock)
+{
+    PhysDeriv1DKernel<Implementation, DEFORMED>(ncoord, nq0, nelmt, outoffset,
+                                                D0, df, in, out, threadBlock);
+}
+
+// Non-size based version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TthreadBlock, typename TData>
+NEK_DEVICE_KERNEL void PhysDeriv2DKernelLauncher(
+    const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
+    const size_t nelmt, const unsigned int outoffset,
+    const TData *__restrict__ D0, const TData *__restrict__ D1,
+    const TData *__restrict__ f0, const TData *__restrict__ f1,
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out, unsigned char *shmemptr,
+    const TthreadBlock &threadBlock)
+{
+    FETCH_SHARED_MEMORY(shmemptr);
+
+    PhysDeriv2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
+        ncoord, nq0, nq1, nelmt, outoffset, D0, D1, f0, f1, df, in, out,
+        shmemptr, threadBlock);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, unsigned int ncoord, unsigned int nq0,
+          unsigned int nq1, typename TthreadBlock, typename TData/*,
+          unsigned int maxThreadPerBlock =
+              GetDeviceBlockSize<Implementation>(nq0 *nq1)*/>
+NEK_DEVICE_KERNEL void /*__LAUNCH_BOUNDS__(maxThreadPerBlock)*/
+    PhysDeriv2DKernelLauncher(const size_t nelmt, const unsigned int outoffset, const TData *__restrict__ D0,
+                              const TData *__restrict__ D1,
+                              const TData *__restrict__ f0,
+                              const TData *__restrict__ f1,
+                              const TData *__restrict__ df,
+                              const TData *__restrict__ in,
+                              TData *__restrict__ out, unsigned char* shmemptr, const TthreadBlock &threadBlock)
+{
+    FETCH_SHARED_MEMORY(shmemptr);
+
+    PhysDeriv2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
+        ncoord, nq0, nq1, nelmt, outoffset, D0, D1, f0, f1, df, in, out,
+        shmemptr, threadBlock);
+}
+
+// Non-size based version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TthreadBlock, typename TData>
+NEK_DEVICE_KERNEL void PhysDeriv3DKernelLauncher(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const size_t nelmt, const unsigned int outoffset,
+    const TData *__restrict__ D0, const TData *__restrict__ D1,
+    const TData *__restrict__ D2, const TData *__restrict__ f0,
+    const TData *__restrict__ f1, const TData *__restrict__ f1m,
+    const TData *__restrict__ f2, const TData *__restrict__ df,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    unsigned char *shmemptr, const TthreadBlock &threadBlock)
+{
+    FETCH_SHARED_MEMORY(shmemptr);
+
+    PhysDeriv3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
+        nq0, nq1, nq2, nelmt, outoffset, D0, D1, D2, f0, f1, f1m, f2, df, in,
+        out, shmemptr, threadBlock);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, unsigned int nq0, unsigned int nq1, unsigned int nq2, typename TthreadBlock,
+          typename TData/*,
+          unsigned int maxThreadPerBlock =
+              GetDeviceBlockSize<Implementation>(nq0 *nq1 *nq2)*/>
+NEK_DEVICE_KERNEL void /*__LAUNCH_BOUNDS__(maxThreadPerBlock)*/ PhysDeriv3DKernelLauncher(
+    const size_t nelmt, const unsigned int outoffset, const TData *__restrict__ D0,
+    const TData *__restrict__ D1, const TData *__restrict__ D2,
+    const TData *__restrict__ f0, const TData *__restrict__ f1,
+    const TData *__restrict__ f1m, const TData *__restrict__ f2,
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out, unsigned char*shmemptr, const TthreadBlock &threadBlock)
+{
+    FETCH_SHARED_MEMORY(shmemptr);
+
+    PhysDeriv3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
+        nq0, nq1, nq2, nelmt, outoffset, D0, D1, D2, f0, f1, f1m, f2, df, in,
+        out, shmemptr, threadBlock);
+}
+
+// Kernel Launchers.
+// Non-size based version.
+template <typename ExecSpace, typename Implementation, bool DEFORMED,
+          typename TData>
+NEK_FORCE_INLINE static void PhysDeriv1DKernel(const unsigned int ncoord,
+                                               const unsigned int nq0,
+                                               const size_t nelmt,
+                                               const unsigned int outoffset,
+                                               const TData *D0, const TData *df,
+                                               const TData *in, TData *out)
+{
+    const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nq0);
+    const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+
+    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
+        (PhysDeriv1DKernelLauncher<Implementation, DEFORMED>), gridsize,
+        blocksize, 0, ncoord, nq0, nelmt, outoffset, D0, df, in, out);
+}
+
+// Size based template version.
+template <typename ExecSpace, typename Implementation, bool DEFORMED,
+          unsigned int ncoord, unsigned int nq0, typename TData>
+NEK_FORCE_INLINE static void PhysDeriv1DKernel(const size_t nelmt,
+                                               const unsigned int outoffset,
+                                               const TData *D0, const TData *df,
+                                               const TData *in, TData *out)
+{
+    const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nq0);
+    const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+
+    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
+        (PhysDeriv1DKernelLauncher<Implementation, DEFORMED, ncoord, nq0>),
+        gridsize, blocksize, 0, nelmt, outoffset, D0, df, in, out);
+}
+
+// Non-size based version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool DEFORMED, typename TData>
+NEK_FORCE_INLINE static void PhysDeriv2DKernel(
+    const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
+    const size_t nelmt, const unsigned int outoffset, const TData *D0,
+    const TData *D1, const TData *f0, const TData *f1, const TData *df,
+    const TData *in, TData *out)
+{
+    const unsigned int shmemsize =
+        sizeof(TData) *
+        PhysDerivSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1);
+    const unsigned int blocksize =
+        GetDeviceBlockSize<Implementation>(nq0 * nq1);
+    const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
+
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
+    DEVICE_1DGRID_KERNEL_LAUNCHER(
+        (PhysDeriv2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
+        gridsize, blocksize, shmemsize, 0, ncoord, nq0, nq1, nelmt, outoffset,
+        D0, D1, f0, f1, df, in, out);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool DEFORMED, unsigned int ncoord,
+          unsigned int nq0, unsigned int nq1, typename TData>
+NEK_FORCE_INLINE static void PhysDeriv2DKernel(const size_t nelmt,
+                                               const unsigned int outoffset,
+                                               const TData *D0, const TData *D1,
+                                               const TData *f0, const TData *f1,
+                                               const TData *df, const TData *in,
+                                               TData *out)
+{
+    const unsigned int shmemsize =
+        sizeof(TData) *
+        PhysDerivSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1);
+    const unsigned int blocksize =
+        GetDeviceBlockSize<Implementation>(nq0 * nq1);
+    const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
+
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
+    DEVICE_1DGRID_KERNEL_LAUNCHER(
+        (PhysDeriv2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED, ncoord,
+                                   nq0, nq1>),
+        gridsize, blocksize, shmemsize, 0, nelmt, outoffset, D0, D1, f0, f1, df,
+        in, out);
+}
+
+// Non-size based version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool DEFORMED, typename TData>
+NEK_FORCE_INLINE static void PhysDeriv3DKernel(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const size_t nelmt, const unsigned int outoffset, const TData *D0,
+    const TData *D1, const TData *D2, const TData *f0, const TData *f1,
+    const TData *f1m, const TData *f2, const TData *df, const TData *in,
+    TData *out)
+{
+    const unsigned int shmemsize =
+        sizeof(TData) *
+        PhysDerivSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1, nq2);
+    const unsigned int blocksize =
+        GetDeviceBlockSize<Implementation>(nq0 * nq1 * nq2);
+    const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
+
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
+    DEVICE_1DGRID_KERNEL_LAUNCHER(
+        (PhysDeriv3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
+        gridsize, blocksize, shmemsize, 0, nq0, nq1, nq2, nelmt, outoffset, D0,
+        D1, D2, f0, f1, f1m, f2, df, in, out);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool DEFORMED, unsigned int nq0,
+          unsigned int nq1, unsigned int nq2, typename TData>
+NEK_FORCE_INLINE static void PhysDeriv3DKernel(
+    const size_t nelmt, const unsigned int outoffset, const TData *D0,
+    const TData *D1, const TData *D2, const TData *f0, const TData *f1,
+    const TData *f1m, const TData *f2, const TData *df, const TData *in,
+    TData *out)
+{
+    const unsigned int shmemsize =
+        sizeof(TData) *
+        PhysDerivSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1, nq2);
+    const unsigned int blocksize =
+        GetDeviceBlockSize<Implementation>(nq0 * nq1 * nq2);
+    const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
+
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
+    DEVICE_1DGRID_KERNEL_LAUNCHER(
+        (PhysDeriv3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED, nq0,
+                                   nq1, nq2>),
+        gridsize, blocksize, shmemsize, 0, nelmt, outoffset, D0, D1, D2, f0, f1,
+        f1m, f2, df, in, out);
+}
+#endif
+
+} // namespace Nektar::Operators::detail

@@ -39,11 +39,9 @@
 namespace Nektar::Operators::detail
 {
 
-#if (defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)) ||                    \
-    (defined(NEKTAR_ENABLE_HIP) && defined(__HIPCC__)) ||                      \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
+#if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 template <bool negflag, typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void RobBndCond1DKernel(
+NEK_DEVICE_KERNEL static void RobBndCond1DKernel(
     const size_t nsize, const size_t *__restrict__ offsetPtr,
     const TData *__restrict__ matPtr, const size_t *__restrict__ mapPtr,
     const TData *__restrict__ incoeffPtr, TData *__restrict__ coeffPtr,
@@ -71,16 +69,18 @@ NEK_DEVICE_INLINE static void RobBndCond1DKernel(
 }
 
 template <bool negflag, typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void RobBndCond2DKernel(
+NEK_DEVICE_KERNEL static void RobBndCond2DKernel(
     const size_t nsize, const unsigned int *__restrict__ ncoeffPtr,
     const size_t *__restrict__ offsetPtr,
     const size_t *__restrict__ matOffsetPtr,
     const size_t *__restrict__ mapOffsetPtr, const TData *__restrict__ matPtr,
     const size_t *__restrict__ mapPtr, const int *__restrict__ signPtr,
     const TData *__restrict__ incoeffPtr, TData *__restrict__ coeffPtr,
-    TData *__restrict__ shmemptr, const TthreadBlock &threadBlock)
+    unsigned char *__restrict__ shmemptr, const TthreadBlock &threadBlock)
 {
-    TData *vEdgeCoeffs = shmemptr;
+    FETCH_SHARED_MEMORY(shmemptr);
+
+    TData *vEdgeCoeffs = (TData *)shmemptr;
 
     unsigned int j = getBlockIdx(threadBlock);
 
@@ -129,10 +129,43 @@ NEK_DEVICE_INLINE static void RobBndCond2DKernel(
         j += getBlockRange(threadBlock);
     }
 }
+
+template <typename ExecSpace, bool negflag, typename TData>
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                            void>::type
+    RobBndCond1DKernel(const size_t nsize, const size_t *offsetPtr,
+                       const TData *matPtr, const size_t *mapPtr,
+                       const TData *incoeffPtr, TData *coeffPtr)
+{
+    const unsigned int blockSize = NektarSpaces::Device::warpSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+
+    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(RobBndCond1DKernel<negflag>, gridSize,
+                                          blockSize, 0, nsize, offsetPtr,
+                                          matPtr, mapPtr, incoeffPtr, coeffPtr);
+}
+
+template <typename ExecSpace, bool negflag, typename TData>
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                            void>::type
+    RobBndCond2DKernel(const unsigned int nmaxcoeff, const size_t nsize,
+                       const unsigned int *ncoeffPtr, const size_t *offsetPtr,
+                       const size_t *matOffsetPtr, const size_t *mapOffsetPtr,
+                       const TData *matPtr, const size_t *mapPtr,
+                       const int *signPtr, const TData *incoeffPtr,
+                       TData *coeffPtr)
+{
+    const unsigned int shmemsize = sizeof(TData) * nmaxcoeff;
+    const unsigned int blockSize = NektarSpaces::Device::warpSize;
+    const unsigned int gridSize  = nsize;
+
+    DEVICE_1DGRID_KERNEL_LAUNCHER(RobBndCond2DKernel<negflag>, gridSize,
+                                  blockSize, shmemsize, 0, nsize, ncoeffPtr,
+                                  offsetPtr, matOffsetPtr, mapOffsetPtr, matPtr,
+                                  mapPtr, signPtr, incoeffPtr, coeffPtr);
+}
 #endif
 
 } // namespace Nektar::Operators::detail
-
-#include "Operators/BndCondOps/RobBndCond/RobBndCondDeviceOnHostKernelLaunchers.hpp"
-#include "Operators/BndCondOps/RobBndCond/RobBndCondHIPCUDAKernelLaunchers.hpp"
-#include "Operators/BndCondOps/RobBndCond/RobBndCondSYCLKernelLaunchers.hpp"

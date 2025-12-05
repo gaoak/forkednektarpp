@@ -45,6 +45,7 @@
 namespace Nektar::Operators::detail
 {
 
+#if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 // Helper function
 template <typename Implementation>
 inline unsigned int MassSharedMemorySize(
@@ -149,7 +150,7 @@ NEK_DEVICE_INLINE static void Mass1DKernel(
     const TData *__restrict__ basis0, const TData *__restrict__ w0,
     const TData *__restrict__ jac, const TData *__restrict__ in,
     TData *__restrict__ out, TData *__restrict__ wsp,
-    [[maybe_unused]] TData *__restrict__ shmemptr,
+    [[maybe_unused]] unsigned char *__restrict__ shmemptr,
     const TthreadBlock &threadBlock)
 {
     const unsigned int jacsize = DEFORMED ? nq0 : 1u;
@@ -177,7 +178,7 @@ NEK_DEVICE_INLINE static void Mass1DKernel(
     }
     else
     {
-        TData *bwd = shmemptr;
+        TData *bwd = (TData *)shmemptr;
 
         const unsigned int idx0   = getLocalIdx(threadBlock);
         const unsigned int stride = getLocalRange(threadBlock);
@@ -224,7 +225,7 @@ NEK_DEVICE_INLINE static void Mass2DKernel(
     const TData *__restrict__ nodToMod, const TData *__restrict__ jac,
     const TData *__restrict__ in, TData *__restrict__ out,
     [[maybe_unused]] TData *__restrict__ wsp,
-    [[maybe_unused]] TData *__restrict__ shmemptr,
+    [[maybe_unused]] unsigned char *__restrict__ shmemptr,
     const TthreadBlock &threadBlock)
 {
     const unsigned int nqTot   = nq0 * nq1;
@@ -299,7 +300,7 @@ NEK_DEVICE_INLINE static void Mass2DKernel(
             nmode1 = nmTot;
         }
 
-        TData *tmp      = shmemptr;
+        TData *tmp      = (TData *)shmemptr;
         TData *bwd      = tmp + nmTot;
         TData *s_wsp0   = bwd + nqTot;
         TData *s_basis0 = s_wsp0 + offset;
@@ -416,7 +417,7 @@ NEK_DEVICE_INLINE static void Mass3DKernel(
     const TData *__restrict__ nodToMod, const TData *__restrict__ jac,
     const TData *__restrict__ in, TData *__restrict__ out,
     [[maybe_unused]] TData *__restrict__ wsp,
-    [[maybe_unused]] TData *__restrict__ shmemptr,
+    [[maybe_unused]] unsigned char *__restrict__ shmemptr,
     const TthreadBlock &threadBlock)
 {
     const unsigned int nqTot   = nq0 * nq1 * nq2;
@@ -576,7 +577,7 @@ NEK_DEVICE_INLINE static void Mass3DKernel(
             nmode2  = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
         }
 
-        TData *tmp      = shmemptr;
+        TData *tmp      = (TData *)shmemptr;
         TData *bwd      = tmp + nmTot;
         TData *s_wsp0   = bwd + nqTot;
         TData *s_wsp1   = s_wsp0 + offset0;
@@ -728,8 +729,301 @@ NEK_DEVICE_INLINE static void Mass3DKernel(
     }
 }
 
-} // namespace Nektar::Operators::detail
+// Non-size based version.
+template <typename Implementation, bool DEFORMED, typename TthreadBlock,
+          typename TData>
+NEK_DEVICE_KERNEL void Mass1DKernelLauncher(
+    const unsigned int nm0, const unsigned int nq0, const size_t nelmt,
+    const TData *__restrict__ basis0, const TData *__restrict__ w0,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ wsp, unsigned char *shmemptr,
+    const TthreadBlock &threadBlock)
+{
+    FETCH_SHARED_MEMORY(shmemptr);
 
-#include "Operators/ElmtOps/Mass/MassDeviceOnHostSumFacKernelLaunchers.hpp"
-#include "Operators/ElmtOps/Mass/MassHIPCUDASumFacKernelLaunchers.hpp"
-#include "Operators/ElmtOps/Mass/MassSYCLSumFacKernelLaunchers.hpp"
+    Mass1DKernel<Implementation, DEFORMED>(nm0, nq0, nelmt, basis0, w0, jac, in,
+                                           out, wsp, shmemptr, threadBlock);
+}
+
+// Size based template version.
+template <
+    typename Implementation, bool DEFORMED, unsigned int nm0, unsigned int nq0,
+    typename TthreadBlock, typename TData,
+    unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(nq0)>
+NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(maxThreadPerBlock)
+    Mass1DKernelLauncher(const size_t nelmt, const TData *__restrict__ basis0,
+                         const TData *__restrict__ w0,
+                         const TData *__restrict__ jac,
+                         const TData *__restrict__ in, TData *__restrict__ out,
+                         TData *__restrict__ wsp, unsigned char *shmemptr,
+                         const TthreadBlock &threadBlock)
+{
+    FETCH_SHARED_MEMORY(shmemptr);
+
+    Mass1DKernel<Implementation, DEFORMED>(nm0, nq0, nelmt, basis0, w0, jac, in,
+                                           out, wsp, shmemptr, threadBlock);
+}
+
+// Non-size based version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TthreadBlock, typename TData>
+NEK_DEVICE_KERNEL void Mass2DKernelLauncher(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
+    const unsigned int nq0, const unsigned int nq1, const size_t nelmt,
+    const bool isModified, const unsigned int *__restrict__ index0,
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ w0, const TData *__restrict__ w1,
+    const TData *__restrict__ nodToMod, const TData *__restrict__ jac,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp, unsigned char *shmemptr,
+    const TthreadBlock &threadBlock)
+{
+    FETCH_SHARED_MEMORY(shmemptr);
+
+    Mass2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
+        nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0, basis1,
+        w0, w1, nodToMod, jac, in, out, wsp, shmemptr, threadBlock);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, unsigned int nm0, unsigned int nm1, unsigned int nmTot,
+          unsigned int nq0, unsigned int nq1, typename TthreadBlock,
+          typename TData,
+          unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(
+              LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1))>
+NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(maxThreadPerBlock)
+    Mass2DKernelLauncher(const size_t nelmt, const bool isModified,
+                         const unsigned int *__restrict__ index0,
+                         const TData *__restrict__ basis0,
+                         const TData *__restrict__ basis1,
+                         const TData *__restrict__ w0,
+                         const TData *__restrict__ w1,
+                         const TData *__restrict__ nodToMod,
+                         const TData *__restrict__ jac,
+                         const TData *__restrict__ in, TData *__restrict__ out,
+                         TData *__restrict__ wsp, unsigned char *shmemptr,
+                         const TthreadBlock &threadBlock)
+{
+    FETCH_SHARED_MEMORY(shmemptr);
+
+    Mass2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
+        nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0, basis1,
+        w0, w1, nodToMod, jac, in, out, wsp, shmemptr, threadBlock);
+}
+
+// Non-size based version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TthreadBlock, typename TData>
+NEK_DEVICE_KERNEL void Mass3DKernelLauncher(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
+    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nq2, const size_t nelmt, const bool isModified,
+    const unsigned int *__restrict__ index0,
+    const unsigned int *__restrict__ index1,
+    const unsigned int *__restrict__ index2,
+    const unsigned int *__restrict__ index3, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ basis2,
+    const TData *__restrict__ w0, const TData *__restrict__ w1,
+    const TData *__restrict__ w2, const TData *__restrict__ nodToMod,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ wsp, unsigned char *shmemptr,
+    const TthreadBlock &threadBlock)
+{
+    FETCH_SHARED_MEMORY(shmemptr);
+
+    Mass3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
+        nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
+        index2, index3, basis0, basis1, basis2, w0, w1, w2, nodToMod, jac, in,
+        out, wsp, shmemptr, threadBlock);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, unsigned int nm0, unsigned int nm1, unsigned int nm2,
+          unsigned int nmTot, unsigned int nq0, unsigned int nq1,
+          unsigned int nq2, typename TthreadBlock, typename TData,
+          unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(
+              LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2))>
+NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(maxThreadPerBlock)
+    Mass3DKernelLauncher(
+        const size_t nelmt, const bool isModified,
+        const unsigned int *__restrict__ index0,
+        const unsigned int *__restrict__ index1,
+        const unsigned int *__restrict__ index2,
+        const unsigned int *__restrict__ index3,
+        const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+        const TData *__restrict__ basis2, const TData *__restrict__ w0,
+        const TData *__restrict__ w1, const TData *__restrict__ w2,
+        const TData *__restrict__ nodToMod, const TData *__restrict__ jac,
+        const TData *__restrict__ in, TData *__restrict__ out,
+        TData *__restrict__ wsp, unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
+{
+    FETCH_SHARED_MEMORY(shmemptr);
+
+    Mass3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
+        nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
+        index2, index3, basis0, basis1, basis2, w0, w1, w2, nodToMod, jac, in,
+        out, wsp, shmemptr, threadBlock);
+}
+
+// Kernel Launchers.
+// Non-size based version.
+template <typename ExecSpace, typename Implementation, bool DEFORMED,
+          typename TData>
+NEK_FORCE_INLINE static void Mass1DKernel(const unsigned int nm0,
+                                          const unsigned int nq0,
+                                          const size_t nelmt,
+                                          const TData *basis0, const TData *w0,
+                                          const TData *jac, TData *wsp,
+                                          const TData *in, TData *out)
+{
+    const unsigned int shmemsize =
+        sizeof(TData) * MassSharedMemorySize<Implementation>(nq0, nm0);
+    const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nq0);
+    const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
+    DEVICE_1DGRID_KERNEL_LAUNCHER(
+        (Mass1DKernelLauncher<Implementation, DEFORMED>), gridsize, blocksize,
+        shmemsize, 0, nm0, nq0, nelmt, basis0, w0, jac, in, out, wsp);
+}
+
+// Size based template version.
+template <typename ExecSpace, typename Implementation, bool DEFORMED,
+          unsigned int nm0, unsigned int nq0, typename TData>
+NEK_FORCE_INLINE static void Mass1DKernel(const size_t nelmt,
+                                          const TData *basis0, const TData *w0,
+                                          const TData *jac, TData *wsp,
+                                          const TData *in, TData *out)
+{
+    const unsigned int shmemsize =
+        sizeof(TData) * MassSharedMemorySize<Implementation>(nq0, nm0);
+    const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nq0);
+    const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
+    DEVICE_1DGRID_KERNEL_LAUNCHER(
+        (Mass1DKernelLauncher<Implementation, DEFORMED, nm0, nq0>), gridsize,
+        blocksize, shmemsize, 0, nelmt, basis0, w0, jac, in, out, wsp);
+}
+
+// Non-size based version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool DEFORMED, typename TData>
+NEK_FORCE_INLINE static void Mass2DKernel(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
+    const unsigned int nq1, const size_t nelmt, const bool isModified,
+    const unsigned int *index0, const TData *basis0, const TData *basis1,
+    const TData *w0, const TData *w1, const TData *nodToMod, const TData *jac,
+    TData *wsp, const TData *in, TData *out)
+{
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
+    const unsigned int shmemsize =
+        sizeof(TData) *
+        MassSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1, nm0, nm1);
+    const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
+    const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
+    DEVICE_1DGRID_KERNEL_LAUNCHER(
+        (Mass2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>), gridsize,
+        blocksize, shmemsize, 0, nm0, nm1, nmTot, nq0, nq1, nelmt, isModified,
+        index0, basis0, basis1, w0, w1, nodToMod, jac, in, out, wsp);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool DEFORMED, unsigned int nm0,
+          unsigned int nm1, unsigned int nq0, unsigned int nq1, typename TData>
+NEK_FORCE_INLINE static void Mass2DKernel(
+    const size_t nelmt, const bool isModified, const unsigned int *index0,
+    const TData *basis0, const TData *basis1, const TData *w0, const TData *w1,
+    const TData *nodToMod, const TData *jac, TData *wsp, const TData *in,
+    TData *out)
+{
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
+    const unsigned int shmemsize =
+        sizeof(TData) *
+        MassSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1, nm0, nm1);
+    const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
+    const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
+    DEVICE_1DGRID_KERNEL_LAUNCHER(
+        (Mass2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED, nm0, nm1,
+                              nmTot, nq0, nq1>),
+        gridsize, blocksize, shmemsize, 0, nelmt, isModified, index0, basis0,
+        basis1, w0, w1, nodToMod, jac, in, out, wsp);
+}
+
+// Non-size based version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool DEFORMED, typename TData>
+NEK_FORCE_INLINE static void Mass3DKernel(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const size_t nelmt, const bool isModified, const unsigned int *index0,
+    const unsigned int *index1, const unsigned int *index2,
+    const unsigned int *index3, const TData *basis0, const TData *basis1,
+    const TData *basis2, const TData *w0, const TData *w1, const TData *w2,
+    const TData *nodToMod, const TData *jac, TData *wsp, const TData *in,
+    TData *out)
+{
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+    const unsigned int shmemsize =
+        sizeof(TData) * MassSharedMemorySize<SHAPE_TYPE, Implementation>(
+                            nq0, nq1, nq2, nm0, nm1, nm2);
+    const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
+    const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
+    DEVICE_1DGRID_KERNEL_LAUNCHER(
+        (Mass3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>), gridsize,
+        blocksize, shmemsize, 0, nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
+        isModified, index0, index1, index2, index3, basis0, basis1, basis2, w0,
+        w1, w2, nodToMod, jac, in, out, wsp);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool DEFORMED, unsigned int nm0,
+          unsigned int nm1, unsigned int nm2, unsigned int nq0,
+          unsigned int nq1, unsigned int nq2, typename TData>
+NEK_FORCE_INLINE static void Mass3DKernel(
+    const size_t nelmt, const bool isModified, const unsigned int *index0,
+    const unsigned int *index1, const unsigned int *index2,
+    const unsigned int *index3, const TData *basis0, const TData *basis1,
+    const TData *basis2, const TData *w0, const TData *w1, const TData *w2,
+    const TData *nodToMod, const TData *jac, TData *wsp, const TData *in,
+    TData *out)
+{
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+    const unsigned int shmemsize =
+        sizeof(TData) * MassSharedMemorySize<SHAPE_TYPE, Implementation>(
+                            nq0, nq1, nq2, nm0, nm1, nm2);
+    const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nmTot);
+    const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
+    DEVICE_1DGRID_KERNEL_LAUNCHER(
+        (Mass3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED, nm0, nm1,
+                              nm2, nmTot, nq0, nq1, nq2>),
+        gridsize, blocksize, shmemsize, 0, nelmt, isModified, index0, index1,
+        index2, index3, basis0, basis1, basis2, w0, w1, w2, nodToMod, jac, in,
+        out, wsp);
+}
+#endif
+
+} // namespace Nektar::Operators::detail

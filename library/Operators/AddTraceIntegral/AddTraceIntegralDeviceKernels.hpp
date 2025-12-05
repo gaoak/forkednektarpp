@@ -36,14 +36,12 @@
 
 #include "Operators/Common/Spaces.hpp"
 
-#if (defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)) ||                    \
-    (defined(NEKTAR_ENABLE_HIP) && defined(__HIPCC__)) ||                      \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
 namespace Nektar::Operators::detail
 {
 
+#if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 template <typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void AddTraceIntegralKernel(
+NEK_DEVICE_KERNEL static void AddTraceIntegralKernel(
     const size_t nsize, const size_t *__restrict__ traceCoeffsToElmtMapPtr,
     const int *__restrict__ traceCoeffsToElmtSignPtr,
     const size_t *__restrict__ traceCoeffsToElmtTracePtr,
@@ -62,9 +60,25 @@ NEK_DEVICE_INLINE static void AddTraceIntegralKernel(
     }
 }
 
-} // namespace Nektar::Operators::detail
+// Kernel Launchers.
+template <typename ExecSpace, typename TData>
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                            void>::type
+    AddTraceIntegralKernel(const size_t nsize,
+                           const size_t *traceCoeffsToElmtMapPtr,
+                           const int *traceCoeffsToElmtSignPtr,
+                           const size_t *traceCoeffsToElmtTracePtr,
+                           const TData *tracePtr, TData *outptr)
+{
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+
+    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
+        AddTraceIntegralKernel<>, gridSize, blockSize, 0, nsize,
+        traceCoeffsToElmtMapPtr, traceCoeffsToElmtSignPtr,
+        traceCoeffsToElmtTracePtr, tracePtr, outptr);
+}
 #endif
 
-#include "Operators/AddTraceIntegral/AddTraceIntegralDeviceOnHostKernelLaunchers.hpp"
-#include "Operators/AddTraceIntegral/AddTraceIntegralHIPCUDAKernelLaunchers.hpp"
-#include "Operators/AddTraceIntegral/AddTraceIntegralSYCLKernelLaunchers.hpp"
+} // namespace Nektar::Operators::detail

@@ -36,13 +36,12 @@
 
 #include "Operators/Common/Spaces.hpp"
 
-#if (defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)) ||                    \
-    (defined(NEKTAR_ENABLE_HIP) && defined(__HIPCC__)) ||                      \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
 namespace Nektar::Operators::detail
 {
+
+#if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 template <typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void AssembleScatrKernel(
+NEK_DEVICE_KERNEL static void AssembleScatrKernel(
     const unsigned nvals, const unsigned *__restrict__ GSInfo,
     const int *__restrict__ sign, TData *__restrict__ inoutptr,
     const TthreadBlock &threadBlock)
@@ -70,7 +69,7 @@ NEK_DEVICE_INLINE static void AssembleScatrKernel(
 }
 
 template <typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void AssembleScatrKernel(
+NEK_DEVICE_KERNEL static void AssembleScatrKernel(
     const unsigned nvals, const unsigned *nassemble, const unsigned *index,
     const int *sign, TData *inoutptr, const TthreadBlock &threadBlock)
 {
@@ -107,7 +106,7 @@ NEK_DEVICE_INLINE static void AssembleScatrKernel(
 }
 
 template <typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void AssembleScatrKernel(
+NEK_DEVICE_KERNEL static void AssembleScatrKernel(
     const unsigned nvals, const unsigned *nassemble, const unsigned *index,
     const unsigned *offset, const int *sign, TData *inoutptr,
     const TthreadBlock &threadBlock)
@@ -137,7 +136,7 @@ NEK_DEVICE_INLINE static void AssembleScatrKernel(
 }
 
 template <typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void AssembleScatrBndKernel(
+NEK_DEVICE_KERNEL static void AssembleScatrBndKernel(
     const unsigned nvals, const unsigned *GSInfo, const int *sign,
     TData *inoutptr, TData *bndptr, const TthreadBlock &threadBlock)
 {
@@ -183,7 +182,7 @@ NEK_DEVICE_INLINE static void AssembleScatrBndKernel(
 }
 
 template <typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void AssembleFromBndKernel(
+NEK_DEVICE_KERNEL static void AssembleFromBndKernel(
     const unsigned nvals, const unsigned *GSInfo, const int *sign,
     const TData *bndptr, TData *inoutptr, const TthreadBlock &threadBlock)
 {
@@ -228,9 +227,51 @@ NEK_DEVICE_INLINE static void AssembleFromBndKernel(
     }
 }
 
-} // namespace Nektar::Operators::detail
+template <typename ExecSpace, typename TData>
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                            void>::type
+    AssembleScatrKernel(const unsigned nvals, const unsigned *nassemble,
+                        const unsigned *index, const unsigned *offset,
+                        const int *sign, TData *inoutptr)
+{
+    const unsigned blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned gridSize  = (nvals + blockSize - 1) / blockSize;
+
+    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(AssembleScatrKernel, gridSize,
+                                          blockSize, 0, nvals, nassemble, index,
+                                          offset, sign, inoutptr);
+}
+
+template <typename ExecSpace, typename TData>
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                            void>::type
+    AssembleScatrBndKernel(const unsigned nvals, const unsigned *GSInfo,
+                           const int *sign, TData *inoutptr, TData *bndptr)
+{
+    const unsigned blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned gridSize  = (nvals + blockSize - 1) / blockSize;
+
+    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(AssembleScatrBndKernel<>, gridSize,
+                                          blockSize, 0, nvals, GSInfo, sign,
+                                          inoutptr, bndptr);
+}
+
+template <typename ExecSpace, typename TData>
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                            void>::type
+    AssembleFromBndKernel(const unsigned nvals, const unsigned *GSInfo,
+                          const int *sign, const TData *bndptr, TData *inoutptr)
+{
+    const unsigned blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned gridSize  = (nvals + blockSize - 1) / blockSize;
+
+    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(AssembleFromBndKernel<>, gridSize,
+                                          blockSize, 0, nvals, GSInfo, sign,
+                                          bndptr, inoutptr);
+}
 #endif
 
-#include "Operators/AssmbScatr/AssmbScatrDeviceOnHostKernelLaunchers.hpp"
-#include "Operators/AssmbScatr/AssmbScatrHIPCUDAKernelLaunchers.hpp"
-#include "Operators/AssmbScatr/AssmbScatrSYCLKernelLaunchers.hpp"
+} // namespace Nektar::Operators::detail

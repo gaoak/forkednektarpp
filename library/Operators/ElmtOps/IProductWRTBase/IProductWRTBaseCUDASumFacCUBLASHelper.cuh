@@ -37,8 +37,6 @@
 #include "Operators/LoopExecution/LoopExecution.hpp"
 #include "Operators/NekBlas/NekBlas.hpp"
 
-// #if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
-
 namespace Nektar::Operators::detail
 {
 
@@ -656,5 +654,3 @@ void IProductWRTBaseTetSumFacKernel(
 }
 
 } // namespace Nektar::Operators::detail
-
-// #endif
