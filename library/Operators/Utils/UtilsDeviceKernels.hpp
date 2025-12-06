@@ -183,27 +183,6 @@ NEK_DEVICE_INLINE static void MatVecQPKernel(const unsigned int nmTot,
     localBarrier(threadBlock);
 }
 
-#if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP)
-template <typename TData>
-__global__ void interleaveKernel(const unsigned int interleaveWidth,
-                                 size_t numElmtGroups, const unsigned int npts,
-                                 TData *buffer, TData *inout)
-{
-    interleaveKernel<>(interleaveWidth, numElmtGroups, npts, buffer, inout,
-                       hipcudaBlock1D());
-}
-
-template <typename TData>
-__global__ void deInterleaveKernel(const unsigned int interleaveWidth,
-                                   size_t numElmtGroups,
-                                   const unsigned int npts, TData *buffer,
-                                   TData *inout)
-{
-    deInterleaveKernel<>(interleaveWidth, numElmtGroups, npts, buffer, inout,
-                         hipcudaBlock1D());
-}
-#endif
-
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
