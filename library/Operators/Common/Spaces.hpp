@@ -107,10 +107,6 @@
 #define DEVICE_COMPILE_ONLY
 #endif
 
-// Helps turn defines into usable strings (even if it has a comma in it)
-#define STRV(...) #__VA_ARGS__
-#define STRVX(...) STRV(__VA_ARGS__)
-
 using default_fp_type = double;
 
 template <bool B, typename TData> struct simd_type_if
@@ -181,7 +177,7 @@ struct Device
 #endif
 };
 
-// Alignment
+// Host memory alignment
 #if defined(NEKTAR_ENABLE_SIMD)
 static constexpr size_t host_memory_alignment =
     tinysimd::simd<double>::alignment;
@@ -246,8 +242,8 @@ static unsigned int GetVectorWidth(const std::string &execName)
     }
 }
 
-// These are used for LoopExecution.hpp
 // NEKTAR_LAMBDA
+// NOTE: This is used for LoopExecution.hpp
 #if defined(NEKTAR_ENABLE_CUDA) && defined(DEVICE_COMPILE_ONLY)
 #define NEKTAR_LAMBDA [=] __device__
 #elif defined(NEKTAR_ENABLE_HIP) && defined(DEVICE_COMPILE_ONLY)
@@ -259,6 +255,10 @@ static unsigned int GetVectorWidth(const std::string &execName)
 #endif
 
 // NEK_DEVICE_INLINE
+// Used to define a device function (e.g. a function launched
+// from a kernel function and executing on the device). All
+// device functions must be prefixed by the NEK_DEVICE_INLINE
+// decorator.
 #if defined(NEKTAR_ENABLE_CUDA) && defined(DEVICE_COMPILE_ONLY)
 #define NEK_DEVICE_INLINE __device__ __forceinline__
 #elif defined(NEKTAR_ENABLE_HIP) && defined(DEVICE_COMPILE_ONLY)
@@ -270,6 +270,9 @@ static unsigned int GetVectorWidth(const std::string &execName)
 #endif
 
 // NEK_KERNEL_KERNEL
+// Used to define a kernel function (e.g. a function launched
+// from the host and executing on the device). All kernel
+// functions must be prefixed by the NEK_DEVICE_KERNEL decorator.
 #if defined(NEKTAR_ENABLE_CUDA) && defined(DEVICE_COMPILE_ONLY)
 #define NEK_DEVICE_KERNEL __global__
 #elif defined(NEKTAR_ENABLE_HIP) && defined(DEVICE_COMPILE_ONLY)
@@ -305,29 +308,90 @@ namespace Nektar
 #endif
 }
 
-class hipcudaBlock1D
+template <unsigned int ndim> class hipcudaBlock
 {
 };
 
 #if (defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)) ||                    \
     (defined(NEKTAR_ENABLE_HIP) && defined(__HIPCC__))
 
+// Optional optimisation decorator for a NEK_DEVICE_KERNEL kernel function. This
+// should NOT be used in a NEK_DEVCICE_INLINE function. This allows register
+// usage optimisation for CUDA/HIP backend by specifying the maximum GPU
+// blocksize. Has no effect for SYCL and/or DEVICEONHOST backend.
 #define __LAUNCH_BOUNDS__(x) __launch_bounds__(x)
 
+// Shared memory must be fetched from a NEK_DEVICE_KERNEL kernel function. This
+// should NOT be used in a NEK_DEVCICE_INLINE function. Use for compatibility
+// with CUDA/HIP backend. Has no effect for SYCL and/or DEVICEONHOST backend.
 #define FETCH_SHARED_MEMORY(ptr)                                               \
     extern __shared__ __align__(sizeof(TData)) unsigned char __shmemptr[];     \
     ptr = __shmemptr
 
+// Kernel launcher on a one-dimensional GPU grid with shared memory provision.
+// KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL. The last two
+// arguments of the KERNEL function MUST be of type unsigned char * and
+// hipcudaBlock<1>. The shared memory size must be specified in bytes. The
+// shared memory is declared as unsigned char* type. The shmemptr must then cast
+// to the appropriate type before use (e.g. auto ptr = (TData *)shmemptr).
 #define DEVICE_1DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZE, BLOCKSIZE, SHMEMSIZE,  \
                                       STREAM, ...)                             \
     unsigned char *shmemptr = nullptr;                                         \
     KERNEL<<<GRIDSIZE, BLOCKSIZE, SHMEMSIZE, STREAM>>>(__VA_ARGS__, shmemptr,  \
-                                                       hipcudaBlock1D());      \
+                                                       hipcudaBlock<1>());     \
     CHECK_LAST_HIPCUDA_ERROR();
 
+// Kernel launcher on a two-dimensional GPU grid with shared memory provision.
+// KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL. The last two
+// arguments of the KERNEL function MUST be of type unsigned char * and
+// hipcudaBlock<2>. The shared memory size must be specified in bytes. The
+// shared memory is declared as unsigned char* type. The shmemptr must then cast
+// to the appropriate type before use (e.g. auto ptr = (TData *)shmemptr).
+#define DEVICE_2DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZE, BLOCKSIZE, SHMEMSIZE,  \
+                                      STREAM, ...)                             \
+    unsigned char *shmemptr = nullptr;                                         \
+    KERNEL<<<GRIDSIZE, BLOCKSIZE, SHMEMSIZE, STREAM>>>(__VA_ARGS__, shmemptr,  \
+                                                       hipcudaBlock<2>());     \
+    CHECK_LAST_HIPCUDA_ERROR();
+
+// Kernel launcher on a three-dimensional GPU grid with shared memory provision.
+// KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL. The last two
+// arguments of the KERNEL function MUST be of type unsigned char * and
+// hipcudaBlock<3>. The shared memory size must be specified in bytes. The
+// shared memory is declared as unsigned char* type. The shmemptr must then cast
+// to the appropriate type before use (e.g. auto ptr = (TData *)shmemptr).
+#define DEVICE_3DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZE, BLOCKSIZE, SHMEMSIZE,  \
+                                      STREAM, ...)                             \
+    unsigned char *shmemptr = nullptr;                                         \
+    KERNEL<<<GRIDSIZE, BLOCKSIZE, SHMEMSIZE, STREAM>>>(__VA_ARGS__, shmemptr,  \
+                                                       hipcudaBlock<3>());     \
+    CHECK_LAST_HIPCUDA_ERROR();
+
+// Kernel launcher on a one-dimensional GPU grid without shared memory
+// provision. KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL.
+// The last argument of the KERNEL function MUST be of type hipcudaBlock<1>.
 #define DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(KERNEL, GRIDSIZE, BLOCKSIZE,     \
                                               STREAM, ...)                     \
-    KERNEL<<<GRIDSIZE, BLOCKSIZE, 0, STREAM>>>(__VA_ARGS__, hipcudaBlock1D()); \
+    KERNEL<<<GRIDSIZE, BLOCKSIZE, 0, STREAM>>>(__VA_ARGS__,                    \
+                                               hipcudaBlock<1>());             \
+    CHECK_LAST_HIPCUDA_ERROR();
+
+// Kernel launcher on a two-dimensional GPU grid without shared memory
+// provision. KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL.
+// The last argument of the KERNEL function MUST be of type hipcudaBlock<2>.
+#define DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(KERNEL, GRIDSIZE, BLOCKSIZE,     \
+                                              STREAM, ...)                     \
+    KERNEL<<<GRIDSIZE, BLOCKSIZE, 0, STREAM>>>(__VA_ARGS__,                    \
+                                               hipcudaBlock<2>());             \
+    CHECK_LAST_HIPCUDA_ERROR();
+
+// Kernel launcher on a three-dimensional GPU grid without shared memory
+// provision. KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL.
+// The last argument of the KERNEL function MUST be of type hipcudaBlock<3>.
+#define DEVICE_3DGRID_KERNEL_LAUNCHER_NOSHMEM(KERNEL, GRIDSIZE, BLOCKSIZE,     \
+                                              STREAM, ...)                     \
+    KERNEL<<<GRIDSIZE, BLOCKSIZE, 0, STREAM>>>(__VA_ARGS__,                    \
+                                               hipcudaBlock<3>());             \
     CHECK_LAST_HIPCUDA_ERROR();
 
 static void *internalHIPCUDABuffer                 = nullptr;
@@ -338,50 +402,302 @@ static unsigned int internalHIPCUDAMaxDataSizeByte = 16;
 namespace cg = cooperative_groups;
 
 NEK_DEVICE_INLINE static unsigned int getLocalIdx(
-    [[maybe_unused]] const hipcudaBlock1D &threadBlock)
+    [[maybe_unused]] const hipcudaBlock<1> &threadBlock)
 {
     return threadIdx.x;
 }
 
+template <unsigned int dim>
+NEK_DEVICE_INLINE static unsigned int getLocalIdx(
+    [[maybe_unused]] const hipcudaBlock<2> &threadBlock)
+{
+    if constexpr (dim == 0)
+    {
+        // Fastest moving.
+        return threadIdx.x;
+    }
+    else if constexpr (dim == 1)
+    {
+        return threadIdx.y;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+template <unsigned int dim>
+NEK_DEVICE_INLINE static unsigned int getLocalIdx(
+    [[maybe_unused]] const hipcudaBlock<3> &threadBlock)
+{
+    if constexpr (dim == 0)
+    {
+        // Fastest moving.
+        return threadIdx.x;
+    }
+    else if constexpr (dim == 1)
+    {
+        return threadIdx.y;
+    }
+    else if constexpr (dim == 2)
+    {
+        return threadIdx.z;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
 NEK_DEVICE_INLINE static unsigned int getLocalRange(
-    [[maybe_unused]] const hipcudaBlock1D &threadBlock)
+    [[maybe_unused]] const hipcudaBlock<1> &threadBlock)
 {
     return blockDim.x;
 }
 
+template <unsigned int dim>
+NEK_DEVICE_INLINE static unsigned int getLocalRange(
+    [[maybe_unused]] const hipcudaBlock<2> &threadBlock)
+{
+    if constexpr (dim == 0)
+    {
+        // Fastest moving.
+        return blockDim.x;
+    }
+    else if constexpr (dim == 1)
+    {
+        return blockDim.y;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+template <unsigned int dim>
+NEK_DEVICE_INLINE static unsigned int getLocalRange(
+    [[maybe_unused]] const hipcudaBlock<3> &threadBlock)
+{
+    if constexpr (dim == 0)
+    {
+        // Fastest moving.
+        return blockDim.x;
+    }
+    else if constexpr (dim == 1)
+    {
+        return blockDim.y;
+    }
+    else if constexpr (dim == 2)
+    {
+        return blockDim.z;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
 NEK_DEVICE_INLINE static size_t getGlobalIdx(
-    [[maybe_unused]] const hipcudaBlock1D &threadBlock)
+    [[maybe_unused]] const hipcudaBlock<1> &threadBlock)
 {
     return blockDim.x * blockIdx.x + threadIdx.x;
 }
 
+template <unsigned int dim>
+NEK_DEVICE_INLINE static size_t getGlobalIdx(
+    [[maybe_unused]] const hipcudaBlock<2> &threadBlock)
+{
+    if constexpr (dim == 0)
+    {
+        // Fastest moving.
+        return blockDim.x * blockIdx.x + threadIdx.x;
+    }
+    else if constexpr (dim == 1)
+    {
+        return blockDim.y * blockIdx.y + threadIdx.y;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+template <unsigned int dim>
+NEK_DEVICE_INLINE static size_t getGlobalIdx(
+    [[maybe_unused]] const hipcudaBlock<3> &threadBlock)
+{
+    if constexpr (dim == 0)
+    {
+        // Fastest moving.
+        return blockDim.x * blockIdx.x + threadIdx.x;
+    }
+    else if constexpr (dim == 1)
+    {
+        return blockDim.y * blockIdx.y + threadIdx.y;
+    }
+    else if constexpr (dim == 2)
+    {
+        return blockDim.z * blockIdx.z + threadIdx.z;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
 NEK_DEVICE_INLINE static size_t getGlobalRange(
-    [[maybe_unused]] const hipcudaBlock1D &threadBlock)
+    [[maybe_unused]] const hipcudaBlock<1> &threadBlock)
 {
     return gridDim.x * blockDim.x;
 }
 
+template <unsigned int dim>
+NEK_DEVICE_INLINE static size_t getGlobalRange(
+    [[maybe_unused]] const hipcudaBlock<2> &threadBlock)
+{
+    if constexpr (dim == 0)
+    {
+        // Fastest moving.
+        return gridDim.x * blockDim.x;
+    }
+    else if constexpr (dim == 1)
+    {
+        return gridDim.y * blockDim.y;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+template <unsigned int dim>
+NEK_DEVICE_INLINE static size_t getGlobalRange(
+    [[maybe_unused]] const hipcudaBlock<3> &threadBlock)
+{
+    if constexpr (dim == 0)
+    {
+        // Fastest moving.
+        return gridDim.x * blockDim.x;
+    }
+    else if constexpr (dim == 1)
+    {
+        return gridDim.y * blockDim.y;
+    }
+    else if constexpr (dim == 2)
+    {
+        return gridDim.z * blockDim.z;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
 NEK_DEVICE_INLINE static unsigned int getBlockIdx(
-    [[maybe_unused]] const hipcudaBlock1D &threadBlock)
+    [[maybe_unused]] const hipcudaBlock<1> &threadBlock)
 {
     return blockIdx.x;
 }
 
+template <unsigned int dim>
+NEK_DEVICE_INLINE static unsigned int getBlockIdx(
+    [[maybe_unused]] const hipcudaBlock<2> &threadBlock)
+{
+    if constexpr (dim == 0)
+    {
+        // Fastest moving.
+        return blockIdx.x;
+    }
+    else if constexpr (dim == 1)
+    {
+        return blockIdx.y;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+template <unsigned int dim>
+NEK_DEVICE_INLINE static unsigned int getBlockIdx(
+    [[maybe_unused]] const hipcudaBlock<3> &threadBlock)
+{
+    if constexpr (dim == 0)
+    {
+        // Fastest moving.
+        return blockIdx.x;
+    }
+    else if constexpr (dim == 1)
+    {
+        return blockIdx.y;
+    }
+    else if constexpr (dim == 2)
+    {
+        return blockIdx.z;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
 NEK_DEVICE_INLINE static unsigned int getBlockRange(
-    [[maybe_unused]] const hipcudaBlock1D &threadBlock)
+    [[maybe_unused]] const hipcudaBlock<1> &threadBlock)
 {
     return gridDim.x;
 }
 
+template <unsigned int dim>
+NEK_DEVICE_INLINE static unsigned int getBlockRange(
+    [[maybe_unused]] const hipcudaBlock<2> &threadBlock)
+{
+    if constexpr (dim == 0)
+    {
+        return gridDim.x;
+    }
+    else if constexpr (dim == 1)
+    {
+        return gridDim.y;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+template <unsigned int dim>
+NEK_DEVICE_INLINE static unsigned int getBlockRange(
+    [[maybe_unused]] const hipcudaBlock<3> &threadBlock)
+{
+    if constexpr (dim == 0)
+    {
+        return gridDim.x;
+    }
+    else if constexpr (dim == 1)
+    {
+        return gridDim.y;
+    }
+    else if constexpr (dim == 2)
+    {
+        return gridDim.z;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+template <unsigned int ndim>
 NEK_DEVICE_INLINE static unsigned int getWarpIdx(
-    [[maybe_unused]] const hipcudaBlock1D &threadBlock)
+    [[maybe_unused]] const hipcudaBlock<ndim> &threadBlock)
 {
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
     return getGlobalIdx(threadBlock) / warpsize;
 }
 
+template <unsigned int ndim>
 NEK_DEVICE_INLINE static unsigned int getLaneIdx(
-    [[maybe_unused]] const hipcudaBlock1D &threadBlock)
+    [[maybe_unused]] const hipcudaBlock<ndim> &threadBlock)
 {
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
     return getLocalIdx(threadBlock) % warpsize;
@@ -584,9 +900,9 @@ NEK_DEVICE_INLINE static void atomic_min(TData *const dest, const TData val)
     }
 }
 
-template <typename TData>
+template <unsigned int ndim, typename TData>
 NEK_DEVICE_INLINE static TData warpReduceSum(
-    const TData val, [[maybe_unused]] const hipcudaBlock1D &threadBlock)
+    const TData val, [[maybe_unused]] const hipcudaBlock<ndim> &threadBlock)
 {
 #if defined(__CUDACC__)
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
@@ -620,9 +936,9 @@ NEK_DEVICE_INLINE static TData warpReduceSum(
 #endif
 }
 
-template <typename TData>
+template <unsigned int ndim, typename TData>
 NEK_DEVICE_INLINE static TData warpReduceMax(
-    const TData val, [[maybe_unused]] const hipcudaBlock1D &threadBlock)
+    const TData val, [[maybe_unused]] const hipcudaBlock<ndim> &threadBlock)
 {
 #if defined(__CUDACC__)
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
@@ -656,9 +972,9 @@ NEK_DEVICE_INLINE static TData warpReduceMax(
 #endif
 }
 
-template <typename TData>
+template <unsigned int ndim, typename TData>
 NEK_DEVICE_INLINE static TData warpReduceMin(
-    const TData val, [[maybe_unused]] const hipcudaBlock1D &threadBlock)
+    const TData val, [[maybe_unused]] const hipcudaBlock<ndim> &threadBlock)
 {
 #if defined(__CUDACC__)
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
@@ -692,9 +1008,9 @@ NEK_DEVICE_INLINE static TData warpReduceMin(
 #endif
 }
 
-template <typename TData>
+template <unsigned int ndim, typename TData>
 NEK_DEVICE_INLINE static TData warpReduceOr(
-    const TData val, [[maybe_unused]] const hipcudaBlock1D &threadBlock)
+    const TData val, [[maybe_unused]] const hipcudaBlock<ndim> &threadBlock)
 {
 #if defined(__CUDACC__)
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
@@ -728,9 +1044,9 @@ NEK_DEVICE_INLINE static TData warpReduceOr(
 #endif
 }
 
-template <typename TData>
+template <unsigned int ndim, typename TData>
 NEK_DEVICE_INLINE static TData warpReduceAnd(
-    const TData val, [[maybe_unused]] const hipcudaBlock1D &threadBlock)
+    const TData val, [[maybe_unused]] const hipcudaBlock<ndim> &threadBlock)
 {
 #if defined(__CUDACC__)
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
@@ -764,9 +1080,9 @@ NEK_DEVICE_INLINE static TData warpReduceAnd(
 #endif
 }
 
-template <typename TData>
+template <unsigned int ndim, typename TData>
 NEK_DEVICE_INLINE static void blockReduceSum(
-    const TData val, [[maybe_unused]] const hipcudaBlock1D &threadBlock,
+    const TData val, [[maybe_unused]] const hipcudaBlock<ndim> &threadBlock,
     TData *red)
 {
     auto tmp = warpReduceSum(val, threadBlock);
@@ -776,9 +1092,9 @@ NEK_DEVICE_INLINE static void blockReduceSum(
     }
 }
 
-template <typename TData>
+template <unsigned int ndim, typename TData>
 NEK_DEVICE_INLINE static void blockReduceMax(
-    const TData val, [[maybe_unused]] const hipcudaBlock1D &threadBlock,
+    const TData val, [[maybe_unused]] const hipcudaBlock<ndim> &threadBlock,
     TData *red)
 {
     auto tmp = warpReduceMax(val, threadBlock);
@@ -788,9 +1104,9 @@ NEK_DEVICE_INLINE static void blockReduceMax(
     }
 }
 
-template <typename TData>
+template <unsigned int ndim, typename TData>
 NEK_DEVICE_INLINE static void blockReduceMin(
-    const TData val, [[maybe_unused]] const hipcudaBlock1D &threadBlock,
+    const TData val, [[maybe_unused]] const hipcudaBlock<ndim> &threadBlock,
     TData *red)
 {
     auto tmp = warpReduceMin(val, threadBlock);
@@ -800,8 +1116,9 @@ NEK_DEVICE_INLINE static void blockReduceMin(
     }
 }
 
+template <unsigned int ndim>
 NEK_DEVICE_INLINE static int warpVoteAll(
-    int predictate, [[maybe_unused]] const hipcudaBlock1D &threadBlock)
+    int predictate, [[maybe_unused]] const hipcudaBlock<ndim> &threadBlock)
 {
 #if defined(__CUDACC__)
     return __all_sync(0xffffffff, predictate);
@@ -810,8 +1127,9 @@ NEK_DEVICE_INLINE static int warpVoteAll(
 #endif
 }
 
+template <unsigned int ndim>
 NEK_DEVICE_INLINE static int warpVoteAny(
-    int predictate, [[maybe_unused]] const hipcudaBlock1D &threadBlock)
+    int predictate, [[maybe_unused]] const hipcudaBlock<ndim> &threadBlock)
 {
 #if defined(__CUDACC__)
     return __any_sync(0xffffffff, predictate);
@@ -821,49 +1139,68 @@ NEK_DEVICE_INLINE static int warpVoteAny(
 }
 
 #if defined(__CUDACC__)
+template <unsigned int ndim>
 NEK_DEVICE_INLINE static unsigned int warpBallot(
-    int predictate, [[maybe_unused]] const hipcudaBlock1D &threadBlock)
+    int predictate, [[maybe_unused]] const hipcudaBlock<ndim> &threadBlock)
 {
     return __ballot_sync(0xffffffff, predictate);
 }
 #elif defined(__HIPCC__)
+template <unsigned int ndim>
 NEK_DEVICE_INLINE static unsigned long long warpBallot(
-    int predictate, [[maybe_unused]] const hipcudaBlock1D &threadBlock)
+    int predictate, [[maybe_unused]] const hipcudaBlock<ndim> &threadBlock)
 {
     return __ballot(predictate);
 }
 #endif
 
+template <unsigned int ndim>
 NEK_DEVICE_INLINE void localBarrier(
-    [[maybe_unused]] const hipcudaBlock1D &threadBlock)
+    [[maybe_unused]] const hipcudaBlock<ndim> &threadBlock)
 {
     __syncthreads();
 }
 
+template <unsigned int ndim>
 NEK_DEVICE_INLINE int localBarrier_and(
-    int predictate, [[maybe_unused]] const hipcudaBlock1D &threadBlock)
+    int predictate, [[maybe_unused]] const hipcudaBlock<ndim> &threadBlock)
 {
     return __syncthreads_and(predictate);
 }
 
+template <unsigned int ndim>
 NEK_DEVICE_INLINE int localBarrier_or(
-    int predictate, [[maybe_unused]] const hipcudaBlock1D &threadBlock)
+    int predictate, [[maybe_unused]] const hipcudaBlock<ndim> &threadBlock)
 {
     return __syncthreads_or(predictate);
 }
 
+template <unsigned int ndim>
 NEK_DEVICE_INLINE int localBarrier_count(
-    int predictate, [[maybe_unused]] const hipcudaBlock1D &threadBlock)
+    int predictate, [[maybe_unused]] const hipcudaBlock<ndim> &threadBlock)
 {
     return __syncthreads_count(predictate);
 }
 
 #elif defined(NEKTAR_ENABLE_SYCL)
 
+// Optional optimisation decorator for a NEK_DEVICE_KERNEL kernel function. This
+// should NOT be used in a NEK_DEVCICE_INLINE function. This allows register
+// usage optimisation for CUDA/HIP backend by specifying the maximum GPU
+// blocksize. Has no effect for SYCL and/or DEVICEONHOST backend.
 #define __LAUNCH_BOUNDS__(x)
 
+// Shared memory must be fetched from a NEK_DEVICE_KERNEL kernel function. This
+// should NOT be used in a NEK_DEVCICE_INLINE function. Use for compatibility
+// with CUDA/HIP backend. Has no effect for SYCL and/or DEVICEONHOST backend.
 #define FETCH_SHARED_MEMORY(ptr)
 
+// Kernel launcher on a one-dimensional GPU grid with shared memory provision.
+// KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL. The last two
+// arguments of the KERNEL function MUST be of type unsigned char * and
+// sycl::nd_item<1>. The shared memory size must be specified in bytes. The
+// shared memory is declared as unsigned char* type. The shmemptr must then cast
+// to the appropriate type before use (e.g. auto ptr = (TData *)shmemptr).
 #define DEVICE_1DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZE, BLOCKSIZE, SHMEMSIZE,  \
                                       STREAM, ...)                             \
     sycl::queue &Q = SYCLQueue::GetInstance();                                 \
@@ -877,6 +1214,47 @@ NEK_DEVICE_INLINE int localBarrier_count(
                          });                                                   \
     });
 
+// Kernel launcher on a two-dimensional GPU grid with shared memory provision.
+// KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL. The last two
+// arguments of the KERNEL function MUST be of type unsigned char * and
+// sycl::nd_item<2>. The shared memory size must be specified in bytes. The
+// shared memory is declared as unsigned char* type. The shmemptr must then cast
+// to the appropriate type before use (e.g. auto ptr = (TData *)shmemptr).
+#define DEVICE_2DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZE, BLOCKSIZE, SHMEMSIZE,  \
+                                      STREAM, ...)                             \
+    sycl::queue &Q = SYCLQueue::GetInstance();                                 \
+    Q.submit([=](sycl::handler &cgh) {                                         \
+        sycl::local_accessor<unsigned char, 1> shmem(                          \
+            sycl::range<1>(SHMEMSIZE), cgh);                                   \
+        cgh.parallel_for(sycl::nd_range<2>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),   \
+                         [=](sycl::nd_item<2> item_ct1) {                      \
+                             auto shmemptr = &shmem[0];                        \
+                             KERNEL(__VA_ARGS__, shmemptr, item_ct1);          \
+                         });                                                   \
+    });
+
+// Kernel launcher on a three-dimensional GPU grid with shared memory provision.
+// KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL. The last two
+// arguments of the KERNEL function MUST be of type unsigned char * and
+// sycl::nd_item<3>. The shared memory size must be specified in bytes. The
+// shared memory is declared as unsigned char* type. The shmemptr must then cast
+// to the appropriate type before use (e.g. auto ptr = (TData *)shmemptr).
+#define DEVICE_3DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZE, BLOCKSIZE, SHMEMSIZE,  \
+                                      STREAM, ...)                             \
+    sycl::queue &Q = SYCLQueue::GetInstance();                                 \
+    Q.submit([=](sycl::handler &cgh) {                                         \
+        sycl::local_accessor<unsigned char, 1> shmem(                          \
+            sycl::range<1>(SHMEMSIZE), cgh);                                   \
+        cgh.parallel_for(sycl::nd_range<3>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),   \
+                         [=](sycl::nd_item<3> item_ct1) {                      \
+                             auto shmemptr = &shmem[0];                        \
+                             KERNEL(__VA_ARGS__, shmemptr, item_ct1);          \
+                         });                                                   \
+    });
+
+// Kernel launcher on a one-dimensional GPU grid without shared memory
+// provision. KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL.
+// The last argument of the KERNEL function MUST be of type sycl::nd_item<1>.
 #define DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(KERNEL, GRIDSIZE, BLOCKSIZE,     \
                                               STREAM, ...)                     \
     sycl::queue &Q = SYCLQueue::GetInstance();                                 \
@@ -887,57 +1265,335 @@ NEK_DEVICE_INLINE int localBarrier_count(
                          });                                                   \
     });
 
+// Kernel launcher on a two-dimensional GPU grid without shared memory
+// provision. KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL.
+// The last argument of the KERNEL function MUST be of type sycl::nd_item<2>.
+#define DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(KERNEL, GRIDSIZE, BLOCKSIZE,     \
+                                              STREAM, ...)                     \
+    sycl::queue &Q = SYCLQueue::GetInstance();                                 \
+    Q.submit([=](sycl::handler &cgh) {                                         \
+        cgh.parallel_for(sycl::nd_range<2>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),   \
+                         [=](sycl::nd_item<2> item_ct1) {                      \
+                             KERNEL(__VA_ARGS__, item_ct1);                    \
+                         });                                                   \
+    });
+
+// Kernel launcher on a three-dimensional GPU grid without shared memory
+// provision. KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL.
+// The last argument of the KERNEL function MUST be of type sycl::nd_item<3>.
+#define DEVICE_3DGRID_KERNEL_LAUNCHER_NOSHMEM(KERNEL, GRIDSIZE, BLOCKSIZE,     \
+                                              STREAM, ...)                     \
+    sycl::queue &Q = SYCLQueue::GetInstance();                                 \
+    Q.submit([=](sycl::handler &cgh) {                                         \
+        cgh.parallel_for(sycl::nd_range<3>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),   \
+                         [=](sycl::nd_item<3> item_ct1) {                      \
+                             KERNEL(__VA_ARGS__, item_ct1);                    \
+                         });                                                   \
+    });
+
 static void *internalSYCLBuffer                 = nullptr;
 static void *internalSYCLDeviceBuffer           = nullptr;
 static void *internalSYCLHostBuffer             = nullptr;
 static unsigned int internalSYCLMaxDataSizeByte = 16;
 
 NEK_DEVICE_INLINE static unsigned int getLocalIdx(
-    [[maybe_unused]] const sycl::nd_item<1> &threadBlock)
+    const sycl::nd_item<1> &threadBlock)
 {
     return threadBlock.get_local_id(0);
 }
 
+template <int dim>
+NEK_DEVICE_INLINE static unsigned int getLocalIdx(
+    const sycl::nd_item<2> &threadBlock)
+{
+    if constexpr (dim == 0)
+    {
+        // Fastest moving.
+        return threadBlock.get_local_id(1);
+    }
+    else if constexpr (dim == 1)
+    {
+        return threadBlock.get_local_id(0);
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+template <int dim>
+NEK_DEVICE_INLINE static unsigned int getLocalIdx(
+    const sycl::nd_item<3> &threadBlock)
+{
+    if constexpr (dim == 0)
+    {
+        // Fastest moving.
+        return threadBlock.get_local_id(2);
+    }
+    else if constexpr (dim == 1)
+    {
+        return threadBlock.get_local_id(1);
+    }
+    else if constexpr (dim == 2)
+    {
+        return threadBlock.get_local_id(0);
+    }
+    else
+    {
+        return 0;
+    }
+}
+
 NEK_DEVICE_INLINE static unsigned int getLocalRange(
-    [[maybe_unused]] const sycl::nd_item<1> &threadBlock)
+    const sycl::nd_item<1> &threadBlock)
 {
     return threadBlock.get_local_range(0);
 }
 
+template <int dim>
+NEK_DEVICE_INLINE static unsigned int getLocalRange(
+    const sycl::nd_item<2> &threadBlock)
+{
+    if constexpr (dim == 0)
+    {
+        // Fastest moving.
+        return threadBlock.get_local_range(1);
+    }
+    else if constexpr (dim == 1)
+    {
+        return threadBlock.get_local_range(0);
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+template <int dim>
+NEK_DEVICE_INLINE static unsigned int getLocalRange(
+    const sycl::nd_item<3> &threadBlock)
+{
+    if constexpr (dim == 0)
+    {
+        // Fastest moving.
+        return threadBlock.get_local_range(2);
+    }
+    else if constexpr (dim == 1)
+    {
+        return threadBlock.get_local_range(1);
+    }
+    else if constexpr (dim == 2)
+    {
+        return threadBlock.get_local_range(0);
+    }
+    else
+    {
+        return 0;
+    }
+}
+
 NEK_DEVICE_INLINE static size_t getGlobalIdx(
-    [[maybe_unused]] const sycl::nd_item<1> &threadBlock)
+    const sycl::nd_item<1> &threadBlock)
 {
     return threadBlock.get_global_id(0);
 }
 
+template <int dim>
+NEK_DEVICE_INLINE static size_t getGlobalIdx(
+    const sycl::nd_item<2> &threadBlock)
+{
+    if constexpr (dim == 0)
+    {
+        // Fastest moving.
+        return threadBlock.get_global_id(1);
+    }
+    else if constexpr (dim == 1)
+    {
+        return threadBlock.get_global_id(0);
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+template <int dim>
+NEK_DEVICE_INLINE static size_t getGlobalIdx(
+    const sycl::nd_item<3> &threadBlock)
+{
+    if constexpr (dim == 0)
+    {
+        // Fastest moving.
+        return threadBlock.get_global_id(2);
+    }
+    else if constexpr (dim == 1)
+    {
+        return threadBlock.get_global_id(1);
+    }
+    else if constexpr (dim == 2)
+    {
+        return threadBlock.get_global_id(0);
+    }
+    else
+    {
+        return 0;
+    }
+}
+
 NEK_DEVICE_INLINE static size_t getGlobalRange(
-    [[maybe_unused]] const sycl::nd_item<1> &threadBlock)
+    const sycl::nd_item<1> &threadBlock)
 {
     return threadBlock.get_global_range(0);
 }
 
+template <int dim>
+NEK_DEVICE_INLINE static size_t getGlobalRange(
+    const sycl::nd_item<2> &threadBlock)
+{
+    if constexpr (dim == 0)
+    {
+        // Fastest moving.
+        return threadBlock.get_global_range(1);
+    }
+    else if constexpr (dim == 1)
+    {
+        return threadBlock.get_global_range(0);
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+template <int dim>
+NEK_DEVICE_INLINE static size_t getGlobalRange(
+    const sycl::nd_item<3> &threadBlock)
+{
+    if constexpr (dim == 0)
+    {
+        // Fastest moving.
+        return threadBlock.get_global_range(2);
+    }
+    else if constexpr (dim == 1)
+    {
+        return threadBlock.get_global_range(1);
+    }
+    else if constexpr (dim == 2)
+    {
+        return threadBlock.get_global_range(0);
+    }
+    else
+    {
+        return 0;
+    }
+}
+
 NEK_DEVICE_INLINE static unsigned int getBlockIdx(
-    [[maybe_unused]] const sycl::nd_item<1> &threadBlock)
+    const sycl::nd_item<1> &threadBlock)
 {
     return threadBlock.get_group(0);
 }
 
+template <int dim>
+NEK_DEVICE_INLINE static unsigned int getBlockIdx(
+    const sycl::nd_item<2> &threadBlock)
+{
+    if constexpr (dim == 0)
+    {
+        // Fastest moving.
+        return threadBlock.get_group(1);
+    }
+    else if constexpr (dim == 1)
+    {
+        return threadBlock.get_group(0);
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+template <int dim>
+NEK_DEVICE_INLINE static unsigned int getBlockIdx(
+    const sycl::nd_item<3> &threadBlock)
+{
+    if constexpr (dim == 0)
+    {
+        // Fastest moving.
+        return threadBlock.get_group(2);
+    }
+    else if constexpr (dim == 1)
+    {
+        return threadBlock.get_group(1);
+    }
+    else if constexpr (dim == 2)
+    {
+        return threadBlock.get_group(0);
+    }
+    else
+    {
+        return 0;
+    }
+}
+
 NEK_DEVICE_INLINE static unsigned int getBlockRange(
-    [[maybe_unused]] const sycl::nd_item<1> &threadBlock)
+    const sycl::nd_item<1> &threadBlock)
 {
     return threadBlock.get_group_range(0);
 }
 
 template <int dim>
+NEK_DEVICE_INLINE static unsigned int getBlockRange(
+    const sycl::nd_item<2> &threadBlock)
+{
+    if constexpr (dim == 0)
+    {
+        // Fastest moving.
+        return threadBlock.get_group_range(1);
+    }
+    else if constexpr (dim == 1)
+    {
+        return threadBlock.get_group_range(0);
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+template <int dim>
+NEK_DEVICE_INLINE static unsigned int getBlockRange(
+    const sycl::nd_item<3> &threadBlock)
+{
+    if constexpr (dim == 0)
+    {
+        // Fastest moving.
+        return threadBlock.get_group_range(2);
+    }
+    else if constexpr (dim == 1)
+    {
+        return threadBlock.get_group_range(1);
+    }
+    else if constexpr (dim == 2)
+    {
+        return threadBlock.get_group_range(0);
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+template <int ndim>
 NEK_DEVICE_INLINE static unsigned int getWarpIdx(
-    [[maybe_unused]] const sycl::nd_item<dim> &threadBlock)
+    const sycl::nd_item<ndim> &threadBlock)
 {
     return threadBlock.get_sub_group().get_group_id();
 }
 
-template <int dim>
+template <int ndim>
 NEK_DEVICE_INLINE static unsigned int getLaneIdx(
-    [[maybe_unused]] const sycl::nd_item<dim> &threadBlock)
+    const sycl::nd_item<ndim> &threadBlock)
 {
     return threadBlock.get_sub_group().get_local_id();
 }
@@ -1039,49 +1695,49 @@ NEK_DEVICE_INLINE static void atomic_min(TData *const dest, const TData val)
     }
 }
 
-template <int dim, typename TData>
+template <int ndim, typename TData>
 NEK_DEVICE_INLINE static TData warpReduceSum(
-    const TData val, const sycl::nd_item<dim> &threadBlock)
+    const TData val, const sycl::nd_item<ndim> &threadBlock)
 {
     return sycl::reduce_over_group(threadBlock.get_sub_group(), val,
                                    sycl::plus<>());
 }
 
-template <int dim, typename TData>
+template <int ndim, typename TData>
 NEK_DEVICE_INLINE static TData warpReduceMax(
-    const TData val, const sycl::nd_item<dim> &threadBlock)
+    const TData val, const sycl::nd_item<ndim> &threadBlock)
 {
     return sycl::reduce_over_group(threadBlock.get_sub_group(), val,
                                    sycl::maximum<>());
 }
 
-template <int dim, typename TData>
+template <int ndim, typename TData>
 NEK_DEVICE_INLINE static TData warpReduceMin(
-    const TData val, const sycl::nd_item<dim> &threadBlock)
+    const TData val, const sycl::nd_item<ndim> &threadBlock)
 {
     return sycl::reduce_over_group(threadBlock.get_sub_group(), val,
                                    sycl::minimum<>());
 }
 
-template <int dim, typename TData>
+template <int ndim, typename TData>
 NEK_DEVICE_INLINE static TData warpReduceOr(
-    const TData val, const sycl::nd_item<dim> &threadBlock)
+    const TData val, const sycl::nd_item<ndim> &threadBlock)
 {
     return sycl::reduce_over_group(threadBlock.get_sub_group(), val,
                                    sycl::bit_or<>());
 }
 
-template <int dim, typename TData>
+template <int ndim, typename TData>
 NEK_DEVICE_INLINE static TData warpReduceAnd(
-    const TData val, const sycl::nd_item<dim> &threadBlock)
+    const TData val, const sycl::nd_item<ndim> &threadBlock)
 {
     return sycl::reduce_over_group(threadBlock.get_sub_group(), val,
                                    sycl::bit_and<>());
 }
 
-template <int dim, typename TData>
+template <int ndim, typename TData>
 NEK_DEVICE_INLINE static void blockReduceSum(
-    const TData val, const sycl::nd_item<dim> &threadBlock, TData *red)
+    const TData val, const sycl::nd_item<ndim> &threadBlock, TData *red)
 {
     auto tmp = warpReduceSum(val, threadBlock);
     if (getLaneIdx(threadBlock) == 0)
@@ -1090,9 +1746,9 @@ NEK_DEVICE_INLINE static void blockReduceSum(
     }
 }
 
-template <int dim, typename TData>
+template <int ndim, typename TData>
 NEK_DEVICE_INLINE static void blockReduceMax(
-    const TData val, const sycl::nd_item<dim> &threadBlock, TData *red)
+    const TData val, const sycl::nd_item<ndim> &threadBlock, TData *red)
 {
     auto tmp = warpReduceMax(val, threadBlock);
     if (getLaneIdx(threadBlock) == 0)
@@ -1101,9 +1757,9 @@ NEK_DEVICE_INLINE static void blockReduceMax(
     }
 }
 
-template <int dim, typename TData>
+template <int ndim, typename TData>
 NEK_DEVICE_INLINE static void blockReduceMin(
-    const TData val, const sycl::nd_item<dim> &threadBlock, TData *red)
+    const TData val, const sycl::nd_item<ndim> &threadBlock, TData *red)
 {
     auto tmp = warpReduceMin(val, threadBlock);
     if (getLaneIdx(threadBlock) == 0)
@@ -1112,44 +1768,44 @@ NEK_DEVICE_INLINE static void blockReduceMin(
     }
 }
 
-template <int dim>
+template <int ndim>
 NEK_DEVICE_INLINE static int warpVoteAll(int predictate,
-                                         const sycl::nd_item<dim> &threadBlock)
+                                         const sycl::nd_item<ndim> &threadBlock)
 {
     auto warp = threadBlock.get_sub_group();
     return sycl::all_of_group(warp, predictate);
 }
 
-template <int dim>
+template <int ndim>
 NEK_DEVICE_INLINE static int warpVoteAny(int predictate,
-                                         const sycl::nd_item<dim> &threadBlock)
+                                         const sycl::nd_item<ndim> &threadBlock)
 {
     auto warp = threadBlock.get_sub_group();
     return sycl::any_of_group(warp, predictate);
 }
 
 #if defined(SYCL_ENABLE_CUDA)
-template <int dim>
+template <int ndim>
 NEK_DEVICE_INLINE static unsigned int warpBallot(
-    int predictate, const sycl::nd_item<dim> &threadBlock)
+    int predictate, const sycl::nd_item<ndim> &threadBlock)
 {
     unsigned int tmp =
         predictate ? (unsigned int)1 << getLaneIdx(threadBlock) : 0;
     return warpReduceOr(tmp, threadBlock);
 }
 #elif defined(SYCL_ENABLE_HIP)
-template <int dim>
+template <int ndim>
 NEK_DEVICE_INLINE static unsigned long long warpBallot(
-    int predictate, const sycl::nd_item<dim> &threadBlock)
+    int predictate, const sycl::nd_item<ndim> &threadBlock)
 {
     unsigned long long tmp =
         predictate ? (unsigned long long)1 << getLaneIdx(threadBlock) : 0;
     return warpReduceOr(tmp, threadBlock);
 }
 #else
-template <int dim>
+template <int ndim>
 NEK_DEVICE_INLINE static unsigned int warpBallot(
-    int predictate, [[maybe_unused]] const sycl::nd_item<dim> &threadBlock)
+    int predictate, [[maybe_unused]] const sycl::nd_item<ndim> &threadBlock)
 {
     unsigned int tmp =
         predictate ? (unsigned int)1 << getLaneIdx(threadBlock) : 0;
@@ -1157,31 +1813,31 @@ NEK_DEVICE_INLINE static unsigned int warpBallot(
 }
 #endif
 
-template <int dim>
-NEK_DEVICE_INLINE void localBarrier(const sycl::nd_item<dim> &threadBlock)
+template <int ndim>
+NEK_DEVICE_INLINE void localBarrier(const sycl::nd_item<ndim> &threadBlock)
 {
     threadBlock.barrier(sycl::access::fence_space::local_space);
 }
 
-template <int dim>
+template <int ndim>
 NEK_DEVICE_INLINE int localBarrier_and(int predictate,
-                                       const sycl::nd_item<dim> &threadBlock)
+                                       const sycl::nd_item<ndim> &threadBlock)
 {
     threadBlock.barrier(sycl::access::fence_space::local_space);
     return sycl::all_of_group(threadBlock.get_group(), predictate);
 }
 
-template <int dim>
+template <int ndim>
 NEK_DEVICE_INLINE int localBarrier_or(int predictate,
-                                      const sycl::nd_item<dim> &threadBlock)
+                                      const sycl::nd_item<ndim> &threadBlock)
 {
     threadBlock.barrier(sycl::access::fence_space::local_space);
     return sycl::any_of_group(threadBlock.get_group(), predictate);
 }
 
-template <int dim>
+template <int ndim>
 NEK_DEVICE_INLINE int localBarrier_count(int predictate,
-                                         const sycl::nd_item<dim> &threadBlock)
+                                         const sycl::nd_item<ndim> &threadBlock)
 {
     threadBlock.barrier(sycl::access::fence_space::local_space);
     return sycl::reduce_over_group(threadBlock.get_group(), predictate ? 1 : 0,
@@ -1189,7 +1845,7 @@ NEK_DEVICE_INLINE int localBarrier_count(int predictate,
 }
 
 #elif defined(NEKTAR_ENABLE_DEVICEONHOST)
-class deviceOnHostBlock1D
+template <unsigned int ndim> class deviceOnHostBlock
 {
 };
 
@@ -1198,61 +1854,214 @@ template <typename TData> static void nektar_unused([[maybe_unused]] TData x)
     return;
 }
 
-#define FETCH_SHARED_MEMORY(ptr)
-
+// Optional optimisation decorator for a NEK_DEVICE_KERNEL kernel function. This
+// should NOT be used in a NEK_DEVCICE_INLINE function. This allows register
+// usage optimisation for CUDA/HIP backend by specifying the maximum GPU
+// blocksize. Has no effect for SYCL and/or DEVICEONHOST backend.
 #define __LAUNCH_BOUNDS__(x)
 
+// Shared memory must be fetched from a NEK_DEVICE_KERNEL kernel function. This
+// should NOT be used in a NEK_DEVCICE_INLINE function. Use for compatibility
+// with CUDA/HIP backend. Has no effect for SYCL and/or DEVICEONHOST backend.
+#define FETCH_SHARED_MEMORY(ptr)
+
+// Kernel launcher on a one-dimensional GPU grid with shared memory provision.
+// KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL. The last two
+// arguments of the KERNEL function MUST be of type unsigned char * and
+// deviceOnHostBlock<1>. The shared memory size must be specified in bytes. The
+// shared memory is declared as unsigned char* type. The shmemptr must then cast
+// to the appropriate type before use (e.g. auto ptr = (TData *)shmemptr).
 #define DEVICE_1DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZE, BLOCKSIZE, SHMEMSIZE,  \
                                       STREAM, ...)                             \
     nektar_unused(GRIDSIZE);                                                   \
     nektar_unused(BLOCKSIZE);                                                  \
     std::vector<unsigned char> shmem(SHMEMSIZE);                               \
-    KERNEL(__VA_ARGS__, shmem.data(), deviceOnHostBlock1D());
+    KERNEL(__VA_ARGS__, shmem.data(), deviceOnHostBlock<1>());
 
+// Kernel launcher on a two-dimensional GPU grid with shared memory provision.
+// KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL. The last two
+// arguments of the KERNEL function MUST be of type unsigned char * and
+// deviceOnHostBlock<2>. The shared memory size must be specified in bytes. The
+// shared memory is declared as unsigned char* type. The shmemptr must then cast
+// to the appropriate type before use (e.g. auto ptr = (TData *)shmemptr).
+#define DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(KERNEL, GRIDSIZE, BLOCKSIZE,     \
+                                              STREAM, ...)                     \
+    nektar_unused(GRIDSIZE);                                                   \
+    nektar_unused(BLOCKSIZE);                                                  \
+    KERNEL(__VA_ARGS__, deviceOnHostBlock<2>());
+
+// Kernel launcher on a three-dimensional GPU grid with shared memory provision.
+// KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL. The last two
+// arguments of the KERNEL function MUST be of type unsigned char * and
+// deviceOnHostBlock<3>. The shared memory size must be specified in bytes. The
+// shared memory is declared as unsigned char* type. The shmemptr must then cast
+// to the appropriate type before use (e.g. auto ptr = (TData *)shmemptr).
+#define DEVICE_3DGRID_KERNEL_LAUNCHER_NOSHMEM(KERNEL, GRIDSIZE, BLOCKSIZE,     \
+                                              STREAM, ...)                     \
+    nektar_unused(GRIDSIZE);                                                   \
+    nektar_unused(BLOCKSIZE);                                                  \
+    KERNEL(__VA_ARGS__, deviceOnHostBlock<3>());
+
+// Kernel launcher on a one-dimensional GPU grid without shared memory
+// provision. KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL.
+// The last argument of the KERNEL function MUST be of type
+// deviceOnHostBlock<1>.
 #define DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(KERNEL, GRIDSIZE, BLOCKSIZE,     \
                                               STREAM, ...)                     \
     nektar_unused(GRIDSIZE);                                                   \
     nektar_unused(BLOCKSIZE);                                                  \
-    KERNEL(__VA_ARGS__, deviceOnHostBlock1D());
+    KERNEL(__VA_ARGS__, deviceOnHostBlock<1>());
+
+// Kernel launcher on a two-dimensional GPU grid without shared memory
+// provision. KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL.
+// The last argument of the KERNEL function MUST be of type
+// deviceOnHostBlock<2>.
+#define DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(KERNEL, GRIDSIZE, BLOCKSIZE,     \
+                                              STREAM, ...)                     \
+    nektar_unused(GRIDSIZE);                                                   \
+    nektar_unused(BLOCKSIZE);                                                  \
+    KERNEL(__VA_ARGS__, deviceOnHostBlock<2>());
+
+// Kernel launcher on a three-dimensional GPU grid without shared memory
+// provision. KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL.
+// The last argument of the KERNEL function MUST be of type
+// deviceOnHostBlock<3>.
+#define DEVICE_3DGRID_KERNEL_LAUNCHER_NOSHMEM(KERNEL, GRIDSIZE, BLOCKSIZE,     \
+                                              STREAM, ...)                     \
+    nektar_unused(GRIDSIZE);                                                   \
+    nektar_unused(BLOCKSIZE);                                                  \
+    KERNEL(__VA_ARGS__, deviceOnHostBlock<3>());
 
 NEK_DEVICE_INLINE static unsigned int getLocalIdx(
-    [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
+    [[maybe_unused]] const deviceOnHostBlock<1> &threadBlock)
+{
+    return 0;
+}
+
+template <unsigned int dim>
+NEK_DEVICE_INLINE static unsigned int getLocalIdx(
+    [[maybe_unused]] const deviceOnHostBlock<2> &threadBlock)
+{
+    return 0;
+}
+
+template <unsigned int dim>
+NEK_DEVICE_INLINE static unsigned int getLocalIdx(
+    [[maybe_unused]] const deviceOnHostBlock<3> &threadBlock)
 {
     return 0;
 }
 
 NEK_DEVICE_INLINE static unsigned int getLocalRange(
-    [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
+    [[maybe_unused]] const deviceOnHostBlock<1> &threadBlock)
+{
+    return 1;
+}
+
+template <unsigned int dim>
+NEK_DEVICE_INLINE static unsigned int getLocalRange(
+    [[maybe_unused]] const deviceOnHostBlock<2> &threadBlock)
+{
+    return 1;
+}
+
+template <unsigned int dim>
+NEK_DEVICE_INLINE static unsigned int getLocalRange(
+    [[maybe_unused]] const deviceOnHostBlock<3> &threadBlock)
 {
     return 1;
 }
 
 NEK_DEVICE_INLINE static size_t getGlobalIdx(
-    [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
+    [[maybe_unused]] const deviceOnHostBlock<1> &threadBlock)
+{
+    return 0;
+}
+
+template <unsigned int dim>
+NEK_DEVICE_INLINE static size_t getGlobalIdx(
+    [[maybe_unused]] const deviceOnHostBlock<2> &threadBlock)
+{
+    return 0;
+}
+
+template <unsigned int dim>
+NEK_DEVICE_INLINE static size_t getGlobalIdx(
+    [[maybe_unused]] const deviceOnHostBlock<3> &threadBlock)
 {
     return 0;
 }
 
 NEK_DEVICE_INLINE static size_t getGlobalRange(
-    [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
+    [[maybe_unused]] const deviceOnHostBlock<1> &threadBlock)
+{
+    return 1;
+}
+
+template <unsigned int dim>
+NEK_DEVICE_INLINE static size_t getGlobalRange(
+    [[maybe_unused]] const deviceOnHostBlock<2> &threadBlock)
+{
+    return 1;
+}
+
+template <unsigned int dim>
+NEK_DEVICE_INLINE static size_t getGlobalRange(
+    [[maybe_unused]] const deviceOnHostBlock<3> &threadBlock)
 {
     return 1;
 }
 
 NEK_DEVICE_INLINE static unsigned int getBlockIdx(
-    [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
+    [[maybe_unused]] const deviceOnHostBlock<1> &threadBlock)
+{
+    return 0;
+}
+
+template <unsigned int dim>
+NEK_DEVICE_INLINE static unsigned int getBlockIdx(
+    [[maybe_unused]] const deviceOnHostBlock<2> &threadBlock)
+{
+    return 0;
+}
+
+template <unsigned int dim>
+NEK_DEVICE_INLINE static unsigned int getBlockIdx(
+    [[maybe_unused]] const deviceOnHostBlock<3> &threadBlock)
 {
     return 0;
 }
 
 NEK_DEVICE_INLINE static unsigned int getBlockRange(
-    [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
+    [[maybe_unused]] const deviceOnHostBlock<1> &threadBlock)
 {
     return 1;
 }
 
+template <unsigned int dim>
+NEK_DEVICE_INLINE static unsigned int getBlockRange(
+    [[maybe_unused]] const deviceOnHostBlock<2> &threadBlock)
+{
+    return 1;
+}
+
+template <unsigned int dim>
+NEK_DEVICE_INLINE static unsigned int getBlockRange(
+    [[maybe_unused]] const deviceOnHostBlock<3> &threadBlock)
+{
+    return 1;
+}
+
+template <unsigned int ndim>
+NEK_DEVICE_INLINE static unsigned int getWarpIdx(
+    [[maybe_unused]] const deviceOnHostBlock<ndim> &threadBlock)
+{
+    return getGlobalIdx(threadBlock);
+}
+
+template <unsigned int ndim>
 NEK_DEVICE_INLINE static unsigned int getLaneIdx(
-    [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
+    [[maybe_unused]] const deviceOnHostBlock<ndim> &threadBlock)
 {
     return 0;
 }
@@ -1281,102 +2090,114 @@ NEK_DEVICE_INLINE static void atomic_min(TData *const dest, const TData val)
     *dest = std::min(*dest, val);
 }
 
-template <typename TData>
+template <unsigned int ndim, typename TData>
 NEK_DEVICE_INLINE static TData warpReduceSum(
-    const TData val, [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
+    const TData val,
+    [[maybe_unused]] const deviceOnHostBlock<ndim> &threadBlock)
 {
     return val;
 }
 
-template <typename TData>
+template <unsigned int ndim, typename TData>
 NEK_DEVICE_INLINE static TData warpReduceMax(
-    const TData val, [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
+    const TData val,
+    [[maybe_unused]] const deviceOnHostBlock<ndim> &threadBlock)
 {
     return val;
 }
 
-template <typename TData>
+template <unsigned int ndim, typename TData>
 NEK_DEVICE_INLINE static TData warpReduceMin(
-    const TData val, [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
+    const TData val,
+    [[maybe_unused]] const deviceOnHostBlock<ndim> &threadBlock)
 {
     return val;
 }
 
-template <typename TData>
+template <unsigned int ndim, typename TData>
 NEK_DEVICE_INLINE static TData warpReduceOr(
-    const TData val, [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
+    const TData val,
+    [[maybe_unused]] const deviceOnHostBlock<ndim> &threadBlock)
 {
     return val;
 }
 
-template <typename TData>
+template <unsigned int ndim, typename TData>
 NEK_DEVICE_INLINE static TData warpReduceAnd(
-    const TData val, [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
+    const TData val,
+    [[maybe_unused]] const deviceOnHostBlock<ndim> &threadBlock)
 {
     return val;
 }
 
-template <typename TData>
+template <unsigned int ndim, typename TData>
 NEK_DEVICE_INLINE static void blockReduceSum(
-    const TData val, [[maybe_unused]] const deviceOnHostBlock1D &threadBlock,
-    TData *red)
+    const TData val,
+    [[maybe_unused]] const deviceOnHostBlock<ndim> &threadBlock, TData *red)
 {
     *red += val;
 }
 
-template <typename TData>
+template <unsigned int ndim, typename TData>
 NEK_DEVICE_INLINE static void blockReduceMax(
-    const TData val, [[maybe_unused]] const deviceOnHostBlock1D &threadBlock,
-    TData *red)
+    const TData val,
+    [[maybe_unused]] const deviceOnHostBlock<ndim> &threadBlock, TData *red)
 {
     *red = std::max(*red, val);
 }
 
-template <typename TData>
+template <unsigned int ndim, typename TData>
 NEK_DEVICE_INLINE static void blockReduceMin(
-    const TData val, [[maybe_unused]] const deviceOnHostBlock1D &threadBlock,
-    TData *red)
+    const TData val,
+    [[maybe_unused]] const deviceOnHostBlock<ndim> &threadBlock, TData *red)
 {
     *red = std::min(*red, val);
 }
 
+template <unsigned int ndim>
 NEK_DEVICE_INLINE static int warpVoteAll(
-    int predictate, [[maybe_unused]] deviceOnHostBlock1D &threadBlock)
+    int predictate, [[maybe_unused]] deviceOnHostBlock<ndim> &threadBlock)
 {
     return predictate ? 1 : 0;
 }
 
+template <unsigned int ndim>
 NEK_DEVICE_INLINE static int warpVoteAny(
-    int predictate, [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
+    int predictate, [[maybe_unused]] const deviceOnHostBlock<ndim> &threadBlock)
 {
     return predictate ? 1 : 0;
 }
 
+template <unsigned int ndim>
 NEK_DEVICE_INLINE static int warpBallot(
-    int predictate, [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
+    int predictate, [[maybe_unused]] const deviceOnHostBlock<ndim> &threadBlock)
 {
     return predictate ? 1 : 0;
 }
 
+template <unsigned int ndim>
 NEK_DEVICE_INLINE void localBarrier(
-    [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
+    [[maybe_unused]] const deviceOnHostBlock<ndim> &threadBlock)
 {
 }
 
+template <unsigned int ndim>
 NEK_DEVICE_INLINE int localBarrier_and(
-    int predictate, [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
+    int predictate, [[maybe_unused]] const deviceOnHostBlock<ndim> &threadBlock)
 {
     return predictate ? 1 : 0;
 }
 
+template <unsigned int ndim>
 NEK_DEVICE_INLINE int localBarrier_or(
-    int predictate, [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
+    int predictate, [[maybe_unused]] const deviceOnHostBlock<ndim> &threadBlock)
 {
     return predictate ? 1 : 0;
 }
 
+template <unsigned int ndim>
 NEK_DEVICE_INLINE int localBarrier_count(
-    int predictate, [[maybe_unused]] const deviceOnHostBlock1D &threadBlock)
+    int predictate, [[maybe_unused]] const deviceOnHostBlock<ndim> &threadBlock)
 {
     return predictate ? 1 : 0;
 }
