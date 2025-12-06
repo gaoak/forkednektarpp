@@ -63,14 +63,16 @@ public:
         auto op = Operator<TData>::template Create<TOperator>(expansionList,
                                                               execStr0);
 
-        auto blocks =
+        auto blockAttr =
             GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
 
         // Loop over the blocks.
-        for (unsigned int block_idx = 0; block_idx < blocks.size(); block_idx++)
+        for (unsigned int block_idx = 0; block_idx < blockAttr.size();
+             block_idx++)
         {
             op->m_blockOp.push_back(TBlockOperator<TData>::Create(
-                block_idx, expansionList->GetExp(blocks[block_idx].GetExpIdx()),
+                block_idx,
+                expansionList->GetExp(blockAttr[block_idx].GetExpIdx()),
                 expansionList->GetDataWarehouseSharedPtr(), execStr0,
                 implStr0));
         }

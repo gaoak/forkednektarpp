@@ -84,13 +84,13 @@ public:
         }
 
         // Compute block bound.
-        auto blocks =
+        auto blockAttr =
             GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
-        std::vector<size_t> blockBound(blocks.size());
+        std::vector<size_t> blockBound(blockAttr.size());
         size_t bound = 0;
-        for (unsigned int blk = 0; blk < blocks.size(); ++blk)
+        for (unsigned int blk = 0; blk < blockAttr.size(); ++blk)
         {
-            const auto &block = blocks[blk];
+            const auto &block = blockAttr[blk];
             const auto ncoeff = block.GetNumData();
             const auto nelmt  = block.GetNumElements();
             bound += nelmt * ncoeff;
@@ -128,7 +128,7 @@ public:
         std::vector<TData> signBlock;
         unsigned int blk = 0;
         size_t i = 0, offset = 0, nbndCoeffBlock = 0;
-        while (blk < blocks.size())
+        while (blk < blockAttr.size())
         {
             if (i == m_nBndCoeff || map[index[i]] >= blockBound[blk])
             {

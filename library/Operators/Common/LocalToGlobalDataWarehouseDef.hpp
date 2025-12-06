@@ -70,9 +70,10 @@ LocalToGlobalDataCreator::Create(
     // here we are using double as the type since this is what the datatype
     // of the assembled data is assumed to be. Not sure what we shoudl do it
     // is float however but legacy code is not set up for this either
-    auto blocks = GetBlockAttributes<TData>(FieldState::Coeff, m_expansionList);
+    auto blockAttr =
+        GetBlockAttributes<TData>(FieldState::Coeff, m_expansionList);
 
-    auto nblks = blocks.size();
+    auto nblks = blockAttr.size();
     std::map<unsigned, std::vector<std::pair<unsigned, unsigned>>> GloToLoc;
 
     // Set up a map of the local ids and blk ids that are
@@ -81,7 +82,8 @@ LocalToGlobalDataCreator::Create(
     unsigned coeff_offset = 0;
     for (unsigned blk = 0; blk < nblks; ++blk)
     {
-        auto blksize = blocks[blk].GetNumData() * blocks[blk].GetNumElements();
+        auto blksize =
+            blockAttr[blk].GetNumData() * blockAttr[blk].GetNumElements();
 
         // Gather local id in block that share the same global id.
         for (unsigned lid = 0; lid < blksize; ++lid)
@@ -111,7 +113,7 @@ LocalToGlobalDataCreator::Create(
     for (unsigned blk = 0; blk < nblks; ++blk)
     {
         unsigned blksize =
-            blocks[blk].GetNumElements() * blocks[blk].GetNumData();
+            blockAttr[blk].GetNumElements() * blockAttr[blk].GetNumData();
         for (int nc = 0; nc < numComp; ++nc)
         {
             for (int lid = 0; lid < blksize; ++lid)
@@ -152,7 +154,7 @@ LocalToGlobalDataCreator::Create(
         if (blk)
         {
             BlkOffset[blk] =
-                BlkOffset[blk - 1] + blocks[blk - 1].size() * numComp;
+                BlkOffset[blk - 1] + blockAttr[blk - 1].size() * numComp;
         }
         else
         {
@@ -228,7 +230,7 @@ LocalToGlobalDataCreator::Create(
 
             // offset local id by Block offset and num component * each
             // block size;
-            lid += BlkOffset[blk] + blocks[blk].size() * nc;
+            lid += BlkOffset[blk] + blockAttr[blk].size() * nc;
 
             ptr1[cnt1++] = lid; // set index
             ptr[cnt] += 1;      // add one to offset
@@ -409,9 +411,9 @@ void FillSignArray(
                     ? loc2glo[0]->GetLocalToGlobalSign()
                     : Array<OneD, double>(expList->GetNcoeffs(), 1.0);
 
-    auto blocks = GetBlockAttributes<TData>(FieldState::Coeff, expList);
+    auto blockAttr = GetBlockAttributes<TData>(FieldState::Coeff, expList);
 
-    auto nblks = blocks.size();
+    auto nblks = blockAttr.size();
     std::vector<unsigned> blkoffset(nblks + 1);
     std::vector<unsigned> coeffoffset(nblks);
     blkoffset[0] = 0;
@@ -419,9 +421,9 @@ void FillSignArray(
     unsigned offset = 0;
     for (unsigned blk = 0; blk < nblks; ++blk)
     {
-        blkoffset[blk + 1] = blkoffset[blk] + blocks[blk].size() * numComp;
+        blkoffset[blk + 1] = blkoffset[blk] + blockAttr[blk].size() * numComp;
         coeffoffset[blk]   = offset;
-        offset += blocks[blk].GetNumElements() * blocks[blk].GetNumData();
+        offset += blockAttr[blk].GetNumElements() * blockAttr[blk].GetNumData();
     }
 
     // Fill the pointer with sign of local index.
@@ -438,8 +440,8 @@ void FillSignArray(
                     // offset index to this block
                     idx -= blkoffset[blk];
                     // offset index for number of components;
-                    nc  = idx / blocks[blk].size();
-                    idx = idx % blocks[blk].size();
+                    nc  = idx / blockAttr[blk].size();
+                    idx = idx % blockAttr[blk].size();
                     // add back in coeff offset to be able to access legacy
                     // index
                     idx += coeffoffset[blk];
@@ -473,7 +475,7 @@ void FillSignArray(
                     // offset index to this block
                     idx -= blkoffset[blk];
                     // offset index for number of components;
-                    idx = idx % blocks[blk].size();
+                    idx = idx % blockAttr[blk].size();
                     // add back in coeff offset to be able to access legacy
                     // index
                     idx += coeffoffset[blk];
@@ -601,15 +603,17 @@ LocalToGlobalDataCreator::Create(
     std::unordered_set<size_t> parallel_gid(loc2glo->GetSREntries().begin(),
                                             loc2glo->GetSREntries().end());
 
-    auto blocks = GetBlockAttributes<TData>(FieldState::Coeff, m_expansionList);
+    auto blockAttr =
+        GetBlockAttributes<TData>(FieldState::Coeff, m_expansionList);
 
-    auto nblks = blocks.size();
+    auto nblks = blockAttr.size();
     std::map<unsigned, std::vector<std::pair<unsigned, unsigned>>> GloToLoc;
 
     unsigned coeff_offset = 0;
     for (unsigned blk = 0; blk < nblks; ++blk)
     {
-        auto blksize = blocks[blk].GetNumData() * blocks[blk].GetNumElements();
+        auto blksize =
+            blockAttr[blk].GetNumData() * blockAttr[blk].GetNumElements();
 
         // Gather local id in block that share the same global id.
         for (unsigned lid = 0; lid < blksize; ++lid)
@@ -640,7 +644,7 @@ LocalToGlobalDataCreator::Create(
     std::vector<unsigned> BlkSize(nblks);
     for (unsigned blk = 0; blk < nblks; ++blk)
     {
-        BlkSize[blk] = blocks[blk].size();
+        BlkSize[blk] = blockAttr[blk].size();
         if (blk)
         {
             BlkOffset[blk] = BlkOffset[blk - 1] + BlkSize[blk - 1] * numComp;
@@ -852,12 +856,13 @@ LocalToGlobalDataCreator::Create(
 
     auto l2gmap0 = loc2glo->GetLocalToGlobalMap();
 
-    auto blocks = GetBlockAttributes<TData>(FieldState::Coeff, m_expansionList);
+    auto blockAttr =
+        GetBlockAttributes<TData>(FieldState::Coeff, m_expansionList);
     unsigned ntot = 0;
     unsigned blk  = 0;
-    for (blk = 0; blk < blocks.size(); ++blk)
+    for (blk = 0; blk < blockAttr.size(); ++blk)
     {
-        ntot += blocks[blk].size();
+        ntot += blockAttr[blk].size();
     }
 
     // Decalare memory for all local to global informaiton.
@@ -867,9 +872,9 @@ LocalToGlobalDataCreator::Create(
     std::set<unsigned> done;
     unsigned offset = 0;
     unsigned cnt    = 0;
-    for (blk = 0; blk < blocks.size(); ++blk)
+    for (blk = 0; blk < blockAttr.size(); ++blk)
     {
-        auto &block           = blocks[blk];
+        auto &block           = blockAttr[blk];
         auto num_elements     = block.GetNumElements();
         auto num_elements_pad = block.GetNumElementsWithPadding();
         auto num_data         = block.GetNumData();

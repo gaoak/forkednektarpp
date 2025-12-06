@@ -103,23 +103,18 @@ int main(int argc, char *argv[])
     // Timer.
     Timer timer;
 
-    // Create blocks.
-    auto blocksIn  = GetBlockAttributes<TData>(FieldState::Coeff, expList);
-    auto blocksOut = GetBlockAttributes<TData>(FieldState::Coeff, expList);
-    auto blocksOutCorrect =
-        GetBlockAttributes<TData>(FieldState::Coeff, expList);
-    auto blocksOutCorrectAssemb =
-        GetBlockAttributes<TData>(FieldState::Coeff, expList);
+    // Create block attributes.
+    auto blockAttr = GetBlockAttributes<TData>(FieldState::Coeff, expList);
 
     // Create fields.
     auto fIn =
-        Field<TData, FieldState::Coeff>("f_in", blocksIn, nIn * nComp, 1);
+        Field<TData, FieldState::Coeff>("f_in", blockAttr, nIn * nComp, 1);
     auto fOut =
-        Field<TData, FieldState::Coeff>("f_out", blocksOut, nOut * nComp, 1);
+        Field<TData, FieldState::Coeff>("f_out", blockAttr, nOut * nComp, 1);
     auto fOutCorrect = Field<TData, FieldState::Coeff>(
-        "f_out_correct", blocksOutCorrect, nOut * nComp, 1);
+        "f_out_correct", blockAttr, nOut * nComp, 1);
     auto fOutCorrectAssemb = Field<TData, FieldState::Coeff>(
-        "f_out_correct_assemb", blocksOutCorrectAssemb, nOut * nComp, 1);
+        "f_out_correct_assemb", blockAttr, nOut * nComp, 1);
 
     // Set random output.
     srand(0);

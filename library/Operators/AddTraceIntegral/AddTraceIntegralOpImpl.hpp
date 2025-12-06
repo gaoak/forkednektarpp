@@ -80,14 +80,14 @@ public:
         }
 
         // Compute trace block bound.
-        auto traceBlocks = GetBlockAttributes<TData>(FieldState::Coeff,
-                                                     expansionList->GetTrace());
-        std::vector<size_t> traceBlockBound(traceBlocks.size());
+        auto traceBlockAttr = GetBlockAttributes<TData>(
+            FieldState::Coeff, expansionList->GetTrace());
+        std::vector<size_t> traceBlockBound(traceBlockAttr.size());
         std::vector<std::vector<size_t>> toInterleavedTraceBlock;
         size_t traceBound = 0;
-        for (unsigned int blk = 0; blk < traceBlocks.size(); ++blk)
+        for (unsigned int blk = 0; blk < traceBlockAttr.size(); ++blk)
         {
-            const auto &block = traceBlocks[blk];
+            const auto &block = traceBlockAttr[blk];
             const auto ncoeff = block.GetNumData();
             const auto nelmt  = block.GetNumElements();
             traceBound += nelmt * ncoeff;
@@ -120,14 +120,14 @@ public:
         }
 
         // Compute block bound.
-        auto blocks =
+        auto blockAttr =
             GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
-        std::vector<size_t> blockBound(blocks.size());
+        std::vector<size_t> blockBound(blockAttr.size());
         std::vector<std::vector<size_t>> toInterleavedBlock;
         size_t bound = 0;
-        for (unsigned int blk = 0; blk < blocks.size(); ++blk)
+        for (unsigned int blk = 0; blk < blockAttr.size(); ++blk)
         {
-            const auto &block = blocks[blk];
+            const auto &block = blockAttr[blk];
             const auto ncoeff = block.GetNumData();
             const auto nelmt  = block.GetNumElements();
             bound += nelmt * ncoeff;
@@ -178,23 +178,25 @@ public:
         }
 
         // Assign map to memory region.
-        std::vector<size_t> nFwdBwdCoeffsBlock(blocks.size(), 0);
+        std::vector<size_t> nFwdBwdCoeffsBlock(blockAttr.size(), 0);
         std::vector<std::vector<size_t>> traceCoeffsToElmtMapBlock(
-            blocks.size());
+            blockAttr.size());
         std::vector<std::vector<size_t>> traceCoeffsToElmtTraceBlock(
-            blocks.size());
-        std::vector<std::vector<int>> traceCoeffsToElmtSignBlock(blocks.size());
+            blockAttr.size());
+        std::vector<std::vector<int>> traceCoeffsToElmtSignBlock(
+            blockAttr.size());
         m_nFwdBwdCoeffsBlock =
-            std::vector<std::vector<size_t>>(traceBlocks.size());
-        m_traceCoeffsToElmtMap =
-            std::vector<std::vector<MemoryRegion<size_t>>>(traceBlocks.size());
+            std::vector<std::vector<size_t>>(traceBlockAttr.size());
+        m_traceCoeffsToElmtMap = std::vector<std::vector<MemoryRegion<size_t>>>(
+            traceBlockAttr.size());
         m_traceCoeffsToElmtTrace =
-            std::vector<std::vector<MemoryRegion<size_t>>>(traceBlocks.size());
+            std::vector<std::vector<MemoryRegion<size_t>>>(
+                traceBlockAttr.size());
         m_traceCoeffsToElmtSign =
-            std::vector<std::vector<MemoryRegion<int>>>(traceBlocks.size());
+            std::vector<std::vector<MemoryRegion<int>>>(traceBlockAttr.size());
         unsigned int blk0 = 0, blk1 = 0;
         size_t i = 0, offset0 = 0, offset1 = 0;
-        while (blk1 < traceBlocks.size())
+        while (blk1 < traceBlockAttr.size())
         {
             if (i == m_nFwdBwdCoeffs ||
                 std::get<1>(traceToTraceReordered[i]) >= traceBlockBound[blk1])
