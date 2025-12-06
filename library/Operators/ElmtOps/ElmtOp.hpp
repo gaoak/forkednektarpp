@@ -35,8 +35,6 @@
 #pragma once
 
 #include "Operators/Common/Operator.hpp"
-#include <LibUtilities/BasicUtils/SessionReader.h>
-#include <tinyxml.h>
 
 namespace Nektar::Operators
 {

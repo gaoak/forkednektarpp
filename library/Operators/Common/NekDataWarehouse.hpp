@@ -48,9 +48,18 @@
 #include <LibUtilities/BasicUtils/HashUtils.hpp>
 
 #include "Operators/Field/MemoryRegion.hpp"
+#include <Collections/Collection.h>
 
-#include <MultiRegions/ExpListHomogeneous1D.h>
-#include <MultiRegions/ExpListHomogeneous2D.h>
+// Forward declaration
+namespace Nektar::MultiRegions
+{
+
+class ExpList;
+
+/// Shared pointer to an ExpList object.
+typedef std::shared_ptr<ExpList> ExpListSharedPtr;
+
+} // namespace Nektar::MultiRegions
 
 namespace Nektar::Operators
 {
@@ -210,30 +219,7 @@ private:
 typedef std::shared_ptr<NekDataWarehouse> NekDataWarehouseSharedPtr;
 
 // Helper function
-[[maybe_unused]] static Collections::Collection GetCollection(
-    MultiRegions::ExpListSharedPtr expansionList, unsigned int block_idx)
-{
-    MultiRegions::ExpListSharedPtr tmp;
-    auto explistHomo1D =
-        std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(
-            expansionList);
-    auto explistHomo2D =
-        std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous2D>(
-            expansionList);
-    if (explistHomo1D)
-    {
-        tmp = explistHomo1D->GetPlane(0);
-    }
-    else if (explistHomo2D)
-    {
-        tmp = explistHomo2D->GetLine(0);
-    }
-    else
-    {
-        tmp = expansionList;
-    }
-
-    return tmp->GetCollections()[block_idx];
-}
+Collections::Collection GetCollection(
+    MultiRegions::ExpListSharedPtr expansionList, unsigned int block_idx);
 
 } // namespace Nektar::Operators

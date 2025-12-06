@@ -42,8 +42,8 @@
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 #include <MultiRegions/ExpList.h>
 
-#include "Operators/Common/LocalToGlobalDataWarehouse.hpp"
 #include "Operators/Common/NekDataWarehouse.hpp"
+
 #include "Operators/Common/OperatorsDeclspec.hpp"
 #include "Operators/Common/Spaces.hpp"
 #include "Operators/Field/Field.hpp"
