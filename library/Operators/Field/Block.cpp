@@ -1,0 +1,120 @@
+///////////////////////////////////////////////////////////////////////////////
+//
+// File: Block.cpp
+//
+// For more information, please see: http://www.nektar.info
+//
+// The MIT License
+//
+// Copyright (c) 2006 Division of Applied Mathematics, Brown University (USA),
+// Department of Aeronautics, Imperial College London (UK), and Scientific
+// Computing and Imaging Institute, University of Utah (USA).
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the "Software"),
+// to deal in the Software without restriction, including without limitation
+// the rights to use, copy, modify, merge, publish, distribute, sublicense,
+// and/or sell copies of the Software, and to permit persons to whom the
+// Software is furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+// THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+// DEALINGS IN THE SOFTWARE.
+//
+// Description:
+//
+///////////////////////////////////////////////////////////////////////////////
+
+#include <MultiRegions/ExpList.h>
+#include <MultiRegions/ExpListHomogeneous1D.h>
+#include <MultiRegions/ExpListHomogeneous2D.h>
+
+#include <Operators/Field/Block.hpp>
+
+namespace Nektar::Operators
+{
+
+/**
+ * @brief Get the BlockAttributes for a given field state from an ExpList.
+ * This method basically captures identical elements that are contiguously
+ * stored in the ExpList and group them into blocks. Padding elements will
+ * also be set based on given vector width.
+ *
+ * @param state     Field state to query.
+ * @param explist   Expansion list to query.
+ * @param interleave_width Vector width to use for the field.
+ * @return std::vector<BlockAttributes>
+ */
+template <typename TData>
+std::vector<BlockAttributes> GetBlockAttributes(
+    FieldState state, const MultiRegions::ExpListSharedPtr explist,
+    const unsigned interleave_width)
+{
+    // Use maximum vector width for back-ends interoperability.
+    const auto vector_width = NektarSpaces::max_vector_width<TData>::value;
+
+    std::vector<BlockAttributes> blockAttr;
+
+    Collections::CollectionVector colls;
+    auto explistHomo1D =
+        std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(explist);
+    auto explistHomo2D =
+        std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous2D>(explist);
+    if (explistHomo1D)
+    {
+        colls = explistHomo1D->GetPlane(0)->GetCollections();
+    }
+    else if (explistHomo2D)
+    {
+        colls = explistHomo2D->GetLine(0)->GetCollections();
+    }
+    else
+    {
+        colls = explist->GetCollections();
+    }
+
+    for (auto &coll : colls)
+    {
+        auto expPtr               = coll.GetExpVector()[0];
+        const size_t exp_idx      = expPtr->GetElmtId();
+        const size_t num_elements = coll.GetExpVector().size();
+        const unsigned int ndata  = state == FieldState::Phys
+                                        ? expPtr->GetTotPoints()
+                                        : expPtr->GetNcoeffs();
+        size_t num_elements_with_padding =
+            ((num_elements + vector_width - 1) / vector_width) * vector_width;
+        blockAttr.push_back({exp_idx, num_elements, num_elements_with_padding,
+                             ndata, interleave_width});
+    }
+
+    return blockAttr;
+}
+
+template std::vector<BlockAttributes> GetBlockAttributes<double>(
+    FieldState state, const MultiRegions::ExpListSharedPtr explist,
+    const unsigned interleave_width);
+
+template std::vector<BlockAttributes> GetBlockAttributes<float>(
+    FieldState state, const MultiRegions::ExpListSharedPtr explist,
+    const unsigned interleave_width);
+
+template std::vector<BlockAttributes> GetBlockAttributes<int>(
+    FieldState state, const MultiRegions::ExpListSharedPtr explist,
+    const unsigned interleave_width);
+
+template std::vector<BlockAttributes> GetBlockAttributes<unsigned int>(
+    FieldState state, const MultiRegions::ExpListSharedPtr explist,
+    const unsigned interleave_width);
+
+template std::vector<BlockAttributes> GetBlockAttributes<size_t>(
+    FieldState state, const MultiRegions::ExpListSharedPtr explist,
+    const unsigned interleave_width);
+
+} // namespace Nektar::Operators

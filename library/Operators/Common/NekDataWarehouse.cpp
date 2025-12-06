@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: ModeIndexDataWarehouse.hpp
+// File: NekDataWarehouse.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,67 +28,43 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: DataWarehouse pattern class for Nektar
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#pragma once
-
 #include "Operators/Common/NekDataWarehouse.hpp"
+
+#include <MultiRegions/ExpListHomogeneous1D.h>
+#include <MultiRegions/ExpListHomogeneous2D.h>
 
 namespace Nektar::Operators
 {
 
-class ModeIndexCreator;
-
-class ModeIndexKey : public BaseKey
+// Helper function
+Collections::Collection GetCollection(
+    MultiRegions::ExpListSharedPtr expansionList, unsigned int block_idx)
 {
-    friend class ModeIndexCreator;
-
-public:
-    using creator = ModeIndexCreator;
-    typedef unsigned int value_type;
-
-    ~ModeIndexKey() override = default;
-
-    ModeIndexKey(const LibUtilities::ShapeType shapeType,
-                 const unsigned int nm0, const unsigned int nm1,
-                 const unsigned int mode)
-        : m_shapeType(shapeType), m_nm0(nm0), m_nm1(nm1), m_mode(mode)
+    MultiRegions::ExpListSharedPtr tmp;
+    auto explistHomo1D =
+        std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(
+            expansionList);
+    auto explistHomo2D =
+        std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous2D>(
+            expansionList);
+    if (explistHomo1D)
     {
-        hash_combine(m_hash, m_shapeType, m_nm0, m_nm1, m_nm2, m_mode,
-                     "ModeIndexKey");
+        tmp = explistHomo1D->GetPlane(0);
+    }
+    else if (explistHomo2D)
+    {
+        tmp = explistHomo2D->GetLine(0);
+    }
+    else
+    {
+        tmp = expansionList;
     }
 
-    ModeIndexKey(const LibUtilities::ShapeType shapeType,
-                 const unsigned int nm0, const unsigned int nm1,
-                 const unsigned int nm2, const unsigned int mode)
-        : m_shapeType(shapeType), m_nm0(nm0), m_nm1(nm1), m_nm2(nm2),
-          m_mode(mode)
-    {
-        hash_combine(m_hash, m_shapeType, m_nm0, m_nm1, m_nm2, m_mode,
-                     "ModeIndexKey");
-    }
-
-private:
-    LibUtilities::ShapeType m_shapeType;
-    unsigned int m_nm0 = 0;
-    unsigned int m_nm1 = 0;
-    unsigned int m_nm2 = 0;
-    unsigned int m_mode;
-};
-
-class ModeIndexCreator : public DataCreatorClass
-{
-public:
-    ~ModeIndexCreator() override = default;
-
-    using value_type = ModeIndexKey::value_type;
-
-    template <typename MemSpace>
-    MemoryRegion<value_type> Create(const ModeIndexKey &modeIndexKey);
-
-    inline static const std::string m_name = "ModeIndexCreator";
-};
+    return tmp->GetCollections()[block_idx];
+}
 
 } // namespace Nektar::Operators

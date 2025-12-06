@@ -34,6 +34,8 @@
 
 #pragma once
 
+#include <boost/algorithm/string.hpp>
+
 #include "Operators/ElmtOps/ElmtOp.hpp"
 
 #include "Operators/ElmtOps/Expression/ExpressionBlockOp.hpp"
@@ -59,8 +61,7 @@ public:
                 ExpressionOp, ExpressionBlockOp>(expansionList, execStr,
                                                  implStr);
 
-        auto session   = expansionList->GetSession();
-        auto numFields = session->GetVariables().size();
+        auto numFields = expansionList->GetSession()->GetVariables().size();
 
         // Gather all expressions defined in session file
         std::vector<LibUtilities::EquationSharedPtr> expressions;

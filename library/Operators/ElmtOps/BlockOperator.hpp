@@ -43,7 +43,7 @@
 #include "Operators/Common/NekDataWarehouse.hpp"
 #include "Operators/Common/StdMatDataWarehouse.hpp"
 
-#include "Operators/Field/Field.hpp"
+#include "Operators/Field/Block.hpp"
 
 namespace Nektar::Operators
 {

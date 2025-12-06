@@ -91,5 +91,4 @@ public:
 protected:
     std::string meshName = "";
     LibUtilities::SessionReaderSharedPtr session;
-    std::string testModule{STRVX(BOOST_TEST_MODULE)};
 };

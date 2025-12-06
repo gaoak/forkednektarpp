@@ -34,6 +34,8 @@
 
 #pragma once
 
+#include <MultiRegions/ContField.h>
+
 #include "Operators/Common/Operator.hpp"
 
 namespace Nektar::Operators

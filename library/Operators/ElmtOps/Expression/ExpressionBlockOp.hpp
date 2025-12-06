@@ -34,6 +34,7 @@
 
 #pragma once
 
+#include "LibUtilities/BasicUtils/Equation.h"
 #include "Operators/ElmtOps/BlockOperator.hpp"
 
 namespace Nektar::Operators

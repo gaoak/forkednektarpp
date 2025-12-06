@@ -584,6 +584,14 @@ SET(OPERATORS_HEADERS
     Common/Operator.hpp
     Common/DeviceProperties.hpp
     Common/MemoryAlloc.hpp
+    Common/BasisDataWarehouse.hpp
+    Common/GeometricDataWarehouse.hpp
+    Common/LocalToGlobalDataWarehouse.hpp
+    Common/ModeIndexDataWarehouse.hpp
+    Common/NekDataWarehouse.hpp
+    Common/StdMatDataWarehouse.hpp
+    Field/Block.hpp
+    Field/Field.hpp
     ElmtOps/BlockOperator.hpp
     Math/Math.hpp
     NekBlas/NekBlas.hpp
@@ -594,7 +602,14 @@ SET(OPERATORS_HEADERS
 SET(OPERATORS_SOURCES
     Common/Operator.cpp
     Common/DeviceProperties.cpp
+    Common/BasisDataWarehouse.cpp
+    Common/GeometricDataWarehouse.cpp
+    Common/LocalToGlobalDataWarehouse.cpp
+    Common/ModeIndexDataWarehouse.cpp
+    Common/NekDataWarehouse.cpp
+    Common/StdMatDataWarehouse.cpp
     ElmtOps/BlockOperator.cpp
+    Field/Block.cpp
     NekBlas/blas.cpp
     NekBlas/blasHandle.cpp
     )
