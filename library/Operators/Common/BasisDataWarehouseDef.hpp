@@ -34,10 +34,9 @@
 
 #pragma once
 
-#include <LibUtilities/Foundations/ManagerAccess.h> // for BasisManager, etc
-#include <LibUtilities/SimdLib/tinysimd.hpp>
-
 #include "Operators/Common/BasisDataWarehouse.hpp"
+
+#include <LibUtilities/Foundations/ManagerAccess.h> // for BasisManager, etc
 
 #if defined(_MSC_VER)
 #undef max

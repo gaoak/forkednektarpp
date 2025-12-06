@@ -48,7 +48,6 @@
 #include <LibUtilities/BasicUtils/HashUtils.hpp>
 
 #include "Operators/Field/MemoryRegion.hpp"
-#include <Collections/Collection.h>
 
 // Forward declaration
 namespace Nektar::MultiRegions
@@ -217,9 +216,5 @@ private:
 };
 
 typedef std::shared_ptr<NekDataWarehouse> NekDataWarehouseSharedPtr;
-
-// Helper function
-Collections::Collection GetCollection(
-    MultiRegions::ExpListSharedPtr expansionList, unsigned int block_idx);
 
 } // namespace Nektar::Operators

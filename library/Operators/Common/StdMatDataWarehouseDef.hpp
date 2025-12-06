@@ -34,6 +34,8 @@
 
 #pragma once
 
+#include "Operators/Common/StdMatDataWarehouse.hpp"
+
 #include <LibUtilities/Foundations/Interp.h>
 #include <StdRegions/StdHexExp.h>
 #include <StdRegions/StdNodalPrismExp.h>
@@ -46,8 +48,6 @@
 #include <StdRegions/StdSegExp.h>
 #include <StdRegions/StdTetExp.h>
 #include <StdRegions/StdTriExp.h>
-
-#include "Operators/Common/StdMatDataWarehouse.hpp"
 
 #if defined(_MSC_VER)
 #undef max

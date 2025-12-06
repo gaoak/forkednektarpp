@@ -588,7 +588,6 @@ SET(OPERATORS_HEADERS
     Common/GeometricDataWarehouse.hpp
     Common/LocalToGlobalDataWarehouse.hpp
     Common/ModeIndexDataWarehouse.hpp
-    Common/NekDataWarehouse.hpp
     Common/StdMatDataWarehouse.hpp
     Field/Block.hpp
     Field/Field.hpp
@@ -606,7 +605,6 @@ SET(OPERATORS_SOURCES
     Common/GeometricDataWarehouse.cpp
     Common/LocalToGlobalDataWarehouse.cpp
     Common/ModeIndexDataWarehouse.cpp
-    Common/NekDataWarehouse.cpp
     Common/StdMatDataWarehouse.cpp
     ElmtOps/BlockOperator.cpp
     Field/Block.cpp

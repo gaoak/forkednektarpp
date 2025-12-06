@@ -34,6 +34,8 @@
 
 #pragma once
 
+#include <LibUtilities/BasicUtils/ShapeType.hpp>
+
 #include "Operators/Common/ModeIndexDataWarehouse.hpp"
 
 #if defined(_MSC_VER)

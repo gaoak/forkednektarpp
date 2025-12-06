@@ -35,8 +35,8 @@
 #pragma once
 
 #include "Operators/Common/LocalToGlobalDataWarehouse.hpp"
-
 #include "Operators/Field/Field.hpp"
+
 #include <MultiRegions/ContField.h>
 
 namespace Nektar::Operators
