@@ -583,7 +583,7 @@ ENDMACRO()
 SET(OPERATORS_HEADERS
     Common/Operator.hpp
     Common/DeviceProperties.hpp
-    Field/MemoryAlloc.hpp
+    Common/MemoryAlloc.hpp
     ElmtOps/BlockOperator.hpp
     Math/Math.hpp
     NekBlas/NekBlas.hpp
@@ -753,7 +753,7 @@ ENDIF()
 IF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
-       Field/MemoryAlloc.cu
+       Common/MemoryAlloc.cu
     )
 
     SET(OPERATORS_DEPENDS
@@ -763,7 +763,7 @@ IF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
 ELSEIF(NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
-       Field/MemoryAlloc.hip
+       Common/MemoryAlloc.hip
     )
 
     SET(OPERATORS_DEPENDS
