@@ -34,9 +34,9 @@
 
 #pragma once
 
-#include <LibUtilities/Foundations/Basis.h>
-
 #include "Operators/Common/NekDataWarehouse.hpp"
+
+#include <LibUtilities/Foundations/Basis.h>
 
 namespace Nektar::Operators
 {

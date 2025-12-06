@@ -41,6 +41,57 @@
 namespace Nektar::Operators
 {
 
+// Helper function
+Collections::Collection GetCollection(
+    MultiRegions::ExpListSharedPtr expansionList, unsigned int block_idx)
+{
+    MultiRegions::ExpListSharedPtr tmp;
+    auto explistHomo1D =
+        std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(
+            expansionList);
+    auto explistHomo2D =
+        std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous2D>(
+            expansionList);
+    if (explistHomo1D)
+    {
+        tmp = explistHomo1D->GetPlane(0);
+    }
+    else if (explistHomo2D)
+    {
+        tmp = explistHomo2D->GetLine(0);
+    }
+    else
+    {
+        tmp = expansionList;
+    }
+
+    return tmp->GetCollections()[block_idx];
+}
+
+Collections::CollectionVector GetCollection(
+    MultiRegions::ExpListSharedPtr expansionList)
+{
+    MultiRegions::ExpListSharedPtr tmp;
+    auto explistHomo1D =
+        std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(
+            expansionList);
+    auto explistHomo2D =
+        std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous2D>(
+            expansionList);
+    if (explistHomo1D)
+    {
+        return explistHomo1D->GetPlane(0)->GetCollections();
+    }
+    else if (explistHomo2D)
+    {
+        return explistHomo2D->GetLine(0)->GetCollections();
+    }
+    else
+    {
+        return expansionList->GetCollections();
+    }
+}
+
 /**
  * @brief Get the BlockAttributes for a given field state from an ExpList.
  * This method basically captures identical elements that are contiguously
@@ -62,24 +113,7 @@ std::vector<BlockAttributes> GetBlockAttributes(
 
     std::vector<BlockAttributes> blockAttr;
 
-    Collections::CollectionVector colls;
-    auto explistHomo1D =
-        std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(explist);
-    auto explistHomo2D =
-        std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous2D>(explist);
-    if (explistHomo1D)
-    {
-        colls = explistHomo1D->GetPlane(0)->GetCollections();
-    }
-    else if (explistHomo2D)
-    {
-        colls = explistHomo2D->GetLine(0)->GetCollections();
-    }
-    else
-    {
-        colls = explist->GetCollections();
-    }
-
+    auto colls = GetCollection(explist);
     for (auto &coll : colls)
     {
         auto expPtr               = coll.GetExpVector()[0];

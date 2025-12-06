@@ -36,6 +36,9 @@
 
 #include "Operators/Common/NekDataWarehouse.hpp"
 
+#include <LibUtilities/BasicUtils/ShapeType.hpp>
+#include <LibUtilities/Foundations/Basis.h>
+
 namespace Nektar::Operators
 {
 

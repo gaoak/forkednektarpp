@@ -35,9 +35,9 @@
 #pragma once
 
 #include <Operators/Common/GeometricDataWarehouse.hpp>
+#include <Operators/Field/Block.hpp>
 
-#include <MultiRegions/ExpListHomogeneous1D.h>
-#include <MultiRegions/ExpListHomogeneous2D.h>
+#include <MultiRegions/ExpList.h>
 
 #if defined(_MSC_VER)
 #undef max

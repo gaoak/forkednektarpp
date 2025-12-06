@@ -34,6 +34,8 @@
 
 #pragma once
 
+#include <Collections/Collection.h>
+
 #include "MemoryRegion.hpp"
 
 // Forward declaration
@@ -49,6 +51,10 @@ typedef std::shared_ptr<ExpList> ExpListSharedPtr;
 
 namespace Nektar::Operators
 {
+
+// Helper function
+Collections::Collection GetCollection(
+    MultiRegions::ExpListSharedPtr expansionList, unsigned int block_idx);
 
 template <typename MemSpace, typename TData>
 void AllocateFieldStorage(FieldBase<TData> *field);
