@@ -42,6 +42,7 @@
 namespace Nektar
 {
 
+// Atomics.
 template <typename ExecSpace, typename Scope, typename TData>
 NEK_DEVICE_INLINE
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
@@ -78,6 +79,7 @@ NEK_DEVICE_INLINE
     Nektar::atomic_min<Scope>(dest, val);
 }
 
+// Parallel for kernel.
 template <typename Functor,
           unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
 __global__ __launch_bounds__(blockSize) void parallel_for(const size_t begin,
@@ -93,6 +95,20 @@ __global__ __launch_bounds__(blockSize) void parallel_for(const size_t begin,
     }
 }
 
+// Parallel for launchers.
+template <typename ExecSpace, typename Functor>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
+parallel_for(const size_t begin, const size_t end, const Functor &functor)
+{
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int gridSize  = ((end - begin) + blockSize - 1u) / blockSize;
+
+    parallel_for<<<gridSize, blockSize>>>(begin, end, functor);
+    CHECK_LAST_HIPCUDA_ERROR();
+}
+
+// Reduction kernels.
 template <bool init, typename TData, typename Functor,
           unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
 __global__ __launch_bounds__(blockSize) void reduceSumKernel(
@@ -252,19 +268,7 @@ __global__ __launch_bounds__(blockSize) void reduceMinKernel(
     }
 }
 
-// Launchers for the kernels
-template <typename ExecSpace, typename Functor>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-parallel_for(const size_t begin, const size_t end, const Functor &functor)
-{
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = ((end - begin) + blockSize - 1u) / blockSize;
-
-    parallel_for<<<gridSize, blockSize>>>(begin, end, functor);
-    CHECK_LAST_HIPCUDA_ERROR();
-}
-
+// Parallel reduction launchers without device-to-host copy.
 template <typename ExecSpace, bool init, typename Reduction, typename Functor>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
@@ -324,6 +328,7 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
     }
 }
 
+// Parallel reduction launchers with device-to-host copy.
 template <typename ExecSpace, typename Reduction, typename Functor>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type

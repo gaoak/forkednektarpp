@@ -529,6 +529,5 @@ protected:
     Field<double, FieldState::Phys> *fixt_expected = nullptr;
     std::shared_ptr<MultiRegions::ExpList> fixt_explist;
     LibUtilities::SessionReaderSharedPtr session;
-    std::string testModule{STRVX(BOOST_TEST_MODULE)};
     Math math;
 };

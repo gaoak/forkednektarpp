@@ -39,6 +39,7 @@
 namespace Nektar
 {
 
+// Atomics.
 template <typename ExecSpace, typename Scope, typename TData>
 NEK_DEVICE_INLINE
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
@@ -75,6 +76,7 @@ NEK_DEVICE_INLINE
     *dest = std::min(*dest, val);
 }
 
+// Parallel for launchers.
 template <typename ExecSpace, typename Functor>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
@@ -86,6 +88,7 @@ parallel_for(const size_t begin, const size_t end, const Functor &functor)
     }
 }
 
+// Parallel reduction launchers without device-to-host copy.
 template <typename ExecSpace, bool init, typename Reduction, typename Functor>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
@@ -127,6 +130,7 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
     }
 }
 
+// Parallel reduction launchers with device-to-host copy.
 template <typename ExecSpace, typename Reduction, typename Functor>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type

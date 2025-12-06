@@ -70,10 +70,6 @@
 #include <type_traits>
 #include <vector>
 
-// Helps turn defines into usable strings (even if it has a comma in it)
-#define STRV(...) #__VA_ARGS__
-#define STRVX(...) STRV(__VA_ARGS__)
-
 #if defined(_MSC_VER)
 #undef max
 #undef min
@@ -157,7 +153,6 @@ public:
 
 protected:
     CommSharedPtr m_comm = nullptr;
-    std::string testModule{STRVX(BOOST_TEST_MODULE)};
 };
 
 #if defined(LOCALLY_DEFINED_BOOST_TEST_DYN_LINK)
