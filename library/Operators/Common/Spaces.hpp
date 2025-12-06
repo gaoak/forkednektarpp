@@ -242,18 +242,6 @@ static unsigned int GetVectorWidth(const std::string &execName)
     }
 }
 
-// NEKTAR_LAMBDA
-// NOTE: This is used for LoopExecution.hpp
-#if defined(NEKTAR_ENABLE_CUDA) && defined(DEVICE_COMPILE_ONLY)
-#define NEKTAR_LAMBDA [=] __device__
-#elif defined(NEKTAR_ENABLE_HIP) && defined(DEVICE_COMPILE_ONLY)
-#define NEKTAR_LAMBDA [=] __host__ __device__
-#elif defined(NEKTAR_ENABLE_SYCL)
-#define NEKTAR_LAMBDA [=]
-#else
-#define NEKTAR_LAMBDA [&]
-#endif
-
 // NEK_DEVICE_INLINE
 // Used to define a device function (e.g. a function launched
 // from a kernel function and executing on the device). All
@@ -303,6 +291,19 @@ namespace Nektar
     CHECK_HIPCUDA_ERROR(cudaDeviceSynchronize());
 #elif defined(NEKTAR_ENABLE_HIP)
     CHECK_HIPCUDA_ERROR(hipDeviceSynchronize());
+#elif defined(NEKTAR_ENABLE_SYCL)
+    SYCLQueue::GetInstance().wait();
+#endif
+}
+
+template <typename Tstream>
+[[maybe_unused]] static inline void nekStreamSynchronize(
+    [[maybe_unused]] Tstream &stream)
+{
+#if defined(NEKTAR_ENABLE_CUDA)
+    CHECK_HIPCUDA_ERROR(cudaStreamSynchronize(stream));
+#elif defined(NEKTAR_ENABLE_HIP)
+    CHECK_HIPCUDA_ERROR(hipStreamSynchronize(stream));
 #elif defined(NEKTAR_ENABLE_SYCL)
     SYCLQueue::GetInstance().wait();
 #endif

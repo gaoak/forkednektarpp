@@ -28,7 +28,11 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: Provide support for Nektar::parallel_for and
+// Nektar::paralle_reduce portablity functions. Nektar::parallel_for and
+// Nektar::paralle_reduce should only be used within an Operator class and not
+// at the solver level. Nektar::parallel_for does NOT have provision for shared
+// memory and in-kernel memory synchronization.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -43,6 +47,24 @@
 namespace Nektar
 {
 
+// NEKTAR_LAMBDA
+// Use in Nektar::parallel_for:
+//   Nektar::parallel_for<ExecSpace>(...,
+//       NEKTAR_LAMBDA(const size_t idx) { ... });
+// and Nektar::parallel_reduce:
+//   Nektar::parallel_reduce<ExecSpace, Reduce>(
+//       0, size, NEKTAR_LAMBDA(size_t idx) { ... }, tmp);
+#if defined(NEKTAR_ENABLE_CUDA) && defined(DEVICE_COMPILE_ONLY)
+#define NEKTAR_LAMBDA [=] __device__
+#elif defined(NEKTAR_ENABLE_HIP) && defined(DEVICE_COMPILE_ONLY)
+#define NEKTAR_LAMBDA [=] __host__ __device__
+#elif defined(NEKTAR_ENABLE_SYCL)
+#define NEKTAR_LAMBDA [=]
+#else
+#define NEKTAR_LAMBDA [&]
+#endif
+
+// Reduction
 template <typename TData> class ReduceSum
 {
 public:
