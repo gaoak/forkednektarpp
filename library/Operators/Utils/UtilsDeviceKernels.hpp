@@ -34,8 +34,8 @@
 
 #pragma once
 
+#include "Operators/Common/MemoryAlloc.hpp"
 #include "Operators/Common/Spaces.hpp"
-#include "Operators/Field/MemoryAlloc.hpp"
 
 namespace Nektar
 {

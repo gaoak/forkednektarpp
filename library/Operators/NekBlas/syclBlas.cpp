@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Operators/Field/MemoryAlloc.hpp"
+#include "Operators/Common/MemoryAlloc.hpp"
 #include "Operators/NekBlas/NekBlas.hpp"
 
 #if __has_include("oneapi/math.hpp")
