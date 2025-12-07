@@ -37,47 +37,6 @@
 namespace Nektar
 {
 
-// Atomics.
-template <typename ExecSpace, typename Scope, typename TData>
-inline
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
-                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                            void>::type
-    atomic_add(TData *const dest, const TData val)
-{
-    *dest += val;
-}
-
-template <typename ExecSpace, typename Scope, typename TData>
-inline
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
-                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                            void>::type
-    atomic_sub(TData *const dest, const TData val)
-{
-    *dest -= val;
-}
-
-template <typename ExecSpace, typename Scope, typename TData>
-inline
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
-                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                            void>::type
-    atomic_max(TData *const dest, const TData val)
-{
-    *dest = std::max(*dest, val);
-}
-
-template <typename ExecSpace, typename Scope, typename TData>
-inline
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
-                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                            void>::type
-    atomic_min(TData *const dest, const TData val)
-{
-    *dest = std::min(*dest, val);
-}
-
 // Parallel for launchers.
 template <typename ExecSpace, typename Functor>
 inline

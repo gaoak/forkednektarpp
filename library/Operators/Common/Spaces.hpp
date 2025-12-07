@@ -285,6 +285,13 @@ struct LocalScope
 namespace Nektar
 {
 
+#if defined(NEKTAR_ENABLE_DEVICE)
+extern void *internalMemoryBuffer;
+extern void *internalDeviceBuffer;
+extern void *internalHostBuffer;
+extern unsigned int internalMaxDataSizeByte;
+#endif
+
 [[maybe_unused]] static inline void nekDeviceSynchronize(void)
 {
 #if defined(NEKTAR_ENABLE_CUDA)
@@ -394,11 +401,6 @@ template <unsigned int ndim> class hipcudaBlock
     KERNEL<<<GRIDSIZE, BLOCKSIZE, 0, STREAM>>>(__VA_ARGS__,                    \
                                                hipcudaBlock<3>());             \
     CHECK_LAST_HIPCUDA_ERROR();
-
-static void *internalHIPCUDABuffer                 = nullptr;
-static void *internalHIPCUDADeviceBuffer           = nullptr;
-static void *internalHIPCUDAHostBuffer             = nullptr;
-static unsigned int internalHIPCUDAMaxDataSizeByte = 16;
 
 namespace cg = cooperative_groups;
 
@@ -1291,11 +1293,6 @@ NEK_DEVICE_INLINE int localBarrier_count(
                              KERNEL(__VA_ARGS__, item_ct1);                    \
                          });                                                   \
     });
-
-static void *internalSYCLBuffer                 = nullptr;
-static void *internalSYCLDeviceBuffer           = nullptr;
-static void *internalSYCLHostBuffer             = nullptr;
-static unsigned int internalSYCLMaxDataSizeByte = 16;
 
 NEK_DEVICE_INLINE static unsigned int getLocalIdx(
     const sycl::nd_item<1> &threadBlock)
