@@ -60,18 +60,18 @@ public:
             expansionList, execStr, implStr);
 
         // Loop over the blocks.
-        auto blocks =
+        auto blockAttr =
             GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
 
         for (unsigned int blk = 0; blk < op->m_blockOp.size(); ++blk)
         {
             std::vector<TData> dmat;
-            const auto exp   = expansionList->GetExp(blocks[blk].GetExpIdx());
+            const auto exp = expansionList->GetExp(blockAttr[blk].GetExpIdx());
             const auto nmTot = exp->GetNcoeffs();
             const auto deformed =
                 exp->GetGeomFactors()->GetGtype() == SpatialDomains::eDeformed;
-            const auto nelmt    = blocks[blk].GetNumElements();
-            const auto nelmtPad = blocks[blk].GetNumElementsWithPadding();
+            const auto nelmt    = blockAttr[blk].GetNumElements();
+            const auto nelmtPad = blockAttr[blk].GetNumElementsWithPadding();
 
             if (deformed)
             {
@@ -80,7 +80,7 @@ public:
                 for (size_t e = 0; e < nelmt; ++e)
                 {
                     const auto exp =
-                        expansionList->GetExp(blocks[blk].GetExpIdx() + e);
+                        expansionList->GetExp(blockAttr[blk].GetExpIdx() + e);
                     const auto &InvMass =
                         exp->GetLocMatrix(StdRegions::eInvMass);
                     std::copy_n(InvMass->GetRawPtr(), nmTot * nmTot, dmatptr);

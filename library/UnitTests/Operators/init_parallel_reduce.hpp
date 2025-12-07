@@ -82,9 +82,9 @@ public:
         fixt_explist = MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
             session, graph, true, "u", Collections::eNoCollection);
 
-        auto blocks_in =
+        auto blocksAttr =
             GetBlockAttributes<double>(FieldState::Phys, fixt_explist);
-        auto f_in = Field<double, FieldState::Phys>("f_in", blocks_in, 1, 1);
+        auto f_in = Field<double, FieldState::Phys>("f_in", blocksAttr, 1, 1);
         fixt_in   = new Field<double, FieldState::Phys>(std::move(f_in));
     }
 

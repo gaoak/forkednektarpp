@@ -96,13 +96,13 @@ public:
         fixt_explist = MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
             session, graph, true, "u", Collections::eNoCollection);
 
-        auto blocks =
+        auto blockAttr =
             GetBlockAttributes<double>(FieldState::Phys, fixt_explist);
-        auto f_in  = Field<double, FieldState::Phys>("f_in", blocks, 1, 1);
-        auto f_in2 = Field<double, FieldState::Phys>("f_in2", blocks, 1, 1);
-        auto f_out = Field<double, FieldState::Phys>("f_out", blocks, 1, 1);
+        auto f_in  = Field<double, FieldState::Phys>("f_in", blockAttr, 1, 1);
+        auto f_in2 = Field<double, FieldState::Phys>("f_in2", blockAttr, 1, 1);
+        auto f_out = Field<double, FieldState::Phys>("f_out", blockAttr, 1, 1);
         auto f_expected =
-            Field<double, FieldState::Phys>("f_expected", blocks, 1, 1);
+            Field<double, FieldState::Phys>("f_expected", blockAttr, 1, 1);
         fixt_in  = new Field<double, FieldState::Phys>(std::move(f_in));
         fixt_in2 = new Field<double, FieldState::Phys>(std::move(f_in2));
         fixt_out = new Field<double, FieldState::Phys>(std::move(f_out));

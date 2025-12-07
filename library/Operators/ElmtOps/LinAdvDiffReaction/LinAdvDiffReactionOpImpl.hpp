@@ -67,12 +67,11 @@ protected:
                      const Array<OneD, NekDouble> &Vel) override
     {
         // Set up a physBlockAttributes which will be
-        std::vector<BlockAttributes> physBlockAttributes =
-            GetBlockAttributes<TData>(FieldState::Phys, this->m_expansionList,
-                                      1);
+        std::vector<BlockAttributes> blockAttr = GetBlockAttributes<TData>(
+            FieldState::Phys, this->m_expansionList, 1);
 
-        this->m_advVel = Field<TData, FieldState::Phys>(
-            "Advection Field", physBlockAttributes, nVel, 1);
+        this->m_advVel = Field<TData, FieldState::Phys>("Advection Field",
+                                                        blockAttr, nVel, 1);
 
         this->m_advVel.template CopyArray<NektarSpaces::HostSpace>(Vel);
 

@@ -132,33 +132,33 @@ void GetExpectedResults(const std::string &opName,
 /// total information for each rank. Caution: for many ranks and many
 /// blocks, setting verbose may cause the display content too big to read.
 void PrintBlockInfo(const MultiRegions::ExpListSharedPtr &expList,
-                    const std::vector<BlockAttributes> &blocks,
+                    const std::vector<BlockAttributes> &blockAttr,
                     std::vector<double> &rankL1Err)
 {
     auto comm                 = expList->GetComm();
     unsigned int nrank        = comm->GetSize();
-    auto rankBlockNum         = std::vector<unsigned int>(1, blocks.size());
-    auto rankBlockNumDofs     = std::vector<size_t>(blocks.size(), 0);
-    auto rankBlockNumData     = std::vector<unsigned int>(blocks.size(), 0);
-    auto rankBlockNumElmts    = std::vector<size_t>(blocks.size(), 0);
-    auto rankBlockNumPaddings = std::vector<size_t>(blocks.size(), 0);
+    auto rankBlockNum         = std::vector<unsigned int>(1, blockAttr.size());
+    auto rankBlockNumDofs     = std::vector<size_t>(blockAttr.size(), 0);
+    auto rankBlockNumData     = std::vector<unsigned int>(blockAttr.size(), 0);
+    auto rankBlockNumElmts    = std::vector<size_t>(blockAttr.size(), 0);
+    auto rankBlockNumPaddings = std::vector<size_t>(blockAttr.size(), 0);
     auto rankNumDofs          = std::vector<size_t>(1, 0);
     auto rankNumElmts         = std::vector<size_t>(1, 0);
     auto rankNumPaddings      = std::vector<size_t>(1, 0);
     auto rankGeomTypes        = std::vector<unsigned int>(1, 0);
 
     // Collect total information for each rank.
-    for (size_t i = 0, expId = 0; i < blocks.size(); ++i)
+    for (size_t i = 0, expId = 0; i < blockAttr.size(); ++i)
     {
-        rankBlockNumDofs[i]  = blocks[i].size();
-        rankBlockNumData[i]  = blocks[i].GetNumData();
-        rankBlockNumElmts[i] = blocks[i].GetNumElements();
-        rankBlockNumPaddings[i] =
-            blocks[i].GetNumElementsWithPadding() - blocks[i].GetNumElements();
-        rankNumDofs[0] += blocks[i].size();
-        rankNumElmts[0] += blocks[i].GetNumElements();
-        rankNumPaddings[0] +=
-            blocks[i].GetNumElementsWithPadding() - blocks[i].GetNumElements();
+        rankBlockNumDofs[i]     = blockAttr[i].size();
+        rankBlockNumData[i]     = blockAttr[i].GetNumData();
+        rankBlockNumElmts[i]    = blockAttr[i].GetNumElements();
+        rankBlockNumPaddings[i] = blockAttr[i].GetNumElementsWithPadding() -
+                                  blockAttr[i].GetNumElements();
+        rankNumDofs[0] += blockAttr[i].size();
+        rankNumElmts[0] += blockAttr[i].GetNumElements();
+        rankNumPaddings[0] += blockAttr[i].GetNumElementsWithPadding() -
+                              blockAttr[i].GetNumElements();
 
         // Check the geometry type of the block: deformed or regular
         // if both types exist in the same rank, then it is labeled as mixed.
@@ -279,8 +279,8 @@ void PrintBlockInfo(const MultiRegions::ExpListSharedPtr &expList,
 template <typename TData>
 void PrintProfileResult(const CommSharedPtr comm,
                         std::vector<double> &rankElapsed,
-                        const std::vector<BlockAttributes> &inblocks,
-                        const std::vector<BlockAttributes> &outblocks)
+                        const std::vector<BlockAttributes> &inblockAttr,
+                        const std::vector<BlockAttributes> &outblockAttr)
 {
     // Collect elapsed time and compute the max, min, and average.
     unsigned int nrank  = comm->GetSize();
@@ -288,13 +288,13 @@ void PrintProfileResult(const CommSharedPtr comm,
     auto rankNumOutDofs = std::vector<size_t>(1, 0);
 
     // Collect total information for each rank.
-    for (unsigned int i = 0; i < inblocks.size(); ++i)
+    for (unsigned int i = 0; i < inblockAttr.size(); ++i)
     {
-        rankNumInDofs[0] += inblocks[i].size();
+        rankNumInDofs[0] += inblockAttr[i].size();
     }
-    for (unsigned int i = 0; i < outblocks.size(); ++i)
+    for (unsigned int i = 0; i < outblockAttr.size(); ++i)
     {
-        rankNumOutDofs[0] += outblocks[i].size();
+        rankNumOutDofs[0] += outblockAttr[i].size();
     }
 
     auto allRankElapsed    = comm->Gather(0, rankElapsed);
@@ -383,13 +383,14 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
             expList->GetCoordim(0), vel);
     }
 
-    // Create blocks.
-    auto blocks_in  = GetBlockAttributes<TData>(stateIn, expList);
-    auto blocks_out = GetBlockAttributes<TData>(stateOut, expList);
+    // Create block attributes.
+    auto inblockAttr  = GetBlockAttributes<TData>(stateIn, expList);
+    auto outblockAttr = GetBlockAttributes<TData>(stateOut, expList);
 
     // Create fields.
-    auto in  = Field<TData, stateIn>("f_in", blocks_in, nIn * nComp, nHomo);
-    auto out = Field<TData, stateOut>("f_out", blocks_out, nOut * nComp, nHomo);
+    auto in = Field<TData, stateIn>("f_in", inblockAttr, nIn * nComp, nHomo);
+    auto out =
+        Field<TData, stateOut>("f_out", outblockAttr, nOut * nComp, nHomo);
 
     // Initialize the in field to random non-zeros: 1 2 3 4 ...
     for (size_t i = 0; i < in.GetBlocks().size(); ++i)
@@ -474,7 +475,7 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
         std::cout << "Input field: " << nComp * nIn << " components"
                   << std::endl;
     }
-    PrintBlockInfo(expList, blocks_in, rankL1Error);
+    PrintBlockInfo(expList, inblockAttr, rankL1Error);
 
     // First check if the output is all zeros.
     TData L2;
@@ -532,7 +533,7 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
         std::cout << "Output field: " << nComp * nOut << " components"
                   << std::endl;
     }
-    PrintBlockInfo(expList, blocks_out, rankL1Error);
+    PrintBlockInfo(expList, outblockAttr, rankL1Error);
 
     if (comm->GetRank() == 0)
     {
@@ -544,5 +545,5 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
 
     // Collect elapsed time and compute the max, min, and average.
     auto rankElapsed = std::vector<double>(1, timer.TimePerTest(Ntest));
-    PrintProfileResult<TData>(comm, rankElapsed, blocks_in, blocks_out);
+    PrintProfileResult<TData>(comm, rankElapsed, inblockAttr, outblockAttr);
 }

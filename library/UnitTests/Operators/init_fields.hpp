@@ -498,22 +498,22 @@ public:
                     const unsigned int nhomo, const bool trace,
                     const double scale_out)
     {
-        std::vector<BlockAttributes> blocks_in, blocks_out;
+        std::vector<BlockAttributes> inblockAttr, outblockAttr;
 
         if (trace)
         {
-            blocks_in =
+            inblockAttr =
                 GetBlockAttributes<TData>(stateIn, fixt_explist[0]->GetTrace());
         }
         else
         {
-            blocks_in = GetBlockAttributes<TData>(stateIn, fixt_explist[0]);
+            inblockAttr = GetBlockAttributes<TData>(stateIn, fixt_explist[0]);
         }
 
         if (scale_out != 1.0)
         {
             size_t eid = 0;
-            for (unsigned int blk = 0; blk < blocks_in.size(); ++blk)
+            for (unsigned int blk = 0; blk < inblockAttr.size(); ++blk)
             {
                 auto expPtr = fixt_explist[0]->GetExp(eid);
 
@@ -527,24 +527,25 @@ public:
                 }
 
                 BlockAttributes new_block(
-                    blocks_in[blk].GetExpIdx(), blocks_in[blk].GetNumElements(),
-                    blocks_in[blk].GetNumElementsWithPadding(), ndata,
-                    blocks_in[blk].GetInterleaveWidth());
+                    inblockAttr[blk].GetExpIdx(),
+                    inblockAttr[blk].GetNumElements(),
+                    inblockAttr[blk].GetNumElementsWithPadding(), ndata,
+                    inblockAttr[blk].GetInterleaveWidth());
 
-                blocks_out.push_back(new_block);
+                outblockAttr.push_back(new_block);
 
-                eid += blocks_in[blk].GetNumElements();
+                eid += inblockAttr[blk].GetNumElements();
             }
         }
         else
         {
-            blocks_out = GetBlockAttributes<TData>(stateOut, fixt_explist[0]);
+            outblockAttr = GetBlockAttributes<TData>(stateOut, fixt_explist[0]);
         }
 
-        auto f_in  = Field<TData, stateIn>("f_in", blocks_in, nin, nhomo);
-        auto f_out = Field<TData, stateOut>("f_out", blocks_out, nout, nhomo);
+        auto f_in  = Field<TData, stateIn>("f_in", inblockAttr, nin, nhomo);
+        auto f_out = Field<TData, stateOut>("f_out", outblockAttr, nout, nhomo);
         auto f_expected =
-            Field<TData, stateOut>("f_expected", blocks_out, nout, nhomo);
+            Field<TData, stateOut>("f_expected", outblockAttr, nout, nhomo);
         fixt_in       = new Field<TData, stateIn>(std::move(f_in));
         fixt_out      = new Field<TData, stateOut>(std::move(f_out));
         fixt_expected = new Field<TData, stateOut>(std::move(f_expected));

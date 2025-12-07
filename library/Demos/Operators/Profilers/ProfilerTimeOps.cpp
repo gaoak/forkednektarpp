@@ -132,11 +132,12 @@ int main(int argc, char *argv[])
     // Timer.
     Timer timer;
 
-    // Create blocks.
-    auto blocksIn = GetBlockAttributes<TData>(FieldState::Phys, expList);
+    // Create block attributes.
+    auto blockAttr = GetBlockAttributes<TData>(FieldState::Phys, expList);
 
     // Create fields.
-    auto fIn = Field<TData, FieldState::Phys>("f_in", blocksIn, nIn * nComp, 1);
+    auto fIn =
+        Field<TData, FieldState::Phys>("f_in", blockAttr, nIn * nComp, 1);
 
     // Set random output.
     srand(0);

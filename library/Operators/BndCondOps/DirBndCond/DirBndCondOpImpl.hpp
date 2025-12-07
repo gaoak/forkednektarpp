@@ -83,13 +83,13 @@ public:
         }
 
         // Compute block bound.
-        auto blocks =
+        auto blockAttr =
             GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
-        std::vector<size_t> blockBound(blocks.size());
+        std::vector<size_t> blockBound(blockAttr.size());
         size_t bound = 0;
-        for (unsigned int blk = 0; blk < blocks.size(); ++blk)
+        for (unsigned int blk = 0; blk < blockAttr.size(); ++blk)
         {
-            const auto &block = blocks[blk];
+            const auto &block = blockAttr[blk];
             const auto ncoeff = block.GetNumData();
             const auto nelmt  = block.GetNumElements();
             bound += nelmt * ncoeff;
@@ -175,7 +175,7 @@ public:
         std::vector<TData> signBlock;
         unsigned int blk = 0;
         size_t i = 0, offset = 0, nbndCoeffBlock = 0;
-        while (blk < blocks.size())
+        while (blk < blockAttr.size())
         {
             if (i == m_nBndCoeff ||
                 std::get<1>(mapReordered[i]) >= blockBound[blk])
@@ -216,20 +216,21 @@ public:
         // Split locReordered per block.
         if (m_localDirSize > 0)
         {
-            std::vector<size_t> nLocCoeffBlock(blocks.size(), 0);
-            std::vector<std::vector<size_t>> locid0Block(blocks.size());
-            std::vector<std::vector<size_t>> locid1Block(blocks.size());
-            std::vector<std::vector<TData>> locsignBlock(blocks.size());
-            m_nLocCoeffBlock = std::vector<std::vector<size_t>>(blocks.size());
-            m_locid0 =
-                std::vector<std::vector<MemoryRegion<size_t>>>(blocks.size());
-            m_locid1 =
-                std::vector<std::vector<MemoryRegion<size_t>>>(blocks.size());
+            std::vector<size_t> nLocCoeffBlock(blockAttr.size(), 0);
+            std::vector<std::vector<size_t>> locid0Block(blockAttr.size());
+            std::vector<std::vector<size_t>> locid1Block(blockAttr.size());
+            std::vector<std::vector<TData>> locsignBlock(blockAttr.size());
+            m_nLocCoeffBlock =
+                std::vector<std::vector<size_t>>(blockAttr.size());
+            m_locid0 = std::vector<std::vector<MemoryRegion<size_t>>>(
+                blockAttr.size());
+            m_locid1 = std::vector<std::vector<MemoryRegion<size_t>>>(
+                blockAttr.size());
             m_locsign =
-                std::vector<std::vector<MemoryRegion<TData>>>(blocks.size());
+                std::vector<std::vector<MemoryRegion<TData>>>(blockAttr.size());
             unsigned int blk0 = 0, blk1 = 0;
             size_t i = 0, offset0 = 0, offset1 = 0;
-            while (blk1 < blocks.size())
+            while (blk1 < blockAttr.size())
             {
                 if (i == m_localDirSize ||
                     std::get<1>(locReordered[i]) >= blockBound[blk1])
@@ -291,7 +292,7 @@ public:
         {
             std::vector<int> parDirBndSignBlock;
             int i = 0, blk = 0, offset = 0, nParDirBndSignBlock = 0;
-            while (blk < blocks.size())
+            while (blk < blockAttr.size())
             {
                 if (i == m_nParDirBndSignSize ||
                     parDirBndSignReordered[i] >= blockBound[blk])

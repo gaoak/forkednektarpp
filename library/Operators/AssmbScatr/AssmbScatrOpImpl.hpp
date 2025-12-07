@@ -128,9 +128,6 @@ protected:
 
         m_numAssemblyComps = numComps;
 
-        auto blocks =
-            GetBlockAttributes<TData>(FieldState::Coeff, this->m_expansionList);
-
 #ifdef ORIG_ASS_SCA
         auto GSInfoKey = DeviceLocalToGlobalKey<TData>(m_assemblyMap, ZERODIR);
         // setup GS info of values interior to device
