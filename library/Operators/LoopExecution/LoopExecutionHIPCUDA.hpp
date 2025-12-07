@@ -42,43 +42,6 @@
 namespace Nektar
 {
 
-// Atomics.
-template <typename ExecSpace, typename Scope, typename TData>
-NEK_DEVICE_INLINE
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                            void>::type
-    atomic_add(TData *const dest, const TData val)
-{
-    Nektar::atomic_add<Scope>(dest, val);
-}
-
-template <typename ExecSpace, typename Scope, typename TData>
-NEK_DEVICE_INLINE
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                            void>::type
-    atomic_sub(TData *const dest, const TData val)
-{
-    Nektar::atomic_sub<Scope>(dest, val);
-}
-
-template <typename ExecSpace, typename Scope, typename TData>
-NEK_DEVICE_INLINE
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                            void>::type
-    atomic_max(TData *const dest, const TData val)
-{
-    Nektar::atomic_max<Scope>(dest, val);
-}
-
-template <typename ExecSpace, typename Scope, typename TData>
-NEK_DEVICE_INLINE
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                            void>::type
-    atomic_min(TData *const dest, const TData val)
-{
-    Nektar::atomic_min<Scope>(dest, val);
-}
-
 // Parallel for kernel.
 template <typename Functor,
           unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
@@ -280,22 +243,14 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
-    if (internalHIPCUDABuffer == nullptr)
+    if (internalMemoryBuffer == nullptr)
     {
-        const unsigned int internalHIPCUDABufferSize =
-            internalHIPCUDAMaxDataSizeByte * gridSize;
-        GetDeviceProperties::CheckGlobalMemoryUsage(internalHIPCUDABufferSize);
-#if defined(NEKTAR_ENABLE_CUDA)
-        CHECK_HIPCUDA_ERROR(
-            cudaMalloc(&internalHIPCUDABuffer, internalHIPCUDABufferSize));
-#elif defined(NEKTAR_ENABLE_HIP)
-        CHECK_HIPCUDA_ERROR(
-            hipMalloc(&internalHIPCUDABuffer, internalHIPCUDABufferSize));
-#endif
-        GetDeviceProperties::TotalGlobalMemory() -= internalHIPCUDABufferSize;
+        const unsigned int internalMemoryBufferSize =
+            internalMaxDataSizeByte * gridSize;
+        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize);
     }
 
-    TData *buffer = (TData *)internalHIPCUDABuffer;
+    TData *buffer = (TData *)internalMemoryBuffer;
     if constexpr (std::is_same_v<Reduction, Nektar::ReduceSum<TData>>)
     {
         reduceSumKernel<true>
@@ -337,41 +292,19 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
 {
     using TData = typename Reduction::value_type;
 
-    if (internalHIPCUDAHostBuffer == nullptr)
+    if (internalHostBuffer == nullptr)
     {
-        GetDeviceProperties::CheckGlobalMemoryUsage(
-            internalHIPCUDAMaxDataSizeByte);
-#if defined(NEKTAR_ENABLE_CUDA)
-        CHECK_HIPCUDA_ERROR(cudaMallocHost(&internalHIPCUDAHostBuffer,
-                                           internalHIPCUDAMaxDataSizeByte));
-        CHECK_HIPCUDA_ERROR(cudaMalloc(&internalHIPCUDADeviceBuffer,
-                                       internalHIPCUDAMaxDataSizeByte));
-#elif defined(NEKTAR_ENABLE_HIP)
-        CHECK_HIPCUDA_ERROR(hipHostMalloc(&internalHIPCUDAHostBuffer,
-                                          internalHIPCUDAMaxDataSizeByte));
-        CHECK_HIPCUDA_ERROR(hipMalloc(&internalHIPCUDADeviceBuffer,
-                                      internalHIPCUDAMaxDataSizeByte));
-#endif
-        GetDeviceProperties::TotalGlobalMemory() -=
-            internalHIPCUDAMaxDataSizeByte;
+        hostMallocPinned(&internalHostBuffer, internalMaxDataSizeByte);
+        deviceMalloc(&internalDeviceBuffer, internalMaxDataSizeByte);
     }
 
-    parallel_reduce<ExecSpace, true, Reduction>(
-        begin, end, functor, (TData *)internalHIPCUDADeviceBuffer);
+    parallel_reduce<ExecSpace, true, Reduction>(begin, end, functor,
+                                                (TData *)internalDeviceBuffer);
 
-#if defined(NEKTAR_ENABLE_CUDA)
-    CHECK_HIPCUDA_ERROR(cudaMemcpyAsync(internalHIPCUDAHostBuffer,
-                                        internalHIPCUDADeviceBuffer,
-                                        sizeof(TData), cudaMemcpyDeviceToHost));
-    CHECK_HIPCUDA_ERROR(cudaStreamSynchronize(0));
-#elif defined(NEKTAR_ENABLE_HIP)
-    CHECK_HIPCUDA_ERROR(hipMemcpyAsync(internalHIPCUDAHostBuffer,
-                                       internalHIPCUDADeviceBuffer,
-                                       sizeof(TData), hipMemcpyDeviceToHost));
-    CHECK_HIPCUDA_ERROR(hipStreamSynchronize(0));
-#endif
+    deviceMemcpy<DeviceToHost>(internalHostBuffer, internalDeviceBuffer,
+                               sizeof(TData), ePinned);
 
-    out = *(TData *)internalHIPCUDAHostBuffer;
+    out = *(TData *)internalHostBuffer;
 }
 
 } // namespace Nektar

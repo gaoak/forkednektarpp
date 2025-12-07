@@ -39,43 +39,6 @@
 namespace Nektar
 {
 
-// Atomics.
-template <typename ExecSpace, typename Scope, typename TData>
-NEK_DEVICE_INLINE
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                            void>::type
-    atomic_add(TData *const dest, const TData val)
-{
-    Nektar::atomic_add<Scope>(dest, val);
-}
-
-template <typename ExecSpace, typename Scope, typename TData>
-NEK_DEVICE_INLINE
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                            void>::type
-    atomic_sub(TData *const dest, const TData val)
-{
-    Nektar::atomic_sub<Scope>(dest, val);
-}
-
-template <typename ExecSpace, typename Scope, typename TData>
-NEK_DEVICE_INLINE
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                            void>::type
-    atomic_max(TData *const dest, const TData val)
-{
-    Nektar::atomic_max<Scope>(dest, val);
-}
-
-template <typename ExecSpace, typename Scope, typename TData>
-NEK_DEVICE_INLINE
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                            void>::type
-    atomic_min(TData *const dest, const TData val)
-{
-    Nektar::atomic_min<Scope>(dest, val);
-}
-
 // Parallel for launchers.
 template <typename ExecSpace, typename Functor>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
@@ -267,20 +230,17 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 #endif
 
-    sycl::queue &Q = SYCLQueue::GetInstance();
-
-    if (internalSYCLBuffer == nullptr)
+    if (internalMemoryBuffer == nullptr)
     {
-        const unsigned int internalSYCLBufferSize =
-            internalSYCLMaxDataSizeByte * gridSize;
-        GetDeviceProperties::CheckGlobalMemoryUsage(internalSYCLBufferSize);
-        internalSYCLBuffer = sycl::malloc_device(internalSYCLBufferSize, Q);
-        GetDeviceProperties::TotalGlobalMemory() -= internalSYCLBufferSize;
+        const unsigned int internalMemoryBufferSize =
+            internalMaxDataSizeByte * gridSize;
+        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize);
     }
 
     if constexpr (std::is_same_v<Reduction, Nektar::ReduceSum<TData>>)
     {
 #if defined(USE_SYCL_BUILTIN_REDUCER)
+        sycl::queue &Q = SYCLQueue::GetInstance();
         sycl::property_list initializer =
             init ? sycl::property_list{sycl::property::reduction::
                                            initialize_to_identity{}}
@@ -300,6 +260,7 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
     else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMax<TData>>)
     {
 #if defined(USE_SYCL_BUILTIN_REDUCER)
+        sycl::queue &Q = SYCLQueue::GetInstance();
         sycl::property_list initializer =
             init ? sycl::property_list{sycl::property::reduction::
                                            initialize_to_identity{}}
@@ -319,6 +280,7 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
     else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMin<TData>>)
     {
 #if defined(USE_SYCL_BUILTIN_REDUCER)
+        sycl::queue &Q = SYCLQueue::GetInstance();
         sycl::property_list initializer =
             init ? sycl::property_list{sycl::property::reduction::
                                            initialize_to_identity{}}
@@ -329,7 +291,7 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
                            reducer.combine(functor(begin + indx));
                        });
 #else
-        TData *buffer = (TData *)internalSYCLBuffer;
+        TData *buffer = (TData *)internalMemoryBuffer;
         reduceMinKernel<true>(gridSize, blockSize, begin, end, buffer, functor);
         reduceMinKernel<init>(1, gridSize, 0, gridSize, out,
                               [=](const size_t i) { return buffer[i]; });
@@ -346,26 +308,19 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
 {
     using TData = typename Reduction::value_type;
 
-    sycl::queue &Q = SYCLQueue::GetInstance();
-
-    if (internalSYCLHostBuffer == nullptr)
+    if (internalHostBuffer == nullptr)
     {
-        internalSYCLHostBuffer =
-            sycl::malloc_host(internalSYCLMaxDataSizeByte, Q);
-        GetDeviceProperties::CheckGlobalMemoryUsage(
-            internalSYCLMaxDataSizeByte);
-        internalSYCLDeviceBuffer =
-            sycl::malloc_device(internalSYCLMaxDataSizeByte, Q);
-        GetDeviceProperties::TotalGlobalMemory() -= internalSYCLMaxDataSizeByte;
+        hostMallocPinned(&internalHostBuffer, internalMaxDataSizeByte);
+        deviceMalloc(&internalDeviceBuffer, internalMaxDataSizeByte);
     }
 
-    parallel_reduce<ExecSpace, true, Reduction>(
-        begin, end, functor, (TData *)internalSYCLDeviceBuffer);
+    parallel_reduce<ExecSpace, true, Reduction>(begin, end, functor,
+                                                (TData *)internalDeviceBuffer);
 
-    Q.memcpy(internalSYCLHostBuffer, internalSYCLDeviceBuffer, sizeof(TData))
-        .wait();
+    deviceMemcpy<DeviceToHost>(internalHostBuffer, internalDeviceBuffer,
+                               sizeof(TData), ePinned);
 
-    out = *(TData *)internalSYCLHostBuffer;
+    out = *(TData *)internalHostBuffer;
 }
 
 } // namespace Nektar

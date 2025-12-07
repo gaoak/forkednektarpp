@@ -39,6 +39,24 @@
 namespace Nektar
 {
 
+template <typename simd_type>
+NEK_FORCE_INLINE static void MatVecKernel(const unsigned int n,
+                                          const simd_type *Mat,
+                                          const simd_type *in, simd_type *out)
+{
+    for (unsigned int i = 0, cnt = 0; i < n; ++i)
+    {
+        simd_type i_sum = 0.0;
+
+        for (unsigned int j = 0; j < n; ++j, ++cnt)
+        {
+            i_sum.fma(Mat[cnt], in[j]);
+        }
+
+        out[i] = i_sum; // Store 1x
+    }
+}
+
 template <typename ExecSpace, typename TData>
 inline
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
@@ -93,21 +111,4 @@ inline
     }
 }
 
-template <typename simd_type>
-NEK_FORCE_INLINE static void MatVecKernel(const unsigned int n,
-                                          const simd_type *Mat,
-                                          const simd_type *in, simd_type *out)
-{
-    for (unsigned int i = 0, cnt = 0; i < n; ++i)
-    {
-        simd_type i_sum = 0.0;
-
-        for (unsigned int j = 0; j < n; ++j, ++cnt)
-        {
-            i_sum.fma(Mat[cnt], in[j]);
-        }
-
-        out[i] = i_sum; // Store 1x
-    }
-}
 } // namespace Nektar

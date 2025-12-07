@@ -41,7 +41,7 @@
 #include <cstddef>
 #include <limits>
 
-#include "Operators/Common/DeviceProperties.hpp"
+#include "Operators/Common/MemoryAlloc.hpp"
 #include "Operators/Common/Spaces.hpp"
 
 namespace Nektar
@@ -80,6 +80,31 @@ template <typename TData> class ReduceMax
 public:
     typedef typename std::remove_cv<TData>::type value_type;
 };
+
+// Atomics.
+template <typename ExecSpace, typename Scope, typename TData>
+NEK_DEVICE_INLINE static void atomic_add(TData *const dest, const TData val)
+{
+    Nektar::atomic_add<Scope>(dest, val);
+}
+
+template <typename ExecSpace, typename Scope, typename TData>
+NEK_DEVICE_INLINE static void atomic_sub(TData *const dest, const TData val)
+{
+    Nektar::atomic_sub<Scope>(dest, val);
+}
+
+template <typename ExecSpace, typename Scope, typename TData>
+NEK_DEVICE_INLINE static void atomic_max(TData *const dest, const TData val)
+{
+    Nektar::atomic_max<Scope>(dest, val);
+}
+
+template <typename ExecSpace, typename Scope, typename TData>
+NEK_DEVICE_INLINE static void atomic_min(TData *const dest, const TData val)
+{
+    Nektar::atomic_min<Scope>(dest, val);
+}
 
 } // namespace Nektar
 

@@ -41,72 +41,6 @@ namespace Nektar
 {
 
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
-template <typename TthreadBlock, typename TData>
-NEK_DEVICE_KERNEL static void interleaveKernel(
-    const unsigned int interleaveWidth, const size_t numElmtGroups,
-    const unsigned int npts, TData *buffer, TData *inout,
-    const TthreadBlock &threadBlock)
-{
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
-
-    for (size_t e = getBlockIdx(threadBlock); e < numElmtGroups;
-         e += getBlockRange(threadBlock))
-    {
-        TData *bufferptr = buffer + npts * interleaveWidth * e;
-        TData *inoutptr  = inout + npts * interleaveWidth * e;
-
-        for (unsigned int idx = idx0; idx < npts * interleaveWidth;
-             idx += stride)
-        {
-            bufferptr[idx] = inoutptr[idx];
-        }
-
-        localBarrier(threadBlock);
-
-        for (unsigned int idx = idx0; idx < npts * interleaveWidth;
-             idx += stride)
-        {
-            unsigned int vecElem = idx % interleaveWidth;
-            unsigned int iElem   = idx / interleaveWidth;
-            inoutptr[idx]        = bufferptr[vecElem * npts + iElem];
-        }
-    }
-}
-
-template <typename TthreadBlock, typename TData>
-NEK_DEVICE_KERNEL static void deInterleaveKernel(
-    const unsigned int interleaveWidth, const size_t numElmtGroups,
-    const unsigned int npts, TData *buffer, TData *inout,
-    const TthreadBlock &threadBlock)
-{
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
-
-    for (size_t e = getBlockIdx(threadBlock); e < numElmtGroups;
-         e += getBlockRange(threadBlock))
-    {
-        TData *bufferptr = buffer + npts * interleaveWidth * e;
-        TData *inoutptr  = inout + npts * interleaveWidth * e;
-
-        for (unsigned int idx = idx0; idx < npts * interleaveWidth;
-             idx += stride)
-        {
-            bufferptr[idx] = inoutptr[idx];
-        }
-
-        localBarrier(threadBlock);
-
-        for (unsigned int idx = idx0; idx < npts * interleaveWidth;
-             idx += stride)
-        {
-            unsigned int vecElem = idx / npts;
-            unsigned int iElem   = idx % npts;
-            inoutptr[idx]        = bufferptr[iElem * interleaveWidth + vecElem];
-        }
-    }
-}
-
 template <bool APPEND = false, bool TRANSPOSE = false, typename TData>
 NEK_DEVICE_INLINE static void MatVecKernel(const unsigned int ilane,
                                            const unsigned int nmTot,
@@ -181,6 +115,72 @@ NEK_DEVICE_INLINE static void MatVecQPKernel(const unsigned int nmTot,
     }
 
     localBarrier(threadBlock);
+}
+
+template <typename TthreadBlock, typename TData>
+NEK_DEVICE_KERNEL static void interleaveKernel(
+    const unsigned int interleaveWidth, const size_t numElmtGroups,
+    const unsigned int npts, TData *buffer, TData *inout,
+    const TthreadBlock &threadBlock)
+{
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
+
+    for (size_t e = getBlockIdx(threadBlock); e < numElmtGroups;
+         e += getBlockRange(threadBlock))
+    {
+        TData *bufferptr = buffer + npts * interleaveWidth * e;
+        TData *inoutptr  = inout + npts * interleaveWidth * e;
+
+        for (unsigned int idx = idx0; idx < npts * interleaveWidth;
+             idx += stride)
+        {
+            bufferptr[idx] = inoutptr[idx];
+        }
+
+        localBarrier(threadBlock);
+
+        for (unsigned int idx = idx0; idx < npts * interleaveWidth;
+             idx += stride)
+        {
+            unsigned int vecElem = idx % interleaveWidth;
+            unsigned int iElem   = idx / interleaveWidth;
+            inoutptr[idx]        = bufferptr[vecElem * npts + iElem];
+        }
+    }
+}
+
+template <typename TthreadBlock, typename TData>
+NEK_DEVICE_KERNEL static void deInterleaveKernel(
+    const unsigned int interleaveWidth, const size_t numElmtGroups,
+    const unsigned int npts, TData *buffer, TData *inout,
+    const TthreadBlock &threadBlock)
+{
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
+
+    for (size_t e = getBlockIdx(threadBlock); e < numElmtGroups;
+         e += getBlockRange(threadBlock))
+    {
+        TData *bufferptr = buffer + npts * interleaveWidth * e;
+        TData *inoutptr  = inout + npts * interleaveWidth * e;
+
+        for (unsigned int idx = idx0; idx < npts * interleaveWidth;
+             idx += stride)
+        {
+            bufferptr[idx] = inoutptr[idx];
+        }
+
+        localBarrier(threadBlock);
+
+        for (unsigned int idx = idx0; idx < npts * interleaveWidth;
+             idx += stride)
+        {
+            unsigned int vecElem = idx / npts;
+            unsigned int iElem   = idx % npts;
+            inoutptr[idx]        = bufferptr[iElem * interleaveWidth + vecElem];
+        }
+    }
 }
 
 template <typename ExecSpace, typename TData>
