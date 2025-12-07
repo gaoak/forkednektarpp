@@ -90,7 +90,7 @@ public:
         const size_t nphys           = fixt_explist[0]->GetTotPoints();
         Array<OneD, double> incoeffs = fixt_in->ToArray();
         Array<OneD, double> outphys(compSize * nphys);
-        Array<OneD, NekDouble> tmp;
+        Array<OneD, double> tmp;
         for (unsigned int i = 0; i < compSize; ++i)
         {
             fixt_explist[0]->BwdTrans(incoeffs + i * ncoeffs,

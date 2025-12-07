@@ -93,7 +93,7 @@ public:
 
         Array<OneD, double> inphys = fixt_in->ToArray();
         Array<OneD, double> outcoeffs(compSize * ncoeffs);
-        Array<OneD, NekDouble> tmp;
+        Array<OneD, double> tmp;
         for (unsigned int i = 0; i < compSize; ++i)
         {
             fixt_explist[0]->IProductWRTBase(inphys + i * nphys,

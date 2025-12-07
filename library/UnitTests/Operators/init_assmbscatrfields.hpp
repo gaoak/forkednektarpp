@@ -157,7 +157,7 @@ public:
         int ncoeffs                  = fixt_explist[0]->GetNcoeffs();
         Array<OneD, double> incoeffs = fixt_in->ToArray();
         Array<OneD, double> outcoeffs(compSize * ncoeffs);
-        Array<OneD, NekDouble> tmp;
+        Array<OneD, double> tmp;
 
         for (int i = 0; i < compSize; ++i)
         {
