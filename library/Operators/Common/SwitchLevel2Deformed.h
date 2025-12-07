@@ -38,7 +38,7 @@
 
 if (deformed)
 {
-
+// clang-format off
 #define OPERATOR1D_DEF                                                         \
     operator1D<LibUtilities::eSegment, true>(inblock, outblock)
 
@@ -53,9 +53,10 @@ if (deformed)
         switch (nq0)                                                           \
         {                                                                      \
             BOOST_PP_FOR_##r((NM(i), NM(i), BOOST_PP_MUL(2, NM(i))),           \
-                             LEV2TEST1, LEV2UPDATE1, OPERATOR1D_Q) default     \
-                : OPERATOR1D_DEF;                                              \
-            break;                                                             \
+                             LEV2TEST1, LEV2UPDATE1, OPERATOR1D_Q)             \
+            default :                                                          \
+                OPERATOR1D_DEF;                                                \
+                break;                                                         \
         }                                                                      \
         break;
 
@@ -73,9 +74,10 @@ if (deformed)
         switch (nq0)                                                           \
         {                                                                      \
             BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
-                             LEV2TEST1, LEV2UPDATE1, OPERATOR2D_Q_TRI) default \
-                : OPERATOR2D_DEF_TRI;                                          \
-            break;                                                             \
+                             LEV2TEST1, LEV2UPDATE1, OPERATOR2D_Q_TRI)         \
+            default :                                                          \
+                OPERATOR2D_DEF_TRI;                                            \
+                break;                                                         \
         }                                                                      \
         break;
 
@@ -94,8 +96,10 @@ if (deformed)
         {                                                                      \
             BOOST_PP_FOR_##r((NM(i), NM(i), BOOST_PP_MUL(2, NM(i))),           \
                              LEV2TEST1, LEV2UPDATE1,                           \
-                             OPERATOR2D_Q_QUAD) default : OPERATOR2D_DEF_QUAD; \
-            break;                                                             \
+                             OPERATOR2D_Q_QUAD)                                \
+            default :                                                          \
+                OPERATOR2D_DEF_QUAD;                                           \
+                break;                                                         \
         }                                                                      \
         break;
 
@@ -113,9 +117,10 @@ if (deformed)
         switch (nq0)                                                           \
         {                                                                      \
             BOOST_PP_FOR_##r((NM(i), NM(i), BOOST_PP_MUL(2, NM(i))),           \
-                             LEV2TEST1, LEV2UPDATE1, OPERATOR3D_Q_HEX) default \
-                : OPERATOR3D_DEF_HEX;                                          \
-            break;                                                             \
+                             LEV2TEST1, LEV2UPDATE1, OPERATOR3D_Q_HEX)         \
+            default :                                                          \
+                OPERATOR3D_DEF_HEX;                                            \
+                break;                                                         \
         }                                                                      \
         break;
 
@@ -133,9 +138,10 @@ if (deformed)
         switch (nq0)                                                           \
         {                                                                      \
             BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
-                             LEV2TEST1, LEV2UPDATE1, OPERATOR3D_Q_TET) default \
-                : OPERATOR3D_DEF_TET;                                          \
-            break;                                                             \
+                             LEV2TEST1, LEV2UPDATE1, OPERATOR3D_Q_TET)         \
+            default :                                                          \
+                OPERATOR3D_DEF_TET;                                            \
+                break;                                                         \
         }                                                                      \
         break;
 
@@ -154,9 +160,10 @@ if (deformed)
         {                                                                      \
             BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
                              LEV2TEST1, LEV2UPDATE1,                           \
-                             OPERATOR3D_Q_PRISM) default                       \
-                : OPERATOR3D_DEF_PRISM;                                        \
-            break;                                                             \
+                             OPERATOR3D_Q_PRISM)                               \
+            default :                                                          \
+                OPERATOR3D_DEF_PRISM;                                          \
+                break;                                                         \
         }                                                                      \
         break;
 
@@ -174,9 +181,10 @@ if (deformed)
         switch (nq0)                                                           \
         {                                                                      \
             BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
-                             LEV2TEST1, LEV2UPDATE1, OPERATOR3D_Q_PYR) default \
-                : OPERATOR3D_DEF_PYR;                                          \
-            break;                                                             \
+                             LEV2TEST1, LEV2UPDATE1, OPERATOR3D_Q_PYR)         \
+            default :                                                          \
+                OPERATOR3D_DEF_PYR;                                            \
+                break;                                                         \
         }                                                                      \
         break;
 
@@ -202,9 +210,10 @@ else
         switch (nq0)                                                           \
         {                                                                      \
             BOOST_PP_FOR_##r((NM(i), NM(i), BOOST_PP_MUL(2, NM(i))),           \
-                             LEV2TEST1, LEV2UPDATE1, OPERATOR1D_Q) default     \
-                : OPERATOR1D_DEF;                                              \
-            break;                                                             \
+                             LEV2TEST1, LEV2UPDATE1, OPERATOR1D_Q)             \
+            default :                                                          \
+                OPERATOR1D_DEF;                                                \
+                break;                                                         \
         }                                                                      \
         break;
 
@@ -226,9 +235,10 @@ else
         switch (nq0)                                                           \
         {                                                                      \
             BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
-                             LEV2TEST1, LEV2UPDATE1, OPERATOR2D_Q_TRI) default \
-                : OPERATOR2D_DEF_TRI;                                          \
-            break;                                                             \
+                             LEV2TEST1, LEV2UPDATE1, OPERATOR2D_Q_TRI)         \
+            default :                                                          \
+                OPERATOR2D_DEF_TRI;                                            \
+                break;                                                         \
         }                                                                      \
         break;
 
@@ -251,8 +261,10 @@ else
         {                                                                      \
             BOOST_PP_FOR_##r((NM(i), NM(i), BOOST_PP_MUL(2, NM(i))),           \
                              LEV2TEST1, LEV2UPDATE1,                           \
-                             OPERATOR2D_Q_QUAD) default : OPERATOR2D_DEF_QUAD; \
-            break;                                                             \
+                             OPERATOR2D_Q_QUAD)                                \
+            default :                                                          \
+                OPERATOR2D_DEF_QUAD;                                           \
+                break;                                                         \
         }                                                                      \
         break;
 
@@ -274,9 +286,10 @@ else
         switch (nq0)                                                           \
         {                                                                      \
             BOOST_PP_FOR_##r((NM(i), NM(i), BOOST_PP_MUL(2, NM(i))),           \
-                             LEV2TEST1, LEV2UPDATE1, OPERATOR3D_Q_HEX) default \
-                : OPERATOR3D_DEF_HEX;                                          \
-            break;                                                             \
+                             LEV2TEST1, LEV2UPDATE1, OPERATOR3D_Q_HEX)         \
+            default :                                                          \
+                OPERATOR3D_DEF_HEX;                                            \
+                break;                                                         \
         }                                                                      \
         break;
 #undef OPERATOR3D_DEF_TET
@@ -297,8 +310,10 @@ else
         switch (nq0)                                                           \
         {                                                                      \
             BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
-                             LEV2TEST1, LEV2UPDATE1, OPERATOR3D_Q_TET) default \
-                : OPERATOR3D_DEF_TET;                                          \
+                             LEV2TEST1, LEV2UPDATE1, OPERATOR3D_Q_TET)         \
+            default :                                                          \
+                OPERATOR3D_DEF_TET;                                            \
+                break;                                                         \
             break;                                                             \
         }                                                                      \
         break;
@@ -322,9 +337,10 @@ else
         {                                                                      \
             BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
                              LEV2TEST1, LEV2UPDATE1,                           \
-                             OPERATOR3D_Q_PRISM) default                       \
-                : OPERATOR3D_DEF_PRISM;                                        \
-            break;                                                             \
+                             OPERATOR3D_Q_PRISM)                               \
+            default :                                                          \
+                OPERATOR3D_DEF_PRISM;                                          \
+                break;                                                         \
         }                                                                      \
         break;
 
@@ -346,11 +362,13 @@ else
         switch (nq0)                                                           \
         {                                                                      \
             BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
-                             LEV2TEST1, LEV2UPDATE1, OPERATOR3D_Q_PYR) default \
-                : OPERATOR3D_DEF_PYR;                                          \
-            break;                                                             \
+                             LEV2TEST1, LEV2UPDATE1, OPERATOR3D_Q_PYR)         \
+            default :                                                          \
+                OPERATOR3D_DEF_PYR;                                            \
+                break;                                                         \
         }                                                                      \
         break;
 
+// clang-format on
 #include "../Common/SwitchLevel2.h"
 }
