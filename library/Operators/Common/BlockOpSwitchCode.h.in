@@ -27,8 +27,10 @@
         {                                                                      \
             BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
                              LEV2TEST1, LEV2UPDATE1,                           \
-                             OPERATOR_Q) default                               \
-                : OPERATOR_DEF break;                                          \
+                             OPERATOR_Q)                                       \
+            default :                                                          \
+                OPERATOR_DEF                                                   \
+                break;                                                         \
         }                                                                      \
     }                                                                          \
     break;
@@ -68,8 +70,10 @@
         {                                                                      \
             BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
                              LEV2TEST1, LEV2UPDATE1,                           \
-                             OPERATOR_Q) default                               \
-                : OPERATOR_DEF break;                                          \
+                             OPERATOR_Q)                                       \
+            default :                                                          \
+                OPERATOR_DEF                                                   \
+                break;                                                         \
         }                                                                      \
     }                                                                          \
     break;
@@ -125,8 +129,10 @@
         {                                                                      \
             BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
                              LEV2TEST1, LEV2UPDATE1,                           \
-                             OPERATOR_Q) default                               \
-                : OPERATOR_DEF break;                                          \
+                             OPERATOR_Q)                                       \
+            default :                                                          \
+                OPERATOR_DEF                                                   \
+                break;                                                         \
         }                                                                      \
     }                                                                          \
     break;
@@ -186,8 +192,10 @@
         {                                                                      \
             BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
                              LEV2TEST1, LEV2UPDATE1,                           \
-                             OPERATOR_Q) default                               \
-                : OPERATOR_DEF break;                                          \
+                             OPERATOR_Q)                                       \
+            default :                                                          \
+                OPERATOR_DEF                                                   \
+                break;                                                         \
         }                                                                      \
     }                                                                          \
     break;
@@ -263,8 +271,10 @@
         {                                                                      \
             BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
                              LEV2TEST1, LEV2UPDATE1,                           \
-                             OPERATOR_Q) default                               \
-                : OPERATOR_DEF break;                                          \
+                             OPERATOR_Q)                                       \
+            default :                                                          \
+                OPERATOR_DEF                                                   \
+                break;                                                         \
         }                                                                      \
     }                                                                          \
     break;
@@ -336,8 +346,10 @@
         {                                                                      \
             BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
                              LEV2TEST1, LEV2UPDATE1,                           \
-                             OPERATOR_Q) default                               \
-                : OPERATOR_DEF break;                                          \
+                             OPERATOR_Q)                                       \
+            default :                                                          \
+                OPERATOR_DEF                                                   \
+                break;                                                         \
         }                                                                      \
     }                                                                          \
     break;
