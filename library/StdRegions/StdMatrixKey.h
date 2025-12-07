@@ -176,6 +176,29 @@ public:
         return (m_varcoeffs.find(coeff) != m_varcoeffs.end());
     }
 
+    inline bool HasVarCoeffForMatrixType(
+        const StdRegions::MatrixType &mtype) const
+    {
+        for (auto &x : StdRegions::MatrixTypeToVarCoeffsMap)
+        {
+            // Loop all matrix types with defined in MatrixTypeToVarCoeffsMap
+            if (x.first == mtype)
+            {
+                // If mtype defined in MatrixTypeToVarCoeffsMap,
+                // check if any varcoeffs are defined in this StdMatrixKey
+                for (auto &y : x.second)
+                {
+                    if (m_varcoeffs.find(y) != m_varcoeffs.end())
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        }
+        return false;
+    }
+
 protected:
     LibUtilities::ShapeType m_shapeType;
     Array<OneD, const LibUtilities::BasisSharedPtr> m_base;

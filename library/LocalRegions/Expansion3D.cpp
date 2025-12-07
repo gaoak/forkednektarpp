@@ -417,7 +417,7 @@ DNekScalMatSharedPtr Expansion3D::CreateMatrix(const MatrixKey &mkey)
         case StdRegions::eMass:
         {
             if (m_geomFactors->GetGtype() == SpatialDomains::eDeformed ||
-                mkey.GetNVarCoeff())
+                mkey.HasVarCoeffForMatrixType(StdRegions::eMass))
             {
                 NekDouble one        = 1.0;
                 DNekMatSharedPtr mat = GenMatrix(mkey);
@@ -459,7 +459,7 @@ DNekScalMatSharedPtr Expansion3D::CreateMatrix(const MatrixKey &mkey)
         case StdRegions::eWeakDeriv2:
         {
             if (m_geomFactors->GetGtype() == SpatialDomains::eDeformed ||
-                mkey.GetNVarCoeff())
+                mkey.HasVarCoeffForMatrixType(StdRegions::eLaplacian))
             {
                 NekDouble one        = 1.0;
                 DNekMatSharedPtr mat = GenMatrix(mkey);
@@ -514,17 +514,8 @@ DNekScalMatSharedPtr Expansion3D::CreateMatrix(const MatrixKey &mkey)
         case StdRegions::eLaplacian:
         {
             if (m_geomFactors->GetGtype() == SpatialDomains::eDeformed ||
-                (mkey.HasVarCoeff(StdRegions::eVarCoeffLaplacian)) ||
-                (mkey.HasVarCoeff(StdRegions::eVarCoeffD00)) ||
-                (mkey.HasVarCoeff(StdRegions::eVarCoeffD01)) ||
-                (mkey.HasVarCoeff(StdRegions::eVarCoeffD10)) ||
-                (mkey.HasVarCoeff(StdRegions::eVarCoeffD02)) ||
-                (mkey.HasVarCoeff(StdRegions::eVarCoeffD20)) ||
-                (mkey.HasVarCoeff(StdRegions::eVarCoeffD11)) ||
-                (mkey.HasVarCoeff(StdRegions::eVarCoeffD12)) ||
-                (mkey.HasVarCoeff(StdRegions::eVarCoeffD21)) ||
-                (mkey.HasVarCoeff(StdRegions::eVarCoeffD22)) ||
-                (mkey.ConstFactorExists(StdRegions::eFactorSVVCutoffRatio)))
+                mkey.HasVarCoeffForMatrixType(StdRegions::eLaplacian) ||
+                mkey.ConstFactorExists(StdRegions::eFactorSVVDiffCoeff))
             {
                 NekDouble one        = 1.0;
                 DNekMatSharedPtr mat = GenMatrix(mkey);
@@ -578,10 +569,31 @@ DNekScalMatSharedPtr Expansion3D::CreateMatrix(const MatrixKey &mkey)
         case StdRegions::eHelmholtz:
         {
             NekDouble factor = mkey.GetConstFactor(StdRegions::eFactorLambda);
-            MatrixKey masskey(StdRegions::eMass, mkey.GetShapeType(), *this);
+
+            // Construct mass matrix
+            // Check for mass-specific varcoeffs to avoid unncessary
+            // re-computation of the elemental matrix every time step
+            StdRegions::VarCoeffMap massVarcoeffs = StdRegions::NullVarCoeffMap;
+            if (mkey.HasVarCoeffForMatrixType(StdRegions::eMass))
+            {
+                massVarcoeffs[StdRegions::eVarCoeffMass] =
+                    mkey.GetVarCoeff(StdRegions::eVarCoeffMass);
+            }
+            MatrixKey masskey(StdRegions::eMass, mkey.GetShapeType(), *this,
+                              mkey.GetConstFactors(), massVarcoeffs);
             DNekScalMat &MassMat = *GetLocMatrix(masskey);
+
+            // Construct laplacian matrix (Check for varcoeffs)
+            // Take all varcoeffs if one or more are detected
+            // TODO We might want to have a map
+            // from MatrixType to Vector of Varcoeffs and vice-versa
+            StdRegions::VarCoeffMap lapVarcoeffs = StdRegions::NullVarCoeffMap;
+            if (mkey.HasVarCoeffForMatrixType(StdRegions::eLaplacian))
+            {
+                lapVarcoeffs = mkey.GetVarCoeffs();
+            }
             MatrixKey lapkey(StdRegions::eLaplacian, mkey.GetShapeType(), *this,
-                             mkey.GetConstFactors(), mkey.GetVarCoeffs());
+                             mkey.GetConstFactors(), lapVarcoeffs);
             DNekScalMat &LapMat = *GetLocMatrix(lapkey);
 
             int rows = LapMat.GetRows();
@@ -595,6 +607,15 @@ DNekScalMatSharedPtr Expansion3D::CreateMatrix(const MatrixKey &mkey)
 
             returnval =
                 MemoryManager<DNekScalMat>::AllocateSharedPtr(one, helm);
+
+            if (!massVarcoeffs.empty())
+            {
+                DropLocMatrix(masskey);
+            }
+            if (!lapVarcoeffs.empty())
+            {
+                DropLocMatrix(lapkey);
+            }
         }
         break;
         case StdRegions::eHelmholtzGJP:
@@ -631,7 +652,7 @@ DNekScalMatSharedPtr Expansion3D::CreateMatrix(const MatrixKey &mkey)
             // Check for mass-specific varcoeffs to avoid unncessary
             // re-computation of the elemental matrix every time step
             StdRegions::VarCoeffMap massVarcoeffs = StdRegions::NullVarCoeffMap;
-            if (mkey.HasVarCoeff(StdRegions::eVarCoeffMass))
+            if (mkey.HasVarCoeffForMatrixType(StdRegions::eMass))
             {
                 massVarcoeffs[StdRegions::eVarCoeffMass] =
                     mkey.GetVarCoeff(StdRegions::eVarCoeffMass);
@@ -687,16 +708,7 @@ DNekScalMatSharedPtr Expansion3D::CreateMatrix(const MatrixKey &mkey)
             // TODO We might want to have a map
             // from MatrixType to Vector of Varcoeffs and vice-versa
             StdRegions::VarCoeffMap lapVarcoeffs = StdRegions::NullVarCoeffMap;
-            if ((mkey.HasVarCoeff(StdRegions::eVarCoeffLaplacian)) ||
-                (mkey.HasVarCoeff(StdRegions::eVarCoeffD00)) ||
-                (mkey.HasVarCoeff(StdRegions::eVarCoeffD01)) ||
-                (mkey.HasVarCoeff(StdRegions::eVarCoeffD10)) ||
-                (mkey.HasVarCoeff(StdRegions::eVarCoeffD02)) ||
-                (mkey.HasVarCoeff(StdRegions::eVarCoeffD20)) ||
-                (mkey.HasVarCoeff(StdRegions::eVarCoeffD11)) ||
-                (mkey.HasVarCoeff(StdRegions::eVarCoeffD12)) ||
-                (mkey.HasVarCoeff(StdRegions::eVarCoeffD21)) ||
-                (mkey.HasVarCoeff(StdRegions::eVarCoeffD22)))
+            if (mkey.HasVarCoeffForMatrixType(StdRegions::eLaplacian))
             {
                 lapVarcoeffs = mkey.GetVarCoeffs();
             }
@@ -741,7 +753,7 @@ DNekScalMatSharedPtr Expansion3D::CreateMatrix(const MatrixKey &mkey)
 
             // Construct mass matrix (Check for varcoeffs)
             StdRegions::VarCoeffMap massVarcoeffs = StdRegions::NullVarCoeffMap;
-            if (mkey.HasVarCoeff(StdRegions::eVarCoeffMass))
+            if (mkey.HasVarCoeffForMatrixType(StdRegions::eMass))
             {
                 massVarcoeffs[StdRegions::eVarCoeffMass] =
                     mkey.GetVarCoeff(StdRegions::eVarCoeffMass);
@@ -752,16 +764,7 @@ DNekScalMatSharedPtr Expansion3D::CreateMatrix(const MatrixKey &mkey)
 
             // Construct laplacian matrix (Check for varcoeffs)
             StdRegions::VarCoeffMap lapVarcoeffs = StdRegions::NullVarCoeffMap;
-            if ((mkey.HasVarCoeff(StdRegions::eVarCoeffLaplacian)) ||
-                (mkey.HasVarCoeff(StdRegions::eVarCoeffD00)) ||
-                (mkey.HasVarCoeff(StdRegions::eVarCoeffD01)) ||
-                (mkey.HasVarCoeff(StdRegions::eVarCoeffD10)) ||
-                (mkey.HasVarCoeff(StdRegions::eVarCoeffD02)) ||
-                (mkey.HasVarCoeff(StdRegions::eVarCoeffD20)) ||
-                (mkey.HasVarCoeff(StdRegions::eVarCoeffD11)) ||
-                (mkey.HasVarCoeff(StdRegions::eVarCoeffD12)) ||
-                (mkey.HasVarCoeff(StdRegions::eVarCoeffD21)) ||
-                (mkey.HasVarCoeff(StdRegions::eVarCoeffD22)))
+            if (mkey.HasVarCoeffForMatrixType(StdRegions::eLaplacian))
             {
                 lapVarcoeffs = mkey.GetVarCoeffs();
             }

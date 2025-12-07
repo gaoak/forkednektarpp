@@ -38,7 +38,9 @@
 #include <LibUtilities/BasicUtils/HashUtils.hpp>
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
+#include <array>
 #include <map>
+#include <utility>
 
 namespace Nektar::StdRegions
 {
@@ -244,6 +246,47 @@ const char *const VarCoeffTypeMap[] = {
     "VarCoeffMF3z",      "VarCoeffMF3Div",    "VarCoeffMF3Mag",
     "VarCoeffMF",        "VarCoeffMFDiv",     "VarCoeffGmat",
     "VarCoeffGJPNormVel"};
+
+// Structure to map matrix type to relevant variable coefficients
+// Note the mappings require manual definition and are used via
+// StdMatrixKey::HasVarCoeffForMatrixType(MatrixType)
+struct VarCoeffList
+{
+    const VarCoeffType *data;
+    std::size_t size;
+
+    // Optional helpers to allow range-for
+    constexpr const VarCoeffType *begin() const
+    {
+        return data;
+    }
+    constexpr const VarCoeffType *end() const
+    {
+        return data + size;
+    }
+};
+
+// The mass matrix has an elemental variable coefficient multiplying every entry
+constexpr std::array<VarCoeffType, 1> massVarCoeffs{eVarCoeffMass};
+
+// The laplacian matrix has an elemental variable coefficient "eLaplacian"
+// and coefficients for each compoennt of the diffusion tensor in 1D, 2D, and 3D
+constexpr std::array<VarCoeffType, 10> laplacianVarCoeffs{
+    eVarCoeffLaplacian, eVarCoeffD00, eVarCoeffD01, eVarCoeffD02, eVarCoeffD10,
+    eVarCoeffD11,       eVarCoeffD12, eVarCoeffD20, eVarCoeffD21, eVarCoeffD22};
+
+// The advection matrix has a variable coefficient for each advection velocity
+constexpr std::array<VarCoeffType, 3> advectionVarCoeffs{
+    eVarCoeffVelX, eVarCoeffVelY, eVarCoeffVelZ};
+
+constexpr std::array<std::pair<MatrixType, VarCoeffList>, 3>
+    MatrixTypeToVarCoeffsMap{
+        std::pair{eMass,
+                  VarCoeffList{massVarCoeffs.data(), massVarCoeffs.size()}},
+        std::pair{eLaplacian, VarCoeffList{laplacianVarCoeffs.data(),
+                                           laplacianVarCoeffs.size()}},
+        std::pair{eLinearAdvection, VarCoeffList{advectionVarCoeffs.data(),
+                                                 advectionVarCoeffs.size()}}};
 
 /**
  * @brief Representation of a variable coefficient.
