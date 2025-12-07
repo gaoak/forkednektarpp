@@ -67,11 +67,11 @@ void AllocateFieldStorage(FieldBase<TData> *field);
 class BlockAttributes
 {
 public:
-    BlockAttributes(const size_t exp_idx, const size_t num_elements,
+    BlockAttributes(const size_t num_elements,
                     const size_t num_elements_with_padding,
                     const unsigned int num_data,
                     const unsigned int interleave_width)
-        : m_exp_idx(exp_idx), m_num_elements(num_elements),
+        : m_num_elements(num_elements),
           m_num_elements_with_padding(num_elements_with_padding),
           m_num_data(num_data), m_size(num_elements_with_padding * num_data),
           m_interleave_width(interleave_width)
@@ -94,11 +94,6 @@ public:
         }
 
         m_interleave_width = interleave_width;
-    }
-
-    size_t GetExpIdx(void) const
-    {
-        return m_exp_idx;
     }
 
     size_t GetNumElements(void) const
@@ -142,7 +137,6 @@ public:
     }
 
 private:
-    const size_t m_exp_idx;
     const size_t m_num_elements;
     const size_t m_num_elements_with_padding;
     const unsigned int m_num_data;
@@ -184,14 +178,14 @@ public:
     {
     }
 
-    BlockAccessor(const size_t exp_idx, const size_t num_elements,
+    BlockAccessor(const size_t num_elements,
                   const size_t num_elements_with_padding,
                   const unsigned int num_data, const unsigned interleave_width,
                   MemoryRegion<TData> &&memory_region, FieldBase<TData> *field,
                   const unsigned int num_components,
                   const unsigned int num_homo_modes)
-        : BlockAttributes(exp_idx, num_elements, num_elements_with_padding,
-                          num_data, interleave_width),
+        : BlockAttributes(num_elements, num_elements_with_padding, num_data,
+                          interleave_width),
           m_memory_region(std::move(memory_region)), m_field(field),
           m_num_components(num_components), m_num_homo_modes(num_homo_modes)
     {
