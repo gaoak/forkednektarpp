@@ -37,6 +37,7 @@
 #if (defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)) ||                    \
     (defined(NEKTAR_ENABLE_HIP) && defined(__HIPCC__))
 
+#include "Operators/Common/MemoryAlloc.hpp"
 #include "Operators/Common/Spaces.hpp"
 
 namespace Nektar
@@ -1545,6 +1546,30 @@ __global__ __launch_bounds__(blockSize) void linfnormKernel(const size_t nsize,
 }
 
 // Launchers for the kernels
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
+zeroKernel(const size_t nsize, TData *x)
+{
+    deviceMemset(x, 0, nsize * sizeof(TData));
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
+fillKernel(const size_t nsize, const TData &val, TData *x)
+{
+    deviceFill(x, val, nsize);
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
+copyKernel(const size_t nsize, const TData *x, TData *y)
+{
+    deviceMemcpy<DeviceToDevice>(y, x, nsize * sizeof(TData));
+}
 
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,

@@ -50,6 +50,85 @@ unsigned int internalMaxDataSizeByte = 16;
 namespace Nektar::Operators
 {
 
+template <typename T> void Math::zero(T &x, const std::string &execSpace)
+{
+    auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
+
+    if (execSpace0 == "Serial")
+    {
+        Nektar::Operators::zero<NektarSpaces::Serial>(x);
+    }
+#if defined(NEKTAR_ENABLE_SIMD)
+    else if (execSpace0 == "AVX")
+    {
+        Nektar::Operators::zero<NektarSpaces::AVX>(x);
+    }
+#endif
+#if defined(NEKTAR_ENABLE_DEVICE)
+    else if (execSpace0 == "Device")
+    {
+        Nektar::Operators::zero<NektarSpaces::Device>(x);
+    }
+#endif
+    else
+    {
+        ASSERTL0(false, "Unknown Execution space: " + execSpace)
+    }
+}
+
+template <typename TData, typename T>
+void Math::fill(const TData &val, T &x, const std::string &execSpace)
+{
+    auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
+
+    if (execSpace0 == "Serial")
+    {
+        Nektar::Operators::fill<NektarSpaces::Serial>(val, x);
+    }
+#if defined(NEKTAR_ENABLE_SIMD)
+    else if (execSpace0 == "AVX")
+    {
+        Nektar::Operators::fill<NektarSpaces::AVX>(val, x);
+    }
+#endif
+#if defined(NEKTAR_ENABLE_DEVICE)
+    else if (execSpace0 == "Device")
+    {
+        Nektar::Operators::fill<NektarSpaces::Device>(val, x);
+    }
+#endif
+    else
+    {
+        ASSERTL0(false, "Unknown Execution space: " + execSpace)
+    }
+}
+
+template <typename T> void Math::copy(T &x, T &y, const std::string &execSpace)
+{
+    auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
+
+    if (execSpace0 == "Serial")
+    {
+        Nektar::Operators::copy<NektarSpaces::Serial>(x, y);
+    }
+#if defined(NEKTAR_ENABLE_SIMD)
+    else if (execSpace0 == "AVX")
+    {
+        Nektar::Operators::copy<NektarSpaces::AVX>(x, y);
+    }
+#endif
+#if defined(NEKTAR_ENABLE_DEVICE)
+    else if (execSpace0 == "Device")
+    {
+        Nektar::Operators::copy<NektarSpaces::Device>(x, y);
+    }
+#endif
+    else
+    {
+        ASSERTL0(false, "Unknown Execution space: " + execSpace)
+    }
+}
+
 template <typename T> void Math::abs(T &x, T &y, const std::string &execSpace)
 {
     auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
@@ -998,6 +1077,58 @@ typename T::value_type Math::linfnorm(M &mask, T &x,
 
     return out;
 }
+
+// zero template specialization.
+template void Math::zero<Field<double, FieldState::Phys>>(
+    Field<double, FieldState::Phys> &x, const std::string &execSpace);
+template void Math::zero<Field<float, FieldState::Phys>>(
+    Field<float, FieldState::Phys> &x, const std::string &execSpace);
+template void Math::zero<Field<double, FieldState::Coeff>>(
+    Field<double, FieldState::Coeff> &x, const std::string &execSpace);
+template void Math::zero<Field<float, FieldState::Coeff>>(
+    Field<float, FieldState::Coeff> &x, const std::string &execSpace);
+template void Math::zero<MemoryRegion<double>>(MemoryRegion<double> &x,
+                                               const std::string &execSpace);
+template void Math::zero<MemoryRegion<float>>(MemoryRegion<float> &x,
+                                              const std::string &execSpace);
+
+// fill template specialization.
+template void Math::fill<double, Field<double, FieldState::Phys>>(
+    const double &val, Field<double, FieldState::Phys> &x,
+    const std::string &execSpace);
+template void Math::fill<float, Field<float, FieldState::Phys>>(
+    const float &val, Field<float, FieldState::Phys> &x,
+    const std::string &execSpace);
+template void Math::fill<double, Field<double, FieldState::Coeff>>(
+    const double &val, Field<double, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template void Math::fill<float, Field<float, FieldState::Coeff>>(
+    const float &val, Field<float, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template void Math::fill<double, MemoryRegion<double>>(
+    const double &val, MemoryRegion<double> &x, const std::string &execSpace);
+template void Math::fill<float, MemoryRegion<float>>(
+    const float &val, MemoryRegion<float> &x, const std::string &execSpace);
+
+// copy template specialization.
+template void Math::copy<Field<double, FieldState::Phys>>(
+    Field<double, FieldState::Phys> &x, Field<double, FieldState::Phys> &y,
+    const std::string &execSpace);
+template void Math::copy<Field<float, FieldState::Phys>>(
+    Field<float, FieldState::Phys> &x, Field<float, FieldState::Phys> &y,
+    const std::string &execSpace);
+template void Math::copy<Field<double, FieldState::Coeff>>(
+    Field<double, FieldState::Coeff> &x, Field<double, FieldState::Coeff> &y,
+    const std::string &execSpace);
+template void Math::copy<Field<float, FieldState::Coeff>>(
+    Field<float, FieldState::Coeff> &x, Field<float, FieldState::Coeff> &y,
+    const std::string &execSpace);
+template void Math::copy<MemoryRegion<double>>(MemoryRegion<double> &x,
+                                               MemoryRegion<double> &y,
+                                               const std::string &execSpace);
+template void Math::copy<MemoryRegion<float>>(MemoryRegion<float> &x,
+                                              MemoryRegion<float> &y,
+                                              const std::string &execSpace);
 
 // abs template specialization.
 template void Math::abs<Field<double, FieldState::Phys>>(

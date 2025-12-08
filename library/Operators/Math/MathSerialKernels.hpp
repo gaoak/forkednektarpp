@@ -49,6 +49,30 @@ namespace Nektar
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial>,
                                void>::type
+zeroKernel(const size_t nsize, TData *x)
+{
+    std::memset(x, 0, nsize * sizeof(TData));
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial>,
+                               void>::type
+fillKernel(const size_t nsize, const TData &val, TData *x)
+{
+    std::fill(x, x + nsize, val);
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial>,
+                               void>::type
+copyKernel(const size_t nsize, const TData *x, TData *y)
+{
+    std::memcpy(y, x, nsize * sizeof(TData));
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial>,
+                               void>::type
 absKernel(const size_t nsize, const TData *x, TData *y)
 {
     std::transform(x, x + nsize, y,
