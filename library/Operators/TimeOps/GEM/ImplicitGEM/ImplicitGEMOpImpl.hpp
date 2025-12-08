@@ -77,31 +77,29 @@ protected:
         {
             unsigned int n = (this->m_variant == "Midpoint") ? this->m_order / 2
                                                              : this->m_order;
+
+            auto blockAttr = GetBlockAttributes<TData>(FieldState::Phys,
+                                                       this->m_expansionList);
             for (unsigned int m = 0; m < n; ++m)
             {
                 this->m_T.push_back(Field<TData, FieldState::Phys>(
-                    GetBlockAttributes<TData>(FieldState::Phys,
-                                              this->m_expansionList),
-                    inout.GetNumComponents(), inout.GetNumHomoModes()));
+                    blockAttr, inout.GetNumComponents(),
+                    inout.GetNumHomoModes()));
 
                 this->m_T0.push_back(Field<TData, FieldState::Phys>(
-                    GetBlockAttributes<TData>(FieldState::Phys,
-                                              this->m_expansionList),
-                    inout.GetNumComponents(), inout.GetNumHomoModes()));
+                    blockAttr, inout.GetNumComponents(),
+                    inout.GetNumHomoModes()));
             }
 
             for (unsigned int m = 0; m < this->m_order; ++m)
             {
                 this->m_solutions.push_back(Field<TData, FieldState::Phys>(
-                    GetBlockAttributes<TData>(FieldState::Phys,
-                                              this->m_expansionList),
-                    inout.GetNumComponents(), inout.GetNumHomoModes()));
+                    blockAttr, inout.GetNumComponents(),
+                    inout.GetNumHomoModes()));
             }
 
             this->m_implicits.push_back(Field<TData, FieldState::Phys>(
-                GetBlockAttributes<TData>(FieldState::Phys,
-                                          this->m_expansionList),
-                inout.GetNumComponents(), inout.GetNumHomoModes()));
+                blockAttr, inout.GetNumComponents(), inout.GetNumHomoModes()));
 
             this->m_initialized = true;
         }
@@ -139,9 +137,10 @@ protected:
                                          this->m_time +
                                              0.25 * this->m_timestep / m,
                                          0.25 * this->m_timestep / m);
-                        mul<ExecSpace>(2.0, this->m_solutions[0],
+                        mul<ExecSpace>((TData)2.0, this->m_solutions[0],
                                        this->m_solutions[1]);
-                        daxpy<ExecSpace>(-1.0, inout, this->m_solutions[1],
+                        daxpy<ExecSpace>(-(TData)1.0, inout,
+                                         this->m_solutions[1],
                                          this->m_solutions[1]);
                     }
                     else
@@ -152,9 +151,10 @@ protected:
                                                             this->m_timestep /
                                                             m,
                                          0.25 * this->m_timestep / m);
-                        mul<ExecSpace>(2.0, this->m_solutions[2 * k - 2],
+                        mul<ExecSpace>((TData)2.0, this->m_solutions[2 * k - 2],
                                        this->m_solutions[2 * k - 1]);
-                        daxpy<ExecSpace>(-1.0, this->m_solutions[2 * k - 3],
+                        daxpy<ExecSpace>(-(TData)1.0,
+                                         this->m_solutions[2 * k - 3],
                                          this->m_solutions[2 * k - 1],
                                          this->m_solutions[2 * k - 1]);
                     }
@@ -165,7 +165,7 @@ protected:
                     sub<ExecSpace>(this->m_implicits[0],
                                    this->m_solutions[2 * k - 1],
                                    this->m_implicits[0]);
-                    daxpy<ExecSpace>(2.0, this->m_implicits[0],
+                    daxpy<ExecSpace>((TData)2.0, this->m_implicits[0],
                                      this->m_solutions[2 * k - 1],
                                      this->m_solutions[2 * k - 1]);
                 }

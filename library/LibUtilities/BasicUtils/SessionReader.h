@@ -219,9 +219,16 @@ public:
     LIB_UTILITIES_EXPORT void LoadParameter(const std::string &name,
                                             size_t &var,
                                             const size_t &def) const;
+    /// Load a single precision parameter
+    LIB_UTILITIES_EXPORT void LoadParameter(const std::string &name,
+                                            NekSingle &var) const;
     /// Load a double precision parameter
     LIB_UTILITIES_EXPORT void LoadParameter(const std::string &name,
                                             NekDouble &var) const;
+    /// Check for and load a single-precision parameter.
+    LIB_UTILITIES_EXPORT void LoadParameter(const std::string &name,
+                                            NekSingle &var,
+                                            const NekSingle &def) const;
     /// Check for and load a double-precision parameter.
     LIB_UTILITIES_EXPORT void LoadParameter(const std::string &name,
                                             NekDouble &var,

@@ -149,17 +149,17 @@ protected:
                     this->m_dinvmass.template GetPtr<MemSpace, ReadOnly>();
 
                 // Perform batched matrix-vector multiply.
-                NekGemmStridedBatched(handle, "N", "N", m_nmTot, 1, m_nmTot,
-                                      1.0, dmatptr, m_nmTot, m_nmTot * m_nmTot,
-                                      inptr, m_nmTot, m_nmTot, 0.0, outptr,
-                                      m_nmTot, m_nmTot, nelmtTot);
+                NekGemmStridedBatched(
+                    handle, "N", "N", m_nmTot, 1, m_nmTot, (TData)1.0, dmatptr,
+                    m_nmTot, m_nmTot * m_nmTot, inptr, m_nmTot, m_nmTot,
+                    (TData)0.0, outptr, m_nmTot, m_nmTot, nelmtTot);
             }
             else
             {
                 // Perform matrix-matrix multiply.
-                NekGemm(handle, "N", "N", m_nmTot, nelmtTot, m_nmTot, 1.0,
-                        m_invmassptr, m_nmTot, inptr, m_nmTot, 0.0, outptr,
-                        m_nmTot);
+                NekGemm(handle, "N", "N", m_nmTot, nelmtTot, m_nmTot,
+                        (TData)1.0, m_invmassptr, m_nmTot, inptr, m_nmTot,
+                        (TData)0.0, outptr, m_nmTot);
 
                 // Divide by Jacobian.
                 DivideByJacobianKernel<ExecSpace, false>(

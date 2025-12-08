@@ -103,12 +103,22 @@ public:
             factory.CreateInstance(requestedKey, expansionList));
 
         // Set operator meta data
-        op->m_timestep   = session->GetParameter("TimeStep");
-        op->m_order      = order0;
-        op->m_variant    = variant0;
-        op->m_freeParams = (freeParams.size() == 0)
-                               ? session->GetTimeIntScheme().freeParams
-                               : freeParams;
+        op->m_timestep = session->GetParameter("TimeStep");
+        op->m_order    = order0;
+        op->m_variant  = variant0;
+        if (freeParams.size() == 0)
+        {
+            for (unsigned int i = 0;
+                 i < session->GetTimeIntScheme().freeParams.size(); i++)
+            {
+                op->m_freeParams.push_back(
+                    session->GetTimeIntScheme().freeParams[i]);
+            }
+        }
+        else
+        {
+            op->m_freeParams = freeParams;
+        }
 
         return op;
     }

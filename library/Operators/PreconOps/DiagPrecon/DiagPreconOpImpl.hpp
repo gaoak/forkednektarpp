@@ -181,8 +181,9 @@ protected:
                         unitblk.template GetPtr<MemSpace, WriteOnly>();
 
                     // Set ith term in unit vector to be 1.
-                    SetModeBlkKernel<ExecSpace>(mode, nelmt, numdata, 1.0,
-                                                blkptr, isInterleaved);
+                    SetModeBlkKernel<ExecSpace>(mode, nelmt, numdata,
+                                                (TData)1.0, blkptr,
+                                                isInterleaved);
                 }
             }
 
@@ -217,8 +218,9 @@ protected:
                                                  isInterleaved);
 
                     // Reset the ith term in the unit vector to be 0.
-                    SetModeBlkKernel<ExecSpace>(mode, nelmt, numdata, 0.0,
-                                                unitblkptr, isInterleaved);
+                    SetModeBlkKernel<ExecSpace>(mode, nelmt, numdata,
+                                                (TData)0.0, unitblkptr,
+                                                isInterleaved);
                 }
 
                 // Set diagonal interleave format.

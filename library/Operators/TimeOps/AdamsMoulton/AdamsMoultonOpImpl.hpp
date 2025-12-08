@@ -177,7 +177,7 @@ protected:
 
             // Update implicit derivative.
             sub<ExecSpace>(inout, this->m_implicits[0], this->m_implicits[0]);
-            mul<ExecSpace>(1.0 / m_gamma, this->m_implicits[0],
+            mul<ExecSpace>((TData)1.0 / m_gamma, this->m_implicits[0],
                            this->m_implicits[0]);
 
             // Increment step and time.

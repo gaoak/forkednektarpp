@@ -103,28 +103,24 @@ protected:
                  "IMEXdirkOp->DefineImplicit().");
 
         // Allocate memory.
+        auto blockAttr =
+            GetBlockAttributes<TData>(FieldState::Phys, this->m_expansionList);
         if (this->m_solutions.size() == 0)
         {
             this->m_solutions.push_back(Field<TData, FieldState::Phys>(
-                GetBlockAttributes<TData>(FieldState::Phys,
-                                          this->m_expansionList),
-                inout.GetNumComponents(), inout.GetNumHomoModes()));
+                blockAttr, inout.GetNumComponents(), inout.GetNumHomoModes()));
         }
 
         while (this->m_implicits.size() < ImpStage)
         {
             this->m_implicits.push_back(Field<TData, FieldState::Phys>(
-                GetBlockAttributes<TData>(FieldState::Phys,
-                                          this->m_expansionList),
-                inout.GetNumComponents(), inout.GetNumHomoModes()));
+                blockAttr, inout.GetNumComponents(), inout.GetNumHomoModes()));
         }
 
         while (this->m_explicits.size() < ExpStage)
         {
             this->m_explicits.push_back(Field<TData, FieldState::Phys>(
-                GetBlockAttributes<TData>(FieldState::Phys,
-                                          this->m_expansionList),
-                inout.GetNumComponents(), inout.GetNumHomoModes()));
+                blockAttr, inout.GetNumComponents(), inout.GetNumHomoModes()));
         }
 
         this->m_solutions[0].template Copy<MemSpace>(inout);
@@ -175,7 +171,7 @@ protected:
             // Compute implicit terms.
             sub<ExecSpace>(inout, this->m_implicits[Stage - 1],
                            this->m_implicits[Stage - 1]);
-            mul<ExecSpace>(1.0 / lambda1, this->m_implicits[Stage - 1],
+            mul<ExecSpace>((TData)1.0 / lambda1, this->m_implicits[Stage - 1],
                            this->m_implicits[Stage - 1]);
         }
 

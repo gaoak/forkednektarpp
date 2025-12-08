@@ -177,7 +177,7 @@ protected:
         }
         // Get quadrature points and rescale to [0, 1]
         unsigned int offset = this->m_first_quadrature ? 0 : 1;
-        std::vector<TData> tau(this->m_nQuadPts, 0.0);
+        std::vector<double> tau(this->m_nQuadPts, 0.0);
         for (unsigned int i = offset; i < this->m_nQuadPts; i++)
         {
             TData tmp = LibUtilities::PointsManager()[this->m_pointsKey]
@@ -190,9 +190,9 @@ protected:
         unsigned int colOffset = this->m_first_quadrature ? 0 : 1;
         unsigned int rowOffset =
             this->m_first_quadrature ? 0 : this->m_nQuadPts - 1;
-        unsigned int nCols      = this->m_nQuadPts - colOffset;
-        unsigned int nRows      = this->m_nQuadPts;
-        std::vector<TData> QMat = std::vector(nRows * nCols, 0.0);
+        unsigned int nCols       = this->m_nQuadPts - colOffset;
+        unsigned int nRows       = this->m_nQuadPts;
+        std::vector<double> QMat = std::vector<double>(nRows * nCols, 0.0);
         Polylib::Qg(&QMat[rowOffset], &tau[colOffset], nCols);
         this->m_QMat = MemoryRegion<TData>::template FromVector<MemSpace>(QMat);
 
