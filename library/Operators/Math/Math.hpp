@@ -60,6 +60,16 @@ public:
     }
 
     template <typename T>
+    OPERATORS_EXPORT void zero(T &x, const std::string &execSpace = "");
+
+    template <typename TData, typename T>
+    OPERATORS_EXPORT void fill(const TData &val, T &x,
+                               const std::string &execSpace = "");
+
+    template <typename T>
+    OPERATORS_EXPORT void copy(T &x, T &y, const std::string &execSpace = "");
+
+    template <typename T>
     OPERATORS_EXPORT void abs(T &x, T &y, const std::string &execSpace = "");
 
     template <typename T>

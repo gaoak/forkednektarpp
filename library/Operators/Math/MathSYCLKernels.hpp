@@ -36,6 +36,7 @@
 
 #if defined(NEKTAR_ENABLE_SYCL)
 
+#include "Operators/Common/MemoryAlloc.hpp"
 #include "Operators/Common/Spaces.hpp"
 
 #include <cmath>
@@ -44,6 +45,30 @@
 
 namespace Nektar
 {
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
+zeroKernel(const size_t nsize, TData *x)
+{
+    deviceMemset(x, 0, nsize * sizeof(TData));
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
+fillKernel(const size_t nsize, const TData &val, TData *x)
+{
+    deviceFill(x, val, nsize);
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
+copyKernel(const size_t nsize, const TData *x, TData *y)
+{
+    deviceMemcpy<DeviceToDevice>(y, x, nsize * sizeof(TData));
+}
 
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,

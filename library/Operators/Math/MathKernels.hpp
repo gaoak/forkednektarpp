@@ -46,6 +46,104 @@ namespace Nektar::Operators
 {
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
+void zero(Field<TData, TFieldState> &x)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
+    {
+        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
+        auto size = x.GetBlocks()[blk].size() * x.GetNumComponents() *
+                    x.GetNumHomoModes();
+
+        zeroKernel<ExecSpace>(size, xptr);
+    }
+}
+
+template <typename ExecSpace, typename TData> void zero(MemoryRegion<TData> &x)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    auto xptr  = x.template GetPtr<MemSpace, WriteOnly>();
+    auto nsize = x.size();
+
+    zeroKernel<ExecSpace>(nsize, xptr);
+}
+
+template <typename ExecSpace, typename TData, FieldState TFieldState>
+void fill(const TData &val, Field<TData, TFieldState> &x)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
+    {
+        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
+        auto size = x.GetBlocks()[blk].size() * x.GetNumComponents() *
+                    x.GetNumHomoModes();
+
+        fillKernel<ExecSpace>(size, val, xptr);
+    }
+}
+
+template <typename ExecSpace, typename TData>
+void fill(const TData &val, MemoryRegion<TData> &x)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    auto xptr  = x.template GetPtr<MemSpace, WriteOnly>();
+    auto nsize = x.size();
+
+    fillKernel<ExecSpace>(nsize, val, xptr);
+}
+
+template <typename ExecSpace, typename TData, FieldState TFieldState>
+void copy(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    if (x.size() != y.size())
+    {
+        std::stringstream msg;
+
+        msg << "MathKernel::copy - Memory size mismatch between Field";
+        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+    }
+
+    for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
+    {
+        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
+        auto size = x.GetBlocks()[blk].size() * x.GetNumComponents() *
+                    x.GetNumHomoModes();
+
+        copyKernel<ExecSpace>(size, xptr, yptr);
+
+        y.GetBlocks()[blk].template SetInterleaveWidth<TData>(
+            x.GetBlocks()[blk].GetInterleaveWidth());
+    }
+}
+
+template <typename ExecSpace, typename TData>
+void copy(MemoryRegion<TData> &x, MemoryRegion<TData> &y)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    if (x.size() != y.size())
+    {
+        std::stringstream msg;
+
+        msg << "MathKernel::copy - Memory size mismatch between Field";
+        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+    }
+
+    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
+    auto yptr  = y.template GetPtr<MemSpace, WriteOnly>();
+    auto nsize = x.size();
+
+    copyKernel<ExecSpace>(nsize, xptr, yptr);
+}
+
+template <typename ExecSpace, typename TData, FieldState TFieldState>
 void abs(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y)
 {
     using MemSpace = typename ExecSpace::memory_space;
