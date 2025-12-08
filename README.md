@@ -72,6 +72,22 @@ A minimalist compilation command example is shown below for each available backe
     cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
              -DNEKTAR_ENABLE_SIMD=AVX512 
 
+### SVE 
+    cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
+             -DNEKTAR_ENABLE_SIMD=SVE \
+             -DNEKTAR_SVE_BITS=xxx
+
+Notes:
+ - xxx can be 128, 256, 512, 1024, or 2048 depending of the architecture
+
+### SVE2 
+    cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
+             -DNEKTAR_ENABLE_SIMD=SVE2 \
+             -DNEKTAR_SVE_BITS=xxx
+
+Notes:
+ - xxx can be 128, 256, 512, 1024, or 2048 depending of the architecture
+
 ### CUDA
     cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
              -DNEKTAR_ENABLE_DEVICE=CUDA \
