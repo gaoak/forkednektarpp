@@ -66,7 +66,10 @@ public:
         for (unsigned int blk = 0; blk < op->m_blockOp.size(); ++blk)
         {
             std::vector<TData> dmat;
-            const auto exp = expansionList->GetExp(blockAttr[blk].GetExpIdx());
+            const auto exp_idx = GetCollection(expansionList, blk)
+                                     .GetExpVector()[0]
+                                     ->GetElmtId();
+            const auto exp   = expansionList->GetExp(exp_idx);
             const auto nmTot = exp->GetNcoeffs();
             const auto deformed =
                 exp->GetGeomFactors()->GetGtype() == SpatialDomains::eDeformed;
@@ -79,8 +82,7 @@ public:
                 auto dmatptr = dmat.data();
                 for (size_t e = 0; e < nelmt; ++e)
                 {
-                    const auto exp =
-                        expansionList->GetExp(blockAttr[blk].GetExpIdx() + e);
+                    const auto exp = expansionList->GetExp(exp_idx + e);
                     const auto &InvMass =
                         exp->GetLocMatrix(StdRegions::eInvMass);
                     std::copy_n(InvMass->GetRawPtr(), nmTot * nmTot, dmatptr);

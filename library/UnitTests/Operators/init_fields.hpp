@@ -527,7 +527,6 @@ public:
                 }
 
                 BlockAttributes new_block(
-                    inblockAttr[blk].GetExpIdx(),
                     inblockAttr[blk].GetNumElements(),
                     inblockAttr[blk].GetNumElementsWithPadding(), ndata,
                     inblockAttr[blk].GetInterleaveWidth());

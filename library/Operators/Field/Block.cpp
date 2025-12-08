@@ -117,15 +117,14 @@ std::vector<BlockAttributes> GetBlockAttributes(
     for (auto &coll : colls)
     {
         auto expPtr               = coll.GetExpVector()[0];
-        const size_t exp_idx      = expPtr->GetElmtId();
         const size_t num_elements = coll.GetExpVector().size();
         const unsigned int ndata  = state == FieldState::Phys
                                         ? expPtr->GetTotPoints()
                                         : expPtr->GetNcoeffs();
         size_t num_elements_with_padding =
             ((num_elements + vector_width - 1) / vector_width) * vector_width;
-        blockAttr.push_back({exp_idx, num_elements, num_elements_with_padding,
-                             ndata, interleave_width});
+        blockAttr.push_back(
+            {num_elements, num_elements_with_padding, ndata, interleave_width});
     }
 
     return blockAttr;
