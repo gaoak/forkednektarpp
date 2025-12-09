@@ -327,7 +327,7 @@ protected:
                                           this->m_expansionList),
                 1, 1));
         }
-        mul<ExecSpace>(1.0 / eta[0], m_r0, m_Vtotal[0]);
+        mul<ExecSpace>((TData)1.0 / eta[0], m_r0, m_Vtotal[0]);
 
         // Restarted Gmres(m) process.
         if (m_NekLinSysRightPrecon)
@@ -441,7 +441,7 @@ protected:
             m_assmbScatrZeroDirOp->Apply(m_Vtotal[i], wk);
             h[i] = m_math.ddot(w, wk);
             m_rowComm->AllReduce(h[i], LibUtilities::ReduceSum);
-            daxpy<ExecSpace>(-1.0 * h[i], m_Vtotal[i], w, w);
+            daxpy<ExecSpace>(-h[i], m_Vtotal[i], w, w);
         }
 
         // Calculate the L2 norm and normalize.
@@ -449,7 +449,7 @@ protected:
         h[endtem] = m_math.ddot(w, wk);
         m_rowComm->AllReduce(h[endtem], LibUtilities::ReduceSum);
         h[endtem] = std::sqrt(h[endtem]);
-        mul<ExecSpace>(1.0 / h[endtem], w, V2);
+        mul<ExecSpace>((TData)1.0 / h[endtem], w, V2);
     }
 
     // QR factorization through Givens rotation -> Put into a helper class

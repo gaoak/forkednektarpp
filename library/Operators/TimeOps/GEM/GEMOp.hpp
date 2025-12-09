@@ -110,10 +110,11 @@ protected:
                     {
                         sub<ExecSpace>(this->m_T0[k], this->m_T0[k - 1],
                                        this->m_T[k]);
-                        daxpy<ExecSpace>(
-                            (TData)std::pow(k - m + 1, 2) /
-                                (std::pow(k + 1, 2) - std::pow(k - m + 1, 2)),
-                            this->m_T[k], this->m_T0[k], this->m_T[k]);
+                        daxpy<ExecSpace>((TData)std::pow(k - m + 1, 2) /
+                                             (TData)(std::pow(k + 1, 2) -
+                                                     std::pow(k - m + 1, 2)),
+                                         this->m_T[k], this->m_T0[k],
+                                         this->m_T[k]);
                     }
 
                     // Copy new values to old values

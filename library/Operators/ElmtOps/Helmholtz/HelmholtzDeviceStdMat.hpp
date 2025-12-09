@@ -179,17 +179,18 @@ protected:
 
             // Step 1: BwdTrans
             // Perform matrix-matrix multiply.
-            NekGemm(handle, "N", "N", m_nqTot, nelmtTot, m_nmTot, 1.0, m_bwdmat,
-                    m_nqTot, inptr, m_nmTot, 0.0, bwdptr, m_nqTot);
+            NekGemm(handle, "N", "N", m_nqTot, nelmtTot, m_nmTot, (TData)1.0,
+                    m_bwdmat, m_nqTot, inptr, m_nmTot, (TData)0.0, bwdptr,
+                    m_nqTot);
 
             // Step 2: PhysDeriv
             // Perform matrix-matrix multiply.
             for (unsigned int d = 0; d < m_dimension; d++)
             {
-                NekGemm(handle, "N", "N", m_nqTot, nelmtTot, m_nqTot, 1.0,
-                        m_derivmat + d * m_nqTot * m_nqTot, m_nqTot, bwdptr,
-                        m_nqTot, 0.0, derivptr + d * m_nqTot * nelmtTot,
-                        m_nqTot);
+                NekGemm(handle, "N", "N", m_nqTot, nelmtTot, m_nqTot,
+                        (TData)1.0, m_derivmat + d * m_nqTot * m_nqTot, m_nqTot,
+                        bwdptr, m_nqTot, (TData)0.0,
+                        derivptr + d * m_nqTot * nelmtTot, m_nqTot);
             }
 
             // Multiply by derivative factor.
@@ -222,8 +223,9 @@ protected:
             }
 
             // Perform matrix-matrix multiply.
-            NekGemm(handle, "N", "N", m_nmTot, nelmtTot, m_nqTot, 1.0, m_ipbmat,
-                    m_nmTot, bwdptr, m_nqTot, 0.0, outptr, m_nmTot);
+            NekGemm(handle, "N", "N", m_nmTot, nelmtTot, m_nqTot, (TData)1.0,
+                    m_ipbmat, m_nmTot, bwdptr, m_nqTot, (TData)0.0, outptr,
+                    m_nmTot);
 
             // Step 4: Multiply by diffusion coefficient
             MultiplyByDiffusionCoeff<ExecSpace>(nelmtTot, m_nqTot, m_coordDim,
@@ -248,10 +250,10 @@ protected:
             // Perform matrix-matrix multiply.
             for (unsigned int d = 0; d < m_dimension; d++)
             {
-                NekGemm(handle, "N", "N", m_nmTot, nelmtTot, m_nqTot, 1.0,
-                        m_ipdmat + d * m_nqTot * m_nmTot, m_nmTot,
-                        derivptr + d * nelmtTot * m_nqTot, m_nqTot, 1.0, outptr,
-                        m_nmTot);
+                NekGemm(handle, "N", "N", m_nmTot, nelmtTot, m_nqTot,
+                        (TData)1.0, m_ipdmat + d * m_nqTot * m_nmTot, m_nmTot,
+                        derivptr + d * nelmtTot * m_nqTot, m_nqTot, (TData)1.0,
+                        outptr, m_nmTot);
             }
 
             // Reshape back, if necessary.

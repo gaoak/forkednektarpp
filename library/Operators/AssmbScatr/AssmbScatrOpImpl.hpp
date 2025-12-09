@@ -172,6 +172,7 @@ protected:
             this->m_expansionList->GetSession()->GetComm()->GetRowComm();
         m_isParallel = (vCommRow->GetSize() > 1) ? true : false;
 
+#if defined(NEKTAR_USE_MPI)
         if (m_isParallel)
         {
             auto globalToUniMap  = m_assemblyMap[0]->GetGlobalToUniversalMap();
@@ -226,6 +227,7 @@ protected:
             // communicator!
             m_assmbCommCG->InitSendRecvComms(nbuf, sendPtr, recvPtr, numComp);
         }
+#endif
     }
 
     void v_Apply(Field<TData, FieldState::Coeff> &in,

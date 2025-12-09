@@ -80,38 +80,33 @@ protected:
         // Initialize.
         if (!this->m_initialized)
         {
+            auto blockAttr = GetBlockAttributes<TData>(FieldState::Phys,
+                                                       this->m_expansionList);
             unsigned int n = (this->m_variant == "Midpoint") ? this->m_order / 2
                                                              : this->m_order;
             for (unsigned int m = 0; m < n; ++m)
             {
                 this->m_T.push_back(Field<TData, FieldState::Phys>(
-                    GetBlockAttributes<TData>(FieldState::Phys,
-                                              this->m_expansionList),
-                    inout.GetNumComponents(), inout.GetNumHomoModes()));
+                    blockAttr, inout.GetNumComponents(),
+                    inout.GetNumHomoModes()));
 
                 this->m_T0.push_back(Field<TData, FieldState::Phys>(
-                    GetBlockAttributes<TData>(FieldState::Phys,
-                                              this->m_expansionList),
-                    inout.GetNumComponents(), inout.GetNumHomoModes()));
+                    blockAttr, inout.GetNumComponents(),
+                    inout.GetNumHomoModes()));
             }
 
             for (unsigned int m = 0; m < this->m_order; ++m)
             {
                 this->m_solutions.push_back(Field<TData, FieldState::Phys>(
-                    GetBlockAttributes<TData>(FieldState::Phys,
-                                              this->m_expansionList),
-                    inout.GetNumComponents(), inout.GetNumHomoModes()));
+                    blockAttr, inout.GetNumComponents(),
+                    inout.GetNumHomoModes()));
             }
 
             this->m_explicits.push_back(Field<TData, FieldState::Phys>(
-                GetBlockAttributes<TData>(FieldState::Phys,
-                                          this->m_expansionList),
-                inout.GetNumComponents(), inout.GetNumHomoModes()));
+                blockAttr, inout.GetNumComponents(), inout.GetNumHomoModes()));
 
             this->m_explicits.push_back(Field<TData, FieldState::Phys>(
-                GetBlockAttributes<TData>(FieldState::Phys,
-                                          this->m_expansionList),
-                inout.GetNumComponents(), inout.GetNumHomoModes()));
+                blockAttr, inout.GetNumComponents(), inout.GetNumHomoModes()));
 
             this->m_initialized = true;
         }
@@ -129,8 +124,8 @@ protected:
                     // For the first stage, used pre-computed rhs.
                     if (k == 1)
                     {
-                        daxpy<ExecSpace>(1.0 / m, this->m_explicits[0], inout,
-                                         this->m_solutions[k - 1]);
+                        daxpy<ExecSpace>((TData)1.0 / m, this->m_explicits[0],
+                                         inout, this->m_solutions[k - 1]);
                     }
                     // For other stages, compute new rhs.
                     else
@@ -139,7 +134,7 @@ protected:
                             this->m_solutions[k - 2], this->m_explicits[1],
                             this->m_time + (k - 1) * (this->m_timestep / m),
                             this->m_timestep);
-                        daxpy<ExecSpace>(1.0 / m, this->m_explicits[1],
+                        daxpy<ExecSpace>((TData)1.0 / m, this->m_explicits[1],
                                          this->m_solutions[k - 2],
                                          this->m_solutions[k - 1]);
                     }
@@ -160,8 +155,8 @@ protected:
             for (unsigned int m = 1; m <= this->m_order / 2; ++m)
             {
                 // Use precomputed rhs for initial Euler stage
-                daxpy<ExecSpace>(1.0 / (2 * m), this->m_explicits[0], inout,
-                                 this->m_solutions[0]);
+                daxpy<ExecSpace>((TData)1.0 / (2 * m), this->m_explicits[0],
+                                 inout, this->m_solutions[0]);
                 this->DoProjection(this->m_solutions[0], this->m_solutions[0],
                                    this->m_time + this->m_timestep / (2 * m));
 
@@ -172,7 +167,7 @@ protected:
                         this->m_solutions[k - 2], this->m_explicits[1],
                         this->m_time + (k - 1) * (this->m_timestep / (2 * m)),
                         this->m_timestep);
-                    daxpy<ExecSpace>(1.0 / m, this->m_explicits[1],
+                    daxpy<ExecSpace>((TData)1.0 / m, this->m_explicits[1],
                                      (k == 2) ? inout
                                               : this->m_solutions[k - 3],
                                      this->m_solutions[k - 1]);

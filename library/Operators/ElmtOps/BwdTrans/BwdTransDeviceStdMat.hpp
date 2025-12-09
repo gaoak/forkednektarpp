@@ -127,8 +127,9 @@ protected:
                                       (TData *)inptr);
 
             // Perform matrix-matrix multiply.
-            NekGemm(handle, "N", "N", m_nqTot, nelmtTot, m_nmTot, 1.0, m_matptr,
-                    m_nqTot, inptr, m_nmTot, 0.0, outptr, m_nqTot);
+            NekGemm(handle, "N", "N", m_nqTot, nelmtTot, m_nmTot, (TData)1.0,
+                    m_matptr, m_nqTot, inptr, m_nmTot, (TData)0.0, outptr,
+                    m_nqTot);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,

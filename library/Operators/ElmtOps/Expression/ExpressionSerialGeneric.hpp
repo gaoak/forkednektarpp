@@ -113,7 +113,7 @@ protected:
             nc = n / inblock.GetNumHomoModes();
 
             // Pre-allocate vector for point-wise fielddata
-            std::vector<TData> fielddata(m_numEvars[nc]);
+            std::vector<double> fielddata(m_numEvars[nc]);
 
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,

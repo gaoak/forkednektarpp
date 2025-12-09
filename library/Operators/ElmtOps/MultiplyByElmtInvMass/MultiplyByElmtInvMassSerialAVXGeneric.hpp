@@ -161,16 +161,18 @@ protected:
                     if constexpr (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
                     {
                         NekGemvStridedBatched(
-                            blasHandle_t(), "N", m_nmTot, m_nmTot, 1.0, dmatptr,
-                            m_nmTot, m_nmTot * m_nmTot, inptr, simd_t::width, 1,
-                            0.0, outptr, simd_t::width, 1, simd_t::width);
+                            blasHandle_t(), "N", m_nmTot, m_nmTot, (TData)1.0,
+                            dmatptr, m_nmTot, m_nmTot * m_nmTot, inptr,
+                            simd_t::width, 1, (TData)0.0, outptr, simd_t::width,
+                            1, simd_t::width);
                     }
                     else
                     {
-                        NekGemvStridedBatched(
-                            blasHandle_t(), "N", m_nmTot, m_nmTot, 1.0, dmatptr,
-                            m_nmTot, m_nmTot * m_nmTot, inptr, 1, m_nmTot, 0.0,
-                            outptr, 1, m_nmTot, simd_t::width);
+                        NekGemvStridedBatched(blasHandle_t(), "N", m_nmTot,
+                                              m_nmTot, (TData)1.0, dmatptr,
+                                              m_nmTot, m_nmTot * m_nmTot, inptr,
+                                              1, m_nmTot, (TData)0.0, outptr, 1,
+                                              m_nmTot, simd_t::width);
                     }
 
                     // Reshape back, if necessary.
@@ -200,7 +202,7 @@ protected:
 
                 // Dispatch kernel.
                 auto invmass_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
-                    simd_t::width, m_nmTot, m_nmTot, 1.0, 0.0);
+                    simd_t::width, m_nmTot, m_nmTot, (TData)1.0, (TData)0.0);
 
                 // Loop over element groups.
                 for (size_t e = 0;

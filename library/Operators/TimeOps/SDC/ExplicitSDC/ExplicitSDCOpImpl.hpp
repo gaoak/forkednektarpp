@@ -84,22 +84,21 @@ protected:
         {
             this->template Initialize<ExecSpace>();
 
+            auto blockAttr = GetBlockAttributes<TData>(FieldState::Phys,
+                                                       this->m_expansionList);
             for (unsigned int m = 0; m < this->m_nQuadPts; ++m)
             {
                 this->m_SFint.push_back(Field<TData, FieldState::Phys>(
-                    GetBlockAttributes<TData>(FieldState::Phys,
-                                              this->m_expansionList),
-                    inout.GetNumComponents(), inout.GetNumHomoModes()));
+                    blockAttr, inout.GetNumComponents(),
+                    inout.GetNumHomoModes()));
 
                 this->m_solutions.push_back(Field<TData, FieldState::Phys>(
-                    GetBlockAttributes<TData>(FieldState::Phys,
-                                              this->m_expansionList),
-                    inout.GetNumComponents(), inout.GetNumHomoModes()));
+                    blockAttr, inout.GetNumComponents(),
+                    inout.GetNumHomoModes()));
 
                 this->m_residuals.push_back(Field<TData, FieldState::Phys>(
-                    GetBlockAttributes<TData>(FieldState::Phys,
-                                              this->m_expansionList),
-                    inout.GetNumComponents(), inout.GetNumHomoModes()));
+                    blockAttr, inout.GetNumComponents(),
+                    inout.GetNumHomoModes()));
             }
 
             this->m_initialized = true;

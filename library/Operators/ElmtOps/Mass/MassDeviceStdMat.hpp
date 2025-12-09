@@ -164,30 +164,32 @@ protected:
             {
                 // Step 1: BwdTrans
                 // Perform matrix-matrix multiply.
-                NekGemm(handle, "N", "N", m_nqTot, nelmtTot, m_nmTot, 1.0,
-                        m_bwdmat, m_nqTot, inptr, m_nmTot, 0.0, wspptr,
-                        m_nqTot);
+                NekGemm(handle, "N", "N", m_nqTot, nelmtTot, m_nmTot,
+                        (TData)1.0, m_bwdmat, m_nqTot, inptr, m_nmTot,
+                        (TData)0.0, wspptr, m_nqTot);
 
                 // Multiply by jacobian.
-                MultiplyByJacobianKernel<ExecSpace, true>(
-                    nelmt, m_nqTot, nhomo, m_jacptr, wspptr, wspptr, 1.0);
+                MultiplyByJacobianKernel<ExecSpace, true>(nelmt, m_nqTot, nhomo,
+                                                          m_jacptr, wspptr,
+                                                          wspptr, (TData)1.0);
 
                 // Step 2: IProduct
                 // Perform matrix-matrix multiply.
-                NekGemm(handle, "N", "N", m_nmTot, nelmtTot, m_nqTot, 1.0,
-                        m_ipbmat, m_nmTot, wspptr, m_nqTot, 0.0, outptr,
-                        m_nmTot);
+                NekGemm(handle, "N", "N", m_nmTot, nelmtTot, m_nqTot,
+                        (TData)1.0, m_ipbmat, m_nmTot, wspptr, m_nqTot,
+                        (TData)0.0, outptr, m_nmTot);
             }
             else
             {
                 // Perform matrix-matrix multiply.
-                NekGemm(handle, "N", "N", m_nmTot, nelmtTot, m_nmTot, 1.0,
-                        m_massmat, m_nmTot, inptr, m_nmTot, 0.0, outptr,
-                        m_nmTot);
+                NekGemm(handle, "N", "N", m_nmTot, nelmtTot, m_nmTot,
+                        (TData)1.0, m_massmat, m_nmTot, inptr, m_nmTot,
+                        (TData)0.0, outptr, m_nmTot);
 
                 // Multiply by jacobian.
                 MultiplyByJacobianKernel<ExecSpace, false>(
-                    nelmt, m_nmTot, nhomo, m_jacptr, outptr, outptr, 1.0);
+                    nelmt, m_nmTot, nhomo, m_jacptr, outptr, outptr,
+                    (TData)1.0);
             }
 
             // Reshape back, if necessary.
