@@ -131,8 +131,9 @@ void GetExpectedResults(const std::string &opName,
 /// information for each rank. If _verbose_=false, then only print the
 /// total information for each rank. Caution: for many ranks and many
 /// blocks, setting verbose may cause the display content too big to read.
+template <FieldState TState>
 void PrintBlockInfo(const MultiRegions::ExpListSharedPtr &expList,
-                    const std::vector<BlockAttributes> &blockAttr,
+                    const std::vector<BlockAttributes<TState>> &blockAttr,
                     std::vector<double> &rankL1Err)
 {
     auto comm                 = expList->GetComm();
@@ -276,11 +277,11 @@ void PrintBlockInfo(const MultiRegions::ExpListSharedPtr &expList,
 
 /// Print the profiler results, computed from the elapsed time and the total
 /// number of dofs.
-template <typename TData>
-void PrintProfileResult(const CommSharedPtr comm,
-                        std::vector<double> &rankElapsed,
-                        const std::vector<BlockAttributes> &inblockAttr,
-                        const std::vector<BlockAttributes> &outblockAttr)
+template <typename TData, FieldState TStateIn, FieldState TStateOut>
+void PrintProfileResult(
+    const CommSharedPtr comm, std::vector<double> &rankElapsed,
+    const std::vector<BlockAttributes<TStateIn>> &inblockAttr,
+    const std::vector<BlockAttributes<TStateOut>> &outblockAttr)
 {
     // Collect elapsed time and compute the max, min, and average.
     unsigned int nrank  = comm->GetSize();
@@ -384,8 +385,8 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
     }
 
     // Create block attributes.
-    auto inblockAttr  = GetBlockAttributes<TData>(stateIn, expList);
-    auto outblockAttr = GetBlockAttributes<TData>(stateOut, expList);
+    auto inblockAttr  = GetBlockAttributes<TData, stateIn>(expList);
+    auto outblockAttr = GetBlockAttributes<TData, stateOut>(expList);
 
     // Create fields.
     auto in = Field<TData, stateIn>("f_in", inblockAttr, nIn * nComp, nHomo);

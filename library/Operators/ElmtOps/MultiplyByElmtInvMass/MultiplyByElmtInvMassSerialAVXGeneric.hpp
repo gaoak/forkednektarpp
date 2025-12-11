@@ -121,8 +121,8 @@ protected:
     const TData *m_jacptr;
     MemoryRegion<TData> m_dinvmass;
 
-    void v_Apply(BlockAccessor<TData> &inblock,
-                 BlockAccessor<TData> &outblock) override
+    void v_Apply(BlockAccessor<TData, FieldState::Coeff> &inblock,
+                 BlockAccessor<TData, FieldState::Coeff> &outblock) override
     {
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();

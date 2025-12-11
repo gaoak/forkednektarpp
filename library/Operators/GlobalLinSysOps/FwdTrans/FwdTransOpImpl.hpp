@@ -55,11 +55,11 @@ public:
         : FwdTransOp<TData>(expansionList),
           m_rhs(Field<TData, FieldState::Coeff>(
               "FwdTrans RHS",
-              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
+              GetBlockAttributes<TData, FieldState::Coeff>(expansionList), 1,
               1)),
           m_tmp(Field<TData, FieldState::Coeff>(
               "FwdTrans TMP",
-              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
+              GetBlockAttributes<TData, FieldState::Coeff>(expansionList), 1,
               1))
     {
         m_MassOp =

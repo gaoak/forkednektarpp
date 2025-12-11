@@ -80,8 +80,8 @@ protected:
         // Initialize.
         if (!this->m_initialized)
         {
-            auto blockAttr = GetBlockAttributes<TData>(FieldState::Phys,
-                                                       this->m_expansionList);
+            auto blockAttr = GetBlockAttributes<TData, FieldState::Phys>(
+                this->m_expansionList);
             unsigned int n = (this->m_variant == "Midpoint") ? this->m_order / 2
                                                              : this->m_order;
             for (unsigned int m = 0; m < n; ++m)

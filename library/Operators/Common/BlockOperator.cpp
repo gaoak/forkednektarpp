@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Operators/ElmtOps/BlockOperator.hpp"
+#include "Operators/Common/BlockOperator.hpp"
 
 using namespace Nektar::LibUtilities;
 

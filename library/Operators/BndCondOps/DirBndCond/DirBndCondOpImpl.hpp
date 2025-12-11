@@ -84,7 +84,7 @@ public:
 
         // Compute block bound.
         auto blockAttr =
-            GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
+            GetBlockAttributes<TData, FieldState::Coeff>(expansionList);
         std::vector<size_t> blockBound(blockAttr.size());
         size_t bound = 0;
         for (unsigned int blk = 0; blk < blockAttr.size(); ++blk)

@@ -104,7 +104,7 @@ int main(int argc, char *argv[])
     Timer timer;
 
     // Create block attributes.
-    auto blockAttr = GetBlockAttributes<TData>(FieldState::Coeff, expList);
+    auto blockAttr = GetBlockAttributes<TData, FieldState::Coeff>(expList);
 
     // Create fields.
     auto fIn =

@@ -103,22 +103,22 @@ Collections::CollectionVector GetCollection(
  * @param interleave_width Vector width to use for the field.
  * @return std::vector<BlockAttributes>
  */
-template <typename TData>
-std::vector<BlockAttributes> GetBlockAttributes(
-    FieldState state, const MultiRegions::ExpListSharedPtr explist,
+template <typename TData, FieldState TState>
+std::vector<BlockAttributes<TState>> GetBlockAttributes(
+    const MultiRegions::ExpListSharedPtr explist,
     const unsigned interleave_width)
 {
     // Use maximum vector width for back-ends interoperability.
     const auto vector_width = NektarSpaces::max_vector_width<TData>::value;
 
-    std::vector<BlockAttributes> blockAttr;
+    std::vector<BlockAttributes<TState>> blockAttr;
 
     auto colls = GetCollection(explist);
     for (auto &coll : colls)
     {
         auto expPtr               = coll.GetExpVector()[0];
         const size_t num_elements = coll.GetExpVector().size();
-        const unsigned int ndata  = state == FieldState::Phys
+        const unsigned int ndata  = TState == FieldState::Phys
                                         ? expPtr->GetTotPoints()
                                         : expPtr->GetNcoeffs();
         size_t num_elements_with_padding =
@@ -130,24 +130,41 @@ std::vector<BlockAttributes> GetBlockAttributes(
     return blockAttr;
 }
 
-template std::vector<BlockAttributes> GetBlockAttributes<double>(
-    FieldState state, const MultiRegions::ExpListSharedPtr explist,
+template std::vector<BlockAttributes<FieldState::Phys>> GetBlockAttributes<
+    double, FieldState::Phys>(const MultiRegions::ExpListSharedPtr explist,
+                              const unsigned interleave_width);
+template std::vector<BlockAttributes<FieldState::Coeff>> GetBlockAttributes<
+    double, FieldState::Coeff>(const MultiRegions::ExpListSharedPtr explist,
+                               const unsigned interleave_width);
+
+template std::vector<BlockAttributes<FieldState::Phys>> GetBlockAttributes<
+    float, FieldState::Phys>(const MultiRegions::ExpListSharedPtr explist,
+                             const unsigned interleave_width);
+template std::vector<BlockAttributes<FieldState::Coeff>> GetBlockAttributes<
+    float, FieldState::Coeff>(const MultiRegions::ExpListSharedPtr explist,
+                              const unsigned interleave_width);
+
+template std::vector<BlockAttributes<FieldState::Phys>> GetBlockAttributes<
+    int, FieldState::Phys>(const MultiRegions::ExpListSharedPtr explist,
+                           const unsigned interleave_width);
+template std::vector<BlockAttributes<FieldState::Coeff>> GetBlockAttributes<
+    int, FieldState::Coeff>(const MultiRegions::ExpListSharedPtr explist,
+                            const unsigned interleave_width);
+
+template std::vector<BlockAttributes<FieldState::Phys>> GetBlockAttributes<
+    unsigned int, FieldState::Phys>(
+    const MultiRegions::ExpListSharedPtr explist,
+    const unsigned interleave_width);
+template std::vector<BlockAttributes<FieldState::Coeff>> GetBlockAttributes<
+    unsigned int, FieldState::Coeff>(
+    const MultiRegions::ExpListSharedPtr explist,
     const unsigned interleave_width);
 
-template std::vector<BlockAttributes> GetBlockAttributes<float>(
-    FieldState state, const MultiRegions::ExpListSharedPtr explist,
-    const unsigned interleave_width);
-
-template std::vector<BlockAttributes> GetBlockAttributes<int>(
-    FieldState state, const MultiRegions::ExpListSharedPtr explist,
-    const unsigned interleave_width);
-
-template std::vector<BlockAttributes> GetBlockAttributes<unsigned int>(
-    FieldState state, const MultiRegions::ExpListSharedPtr explist,
-    const unsigned interleave_width);
-
-template std::vector<BlockAttributes> GetBlockAttributes<size_t>(
-    FieldState state, const MultiRegions::ExpListSharedPtr explist,
-    const unsigned interleave_width);
+template std::vector<BlockAttributes<FieldState::Phys>> GetBlockAttributes<
+    size_t, FieldState::Phys>(const MultiRegions::ExpListSharedPtr explist,
+                              const unsigned interleave_width);
+template std::vector<BlockAttributes<FieldState::Coeff>> GetBlockAttributes<
+    size_t, FieldState::Coeff>(const MultiRegions::ExpListSharedPtr explist,
+                               const unsigned interleave_width);
 
 } // namespace Nektar::Operators

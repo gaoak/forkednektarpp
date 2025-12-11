@@ -78,8 +78,8 @@ protected:
             unsigned int n = (this->m_variant == "Midpoint") ? this->m_order / 2
                                                              : this->m_order;
 
-            auto blockAttr = GetBlockAttributes<TData>(FieldState::Phys,
-                                                       this->m_expansionList);
+            auto blockAttr = GetBlockAttributes<TData, FieldState::Phys>(
+                this->m_expansionList);
             for (unsigned int m = 0; m < n; ++m)
             {
                 this->m_T.push_back(Field<TData, FieldState::Phys>(

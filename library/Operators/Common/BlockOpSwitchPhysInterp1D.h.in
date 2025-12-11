@@ -6,13 +6,13 @@
         // Default case
 #undef PHYSINTERP1D_DEF
 #define PHYSINTERP1D_DEF                                                       \
-    Operator1D(input, output);
+    Operator1D(inblock, outblock);
 
         // Inner loop case over quarature points Shape dependent
 #undef PHYSINTERP1D_Q
 #define PHYSINTERP1D_Q(r, i)                                                   \
     case NQ(i):                                                                \
-        Operator1D<NM(i), NQ(i)>(input, output);                               \
+        Operator1D<NM(i), NQ(i)>(inblock, outblock);                               \
         break;
 
         // outer loop case over modes
@@ -53,20 +53,20 @@
         // Default case
 #undef PHYSINTERP1D_DEF
 #define PHYSINTERP1D_DEF                                                       \
-    Operator2D(input, output);
+    Operator2D(inblock, outblock);
 
         // Inner loop case over quarature points Shape dependent
 #if defined(SHAPE_TYPE_Quad)
 #undef PHYSINTERP1D_Q
 #define PHYSINTERP1D_Q(r, i)                                                   \
     case NQ(i):                                                                \
-        Operator2D< NM(i), NM(i), NQ(i), NQ(i)>(input, output);                \
+        Operator2D< NM(i), NM(i), NQ(i), NQ(i)>(inblock, outblock);                \
         break;
 #elif defined(SHAPE_TYPE_Tri)|| defined(SHAPE_TYPE_NodalTri)
 #undef PHYSINTERP1D_Q
 #define PHYSINTERP1D_Q(r, i)                                                   \
     case NQ(i):                                                                \
-        Operator2D<NM(i), NM_M1(i), NQ(i), NQ_M1(i)>(input, output);           \
+        Operator2D<NM(i), NM_M1(i), NQ(i), NQ_M1(i)>(inblock, outblock);           \
         break;
 #endif
 
@@ -122,7 +122,7 @@
         // Default case
 #undef PHYSINTERP1D_DEF
 #define PHYSINTERP1D_DEF                                                       \
-    Operator3D(input, output);
+    Operator3D(inblock, outblock);
 
         // Inner loop case over quarature points Shape dependent
 #if defined(SHAPE_TYPE_Hex)
@@ -130,21 +130,21 @@
 #define PHYSINTERP1D_Q(r, i)                                                   \
     case NQ(i):                                                                \
         Operator3D<NM(i), NM(i), NM(i), NQ(i),                                 \
-                   NQ(i), NQ(i)>(input, output);                               \
+                   NQ(i), NQ(i)>(inblock, outblock);                               \
         break;
 #elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) || defined(SHAPE_TYPE_Pyr)
 #undef PHYSINTERP1D_Q
 #define PHYSINTERP1D_Q(r, i)                                                   \
     case NQ(i):                                                                \
         Operator3D<NM(i), NM(i), NM_M1(i), NQ(i),                              \
-                   NQ(i), NQ_M1(i)>(input, output);                            \
+                   NQ(i), NQ_M1(i)>(inblock, outblock);                            \
         break;
 #elif defined(SHAPE_TYPE_Tet) || defined(SHAPE_TYPE_NodalTet)
 #undef PHYSINTERP1D_Q
 #define PHYSINTERP1D_Q(r, i)                                                   \
     case NQ(i):                                                                \
         Operator3D<NM(i), NM_M1(i), NM_M1(i), NQ(i),                           \
-                   NQ_M1(i), NQ_M1(i)>(input, output);                         \
+                   NQ_M1(i), NQ_M1(i)>(inblock, outblock);                         \
         break;
 #endif
 

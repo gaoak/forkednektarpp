@@ -90,8 +90,8 @@ protected:
             // Save initial solution.
             this->m_solutions.push_front(Field<TData, FieldState::Phys>(
                 "timestep n-" + std::to_string(this->m_step + 1),
-                GetBlockAttributes<TData>(FieldState::Phys,
-                                          this->m_expansionList),
+                GetBlockAttributes<TData, FieldState::Phys>(
+                    this->m_expansionList),
                 inout.GetNumComponents(), inout.GetNumHomoModes()));
 
             this->m_solutions[0].template Copy<MemSpace>(inout);

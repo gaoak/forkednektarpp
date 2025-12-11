@@ -80,10 +80,11 @@ public:
     static std::string className;
 
     // Instantiation function for CreatorFunction in BlockOperatorFactory.
-    static std::unique_ptr<BlockOperator<TData>> Instantiate(
-        const unsigned int block_idx,
-        const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse)
+    static std::unique_ptr<
+        ElmtBlockOp<FieldState::Coeff, FieldState::Phys, TData>>
+    Instantiate(const unsigned int block_idx,
+                const LocalRegions::ExpansionSharedPtr &exp,
+                NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
             BwdTransBlockOpImpl<ExecSpace, Implementation, TData>>(
@@ -104,8 +105,8 @@ protected:
     std::vector<const unsigned int *> m_index;
     MemoryRegion<TData> m_wsp;
 
-    void v_Apply(BlockAccessor<TData> &inblock,
-                 BlockAccessor<TData> &outblock) override
+    void v_Apply(BlockAccessor<TData, FieldState::Coeff> &inblock,
+                 BlockAccessor<TData, FieldState::Phys> &outblock) override
     {
         switch (m_shapeType)
         {
@@ -210,7 +211,8 @@ protected:
     }
 
     // Fuction definitions for each shape type.
-    void SegBlock(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
+    void SegBlock(BlockAccessor<TData, FieldState::Coeff> &inblock,
+                  BlockAccessor<TData, FieldState::Phys> &outblock)
     {
         const auto nm0   = m_nm[0];
         const auto nq0   = m_nq[0];
@@ -255,8 +257,8 @@ protected:
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
-    void QuadBlock(BlockAccessor<TData> &inblock,
-                   BlockAccessor<TData> &outblock)
+    void QuadBlock(BlockAccessor<TData, FieldState::Coeff> &inblock,
+                   BlockAccessor<TData, FieldState::Phys> &outblock)
     {
         const auto nm0   = m_nm[0];
         const auto nm1   = m_nm[1];
@@ -317,7 +319,8 @@ protected:
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     };
 
-    void TriBlock(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
+    void TriBlock(BlockAccessor<TData, FieldState::Coeff> &inblock,
+                  BlockAccessor<TData, FieldState::Phys> &outblock)
     {
         const auto nm0   = m_nm[0];
         const auto nm1   = m_nm[1];
@@ -417,7 +420,8 @@ protected:
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     };
 
-    void HexBlock(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
+    void HexBlock(BlockAccessor<TData, FieldState::Coeff> &inblock,
+                  BlockAccessor<TData, FieldState::Phys> &outblock)
     {
         const auto nm0   = m_nm[0];
         const auto nm1   = m_nm[1];
@@ -489,8 +493,8 @@ protected:
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
-    void PrismBlock(BlockAccessor<TData> &inblock,
-                    BlockAccessor<TData> &outblock)
+    void PrismBlock(BlockAccessor<TData, FieldState::Coeff> &inblock,
+                    BlockAccessor<TData, FieldState::Phys> &outblock)
     {
         const auto nm0   = m_nm[0];
         const auto nm1   = m_nm[1];
@@ -613,7 +617,8 @@ protected:
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
-    void PyrBlock(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
+    void PyrBlock(BlockAccessor<TData, FieldState::Coeff> &inblock,
+                  BlockAccessor<TData, FieldState::Phys> &outblock)
     {
         const auto nm0   = m_nm[0];
         const auto nm1   = m_nm[1];
@@ -754,7 +759,8 @@ protected:
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     };
 
-    void TetBlock(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
+    void TetBlock(BlockAccessor<TData, FieldState::Coeff> &inblock,
+                  BlockAccessor<TData, FieldState::Phys> &outblock)
     {
         const auto nm0   = m_nm[0];
         const auto nm1   = m_nm[1];

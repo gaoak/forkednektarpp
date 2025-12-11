@@ -142,8 +142,8 @@ protected:
             if (this->m_step == 0 && Nimplicit() == 2)
             {
                 this->m_implicits.push_back(Field<TData, FieldState::Phys>(
-                    GetBlockAttributes<TData>(FieldState::Phys,
-                                              this->m_expansionList),
+                    GetBlockAttributes<TData, FieldState::Phys>(
+                        this->m_expansionList),
                     inout.GetNumComponents(), inout.GetNumHomoModes()));
             }
 
@@ -158,8 +158,8 @@ protected:
             if (this->m_explicits.size() < IntOrder)
             {
                 this->m_explicits.push_back(Field<TData, FieldState::Phys>(
-                    GetBlockAttributes<TData>(FieldState::Phys,
-                                              this->m_expansionList),
+                    GetBlockAttributes<TData, FieldState::Phys>(
+                        this->m_expansionList),
                     inout.GetNumComponents(), inout.GetNumHomoModes()));
             }
 

@@ -67,8 +67,8 @@ protected:
                      const Array<OneD, NekDouble> &Vel) override
     {
         // Set up a physBlockAttributes which will be
-        std::vector<BlockAttributes> blockAttr = GetBlockAttributes<TData>(
-            FieldState::Phys, this->m_expansionList, 1);
+        auto blockAttr = GetBlockAttributes<TData, FieldState::Phys>(
+            this->m_expansionList, 1);
 
         this->m_advVel = Field<TData, FieldState::Phys>("Advection Field",
                                                         blockAttr, nVel, 1);

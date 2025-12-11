@@ -134,7 +134,7 @@ protected:
     {
         // Create block attributes.
         auto blockAttr =
-            GetBlockAttributes<TData>(FieldState::Coeff, this->m_expansionList);
+            GetBlockAttributes<TData, FieldState::Coeff>(this->m_expansionList);
 
         // Create local diagonal field.
         m_invDiag = Field<TData, FieldState::Coeff>("inverse diagonal",

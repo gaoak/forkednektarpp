@@ -57,27 +57,27 @@ public:
         : ConjGradOp<TData>(expansionList),
           m_w_A(Field<TData, FieldState::Coeff>(
               "ConjGrad w_A",
-              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
+              GetBlockAttributes<TData, FieldState::Coeff>(expansionList), 1,
               1)),
           m_s_A(Field<TData, FieldState::Coeff>(
               "ConjGrad s_A",
-              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
+              GetBlockAttributes<TData, FieldState::Coeff>(expansionList), 1,
               1)),
           m_r_A(Field<TData, FieldState::Coeff>(
               "ConjGrad r_A",
-              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
+              GetBlockAttributes<TData, FieldState::Coeff>(expansionList), 1,
               1)),
           m_q_A(Field<TData, FieldState::Coeff>(
               "ConjGrad wk",
-              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
+              GetBlockAttributes<TData, FieldState::Coeff>(expansionList), 1,
               1)),
           m_p_A(Field<TData, FieldState::Coeff>(
               "ConjGrad wk",
-              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
+              GetBlockAttributes<TData, FieldState::Coeff>(expansionList), 1,
               1)),
           m_mask(Field<std::uint8_t, FieldState::Coeff>(
               "ConjGrad mask",
-              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
+              GetBlockAttributes<TData, FieldState::Coeff>(expansionList), 1,
               1)),
           m_vExchange(MemoryRegion<TData>(3, ePinned))
     {

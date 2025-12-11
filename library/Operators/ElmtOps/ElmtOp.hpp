@@ -43,6 +43,8 @@ template <FieldState TFieldIn, FieldState TFieldOut, typename TData>
 class ElmtOp : public Operator<TData>
 {
 public:
+    ~ElmtOp() override = default;
+
     template <template <typename> typename TOperator,
               template <typename> typename TBlockOperator>
     static std::shared_ptr<TOperator<TData>> Create(
@@ -64,7 +66,7 @@ public:
                                                               execStr0);
 
         auto blockAttr =
-            GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
+            GetBlockAttributes<TData, FieldState::Coeff>(expansionList);
 
         // Loop over the blocks.
         for (unsigned int block_idx = 0; block_idx < blockAttr.size();
@@ -175,8 +177,6 @@ protected:
         : Operator<TData>(expansionList)
     {
     }
-
-    ~ElmtOp() override = default;
 
     virtual void v_Apply(Field<TData, TFieldIn> &in,
                          Field<TData, TFieldOut> &out) = 0;

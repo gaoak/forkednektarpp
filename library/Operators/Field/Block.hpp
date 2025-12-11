@@ -56,15 +56,15 @@ namespace Nektar::Operators
 Collections::Collection GetCollection(
     MultiRegions::ExpListSharedPtr expansionList, unsigned int block_idx);
 
-template <typename MemSpace, typename TData>
-void AllocateFieldStorage(FieldBase<TData> *field);
+template <typename MemSpace, typename TData, FieldState TState>
+void AllocateFieldStorage(Field<TData, TState> *field);
 
 /**
  * @brief A block means a group of elements of identical shape,
  * basis and order. BlockAttributes stores the most basic
  * information of a block.
  */
-class BlockAttributes
+template <FieldState TState> class BlockAttributes
 {
 public:
     BlockAttributes(const size_t num_elements,
@@ -155,37 +155,39 @@ private:
  * @param interleave_width Vector width to use for the field.
  * @return std::vector<BlockAttributes>
  */
-template <typename TData>
-std::vector<BlockAttributes> GetBlockAttributes(
-    FieldState state, const MultiRegions::ExpListSharedPtr explist,
+template <typename TData, FieldState TState>
+std::vector<BlockAttributes<TState>> GetBlockAttributes(
+    const MultiRegions::ExpListSharedPtr explist,
     const unsigned interleave_width = 1);
 
-template <typename TData> class BlockAccessor : public BlockAttributes
+template <typename TData, FieldState TState>
+class BlockAccessor : public BlockAttributes<TState>
 {
-    template <typename TDataField> friend class FieldBase;
-    template <typename TDataField, FieldState TState> friend class Field;
-    template <typename MemSpace, typename TDataField>
-    friend void AllocateFieldStorage(FieldBase<TDataField> *field);
+    template <typename TDataField, FieldState TStateField> friend class Field;
+    template <typename MemSpace, typename TDataField, FieldState TStateField>
+    friend void AllocateFieldStorage(Field<TDataField, TStateField> *field);
 
 public:
-    BlockAccessor(const BlockAttributes blockAttr,
-                  MemoryRegion<TData> &&memory_region, FieldBase<TData> *field,
+    BlockAccessor(const BlockAttributes<TState> blockAttr,
+                  MemoryRegion<TData> &&memory_region,
+                  Field<TData, TState> *field,
                   const unsigned int num_components,
                   const unsigned int num_homo_modes)
-        : BlockAttributes(blockAttr), m_memory_region(std::move(memory_region)),
-          m_field(field), m_num_components(num_components),
-          m_num_homo_modes(num_homo_modes)
+        : BlockAttributes<TState>(blockAttr),
+          m_memory_region(std::move(memory_region)), m_field(field),
+          m_num_components(num_components), m_num_homo_modes(num_homo_modes)
     {
     }
 
     BlockAccessor(const size_t num_elements,
                   const size_t num_elements_with_padding,
                   const unsigned int num_data, const unsigned interleave_width,
-                  MemoryRegion<TData> &&memory_region, FieldBase<TData> *field,
+                  MemoryRegion<TData> &&memory_region,
+                  Field<TData, TState> *field,
                   const unsigned int num_components,
                   const unsigned int num_homo_modes)
-        : BlockAttributes(num_elements, num_elements_with_padding, num_data,
-                          interleave_width),
+        : BlockAttributes<TState>(num_elements, num_elements_with_padding,
+                                  num_data, interleave_width),
           m_memory_region(std::move(memory_region)), m_field(field),
           m_num_components(num_components), m_num_homo_modes(num_homo_modes)
     {
@@ -255,7 +257,7 @@ private:
     // Note: m_field is a pointer to a Field object from which the current
     // BlockAccessor object belong to.
     MemoryRegion<TData> m_memory_region;
-    FieldBase<TData> *m_field;
+    Field<TData, TState> *m_field;
     unsigned int m_num_components = 0;
     unsigned int m_num_homo_modes = 1;
 };

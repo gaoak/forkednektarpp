@@ -66,10 +66,11 @@ public:
     static std::string className;
 
     // Instantiation function for CreatorFunction in BlockOperatorFactory.
-    static std::unique_ptr<BlockOperator<TData>> Instantiate(
-        const unsigned int block_idx,
-        const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse)
+    static std::unique_ptr<
+        ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>>
+    Instantiate(const unsigned int block_idx,
+                const LocalRegions::ExpansionSharedPtr &exp,
+                NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
             ExpressionBlockOpImpl<ExecSpace, Implementation, TData>>(
@@ -90,8 +91,8 @@ protected:
 
     std::vector<LibUtilities::EquationSharedPtr> m_expressions;
 
-    void v_Apply(BlockAccessor<TData> &inblock,
-                 BlockAccessor<TData> &outblock) override
+    void v_Apply(BlockAccessor<TData, FieldState::Phys> &inblock,
+                 BlockAccessor<TData, FieldState::Phys> &outblock) override
     {
         const auto nelmt = inblock.GetNumElements();
         const auto compSize =

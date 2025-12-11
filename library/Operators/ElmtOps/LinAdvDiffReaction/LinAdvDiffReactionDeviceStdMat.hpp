@@ -114,10 +114,11 @@ public:
     static std::string className;
 
     // Instantiation function for CreatorFunction in BlockOperatorFactory.
-    static std::unique_ptr<BlockOperator<TData>> Instantiate(
-        const unsigned int block_idx,
-        const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse)
+    static std::unique_ptr<
+        ElmtBlockOp<FieldState::Coeff, FieldState::Coeff, TData>>
+    Instantiate(const unsigned int block_idx,
+                const LocalRegions::ExpansionSharedPtr &exp,
+                NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
             LinAdvDiffReactionBlockOpImpl<ExecSpace, Implementation, TData>>(
@@ -144,8 +145,8 @@ protected:
     MemoryRegion<TData> m_diffCoeff;
     TData *m_advVel;
 
-    void v_Apply(BlockAccessor<TData> &inblock,
-                 BlockAccessor<TData> &outblock) override
+    void v_Apply(BlockAccessor<TData, FieldState::Coeff> &inblock,
+                 BlockAccessor<TData, FieldState::Coeff> &outblock) override
     {
         auto handle = NekHandle<ExecSpace>::GetInstance();
 
@@ -292,7 +293,7 @@ protected:
     }
 
     void v_SetAdvVel(const unsigned int nVel,
-                     BlockAccessor<TData> &advVel) override
+                     BlockAccessor<TData, FieldState::Phys> &advVel) override
     {
         const auto interleaveWidth = advVel.GetInterleaveWidth();
         this->m_advVel = advVel.template GetPtr<MemSpace, ReadWrite>();

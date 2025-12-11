@@ -79,7 +79,7 @@ template <class TData> struct const_if<true, TData>
 namespace Nektar::Operators
 {
 
-template <typename TData> class FieldBase;
+template <typename TData, FieldState TState> class Field;
 
 class MemoryRegionBase
 {
@@ -91,10 +91,9 @@ class MemoryRegionBase
  */
 template <typename TData> class MemoryRegion : public MemoryRegionBase
 {
-    template <typename TDataField> friend class FieldBase;
     template <typename TDataField, FieldState TState> friend class Field;
-    template <typename MemSpace, typename TDataField>
-    friend void AllocateFieldStorage(FieldBase<TDataField> *field);
+    template <typename MemSpace, typename TDataField, FieldState TState>
+    friend void AllocateFieldStorage(Field<TDataField, TState> *field);
 
 public:
     MemoryRegion() = default;

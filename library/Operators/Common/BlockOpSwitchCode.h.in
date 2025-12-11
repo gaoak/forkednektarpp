@@ -9,13 +9,13 @@
         // Default case
 #undef OPERATOR_DEF
 #define OPERATOR_DEF                                                           \
-    Operator1D<LibUtilities::@Shape@, true>(input, output);
+    Operator1D<LibUtilities::@Shape@, true>(inblock, outblock);
 
         // Inner loop case over quarature points Shape dependent
 #undef OPERATOR_Q
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
-        Operator1D<LibUtilities::@Shape@, true, NM(i), NQ(i)>(input, output);  \
+        Operator1D<LibUtilities::@Shape@, true, NM(i), NQ(i)>(inblock, outblock);  \
         break;
 
         // outer loop case over modes
@@ -51,14 +51,14 @@
         // Default case
 #undef OPERATOR_DEF
 #define OPERATOR_DEF                                                           \
-    Operator1D<LibUtilities::@Shape@, false>(input, output);
+    Operator1D<LibUtilities::@Shape@, false>(inblock, outblock);
 
         // Inner loop case over quarature points Shape dependent
 #undef OPERATOR_Q
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
-        Operator1D<LibUtilities::@Shape@, false, NM(i), NQ(i)>(input,          \
-                                                                output);       \
+        Operator1D<LibUtilities::@Shape@, false, NM(i), NQ(i)>(inblock,          \
+                                                                outblock);       \
         break;
 
         // outer loop case over modes
@@ -101,7 +101,7 @@
         // Default case
 #undef OPERATOR_DEF
 #define OPERATOR_DEF                                                           \
-    Operator2D<LibUtilities::@Shape@, true>(input, output);
+    Operator2D<LibUtilities::@Shape@, true>(inblock, outblock);
 
         // Inner loop case over quarature points Shape dependent
 #if defined(SHAPE_TYPE_Quad)
@@ -109,14 +109,14 @@
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
         Operator2D<LibUtilities::@Shape@, true, NM(i), NM(i), NQ(i),           \
-                   NQ(i)>(input, output);                                      \
+                   NQ(i)>(inblock, outblock);                                      \
         break;
 #elif defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
 #undef OPERATOR_Q
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
         Operator2D<LibUtilities::@Shape@, true, NM(i), NM(i), NQ(i),           \
-                   NQ_M1(i)>(input, output);                                   \
+                   NQ_M1(i)>(inblock, outblock);                                   \
         break;
 #endif
 
@@ -164,7 +164,7 @@
         // Default case
 #undef OPERATOR_DEF
 #define OPERATOR_DEF                                                           \
-    Operator2D<LibUtilities::@Shape@, false>(input, output);
+    Operator2D<LibUtilities::@Shape@, false>(inblock, outblock);
 
         // Inner loop case over quarature points Shape dependent
 #if defined(SHAPE_TYPE_Quad)
@@ -172,14 +172,14 @@
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
         Operator2D<LibUtilities::@Shape@, false, NM(i), NM(i), NQ(i),          \
-                   NQ(i)>(input, output);                                      \
+                   NQ(i)>(inblock, outblock);                                      \
         break;
 #elif defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
 #undef OPERATOR_Q
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
         Operator2D<LibUtilities::@Shape@, false, NM(i), NM(i), NQ(i),          \
-                   NQ_M1(i)>(input, output);                                   \
+                   NQ_M1(i)>(inblock, outblock);                                   \
         break;
 #endif
 
@@ -236,7 +236,7 @@
         // Default case
 #undef OPERATOR_DEF
 #define OPERATOR_DEF                                                           \
-    Operator3D<LibUtilities::@Shape@, true>(input, output);
+    Operator3D<LibUtilities::@Shape@, true>(inblock, outblock);
 
         // Inner loop case over quarature points Shape dependent
 #if defined(SHAPE_TYPE_Hex)
@@ -244,21 +244,21 @@
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
         Operator3D<LibUtilities::@Shape@, true, NM(i), NM(i), NM(i), NQ(i),    \
-                   NQ(i), NQ(i)>(input, output);                               \
+                   NQ(i), NQ(i)>(inblock, outblock);                               \
         break;
 #elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) || defined(SHAPE_TYPE_Pyr)
 #undef OPERATOR_Q
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
         Operator3D<LibUtilities::@Shape@, true, NM(i), NM(i), NM(i), NQ(i),    \
-                   NQ(i), NQ_M1(i)>(input, output);                            \
+                   NQ(i), NQ_M1(i)>(inblock, outblock);                            \
         break;
 #elif defined(SHAPE_TYPE_Tet) || defined(SHAPE_TYPE_NodalTet)
 #undef OPERATOR_Q
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
         Operator3D<LibUtilities::@Shape@, true, NM(i), NM(i), NM(i), NQ(i),    \
-                   NQ_M1(i), NQ_M1(i)>(input, output);                         \
+                   NQ_M1(i), NQ_M1(i)>(inblock, outblock);                         \
         break;
 #endif
 
@@ -311,7 +311,7 @@
         // Default case
 #undef OPERATOR_DEF
 #define OPERATOR_DEF                                                           \
-    Operator3D<LibUtilities::@Shape@, false>(input, output);
+    Operator3D<LibUtilities::@Shape@, false>(inblock, outblock);
 
         // Inner loop case over quarature points
 #if defined(SHAPE_TYPE_Hex)
@@ -319,21 +319,21 @@
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
         Operator3D<LibUtilities::@Shape@, false, NM(i), NM(i), NM(i), NQ(i),   \
-                   NQ(i), NQ(i)>(input, output);                               \
+                   NQ(i), NQ(i)>(inblock, outblock);                               \
         break;
 #elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) || defined(SHAPE_TYPE_Pyr)
 #undef OPERATOR_Q
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
         Operator3D<LibUtilities::@Shape@, false, NM(i), NM(i), NM(i), NQ(i),   \
-                   NQ(i), NQ_M1(i)>(input, output);                            \
+                   NQ(i), NQ_M1(i)>(inblock, outblock);                            \
         break;
 #elif defined(SHAPE_TYPE_Tet) || defined(SHAPE_TYPE_NodalTet)
 #undef OPERATOR_Q
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
         Operator3D<LibUtilities::@Shape@, false, NM(i), NM(i), NM(i), NQ(i),   \
-                   NQ_M1(i), NQ_M1(i)>(input, output);                         \
+                   NQ_M1(i), NQ_M1(i)>(inblock, outblock);                         \
         break;
 #endif
 

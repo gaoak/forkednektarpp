@@ -90,8 +90,8 @@ protected:
         {
             // Allocate new storage.
             this->m_explicits.push_front(Field<TData, FieldState::Phys>(
-                GetBlockAttributes<TData>(FieldState::Phys,
-                                          this->m_expansionList),
+                GetBlockAttributes<TData, FieldState::Phys>(
+                    this->m_expansionList),
                 inout.GetNumComponents(), inout.GetNumHomoModes()));
 
             // Compute explicit terms.
@@ -121,8 +121,8 @@ protected:
             if (this->m_explicits.size() < IntOrder)
             {
                 this->m_explicits.push_back(Field<TData, FieldState::Phys>(
-                    GetBlockAttributes<TData>(FieldState::Phys,
-                                              this->m_expansionList),
+                    GetBlockAttributes<TData, FieldState::Phys>(
+                        this->m_expansionList),
                     inout.GetNumComponents(), inout.GetNumHomoModes()));
             }
 

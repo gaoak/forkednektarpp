@@ -498,16 +498,17 @@ public:
                     const unsigned int nhomo, const bool trace,
                     const double scale_out)
     {
-        std::vector<BlockAttributes> inblockAttr, outblockAttr;
+        std::vector<BlockAttributes<stateIn>> inblockAttr;
+        std::vector<BlockAttributes<stateOut>> outblockAttr;
 
         if (trace)
         {
             inblockAttr =
-                GetBlockAttributes<TData>(stateIn, fixt_explist[0]->GetTrace());
+                GetBlockAttributes<TData, stateIn>(fixt_explist[0]->GetTrace());
         }
         else
         {
-            inblockAttr = GetBlockAttributes<TData>(stateIn, fixt_explist[0]);
+            inblockAttr = GetBlockAttributes<TData, stateIn>(fixt_explist[0]);
         }
 
         if (scale_out != 1.0)
@@ -526,7 +527,7 @@ public:
                                                  : (int)(npts * scale_out);
                 }
 
-                BlockAttributes new_block(
+                BlockAttributes<stateOut> new_block(
                     inblockAttr[blk].GetNumElements(),
                     inblockAttr[blk].GetNumElementsWithPadding(), ndata,
                     inblockAttr[blk].GetInterleaveWidth());
@@ -538,7 +539,7 @@ public:
         }
         else
         {
-            outblockAttr = GetBlockAttributes<TData>(stateOut, fixt_explist[0]);
+            outblockAttr = GetBlockAttributes<TData, stateOut>(fixt_explist[0]);
         }
 
         auto f_in  = Field<TData, stateIn>("f_in", inblockAttr, nin, nhomo);

@@ -61,7 +61,7 @@ public:
 
         // Loop over the blocks.
         auto blockAttr =
-            GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
+            GetBlockAttributes<TData, FieldState::Coeff>(expansionList);
 
         for (unsigned int blk = 0; blk < op->m_blockOp.size(); ++blk)
         {

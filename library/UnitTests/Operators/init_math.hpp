@@ -97,7 +97,7 @@ public:
             session, graph, true, "u", Collections::eNoCollection);
 
         auto blockAttr =
-            GetBlockAttributes<double>(FieldState::Phys, fixt_explist);
+            GetBlockAttributes<double, FieldState::Phys>(fixt_explist);
         auto f_in  = Field<double, FieldState::Phys>("f_in", blockAttr, 1, 1);
         auto f_in2 = Field<double, FieldState::Phys>("f_in2", blockAttr, 1, 1);
         auto f_out = Field<double, FieldState::Phys>("f_out", blockAttr, 1, 1);
