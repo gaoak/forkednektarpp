@@ -99,6 +99,9 @@ Note:
 - For A100, please use `sm_xx=sm_80` 
 - For V100, please use `sm_xx=sm_70` 
 
+The `sm_xx` value can also be queried using the following command:
+`nvidia-smi --query-gpu=compute_cap --format=csv`
+
 ### HIP
     cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
              -DNEKTAR_ENABLE_DEVICE=HIP \
