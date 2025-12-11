@@ -41,7 +41,7 @@ class RungeKuttaScheme;
 class RungeKuttaSSPScheme;
 
 template <unsigned int IntOrder, typename TData>
-static constexpr auto GetRungeKuttaTimeCoefficients(void)
+inline static constexpr auto GetRungeKuttaTimeCoefficients(void)
 {
     if constexpr (IntOrder == 1)
     {
@@ -224,7 +224,7 @@ NEK_DEVICE_INLINE static constexpr auto GetRungeKuttaSSPCoefficients(void)
 }
 
 template <typename Scheme, unsigned int IntOrder, typename TData>
-NEK_DEVICE_INLINE static constexpr auto GetRungeKuttaTimeCoefficients(void)
+inline static constexpr auto GetRungeKuttaTimeCoefficients(void)
 {
     if constexpr (std::is_same_v<Scheme, RungeKuttaScheme>)
     {

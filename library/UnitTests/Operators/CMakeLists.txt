@@ -41,6 +41,9 @@ ADD_NEKTAR_EXECUTABLE(test_math
 IF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
     ADD_NEKTAR_EXECUTABLE(test_parallel_reduce
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_parallel_reduce.cu)
+ELSEIF(NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
+    ADD_NEKTAR_EXECUTABLE(test_parallel_reduce
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_parallel_reduce.hip)
 ELSE()
     ADD_NEKTAR_EXECUTABLE(test_parallel_reduce
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_parallel_reduce.cpp)
