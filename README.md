@@ -115,6 +115,9 @@ Note:
 - For MI300, please use `gfxzzz=gfx942` 
 - For MI325, please use `gfxzzz=gfx942` 
 
+The `gfxzzz` value can also be queried using the following command:
+`rocm-smi --showproductname | grep gfx`
+
 ### Intel SYCL (CUDA)
     cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
              -DNEKTAR_ENABLE_DEVICE=SYCL-CUDA \
