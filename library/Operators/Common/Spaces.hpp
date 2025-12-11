@@ -95,16 +95,16 @@
 #include "Operators/Common/SYCLQueue.hpp"
 #endif
 
-#if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
-#include <cooperative_groups.h>
-#include <cooperative_groups/reduce.h>
-#elif defined(NEKTAR_ENABLE_HIP) && defined(__NEK_HIPCC__)
-#include <hip/hip_cooperative_groups.h>
-#endif
-
 #if defined(__CUDACC__) || defined(__NEK_HIPCC__) ||                           \
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
 #define DEVICE_COMPILE_ONLY
+#endif
+
+#if defined(NEKTAR_ENABLE_CUDA) && defined(DEVICE_COMPILE_ONLY)
+#include <cooperative_groups.h>
+#include <cooperative_groups/reduce.h>
+#elif defined(NEKTAR_ENABLE_HIP) && defined(DEVICE_COMPILE_ONLY)
+#include <hip/hip_cooperative_groups.h>
 #endif
 
 using default_fp_type = double;
@@ -320,8 +320,8 @@ template <unsigned int ndim> class hipcudaBlock
 {
 };
 
-#if (defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)) ||                    \
-    (defined(NEKTAR_ENABLE_HIP) && defined(__NEK_HIPCC__))
+#if (defined(NEKTAR_ENABLE_CUDA) && defined(DEVICE_COMPILE_ONLY)) ||           \
+    (defined(NEKTAR_ENABLE_HIP) && defined(DEVICE_COMPILE_ONLY))
 
 // Optional optimisation decorator for a NEK_DEVICE_KERNEL kernel function. This
 // should NOT be used in a NEK_DEVCICE_INLINE function. This allows register
@@ -710,7 +710,7 @@ template <typename T> __device__ __inline__ T getBit(T mask, T lane)
 {
 #if defined(__CUDACC__)
     static_assert(std::is_same_v<T, unsigned int>, "Mask must be unsigned int");
-#elif defined(__NEK_HIPCC__)
+#elif defined(__HIPCC__)
     static_assert(std::is_same_v<T, size_t>, "Mask must be size_t");
 #endif
 
@@ -749,7 +749,7 @@ NEK_DEVICE_INLINE float atomicMax_block(float *address, float val)
         if ((ret = atomicCAS_block((int *)address, old, __float_as_int(val))) ==
             old)
             break;
-#elif defined(__NEK_HIPCC__)
+#elif defined(__HIPCC__)
         if ((ret = atomicCAS((int *)address, old, __float_as_int(val))) == old)
             break;
 #endif
@@ -780,7 +780,7 @@ NEK_DEVICE_INLINE double atomicMax_block(double *address, double val)
         if ((ret = atomicCAS_block((unsigned long long *)address, old,
                                    __double_as_longlong(val))) == old)
             break;
-#elif defined(__NEK_HIPCC__)
+#elif defined(__HIPCC__)
         if ((ret = atomicCAS((unsigned long long *)address, old,
                              __double_as_longlong(val))) == old)
             break;
@@ -811,7 +811,7 @@ NEK_DEVICE_INLINE float atomicMin_block(float *address, float val)
         if ((ret = atomicCAS_block((int *)address, old, __float_as_int(val))) ==
             old)
             break;
-#elif defined(__NEK_HIPCC__)
+#elif defined(__HIPCC__)
         if ((ret = atomicCAS((int *)address, old, __float_as_int(val))) == old)
             break;
 #endif
@@ -842,7 +842,7 @@ NEK_DEVICE_INLINE double atomicMin_block(double *address, double val)
         if ((ret = atomicCAS_block((unsigned long long *)address, old,
                                    __double_as_longlong(val))) == old)
             break;
-#elif defined(__NEK_HIPCC__)
+#elif defined(__HIPCC__)
         if ((ret = atomicCAS((unsigned long long *)address, old,
                              __double_as_longlong(val))) == old)
             break;
@@ -924,7 +924,7 @@ NEK_DEVICE_INLINE static TData warpReduceSum(
     // Broadcast
     tmp = __shfl_sync(0xffffffff, tmp, 0);
     return tmp;*/
-#elif defined(__NEK_HIPCC__)
+#elif defined(__HIPCC__)
     // Warp-level primitives
     auto tmp = val;
     tmp += __shfl_down(tmp, 32);
@@ -960,7 +960,7 @@ NEK_DEVICE_INLINE static TData warpReduceMax(
     // Broadcast
     tmp = __shfl_sync(0xffffffff, tmp, 0);
     return tmp;*/
-#elif defined(__NEK_HIPCC__)
+#elif defined(__HIPCC__)
     // Warp-level primitives
     auto tmp = val;
     tmp      = std::max(tmp, __shfl_down(tmp, 32));
@@ -996,7 +996,7 @@ NEK_DEVICE_INLINE static TData warpReduceMin(
     // Broadcast
     tmp = __shfl_sync(0xffffffff, tmp, 0);
     return tmp;*/
-#elif defined(__NEK_HIPCC__)
+#elif defined(__HIPCC__)
     // Warp-level primitives
     auto tmp = val;
     tmp      = std::min(tmp, __shfl_down(tmp, 32));
@@ -1032,7 +1032,7 @@ NEK_DEVICE_INLINE static TData warpReduceOr(
     // Broadcast
     tmp = __shfl_sync(0xffffffff, tmp, 0);
     return tmp;*/
-#elif defined(__NEK_HIPCC__)
+#elif defined(__HIPCC__)
     // Warp-level primitives
     auto tmp = val;
     tmp |= __shfl_down(tmp, 32);
@@ -1068,7 +1068,7 @@ NEK_DEVICE_INLINE static TData warpReduceAnd(
     // Broadcast
     tmp = __shfl_sync(0xffffffff, tmp, 0);
     return tmp;*/
-#elif defined(__NEK_HIPCC__)
+#elif defined(__HIPCC__)
     // Warp-level primitives
     auto tmp = val;
     tmp &= __shfl_down(tmp, 32);
@@ -1125,7 +1125,7 @@ NEK_DEVICE_INLINE static int warpVoteAll(
 {
 #if defined(__CUDACC__)
     return __all_sync(0xffffffff, predictate);
-#elif defined(__NEK_HIPCC__)
+#elif defined(__HIPCC__)
     return __all(predictate);
 #endif
 }
@@ -1136,7 +1136,7 @@ NEK_DEVICE_INLINE static int warpVoteAny(
 {
 #if defined(__CUDACC__)
     return __any_sync(0xffffffff, predictate);
-#elif defined(__NEK_HIPCC__)
+#elif defined(__HIPCC__)
     return __any(predictate);
 #endif
 }
@@ -1148,7 +1148,7 @@ NEK_DEVICE_INLINE static unsigned int warpBallot(
 {
     return __ballot_sync(0xffffffff, predictate);
 }
-#elif defined(__NEK_HIPCC__)
+#elif defined(__HIPCC__)
 template <unsigned int ndim>
 NEK_DEVICE_INLINE static unsigned long long warpBallot(
     int predictate, [[maybe_unused]] const hipcudaBlock<ndim> &threadBlock)

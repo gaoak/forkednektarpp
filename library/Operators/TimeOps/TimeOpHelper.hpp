@@ -108,7 +108,7 @@ NEK_DEVICE_INLINE static
 }
 
 // Kernel Launchers.
-#if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
+#if defined(NEKTAR_ENABLE_CUDA) && defined(DEVICE_COMPILE_ONLY)
 // Currently, argument pack can't be captured in a device lambda. Explicit
 // kernel must be used (instead of nektar::parallel_for)
 template <typename Scheme, unsigned int IntOrder, typename TData,
