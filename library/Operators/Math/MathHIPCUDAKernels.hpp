@@ -35,7 +35,7 @@
 #pragma once
 
 #if (defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)) ||                    \
-    (defined(NEKTAR_ENABLE_HIP) && defined(__HIPCC__))
+    (defined(NEKTAR_ENABLE_HIP) && defined(__NEK_HIPCC__))
 
 #include "Operators/Common/MemoryAlloc.hpp"
 #include "Operators/Common/Spaces.hpp"

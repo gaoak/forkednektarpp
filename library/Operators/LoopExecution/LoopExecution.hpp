@@ -57,7 +57,7 @@ namespace Nektar
 #if defined(NEKTAR_ENABLE_CUDA) && defined(DEVICE_COMPILE_ONLY)
 #define NEKTAR_LAMBDA [=] __device__
 #elif defined(NEKTAR_ENABLE_HIP) && defined(DEVICE_COMPILE_ONLY)
-#define NEKTAR_LAMBDA [=] __host__ __device__
+#define NEKTAR_LAMBDA [=] __device__
 #elif defined(NEKTAR_ENABLE_SYCL)
 #define NEKTAR_LAMBDA [=]
 #else
