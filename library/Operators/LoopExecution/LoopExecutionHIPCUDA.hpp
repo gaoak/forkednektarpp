@@ -34,8 +34,8 @@
 
 #pragma once
 
-#if (defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)) ||                    \
-    (defined(NEKTAR_ENABLE_HIP) && defined(__NEK_HIPCC__))
+#if (defined(NEKTAR_ENABLE_CUDA) && defined(DEVICE_COMPILE_ONLY)) ||           \
+    (defined(NEKTAR_ENABLE_HIP) && defined(DEVICE_COMPILE_ONLY))
 
 #include <float.h>
 
