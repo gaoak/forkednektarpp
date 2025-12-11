@@ -62,7 +62,7 @@ public:
 
         std::vector<size_t> alignmentMap(expansionList->GetNcoeffs());
         auto blockAttr =
-            GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
+            GetBlockAttributes<TData, FieldState::Coeff>(expansionList);
         for (auto &block : blockAttr)
         {
             const auto ncoeff    = block.GetNumData();

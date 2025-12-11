@@ -134,16 +134,16 @@ protected:
         if (this->m_solutions.size() == 0)
         {
             this->m_solutions.push_back(Field<TData, FieldState::Phys>(
-                GetBlockAttributes<TData>(FieldState::Phys,
-                                          this->m_expansionList),
+                GetBlockAttributes<TData, FieldState::Phys>(
+                    this->m_expansionList),
                 inout.GetNumComponents(), inout.GetNumHomoModes()));
         }
 
         while (this->m_implicits.size() < NStage())
         {
             this->m_implicits.push_back(Field<TData, FieldState::Phys>(
-                GetBlockAttributes<TData>(FieldState::Phys,
-                                          this->m_expansionList),
+                GetBlockAttributes<TData, FieldState::Phys>(
+                    this->m_expansionList),
                 inout.GetNumComponents(), inout.GetNumHomoModes()));
         }
 

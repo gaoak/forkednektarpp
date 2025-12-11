@@ -83,7 +83,7 @@ public:
             session, graph, true, "u", Collections::eNoCollection);
 
         auto blocksAttr =
-            GetBlockAttributes<double>(FieldState::Phys, fixt_explist);
+            GetBlockAttributes<double, FieldState::Phys>(fixt_explist);
         auto f_in = Field<double, FieldState::Phys>("f_in", blocksAttr, 1, 1);
         fixt_in   = new Field<double, FieldState::Phys>(std::move(f_in));
     }

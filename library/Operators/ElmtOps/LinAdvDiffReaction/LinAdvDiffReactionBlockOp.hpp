@@ -34,13 +34,14 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/BlockOperator.hpp"
+#include "Operators/ElmtOps/ElmtBlockOp.hpp"
 
 namespace Nektar::Operators
 {
 
 template <typename TData>
-class LinAdvDiffReactionBlockOp : public BlockOperator<TData>
+class LinAdvDiffReactionBlockOp
+    : public ElmtBlockOp<FieldState::Coeff, FieldState::Coeff, TData>
 {
 public:
     static std::shared_ptr<LinAdvDiffReactionBlockOp<TData>> Create(
@@ -49,8 +50,9 @@ public:
         NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
         std::string implStr)
     {
-        return BlockOperator<TData>::template Create<LinAdvDiffReactionBlockOp>(
-            block_idx, exp, dataWarehouse, execStr, implStr);
+        return ElmtBlockOp<FieldState::Coeff, FieldState::Coeff, TData>::
+            template Create<LinAdvDiffReactionBlockOp>(
+                block_idx, exp, dataWarehouse, execStr, implStr);
     }
 
     static inline const std::string name = "BlockLinAdvDiffReaction";
@@ -60,7 +62,8 @@ public:
         this->v_SetLambda(lambda);
     }
 
-    void SetAdvVel(const unsigned int nVel, BlockAccessor<TData> &Vel)
+    void SetAdvVel(const unsigned int nVel,
+                   BlockAccessor<TData, FieldState::Phys> &Vel)
     {
         v_SetAdvVel(nVel, Vel);
     }
@@ -71,7 +74,8 @@ protected:
     LinAdvDiffReactionBlockOp(const unsigned int block_idx,
                               const LocalRegions::ExpansionSharedPtr &exp,
                               NekDataWarehouseSharedPtr dataWarehouse)
-        : BlockOperator<TData>(block_idx, exp, dataWarehouse)
+        : ElmtBlockOp<FieldState::Coeff, FieldState::Coeff, TData>(
+              block_idx, exp, dataWarehouse)
     {
     }
 
@@ -80,7 +84,7 @@ protected:
     virtual void v_SetLambda(const TData &lambda) = 0;
 
     virtual void v_SetAdvVel(const unsigned int nVel,
-                             BlockAccessor<TData> &Vel) = 0;
+                             BlockAccessor<TData, FieldState::Phys> &Vel) = 0;
 };
 
 } // namespace Nektar::Operators

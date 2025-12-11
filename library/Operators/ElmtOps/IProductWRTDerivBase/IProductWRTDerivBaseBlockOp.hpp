@@ -34,13 +34,14 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/BlockOperator.hpp"
+#include "Operators/ElmtOps/ElmtBlockOp.hpp"
 
 namespace Nektar::Operators
 {
 
 template <typename TData>
-class IProductWRTDerivBaseBlockOp : public BlockOperator<TData>
+class IProductWRTDerivBaseBlockOp
+    : public ElmtBlockOp<FieldState::Phys, FieldState::Coeff, TData>
 {
 public:
     static std::shared_ptr<IProductWRTDerivBaseBlockOp<TData>> Create(
@@ -49,9 +50,9 @@ public:
         NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
         std::string implStr)
     {
-        return BlockOperator<TData>::template Create<
-            IProductWRTDerivBaseBlockOp>(block_idx, exp, dataWarehouse, execStr,
-                                         implStr);
+        return ElmtBlockOp<FieldState::Phys, FieldState::Coeff, TData>::
+            template Create<IProductWRTDerivBaseBlockOp>(
+                block_idx, exp, dataWarehouse, execStr, implStr);
     }
 
     static inline const std::string name = "BlockIProductWRTDerivBase";
@@ -67,7 +68,8 @@ protected:
     IProductWRTDerivBaseBlockOp(const unsigned int block_idx,
                                 const LocalRegions::ExpansionSharedPtr &exp,
                                 NekDataWarehouseSharedPtr dataWarehouse)
-        : BlockOperator<TData>(block_idx, exp, dataWarehouse)
+        : ElmtBlockOp<FieldState::Phys, FieldState::Coeff, TData>(
+              block_idx, exp, dataWarehouse)
     {
     }
 

@@ -34,12 +34,14 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/BlockOperator.hpp"
+#include "Operators/ElmtOps/ElmtBlockOp.hpp"
 
 namespace Nektar::Operators
 {
 
-template <typename TData> class HelmholtzBlockOp : public BlockOperator<TData>
+template <typename TData>
+class HelmholtzBlockOp
+    : public ElmtBlockOp<FieldState::Coeff, FieldState::Coeff, TData>
 {
 public:
     static std::shared_ptr<HelmholtzBlockOp<TData>> Create(
@@ -48,8 +50,9 @@ public:
         NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
         std::string implStr)
     {
-        return BlockOperator<TData>::template Create<HelmholtzBlockOp>(
-            block_idx, exp, dataWarehouse, execStr, implStr);
+        return ElmtBlockOp<FieldState::Coeff, FieldState::Coeff, TData>::
+            template Create<HelmholtzBlockOp>(block_idx, exp, dataWarehouse,
+                                              execStr, implStr);
     }
 
     static inline const std::string name = "BlockHelmholtz";
@@ -65,7 +68,8 @@ protected:
     HelmholtzBlockOp(const unsigned int block_idx,
                      const LocalRegions::ExpansionSharedPtr &exp,
                      NekDataWarehouseSharedPtr dataWarehouse)
-        : BlockOperator<TData>(block_idx, exp, dataWarehouse)
+        : ElmtBlockOp<FieldState::Coeff, FieldState::Coeff, TData>(
+              block_idx, exp, dataWarehouse)
     {
     }
 

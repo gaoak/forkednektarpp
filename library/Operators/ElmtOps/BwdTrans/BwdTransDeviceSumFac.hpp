@@ -125,10 +125,11 @@ public:
     static std::string className;
 
     // Instantiation function for CreatorFunction in BlockOperatorFactory.
-    static std::unique_ptr<BlockOperator<TData>> Instantiate(
-        const unsigned int block_idx,
-        const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse)
+    static std::unique_ptr<
+        ElmtBlockOp<FieldState::Coeff, FieldState::Phys, TData>>
+    Instantiate(const unsigned int block_idx,
+                const LocalRegions::ExpansionSharedPtr &exp,
+                NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
             BwdTransBlockOpImpl<ExecSpace, Implementation, TData>>(
@@ -153,8 +154,8 @@ protected:
     MemoryRegion<TData> m_wsp;
     const TData *m_nodToMod;
 
-    void v_Apply(BlockAccessor<TData> &inblock,
-                 BlockAccessor<TData> &outblock) override
+    void v_Apply(BlockAccessor<TData, FieldState::Coeff> &inblock,
+                 BlockAccessor<TData, FieldState::Phys> &outblock) override
     {
         switch (m_shapeType)
         {
@@ -285,40 +286,40 @@ protected:
         return MemoryRegion<TData>(wspsize);
     }
 
-    void SegBlock(BlockAccessor<TData> &inblock,
-                  BlockAccessor<TData> &outblock);
+    void SegBlock(BlockAccessor<TData, FieldState::Coeff> &inblock,
+                  BlockAccessor<TData, FieldState::Phys> &outblock);
 
-    void TriBlock(BlockAccessor<TData> &inblock,
-                  BlockAccessor<TData> &outblock);
+    void TriBlock(BlockAccessor<TData, FieldState::Coeff> &inblock,
+                  BlockAccessor<TData, FieldState::Phys> &outblock);
 
-    void NodalTriBlock(BlockAccessor<TData> &inblock,
-                       BlockAccessor<TData> &outblock);
+    void NodalTriBlock(BlockAccessor<TData, FieldState::Coeff> &inblock,
+                       BlockAccessor<TData, FieldState::Phys> &outblock);
 
-    void QuadBlock(BlockAccessor<TData> &inblock,
-                   BlockAccessor<TData> &outblock);
+    void QuadBlock(BlockAccessor<TData, FieldState::Coeff> &inblock,
+                   BlockAccessor<TData, FieldState::Phys> &outblock);
 
-    void HexBlock(BlockAccessor<TData> &inblock,
-                  BlockAccessor<TData> &outblock);
+    void HexBlock(BlockAccessor<TData, FieldState::Coeff> &inblock,
+                  BlockAccessor<TData, FieldState::Phys> &outblock);
 
-    void PrismBlock(BlockAccessor<TData> &inblock,
-                    BlockAccessor<TData> &outblock);
+    void PrismBlock(BlockAccessor<TData, FieldState::Coeff> &inblock,
+                    BlockAccessor<TData, FieldState::Phys> &outblock);
 
-    void NodalPrismBlock(BlockAccessor<TData> &inblock,
-                         BlockAccessor<TData> &outblock);
+    void NodalPrismBlock(BlockAccessor<TData, FieldState::Coeff> &inblock,
+                         BlockAccessor<TData, FieldState::Phys> &outblock);
 
-    void PyrBlock(BlockAccessor<TData> &inblock,
-                  BlockAccessor<TData> &outblock);
+    void PyrBlock(BlockAccessor<TData, FieldState::Coeff> &inblock,
+                  BlockAccessor<TData, FieldState::Phys> &outblock);
 
-    void TetBlock(BlockAccessor<TData> &inblock,
-                  BlockAccessor<TData> &outblock);
+    void TetBlock(BlockAccessor<TData, FieldState::Coeff> &inblock,
+                  BlockAccessor<TData, FieldState::Phys> &outblock);
 
-    void NodalTetBlock(BlockAccessor<TData> &inblock,
-                       BlockAccessor<TData> &outblock);
+    void NodalTetBlock(BlockAccessor<TData, FieldState::Coeff> &inblock,
+                       BlockAccessor<TData, FieldState::Phys> &outblock);
 
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    void Operator1D(BlockAccessor<TData> &inblock,
-                    BlockAccessor<TData> &outblock)
+    void Operator1D(BlockAccessor<TData, FieldState::Coeff> &inblock,
+                    BlockAccessor<TData, FieldState::Phys> &outblock)
     {
         // Shape size.
         const auto nm0 = m_nm[0];
@@ -365,8 +366,8 @@ protected:
     // Size based template version.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
               unsigned int nm0, unsigned int nq0>
-    void Operator1D(BlockAccessor<TData> &inblock,
-                    BlockAccessor<TData> &outblock)
+    void Operator1D(BlockAccessor<TData, FieldState::Coeff> &inblock,
+                    BlockAccessor<TData, FieldState::Phys> &outblock)
     {
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
@@ -408,8 +409,8 @@ protected:
 
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    void Operator2D(BlockAccessor<TData> &inblock,
-                    BlockAccessor<TData> &outblock)
+    void Operator2D(BlockAccessor<TData, FieldState::Coeff> &inblock,
+                    BlockAccessor<TData, FieldState::Phys> &outblock)
     {
         // Shape size.
         const auto nm0 = m_nm[0];
@@ -475,8 +476,8 @@ protected:
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
               unsigned int nm0, unsigned int nm1, unsigned int nq0,
               unsigned int nq1>
-    void Operator2D(BlockAccessor<TData> &inblock,
-                    BlockAccessor<TData> &outblock)
+    void Operator2D(BlockAccessor<TData, FieldState::Coeff> &inblock,
+                    BlockAccessor<TData, FieldState::Phys> &outblock)
     {
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
@@ -533,8 +534,8 @@ protected:
 
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    void Operator3D(BlockAccessor<TData> &inblock,
-                    BlockAccessor<TData> &outblock)
+    void Operator3D(BlockAccessor<TData, FieldState::Coeff> &inblock,
+                    BlockAccessor<TData, FieldState::Phys> &outblock)
     {
         // Shape size.
         const auto nm0 = m_nm[0];
@@ -602,8 +603,8 @@ protected:
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
               unsigned int nm0, unsigned int nm1, unsigned int nm2,
               unsigned int nq0, unsigned int nq1, unsigned int nq2>
-    void Operator3D(BlockAccessor<TData> &inblock,
-                    BlockAccessor<TData> &outblock)
+    void Operator3D(BlockAccessor<TData, FieldState::Coeff> &inblock,
+                    BlockAccessor<TData, FieldState::Phys> &outblock)
     {
         const auto nelmt = inblock.GetNumElementsWithPadding();
 

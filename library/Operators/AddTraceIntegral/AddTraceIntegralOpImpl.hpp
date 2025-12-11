@@ -55,8 +55,8 @@ public:
     AddTraceIntegralOpImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : AddTraceIntegralOp<TData>(std::move(expansionList)),
           m_trace(Field<TData, FieldState::Coeff>(
-              GetBlockAttributes<TData>(FieldState::Coeff,
-                                        expansionList->GetTrace()),
+              GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList->GetTrace()),
               1, 1))
     {
         m_trace.template Initialize<MemSpace>(0.0);
@@ -80,8 +80,8 @@ public:
         }
 
         // Compute trace block bound.
-        auto traceBlockAttr = GetBlockAttributes<TData>(
-            FieldState::Coeff, expansionList->GetTrace());
+        auto traceBlockAttr = GetBlockAttributes<TData, FieldState::Coeff>(
+            expansionList->GetTrace());
         std::vector<size_t> traceBlockBound(traceBlockAttr.size());
         std::vector<std::vector<size_t>> toInterleavedTraceBlock;
         size_t traceBound = 0;
@@ -121,7 +121,7 @@ public:
 
         // Compute block bound.
         auto blockAttr =
-            GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
+            GetBlockAttributes<TData, FieldState::Coeff>(expansionList);
         std::vector<size_t> blockBound(blockAttr.size());
         std::vector<std::vector<size_t>> toInterleavedBlock;
         size_t bound = 0;

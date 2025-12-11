@@ -79,8 +79,8 @@ protected:
         {
             this->template Initialize<ExecSpace>();
 
-            auto blockAttr = GetBlockAttributes<TData>(FieldState::Phys,
-                                                       this->m_expansionList);
+            auto blockAttr = GetBlockAttributes<TData, FieldState::Phys>(
+                this->m_expansionList);
             for (unsigned int m = 0; m < this->m_nQuadPts; ++m)
             {
                 this->m_SFint.push_back(Field<TData, FieldState::Phys>(

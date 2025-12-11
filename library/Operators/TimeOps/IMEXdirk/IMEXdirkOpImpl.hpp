@@ -104,7 +104,7 @@ protected:
 
         // Allocate memory.
         auto blockAttr =
-            GetBlockAttributes<TData>(FieldState::Phys, this->m_expansionList);
+            GetBlockAttributes<TData, FieldState::Phys>(this->m_expansionList);
         if (this->m_solutions.size() == 0)
         {
             this->m_solutions.push_back(Field<TData, FieldState::Phys>(

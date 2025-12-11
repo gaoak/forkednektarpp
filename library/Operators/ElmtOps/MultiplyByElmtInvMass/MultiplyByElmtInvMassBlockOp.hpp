@@ -34,13 +34,14 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/BlockOperator.hpp"
+#include "Operators/ElmtOps/ElmtBlockOp.hpp"
 
 namespace Nektar::Operators
 {
 
 template <typename TData>
-class MultiplyByElmtInvMassBlockOp : public BlockOperator<TData>
+class MultiplyByElmtInvMassBlockOp
+    : public ElmtBlockOp<FieldState::Coeff, FieldState::Coeff, TData>
 {
 public:
     static std::shared_ptr<MultiplyByElmtInvMassBlockOp<TData>> Create(
@@ -49,9 +50,9 @@ public:
         NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
         std::string implStr)
     {
-        return BlockOperator<TData>::template Create<
-            MultiplyByElmtInvMassBlockOp>(block_idx, exp, dataWarehouse,
-                                          execStr, implStr);
+        return ElmtBlockOp<FieldState::Coeff, FieldState::Coeff, TData>::
+            template Create<MultiplyByElmtInvMassBlockOp>(
+                block_idx, exp, dataWarehouse, execStr, implStr);
     }
 
     static inline const std::string name = "BlockMultiplyByElmtInvMass";
@@ -65,7 +66,8 @@ protected:
     MultiplyByElmtInvMassBlockOp(const unsigned int block_idx,
                                  const LocalRegions::ExpansionSharedPtr &exp,
                                  NekDataWarehouseSharedPtr dataWarehouse)
-        : BlockOperator<TData>(block_idx, exp, dataWarehouse)
+        : ElmtBlockOp<FieldState::Coeff, FieldState::Coeff, TData>(
+              block_idx, exp, dataWarehouse)
     {
     }
 

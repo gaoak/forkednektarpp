@@ -129,7 +129,7 @@ MACRO(ADD_ELMT_OPERATOR dir)
 
     # These operator have an additional argument for the FieldState
     # which requires two delcarations.
-    SET(CONFIG_FILE ElmtOps/BlockOperatorFactoryDec.cpp.in)
+    SET(CONFIG_FILE Common/BlockOperatorFactoryDec.cpp.in)
 
     # Check to see if shape specific BlockOpSwitch*.h files have
     # been generated and if not generate for later potential use.
@@ -581,6 +581,7 @@ ENDMACRO()
 
 # Common header file.
 SET(OPERATORS_HEADERS
+    Common/BlockOperator.hpp
     Common/Operator.hpp
     Common/DeviceProperties.hpp
     Common/MemoryAlloc.hpp
@@ -591,7 +592,7 @@ SET(OPERATORS_HEADERS
     Common/StdMatDataWarehouse.hpp
     Field/Block.hpp
     Field/Field.hpp
-    ElmtOps/BlockOperator.hpp
+    ElmtOps/ElmtBlockOp.hpp
     Math/Math.hpp
     NekBlas/NekBlas.hpp
     NekBlas/blasHandle.hpp
@@ -599,6 +600,7 @@ SET(OPERATORS_HEADERS
 
 # Common source file.
 SET(OPERATORS_SOURCES
+    Common/BlockOperator.cpp
     Common/Operator.cpp
     Common/DeviceProperties.cpp
     Common/BasisDataWarehouse.cpp
@@ -606,7 +608,6 @@ SET(OPERATORS_SOURCES
     Common/LocalToGlobalDataWarehouse.cpp
     Common/ModeIndexDataWarehouse.cpp
     Common/StdMatDataWarehouse.cpp
-    ElmtOps/BlockOperator.cpp
     Field/Block.cpp
     NekBlas/blas.cpp
     NekBlas/blasHandle.cpp

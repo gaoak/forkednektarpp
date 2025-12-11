@@ -88,10 +88,11 @@ public:
     static std::string className;
 
     // Instantiation function for CreatorFunction in BlockOperatorFactory.
-    static std::unique_ptr<BlockOperator<TData>> Instantiate(
-        const unsigned int block_idx,
-        const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse)
+    static std::unique_ptr<
+        ElmtBlockOp<FieldState::Phys, FieldState::Coeff, TData>>
+    Instantiate(const unsigned int block_idx,
+                const LocalRegions::ExpansionSharedPtr &exp,
+                NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
             IProductWRTBaseBlockOpImpl<ExecSpace, Implementation, TData>>(
@@ -111,8 +112,8 @@ protected:
     const TData *m_jacptr;
     MemoryRegion<TData> m_wsp;
 
-    void v_Apply(BlockAccessor<TData> &inblock,
-                 BlockAccessor<TData> &outblock) override
+    void v_Apply(BlockAccessor<TData, FieldState::Phys> &inblock,
+                 BlockAccessor<TData, FieldState::Coeff> &outblock) override
     {
         auto handle = NekHandle<ExecSpace>::GetInstance();
 

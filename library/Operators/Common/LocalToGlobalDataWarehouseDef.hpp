@@ -71,7 +71,7 @@ LocalToGlobalDataCreator::Create(
     // of the assembled data is assumed to be. Not sure what we shoudl do it
     // is float however but legacy code is not set up for this either
     auto blockAttr =
-        GetBlockAttributes<TData>(FieldState::Coeff, m_expansionList);
+        GetBlockAttributes<TData, FieldState::Coeff>(m_expansionList);
 
     auto nblks = blockAttr.size();
     std::map<unsigned, std::vector<std::pair<unsigned, unsigned>>> GloToLoc;
@@ -411,7 +411,7 @@ void FillSignArray(
                     ? loc2glo[0]->GetLocalToGlobalSign()
                     : Array<OneD, double>(expList->GetNcoeffs(), 1.0);
 
-    auto blockAttr = GetBlockAttributes<TData>(FieldState::Coeff, expList);
+    auto blockAttr = GetBlockAttributes<TData, FieldState::Coeff>(expList);
 
     auto nblks = blockAttr.size();
     std::vector<unsigned> blkoffset(nblks + 1);
@@ -604,7 +604,7 @@ LocalToGlobalDataCreator::Create(
                                             loc2glo->GetSREntries().end());
 
     auto blockAttr =
-        GetBlockAttributes<TData>(FieldState::Coeff, m_expansionList);
+        GetBlockAttributes<TData, FieldState::Coeff>(m_expansionList);
 
     auto nblks = blockAttr.size();
     std::map<unsigned, std::vector<std::pair<unsigned, unsigned>>> GloToLoc;
@@ -857,7 +857,7 @@ LocalToGlobalDataCreator::Create(
     auto l2gmap0 = loc2glo->GetLocalToGlobalMap();
 
     auto blockAttr =
-        GetBlockAttributes<TData>(FieldState::Coeff, m_expansionList);
+        GetBlockAttributes<TData, FieldState::Coeff>(m_expansionList);
     unsigned ntot = 0;
     unsigned blk  = 0;
     for (blk = 0; blk < blockAttr.size(); ++blk)

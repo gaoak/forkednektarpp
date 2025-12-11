@@ -55,17 +55,17 @@ public:
         : GMRESOp<TData>(expansionList),
           m_w(Field<TData, FieldState::Coeff>(
               "GMRES w",
-              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
+              GetBlockAttributes<TData, FieldState::Coeff>(expansionList), 1,
               1)),
           m_wk(Field<TData, FieldState::Coeff>(
               "GMRES wk",
-              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
+              GetBlockAttributes<TData, FieldState::Coeff>(expansionList), 1,
               1)),
           m_r0(Field<TData, FieldState::Coeff>(
-              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
+              GetBlockAttributes<TData, FieldState::Coeff>(expansionList), 1,
               1)),
           m_solution(Field<TData, FieldState::Coeff>(
-              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
+              GetBlockAttributes<TData, FieldState::Coeff>(expansionList), 1,
               1))
     {
         auto session = expansionList->GetSession();
@@ -108,8 +108,8 @@ public:
         if (m_NekLinSysRightPrecon)
         {
             m_V1 = Field<TData, FieldState::Coeff>(
-                GetBlockAttributes<TData>(FieldState::Coeff,
-                                          this->m_expansionList),
+                GetBlockAttributes<TData, FieldState::Coeff>(
+                    this->m_expansionList),
                 1, 1);
         }
     }
@@ -323,8 +323,8 @@ protected:
         if (m_Vtotal.size() == 0)
         {
             m_Vtotal.push_back(Field<TData, FieldState::Coeff>(
-                GetBlockAttributes<TData>(FieldState::Coeff,
-                                          this->m_expansionList),
+                GetBlockAttributes<TData, FieldState::Coeff>(
+                    this->m_expansionList),
                 1, 1));
         }
         mul<ExecSpace>((TData)1.0 / eta[0], m_r0, m_Vtotal[0]);
@@ -342,8 +342,8 @@ protected:
             if (m_Vtotal.size() == nd + 1)
             {
                 m_Vtotal.push_back(Field<TData, FieldState::Coeff>(
-                    GetBlockAttributes<TData>(FieldState::Coeff,
-                                              this->m_expansionList),
+                    GetBlockAttributes<TData, FieldState::Coeff>(
+                        this->m_expansionList),
                     1, 1));
             }
             m_Vtotal[nd + 1].template Initialize<MemSpace>(0);

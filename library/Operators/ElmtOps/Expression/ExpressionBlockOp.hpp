@@ -35,12 +35,14 @@
 #pragma once
 
 #include "LibUtilities/BasicUtils/Equation.h"
-#include "Operators/ElmtOps/BlockOperator.hpp"
+#include "Operators/ElmtOps/ElmtBlockOp.hpp"
 
 namespace Nektar::Operators
 {
 
-template <typename TData> class ExpressionBlockOp : public BlockOperator<TData>
+template <typename TData>
+class ExpressionBlockOp
+    : public ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>
 {
 public:
     static std::shared_ptr<ExpressionBlockOp<TData>> Create(
@@ -49,8 +51,9 @@ public:
         NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
         std::string implStr)
     {
-        return BlockOperator<TData>::template Create<ExpressionBlockOp>(
-            block_idx, exp, dataWarehouse, execStr, implStr);
+        return ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>::
+            template Create<ExpressionBlockOp>(block_idx, exp, dataWarehouse,
+                                               execStr, implStr);
     }
 
     static inline const std::string name = "BlockExpression";
@@ -82,7 +85,8 @@ protected:
     ExpressionBlockOp(const unsigned int block_idx,
                       const LocalRegions::ExpansionSharedPtr &exp,
                       NekDataWarehouseSharedPtr dataWarehouse)
-        : BlockOperator<TData>(block_idx, exp, dataWarehouse)
+        : ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>(block_idx, exp,
+                                                                 dataWarehouse)
     {
     }
 

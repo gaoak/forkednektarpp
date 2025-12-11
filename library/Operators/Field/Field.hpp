@@ -40,16 +40,205 @@ namespace Nektar::Operators
 {
 
 /**
- * @brief A FieldBase represents expansion data to be operated on.
+ * @brief A Field represents expansion data to be operated on.
  *
  * @tparam TData  The floating-point representation used by the field.
+ * @tparam TState A FieldState value representing the state of the field.
  */
-template <typename TData> class FieldBase
+template <typename TData, FieldState TState> class Field
 {
-    template <typename MemSpace, typename TDataField>
-    friend void AllocateFieldStorage(FieldBase<TDataField> *field);
+    template <typename MemSpace, typename TDataField, FieldState TStateField>
+    friend void AllocateFieldStorage(Field<TDataField, TStateField> *field);
 
 public:
+    Field()              = default;
+    Field(const Field &) = delete;
+    ~Field()
+    {
+        if (m_host)
+        {
+            if (m_memAllocType == ePageable)
+            {
+                hostFree(m_host, m_alignment);
+            }
+            else if (m_memAllocType == ePinned)
+            {
+                hostFreePinned(m_host);
+            }
+        }
+
+        if (m_device)
+        {
+            deviceFree(m_device, this->size());
+        }
+
+        m_host      = nullptr;
+        m_device    = nullptr;
+        m_alignment = NektarSpaces::host_memory_alignment;
+    }
+
+    /**
+     * @brief Construct a new Field object.
+     *
+     * @param name           - Name of the field object.
+     * @param blockAttr      - Block attributes.
+     * @param num_components - Number of components.
+     * @param num_homo_modes - Number of homogeneous modes.
+     * @param memAllocType   - [ePageable, ePinned].
+     * @param alignment      - Memory alignment to use.
+     */
+    Field(const std::string name,
+          const std::vector<BlockAttributes<TState>> blockAttr,
+          const unsigned int num_components, const unsigned int num_homo_modes,
+          const MemAllocType &memAllocType = ePageable,
+          const size_t alignment = NektarSpaces::host_memory_alignment)
+        : m_name(name), m_component_names(num_components),
+          m_num_homo_modes(num_homo_modes), m_memAllocType(memAllocType),
+          m_alignment(alignment)
+    {
+        for (unsigned int blk = 0; blk < blockAttr.size(); ++blk)
+        {
+            auto nsize =
+                blockAttr[blk].size() * num_components * num_homo_modes;
+            auto mr = MemoryRegion<TData>(name + std::to_string(blk), nsize,
+                                          memAllocType, alignment);
+            this->m_block_accessors.push_back(
+                BlockAccessor(blockAttr[blk], std::move(mr), this,
+                              num_components, num_homo_modes));
+        }
+    }
+
+    /**
+     * @brief Construct a new Field object.
+     *
+     * @param blockAttr      - Block attributes.
+     * @param num_components - Number of components.
+     * @param num_homo_modes - Number of homogeneous modes.
+     * @param memAllocType   - [ePageable, ePinned].
+     * @param alignment      - Memory alignment to use.
+     */
+    Field(const std::vector<BlockAttributes<TState>> blockAttr,
+          const unsigned int num_components, const unsigned int num_homo_modes,
+          const MemAllocType &memAllocType = ePageable,
+          const size_t alignment = NektarSpaces::host_memory_alignment)
+        : Field<TData, TState>("", blockAttr, num_components, num_homo_modes,
+                               memAllocType, alignment)
+    {
+    }
+
+    /**
+     * @brief Construct a new Field object.
+     *
+     * @param name           - Name of the field object.
+     * @param blockAttr      - Block attributes.
+     * @param components     - Names of components for vector field.
+     * @param num_homo_modes - Number of homogeneous modes.
+     * @param memAllocType   - [ePageable, ePinned].
+     * @param alignment      - Memory alignment to use.
+     */
+    Field(const std::string name,
+          const std::vector<BlockAttributes<TState>> blockAttr,
+          const std::vector<std::string> components,
+          const unsigned int num_homo_modes,
+          const MemAllocType &memAllocType = ePageable,
+          const size_t alignment = NektarSpaces::host_memory_alignment)
+        : m_name(name), m_component_names(components),
+          m_num_homo_modes(num_homo_modes), m_memAllocType(memAllocType),
+          m_alignment(alignment)
+    {
+        for (unsigned int blk = 0; blk < blockAttr.size(); ++blk)
+        {
+            auto nsize =
+                blockAttr[blk].size() * components.size() * num_homo_modes;
+            auto mr = MemoryRegion<TData>(name + std::to_string(blk), nsize,
+                                          memAllocType, alignment);
+            this->m_block_accessors.push_back(
+                BlockAccessor(blockAttr[blk], std::move(mr), this,
+                              components.size(), num_homo_modes));
+        }
+    }
+
+    /**
+     * @brief Construct a new Field object.
+     *
+     * @param blockAttr      - Block attributes.
+     * @param components     - Names of components for vector field.
+     * @param num_homo_modes - Number of homogeneous modes.
+     * @param memAllocType   - [ePageable, ePinned].
+     * @param alignment      - Memory alignment to use.
+     */
+    Field(const std::vector<BlockAttributes<TState>> blockAttr,
+          const std::vector<std::string> components,
+          const unsigned int num_homo_modes,
+          const MemAllocType &memAllocType = ePageable,
+          const size_t alignment = NektarSpaces::host_memory_alignment)
+        : Field<TData, TState>("", blockAttr, components, num_homo_modes,
+                               memAllocType, alignment)
+    {
+    }
+
+    /**
+     * @brief Construct a new Field object by moving storage from an
+     * existing Field object.
+     *
+     * @param rhs
+     */
+    Field(Field &&rhs)
+        : m_name(std::move(rhs.m_name)),
+          m_component_names(std::move(rhs.m_component_names)),
+          m_num_homo_modes(std::move(rhs.m_num_homo_modes)),
+          m_host(std::move(rhs.m_host)), m_device(std::move(rhs.m_device)),
+          m_block_accessors(std::move(rhs.m_block_accessors)),
+          m_memAllocType(std::move(rhs.m_memAllocType)),
+          m_alignment(std::move(rhs.m_alignment))
+    {
+        for (auto &blocks : m_block_accessors)
+        {
+            blocks.m_field = this;
+        }
+        rhs.m_name = "";
+        rhs.m_component_names.clear();
+        rhs.m_num_homo_modes = 1;
+        rhs.m_host           = nullptr;
+        rhs.m_device         = nullptr;
+        rhs.m_block_accessors.clear();
+        rhs.m_memAllocType = ePageable;
+        rhs.m_alignment    = NektarSpaces::host_memory_alignment;
+    }
+
+    /**
+     * @brief Move assignment operator.
+     *
+     * @param rhs
+     *
+     * @return Field&
+     */
+    Field &operator=(Field &&rhs)
+    {
+        m_name            = std::move(rhs.m_name);
+        m_component_names = std::move(rhs.m_component_names);
+        m_num_homo_modes  = std::move(rhs.m_num_homo_modes);
+        m_host            = std::move(rhs.m_host);
+        m_device          = std::move(rhs.m_device);
+        m_memAllocType    = std::move(rhs.m_memAllocType);
+        m_block_accessors = std::move(rhs.m_block_accessors);
+        m_alignment       = std::move(rhs.m_alignment);
+        for (auto &blocks : m_block_accessors)
+        {
+            blocks.m_field = this;
+        }
+
+        rhs.m_name = "";
+        rhs.m_component_names.clear();
+        rhs.m_num_homo_modes = 1;
+        rhs.m_host           = nullptr;
+        rhs.m_device         = nullptr;
+        rhs.m_block_accessors.clear();
+        rhs.m_memAllocType = ePageable;
+        rhs.m_alignment    = NektarSpaces::host_memory_alignment;
+        return *this;
+    }
+
     /**
      * @brief Templated initialize method.
      *
@@ -160,12 +349,12 @@ public:
 
     /**
      * @brief Templated copy method. This method copies data from a
-     *        FieldBase
+     *        Field
      *
-     * @param field - FieldBase to copy from
+     * @param field - Field to copy from
      *
      */
-    template <typename MemSpace> void Copy(FieldBase &field)
+    template <typename MemSpace> void Copy(Field &field)
     {
         // If not yet allocated, allocate contiguous host OR device memory
         // across all MemoryRegion objects within the input argument field
@@ -181,7 +370,7 @@ public:
         {
             std::stringstream msg;
 
-            msg << "FieldBase::Copy - "
+            msg << "Field::Copy - "
                 << "Block number mismatch between (" << field.GetName()
                 << ") and (" << this->GetName() << ").";
             NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
@@ -191,7 +380,7 @@ public:
         {
             std::stringstream msg;
 
-            msg << "FieldBase::Copy - "
+            msg << "Field::Copy - "
                 << "Memory size mismatch between (" << field.GetName()
                 << ") and (" << this->GetName() << ").";
             NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
@@ -236,7 +425,7 @@ public:
         {
             std::stringstream msg;
 
-            msg << "FieldBase::CopyVector - "
+            msg << "Field::CopyVector - "
                 << "Memory size mismatch between (std::vector) and ("
                 << this->GetName() << ").";
             NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
@@ -288,7 +477,7 @@ public:
         {
             std::stringstream msg;
 
-            msg << "FieldBase::CopyArray - "
+            msg << "Field::CopyArray - "
                 << "Memory size mismatch between (Nektar::array) and ("
                 << this->GetName() << ").";
             NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
@@ -319,7 +508,7 @@ public:
      *
      * @return std::vector<BlockAccessor>
      */
-    std::vector<BlockAccessor<TData>> &GetBlocks()
+    std::vector<BlockAccessor<TData, TState>> &GetBlocks()
     {
         return m_block_accessors;
     }
@@ -372,284 +561,25 @@ public:
     typedef TData value_type;
 
 protected:
-    FieldBase()                  = default;
-    FieldBase(const FieldBase &) = delete;
-
-    /**
-     * @brief Construct a new FieldBase object.
-     *
-     * @param name           - Name of the field object.
-     * @param num_components - Number of components.
-     * @param num_homo_modes - Number of components.
-     * @param memAllocType   - [ePageable, ePinned].
-     * @param alignment      - Memory alignment.
-     */
-    FieldBase(const std::string name, const unsigned int num_components,
-              const unsigned int num_homo_modes,
-              const MemAllocType &memAllocType, const size_t alignment)
-        : m_name(name), m_component_names(num_components),
-          m_num_homo_modes(num_homo_modes), m_memAllocType(memAllocType),
-          m_alignment(alignment)
-    {
-    }
-
-    /**
-     * @brief Construct a new FieldBase object.
-     *
-     * @param name           - Name of the field object.
-     * @param components     - Names of components for vector field.
-     * @param num_homo_modes - Number of components.
-     * @param memAllocType   - [ePageable, ePinned].
-     * @param alignment      - Memory alignment.
-     */
-    FieldBase(const std::string name, const std::vector<std::string> components,
-              const unsigned int num_homo_modes,
-              const MemAllocType &memAllocType, const size_t alignment)
-        : m_name(name), m_component_names(components),
-          m_num_homo_modes(num_homo_modes), m_memAllocType(memAllocType),
-          m_alignment(alignment)
-    {
-    }
-
-    ~FieldBase()
-    {
-        if (m_host)
-        {
-            if (m_memAllocType == ePageable)
-            {
-                hostFree(m_host, m_alignment);
-            }
-            else if (m_memAllocType == ePinned)
-            {
-                hostFreePinned(m_host);
-            }
-        }
-
-        if (m_device)
-        {
-            deviceFree(m_device, this->size());
-        }
-
-        m_host      = nullptr;
-        m_device    = nullptr;
-        m_alignment = NektarSpaces::host_memory_alignment;
-    }
-
-    /**
-     * @brief Construct a new FieldBase object by moving storage from an
-     * existing FieldBase object.
-     *
-     * @param rhs
-     */
-    FieldBase(FieldBase &&rhs)
-        : m_name(std::move(rhs.m_name)),
-          m_component_names(std::move(rhs.m_component_names)),
-          m_num_homo_modes(std::move(rhs.m_num_homo_modes)),
-          m_host(std::move(rhs.m_host)), m_device(std::move(rhs.m_device)),
-          m_block_accessors(std::move(rhs.m_block_accessors)),
-          m_memAllocType(std::move(rhs.m_memAllocType)),
-          m_alignment(std::move(rhs.m_alignment))
-    {
-        for (auto &blocks : m_block_accessors)
-        {
-            blocks.m_field = this;
-        }
-        rhs.m_name = "";
-        rhs.m_component_names.clear();
-        rhs.m_num_homo_modes = 1;
-        rhs.m_host           = nullptr;
-        rhs.m_device         = nullptr;
-        rhs.m_block_accessors.clear();
-        rhs.m_memAllocType = ePageable;
-        rhs.m_alignment    = NektarSpaces::host_memory_alignment;
-    }
-
-    /**
-     * @brief Move assignment operator.
-     *
-     * @param rhs
-     *
-     * @return FieldBase&
-     */
-    FieldBase &operator=(FieldBase &&rhs)
-    {
-        m_name            = std::move(rhs.m_name);
-        m_component_names = std::move(rhs.m_component_names);
-        m_num_homo_modes  = std::move(rhs.m_num_homo_modes);
-        m_host            = std::move(rhs.m_host);
-        m_device          = std::move(rhs.m_device);
-        m_block_accessors = std::move(rhs.m_block_accessors);
-        m_memAllocType    = std::move(rhs.m_memAllocType);
-        m_alignment       = std::move(rhs.m_alignment);
-        for (auto &blocks : m_block_accessors)
-        {
-            blocks.m_field = this;
-        }
-
-        rhs.m_name = "";
-        rhs.m_component_names.clear();
-        rhs.m_num_homo_modes = 1;
-        rhs.m_host           = nullptr;
-        rhs.m_device         = nullptr;
-        rhs.m_block_accessors.clear();
-        rhs.m_memAllocType = ePageable;
-        rhs.m_alignment    = NektarSpaces::host_memory_alignment;
-        return *this;
-    }
-
     // Member variables:
     std::string m_name;
     std::vector<std::string> m_component_names;
     unsigned int m_num_homo_modes = 1;
     TData *m_host                 = nullptr;
     TData *m_device               = nullptr;
-    std::vector<BlockAccessor<TData>> m_block_accessors;
+    std::vector<BlockAccessor<TData, TState>> m_block_accessors;
     MemAllocType m_memAllocType;
     size_t m_alignment = NektarSpaces::host_memory_alignment;
 };
 
 /**
- * @brief A Field represents expansion data to be operated on.
- *
- * @tparam TData  The floating-point representation used by the field.
- * @tparam TState A FieldState value representing the state of the field.
- */
-template <typename TData, FieldState TState>
-class Field : public FieldBase<TData>
-{
-public:
-    Field()              = default;
-    Field(const Field &) = delete;
-    ~Field()             = default;
-
-    /**
-     * @brief Construct a new Field object.
-     *
-     * @param name           - Name of the field object.
-     * @param blockAttr      - Block attributes.
-     * @param num_components - Number of components.
-     * @param num_homo_modes - Number of homogeneous modes.
-     * @param memAllocType   - [ePageable, ePinned].
-     * @param alignment      - Memory alignment to use.
-     */
-    Field(const std::string name, const std::vector<BlockAttributes> blockAttr,
-          const unsigned int num_components, const unsigned int num_homo_modes,
-          const MemAllocType &memAllocType = ePageable,
-          const size_t alignment = NektarSpaces::host_memory_alignment)
-        : FieldBase<TData>(name, num_components, num_homo_modes, memAllocType,
-                           alignment)
-    {
-        for (unsigned int blk = 0; blk < blockAttr.size(); ++blk)
-        {
-            auto nsize =
-                blockAttr[blk].size() * num_components * num_homo_modes;
-            auto mr = MemoryRegion<TData>(name + std::to_string(blk), nsize,
-                                          memAllocType, alignment);
-            this->m_block_accessors.push_back(
-                BlockAccessor(blockAttr[blk], std::move(mr), this,
-                              num_components, num_homo_modes));
-        }
-    }
-
-    /**
-     * @brief Construct a new Field object.
-     *
-     * @param blockAttr      - Block attributes.
-     * @param num_components - Number of components.
-     * @param num_homo_modes - Number of homogeneous modes.
-     * @param memAllocType   - [ePageable, ePinned].
-     * @param alignment      - Memory alignment to use.
-     */
-    Field(const std::vector<BlockAttributes> blockAttr,
-          const unsigned int num_components, const unsigned int num_homo_modes,
-          const MemAllocType &memAllocType = ePageable,
-          const size_t alignment = NektarSpaces::host_memory_alignment)
-        : Field<TData, TState>("", blockAttr, num_components, num_homo_modes,
-                               memAllocType, alignment)
-    {
-    }
-
-    /**
-     * @brief Construct a new Field object.
-     *
-     * @param name           - Name of the field object.
-     * @param blockAttr      - Block attributes.
-     * @param components     - Names of components for vector field.
-     * @param num_homo_modes - Number of homogeneous modes.
-     * @param memAllocType   - [ePageable, ePinned].
-     * @param alignment      - Memory alignment to use.
-     */
-    Field(const std::string name, const std::vector<BlockAttributes> blockAttr,
-          const std::vector<std::string> components,
-          const unsigned int num_homo_modes,
-          const MemAllocType &memAllocType = ePageable,
-          const size_t alignment = NektarSpaces::host_memory_alignment)
-        : FieldBase<TData>(name, components, num_homo_modes, memAllocType,
-                           alignment)
-    {
-        for (unsigned int blk = 0; blk < blockAttr.size(); ++blk)
-        {
-            auto nsize =
-                blockAttr[blk].size() * components.size() * num_homo_modes;
-            auto mr = MemoryRegion<TData>(name + std::to_string(blk), nsize,
-                                          memAllocType, alignment);
-            this->m_block_accessors.push_back(
-                BlockAccessor(blockAttr[blk], std::move(mr), this,
-                              components.size(), num_homo_modes));
-        }
-    }
-
-    /**
-     * @brief Construct a new Field object.
-     *
-     * @param blockAttr      - Block attributes.
-     * @param components     - Names of components for vector field.
-     * @param num_homo_modes - Number of homogeneous modes.
-     * @param memAllocType   - [ePageable, ePinned].
-     * @param alignment      - Memory alignment to use.
-     */
-    Field(const std::vector<BlockAttributes> blockAttr,
-          const std::vector<std::string> components,
-          const unsigned int num_homo_modes,
-          const MemAllocType &memAllocType = ePageable,
-          const size_t alignment = NektarSpaces::host_memory_alignment)
-        : Field<TData, TState>("", blockAttr, components, num_homo_modes,
-                               memAllocType, alignment)
-    {
-    }
-
-    /**
-     * @brief Construct a new Field object by moving storage from an
-     * existing Field object.
-     *
-     * @param rhs
-     */
-    Field(Field &&rhs) : FieldBase<TData>(std::move(rhs))
-    {
-    }
-
-    /**
-     * @brief Move assignment operator.
-     *
-     * @param rhs
-     *
-     * @return Field&
-     */
-    Field &operator=(Field &&rhs)
-    {
-        FieldBase<TData>::operator=(std::move(rhs));
-        return *this;
-    }
-};
-
-/**
  * @brief Allocate contiguous host OR device memory accross all MemoryRegion
- * objects belonging to a FieldBase object pointer.
+ * objects belonging to a Field object pointer.
  *
- * @param field  - FieldBase object pointer.
+ * @param field  - Field object pointer.
  */
-template <typename MemSpace, typename TData>
-void AllocateFieldStorage(FieldBase<TData> *field)
+template <typename MemSpace, typename TData, FieldState TState>
+void AllocateFieldStorage(Field<TData, TState> *field)
 {
     if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
     {

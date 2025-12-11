@@ -42,11 +42,11 @@ namespace Nektar::Operators::detail
 {
 // clang-format off
 
-// Update the operator class name if reusing this file i.e. OperatorXXXBaseImpl
 template <>
 void PhysInterp1DScaledBlockOpImpl<NektarSpaces::@ExecSpace@, Operators::SumFacTOP,
                                       @TData@>::@Shape@Block
-                (BlockAccessor<@TData@> &input, BlockAccessor<@TData@> &output)
+                (BlockAccessor<@TData@, FieldState::Phys> &inblock, 
+                 BlockAccessor<@TData@, FieldState::Phys> &outblock)
 {
     // The following will use predefined code found in the Operators/Common
     // directory to import boost_pp code to make wrapper code to call
