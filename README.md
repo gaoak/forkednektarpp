@@ -99,6 +99,9 @@ Note:
 - For A100, please use `sm_xx=sm_80` 
 - For V100, please use `sm_xx=sm_70` 
 
+The `sm_xx` value can also be queried using the following command:
+`nvidia-smi --query-gpu=compute_cap --format=csv`
+
 ### HIP
     cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
              -DNEKTAR_ENABLE_DEVICE=HIP \
@@ -111,6 +114,9 @@ Note:
 - For MI250, please use `gfxzzz=gfx90a` 
 - For MI300, please use `gfxzzz=gfx942` 
 - For MI325, please use `gfxzzz=gfx942` 
+
+The `gfxzzz` value can also be queried using the following command:
+`rocm-smi --showproductname | grep gfx`
 
 ### Intel SYCL (CUDA)
     cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
