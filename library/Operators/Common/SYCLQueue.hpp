@@ -36,7 +36,7 @@
 
 #include <sycl/sycl.hpp>
 
-static unsigned int internalSYCLDeviceId = 0;
+extern unsigned int internalSYCLDeviceId;
 
 /**
  * @brief wrapper around sycl::queue to ensure queues are not constantly

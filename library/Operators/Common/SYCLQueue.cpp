@@ -34,4 +34,6 @@
 
 #include "SYCLQueue.hpp"
 
+unsigned int internalSYCLDeviceId = 0;
+
 std::vector<sycl::queue *> SYCLQueue::queue;
