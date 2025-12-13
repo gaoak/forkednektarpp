@@ -51,7 +51,7 @@ inline
     }
 }
 
-// Parallel reduction launchers without device-to-host copy.
+// Parallel reduction launchers.
 template <typename ExecSpace, bool init, typename Reduction, typename Functor>
 inline
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
@@ -95,7 +95,7 @@ inline
     }
 }
 
-// Parallel reduction launchers with device-to-host copy.
+// Parallel reduction launchers.
 template <typename ExecSpace, typename Reduction, typename Functor>
 inline
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||

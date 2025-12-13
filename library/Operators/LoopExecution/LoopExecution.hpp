@@ -83,27 +83,117 @@ public:
 
 // Atomics.
 template <typename ExecSpace, typename Scope, typename TData>
-NEK_DEVICE_INLINE static void atomic_add(TData *const dest, const TData val)
+static inline
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                            void>::type
+    atomic_add(TData *const dest, const TData val)
+{
+    *dest += val;
+}
+
+template <typename ExecSpace, typename Scope, typename TData>
+NEK_DEVICE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                            void>::type
+    atomic_add(TData *const dest, const TData val)
 {
     Nektar::atomic_add<Scope>(dest, val);
 }
 
 template <typename ExecSpace, typename Scope, typename TData>
-NEK_DEVICE_INLINE static void atomic_sub(TData *const dest, const TData val)
+static inline
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                            void>::type
+    atomic_sub(TData *const dest, const TData val)
+{
+    *dest -= val;
+}
+
+template <typename ExecSpace, typename Scope, typename TData>
+NEK_DEVICE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                            void>::type
+    atomic_sub(TData *const dest, const TData val)
 {
     Nektar::atomic_sub<Scope>(dest, val);
 }
 
 template <typename ExecSpace, typename Scope, typename TData>
-NEK_DEVICE_INLINE static void atomic_max(TData *const dest, const TData val)
+static inline
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                            void>::type
+    atomic_max(TData *const dest, const TData val)
+{
+    *dest = std::max(*dest, val);
+}
+
+template <typename ExecSpace, typename Scope, typename TData>
+NEK_DEVICE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                            void>::type
+    atomic_max(TData *const dest, const TData val)
 {
     Nektar::atomic_max<Scope>(dest, val);
 }
 
 template <typename ExecSpace, typename Scope, typename TData>
-NEK_DEVICE_INLINE static void atomic_min(TData *const dest, const TData val)
+static inline
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                            void>::type
+    atomic_min(TData *const dest, const TData val)
+{
+    *dest = std::min(*dest, val);
+}
+
+template <typename ExecSpace, typename Scope, typename TData>
+NEK_DEVICE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                            void>::type
+    atomic_min(TData *const dest, const TData val)
 {
     Nektar::atomic_min<Scope>(dest, val);
+}
+
+template <typename ExecSpace, typename Scope, typename TData>
+static inline
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                            void>::type
+    atomic_or(TData *const dest, const TData val)
+{
+    *dest |= val;
+}
+
+template <typename ExecSpace, typename Scope, typename TData>
+NEK_DEVICE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                            void>::type
+    atomic_or(TData *const dest, const TData val)
+{
+    Nektar::atomic_or<Scope>(dest, val);
+}
+
+template <typename ExecSpace, typename Scope, typename TData>
+static inline
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                            void>::type
+    atomic_and(TData *const dest, const TData val)
+{
+    *dest &= val;
+}
+
+template <typename ExecSpace, typename Scope, typename TData>
+NEK_DEVICE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                            void>::type
+    atomic_and(TData *const dest, const TData val)
+{
+    Nektar::atomic_and<Scope>(dest, val);
 }
 
 } // namespace Nektar
