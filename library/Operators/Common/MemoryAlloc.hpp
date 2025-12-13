@@ -84,36 +84,6 @@ inline static unsigned int nekGetDeviceCount(void)
     return std::min(num_rank, num_device);
 }
 
-inline static void nekSetDevice([[maybe_unused]] unsigned int device_rank)
-{
-#if defined(NEKTAR_ENABLE_CUDA)
-    CHECK_HIPCUDA_ERROR(cudaSetDevice(device_rank));
-#elif defined(NEKTAR_ENABLE_HIP)
-    CHECK_HIPCUDA_ERROR(hipSetDevice(device_rank));
-#elif defined(NEKTAR_ENABLE_SYCL)
-    internalSYCLDeviceId = device_rank;
-#else
-    // Do nothing
-#endif
-}
-
-inline static unsigned int nekGetDevice()
-{
-#if defined(NEKTAR_ENABLE_CUDA)
-    int device_rank = 0;
-    CHECK_HIPCUDA_ERROR(cudaGetDevice(&device_rank));
-    return device_rank;
-#elif defined(NEKTAR_ENABLE_HIP)
-    int device_rank = 0;
-    CHECK_HIPCUDA_ERROR(hipGetDevice(&device_rank));
-    return device_rank;
-#elif defined(NEKTAR_ENABLE_SYCL)
-    return internalSYCLDeviceId;
-#else
-    return 0;
-#endif
-}
-
 template <typename TData>
 inline void hostMalloc(TData **src, const size_t size,
                        [[maybe_unused]] const size_t alignment)
