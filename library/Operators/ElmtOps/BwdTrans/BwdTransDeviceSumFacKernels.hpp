@@ -957,22 +957,14 @@ NEK_DEVICE_INLINE static void BwdTransPyrSumFacTOPKernel(
         mode_pqr -= (p - 1u) * p / 2u;
         mode_pqr -= (p - 1u) * p * (2u * p - 1u) / 6u;
         mode_pqr /= 2u;
-
-        const unsigned ulimit = (q < p) ? nm2 - p : nm2 - q;
-
-        if (q < p)
-        {
-            mode_pqr += q * (nm2 - p);
-        }
-        else
-        {
-            mode_pqr += p * (nm2 - p);
-            mode_pqr += ((2u * (nm2 - p) - (q - p) + 1u) * (q - p)) / 2u;
-        }
-
+        mode_pqr += (q < p)
+                        ? q * (nm2 - p)
+                        : p * (nm2 - p) +
+                              ((2u * (nm2 - p) - (q - p) + 1u) * (q - p)) / 2u;
         mode2 += mode_pqr;
 
         TData tmp = 0.0;
+        const unsigned ulimit = (q < p) ? nm2 - p : nm2 - q;
 #pragma unroll
         for (unsigned int r = 0u; r < ulimit; ++r, ++mode2, ++mode_pqr)
         {
