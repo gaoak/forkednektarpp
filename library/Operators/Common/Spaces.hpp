@@ -292,6 +292,37 @@ extern void *internalHostBuffer;
 extern unsigned int internalMaxDataSizeByte;
 #endif
 
+[[maybe_unused]] static inline void nekSetDevice(
+    [[maybe_unused]] unsigned int device_rank)
+{
+#if defined(NEKTAR_ENABLE_CUDA)
+    CHECK_HIPCUDA_ERROR(cudaSetDevice(device_rank));
+#elif defined(NEKTAR_ENABLE_HIP)
+    CHECK_HIPCUDA_ERROR(hipSetDevice(device_rank));
+#elif defined(NEKTAR_ENABLE_SYCL)
+    internalSYCLDeviceId                           = device_rank;
+#else
+    // Do nothing
+#endif
+}
+
+[[maybe_unused]] static inline unsigned int nekGetDevice()
+{
+#if defined(NEKTAR_ENABLE_CUDA)
+    int device_rank = 0;
+    CHECK_HIPCUDA_ERROR(cudaGetDevice(&device_rank));
+    return device_rank;
+#elif defined(NEKTAR_ENABLE_HIP)
+    int device_rank = 0;
+    CHECK_HIPCUDA_ERROR(hipGetDevice(&device_rank));
+    return device_rank;
+#elif defined(NEKTAR_ENABLE_SYCL)
+    return internalSYCLDeviceId;
+#else
+    return 0;
+#endif
+}
+
 [[maybe_unused]] static inline void nekDeviceSynchronize(void)
 {
 #if defined(NEKTAR_ENABLE_CUDA)
