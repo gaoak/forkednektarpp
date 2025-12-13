@@ -934,6 +934,32 @@ NEK_DEVICE_INLINE static void atomic_min(TData *const dest, const TData val)
     }
 }
 
+template <typename Scope, typename TData>
+NEK_DEVICE_INLINE static void atomic_or(TData *const dest, const TData val)
+{
+    if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
+    {
+        atomicOr(dest, val);
+    }
+    else if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
+    {
+        atomicOr_block(dest, val);
+    }
+}
+
+template <typename Scope, typename TData>
+NEK_DEVICE_INLINE static void atomic_and(TData *const dest, const TData val)
+{
+    if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
+    {
+        atomicAnd(dest, val);
+    }
+    else if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
+    {
+        atomicAnd_block(dest, val);
+    }
+}
+
 template <unsigned int ndim, typename TData>
 NEK_DEVICE_INLINE static TData warpReduceSum(
     const TData val, [[maybe_unused]] const hipcudaBlock<ndim> &threadBlock)
@@ -1147,6 +1173,30 @@ NEK_DEVICE_INLINE static void blockReduceMin(
     if (getLaneIdx(threadBlock) == 0)
     {
         atomic_min<NektarSpaces::GlobalScope>(red, tmp);
+    }
+}
+
+template <unsigned int ndim, typename TData>
+NEK_DEVICE_INLINE static void blockReduceOr(
+    const TData val, [[maybe_unused]] const hipcudaBlock<ndim> &threadBlock,
+    TData *red)
+{
+    auto tmp = warpReduceOr(val, threadBlock);
+    if (getLaneIdx(threadBlock) == 0)
+    {
+        atomic_or<NektarSpaces::GlobalScope>(red, tmp);
+    }
+}
+
+template <unsigned int ndim, typename TData>
+NEK_DEVICE_INLINE static void blockReduceAnd(
+    const TData val, [[maybe_unused]] const hipcudaBlock<ndim> &threadBlock,
+    TData *red)
+{
+    auto tmp = warpReduceAnd(val, threadBlock);
+    if (getLaneIdx(threadBlock) == 0)
+    {
+        atomic_and<NektarSpaces::GlobalScope>(red, tmp);
     }
 }
 
@@ -1724,6 +1774,44 @@ NEK_DEVICE_INLINE static void atomic_min(TData *const dest, const TData val)
     }
 }
 
+template <typename Scope, typename TData>
+NEK_DEVICE_INLINE static void atomic_or(TData *const dest, const TData val)
+{
+    if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
+    {
+        sycl::atomic_ref<TData, sycl::memory_order::relaxed,
+                         sycl::memory_scope::device,
+                         sycl::access::address_space::global_space>(*dest)
+            .fetch_or(val);
+    }
+    else if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
+    {
+        sycl::atomic_ref<TData, sycl::memory_order::relaxed,
+                         sycl::memory_scope_work_group,
+                         sycl::access::address_space::local_space>(*dest)
+            .fetch_or(val);
+    }
+}
+
+template <typename Scope, typename TData>
+NEK_DEVICE_INLINE static void atomic_and(TData *const dest, const TData val)
+{
+    if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
+    {
+        sycl::atomic_ref<TData, sycl::memory_order::relaxed,
+                         sycl::memory_scope::device,
+                         sycl::access::address_space::global_space>(*dest)
+            .fetch_and(val);
+    }
+    else if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
+    {
+        sycl::atomic_ref<TData, sycl::memory_order::relaxed,
+                         sycl::memory_scope_work_group,
+                         sycl::access::address_space::local_space>(*dest)
+            .fetch_and(val);
+    }
+}
+
 template <int ndim, typename TData>
 NEK_DEVICE_INLINE static TData warpReduceSum(
     const TData val, const sycl::nd_item<ndim> &threadBlock)
@@ -1794,6 +1882,28 @@ NEK_DEVICE_INLINE static void blockReduceMin(
     if (getLaneIdx(threadBlock) == 0)
     {
         atomic_min<NektarSpaces::GlobalScope>(red, tmp);
+    }
+}
+
+template <int ndim, typename TData>
+NEK_DEVICE_INLINE static void blockReduceOr(
+    const TData val, const sycl::nd_item<ndim> &threadBlock, TData *red)
+{
+    auto tmp = warpReduceOr(val, threadBlock);
+    if (getLaneIdx(threadBlock) == 0)
+    {
+        atomic_or<NektarSpaces::GlobalScope>(red, tmp);
+    }
+}
+
+template <int ndim, typename TData>
+NEK_DEVICE_INLINE static void blockReduceAnd(
+    const TData val, const sycl::nd_item<ndim> &threadBlock, TData *red)
+{
+    auto tmp = warpReduceAnd(val, threadBlock);
+    if (getLaneIdx(threadBlock) == 0)
+    {
+        atomic_and<NektarSpaces::GlobalScope>(red, tmp);
     }
 }
 
@@ -2119,6 +2229,18 @@ NEK_DEVICE_INLINE static void atomic_min(TData *const dest, const TData val)
     *dest = std::min(*dest, val);
 }
 
+template <typename Scope, typename TData>
+NEK_DEVICE_INLINE static void atomic_or(TData *const dest, const TData val)
+{
+    *dest |= val;
+}
+
+template <typename Scope, typename TData>
+NEK_DEVICE_INLINE static void atomic_and(TData *const dest, const TData val)
+{
+    *dest &= val;
+}
+
 template <unsigned int ndim, typename TData>
 NEK_DEVICE_INLINE static TData warpReduceSum(
     const TData val,
@@ -2181,6 +2303,22 @@ NEK_DEVICE_INLINE static void blockReduceMin(
     [[maybe_unused]] const deviceOnHostBlock<ndim> &threadBlock, TData *red)
 {
     *red = std::min(*red, val);
+}
+
+template <unsigned int ndim, typename TData>
+NEK_DEVICE_INLINE static void blockReduceOr(
+    const TData val,
+    [[maybe_unused]] const deviceOnHostBlock<ndim> &threadBlock, TData *red)
+{
+    *red |= val;
+}
+
+template <unsigned int ndim, typename TData>
+NEK_DEVICE_INLINE static void blockReduceAnd(
+    const TData val,
+    [[maybe_unused]] const deviceOnHostBlock<ndim> &threadBlock, TData *red)
+{
+    *red &= val;
 }
 
 template <unsigned int ndim>
