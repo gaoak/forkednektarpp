@@ -48,8 +48,8 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &execStr = "")
     {
-        return Operator<TData>::template Create<GMRESOp>(expansionList,
-                                                         execStr);
+        return std::dynamic_pointer_cast<GMRESOp<TData>>(
+            LinearSolverOp<TData>::Create(expansionList, name, execStr));
     }
 
     static inline const std::string name = "GMRES";

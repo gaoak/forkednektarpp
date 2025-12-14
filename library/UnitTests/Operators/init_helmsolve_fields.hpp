@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: init_helmsolve_conjgradfields.hpp
+// File: init_helmsolve_fields.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,8 +34,8 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/GlobalLinSysOps/ConjGrad/ConjGradOp.hpp"
 #include "Operators/GlobalLinSysOps/HelmSolve/HelmSolveOp.hpp"
+#include "Operators/GlobalLinSysOps/LinearSolverOp.hpp"
 #include "Operators/PreconOps/DiagPrecon/DiagPreconOp.hpp"
 
 using namespace Nektar::Operators;
@@ -133,11 +133,11 @@ public:
         ExpectedSolution();
     }
 
-    void RunTestCase()
+    void RunTestCase(const std::string &method)
     {
         auto op       = HelmSolveOp<double>::Create(fixt_explist[0]);
         auto precon   = DiagPreconOp<double>::Create(fixt_explist[0]);
-        auto linsolve = ConjGradOp<double>::Create(fixt_explist[0]);
+        auto linsolve = LinearSolverOp<double>::Create(fixt_explist[0], method);
         op->SetLambda(m_lambda);
         op->SetLinearSolver(linsolve);
         op->SetPrecon(precon);
@@ -146,7 +146,7 @@ public:
 
     void ExpectedSolution()
     {
-        // Calculate expected result from Nektar++
+        // Calculate expected result from Nektar++.
         Array<OneD, double> inphys = fixt_in->ToArray();
         Array<OneD, double> outcoeffs(fixt_explist[0]->GetNcoeffs(), 0.0);
         StdRegions::ConstFactorMap factors;

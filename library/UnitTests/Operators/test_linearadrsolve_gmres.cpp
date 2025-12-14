@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestLinearADRSolveGMRES
 
-#include "init_linearadrsolve_gmresfields.hpp"
+#include "init_linearadrsolve_fields.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
@@ -45,7 +45,7 @@
     {                                                                          \
         Configure();                                                           \
         SetTestCase();                                                         \
-        RunTestCase();                                                         \
+        RunTestCase("GMRES");                                                  \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
             BOOST_TEST(Compare(tol));                                          \

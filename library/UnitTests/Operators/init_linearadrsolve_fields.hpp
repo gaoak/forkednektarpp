@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: init_linearadrsolve_gmresfields.hpp
+// File: init_linearadrsolve_fields.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,8 +34,8 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/GlobalLinSysOps/GMRES/GMRESOp.hpp"
 #include "Operators/GlobalLinSysOps/LinearADRSolve/LinearADRSolveOp.hpp"
+#include "Operators/GlobalLinSysOps/LinearSolverOp.hpp"
 #include "Operators/PreconOps/DiagPrecon/DiagPreconOp.hpp"
 
 using namespace Nektar::Operators;
@@ -144,11 +144,11 @@ public:
         ExpectedSolution();
     }
 
-    void RunTestCase()
+    void RunTestCase(const std::string &method)
     {
         auto op       = LinearADRSolveOp<double>::Create(fixt_explist[0]);
         auto precon   = DiagPreconOp<double>::Create(fixt_explist[0]);
-        auto linsolve = GMRESOp<double>::Create(fixt_explist[0]);
+        auto linsolve = LinearSolverOp<double>::Create(fixt_explist[0], method);
         op->SetLambda(m_lambda);
         op->SetAdvVel(m_dim, m_vel);
         op->SetLinearSolver(linsolve);
