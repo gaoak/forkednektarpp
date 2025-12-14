@@ -49,6 +49,35 @@ namespace Nektar::Operators
 template <typename TData> class LinearSolverOp : public Operator<TData>
 {
 public:
+    static std::shared_ptr<LinearSolverOp<TData>> Create(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::string &method, const std::string &execStr = "")
+    {
+        auto session = expansionList->GetSession();
+
+        std::string execStr0 = (execStr == "")
+                                   ? Operator<TData>::GetOpExecSpace(session)
+                                   : execStr;
+
+        // TODO: Specify iterative method from the session file.
+
+        std::string requestedKey = method + execStr0;
+
+        OperatorFactory<TData> &factory = GetOperatorFactory<TData>();
+
+        // No suitable operator was found.
+        if (!factory.ModuleExists(requestedKey))
+        {
+            std::stringstream msg;
+            msg << "No such operator: " << requestedKey << std::endl;
+            factory.PrintAvailableClasses(msg);
+            NEKERROR(ErrorUtil::efatal, msg.str());
+        }
+
+        return std::static_pointer_cast<LinearSolverOp<TData>>(
+            factory.CreateInstance(requestedKey, expansionList));
+    }
+
     void Apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Coeff> &out)
     {

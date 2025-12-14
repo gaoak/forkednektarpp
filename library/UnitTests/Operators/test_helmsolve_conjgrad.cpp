@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestHelmSolveConjGrad
 
-#include "init_helmsolve_conjgradfields.hpp"
+#include "init_helmsolve_fields.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
@@ -45,7 +45,7 @@
     {                                                                          \
         Configure();                                                           \
         SetTestCase();                                                         \
-        RunTestCase();                                                         \
+        RunTestCase("ConjGrad");                                               \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
             BOOST_TEST(Compare(tol));                                          \

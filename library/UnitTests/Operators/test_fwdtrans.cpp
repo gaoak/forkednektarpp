@@ -45,7 +45,7 @@
     {                                                                          \
         Configure();                                                           \
         SetTestCase();                                                         \
-        RunTestCase();                                                         \
+        RunTestCase("ConjGrad");                                               \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
             BOOST_TEST(Compare(tol));                                          \

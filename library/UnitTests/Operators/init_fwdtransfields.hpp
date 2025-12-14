@@ -34,8 +34,8 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/GlobalLinSysOps/ConjGrad/ConjGradOp.hpp"
 #include "Operators/GlobalLinSysOps/FwdTrans/FwdTransOp.hpp"
+#include "Operators/GlobalLinSysOps/LinearSolverOp.hpp"
 #include "Operators/PreconOps/DiagPrecon/DiagPreconOp.hpp"
 
 using namespace Nektar::Operators;
@@ -128,11 +128,11 @@ public:
         ExpectedSolution();
     }
 
-    void RunTestCase()
+    void RunTestCase(const std::string &method)
     {
         auto op       = FwdTransOp<double>::Create(fixt_explist[0]);
         auto precon   = DiagPreconOp<double>::Create(fixt_explist[0]);
-        auto linsolve = ConjGradOp<double>::Create(fixt_explist[0]);
+        auto linsolve = LinearSolverOp<double>::Create(fixt_explist[0], method);
         op->SetLinearSolver(linsolve);
         op->SetPrecon(precon);
         op->Apply(*fixt_in, *fixt_out);
