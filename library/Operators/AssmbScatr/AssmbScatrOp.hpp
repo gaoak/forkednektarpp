@@ -67,16 +67,15 @@ public:
         v_Apply(in, out);
     }
 
+    void operator()(Field<TData, FieldState::Coeff> &inout)
+    {
+        v_Apply(inout);
+    }
+
     void operator()(Field<TData, FieldState::Coeff> &in,
                     Field<TData, FieldState::Coeff> &out)
     {
         v_Apply(in, out);
-    }
-
-    void SetAssemblyMap(
-        std::vector<MultiRegions::AssemblyMapCGSharedPtr> &assemblyMap)
-    {
-        v_SetAssemblyMap(assemblyMap);
     }
 
 protected:
@@ -91,9 +90,6 @@ protected:
 
     virtual void v_Apply(Field<TData, FieldState::Coeff> &in,
                          Field<TData, FieldState::Coeff> &out) = 0;
-
-    virtual void v_SetAssemblyMap(
-        std::vector<MultiRegions::AssemblyMapCGSharedPtr> &assemblyMap) = 0;
 };
 
 } // namespace Nektar::Operators

@@ -56,11 +56,11 @@ public:
     void SetTestCase()
     {
         // Set initial conditions.
-        Array<OneD, double> x(fixt_explist[0]->GetTotPoints());
-        Array<OneD, double> y(fixt_explist[0]->GetTotPoints());
-        Array<OneD, double> z(fixt_explist[0]->GetTotPoints());
-        Array<OneD, double> fce(fixt_explist[0]->GetTotPoints());
-        fixt_explist[0]->GetCoords(x, y, z);
+        Array<OneD, double> x(fixt_explist->GetTotPoints());
+        Array<OneD, double> y(fixt_explist->GetTotPoints());
+        Array<OneD, double> z(fixt_explist->GetTotPoints());
+        Array<OneD, double> fce(fixt_explist->GetTotPoints());
+        fixt_explist->GetCoords(x, y, z);
 
         if (session->DefinesFunction("Forcing"))
         {
@@ -87,7 +87,7 @@ public:
                     else
                     {
                         inptr[cnt] = 1.0;
-                        if (fixt_explist[0]->GetCoordim(0) == 1)
+                        if (fixt_explist->GetCoordim(0) == 1)
                         {
                             for (unsigned int n = 1; n < 4; n++)
                             {
@@ -95,7 +95,7 @@ public:
                             }
                             xptr++;
                         }
-                        else if (fixt_explist[0]->GetCoordim(0) == 2)
+                        else if (fixt_explist->GetCoordim(0) == 2)
                         {
                             for (unsigned int n = 1; n < 4; n++)
                             {
@@ -130,9 +130,9 @@ public:
 
     void RunTestCase(const std::string &method)
     {
-        auto op       = FwdTransOp<double>::Create(fixt_explist[0]);
-        auto precon   = DiagPreconOp<double>::Create(fixt_explist[0]);
-        auto linsolve = LinearSolverOp<double>::Create(fixt_explist[0], method);
+        auto op       = FwdTransOp<double>::Create(fixt_explist);
+        auto precon   = DiagPreconOp<double>::Create(fixt_explist);
+        auto linsolve = LinearSolverOp<double>::Create(fixt_explist, method);
         op->SetLinearSolver(linsolve);
         op->SetPrecon(precon);
         op->Apply(*fixt_in, *fixt_out);
@@ -142,8 +142,8 @@ public:
     {
         // Calculate expected result from Nektar++
         Array<OneD, double> inphys = fixt_in->ToArray();
-        Array<OneD, double> outcoeffs(fixt_explist[0]->GetNcoeffs(), 0.0);
-        fixt_explist[0]->FwdTrans(inphys, outcoeffs);
+        Array<OneD, double> outcoeffs(fixt_explist->GetNcoeffs(), 0.0);
+        fixt_explist->FwdTrans(inphys, outcoeffs);
         fixt_expected->CopyArray<NektarSpaces::HostSpace>(outcoeffs);
     }
 };

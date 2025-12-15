@@ -4,7 +4,7 @@
         <E COMPOSITE="C[1]"  BASISTYPE="Modified_A,Modified_B,Modified_C"
             NUMMODES="3,4,5"
             POINTSTYPE="GaussLobattoLegendre,GaussRadauMAlpha1Beta0,GaussRadauMAlpha2Beta0"
-            NUMPOINTS="4,4,5" FIELDS="u" />
+            NUMPOINTS="4,4,5" FIELDS="u,v" />
     </EXPANSIONS>
     <GEOMETRY DIM="3" SPACE="3">
         <VERTEX>
@@ -128,6 +128,7 @@
         </PARAMETERS>
         <VARIABLES>
             <V ID="0">u</V>
+            <V ID="1">v</V>
         </VARIABLES>
     </CONDITIONS>
 </NEKTAR>

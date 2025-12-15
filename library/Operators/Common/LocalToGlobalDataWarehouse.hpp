@@ -66,21 +66,14 @@ public:
 
     ~DeviceLocalToGlobalKey() override = default;
 
-    DeviceLocalToGlobalKey(
-        std::vector<MultiRegions::AssemblyMapCGSharedPtr> assemblyMap,
-        bool zeroDir, unsigned width = 1)
-        : m_assemblyMap(assemblyMap), m_zeroDir(zeroDir), m_width(width)
+    DeviceLocalToGlobalKey(bool zeroDir, unsigned width = 1)
+        : m_zeroDir(zeroDir), m_width(width)
     {
-        for (auto &e : m_assemblyMap)
-        {
-            hash_combine(m_hash, e.get());
-        }
         hash_combine(m_hash, m_zeroDir, m_width, typeid(value_type).name(),
                      "DeviceLocalToGlobalKey");
     }
 
 private:
-    std::vector<MultiRegions::AssemblyMapCGSharedPtr> m_assemblyMap;
     bool m_zeroDir;
     unsigned m_width;
 };
@@ -102,21 +95,14 @@ public:
 
     ~DeviceLocalToGlobalNumAssembleKey() override = default;
 
-    DeviceLocalToGlobalNumAssembleKey(
-        std::vector<MultiRegions::AssemblyMapCGSharedPtr> assemblyMap,
-        bool zeroDir, unsigned width)
-        : m_assemblyMap(assemblyMap), m_zeroDir(zeroDir), m_width(width)
+    DeviceLocalToGlobalNumAssembleKey(bool zeroDir, unsigned width)
+        : m_zeroDir(zeroDir), m_width(width)
     {
-        for (auto &e : m_assemblyMap)
-        {
-            hash_combine(m_hash, e.get());
-        }
         hash_combine(m_hash, m_zeroDir, m_width, typeid(value_type).name(),
                      "DeviceLocalToGlobaNumAssemblelKey");
     }
 
 private:
-    std::vector<MultiRegions::AssemblyMapCGSharedPtr> m_assemblyMap;
     bool m_zeroDir;
     unsigned m_width;
 };
@@ -137,21 +123,14 @@ public:
 
     ~DeviceLocalToGlobalIndexKey() override = default;
 
-    DeviceLocalToGlobalIndexKey(
-        std::vector<MultiRegions::AssemblyMapCGSharedPtr> assemblyMap,
-        bool zeroDir, unsigned width)
-        : m_assemblyMap(assemblyMap), m_zeroDir(zeroDir), m_width(width)
+    DeviceLocalToGlobalIndexKey(bool zeroDir, unsigned width)
+        : m_zeroDir(zeroDir), m_width(width)
     {
-        for (auto &e : m_assemblyMap)
-        {
-            hash_combine(m_hash, e.get());
-        }
         hash_combine(m_hash, m_zeroDir, m_width, typeid(value_type).name(),
                      "DeviceLocalToGlobaIndexlKey");
     }
 
 private:
-    std::vector<MultiRegions::AssemblyMapCGSharedPtr> m_assemblyMap;
     bool m_zeroDir;
     unsigned m_width;
 };
@@ -173,21 +152,14 @@ public:
 
     ~DeviceLocalToGlobalIndexOffsetKey() override = default;
 
-    DeviceLocalToGlobalIndexOffsetKey(
-        std::vector<MultiRegions::AssemblyMapCGSharedPtr> assemblyMap,
-        bool zeroDir, unsigned width)
-        : m_assemblyMap(assemblyMap), m_zeroDir(zeroDir), m_width(width)
+    DeviceLocalToGlobalIndexOffsetKey(bool zeroDir, unsigned width)
+        : m_zeroDir(zeroDir), m_width(width)
     {
-        for (auto &e : m_assemblyMap)
-        {
-            hash_combine(m_hash, e.get());
-        }
         hash_combine(m_hash, m_zeroDir, m_width, typeid(value_type).name(),
                      "DeviceLocalToGlobaIndexOffsetlKey");
     }
 
 private:
-    std::vector<MultiRegions::AssemblyMapCGSharedPtr> m_assemblyMap;
     bool m_zeroDir;
     unsigned m_width;
 };
@@ -209,22 +181,15 @@ public:
 
     ~DeviceLocalToGlobalSignKey() override = default;
 
-    DeviceLocalToGlobalSignKey(
-        std::vector<MultiRegions::AssemblyMapCGSharedPtr> assemblyMap,
-        bool zeroDir, bool signChange, unsigned width = 1)
-        : m_assemblyMap(assemblyMap), m_zeroDir(zeroDir),
-          m_signChange(signChange), m_width(width)
+    DeviceLocalToGlobalSignKey(bool zeroDir, bool signChange,
+                               unsigned width = 1)
+        : m_zeroDir(zeroDir), m_signChange(signChange), m_width(width)
     {
-        for (auto &e : m_assemblyMap)
-        {
-            hash_combine(m_hash, e.get());
-        }
         hash_combine(m_hash, m_zeroDir, m_signChange, m_width,
                      typeid(value_type).name(), "DeviceLocalToGlobalSignKey");
     }
 
 private:
-    std::vector<MultiRegions::AssemblyMapCGSharedPtr> m_assemblyMap;
     bool m_zeroDir;
     bool m_signChange;
     unsigned m_width;
@@ -247,22 +212,14 @@ public:
 
     ~DeviceBndLocalToGlobalSignKey() override = default;
 
-    DeviceBndLocalToGlobalSignKey(
-        std::vector<MultiRegions::AssemblyMapCGSharedPtr> &assemblyMap,
-        bool zeroDir, bool signChange)
-        : m_assemblyMap(assemblyMap), m_zeroDir(zeroDir),
-          m_signChange(signChange)
+    DeviceBndLocalToGlobalSignKey(bool zeroDir, bool signChange)
+        : m_zeroDir(zeroDir), m_signChange(signChange)
     {
-        for (auto &e : m_assemblyMap)
-        {
-            hash_combine(m_hash, e.get());
-        }
         hash_combine(m_hash, m_zeroDir, m_signChange, typeid(value_type).name(),
                      "DeviceLocalToGlobalSignKey");
     }
 
 private:
-    std::vector<MultiRegions::AssemblyMapCGSharedPtr> m_assemblyMap;
     bool m_zeroDir;
     bool m_signChange;
 };
@@ -322,9 +279,9 @@ public:
     ~LocalToGlobalDataCreator() override = default;
     LocalToGlobalDataCreator(
         const MultiRegions::ExpListSharedPtr &expansionList)
-        : m_expansionList(expansionList)
-    {
-    }
+        : m_expansionList(expansionList){};
+
+    void InitAssemblyMap(void);
 
     template <typename MemSpace, typename TPadding>
     MemoryRegion<typename DeviceLocalToGlobalKey<TPadding>::value_type> Create(
@@ -360,10 +317,16 @@ public:
     MemoryRegion<typename LocalToGlobalMaskKey<TPadding>::value_type> Create(
         [[maybe_unused]] const LocalToGlobalMaskKey<TPadding> &LocToGloKey);
 
+    template <typename TPadding>
+    void FillSignArray(std::vector<unsigned> &index, bool zeroDir,
+                       bool signChange, int *out);
+
     inline static const std::string m_name = "LocalToGlobalCreator";
 
 private:
+    bool m_init = true;
     MultiRegions::ExpListSharedPtr m_expansionList;
+    std::vector<MultiRegions::AssemblyMapCGSharedPtr> m_assemblyMap;
 };
 
 } // namespace Nektar::Operators

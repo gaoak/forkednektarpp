@@ -216,59 +216,35 @@ public:
             nekSetDevice(device_rank);
         }
 
-        std::vector<std::string> variables = session->GetVariables();
-
-        // fill out with "u" variables if not defined in the session file
-        for (int i = variables.size(); i < nin; ++i)
+        if constexpr (std::is_same_v<TExpList, MultiRegions::ContField>)
         {
-            variables.push_back("u");
+
+            fixt_explist =
+                MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(
+                    session, graph, "u", true, false,
+                    Collections::eNoCollection);
+        }
+        else if constexpr (std::is_same_v<TExpList, MultiRegions::DisContField>)
+        {
+            fixt_explist =
+                MemoryManager<MultiRegions::DisContField>::AllocateSharedPtr(
+                    session, graph, "u", true, true,
+                    Collections::eNoCollection);
+        }
+        else if constexpr (std::is_same_v<TExpList, MultiRegions::ExpList>)
+        {
+            fixt_explist =
+                MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
+                    session, graph, true, "u", Collections::eNoCollection);
         }
 
-        for (unsigned v = 0; v < nin; ++v)
+        fixt_explist->SetDataWarehouse();
+        if (trace)
         {
-            // reuse first definition if have same variable name.
-            if ((v > 0) && (variables[v] == variables[0]))
-            {
-                fixt_explist.push_back(fixt_explist[0]);
-            }
-            else
-            {
-                if constexpr (std::is_same_v<TExpList, MultiRegions::ContField>)
-                {
-
-                    fixt_explist.push_back(
-                        MemoryManager<MultiRegions::ContField>::
-                            AllocateSharedPtr(session, graph, variables[v],
-                                              true, false,
-                                              Collections::eNoCollection));
-                }
-                else if constexpr (std::is_same_v<TExpList,
-                                                  MultiRegions::DisContField>)
-                {
-                    fixt_explist.push_back(
-                        MemoryManager<MultiRegions::DisContField>::
-                            AllocateSharedPtr(session, graph, variables[v],
-                                              true, true,
-                                              Collections::eNoCollection));
-                }
-                else if constexpr (std::is_same_v<TExpList,
-                                                  MultiRegions::ExpList>)
-                {
-                    fixt_explist.push_back(
-                        MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
-                            session, graph, true, variables[v],
-                            Collections::eNoCollection));
-                }
-            }
-
-            fixt_explist[0]->SetDataWarehouse();
-            if (trace)
-            {
-                fixt_explist[0]->GetTrace()->SetDataWarehouse();
-            }
-
-            SetFixture(nin, nout, 1, trace, scale_out);
+            fixt_explist->GetTrace()->SetDataWarehouse();
         }
+
+        SetFixture(nin, nout, 1, trace, scale_out);
     }
 
     void Configure3DH1(const unsigned int nin = 1, const unsigned int nout = 1,
@@ -306,72 +282,47 @@ public:
             nekSetDevice(device_rank);
         }
 
-        std::vector<std::string> variables = session->GetVariables();
-
-        // fill out with "u" variables if not defined in the session file
-        for (int i = variables.size(); i < nin; ++i)
+        if constexpr (std::is_same_v<TExpList, MultiRegions::ContField>)
         {
-            variables.push_back("u");
+            const Nektar::LibUtilities::PointsKey pkey(
+                nhomo, Nektar::LibUtilities::eFourierEvenlySpaced);
+            const Nektar::LibUtilities::BasisKey bkey(
+                Nektar::LibUtilities::eFourier, nhomo, pkey);
+            fixt_explist =
+                MemoryManager<MultiRegions::ContField3DHomogeneous1D>::
+                    AllocateSharedPtr(session, bkey, 1.0, false, false, graph,
+                                      "u", false, Collections::eNoCollection);
+        }
+        else if constexpr (std::is_same_v<TExpList, MultiRegions::DisContField>)
+        {
+            const Nektar::LibUtilities::PointsKey pkey(
+                nhomo, Nektar::LibUtilities::eFourierEvenlySpaced);
+            const Nektar::LibUtilities::BasisKey bkey(
+                Nektar::LibUtilities::eFourier, nhomo, pkey);
+            fixt_explist =
+                MemoryManager<MultiRegions::DisContField3DHomogeneous1D>::
+                    AllocateSharedPtr(session, bkey, 1.0, false, false, graph,
+                                      "u", Collections::eNoCollection);
+        }
+        else if constexpr (std::is_same_v<TExpList, MultiRegions::ExpList>)
+        {
+            const Nektar::LibUtilities::PointsKey pkey(
+                nhomo, Nektar::LibUtilities::eFourierEvenlySpaced);
+            const Nektar::LibUtilities::BasisKey bkey(
+                Nektar::LibUtilities::eFourier, nhomo, pkey);
+            fixt_explist = MemoryManager<MultiRegions::ExpList3DHomogeneous1D>::
+                AllocateSharedPtr(session, bkey, 1.0, false, false, graph, "u",
+                                  Collections::eNoCollection);
         }
 
-        for (unsigned v = 0; v < nin; ++v)
+        fixt_explist->SetWaveSpace(true);
+
+        fixt_explist->SetDataWarehouse();
+        if (trace)
         {
-            // reuse first definition if have same variable name.
-            if ((v > 0) && (variables[v] == variables[0]))
-            {
-                fixt_explist.push_back(fixt_explist[0]);
-            }
-            else
-            {
-                if constexpr (std::is_same_v<TExpList, MultiRegions::ContField>)
-                {
-                    const Nektar::LibUtilities::PointsKey pkey(
-                        nhomo, Nektar::LibUtilities::eFourierEvenlySpaced);
-                    const Nektar::LibUtilities::BasisKey bkey(
-                        Nektar::LibUtilities::eFourier, nhomo, pkey);
-                    fixt_explist.push_back(
-                        MemoryManager<MultiRegions::ContField3DHomogeneous1D>::
-                            AllocateSharedPtr(session, bkey, 1.0, false, false,
-                                              graph, variables[v], false,
-                                              Collections::eNoCollection));
-                }
-                else if constexpr (std::is_same_v<TExpList,
-                                                  MultiRegions::DisContField>)
-                {
-                    const Nektar::LibUtilities::PointsKey pkey(
-                        nhomo, Nektar::LibUtilities::eFourierEvenlySpaced);
-                    const Nektar::LibUtilities::BasisKey bkey(
-                        Nektar::LibUtilities::eFourier, nhomo, pkey);
-                    fixt_explist.push_back(
-                        MemoryManager<
-                            MultiRegions::DisContField3DHomogeneous1D>::
-                            AllocateSharedPtr(session, bkey, 1.0, false, false,
-                                              graph, variables[v],
-                                              Collections::eNoCollection));
-                }
-                else if constexpr (std::is_same_v<TExpList,
-                                                  MultiRegions::ExpList>)
-                {
-                    const Nektar::LibUtilities::PointsKey pkey(
-                        nhomo, Nektar::LibUtilities::eFourierEvenlySpaced);
-                    const Nektar::LibUtilities::BasisKey bkey(
-                        Nektar::LibUtilities::eFourier, nhomo, pkey);
-                    fixt_explist.push_back(
-                        MemoryManager<MultiRegions::ExpList3DHomogeneous1D>::
-                            AllocateSharedPtr(session, bkey, 1.0, false, false,
-                                              graph, variables[v],
-                                              Collections::eNoCollection));
-                }
-
-                fixt_explist[v]->SetWaveSpace(true);
-            }
-
-            fixt_explist[0]->SetDataWarehouse();
-            if (trace)
-            {
-                fixt_explist[0]->GetTrace()->SetDataWarehouse();
-            }
+            fixt_explist->GetTrace()->SetDataWarehouse();
         }
+
         SetFixture(nin, nout, nhomo, trace, scale_out);
     }
 
@@ -411,84 +362,59 @@ public:
             nekSetDevice(device_rank);
         }
 
-        std::vector<std::string> variables = session->GetVariables();
-
-        // fill out with "u" variables if not defined in the session file
-        for (int i = variables.size(); i < nin; ++i)
+        if constexpr (std::is_same_v<TExpList, MultiRegions::ContField>)
         {
-            variables.push_back("u");
+            const Nektar::LibUtilities::PointsKey pkey1(
+                nhomoY, Nektar::LibUtilities::eFourierEvenlySpaced);
+            const Nektar::LibUtilities::BasisKey bkey1(
+                Nektar::LibUtilities::eFourier, nhomoY, pkey1);
+            const Nektar::LibUtilities::PointsKey pkey2(
+                nhomoZ, Nektar::LibUtilities::eFourierEvenlySpaced);
+            const Nektar::LibUtilities::BasisKey bkey2(
+                Nektar::LibUtilities::eFourier, nhomoZ, pkey2);
+            fixt_explist =
+                MemoryManager<MultiRegions::ContField3DHomogeneous2D>::
+                    AllocateSharedPtr(session, bkey1, bkey2, 1.0, 1.0, false,
+                                      false, graph, "u", false,
+                                      Collections::eNoCollection);
+        }
+        else if constexpr (std::is_same_v<TExpList, MultiRegions::DisContField>)
+        {
+            const Nektar::LibUtilities::PointsKey pkey1(
+                nhomoY, Nektar::LibUtilities::eFourierEvenlySpaced);
+            const Nektar::LibUtilities::BasisKey bkey1(
+                Nektar::LibUtilities::eFourier, nhomoY, pkey1);
+            const Nektar::LibUtilities::PointsKey pkey2(
+                nhomoZ, Nektar::LibUtilities::eFourierEvenlySpaced);
+            const Nektar::LibUtilities::BasisKey bkey2(
+                Nektar::LibUtilities::eFourier, nhomoZ, pkey2);
+            fixt_explist =
+                MemoryManager<MultiRegions::DisContField3DHomogeneous2D>::
+                    AllocateSharedPtr(session, bkey1, bkey2, 1.0, 1.0, false,
+                                      false, graph, "u",
+                                      Collections::eNoCollection);
+        }
+        else if constexpr (std::is_same_v<TExpList, MultiRegions::ExpList>)
+        {
+            const Nektar::LibUtilities::PointsKey pkey1(
+                nhomoY, Nektar::LibUtilities::eFourierEvenlySpaced);
+            const Nektar::LibUtilities::BasisKey bkey1(
+                Nektar::LibUtilities::eFourier, nhomoY, pkey1);
+            const Nektar::LibUtilities::PointsKey pkey2(
+                nhomoZ, Nektar::LibUtilities::eFourierEvenlySpaced);
+            const Nektar::LibUtilities::BasisKey bkey2(
+                Nektar::LibUtilities::eFourier, nhomoZ, pkey2);
+            fixt_explist = MemoryManager<MultiRegions::ExpList3DHomogeneous2D>::
+                AllocateSharedPtr(session, bkey1, bkey2, 1.0, 1.0, false, false,
+                                  graph, Collections::eNoCollection);
         }
 
-        for (unsigned v = 0; v < nin; ++v)
-        {
-            // reuse first definition if have same variable name.
-            if ((v > 0) && (variables[v] == variables[0]))
-            {
-                fixt_explist.push_back(fixt_explist[0]);
-            }
-            else
-            {
-                if constexpr (std::is_same_v<TExpList, MultiRegions::ContField>)
-                {
-                    const Nektar::LibUtilities::PointsKey pkey1(
-                        nhomoY, Nektar::LibUtilities::eFourierEvenlySpaced);
-                    const Nektar::LibUtilities::BasisKey bkey1(
-                        Nektar::LibUtilities::eFourier, nhomoY, pkey1);
-                    const Nektar::LibUtilities::PointsKey pkey2(
-                        nhomoZ, Nektar::LibUtilities::eFourierEvenlySpaced);
-                    const Nektar::LibUtilities::BasisKey bkey2(
-                        Nektar::LibUtilities::eFourier, nhomoZ, pkey2);
-                    fixt_explist.push_back(
-                        MemoryManager<MultiRegions::ContField3DHomogeneous2D>::
-                            AllocateSharedPtr(session, bkey1, bkey2, 1.0, 1.0,
-                                              false, false, graph, variables[v],
-                                              false,
-                                              Collections::eNoCollection));
-                }
-                else if constexpr (std::is_same_v<TExpList,
-                                                  MultiRegions::DisContField>)
-                {
-                    const Nektar::LibUtilities::PointsKey pkey1(
-                        nhomoY, Nektar::LibUtilities::eFourierEvenlySpaced);
-                    const Nektar::LibUtilities::BasisKey bkey1(
-                        Nektar::LibUtilities::eFourier, nhomoY, pkey1);
-                    const Nektar::LibUtilities::PointsKey pkey2(
-                        nhomoZ, Nektar::LibUtilities::eFourierEvenlySpaced);
-                    const Nektar::LibUtilities::BasisKey bkey2(
-                        Nektar::LibUtilities::eFourier, nhomoZ, pkey2);
-                    fixt_explist.push_back(
-                        MemoryManager<
-                            MultiRegions::DisContField3DHomogeneous2D>::
-                            AllocateSharedPtr(session, bkey1, bkey2, 1.0, 1.0,
-                                              false, false, graph, variables[v],
-                                              Collections::eNoCollection));
-                }
-                else if constexpr (std::is_same_v<TExpList,
-                                                  MultiRegions::ExpList>)
-                {
-                    const Nektar::LibUtilities::PointsKey pkey1(
-                        nhomoY, Nektar::LibUtilities::eFourierEvenlySpaced);
-                    const Nektar::LibUtilities::BasisKey bkey1(
-                        Nektar::LibUtilities::eFourier, nhomoY, pkey1);
-                    const Nektar::LibUtilities::PointsKey pkey2(
-                        nhomoZ, Nektar::LibUtilities::eFourierEvenlySpaced);
-                    const Nektar::LibUtilities::BasisKey bkey2(
-                        Nektar::LibUtilities::eFourier, nhomoZ, pkey2);
-                    fixt_explist.push_back(
-                        MemoryManager<MultiRegions::ExpList3DHomogeneous2D>::
-                            AllocateSharedPtr(session, bkey1, bkey2, 1.0, 1.0,
-                                              false, false, graph,
-                                              Collections::eNoCollection));
-                }
+        fixt_explist->SetWaveSpace(true);
 
-                fixt_explist[v]->SetWaveSpace(true);
-            }
-        }
-
-        fixt_explist[0]->SetDataWarehouse();
+        fixt_explist->SetDataWarehouse();
         if (trace)
         {
-            fixt_explist[0]->GetTrace()->SetDataWarehouse();
+            fixt_explist->GetTrace()->SetDataWarehouse();
         }
 
         SetFixture(nin, nout, nhomoY * nhomoZ, trace, scale_out);
@@ -504,11 +430,11 @@ public:
         if (trace)
         {
             inblockAttr =
-                GetBlockAttributes<TData, stateIn>(fixt_explist[0]->GetTrace());
+                GetBlockAttributes<TData, stateIn>(fixt_explist->GetTrace());
         }
         else
         {
-            inblockAttr = GetBlockAttributes<TData, stateIn>(fixt_explist[0]);
+            inblockAttr = GetBlockAttributes<TData, stateIn>(fixt_explist);
         }
 
         if (scale_out != 1.0)
@@ -516,7 +442,7 @@ public:
             size_t eid = 0;
             for (unsigned int blk = 0; blk < inblockAttr.size(); ++blk)
             {
-                auto expPtr = fixt_explist[0]->GetExp(eid);
+                auto expPtr = fixt_explist->GetExp(eid);
 
                 unsigned int npts0 = expPtr->GetNumPoints(0);
                 unsigned int ndata = 1;
@@ -539,7 +465,7 @@ public:
         }
         else
         {
-            outblockAttr = GetBlockAttributes<TData, stateOut>(fixt_explist[0]);
+            outblockAttr = GetBlockAttributes<TData, stateOut>(fixt_explist);
         }
 
         auto f_in  = Field<TData, stateIn>("f_in", inblockAttr, nin, nhomo);
@@ -686,7 +612,7 @@ protected:
     Field<TData, stateIn> *fixt_in        = nullptr;
     Field<TData, stateOut> *fixt_out      = nullptr;
     Field<TData, stateOut> *fixt_expected = nullptr;
-    std::vector<std::shared_ptr<MultiRegions::ExpList>> fixt_explist;
+    std::shared_ptr<MultiRegions::ExpList> fixt_explist;
     LibUtilities::SessionReaderSharedPtr session;
 };
 

@@ -156,8 +156,8 @@
     </GEOMETRY>
 
     <EXPANSIONS>
-        <E COMPOSITE="C[0]" NUMMODES="5" FIELDS="u" TYPE="GLL_LAGRANGE_SEM" />
-        <E COMPOSITE="C[7]" NUMMODES="5" FIELDS="u" TYPE="GLL_LAGRANGE_SEM" />
+        <E COMPOSITE="C[0]" NUMMODES="5" FIELDS="u,v" TYPE="GLL_LAGRANGE_SEM" />
+        <E COMPOSITE="C[7]" NUMMODES="5" FIELDS="u,v" TYPE="GLL_LAGRANGE_SEM" />
     </EXPANSIONS>
 
     <CONDITIONS>
@@ -171,6 +171,7 @@
         </PARAMETERS>
         <VARIABLES>
             <V ID="0">u</V>
+            <V ID="1">v</V>
         </VARIABLES>
     </CONDITIONS>
 </NEKTAR>

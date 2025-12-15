@@ -38,21 +38,44 @@
 #include "Operators/Field/Field.hpp"
 
 #include <MultiRegions/ContField.h>
+#include <SpatialDomains/MeshGraphIO.h>
 
 namespace Nektar::Operators
 {
+
+void LocalToGlobalDataCreator::InitAssemblyMap(void)
+{
+    auto session = this->m_expansionList->GetSession();
+    auto graph   = SpatialDomains::MeshGraphIO::Read(session);
+    std::vector<std::string> variables = session->GetVariables();
+    for (auto &variable : variables)
+    {
+        auto contfield =
+            MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(
+                session, graph, variable, true, false,
+                Collections::eNoCollection);
+        this->m_assemblyMap.push_back(contfield->GetLocalToGlobalMap());
+    }
+}
 
 template <typename MemSpace, typename TPadding>
 MemoryRegion<typename DeviceLocalToGlobalKey<TPadding>::value_type>
 LocalToGlobalDataCreator::Create(
     const DeviceLocalToGlobalKey<TPadding> &LocToGloKey)
 {
+    if (this->m_init)
+    {
+        InitAssemblyMap();
+        this->m_init = false;
+    }
+
     using value_type = typename DeviceLocalToGlobalKey<TPadding>::value_type;
 
+    auto zeroDir = LocToGloKey.m_zeroDir;
+    auto width   = LocToGloKey.m_width;
+
     // Get Local To Global Map.
-    auto zeroDir  = LocToGloKey.m_zeroDir;
-    auto &loc2glo = LocToGloKey.m_assemblyMap;
-    auto width    = LocToGloKey.m_width;
+    auto &loc2glo = this->m_assemblyMap;
     auto numComp  = loc2glo.size();
 
     Array<OneD, unsigned> ndir(numComp);
@@ -249,15 +272,13 @@ LocalToGlobalDataCreator::Create(
     using value_type =
         typename DeviceLocalToGlobalNumAssembleKey<TPadding>::value_type;
 
-    // Get Local To Global Map.
-    auto &loc2glo      = LocToGloKey.m_assemblyMap;
-    auto zeroDir       = LocToGloKey.m_zeroDir;
-    auto width         = LocToGloKey.m_width;
-    auto dataWarehouse = this->m_expansionList->GetDataWarehouseSharedPtr();
+    auto zeroDir = LocToGloKey.m_zeroDir;
+    auto width   = LocToGloKey.m_width;
 
+    auto dataWarehouse = this->m_expansionList->GetDataWarehouseSharedPtr();
     const auto *gsinfo =
         dataWarehouse->template GetData<NektarSpaces::HostSpace>(
-            DeviceLocalToGlobalKey<TPadding>(loc2glo, zeroDir, width));
+            DeviceLocalToGlobalKey<TPadding>(zeroDir, width));
 
     auto nvals = gsinfo[0];
     unsigned nvalswidth =
@@ -288,15 +309,13 @@ LocalToGlobalDataCreator::Create(
     using value_type =
         typename DeviceLocalToGlobalIndexKey<TPadding>::value_type;
 
-    // Get Local To Global Map.
-    auto &loc2glo      = LocToGloKey.m_assemblyMap;
-    auto zeroDir       = LocToGloKey.m_zeroDir;
-    auto width         = LocToGloKey.m_width;
-    auto dataWarehouse = this->m_expansionList->GetDataWarehouseSharedPtr();
+    auto zeroDir = LocToGloKey.m_zeroDir;
+    auto width   = LocToGloKey.m_width;
 
+    auto dataWarehouse = this->m_expansionList->GetDataWarehouseSharedPtr();
     const auto *gsinfo =
         dataWarehouse->template GetData<NektarSpaces::HostSpace>(
-            DeviceLocalToGlobalKey<TPadding>(loc2glo, zeroDir, width));
+            DeviceLocalToGlobalKey<TPadding>(zeroDir, width));
 
     auto nvals = gsinfo[0];
     auto nidx  = 0;
@@ -359,15 +378,13 @@ LocalToGlobalDataCreator::Create(
     using value_type =
         typename DeviceLocalToGlobalIndexOffsetKey<TPadding>::value_type;
 
-    // Get Local To Global Map.
-    auto &loc2glo      = LocToGloKey.m_assemblyMap;
-    auto zeroDir       = LocToGloKey.m_zeroDir;
-    auto width         = LocToGloKey.m_width;
-    auto dataWarehouse = this->m_expansionList->GetDataWarehouseSharedPtr();
+    auto zeroDir = LocToGloKey.m_zeroDir;
+    auto width   = LocToGloKey.m_width;
 
+    auto dataWarehouse = this->m_expansionList->GetDataWarehouseSharedPtr();
     const auto *gsinfo =
         dataWarehouse->template GetData<NektarSpaces::HostSpace>(
-            DeviceLocalToGlobalKey<TPadding>(loc2glo, zeroDir, width));
+            DeviceLocalToGlobalKey<TPadding>(zeroDir, width));
 
     auto nvals = gsinfo[0];
     unsigned nvalswidth =
@@ -395,12 +412,19 @@ LocalToGlobalDataCreator::Create(
 }
 
 template <typename TPadding>
-void FillSignArray(
-    std::vector<unsigned> &index, const MultiRegions::ExpListSharedPtr &expList,
-    const std::vector<MultiRegions::AssemblyMapCGSharedPtr> &loc2glo,
-    bool zeroDir, bool signChange, int *out)
+void LocalToGlobalDataCreator::FillSignArray(std::vector<unsigned> &index,
+                                             bool zeroDir, bool signChange,
+                                             int *out)
 {
-    auto numComp = loc2glo.size();
+    if (this->m_init)
+    {
+        InitAssemblyMap();
+        this->m_init = false;
+    }
+
+    // Get Local To Global Map.
+    auto &loc2glo = this->m_assemblyMap;
+    auto numComp  = loc2glo.size();
 
     Array<OneD, unsigned> ndir(numComp);
     for (unsigned i = 0; i < numComp; ++i)
@@ -408,11 +432,13 @@ void FillSignArray(
         ndir[i] = loc2glo[i]->GetNumGlobalDirBndCoeffs();
     }
 
-    auto sign = loc2glo[0]->GetSignChange()
-                    ? loc2glo[0]->GetLocalToGlobalSign()
-                    : Array<OneD, double>(expList->GetNcoeffs(), 1.0);
+    auto sign =
+        loc2glo[0]->GetSignChange()
+            ? loc2glo[0]->GetLocalToGlobalSign()
+            : Array<OneD, double>(this->m_expansionList->GetNcoeffs(), 1.0);
 
-    auto blockAttr = GetBlockAttributes<TPadding, FieldState::Coeff>(expList);
+    auto blockAttr =
+        GetBlockAttributes<TPadding, FieldState::Coeff>(this->m_expansionList);
 
     auto nblks = blockAttr.size();
     std::vector<unsigned> blkoffset(nblks + 1);
@@ -486,6 +512,7 @@ void FillSignArray(
 
             if (signChange)
             {
+
                 out[cnt++] = sign[idx];
             }
             else
@@ -504,16 +531,16 @@ LocalToGlobalDataCreator::Create(
     using value_type =
         typename DeviceLocalToGlobalSignKey<TPadding>::value_type;
 
+    auto zeroDir    = LocToGloKey.m_zeroDir;
+    auto signChange = LocToGloKey.m_signChange;
+    auto width      = LocToGloKey.m_width;
+
     // Get Local To Global Map.
-    auto &loc2glo      = LocToGloKey.m_assemblyMap;
-    auto zeroDir       = LocToGloKey.m_zeroDir;
-    auto signChange    = LocToGloKey.m_signChange;
-    auto width         = LocToGloKey.m_width;
     auto dataWarehouse = this->m_expansionList->GetDataWarehouseSharedPtr();
 
     const auto *gsinfo =
         dataWarehouse->template GetData<NektarSpaces::HostSpace>(
-            DeviceLocalToGlobalKey<TPadding>(loc2glo, zeroDir, width));
+            DeviceLocalToGlobalKey<TPadding>(zeroDir, width));
 
     auto nvals = gsinfo[0];
     auto nidx  = gsinfo[nvals + 1];
@@ -527,8 +554,7 @@ LocalToGlobalDataCreator::Create(
 
     // evaluate the sign of each point
     std::vector<int> sign(nidx);
-    FillSignArray<TPadding>(index, this->m_expansionList, loc2glo, zeroDir,
-                            signChange, sign.data());
+    FillSignArray<TPadding>(index, zeroDir, signChange, sign.data());
 
     // calculate number of sign values as sum of i*width point times width
     nidx = 0;
@@ -806,12 +832,19 @@ MemoryRegion<typename DeviceBndLocalToGlobalSignKey<TPadding>::value_type>
 LocalToGlobalDataCreator::Create(
     const DeviceBndLocalToGlobalSignKey<TPadding> &LocToGloKey)
 {
+    if (this->m_init)
+    {
+        InitAssemblyMap();
+        this->m_init = false;
+    }
+
     using value_type =
         typename DeviceBndLocalToGlobalSignKey<TPadding>::value_type;
 
-    auto &loc2glo      = LocToGloKey.m_assemblyMap;
-    auto zeroDir       = LocToGloKey.m_zeroDir;
-    auto signChange    = LocToGloKey.m_signChange;
+    auto zeroDir    = LocToGloKey.m_zeroDir;
+    auto signChange = LocToGloKey.m_signChange;
+
+    auto &loc2glo      = this->m_assemblyMap;
     auto dataWarehouse = this->m_expansionList->GetDataWarehouseSharedPtr();
 
     const auto *gsinfo =
@@ -837,8 +870,7 @@ LocalToGlobalDataCreator::Create(
     auto ptr =
         LocToGloSign.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
-    FillSignArray<TPadding>(lids, this->m_expansionList, loc2glo, zeroDir,
-                            signChange, ptr);
+    FillSignArray<TPadding>(lids, zeroDir, signChange, ptr);
 
     return LocToGloSign;
 }

@@ -88,7 +88,7 @@ public:
 
     void RunTestCase()
     {
-        auto op = ExpressionOp<double>::Create(fixt_explist[0], "Forcing");
+        auto op = ExpressionOp<double>::Create(fixt_explist, "Forcing");
         op->SetTime(m_time);
         op->SetScale(m_scale);
         op->Apply(*fixt_in, *fixt_out);
@@ -98,7 +98,7 @@ public:
     {
         // Get number of variables and quadrature points
         const unsigned int nVariables = session->GetVariables().size();
-        const size_t nphys            = fixt_explist[0]->GetTotPoints();
+        const size_t nphys            = fixt_explist->GetTotPoints();
 
         // Initialise array storage for forcing evaluation
         Array<OneD, double> fce(nVariables * nphys);
@@ -107,7 +107,7 @@ public:
         Array<OneD, double> x(nphys);
         Array<OneD, double> y(nphys);
         Array<OneD, double> z(nphys);
-        fixt_explist[0]->GetCoords(x, y, z);
+        fixt_explist->GetCoords(x, y, z);
 
         // Copy fixt_in into NektarArray
         Array<OneD, double> inphys = fixt_in->ToArray();

@@ -77,7 +77,7 @@
         <DOMAIN> C[0,7] </DOMAIN> <!-- C[7] not included in domain! -->
     </GEOMETRY>
     <EXPANSIONS>
-        <E COMPOSITE="C[0,7]" NUMMODES="4,4,4" FIELDS="u" BASISTYPE="Modified_A,Modified_A,ModifiedPyr_C" NUMPOINTS="6,6,5" POINTSTYPE="GaussLobattoLegendre,GaussLobattoLegendre,GaussRadauMAlpha2Beta0"/>
+        <E COMPOSITE="C[0,7]" NUMMODES="4,4,4" FIELDS="u,v" BASISTYPE="Modified_A,Modified_A,ModifiedPyr_C" NUMPOINTS="6,6,5" POINTSTYPE="GaussLobattoLegendre,GaussLobattoLegendre,GaussRadauMAlpha2Beta0"/>
     </EXPANSIONS>
     <CONDITIONS>
         <SOLVERINFO>
@@ -90,6 +90,7 @@
         </PARAMETERS>
         <VARIABLES>
             <V ID="0">u</V>
+            <V ID="1">v</V>
         </VARIABLES>
     </CONDITIONS>
 </NEKTAR>

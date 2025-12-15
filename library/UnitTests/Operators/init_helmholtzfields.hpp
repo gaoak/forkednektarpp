@@ -84,7 +84,7 @@ public:
 
     void RunTestCase()
     {
-        auto op = HelmholtzOp<double>::Create(fixt_explist[0]);
+        auto op = HelmholtzOp<double>::Create(fixt_explist);
         op->SetLambda(m_lambda);
         op->Apply(*fixt_in, *fixt_out);
     }
@@ -95,7 +95,7 @@ public:
         const unsigned int compSize =
             fixt_in->GetNumComponents() * fixt_in->GetNumHomoModes();
         const size_t ncoeffs =
-            fixt_explist[0]->GetNcoeffs() / fixt_in->GetNumHomoModes();
+            fixt_explist->GetNcoeffs() / fixt_in->GetNumHomoModes();
 
         StdRegions::FactorMap factors;
         factors[StdRegions::eFactorLambda] = m_lambda;
@@ -110,14 +110,14 @@ public:
             size_t offset = i * ncoeffs;
             for (const auto &block : fixt_expected->GetBlocks())
             {
-                auto nmTot = fixt_explist[0]->GetExp(e)->GetNcoeffs();
+                auto nmTot = fixt_explist->GetExp(e)->GetNcoeffs();
                 for (size_t el = 0; el < block.GetNumElements(); ++el)
                 {
                     StdRegions::StdMatrixKey mkey(
                         StdRegions::eHelmholtz,
-                        fixt_explist[0]->GetExp(e)->DetShapeType(),
-                        *(fixt_explist[0]->GetExp(e)), factors);
-                    fixt_explist[0]->GetExp(e)->GeneralMatrixOp(
+                        fixt_explist->GetExp(e)->DetShapeType(),
+                        *(fixt_explist->GetExp(e)), factors);
+                    fixt_explist->GetExp(e)->GeneralMatrixOp(
                         incoeffs + offset, tmp = outcoeffs + offset, mkey);
                     e++;
                     offset += nmTot;
