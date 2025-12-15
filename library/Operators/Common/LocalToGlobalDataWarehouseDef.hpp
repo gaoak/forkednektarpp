@@ -42,12 +42,12 @@
 namespace Nektar::Operators
 {
 
-template <typename MemSpace, typename TData>
-MemoryRegion<typename DeviceLocalToGlobalKey<TData>::value_type>
+template <typename MemSpace, typename TPadding>
+MemoryRegion<typename DeviceLocalToGlobalKey<TPadding>::value_type>
 LocalToGlobalDataCreator::Create(
-    const DeviceLocalToGlobalKey<TData> &LocToGloKey)
+    const DeviceLocalToGlobalKey<TPadding> &LocToGloKey)
 {
-    using value_type = typename DeviceLocalToGlobalKey<TData>::value_type;
+    using value_type = typename DeviceLocalToGlobalKey<TPadding>::value_type;
 
     // Get Local To Global Map.
     auto zeroDir  = LocToGloKey.m_zeroDir;
@@ -71,7 +71,7 @@ LocalToGlobalDataCreator::Create(
     // of the assembled data is assumed to be. Not sure what we shoudl do it
     // is float however but legacy code is not set up for this either
     auto blockAttr =
-        GetBlockAttributes<TData, FieldState::Coeff>(m_expansionList);
+        GetBlockAttributes<TPadding, FieldState::Coeff>(m_expansionList);
 
     auto nblks = blockAttr.size();
     std::map<unsigned, std::vector<std::pair<unsigned, unsigned>>> GloToLoc;
@@ -241,13 +241,13 @@ LocalToGlobalDataCreator::Create(
     return LocToGlo;
 }
 
-template <typename MemSpace, typename TData>
-MemoryRegion<typename DeviceLocalToGlobalNumAssembleKey<TData>::value_type>
+template <typename MemSpace, typename TPadding>
+MemoryRegion<typename DeviceLocalToGlobalNumAssembleKey<TPadding>::value_type>
 LocalToGlobalDataCreator::Create(
-    const DeviceLocalToGlobalNumAssembleKey<TData> &LocToGloKey)
+    const DeviceLocalToGlobalNumAssembleKey<TPadding> &LocToGloKey)
 {
     using value_type =
-        typename DeviceLocalToGlobalNumAssembleKey<TData>::value_type;
+        typename DeviceLocalToGlobalNumAssembleKey<TPadding>::value_type;
 
     // Get Local To Global Map.
     auto &loc2glo      = LocToGloKey.m_assemblyMap;
@@ -257,7 +257,7 @@ LocalToGlobalDataCreator::Create(
 
     const auto *gsinfo =
         dataWarehouse->template GetData<NektarSpaces::HostSpace>(
-            DeviceLocalToGlobalKey<TData>(loc2glo, zeroDir, width));
+            DeviceLocalToGlobalKey<TPadding>(loc2glo, zeroDir, width));
 
     auto nvals = gsinfo[0];
     unsigned nvalswidth =
@@ -280,12 +280,13 @@ LocalToGlobalDataCreator::Create(
     return LocToGlo;
 }
 
-template <typename MemSpace, typename TData>
-MemoryRegion<typename DeviceLocalToGlobalIndexKey<TData>::value_type>
+template <typename MemSpace, typename TPadding>
+MemoryRegion<typename DeviceLocalToGlobalIndexKey<TPadding>::value_type>
 LocalToGlobalDataCreator::Create(
-    const DeviceLocalToGlobalIndexKey<TData> &LocToGloKey)
+    const DeviceLocalToGlobalIndexKey<TPadding> &LocToGloKey)
 {
-    using value_type = typename DeviceLocalToGlobalIndexKey<TData>::value_type;
+    using value_type =
+        typename DeviceLocalToGlobalIndexKey<TPadding>::value_type;
 
     // Get Local To Global Map.
     auto &loc2glo      = LocToGloKey.m_assemblyMap;
@@ -295,7 +296,7 @@ LocalToGlobalDataCreator::Create(
 
     const auto *gsinfo =
         dataWarehouse->template GetData<NektarSpaces::HostSpace>(
-            DeviceLocalToGlobalKey<TData>(loc2glo, zeroDir, width));
+            DeviceLocalToGlobalKey<TPadding>(loc2glo, zeroDir, width));
 
     auto nvals = gsinfo[0];
     auto nidx  = 0;
@@ -350,13 +351,13 @@ LocalToGlobalDataCreator::Create(
     return LocToGlo;
 }
 
-template <typename MemSpace, typename TData>
-MemoryRegion<typename DeviceLocalToGlobalIndexOffsetKey<TData>::value_type>
+template <typename MemSpace, typename TPadding>
+MemoryRegion<typename DeviceLocalToGlobalIndexOffsetKey<TPadding>::value_type>
 LocalToGlobalDataCreator::Create(
-    const DeviceLocalToGlobalIndexOffsetKey<TData> &LocToGloKey)
+    const DeviceLocalToGlobalIndexOffsetKey<TPadding> &LocToGloKey)
 {
     using value_type =
-        typename DeviceLocalToGlobalIndexOffsetKey<TData>::value_type;
+        typename DeviceLocalToGlobalIndexOffsetKey<TPadding>::value_type;
 
     // Get Local To Global Map.
     auto &loc2glo      = LocToGloKey.m_assemblyMap;
@@ -366,7 +367,7 @@ LocalToGlobalDataCreator::Create(
 
     const auto *gsinfo =
         dataWarehouse->template GetData<NektarSpaces::HostSpace>(
-            DeviceLocalToGlobalKey<TData>(loc2glo, zeroDir, width));
+            DeviceLocalToGlobalKey<TPadding>(loc2glo, zeroDir, width));
 
     auto nvals = gsinfo[0];
     unsigned nvalswidth =
@@ -393,7 +394,7 @@ LocalToGlobalDataCreator::Create(
     return LocToGlo;
 }
 
-template <typename TData>
+template <typename TPadding>
 void FillSignArray(
     std::vector<unsigned> &index, const MultiRegions::ExpListSharedPtr &expList,
     const std::vector<MultiRegions::AssemblyMapCGSharedPtr> &loc2glo,
@@ -411,7 +412,7 @@ void FillSignArray(
                     ? loc2glo[0]->GetLocalToGlobalSign()
                     : Array<OneD, double>(expList->GetNcoeffs(), 1.0);
 
-    auto blockAttr = GetBlockAttributes<TData, FieldState::Coeff>(expList);
+    auto blockAttr = GetBlockAttributes<TPadding, FieldState::Coeff>(expList);
 
     auto nblks = blockAttr.size();
     std::vector<unsigned> blkoffset(nblks + 1);
@@ -495,12 +496,13 @@ void FillSignArray(
     }
 }
 
-template <typename MemSpace, typename TData>
-MemoryRegion<typename DeviceLocalToGlobalSignKey<TData>::value_type>
+template <typename MemSpace, typename TPadding>
+MemoryRegion<typename DeviceLocalToGlobalSignKey<TPadding>::value_type>
 LocalToGlobalDataCreator::Create(
-    const DeviceLocalToGlobalSignKey<TData> &LocToGloKey)
+    const DeviceLocalToGlobalSignKey<TPadding> &LocToGloKey)
 {
-    using value_type = typename DeviceLocalToGlobalSignKey<TData>::value_type;
+    using value_type =
+        typename DeviceLocalToGlobalSignKey<TPadding>::value_type;
 
     // Get Local To Global Map.
     auto &loc2glo      = LocToGloKey.m_assemblyMap;
@@ -511,7 +513,7 @@ LocalToGlobalDataCreator::Create(
 
     const auto *gsinfo =
         dataWarehouse->template GetData<NektarSpaces::HostSpace>(
-            DeviceLocalToGlobalKey<TData>(loc2glo, zeroDir, width));
+            DeviceLocalToGlobalKey<TPadding>(loc2glo, zeroDir, width));
 
     auto nvals = gsinfo[0];
     auto nidx  = gsinfo[nvals + 1];
@@ -525,8 +527,8 @@ LocalToGlobalDataCreator::Create(
 
     // evaluate the sign of each point
     std::vector<int> sign(nidx);
-    FillSignArray<TData>(index, this->m_expansionList, loc2glo, zeroDir,
-                         signChange, sign.data());
+    FillSignArray<TPadding>(index, this->m_expansionList, loc2glo, zeroDir,
+                            signChange, sign.data());
 
     // calculate number of sign values as sum of i*width point times width
     nidx = 0;
@@ -579,12 +581,12 @@ LocalToGlobalDataCreator::Create(
     return LocToGloSign;
 }
 
-template <typename MemSpace, typename TData>
-MemoryRegion<typename DeviceBndLocalToGlobalKey<TData>::value_type>
+template <typename MemSpace, typename TPadding>
+MemoryRegion<typename DeviceBndLocalToGlobalKey<TPadding>::value_type>
 LocalToGlobalDataCreator::Create(
-    const DeviceBndLocalToGlobalKey<TData> &LocToGloKey)
+    const DeviceBndLocalToGlobalKey<TPadding> &LocToGloKey)
 {
-    using value_type = typename DeviceBndLocalToGlobalKey<TData>::value_type;
+    using value_type = typename DeviceBndLocalToGlobalKey<TPadding>::value_type;
 
     // Get Local To Global Map.
     auto numComp = LocToGloKey.m_numComp;
@@ -604,7 +606,7 @@ LocalToGlobalDataCreator::Create(
                                             loc2glo->GetSREntries().end());
 
     auto blockAttr =
-        GetBlockAttributes<TData, FieldState::Coeff>(m_expansionList);
+        GetBlockAttributes<TPadding, FieldState::Coeff>(m_expansionList);
 
     auto nblks = blockAttr.size();
     std::map<unsigned, std::vector<std::pair<unsigned, unsigned>>> GloToLoc;
@@ -799,13 +801,13 @@ LocalToGlobalDataCreator::Create(
     return LocToGlo;
 }
 
-template <typename MemSpace, typename TData>
-MemoryRegion<typename DeviceBndLocalToGlobalSignKey<TData>::value_type>
+template <typename MemSpace, typename TPadding>
+MemoryRegion<typename DeviceBndLocalToGlobalSignKey<TPadding>::value_type>
 LocalToGlobalDataCreator::Create(
-    const DeviceBndLocalToGlobalSignKey<TData> &LocToGloKey)
+    const DeviceBndLocalToGlobalSignKey<TPadding> &LocToGloKey)
 {
     using value_type =
-        typename DeviceBndLocalToGlobalSignKey<TData>::value_type;
+        typename DeviceBndLocalToGlobalSignKey<TPadding>::value_type;
 
     auto &loc2glo      = LocToGloKey.m_assemblyMap;
     auto zeroDir       = LocToGloKey.m_zeroDir;
@@ -814,7 +816,7 @@ LocalToGlobalDataCreator::Create(
 
     const auto *gsinfo =
         dataWarehouse->template GetData<NektarSpaces::HostSpace>(
-            DeviceBndLocalToGlobalKey<TData>(loc2glo.size()));
+            DeviceBndLocalToGlobalKey<TPadding>(loc2glo.size()));
 
     // extract lids from gsinfo
     std::vector<unsigned> lids;
@@ -835,18 +837,18 @@ LocalToGlobalDataCreator::Create(
     auto ptr =
         LocToGloSign.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
-    FillSignArray<TData>(lids, this->m_expansionList, loc2glo, zeroDir,
-                         signChange, ptr);
+    FillSignArray<TPadding>(lids, this->m_expansionList, loc2glo, zeroDir,
+                            signChange, ptr);
 
     return LocToGloSign;
 }
 
-template <typename MemSpace, typename TData>
-MemoryRegion<typename LocalToGlobalMaskKey<TData>::value_type>
+template <typename MemSpace, typename TPadding>
+MemoryRegion<typename LocalToGlobalMaskKey<TPadding>::value_type>
 LocalToGlobalDataCreator::Create(
-    [[maybe_unused]] const LocalToGlobalMaskKey<TData> &LocToGloKey)
+    [[maybe_unused]] const LocalToGlobalMaskKey<TPadding> &LocToGloKey)
 {
-    using value_type = typename LocalToGlobalMaskKey<TData>::value_type;
+    using value_type = typename LocalToGlobalMaskKey<TPadding>::value_type;
 
     // Get Local To Global Map.
     auto contfield =
@@ -857,7 +859,7 @@ LocalToGlobalDataCreator::Create(
     auto l2gmap0 = loc2glo->GetLocalToGlobalMap();
 
     auto blockAttr =
-        GetBlockAttributes<TData, FieldState::Coeff>(m_expansionList);
+        GetBlockAttributes<TPadding, FieldState::Coeff>(m_expansionList);
     unsigned ntot = 0;
     unsigned blk  = 0;
     for (blk = 0; blk < blockAttr.size(); ++blk)

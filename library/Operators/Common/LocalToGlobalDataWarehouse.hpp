@@ -51,8 +51,13 @@ namespace Nektar::Operators
 
 class LocalToGlobalDataCreator;
 
-template <typename TData> class DeviceLocalToGlobalKey : public BaseKey
+template <typename TPadding> class DeviceLocalToGlobalKey : public BaseKey
 {
+    // The TPadding type is use to dertermine the padding requirement and must
+    // be of floating point type.
+    static_assert(std::is_floating_point_v<TPadding>,
+                  "DeviceLocalToGlobalKey: Data type must be float or double.");
+
     friend class LocalToGlobalDataCreator;
 
 public:
@@ -80,9 +85,15 @@ private:
     unsigned m_width;
 };
 
-template <typename TData>
+template <typename TPadding>
 class DeviceLocalToGlobalNumAssembleKey : public BaseKey
 {
+    // The TPadding type is use to dertermine the padding requirement and must
+    // be of floating point type.
+    static_assert(std::is_floating_point_v<TPadding>,
+                  "DeviceLocalToGlobalNumAssembleKey: Data type must be float "
+                  "or double.");
+
     friend class LocalToGlobalDataCreator;
 
 public:
@@ -110,8 +121,14 @@ private:
     unsigned m_width;
 };
 
-template <typename TData> class DeviceLocalToGlobalIndexKey : public BaseKey
+template <typename TPadding> class DeviceLocalToGlobalIndexKey : public BaseKey
 {
+    // The TPadding type is use to dertermine the padding requirement and must
+    // be of floating point type.
+    static_assert(
+        std::is_floating_point_v<TPadding>,
+        "DeviceLocalToGlobalIndexKey: Data type must be float or double.");
+
     friend class LocalToGlobalDataCreator;
 
 public:
@@ -139,9 +156,15 @@ private:
     unsigned m_width;
 };
 
-template <typename TData>
+template <typename TPadding>
 class DeviceLocalToGlobalIndexOffsetKey : public BaseKey
 {
+    // The TPadding type is use to dertermine the padding requirement and must
+    // be of floating point type.
+    static_assert(std::is_floating_point_v<TPadding>,
+                  "DeviceLocalToGlobalIndexOffsetKey: Data type must be float "
+                  "or double.");
+
     friend class LocalToGlobalDataCreator;
 
 public:
@@ -169,8 +192,14 @@ private:
     unsigned m_width;
 };
 
-template <typename TData> class DeviceLocalToGlobalSignKey : public BaseKey
+template <typename TPadding> class DeviceLocalToGlobalSignKey : public BaseKey
 {
+    // The TPadding type is use to dertermine the padding requirement and must
+    // be of floating point type.
+    static_assert(
+        std::is_floating_point_v<TPadding>,
+        "DeviceLocalToGlobalSignKey: Data type must be float or double.");
+
     friend class LocalToGlobalDataCreator;
 
 public:
@@ -201,8 +230,15 @@ private:
     unsigned m_width;
 };
 
-template <typename TData> class DeviceBndLocalToGlobalSignKey : public BaseKey
+template <typename TPadding>
+class DeviceBndLocalToGlobalSignKey : public BaseKey
 {
+    // The TPadding type is use to dertermine the padding requirement and must
+    // be of floating point type.
+    static_assert(
+        std::is_floating_point_v<TPadding>,
+        "DeviceBndLocalToGlobalSignKey: Data type must be float or double.");
+
     friend class LocalToGlobalDataCreator;
 
 public:
@@ -231,8 +267,14 @@ private:
     bool m_signChange;
 };
 
-template <typename TData> class DeviceBndLocalToGlobalKey : public BaseKey
+template <typename TPadding> class DeviceBndLocalToGlobalKey : public BaseKey
 {
+    // The TPadding type is use to dertermine the padding requirement and must
+    // be of floating point type.
+    static_assert(
+        std::is_floating_point_v<TPadding>,
+        "DeviceBndLocalToGlobalKey: Data type must be float or double.");
+
     friend class LocalToGlobalDataCreator;
 
 public:
@@ -251,8 +293,13 @@ private:
     unsigned m_numComp;
 };
 
-template <typename TData> class LocalToGlobalMaskKey : public BaseKey
+template <typename TPadding> class LocalToGlobalMaskKey : public BaseKey
 {
+    // The TPadding type is use to dertermine the padding requirement and must
+    // be of floating point type.
+    static_assert(std::is_floating_point_v<TPadding>,
+                  "LocalToGlobalMaskKey: Data type must be float or double.");
+
     friend class LocalToGlobalDatareator;
 
 public:
@@ -279,37 +326,39 @@ public:
     {
     }
 
-    template <typename MemSpace, typename TData>
-    MemoryRegion<typename DeviceLocalToGlobalKey<TData>::value_type> Create(
-        const DeviceLocalToGlobalKey<TData> &LocToGloKey);
+    template <typename MemSpace, typename TPadding>
+    MemoryRegion<typename DeviceLocalToGlobalKey<TPadding>::value_type> Create(
+        const DeviceLocalToGlobalKey<TPadding> &LocToGloKey);
 
-    template <typename MemSpace, typename TData>
-    MemoryRegion<typename DeviceLocalToGlobalNumAssembleKey<TData>::value_type>
-    Create(const DeviceLocalToGlobalNumAssembleKey<TData> &LocToGloKey);
+    template <typename MemSpace, typename TPadding>
+    MemoryRegion<
+        typename DeviceLocalToGlobalNumAssembleKey<TPadding>::value_type>
+    Create(const DeviceLocalToGlobalNumAssembleKey<TPadding> &LocToGloKey);
 
-    template <typename MemSpace, typename TData>
-    MemoryRegion<typename DeviceLocalToGlobalIndexKey<TData>::value_type> Create(
-        const DeviceLocalToGlobalIndexKey<TData> &LocToGloKey);
+    template <typename MemSpace, typename TPadding>
+    MemoryRegion<typename DeviceLocalToGlobalIndexKey<TPadding>::value_type> Create(
+        const DeviceLocalToGlobalIndexKey<TPadding> &LocToGloKey);
 
-    template <typename MemSpace, typename TData>
-    MemoryRegion<typename DeviceLocalToGlobalIndexOffsetKey<TData>::value_type>
-    Create(const DeviceLocalToGlobalIndexOffsetKey<TData> &LocToGloKey);
+    template <typename MemSpace, typename TPadding>
+    MemoryRegion<
+        typename DeviceLocalToGlobalIndexOffsetKey<TPadding>::value_type>
+    Create(const DeviceLocalToGlobalIndexOffsetKey<TPadding> &LocToGloKey);
 
-    template <typename MemSpace, typename TData>
-    MemoryRegion<typename DeviceLocalToGlobalSignKey<TData>::value_type> Create(
-        const DeviceLocalToGlobalSignKey<TData> &LocToGloKey);
+    template <typename MemSpace, typename TPadding>
+    MemoryRegion<typename DeviceLocalToGlobalSignKey<TPadding>::value_type> Create(
+        const DeviceLocalToGlobalSignKey<TPadding> &LocToGloKey);
 
-    template <typename MemSpace, typename TData>
-    MemoryRegion<typename DeviceBndLocalToGlobalKey<TData>::value_type> Create(
-        const DeviceBndLocalToGlobalKey<TData> &LocToGloKey);
+    template <typename MemSpace, typename TPadding>
+    MemoryRegion<typename DeviceBndLocalToGlobalKey<TPadding>::value_type> Create(
+        const DeviceBndLocalToGlobalKey<TPadding> &LocToGloKey);
 
-    template <typename MemSpace, typename TData>
-    MemoryRegion<typename DeviceBndLocalToGlobalSignKey<TData>::value_type> Create(
-        const DeviceBndLocalToGlobalSignKey<TData> &LocToGloKey);
+    template <typename MemSpace, typename TPadding>
+    MemoryRegion<typename DeviceBndLocalToGlobalSignKey<TPadding>::value_type>
+    Create(const DeviceBndLocalToGlobalSignKey<TPadding> &LocToGloKey);
 
-    template <typename MemSpace, typename TData>
-    MemoryRegion<typename LocalToGlobalMaskKey<TData>::value_type> Create(
-        [[maybe_unused]] const LocalToGlobalMaskKey<TData> &LocToGloKey);
+    template <typename MemSpace, typename TPadding>
+    MemoryRegion<typename LocalToGlobalMaskKey<TPadding>::value_type> Create(
+        [[maybe_unused]] const LocalToGlobalMaskKey<TPadding> &LocToGloKey);
 
     inline static const std::string m_name = "LocalToGlobalCreator";
 

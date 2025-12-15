@@ -80,7 +80,7 @@ public:
 
     BlockAttributes(const BlockAttributes &) = default;
 
-    template <typename TData>
+    template <typename TPadding>
     void SetInterleaveWidth(const unsigned interleave_width)
     {
         if (interleave_width != 1)
@@ -89,7 +89,7 @@ public:
                 m_num_elements_with_padding % interleave_width == 0,
                 "Number of elements is not divisible by interleave width.");
             ASSERTL0(
-                interleave_width % tinysimd::simd<TData>::width == 0,
+                interleave_width % tinysimd::simd<TPadding>::width == 0,
                 "interleave width should be divisible by AVX vector width.");
         }
 
@@ -155,7 +155,7 @@ private:
  * @param interleave_width Vector width to use for the field.
  * @return std::vector<BlockAttributes>
  */
-template <typename TData, FieldState TState>
+template <typename TPadding, FieldState TState>
 std::vector<BlockAttributes<TState>> GetBlockAttributes(
     const MultiRegions::ExpListSharedPtr explist,
     const unsigned interleave_width = 1);
