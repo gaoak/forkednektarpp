@@ -15,7 +15,8 @@
 #undef OPERATOR_Q
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
-        Operator1D<LibUtilities::@Shape@, true, NM(i), NQ(i)>(inblock, outblock);  \
+        Operator1D<LibUtilities::@Shape@, true, NM(i), NQ(i)>(inblock,         \
+                                                               outblock);      \
         break;
 
         // outer loop case over modes
@@ -57,8 +58,8 @@
 #undef OPERATOR_Q
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
-        Operator1D<LibUtilities::@Shape@, false, NM(i), NQ(i)>(inblock,          \
-                                                                outblock);       \
+        Operator1D<LibUtilities::@Shape@, false, NM(i), NQ(i)>(inblock,        \
+                                                                outblock);     \
         break;
 
         // outer loop case over modes
@@ -109,14 +110,14 @@
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
         Operator2D<LibUtilities::@Shape@, true, NM(i), NM(i), NQ(i),           \
-                   NQ(i)>(inblock, outblock);                                      \
+                   NQ(i)>(inblock, outblock);                                  \
         break;
 #elif defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
 #undef OPERATOR_Q
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
         Operator2D<LibUtilities::@Shape@, true, NM(i), NM(i), NQ(i),           \
-                   NQ_M1(i)>(inblock, outblock);                                   \
+                   NQ_M1(i)>(inblock, outblock);                               \
         break;
 #endif
 
@@ -172,14 +173,14 @@
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
         Operator2D<LibUtilities::@Shape@, false, NM(i), NM(i), NQ(i),          \
-                   NQ(i)>(inblock, outblock);                                      \
+                   NQ(i)>(inblock, outblock);                                  \
         break;
 #elif defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
 #undef OPERATOR_Q
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
         Operator2D<LibUtilities::@Shape@, false, NM(i), NM(i), NQ(i),          \
-                   NQ_M1(i)>(inblock, outblock);                                   \
+                   NQ_M1(i)>(inblock, outblock);                               \
         break;
 #endif
 
@@ -244,21 +245,21 @@
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
         Operator3D<LibUtilities::@Shape@, true, NM(i), NM(i), NM(i), NQ(i),    \
-                   NQ(i), NQ(i)>(inblock, outblock);                               \
+                   NQ(i), NQ(i)>(inblock, outblock);                           \
         break;
 #elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) || defined(SHAPE_TYPE_Pyr)
 #undef OPERATOR_Q
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
         Operator3D<LibUtilities::@Shape@, true, NM(i), NM(i), NM(i), NQ(i),    \
-                   NQ(i), NQ_M1(i)>(inblock, outblock);                            \
+                   NQ(i), NQ_M1(i)>(inblock, outblock);                        \
         break;
 #elif defined(SHAPE_TYPE_Tet) || defined(SHAPE_TYPE_NodalTet)
 #undef OPERATOR_Q
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
         Operator3D<LibUtilities::@Shape@, true, NM(i), NM(i), NM(i), NQ(i),    \
-                   NQ_M1(i), NQ_M1(i)>(inblock, outblock);                         \
+                   NQ_M1(i), NQ_M1(i)>(inblock, outblock);                     \
         break;
 #endif
 
@@ -319,21 +320,21 @@
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
         Operator3D<LibUtilities::@Shape@, false, NM(i), NM(i), NM(i), NQ(i),   \
-                   NQ(i), NQ(i)>(inblock, outblock);                               \
+                   NQ(i), NQ(i)>(inblock, outblock);                           \
         break;
 #elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) || defined(SHAPE_TYPE_Pyr)
 #undef OPERATOR_Q
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
         Operator3D<LibUtilities::@Shape@, false, NM(i), NM(i), NM(i), NQ(i),   \
-                   NQ(i), NQ_M1(i)>(inblock, outblock);                            \
+                   NQ(i), NQ_M1(i)>(inblock, outblock);                        \
         break;
 #elif defined(SHAPE_TYPE_Tet) || defined(SHAPE_TYPE_NodalTet)
 #undef OPERATOR_Q
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
         Operator3D<LibUtilities::@Shape@, false, NM(i), NM(i), NM(i), NQ(i),   \
-                   NQ_M1(i), NQ_M1(i)>(inblock, outblock);                         \
+                   NQ_M1(i), NQ_M1(i)>(inblock, outblock);                     \
         break;
 #endif
 
