@@ -87,9 +87,9 @@ public:
 
     void RunTestCase()
     {
-        auto op     = HelmholtzOp<double>::Create(fixt_explist[0]);
-        auto precon = DiagPreconOp<double>::Create(fixt_explist[0]);
-        auto assmb  = AssmbScatrZeroDirOp<double>::Create(fixt_explist[0]);
+        auto op     = HelmholtzOp<double>::Create(fixt_explist);
+        auto precon = DiagPreconOp<double>::Create(fixt_explist);
+        auto assmb  = AssmbScatrZeroDirOp<double>::Create(fixt_explist);
         op->SetLambda(m_lambda);
         precon->Configure(op);
         assmb->Apply(*fixt_in, *fixt_out);
@@ -100,17 +100,17 @@ public:
     {
         // Calculate expected result from Nektar++
         Array<OneD, double> incoeffs = fixt_in->ToArray();
-        Array<OneD, double> outcoeffs(fixt_explist[0]->GetNcoeffs(), 0.0);
+        Array<OneD, double> outcoeffs(fixt_explist->GetNcoeffs(), 0.0);
 
         StdRegions::ConstFactorMap factors;
         factors[StdRegions::eFactorLambda] = m_lambda;
 
         auto map =
-            std::dynamic_pointer_cast<MultiRegions::ContField>(fixt_explist[0])
+            std::dynamic_pointer_cast<MultiRegions::ContField>(fixt_explist)
                 ->GetLocalToGlobalMap();
         GlobalLinSysKey key(StdRegions::eHelmholtz, map, factors);
         auto globalSys = GetGlobalLinSysFactory().CreateInstance(
-            "IterativeFull", key, fixt_explist[0], map);
+            "IterativeFull", key, fixt_explist, map);
         auto precond =
             GetPreconFactory().CreateInstance("Diagonal", globalSys, map);
         precond->BuildPreconditioner();

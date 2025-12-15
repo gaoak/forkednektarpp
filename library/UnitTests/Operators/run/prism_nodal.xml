@@ -187,9 +187,9 @@
         <DOMAIN> C[10-12] </DOMAIN>
     </GEOMETRY>
     <EXPANSIONS>
-        <E COMPOSITE="C[10]" NUMMODES="3" FIELDS="u" TYPE="GLL_LAGRANGE" />
-        <E COMPOSITE="C[11]" NUMMODES="3" FIELDS="u" TYPE="GLL_LAGRANGE" />
-        <E COMPOSITE="C[12]" NUMMODES="3" FIELDS="u" TYPE="GLL_LAGRANGE" />
+        <E COMPOSITE="C[10]" NUMMODES="3" FIELDS="u,v" TYPE="GLL_LAGRANGE" />
+        <E COMPOSITE="C[11]" NUMMODES="3" FIELDS="u,v" TYPE="GLL_LAGRANGE" />
+        <E COMPOSITE="C[12]" NUMMODES="3" FIELDS="u,v" TYPE="GLL_LAGRANGE" />
     </EXPANSIONS>
     <CONDITIONS>
         <SOLVERINFO>
@@ -202,6 +202,7 @@
         </PARAMETERS>
         <VARIABLES>
             <V ID="0">u</V>
+            <V ID="1">v</V>
         </VARIABLES>
     </CONDITIONS>
 </NEKTAR>

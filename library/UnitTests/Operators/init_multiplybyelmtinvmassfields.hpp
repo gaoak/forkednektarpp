@@ -76,7 +76,7 @@ public:
 
     void RunTestCase()
     {
-        auto op = MultiplyByElmtInvMassOp<double>::Create(fixt_explist[0]);
+        auto op = MultiplyByElmtInvMassOp<double>::Create(fixt_explist);
         op->Apply(*fixt_in, *fixt_out);
     }
 
@@ -84,15 +84,15 @@ public:
     {
         // Calculate expected result from Nektar++
         unsigned int compSize = fixt_in->GetNumComponents();
-        size_t ncoeffs        = fixt_explist[0]->GetNcoeffs();
+        size_t ncoeffs        = fixt_explist->GetNcoeffs();
 
         Array<OneD, double> incoeffs = fixt_in->ToArray();
         Array<OneD, double> outcoeffs(ncoeffs * compSize), tmp;
 
         for (unsigned int i = 0; i < compSize; ++i)
         {
-            fixt_explist[0]->MultiplyByElmtInvMass(
-                incoeffs + i * ncoeffs, tmp = outcoeffs + i * ncoeffs);
+            fixt_explist->MultiplyByElmtInvMass(incoeffs + i * ncoeffs,
+                                                tmp = outcoeffs + i * ncoeffs);
         }
         fixt_expected->CopyArray<NektarSpaces::HostSpace>(outcoeffs);
     }

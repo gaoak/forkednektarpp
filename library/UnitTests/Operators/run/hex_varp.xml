@@ -156,8 +156,8 @@
     </GEOMETRY>
 
     <EXPANSIONS>
-        <E COMPOSITE="C[0]" NUMMODES="5" FIELDS="u" TYPE="MODIFIED" />
-        <E COMPOSITE="C[7]" NUMMODES="4,5,6" FIELDS="u" BASISTYPE="Modified_A,Modified_A,Modified_A" NUMPOINTS="6,6,7" POINTSTYPE="GaussLobattoLegendre,GaussLobattoLegendre,GaussLobattoLegendre"/>
+        <E COMPOSITE="C[0]" NUMMODES="5" FIELDS="u,v" TYPE="MODIFIED" />
+        <E COMPOSITE="C[7]" NUMMODES="4,5,6" FIELDS="u,v" BASISTYPE="Modified_A,Modified_A,Modified_A" NUMPOINTS="6,6,7" POINTSTYPE="GaussLobattoLegendre,GaussLobattoLegendre,GaussLobattoLegendre"/>
     </EXPANSIONS>
 
     <CONDITIONS>
@@ -171,6 +171,7 @@
         </PARAMETERS>
         <VARIABLES>
             <V ID="0">u</V>
+            <V ID="1">v</V>
         </VARIABLES>
     </CONDITIONS>
 </NEKTAR>

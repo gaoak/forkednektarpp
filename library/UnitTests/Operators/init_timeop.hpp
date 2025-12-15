@@ -94,8 +94,8 @@ public:
         fixt_out->Copy<NektarSpaces::HostSpace>(*fixt_in);
 
         // Initialise Time-stepping operator
-        auto op = TimeOp<double>::Create(fixt_explist[0], scheme, order,
-                                         variant, freeParams);
+        auto op = TimeOp<double>::Create(fixt_explist, scheme, order, variant,
+                                         freeParams);
         op->DefineExplicitRhs(&TimeOpField::DoExplicitRHS, this);
         op->DefineImplicitRhs(&TimeOpField::DoImplicitRHS, this);
         op->DefineImplicit(&TimeOpField::DoLHS, this);

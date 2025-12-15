@@ -111,7 +111,7 @@
         <E COMPOSITE="C[0]"  BASISTYPE="Modified_A,Modified_A"
             NUMMODES="4,6"
             POINTSTYPE="GaussLobattoLegendre,GaussLobattoLegendre"
-            NUMPOINTS="5,7" FIELDS="u" />
+            NUMPOINTS="5,7" FIELDS="u,v" />
     </EXPANSIONS>
     <CONDITIONS>
         <SOLVERINFO>
@@ -124,6 +124,7 @@
         </PARAMETERS>
         <VARIABLES>
             <V ID="0">u</V>
+            <V ID="1">v</V>
         </VARIABLES>
     </CONDITIONS>
 </NEKTAR>

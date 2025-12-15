@@ -122,48 +122,40 @@ public:
 
     void RunTestCase()
     {
-        auto op = AssmbScatrOp<double>::Create(fixt_explist[0]);
-        // setup assembly map cg for multiple components.
-        std::vector<MultiRegions::AssemblyMapCGSharedPtr> assemblyMap;
-        for (auto &e : fixt_explist)
-        {
-            auto contfield =
-                std::dynamic_pointer_cast<MultiRegions::ContField>(e);
-            assemblyMap.push_back(contfield->GetLocalToGlobalMap());
-        }
-        op->SetAssemblyMap(assemblyMap);
+        auto op = AssmbScatrOp<double>::Create(fixt_explist);
         op->Apply(*fixt_in, *fixt_out);
     }
 
     void RunTestCaseZeroDir()
     {
-        auto op = AssmbScatrZeroDirOp<double>::Create(fixt_explist[0]);
-        // setup assembly map cg for multiple components.
-        std::vector<MultiRegions::AssemblyMapCGSharedPtr> assemblyMap;
-        for (auto &e : fixt_explist)
-        {
-            auto contfield =
-                std::dynamic_pointer_cast<MultiRegions::ContField>(e);
-            assemblyMap.push_back(contfield->GetLocalToGlobalMap());
-        }
-        op->SetAssemblyMap(assemblyMap);
+        auto op = AssmbScatrZeroDirOp<double>::Create(fixt_explist);
         op->Apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution(bool ZeroDir = false)
     {
+        std::vector<std::string> variables = session->GetVariables();
+        std::vector<std::shared_ptr<MultiRegions::ContField>> contfields;
+        auto graph            = SpatialDomains::MeshGraphIO::Read(session);
+        unsigned int compSize = fixt_in->GetNumComponents();
+
+        for (auto &variable : variables)
+        {
+            contfields.push_back(
+                MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(
+                    session, graph, variable, true, false,
+                    Collections::eNoCollection));
+        }
+
         // Calculate expected result from Nektar++.
-        int compSize                 = fixt_in->GetNumComponents();
-        int ncoeffs                  = fixt_explist[0]->GetNcoeffs();
+        size_t ncoeffs               = fixt_explist->GetNcoeffs();
         Array<OneD, double> incoeffs = fixt_in->ToArray();
         Array<OneD, double> outcoeffs(compSize * ncoeffs);
 
-        for (int i = 0; i < compSize; ++i)
+        for (unsigned int i = 0; i < variables.size(); ++i)
         {
             Array<OneD, double> tmp;
-            auto map = std::dynamic_pointer_cast<MultiRegions::ContField>(
-                           fixt_explist[i])
-                           ->GetLocalToGlobalMap();
+            auto map = contfields[i]->GetLocalToGlobalMap();
             map->Assemble(incoeffs + i * ncoeffs,
                           tmp = outcoeffs + i * ncoeffs);
             if (ZeroDir)

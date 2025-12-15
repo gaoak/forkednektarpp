@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <NEKTAR>
     <EXPANSIONS>
-        <E COMPOSITE="C[1]" NUMMODES="4" FIELDS="u" TYPE="GLL_LAGRANGE" />
+        <E COMPOSITE="C[1]" NUMMODES="4" FIELDS="u,v" TYPE="GLL_LAGRANGE" />
     </EXPANSIONS>
     <GEOMETRY DIM="3" SPACE="3">
         <VERTEX>
@@ -125,6 +125,7 @@
         </PARAMETERS>
         <VARIABLES>
             <V ID="0">u</V>
+            <V ID="1">v</V>
         </VARIABLES>
     </CONDITIONS>
 </NEKTAR>

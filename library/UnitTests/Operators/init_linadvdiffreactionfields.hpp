@@ -81,8 +81,8 @@ public:
 
         // Set advection velocity
         size_t nphys =
-            fixt_explist[0]->GetTotPoints() / fixt_in->GetNumHomoModes();
-        m_dim = fixt_explist[0]->GetCoordim(0);
+            fixt_explist->GetTotPoints() / fixt_in->GetNumHomoModes();
+        m_dim = fixt_explist->GetCoordim(0);
         m_vel = Array<OneD, double>(nphys * m_dim, 0.0);
         Array<OneD, double> tmp;
         for (unsigned int d = 1; d < m_dim; ++d)
@@ -97,7 +97,7 @@ public:
 
     void RunTestCase()
     {
-        auto LinADR = LinAdvDiffReactionOp<double>::Create(fixt_explist[0]);
+        auto LinADR = LinAdvDiffReactionOp<double>::Create(fixt_explist);
 
         // seem to have the negative definitio of lambda implemented currently
         LinADR->SetLambda(-1.0 * m_lambda);
@@ -111,9 +111,9 @@ public:
         const unsigned int compSize =
             fixt_in->GetNumComponents() * fixt_in->GetNumHomoModes();
         const size_t ncoeffs =
-            fixt_explist[0]->GetNcoeffs() / fixt_in->GetNumHomoModes();
+            fixt_explist->GetNcoeffs() / fixt_in->GetNumHomoModes();
         const size_t nphys =
-            fixt_explist[0]->GetTotPoints() / fixt_in->GetNumHomoModes();
+            fixt_explist->GetTotPoints() / fixt_in->GetNumHomoModes();
         Array<OneD, double> tmp;
 
         StdRegions::FactorMap factors;
@@ -132,8 +132,8 @@ public:
 
             for (const auto &block : fixt_expected->GetBlocks())
             {
-                auto nmTot    = fixt_explist[0]->GetExp(e)->GetNcoeffs();
-                auto nphysloc = fixt_explist[0]->GetExp(e)->GetTotPoints();
+                auto nmTot    = fixt_explist->GetExp(e)->GetNcoeffs();
+                auto nphysloc = fixt_explist->GetExp(e)->GetTotPoints();
 
                 for (size_t el = 0; el < block.GetNumElements(); ++el)
                 {
@@ -148,10 +148,10 @@ public:
 
                     StdRegions::StdMatrixKey mkey(
                         StdRegions::eLinearAdvectionDiffusionReaction,
-                        fixt_explist[0]->GetExp(e)->DetShapeType(),
-                        *(fixt_explist[0]->GetExp(e)), factors, varcoeffs);
+                        fixt_explist->GetExp(e)->DetShapeType(),
+                        *(fixt_explist->GetExp(e)), factors, varcoeffs);
 
-                    fixt_explist[0]->GetExp(e)->GeneralMatrixOp(
+                    fixt_explist->GetExp(e)->GeneralMatrixOp(
                         incoeffs + offset, tmp = outcoeffs + offset, mkey);
                     e++;
                     offset += nmTot;

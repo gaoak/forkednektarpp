@@ -108,7 +108,7 @@
         <NekMeshCommandLine>square.msh square.xml </NekMeshCommandLine>
     </Metadata>
     <EXPANSIONS>
-        <E COMPOSITE="C[0]" NUMMODES="4" TYPE="GLL_LAGRANGE_SEM" FIELDS="u" />
+        <E COMPOSITE="C[0]" NUMMODES="4" TYPE="GLL_LAGRANGE_SEM" FIELDS="u,v" />
     </EXPANSIONS>
     <CONDITIONS>
         <SOLVERINFO>
@@ -121,6 +121,7 @@
         </PARAMETERS>
         <VARIABLES>
             <V ID="0">u</V>
+            <V ID="1">v</V>
         </VARIABLES>
     </CONDITIONS>
 </NEKTAR>

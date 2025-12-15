@@ -56,11 +56,11 @@ public:
     void SetTestCase()
     {
         // Set initial conditions.
-        Array<OneD, double> x(fixt_explist[0]->GetTotPoints());
-        Array<OneD, double> y(fixt_explist[0]->GetTotPoints());
-        Array<OneD, double> z(fixt_explist[0]->GetTotPoints());
-        Array<OneD, double> fce(fixt_explist[0]->GetTotPoints());
-        fixt_explist[0]->GetCoords(x, y, z);
+        Array<OneD, double> x(fixt_explist->GetTotPoints());
+        Array<OneD, double> y(fixt_explist->GetTotPoints());
+        Array<OneD, double> z(fixt_explist->GetTotPoints());
+        Array<OneD, double> fce(fixt_explist->GetTotPoints());
+        fixt_explist->GetCoords(x, y, z);
 
         if (session->DefinesFunction("Forcing"))
         {
@@ -87,7 +87,7 @@ public:
                     else
                     {
                         inptr[cnt] = 1.0;
-                        if (fixt_explist[0]->GetCoordim(0) == 1)
+                        if (fixt_explist->GetCoordim(0) == 1)
                         {
                             for (unsigned int n = 1; n < 4; n++)
                             {
@@ -95,7 +95,7 @@ public:
                             }
                             xptr++;
                         }
-                        else if (fixt_explist[0]->GetCoordim(0) == 2)
+                        else if (fixt_explist->GetCoordim(0) == 2)
                         {
                             for (unsigned int n = 1; n < 4; n++)
                             {
@@ -131,8 +131,8 @@ public:
 
         // Set advection velocity
         size_t nphys =
-            fixt_explist[0]->GetTotPoints() / fixt_in->GetNumHomoModes();
-        m_dim = fixt_explist[0]->GetCoordim(0);
+            fixt_explist->GetTotPoints() / fixt_in->GetNumHomoModes();
+        m_dim = fixt_explist->GetCoordim(0);
         m_vel = Array<OneD, double>(nphys * m_dim, 1.0);
         Array<OneD, double> tmp;
         for (unsigned int d = 1; d < m_dim; ++d)
@@ -146,9 +146,9 @@ public:
 
     void RunTestCase(const std::string &method)
     {
-        auto op       = LinearADRSolveOp<double>::Create(fixt_explist[0]);
-        auto precon   = DiagPreconOp<double>::Create(fixt_explist[0]);
-        auto linsolve = LinearSolverOp<double>::Create(fixt_explist[0], method);
+        auto op       = LinearADRSolveOp<double>::Create(fixt_explist);
+        auto precon   = DiagPreconOp<double>::Create(fixt_explist);
+        auto linsolve = LinearSolverOp<double>::Create(fixt_explist, method);
         op->SetLambda(m_lambda);
         op->SetAdvVel(m_dim, m_vel);
         op->SetLinearSolver(linsolve);
@@ -160,11 +160,11 @@ public:
     {
         // Calculate expected result from Nektar++.
         const size_t nphys =
-            fixt_explist[0]->GetTotPoints() / fixt_in->GetNumHomoModes();
+            fixt_explist->GetTotPoints() / fixt_in->GetNumHomoModes();
 
         // Setup input/output arrays
         Array<OneD, double> inphys = fixt_in->ToArray();
-        Array<OneD, double> outcoeffs(fixt_explist[0]->GetNcoeffs(), 0.0);
+        Array<OneD, double> outcoeffs(fixt_explist->GetNcoeffs(), 0.0);
 
         // Set lambda as constant coefficient
         StdRegions::ConstFactorMap factors;
@@ -184,8 +184,8 @@ public:
         }
 
         // Solve system
-        fixt_explist[0]->LinearAdvectionDiffusionReactionSolve(
-            inphys, outcoeffs, factors, varcoeffs);
+        fixt_explist->LinearAdvectionDiffusionReactionSolve(inphys, outcoeffs,
+                                                            factors, varcoeffs);
 
         // Copy solution back
         fixt_expected->CopyArray<NektarSpaces::HostSpace>(outcoeffs);

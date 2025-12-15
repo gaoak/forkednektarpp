@@ -21,8 +21,8 @@
     </GEOMETRY>
 
     <EXPANSIONS>
-        <E COMPOSITE="C[5]" NUMMODES="4" FIELDS="u" TYPE="GLL_LAGRANGE" />
-        <E COMPOSITE="C[6]" NUMMODES="4" FIELDS="u" TYPE="GLL_LAGRANGE" />
+        <E COMPOSITE="C[5]" NUMMODES="4" FIELDS="u,v" TYPE="GLL_LAGRANGE" />
+        <E COMPOSITE="C[6]" NUMMODES="4" FIELDS="u,v" TYPE="GLL_LAGRANGE" />
     </EXPANSIONS>
 
     <CONDITIONS>
@@ -37,9 +37,11 @@
         </PARAMETERS>
         <VARIABLES>
             <V ID="0">u</V>
+            <V ID="1">v</V>
         </VARIABLES>
         <FUNCTION NAME="Forcing">
             <E VAR="u" VALUE="-Lambda*(sin(PI*x)*sin(PI*y)-1) - 2*PI*PI*sin(PI*x)*sin(PI*y)" />
+            <E VAR="v" VALUE="-Lambda*(sin(PI*x)*sin(PI*y)-1) - 2*PI*PI*sin(PI*x)*sin(PI*y)" />
         </FUNCTION>
     </CONDITIONS>
 </NEKTAR>

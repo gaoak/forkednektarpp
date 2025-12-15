@@ -60,13 +60,6 @@ public:
     AssmbScatrOpImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : AssmbScatrOp<TData>(expansionList)
     {
-        auto contfield =
-            std::dynamic_pointer_cast<ContField>(this->m_expansionList);
-
-        auto assmbMap = std::dynamic_pointer_cast<MultiRegions::AssemblyMapCG>(
-            contfield->GetLocalToGlobalMap());
-
-        m_assemblyMap.push_back(assmbMap);
     }
 
     // className - for OperatorFactory
@@ -101,8 +94,6 @@ protected:
     unsigned m_nBndGids;
     /// number of components mappings are setup for
     unsigned m_numAssemblyComps = 0;
-    /// A vector of legacy assemblyCG maps for generation of boundary mappings
-    std::vector<MultiRegions::AssemblyMapCGSharedPtr> m_assemblyMap;
 
     /// flag to identify when method is setup for parallel communication
     bool m_isParallel;
@@ -113,52 +104,39 @@ protected:
     /// Buffer to receive data into  for inter device communication
     MemoryRegion<TData> m_recv_buffer;
 
-    void v_SetAssemblyMap(
-        std::vector<MultiRegions::AssemblyMapCGSharedPtr> &assemblyMap) override
+    void SetUpMaps(unsigned numComp)
     {
-        m_assemblyMap = assemblyMap;
-    }
-
-    void SetUpMaps(unsigned numComps)
-    {
-        ASSERTL1(numComps == m_assemblyMap.size(),
-                 "The number of assembly maps is not the same as the number of "
-                 "components requested. Have you set up maps using "
-                 "SetAssemblyMaps()");
-
-        m_numAssemblyComps = numComps;
+        m_numAssemblyComps = numComp;
 
 #ifdef ORIG_ASS_SCA
-        auto GSInfoKey = DeviceLocalToGlobalKey<TData>(m_assemblyMap, ZERODIR);
+        auto GSInfoKey = DeviceLocalToGlobalKey<TData>(ZERODIR);
         // setup GS info of values interior to device
         m_gsInfo = this->m_dataWarehouse->template GetData<MemSpace>(GSInfoKey);
         // set up sign change array
         m_gsSign = this->m_dataWarehouse->template GetData<MemSpace>(
-            DeviceLocalToGlobalSignKey<TData>(m_assemblyMap, ZERODIR,
-                                              SIGNCHANGE));
+            DeviceLocalToGlobalSignKey<TData>(ZERODIR, SIGNCHANGE));
 #else
-        auto GSInfoKey = DeviceLocalToGlobalKey<TData>(m_assemblyMap, ZERODIR,
-                                                       m_device_width);
+        auto GSInfoKey = DeviceLocalToGlobalKey<TData>(ZERODIR, m_device_width);
         // setup GS info of values interior to device
-        auto GSNumAssmbKey = DeviceLocalToGlobalNumAssembleKey<TData>(
-            m_assemblyMap, ZERODIR, m_device_width);
+        auto GSNumAssmbKey =
+            DeviceLocalToGlobalNumAssembleKey<TData>(ZERODIR, m_device_width);
         m_gsNumAssmb =
             this->m_dataWarehouse->template GetData<MemSpace>(GSNumAssmbKey);
 
-        auto GSIndexKey = DeviceLocalToGlobalIndexKey<TData>(
-            m_assemblyMap, ZERODIR, m_device_width);
+        auto GSIndexKey =
+            DeviceLocalToGlobalIndexKey<TData>(ZERODIR, m_device_width);
         m_gsIndex =
             this->m_dataWarehouse->template GetData<MemSpace>(GSIndexKey);
 
-        auto GSOffsetKey = DeviceLocalToGlobalIndexOffsetKey<TData>(
-            m_assemblyMap, ZERODIR, m_device_width);
+        auto GSOffsetKey =
+            DeviceLocalToGlobalIndexOffsetKey<TData>(ZERODIR, m_device_width);
         m_gsOffset =
             this->m_dataWarehouse->template GetData<MemSpace>(GSOffsetKey);
 
         // set up sign change array
         m_gsSign = this->m_dataWarehouse->template GetData<MemSpace>(
-            DeviceLocalToGlobalSignKey<TData>(m_assemblyMap, ZERODIR,
-                                              SIGNCHANGE, m_device_width));
+            DeviceLocalToGlobalSignKey<TData>(ZERODIR, SIGNCHANGE,
+                                              m_device_width));
 #endif
 
         // get a copy of the host to evaluate offsets
@@ -175,9 +153,14 @@ protected:
 #if defined(NEKTAR_USE_MPI)
         if (m_isParallel)
         {
-            auto globalToUniMap  = m_assemblyMap[0]->GetGlobalToUniversalMap();
-            auto numGlobalCoeffs = m_assemblyMap[0]->GetNumGlobalCoeffs();
-            auto numGlobalBndCoeffs = m_assemblyMap[0]->GetNumGlobalBndCoeffs();
+            auto contfield =
+                std::dynamic_pointer_cast<ContField>(this->m_expansionList);
+            auto assemblyMap =
+                std::dynamic_pointer_cast<MultiRegions::AssemblyMapCG>(
+                    contfield->GetLocalToGlobalMap());
+            auto globalToUniMap     = assemblyMap->GetGlobalToUniversalMap();
+            auto numGlobalCoeffs    = assemblyMap->GetNumGlobalCoeffs();
+            auto numGlobalBndCoeffs = assemblyMap->GetNumGlobalBndCoeffs();
             Nektar::Array<OneD, long> tmp(numGlobalCoeffs);
             Vmath::Zero(numGlobalCoeffs, tmp, 1);
             for (unsigned int i = 0; i < numGlobalBndCoeffs; ++i)
@@ -187,8 +170,6 @@ protected:
             m_assmbCommCG =
                 std::make_unique<MultiRegions::AssemblyCommCG>(vCommRow, tmp);
 
-            auto numComp = m_assemblyMap.size();
-
             // setup GS info of values parallal boundary of device
             auto GSBndInfoKey = DeviceBndLocalToGlobalKey<TData>(numComp);
 
@@ -197,8 +178,7 @@ protected:
 
             // set up sign array
             m_gsBndSign = this->m_dataWarehouse->template GetData<MemSpace>(
-                DeviceBndLocalToGlobalSignKey<TData>(m_assemblyMap, ZERODIR,
-                                                     SIGNCHANGE));
+                DeviceBndLocalToGlobalSignKey<TData>(ZERODIR, SIGNCHANGE));
 
             // get a copy of the host to evaluate offsets
             auto hostGSBndInfo =

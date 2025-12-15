@@ -162,8 +162,8 @@
         <DOMAIN> C[0,2] </DOMAIN>
     </GEOMETRY>
     <EXPANSIONS>
-        <E COMPOSITE="C[0]" NUMMODES="4,4,4" FIELDS="u" BASISTYPE="Modified_A,Modified_A,Modified_A" NUMPOINTS="5,5,5" POINTSTYPE="GaussLobattoLegendre,GaussLobattoLegendre,GaussLobattoLegendre"/>
-        <E COMPOSITE="C[2]" NUMMODES="4,4,4" FIELDS="u" BASISTYPE="Modified_A,Modified_A,Modified_B" NUMPOINTS="5,5,4" POINTSTYPE="GaussLobattoLegendre,GaussLobattoLegendre,GaussRadauMAlpha1Beta0"/>
+        <E COMPOSITE="C[0]" NUMMODES="4,4,4" FIELDS="u,v" BASISTYPE="Modified_A,Modified_A,Modified_A" NUMPOINTS="5,5,5" POINTSTYPE="GaussLobattoLegendre,GaussLobattoLegendre,GaussLobattoLegendre"/>
+        <E COMPOSITE="C[2]" NUMMODES="4,4,4" FIELDS="u,v" BASISTYPE="Modified_A,Modified_A,Modified_B" NUMPOINTS="5,5,4" POINTSTYPE="GaussLobattoLegendre,GaussLobattoLegendre,GaussRadauMAlpha1Beta0"/>
     </EXPANSIONS>
     <CONDITIONS>
         <SOLVERINFO>
@@ -176,6 +176,7 @@
         </PARAMETERS>
         <VARIABLES>
             <V ID="0">u</V>
+            <V ID="1">v</V>
         </VARIABLES>
     </CONDITIONS>
 </NEKTAR>
