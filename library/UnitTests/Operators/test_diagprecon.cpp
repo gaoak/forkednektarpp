@@ -54,6 +54,7 @@
 
 BOOST_AUTO_TEST_SUITE(TestDiagPrecon)
 
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_DIAGPRECON(diagprecon_seg, Helmholtz1D_Seg, 1.0E-12)
 
 TEST_DIAGPRECON(diagprecon_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-12)
@@ -65,5 +66,6 @@ TEST_DIAGPRECON(diagprecon_prism, Helmholtz3D_Prism, 1.0E-10)
 TEST_DIAGPRECON(diagprecon_pyr, Helmholtz3D_Pyr, 1.0E-10)
 
 TEST_DIAGPRECON(diagprecon_tet, Helmholtz3D_Tet, 2.0E-10)
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()

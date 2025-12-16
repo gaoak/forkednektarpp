@@ -54,6 +54,7 @@
 
 BOOST_AUTO_TEST_SUITE(TestExpression)
 
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_EXPRESSION(expression1d_seg, Helmholtz1D_Seg, 1, 1.0E-12)
 
 TEST_EXPRESSION(expression2d_tri_quad, Helmholtz2D_Tri_Quad, 1, 1.0E-12)
@@ -73,5 +74,6 @@ TEST_EXPRESSION(expression_seg_evars, Seg_3C_Evars, 3, 1.0E-12)
 TEST_EXPRESSION(expression_quad_tri_evars, QuadTri_2C_Evars, 2, 1.0E-12)
 
 TEST_EXPRESSION(expression_hex_evars, Hex_3C_Evars, 3, 1.0E-12)
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()

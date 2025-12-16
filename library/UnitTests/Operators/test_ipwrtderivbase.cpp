@@ -78,6 +78,7 @@
 
 BOOST_AUTO_TEST_SUITE(TestIProductWRTDerivBase)
 
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_IPWRTDERIVBASE(ipwrtderivbase_seg, Seg, 1, 1.0E-12)
 
 TEST_IPWRTDERIVBASE(ipwrtderivbase_seg_sem, SegSEM, 1, 1.0E-12)
@@ -128,5 +129,6 @@ TEST_IPWRTDERIVBASE(ipwrtderivbase_cube_prism_hex, CubePrismHex, 3, 1.0E-12)
 
 TEST_IPWRTDERIVBASE(ipwrtderivbase_cube_all_elements, CubeAllElements, 3,
                     1.0E-12)
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()

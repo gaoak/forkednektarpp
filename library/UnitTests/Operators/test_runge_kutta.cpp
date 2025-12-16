@@ -53,6 +53,7 @@
 
 BOOST_AUTO_TEST_SUITE(TestRungeKutta)
 
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_SCHEME(rk_order_1, segment, 2, "RungeKutta", "", 1)
 
 TEST_SCHEME(rk_order_2, segment, 2, "RungeKutta", "", 2)
@@ -68,5 +69,6 @@ TEST_SCHEME(rk_ssp_order_1, segment, 2, "RungeKutta", "SSP", 1)
 TEST_SCHEME(rk_ssp_order_2, segment, 2, "RungeKutta", "SSP", 2)
 
 TEST_SCHEME(rk_ssp_order_3, segment, 2, "RungeKutta", "SSP", 3)
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()

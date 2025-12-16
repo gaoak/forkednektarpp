@@ -41,27 +41,29 @@ using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
 
-class TimeOpField
-    : public InitFields<double, FieldState::Phys, FieldState::Phys>
+template <typename TData>
+class TimeOpField : public InitFields<TData, FieldState::Phys, FieldState::Phys>
 {
 public:
-    TimeOpField() : InitFields<double, FieldState::Phys, FieldState::Phys>()
+    TimeOpField() : InitFields<TData, FieldState::Phys, FieldState::Phys>()
     {
     }
 
-    void SetTestCase(const double alpha, const double beta)
+    void SetTestCase(const TData alpha, const TData beta)
     {
         // Initialise math kernel
-        std::string execName = Operator<double>::GetOpExecSpace(session);
+        std::string execName = Operator<TData>::GetOpExecSpace(this->session);
         math                 = Math(execName);
 
         // Set initial value
-        for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
+        for (unsigned int blk = 0; blk < this->fixt_in->GetBlocks().size();
+             ++blk)
         {
-            auto &block = fixt_in->GetBlocks()[blk];
+            auto &block = this->fixt_in->GetBlocks()[blk];
             auto inptr =
                 block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-            for (unsigned int nc = 0; nc < fixt_in->GetNumComponents(); ++nc)
+            for (unsigned int nc = 0; nc < this->fixt_in->GetNumComponents();
+                 ++nc)
             {
                 for (size_t el = 0, cnt = 0; el < block.GetNumElements(); ++el)
                 {
@@ -79,7 +81,7 @@ public:
         m_alpha = alpha; // non-stiff factor
         m_beta  = beta;  // stiff factor
 
-        double final_time = 0.5;
+        TData final_time = 0.5;
 
         // Compute expected solution
         ExpectedSolution(final_time);
@@ -87,15 +89,16 @@ public:
 
     void RunTestCase(const std::string scheme, const std::string variant,
                      const unsigned int order,
-                     const std::vector<double> freeParams,
+                     const std::vector<TData> freeParams,
                      const unsigned int numsteps)
     {
-        // Copy fixt_in to fixt_out since operator uses apply with inout type
-        fixt_out->Copy<NektarSpaces::HostSpace>(*fixt_in);
+        // Copy this->fixt_in to this->fixt_out since operator uses apply with
+        // inout type
+        this->fixt_out->template Copy<NektarSpaces::HostSpace>(*this->fixt_in);
 
         // Initialise Time-stepping operator
-        auto op = TimeOp<double>::Create(fixt_explist, scheme, order, variant,
-                                         freeParams);
+        auto op = TimeOp<TData>::Create(this->fixt_explist, scheme, order,
+                                        variant, freeParams);
         op->DefineExplicitRhs(&TimeOpField::DoExplicitRHS, this);
         op->DefineImplicitRhs(&TimeOpField::DoImplicitRHS, this);
         op->DefineImplicit(&TimeOpField::DoLHS, this);
@@ -106,29 +109,30 @@ public:
         while (op->GetStep() < numsteps)
         {
             // Evolve PDE for one timestep
-            op->Apply(*fixt_out);
+            op->Apply(*this->fixt_out);
         }
     }
 
-    void ExpectedSolution(const double final_time)
+    void ExpectedSolution(const TData final_time)
     {
         // We solve the analytic problem du/dt = \alpha u + \beta u,
         // where \alpha is mild parameter leading to the explicit part
         // and \beta is a stiff parameter leading to the implicit part.
         // The solution is u = e^((\alpha + \beta)*t) and u(t=0) = 1.0
-        fixt_expected->template Copy<NektarSpaces::HostSpace>(*fixt_in);
-        math.mul(exp((m_alpha + m_beta) * final_time), *fixt_expected,
-                 *fixt_expected);
+        this->fixt_expected->template Copy<NektarSpaces::HostSpace>(
+            *this->fixt_in);
+        math.mul(exp((m_alpha + m_beta) * final_time), *this->fixt_expected,
+                 *this->fixt_expected);
     }
 
     bool CheckOrderOfAccuracy(const std::string scheme,
                               const std::string variant,
                               const unsigned int order,
-                              const std::vector<double> freeParams = {})
+                              const std::vector<TData> freeParams = {})
     {
-        double final_time = 0.5;
+        TData final_time = 0.5;
 
-        std::vector<double> timesteps;
+        std::vector<TData> timesteps;
 
         if (order <= 2)
         {
@@ -166,34 +170,35 @@ public:
             }
         }
 
-        std::vector<double> errors;
+        std::vector<TData> errors;
 
-        for (double dt : timesteps)
+        for (TData dt : timesteps)
         {
-            // Change timestep in session to propagate to TimeOp at runtime
-            session->SetParameter("TimeStep", dt);
+            // Change timestep in this->session to propagate to TimeOp at
+            // runtime
+            this->session->SetParameter("TimeStep", dt);
 
             // Run simulation
             RunTestCase(scheme, variant, order, freeParams, final_time / dt);
 
             // Compute error at final time (L2 norm; adapt as needed)
-            math.sub(*fixt_out, *fixt_expected, *fixt_out);
-            double error =
-                std::sqrt(math.l2norm(*fixt_out) / math.l2norm(*fixt_in));
+            math.sub(*this->fixt_out, *this->fixt_expected, *this->fixt_out);
+            TData error = std::sqrt(math.l2norm(*this->fixt_out) /
+                                    math.l2norm(*this->fixt_in));
             errors.push_back(error);
         }
 
         // Compute observed order of accuracy from (dt, error) pairs
-        std::vector<double> orders;
+        std::vector<TData> orders;
         for (size_t i = 0; i < timesteps.size() - 1; ++i)
         {
-            double order = log(errors[i] / errors[i + 1]) /
-                           log(timesteps[i] / timesteps[i + 1]);
+            TData order = log(errors[i] / errors[i + 1]) /
+                          log(timesteps[i] / timesteps[i + 1]);
             orders.push_back(order);
         }
 
         // Use last observed order
-        double observedOrder = orders.back();
+        TData observedOrder = orders.back();
 
         // Check if observed order is close to expected order (within tolerance)
         if (std::isnan(observedOrder) || std::isinf(observedOrder) ||
@@ -212,14 +217,14 @@ public:
     }
 
 protected:
-    double m_alpha;
-    double m_beta;
+    TData m_alpha;
+    TData m_beta;
 
     Math math;
 
-    void DoLHS(Field<double, FieldState::Phys> &in,
-               Field<double, FieldState::Phys> &out,
-               [[maybe_unused]] const double &time, const double &lambda)
+    void DoLHS(Field<TData, FieldState::Phys> &in,
+               Field<TData, FieldState::Phys> &out,
+               [[maybe_unused]] const TData &time, const TData &lambda)
     {
         // Factor for implicit/stiff part of analytic test problem
         auto factor = 1.0 / (1.0 - lambda * m_beta);
@@ -228,35 +233,48 @@ protected:
         math.mul(factor, in, out);
     }
 
-    void DoExplicitRHS(Field<double, FieldState::Phys> &in,
-                       Field<double, FieldState::Phys> &out,
-                       [[maybe_unused]] const double &time,
-                       const double &factor)
+    void DoExplicitRHS(Field<TData, FieldState::Phys> &in,
+                       Field<TData, FieldState::Phys> &out,
+                       [[maybe_unused]] const TData &time, const TData &factor)
     {
         // Multiply solution by factor
         math.mul(m_alpha * factor, in, out);
     }
 
-    void DoImplicitRHS(Field<double, FieldState::Phys> &in,
-                       Field<double, FieldState::Phys> &out,
-                       [[maybe_unused]] const double &time,
-                       const double &factor)
+    void DoImplicitRHS(Field<TData, FieldState::Phys> &in,
+                       Field<TData, FieldState::Phys> &out,
+                       [[maybe_unused]] const TData &time, const TData &factor)
     {
         // Multiply solution by factor
         math.mul(m_beta * factor, in, out);
     }
 
-    void DoProjection(Field<double, FieldState::Phys> &in,
-                      Field<double, FieldState::Phys> &out,
-                      [[maybe_unused]] const double &time)
+    void DoProjection(Field<TData, FieldState::Phys> &in,
+                      Field<TData, FieldState::Phys> &out,
+                      [[maybe_unused]] const TData &time)
     {
         // Multiply solution by factor
         math.mul(1.0, in, out);
     }
 };
 
-#define TEST(type, filename)                                                   \
-    class type : public TimeOpField                                            \
+// clang-format off
+#if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
+#define TESTFLOAT(type, filename)                                              \
+    class type##float : public TimeOpField<float>                              \
+    {                                                                          \
+    public:                                                                    \
+        type##float()                                                          \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
+#else
+#define TESTFLOAT(type, filename)
+#endif
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
+#define TESTDOUBLE(type, filename)                                             \
+    class type : public TimeOpField<double>                                    \
     {                                                                          \
     public:                                                                    \
         type()                                                                 \
@@ -264,5 +282,12 @@ protected:
             meshName = filename;                                               \
         }                                                                      \
     };
+#else
+#define TESTDOUBLE(type, filename)
+#endif
+#define TEST(type, filename)                                                   \
+    TESTFLOAT(type, filename)                                                  \
+    TESTDOUBLE(type, filename)
+// clang-format on
 
 TEST(segment, "run/segment.xml")

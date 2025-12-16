@@ -45,13 +45,14 @@ using namespace Nektar::LibUtilities;
 using namespace Nektar::MultiRegions;
 using namespace Nektar;
 
+template <typename TData>
 class NullPreconField
-    : public InitFields<double, FieldState::Coeff, FieldState::Coeff,
+    : public InitFields<TData, FieldState::Coeff, FieldState::Coeff,
                         MultiRegions::ContField>
 {
 public:
     NullPreconField()
-        : InitFields<double, FieldState::Coeff, FieldState::Coeff,
+        : InitFields<TData, FieldState::Coeff, FieldState::Coeff,
                      MultiRegions::ContField>()
     {
     }
@@ -59,9 +60,10 @@ public:
     void SetTestCase()
     {
         // Set initial conditions.
-        for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
+        for (unsigned int blk = 0; blk < this->fixt_in->GetBlocks().size();
+             ++blk)
         {
-            auto &block = fixt_in->GetBlocks()[blk];
+            auto &block = this->fixt_in->GetBlocks()[blk];
             auto inptr =
                 block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
             for (size_t el = 0, cnt = 0; el < block.GetNumElements(); ++el)
@@ -80,32 +82,48 @@ public:
 
     void RunTestCase()
     {
-        auto assmb = AssmbScatrZeroDirOp<double>::Create(fixt_explist);
-        auto op    = NullPreconOp<double>::Create(fixt_explist);
-        assmb->Apply(*fixt_in, *fixt_out);
-        op->Apply(*fixt_out, *fixt_out);
+        auto assmb = AssmbScatrZeroDirOp<TData>::Create(this->fixt_explist);
+        auto op    = NullPreconOp<TData>::Create(this->fixt_explist);
+        assmb->Apply(*this->fixt_in, *this->fixt_out);
+        op->Apply(*this->fixt_out, *this->fixt_out);
     }
 
     void ExpectedSolution()
     {
         // Calculate expected result from Nektar++
-        Array<OneD, double> incoeffs = fixt_in->ToArray();
-        Array<OneD, double> outcoeffs(fixt_explist->GetNcoeffs(), 0.0);
-        auto map =
-            std::dynamic_pointer_cast<MultiRegions::ContField>(fixt_explist)
-                ->GetLocalToGlobalMap();
+        Array<OneD, TData> incoeffs = this->fixt_in->ToArray();
+        Array<OneD, TData> outcoeffs(this->fixt_explist->GetNcoeffs(), 0.0);
+        auto map = std::dynamic_pointer_cast<MultiRegions::ContField>(
+                       this->fixt_explist)
+                       ->GetLocalToGlobalMap();
         GlobalLinSysKey key(StdRegions::eHelmholtz, map);
         auto globalSys = GetGlobalLinSysFactory().CreateInstance(
-            "IterativeFull", key, fixt_explist, map);
+            "IterativeFull", key, this->fixt_explist, map);
         auto precond =
             GetPreconFactory().CreateInstance("Null", globalSys, map);
         precond->DoPreconditioner(incoeffs, outcoeffs, true);
-        fixt_expected->CopyArray<NektarSpaces::HostSpace>(outcoeffs);
+        this->fixt_expected->template CopyArray<NektarSpaces::HostSpace>(
+            outcoeffs);
     }
 };
 
-#define TEST(type, filename)                                                   \
-    class type : public NullPreconField                                        \
+// clang-format off
+#if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
+#define TESTFLOAT(type, filename)                                              \
+    class type##float : public NullPreconField<float>                          \
+    {                                                                          \
+    public:                                                                    \
+        type##float()                                                          \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
+#else
+#define TESTFLOAT(type, filename)
+#endif
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
+#define TESTDOUBLE(type, filename)                                             \
+    class type : public NullPreconField<double>                                \
     {                                                                          \
     public:                                                                    \
         type()                                                                 \
@@ -113,6 +131,13 @@ public:
             meshName = filename;                                               \
         }                                                                      \
     };
+#else
+#define TESTDOUBLE(type, filename)
+#endif
+#define TEST(type, filename)                                                   \
+    TESTFLOAT(type, filename)                                                  \
+    TESTDOUBLE(type, filename)
+// clang-format on
 
 TEST(Helmholtz1D_Seg, "run/Helmholtz1D_P8.xml")
 

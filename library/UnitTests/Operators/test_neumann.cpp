@@ -54,6 +54,7 @@
 
 BOOST_AUTO_TEST_SUITE(TestNeumann)
 
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_NEUMANN(neumann1d_seg, Helmholtz1D_Seg, 1.0E-12)
 
 TEST_NEUMANN(neumann2d_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-12)
@@ -65,5 +66,6 @@ TEST_NEUMANN(neumann3d_prism, Helmholtz3D_Prism, 1.0E-12)
 TEST_NEUMANN(neumann3d_pyr, Helmholtz3D_Pyr, 1.0E-12)
 
 TEST_NEUMANN(neumann3d_tet, Helmholtz3D_Tet, 1.0E-12)
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()

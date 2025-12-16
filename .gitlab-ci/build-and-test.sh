@@ -16,6 +16,7 @@ echo "  - BUILD_CXX               : $BUILD_CXX"
 echo "  - BUILD_FC                : $BUILD_FC"
 echo "  - BUILD_TYPE              : $BUILD_TYPE"
 echo "  - BUILD_SIMD              : $BUILD_SIMD"
+echo "  - BUILD_SINGLE_PRECISION  : $BUILD_SINGLE_PRECISION"
 echo "  - DISABLE_CWIPI           : $DISABLE_CWIPI"
 echo "  - DISABLE_MCA             : $DISABLE_MCA"
 echo "  - ENABLE_ALIGN_MEM        : $ENABLE_ALIGN_MEM"
@@ -101,6 +102,10 @@ elif [[ $BUILD_TYPE == "full" ]]; then
 
         # Enable SYCL in CMake configuration
         CMAKEARGS+=("-DNEKTAR_ENABLE_DEVICE:STRING=SYCL-CUDA")
+    fi
+    if [[ $BUILD_SINGLE_PRECISION == "on" ]]; then
+        CMAKEARGS+=("-DNEKTAR_ENABLE_SINGLE_PRECISION:BOOL=ON")
+        CMAKEARGS+=("-DNEKTAR_ENABLE_DOUBLE_PRECISION:BOOL=OFF")
     fi
     if [[ $ENABLE_ALIGN_MEM == "true" ]]; then
         CMAKEARGS+=("-DNEKTAR_USE_MEMORY_POOLS:BOOL=OFF")

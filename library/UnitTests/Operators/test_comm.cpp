@@ -49,6 +49,7 @@ using namespace Nektar::Operators;
 
 BOOST_AUTO_TEST_SUITE(TestComm)
 
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 BOOST_FIXTURE_TEST_CASE(bcast, InitComm)
 {
     std::string execStr(
@@ -535,5 +536,6 @@ BOOST_FIXTURE_TEST_CASE(allgather, InitComm)
         BOOST_TEST(pass);
     }
 }
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()

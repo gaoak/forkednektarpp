@@ -38,7 +38,7 @@ using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
 
-class ReducerField
+template <typename TData> class ReducerField
 {
 public:
     ReducerField()
@@ -48,11 +48,11 @@ public:
 
     ~ReducerField()
     {
-        BOOST_TEST_MESSAGE("teardown fixture");
+        BOOST_TEST_MESSAGE("teardown this->fixture");
 
-        if (fixt_in)
+        if (this->fixt_in)
         {
-            delete fixt_in;
+            delete this->fixt_in;
         }
     }
 
@@ -68,19 +68,20 @@ public:
         argv[0]     = strdup("exe_name");
         argv[1]     = meshName.data();
 
-        session    = LibUtilities::SessionReader::CreateInstance(argc, argv);
-        auto graph = SpatialDomains::MeshGraphIO::Read(session);
+        this->session = LibUtilities::SessionReader::CreateInstance(argc, argv);
+        auto graph    = SpatialDomains::MeshGraphIO::Read(this->session);
 
-        if (session->GetComm())
+        if (this->session->GetComm())
         {
-            auto rank        = session->GetComm()->GetRank();
+            auto rank        = this->session->GetComm()->GetRank();
             auto num_device  = nekGetDeviceCount();
             auto device_rank = rank % num_device;
             nekSetDevice(device_rank);
         }
 
-        fixt_explist = MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
-            session, graph, true, "u", Collections::eNoCollection);
+        this->fixt_explist =
+            MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
+                this->session, graph, true, "u", Collections::eNoCollection);
 
         auto blocksAttr =
             GetBlockAttributes<double, FieldState::Phys>(fixt_explist);
@@ -90,71 +91,76 @@ public:
 
     void SetTestCase()
     {
-        Array<OneD, double> x(fixt_explist->GetTotPoints());
-        Array<OneD, double> y(fixt_explist->GetTotPoints());
-        Array<OneD, double> z(fixt_explist->GetTotPoints());
-        Array<OneD, double> fce(fixt_explist->GetTotPoints());
-        fixt_explist->GetCoords(x, y, z);
+        Array<OneD, TData> x(this->fixt_explist->GetTotPoints());
+        Array<OneD, TData> y(this->fixt_explist->GetTotPoints());
+        Array<OneD, TData> z(this->fixt_explist->GetTotPoints());
+        Array<OneD, TData> fce(this->fixt_explist->GetTotPoints());
+        this->fixt_explist->GetCoords(x, y, z);
 
-        auto func = session->GetFunction("Forcing", 0);
+        auto func = this->session->GetFunction("Forcing", 0);
         func->Evaluate(x, y, z, fce);
         auto ptr = fce.data();
-        for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
+        for (unsigned int blk = 0; blk < this->fixt_in->GetBlocks().size();
+             ++blk)
         {
-            auto inptr = fixt_in->GetBlocks()[blk]
-                             .GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-            auto size = fixt_in->GetBlocks()[blk].GetNumElements() *
-                        fixt_in->GetBlocks()[blk].GetNumData();
+            auto inptr =
+                this->fixt_in->GetBlocks()[blk]
+                    .template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+            auto size = this->fixt_in->GetBlocks()[blk].GetNumElements() *
+                        this->fixt_in->GetBlocks()[blk].GetNumData();
             std::copy(ptr, ptr + size, inptr);
             ptr += size;
         }
     }
 
-    double sum()
+    TData sum()
     {
-        double out = 0;
-        for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
+        TData out = 0;
+        for (unsigned int blk = 0; blk < this->fixt_in->GetBlocks().size();
+             ++blk)
         {
-            auto x = fixt_in->GetBlocks()[blk]
-                         .GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-            auto size = fixt_in->GetBlocks()[blk].GetNumElements() *
-                        fixt_in->GetBlocks()[blk].GetNumData();
+            auto x = this->fixt_in->GetBlocks()[blk]
+                         .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+            auto size = this->fixt_in->GetBlocks()[blk].GetNumElements() *
+                        this->fixt_in->GetBlocks()[blk].GetNumData();
             out = std::accumulate(x, x + size, out);
         }
         return out;
     }
 
-    double max()
+    TData max()
     {
-        double out = std::numeric_limits<double>::min();
-        for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
+        TData out = std::numeric_limits<TData>::min();
+        for (unsigned int blk = 0; blk < this->fixt_in->GetBlocks().size();
+             ++blk)
         {
-            auto x = fixt_in->GetBlocks()[blk]
-                         .GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-            auto size = fixt_in->GetBlocks()[blk].GetNumElements() *
-                        fixt_in->GetBlocks()[blk].GetNumData();
+            auto x = this->fixt_in->GetBlocks()[blk]
+                         .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+            auto size = this->fixt_in->GetBlocks()[blk].GetNumElements() *
+                        this->fixt_in->GetBlocks()[blk].GetNumData();
             out = std::max(out, *(std::max_element(x, x + size)));
         }
         return out;
     }
 
-    double min()
+    TData min()
     {
-        double out = std::numeric_limits<double>::max();
-        for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
+        TData out = std::numeric_limits<TData>::max();
+        for (unsigned int blk = 0; blk < this->fixt_in->GetBlocks().size();
+             ++blk)
         {
-            auto x = fixt_in->GetBlocks()[blk]
-                         .GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-            auto size = fixt_in->GetBlocks()[blk].GetNumElements() *
-                        fixt_in->GetBlocks()[blk].GetNumData();
+            auto x = this->fixt_in->GetBlocks()[blk]
+                         .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+            auto size = this->fixt_in->GetBlocks()[blk].GetNumElements() *
+                        this->fixt_in->GetBlocks()[blk].GetNumData();
             out = std::min(out, *(std::min_element(x, x + size)));
         }
         return out;
     }
 
 protected:
-    std::string meshName                     = "";
-    Field<double, FieldState::Phys> *fixt_in = nullptr;
+    std::string meshName                    = "";
+    Field<TData, FieldState::Phys> *fixt_in = nullptr;
     std::shared_ptr<MultiRegions::ExpList> fixt_explist;
     LibUtilities::SessionReaderSharedPtr session;
 };

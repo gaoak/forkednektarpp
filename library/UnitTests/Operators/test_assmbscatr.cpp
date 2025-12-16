@@ -66,6 +66,7 @@
 
 BOOST_AUTO_TEST_SUITE(TestAssmbScatr)
 
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_ASSMBSCATR(assmbscatr_seg, Seg, 1.0E-12)
 
 TEST_ASSMBSCATR(assmbscatr_quad, Quad, 1.0E-12)
@@ -111,5 +112,6 @@ TEST_ASSMBSCATR(assmbscatr_cube_all_elements, CubeAllElements, 1.0E-12)
 
 TEST_ASSMBSCATR_ZERODIR(assmbscatr_cube_all_elements_zerodir, CubeAllElements,
                         1.0E-12)
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -49,7 +49,8 @@
 
 BOOST_AUTO_TEST_SUITE(TestReducer)
 
-BOOST_FIXTURE_TEST_CASE(sum, ReducerField)
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
+BOOST_FIXTURE_TEST_CASE(sum, ReducerField<double>)
 {
     Configure();
     SetTestCase();
@@ -58,7 +59,7 @@ BOOST_FIXTURE_TEST_CASE(sum, ReducerField)
         boost::unit_test::framework::master_test_suite().argv[1]);
 
     // std results
-    double out = ReducerField::sum();
+    double out = ReducerField<double>::sum();
 
     // Backend results
     double h_out = 0.0;
@@ -107,7 +108,7 @@ BOOST_FIXTURE_TEST_CASE(sum, ReducerField)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(max, ReducerField)
+BOOST_FIXTURE_TEST_CASE(max, ReducerField<double>)
 {
     Configure();
     SetTestCase();
@@ -116,7 +117,7 @@ BOOST_FIXTURE_TEST_CASE(max, ReducerField)
         boost::unit_test::framework::master_test_suite().argv[1]);
 
     // std results
-    double out = ReducerField::max();
+    double out = ReducerField<double>::max();
 
     // Backend results
     double h_out = std::numeric_limits<double>::min();
@@ -165,7 +166,7 @@ BOOST_FIXTURE_TEST_CASE(max, ReducerField)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(min, ReducerField)
+BOOST_FIXTURE_TEST_CASE(min, ReducerField<double>)
 {
     Configure();
     SetTestCase();
@@ -174,7 +175,7 @@ BOOST_FIXTURE_TEST_CASE(min, ReducerField)
         boost::unit_test::framework::master_test_suite().argv[1]);
 
     // std results
-    double out = ReducerField::min();
+    double out = ReducerField<double>::min();
 
     // Backend results
     double h_out = std::numeric_limits<double>::max();
@@ -222,5 +223,6 @@ BOOST_FIXTURE_TEST_CASE(min, ReducerField)
         std::cout << "Backend = " << h_out << " Min = " << out << std::endl;
     }
 }
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -40,26 +40,28 @@ using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
 
+template <typename TData>
 class PhysInterp1DScaledField
-    : public InitFields<double, FieldState::Phys, FieldState::Phys>
+    : public InitFields<TData, FieldState::Phys, FieldState::Phys>
 {
 public:
     PhysInterp1DScaledField()
-        : InitFields<double, FieldState::Phys, FieldState::Phys>()
+        : InitFields<TData, FieldState::Phys, FieldState::Phys>()
     {
     }
 
-    void SetTestCase(double scale)
+    void SetTestCase(TData scale)
     {
         // Set initial conditions.
-        for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
+        for (unsigned int blk = 0; blk < this->fixt_in->GetBlocks().size();
+             ++blk)
         {
-            auto &block = fixt_in->GetBlocks()[blk];
+            auto &block = this->fixt_in->GetBlocks()[blk];
             auto inptr =
                 block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
-            for (unsigned int n = 0;
-                 n < fixt_in->GetNumComponents() * fixt_in->GetNumHomoModes();
+            for (unsigned int n = 0; n < this->fixt_in->GetNumComponents() *
+                                             this->fixt_in->GetNumHomoModes();
                  ++n)
             {
                 for (size_t el = 0, cnt = 0; el < block.GetNumElements(); ++el)
@@ -78,34 +80,50 @@ public:
         ExpectedSolution(scale);
     }
 
-    void RunTestCase(const double scale)
+    void RunTestCase(const TData scale)
     {
-        auto op = PhysInterp1DScaledOp<double>::Create(fixt_explist);
+        auto op = PhysInterp1DScaledOp<TData>::Create(this->fixt_explist);
         op->SetScaleFactor(scale);
-        op->Apply(*fixt_in, *fixt_out);
+        op->Apply(*this->fixt_in, *this->fixt_out);
     }
 
-    void ExpectedSolution(double scale)
+    void ExpectedSolution(TData scale)
     {
-        const unsigned int compSize = fixt_in->GetNumComponents();
-        const size_t nphys          = fixt_explist->GetTotPoints();
-        const size_t nphys1D        = fixt_explist->Get1DScaledTotPoints(scale);
+        const unsigned int compSize = this->fixt_in->GetNumComponents();
+        const size_t nphys          = this->fixt_explist->GetTotPoints();
+        const size_t nphys1D = this->fixt_explist->Get1DScaledTotPoints(scale);
 
         // Calculate expected result from Nektar++
-        Array<OneD, double> inphys = fixt_in->ToArray();
-        Array<OneD, double> outphys(compSize * nphys1D), tmp;
+        Array<OneD, TData> inphys = this->fixt_in->ToArray();
+        Array<OneD, TData> outphys(compSize * nphys1D), tmp;
 
         for (unsigned int i = 0; i < compSize; ++i)
         {
-            fixt_explist->PhysInterp1DScaled(scale, inphys + i * nphys,
-                                             tmp = outphys + i * nphys1D);
+            this->fixt_explist->PhysInterp1DScaled(scale, inphys + i * nphys,
+                                                   tmp = outphys + i * nphys1D);
         }
-        fixt_expected->CopyArray<NektarSpaces::HostSpace>(outphys);
+        this->fixt_expected->template CopyArray<NektarSpaces::HostSpace>(
+            outphys);
     }
 };
 
-#define TEST(type, filename)                                                   \
-    class type : public PhysInterp1DScaledField                                \
+// clang-format off
+#if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
+#define TESTFLOAT(type, filename)                                              \
+    class type##float : public PhysInterp1DScaledField<float>                  \
+    {                                                                          \
+    public:                                                                    \
+        type##float()                                                          \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
+#else
+#define TESTFLOAT(type, filename)
+#endif
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
+#define TESTDOUBLE(type, filename)                                             \
+    class type : public PhysInterp1DScaledField<double>                        \
     {                                                                          \
     public:                                                                    \
         type()                                                                 \
@@ -113,6 +131,13 @@ public:
             meshName = filename;                                               \
         }                                                                      \
     };
+#else
+#define TESTDOUBLE(type, filename)
+#endif
+#define TEST(type, filename)                                                   \
+    TESTFLOAT(type, filename)                                                  \
+    TESTDOUBLE(type, filename)
+// clang-format on
 
 TEST(Seg, "run/segment.xml")
 

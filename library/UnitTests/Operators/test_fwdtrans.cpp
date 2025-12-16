@@ -54,6 +54,7 @@
 
 BOOST_AUTO_TEST_SUITE(TestFwdTrans)
 
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_FWDTRANS(fwdtrans_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-08)
 
 TEST_FWDTRANS(fwdtrans_seg, Helmholtz1D_Seg, 1.0E-12)
@@ -67,5 +68,6 @@ TEST_FWDTRANS(fwdtrans_prism, Helmholtz3D_Prism, 1.0E-08)
 TEST_FWDTRANS(fwdtrans_pyr, Helmholtz3D_Pyr, 1.0E-08)
 
 TEST_FWDTRANS(fwdtrans_tet, Helmholtz3D_Tet, 5.0E-08)
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -51,13 +51,14 @@ using namespace Nektar::LibUtilities;
 using namespace Nektar::MultiRegions;
 using namespace Nektar;
 
+template <typename TData>
 class AssmbScatrField
-    : public InitFields<double, FieldState::Coeff, FieldState::Coeff, ContField>
+    : public InitFields<TData, FieldState::Coeff, FieldState::Coeff, ContField>
 {
 
 public:
     AssmbScatrField()
-        : InitFields<double, FieldState::Coeff, FieldState::Coeff, ContField>()
+        : InitFields<TData, FieldState::Coeff, FieldState::Coeff, ContField>()
     {
     }
 
@@ -68,14 +69,16 @@ public:
     void SetTestCase(bool ZeroDir = false)
     {
         // Set initial conditions.
-        std::string execStr = Operator<double>::GetOpExecSpace(session);
+        std::string execStr = Operator<TData>::GetOpExecSpace(this->session);
 
-        for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
+        for (unsigned int blk = 0; blk < this->fixt_in->GetBlocks().size();
+             ++blk)
         {
-            auto &block = fixt_in->GetBlocks()[blk];
+            auto &block = this->fixt_in->GetBlocks()[blk];
             auto inptr =
                 block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-            for (unsigned int nc = 0; nc < fixt_in->GetNumComponents(); ++nc)
+            for (unsigned int nc = 0; nc < this->fixt_in->GetNumComponents();
+                 ++nc)
             {
                 for (size_t el = 0, cnt = 0; el < block.GetNumElements(); ++el)
                 {
@@ -92,64 +95,65 @@ public:
         // Compute expected solution.
         ExpectedSolution(ZeroDir);
 
-        // reshape fixt_in
+        // reshape this->fixt_in
         if (execStr == "AVX")
         {
-            for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
+            for (unsigned int blk = 0; blk < this->fixt_in->GetBlocks().size();
+                 ++blk)
             {
-                auto &block = fixt_in->GetBlocks()[blk];
+                auto &block = this->fixt_in->GetBlocks()[blk];
                 auto inptr =
                     block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-                for (unsigned int nc = 0; nc < fixt_in->GetNumComponents();
-                     ++nc)
+                for (unsigned int nc = 0;
+                     nc < this->fixt_in->GetNumComponents(); ++nc)
                 {
                     // reshuffle data into simd_t width for AVX check
                     ReshapeStorage<NektarSpaces::Serial>(
                         NektarSpaces::vector_width<NektarSpaces::AVX,
-                                                   double>::value,
+                                                   TData>::value,
                         block.GetInterleaveWidth(),
                         block.GetNumElementsWithPadding(), block.GetNumData(),
                         inptr);
                     inptr += block.size();
                 }
 
-                block.template SetInterleaveWidth<double>(
+                block.template SetInterleaveWidth<TData>(
                     NektarSpaces::vector_width<NektarSpaces::AVX,
-                                               double>::value);
+                                               TData>::value);
             }
         }
     }
 
     void RunTestCase()
     {
-        auto op = AssmbScatrOp<double>::Create(fixt_explist);
-        op->Apply(*fixt_in, *fixt_out);
+        auto op = AssmbScatrOp<double>::Create(this->fixt_explist);
+        op->Apply(*this->fixt_in, *this->fixt_out);
     }
 
     void RunTestCaseZeroDir()
     {
-        auto op = AssmbScatrZeroDirOp<double>::Create(fixt_explist);
-        op->Apply(*fixt_in, *fixt_out);
+        auto op = AssmbScatrZeroDirOp<double>::Create(this->fixt_explist);
+        op->Apply(*this->fixt_in, *this->fixt_out);
     }
 
     void ExpectedSolution(bool ZeroDir = false)
     {
-        std::vector<std::string> variables = session->GetVariables();
+        std::vector<std::string> variables = this->session->GetVariables();
         std::vector<std::shared_ptr<MultiRegions::ContField>> contfields;
-        auto graph            = SpatialDomains::MeshGraphIO::Read(session);
-        unsigned int compSize = fixt_in->GetNumComponents();
+        auto graph = SpatialDomains::MeshGraphIO::Read(this->session);
+        unsigned int compSize = this->fixt_in->GetNumComponents();
 
         for (auto &variable : variables)
         {
             contfields.push_back(
                 MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(
-                    session, graph, variable, true, false,
+                    this->session, graph, variable, true, false,
                     Collections::eNoCollection));
         }
 
         // Calculate expected result from Nektar++.
-        size_t ncoeffs               = fixt_explist->GetNcoeffs();
-        Array<OneD, double> incoeffs = fixt_in->ToArray();
+        size_t ncoeffs               = this->fixt_explist->GetNcoeffs();
+        Array<OneD, double> incoeffs = this->fixt_in->ToArray();
         Array<OneD, double> outcoeffs(compSize * ncoeffs);
 
         for (unsigned int i = 0; i < variables.size(); ++i)
@@ -166,12 +170,28 @@ public:
             map->GlobalToLocal(outcoeffs + i * ncoeffs,
                                tmp = outcoeffs + i * ncoeffs);
         }
-        fixt_expected->CopyArray<NektarSpaces::HostSpace>(outcoeffs);
+        this->fixt_expected->template CopyArray<NektarSpaces::HostSpace>(
+            outcoeffs);
     }
 };
 
-#define TEST(type, filename)                                                   \
-    class type : public AssmbScatrField                                        \
+// clang-format off
+#if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
+#define TESTFLOAT(type, filename)                                              \
+    class type##float : public AssmbScatrField<float>                          \
+    {                                                                          \
+    public:                                                                    \
+        type##float()                                                          \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
+#else
+#define TESTFLOAT(type, filename)
+#endif
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
+#define TESTDOUBLE(type, filename)                                             \
+    class type : public AssmbScatrField<double>                                \
     {                                                                          \
     public:                                                                    \
         type()                                                                 \
@@ -179,6 +199,13 @@ public:
             meshName = filename;                                               \
         }                                                                      \
     };
+#else
+#define TESTDOUBLE(type, filename)
+#endif
+#define TEST(type, filename)                                                   \
+    TESTFLOAT(type, filename)                                                  \
+    TESTDOUBLE(type, filename)
+// clang-format on
 
 TEST(Seg, "run/segment.xml")
 

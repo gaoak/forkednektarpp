@@ -78,6 +78,7 @@
 
 BOOST_AUTO_TEST_SUITE(TestHelmholtz)
 
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_HELMHOLTZ(helmholtz_seg, Seg, 1.0E-12)
 
 TEST_HELMHOLTZ(helmholtz_seg_sem, SegSEM, 1.0E-12)
@@ -130,5 +131,6 @@ TEST_HELMHOLTZ(helmholtz_tet_nodal, TetNodal, 1.0E-12)
 TEST_HELMHOLTZ(helmholtz_cube_prism_hex, CubePrismHex, 1.0E-12)
 
 TEST_HELMHOLTZ(helmholtz_cube_all_elements, CubeAllElements, 1.0E-12)
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()

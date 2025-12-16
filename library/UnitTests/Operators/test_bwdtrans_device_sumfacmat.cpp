@@ -54,6 +54,7 @@
 
 BOOST_AUTO_TEST_SUITE(TestBwdTransDeviceSumFacMat)
 
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_BWDTRANS(bwdtrans_device_sumfacmat_seg, Seg, 1.0E-12)
 
 TEST_BWDTRANS(bwdtrans_device_sumfacmat_seg_sem, SegSEM, 1.0E-12)
@@ -93,5 +94,6 @@ TEST_BWDTRANS(bwdtrans_device_sumfacmat_cube_prism_hex, CubePrismHex, 1.0E-12)
 
 TEST_BWDTRANS(bwdtrans_device_sumfacmat_cube_all_elements, CubeAllElements,
               1.0E-12)
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()

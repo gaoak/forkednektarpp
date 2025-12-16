@@ -54,6 +54,7 @@
 
 BOOST_AUTO_TEST_SUITE(TestMultiplyByElmtInvMass)
 
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_serial_seg, Seg, 1.0E-04)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_serial_seg_sem, SegSEM,
@@ -103,5 +104,6 @@ TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_serial_cube_prism_hex,
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_serial_cube_all_elements,
                            CubeAllElements, 1.0E-03)
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()

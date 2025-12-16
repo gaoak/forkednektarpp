@@ -40,26 +40,28 @@ using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
 
+template <typename TData>
 class IProductWRTBaseField
-    : public InitFields<double, FieldState::Phys, FieldState::Coeff>
+    : public InitFields<TData, FieldState::Phys, FieldState::Coeff>
 {
 public:
     IProductWRTBaseField()
-        : InitFields<double, FieldState::Phys, FieldState::Coeff>()
+        : InitFields<TData, FieldState::Phys, FieldState::Coeff>()
     {
     }
 
     void SetTestCase()
     {
         // Set initial conditions.
-        for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
+        for (unsigned int blk = 0; blk < this->fixt_in->GetBlocks().size();
+             ++blk)
         {
-            auto &block = fixt_in->GetBlocks()[blk];
-            double *inptr =
+            auto &block = this->fixt_in->GetBlocks()[blk];
+            TData *inptr =
                 block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
-            for (unsigned int n = 0;
-                 n < fixt_in->GetNumComponents() * fixt_in->GetNumHomoModes();
+            for (unsigned int n = 0; n < this->fixt_in->GetNumComponents() *
+                                             this->fixt_in->GetNumHomoModes();
                  ++n)
             {
                 for (size_t el = 0, cnt = 0; el < block.GetNumElements(); ++el)
@@ -80,31 +82,47 @@ public:
 
     void RunTestCase()
     {
-        auto op = IProductWRTBaseOp<double>::Create(fixt_explist);
-        op->Apply(*fixt_in, *fixt_out);
+        auto op = IProductWRTBaseOp<TData>::Create(this->fixt_explist);
+        op->Apply(*this->fixt_in, *this->fixt_out);
     }
 
     void ExpectedSolution()
     {
         // Calculate expected result from Nektar++
-        const unsigned int compSize = fixt_in->GetNumComponents();
-        const size_t ncoeffs        = fixt_explist->GetNcoeffs();
-        const size_t nphys          = fixt_explist->GetTotPoints();
+        const unsigned int compSize = this->fixt_in->GetNumComponents();
+        const size_t ncoeffs        = this->fixt_explist->GetNcoeffs();
+        const size_t nphys          = this->fixt_explist->GetTotPoints();
 
-        Array<OneD, double> inphys = fixt_in->ToArray();
-        Array<OneD, double> outcoeffs(compSize * ncoeffs);
-        Array<OneD, double> tmp;
+        Array<OneD, TData> inphys = this->fixt_in->ToArray();
+        Array<OneD, TData> outcoeffs(compSize * ncoeffs);
+        Array<OneD, TData> tmp;
         for (unsigned int i = 0; i < compSize; ++i)
         {
-            fixt_explist->IProductWRTBase(inphys + i * nphys,
-                                          tmp = outcoeffs + i * ncoeffs);
+            this->fixt_explist->IProductWRTBase(inphys + i * nphys,
+                                                tmp = outcoeffs + i * ncoeffs);
         }
-        fixt_expected->CopyArray<NektarSpaces::HostSpace>(outcoeffs);
+        this->fixt_expected->template CopyArray<NektarSpaces::HostSpace>(
+            outcoeffs);
     }
 };
 
-#define TEST(type, filename)                                                   \
-    class type : public IProductWRTBaseField                                   \
+// clang-format off
+#if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
+#define TESTFLOAT(type, filename)                                              \
+    class type##float : public IProductWRTBaseField<float>                     \
+    {                                                                          \
+    public:                                                                    \
+        type##float()                                                          \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
+#else
+#define TESTFLOAT(type, filename)
+#endif
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
+#define TESTDOUBLE(type, filename)                                             \
+    class type : public IProductWRTBaseField<double>                           \
     {                                                                          \
     public:                                                                    \
         type()                                                                 \
@@ -112,6 +130,13 @@ public:
             meshName = filename;                                               \
         }                                                                      \
     };
+#else
+#define TESTDOUBLE(type, filename)
+#endif
+#define TEST(type, filename)                                                   \
+    TESTFLOAT(type, filename)                                                  \
+    TESTDOUBLE(type, filename)
+// clang-format on
 
 TEST(Seg, "run/segment.xml")
 
