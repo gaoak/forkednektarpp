@@ -50,7 +50,79 @@ public:
     {
     }
 
-    void SetTestCase(TData scale)
+    void Configure(const TData scale)
+    {
+        this->scale = scale;
+        this->SetSession();
+        this->SetExpList();
+        this->fixt_explist->SetDataWarehouse();
+        this->SetFixture();
+    }
+
+    void Configure3DH1(const TData scale, const unsigned int nhomo = 1)
+    {
+        this->scale = scale;
+        this->SetSession();
+        this->SetExpList3DH1(nhomo);
+        this->fixt_explist->SetDataWarehouse();
+        this->SetFixture(nhomo);
+    }
+
+    void Configure3DH2(const TData scale, const unsigned int nhomoY = 1,
+                       const unsigned int nhomoZ = 1)
+    {
+        this->scale = scale;
+        this->SetSession();
+        this->SetExpList3DH2(nhomoY, nhomoZ);
+        this->fixt_explist->SetDataWarehouse();
+        this->SetFixture(nhomoY * nhomoZ);
+    }
+
+    void SetFixture(const unsigned int nhomo = 1) override
+    {
+        auto nin  = this->session->GetVariables().size();
+        auto nout = this->session->GetVariables().size();
+        auto inblockAttr =
+            GetBlockAttributes<TData, FieldState::Phys>(this->fixt_explist);
+        std::vector<BlockAttributes<FieldState::Phys>> outblockAttr;
+
+        size_t eid = 0;
+        for (unsigned int blk = 0; blk < inblockAttr.size(); ++blk)
+        {
+            auto expPtr = this->fixt_explist->GetExp(eid);
+
+            unsigned int npts0 = expPtr->GetNumPoints(0);
+            unsigned int ndata = 1;
+            for (unsigned int d = 0; d < expPtr->GetNumBases(); ++d)
+            {
+                unsigned int npts = expPtr->GetNumPoints(d);
+                ndata *= (npts0 - npts == 1) ? (int)(npts0 * this->scale - 1)
+                                             : (int)(npts * this->scale);
+            }
+
+            BlockAttributes<FieldState::Phys> new_block(
+                inblockAttr[blk].GetNumElements(),
+                inblockAttr[blk].GetNumElementsWithPadding(), ndata,
+                inblockAttr[blk].GetInterleaveWidth());
+
+            outblockAttr.push_back(new_block);
+
+            eid += inblockAttr[blk].GetNumElements();
+        }
+
+        auto f_in =
+            Field<TData, FieldState::Phys>("f_in", inblockAttr, nin, nhomo);
+        auto f_out =
+            Field<TData, FieldState::Phys>("f_out", outblockAttr, nout, nhomo);
+        auto f_expected = Field<TData, FieldState::Phys>(
+            "f_expected", outblockAttr, nout, nhomo);
+        this->fixt_in  = new Field<TData, FieldState::Phys>(std::move(f_in));
+        this->fixt_out = new Field<TData, FieldState::Phys>(std::move(f_out));
+        this->fixt_expected =
+            new Field<TData, FieldState::Phys>(std::move(f_expected));
+    }
+
+    void SetTestCase(void)
     {
         // Set initial conditions.
         for (unsigned int blk = 0; blk < this->fixt_in->GetBlocks().size();
@@ -77,21 +149,22 @@ public:
         }
 
         // Compute expected solution.
-        ExpectedSolution(scale);
+        ExpectedSolution();
     }
 
-    void RunTestCase(const TData scale)
+    void RunTestCase()
     {
         auto op = PhysInterp1DScaledOp<TData>::Create(this->fixt_explist);
-        op->SetScaleFactor(scale);
+        op->SetScaleFactor(this->scale);
         op->Apply(*this->fixt_in, *this->fixt_out);
     }
 
-    void ExpectedSolution(TData scale)
+    void ExpectedSolution()
     {
         const unsigned int compSize = this->fixt_in->GetNumComponents();
         const size_t nphys          = this->fixt_explist->GetTotPoints();
-        const size_t nphys1D = this->fixt_explist->Get1DScaledTotPoints(scale);
+        const size_t nphys1D =
+            this->fixt_explist->Get1DScaledTotPoints(this->scale);
 
         // Calculate expected result from Nektar++
         Array<OneD, TData> inphys = this->fixt_in->ToArray();
@@ -99,12 +172,15 @@ public:
 
         for (unsigned int i = 0; i < compSize; ++i)
         {
-            this->fixt_explist->PhysInterp1DScaled(scale, inphys + i * nphys,
-                                                   tmp = outphys + i * nphys1D);
+            this->fixt_explist->PhysInterp1DScaled(
+                this->scale, inphys + i * nphys, tmp = outphys + i * nphys1D);
         }
         this->fixt_expected->template CopyArray<NektarSpaces::HostSpace>(
             outphys);
     }
+
+private:
+    TData scale;
 };
 
 // clang-format off

@@ -164,7 +164,7 @@ public:
     {
     }
 
-    ~InitFields()
+    virtual ~InitFields()
     {
         BOOST_TEST_MESSAGE("teardown fixture");
 
@@ -182,8 +182,32 @@ public:
         }
     }
 
-    void Configure(const unsigned int nin = 1, const unsigned int nout = 1,
-                   const bool trace = false, const TData scale_out = 1.0)
+    void Configure(void)
+    {
+        this->SetSession();
+        this->SetExpList();
+        this->fixt_explist->SetDataWarehouse();
+        this->SetFixture(1);
+    }
+
+    void Configure3DH1(const unsigned int nhomo = 1)
+    {
+        this->SetSession();
+        this->SetExpList3DH1(nhomo);
+        this->fixt_explist->SetDataWarehouse();
+        this->SetFixture(nhomo);
+    }
+
+    void Configure3DH2(const unsigned int nhomoY = 1,
+                       const unsigned int nhomoZ = 1)
+    {
+        this->SetSession();
+        this->SetExpList3DH2(nhomoY, nhomoZ);
+        this->fixt_explist->SetDataWarehouse();
+        this->SetFixture(nhomoY * nhomoZ);
+    }
+
+    void SetSession(void)
     {
         std::string execStr(
             boost::unit_test::framework::master_test_suite().argv[1]);
@@ -191,9 +215,6 @@ public:
             boost::unit_test::framework::master_test_suite().argv[2]);
 
         BOOST_TEST_MESSAGE("Creating input and output fields");
-
-        // Initialise a session, graph and Create an expansion list
-        SpatialDomains::MeshGraphSharedPtr graph;
 
         // Construct a fake command-line argument array to be fed to
         // Session::Reader::CreateInstance. The first element stands for
@@ -205,8 +226,7 @@ public:
         argv[2]     = strdup(("--opExecSpace=" + execStr).c_str());
         argv[3]     = strdup(("--opImpl=" + implStr).c_str());
 
-        session = LibUtilities::SessionReader::CreateInstance(argc, argv);
-        graph   = SpatialDomains::MeshGraphIO::Read(session);
+        this->session = LibUtilities::SessionReader::CreateInstance(argc, argv);
 
         if (session->GetComm())
         {
@@ -215,80 +235,43 @@ public:
             auto device_rank = rank % num_device;
             nekSetDevice(device_rank);
         }
+    }
 
+    void SetExpList(void)
+    {
+        auto graph = SpatialDomains::MeshGraphIO::Read(session);
         if constexpr (std::is_same_v<TExpList, MultiRegions::ContField>)
         {
-
-            fixt_explist =
+            this->fixt_explist =
                 MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(
                     session, graph, "u", true, false,
                     Collections::eNoCollection);
         }
         else if constexpr (std::is_same_v<TExpList, MultiRegions::DisContField>)
         {
-            fixt_explist =
+            this->fixt_explist =
                 MemoryManager<MultiRegions::DisContField>::AllocateSharedPtr(
                     session, graph, "u", true, true,
                     Collections::eNoCollection);
         }
         else if constexpr (std::is_same_v<TExpList, MultiRegions::ExpList>)
         {
-            fixt_explist =
+            this->fixt_explist =
                 MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
                     session, graph, true, "u", Collections::eNoCollection);
         }
-
-        fixt_explist->SetDataWarehouse();
-        if (trace)
-        {
-            fixt_explist->GetTrace()->SetDataWarehouse();
-        }
-
-        SetFixture(nin, nout, 1, trace, scale_out);
     }
 
-    void Configure3DH1(const unsigned int nin = 1, const unsigned int nout = 1,
-                       const unsigned int nhomo = 1, const bool trace = false,
-                       const TData scale_out = 1.0)
+    void SetExpList3DH1(const unsigned int nhomo = 1)
     {
-        std::string execStr(
-            boost::unit_test::framework::master_test_suite().argv[1]);
-        std::string implStr(
-            boost::unit_test::framework::master_test_suite().argv[2]);
-
-        BOOST_TEST_MESSAGE("Creating input and output fields");
-
-        // Initialise a session, graph and Create an expansion list
-        SpatialDomains::MeshGraphSharedPtr graph;
-
-        // Construct a fake command-line argument array to be fed to
-        // Session::Reader::CreateInstance. The first element stands for
-        // the name of the executable which, in our case, doesn't matter.
-        int argc    = 4;
-        char **argv = new char *[argc];
-        argv[0]     = strdup("exe_name");
-        argv[1]     = meshName.data();
-        argv[2]     = strdup(("--opExecSpace=" + execStr).c_str());
-        argv[3]     = strdup(("--opImpl=" + implStr).c_str());
-
-        session = LibUtilities::SessionReader::CreateInstance(argc, argv);
-        graph   = SpatialDomains::MeshGraphIO::Read(session);
-
-        if (session->GetComm())
-        {
-            auto rank        = session->GetComm()->GetRank();
-            auto num_device  = nekGetDeviceCount();
-            auto device_rank = rank & num_device;
-            nekSetDevice(device_rank);
-        }
-
+        auto graph = SpatialDomains::MeshGraphIO::Read(session);
         if constexpr (std::is_same_v<TExpList, MultiRegions::ContField>)
         {
             const Nektar::LibUtilities::PointsKey pkey(
                 nhomo, Nektar::LibUtilities::eFourierEvenlySpaced);
             const Nektar::LibUtilities::BasisKey bkey(
                 Nektar::LibUtilities::eFourier, nhomo, pkey);
-            fixt_explist =
+            this->fixt_explist =
                 MemoryManager<MultiRegions::ContField3DHomogeneous1D>::
                     AllocateSharedPtr(session, bkey, 1.0, false, false, graph,
                                       "u", false, Collections::eNoCollection);
@@ -299,7 +282,7 @@ public:
                 nhomo, Nektar::LibUtilities::eFourierEvenlySpaced);
             const Nektar::LibUtilities::BasisKey bkey(
                 Nektar::LibUtilities::eFourier, nhomo, pkey);
-            fixt_explist =
+            this->fixt_explist =
                 MemoryManager<MultiRegions::DisContField3DHomogeneous1D>::
                     AllocateSharedPtr(session, bkey, 1.0, false, false, graph,
                                       "u", Collections::eNoCollection);
@@ -310,58 +293,18 @@ public:
                 nhomo, Nektar::LibUtilities::eFourierEvenlySpaced);
             const Nektar::LibUtilities::BasisKey bkey(
                 Nektar::LibUtilities::eFourier, nhomo, pkey);
-            fixt_explist = MemoryManager<MultiRegions::ExpList3DHomogeneous1D>::
-                AllocateSharedPtr(session, bkey, 1.0, false, false, graph, "u",
-                                  Collections::eNoCollection);
+            this->fixt_explist =
+                MemoryManager<MultiRegions::ExpList3DHomogeneous1D>::
+                    AllocateSharedPtr(session, bkey, 1.0, false, false, graph,
+                                      "u", Collections::eNoCollection);
         }
-
-        fixt_explist->SetWaveSpace(true);
-
-        fixt_explist->SetDataWarehouse();
-        if (trace)
-        {
-            fixt_explist->GetTrace()->SetDataWarehouse();
-        }
-
-        SetFixture(nin, nout, nhomo, trace, scale_out);
+        this->fixt_explist->SetWaveSpace(true);
     }
 
-    void Configure3DH2(const unsigned int nin = 1, const unsigned int nout = 1,
-                       const unsigned int nhomoY = 1,
-                       const unsigned int nhomoZ = 1, const bool trace = false,
-                       const TData scale_out = 1.0)
+    void SetExpList3DH2(const unsigned int nhomoY = 1,
+                        const unsigned int nhomoZ = 1)
     {
-        std::string execStr(
-            boost::unit_test::framework::master_test_suite().argv[1]);
-        std::string implStr(
-            boost::unit_test::framework::master_test_suite().argv[2]);
-
-        BOOST_TEST_MESSAGE("Creating input and output fields");
-
-        // Initialise a session, graph and Create an expansion list
-        SpatialDomains::MeshGraphSharedPtr graph;
-
-        // Construct a fake command-line argument array to be fed to
-        // Session::Reader::CreateInstance. The first element stands for
-        // the name of the executable which, in our case, doesn't matter.
-        int argc    = 4;
-        char **argv = new char *[argc];
-        argv[0]     = strdup("exe_name");
-        argv[1]     = meshName.data();
-        argv[2]     = strdup(("--opExecSpace=" + execStr).c_str());
-        argv[3]     = strdup(("--opImpl=" + implStr).c_str());
-
-        session = LibUtilities::SessionReader::CreateInstance(argc, argv);
-        graph   = SpatialDomains::MeshGraphIO::Read(session);
-
-        if (session->GetComm())
-        {
-            auto rank        = session->GetComm()->GetRank();
-            auto num_device  = nekGetDeviceCount();
-            auto device_rank = rank & num_device;
-            nekSetDevice(device_rank);
-        }
-
+        auto graph = SpatialDomains::MeshGraphIO::Read(session);
         if constexpr (std::is_same_v<TExpList, MultiRegions::ContField>)
         {
             const Nektar::LibUtilities::PointsKey pkey1(
@@ -372,7 +315,7 @@ public:
                 nhomoZ, Nektar::LibUtilities::eFourierEvenlySpaced);
             const Nektar::LibUtilities::BasisKey bkey2(
                 Nektar::LibUtilities::eFourier, nhomoZ, pkey2);
-            fixt_explist =
+            this->fixt_explist =
                 MemoryManager<MultiRegions::ContField3DHomogeneous2D>::
                     AllocateSharedPtr(session, bkey1, bkey2, 1.0, 1.0, false,
                                       false, graph, "u", false,
@@ -388,7 +331,7 @@ public:
                 nhomoZ, Nektar::LibUtilities::eFourierEvenlySpaced);
             const Nektar::LibUtilities::BasisKey bkey2(
                 Nektar::LibUtilities::eFourier, nhomoZ, pkey2);
-            fixt_explist =
+            this->fixt_explist =
                 MemoryManager<MultiRegions::DisContField3DHomogeneous2D>::
                     AllocateSharedPtr(session, bkey1, bkey2, 1.0, 1.0, false,
                                       false, graph, "u",
@@ -404,69 +347,20 @@ public:
                 nhomoZ, Nektar::LibUtilities::eFourierEvenlySpaced);
             const Nektar::LibUtilities::BasisKey bkey2(
                 Nektar::LibUtilities::eFourier, nhomoZ, pkey2);
-            fixt_explist = MemoryManager<MultiRegions::ExpList3DHomogeneous2D>::
-                AllocateSharedPtr(session, bkey1, bkey2, 1.0, 1.0, false, false,
-                                  graph, Collections::eNoCollection);
+            this->fixt_explist =
+                MemoryManager<MultiRegions::ExpList3DHomogeneous2D>::
+                    AllocateSharedPtr(session, bkey1, bkey2, 1.0, 1.0, false,
+                                      false, graph, Collections::eNoCollection);
         }
-
-        fixt_explist->SetWaveSpace(true);
-
-        fixt_explist->SetDataWarehouse();
-        if (trace)
-        {
-            fixt_explist->GetTrace()->SetDataWarehouse();
-        }
-
-        SetFixture(nin, nout, nhomoY * nhomoZ, trace, scale_out);
+        this->fixt_explist->SetWaveSpace(true);
     }
 
-    void SetFixture(const unsigned int nin, const unsigned int nout,
-                    const unsigned int nhomo, const bool trace,
-                    const TData scale_out)
+    virtual void SetFixture(const unsigned int nhomo)
     {
-        std::vector<BlockAttributes<stateIn>> inblockAttr;
-        std::vector<BlockAttributes<stateOut>> outblockAttr;
-
-        if (trace)
-        {
-            inblockAttr =
-                GetBlockAttributes<TData, stateIn>(fixt_explist->GetTrace());
-        }
-        else
-        {
-            inblockAttr = GetBlockAttributes<TData, stateIn>(fixt_explist);
-        }
-
-        if (scale_out != 1.0)
-        {
-            size_t eid = 0;
-            for (unsigned int blk = 0; blk < inblockAttr.size(); ++blk)
-            {
-                auto expPtr = fixt_explist->GetExp(eid);
-
-                unsigned int npts0 = expPtr->GetNumPoints(0);
-                unsigned int ndata = 1;
-                for (unsigned int d = 0; d < expPtr->GetNumBases(); ++d)
-                {
-                    unsigned int npts = expPtr->GetNumPoints(d);
-                    ndata *= (npts0 - npts == 1) ? (int)(npts0 * scale_out - 1)
-                                                 : (int)(npts * scale_out);
-                }
-
-                BlockAttributes<stateOut> new_block(
-                    inblockAttr[blk].GetNumElements(),
-                    inblockAttr[blk].GetNumElementsWithPadding(), ndata,
-                    inblockAttr[blk].GetInterleaveWidth());
-
-                outblockAttr.push_back(new_block);
-
-                eid += inblockAttr[blk].GetNumElements();
-            }
-        }
-        else
-        {
-            outblockAttr = GetBlockAttributes<TData, stateOut>(fixt_explist);
-        }
+        auto nin          = session->GetVariables().size();
+        auto nout         = session->GetVariables().size();
+        auto inblockAttr  = GetBlockAttributes<TData, stateIn>(fixt_explist);
+        auto outblockAttr = GetBlockAttributes<TData, stateOut>(fixt_explist);
 
         auto f_in  = Field<TData, stateIn>("f_in", inblockAttr, nin, nhomo);
         auto f_out = Field<TData, stateOut>("f_out", outblockAttr, nout, nhomo);

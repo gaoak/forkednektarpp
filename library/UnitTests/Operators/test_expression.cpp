@@ -40,10 +40,10 @@
 #include <iostream>
 #include <memory>
 
-#define TEST_EXPRESSION(test_name, test, nvar, tol)                            \
+#define TEST_EXPRESSION(test_name, test, tol)                                  \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        Configure(nvar, nvar);                                                 \
+        Configure();                                                           \
         SetTestCase();                                                         \
         RunTestCase();                                                         \
         boost::test_tools::output_test_stream output;                          \
@@ -55,25 +55,25 @@
 BOOST_AUTO_TEST_SUITE(TestExpression)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
-TEST_EXPRESSION(expression1d_seg, Helmholtz1D_Seg, 1, 1.0E-12)
+TEST_EXPRESSION(expression1d_seg, Helmholtz1D_Seg, 1.0E-12)
 
-TEST_EXPRESSION(expression2d_tri_quad, Helmholtz2D_Tri_Quad, 1, 1.0E-12)
+TEST_EXPRESSION(expression2d_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-12)
 
-TEST_EXPRESSION(expression3d_hex, Helmholtz3D_Hex, 1, 1.0E-12)
+TEST_EXPRESSION(expression3d_hex, Helmholtz3D_Hex, 1.0E-12)
 
-TEST_EXPRESSION(expression3d_prism, Helmholtz3D_Prism, 1, 1.0E-12)
+TEST_EXPRESSION(expression3d_prism, Helmholtz3D_Prism, 1.0E-12)
 
-TEST_EXPRESSION(expression3d_pyr, Helmholtz3D_Pyr, 1, 1.0E-12)
+TEST_EXPRESSION(expression3d_pyr, Helmholtz3D_Pyr, 1.0E-12)
 
-TEST_EXPRESSION(expression3d_tet, Helmholtz3D_Tet, 1, 1.0E-12)
+TEST_EXPRESSION(expression3d_tet, Helmholtz3D_Tet, 1.0E-12)
 
-TEST_EXPRESSION(expression3d_3c, Helmholtz3D_3C, 3, 1.0E-12)
+TEST_EXPRESSION(expression3d_3c, Helmholtz3D_3C, 1.0E-12)
 
-TEST_EXPRESSION(expression_seg_evars, Seg_3C_Evars, 3, 1.0E-12)
+TEST_EXPRESSION(expression_seg_evars, Seg_3C_Evars, 1.0E-12)
 
-TEST_EXPRESSION(expression_quad_tri_evars, QuadTri_2C_Evars, 2, 1.0E-12)
+TEST_EXPRESSION(expression_quad_tri_evars, QuadTri_2C_Evars, 1.0E-12)
 
-TEST_EXPRESSION(expression_hex_evars, Hex_3C_Evars, 3, 1.0E-12)
+TEST_EXPRESSION(expression_hex_evars, Hex_3C_Evars, 1.0E-12)
 #endif
 
 BOOST_AUTO_TEST_SUITE_END()

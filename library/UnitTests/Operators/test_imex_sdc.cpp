@@ -40,10 +40,10 @@
 #include <iostream>
 #include <memory>
 
-#define TEST_SCHEME(test_name, test, nvar, scheme, variant, order, freeparam)  \
+#define TEST_SCHEME(test_name, test, scheme, variant, order, freeparam)        \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        Configure(nvar, nvar);                                                 \
+        Configure();                                                           \
         SetTestCase(1.0, -10.0);                                               \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
@@ -55,43 +55,43 @@
 BOOST_AUTO_TEST_SUITE(TestIMEXSDC)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
-// TEST_SCHEME(sdc_order_1, segment, 2, "IMEXSDC", "Equidistant", 1,
+// TEST_SCHEME(sdc_order_1, segment, "IMEXSDC", "Equidistant", 1,
 //             (std::vector<double>{1.0, 1}))
 
-TEST_SCHEME(sdc_order_2, segment, 2, "IMEXSDC", "Equidistant", 2,
+TEST_SCHEME(sdc_order_2, segment, "IMEXSDC", "Equidistant", 2,
             (std::vector<double>{1.0, 2}))
 
-TEST_SCHEME(sdc_order_3, segment, 2, "IMEXSDC", "Equidistant", 3,
+TEST_SCHEME(sdc_order_3, segment, "IMEXSDC", "Equidistant", 3,
             (std::vector<double>{1.0, 3}))
 
-TEST_SCHEME(sdc_order_4, segment, 2, "IMEXSDC", "Equidistant", 4,
+TEST_SCHEME(sdc_order_4, segment, "IMEXSDC", "Equidistant", 4,
             (std::vector<double>{1.0, 4}))
 
-TEST_SCHEME(sdc_order_5, segment, 2, "IMEXSDC", "Equidistant", 5,
+TEST_SCHEME(sdc_order_5, segment, "IMEXSDC", "Equidistant", 5,
             (std::vector<double>{1.0, 5}))
 
-TEST_SCHEME(sdc_gll_order_2, segment, 2, "IMEXSDC", "GaussLobattoLegendre", 2,
+TEST_SCHEME(sdc_gll_order_2, segment, "IMEXSDC", "GaussLobattoLegendre", 2,
             (std::vector<double>{1.0, 2}))
 
-TEST_SCHEME(sdc_gll_order_4, segment, 2, "IMEXSDC", "GaussLobattoLegendre", 4,
+TEST_SCHEME(sdc_gll_order_4, segment, "IMEXSDC", "GaussLobattoLegendre", 4,
             (std::vector<double>{1.0, 3}))
 
-TEST_SCHEME(sdc_gll_order_6, segment, 2, "IMEXSDC", "GaussLobattoLegendre", 6,
+TEST_SCHEME(sdc_gll_order_6, segment, "IMEXSDC", "GaussLobattoLegendre", 6,
             (std::vector<double>{1.0, 4}))
 
-TEST_SCHEME(sdc_grl_order_3, segment, 2, "IMEXSDC", "GaussRadauLegendre", 3,
+TEST_SCHEME(sdc_grl_order_3, segment, "IMEXSDC", "GaussRadauLegendre", 3,
             (std::vector<double>{1.0, 2}))
 
-TEST_SCHEME(sdc_grl_order_5, segment, 2, "IMEXSDC", "GaussRadauLegendre", 5,
+TEST_SCHEME(sdc_grl_order_5, segment, "IMEXSDC", "GaussRadauLegendre", 5,
             (std::vector<double>{1.0, 3}))
 
-// TEST_SCHEME(sdc_ggl_order_2, segment, 2, "IMEXSDC", "GaussGaussLegendre", 2,
+// TEST_SCHEME(sdc_ggl_order_2, segment, "IMEXSDC", "GaussGaussLegendre", 2,
 //             (std::vector<double>{1.0, 1}))
 
-TEST_SCHEME(sdc_ggl_order_4, segment, 2, "IMEXSDC", "GaussGaussLegendre", 4,
+TEST_SCHEME(sdc_ggl_order_4, segment, "IMEXSDC", "GaussGaussLegendre", 4,
             (std::vector<double>{1.0, 2}))
 
-TEST_SCHEME(sdc_ggl_order_6, segment, 2, "IMEXSDC", "GaussGaussLegendre", 6,
+TEST_SCHEME(sdc_ggl_order_6, segment, "IMEXSDC", "GaussGaussLegendre", 6,
             (std::vector<double>{1.0, 3}))
 #endif
 
