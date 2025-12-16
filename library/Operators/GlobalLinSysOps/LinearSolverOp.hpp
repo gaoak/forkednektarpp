@@ -51,17 +51,19 @@ template <typename TData> class LinearSolverOp : public Operator<TData>
 public:
     static std::shared_ptr<LinearSolverOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
-        const std::string &method, const std::string &execStr = "")
+        const std::string &method = "", const std::string &execStr = "")
     {
         auto session = expansionList->GetSession();
+
+        std::string method0 = (method == "")
+                                  ? session->GetSolverInfo("LinSysIterSolver")
+                                  : method;
 
         std::string execStr0 = (execStr == "")
                                    ? Operator<TData>::GetOpExecSpace(session)
                                    : execStr;
 
-        // TODO: Specify iterative method from the session file.
-
-        std::string requestedKey = method + execStr0;
+        std::string requestedKey = method0 + execStr0;
 
         OperatorFactory<TData> &factory = GetOperatorFactory<TData>();
 
