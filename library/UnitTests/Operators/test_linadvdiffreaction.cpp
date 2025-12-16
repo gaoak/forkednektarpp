@@ -78,6 +78,7 @@
 
 BOOST_AUTO_TEST_SUITE(TestLinAdvDiffReaction)
 
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_LINADVDIFFREACTION(linadvdiffreaction_seg, Seg, 1.0E-12)
 
 TEST_LINADVDIFFREACTION(linadvdiffreaction_seg_sem, SegSEM, 1.0E-12)
@@ -133,4 +134,6 @@ TEST_LINADVDIFFREACTION(linadvdiffreaction_cube_prism_hex, CubePrismHex,
 
 TEST_LINADVDIFFREACTION(linadvdiffreaction_cube_all_elements, CubeAllElements,
                         1.0E-12)
+#endif
+
 BOOST_AUTO_TEST_SUITE_END()

@@ -150,6 +150,7 @@ int main(int argc, char *argv[])
 
     // You can add/remove the operators to be profiled as you like.
     // Benchmark-double
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
     LaunchProfiler<BwdTransOp<double>, FieldState::Coeff, FieldState::Phys,
                    double>(explist, Ntest, 1, 1, Ncomp);
     LaunchProfiler<IProductWRTBaseOp<double>, FieldState::Phys,
@@ -164,9 +165,10 @@ int main(int argc, char *argv[])
                    double>(explist, Ntest, 1, 1, Ncomp);
     LaunchProfiler<LinAdvDiffReactionOp<double>, FieldState::Coeff,
                    FieldState::Coeff, double>(explist, Ntest, 1, 1, Ncomp);
+#endif
 
-#if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
     // Benchmark-float
+#if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
     LaunchProfiler<BwdTransOp<float>, FieldState::Coeff, FieldState::Phys,
                    float>(explist, Ntest, 1, 1, Ncomp);
     LaunchProfiler<IProductWRTBaseOp<float>, FieldState::Phys,

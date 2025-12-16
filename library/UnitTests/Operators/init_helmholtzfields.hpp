@@ -40,25 +40,26 @@ using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
 
+template <typename TData>
 class HelmholtzField
-    : public InitFields<double, FieldState::Coeff, FieldState::Coeff>
+    : public InitFields<TData, FieldState::Coeff, FieldState::Coeff>
 {
 public:
-    HelmholtzField()
-        : InitFields<double, FieldState::Coeff, FieldState::Coeff>()
+    HelmholtzField() : InitFields<TData, FieldState::Coeff, FieldState::Coeff>()
     {
     }
 
     void SetTestCase()
     {
         // Set initial conditions.
-        for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
+        for (unsigned int blk = 0; blk < this->fixt_in->GetBlocks().size();
+             ++blk)
         {
-            auto &block = fixt_in->GetBlocks()[blk];
+            auto &block = this->fixt_in->GetBlocks()[blk];
             auto inptr =
                 block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-            for (unsigned int n = 0;
-                 n < fixt_in->GetNumComponents() * fixt_in->GetNumHomoModes();
+            for (unsigned int n = 0; n < this->fixt_in->GetNumComponents() *
+                                             this->fixt_in->GetNumHomoModes();
                  ++n)
             {
                 for (size_t el = 0, cnt = 0; el < block.GetNumElements(); ++el)
@@ -73,9 +74,9 @@ public:
             }
         }
 
-        // Get lambda from session or default to 10.0
-        m_lambda = session->DefinesParameter("Lambda")
-                       ? session->GetParameter("Lambda")
+        // Get lambda from this->session or default to 10.0
+        m_lambda = this->session->DefinesParameter("Lambda")
+                       ? this->session->GetParameter("Lambda")
                        : 10.0;
 
         // Compute expected solution.
@@ -84,55 +85,71 @@ public:
 
     void RunTestCase()
     {
-        auto op = HelmholtzOp<double>::Create(fixt_explist);
+        auto op = HelmholtzOp<TData>::Create(this->fixt_explist);
         op->SetLambda(m_lambda);
-        op->Apply(*fixt_in, *fixt_out);
+        op->Apply(*this->fixt_in, *this->fixt_out);
     }
 
     void ExpectedSolution()
     {
         // Calculate expected result from Nektar++.
-        const unsigned int compSize =
-            fixt_in->GetNumComponents() * fixt_in->GetNumHomoModes();
+        const unsigned int compSize = this->fixt_in->GetNumComponents() *
+                                      this->fixt_in->GetNumHomoModes();
         const size_t ncoeffs =
-            fixt_explist->GetNcoeffs() / fixt_in->GetNumHomoModes();
+            this->fixt_explist->GetNcoeffs() / this->fixt_in->GetNumHomoModes();
 
         StdRegions::FactorMap factors;
         factors[StdRegions::eFactorLambda] = m_lambda;
 
-        Array<OneD, double> incoeffs = fixt_in->ToArray();
-        Array<OneD, double> outcoeffs(compSize * ncoeffs);
-        Array<OneD, double> tmp;
+        Array<OneD, TData> incoeffs = this->fixt_in->ToArray();
+        Array<OneD, TData> outcoeffs(compSize * ncoeffs);
+        Array<OneD, TData> tmp;
 
         for (unsigned int i = 0; i < compSize; ++i)
         {
             size_t e      = 0;
             size_t offset = i * ncoeffs;
-            for (const auto &block : fixt_expected->GetBlocks())
+            for (const auto &block : this->fixt_expected->GetBlocks())
             {
-                auto nmTot = fixt_explist->GetExp(e)->GetNcoeffs();
+                auto nmTot = this->fixt_explist->GetExp(e)->GetNcoeffs();
                 for (size_t el = 0; el < block.GetNumElements(); ++el)
                 {
                     StdRegions::StdMatrixKey mkey(
                         StdRegions::eHelmholtz,
-                        fixt_explist->GetExp(e)->DetShapeType(),
-                        *(fixt_explist->GetExp(e)), factors);
-                    fixt_explist->GetExp(e)->GeneralMatrixOp(
+                        this->fixt_explist->GetExp(e)->DetShapeType(),
+                        *(this->fixt_explist->GetExp(e)), factors);
+                    this->fixt_explist->GetExp(e)->GeneralMatrixOp(
                         incoeffs + offset, tmp = outcoeffs + offset, mkey);
                     e++;
                     offset += nmTot;
                 }
             }
         }
-        fixt_expected->CopyArray<NektarSpaces::HostSpace>(outcoeffs);
+        this->fixt_expected->template CopyArray<NektarSpaces::HostSpace>(
+            outcoeffs);
     }
 
 private:
-    double m_lambda;
+    TData m_lambda;
 };
 
-#define TEST(type, filename)                                                   \
-    class type : public HelmholtzField                                         \
+// clang-format off
+#if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
+#define TESTFLOAT(type, filename)                                              \
+    class type##float : public HelmholtzField<float>                           \
+    {                                                                          \
+    public:                                                                    \
+        type##float()                                                          \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
+#else
+#define TESTFLOAT(type, filename)
+#endif
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
+#define TESTDOUBLE(type, filename)                                             \
+    class type : public HelmholtzField<double>                                 \
     {                                                                          \
     public:                                                                    \
         type()                                                                 \
@@ -140,6 +157,13 @@ private:
             meshName = filename;                                               \
         }                                                                      \
     };
+#else
+#define TESTDOUBLE(type, filename)
+#endif
+#define TEST(type, filename)                                                   \
+    TESTFLOAT(type, filename)                                                  \
+    TESTDOUBLE(type, filename)
+// clang-format on
 
 TEST(Seg, "run/segment.xml")
 

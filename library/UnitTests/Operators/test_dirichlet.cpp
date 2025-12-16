@@ -54,6 +54,7 @@
 
 BOOST_AUTO_TEST_SUITE(TestDirichlet)
 
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_DIRICHLET(dirichlet1d_seg, Helmholtz1D_Seg, 1.0E-12)
 
 TEST_DIRICHLET(dirichlet2d_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-12)
@@ -65,5 +66,6 @@ TEST_DIRICHLET(dirichlet3d_prism, Helmholtz3D_Prism, 1.0E-12)
 TEST_DIRICHLET(dirichlet3d_pyr, Helmholtz3D_Pyr, 1.0E-12)
 
 TEST_DIRICHLET(dirichlet3d_tet, Helmholtz3D_Tet, 1.0E-12)
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -42,13 +42,14 @@ using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
 
+template <typename TData>
 class HelmSolveField
-    : public InitFields<double, FieldState::Phys, FieldState::Coeff,
+    : public InitFields<TData, FieldState::Phys, FieldState::Coeff,
                         MultiRegions::ContField>
 {
 public:
     HelmSolveField()
-        : InitFields<double, FieldState::Phys, FieldState::Coeff,
+        : InitFields<TData, FieldState::Phys, FieldState::Coeff,
                      MultiRegions::ContField>()
     {
     }
@@ -56,23 +57,24 @@ public:
     void SetTestCase()
     {
         // Set initial conditions.
-        Array<OneD, double> x(fixt_explist->GetTotPoints());
-        Array<OneD, double> y(fixt_explist->GetTotPoints());
-        Array<OneD, double> z(fixt_explist->GetTotPoints());
-        Array<OneD, double> fce(fixt_explist->GetTotPoints());
-        fixt_explist->GetCoords(x, y, z);
+        Array<OneD, TData> x(this->fixt_explist->GetTotPoints());
+        Array<OneD, TData> y(this->fixt_explist->GetTotPoints());
+        Array<OneD, TData> z(this->fixt_explist->GetTotPoints());
+        Array<OneD, TData> fce(this->fixt_explist->GetTotPoints());
+        this->fixt_explist->GetCoords(x, y, z);
 
-        if (session->DefinesFunction("Forcing"))
+        if (this->session->DefinesFunction("Forcing"))
         {
-            auto func = session->GetFunction("Forcing", 0);
+            auto func = this->session->GetFunction("Forcing", 0);
             func->Evaluate(x, y, z, fce);
         }
 
         auto xptr = x.data(), yptr = y.data(), zptr = z.data(),
              fceptr = fce.data();
-        for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
+        for (unsigned int blk = 0; blk < this->fixt_in->GetBlocks().size();
+             ++blk)
         {
-            auto &block = fixt_in->GetBlocks()[blk];
+            auto &block = this->fixt_in->GetBlocks()[blk];
             auto inptr =
                 block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
             for (size_t el = 0, cnt = 0; el < block.GetNumElements(); ++el)
@@ -80,14 +82,14 @@ public:
                 for (unsigned int phys = 0; phys < block.GetNumData();
                      ++phys, ++cnt)
                 {
-                    if (session->DefinesFunction("Forcing"))
+                    if (this->session->DefinesFunction("Forcing"))
                     {
                         inptr[cnt] = *(fceptr++);
                     }
                     else
                     {
                         inptr[cnt] = 1.0;
-                        if (fixt_explist->GetCoordim(0) == 1)
+                        if (this->fixt_explist->GetCoordim(0) == 1)
                         {
                             for (unsigned int n = 1; n < 4; n++)
                             {
@@ -95,7 +97,7 @@ public:
                             }
                             xptr++;
                         }
-                        else if (fixt_explist->GetCoordim(0) == 2)
+                        else if (this->fixt_explist->GetCoordim(0) == 2)
                         {
                             for (unsigned int n = 1; n < 4; n++)
                             {
@@ -122,11 +124,11 @@ public:
             }
         }
 
-        fixt_out->template Initialize<NektarSpaces::HostSpace>(0.0);
+        this->fixt_out->template Initialize<NektarSpaces::HostSpace>(0.0);
 
-        // Get lambda from session or default to 10.0
-        m_lambda = session->DefinesParameter("Lambda")
-                       ? session->GetParameter("Lambda")
+        // Get lambda from this->session or default to 10.0
+        m_lambda = this->session->DefinesParameter("Lambda")
+                       ? this->session->GetParameter("Lambda")
                        : 10.0;
 
         // Compute expected solution.
@@ -135,32 +137,49 @@ public:
 
     void RunTestCase(const std::string &method)
     {
-        auto op       = HelmSolveOp<double>::Create(fixt_explist);
-        auto precon   = DiagPreconOp<double>::Create(fixt_explist);
-        auto linsolve = LinearSolverOp<double>::Create(fixt_explist, method);
+        auto op     = HelmSolveOp<TData>::Create(this->fixt_explist);
+        auto precon = DiagPreconOp<TData>::Create(this->fixt_explist);
+        auto linsolve =
+            LinearSolverOp<TData>::Create(this->fixt_explist, method);
         op->SetLambda(m_lambda);
         op->SetLinearSolver(linsolve);
         op->SetPrecon(precon);
-        op->Apply(*fixt_in, *fixt_out);
+        op->Apply(*this->fixt_in, *this->fixt_out);
     }
 
     void ExpectedSolution()
     {
         // Calculate expected result from Nektar++.
-        Array<OneD, double> inphys = fixt_in->ToArray();
-        Array<OneD, double> outcoeffs(fixt_explist->GetNcoeffs(), 0.0);
+        Array<OneD, TData> inphys = this->fixt_in->ToArray();
+        Array<OneD, TData> outcoeffs(this->fixt_explist->GetNcoeffs(), 0.0);
         StdRegions::ConstFactorMap factors;
         factors[StdRegions::eFactorLambda] = m_lambda;
-        fixt_explist->HelmSolve(inphys, outcoeffs, factors);
-        fixt_expected->CopyArray<NektarSpaces::HostSpace>(outcoeffs);
+        this->fixt_explist->HelmSolve(inphys, outcoeffs, factors);
+        this->fixt_expected->template CopyArray<NektarSpaces::HostSpace>(
+            outcoeffs);
     }
 
 protected:
-    double m_lambda;
+    TData m_lambda;
 };
 
-#define TEST(type, filename)                                                   \
-    class type : public HelmSolveField                                         \
+// clang-format off
+#if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
+#define TESTFLOAT(type, filename)                                              \
+    class type##float : public HelmSolveField<float>                           \
+    {                                                                          \
+    public:                                                                    \
+        type##float()                                                          \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
+#else
+#define TESTFLOAT(type, filename)
+#endif
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
+#define TESTDOUBLE(type, filename)                                             \
+    class type : public HelmSolveField<double>                                 \
     {                                                                          \
     public:                                                                    \
         type()                                                                 \
@@ -168,6 +187,13 @@ protected:
             meshName = filename;                                               \
         }                                                                      \
     };
+#else
+#define TESTDOUBLE(type, filename)
+#endif
+#define TEST(type, filename)                                                   \
+    TESTFLOAT(type, filename)                                                  \
+    TESTDOUBLE(type, filename)
+// clang-format on
 
 TEST(Helmholtz1D_Seg, "run/Helmholtz1D_P8.xml")
 

@@ -40,28 +40,29 @@ using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
 
+template <typename TData>
 class PhysDerivField
-    : public InitFields<double, FieldState::Phys, FieldState::Phys>
+    : public InitFields<TData, FieldState::Phys, FieldState::Phys>
 {
 public:
-    PhysDerivField() : InitFields<double, FieldState::Phys, FieldState::Phys>()
+    PhysDerivField() : InitFields<TData, FieldState::Phys, FieldState::Phys>()
     {
     }
 
     void RunTestCase()
     {
-        auto op = PhysDerivOp<double>::Create(fixt_explist);
-        op->Apply(*fixt_in, *fixt_out);
+        auto op = PhysDerivOp<TData>::Create(this->fixt_explist);
+        op->Apply(*this->fixt_in, *this->fixt_out);
     }
     void SetTestCase()
     {
         // Set initial conditions.
-        auto coordim   = fixt_explist->GetCoordim(0);
-        auto totpoints = fixt_explist->GetTotPoints();
-        Array<OneD, double> x(totpoints);
-        Array<OneD, double> y(totpoints);
-        Array<OneD, double> z(totpoints);
-        fixt_explist->GetCoords(x, y, z);
+        auto coordim   = this->fixt_explist->GetCoordim(0);
+        auto totpoints = this->fixt_explist->GetTotPoints();
+        Array<OneD, TData> x(totpoints);
+        Array<OneD, TData> y(totpoints);
+        Array<OneD, TData> z(totpoints);
+        this->fixt_explist->GetCoords(x, y, z);
         if (coordim == 1)
         {
             Vmath::Fill(totpoints, 1.0, y, 1);
@@ -73,16 +74,18 @@ public:
         }
 
         size_t el = 0;
-        for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
+        for (unsigned int blk = 0; blk < this->fixt_in->GetBlocks().size();
+             ++blk)
         {
-            auto &block = fixt_in->GetBlocks()[blk];
+            auto &block = this->fixt_in->GetBlocks()[blk];
             auto inptr =
                 block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
-            for (unsigned int n = 0; n < fixt_in->GetNumComponents(); ++n)
+            for (unsigned int n = 0; n < this->fixt_in->GetNumComponents(); ++n)
             {
                 size_t pts = 0;
-                for (unsigned int m = 0; m < fixt_in->GetNumHomoModes(); ++m)
+                for (unsigned int m = 0; m < this->fixt_in->GetNumHomoModes();
+                     ++m)
                 {
                     for (size_t e = 0, cnt = 0; e < block.GetNumElements(); ++e)
                     {
@@ -91,17 +94,19 @@ public:
                         // that basis exists
                         unsigned int M[3];
                         M[0] = M[1] = M[2] =
-                            fixt_explist->GetExp(el)->GetNumPoints(0);
+                            this->fixt_explist->GetExp(el)->GetNumPoints(0);
                         for (unsigned int i = 1;
-                             i < fixt_explist->GetExp(el)->GetNumBases(); ++i)
+                             i < this->fixt_explist->GetExp(el)->GetNumBases();
+                             ++i)
                         {
-                            M[i] = fixt_explist->GetExp(el)->GetNumPoints(i);
+                            M[i] =
+                                this->fixt_explist->GetExp(el)->GetNumPoints(i);
                         }
 
                         for (unsigned int phys = 0; phys < block.GetNumData();
                              ++phys, ++pts, ++cnt)
                         {
-                            double tmp = 0.0;
+                            TData tmp = 0.0;
                             for (unsigned int i = 0; i < M[0] / 2; i++)
                             {
                                 for (unsigned int j = 0; j < M[1] / 2; j++)
@@ -130,26 +135,42 @@ public:
     void ExpectedSolution()
     {
         // Calculate expected result from Nektar++
-        const unsigned int compSize = fixt_in->GetNumComponents();
-        const unsigned int coordim  = fixt_explist->GetCoordim(0);
-        const size_t nphys          = fixt_explist->GetTotPoints();
-        Array<OneD, double> inphys  = fixt_in->ToArray();
-        Array<OneD, double> outphys(compSize * coordim * nphys);
+        const unsigned int compSize = this->fixt_in->GetNumComponents();
+        const unsigned int coordim  = this->fixt_explist->GetCoordim(0);
+        const size_t nphys          = this->fixt_explist->GetTotPoints();
+        Array<OneD, TData> inphys   = this->fixt_in->ToArray();
+        Array<OneD, TData> outphys(compSize * coordim * nphys);
 
         for (unsigned int i = 0; i < compSize; ++i)
         {
-            Array<OneD, double> outphys0 = outphys + i * nphys * coordim;
-            Array<OneD, double> outphys1 = outphys0 + nphys;
-            Array<OneD, double> outphys2 = outphys1 + nphys;
-            fixt_explist->PhysDeriv(inphys + i * nphys, outphys0, outphys1,
-                                    outphys2);
+            Array<OneD, TData> outphys0 = outphys + i * nphys * coordim;
+            Array<OneD, TData> outphys1 = outphys0 + nphys;
+            Array<OneD, TData> outphys2 = outphys1 + nphys;
+            this->fixt_explist->PhysDeriv(inphys + i * nphys, outphys0,
+                                          outphys1, outphys2);
         }
-        fixt_expected->CopyArray<NektarSpaces::HostSpace>(outphys);
+        this->fixt_expected->template CopyArray<NektarSpaces::HostSpace>(
+            outphys);
     }
 };
 
-#define TEST(type, filename)                                                   \
-    class type : public PhysDerivField                                         \
+// clang-format off
+#if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
+#define TESTFLOAT(type, filename)                                              \
+    class type##float : public PhysDerivField<float>                           \
+    {                                                                          \
+    public:                                                                    \
+        type##float()                                                          \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
+#else
+#define TESTFLOAT(type, filename)
+#endif
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
+#define TESTDOUBLE(type, filename)                                             \
+    class type : public PhysDerivField<double>                                 \
     {                                                                          \
     public:                                                                    \
         type()                                                                 \
@@ -157,6 +178,13 @@ public:
             meshName = filename;                                               \
         }                                                                      \
     };
+#else
+#define TESTDOUBLE(type, filename)
+#endif
+#define TEST(type, filename)                                                   \
+    TESTFLOAT(type, filename)                                                  \
+    TESTDOUBLE(type, filename)
+// clang-format on
 
 TEST(Seg, "run/segment.xml")
 

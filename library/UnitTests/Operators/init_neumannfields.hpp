@@ -40,13 +40,14 @@ using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
 
+template <typename TData>
 class NeumannField
-    : public InitFields<double, FieldState::Coeff, FieldState::Coeff,
+    : public InitFields<TData, FieldState::Coeff, FieldState::Coeff,
                         MultiRegions::ContField>
 {
 public:
     NeumannField()
-        : InitFields<double, FieldState::Coeff, FieldState::Coeff,
+        : InitFields<TData, FieldState::Coeff, FieldState::Coeff,
                      MultiRegions::ContField>()
     {
     }
@@ -54,7 +55,7 @@ public:
     void SetTestCase()
     {
         // Set initial conditions.
-        fixt_out->template Initialize<NektarSpaces::HostSpace>(0.0);
+        this->fixt_out->template Initialize<NektarSpaces::HostSpace>(0.0);
 
         // Compute expected solution.
         ExpectedSolution();
@@ -62,21 +63,36 @@ public:
 
     void RunTestCase()
     {
-        auto op = NeuBndCondOp<double>::Create(fixt_explist);
-        op->Apply(*fixt_out);
+        auto op = NeuBndCondOp<TData>::Create(this->fixt_explist);
+        op->Apply(*this->fixt_out);
     }
 
     void ExpectedSolution()
     {
-        fixt_expected->template Initialize<NektarSpaces::HostSpace>(0.0);
+        this->fixt_expected->template Initialize<NektarSpaces::HostSpace>(0.0);
 
-        auto op = NeuBndCondOp<double>::Create(fixt_explist, "Serial");
-        op->Apply(*fixt_expected);
+        auto op = NeuBndCondOp<TData>::Create(this->fixt_explist, "Serial");
+        op->Apply(*this->fixt_expected);
     }
 };
 
-#define TEST(type, filename)                                                   \
-    class type : public NeumannField                                           \
+// clang-format off
+#if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
+#define TESTFLOAT(type, filename)                                              \
+    class type##float : public NeumannField<float>                             \
+    {                                                                          \
+    public:                                                                    \
+        type##float()                                                          \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
+#else
+#define TESTFLOAT(type, filename)
+#endif
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
+#define TESTDOUBLE(type, filename)                                             \
+    class type : public NeumannField<double>                                   \
     {                                                                          \
     public:                                                                    \
         type()                                                                 \
@@ -84,6 +100,13 @@ public:
             meshName = filename;                                               \
         }                                                                      \
     };
+#else
+#define TESTDOUBLE(type, filename)
+#endif
+#define TEST(type, filename)                                                   \
+    TESTFLOAT(type, filename)                                                  \
+    TESTDOUBLE(type, filename)
+// clang-format on
 
 TEST(Helmholtz1D_Seg, "run/Helmholtz1D_P8.xml")
 

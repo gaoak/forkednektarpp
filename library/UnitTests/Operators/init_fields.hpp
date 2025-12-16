@@ -183,7 +183,7 @@ public:
     }
 
     void Configure(const unsigned int nin = 1, const unsigned int nout = 1,
-                   const bool trace = false, const double scale_out = 1.0)
+                   const bool trace = false, const TData scale_out = 1.0)
     {
         std::string execStr(
             boost::unit_test::framework::master_test_suite().argv[1]);
@@ -249,7 +249,7 @@ public:
 
     void Configure3DH1(const unsigned int nin = 1, const unsigned int nout = 1,
                        const unsigned int nhomo = 1, const bool trace = false,
-                       const double scale_out = 1.0)
+                       const TData scale_out = 1.0)
     {
         std::string execStr(
             boost::unit_test::framework::master_test_suite().argv[1]);
@@ -329,7 +329,7 @@ public:
     void Configure3DH2(const unsigned int nin = 1, const unsigned int nout = 1,
                        const unsigned int nhomoY = 1,
                        const unsigned int nhomoZ = 1, const bool trace = false,
-                       const double scale_out = 1.0)
+                       const TData scale_out = 1.0)
     {
         std::string execStr(
             boost::unit_test::framework::master_test_suite().argv[1]);
@@ -422,7 +422,7 @@ public:
 
     void SetFixture(const unsigned int nin, const unsigned int nout,
                     const unsigned int nhomo, const bool trace,
-                    const double scale_out)
+                    const TData scale_out)
     {
         std::vector<BlockAttributes<stateIn>> inblockAttr;
         std::vector<BlockAttributes<stateOut>> outblockAttr;
@@ -590,7 +590,7 @@ public:
         for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
         {
             auto &block = in.GetBlocks()[blk];
-            double *inptr =
+            TData *inptr =
                 block.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
             size_t numElmtsPad =
                 block.GetNumElements() + block.GetNumPaddingElements();

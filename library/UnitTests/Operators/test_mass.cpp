@@ -78,6 +78,7 @@
 
 BOOST_AUTO_TEST_SUITE(TestMass)
 
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_MASS(mass_seg, Seg, 1.0E-12)
 
 TEST_MASS(mass_seg_sem, SegSEM, 1.0E-12)
@@ -129,5 +130,6 @@ TEST_MASS(mass_tet_nodal, TetNodal, 1.0E-12)
 TEST_MASS(mass_cube_prism_hex, CubePrismHex, 1.0E-12)
 
 TEST_MASS(mass_cube_all_elements, CubeAllElements, 1.0E-12)
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()

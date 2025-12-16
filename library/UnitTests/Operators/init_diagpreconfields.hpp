@@ -46,13 +46,14 @@ using namespace Nektar::LibUtilities;
 using namespace Nektar::MultiRegions;
 using namespace Nektar;
 
+template <typename TData>
 class DiagPreconField
-    : public InitFields<double, FieldState::Coeff, FieldState::Coeff,
+    : public InitFields<TData, FieldState::Coeff, FieldState::Coeff,
                         MultiRegions::ContField>
 {
 public:
     DiagPreconField()
-        : InitFields<double, FieldState::Coeff, FieldState::Coeff,
+        : InitFields<TData, FieldState::Coeff, FieldState::Coeff,
                      MultiRegions::ContField>()
     {
     }
@@ -61,9 +62,10 @@ public:
     {
 
         // Set initial conditions.
-        for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
+        for (unsigned int blk = 0; blk < this->fixt_in->GetBlocks().size();
+             ++blk)
         {
-            auto &block = fixt_in->GetBlocks()[blk];
+            auto &block = this->fixt_in->GetBlocks()[blk];
             auto inptr =
                 block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
             for (size_t el = 0, cnt = 0; el < block.GetNumElements(); ++el)
@@ -76,9 +78,9 @@ public:
             }
         }
 
-        // Get lambda from session or default to 10.0
-        m_lambda = session->DefinesParameter("Lambda")
-                       ? session->GetParameter("Lambda")
+        // Get lambda from this->session or default to 10.0
+        m_lambda = this->session->DefinesParameter("Lambda")
+                       ? this->session->GetParameter("Lambda")
                        : 10.0;
 
         // Compute expected solution.
@@ -87,43 +89,59 @@ public:
 
     void RunTestCase()
     {
-        auto op     = HelmholtzOp<double>::Create(fixt_explist);
-        auto precon = DiagPreconOp<double>::Create(fixt_explist);
-        auto assmb  = AssmbScatrZeroDirOp<double>::Create(fixt_explist);
+        auto op     = HelmholtzOp<TData>::Create(this->fixt_explist);
+        auto precon = DiagPreconOp<TData>::Create(this->fixt_explist);
+        auto assmb  = AssmbScatrZeroDirOp<TData>::Create(this->fixt_explist);
         op->SetLambda(m_lambda);
         precon->Configure(op);
-        assmb->Apply(*fixt_in, *fixt_out);
-        precon->Apply(*fixt_out, *fixt_out);
+        assmb->Apply(*this->fixt_in, *this->fixt_out);
+        precon->Apply(*this->fixt_out, *this->fixt_out);
     }
 
     void ExpectedSolution()
     {
         // Calculate expected result from Nektar++
-        Array<OneD, double> incoeffs = fixt_in->ToArray();
-        Array<OneD, double> outcoeffs(fixt_explist->GetNcoeffs(), 0.0);
+        Array<OneD, TData> incoeffs = this->fixt_in->ToArray();
+        Array<OneD, TData> outcoeffs(this->fixt_explist->GetNcoeffs(), 0.0);
 
         StdRegions::ConstFactorMap factors;
         factors[StdRegions::eFactorLambda] = m_lambda;
 
-        auto map =
-            std::dynamic_pointer_cast<MultiRegions::ContField>(fixt_explist)
-                ->GetLocalToGlobalMap();
+        auto map = std::dynamic_pointer_cast<MultiRegions::ContField>(
+                       this->fixt_explist)
+                       ->GetLocalToGlobalMap();
         GlobalLinSysKey key(StdRegions::eHelmholtz, map, factors);
         auto globalSys = GetGlobalLinSysFactory().CreateInstance(
-            "IterativeFull", key, fixt_explist, map);
+            "IterativeFull", key, this->fixt_explist, map);
         auto precond =
             GetPreconFactory().CreateInstance("Diagonal", globalSys, map);
         precond->BuildPreconditioner();
         precond->DoPreconditioner(incoeffs, outcoeffs, true);
-        fixt_expected->CopyArray<NektarSpaces::HostSpace>(outcoeffs);
+        this->fixt_expected->template CopyArray<NektarSpaces::HostSpace>(
+            outcoeffs);
     }
 
 private:
-    double m_lambda;
+    TData m_lambda;
 };
 
-#define TEST(type, filename)                                                   \
-    class type : public DiagPreconField                                        \
+// clang-format off
+#if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
+#define TESTFLOAT(type, filename)                                              \
+    class type##float : public DiagPreconField<float>                          \
+    {                                                                          \
+    public:                                                                    \
+        type##float()                                                          \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
+#else
+#define TESTFLOAT(type, filename)
+#endif
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
+#define TESTDOUBLE(type, filename)                                             \
+    class type : public DiagPreconField<double>                                \
     {                                                                          \
     public:                                                                    \
         type()                                                                 \
@@ -131,6 +149,13 @@ private:
             meshName = filename;                                               \
         }                                                                      \
     };
+#else
+#define TESTDOUBLE(type, filename)
+#endif
+#define TEST(type, filename)                                                   \
+    TESTFLOAT(type, filename)                                                  \
+    TESTDOUBLE(type, filename)
+// clang-format on
 
 TEST(Helmholtz1D_Seg, "run/Helmholtz1D_P8.xml")
 

@@ -53,6 +53,7 @@
 
 BOOST_AUTO_TEST_SUITE(TestIMEX)
 
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_SCHEME(imex_order_1, segment, 2, 1)
 
 TEST_SCHEME(imex_order_2, segment, 2, 2)
@@ -60,5 +61,6 @@ TEST_SCHEME(imex_order_2, segment, 2, 2)
 TEST_SCHEME(imex_order_3, segment, 2, 3)
 
 TEST_SCHEME(imex_order_4, segment, 2, 4)
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()

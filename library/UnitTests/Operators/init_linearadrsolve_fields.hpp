@@ -42,13 +42,14 @@ using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
 
+template <typename TData>
 class LinearADRSolveField
-    : public InitFields<double, FieldState::Phys, FieldState::Coeff,
+    : public InitFields<TData, FieldState::Phys, FieldState::Coeff,
                         MultiRegions::ContField>
 {
 public:
     LinearADRSolveField()
-        : InitFields<double, FieldState::Phys, FieldState::Coeff,
+        : InitFields<TData, FieldState::Phys, FieldState::Coeff,
                      MultiRegions::ContField>()
     {
     }
@@ -56,23 +57,24 @@ public:
     void SetTestCase()
     {
         // Set initial conditions.
-        Array<OneD, double> x(fixt_explist->GetTotPoints());
-        Array<OneD, double> y(fixt_explist->GetTotPoints());
-        Array<OneD, double> z(fixt_explist->GetTotPoints());
-        Array<OneD, double> fce(fixt_explist->GetTotPoints());
-        fixt_explist->GetCoords(x, y, z);
+        Array<OneD, TData> x(this->fixt_explist->GetTotPoints());
+        Array<OneD, TData> y(this->fixt_explist->GetTotPoints());
+        Array<OneD, TData> z(this->fixt_explist->GetTotPoints());
+        Array<OneD, TData> fce(this->fixt_explist->GetTotPoints());
+        this->fixt_explist->GetCoords(x, y, z);
 
-        if (session->DefinesFunction("Forcing"))
+        if (this->session->DefinesFunction("Forcing"))
         {
-            auto func = session->GetFunction("Forcing", 0);
+            auto func = this->session->GetFunction("Forcing", 0);
             func->Evaluate(x, y, z, fce);
         }
 
         auto xptr = x.data(), yptr = y.data(), zptr = z.data(),
              fceptr = fce.data();
-        for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
+        for (unsigned int blk = 0; blk < this->fixt_in->GetBlocks().size();
+             ++blk)
         {
-            auto &block = fixt_in->GetBlocks()[blk];
+            auto &block = this->fixt_in->GetBlocks()[blk];
             auto inptr =
                 block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
             for (size_t el = 0, cnt = 0; el < block.GetNumElements(); ++el)
@@ -80,14 +82,14 @@ public:
                 for (unsigned int phys = 0; phys < block.GetNumData();
                      ++phys, ++cnt)
                 {
-                    if (session->DefinesFunction("Forcing"))
+                    if (this->session->DefinesFunction("Forcing"))
                     {
                         inptr[cnt] = *(fceptr++);
                     }
                     else
                     {
                         inptr[cnt] = 1.0;
-                        if (fixt_explist->GetCoordim(0) == 1)
+                        if (this->fixt_explist->GetCoordim(0) == 1)
                         {
                             for (unsigned int n = 1; n < 4; n++)
                             {
@@ -95,7 +97,7 @@ public:
                             }
                             xptr++;
                         }
-                        else if (fixt_explist->GetCoordim(0) == 2)
+                        else if (this->fixt_explist->GetCoordim(0) == 2)
                         {
                             for (unsigned int n = 1; n < 4; n++)
                             {
@@ -122,19 +124,19 @@ public:
             }
         }
 
-        fixt_out->template Initialize<NektarSpaces::HostSpace>(0.0);
+        this->fixt_out->template Initialize<NektarSpaces::HostSpace>(0.0);
 
-        // Get lambda from session or default to 10.0
-        m_lambda = session->DefinesParameter("Lambda")
-                       ? session->GetParameter("Lambda")
+        // Get lambda from this->session or default to 10.0
+        m_lambda = this->session->DefinesParameter("Lambda")
+                       ? this->session->GetParameter("Lambda")
                        : 10.0;
 
         // Set advection velocity
-        size_t nphys =
-            fixt_explist->GetTotPoints() / fixt_in->GetNumHomoModes();
-        m_dim = fixt_explist->GetCoordim(0);
-        m_vel = Array<OneD, double>(nphys * m_dim, 1.0);
-        Array<OneD, double> tmp;
+        size_t nphys = this->fixt_explist->GetTotPoints() /
+                       this->fixt_in->GetNumHomoModes();
+        m_dim = this->fixt_explist->GetCoordim(0);
+        m_vel = Array<OneD, TData>(nphys * m_dim, 1.0);
+        Array<OneD, TData> tmp;
         for (unsigned int d = 1; d < m_dim; ++d)
         {
             Vmath::Fill(nphys, d + 1.0, tmp = m_vel + d * nphys, 1);
@@ -146,25 +148,26 @@ public:
 
     void RunTestCase(const std::string &method)
     {
-        auto op       = LinearADRSolveOp<double>::Create(fixt_explist);
-        auto precon   = DiagPreconOp<double>::Create(fixt_explist);
-        auto linsolve = LinearSolverOp<double>::Create(fixt_explist, method);
+        auto op     = LinearADRSolveOp<TData>::Create(this->fixt_explist);
+        auto precon = DiagPreconOp<TData>::Create(this->fixt_explist);
+        auto linsolve =
+            LinearSolverOp<TData>::Create(this->fixt_explist, method);
         op->SetLambda(m_lambda);
         op->SetAdvVel(m_dim, m_vel);
         op->SetLinearSolver(linsolve);
         op->SetPrecon(precon);
-        op->Apply(*fixt_in, *fixt_out);
+        op->Apply(*this->fixt_in, *this->fixt_out);
     }
 
     void ExpectedSolution()
     {
         // Calculate expected result from Nektar++.
-        const size_t nphys =
-            fixt_explist->GetTotPoints() / fixt_in->GetNumHomoModes();
+        const size_t nphys = this->fixt_explist->GetTotPoints() /
+                             this->fixt_in->GetNumHomoModes();
 
         // Setup input/output arrays
-        Array<OneD, double> inphys = fixt_in->ToArray();
-        Array<OneD, double> outcoeffs(fixt_explist->GetNcoeffs(), 0.0);
+        Array<OneD, TData> inphys = this->fixt_in->ToArray();
+        Array<OneD, TData> outcoeffs(this->fixt_explist->GetNcoeffs(), 0.0);
 
         // Set lambda as constant coefficient
         StdRegions::ConstFactorMap factors;
@@ -177,28 +180,44 @@ public:
             StdRegions::eVarCoeffVelZ};
         for (unsigned int d = 0; d < m_dim; ++d)
         {
-            Array<OneD, double> tmp;
-            Array<OneD, double> tmpVel(nphys);
+            Array<OneD, TData> tmp;
+            Array<OneD, TData> tmpVel(nphys);
             Vmath::Vcopy(nphys, m_vel + d * nphys, 1, tmpVel, 1);
             varcoeffs[velCoeffType[d]] = tmpVel;
         }
 
         // Solve system
-        fixt_explist->LinearAdvectionDiffusionReactionSolve(inphys, outcoeffs,
-                                                            factors, varcoeffs);
+        this->fixt_explist->LinearAdvectionDiffusionReactionSolve(
+            inphys, outcoeffs, factors, varcoeffs);
 
         // Copy solution back
-        fixt_expected->CopyArray<NektarSpaces::HostSpace>(outcoeffs);
+        this->fixt_expected->template CopyArray<NektarSpaces::HostSpace>(
+            outcoeffs);
     }
 
 protected:
     unsigned int m_dim;
-    double m_lambda;
-    Array<OneD, double> m_vel;
+    TData m_lambda;
+    Array<OneD, TData> m_vel;
 };
 
-#define TEST(type, filename)                                                   \
-    class type : public LinearADRSolveField                                    \
+// clang-format off
+#if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
+#define TESTFLOAT(type, filename)                                              \
+    class type##float : public LinearADRSolveField<float>                      \
+    {                                                                          \
+    public:                                                                    \
+        type##float()                                                          \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
+#else
+#define TESTFLOAT(type, filename)
+#endif
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
+#define TESTDOUBLE(type, filename)                                             \
+    class type : public LinearADRSolveField<double>                            \
     {                                                                          \
     public:                                                                    \
         type()                                                                 \
@@ -206,6 +225,13 @@ protected:
             meshName = filename;                                               \
         }                                                                      \
     };
+#else
+#define TESTDOUBLE(type, filename)
+#endif
+#define TEST(type, filename)                                                   \
+    TESTFLOAT(type, filename)                                                  \
+    TESTDOUBLE(type, filename)
+// clang-format on
 
 TEST(Helmholtz1D_Seg, "run/Helmholtz1D_P8.xml")
 

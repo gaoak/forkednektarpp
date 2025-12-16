@@ -54,6 +54,7 @@
 
 BOOST_AUTO_TEST_SUITE(TestIProductWRTDerivBaseDeviceSumFacMat)
 
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfacmat_seg, Seg, 1, 1.0E-12)
 
 TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfacmat_seg_sem, SegSEM, 1, 1.0E-12)
@@ -101,5 +102,6 @@ TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfacmat_cube_prism_hex,
 
 TEST_IPWRTDERIVBASE(ipwrtderivbase_device_sumfacmat_cube_all_elements,
                     CubeAllElements, 3, 1.0E-12)
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()

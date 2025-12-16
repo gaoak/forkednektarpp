@@ -53,6 +53,7 @@
 
 BOOST_AUTO_TEST_SUITE(TestImplicitGEM)
 
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_SCHEME(gem_order_1, segment, 2, "ImplicitGEM", "", 1)
 
 TEST_SCHEME(gem_order_2, segment, 2, "ImplicitGEM", "", 2)
@@ -68,5 +69,6 @@ TEST_SCHEME(gem_midpoint_order_2, segment, 2, "ImplicitGEM", "Midpoint", 2)
 TEST_SCHEME(gem_midpoint_order_4, segment, 2, "ImplicitGEM", "Midpoint", 4)
 
 TEST_SCHEME(gem_midpoint_order_6, segment, 2, "ImplicitGEM", "Midpoint", 6)
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()

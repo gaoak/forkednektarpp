@@ -26,7 +26,9 @@ ENDIF()
 SET(Shapes Seg Tri NodalTri Quad Hex Pyr Prism NodalPrism Tet NodalTet)
 
 # set default data types
+IF(NEKTAR_ENABLE_DOUBLE_PRECISION)
 SET(DataTypes double)
+ENDIF()
 IF(NEKTAR_ENABLE_SINGLE_PRECISION)
     SET(DataTypes ${DataTypes} float)
 ENDIF()

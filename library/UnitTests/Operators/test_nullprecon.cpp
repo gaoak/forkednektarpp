@@ -54,6 +54,7 @@
 
 BOOST_AUTO_TEST_SUITE(TestNullPrecon)
 
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_NULLPRECON(nullprecon_seg, Helmholtz1D_Seg, 1.0E-15)
 
 TEST_NULLPRECON(nullprecon_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-15)
@@ -65,5 +66,6 @@ TEST_NULLPRECON(nullprecon_prism, Helmholtz3D_Prism, 1.0E-15)
 TEST_NULLPRECON(nullprecon_pyr, Helmholtz3D_Pyr, 1.0E-15)
 
 TEST_NULLPRECON(nullprecon_tet, Helmholtz3D_Tet, 1.0E-15)
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()

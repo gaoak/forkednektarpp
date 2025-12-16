@@ -47,13 +47,14 @@
 
 BOOST_AUTO_TEST_SUITE(TestMath)
 
-BOOST_FIXTURE_TEST_CASE(abskernel, MathField)
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
+BOOST_FIXTURE_TEST_CASE(abskernel, MathField<double>)
 {
     Configure();
     SetTestCase();
 
     // std results
-    MathField::abs();
+    MathField<double>::abs();
 
     // Backend results
     math.abs(*fixt_in, *fixt_out);
@@ -65,13 +66,13 @@ BOOST_FIXTURE_TEST_CASE(abskernel, MathField)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(negkernel, MathField)
+BOOST_FIXTURE_TEST_CASE(negkernel, MathField<double>)
 {
     Configure();
     SetTestCase();
 
     // std results
-    MathField::neg();
+    MathField<double>::neg();
 
     // Backend results
     math.neg(*fixt_in, *fixt_out);
@@ -83,13 +84,13 @@ BOOST_FIXTURE_TEST_CASE(negkernel, MathField)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(sqrtkernel, MathField)
+BOOST_FIXTURE_TEST_CASE(sqrtkernel, MathField<double>)
 {
     Configure();
     SetTestCase();
 
     // std results
-    MathField::sqrt();
+    MathField<double>::sqrt();
 
     // Backend results
     math.abs(*fixt_in, *fixt_in2);
@@ -102,13 +103,13 @@ BOOST_FIXTURE_TEST_CASE(sqrtkernel, MathField)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(addkernel, MathField)
+BOOST_FIXTURE_TEST_CASE(addkernel, MathField<double>)
 {
     Configure();
     SetTestCase();
 
     // std results
-    MathField::add();
+    MathField<double>::add();
 
     // Backend results
     math.add(*fixt_in, *fixt_in2, *fixt_out);
@@ -120,13 +121,13 @@ BOOST_FIXTURE_TEST_CASE(addkernel, MathField)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(subkernel, MathField)
+BOOST_FIXTURE_TEST_CASE(subkernel, MathField<double>)
 {
     Configure();
     SetTestCase();
 
     // std results
-    MathField::sub();
+    MathField<double>::sub();
 
     // Backend results
     math.sub(*fixt_in, *fixt_in2, *fixt_out);
@@ -138,13 +139,13 @@ BOOST_FIXTURE_TEST_CASE(subkernel, MathField)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(mulkernel, MathField)
+BOOST_FIXTURE_TEST_CASE(mulkernel, MathField<double>)
 {
     Configure();
     SetTestCase();
 
     // std results
-    MathField::mul();
+    MathField<double>::mul();
 
     // Backend results
     math.mul(*fixt_in, *fixt_in2, *fixt_out);
@@ -156,13 +157,13 @@ BOOST_FIXTURE_TEST_CASE(mulkernel, MathField)
     }
 }
 
-/* BOOST_FIXTURE_TEST_CASE(divkernel, MathField)
+/* BOOST_FIXTURE_TEST_CASE(divkernel, MathField<double>)
 {
     Configure();
     SetTestCase();
 
     // std results
-    MathField::div();
+    MathField<double>::div();
 
     // Backend results
     math.div(,*fixt_in, *fixt_in2, *fixt_out);
@@ -174,14 +175,14 @@ BOOST_FIXTURE_TEST_CASE(mulkernel, MathField)
     }
 }*/
 
-BOOST_FIXTURE_TEST_CASE(daxpykernel, MathField)
+BOOST_FIXTURE_TEST_CASE(daxpykernel, MathField<double>)
 {
     Configure();
     SetTestCase();
     double alpha = 1.5;
 
     // std results
-    MathField::daxpy(alpha);
+    MathField<double>::daxpy(alpha);
 
     // Backend results
     math.daxpy(alpha, *fixt_in, *fixt_in2, *fixt_out);
@@ -193,13 +194,13 @@ BOOST_FIXTURE_TEST_CASE(daxpykernel, MathField)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(sum, MathField)
+BOOST_FIXTURE_TEST_CASE(sum, MathField<double>)
 {
     Configure();
     SetTestCase();
 
     // std results
-    double out = MathField::sum();
+    double out = MathField<double>::sum();
 
     // Backend results
     double h_out = math.reduceSum(*fixt_in);
@@ -212,13 +213,13 @@ BOOST_FIXTURE_TEST_CASE(sum, MathField)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(max, MathField)
+BOOST_FIXTURE_TEST_CASE(max, MathField<double>)
 {
     Configure();
     SetTestCase();
 
     // std results
-    double out = MathField::max();
+    double out = MathField<double>::max();
 
     // Backend results
     double h_out = math.reduceMax(*fixt_in);
@@ -231,13 +232,13 @@ BOOST_FIXTURE_TEST_CASE(max, MathField)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(min, MathField)
+BOOST_FIXTURE_TEST_CASE(min, MathField<double>)
 {
     Configure();
     SetTestCase();
 
     // std results
-    double out = MathField::min();
+    double out = MathField<double>::min();
 
     // Backend results
     double h_out = math.reduceMin(*fixt_in);
@@ -250,13 +251,13 @@ BOOST_FIXTURE_TEST_CASE(min, MathField)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(innerproduct, MathField)
+BOOST_FIXTURE_TEST_CASE(innerproduct, MathField<double>)
 {
     Configure();
     SetTestCase();
 
     // std results
-    double out = MathField::inner_product();
+    double out = MathField<double>::inner_product();
 
     // Backend results
     double h_out = math.ddot(*fixt_in, *fixt_in2);
@@ -270,13 +271,13 @@ BOOST_FIXTURE_TEST_CASE(innerproduct, MathField)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(l1norm, MathField)
+BOOST_FIXTURE_TEST_CASE(l1norm, MathField<double>)
 {
     Configure();
     SetTestCase();
 
     // std results
-    double out = MathField::l1norm();
+    double out = MathField<double>::l1norm();
 
     // Backend results
     double h_out = math.l1norm(*fixt_in);
@@ -289,13 +290,13 @@ BOOST_FIXTURE_TEST_CASE(l1norm, MathField)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(l2norm, MathField)
+BOOST_FIXTURE_TEST_CASE(l2norm, MathField<double>)
 {
     Configure();
     SetTestCase();
 
     // std results
-    double out = MathField::l2norm();
+    double out = MathField<double>::l2norm();
 
     // Backend results
     double h_out = math.l2norm(*fixt_in);
@@ -309,7 +310,7 @@ BOOST_FIXTURE_TEST_CASE(l2norm, MathField)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(lpnorm, MathField)
+BOOST_FIXTURE_TEST_CASE(lpnorm, MathField<double>)
 {
     Configure();
     SetTestCase();
@@ -317,7 +318,7 @@ BOOST_FIXTURE_TEST_CASE(lpnorm, MathField)
     for (unsigned int p = 1; p < 4; p++)
     {
         // std results
-        double out = MathField::lpnorm(p);
+        double out = MathField<double>::lpnorm(p);
 
         // Backend results
         double h_out = math.lpnorm(p, *fixt_in);
@@ -332,13 +333,13 @@ BOOST_FIXTURE_TEST_CASE(lpnorm, MathField)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(linfnorm, MathField)
+BOOST_FIXTURE_TEST_CASE(linfnorm, MathField<double>)
 {
     Configure();
     SetTestCase();
 
     // std results
-    double out = MathField::linfnorm();
+    double out = MathField<double>::linfnorm();
 
     // Backend results
     double h_out = math.linfnorm(*fixt_in);
@@ -351,5 +352,6 @@ BOOST_FIXTURE_TEST_CASE(linfnorm, MathField)
                   << " Linfnorm = " << std::sqrt(out) << std::endl;
     }
 }
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()

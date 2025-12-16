@@ -54,6 +54,7 @@
 
 BOOST_AUTO_TEST_SUITE(TestAddTraceIntegral)
 
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 /*
  * Currently fails in GetBlockAttributes
  * GEometry is not initialised for Expansion(0)
@@ -97,5 +98,6 @@ TEST_ADDTRACEINTEGRAL(addtraceintegral_serial_cube_prism_hex, CubePrismHex,
 
 TEST_ADDTRACEINTEGRAL(addtraceintegral_serial_cube_all_elements,
                       CubeAllElements, 1.0E-12)
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()

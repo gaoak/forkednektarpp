@@ -40,13 +40,14 @@ using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
 
+template <typename TData>
 class ExpressionField
-    : public InitFields<double, FieldState::Phys, FieldState::Phys,
+    : public InitFields<TData, FieldState::Phys, FieldState::Phys,
                         MultiRegions::ContField>
 {
 public:
     ExpressionField()
-        : InitFields<double, FieldState::Phys, FieldState::Phys,
+        : InitFields<TData, FieldState::Phys, FieldState::Phys,
                      MultiRegions::ContField>()
     {
     }
@@ -54,13 +55,14 @@ public:
     void SetTestCase()
     {
         // Set initial conditions.
-        for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
+        for (unsigned int blk = 0; blk < this->fixt_in->GetBlocks().size();
+             ++blk)
         {
-            auto &block = fixt_in->GetBlocks()[blk];
+            auto &block = this->fixt_in->GetBlocks()[blk];
             auto inptr =
                 block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-            for (unsigned int n = 0;
-                 n < fixt_in->GetNumComponents() * fixt_in->GetNumHomoModes();
+            for (unsigned int n = 0; n < this->fixt_in->GetNumComponents() *
+                                             this->fixt_in->GetNumHomoModes();
                  ++n)
             {
                 for (size_t el = 0, cnt = 0; el < block.GetNumElements(); ++el)
@@ -75,8 +77,8 @@ public:
             }
         }
         // Set both to zero such that adding the forcing gives the same result
-        fixt_out->Initialize<NektarSpaces::HostSpace>(0.0);
-        fixt_expected->Initialize<NektarSpaces::HostSpace>(0.0);
+        this->fixt_out->template Initialize<NektarSpaces::HostSpace>(0.0);
+        this->fixt_expected->template Initialize<NektarSpaces::HostSpace>(0.0);
 
         // Define time and scalar
         m_time  = 0.1;
@@ -88,68 +90,84 @@ public:
 
     void RunTestCase()
     {
-        auto op = ExpressionOp<double>::Create(fixt_explist, "Forcing");
+        auto op = ExpressionOp<TData>::Create(this->fixt_explist, "Forcing");
         op->SetTime(m_time);
         op->SetScale(m_scale);
-        op->Apply(*fixt_in, *fixt_out);
+        op->Apply(*this->fixt_in, *this->fixt_out);
     }
 
     void ExpectedSolution()
     {
         // Get number of variables and quadrature points
-        const unsigned int nVariables = session->GetVariables().size();
-        const size_t nphys            = fixt_explist->GetTotPoints();
+        const unsigned int nVariables = this->session->GetVariables().size();
+        const size_t nphys            = this->fixt_explist->GetTotPoints();
 
         // Initialise array storage for forcing evaluation
-        Array<OneD, double> fce(nVariables * nphys);
+        Array<OneD, TData> fce(nVariables * nphys);
 
         // Get coordinate data for function evaluation
-        Array<OneD, double> x(nphys);
-        Array<OneD, double> y(nphys);
-        Array<OneD, double> z(nphys);
-        fixt_explist->GetCoords(x, y, z);
+        Array<OneD, TData> x(nphys);
+        Array<OneD, TData> y(nphys);
+        Array<OneD, TData> z(nphys);
+        this->fixt_explist->GetCoords(x, y, z);
 
-        // Copy fixt_in into NektarArray
-        Array<OneD, double> inphys = fixt_in->ToArray();
+        // Copy this->fixt_in into NektarArray
+        Array<OneD, TData> inphys = this->fixt_in->ToArray();
 
         // Gather fielddata (coordinates, time and EVARS)
-        std::vector<Array<OneD, const double>> fielddata;
+        std::vector<Array<OneD, const TData>> fielddata;
         fielddata.push_back(x);
         fielddata.push_back(y);
         fielddata.push_back(z);
-        fielddata.push_back(Array<OneD, double>(nphys, m_time));
+        fielddata.push_back(Array<OneD, TData>(nphys, m_time));
         for (unsigned int i = 0; i < nVariables; ++i)
         {
             fielddata.push_back(inphys + i * nphys);
         }
 
-        // Evaluate function from session file
-        if (session->DefinesFunction("Forcing"))
+        // Evaluate function from this->session file
+        if (this->session->DefinesFunction("Forcing"))
         {
             // Evaluate function for each component
             for (unsigned int i = 0; i < nVariables; ++i)
             {
                 // Create reference to storage per variable
-                Array<OneD, double> fce_var = fce + i * nphys;
+                Array<OneD, TData> fce_var = fce + i * nphys;
 
                 // Get and evaluate function
-                auto func = session->GetFunction("Forcing", i);
+                auto func = this->session->GetFunction("Forcing", i);
                 func->Evaluate(fielddata, fce_var);
 
                 // Multiply by scalar and add to input data
                 Vmath::Smul(nphys, m_scale, fce_var, 1, fce_var, 1);
             }
-            fixt_expected->CopyArray<NektarSpaces::HostSpace>(fce);
+            this->fixt_expected->template CopyArray<NektarSpaces::HostSpace>(
+                fce);
         }
     }
 
 protected:
-    double m_time;
-    double m_scale;
+    TData m_time;
+    TData m_scale;
 };
 
-#define TEST(type, filename)                                                   \
-    class type : public ExpressionField                                        \
+// clang-format off
+#if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
+#define TESTFLOAT(type, filename)                                              \
+    class type##float : public ExpressionField<float>                          \
+    {                                                                          \
+    public:                                                                    \
+        type##float()                                                          \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
+#else
+#define TESTFLOAT(type, filename)
+#endif
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
+#define TESTDOUBLE(type, filename)                                             \
+    class type : public ExpressionField<double>                                \
     {                                                                          \
     public:                                                                    \
         type()                                                                 \
@@ -157,6 +175,13 @@ protected:
             meshName = filename;                                               \
         }                                                                      \
     };
+#else
+#define TESTDOUBLE(type, filename)
+#endif
+#define TEST(type, filename)                                                   \
+    TESTFLOAT(type, filename)                                                  \
+    TESTDOUBLE(type, filename)
+// clang-format on
 
 TEST(Helmholtz1D_Seg, "run/Helmholtz1D_P8.xml")
 

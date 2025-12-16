@@ -81,6 +81,7 @@
 
 BOOST_AUTO_TEST_SUITE(TestPhysInterp1DScaled)
 
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_PHYSINTERP1DSCALED(physinterp1d_seg, Seg, 1.0E-12)
 
 // TEST_PHYSINTERP1DSCALED3DH2(physinterp1d_seg_3dh2, Seg, 1.0E-12)
@@ -135,5 +136,6 @@ TEST_PHYSINTERP1DSCALED(physinterp1d_cube_prism_hex, CubePrismHex, 1.0E-12)
 
 TEST_PHYSINTERP1DSCALED(physinterp1d_cube_all_elements, CubeAllElements,
                         1.0E-12)
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()

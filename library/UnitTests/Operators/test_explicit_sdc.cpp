@@ -54,6 +54,7 @@
 
 BOOST_AUTO_TEST_SUITE(TestExplicitSDC)
 
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_SCHEME(sdc_order_1, segment, 2, "ExplicitSDC", "Equidistant", 1,
             (std::vector<double>{1.0, 1}))
 
@@ -92,5 +93,6 @@ TEST_SCHEME(sdc_ggl_order_4, segment, 2, "ExplicitSDC", "GaussGaussLegendre", 4,
 
 TEST_SCHEME(sdc_ggl_order_6, segment, 2, "ExplicitSDC", "GaussGaussLegendre", 6,
             (std::vector<double>{1.0, 3}))
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()

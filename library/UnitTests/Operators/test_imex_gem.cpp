@@ -53,6 +53,7 @@
 
 BOOST_AUTO_TEST_SUITE(TestIMEXGEM)
 
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_SCHEME(gem_order_1, segment, 2, "IMEXGEM", "", 1)
 
 TEST_SCHEME(gem_order_2, segment, 2, "IMEXGEM", "", 2)
@@ -68,5 +69,6 @@ TEST_SCHEME(gem_midpoint_order_2, segment, 2, "IMEXGEM", "Midpoint", 2)
 TEST_SCHEME(gem_midpoint_order_4, segment, 2, "IMEXGEM", "Midpoint", 4)
 
 TEST_SCHEME(gem_midpoint_order_6, segment, 2, "IMEXGEM", "Midpoint", 6)
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -78,6 +78,7 @@
 
 BOOST_AUTO_TEST_SUITE(TestPhysDeriv)
 
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_PHYSDERIV(physderiv_seg, Seg, 1, 2.0E-12)
 
 TEST_PHYSDERIV(physderiv_seg_sem, SegSEM, 1, 1.0E-12)
@@ -130,5 +131,6 @@ TEST_PHYSDERIV(physderiv_tet_nodal, TetNodal, 3, 2.0E-12)
 TEST_PHYSDERIV(physderiv_cube_prism_hex, CubePrismHex, 3, 1.0E-12)
 
 TEST_PHYSDERIV(physderiv_cube_all_elements, CubeAllElements, 3, 1.0E-12)
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -40,13 +40,14 @@ using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
 
+template <typename TData>
 class AddTraceIntegralField
-    : public InitFields<double, FieldState::Phys, FieldState::Coeff,
+    : public InitFields<TData, FieldState::Phys, FieldState::Coeff,
                         MultiRegions::DisContField>
 {
 public:
     AddTraceIntegralField()
-        : InitFields<double, FieldState::Phys, FieldState::Coeff,
+        : InitFields<TData, FieldState::Phys, FieldState::Coeff,
                      MultiRegions::DisContField>()
     {
     }
@@ -54,9 +55,10 @@ public:
     void SetTestCase()
     {
         // Set initial conditions.
-        for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
+        for (unsigned int blk = 0; blk < this->fixt_in->GetBlocks().size();
+             ++blk)
         {
-            auto &block = fixt_in->GetBlocks()[blk];
+            auto &block = this->fixt_in->GetBlocks()[blk];
             auto inptr =
                 block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
             for (size_t el = 0, cnt = 0; el < block.GetNumElements(); ++el)
@@ -69,7 +71,7 @@ public:
             }
         }
 
-        fixt_out->template Initialize<NektarSpaces::HostSpace>(0.0);
+        this->fixt_out->template Initialize<NektarSpaces::HostSpace>(0.0);
 
         // Compute expected solution.
         ExpectedSolution();
@@ -77,22 +79,38 @@ public:
 
     void RunTestCase()
     {
-        auto op = AddTraceIntegralOp<double>::Create(fixt_explist);
-        op->Apply(*fixt_in, *fixt_out);
+        auto op = AddTraceIntegralOp<TData>::Create(this->fixt_explist);
+        op->Apply(*this->fixt_in, *this->fixt_out);
     }
 
     void ExpectedSolution()
     {
         // Calculate expected result from Nektar++.
-        Array<OneD, double> inTracephys = fixt_in->ToArray();
-        Array<OneD, double> outcoeffs(fixt_explist->GetNcoeffs(), 0.0);
-        fixt_explist->AddTraceIntegral(inTracephys, outcoeffs);
-        fixt_expected->CopyArray<NektarSpaces::HostSpace>(outcoeffs);
+        Array<OneD, TData> inTracephys = this->fixt_in->ToArray();
+        Array<OneD, TData> outcoeffs(this->fixt_explist->GetNcoeffs(), 0.0);
+        this->fixt_explist->AddTraceIntegral(inTracephys, outcoeffs);
+        this->fixt_expected->template CopyArray<NektarSpaces::HostSpace>(
+            outcoeffs);
     }
 };
 
-#define TEST(type, filename)                                                   \
-    class type : public AddTraceIntegralField                                  \
+// clang-format off
+#if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
+#define TESTFLOAT(type, filename)                                              \
+    class type##float : public AddTraceIntegralField<float>                    \
+    {                                                                          \
+    public:                                                                    \
+        type##float()                                                          \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
+#else
+#define TESTFLOAT(type, filename)
+#endif
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
+#define TESTDOUBLE(type, filename)                                             \
+    class type : public AddTraceIntegralField<double>                          \
     {                                                                          \
     public:                                                                    \
         type()                                                                 \
@@ -100,6 +118,13 @@ public:
             meshName = filename;                                               \
         }                                                                      \
     };
+#else
+#define TESTDOUBLE(type, filename)
+#endif
+#define TEST(type, filename)                                                   \
+    TESTFLOAT(type, filename)                                                  \
+    TESTDOUBLE(type, filename)
+// clang-format on
 
 TEST(Seg, "run/segment.xml")
 

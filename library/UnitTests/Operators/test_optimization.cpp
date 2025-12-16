@@ -47,6 +47,7 @@
 
 BOOST_AUTO_TEST_SUITE(TestOptimization)
 
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 BOOST_FIXTURE_TEST_CASE(SerialBackend, OptimizationField)
 {
     Configure("Serial");
@@ -136,5 +137,6 @@ BOOST_FIXTURE_TEST_CASE(DeviceBackendOverride, OptimizationField)
         BOOST_TEST(implStr == "SumFac");
     }
 }
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()

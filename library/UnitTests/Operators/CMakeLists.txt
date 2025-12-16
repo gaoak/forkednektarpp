@@ -164,6 +164,7 @@ MACRO(SET_UNIT_TEST testname name execspace implementation mpi_flag)
     ENDIF()
 ENDMACRO()
 
+IF (NEKTAR_ENABLE_DOUBLE_PRECISION) # Only enable unit tests for double precision, for now
 SET_UNIT_TEST(Optimization test_optimization none none FALSE)
 
 # Comm
@@ -402,6 +403,7 @@ IF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
     SET_UNIT_TEST(IProductWRTBase_device_sumfacmat test_ipwrtbase_device_sumfacmat Device SumFacMat FALSE)
     SET_UNIT_TEST(IProductWRTDerivBase_device_sumfacmat test_ipwrtderivbase_device_sumfacmat Device SumFacMat FALSE)
     SET_UNIT_TEST(PhysDeriv_device_sumfacmat test_physderiv_device_sumfacmat Device SumFacMat FALSE)
+ENDIF()
 ENDIF()
 
 # Copy XML file to build directory

@@ -40,20 +40,21 @@ using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
 
+template <typename TData>
 class DirichletField
-    : public InitFields<double, FieldState::Coeff, FieldState::Coeff,
+    : public InitFields<TData, FieldState::Coeff, FieldState::Coeff,
                         MultiRegions::ContField>
 {
 public:
     DirichletField()
-        : InitFields<double, FieldState::Coeff, FieldState::Coeff,
+        : InitFields<TData, FieldState::Coeff, FieldState::Coeff,
                      MultiRegions::ContField>()
     {
     }
 
     void SetTestCase()
     {
-        fixt_out->template Initialize<NektarSpaces::HostSpace>(0.0);
+        this->fixt_out->template Initialize<NektarSpaces::HostSpace>(0.0);
 
         // Compute expected solution.
         ExpectedSolution();
@@ -61,21 +62,37 @@ public:
 
     void RunTestCase()
     {
-        auto op = DirBndCondOp<double>::Create(fixt_explist);
-        op->Apply(*fixt_out);
+        auto op = DirBndCondOp<TData>::Create(this->fixt_explist);
+        op->Apply(*this->fixt_out);
     }
 
     void ExpectedSolution()
     {
         // Calculate expected result from Nektar++
-        Array<OneD, double> outcoeffs(fixt_explist->GetNcoeffs(), 0.0);
-        fixt_explist->ImposeDirichletConditions(outcoeffs);
-        fixt_expected->CopyArray<NektarSpaces::HostSpace>(outcoeffs);
+        Array<OneD, TData> outcoeffs(this->fixt_explist->GetNcoeffs(), 0.0);
+        this->fixt_explist->ImposeDirichletConditions(outcoeffs);
+        this->fixt_expected->template CopyArray<NektarSpaces::HostSpace>(
+            outcoeffs);
     }
 };
 
-#define TEST(type, filename)                                                   \
-    class type : public DirichletField                                         \
+// clang-format off
+#if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
+#define TESTFLOAT(type, filename)                                              \
+    class type##float : public DirichletField<float>                           \
+    {                                                                          \
+    public:                                                                    \
+        type##float()                                                          \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
+#else
+#define TESTFLOAT(type, filename)
+#endif
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
+#define TESTDOUBLE(type, filename)                                             \
+    class type : public DirichletField<double>                                 \
     {                                                                          \
     public:                                                                    \
         type()                                                                 \
@@ -83,6 +100,13 @@ public:
             meshName = filename;                                               \
         }                                                                      \
     };
+#else
+#define TESTDOUBLE(type, filename)
+#endif
+#define TEST(type, filename)                                                   \
+    TESTFLOAT(type, filename)                                                  \
+    TESTDOUBLE(type, filename)
+// clang-format on
 
 TEST(Helmholtz1D_Seg, "run/Helmholtz1D_P8.xml")
 
