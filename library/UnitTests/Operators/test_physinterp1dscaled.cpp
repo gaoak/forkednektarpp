@@ -44,9 +44,9 @@
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
         double scale = 1.5;                                                    \
-        Configure(2, 2, false, scale);                                         \
-        SetTestCase(scale);                                                    \
-        RunTestCase(scale);                                                    \
+        Configure(scale);                                                      \
+        SetTestCase();                                                         \
+        RunTestCase();                                                         \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
             BOOST_TEST(Compare(tol));                                          \
@@ -57,9 +57,9 @@
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
         double scale = 1.5;                                                    \
-        Configure3DH1(2, 2, 4, false, scale);                                  \
-        SetTestCase(scale);                                                    \
-        RunTestCase(scale);                                                    \
+        Configure3DH1(scale, 4);                                               \
+        SetTestCase();                                                         \
+        RunTestCase();                                                         \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
             BOOST_TEST(Compare(tol));                                          \
@@ -70,9 +70,9 @@
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
         double scale = 1.5;                                                    \
-        Configure3DH2(2, 2, 4, 4, false, scale);                               \
-        SetTestCase(scale);                                                    \
-        RunTestCase(scale);                                                    \
+        Configure3DH2(scale, 4, 4);                                            \
+        SetTestCase();                                                         \
+        RunTestCase();                                                         \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
             BOOST_TEST(Compare(tol));                                          \

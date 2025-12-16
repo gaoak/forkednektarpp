@@ -49,11 +49,34 @@ public:
     {
     }
 
+    void SetFixture(const unsigned int nhomo) override
+    {
+        auto nin  = this->session->GetVariables().size();
+        auto nout = this->session->GetVariables().size() *
+                    this->fixt_explist->GetShapeDimension();
+        auto inblockAttr =
+            GetBlockAttributes<TData, FieldState::Phys>(this->fixt_explist);
+        auto outblockAttr =
+            GetBlockAttributes<TData, FieldState::Phys>(this->fixt_explist);
+
+        auto f_in =
+            Field<TData, FieldState::Phys>("f_in", inblockAttr, nin, nhomo);
+        auto f_out =
+            Field<TData, FieldState::Phys>("f_out", outblockAttr, nout, nhomo);
+        auto f_expected = Field<TData, FieldState::Phys>(
+            "f_expected", outblockAttr, nout, nhomo);
+        this->fixt_in  = new Field<TData, FieldState::Phys>(std::move(f_in));
+        this->fixt_out = new Field<TData, FieldState::Phys>(std::move(f_out));
+        this->fixt_expected =
+            new Field<TData, FieldState::Phys>(std::move(f_expected));
+    }
+
     void RunTestCase()
     {
         auto op = PhysDerivOp<TData>::Create(this->fixt_explist);
         op->Apply(*this->fixt_in, *this->fixt_out);
     }
+
     void SetTestCase()
     {
         // Set initial conditions.

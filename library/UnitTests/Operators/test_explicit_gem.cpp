@@ -40,10 +40,10 @@
 #include <iostream>
 #include <memory>
 
-#define TEST_SCHEME(test_name, test, nvar, scheme, variant, order)             \
+#define TEST_SCHEME(test_name, test, scheme, variant, order)                   \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        Configure(nvar, nvar);                                                 \
+        Configure();                                                           \
         SetTestCase(1.0, 0.0);                                                 \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
@@ -54,23 +54,23 @@
 BOOST_AUTO_TEST_SUITE(TestExplicitGEM)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
-TEST_SCHEME(gem_order_1, segment, 2, "ExplicitGEM", "", 1)
+TEST_SCHEME(gem_order_1, segment, "ExplicitGEM", "", 1)
 
-TEST_SCHEME(gem_order_2, segment, 2, "ExplicitGEM", "", 2)
+TEST_SCHEME(gem_order_2, segment, "ExplicitGEM", "", 2)
 
-TEST_SCHEME(gem_order_3, segment, 2, "ExplicitGEM", "", 3)
+TEST_SCHEME(gem_order_3, segment, "ExplicitGEM", "", 3)
 
-TEST_SCHEME(gem_order_4, segment, 2, "ExplicitGEM", "", 4)
+TEST_SCHEME(gem_order_4, segment, "ExplicitGEM", "", 4)
 
-// TEST_SCHEME(gem_order_5, segment, 2, "ExplicitGEM", "", 5)
+// TEST_SCHEME(gem_order_5, segment, "ExplicitGEM", "", 5)
 
-TEST_SCHEME(gem_order_6, segment, 2, "ExplicitGEM", "", 6)
+TEST_SCHEME(gem_order_6, segment, "ExplicitGEM", "", 6)
 
-TEST_SCHEME(gem_midpoint_order_2, segment, 2, "ExplicitGEM", "Midpoint", 2)
+TEST_SCHEME(gem_midpoint_order_2, segment, "ExplicitGEM", "Midpoint", 2)
 
-TEST_SCHEME(gem_midpoint_order_4, segment, 2, "ExplicitGEM", "Midpoint", 4)
+TEST_SCHEME(gem_midpoint_order_4, segment, "ExplicitGEM", "Midpoint", 4)
 
-TEST_SCHEME(gem_midpoint_order_6, segment, 2, "ExplicitGEM", "Midpoint", 6)
+TEST_SCHEME(gem_midpoint_order_6, segment, "ExplicitGEM", "Midpoint", 6)
 #endif
 
 BOOST_AUTO_TEST_SUITE_END()

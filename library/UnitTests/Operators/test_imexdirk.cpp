@@ -40,10 +40,10 @@
 #include <iostream>
 #include <memory>
 
-#define TEST_SCHEME(test_name, test, nvar, scheme, order)                      \
+#define TEST_SCHEME(test_name, test, scheme, order)                            \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        Configure(nvar, nvar);                                                 \
+        Configure();                                                           \
         SetTestCase(1.0, -10.0);                                               \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
@@ -54,21 +54,21 @@
 BOOST_AUTO_TEST_SUITE(TestIMEX)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
-TEST_SCHEME(imexdirk111, segment, 2, "IMEXdirk11", 1)
+TEST_SCHEME(imexdirk111, segment, "IMEXdirk11", 1)
 
-TEST_SCHEME(imexdirk121, segment, 2, "IMEXdirk12", 1)
+TEST_SCHEME(imexdirk121, segment, "IMEXdirk12", 1)
 
-TEST_SCHEME(imexdirk122, segment, 2, "IMEXdirk12", 2)
+TEST_SCHEME(imexdirk122, segment, "IMEXdirk12", 2)
 
-TEST_SCHEME(imexdirk222, segment, 2, "IMEXdirk22", 2)
+TEST_SCHEME(imexdirk222, segment, "IMEXdirk22", 2)
 
-TEST_SCHEME(imexdirk232, segment, 2, "IMEXdirk23", 2)
+TEST_SCHEME(imexdirk232, segment, "IMEXdirk23", 2)
 
-TEST_SCHEME(imexdirk233, segment, 2, "IMEXdirk23", 3)
+TEST_SCHEME(imexdirk233, segment, "IMEXdirk23", 3)
 
-TEST_SCHEME(imexdirk343, segment, 2, "IMEXdirk34", 3)
+TEST_SCHEME(imexdirk343, segment, "IMEXdirk34", 3)
 
-TEST_SCHEME(imexdirk443, segment, 2, "IMEXdirk44", 3)
+TEST_SCHEME(imexdirk443, segment, "IMEXdirk44", 3)
 #endif
 
 BOOST_AUTO_TEST_SUITE_END()

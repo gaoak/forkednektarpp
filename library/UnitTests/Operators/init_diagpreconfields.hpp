@@ -60,7 +60,6 @@ public:
 
     void SetTestCase()
     {
-
         // Set initial conditions.
         for (unsigned int blk = 0; blk < this->fixt_in->GetBlocks().size();
              ++blk)

@@ -40,10 +40,10 @@
 #include <iostream>
 #include <memory>
 
-#define TEST_PHYSDERIV(test_name, test, dim, tol)                              \
+#define TEST_PHYSDERIV(test_name, test, tol)                                   \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        Configure(2, 2 * dim);                                                 \
+        Configure();                                                           \
         SetTestCase();                                                         \
         RunTestCase();                                                         \
         boost::test_tools::output_test_stream output;                          \
@@ -52,10 +52,10 @@
         }                                                                      \
     }
 
-#define TEST_PHYSDERIV3DH1(test_name, test, dim, tol)                          \
+#define TEST_PHYSDERIV3DH1(test_name, test, tol)                               \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        Configure3DH1(2, 2 * dim, 4);                                          \
+        Configure3DH1(4);                                                      \
         SetTestCase();                                                         \
         RunTestCase();                                                         \
         boost::test_tools::output_test_stream output;                          \
@@ -64,10 +64,10 @@
         }                                                                      \
     }
 
-#define TEST_PHYSDERIV3DH2(test_name, test, dim, tol)                          \
+#define TEST_PHYSDERIV3DH2(test_name, test, tol)                               \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        Configure3DH2(2, 2 * dim, 4, 4);                                       \
+        Configure3DH2(4, 4);                                                   \
         SetTestCase();                                                         \
         RunTestCase();                                                         \
         boost::test_tools::output_test_stream output;                          \
@@ -79,58 +79,58 @@
 BOOST_AUTO_TEST_SUITE(TestPhysDeriv)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
-TEST_PHYSDERIV(physderiv_seg, Seg, 1, 2.0E-12)
+TEST_PHYSDERIV(physderiv_seg, Seg, 2.0E-12)
 
-TEST_PHYSDERIV(physderiv_seg_sem, SegSEM, 1, 1.0E-12)
+TEST_PHYSDERIV(physderiv_seg_sem, SegSEM, 1.0E-12)
 
-TEST_PHYSDERIV3DH2(physderiv_seg_sem_3dh2, SegSEM, 1, 1.0E-12)
+TEST_PHYSDERIV3DH2(physderiv_seg_sem_3dh2, SegSEM, 1.0E-12)
 
-TEST_PHYSDERIV(physderiv_quad, Quad, 2, 1.0E-12)
+TEST_PHYSDERIV(physderiv_quad, Quad, 1.0E-12)
 
-TEST_PHYSDERIV3DH1(physderiv_quad_3dh1, Quad, 2, 1.0E-12)
+TEST_PHYSDERIV3DH1(physderiv_quad_3dh1, Quad, 1.0E-12)
 
-TEST_PHYSDERIV(physderiv_quad_sem, QuadSEM, 2, 1.0E-12)
+TEST_PHYSDERIV(physderiv_quad_sem, QuadSEM, 1.0E-12)
 
-TEST_PHYSDERIV(physderiv_quad_varp, QuadVarP, 2, 1.0E-12)
+TEST_PHYSDERIV(physderiv_quad_varp, QuadVarP, 1.0E-12)
 
-TEST_PHYSDERIV(physderiv_tri, Tri, 2, 1.0E-12)
+TEST_PHYSDERIV(physderiv_tri, Tri, 1.0E-12)
 
-TEST_PHYSDERIV3DH1(physderiv_tri_3dh1, Tri, 2, 1.0E-12)
+TEST_PHYSDERIV3DH1(physderiv_tri_3dh1, Tri, 1.0E-12)
 
-TEST_PHYSDERIV(physderiv_tri_varp, TriVarP, 2, 1.0E-12)
+TEST_PHYSDERIV(physderiv_tri_varp, TriVarP, 1.0E-12)
 
-TEST_PHYSDERIV(physderiv_tri_nodal, TriNodal, 2, 1.0E-12)
+TEST_PHYSDERIV(physderiv_tri_nodal, TriNodal, 1.0E-12)
 
-TEST_PHYSDERIV(physderiv_square_all_elements, SquareAllElements, 2, 1.0E-12)
+TEST_PHYSDERIV(physderiv_square_all_elements, SquareAllElements, 1.0E-12)
 
-TEST_PHYSDERIV3DH1(physderiv_square_all_elements_3dh1, SquareAllElements, 2,
+TEST_PHYSDERIV3DH1(physderiv_square_all_elements_3dh1, SquareAllElements,
                    1.0E-12)
 
-TEST_PHYSDERIV(physderiv_hex, Hex, 3, 1.0E-12)
+TEST_PHYSDERIV(physderiv_hex, Hex, 1.0E-12)
 
-TEST_PHYSDERIV(physderiv_hex_sem, HexSEM, 3, 1.0E-12)
+TEST_PHYSDERIV(physderiv_hex_sem, HexSEM, 1.0E-12)
 
-TEST_PHYSDERIV(physderiv_hex_varp, HexVarP, 3, 1.0E-12)
+TEST_PHYSDERIV(physderiv_hex_varp, HexVarP, 1.0E-12)
 
-TEST_PHYSDERIV(physderiv_prism, Prism, 3, 1.0E-12)
+TEST_PHYSDERIV(physderiv_prism, Prism, 1.0E-12)
 
-TEST_PHYSDERIV(physderiv_prism_varp, PrismVarP, 3, 2.5E-12)
+TEST_PHYSDERIV(physderiv_prism_varp, PrismVarP, 2.5E-12)
 
-TEST_PHYSDERIV(physderiv_prism_nodal, PrismNodal, 3, 2.5E-12)
+TEST_PHYSDERIV(physderiv_prism_nodal, PrismNodal, 2.5E-12)
 
-TEST_PHYSDERIV(physderiv_pyr, Pyr, 3, 1.0E-12)
+TEST_PHYSDERIV(physderiv_pyr, Pyr, 1.0E-12)
 
-TEST_PHYSDERIV(physderiv_pyr_varp, PyrVarP, 3, 1.0E-12)
+TEST_PHYSDERIV(physderiv_pyr_varp, PyrVarP, 1.0E-12)
 
-TEST_PHYSDERIV(physderiv_tet, Tet, 3, 1.0E-12)
+TEST_PHYSDERIV(physderiv_tet, Tet, 1.0E-12)
 
-TEST_PHYSDERIV(physderiv_tet_varp, TetVarP, 3, 2.0E-12)
+TEST_PHYSDERIV(physderiv_tet_varp, TetVarP, 2.0E-12)
 
-TEST_PHYSDERIV(physderiv_tet_nodal, TetNodal, 3, 2.0E-12)
+TEST_PHYSDERIV(physderiv_tet_nodal, TetNodal, 2.0E-12)
 
-TEST_PHYSDERIV(physderiv_cube_prism_hex, CubePrismHex, 3, 1.0E-12)
+TEST_PHYSDERIV(physderiv_cube_prism_hex, CubePrismHex, 1.0E-12)
 
-TEST_PHYSDERIV(physderiv_cube_all_elements, CubeAllElements, 3, 1.0E-12)
+TEST_PHYSDERIV(physderiv_cube_all_elements, CubeAllElements, 1.0E-12)
 #endif
 
 BOOST_AUTO_TEST_SUITE_END()

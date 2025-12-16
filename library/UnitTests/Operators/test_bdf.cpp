@@ -40,10 +40,10 @@
 #include <iostream>
 #include <memory>
 
-#define TEST_SCHEME(test_name, test, nvar, order)                              \
+#define TEST_SCHEME(test_name, test, order)                                    \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        Configure(nvar, nvar);                                                 \
+        Configure();                                                           \
         SetTestCase(0.0, -10.0);                                               \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
@@ -54,13 +54,13 @@
 BOOST_AUTO_TEST_SUITE(TestBDF)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
-TEST_SCHEME(bdf_order_1, segment, 2, 1)
+TEST_SCHEME(bdf_order_1, segment, 1)
 
-TEST_SCHEME(bdf_order_2, segment, 2, 2)
+TEST_SCHEME(bdf_order_2, segment, 2)
 
-TEST_SCHEME(bdf_order_3, segment, 2, 3)
+TEST_SCHEME(bdf_order_3, segment, 3)
 
-TEST_SCHEME(bdf_order_4, segment, 2, 4)
+TEST_SCHEME(bdf_order_4, segment, 4)
 #endif
 
 BOOST_AUTO_TEST_SUITE_END()

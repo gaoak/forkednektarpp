@@ -43,7 +43,7 @@
 #define TEST_BWDTRANS(test_name, test, tol)                                    \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        Configure(2, 2);                                                       \
+        Configure();                                                           \
         SetTestCase();                                                         \
         RunTestCase();                                                         \
         boost::test_tools::output_test_stream output;                          \
@@ -55,7 +55,7 @@
 #define TEST_BWDTRANS3DH1(test_name, test, tol)                                \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        Configure3DH1(2, 2, 4);                                                \
+        Configure3DH1(4);                                                      \
         SetTestCase();                                                         \
         RunTestCase();                                                         \
         boost::test_tools::output_test_stream output;                          \
@@ -67,7 +67,7 @@
 #define TEST_BWDTRANS3DH2(test_name, test, tol)                                \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        Configure3DH2(2, 2, 4, 4);                                             \
+        Configure3DH2(4, 4);                                                   \
         SetTestCase();                                                         \
         RunTestCase();                                                         \
         boost::test_tools::output_test_stream output;                          \
