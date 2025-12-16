@@ -48,11 +48,11 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &execStr = "")
     {
-        return Operator<TData>::template Create<DiagPreconOp>(expansionList,
-                                                              execStr);
+        return std::dynamic_pointer_cast<DiagPreconOp>(
+            PreconOp<TData>::Create(expansionList, name, execStr));
     }
 
-    static inline const std::string name = "DiagPrecon";
+    static inline const std::string name = "DiagonalPrecon";
 
 protected:
     DiagPreconOp(const MultiRegions::ExpListSharedPtr &expansionList)

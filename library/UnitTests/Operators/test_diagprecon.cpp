@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestDiagPrecon
 
-#include "init_diagpreconfields.hpp"
+#include "init_preconfields.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
@@ -44,8 +44,8 @@
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
         Configure();                                                           \
-        SetTestCase();                                                         \
-        RunTestCase();                                                         \
+        SetTestCase("Diagonal");                                               \
+        RunTestCase("Diagonal");                                               \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
             BOOST_TEST(Compare(tol));                                          \

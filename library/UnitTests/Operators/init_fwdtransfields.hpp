@@ -36,7 +36,7 @@
 
 #include "Operators/GlobalLinSysOps/FwdTrans/FwdTransOp.hpp"
 #include "Operators/GlobalLinSysOps/LinearSolverOp.hpp"
-#include "Operators/PreconOps/DiagPrecon/DiagPreconOp.hpp"
+#include "Operators/PreconOps/PreconOp.hpp"
 
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
@@ -133,7 +133,7 @@ public:
     void RunTestCase(const std::string &method)
     {
         auto op     = FwdTransOp<TData>::Create(this->fixt_explist);
-        auto precon = DiagPreconOp<TData>::Create(this->fixt_explist);
+        auto precon = PreconOp<TData>::Create(this->fixt_explist, "Diagonal");
         auto linsolve =
             LinearSolverOp<TData>::Create(this->fixt_explist, method);
         op->SetLinearSolver(linsolve);

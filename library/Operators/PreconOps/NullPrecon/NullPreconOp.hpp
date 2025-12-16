@@ -48,8 +48,8 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &execStr = "")
     {
-        return Operator<TData>::template Create<NullPreconOp>(expansionList,
-                                                              execStr);
+        return std::dynamic_pointer_cast<NullPreconOp>(
+            PreconOp<TData>::Create(expansionList, name, execStr));
     }
 
     static inline const std::string name = "NullPrecon";

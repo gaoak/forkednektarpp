@@ -44,6 +44,39 @@ template <typename TData>
 class PreconOp : public ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>
 {
 public:
+    static std::shared_ptr<PreconOp<TData>> Create(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::string &method = "", const std::string &execStr = "")
+    {
+        auto session = expansionList->GetSession();
+
+        // TODO: Update with proper varible names.
+        std::string method0 =
+            (method == "")
+                ? session->GetGlobalSysSolnInfo("u", "Preconditioner")
+                : method;
+
+        std::string execStr0 = (execStr == "")
+                                   ? Operator<TData>::GetOpExecSpace(session)
+                                   : execStr;
+
+        std::string requestedKey = method0 + "Precon" + execStr0;
+
+        OperatorFactory<TData> &factory = GetOperatorFactory<TData>();
+
+        // No suitable operator was found.
+        if (!factory.ModuleExists(requestedKey))
+        {
+            std::stringstream msg;
+            msg << "No such operator: " << requestedKey << std::endl;
+            factory.PrintAvailableClasses(msg);
+            NEKERROR(ErrorUtil::efatal, msg.str());
+        }
+
+        return std::static_pointer_cast<PreconOp<TData>>(
+            factory.CreateInstance(requestedKey, expansionList));
+    }
+
     void Configure(const std::shared_ptr<
                    ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>> &op)
     {
