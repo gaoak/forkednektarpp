@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: FwdTransOp.hpp
+// File: LinearSystemOp.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,37 +34,25 @@
 
 #pragma once
 
-#include "Operators/GlobalLinSysOps/LinearSolverOp.hpp"
-#include "Operators/PreconOps/PreconOp.hpp"
+#include "Operators/Common/Operator.hpp"
 
 namespace Nektar::Operators
 {
 
-// FwdTrans base class
-// Defines the apply operator to enforce apply parameter types
-template <typename TData> class FwdTransOp : public Operator<TData>
+// LinearSystem base class
+template <typename TData> class LinearSystemOp : public Operator<TData>
 {
 public:
-    static std::shared_ptr<FwdTransOp<TData>> Create(
-        const MultiRegions::ExpListSharedPtr &expansionList,
-        const std::string &execStr = "")
-    {
-        return Operator<TData>::template Create<FwdTransOp>(expansionList,
-                                                            execStr);
-    }
-
-    static inline const std::string name = "FwdTrans";
-
     void Apply(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Coeff> &out)
     {
-        v_Apply(in, out);
+        this->v_Apply(in, out);
     }
 
     void operator()(Field<TData, FieldState::Phys> &in,
                     Field<TData, FieldState::Coeff> &out)
     {
-        v_Apply(in, out);
+        this->v_Apply(in, out);
     }
 
     void SetLinearSolver(const std::shared_ptr<LinearSolverOp<TData>> &linsolve)
@@ -78,12 +66,12 @@ public:
     }
 
 protected:
-    FwdTransOp(const MultiRegions::ExpListSharedPtr &expansionList)
+    LinearSystemOp(const MultiRegions::ExpListSharedPtr &expansionList)
         : Operator<TData>(expansionList)
     {
     }
 
-    ~FwdTransOp() override = default;
+    ~LinearSystemOp() override = default;
 
     virtual void v_Apply(Field<TData, FieldState::Phys> &in,
                          Field<TData, FieldState::Coeff> &out) = 0;

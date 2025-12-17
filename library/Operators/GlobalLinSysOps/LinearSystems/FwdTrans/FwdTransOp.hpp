@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: HelmSolveOp.hpp
+// File: FwdTransOp.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,72 +34,35 @@
 
 #pragma once
 
-#include "Operators/GlobalLinSysOps/LinearSolverOp.hpp"
+#include "Operators/GlobalLinSysOps/LinearSolvers/LinearSolverOp.hpp"
+#include "Operators/GlobalLinSysOps/LinearSystems/LinearSystemOp.hpp"
 #include "Operators/PreconOps/PreconOp.hpp"
 
 namespace Nektar::Operators
 {
 
-// HelmSolve operator base class
+// FwdTrans operator base class
 // Defines the apply operator to enforce apply parameter types
-template <typename TData> class HelmSolveOp : public Operator<TData>
+template <typename TData> class FwdTransOp : public LinearSystemOp<TData>
 {
 public:
-    static std::shared_ptr<HelmSolveOp<TData>> Create(
+    static std::shared_ptr<FwdTransOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &execStr = "")
     {
-        return Operator<TData>::template Create<HelmSolveOp>(expansionList,
-                                                             execStr);
+        return Operator<TData>::template Create<FwdTransOp>(expansionList,
+                                                            execStr);
     }
 
-    static inline const std::string name = "HelmSolve";
-
-    void Apply(Field<TData, FieldState::Phys> &in,
-               Field<TData, FieldState::Coeff> &out)
-    {
-        v_Apply(in, out);
-    }
-
-    void operator()(Field<TData, FieldState::Phys> &in,
-                    Field<TData, FieldState::Coeff> &out)
-    {
-        v_Apply(in, out);
-    }
-
-    void SetLambda(const TData &lambda)
-    {
-        v_SetLambda(lambda);
-    }
-
-    void SetLinearSolver(const std::shared_ptr<LinearSolverOp<TData>> &linsolve)
-    {
-        v_SetLinearSolver(linsolve);
-    }
-
-    void SetPrecon(const std::shared_ptr<PreconOp<TData>> &precon)
-    {
-        v_SetPrecon(precon);
-    }
+    static inline const std::string name = "FwdTrans";
 
 protected:
-    HelmSolveOp(const MultiRegions::ExpListSharedPtr &expansionList)
-        : Operator<TData>(expansionList)
+    FwdTransOp(const MultiRegions::ExpListSharedPtr &expansionList)
+        : LinearSystemOp<TData>(expansionList)
     {
     }
 
-    ~HelmSolveOp() override = default;
-
-    virtual void v_Apply(Field<TData, FieldState::Phys> &in,
-                         Field<TData, FieldState::Coeff> &out) = 0;
-
-    virtual void v_SetLambda(const TData &lambda) = 0;
-
-    virtual void v_SetLinearSolver(
-        const std::shared_ptr<LinearSolverOp<TData>> &linsolve) = 0;
-
-    virtual void v_SetPrecon(
-        const std::shared_ptr<PreconOp<TData>> &precon) = 0;
+    ~FwdTransOp() override = default;
 };
 
 } // namespace Nektar::Operators

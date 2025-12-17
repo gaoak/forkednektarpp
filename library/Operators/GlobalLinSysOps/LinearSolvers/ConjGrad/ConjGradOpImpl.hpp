@@ -35,9 +35,9 @@
 #pragma once
 
 #include "Operators/AssmbScatr/AssmbScatrOpImpl.hpp"
-#include "Operators/GlobalLinSysOps/ConjGrad/ConjGradOp.hpp"
+#include "Operators/GlobalLinSysOps/LinearSolvers/ConjGrad/ConjGradOp.hpp"
 
-#include "Operators/GlobalLinSysOps/ConjGrad/ConjGradKernels.hpp"
+#include "Operators/GlobalLinSysOps/LinearSolvers/ConjGrad/ConjGradKernels.hpp"
 
 #include <iomanip>
 

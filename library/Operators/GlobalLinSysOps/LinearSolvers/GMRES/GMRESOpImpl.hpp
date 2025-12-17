@@ -35,7 +35,7 @@
 #pragma once
 
 #include "Operators/AssmbScatr/AssmbScatrOpImpl.hpp"
-#include "Operators/GlobalLinSysOps/GMRES/GMRESOp.hpp"
+#include "Operators/GlobalLinSysOps/LinearSolvers/GMRES/GMRESOp.hpp"
 
 #include <iomanip>
 

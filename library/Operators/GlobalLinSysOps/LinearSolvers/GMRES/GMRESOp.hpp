@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: ConjGradOp.hpp
+// File: GMRESOp.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,33 +34,33 @@
 
 #pragma once
 
-#include "Operators/GlobalLinSysOps/LinearSolverOp.hpp"
+#include "Operators/GlobalLinSysOps/LinearSolvers/LinearSolverOp.hpp"
 
 namespace Nektar::Operators
 {
 
-// ConjGrad base class
+// GMRES base class
 // Defines the apply operator to enforce apply parameter types
-template <typename TData> class ConjGradOp : public LinearSolverOp<TData>
+template <typename TData> class GMRESOp : public LinearSolverOp<TData>
 {
 public:
-    static std::shared_ptr<ConjGradOp<TData>> Create(
+    static std::shared_ptr<GMRESOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &execStr = "")
     {
-        return std::dynamic_pointer_cast<ConjGradOp<TData>>(
+        return std::dynamic_pointer_cast<GMRESOp<TData>>(
             LinearSolverOp<TData>::Create(expansionList, name, execStr));
     }
 
-    static inline const std::string name = "ConjGrad";
+    static inline const std::string name = "GMRES";
 
 protected:
-    ConjGradOp(const MultiRegions::ExpListSharedPtr &expansionList)
+    GMRESOp(const MultiRegions::ExpListSharedPtr &expansionList)
         : LinearSolverOp<TData>(expansionList)
     {
     }
 
-    ~ConjGradOp() override = default;
+    ~GMRESOp() override = default;
 };
 
 } // namespace Nektar::Operators

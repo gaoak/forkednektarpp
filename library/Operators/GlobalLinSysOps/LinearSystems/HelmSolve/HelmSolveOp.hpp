@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: LinearADRSolveOp.hpp
+// File: HelmSolveOp.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,80 +34,42 @@
 
 #pragma once
 
-#include "Operators/GlobalLinSysOps/LinearSolverOp.hpp"
+#include "Operators/GlobalLinSysOps/LinearSolvers/LinearSolverOp.hpp"
+#include "Operators/GlobalLinSysOps/LinearSystems/LinearSystemOp.hpp"
 #include "Operators/PreconOps/PreconOp.hpp"
 
 namespace Nektar::Operators
 {
 
-// LinearADRSolve operator base class
+// HelmSolve operator base class
 // Defines the apply operator to enforce apply parameter types
-template <typename TData> class LinearADRSolveOp : public Operator<TData>
+template <typename TData> class HelmSolveOp : public LinearSystemOp<TData>
 {
 public:
-    static std::shared_ptr<LinearADRSolveOp<TData>> Create(
+    static std::shared_ptr<HelmSolveOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::string &execStr = "")
     {
-        return Operator<TData>::template Create<LinearADRSolveOp>(expansionList,
-                                                                  execStr);
+        return Operator<TData>::template Create<HelmSolveOp>(expansionList,
+                                                             execStr);
     }
 
-    static inline const std::string name = "LinearADRSolve";
-
-    void Apply(Field<TData, FieldState::Phys> &in,
-               Field<TData, FieldState::Coeff> &out)
-    {
-        v_Apply(in, out);
-    }
-
-    void operator()(Field<TData, FieldState::Phys> &in,
-                    Field<TData, FieldState::Coeff> &out)
-    {
-        v_Apply(in, out);
-    }
+    static inline const std::string name = "HelmSolve";
 
     void SetLambda(const TData &lambda)
     {
         v_SetLambda(lambda);
     }
 
-    void SetAdvVel(const unsigned int nVel, const Array<OneD, NekDouble> &Vel)
-    {
-        v_SetAdvVel(nVel, Vel);
-    }
-
-    void SetLinearSolver(const std::shared_ptr<LinearSolverOp<TData>> &linsolve)
-    {
-        v_SetLinearSolver(linsolve);
-    }
-
-    void SetPrecon(const std::shared_ptr<PreconOp<TData>> &precon)
-    {
-        v_SetPrecon(precon);
-    }
-
 protected:
-    LinearADRSolveOp(const MultiRegions::ExpListSharedPtr &expansionList)
-        : Operator<TData>(expansionList)
+    HelmSolveOp(const MultiRegions::ExpListSharedPtr &expansionList)
+        : LinearSystemOp<TData>(expansionList)
     {
     }
 
-    ~LinearADRSolveOp() override = default;
-
-    virtual void v_Apply(Field<TData, FieldState::Phys> &in,
-                         Field<TData, FieldState::Coeff> &out) = 0;
+    ~HelmSolveOp() override = default;
 
     virtual void v_SetLambda(const TData &lambda) = 0;
-
-    virtual void v_SetAdvVel(const unsigned int nVel,
-                             const Array<OneD, NekDouble> &Vel) = 0;
-
-    virtual void v_SetLinearSolver(
-        const std::shared_ptr<LinearSolverOp<TData>> &linsolve) = 0;
-
-    virtual void v_SetPrecon(
-        const std::shared_ptr<PreconOp<TData>> &precon) = 0;
 };
 
 } // namespace Nektar::Operators

@@ -33,8 +33,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "Operators/AssmbScatr/AssmbScatrOp.hpp"
-#include "Operators/GlobalLinSysOps/ConjGrad/ConjGradOp.hpp"
-#include "Operators/GlobalLinSysOps/FwdTrans/FwdTransOp.hpp"
+#include "Operators/GlobalLinSysOps/LinearSolvers/ConjGrad/ConjGradOp.hpp"
+#include "Operators/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp"
 #include "Operators/PreconOps/DiagPrecon/DiagPreconOp.hpp"
 #include <Operators/ElmtOps/Helmholtz/HelmholtzOp.hpp>
 #include <Operators/ElmtOps/Mass/MassOp.hpp>
