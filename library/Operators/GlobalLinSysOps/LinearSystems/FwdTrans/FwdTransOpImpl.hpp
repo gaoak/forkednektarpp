@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "Operators/GlobalLinSysOps/FwdTrans/FwdTransOp.hpp"
+#include "Operators/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp"
 
 #include "Operators/BndCondOps/DirBndCond/DirBndCondOp.hpp"
 #include "Operators/BndCondOps/RobBndCond/RobBndCondOp.hpp"

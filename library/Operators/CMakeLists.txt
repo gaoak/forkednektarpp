@@ -620,7 +620,7 @@ SET(GROUP_SOURCES ${OPERATORS_SOURCES})
 
 # Loop through all of the directories which contain operators and add
 # their source and header files.
-FILE(GLOB children AddTraceIntegral  BndCondOps/*  ElmtOps/*  GlobalLinSysOps/* PreconOps/*)
+FILE(GLOB children AddTraceIntegral  BndCondOps/*  ElmtOps/*  GlobalLinSysOps/LinearSystems/* GlobalLinSysOps/LinearSolvers/* PreconOps/*)
 
 FOREACH(child ${children})
    MESSAGE("Child : " "${child}")

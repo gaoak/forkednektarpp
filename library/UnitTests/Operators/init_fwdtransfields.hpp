@@ -34,8 +34,8 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/GlobalLinSysOps/FwdTrans/FwdTransOp.hpp"
-#include "Operators/GlobalLinSysOps/LinearSolverOp.hpp"
+#include "Operators/GlobalLinSysOps/LinearSolvers/LinearSolverOp.hpp"
+#include "Operators/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp"
 #include "Operators/PreconOps/PreconOp.hpp"
 
 using namespace Nektar::Operators;
