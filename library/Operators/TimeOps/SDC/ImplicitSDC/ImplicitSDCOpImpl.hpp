@@ -50,21 +50,43 @@ class ImplicitSDCOpImpl : public ImplicitSDCOp<TData>
 
 public:
     ImplicitSDCOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
-                      const std::vector<std::string> &components)
-        : ImplicitSDCOp<TData>(expansionList, components)
+                      const std::vector<std::string> &components,
+                      const unsigned int &order, const std::string &variant,
+                      const std::vector<TData> freeParams)
+        : ImplicitSDCOp<TData>(expansionList, components, order, variant,
+                               freeParams)
     {
+        this->template Initialize<ExecSpace>();
+
+        auto blockAttr =
+            GetBlockAttributes<TData, FieldState::Phys>(this->m_expansionList);
+        for (unsigned int m = 0; m < this->m_nQuadPts; ++m)
+        {
+            this->m_SFint.push_back(Field<TData, FieldState::Phys>(
+                blockAttr, this->m_components, 1));
+
+            this->m_solutions.push_back(Field<TData, FieldState::Phys>(
+                blockAttr, this->m_components, 1));
+
+            this->m_residuals.push_back(Field<TData, FieldState::Phys>(
+                blockAttr, this->m_components, 1));
+        }
+
+        this->m_SFint[0].template Initialize<MemSpace>(0.0);
+        this->m_residuals[0].template Initialize<MemSpace>(0.0);
     }
 
     // className - for OperatorFactory
     static std::string className;
 
     // instantiation function for CreatorFunction in Operator Factory
-    static std::unique_ptr<Operator<TData>> Instantiate(
+    static std::unique_ptr<TimeOp<TData>> Instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList,
-        const std::vector<std::string> &components)
+        const std::vector<std::string> &components, const unsigned int &order,
+        const std::string &variant, const std::vector<TData> freeParams)
     {
         return std::make_unique<ImplicitSDCOpImpl<ExecSpace, TData>>(
-            expansionList, components);
+            expansionList, components, order, variant, freeParams);
     }
 
 protected:
@@ -74,31 +96,6 @@ protected:
         ASSERTL0(this->m_implicitFunctor,
                  "ImplicitSDC schemes require a DoImplicit method. Define with "
                  "ImplicitSDCOp->DefineImplicit().");
-
-        // Initialize.
-        if (!this->m_initialized)
-        {
-            this->template Initialize<ExecSpace>();
-
-            auto blockAttr = GetBlockAttributes<TData, FieldState::Phys>(
-                this->m_expansionList);
-            for (unsigned int m = 0; m < this->m_nQuadPts; ++m)
-            {
-                this->m_SFint.push_back(Field<TData, FieldState::Phys>(
-                    blockAttr, this->m_components, inout.GetNumHomoModes()));
-
-                this->m_solutions.push_back(Field<TData, FieldState::Phys>(
-                    blockAttr, this->m_components, inout.GetNumHomoModes()));
-
-                this->m_residuals.push_back(Field<TData, FieldState::Phys>(
-                    blockAttr, this->m_components, inout.GetNumHomoModes()));
-            }
-
-            this->m_SFint[0].template Initialize<MemSpace>(0.0);
-            this->m_residuals[0].template Initialize<MemSpace>(0.0);
-
-            this->m_initialized = true;
-        }
 
         // Store the initial values.
         this->m_solutions[0].template Copy<MemSpace>(inout);

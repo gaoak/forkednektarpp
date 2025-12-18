@@ -598,6 +598,7 @@ SET(OPERATORS_HEADERS
     Math/Math.hpp
     NekBlas/NekBlas.hpp
     NekBlas/blasHandle.hpp
+    TimeOps/TimeOp.hpp
     )
 
 # Common source file.
@@ -613,6 +614,7 @@ SET(OPERATORS_SOURCES
     Field/Block.cpp
     NekBlas/blas.cpp
     NekBlas/blasHandle.cpp
+    TimeOps/TimeOp.cpp
     )
 
 # Only these cpp files go into the group set below.

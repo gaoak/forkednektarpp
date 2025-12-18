@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: ExplicitSDCOp.hpp
+// File: TimeOp.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,42 +32,36 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#pragma once
+#include "Operators/TimeOps/TimeOp.hpp"
 
-#include "Operators/TimeOps/SDC/SDCOp.hpp"
+using namespace Nektar::LibUtilities;
 
 namespace Nektar::Operators
 {
 
-// ExplicitSDC base class
-// Defines the apply operator to enforce apply parameter types
-template <typename TData> class ExplicitSDCOp : public SDCOp<TData>
+template <typename TData> TimeOpFactory<TData> &GetTimeOpFactory()
 {
-public:
-    static std::shared_ptr<ExplicitSDCOp<TData>> Create(
-        const MultiRegions::ExpListSharedPtr &expansionList,
-        const std::vector<std::string> &components,
-        const unsigned int &order = 0, const std::string &variant = "",
-        const std::vector<TData> freeParams = std::vector<TData>{},
-        const std::string &execStr          = "")
-    {
-        return std::dynamic_pointer_cast<ExplicitSDCOp<TData>>(
-            TimeOp<TData>::Create(expansionList, components, name, order,
-                                  variant, freeParams, execStr));
-    }
+    static TimeOpFactory<TData> instance;
+    return instance;
+}
 
-    static inline const std::string name = "ExplicitSDC";
+template <typename TData> GEMOpFactory<TData> &GetGEMOpFactory()
+{
+    static GEMOpFactory<TData> instance;
+    return instance;
+}
 
-protected:
-    ExplicitSDCOp(const MultiRegions::ExpListSharedPtr &expansionList,
-                  const std::vector<std::string> &components,
-                  const unsigned int &order, const std::string &variant,
-                  const std::vector<TData> freeParams)
-        : SDCOp<TData>(expansionList, components, order, variant, freeParams)
-    {
-    }
+template <typename TData> SDCOpFactory<TData> &GetSDCOpFactory()
+{
+    static SDCOpFactory<TData> instance;
+    return instance;
+}
 
-    ~ExplicitSDCOp() override = default;
-};
+template TimeOpFactory<float> &GetTimeOpFactory();
+template TimeOpFactory<double> &GetTimeOpFactory();
+template GEMOpFactory<float> &GetGEMOpFactory();
+template GEMOpFactory<double> &GetGEMOpFactory();
+template SDCOpFactory<float> &GetSDCOpFactory();
+template SDCOpFactory<double> &GetSDCOpFactory();
 
 } // namespace Nektar::Operators
