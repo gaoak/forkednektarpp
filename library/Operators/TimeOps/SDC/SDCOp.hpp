@@ -53,9 +53,9 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components,
         const std::string &method = "", const unsigned int &order = 0,
-        const std::string &variant          = "",
-        const std::vector<TData> freeParams = std::vector<TData>{},
-        const std::string &execStr          = "")
+        const std::string &variant           = "",
+        const std::vector<TData> &freeParams = std::vector<TData>{},
+        const std::string &execStr           = "")
     {
         return std::dynamic_pointer_cast<SDCOp<TData>>(
             TimeOp<TData>::Create(expansionList, components, method, order,
@@ -85,7 +85,7 @@ protected:
 
     SDCOp(const MultiRegions::ExpListSharedPtr &expansionList,
           const std::vector<std::string> components, const unsigned int &order,
-          const std::string &variant, const std::vector<TData> freeParams)
+          const std::string &variant, const std::vector<TData> &freeParams)
         : TimeOp<TData>(expansionList, components), m_order(order),
           m_variant(variant)
     {

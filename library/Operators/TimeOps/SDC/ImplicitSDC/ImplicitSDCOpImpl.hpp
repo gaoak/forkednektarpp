@@ -52,7 +52,7 @@ public:
     ImplicitSDCOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
                       const std::vector<std::string> &components,
                       const unsigned int &order, const std::string &variant,
-                      const std::vector<TData> freeParams)
+                      const std::vector<TData> &freeParams)
         : ImplicitSDCOp<TData>(expansionList, components, order, variant,
                                freeParams)
     {
@@ -83,7 +83,7 @@ public:
     static std::unique_ptr<TimeOp<TData>> Instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components, const unsigned int &order,
-        const std::string &variant, const std::vector<TData> freeParams)
+        const std::string &variant, const std::vector<TData> &freeParams)
     {
         return std::make_unique<ImplicitSDCOpImpl<ExecSpace, TData>>(
             expansionList, components, order, variant, freeParams);

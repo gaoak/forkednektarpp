@@ -58,7 +58,7 @@ template <typename TData>
 using SDCOpFactory = Nektar::LibUtilities::NekFactory<
     std::string, TimeOp<TData>, const MultiRegions::ExpListSharedPtr &,
     const std::vector<std::string> &, const unsigned int &, const std::string &,
-    const std::vector<TData>>;
+    const std::vector<TData> &>;
 
 // Operator factory singleton
 template <typename TData> TimeOpFactory<TData> &GetTimeOpFactory();
@@ -75,9 +75,9 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components,
         const std::string &method = "", const unsigned int &order = 0,
-        const std::string &variant          = "",
-        const std::vector<TData> freeParams = std::vector<TData>{},
-        const std::string &execStr          = "")
+        const std::string &variant           = "",
+        const std::vector<TData> &freeParams = std::vector<TData>{},
+        const std::string &execStr           = "")
     {
         auto session = expansionList->GetSession();
 
@@ -389,7 +389,7 @@ protected:
            const std::vector<std::string> components,
            [[maybe_unused]] const unsigned int &order,
            [[maybe_unused]] const std::string &variant,
-           [[maybe_unused]] const std::vector<TData> freeParams)
+           [[maybe_unused]] const std::vector<TData> &freeParams)
         : Operator<TData>(expansionList, components)
     {
         this->m_timestep =

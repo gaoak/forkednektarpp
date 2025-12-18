@@ -48,8 +48,8 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components,
         const unsigned int &order = 0, const std::string &variant = "",
-        const std::vector<TData> freeParams = std::vector<TData>{},
-        const std::string &execStr          = "")
+        const std::vector<TData> &freeParams = std::vector<TData>{},
+        const std::string &execStr           = "")
     {
         return std::dynamic_pointer_cast<IMEXSDCOp<TData>>(
             TimeOp<TData>::Create(expansionList, components, name, order,
@@ -62,7 +62,7 @@ protected:
     IMEXSDCOp(const MultiRegions::ExpListSharedPtr &expansionList,
               const std::vector<std::string> &components,
               const unsigned int &order, const std::string &variant,
-              const std::vector<TData> freeParams)
+              const std::vector<TData> &freeParams)
         : SDCOp<TData>(expansionList, components, order, variant, freeParams)
     {
     }
