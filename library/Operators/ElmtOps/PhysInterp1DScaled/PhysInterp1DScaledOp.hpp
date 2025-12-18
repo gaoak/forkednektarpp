@@ -52,11 +52,12 @@ class PhysInterp1DScaledOp
 public:
     static std::shared_ptr<PhysInterp1DScaledOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
         const std::string &execStr = "", const std::string &implStr = "")
     {
         return ElmtOp<FieldState::Phys, FieldState::Phys, TData>::
             template Create<PhysInterp1DScaledOp, PhysInterp1DScaledBlockOp>(
-                expansionList, execStr, implStr);
+                expansionList, components, execStr, implStr);
     }
 
     static inline const std::string name = "PhysInterp1DScaled";
@@ -73,8 +74,10 @@ public:
 protected:
     std::vector<std::shared_ptr<PhysInterp1DScaledBlockOp<TData>>> m_blockOp;
 
-    PhysInterp1DScaledOp(const MultiRegions::ExpListSharedPtr &expansionList)
-        : ElmtOp<FieldState::Phys, FieldState::Phys, TData>(expansionList)
+    PhysInterp1DScaledOp(const MultiRegions::ExpListSharedPtr &expansionList,
+                         const std::vector<std::string> &components)
+        : ElmtOp<FieldState::Phys, FieldState::Phys, TData>(expansionList,
+                                                            components)
     {
     }
 

@@ -37,7 +37,6 @@
 #include "Operators/TimeOps/GEM/IMEXGEM/IMEXGEMOp.hpp"
 
 using namespace Nektar;
-using namespace Nektar::MultiRegions;
 
 namespace Nektar::Operators::detail
 {
@@ -48,8 +47,9 @@ class IMEXGEMOpImpl : public IMEXGEMOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    IMEXGEMOpImpl(const ExpListSharedPtr &expansionList)
-        : IMEXGEMOp<TData>(expansionList)
+    IMEXGEMOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
+                  const std::vector<std::string> &components)
+        : IMEXGEMOp<TData>(expansionList, components)
     {
     }
 
@@ -58,9 +58,11 @@ public:
 
     // instantiation function for CreatorFunction in Operator Factory
     static std::unique_ptr<Operator<TData>> Instantiate(
-        const ExpListSharedPtr &expansionList)
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
     {
-        return std::make_unique<IMEXGEMOpImpl<ExecSpace, TData>>(expansionList);
+        return std::make_unique<IMEXGEMOpImpl<ExecSpace, TData>>(expansionList,
+                                                                 components);
     }
 
 protected:
@@ -80,12 +82,10 @@ protected:
             for (unsigned int m = 0; m < npts; ++m)
             {
                 this->m_T.push_back(Field<TData, FieldState::Phys>(
-                    blockAttr, inout.GetNumComponents(),
-                    inout.GetNumHomoModes()));
+                    blockAttr, this->m_components, inout.GetNumHomoModes()));
 
                 this->m_T0.push_back(Field<TData, FieldState::Phys>(
-                    blockAttr, inout.GetNumComponents(),
-                    inout.GetNumHomoModes()));
+                    blockAttr, this->m_components, inout.GetNumHomoModes()));
             }
 
             // Initialise IMEXdirk scheme.
@@ -93,8 +93,8 @@ protected:
                 (this->m_variant == "Midpoint") ? "12" : "11";
             const unsigned int order = (this->m_variant == "Midpoint") ? 2 : 1;
             this->m_stepper          = TimeOp<TData>::Create(
-                this->m_expansionList, "IMEXdirk", order, variant,
-                std::vector<TData>{}, ExecSpace::name);
+                this->m_expansionList, this->m_components, "IMEXdirk", order,
+                variant, std::vector<TData>{}, ExecSpace::name);
             this->m_stepper->CopyFunctorsFrom(*this);
 
             this->m_initialized = true;

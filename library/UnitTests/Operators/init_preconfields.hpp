@@ -88,9 +88,12 @@ public:
 
     void RunTestCase(const std::string &method)
     {
-        auto assmb  = AssmbScatrZeroDirOp<TData>::Create(this->fixt_explist);
-        auto op     = HelmholtzOp<TData>::Create(this->fixt_explist);
-        auto precon = PreconOp<TData>::Create(this->fixt_explist, method);
+        auto assmb = AssmbScatrZeroDirOp<TData>::Create(
+            this->fixt_explist, this->session->GetVariables());
+        auto op     = HelmholtzOp<TData>::Create(this->fixt_explist,
+                                                 this->session->GetVariables());
+        auto precon = PreconOp<TData>::Create(
+            this->fixt_explist, this->session->GetVariables(), method);
         op->SetLambda(m_lambda);
         precon->Configure(op);
         assmb->Apply(*this->fixt_in, *this->fixt_out);
@@ -99,9 +102,12 @@ public:
 
     void ExpectedSolution(const std::string &method)
     {
+        auto nin    = this->session->GetVariables().size();
+        auto ncoeff = this->fixt_explist->GetNcoeffs();
+
         // Calculate expected result from Nektar++
         Array<OneD, TData> incoeffs = this->fixt_in->ToArray();
-        Array<OneD, TData> outcoeffs(this->fixt_explist->GetNcoeffs(), 0.0);
+        Array<OneD, TData> outcoeffs(nin * ncoeff, 0.0);
 
         StdRegions::ConstFactorMap factors;
         factors[StdRegions::eFactorLambda] = m_lambda;
@@ -115,7 +121,12 @@ public:
         auto precond =
             GetPreconFactory().CreateInstance(method, globalSys, map);
         precond->BuildPreconditioner();
-        precond->DoPreconditioner(incoeffs, outcoeffs, true);
+        for (unsigned int n = 0; n < nin; n++)
+        {
+            Array<OneD, TData> tmp;
+            precond->DoPreconditioner(incoeffs + n * ncoeff,
+                                      tmp = outcoeffs + n * ncoeff, true);
+        }
         this->fixt_expected->template CopyArray<NektarSpaces::HostSpace>(
             outcoeffs);
     }
@@ -157,6 +168,8 @@ private:
 // clang-format on
 
 TEST(Helmholtz1D_Seg, "run/Helmholtz1D_P8.xml")
+
+TEST(Helmholtz1D_Multicomponent, "run/Helmholtz1D_multicomponent.xml")
 
 TEST(Helmholtz2D_Tri_Quad, "run/Helmholtz2D_varP.xml")
 

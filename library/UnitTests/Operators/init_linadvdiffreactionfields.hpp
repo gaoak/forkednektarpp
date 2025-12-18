@@ -99,11 +99,12 @@ public:
 
     void RunTestCase()
     {
-        auto LinADR = LinAdvDiffReactionOp<TData>::Create(this->fixt_explist);
+        auto LinADR = LinAdvDiffReactionOp<TData>::Create(
+            this->fixt_explist, this->session->GetVariables());
 
         // seem to have the negative definitio of lambda implemented currently
         LinADR->SetLambda(-1.0 * m_lambda);
-        LinADR->SetAdvVel(m_dim, m_vel);
+        LinADR->SetAdvVel(m_vel);
         LinADR->Apply(*this->fixt_in, *this->fixt_out);
     }
 

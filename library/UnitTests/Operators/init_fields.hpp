@@ -168,17 +168,17 @@ public:
     {
         BOOST_TEST_MESSAGE("teardown fixture");
 
-        if (fixt_in)
+        if (this->fixt_in)
         {
-            delete fixt_in;
+            delete this->fixt_in;
         }
-        if (fixt_out)
+        if (this->fixt_out)
         {
-            delete fixt_out;
+            delete this->fixt_out;
         }
-        if (fixt_expected)
+        if (this->fixt_expected)
         {
-            delete fixt_expected;
+            delete this->fixt_expected;
         }
     }
 
@@ -228,9 +228,9 @@ public:
 
         this->session = LibUtilities::SessionReader::CreateInstance(argc, argv);
 
-        if (session->GetComm())
+        if (this->session->GetComm())
         {
-            auto rank        = session->GetComm()->GetRank();
+            auto rank        = this->session->GetComm()->GetRank();
             auto num_device  = nekGetDeviceCount();
             auto device_rank = rank % num_device;
             nekSetDevice(device_rank);
@@ -239,32 +239,33 @@ public:
 
     void SetExpList(void)
     {
-        auto graph = SpatialDomains::MeshGraphIO::Read(session);
+        auto graph = SpatialDomains::MeshGraphIO::Read(this->session);
         if constexpr (std::is_same_v<TExpList, MultiRegions::ContField>)
         {
             this->fixt_explist =
                 MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(
-                    session, graph, "u", true, false,
+                    this->session, graph, "u", true, false,
                     Collections::eNoCollection);
         }
         else if constexpr (std::is_same_v<TExpList, MultiRegions::DisContField>)
         {
             this->fixt_explist =
                 MemoryManager<MultiRegions::DisContField>::AllocateSharedPtr(
-                    session, graph, "u", true, true,
+                    this->session, graph, "u", true, true,
                     Collections::eNoCollection);
         }
         else if constexpr (std::is_same_v<TExpList, MultiRegions::ExpList>)
         {
             this->fixt_explist =
                 MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
-                    session, graph, true, "u", Collections::eNoCollection);
+                    this->session, graph, true, "u",
+                    Collections::eNoCollection);
         }
     }
 
     void SetExpList3DH1(const unsigned int nhomo = 1)
     {
-        auto graph = SpatialDomains::MeshGraphIO::Read(session);
+        auto graph = SpatialDomains::MeshGraphIO::Read(this->session);
         if constexpr (std::is_same_v<TExpList, MultiRegions::ContField>)
         {
             const Nektar::LibUtilities::PointsKey pkey(
@@ -273,8 +274,9 @@ public:
                 Nektar::LibUtilities::eFourier, nhomo, pkey);
             this->fixt_explist =
                 MemoryManager<MultiRegions::ContField3DHomogeneous1D>::
-                    AllocateSharedPtr(session, bkey, 1.0, false, false, graph,
-                                      "u", false, Collections::eNoCollection);
+                    AllocateSharedPtr(this->session, bkey, 1.0, false, false,
+                                      graph, "u", false,
+                                      Collections::eNoCollection);
         }
         else if constexpr (std::is_same_v<TExpList, MultiRegions::DisContField>)
         {
@@ -284,8 +286,8 @@ public:
                 Nektar::LibUtilities::eFourier, nhomo, pkey);
             this->fixt_explist =
                 MemoryManager<MultiRegions::DisContField3DHomogeneous1D>::
-                    AllocateSharedPtr(session, bkey, 1.0, false, false, graph,
-                                      "u", Collections::eNoCollection);
+                    AllocateSharedPtr(this->session, bkey, 1.0, false, false,
+                                      graph, "u", Collections::eNoCollection);
         }
         else if constexpr (std::is_same_v<TExpList, MultiRegions::ExpList>)
         {
@@ -295,8 +297,8 @@ public:
                 Nektar::LibUtilities::eFourier, nhomo, pkey);
             this->fixt_explist =
                 MemoryManager<MultiRegions::ExpList3DHomogeneous1D>::
-                    AllocateSharedPtr(session, bkey, 1.0, false, false, graph,
-                                      "u", Collections::eNoCollection);
+                    AllocateSharedPtr(this->session, bkey, 1.0, false, false,
+                                      graph, "u", Collections::eNoCollection);
         }
         this->fixt_explist->SetWaveSpace(true);
     }
@@ -304,7 +306,7 @@ public:
     void SetExpList3DH2(const unsigned int nhomoY = 1,
                         const unsigned int nhomoZ = 1)
     {
-        auto graph = SpatialDomains::MeshGraphIO::Read(session);
+        auto graph = SpatialDomains::MeshGraphIO::Read(this->session);
         if constexpr (std::is_same_v<TExpList, MultiRegions::ContField>)
         {
             const Nektar::LibUtilities::PointsKey pkey1(
@@ -317,8 +319,8 @@ public:
                 Nektar::LibUtilities::eFourier, nhomoZ, pkey2);
             this->fixt_explist =
                 MemoryManager<MultiRegions::ContField3DHomogeneous2D>::
-                    AllocateSharedPtr(session, bkey1, bkey2, 1.0, 1.0, false,
-                                      false, graph, "u", false,
+                    AllocateSharedPtr(this->session, bkey1, bkey2, 1.0, 1.0,
+                                      false, false, graph, "u", false,
                                       Collections::eNoCollection);
         }
         else if constexpr (std::is_same_v<TExpList, MultiRegions::DisContField>)
@@ -333,8 +335,8 @@ public:
                 Nektar::LibUtilities::eFourier, nhomoZ, pkey2);
             this->fixt_explist =
                 MemoryManager<MultiRegions::DisContField3DHomogeneous2D>::
-                    AllocateSharedPtr(session, bkey1, bkey2, 1.0, 1.0, false,
-                                      false, graph, "u",
+                    AllocateSharedPtr(this->session, bkey1, bkey2, 1.0, 1.0,
+                                      false, false, graph, "u",
                                       Collections::eNoCollection);
         }
         else if constexpr (std::is_same_v<TExpList, MultiRegions::ExpList>)
@@ -349,26 +351,29 @@ public:
                 Nektar::LibUtilities::eFourier, nhomoZ, pkey2);
             this->fixt_explist =
                 MemoryManager<MultiRegions::ExpList3DHomogeneous2D>::
-                    AllocateSharedPtr(session, bkey1, bkey2, 1.0, 1.0, false,
-                                      false, graph, Collections::eNoCollection);
+                    AllocateSharedPtr(this->session, bkey1, bkey2, 1.0, 1.0,
+                                      false, false, graph,
+                                      Collections::eNoCollection);
         }
         this->fixt_explist->SetWaveSpace(true);
     }
 
     virtual void SetFixture(const unsigned int nhomo)
     {
-        auto nin          = session->GetVariables().size();
-        auto nout         = session->GetVariables().size();
-        auto inblockAttr  = GetBlockAttributes<TData, stateIn>(fixt_explist);
-        auto outblockAttr = GetBlockAttributes<TData, stateOut>(fixt_explist);
+        auto nin  = this->session->GetVariables().size();
+        auto nout = this->session->GetVariables().size();
+        auto inblockAttr =
+            GetBlockAttributes<TData, stateIn>(this->fixt_explist);
+        auto outblockAttr =
+            GetBlockAttributes<TData, stateOut>(this->fixt_explist);
 
         auto f_in  = Field<TData, stateIn>("f_in", inblockAttr, nin, nhomo);
         auto f_out = Field<TData, stateOut>("f_out", outblockAttr, nout, nhomo);
         auto f_expected =
             Field<TData, stateOut>("f_expected", outblockAttr, nout, nhomo);
-        fixt_in       = new Field<TData, stateIn>(std::move(f_in));
-        fixt_out      = new Field<TData, stateOut>(std::move(f_out));
-        fixt_expected = new Field<TData, stateOut>(std::move(f_expected));
+        this->fixt_in       = new Field<TData, stateIn>(std::move(f_in));
+        this->fixt_out      = new Field<TData, stateOut>(std::move(f_out));
+        this->fixt_expected = new Field<TData, stateOut>(std::move(f_expected));
     }
 
     /**
@@ -380,29 +385,32 @@ public:
      */
     bool Compare(TData tol)
     {
-        auto rank = session->GetComm()->GetRank();
+        auto rank = this->session->GetComm()->GetRank();
 
-        if (fixt_expected->GetNumComponents() != fixt_out->GetNumComponents())
+        if (this->fixt_expected->GetNumComponents() !=
+            this->fixt_out->GetNumComponents())
         {
             std::cout << "Mismatch of number of components." << std::endl;
             return false;
         }
 
-        if (fixt_expected->GetNumHomoModes() != fixt_out->GetNumHomoModes())
+        if (this->fixt_expected->GetNumHomoModes() !=
+            this->fixt_out->GetNumHomoModes())
         {
             std::cout << "Mismatch of number of homogeneous modes."
                       << std::endl;
             return false;
         }
 
-        if (fixt_expected->GetBlocks().size() != fixt_out->GetBlocks().size())
+        if (this->fixt_expected->GetBlocks().size() !=
+            this->fixt_out->GetBlocks().size())
         {
             std::cout << "Mismatch of block size." << std::endl;
             return false;
         }
 
-        ReshapeToScalar(*fixt_out);
-        ReshapeToScalar(*fixt_expected);
+        ReshapeToScalar(*this->fixt_out);
+        ReshapeToScalar(*this->fixt_expected);
 
         bool isMatch = true;
 
@@ -411,35 +419,37 @@ public:
             printf("#elm #pts output               expected            "
                    "difference\n");
         }
-        for (unsigned int blk = 0; blk < fixt_out->GetBlocks().size(); ++blk)
+        for (unsigned int blk = 0; blk < this->fixt_out->GetBlocks().size();
+             ++blk)
         {
             const TData *outptr =
-                fixt_out->GetBlocks()[blk]
+                this->fixt_out->GetBlocks()[blk]
                     .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
             const TData *expptr =
-                fixt_expected->GetBlocks()[blk]
+                this->fixt_expected->GetBlocks()[blk]
                     .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
 
-            if ((fixt_out->GetBlocks()[blk].GetNumElements() !=
-                 fixt_expected->GetBlocks()[blk].GetNumElements()) ||
-                (fixt_out->GetBlocks()[blk].GetNumData() !=
-                 fixt_expected->GetBlocks()[blk].GetNumData()))
+            if ((this->fixt_out->GetBlocks()[blk].GetNumElements() !=
+                 this->fixt_expected->GetBlocks()[blk].GetNumElements()) ||
+                (this->fixt_out->GetBlocks()[blk].GetNumData() !=
+                 this->fixt_expected->GetBlocks()[blk].GetNumData()))
             {
                 std::cout << "Mismatch of block structure." << std::endl;
                 return false;
             }
 
-            for (unsigned int n = 0;
-                 n < fixt_out->GetNumComponents() * fixt_out->GetNumHomoModes();
+            for (unsigned int n = 0; n < this->fixt_out->GetNumComponents() *
+                                             this->fixt_out->GetNumHomoModes();
                  ++n)
             {
                 size_t MisMatchcnt = 0, total = 0;
 
                 for (size_t el = 0, cnt = 0;
-                     el < fixt_out->GetBlocks()[blk].GetNumElements(); ++el)
+                     el < this->fixt_out->GetBlocks()[blk].GetNumElements();
+                     ++el)
                 {
                     for (unsigned int pts = 0;
-                         pts < fixt_out->GetBlocks()[blk].GetNumData();
+                         pts < this->fixt_out->GetBlocks()[blk].GetNumData();
                          ++pts, ++cnt)
                     {
                         if (std::isnan(outptr[cnt]) ||
@@ -455,8 +465,8 @@ public:
                     }
                 }
 
-                outptr += fixt_out->GetBlocks()[blk].size();
-                expptr += fixt_expected->GetBlocks()[blk].size();
+                outptr += this->fixt_out->GetBlocks()[blk].size();
+                expptr += this->fixt_expected->GetBlocks()[blk].size();
 
                 if (MisMatchcnt)
                 {

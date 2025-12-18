@@ -39,7 +39,6 @@
 #include "Operators/TimeOps/SDC/ExplicitSDC/ExplicitSDCKernelLaunchers.hpp"
 
 using namespace Nektar;
-using namespace Nektar::MultiRegions;
 
 namespace Nektar::Operators::detail
 {
@@ -50,8 +49,9 @@ class ExplicitSDCOpImpl : public ExplicitSDCOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    ExplicitSDCOpImpl(const ExpListSharedPtr &expansionList)
-        : ExplicitSDCOp<TData>(expansionList)
+    ExplicitSDCOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
+                      const std::vector<std::string> &components)
+        : ExplicitSDCOp<TData>(expansionList, components)
     {
     }
 
@@ -60,10 +60,11 @@ public:
 
     // instantiation function for CreatorFunction in Operator Factory
     static std::unique_ptr<Operator<TData>> Instantiate(
-        const ExpListSharedPtr &expansionList)
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
     {
         return std::make_unique<ExplicitSDCOpImpl<ExecSpace, TData>>(
-            expansionList);
+            expansionList, components);
     }
 
 protected:
@@ -89,16 +90,13 @@ protected:
             for (unsigned int m = 0; m < this->m_nQuadPts; ++m)
             {
                 this->m_SFint.push_back(Field<TData, FieldState::Phys>(
-                    blockAttr, inout.GetNumComponents(),
-                    inout.GetNumHomoModes()));
+                    blockAttr, this->m_components, inout.GetNumHomoModes()));
 
                 this->m_solutions.push_back(Field<TData, FieldState::Phys>(
-                    blockAttr, inout.GetNumComponents(),
-                    inout.GetNumHomoModes()));
+                    blockAttr, this->m_components, inout.GetNumHomoModes()));
 
                 this->m_residuals.push_back(Field<TData, FieldState::Phys>(
-                    blockAttr, inout.GetNumComponents(),
-                    inout.GetNumHomoModes()));
+                    blockAttr, this->m_components, inout.GetNumHomoModes()));
             }
 
             this->m_initialized = true;

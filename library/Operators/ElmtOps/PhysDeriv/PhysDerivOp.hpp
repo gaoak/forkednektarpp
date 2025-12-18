@@ -51,11 +51,12 @@ class PhysDerivOp : public ElmtOp<FieldState::Phys, FieldState::Phys, TData>
 public:
     static std::shared_ptr<PhysDerivOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
         const std::string &execStr = "", const std::string &implStr = "")
     {
         return ElmtOp<FieldState::Phys, FieldState::Phys, TData>::
-            template Create<PhysDerivOp, PhysDerivBlockOp>(expansionList,
-                                                           execStr, implStr);
+            template Create<PhysDerivOp, PhysDerivBlockOp>(
+                expansionList, components, execStr, implStr);
     }
 
     static inline const std::string name = "PhysDeriv";
@@ -63,8 +64,10 @@ public:
 protected:
     std::vector<std::shared_ptr<PhysDerivBlockOp<TData>>> m_blockOp;
 
-    PhysDerivOp(const MultiRegions::ExpListSharedPtr &expansionList)
-        : ElmtOp<FieldState::Phys, FieldState::Phys, TData>(expansionList)
+    PhysDerivOp(const MultiRegions::ExpListSharedPtr &expansionList,
+                const std::vector<std::string> &components)
+        : ElmtOp<FieldState::Phys, FieldState::Phys, TData>(expansionList,
+                                                            components)
     {
     }
 

@@ -40,7 +40,6 @@
 #include "Operators/TimeOps/AdamsBashforth/AdamsBashforthKernelLaunchers.hpp"
 
 using namespace Nektar;
-using namespace Nektar::MultiRegions;
 
 namespace Nektar::Operators::detail
 {
@@ -57,8 +56,9 @@ class AdamsBashforthOpImpl : public AdamsBashforthOp<TData>
         "The AdamsBashforthOp class is only implemented for order 1-4.");
 
 public:
-    AdamsBashforthOpImpl(const ExpListSharedPtr &expansionList)
-        : AdamsBashforthOp<TData>(expansionList)
+    AdamsBashforthOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
+                         const std::vector<std::string> &components)
+        : AdamsBashforthOp<TData>(expansionList, components)
     {
     }
 
@@ -67,11 +67,12 @@ public:
 
     // instantiation function for CreatorFunction in Operator Factory
     static std::unique_ptr<Operator<TData>> Instantiate(
-        const ExpListSharedPtr &expansionList)
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
     {
         return std::make_unique<
             AdamsBashforthOpImpl<ExecSpace, Scheme, IntOrder, TData>>(
-            expansionList);
+            expansionList, components);
     }
 
 protected:
@@ -92,7 +93,7 @@ protected:
             this->m_explicits.push_front(Field<TData, FieldState::Phys>(
                 GetBlockAttributes<TData, FieldState::Phys>(
                     this->m_expansionList),
-                inout.GetNumComponents(), inout.GetNumHomoModes()));
+                this->m_components, inout.GetNumHomoModes()));
 
             // Compute explicit terms.
             this->DoExplicitRhs(inout, this->m_explicits[0], this->m_time,
@@ -100,7 +101,8 @@ protected:
 
             // Initialise RungeKutta scheme.
             auto startup = RungeKuttaOp<TData>::Create(
-                this->m_expansionList, IntOrder, "", ExecSpace::name);
+                this->m_expansionList, this->m_components, IntOrder, "",
+                ExecSpace::name);
 
             // Copy functors from AdamsBashforth scheme.
             startup->CopyFunctorsFrom(*this);
@@ -123,7 +125,7 @@ protected:
                 this->m_explicits.push_back(Field<TData, FieldState::Phys>(
                     GetBlockAttributes<TData, FieldState::Phys>(
                         this->m_expansionList),
-                    inout.GetNumComponents(), inout.GetNumHomoModes()));
+                    this->m_components, inout.GetNumHomoModes()));
             }
 
             if constexpr (IntOrder > 1)

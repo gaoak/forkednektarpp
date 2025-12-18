@@ -46,19 +46,21 @@ template <typename TData> class IMEXGEMOp : public GEMOp<TData>
 public:
     static std::shared_ptr<IMEXGEMOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
         const unsigned int &order = 0, const std::string &variant = "",
         const std::string &execStr = "")
     {
         return std::dynamic_pointer_cast<IMEXGEMOp<TData>>(
-            TimeOp<TData>::Create(expansionList, name, order, variant, "",
-                                  execStr));
+            TimeOp<TData>::Create(expansionList, components, name, order,
+                                  variant, "", execStr));
     }
 
     static inline const std::string name = "IMEXGEM";
 
 protected:
-    IMEXGEMOp(const MultiRegions::ExpListSharedPtr &expansionList)
-        : GEMOp<TData>(expansionList)
+    IMEXGEMOp(const MultiRegions::ExpListSharedPtr &expansionList,
+              const std::vector<std::string> &components)
+        : GEMOp<TData>(expansionList, components)
     {
     }
 

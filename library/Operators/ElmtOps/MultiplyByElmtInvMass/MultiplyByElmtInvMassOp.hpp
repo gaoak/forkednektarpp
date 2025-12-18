@@ -52,12 +52,13 @@ class MultiplyByElmtInvMassOp
 public:
     static std::shared_ptr<MultiplyByElmtInvMassOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
         const std::string &execStr = "", const std::string &implStr = "")
     {
         auto op = ElmtOp<FieldState::Coeff, FieldState::Coeff,
                          TData>::template Create<MultiplyByElmtInvMassOp,
                                                  MultiplyByElmtInvMassBlockOp>(
-            expansionList, execStr, implStr);
+            expansionList, components, execStr, implStr);
 
         // Loop over the blocks.
         auto blockAttr =
@@ -101,8 +102,10 @@ public:
 protected:
     std::vector<std::shared_ptr<MultiplyByElmtInvMassBlockOp<TData>>> m_blockOp;
 
-    MultiplyByElmtInvMassOp(const MultiRegions::ExpListSharedPtr &expansionList)
-        : ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>(expansionList)
+    MultiplyByElmtInvMassOp(const MultiRegions::ExpListSharedPtr &expansionList,
+                            const std::vector<std::string> &components)
+        : ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>(expansionList,
+                                                              components)
     {
     }
 

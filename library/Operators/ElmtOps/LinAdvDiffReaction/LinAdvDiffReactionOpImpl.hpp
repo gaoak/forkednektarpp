@@ -46,8 +46,9 @@ class LinAdvDiffReactionOpImpl : public LinAdvDiffReactionOp<TData>
 
 public:
     LinAdvDiffReactionOpImpl(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-        : LinAdvDiffReactionOp<TData>(expansionList)
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
+        : LinAdvDiffReactionOp<TData>(expansionList, components)
     {
     }
 
@@ -56,30 +57,30 @@ public:
 
     // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> Instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
     {
         return std::make_unique<LinAdvDiffReactionOpImpl<ExecSpace, TData>>(
-            expansionList);
+            expansionList, components);
     }
 
 protected:
-    void v_SetAdvVel(const unsigned int nVel,
-                     const Array<OneD, NekDouble> &Vel) override
+    void v_SetAdvVel(const Array<OneD, NekDouble> &Vel) override
     {
         // Set up a physBlockAttributes which will be
         auto blockAttr = GetBlockAttributes<TData, FieldState::Phys>(
             this->m_expansionList, 1);
 
-        this->m_advVel = Field<TData, FieldState::Phys>("Advection Field",
-                                                        blockAttr, nVel, 1);
+        this->m_advVel = Field<TData, FieldState::Phys>(
+            "Advection Field", blockAttr, this->m_expansionList->GetCoordim(0),
+            1);
 
         this->m_advVel.template CopyArray<NektarSpaces::HostSpace>(Vel);
 
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)
         {
-            this->m_blockOp[blk]->SetAdvVel(nVel,
-                                            this->m_advVel.GetBlocks()[blk]);
+            this->m_blockOp[blk]->SetAdvVel(this->m_advVel.GetBlocks()[blk]);
         }
     }
 };

@@ -82,8 +82,8 @@ public:
 
     void SetFixture(const unsigned int nhomo) override
     {
-        auto nin         = 1; // this->session->GetVariables().size();
-        auto nout        = 1; // this->session->GetVariables().size();
+        auto nin         = this->session->GetVariables().size();
+        auto nout        = this->session->GetVariables().size();
         auto inblockAttr = GetBlockAttributes<TData, FieldState::Phys>(
             this->fixt_explist->GetTrace());
         auto outblockAttr =
@@ -128,15 +128,19 @@ public:
 
     void RunTestCase()
     {
-        auto op = AddTraceIntegralOp<TData>::Create(this->fixt_explist);
+        auto op = AddTraceIntegralOp<TData>::Create(
+            this->fixt_explist, this->session->GetVariables());
         op->Apply(*this->fixt_in, *this->fixt_out);
     }
 
     void ExpectedSolution()
     {
+        auto nin    = this->session->GetVariables().size();
+        auto ncoeff = this->fixt_explist->GetNcoeffs();
+
         // Calculate expected result from Nektar++.
         Array<OneD, TData> inTracephys = this->fixt_in->ToArray();
-        Array<OneD, TData> outcoeffs(this->fixt_explist->GetNcoeffs(), 0.0);
+        Array<OneD, TData> outcoeffs(nin * ncoeff, 0.0);
         this->fixt_explist->AddTraceIntegral(inTracephys, outcoeffs);
         this->fixt_expected->template CopyArray<NektarSpaces::HostSpace>(
             outcoeffs);

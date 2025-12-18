@@ -80,7 +80,8 @@ public:
 
     void RunTestCase()
     {
-        auto op = MassOp<TData>::Create(this->fixt_explist);
+        auto op = MassOp<TData>::Create(this->fixt_explist,
+                                        this->session->GetVariables());
         op->Apply(*this->fixt_in, *this->fixt_out);
     }
 

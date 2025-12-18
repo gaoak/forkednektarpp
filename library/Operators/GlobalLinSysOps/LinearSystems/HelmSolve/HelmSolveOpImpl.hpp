@@ -53,27 +53,28 @@ class HelmSolveOpImpl : public HelmSolveOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    HelmSolveOpImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : HelmSolveOp<TData>(expansionList),
+    HelmSolveOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
+                    const std::vector<std::string> &components)
+        : HelmSolveOp<TData>(expansionList, components),
           m_rhs(Field<TData, FieldState::Coeff>(
               "HelmSolve RHS",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList), 1,
-              1)),
+              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              components, 1)),
           m_tmp(Field<TData, FieldState::Coeff>(
               "HelmSolve TMP",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList), 1,
-              1))
+              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              components, 1))
     {
-        m_IProdOp = IProductWRTBaseOp<TData>::Create(this->m_expansionList,
-                                                     ExecSpace::name);
-        m_DirBCOp =
-            DirBndCondOp<TData>::Create(this->m_expansionList, ExecSpace::name);
-        m_NeuBCOp =
-            NeuBndCondOp<TData>::Create(this->m_expansionList, ExecSpace::name);
-        m_RobBCOp =
-            RobBndCondOp<TData>::Create(this->m_expansionList, ExecSpace::name);
-        m_HelmOp =
-            HelmholtzOp<TData>::Create(this->m_expansionList, ExecSpace::name);
+        m_IProdOp = IProductWRTBaseOp<TData>::Create(
+            this->m_expansionList, components, ExecSpace::name);
+        m_DirBCOp = DirBndCondOp<TData>::Create(this->m_expansionList,
+                                                components, ExecSpace::name);
+        m_NeuBCOp = NeuBndCondOp<TData>::Create(this->m_expansionList,
+                                                components, ExecSpace::name);
+        m_RobBCOp = RobBndCondOp<TData>::Create(this->m_expansionList,
+                                                components, ExecSpace::name);
+        m_HelmOp = HelmholtzOp<TData>::Create(this->m_expansionList, components,
+                                              ExecSpace::name);
     }
 
     // className - for OperatorFactory
@@ -81,10 +82,11 @@ public:
 
     // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> Instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
     {
         return std::make_unique<HelmSolveOpImpl<ExecSpace, TData>>(
-            expansionList);
+            expansionList, components);
     }
 
 protected:

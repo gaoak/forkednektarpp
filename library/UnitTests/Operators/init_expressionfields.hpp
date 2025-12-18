@@ -90,7 +90,8 @@ public:
 
     void RunTestCase()
     {
-        auto op = ExpressionOp<TData>::Create(this->fixt_explist, "Forcing");
+        auto op = ExpressionOp<TData>::Create(
+            this->fixt_explist, this->session->GetVariables(), "Forcing");
         op->SetTime(m_time);
         op->SetScale(m_scale);
         op->Apply(*this->fixt_in, *this->fixt_out);

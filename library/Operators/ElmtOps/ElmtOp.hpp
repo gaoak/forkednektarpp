@@ -49,6 +49,7 @@ public:
               template <typename> typename TBlockOperator>
     static std::shared_ptr<TOperator<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
         const std::string &execStr = "", const std::string &implStr = "")
     {
         auto session = expansionList->GetSession();
@@ -62,8 +63,8 @@ public:
                 ? GetOpImpl(TOperator<TData>::name, execStr0, session)
                 : implStr;
 
-        auto op = Operator<TData>::template Create<TOperator>(expansionList,
-                                                              execStr0);
+        auto op = Operator<TData>::template Create<TOperator>(
+            expansionList, components, execStr0);
 
         auto blockAttr =
             GetBlockAttributes<TData, FieldState::Coeff>(expansionList);
@@ -173,8 +174,9 @@ public:
     }
 
 protected:
-    ElmtOp(const MultiRegions::ExpListSharedPtr &expansionList)
-        : Operator<TData>(expansionList)
+    ElmtOp(const MultiRegions::ExpListSharedPtr &expansionList,
+           const std::vector<std::string> &components)
+        : Operator<TData>(expansionList, components)
     {
     }
 

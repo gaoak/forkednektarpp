@@ -40,7 +40,6 @@
 #include "Operators/TimeOps/AdamsMoulton/AdamsMoultonKernelLaunchers.hpp"
 
 using namespace Nektar;
-using namespace Nektar::MultiRegions;
 
 namespace Nektar::Operators::detail
 {
@@ -57,8 +56,9 @@ class AdamsMoultonOpImpl : public AdamsMoultonOp<TData>
         "The AdamsMoultonOp class is only implemented for order 1-4.");
 
 public:
-    AdamsMoultonOpImpl(const ExpListSharedPtr &expansionList)
-        : AdamsMoultonOp<TData>(expansionList)
+    AdamsMoultonOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
+                       const std::vector<std::string> &components)
+        : AdamsMoultonOp<TData>(expansionList, components)
     {
         // Initialize coefficients at construction time.
         SetCoefficients();
@@ -69,11 +69,12 @@ public:
 
     // instantiation function for CreatorFunction in Operator Factory
     static std::unique_ptr<Operator<TData>> Instantiate(
-        const ExpListSharedPtr &expansionList)
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
     {
         return std::make_unique<
             AdamsMoultonOpImpl<ExecSpace, Scheme, IntOrder, TData>>(
-            expansionList);
+            expansionList, components);
     }
 
 protected:
@@ -94,7 +95,8 @@ protected:
             {
                 // Initialise AdamsMoulton and hand-over the m_implicits deque.
                 auto startup = AdamsMoultonOp<TData>::Create(
-                    this->m_expansionList, this->m_step + 1, ExecSpace::name);
+                    this->m_expansionList, this->m_components, this->m_step + 1,
+                    ExecSpace::name);
 
                 // Copy functors from outer/higher-order AdamsMoulton scheme.
                 startup->CopyFunctorsFrom(*this);
@@ -122,12 +124,13 @@ protected:
                 this->m_implicits.push_front(Field<TData, FieldState::Phys>(
                     GetBlockAttributes<TData, FieldState::Phys>(
                         this->m_expansionList),
-                    inout.GetNumComponents(), inout.GetNumHomoModes()));
+                    this->m_components, inout.GetNumHomoModes()));
 
                 // Initialise startup and hand-over the m_implicits deque.
                 auto maxOrder = std::min(3u, IntOrder);
                 auto startup  = DIRKOp<TData>::Create(
-                    this->m_expansionList, maxOrder, "", ExecSpace::name);
+                    this->m_expansionList, this->m_components, maxOrder, "",
+                    ExecSpace::name);
 
                 // Copy functors from outer/higher-order AdamsMoulton scheme.
                 startup->CopyFunctorsFrom(*this);
@@ -155,7 +158,7 @@ protected:
                 this->m_implicits.push_back(Field<TData, FieldState::Phys>(
                     GetBlockAttributes<TData, FieldState::Phys>(
                         this->m_expansionList),
-                    inout.GetNumComponents(), inout.GetNumHomoModes()));
+                    this->m_components, inout.GetNumHomoModes()));
             }
 
             // Do extrapolation.

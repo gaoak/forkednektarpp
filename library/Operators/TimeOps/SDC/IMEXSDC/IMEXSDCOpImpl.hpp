@@ -39,7 +39,6 @@
 #include "Operators/TimeOps/SDC/IMEXSDC/IMEXSDCKernelLaunchers.hpp"
 
 using namespace Nektar;
-using namespace Nektar::MultiRegions;
 
 namespace Nektar::Operators::detail
 {
@@ -50,8 +49,9 @@ class IMEXSDCOpImpl : public IMEXSDCOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    IMEXSDCOpImpl(const ExpListSharedPtr &expansionList)
-        : IMEXSDCOp<TData>(expansionList)
+    IMEXSDCOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
+                  const std::vector<std::string> &components)
+        : IMEXSDCOp<TData>(expansionList, components)
     {
     }
 
@@ -60,9 +60,11 @@ public:
 
     // instantiation function for CreatorFunction in Operator Factory
     static std::unique_ptr<Operator<TData>> Instantiate(
-        const ExpListSharedPtr &expansionList)
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
     {
-        return std::make_unique<IMEXSDCOpImpl<ExecSpace, TData>>(expansionList);
+        return std::make_unique<IMEXSDCOpImpl<ExecSpace, TData>>(expansionList,
+                                                                 components);
     }
 
 protected:
@@ -86,24 +88,19 @@ protected:
             for (unsigned int m = 0; m < this->m_nQuadPts; ++m)
             {
                 this->m_SFint.push_back(Field<TData, FieldState::Phys>(
-                    blockAttr, inout.GetNumComponents(),
-                    inout.GetNumHomoModes()));
+                    blockAttr, this->m_components, inout.GetNumHomoModes()));
 
                 this->m_solutions.push_back(Field<TData, FieldState::Phys>(
-                    blockAttr, inout.GetNumComponents(),
-                    inout.GetNumHomoModes()));
+                    blockAttr, this->m_components, inout.GetNumHomoModes()));
 
                 this->m_explicits.push_back(Field<TData, FieldState::Phys>(
-                    blockAttr, inout.GetNumComponents(),
-                    inout.GetNumHomoModes()));
+                    blockAttr, this->m_components, inout.GetNumHomoModes()));
 
                 this->m_implicits.push_back(Field<TData, FieldState::Phys>(
-                    blockAttr, inout.GetNumComponents(),
-                    inout.GetNumHomoModes()));
+                    blockAttr, this->m_components, inout.GetNumHomoModes()));
 
                 this->m_residuals.push_back(Field<TData, FieldState::Phys>(
-                    blockAttr, inout.GetNumComponents(),
-                    inout.GetNumHomoModes()));
+                    blockAttr, this->m_components, inout.GetNumHomoModes()));
             }
 
             this->m_SFint[0].template Initialize<MemSpace>(0.0);

@@ -42,7 +42,6 @@
 #include "Operators/Utils/UtilsKernels.hpp"
 
 using namespace Nektar;
-using namespace Nektar::MultiRegions;
 
 namespace Nektar::Operators::detail
 {
@@ -53,11 +52,12 @@ class NeuBndCondOpImpl : public NeuBndCondOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    NeuBndCondOpImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : NeuBndCondOp<TData>(expansionList)
+    NeuBndCondOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
+                     const std::vector<std::string> &components)
+        : NeuBndCondOp<TData>(expansionList, components)
     {
-        auto contfield =
-            std::dynamic_pointer_cast<ContField>(this->m_expansionList);
+        auto contfield = std::dynamic_pointer_cast<MultiRegions::ContField>(
+            this->m_expansionList);
         auto &bndCondExpansions = contfield->GetBndCondExpansions();
         auto &bndConditions     = contfield->GetBndConditions();
         auto &assmbMap          = contfield->GetLocalToGlobalMap();
@@ -170,10 +170,11 @@ public:
 
     // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> Instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
     {
         return std::make_unique<NeuBndCondOpImpl<ExecSpace, TData>>(
-            expansionList);
+            expansionList, components);
     }
 
 protected:

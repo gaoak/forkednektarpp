@@ -132,10 +132,12 @@ public:
 
     void RunTestCase(const std::string &method)
     {
-        auto op     = FwdTransOp<TData>::Create(this->fixt_explist);
-        auto precon = PreconOp<TData>::Create(this->fixt_explist, "Diagonal");
-        auto linsolve =
-            LinearSolverOp<TData>::Create(this->fixt_explist, method);
+        auto op     = FwdTransOp<TData>::Create(this->fixt_explist,
+                                                this->session->GetVariables());
+        auto precon = PreconOp<TData>::Create(
+            this->fixt_explist, this->session->GetVariables(), "Diagonal");
+        auto linsolve = LinearSolverOp<TData>::Create(
+            this->fixt_explist, this->session->GetVariables(), method);
         op->SetLinearSolver(linsolve);
         op->SetPrecon(precon);
         op->Apply(*this->fixt_in, *this->fixt_out);

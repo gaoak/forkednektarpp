@@ -42,7 +42,6 @@
 #include "Operators/Utils/UtilsKernels.hpp"
 
 using namespace Nektar;
-using namespace Nektar::MultiRegions;
 
 namespace Nektar::Operators::detail
 {
@@ -53,11 +52,12 @@ class DirBndCondOpImpl : public DirBndCondOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    DirBndCondOpImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : DirBndCondOp<TData>(expansionList)
+    DirBndCondOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
+                     const std::vector<std::string> &components)
+        : DirBndCondOp<TData>(expansionList, components)
     {
-        auto contfield =
-            std::dynamic_pointer_cast<ContField>(this->m_expansionList);
+        auto contfield = std::dynamic_pointer_cast<MultiRegions::ContField>(
+            this->m_expansionList);
         auto &bndCondExpansions = contfield->GetBndCondExpansions();
         auto &bndConditions     = contfield->GetBndConditions();
         auto assmbMap           = contfield->GetLocalToGlobalMap();
@@ -322,10 +322,11 @@ public:
 
     // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> Instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
     {
         return std::make_unique<DirBndCondOpImpl<ExecSpace, TData>>(
-            expansionList);
+            expansionList, components);
     }
 
 protected:
@@ -424,8 +425,8 @@ protected:
         }
 
         // TODO: Universal assembly on device.
-        auto contfield =
-            std::dynamic_pointer_cast<ContField>(this->m_expansionList);
+        auto contfield = std::dynamic_pointer_cast<MultiRegions::ContField>(
+            this->m_expansionList);
         if (contfield->GetSession()->GetComm()->GetRowComm()->GetSize() > 1)
         {
             // Copy the data from the input field.

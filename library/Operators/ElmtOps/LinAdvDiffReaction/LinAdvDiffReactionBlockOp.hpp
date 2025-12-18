@@ -62,10 +62,9 @@ public:
         this->v_SetLambda(lambda);
     }
 
-    void SetAdvVel(const unsigned int nVel,
-                   BlockAccessor<TData, FieldState::Phys> &Vel)
+    void SetAdvVel(BlockAccessor<TData, FieldState::Phys> &Vel)
     {
-        v_SetAdvVel(nVel, Vel);
+        v_SetAdvVel(Vel);
     }
 
 protected:
@@ -83,8 +82,7 @@ protected:
 
     virtual void v_SetLambda(const TData &lambda) = 0;
 
-    virtual void v_SetAdvVel(const unsigned int nVel,
-                             BlockAccessor<TData, FieldState::Phys> &Vel) = 0;
+    virtual void v_SetAdvVel(BlockAccessor<TData, FieldState::Phys> &Vel) = 0;
 };
 
 } // namespace Nektar::Operators

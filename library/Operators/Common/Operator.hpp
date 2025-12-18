@@ -58,7 +58,8 @@ template <typename TData> class Operator;
 template <typename TData>
 using OperatorFactory =
     Nektar::LibUtilities::NekFactory<std::string, Operator<TData>,
-                                     const MultiRegions::ExpListSharedPtr &>;
+                                     const MultiRegions::ExpListSharedPtr &,
+                                     const std::vector<std::string> &>;
 
 // Operator factory singleton
 template <typename TData> OperatorFactory<TData> &GetOperatorFactory();
@@ -68,8 +69,9 @@ template <typename TData> class Operator
 public:
     virtual ~Operator() = default;
 
-    Operator(const MultiRegions::ExpListSharedPtr &expansionList)
-        : m_expansionList(expansionList),
+    Operator(const MultiRegions::ExpListSharedPtr &expansionList,
+             const std::vector<std::string> components)
+        : m_expansionList(expansionList), m_components(components),
           m_dataWarehouse(expansionList->GetDataWarehouseSharedPtr())
     {
     }
@@ -77,7 +79,7 @@ public:
     template <template <typename> typename TOperator>
     static std::shared_ptr<TOperator<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
-        const std::string execStr)
+        const std::vector<std::string> components, const std::string execStr)
     {
         auto session = expansionList->GetSession();
 
@@ -99,7 +101,7 @@ public:
         }
 
         return std::static_pointer_cast<TOperator<TData>>(
-            factory.CreateInstance(requestedKey, expansionList));
+            factory.CreateInstance(requestedKey, expansionList, components));
     }
     /**
      * @brief Return the execution space name ("opExecSpace") for an
@@ -130,6 +132,7 @@ public:
 
 protected:
     MultiRegions::ExpListSharedPtr m_expansionList;
+    std::vector<std::string> m_components;
     NekDataWarehouseSharedPtr m_dataWarehouse;
 };
 

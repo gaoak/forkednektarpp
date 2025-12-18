@@ -63,7 +63,8 @@ public:
 
     void RunTestCase()
     {
-        auto op = NeuBndCondOp<TData>::Create(this->fixt_explist);
+        auto op = NeuBndCondOp<TData>::Create(this->fixt_explist,
+                                              this->session->GetVariables());
         op->Apply(*this->fixt_out);
     }
 
@@ -71,7 +72,8 @@ public:
     {
         this->fixt_expected->template Initialize<NektarSpaces::HostSpace>(0.0);
 
-        auto op = NeuBndCondOp<TData>::Create(this->fixt_explist, "Serial");
+        auto op = NeuBndCondOp<TData>::Create(
+            this->fixt_explist, this->session->GetVariables(), "Serial");
         op->Apply(*this->fixt_expected);
     }
 };

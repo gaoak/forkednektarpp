@@ -46,17 +46,20 @@ template <typename TData> class ConjGradOp : public LinearSolverOp<TData>
 public:
     static std::shared_ptr<ConjGradOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
         const std::string &execStr = "")
     {
         return std::dynamic_pointer_cast<ConjGradOp<TData>>(
-            LinearSolverOp<TData>::Create(expansionList, name, execStr));
+            LinearSolverOp<TData>::Create(expansionList, components, name,
+                                          execStr));
     }
 
     static inline const std::string name = "ConjGrad";
 
 protected:
-    ConjGradOp(const MultiRegions::ExpListSharedPtr &expansionList)
-        : LinearSolverOp<TData>(expansionList)
+    ConjGradOp(const MultiRegions::ExpListSharedPtr &expansionList,
+               const std::vector<std::string> &components)
+        : LinearSolverOp<TData>(expansionList, components)
     {
     }
 

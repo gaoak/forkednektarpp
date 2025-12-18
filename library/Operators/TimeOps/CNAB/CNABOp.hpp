@@ -46,19 +46,21 @@ template <typename TData> class CNABOp : public TimeOp<TData>
 public:
     static std::shared_ptr<CNABOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
         const unsigned int &order = 0, const std::string &variant = "",
         const std::string &execStr = "")
     {
         return std::dynamic_pointer_cast<CNABOp<TData>>(
-            TimeOp<TData>::Create(expansionList, name, order, variant,
-                                  std::vector<TData>{}, execStr));
+            TimeOp<TData>::Create(expansionList, components, name, order,
+                                  variant, std::vector<TData>{}, execStr));
     }
 
     static inline const std::string name = "CNAB";
 
 protected:
-    CNABOp(const MultiRegions::ExpListSharedPtr &expansionList)
-        : TimeOp<TData>(expansionList)
+    CNABOp(const MultiRegions::ExpListSharedPtr &expansionList,
+           const std::vector<std::string> &components)
+        : TimeOp<TData>(expansionList, components)
     {
     }
 

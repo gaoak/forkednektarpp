@@ -46,18 +46,20 @@ template <typename TData> class AdamsBashforthOp : public TimeOp<TData>
 public:
     static std::shared_ptr<AdamsBashforthOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
         const unsigned int &order = 0, const std::string &execStr = "")
     {
         return std::dynamic_pointer_cast<AdamsBashforthOp<TData>>(
-            TimeOp<TData>::Create(expansionList, name, order, "",
+            TimeOp<TData>::Create(expansionList, components, name, order, "",
                                   std::vector<TData>{}, execStr));
     }
 
     static inline const std::string name = "AdamsBashforth";
 
 protected:
-    AdamsBashforthOp(const MultiRegions::ExpListSharedPtr &expansionList)
-        : TimeOp<TData>(expansionList)
+    AdamsBashforthOp(const MultiRegions::ExpListSharedPtr &expansionList,
+                     const std::vector<std::string> &components)
+        : TimeOp<TData>(expansionList, components)
     {
     }
 

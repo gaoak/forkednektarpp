@@ -39,7 +39,6 @@
 #include "Operators/TimeOps/IMEXdirk/IMEXdirkKernelLaunchers.hpp"
 
 using namespace Nektar;
-using namespace Nektar::MultiRegions;
 
 namespace Nektar::Operators::detail
 {
@@ -51,8 +50,9 @@ class IMEXdirkOpImpl : public IMEXdirkOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    IMEXdirkOpImpl(const ExpListSharedPtr &expansionList)
-        : IMEXdirkOp<TData>(expansionList)
+    IMEXdirkOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
+                   const std::vector<std::string> &components)
+        : IMEXdirkOp<TData>(expansionList, components)
     {
         // Compile-time check for valid integration order.
         constexpr auto check =
@@ -77,6 +77,24 @@ public:
         ASSERTL0(check, "The unknow IMEXdirk(" + std::to_string(ImpStage) +
                             ", " + std::to_string(ExpStage) + ", " +
                             std::to_string(IntOrder) + ") schemes.");
+
+        // Allocate memory.
+        auto blockAttr =
+            GetBlockAttributes<TData, FieldState::Phys>(this->m_expansionList);
+        this->m_solutions.push_back(
+            Field<TData, FieldState::Phys>(blockAttr, this->m_components, 1));
+
+        for (unsigned int i = 0; i < ImpStage; i++)
+        {
+            this->m_implicits.push_back(Field<TData, FieldState::Phys>(
+                blockAttr, this->m_components, 1));
+        }
+
+        for (unsigned int i = 0; i < ExpStage; i++)
+        {
+            this->m_explicits.push_back(Field<TData, FieldState::Phys>(
+                blockAttr, this->m_components, 1));
+        }
     }
 
     // className - for OperatorFactory
@@ -84,11 +102,12 @@ public:
 
     // instantiation function for CreatorFunction in Operator Factory
     static std::unique_ptr<Operator<TData>> Instantiate(
-        const ExpListSharedPtr &expansionList)
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
     {
         return std::make_unique<IMEXdirkOpImpl<ExecSpace, Scheme, ImpStage,
                                                ExpStage, IntOrder, TData>>(
-            expansionList);
+            expansionList, components);
     }
 
 protected:
@@ -101,27 +120,6 @@ protected:
         ASSERTL0(this->m_implicitFunctor,
                  "IMEXdirk schemes require a DoImplicit method. Define with "
                  "IMEXdirkOp->DefineImplicit().");
-
-        // Allocate memory.
-        auto blockAttr =
-            GetBlockAttributes<TData, FieldState::Phys>(this->m_expansionList);
-        if (this->m_solutions.size() == 0)
-        {
-            this->m_solutions.push_back(Field<TData, FieldState::Phys>(
-                blockAttr, inout.GetNumComponents(), inout.GetNumHomoModes()));
-        }
-
-        while (this->m_implicits.size() < ImpStage)
-        {
-            this->m_implicits.push_back(Field<TData, FieldState::Phys>(
-                blockAttr, inout.GetNumComponents(), inout.GetNumHomoModes()));
-        }
-
-        while (this->m_explicits.size() < ExpStage)
-        {
-            this->m_explicits.push_back(Field<TData, FieldState::Phys>(
-                blockAttr, inout.GetNumComponents(), inout.GetNumHomoModes()));
-        }
 
         this->m_solutions[0].template Copy<MemSpace>(inout);
 

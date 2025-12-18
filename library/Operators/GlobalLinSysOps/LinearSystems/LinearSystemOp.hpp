@@ -66,8 +66,9 @@ public:
     }
 
 protected:
-    LinearSystemOp(const MultiRegions::ExpListSharedPtr &expansionList)
-        : Operator<TData>(expansionList)
+    LinearSystemOp(const MultiRegions::ExpListSharedPtr &expansionList,
+                   const std::vector<std::string> &components)
+        : Operator<TData>(expansionList, components)
     {
     }
 

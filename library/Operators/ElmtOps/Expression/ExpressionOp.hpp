@@ -53,13 +53,14 @@ class ExpressionOp : public ElmtOp<FieldState::Phys, FieldState::Phys, TData>
 public:
     static std::shared_ptr<ExpressionOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
         const std::string &exprStr = "", const std::string &execStr = "",
         const std::string &implStr = "")
     {
         auto op =
             ElmtOp<FieldState::Phys, FieldState::Phys, TData>::template Create<
-                ExpressionOp, ExpressionBlockOp>(expansionList, execStr,
-                                                 implStr);
+                ExpressionOp, ExpressionBlockOp>(expansionList, components,
+                                                 execStr, implStr);
 
         auto numFields = expansionList->GetSession()->GetVariables().size();
 
@@ -121,8 +122,10 @@ public:
 protected:
     std::vector<std::shared_ptr<ExpressionBlockOp<TData>>> m_blockOp;
 
-    ExpressionOp(const MultiRegions::ExpListSharedPtr &expansionList)
-        : ElmtOp<FieldState::Phys, FieldState::Phys, TData>(expansionList)
+    ExpressionOp(const MultiRegions::ExpListSharedPtr &expansionList,
+                 const std::vector<std::string> &components)
+        : ElmtOp<FieldState::Phys, FieldState::Phys, TData>(expansionList,
+                                                            components)
     {
     }
 

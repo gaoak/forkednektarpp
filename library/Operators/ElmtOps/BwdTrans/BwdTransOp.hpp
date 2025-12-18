@@ -51,11 +51,12 @@ class BwdTransOp : public ElmtOp<FieldState::Coeff, FieldState::Phys, TData>
 public:
     static std::shared_ptr<BwdTransOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
         const std::string &execStr = "", const std::string &implStr = "")
     {
         return ElmtOp<FieldState::Coeff, FieldState::Phys, TData>::
-            template Create<BwdTransOp, BwdTransBlockOp>(expansionList, execStr,
-                                                         implStr);
+            template Create<BwdTransOp, BwdTransBlockOp>(
+                expansionList, components, execStr, implStr);
     }
 
     static inline const std::string name = "BwdTrans";
@@ -63,8 +64,10 @@ public:
 protected:
     std::vector<std::shared_ptr<BwdTransBlockOp<TData>>> m_blockOp;
 
-    BwdTransOp(const MultiRegions::ExpListSharedPtr &expansionList)
-        : ElmtOp<FieldState::Coeff, FieldState::Phys, TData>(expansionList)
+    BwdTransOp(const MultiRegions::ExpListSharedPtr &expansionList,
+               const std::vector<std::string> &components)
+        : ElmtOp<FieldState::Coeff, FieldState::Phys, TData>(expansionList,
+                                                             components)
     {
     }
 

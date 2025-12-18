@@ -51,25 +51,26 @@ class FwdTransOpImpl : public FwdTransOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    FwdTransOpImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : FwdTransOp<TData>(expansionList),
+    FwdTransOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
+                   const std::vector<std::string> &components)
+        : FwdTransOp<TData>(expansionList, components),
           m_rhs(Field<TData, FieldState::Coeff>(
               "FwdTrans RHS",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList), 1,
-              1)),
+              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              components, 1)),
           m_tmp(Field<TData, FieldState::Coeff>(
               "FwdTrans TMP",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList), 1,
-              1))
+              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              components, 1))
     {
-        m_MassOp =
-            MassOp<TData>::Create(this->m_expansionList, ExecSpace::name);
-        m_DirBCOp =
-            DirBndCondOp<TData>::Create(this->m_expansionList, ExecSpace::name);
-        m_RobBCOp =
-            RobBndCondOp<TData>::Create(this->m_expansionList, ExecSpace::name);
-        m_IProdOp = IProductWRTBaseOp<TData>::Create(this->m_expansionList,
-                                                     ExecSpace::name);
+        m_MassOp  = MassOp<TData>::Create(this->m_expansionList, components,
+                                          ExecSpace::name);
+        m_DirBCOp = DirBndCondOp<TData>::Create(this->m_expansionList,
+                                                components, ExecSpace::name);
+        m_RobBCOp = RobBndCondOp<TData>::Create(this->m_expansionList,
+                                                components, ExecSpace::name);
+        m_IProdOp = IProductWRTBaseOp<TData>::Create(
+            this->m_expansionList, components, ExecSpace::name);
     }
 
     // className - for OperatorFactory
@@ -77,10 +78,11 @@ public:
 
     // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> Instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
     {
-        return std::make_unique<FwdTransOpImpl<ExecSpace, TData>>(
-            expansionList);
+        return std::make_unique<FwdTransOpImpl<ExecSpace, TData>>(expansionList,
+                                                                  components);
     }
 
 protected:

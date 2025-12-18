@@ -46,10 +46,12 @@ template <typename TData> class IMEXOp : public TimeOp<TData>
 public:
     static std::shared_ptr<IMEXOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
         const unsigned int &order = 0, const std::string &execStr = "")
     {
-        return std::dynamic_pointer_cast<IMEXOp<TData>>(TimeOp<TData>::Create(
-            expansionList, name, order, "", std::vector<TData>{}, execStr));
+        return std::dynamic_pointer_cast<IMEXOp<TData>>(
+            TimeOp<TData>::Create(expansionList, components, name, order, "",
+                                  std::vector<TData>{}, execStr));
     }
 
     static inline const std::string name = "IMEX";
@@ -62,8 +64,9 @@ public:
 protected:
     bool m_save_implicit = false;
 
-    IMEXOp(const MultiRegions::ExpListSharedPtr &expansionList)
-        : TimeOp<TData>(expansionList)
+    IMEXOp(const MultiRegions::ExpListSharedPtr &expansionList,
+           const std::vector<std::string> &components)
+        : TimeOp<TData>(expansionList, components)
     {
     }
 

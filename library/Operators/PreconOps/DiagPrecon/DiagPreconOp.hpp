@@ -46,17 +46,19 @@ template <typename TData> class DiagPreconOp : public PreconOp<TData>
 public:
     static std::shared_ptr<DiagPreconOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
         const std::string &execStr = "")
     {
-        return std::dynamic_pointer_cast<DiagPreconOp>(
-            PreconOp<TData>::Create(expansionList, name, execStr));
+        return std::dynamic_pointer_cast<DiagPreconOp>(PreconOp<TData>::Create(
+            expansionList, components, "Diagonal", execStr));
     }
 
     static inline const std::string name = "DiagonalPrecon";
 
 protected:
-    DiagPreconOp(const MultiRegions::ExpListSharedPtr &expansionList)
-        : PreconOp<TData>(expansionList)
+    DiagPreconOp(const MultiRegions::ExpListSharedPtr &expansionList,
+                 const std::vector<std::string> &components)
+        : PreconOp<TData>(expansionList, components)
     {
     }
 

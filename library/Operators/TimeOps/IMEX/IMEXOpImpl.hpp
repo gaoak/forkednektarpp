@@ -40,7 +40,6 @@
 #include "Operators/TimeOps/IMEX/IMEXKernelLaunchers.hpp"
 
 using namespace Nektar;
-using namespace Nektar::MultiRegions;
 
 namespace Nektar::Operators::detail
 {
@@ -56,8 +55,9 @@ class IMEXOpImpl : public IMEXOp<TData>
                   "The IMEXOp class is only implemented for order 1-4.");
 
 public:
-    IMEXOpImpl(const ExpListSharedPtr &expansionList)
-        : IMEXOp<TData>(expansionList)
+    IMEXOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
+               const std::vector<std::string> &components)
+        : IMEXOp<TData>(expansionList, components)
     {
         // Initialize coefficients at construction time.
         SetCoefficients();
@@ -68,10 +68,11 @@ public:
 
     // instantiation function for CreatorFunction in Operator Factory
     static std::unique_ptr<Operator<TData>> Instantiate(
-        const ExpListSharedPtr &expansionList)
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
     {
         return std::make_unique<IMEXOpImpl<ExecSpace, Scheme, IntOrder, TData>>(
-            expansionList);
+            expansionList, components);
     }
 
 protected:
@@ -94,7 +95,7 @@ protected:
             this->m_explicits.push_front(Field<TData, FieldState::Phys>(
                 GetBlockAttributes<TData, FieldState::Phys>(
                     this->m_expansionList),
-                inout.GetNumComponents(), inout.GetNumHomoModes()));
+                this->m_components, inout.GetNumHomoModes()));
 
             // Compute explicit terms.
             this->DoExplicitRhs(inout, this->m_explicits[0], this->m_time,
@@ -105,7 +106,7 @@ protected:
                 "timestep n-" + std::to_string(this->m_step + 1),
                 GetBlockAttributes<TData, FieldState::Phys>(
                     this->m_expansionList),
-                inout.GetNumComponents(), inout.GetNumHomoModes()));
+                this->m_components, inout.GetNumHomoModes()));
 
             this->m_solutions[0].template Copy<MemSpace>(inout);
 
@@ -114,7 +115,8 @@ protected:
             std::string variant =
                 std::to_string(maxOrder) + std::to_string(maxOrder + 1);
             auto startup = IMEXdirkOp<TData>::Create(
-                this->m_expansionList, maxOrder, variant, ExecSpace::name);
+                this->m_expansionList, this->m_components, maxOrder, variant,
+                ExecSpace::name);
 
             // Copy functors from outer/higher-order IMEX scheme.
             startup->CopyFunctorsFrom(*this);
@@ -136,7 +138,7 @@ protected:
                 this->m_explicits.push_back(Field<TData, FieldState::Phys>(
                     GetBlockAttributes<TData, FieldState::Phys>(
                         this->m_expansionList),
-                    inout.GetNumComponents(), inout.GetNumHomoModes()));
+                    this->m_components, inout.GetNumHomoModes()));
             }
 
             // UpdateSolution previous solutions, explicit part, and sum up.
@@ -170,7 +172,7 @@ protected:
                     this->m_implicits.push_back(Field<TData, FieldState::Phys>(
                         GetBlockAttributes<TData, FieldState::Phys>(
                             this->m_expansionList),
-                        inout.GetNumComponents(), inout.GetNumHomoModes()));
+                        this->m_components, inout.GetNumHomoModes()));
                 }
 
                 // Rollover previous solutions.

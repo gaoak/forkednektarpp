@@ -137,10 +137,12 @@ public:
 
     void RunTestCase(const std::string &method)
     {
-        auto op     = HelmSolveOp<TData>::Create(this->fixt_explist);
-        auto precon = PreconOp<TData>::Create(this->fixt_explist, "Diagonal");
-        auto linsolve =
-            LinearSolverOp<TData>::Create(this->fixt_explist, method);
+        auto op     = HelmSolveOp<TData>::Create(this->fixt_explist,
+                                                 this->session->GetVariables());
+        auto precon = PreconOp<TData>::Create(
+            this->fixt_explist, this->session->GetVariables(), "Diagonal");
+        auto linsolve = LinearSolverOp<TData>::Create(
+            this->fixt_explist, this->session->GetVariables(), method);
         op->SetLambda(m_lambda);
         op->SetLinearSolver(linsolve);
         op->SetPrecon(precon);

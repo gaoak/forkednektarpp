@@ -48,8 +48,9 @@ protected:
     std::deque<Field<TData, FieldState::Phys>> m_T;
     std::deque<Field<TData, FieldState::Phys>> m_T0;
 
-    GEMOp(const MultiRegions::ExpListSharedPtr &expansionList)
-        : TimeOp<TData>(expansionList)
+    GEMOp(const MultiRegions::ExpListSharedPtr &expansionList,
+          const std::vector<std::string> &components)
+        : TimeOp<TData>(expansionList, components)
     {
     }
 
