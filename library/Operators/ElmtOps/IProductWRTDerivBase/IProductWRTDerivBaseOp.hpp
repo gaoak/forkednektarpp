@@ -52,12 +52,13 @@ class IProductWRTDerivBaseOp
 public:
     static std::shared_ptr<IProductWRTDerivBaseOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
         const std::string &execStr = "", const std::string &implStr = "")
     {
         return ElmtOp<FieldState::Phys, FieldState::Coeff,
                       TData>::template Create<IProductWRTDerivBaseOp,
                                               IProductWRTDerivBaseBlockOp>(
-            expansionList, execStr, implStr);
+            expansionList, components, execStr, implStr);
     }
 
     static inline const std::string name = "IProductWRTDerivBase";
@@ -74,8 +75,10 @@ public:
 protected:
     std::vector<std::shared_ptr<IProductWRTDerivBaseBlockOp<TData>>> m_blockOp;
 
-    IProductWRTDerivBaseOp(const MultiRegions::ExpListSharedPtr &expansionList)
-        : ElmtOp<FieldState::Phys, FieldState::Coeff, TData>(expansionList)
+    IProductWRTDerivBaseOp(const MultiRegions::ExpListSharedPtr &expansionList,
+                           const std::vector<std::string> &components)
+        : ElmtOp<FieldState::Phys, FieldState::Coeff, TData>(expansionList,
+                                                             components)
     {
     }
 

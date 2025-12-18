@@ -46,6 +46,7 @@ class PreconOp : public ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>
 public:
     static std::shared_ptr<PreconOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
         const std::string &method = "", const std::string &execStr = "")
     {
         auto session = expansionList->GetSession();
@@ -74,7 +75,7 @@ public:
         }
 
         return std::static_pointer_cast<PreconOp<TData>>(
-            factory.CreateInstance(requestedKey, expansionList));
+            factory.CreateInstance(requestedKey, expansionList, components));
     }
 
     void Configure(const std::shared_ptr<
@@ -84,8 +85,10 @@ public:
     }
 
 protected:
-    PreconOp(const MultiRegions::ExpListSharedPtr &expansionList)
-        : ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>(expansionList)
+    PreconOp(const MultiRegions::ExpListSharedPtr &expansionList,
+             const std::vector<std::string> &components)
+        : ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>(expansionList,
+                                                              components)
     {
     }
 

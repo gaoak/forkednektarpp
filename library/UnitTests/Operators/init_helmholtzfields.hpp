@@ -85,7 +85,8 @@ public:
 
     void RunTestCase()
     {
-        auto op = HelmholtzOp<TData>::Create(this->fixt_explist);
+        auto op = HelmholtzOp<TData>::Create(this->fixt_explist,
+                                             this->session->GetVariables());
         op->SetLambda(m_lambda);
         op->Apply(*this->fixt_in, *this->fixt_out);
     }

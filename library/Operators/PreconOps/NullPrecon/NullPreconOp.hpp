@@ -46,17 +46,19 @@ template <typename TData> class NullPreconOp : public PreconOp<TData>
 public:
     static std::shared_ptr<NullPreconOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
         const std::string &execStr = "")
     {
-        return std::dynamic_pointer_cast<NullPreconOp>(
-            PreconOp<TData>::Create(expansionList, name, execStr));
+        return std::dynamic_pointer_cast<NullPreconOp>(PreconOp<TData>::Create(
+            expansionList, components, "Null", execStr));
     }
 
     static inline const std::string name = "NullPrecon";
 
 protected:
-    NullPreconOp(const MultiRegions::ExpListSharedPtr &expansionList)
-        : PreconOp<TData>(expansionList)
+    NullPreconOp(const MultiRegions::ExpListSharedPtr &expansionList,
+                 const std::vector<std::string> &components)
+        : PreconOp<TData>(expansionList, components)
     {
     }
 

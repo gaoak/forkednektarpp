@@ -293,12 +293,11 @@ protected:
         this->m_lambda = lambda;
     }
 
-    void v_SetAdvVel(const unsigned int nVel,
-                     BlockAccessor<TData, FieldState::Phys> &advVel) override
+    void v_SetAdvVel(BlockAccessor<TData, FieldState::Phys> &advVel) override
     {
         const auto interleaveWidth = advVel.GetInterleaveWidth();
         this->m_advVel = advVel.template GetPtr<MemSpace, ReadWrite>();
-        for (unsigned int n = 0; n < nVel; n++)
+        for (unsigned int n = 0; n < this->m_exp->GetCoordim(); n++)
         {
             ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
                                       advVel.GetNumElementsWithPadding(),

@@ -44,8 +44,9 @@ class IProductWRTDerivBaseOpImpl : public IProductWRTDerivBaseOp<TData>
 {
 public:
     IProductWRTDerivBaseOpImpl(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-        : IProductWRTDerivBaseOp<TData>(expansionList)
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
+        : IProductWRTDerivBaseOp<TData>(expansionList, components)
     {
     }
 
@@ -54,10 +55,11 @@ public:
 
     // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> Instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
     {
         return std::make_unique<IProductWRTDerivBaseOpImpl<ExecSpace, TData>>(
-            expansionList);
+            expansionList, components);
     }
 };
 

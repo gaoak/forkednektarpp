@@ -73,7 +73,8 @@ public:
 
     void RunTestCase()
     {
-        auto op = PhysDerivOp<TData>::Create(this->fixt_explist);
+        auto op = PhysDerivOp<TData>::Create(this->fixt_explist,
+                                             this->session->GetVariables());
         op->Apply(*this->fixt_in, *this->fixt_out);
     }
 

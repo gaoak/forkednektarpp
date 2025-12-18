@@ -122,13 +122,15 @@ public:
 
     void RunTestCase()
     {
-        auto op = AssmbScatrOp<double>::Create(this->fixt_explist);
+        auto op = AssmbScatrOp<double>::Create(this->fixt_explist,
+                                               this->session->GetVariables());
         op->Apply(*this->fixt_in, *this->fixt_out);
     }
 
     void RunTestCaseZeroDir()
     {
-        auto op = AssmbScatrZeroDirOp<double>::Create(this->fixt_explist);
+        auto op = AssmbScatrZeroDirOp<double>::Create(
+            this->fixt_explist, this->session->GetVariables());
         op->Apply(*this->fixt_in, *this->fixt_out);
     }
 

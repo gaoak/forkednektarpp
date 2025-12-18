@@ -44,8 +44,9 @@ class MultiplyByElmtInvMassOpImpl : public MultiplyByElmtInvMassOp<TData>
 {
 public:
     MultiplyByElmtInvMassOpImpl(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-        : MultiplyByElmtInvMassOp<TData>(expansionList)
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
+        : MultiplyByElmtInvMassOp<TData>(expansionList, components)
     {
     }
 
@@ -54,10 +55,11 @@ public:
 
     // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> Instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
     {
         return std::make_unique<MultiplyByElmtInvMassOpImpl<ExecSpace, TData>>(
-            expansionList);
+            expansionList, components);
     }
 };
 

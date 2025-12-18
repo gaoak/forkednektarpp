@@ -46,6 +46,7 @@ template <typename TData> class TimeOp : public Operator<TData>
 public:
     static std::shared_ptr<TimeOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
         const std::string &method = "", const unsigned int &order = 0,
         const std::string &variant          = "",
         const std::vector<TData> freeParams = std::vector<TData>{},
@@ -100,7 +101,7 @@ public:
         }
 
         auto op = std::static_pointer_cast<TimeOp<TData>>(
-            factory.CreateInstance(requestedKey, expansionList));
+            factory.CreateInstance(requestedKey, expansionList, components));
 
         // Set operator meta data
         op->m_timestep = session->GetParameter("TimeStep");
@@ -327,8 +328,9 @@ protected:
     functorType2 m_implicitRhsFunctor;
     functorType2 m_implicitFunctor;
 
-    TimeOp(const MultiRegions::ExpListSharedPtr &expansionList)
-        : Operator<TData>(expansionList)
+    TimeOp(const MultiRegions::ExpListSharedPtr &expansionList,
+           const std::vector<std::string> &components)
+        : Operator<TData>(expansionList, components)
     {
     }
 

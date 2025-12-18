@@ -47,8 +47,9 @@ class NullPreconOpImpl : public NullPreconOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    NullPreconOpImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : NullPreconOp<TData>(expansionList)
+    NullPreconOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
+                     const std::vector<std::string> &components)
+        : NullPreconOp<TData>(expansionList, components)
     {
     }
 
@@ -57,10 +58,11 @@ public:
 
     // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> Instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
     {
         return std::make_unique<NullPreconOpImpl<ExecSpace, TData>>(
-            expansionList);
+            expansionList, components);
     }
 
 protected:

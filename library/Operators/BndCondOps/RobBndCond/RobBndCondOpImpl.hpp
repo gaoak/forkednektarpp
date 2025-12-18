@@ -52,8 +52,9 @@ class RobBndCondOpImpl : public RobBndCondOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    RobBndCondOpImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : RobBndCondOp<TData>(expansionList)
+    RobBndCondOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
+                     const std::vector<std::string> &components)
+        : RobBndCondOp<TData>(expansionList, components)
     {
         auto robinBCInfo = this->m_expansionList->GetRobinBCInfo();
 
@@ -254,10 +255,11 @@ public:
 
     // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> Instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
     {
         return std::make_unique<RobBndCondOpImpl<ExecSpace, TData>>(
-            expansionList);
+            expansionList, components);
     }
 
 protected:

@@ -39,7 +39,6 @@
 #include "Operators/TimeOps/RungeKutta/RungeKuttaKernelLaunchers.hpp"
 
 using namespace Nektar;
-using namespace Nektar::MultiRegions;
 
 namespace Nektar::Operators::detail
 {
@@ -51,8 +50,9 @@ class RungeKuttaOpImpl : public RungeKuttaOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    RungeKuttaOpImpl(const ExpListSharedPtr &expansionList)
-        : RungeKuttaOp<TData>(expansionList)
+    RungeKuttaOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
+                     const std::vector<std::string> &components)
+        : RungeKuttaOp<TData>(expansionList, components)
     {
         // Compile-time check for valid integration order
         if constexpr (std::is_same_v<Scheme, RungeKuttaScheme>)
@@ -67,6 +67,19 @@ public:
                 IntOrder >= 1 && IntOrder <= 5,
                 "The RungeKuttaSSP scheme is only implemented for order 1-3.");
         }
+
+        // Allocate memory.
+        this->m_solutions.push_back(Field<TData, FieldState::Phys>(
+            GetBlockAttributes<TData, FieldState::Phys>(this->m_expansionList),
+            this->m_components, 1));
+
+        for (unsigned int i = 0; i < NStage(); i++)
+        {
+            this->m_explicits.push_back(Field<TData, FieldState::Phys>(
+                GetBlockAttributes<TData, FieldState::Phys>(
+                    this->m_expansionList),
+                this->m_components, 1));
+        }
     }
 
     // className - for OperatorFactory
@@ -74,11 +87,12 @@ public:
 
     // instantiation function for CreatorFunction in Operator Factory
     static std::unique_ptr<Operator<TData>> Instantiate(
-        const ExpListSharedPtr &expansionList)
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
     {
         return std::make_unique<
-            RungeKuttaOpImpl<ExecSpace, Scheme, IntOrder, TData>>(
-            expansionList);
+            RungeKuttaOpImpl<ExecSpace, Scheme, IntOrder, TData>>(expansionList,
+                                                                  components);
     }
 
 protected:
@@ -135,23 +149,6 @@ protected:
             this->m_projectionFunctor,
             "RungeKutta schemes require a DoProjection method. Define with "
             "RungeKuttaOp->DefineProjection().");
-
-        // Allocate memory.
-        if (this->m_solutions.size() == 0)
-        {
-            this->m_solutions.push_back(Field<TData, FieldState::Phys>(
-                GetBlockAttributes<TData, FieldState::Phys>(
-                    this->m_expansionList),
-                inout.GetNumComponents(), inout.GetNumHomoModes()));
-        }
-
-        while (this->m_explicits.size() < NStage())
-        {
-            this->m_explicits.push_back(Field<TData, FieldState::Phys>(
-                GetBlockAttributes<TData, FieldState::Phys>(
-                    this->m_expansionList),
-                inout.GetNumComponents(), inout.GetNumHomoModes()));
-        }
 
         // Ensure solution is in correct space.
         this->DoProjection(inout, this->m_solutions[0], this->m_time);

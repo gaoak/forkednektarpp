@@ -46,20 +46,22 @@ template <typename TData> class IMEXSDCOp : public SDCOp<TData>
 public:
     static std::shared_ptr<IMEXSDCOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
         const unsigned int &order = 0, const std::string &variant = "",
         const std::vector<TData> freeParams = std::vector<TData>{},
         const std::string &execStr          = "")
     {
         return std::dynamic_pointer_cast<IMEXSDCOp<TData>>(
-            TimeOp<TData>::Create(expansionList, name, order, variant,
-                                  freeParams, execStr));
+            TimeOp<TData>::Create(expansionList, components, name, order,
+                                  variant, freeParams, execStr));
     }
 
     static inline const std::string name = "IMEXSDC";
 
 protected:
-    IMEXSDCOp(const MultiRegions::ExpListSharedPtr &expansionList)
-        : SDCOp<TData>(expansionList)
+    IMEXSDCOp(const MultiRegions::ExpListSharedPtr &expansionList,
+              const std::vector<std::string> &components)
+        : SDCOp<TData>(expansionList, components)
     {
     }
 

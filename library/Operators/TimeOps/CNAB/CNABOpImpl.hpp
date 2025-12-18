@@ -40,7 +40,6 @@
 #include "Operators/TimeOps/CNAB/CNABKernelLaunchers.hpp"
 
 using namespace Nektar;
-using namespace Nektar::MultiRegions;
 
 namespace Nektar::Operators::detail
 {
@@ -56,8 +55,9 @@ class CNABOpImpl : public CNABOp<TData>
                   "The CNABOp class is only implemented for order 2.");
 
 public:
-    CNABOpImpl(const ExpListSharedPtr &expansionList)
-        : CNABOp<TData>(expansionList)
+    CNABOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
+               const std::vector<std::string> &components)
+        : CNABOp<TData>(expansionList, components)
     {
     }
 
@@ -66,10 +66,11 @@ public:
 
     // instantiation function for CreatorFunction in Operator Factory
     static std::unique_ptr<Operator<TData>> Instantiate(
-        const ExpListSharedPtr &expansionList)
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
     {
         return std::make_unique<CNABOpImpl<ExecSpace, Scheme, IntOrder, TData>>(
-            expansionList);
+            expansionList, components);
     }
 
 protected:
@@ -116,8 +117,8 @@ protected:
         if (this->m_step + 1 <= Nimplicit())
         {
             // Initialise IMEX and hand-over the m_solutions deque.
-            auto startup = IMEXOp<TData>::Create(this->m_expansionList, 1,
-                                                 ExecSpace::name);
+            auto startup = IMEXOp<TData>::Create(
+                this->m_expansionList, this->m_components, 1, ExecSpace::name);
             startup->SaveImplicit(true);
 
             // Copy functors from outer/higher-order CNAB scheme.
@@ -144,7 +145,7 @@ protected:
                 this->m_implicits.push_back(Field<TData, FieldState::Phys>(
                     GetBlockAttributes<TData, FieldState::Phys>(
                         this->m_expansionList),
-                    inout.GetNumComponents(), inout.GetNumHomoModes()));
+                    this->m_components, inout.GetNumHomoModes()));
             }
 
             // Increment step and time.
@@ -160,7 +161,7 @@ protected:
                 this->m_explicits.push_back(Field<TData, FieldState::Phys>(
                     GetBlockAttributes<TData, FieldState::Phys>(
                         this->m_expansionList),
-                    inout.GetNumComponents(), inout.GetNumHomoModes()));
+                    this->m_components, inout.GetNumHomoModes()));
             }
 
             this->RollOver(this->m_explicits);

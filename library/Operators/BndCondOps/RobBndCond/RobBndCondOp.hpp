@@ -46,10 +46,11 @@ template <typename TData> class RobBndCondOp : public Operator<TData>
 public:
     static std::shared_ptr<RobBndCondOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
         const std::string &execStr = "")
     {
-        return Operator<TData>::template Create<RobBndCondOp>(expansionList,
-                                                              execStr);
+        return Operator<TData>::template Create<RobBndCondOp>(
+            expansionList, components, execStr);
     }
 
     static inline const std::string name = "RobBndCond";
@@ -69,8 +70,9 @@ public:
     }
 
 protected:
-    RobBndCondOp(const MultiRegions::ExpListSharedPtr &expansionList)
-        : Operator<TData>(expansionList)
+    RobBndCondOp(const MultiRegions::ExpListSharedPtr &expansionList,
+                 const std::vector<std::string> &components)
+        : Operator<TData>(expansionList, components)
     {
     }
 

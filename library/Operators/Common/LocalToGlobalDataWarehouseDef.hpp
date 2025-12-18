@@ -48,13 +48,22 @@ void LocalToGlobalDataCreator::InitAssemblyMap(void)
     auto session = this->m_expansionList->GetSession();
     auto graph   = SpatialDomains::MeshGraphIO::Read(session);
     std::vector<std::string> variables = session->GetVariables();
-    for (auto &variable : variables)
+    if (variables.size() == 0)
     {
-        auto contfield =
-            MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(
-                session, graph, variable, true, false,
-                Collections::eNoCollection);
+        auto contfield = std::dynamic_pointer_cast<MultiRegions::ContField>(
+            this->m_expansionList);
         this->m_assemblyMap.push_back(contfield->GetLocalToGlobalMap());
+    }
+    else
+    {
+        for (auto &variable : variables)
+        {
+            auto contfield =
+                MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(
+                    session, graph, variable, true, false,
+                    Collections::eNoCollection);
+            this->m_assemblyMap.push_back(contfield->GetLocalToGlobalMap());
+        }
     }
 }
 
@@ -63,13 +72,13 @@ MemoryRegion<typename DeviceLocalToGlobalKey<TPadding>::value_type>
 LocalToGlobalDataCreator::Create(
     const DeviceLocalToGlobalKey<TPadding> &LocToGloKey)
 {
+    using value_type = typename DeviceLocalToGlobalKey<TPadding>::value_type;
+
     if (this->m_init)
     {
         InitAssemblyMap();
         this->m_init = false;
     }
-
-    using value_type = typename DeviceLocalToGlobalKey<TPadding>::value_type;
 
     auto zeroDir = LocToGloKey.m_zeroDir;
     auto width   = LocToGloKey.m_width;
@@ -832,14 +841,14 @@ MemoryRegion<typename DeviceBndLocalToGlobalSignKey<TPadding>::value_type>
 LocalToGlobalDataCreator::Create(
     const DeviceBndLocalToGlobalSignKey<TPadding> &LocToGloKey)
 {
+    using value_type =
+        typename DeviceBndLocalToGlobalSignKey<TPadding>::value_type;
+
     if (this->m_init)
     {
         InitAssemblyMap();
         this->m_init = false;
     }
-
-    using value_type =
-        typename DeviceBndLocalToGlobalSignKey<TPadding>::value_type;
 
     auto zeroDir    = LocToGloKey.m_zeroDir;
     auto signChange = LocToGloKey.m_signChange;
@@ -889,7 +898,6 @@ LocalToGlobalDataCreator::Create(
         contfield->GetLocalToGlobalMap());
 
     auto l2gmap0 = loc2glo->GetLocalToGlobalMap();
-
     auto blockAttr =
         GetBlockAttributes<TPadding, FieldState::Coeff>(m_expansionList);
     unsigned ntot = 0;

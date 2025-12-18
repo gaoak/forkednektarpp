@@ -99,11 +99,14 @@ public:
 
         auto blockAttr =
             GetBlockAttributes<double, FieldState::Phys>(fixt_explist);
-        auto f_in  = Field<double, FieldState::Phys>("f_in", blockAttr, 1, 1);
-        auto f_in2 = Field<double, FieldState::Phys>("f_in2", blockAttr, 1, 1);
-        auto f_out = Field<double, FieldState::Phys>("f_out", blockAttr, 1, 1);
+        auto f_in =
+            Field<double, FieldState::Phys>("f_in", blockAttr, {"u"}, 1);
+        auto f_in2 =
+            Field<double, FieldState::Phys>("f_in2", blockAttr, {"u"}, 1);
+        auto f_out =
+            Field<double, FieldState::Phys>("f_out", blockAttr, {"u"}, 1);
         auto f_expected =
-            Field<TData, FieldState::Phys>("f_expected", blockAttr, 1, 1);
+            Field<TData, FieldState::Phys>("f_expected", blockAttr, {"u"}, 1);
         this->fixt_in  = new Field<TData, FieldState::Phys>(std::move(f_in));
         this->fixt_in2 = new Field<TData, FieldState::Phys>(std::move(f_in2));
         this->fixt_out = new Field<TData, FieldState::Phys>(std::move(f_out));

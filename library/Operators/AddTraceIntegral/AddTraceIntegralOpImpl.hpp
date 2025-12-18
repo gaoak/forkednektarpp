@@ -41,8 +41,6 @@
 #include "Operators/AddTraceIntegral/AddTraceIntegralDeviceKernels.hpp"
 #include "Operators/AddTraceIntegral/AddTraceIntegralSerialAVXKernels.hpp"
 
-using namespace Nektar::MultiRegions;
-
 namespace Nektar::Operators::detail
 {
 
@@ -52,12 +50,13 @@ class AddTraceIntegralOpImpl : public AddTraceIntegralOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    AddTraceIntegralOpImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : AddTraceIntegralOp<TData>(std::move(expansionList)),
+    AddTraceIntegralOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
+                           const std::vector<std::string> &components)
+        : AddTraceIntegralOp<TData>(expansionList, components),
           m_trace(Field<TData, FieldState::Coeff>(
               GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList->GetTrace()),
-              1, 1))
+              components, 1))
     {
         m_trace.template Initialize<MemSpace>(0.0);
 
@@ -287,7 +286,7 @@ public:
 
         // Initialise IProductWRTBase operator.
         m_IProductWRTBaseOp = IProductWRTBaseOp<TData>::Create(
-            this->m_expansionList->GetTrace(), ExecSpace::name);
+            this->m_expansionList->GetTrace(), components, ExecSpace::name);
     }
 
     // className - for OperatorFactory
@@ -295,10 +294,11 @@ public:
 
     // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> Instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
     {
         return std::make_unique<AddTraceIntegralOpImpl<ExecSpace, TData>>(
-            expansionList);
+            expansionList, components);
     }
 
 protected:

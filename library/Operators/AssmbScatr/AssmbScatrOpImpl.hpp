@@ -43,7 +43,6 @@
 #include "Operators/Utils/UtilsKernels.hpp"
 
 using namespace Nektar;
-using namespace Nektar::MultiRegions;
 using namespace Nektar::Operators;
 
 namespace Nektar::Operators::detail
@@ -57,8 +56,9 @@ class AssmbScatrOpImpl : public AssmbScatrOp<TData>
 
 public:
     // scalar version
-    AssmbScatrOpImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : AssmbScatrOp<TData>(expansionList)
+    AssmbScatrOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
+                     const std::vector<std::string> &components)
+        : AssmbScatrOp<TData>(expansionList, components)
     {
     }
 
@@ -67,11 +67,12 @@ public:
 
     // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> Instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
     {
         return std::make_unique<
             AssmbScatrOpImpl<ExecSpace, TData, ZERODIR, SIGNCHANGE>>(
-            expansionList);
+            expansionList, components);
     }
 
 protected:
@@ -153,8 +154,8 @@ protected:
 #if defined(NEKTAR_USE_MPI)
         if (m_isParallel)
         {
-            auto contfield =
-                std::dynamic_pointer_cast<ContField>(this->m_expansionList);
+            auto contfield = std::dynamic_pointer_cast<MultiRegions::ContField>(
+                this->m_expansionList);
             auto assemblyMap =
                 std::dynamic_pointer_cast<MultiRegions::AssemblyMapCG>(
                     contfield->GetLocalToGlobalMap());
@@ -336,8 +337,10 @@ class AssmbScatrZeroDirOpImpl
     : public AssmbScatrOpImpl<ExecSpace, TData, true, true>
 {
 public:
-    AssmbScatrZeroDirOpImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : AssmbScatrOpImpl<ExecSpace, TData, true, true>(expansionList)
+    AssmbScatrZeroDirOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
+                            const std::vector<std::string> &components)
+        : AssmbScatrOpImpl<ExecSpace, TData, true, true>(expansionList,
+                                                         components)
     {
     }
     static std::string className;
@@ -349,8 +352,10 @@ class AssmbScatrNoSignOpImpl
     : public AssmbScatrOpImpl<ExecSpace, TData, false, false>
 {
 public:
-    AssmbScatrNoSignOpImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : AssmbScatrOpImpl<ExecSpace, TData, false, false>(expansionList)
+    AssmbScatrNoSignOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
+                           const std::vector<std::string> &components)
+        : AssmbScatrOpImpl<ExecSpace, TData, false, false>(expansionList,
+                                                           components)
     {
     }
     static std::string className;

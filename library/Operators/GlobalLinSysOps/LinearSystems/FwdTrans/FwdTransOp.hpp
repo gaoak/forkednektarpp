@@ -48,17 +48,19 @@ template <typename TData> class FwdTransOp : public LinearSystemOp<TData>
 public:
     static std::shared_ptr<FwdTransOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
         const std::string &execStr = "")
     {
-        return Operator<TData>::template Create<FwdTransOp>(expansionList,
-                                                            execStr);
+        return Operator<TData>::template Create<FwdTransOp>(
+            expansionList, components, execStr);
     }
 
     static inline const std::string name = "FwdTrans";
 
 protected:
-    FwdTransOp(const MultiRegions::ExpListSharedPtr &expansionList)
-        : LinearSystemOp<TData>(expansionList)
+    FwdTransOp(const MultiRegions::ExpListSharedPtr &expansionList,
+               const std::vector<std::string> &components)
+        : LinearSystemOp<TData>(expansionList, components)
     {
     }
 

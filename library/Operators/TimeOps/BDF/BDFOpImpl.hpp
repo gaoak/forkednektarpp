@@ -40,7 +40,6 @@
 #include "Operators/TimeOps/BDF/BDFKernelLaunchers.hpp"
 
 using namespace Nektar;
-using namespace Nektar::MultiRegions;
 
 namespace Nektar::Operators::detail
 {
@@ -56,8 +55,9 @@ class BDFOpImpl : public BDFOp<TData>
                   "The BDFOp class is only implemented for order 1-4.");
 
 public:
-    BDFOpImpl(const ExpListSharedPtr &expansionList)
-        : BDFOp<TData>(expansionList)
+    BDFOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
+              const std::vector<std::string> &components)
+        : BDFOp<TData>(expansionList, components)
     {
         // Initialize coefficients at construction time.
         SetCoefficients();
@@ -68,10 +68,11 @@ public:
 
     // instantiation function for CreatorFunction in Operator Factory
     static std::unique_ptr<Operator<TData>> Instantiate(
-        const ExpListSharedPtr &expansionList)
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
     {
         return std::make_unique<BDFOpImpl<ExecSpace, Scheme, IntOrder, TData>>(
-            expansionList);
+            expansionList, components);
     }
 
 protected:
@@ -92,14 +93,15 @@ protected:
                 "timestep n-" + std::to_string(this->m_step + 1),
                 GetBlockAttributes<TData, FieldState::Phys>(
                     this->m_expansionList),
-                inout.GetNumComponents(), inout.GetNumHomoModes()));
+                this->m_components, inout.GetNumHomoModes()));
 
             this->m_solutions[0].template Copy<MemSpace>(inout);
 
             // Initialise DIRK scheme.
             auto maxOrder = std::min(3u, IntOrder);
-            auto startup  = DIRKOp<TData>::Create(this->m_expansionList,
-                                                  maxOrder, "", ExecSpace::name);
+            auto startup =
+                DIRKOp<TData>::Create(this->m_expansionList, this->m_components,
+                                      maxOrder, "", ExecSpace::name);
 
             // Copy functors from outer/higher-order BDF scheme.
             startup->CopyFunctorsFrom(*this);

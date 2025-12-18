@@ -46,18 +46,20 @@ template <typename TData> class AdamsMoultonOp : public TimeOp<TData>
 public:
     static std::shared_ptr<AdamsMoultonOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
         const unsigned int &order = 0, const std::string &execStr = "")
     {
         return std::dynamic_pointer_cast<AdamsMoultonOp<TData>>(
-            TimeOp<TData>::Create(expansionList, name, order, "",
+            TimeOp<TData>::Create(expansionList, components, name, order, "",
                                   std::vector<TData>{}, execStr));
     }
 
     static inline const std::string name = "AdamsMoulton";
 
 protected:
-    AdamsMoultonOp(const MultiRegions::ExpListSharedPtr &expansionList)
-        : TimeOp<TData>(expansionList)
+    AdamsMoultonOp(const MultiRegions::ExpListSharedPtr &expansionList,
+                   const std::vector<std::string> &components)
+        : TimeOp<TData>(expansionList, components)
     {
     }
 

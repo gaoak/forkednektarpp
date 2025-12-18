@@ -42,7 +42,6 @@
 #include <iomanip>
 
 using namespace Nektar;
-using namespace Nektar::MultiRegions;
 
 namespace Nektar::Operators::detail
 {
@@ -53,44 +52,45 @@ class ConjGradOpImpl : public ConjGradOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    ConjGradOpImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : ConjGradOp<TData>(expansionList),
+    ConjGradOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
+                   const std::vector<std::string> &components)
+        : ConjGradOp<TData>(expansionList, components),
           m_w_A(Field<TData, FieldState::Coeff>(
               "ConjGrad w_A",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList), 1,
-              1)),
+              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              components, 1)),
           m_s_A(Field<TData, FieldState::Coeff>(
               "ConjGrad s_A",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList), 1,
-              1)),
+              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              components, 1)),
           m_r_A(Field<TData, FieldState::Coeff>(
               "ConjGrad r_A",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList), 1,
-              1)),
+              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              components, 1)),
           m_q_A(Field<TData, FieldState::Coeff>(
               "ConjGrad wk",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList), 1,
-              1)),
+              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              components, 1)),
           m_p_A(Field<TData, FieldState::Coeff>(
               "ConjGrad wk",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList), 1,
-              1)),
+              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              components, 1)),
           m_mask(Field<std::uint8_t, FieldState::Coeff>(
               "ConjGrad mask",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList), 1,
-              1)),
+              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              components, 1)),
           m_vExchange(MemoryRegion<TData>(3, ePinned))
     {
         auto session = expansionList->GetSession();
 
         // Set operators.
         m_assmbScatrOp = std::make_unique<AssmbScatrOpImpl<ExecSpace, TData>>(
-            this->m_expansionList);
+            this->m_expansionList, components);
         m_assmbScatrZeroDirOp =
             std::make_unique<AssmbScatrZeroDirOpImpl<ExecSpace, TData>>(
-                this->m_expansionList);
-        m_robBndCondOp =
-            RobBndCondOp<TData>::Create(this->m_expansionList, ExecSpace::name);
+                this->m_expansionList, components);
+        m_robBndCondOp = RobBndCondOp<TData>::Create(
+            this->m_expansionList, components, ExecSpace::name);
         m_rowComm = session->GetComm()->GetRowComm();
         m_root    = m_rowComm->GetRank() == 0;
 
@@ -120,10 +120,11 @@ public:
 
     // instantiation function for CreatorFunction in Operator Factory
     static std::unique_ptr<Operator<TData>> Instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
     {
-        return std::make_unique<ConjGradOpImpl<ExecSpace, TData>>(
-            expansionList);
+        return std::make_unique<ConjGradOpImpl<ExecSpace, TData>>(expansionList,
+                                                                  components);
     }
 
 protected:

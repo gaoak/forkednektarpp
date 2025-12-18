@@ -48,10 +48,11 @@ template <typename TData> class AssmbScatrOp : public Operator<TData>
 public:
     static std::shared_ptr<AssmbScatrOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
         const std::string &execStr = "")
     {
-        return Operator<TData>::template Create<AssmbScatrOp>(expansionList,
-                                                              execStr);
+        return Operator<TData>::template Create<AssmbScatrOp>(
+            expansionList, components, execStr);
     }
 
     static inline const std::string name = "AssmbScatr";
@@ -79,8 +80,9 @@ public:
     }
 
 protected:
-    AssmbScatrOp(const MultiRegions::ExpListSharedPtr &expansionList)
-        : Operator<TData>(expansionList)
+    AssmbScatrOp(const MultiRegions::ExpListSharedPtr &expansionList,
+                 const std::vector<std::string> &components)
+        : Operator<TData>(expansionList, components)
     {
     }
 

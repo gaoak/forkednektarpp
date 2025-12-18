@@ -44,8 +44,9 @@ class PhysInterp1DScaledOpImpl : public PhysInterp1DScaledOp<TData>
 {
 public:
     PhysInterp1DScaledOpImpl(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-        : PhysInterp1DScaledOp<TData>(expansionList)
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
+        : PhysInterp1DScaledOp<TData>(expansionList, components)
     {
     }
 
@@ -54,10 +55,11 @@ public:
 
     // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> Instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
     {
         return std::make_unique<PhysInterp1DScaledOpImpl<ExecSpace, TData>>(
-            expansionList);
+            expansionList, components);
     }
 };
 

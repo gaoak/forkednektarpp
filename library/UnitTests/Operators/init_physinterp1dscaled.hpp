@@ -154,7 +154,8 @@ public:
 
     void RunTestCase()
     {
-        auto op = PhysInterp1DScaledOp<TData>::Create(this->fixt_explist);
+        auto op = PhysInterp1DScaledOp<TData>::Create(
+            this->fixt_explist, this->session->GetVariables());
         op->SetScaleFactor(this->scale);
         op->Apply(*this->fixt_in, *this->fixt_out);
     }

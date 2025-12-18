@@ -87,15 +87,18 @@ int main(int argc, char *argv[])
     std::shared_ptr<ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>> elmtOp;
     if (BP == 1)
     {
-        elmtOp = MassOp<TData>::Create(expList);
+        elmtOp = MassOp<TData>::Create(expList, session->GetVariables());
     }
     else if (BP == 3)
     {
-        elmtOp = HelmholtzOp<TData>::Create(expList);
+        elmtOp = HelmholtzOp<TData>::Create(expList, session->GetVariables());
     }
-    auto assembOp     = AssmbScatrOp<TData>::Create(expList);
-    auto diagPreconOp = DiagPreconOp<TData>::Create(expList);
-    auto conjGradOp   = ConjGradOp<TData>::Create(expList);
+    auto assembOp =
+        AssmbScatrOp<TData>::Create(expList, session->GetVariables());
+    auto diagPreconOp =
+        DiagPreconOp<TData>::Create(expList, session->GetVariables());
+    auto conjGradOp =
+        ConjGradOp<TData>::Create(expList, session->GetVariables());
     diagPreconOp->Configure(elmtOp);
     conjGradOp->SetLHS(elmtOp);
     conjGradOp->SetPrecon(diagPreconOp);

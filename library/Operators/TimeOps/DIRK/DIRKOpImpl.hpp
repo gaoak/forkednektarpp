@@ -39,7 +39,6 @@
 #include "Operators/TimeOps/DIRK/DIRKKernelLaunchers.hpp"
 
 using namespace Nektar;
-using namespace Nektar::MultiRegions;
 
 namespace Nektar::Operators::detail
 {
@@ -51,8 +50,9 @@ class DIRKOpImpl : public DIRKOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    DIRKOpImpl(const ExpListSharedPtr &expansionList)
-        : DIRKOp<TData>(expansionList)
+    DIRKOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
+               const std::vector<std::string> &components)
+        : DIRKOp<TData>(expansionList, components)
     {
         // Compile-time check for valid integration order.
         if constexpr (std::is_same_v<Scheme, DIRKScheme>)
@@ -66,6 +66,19 @@ public:
                 IntOrder >= 2 && IntOrder <= 4,
                 "The DIRK_ES scheme is only implemented for order 1-4.");
         }
+
+        // Allocate memory.
+        this->m_solutions.push_back(Field<TData, FieldState::Phys>(
+            GetBlockAttributes<TData, FieldState::Phys>(this->m_expansionList),
+            this->m_components, 1));
+
+        for (unsigned int i = 0; i < NStage(); i++)
+        {
+            this->m_implicits.push_back(Field<TData, FieldState::Phys>(
+                GetBlockAttributes<TData, FieldState::Phys>(
+                    this->m_expansionList),
+                this->m_components, 1));
+        }
     }
 
     // className - for OperatorFactory
@@ -73,10 +86,11 @@ public:
 
     // instantiation function for CreatorFunction in Operator Factory
     static std::unique_ptr<Operator<TData>> Instantiate(
-        const ExpListSharedPtr &expansionList)
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
     {
         return std::make_unique<DIRKOpImpl<ExecSpace, Scheme, IntOrder, TData>>(
-            expansionList);
+            expansionList, components);
     }
 
 protected:
@@ -128,23 +142,6 @@ protected:
             ASSERTL0(this->m_projectionFunctor,
                      "DIRK_ES schemes require a DoProjection method. Define "
                      "with DIRKOp->DefineProjection().");
-        }
-
-        // Allocate memory.
-        if (this->m_solutions.size() == 0)
-        {
-            this->m_solutions.push_back(Field<TData, FieldState::Phys>(
-                GetBlockAttributes<TData, FieldState::Phys>(
-                    this->m_expansionList),
-                inout.GetNumComponents(), inout.GetNumHomoModes()));
-        }
-
-        while (this->m_implicits.size() < NStage())
-        {
-            this->m_implicits.push_back(Field<TData, FieldState::Phys>(
-                GetBlockAttributes<TData, FieldState::Phys>(
-                    this->m_expansionList),
-                inout.GetNumComponents(), inout.GetNumHomoModes()));
         }
 
         // Ensure solution is in correct space.

@@ -43,8 +43,6 @@
 #include "Operators/PreconOps/DiagPrecon/DiagPreconKernels.hpp"
 
 using namespace Nektar;
-using namespace Nektar::MultiRegions;
-using namespace Nektar::SpatialDomains;
 
 namespace Nektar::Operators::detail
 {
@@ -55,14 +53,15 @@ class DiagPreconOpImpl : public DiagPreconOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    DiagPreconOpImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : DiagPreconOp<TData>(expansionList)
+    DiagPreconOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
+                     const std::vector<std::string> &components)
+        : DiagPreconOp<TData>(expansionList, components)
     {
         m_assmbScatrNoSignOp =
             std::make_unique<AssmbScatrNoSignOpImpl<ExecSpace, TData>>(
-                this->m_expansionList);
-        m_robBCOp =
-            RobBndCondOp<TData>::Create(this->m_expansionList, ExecSpace::name);
+                this->m_expansionList, components);
+        m_robBCOp = RobBndCondOp<TData>::Create(this->m_expansionList,
+                                                components, ExecSpace::name);
     }
 
     // className - for OperatorFactory
@@ -70,10 +69,11 @@ public:
 
     // Instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> Instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
     {
         return std::make_unique<DiagPreconOpImpl<ExecSpace, TData>>(
-            expansionList);
+            expansionList, components);
     }
 
 protected:
@@ -137,18 +137,18 @@ protected:
             GetBlockAttributes<TData, FieldState::Coeff>(this->m_expansionList);
 
         // Create local diagonal field.
-        m_invDiag = Field<TData, FieldState::Coeff>("inverse diagonal",
-                                                    blockAttr, 1, 1);
+        m_invDiag = Field<TData, FieldState::Coeff>(
+            "inverse diagonal", blockAttr, this->m_components, 1);
 
         // Create unit vector field to extract diagonal.
         Field<TData, FieldState::Coeff> unit_vec =
-            Field<TData, FieldState::Coeff>("DiagPrecon unit vec", blockAttr, 1,
-                                            1);
+            Field<TData, FieldState::Coeff>("DiagPrecon unit vec", blockAttr,
+                                            this->m_components, 1);
 
         // Create action field to receive column action from unit vector.
         Field<TData, FieldState::Coeff> action =
-            Field<TData, FieldState::Coeff>("DiagPrecon action", blockAttr, 1,
-                                            1);
+            Field<TData, FieldState::Coeff>("DiagPrecon action", blockAttr,
+                                            this->m_components, 1);
 
         // Intialisating to 1 so padded elements can be inverted.
         m_invDiag.template Initialize<MemSpace>(1);
@@ -180,10 +180,16 @@ protected:
                     auto *blkptr =
                         unitblk.template GetPtr<MemSpace, WriteOnly>();
 
-                    // Set ith term in unit vector to be 1.
-                    SetModeBlkKernel<ExecSpace>(mode, nelmt, numdata,
-                                                (TData)1.0, blkptr,
-                                                isInterleaved);
+                    // Loop over components.
+                    for (unsigned int n = 0; n < unitblk.GetNumComponents();
+                         ++n)
+                    {
+                        // Set ith term in unit vector to be 1.
+                        SetModeBlkKernel<ExecSpace>(mode, nelmt, numdata,
+                                                    (TData)1.0, blkptr,
+                                                    isInterleaved);
+                        blkptr += unitblk.size() * unitblk.GetNumHomoModes();
+                    }
                 }
             }
 
@@ -204,28 +210,39 @@ protected:
                         (unitblk.GetInterleaveWidth() != 1);
                     const auto numdata = unitblk.GetNumData();
                     const auto nelmt   = unitblk.GetNumElementsWithPadding();
-                    auto *unitblkptr =
+                    auto *unitptr =
                         unitblk.template GetPtr<MemSpace, WriteOnly>();
-                    auto *fromblkptr =
+                    auto *actionptr =
                         actionblk.template GetPtr<MemSpace, ReadOnly>();
-                    auto *toblkptr =
+                    auto *diagptr =
                         diagblk.template GetPtr<MemSpace, WriteOnly>();
 
-                    // Copy the ith row term from the action field to get
-                    // the ith diagonal.
-                    CopyModeBlkKernel<ExecSpace>(mode, nelmt, numdata,
-                                                 fromblkptr, toblkptr,
-                                                 isInterleaved);
+                    // Loop over components.
+                    for (unsigned int n = 0; n < diagblk.GetNumComponents();
+                         ++n)
+                    {
+                        // Copy the ith row term from the action field to get
+                        // the ith diagonal.
+                        CopyModeBlkKernel<ExecSpace>(mode, nelmt, numdata,
+                                                     actionptr, diagptr,
+                                                     isInterleaved);
 
-                    // Reset the ith term in the unit vector to be 0.
-                    SetModeBlkKernel<ExecSpace>(mode, nelmt, numdata,
-                                                (TData)0.0, unitblkptr,
-                                                isInterleaved);
+                        // Reset the ith term in the unit vector to be 0.
+                        SetModeBlkKernel<ExecSpace>(mode, nelmt, numdata,
+                                                    (TData)0.0, unitptr,
+                                                    isInterleaved);
+
+                        // Increment pointers.
+                        actionptr +=
+                            actionblk.size() * actionblk.GetNumHomoModes();
+                        unitptr += unitblk.size() * unitblk.GetNumHomoModes();
+                        diagptr += diagblk.size() * diagblk.GetNumHomoModes();
+                    }
+
+                    // Set diagonal interleave format.
+                    diagblk.template SetInterleaveWidth<TData>(
+                        actionblk.GetInterleaveWidth());
                 }
-
-                // Set diagonal interleave format.
-                diagblk.template SetInterleaveWidth<TData>(
-                    actionblk.GetInterleaveWidth());
             }
         }
 
@@ -239,7 +256,12 @@ protected:
             auto &block  = m_invDiag.GetBlocks()[blk];
             auto diagptr = block.template GetPtr<MemSpace, ReadWrite>();
 
-            InvDiagBlkKernel<ExecSpace>(block.size(), diagptr);
+            // Loop over components.
+            for (unsigned int n = 0; n < block.GetNumComponents(); ++n)
+            {
+                InvDiagBlkKernel<ExecSpace>(block.size(), diagptr);
+                diagptr += block.size() * block.GetNumHomoModes();
+            }
         }
     }
 };

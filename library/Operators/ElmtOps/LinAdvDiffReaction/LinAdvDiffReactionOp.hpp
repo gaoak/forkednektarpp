@@ -52,11 +52,12 @@ class LinAdvDiffReactionOp
 public:
     static std::shared_ptr<LinAdvDiffReactionOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
         const std::string &execStr = "", const std::string &implStr = "")
     {
         return ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>::
             template Create<LinAdvDiffReactionOp, LinAdvDiffReactionBlockOp>(
-                expansionList, execStr, implStr);
+                expansionList, components, execStr, implStr);
     }
 
     static inline const std::string name = "LinAdvDiffReaction";
@@ -71,9 +72,9 @@ public:
         m_isSetLambda = true;
     }
 
-    void SetAdvVel(const unsigned int nVel, const Array<OneD, NekDouble> &Vel)
+    void SetAdvVel(const Array<OneD, NekDouble> &Vel)
     {
-        v_SetAdvVel(nVel, Vel);
+        v_SetAdvVel(Vel);
         m_isSetAdvVel = true;
     }
 
@@ -83,8 +84,10 @@ protected:
     Field<TData, FieldState::Phys> m_advVel;
     std::vector<std::shared_ptr<LinAdvDiffReactionBlockOp<TData>>> m_blockOp;
 
-    LinAdvDiffReactionOp(const MultiRegions::ExpListSharedPtr &expansionList)
-        : ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>(expansionList)
+    LinAdvDiffReactionOp(const MultiRegions::ExpListSharedPtr &expansionList,
+                         const std::vector<std::string> &components)
+        : ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>(expansionList,
+                                                              components)
     {
     }
 
@@ -118,8 +121,7 @@ protected:
         }
     }
 
-    virtual void v_SetAdvVel(const unsigned int nVel,
-                             const Array<OneD, NekDouble> &Vel) = 0;
+    virtual void v_SetAdvVel(const Array<OneD, NekDouble> &Vel) = 0;
 };
 
 } // namespace Nektar::Operators

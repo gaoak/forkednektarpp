@@ -40,7 +40,6 @@
 #include <iomanip>
 
 using namespace Nektar;
-using namespace Nektar::MultiRegions;
 
 namespace Nektar::Operators::detail
 {
@@ -51,22 +50,23 @@ class GMRESOpImpl : public GMRESOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    GMRESOpImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : GMRESOp<TData>(expansionList),
+    GMRESOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
+                const std::vector<std::string> &components)
+        : GMRESOp<TData>(expansionList, components),
           m_w(Field<TData, FieldState::Coeff>(
               "GMRES w",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList), 1,
-              1)),
+              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              components, 1)),
           m_wk(Field<TData, FieldState::Coeff>(
               "GMRES wk",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList), 1,
-              1)),
+              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              components, 1)),
           m_r0(Field<TData, FieldState::Coeff>(
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList), 1,
-              1)),
+              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              components, 1)),
           m_solution(Field<TData, FieldState::Coeff>(
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList), 1,
-              1))
+              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              components, 1))
     {
         auto session = expansionList->GetSession();
 
@@ -87,12 +87,12 @@ public:
         // Set operators.
         m_math         = Math(ExecSpace::name);
         m_assmbScatrOp = std::make_unique<AssmbScatrOpImpl<ExecSpace, TData>>(
-            this->m_expansionList);
+            this->m_expansionList, components);
         m_assmbScatrZeroDirOp =
             std::make_unique<AssmbScatrZeroDirOpImpl<ExecSpace, TData>>(
-                this->m_expansionList);
-        m_robBndCondOp =
-            RobBndCondOp<TData>::Create(this->m_expansionList, ExecSpace::name);
+                this->m_expansionList, components);
+        m_robBndCondOp = RobBndCondOp<TData>::Create(
+            this->m_expansionList, components, ExecSpace::name);
         m_rowComm = session->GetComm()->GetRowComm();
 
         // Allocate array storage.
@@ -110,7 +110,7 @@ public:
             m_V1 = Field<TData, FieldState::Coeff>(
                 GetBlockAttributes<TData, FieldState::Coeff>(
                     this->m_expansionList),
-                1, 1);
+                this->m_components, 1);
         }
     }
 
@@ -119,9 +119,11 @@ public:
 
     // instantiation function for CreatorFunction in Operator Factory
     static std::unique_ptr<Operator<TData>> Instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
     {
-        return std::make_unique<GMRESOpImpl<ExecSpace, TData>>(expansionList);
+        return std::make_unique<GMRESOpImpl<ExecSpace, TData>>(expansionList,
+                                                               components);
     }
 
 protected:
@@ -325,7 +327,7 @@ protected:
             m_Vtotal.push_back(Field<TData, FieldState::Coeff>(
                 GetBlockAttributes<TData, FieldState::Coeff>(
                     this->m_expansionList),
-                1, 1));
+                this->m_components, 1));
         }
         mul<ExecSpace>((TData)1.0 / eta[0], m_r0, m_Vtotal[0]);
 
@@ -344,7 +346,7 @@ protected:
                 m_Vtotal.push_back(Field<TData, FieldState::Coeff>(
                     GetBlockAttributes<TData, FieldState::Coeff>(
                         this->m_expansionList),
-                    1, 1));
+                    this->m_components, 1));
             }
             m_Vtotal[nd + 1].template Initialize<MemSpace>(0);
             std::fill_n(m_hes[nd].data(), m_LinSysMaxStorage + 1, 0.0);

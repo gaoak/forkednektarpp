@@ -48,10 +48,11 @@ template <typename TData> class AssmbScatrZeroDirOp : public Operator<TData>
 public:
     static std::shared_ptr<AssmbScatrZeroDirOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
         const std::string &execStr = "")
     {
         return Operator<TData>::template Create<AssmbScatrZeroDirOp>(
-            expansionList, execStr);
+            expansionList, components, execStr);
     }
 
     static inline const std::string name = "AssmbScatrZeroDir";
@@ -79,8 +80,9 @@ public:
     }
 
 protected:
-    AssmbScatrZeroDirOp(const MultiRegions::ExpListSharedPtr &expansionList)
-        : Operator<TData>(expansionList)
+    AssmbScatrZeroDirOp(const MultiRegions::ExpListSharedPtr &expansionList,
+                        const std::vector<std::string> &components)
+        : Operator<TData>(expansionList, components)
     {
     }
 

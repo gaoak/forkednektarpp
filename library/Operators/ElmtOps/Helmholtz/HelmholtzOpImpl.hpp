@@ -43,8 +43,9 @@ template <typename ExecSpace, typename TData>
 class HelmholtzOpImpl : public HelmholtzOp<TData>
 {
 public:
-    HelmholtzOpImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : HelmholtzOp<TData>(expansionList)
+    HelmholtzOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
+                    const std::vector<std::string> &components)
+        : HelmholtzOp<TData>(expansionList, components)
     {
     }
 
@@ -53,10 +54,11 @@ public:
 
     // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> Instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
     {
         return std::make_unique<HelmholtzOpImpl<ExecSpace, TData>>(
-            expansionList);
+            expansionList, components);
     }
 };
 

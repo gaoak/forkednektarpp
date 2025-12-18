@@ -43,8 +43,9 @@ template <typename ExecSpace, typename TData>
 class IProductWRTBaseOpImpl : public IProductWRTBaseOp<TData>
 {
 public:
-    IProductWRTBaseOpImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : IProductWRTBaseOp<TData>(expansionList)
+    IProductWRTBaseOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
+                          const std::vector<std::string> &components)
+        : IProductWRTBaseOp<TData>(expansionList, components)
     {
     }
 
@@ -53,10 +54,11 @@ public:
 
     // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> Instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
     {
         return std::make_unique<IProductWRTBaseOpImpl<ExecSpace, TData>>(
-            expansionList);
+            expansionList, components);
     }
 };
 

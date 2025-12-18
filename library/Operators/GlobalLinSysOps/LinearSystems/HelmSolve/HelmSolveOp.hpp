@@ -48,10 +48,11 @@ template <typename TData> class HelmSolveOp : public LinearSystemOp<TData>
 public:
     static std::shared_ptr<HelmSolveOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
         const std::string &execStr = "")
     {
-        return Operator<TData>::template Create<HelmSolveOp>(expansionList,
-                                                             execStr);
+        return Operator<TData>::template Create<HelmSolveOp>(
+            expansionList, components, execStr);
     }
 
     static inline const std::string name = "HelmSolve";
@@ -62,8 +63,9 @@ public:
     }
 
 protected:
-    HelmSolveOp(const MultiRegions::ExpListSharedPtr &expansionList)
-        : LinearSystemOp<TData>(expansionList)
+    HelmSolveOp(const MultiRegions::ExpListSharedPtr &expansionList,
+                const std::vector<std::string> &components)
+        : LinearSystemOp<TData>(expansionList, components)
     {
     }
 

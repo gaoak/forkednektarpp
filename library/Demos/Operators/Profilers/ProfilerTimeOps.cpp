@@ -161,7 +161,7 @@ int main(int argc, char *argv[])
     std::string execName = Operator<double>::GetOpExecSpace(session);
     auto solver          = DummySolver(execName);
 
-    auto timeOp = TimeOp<TData>::Create(expList, method, timeOrder);
+    auto timeOp = TimeOp<TData>::Create(expList, {"u"}, method, timeOrder);
     timeOp->DefineExplicitRhs(&DummySolver::DoExplicitRHS, &solver);
     timeOp->DefineImplicitRhs(&DummySolver::DoImplicitRHS, &solver);
     timeOp->DefineImplicit(&DummySolver::DoLHS, &solver);

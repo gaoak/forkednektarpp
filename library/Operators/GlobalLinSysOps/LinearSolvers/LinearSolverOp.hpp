@@ -51,6 +51,7 @@ template <typename TData> class LinearSolverOp : public Operator<TData>
 public:
     static std::shared_ptr<LinearSolverOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
         const std::string &method = "", const std::string &execStr = "")
     {
         auto session = expansionList->GetSession();
@@ -77,7 +78,7 @@ public:
         }
 
         return std::static_pointer_cast<LinearSolverOp<TData>>(
-            factory.CreateInstance(requestedKey, expansionList));
+            factory.CreateInstance(requestedKey, expansionList, components));
     }
 
     void Apply(Field<TData, FieldState::Coeff> &in,
@@ -108,8 +109,9 @@ protected:
     std::shared_ptr<ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>>
         m_precon;
 
-    LinearSolverOp(const MultiRegions::ExpListSharedPtr &expansionList)
-        : Operator<TData>(expansionList)
+    LinearSolverOp(const MultiRegions::ExpListSharedPtr &expansionList,
+                   const std::vector<std::string> &components)
+        : Operator<TData>(expansionList, components)
     {
     }
 

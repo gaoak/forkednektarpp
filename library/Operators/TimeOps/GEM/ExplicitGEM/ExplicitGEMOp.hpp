@@ -46,19 +46,21 @@ template <typename TData> class ExplicitGEMOp : public GEMOp<TData>
 public:
     static std::shared_ptr<ExplicitGEMOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
         const unsigned int &order = 0, const std::string &variant = "",
         const std::string &execStr = "")
     {
         return std::dynamic_pointer_cast<ExplicitGEMOp<TData>>(
-            TimeOp<TData>::Create(expansionList, name, order, variant, "",
-                                  execStr));
+            TimeOp<TData>::Create(expansionList, components, name, order,
+                                  variant, "", execStr));
     }
 
     static inline const std::string name = "ExplicitGEM";
 
 protected:
-    ExplicitGEMOp(const MultiRegions::ExpListSharedPtr &expansionList)
-        : GEMOp<TData>(expansionList)
+    ExplicitGEMOp(const MultiRegions::ExpListSharedPtr &expansionList,
+                  const std::vector<std::string> &components)
+        : GEMOp<TData>(expansionList, components)
     {
     }
 

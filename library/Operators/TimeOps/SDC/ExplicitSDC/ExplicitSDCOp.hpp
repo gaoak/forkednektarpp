@@ -46,20 +46,22 @@ template <typename TData> class ExplicitSDCOp : public SDCOp<TData>
 public:
     static std::shared_ptr<ExplicitSDCOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
         const unsigned int &order = 0, const std::string &variant = "",
         const std::vector<TData> freeParams = std::vector<TData>{},
         const std::string &execStr          = "")
     {
         return std::dynamic_pointer_cast<ExplicitSDCOp<TData>>(
-            TimeOp<TData>::Create(expansionList, name, order, variant,
-                                  freeParams, execStr));
+            TimeOp<TData>::Create(expansionList, components, name, order,
+                                  variant, freeParams, execStr));
     }
 
     static inline const std::string name = "ExplicitSDC";
 
 protected:
-    ExplicitSDCOp(const MultiRegions::ExpListSharedPtr &expansionList)
-        : SDCOp<TData>(expansionList)
+    ExplicitSDCOp(const MultiRegions::ExpListSharedPtr &expansionList,
+                  const std::vector<std::string> &components)
+        : SDCOp<TData>(expansionList, components)
     {
     }
 

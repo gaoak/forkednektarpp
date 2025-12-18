@@ -53,27 +53,28 @@ class LinearADRSolveOpImpl : public LinearADRSolveOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    LinearADRSolveOpImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : LinearADRSolveOp<TData>(expansionList),
+    LinearADRSolveOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
+                         const std::vector<std::string> &components)
+        : LinearADRSolveOp<TData>(expansionList, components),
           m_rhs(Field<TData, FieldState::Coeff>(
               "LinearADRSolve RHS",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList), 1,
-              1)),
+              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              components, 1)),
           m_tmp(Field<TData, FieldState::Coeff>(
               "LinearADRSolve TMP",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList), 1,
-              1))
+              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              components, 1))
     {
-        m_IProdOp = IProductWRTBaseOp<TData>::Create(this->m_expansionList,
-                                                     ExecSpace::name);
-        m_DirBCOp =
-            DirBndCondOp<TData>::Create(this->m_expansionList, ExecSpace::name);
-        m_NeuBCOp =
-            NeuBndCondOp<TData>::Create(this->m_expansionList, ExecSpace::name);
-        m_RobBCOp =
-            RobBndCondOp<TData>::Create(this->m_expansionList, ExecSpace::name);
-        m_ADROp = LinAdvDiffReactionOp<TData>::Create(this->m_expansionList,
-                                                      ExecSpace::name);
+        m_IProdOp = IProductWRTBaseOp<TData>::Create(
+            this->m_expansionList, components, ExecSpace::name);
+        m_DirBCOp = DirBndCondOp<TData>::Create(this->m_expansionList,
+                                                components, ExecSpace::name);
+        m_NeuBCOp = NeuBndCondOp<TData>::Create(this->m_expansionList,
+                                                components, ExecSpace::name);
+        m_RobBCOp = RobBndCondOp<TData>::Create(this->m_expansionList,
+                                                components, ExecSpace::name);
+        m_ADROp   = LinAdvDiffReactionOp<TData>::Create(
+            this->m_expansionList, components, ExecSpace::name);
     }
 
     // className - for OperatorFactory
@@ -81,10 +82,11 @@ public:
 
     // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> Instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
     {
         return std::make_unique<LinearADRSolveOpImpl<ExecSpace, TData>>(
-            expansionList);
+            expansionList, components);
     }
 
 protected:
@@ -128,10 +130,9 @@ protected:
         m_ADROp->SetLambda(lambda);
     }
 
-    void v_SetAdvVel(const unsigned int nVel,
-                     const Array<OneD, NekDouble> &Vel) override
+    void v_SetAdvVel(const Array<OneD, NekDouble> &Vel) override
     {
-        m_ADROp->SetAdvVel(nVel, Vel);
+        m_ADROp->SetAdvVel(Vel);
     }
 
     void v_SetLinearSolver(

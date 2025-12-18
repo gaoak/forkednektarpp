@@ -47,10 +47,11 @@ template <typename TData> class DirBndCondOp : public Operator<TData>
 public:
     static std::shared_ptr<DirBndCondOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
         const std::string &execStr = "")
     {
-        return Operator<TData>::template Create<DirBndCondOp>(expansionList,
-                                                              execStr);
+        return Operator<TData>::template Create<DirBndCondOp>(
+            expansionList, components, execStr);
     }
 
     static inline const std::string name = "DirBndCond";
@@ -66,8 +67,9 @@ public:
     }
 
 protected:
-    DirBndCondOp(const MultiRegions::ExpListSharedPtr &expansionList)
-        : Operator<TData>(expansionList)
+    DirBndCondOp(const MultiRegions::ExpListSharedPtr &expansionList,
+                 const std::vector<std::string> &components)
+        : Operator<TData>(expansionList, components)
     {
     }
 

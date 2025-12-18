@@ -354,14 +354,15 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
     // Timer.
     Timer timer;
 
+    auto session = expList->GetSession();
+
     // Get communicator.
     auto comm = expList->GetComm();
 
     // Create operator.
-    auto oper = Op::Create(expList);
+    auto oper = Op::Create(expList, session->GetVariables());
 
     // Set operator name tag.
-    auto session         = expList->GetSession();
     std::string execName = Op::GetOpExecSpace(session);
     std::string implName = Op::GetOpImpl(Op::name, execName, session);
     std::string opName   = oper->name;
@@ -381,7 +382,7 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
         std::dynamic_pointer_cast<LinAdvDiffReactionOp<TData>>(oper)->SetLambda(
             -1.0);
         std::dynamic_pointer_cast<LinAdvDiffReactionOp<TData>>(oper)->SetAdvVel(
-            expList->GetCoordim(0), vel);
+            vel);
     }
 
     // Create block attributes.

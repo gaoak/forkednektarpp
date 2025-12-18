@@ -97,8 +97,9 @@ public:
         this->fixt_out->template Copy<NektarSpaces::HostSpace>(*this->fixt_in);
 
         // Initialise Time-stepping operator
-        auto op = TimeOp<TData>::Create(this->fixt_explist, scheme, order,
-                                        variant, freeParams);
+        auto op = TimeOp<TData>::Create(this->fixt_explist,
+                                        this->session->GetVariables(), scheme,
+                                        order, variant, freeParams);
         op->DefineExplicitRhs(&TimeOpField::DoExplicitRHS, this);
         op->DefineImplicitRhs(&TimeOpField::DoImplicitRHS, this);
         op->DefineImplicit(&TimeOpField::DoLHS, this);

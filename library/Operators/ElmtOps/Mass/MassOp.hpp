@@ -51,11 +51,12 @@ class MassOp : public ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>
 public:
     static std::shared_ptr<MassOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
         const std::string &execStr = "", const std::string &implStr = "")
     {
         return ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>::
-            template Create<MassOp, MassBlockOp>(expansionList, execStr,
-                                                 implStr);
+            template Create<MassOp, MassBlockOp>(expansionList, components,
+                                                 execStr, implStr);
     }
 
     static inline const std::string name = "Mass";
@@ -63,8 +64,10 @@ public:
 protected:
     std::vector<std::shared_ptr<MassBlockOp<TData>>> m_blockOp;
 
-    MassOp(const MultiRegions::ExpListSharedPtr &expansionList)
-        : ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>(expansionList)
+    MassOp(const MultiRegions::ExpListSharedPtr &expansionList,
+           const std::vector<std::string> &components)
+        : ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>(expansionList,
+                                                              components)
     {
     }
 

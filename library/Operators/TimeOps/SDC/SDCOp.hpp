@@ -67,8 +67,9 @@ protected:
     MemoryRegion<TData>
         m_interp; /// Array containing the interpolation coefficients
 
-    SDCOp(const MultiRegions::ExpListSharedPtr &expansionList)
-        : TimeOp<TData>(expansionList)
+    SDCOp(const MultiRegions::ExpListSharedPtr &expansionList,
+          const std::vector<std::string> &components)
+        : TimeOp<TData>(expansionList, components)
     {
     }
 

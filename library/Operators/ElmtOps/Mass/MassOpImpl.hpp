@@ -43,8 +43,9 @@ template <typename ExecSpace, typename TData>
 class MassOpImpl : public MassOp<TData>
 {
 public:
-    MassOpImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : MassOp<TData>(expansionList)
+    MassOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
+               const std::vector<std::string> &components)
+        : MassOp<TData>(expansionList, components)
     {
     }
 
@@ -53,9 +54,11 @@ public:
 
     // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> Instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
     {
-        return std::make_unique<MassOpImpl<ExecSpace, TData>>(expansionList);
+        return std::make_unique<MassOpImpl<ExecSpace, TData>>(expansionList,
+                                                              components);
     }
 };
 

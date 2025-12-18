@@ -46,10 +46,11 @@ template <typename TData> class AddTraceIntegralOp : public Operator<TData>
 public:
     static std::shared_ptr<AddTraceIntegralOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
         const std::string &execStr = "")
     {
         return Operator<TData>::template Create<AddTraceIntegralOp>(
-            expansionList, execStr);
+            expansionList, components, execStr);
     }
 
     static inline const std::string name = "AddTraceIntegral";
@@ -67,8 +68,9 @@ public:
     }
 
 protected:
-    AddTraceIntegralOp(const MultiRegions::ExpListSharedPtr &expansionList)
-        : Operator<TData>(expansionList)
+    AddTraceIntegralOp(const MultiRegions::ExpListSharedPtr &expansionList,
+                       const std::vector<std::string> &components)
+        : Operator<TData>(expansionList, components)
     {
     }
 

@@ -51,11 +51,12 @@ class HelmholtzOp : public ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>
 public:
     static std::shared_ptr<HelmholtzOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
         const std::string &execStr = "", const std::string &implStr = "")
     {
         return ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>::
-            template Create<HelmholtzOp, HelmholtzBlockOp>(expansionList,
-                                                           execStr, implStr);
+            template Create<HelmholtzOp, HelmholtzBlockOp>(
+                expansionList, components, execStr, implStr);
     }
 
     static inline const std::string name = "Helmholtz";
@@ -74,8 +75,10 @@ protected:
     bool m_isSetLambda = false;
     std::vector<std::shared_ptr<HelmholtzBlockOp<TData>>> m_blockOp;
 
-    HelmholtzOp(const MultiRegions::ExpListSharedPtr &expansionList)
-        : ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>(expansionList)
+    HelmholtzOp(const MultiRegions::ExpListSharedPtr &expansionList,
+                const std::vector<std::string> &components)
+        : ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>(expansionList,
+                                                              components)
     {
     }
 

@@ -48,10 +48,11 @@ template <typename TData> class LinearADRSolveOp : public LinearSystemOp<TData>
 public:
     static std::shared_ptr<LinearADRSolveOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
         const std::string &execStr = "")
     {
-        return Operator<TData>::template Create<LinearADRSolveOp>(expansionList,
-                                                                  execStr);
+        return Operator<TData>::template Create<LinearADRSolveOp>(
+            expansionList, components, execStr);
     }
 
     static inline const std::string name = "LinearADRSolve";
@@ -61,14 +62,15 @@ public:
         v_SetLambda(lambda);
     }
 
-    void SetAdvVel(const unsigned int nVel, const Array<OneD, NekDouble> &Vel)
+    void SetAdvVel(const Array<OneD, NekDouble> &Vel)
     {
-        v_SetAdvVel(nVel, Vel);
+        v_SetAdvVel(Vel);
     }
 
 protected:
-    LinearADRSolveOp(const MultiRegions::ExpListSharedPtr &expansionList)
-        : LinearSystemOp<TData>(expansionList)
+    LinearADRSolveOp(const MultiRegions::ExpListSharedPtr &expansionList,
+                     const std::vector<std::string> &components)
+        : LinearSystemOp<TData>(expansionList, components)
     {
     }
 
@@ -76,8 +78,7 @@ protected:
 
     virtual void v_SetLambda(const TData &lambda) = 0;
 
-    virtual void v_SetAdvVel(const unsigned int nVel,
-                             const Array<OneD, NekDouble> &Vel) = 0;
+    virtual void v_SetAdvVel(const Array<OneD, NekDouble> &Vel) = 0;
 };
 
 } // namespace Nektar::Operators
