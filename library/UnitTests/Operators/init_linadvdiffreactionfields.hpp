@@ -72,7 +72,7 @@ public:
                         inptr[cnt] = coeff;
                     }
                 }
-                inptr += block.size();
+                inptr += block.CompSize();
             }
         }
 

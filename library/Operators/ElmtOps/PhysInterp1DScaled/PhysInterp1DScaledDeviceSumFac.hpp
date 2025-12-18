@@ -313,8 +313,8 @@ protected:
                                       nelmt, outblock.GetNumData(), outptr);
 
             // Increment pointer.
-            inptr += inblock.size();
-            outptr += outblock.size();
+            inptr += inblock.CompSize();
+            outptr += outblock.CompSize();
         }
 
         // Set output block to input interleave.
@@ -356,8 +356,8 @@ protected:
                                       nelmt, outblock.GetNumData(), outptr);
 
             // Increment pointer.
-            inptr += inblock.size();
-            outptr += outblock.size();
+            inptr += inblock.CompSize();
+            outptr += outblock.CompSize();
         }
 
         // Set output block to input interleave.
@@ -422,8 +422,8 @@ protected:
                                       nelmt, outblock.GetNumData(), outptr);
 
             // Increment pointer.
-            inptr += inblock.size();
-            outptr += outblock.size();
+            inptr += inblock.CompSize();
+            outptr += outblock.CompSize();
         }
 
         // Set output block to input interleave.
@@ -483,8 +483,8 @@ protected:
                                       nelmt, outblock.GetNumData(), outptr);
 
             // Increment pointer.
-            inptr += inblock.size();
-            outptr += outblock.size();
+            inptr += inblock.CompSize();
+            outptr += outblock.CompSize();
         }
 
         // Set output block to input interleave.
@@ -550,8 +550,8 @@ protected:
                                       nelmt, outblock.GetNumData(), outptr);
 
             // Increment pointer.
-            inptr += inblock.size();
-            outptr += outblock.size();
+            inptr += inblock.CompSize();
+            outptr += outblock.CompSize();
         }
 
         // Set output block to input interleave.
@@ -611,8 +611,8 @@ protected:
                                       nelmt, outblock.GetNumData(), outptr);
 
             // Increment pointer.
-            inptr += inblock.size();
-            outptr += outblock.size();
+            inptr += inblock.CompSize();
+            outptr += outblock.CompSize();
         }
 
         // Set output block to input interleave.

@@ -465,8 +465,8 @@ public:
                     }
                 }
 
-                outptr += this->fixt_out->GetBlocks()[blk].size();
-                expptr += this->fixt_expected->GetBlocks()[blk].size();
+                outptr += this->fixt_out->GetBlocks()[blk].CompSize();
+                expptr += this->fixt_expected->GetBlocks()[blk].CompSize();
 
                 if (MisMatchcnt)
                 {
@@ -504,7 +504,8 @@ public:
                 ReshapeStorage<NektarSpaces::Serial>(
                     1, block.GetInterleaveWidth(),
                     numElmtsPad * in.GetNumHomoModes(), block.GetNumData(),
-                    inptr + component * block.size() * in.GetNumHomoModes());
+                    inptr +
+                        component * block.CompSize() * in.GetNumHomoModes());
             }
 
             block.template SetInterleaveWidth<TData>(1);

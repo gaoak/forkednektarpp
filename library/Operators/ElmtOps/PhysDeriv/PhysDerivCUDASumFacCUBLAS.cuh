@@ -271,7 +271,7 @@ protected:
 
             // Calculate derivative.
             PhysDerivSegKernel<ExecSpace>(m_coordDim, m_dimension, nq0, nelmt,
-                                          outblock.size(), m_D[0], m_dfptr,
+                                          outblock.CompSize(), m_D[0], m_dfptr,
                                           inptr, outptr, wspptr, m_isDeformed);
 
             // Reshape back, if necessary.
@@ -282,8 +282,8 @@ protected:
                                       nelmt, outblock.GetNumData(), outptr);
 
             // Increment pointers.
-            inptr += inblock.size();
-            outptr += m_coordDim * outblock.size();
+            inptr += inblock.CompSize();
+            outptr += m_coordDim * outblock.CompSize();
         }
 
         // Set output block to input interleave.
@@ -324,7 +324,7 @@ protected:
 
             // Calculate derivative.
             PhysDerivQuadKernel<ExecSpace>(m_coordDim, m_dimension, nq0, nq1,
-                                           nqTot, nelmt, outblock.size(),
+                                           nqTot, nelmt, outblock.CompSize(),
                                            m_D[0], m_D[1], m_dfptr, inptr,
                                            outptr, wspptr, m_isDeformed);
 
@@ -336,8 +336,8 @@ protected:
                                       nelmt, outblock.GetNumData(), outptr);
 
             // Increment pointers.
-            inptr += inblock.size();
-            outptr += m_coordDim * outblock.size();
+            inptr += inblock.CompSize();
+            outptr += m_coordDim * outblock.CompSize();
         }
 
         // Set output block to input interleave.
@@ -377,10 +377,10 @@ protected:
                                       (TData *)inptr);
 
             // Calculate derivative.
-            PhysDerivTriKernel<ExecSpace>(m_coordDim, m_dimension, nq0, nq1,
-                                          nqTot, nelmt, outblock.size(), m_D[0],
-                                          m_D[1], m_f[0], m_f[1], m_dfptr,
-                                          inptr, outptr, wspptr, m_isDeformed);
+            PhysDerivTriKernel<ExecSpace>(
+                m_coordDim, m_dimension, nq0, nq1, nqTot, nelmt,
+                outblock.CompSize(), m_D[0], m_D[1], m_f[0], m_f[1], m_dfptr,
+                inptr, outptr, wspptr, m_isDeformed);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
@@ -390,8 +390,8 @@ protected:
                                       nelmt, outblock.GetNumData(), outptr);
 
             // Increment pointers.
-            inptr += inblock.size();
-            outptr += m_coordDim * outblock.size();
+            inptr += inblock.CompSize();
+            outptr += m_coordDim * outblock.CompSize();
         }
 
         // Set output block to input interleave.
@@ -432,10 +432,10 @@ protected:
                                       (TData *)inptr);
 
             // Calculate derivative.
-            PhysDerivHexKernel<ExecSpace>(m_coordDim, m_dimension, nq0, nq1,
-                                          nq2, nqTot, nelmt, outblock.size(),
-                                          m_D[0], m_D[1], m_D[2], m_dfptr,
-                                          inptr, outptr, wspptr, m_isDeformed);
+            PhysDerivHexKernel<ExecSpace>(
+                m_coordDim, m_dimension, nq0, nq1, nq2, nqTot, nelmt,
+                outblock.CompSize(), m_D[0], m_D[1], m_D[2], m_dfptr, inptr,
+                outptr, wspptr, m_isDeformed);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
@@ -445,8 +445,8 @@ protected:
                                       nelmt, outblock.GetNumData(), outptr);
 
             // Increment pointers.
-            inptr += inblock.size();
-            outptr += m_coordDim * outblock.size();
+            inptr += inblock.CompSize();
+            outptr += m_coordDim * outblock.CompSize();
         }
 
         // Set output block to input interleave.
@@ -489,7 +489,7 @@ protected:
             // Calculate derivative.
             PhysDerivPrismKernel<ExecSpace>(
                 m_coordDim, m_dimension, nq0, nq1, nq2, nqTot, nelmt,
-                outblock.size(), m_D[0], m_D[1], m_D[2], m_f[0], m_f[3],
+                outblock.CompSize(), m_D[0], m_D[1], m_D[2], m_f[0], m_f[3],
                 m_dfptr, inptr, outptr, wspptr, m_isDeformed);
 
             // Reshape back, if necessary.
@@ -500,8 +500,8 @@ protected:
                                       nelmt, outblock.GetNumData(), outptr);
 
             // Increment pointers.
-            inptr += inblock.size();
-            outptr += m_coordDim * outblock.size();
+            inptr += inblock.CompSize();
+            outptr += m_coordDim * outblock.CompSize();
         }
 
         // Set output block to input interleave.
@@ -544,8 +544,8 @@ protected:
             // Calculate derivative.
             PhysDerivPyrKernel<ExecSpace>(
                 m_coordDim, m_dimension, nq0, nq1, nq2, nqTot, nelmt,
-                outblock.size(), m_D[0], m_D[1], m_D[2], m_f[0], m_f[1], m_f[3],
-                m_dfptr, inptr, outptr, wspptr, m_isDeformed);
+                outblock.CompSize(), m_D[0], m_D[1], m_D[2], m_f[0], m_f[1],
+                m_f[3], m_dfptr, inptr, outptr, wspptr, m_isDeformed);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
@@ -555,8 +555,8 @@ protected:
                                       nelmt, outblock.GetNumData(), outptr);
 
             // Increment pointers.
-            inptr += inblock.size();
-            outptr += m_coordDim * outblock.size();
+            inptr += inblock.CompSize();
+            outptr += m_coordDim * outblock.CompSize();
         }
 
         // Set output block to input interleave.
@@ -599,8 +599,8 @@ protected:
             // Calculate derivative.
             PhysDerivTetKernel<ExecSpace>(
                 m_coordDim, m_dimension, nq0, nq1, nq2, nqTot, nelmt,
-                outblock.size(), m_D[0], m_D[1], m_D[2], m_f[0], m_f[1], m_f[2],
-                m_f[3], m_dfptr, inptr, outptr, wspptr, m_isDeformed);
+                outblock.CompSize(), m_D[0], m_D[1], m_D[2], m_f[0], m_f[1],
+                m_f[2], m_f[3], m_dfptr, inptr, outptr, wspptr, m_isDeformed);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
@@ -610,8 +610,8 @@ protected:
                                       nelmt, outblock.GetNumData(), outptr);
 
             // Increment pointers.
-            inptr += inblock.size();
-            outptr += m_coordDim * outblock.size();
+            inptr += inblock.CompSize();
+            outptr += m_coordDim * outblock.CompSize();
         }
 
         // Set output block to input interleave.

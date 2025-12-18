@@ -73,7 +73,7 @@ public:
                         inptr[cnt] = 1.0 + phys;
                     }
                 }
-                inptr += block.size();
+                inptr += block.CompSize();
             }
         }
 

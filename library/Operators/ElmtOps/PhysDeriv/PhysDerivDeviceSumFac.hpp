@@ -259,7 +259,7 @@ protected:
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
         // Loop over components.
-        const auto outoffset = outblock.size() * outblock.GetNumHomoModes();
+        const auto outoffset = outblock.CompSize() * outblock.GetNumHomoModes();
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
@@ -285,8 +285,8 @@ protected:
             }
 
             // Increment pointers.
-            inptr += inblock.size();
-            outptr += outblock.size();
+            inptr += inblock.CompSize();
+            outptr += outblock.CompSize();
             if ((n + 1) % outblock.GetNumHomoModes() == 0)
             {
                 outptr += (m_coordDim - 1) * outoffset;
@@ -313,7 +313,7 @@ protected:
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
         // Loop over components.
-        const auto outoffset = outblock.size() * outblock.GetNumHomoModes();
+        const auto outoffset = outblock.CompSize() * outblock.GetNumHomoModes();
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
@@ -339,8 +339,8 @@ protected:
             }
 
             // Increment pointers.
-            inptr += inblock.size();
-            outptr += outblock.size();
+            inptr += inblock.CompSize();
+            outptr += outblock.CompSize();
             if ((n + 1) % outblock.GetNumHomoModes() == 0)
             {
                 outptr += (m_coordDim - 1) * outoffset;
@@ -370,7 +370,7 @@ protected:
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
         // Loop over components.
-        const auto outoffset = outblock.size() * outblock.GetNumHomoModes();
+        const auto outoffset = outblock.CompSize() * outblock.GetNumHomoModes();
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
@@ -396,8 +396,8 @@ protected:
             }
 
             // Increment pointers.
-            inptr += inblock.size();
-            outptr += outblock.size();
+            inptr += inblock.CompSize();
+            outptr += outblock.CompSize();
             if ((n + 1) % outblock.GetNumHomoModes() == 0)
             {
                 outptr += (m_coordDim - 1) * outoffset;
@@ -424,7 +424,7 @@ protected:
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
         // Loop over components.
-        const auto outoffset = outblock.size() * outblock.GetNumHomoModes();
+        const auto outoffset = outblock.CompSize() * outblock.GetNumHomoModes();
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
@@ -451,8 +451,8 @@ protected:
             }
 
             // Increment pointers.
-            inptr += inblock.size();
-            outptr += outblock.size();
+            inptr += inblock.CompSize();
+            outptr += outblock.CompSize();
             if ((n + 1) % outblock.GetNumHomoModes() == 0)
             {
                 outptr += (m_coordDim - 1) * outoffset;
@@ -492,8 +492,8 @@ protected:
 
             // Calculate derivative.
             PhysDeriv3DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
-                nq0, nq1, nq2, nelmt, outblock.size(), m_D[0], m_D[1], m_D[2],
-                m_f[0], m_f[1], m_f[2], m_f[3], m_dfptr, inptr, outptr);
+                nq0, nq1, nq2, nelmt, outblock.CompSize(), m_D[0], m_D[1],
+                m_D[2], m_f[0], m_f[1], m_f[2], m_f[3], m_dfptr, inptr, outptr);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
@@ -504,12 +504,12 @@ protected:
                 ReshapeStorage<ExecSpace>(
                     interleaveWidth, m_implInterleaveWidth, nelmt,
                     outblock.GetNumData(),
-                    (TData *)outptr + d * outblock.size());
+                    (TData *)outptr + d * outblock.CompSize());
             }
 
             // Increment pointers.
-            inptr += inblock.size();
-            outptr += 3 * outblock.size();
+            inptr += inblock.CompSize();
+            outptr += 3 * outblock.CompSize();
         }
 
         // Set output block to input interleave.
@@ -542,8 +542,8 @@ protected:
             // Calculate derivative.
             PhysDeriv3DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED,
                               nq0, nq1, nq2>(
-                nelmt, outblock.size(), m_D[0], m_D[1], m_D[2], m_f[0], m_f[1],
-                m_f[2], m_f[3], m_dfptr, inptr, outptr);
+                nelmt, outblock.CompSize(), m_D[0], m_D[1], m_D[2], m_f[0],
+                m_f[1], m_f[2], m_f[3], m_dfptr, inptr, outptr);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
@@ -554,12 +554,12 @@ protected:
                 ReshapeStorage<ExecSpace>(
                     interleaveWidth, m_implInterleaveWidth, nelmt,
                     outblock.GetNumData(),
-                    (TData *)outptr + d * outblock.size());
+                    (TData *)outptr + d * outblock.CompSize());
             }
 
             // Increment pointers.
-            inptr += inblock.size();
-            outptr += 3 * outblock.size();
+            inptr += inblock.CompSize();
+            outptr += 3 * outblock.CompSize();
         }
 
         // Set output block to input interleave.

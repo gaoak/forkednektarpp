@@ -344,7 +344,7 @@ protected:
             ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
                                       advVel.GetNumElementsWithPadding(),
                                       advVel.GetNumData(),
-                                      this->m_advVel + n * advVel.size());
+                                      this->m_advVel + n * advVel.CompSize());
         }
         advVel.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
@@ -517,8 +517,8 @@ protected:
                                       nelmt, outblock.GetNumData(), outptr);
 
             // Increment pointers.
-            inptr += inblock.size();
-            outptr += outblock.size();
+            inptr += inblock.CompSize();
+            outptr += outblock.CompSize();
         }
 
         // Set output block to input interleave.
@@ -583,8 +583,8 @@ protected:
                                       nelmt, outblock.GetNumData(), outptr);
 
             // Increment pointers.
-            inptr += inblock.size();
-            outptr += outblock.size();
+            inptr += inblock.CompSize();
+            outptr += outblock.CompSize();
         }
 
         // Set output block to input interleave.
@@ -660,8 +660,8 @@ protected:
                                       nelmt, outblock.GetNumData(), outptr);
 
             // Increment pointers.
-            inptr += inblock.size();
-            outptr += outblock.size();
+            inptr += inblock.CompSize();
+            outptr += outblock.CompSize();
         }
 
         // Set output block to input interleave.
@@ -733,8 +733,8 @@ protected:
                                       nelmt, outblock.GetNumData(), outptr);
 
             // Increment pointers.
-            inptr += inblock.size();
-            outptr += outblock.size();
+            inptr += inblock.CompSize();
+            outptr += outblock.CompSize();
         }
 
         // Set output block to input interleave.
@@ -813,8 +813,8 @@ protected:
                                       nelmt, outblock.GetNumData(), outptr);
 
             // Increment pointers.
-            inptr += inblock.size();
-            outptr += outblock.size();
+            inptr += inblock.CompSize();
+            outptr += outblock.CompSize();
         }
 
         // Set output block to input interleave.
@@ -886,8 +886,8 @@ protected:
                                       nelmt, outblock.GetNumData(), outptr);
 
             // Increment pointers.
-            inptr += inblock.size();
-            outptr += outblock.size();
+            inptr += inblock.CompSize();
+            outptr += outblock.CompSize();
         }
 
         // Set output block to input interleave.

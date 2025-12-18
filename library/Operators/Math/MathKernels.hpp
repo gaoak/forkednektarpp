@@ -53,7 +53,7 @@ void zero(Field<TData, TFieldState> &x)
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
         auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
-        auto size = x.GetBlocks()[blk].size() * x.GetNumComponents() *
+        auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
                     x.GetNumHomoModes();
 
         zeroKernel<ExecSpace>(size, xptr);
@@ -78,7 +78,7 @@ void fill(const TData &val, Field<TData, TFieldState> &x)
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
         auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
-        auto size = x.GetBlocks()[blk].size() * x.GetNumComponents() *
+        auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
                     x.GetNumHomoModes();
 
         fillKernel<ExecSpace>(size, val, xptr);
@@ -113,7 +113,7 @@ void copy(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y)
     {
         auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
-        auto size = x.GetBlocks()[blk].size() * x.GetNumComponents() *
+        auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
                     x.GetNumHomoModes();
 
         copyKernel<ExecSpace>(size, xptr, yptr);
@@ -160,7 +160,7 @@ void abs(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y)
     {
         auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
-        auto size = x.GetBlocks()[blk].size() * x.GetNumComponents() *
+        auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
                     x.GetNumHomoModes();
 
         absKernel<ExecSpace>(size, xptr, yptr);
@@ -207,7 +207,7 @@ void neg(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y)
     {
         auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
-        auto size = x.GetBlocks()[blk].size() * x.GetNumComponents() *
+        auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
                     x.GetNumHomoModes();
 
         negKernel<ExecSpace>(size, xptr, yptr);
@@ -254,7 +254,7 @@ void sqrt(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y)
     {
         auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
-        auto size = x.GetBlocks()[blk].size() * x.GetNumComponents() *
+        auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
                     x.GetNumHomoModes();
 
         sqrtKernel<ExecSpace>(size, xptr, yptr);
@@ -308,7 +308,7 @@ void add(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
         auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto zptr = z.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
-        auto size = x.GetBlocks()[blk].size() * x.GetNumComponents() *
+        auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
                     x.GetNumHomoModes();
 
         addKernel<ExecSpace>(size, xptr, yptr, zptr);
@@ -363,7 +363,7 @@ void sub(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
         auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto zptr = z.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
-        auto size = x.GetBlocks()[blk].size() * x.GetNumComponents() *
+        auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
                     x.GetNumHomoModes();
 
         subKernel<ExecSpace>(size, xptr, yptr, zptr);
@@ -412,7 +412,7 @@ void mul(const TData alpha, Field<TData, TFieldState> &x,
     {
         auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
-        auto size = x.GetBlocks()[blk].size() * x.GetNumComponents() *
+        auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
                     x.GetNumHomoModes();
 
         mulKernel<ExecSpace>(size, alpha, xptr, yptr);
@@ -466,7 +466,7 @@ void mul(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
         auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto zptr = z.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
-        auto size = x.GetBlocks()[blk].size() * x.GetNumComponents() *
+        auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
                     x.GetNumHomoModes();
 
         mulKernel<ExecSpace>(size, xptr, yptr, zptr);
@@ -515,7 +515,7 @@ void div(const TData alpha, Field<TData, TFieldState> &x,
     {
         auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
-        auto size = x.GetBlocks()[blk].size() * x.GetNumComponents() *
+        auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
                     x.GetNumHomoModes();
 
         divKernel<ExecSpace>(size, alpha, xptr, yptr);
@@ -569,7 +569,7 @@ void div(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
         auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto zptr = z.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
-        auto size = x.GetBlocks()[blk].size() * x.GetNumComponents() *
+        auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
                     x.GetNumHomoModes();
 
         divKernel<ExecSpace>(size, xptr, yptr, zptr);
@@ -624,7 +624,7 @@ void daxpy(const TData alpha, Field<TData, TFieldState> &x,
         auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto zptr = z.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
-        auto size = x.GetBlocks()[blk].size() * x.GetNumComponents() *
+        auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
                     x.GetNumHomoModes();
 
         daxpyKernel<ExecSpace>(size, alpha, xptr, yptr, zptr);

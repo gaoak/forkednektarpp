@@ -108,7 +108,7 @@ public:
             auto &block = m_mask.GetBlocks()[blk];
             auto ptr =
                 block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-            for (unsigned i = 0; i < block.size(); ++i)
+            for (unsigned i = 0; i < block.CompSize(); ++i)
             {
                 ptr[i] = maskptr[cnt++];
             }
@@ -168,7 +168,8 @@ protected:
                         inblk.GetInterleaveWidth(),
                         maskblk.GetInterleaveWidth(),
                         maskblk.GetNumElementsWithPadding(),
-                        maskblk.GetNumData(), maskPtr + nc * maskblk.size());
+                        maskblk.GetNumData(),
+                        maskPtr + nc * maskblk.CompSize());
                 }
                 maskblk.template SetInterleaveWidth<TData>(
                     inblk.GetInterleaveWidth());

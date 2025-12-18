@@ -151,9 +151,9 @@ protected:
             simd_t::width, m_nmTot, m_nqTot, 1.0, 1.0);
 
         // Loop over components.
-        const auto inoffset = inblock.size() * inblock.GetNumHomoModes();
+        const auto inoffset = inblock.CompSize() * inblock.GetNumHomoModes();
         const auto inoffset_vec =
-            inblock.size() * inblock.GetNumHomoModes() / simd_t::width;
+            inblock.CompSize() * inblock.GetNumHomoModes() / simd_t::width;
         const auto wspsize = m_nqTot;
         for (unsigned int n = 0;
              n < outblock.GetNumComponents() * outblock.GetNumHomoModes(); ++n)

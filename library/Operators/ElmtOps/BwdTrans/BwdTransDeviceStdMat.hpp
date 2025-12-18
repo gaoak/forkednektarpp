@@ -140,8 +140,8 @@ protected:
                                       nelmtTot, outblock.GetNumData(), outptr);
 
             // Increment pointers.
-            inptr += inblock.size() * inblock.GetNumHomoModes();
-            outptr += outblock.size() * outblock.GetNumHomoModes();
+            inptr += inblock.CompSize() * inblock.GetNumHomoModes();
+            outptr += outblock.CompSize() * outblock.GetNumHomoModes();
         }
 
         // Set output block to input interleave.

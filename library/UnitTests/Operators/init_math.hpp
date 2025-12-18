@@ -525,8 +525,8 @@ public:
                     }
                 }
 
-                outptr += this->fixt_out->GetBlocks()[blk].size();
-                expptr += this->fixt_expected->GetBlocks()[blk].size();
+                outptr += this->fixt_out->GetBlocks()[blk].CompSize();
+                expptr += this->fixt_expected->GetBlocks()[blk].CompSize();
 
                 if (MisMatchcnt)
                 {

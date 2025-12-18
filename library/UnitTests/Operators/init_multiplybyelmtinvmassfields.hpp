@@ -70,7 +70,7 @@ public:
                         inptr[cnt] = coeff + n;
                     }
                 }
-                inptr += block.size();
+                inptr += block.CompSize();
             }
         }
         ExpectedSolution();

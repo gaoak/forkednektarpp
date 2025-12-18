@@ -145,8 +145,8 @@ protected:
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
         // Loop over components.
-        const auto inoffset  = inblock.size() * inblock.GetNumHomoModes();
-        const auto outoffset = outblock.size() * outblock.GetNumHomoModes();
+        const auto inoffset  = inblock.CompSize() * inblock.GetNumHomoModes();
+        const auto outoffset = outblock.CompSize() * outblock.GetNumHomoModes();
         const auto wspoffset = m_nqTot * nelmtTot;
         for (unsigned int n = 0; n < outblock.GetNumComponents(); ++n)
         {

@@ -73,7 +73,7 @@ public:
                         inptr[cnt] = 1.0 + n;
                     }
                 }
-                inptr += block.size();
+                inptr += block.CompSize();
             }
         }
         // Set both to zero such that adding the forcing gives the same result

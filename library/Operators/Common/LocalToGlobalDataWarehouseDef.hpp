@@ -186,7 +186,7 @@ LocalToGlobalDataCreator::Create(
         if (blk)
         {
             BlkOffset[blk] =
-                BlkOffset[blk - 1] + blockAttr[blk - 1].size() * numComp;
+                BlkOffset[blk - 1] + blockAttr[blk - 1].CompSize() * numComp;
         }
         else
         {
@@ -262,7 +262,7 @@ LocalToGlobalDataCreator::Create(
 
             // offset local id by Block offset and num component * each
             // block size;
-            lid += BlkOffset[blk] + blockAttr[blk].size() * nc;
+            lid += BlkOffset[blk] + blockAttr[blk].CompSize() * nc;
 
             ptr1[cnt1++] = lid; // set index
             ptr[cnt] += 1;      // add one to offset
@@ -457,8 +457,9 @@ void LocalToGlobalDataCreator::FillSignArray(std::vector<unsigned> &index,
     unsigned offset = 0;
     for (unsigned blk = 0; blk < nblks; ++blk)
     {
-        blkoffset[blk + 1] = blkoffset[blk] + blockAttr[blk].size() * numComp;
-        coeffoffset[blk]   = offset;
+        blkoffset[blk + 1] =
+            blkoffset[blk] + blockAttr[blk].CompSize() * numComp;
+        coeffoffset[blk] = offset;
         offset += blockAttr[blk].GetNumElements() * blockAttr[blk].GetNumData();
     }
 
@@ -476,8 +477,8 @@ void LocalToGlobalDataCreator::FillSignArray(std::vector<unsigned> &index,
                     // offset index to this block
                     idx -= blkoffset[blk];
                     // offset index for number of components;
-                    nc  = idx / blockAttr[blk].size();
-                    idx = idx % blockAttr[blk].size();
+                    nc  = idx / blockAttr[blk].CompSize();
+                    idx = idx % blockAttr[blk].CompSize();
                     // add back in coeff offset to be able to access legacy
                     // index
                     idx += coeffoffset[blk];
@@ -511,7 +512,7 @@ void LocalToGlobalDataCreator::FillSignArray(std::vector<unsigned> &index,
                     // offset index to this block
                     idx -= blkoffset[blk];
                     // offset index for number of components;
-                    idx = idx % blockAttr[blk].size();
+                    idx = idx % blockAttr[blk].CompSize();
                     // add back in coeff offset to be able to access legacy
                     // index
                     idx += coeffoffset[blk];
@@ -681,7 +682,7 @@ LocalToGlobalDataCreator::Create(
     std::vector<unsigned> BlkSize(nblks);
     for (unsigned blk = 0; blk < nblks; ++blk)
     {
-        BlkSize[blk] = blockAttr[blk].size();
+        BlkSize[blk] = blockAttr[blk].CompSize();
         if (blk)
         {
             BlkOffset[blk] = BlkOffset[blk - 1] + BlkSize[blk - 1] * numComp;
@@ -904,7 +905,7 @@ LocalToGlobalDataCreator::Create(
     unsigned blk  = 0;
     for (blk = 0; blk < blockAttr.size(); ++blk)
     {
-        ntot += blockAttr[blk].size();
+        ntot += blockAttr[blk].CompSize();
     }
 
     // Decalare memory for all local to global informaiton.

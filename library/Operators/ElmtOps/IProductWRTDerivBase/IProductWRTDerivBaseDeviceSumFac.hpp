@@ -428,7 +428,7 @@ protected:
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
         // Loop over components.
-        const auto inoffset = inblock.size() * inblock.GetNumHomoModes();
+        const auto inoffset = inblock.CompSize() * inblock.GetNumHomoModes();
         for (unsigned int n = 0;
              n < outblock.GetNumComponents() * outblock.GetNumHomoModes(); ++n)
         {
@@ -456,8 +456,8 @@ protected:
                                       nelmt, outblock.GetNumData(), outptr);
 
             // Increment pointers.
-            inptr += inblock.size();
-            outptr += outblock.size();
+            inptr += inblock.CompSize();
+            outptr += outblock.CompSize();
             if ((n + 1) % inblock.GetNumHomoModes() == 0)
             {
                 inptr += (m_coordDim - 1) * inoffset;
@@ -498,7 +498,7 @@ protected:
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
         // Loop over components.
-        const auto inoffset = inblock.size() * inblock.GetNumHomoModes();
+        const auto inoffset = inblock.CompSize() * inblock.GetNumHomoModes();
         for (unsigned int n = 0;
              n < outblock.GetNumComponents() * outblock.GetNumHomoModes(); ++n)
         {
@@ -527,8 +527,8 @@ protected:
                                       nelmt, outblock.GetNumData(), outptr);
 
             // Increment pointers.
-            inptr += inblock.size();
-            outptr += outblock.size();
+            inptr += inblock.CompSize();
+            outptr += outblock.CompSize();
             if ((n + 1) % inblock.GetNumHomoModes() == 0)
             {
                 inptr += (m_coordDim - 1) * inoffset;
@@ -576,7 +576,7 @@ protected:
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
         // Loop over components.
-        const auto inoffset = inblock.size() * inblock.GetNumHomoModes();
+        const auto inoffset = inblock.CompSize() * inblock.GetNumHomoModes();
         for (unsigned int n = 0;
              n < outblock.GetNumComponents() * outblock.GetNumHomoModes(); ++n)
         {
@@ -607,8 +607,8 @@ protected:
                                       nelmt, outblock.GetNumData(), outptr);
 
             // Increment pointers.
-            inptr += inblock.size();
-            outptr += outblock.size();
+            inptr += inblock.CompSize();
+            outptr += outblock.CompSize();
             if ((n + 1) % inblock.GetNumHomoModes() == 0)
             {
                 inptr += (m_coordDim - 1) * inoffset;
@@ -651,7 +651,7 @@ protected:
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
         // Loop over components.
-        const auto inoffset = inblock.size() * inblock.GetNumHomoModes();
+        const auto inoffset = inblock.CompSize() * inblock.GetNumHomoModes();
         for (unsigned int n = 0;
              n < outblock.GetNumComponents() * outblock.GetNumHomoModes(); ++n)
         {
@@ -681,8 +681,8 @@ protected:
                                       nelmt, outblock.GetNumData(), outptr);
 
             // Increment pointers.
-            inptr += inblock.size();
-            outptr += outblock.size();
+            inptr += inblock.CompSize();
+            outptr += outblock.CompSize();
             if ((n + 1) % inblock.GetNumHomoModes() == 0)
             {
                 inptr += (m_coordDim - 1) * inoffset;
@@ -739,13 +739,14 @@ protected:
             {
                 ReshapeStorage<ExecSpace>(
                     m_implInterleaveWidth, interleaveWidth, nelmt,
-                    inblock.GetNumData(), (TData *)inptr + d * inblock.size());
+                    inblock.GetNumData(),
+                    (TData *)inptr + d * inblock.CompSize());
             }
 
             // IProduct kernel.
             IProductWRTDerivBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                          DEFORMED>(
-                nm0, nm1, nm2, nq0, nq1, nq2, nelmt, inblock.size(),
+                nm0, nm1, nm2, nq0, nq1, nq2, nelmt, inblock.CompSize(),
                 m_isModified, m_index[0], m_index[1], m_index[2], m_B[0],
                 m_B[1], m_B[2], m_D[0], m_D[1], m_D[2], m_W[0], m_W[1], m_W[2],
                 m_f[0], m_f[1], m_f[2], m_f[3], m_nodToMod, m_dfptr, m_jacptr,
@@ -756,14 +757,15 @@ protected:
             {
                 ReshapeStorage<ExecSpace>(
                     interleaveWidth, m_implInterleaveWidth, nelmt,
-                    inblock.GetNumData(), (TData *)inptr + d * inblock.size());
+                    inblock.GetNumData(),
+                    (TData *)inptr + d * inblock.CompSize());
             }
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
                                       nelmt, outblock.GetNumData(), outptr);
 
             // Increment pointers.
-            inptr += m_coordDim * inblock.size();
-            outptr += outblock.size();
+            inptr += m_coordDim * inblock.CompSize();
+            outptr += outblock.CompSize();
         }
 
         // Set output block to input interleave.
@@ -809,14 +811,15 @@ protected:
             {
                 ReshapeStorage<ExecSpace>(
                     m_implInterleaveWidth, interleaveWidth, nelmt,
-                    inblock.GetNumData(), (TData *)inptr + d * inblock.size());
+                    inblock.GetNumData(),
+                    (TData *)inptr + d * inblock.CompSize());
             }
 
             // IProduct kernel.
             IProductWRTDerivBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                          DEFORMED, nm0, nm1, nm2, nq0, nq1,
                                          nq2>(
-                nelmt, inblock.size(), m_isModified, m_index[0], m_index[1],
+                nelmt, inblock.CompSize(), m_isModified, m_index[0], m_index[1],
                 m_index[2], m_B[0], m_B[1], m_B[2], m_D[0], m_D[1], m_D[2],
                 m_W[0], m_W[1], m_W[2], m_f[0], m_f[1], m_f[2], m_f[3],
                 m_nodToMod, m_dfptr, m_jacptr, inptr, outptr, wspptr);
@@ -826,14 +829,15 @@ protected:
             {
                 ReshapeStorage<ExecSpace>(
                     interleaveWidth, m_implInterleaveWidth, nelmt,
-                    inblock.GetNumData(), (TData *)inptr + d * inblock.size());
+                    inblock.GetNumData(),
+                    (TData *)inptr + d * inblock.CompSize());
             }
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
                                       nelmt, outblock.GetNumData(), outptr);
 
             // Increment pointers.
-            inptr += m_coordDim * inblock.size();
-            outptr += outblock.size();
+            inptr += m_coordDim * inblock.CompSize();
+            outptr += outblock.CompSize();
         }
 
         // Set output block to input interleave.

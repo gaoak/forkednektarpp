@@ -279,8 +279,8 @@ protected:
                                       nelmtTot, outblock.GetNumData(), outptr);
 
             // Increment pointers.
-            inptr += inblock.size() * inblock.GetNumHomoModes();
-            outptr += outblock.size() * outblock.GetNumHomoModes();
+            inptr += inblock.CompSize() * inblock.GetNumHomoModes();
+            outptr += outblock.CompSize() * outblock.GetNumHomoModes();
         }
 
         // Set output block to input interleave.
@@ -301,7 +301,7 @@ protected:
             ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
                                       advVel.GetNumElementsWithPadding(),
                                       advVel.GetNumData(),
-                                      this->m_advVel + n * advVel.size());
+                                      this->m_advVel + n * advVel.CompSize());
         }
         advVel.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }

@@ -99,7 +99,7 @@ public:
         for (unsigned int blk = 0; blk < blockAttr.size(); ++blk)
         {
             auto nsize =
-                blockAttr[blk].size() * num_components * num_homo_modes;
+                blockAttr[blk].CompSize() * num_components * num_homo_modes;
             auto mr = MemoryRegion<TData>(name + std::to_string(blk), nsize,
                                           memAllocType, alignment);
             this->m_block_accessors.push_back(
@@ -149,7 +149,7 @@ public:
         for (unsigned int blk = 0; blk < blockAttr.size(); ++blk)
         {
             auto nsize =
-                blockAttr[blk].size() * components.size() * num_homo_modes;
+                blockAttr[blk].CompSize() * components.size() * num_homo_modes;
             auto mr = MemoryRegion<TData>(name + std::to_string(blk), nsize,
                                           memAllocType, alignment);
             this->m_block_accessors.push_back(
@@ -286,7 +286,7 @@ public:
             auto src =
                 this->GetBlocks()[blk]
                     .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-            const auto nSize  = this->GetBlocks()[blk].size();
+            const auto nSize  = this->GetBlocks()[blk].CompSize();
             const auto nElmts = this->GetBlocks()[blk].GetNumElements();
             const auto nPts   = this->GetBlocks()[blk].GetNumData();
             for (auto n = 0;
@@ -331,7 +331,7 @@ public:
             auto src =
                 this->GetBlocks()[blk]
                     .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-            const auto nSize  = this->GetBlocks()[blk].size();
+            const auto nSize  = this->GetBlocks()[blk].CompSize();
             const auto nElmts = this->GetBlocks()[blk].GetNumElements();
             const auto nPts   = this->GetBlocks()[blk].GetNumData();
             for (auto n = 0;
@@ -436,7 +436,7 @@ public:
         for (unsigned int blk = 0; blk < this->GetBlocks().size(); ++blk)
         {
             auto offset       = 0;
-            const auto nSize  = this->GetBlocks()[blk].size();
+            const auto nSize  = this->GetBlocks()[blk].CompSize();
             const auto nElmts = this->GetBlocks()[blk].GetNumElements();
             const auto nPts   = this->GetBlocks()[blk].GetNumData();
             for (auto n = 0;
@@ -488,7 +488,7 @@ public:
         for (unsigned int blk = 0; blk < this->GetBlocks().size(); ++blk)
         {
             auto offset       = 0;
-            const auto nSize  = this->GetBlocks()[blk].size();
+            const auto nSize  = this->GetBlocks()[blk].CompSize();
             const auto nElmts = this->GetBlocks()[blk].GetNumElements();
             const auto nPts   = this->GetBlocks()[blk].GetNumData();
             for (auto n = 0;
