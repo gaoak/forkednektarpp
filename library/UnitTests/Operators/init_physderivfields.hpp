@@ -146,7 +146,7 @@ public:
                             inptr[cnt] = tmp;
                         }
                     }
-                    inptr += block.size();
+                    inptr += block.CompSize();
                 }
             }
             el += block.GetNumElements();

@@ -170,7 +170,7 @@ protected:
                                       outblock.GetNumData(), (TData *)outptr);
 
             // Increment pointer.
-            outptr += outblock.size();
+            outptr += outblock.CompSize();
         }
 
         // Set output block to input interleave.

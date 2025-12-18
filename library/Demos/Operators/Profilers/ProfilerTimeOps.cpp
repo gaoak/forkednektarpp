@@ -148,7 +148,7 @@ int main(int argc, char *argv[])
             blockIn[i].template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
         for (unsigned int n = 0; n < nIn * nComp; n++)
         {
-            for (size_t j = 0; j < blockIn[i].size(); ++j)
+            for (size_t j = 0; j < blockIn[i].CompSize(); ++j)
             {
                 inPtr[j] =
                     ((static_cast<double>(rand()) / RAND_MAX) * 2.0 - 1.0);

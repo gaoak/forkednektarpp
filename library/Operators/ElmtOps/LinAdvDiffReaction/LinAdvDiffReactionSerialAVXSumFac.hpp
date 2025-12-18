@@ -302,7 +302,7 @@ protected:
             ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
                                       advVel.GetNumElementsWithPadding(),
                                       advVel.GetNumData(),
-                                      this->m_advVel + n * advVel.size());
+                                      this->m_advVel + n * advVel.CompSize());
         }
         advVel.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }

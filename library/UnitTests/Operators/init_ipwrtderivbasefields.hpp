@@ -94,7 +94,7 @@ public:
                         inptr[cnt] = phys + n;
                     }
                 }
-                inptr += block.size();
+                inptr += block.CompSize();
             }
         }
 

@@ -151,12 +151,12 @@ void PrintBlockInfo(const MultiRegions::ExpListSharedPtr &expList,
     // Collect total information for each rank.
     for (size_t i = 0, expId = 0; i < blockAttr.size(); ++i)
     {
-        rankBlockNumDofs[i]     = blockAttr[i].size();
+        rankBlockNumDofs[i]     = blockAttr[i].CompSize();
         rankBlockNumData[i]     = blockAttr[i].GetNumData();
         rankBlockNumElmts[i]    = blockAttr[i].GetNumElements();
         rankBlockNumPaddings[i] = blockAttr[i].GetNumElementsWithPadding() -
                                   blockAttr[i].GetNumElements();
-        rankNumDofs[0] += blockAttr[i].size();
+        rankNumDofs[0] += blockAttr[i].CompSize();
         rankNumElmts[0] += blockAttr[i].GetNumElements();
         rankNumPaddings[0] += blockAttr[i].GetNumElementsWithPadding() -
                               blockAttr[i].GetNumElements();
@@ -291,11 +291,11 @@ void PrintProfileResult(
     // Collect total information for each rank.
     for (unsigned int i = 0; i < inblockAttr.size(); ++i)
     {
-        rankNumInDofs[0] += inblockAttr[i].size();
+        rankNumInDofs[0] += inblockAttr[i].CompSize();
     }
     for (unsigned int i = 0; i < outblockAttr.size(); ++i)
     {
-        rankNumOutDofs[0] += outblockAttr[i].size();
+        rankNumOutDofs[0] += outblockAttr[i].CompSize();
     }
 
     auto allRankElapsed    = comm->Gather(0, rankElapsed);
@@ -401,11 +401,11 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
                          .template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
         for (unsigned int n = 0; n < nIn * nComp; n++)
         {
-            for (size_t j = 0; j < in.GetBlocks()[i].size(); ++j)
+            for (size_t j = 0; j < in.GetBlocks()[i].CompSize(); ++j)
             {
-                inptr[j] = (j + (n + 1.0)) / in.GetBlocks().size();
+                inptr[j] = (j + (n + 1.0)) / in.GetBlocks()[i].CompSize();
             }
-            inptr += in.GetBlocks().size();
+            inptr += in.GetBlocks()[i].CompSize();
         }
     }
 
@@ -435,7 +435,7 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
                 interleaveWidth, inblock.GetInterleaveWidth(),
                 inblock.GetNumElementsWithPadding() * in.GetNumHomoModes(),
                 inblock.GetNumData(),
-                inptr + component * inblock.size() * in.GetNumHomoModes());
+                inptr + component * inblock.CompSize() * in.GetNumHomoModes());
         }
 
         inblock.template SetInterleaveWidth<TData>(interleaveWidth);
@@ -501,7 +501,8 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
                 1, outblock.GetInterleaveWidth(),
                 outblock.GetNumElementsWithPadding() * out.GetNumHomoModes(),
                 outblock.GetNumData(),
-                outptr + component * outblock.size() * out.GetNumHomoModes());
+                outptr +
+                    component * outblock.CompSize() * out.GetNumHomoModes());
         }
 
         outblock.template SetInterleaveWidth<TData>(1);

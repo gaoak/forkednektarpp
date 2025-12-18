@@ -328,9 +328,9 @@ protected:
         const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
         // Loop over components.
-        const auto inoffset = inblock.size() * inblock.GetNumHomoModes();
+        const auto inoffset = inblock.CompSize() * inblock.GetNumHomoModes();
         const auto inoffset_vec =
-            inblock.size() * inblock.GetNumHomoModes() / simd_t::width;
+            inblock.CompSize() * inblock.GetNumHomoModes() / simd_t::width;
         for (unsigned int n = 0;
              n < outblock.GetNumComponents() * outblock.GetNumHomoModes(); ++n)
         {
@@ -423,9 +423,9 @@ protected:
         const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
         // Loop over components.
-        const auto inoffset = inblock.size() * inblock.GetNumHomoModes();
+        const auto inoffset = inblock.CompSize() * inblock.GetNumHomoModes();
         const auto inoffset_vec =
-            inblock.size() * inblock.GetNumHomoModes() / simd_t::width;
+            inblock.CompSize() * inblock.GetNumHomoModes() / simd_t::width;
         for (unsigned int n = 0;
              n < outblock.GetNumComponents() * outblock.GetNumHomoModes(); ++n)
         {
@@ -463,7 +463,8 @@ protected:
                             interleaveWidth, m_implInterleaveWidth, chunkSize,
                             nq0,
                             (TData *)inptr +
-                                d * inblock.size() * inblock.GetNumHomoModes() -
+                                d * inblock.CompSize() *
+                                    inblock.GetNumHomoModes() -
                                 (width_ratio - 1) * nq0 * simd_t::width);
                     }
                     ReshapeStorage<ExecSpace>(
@@ -537,9 +538,9 @@ protected:
         const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
         // Loop over components.
-        const auto inoffset = inblock.size() * inblock.GetNumHomoModes();
+        const auto inoffset = inblock.CompSize() * inblock.GetNumHomoModes();
         const auto inoffset_vec =
-            inblock.size() * inblock.GetNumHomoModes() / simd_t::width;
+            inblock.CompSize() * inblock.GetNumHomoModes() / simd_t::width;
         for (unsigned int n = 0;
              n < outblock.GetNumComponents() * outblock.GetNumHomoModes(); ++n)
         {
@@ -651,9 +652,9 @@ protected:
         const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
         // Loop over components.
-        const auto inoffset = inblock.size() * inblock.GetNumHomoModes();
+        const auto inoffset = inblock.CompSize() * inblock.GetNumHomoModes();
         const auto inoffset_vec =
-            inblock.size() * inblock.GetNumHomoModes() / simd_t::width;
+            inblock.CompSize() * inblock.GetNumHomoModes() / simd_t::width;
         for (unsigned int n = 0;
              n < outblock.GetNumComponents() * outblock.GetNumHomoModes(); ++n)
         {
@@ -789,7 +790,7 @@ protected:
                     {
                         ReshapeStorage<ExecSpace>(
                             m_implInterleaveWidth, interleaveWidth, chunkSize,
-                            nqTot, (TData *)(inptr + d * inblock.size()));
+                            nqTot, (TData *)(inptr + d * inblock.CompSize()));
                     }
                 }
 
@@ -817,7 +818,7 @@ protected:
                         ReshapeStorage<ExecSpace>(
                             interleaveWidth, m_implInterleaveWidth, chunkSize,
                             nqTot,
-                            (TData *)inptr + d * inblock.size() -
+                            (TData *)inptr + d * inblock.CompSize() -
                                 (width_ratio - 1) * nqTot * simd_t::width);
                     }
                     ReshapeStorage<ExecSpace>(
@@ -836,7 +837,7 @@ protected:
 
             // Advance input by m_coordDim-1 componennts since have already
             // advanced one component in the above.
-            inptr += 2 * inblock.size();
+            inptr += 2 * inblock.CompSize();
         }
 
         // Set output block to input interleave.
@@ -903,7 +904,7 @@ protected:
                     {
                         ReshapeStorage<ExecSpace>(
                             m_implInterleaveWidth, interleaveWidth, chunkSize,
-                            nqTot, (TData *)(inptr + d * inblock.size()));
+                            nqTot, (TData *)(inptr + d * inblock.CompSize()));
                     }
                 }
 
@@ -931,7 +932,7 @@ protected:
                         ReshapeStorage<ExecSpace>(
                             interleaveWidth, m_implInterleaveWidth, chunkSize,
                             nqTot,
-                            (TData *)inptr + d * inblock.size() -
+                            (TData *)inptr + d * inblock.CompSize() -
                                 (width_ratio - 1) * nqTot * simd_t::width);
                     }
                     ReshapeStorage<ExecSpace>(
@@ -950,7 +951,7 @@ protected:
 
             // Advance input by m_coordDim-1 componennts since have already
             // advanced one component in the above.
-            inptr += 2 * inblock.size();
+            inptr += 2 * inblock.CompSize();
         }
 
         // Set output block to input interleave.

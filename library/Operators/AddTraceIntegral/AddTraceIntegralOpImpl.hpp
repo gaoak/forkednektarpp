@@ -94,7 +94,7 @@ public:
 
             // Mapping to interleaved format for trace block.
             toInterleavedTraceBlock.push_back(
-                std::vector<size_t>(block.size()));
+                std::vector<size_t>(block.CompSize()));
             auto ptr = toInterleavedTraceBlock[blk].data();
             for (size_t e = 0;
                  e < block.GetNumElmtGroups(
@@ -133,7 +133,7 @@ public:
             blockBound[blk] = bound;
 
             // Mapping to interleaved format for block.
-            toInterleavedBlock.push_back(std::vector<size_t>(block.size()));
+            toInterleavedBlock.push_back(std::vector<size_t>(block.CompSize()));
             auto ptr = toInterleavedBlock[blk].data();
             for (size_t e = 0;
                  e < block.GetNumElmtGroups(

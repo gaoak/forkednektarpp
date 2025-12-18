@@ -188,7 +188,8 @@ protected:
                         SetModeBlkKernel<ExecSpace>(mode, nelmt, numdata,
                                                     (TData)1.0, blkptr,
                                                     isInterleaved);
-                        blkptr += unitblk.size() * unitblk.GetNumHomoModes();
+                        blkptr +=
+                            unitblk.CompSize() * unitblk.GetNumHomoModes();
                     }
                 }
             }
@@ -234,9 +235,11 @@ protected:
 
                         // Increment pointers.
                         actionptr +=
-                            actionblk.size() * actionblk.GetNumHomoModes();
-                        unitptr += unitblk.size() * unitblk.GetNumHomoModes();
-                        diagptr += diagblk.size() * diagblk.GetNumHomoModes();
+                            actionblk.CompSize() * actionblk.GetNumHomoModes();
+                        unitptr +=
+                            unitblk.CompSize() * unitblk.GetNumHomoModes();
+                        diagptr +=
+                            diagblk.CompSize() * diagblk.GetNumHomoModes();
                     }
 
                     // Set diagonal interleave format.
@@ -259,8 +262,8 @@ protected:
             // Loop over components.
             for (unsigned int n = 0; n < block.GetNumComponents(); ++n)
             {
-                InvDiagBlkKernel<ExecSpace>(block.size(), diagptr);
-                diagptr += block.size() * block.GetNumHomoModes();
+                InvDiagBlkKernel<ExecSpace>(block.CompSize(), diagptr);
+                diagptr += block.CompSize() * block.GetNumHomoModes();
             }
         }
     }

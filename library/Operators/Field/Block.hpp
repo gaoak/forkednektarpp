@@ -73,7 +73,8 @@ public:
                     const unsigned int interleave_width)
         : m_num_elements(num_elements),
           m_num_elements_with_padding(num_elements_with_padding),
-          m_num_data(num_data), m_size(num_elements_with_padding * num_data),
+          m_num_data(num_data),
+          m_compSize(num_elements_with_padding * num_data),
           m_interleave_width(interleave_width)
     {
     }
@@ -111,9 +112,9 @@ public:
         return m_num_data;
     }
 
-    size_t size(void) const
+    size_t CompSize(void) const
     {
-        return m_size;
+        return m_compSize;
     }
 
     unsigned int GetInterleaveWidth(void) const
@@ -140,7 +141,7 @@ private:
     const size_t m_num_elements;
     const size_t m_num_elements_with_padding;
     const unsigned int m_num_data;
-    const size_t m_size;
+    const size_t m_compSize;
     unsigned int m_interleave_width;
 };
 

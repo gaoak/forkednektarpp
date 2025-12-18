@@ -84,7 +84,7 @@ public:
                         inptr[cnt] = coeff + nc;
                     }
                 }
-                inptr += block.size();
+                inptr += block.CompSize();
             }
         }
 
@@ -110,7 +110,7 @@ public:
                         block.GetInterleaveWidth(),
                         block.GetNumElementsWithPadding(), block.GetNumData(),
                         inptr);
-                    inptr += block.size();
+                    inptr += block.CompSize();
                 }
 
                 block.template SetInterleaveWidth<TData>(

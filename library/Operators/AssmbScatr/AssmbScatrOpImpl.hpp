@@ -214,7 +214,7 @@ protected:
     void v_Apply(Field<TData, FieldState::Coeff> &in,
                  Field<TData, FieldState::Coeff> &out) override
     {
-        ASSERTL1(in.GetBlocks()[0].size() == out.GetBlocks()[0].size(),
+        ASSERTL1(in.GetBlocks()[0].CompSize() == out.GetBlocks()[0].CompSize(),
                  "In and out blocks are of different size");
 
         ASSERTL1(in.GetNumComponents() == out.GetNumComponents(),
@@ -256,7 +256,7 @@ protected:
             if (inoutwidth != 1)
             {
                 auto inoutPtr = inoutblk.template GetPtr<MemSpace, ReadWrite>();
-                unsigned blksize = inoutblk.size();
+                unsigned blksize = inoutblk.CompSize();
                 for (unsigned nc = 0; nc < numComp; ++nc)
                 {
                     deInterleave<ExecSpace>(
@@ -316,7 +316,7 @@ protected:
                     ASSERTL1(width == m_device_width, "Unexpected width value");
                     auto inoutPtr =
                         inoutblk.template GetPtr<MemSpace, ReadWrite>();
-                    unsigned blksize = inoutblk.size();
+                    unsigned blksize = inoutblk.CompSize();
                     for (unsigned nc = 0; nc < numComp; ++nc)
                     {
                         interleave<ExecSpace>(

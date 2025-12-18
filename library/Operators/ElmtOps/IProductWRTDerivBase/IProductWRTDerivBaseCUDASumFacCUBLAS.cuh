@@ -273,7 +273,7 @@ protected:
         const auto dim         = m_dimension;
         const auto coordDim    = m_coordDim;
         const auto ndf         = dim * coordDim;
-        const auto inblocksize = inblock.size();
+        const auto inblocksize = inblock.CompSize();
         const auto nelmt       = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
@@ -319,8 +319,8 @@ protected:
                                       nelmt, outblock.GetNumData(), outptr);
 
             // Increment pointers.
-            inptr += m_coordDim * inblock.size();
-            outptr += outblock.size();
+            inptr += m_coordDim * inblock.CompSize();
+            outptr += outblock.CompSize();
         }
 
         // Set output block to input interleave.
@@ -340,7 +340,7 @@ protected:
         const auto nmTot       = m_nmTot;
         const auto nqTot       = m_nqTot;
         const auto nelmt       = inblock.GetNumElementsWithPadding();
-        const auto inblocksize = inblock.size();
+        const auto inblocksize = inblock.CompSize();
 
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
@@ -395,8 +395,8 @@ protected:
                                       nelmt, outblock.GetNumData(), outptr);
 
             // Increment pointers.
-            inptr += m_coordDim * inblock.size();
-            outptr += outblock.size();
+            inptr += m_coordDim * inblock.CompSize();
+            outptr += outblock.CompSize();
         }
 
         // Set output block to input interleave.
@@ -416,7 +416,7 @@ protected:
         const auto nmTot       = m_nmTot;
         const auto nqTot       = m_nqTot;
         const auto nelmt       = inblock.GetNumElementsWithPadding();
-        const auto inblocksize = inblock.size();
+        const auto inblocksize = inblock.CompSize();
 
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
@@ -484,8 +484,8 @@ protected:
                                       nelmt, outblock.GetNumData(), outptr);
 
             // Increment pointers.
-            inptr += m_coordDim * inblock.size();
-            outptr += outblock.size();
+            inptr += m_coordDim * inblock.CompSize();
+            outptr += outblock.CompSize();
         }
 
         // Destroy streams.
@@ -511,7 +511,7 @@ protected:
         const auto coordDim    = m_coordDim;
         const auto ndf         = dim * coordDim;
         const auto nelmt       = inblock.GetNumElementsWithPadding();
-        const auto inblocksize = inblock.size();
+        const auto inblocksize = inblock.CompSize();
         const auto nqTot       = m_nqTot;
         const auto nmTot       = m_nmTot;
 
@@ -578,8 +578,8 @@ protected:
                                       nelmt, outblock.GetNumData(), outptr);
 
             // Increment pointers.
-            inptr += m_coordDim * inblock.size();
-            outptr += outblock.size();
+            inptr += m_coordDim * inblock.CompSize();
+            outptr += outblock.CompSize();
         }
 
         // Set output block to input interleave.
@@ -599,7 +599,7 @@ protected:
         const auto coordDim    = m_coordDim;
         const auto ndf         = dim * coordDim;
         const auto nelmt       = inblock.GetNumElementsWithPadding();
-        const auto inblocksize = inblock.size();
+        const auto inblocksize = inblock.CompSize();
         const auto nqTot       = m_nqTot;
         const auto nmTot       = m_nmTot;
 
@@ -677,8 +677,8 @@ protected:
                                       nelmt, outblock.GetNumData(), outptr);
 
             // Increment pointers.
-            inptr += m_coordDim * inblock.size();
-            outptr += outblock.size();
+            inptr += m_coordDim * inblock.CompSize();
+            outptr += outblock.CompSize();
         }
 
         // Destroy streams.
@@ -704,7 +704,7 @@ protected:
         const auto coordDim    = m_coordDim;
         const auto ndf         = dim * coordDim;
         const auto nelmt       = inblock.GetNumElementsWithPadding();
-        const auto inblocksize = inblock.size();
+        const auto inblocksize = inblock.CompSize();
         const auto nqTot       = m_nqTot;
         const auto nmTot       = m_nmTot;
 
@@ -783,8 +783,8 @@ protected:
                                       nelmt, outblock.GetNumData(), outptr);
 
             // Increment pointers.
-            inptr += m_coordDim * inblock.size();
-            outptr += outblock.size();
+            inptr += m_coordDim * inblock.CompSize();
+            outptr += outblock.CompSize();
         }
 
         // Destroy streams.
@@ -810,7 +810,7 @@ protected:
         const auto coordDim    = m_coordDim;
         const auto ndf         = dim * coordDim;
         const auto nelmt       = inblock.GetNumElementsWithPadding();
-        const auto inblocksize = inblock.size();
+        const auto inblocksize = inblock.CompSize();
         const auto nqTot       = m_nqTot;
         const auto nmTot       = m_nmTot;
 
@@ -889,8 +889,8 @@ protected:
                                       nelmt, outblock.GetNumData(), outptr);
 
             // Increment pointers.
-            inptr += m_coordDim * inblock.size();
-            outptr += outblock.size();
+            inptr += m_coordDim * inblock.CompSize();
+            outptr += outblock.CompSize();
         }
 
         // Destroy streams.
