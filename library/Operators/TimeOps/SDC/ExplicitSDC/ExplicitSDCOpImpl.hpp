@@ -50,21 +50,40 @@ class ExplicitSDCOpImpl : public ExplicitSDCOp<TData>
 
 public:
     ExplicitSDCOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
-                      const std::vector<std::string> &components)
-        : ExplicitSDCOp<TData>(expansionList, components)
+                      const std::vector<std::string> &components,
+                      const unsigned int &order, const std::string &variant,
+                      const std::vector<TData> freeParams)
+        : ExplicitSDCOp<TData>(expansionList, components, order, variant,
+                               freeParams)
     {
+        this->template Initialize<ExecSpace>();
+
+        auto blockAttr =
+            GetBlockAttributes<TData, FieldState::Phys>(this->m_expansionList);
+        for (unsigned int m = 0; m < this->m_nQuadPts; ++m)
+        {
+            this->m_SFint.push_back(Field<TData, FieldState::Phys>(
+                blockAttr, this->m_components, 1));
+
+            this->m_solutions.push_back(Field<TData, FieldState::Phys>(
+                blockAttr, this->m_components, 1));
+
+            this->m_residuals.push_back(Field<TData, FieldState::Phys>(
+                blockAttr, this->m_components, 1));
+        }
     }
 
     // className - for OperatorFactory
     static std::string className;
 
     // instantiation function for CreatorFunction in Operator Factory
-    static std::unique_ptr<Operator<TData>> Instantiate(
+    static std::unique_ptr<TimeOp<TData>> Instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList,
-        const std::vector<std::string> &components)
+        const std::vector<std::string> &components, const unsigned int &order,
+        const std::string &variant, const std::vector<TData> freeParams)
     {
         return std::make_unique<ExplicitSDCOpImpl<ExecSpace, TData>>(
-            expansionList, components);
+            expansionList, components, order, variant, freeParams);
     }
 
 protected:
@@ -79,28 +98,6 @@ protected:
             this->m_projectionFunctor,
             "ExplicitSDC schemes require a DoProjection method. Define with "
             "ExplicitSDCOp->DefineProjection().");
-
-        // Initialize.
-        if (!this->m_initialized)
-        {
-            this->template Initialize<ExecSpace>();
-
-            auto blockAttr = GetBlockAttributes<TData, FieldState::Phys>(
-                this->m_expansionList);
-            for (unsigned int m = 0; m < this->m_nQuadPts; ++m)
-            {
-                this->m_SFint.push_back(Field<TData, FieldState::Phys>(
-                    blockAttr, this->m_components, inout.GetNumHomoModes()));
-
-                this->m_solutions.push_back(Field<TData, FieldState::Phys>(
-                    blockAttr, this->m_components, inout.GetNumHomoModes()));
-
-                this->m_residuals.push_back(Field<TData, FieldState::Phys>(
-                    blockAttr, this->m_components, inout.GetNumHomoModes()));
-            }
-
-            this->m_initialized = true;
-        }
 
         // Store the initial values.
         this->m_solutions[0].template Copy<MemSpace>(inout);

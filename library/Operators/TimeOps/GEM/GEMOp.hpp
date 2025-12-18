@@ -43,14 +43,29 @@ namespace Nektar::Operators
 // Defines the apply operator to enforce apply parameter types
 template <typename TData> class GEMOp : public TimeOp<TData>
 {
+public:
+    static std::shared_ptr<GEMOp<TData>> Create(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
+        const std::string &method = "", const unsigned int &order = 0,
+        const std::string &variant = "", const std::string &execStr = "")
+    {
+        return std::dynamic_pointer_cast<GEMOp<TData>>(
+            TimeOp<TData>::Create(expansionList, components, method, order,
+                                  variant, std::vector<TData>{}, execStr));
+    }
+
 protected:
-    bool m_initialized{false};
+    unsigned int m_order;
+    std::string m_variant;
     std::deque<Field<TData, FieldState::Phys>> m_T;
     std::deque<Field<TData, FieldState::Phys>> m_T0;
 
     GEMOp(const MultiRegions::ExpListSharedPtr &expansionList,
-          const std::vector<std::string> &components)
-        : TimeOp<TData>(expansionList, components)
+          const std::vector<std::string> &components, const unsigned int &order,
+          const std::string &variant)
+        : TimeOp<TData>(expansionList, components), m_order(order),
+          m_variant(variant)
     {
     }
 

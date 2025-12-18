@@ -48,21 +48,45 @@ class ImplicitGEMOpImpl : public ImplicitGEMOp<TData>
 
 public:
     ImplicitGEMOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
-                      const std::vector<std::string> &components)
-        : ImplicitGEMOp<TData>(expansionList, components)
+                      const std::vector<std::string> &components,
+                      const unsigned int &order, const std::string &variant)
+        : ImplicitGEMOp<TData>(expansionList, components, order, variant)
     {
+        unsigned int n =
+            (this->m_variant == "Midpoint") ? this->m_order / 2 : this->m_order;
+
+        auto blockAttr =
+            GetBlockAttributes<TData, FieldState::Phys>(this->m_expansionList);
+        for (unsigned int m = 0; m < n; ++m)
+        {
+            this->m_T.push_back(Field<TData, FieldState::Phys>(
+                blockAttr, this->m_components, 1));
+
+            this->m_T0.push_back(Field<TData, FieldState::Phys>(
+                blockAttr, this->m_components, 1));
+        }
+
+        for (unsigned int m = 0; m < this->m_order; ++m)
+        {
+            this->m_solutions.push_back(Field<TData, FieldState::Phys>(
+                blockAttr, this->m_components, 1));
+        }
+
+        this->m_implicits.push_back(
+            Field<TData, FieldState::Phys>(blockAttr, this->m_components, 1));
     }
 
     // className - for OperatorFactory
     static std::string className;
 
     // instantiation function for CreatorFunction in Operator Factory
-    static std::unique_ptr<Operator<TData>> Instantiate(
+    static std::unique_ptr<TimeOp<TData>> Instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList,
-        const std::vector<std::string> &components)
+        const std::vector<std::string> &components, const unsigned int &order,
+        const std::string &variant)
     {
         return std::make_unique<ImplicitGEMOpImpl<ExecSpace, TData>>(
-            expansionList, components);
+            expansionList, components, order, variant);
     }
 
 protected:
@@ -72,35 +96,6 @@ protected:
         ASSERTL0(this->m_implicitFunctor,
                  "ImplicitGEM schemes require a DoImplicit method. Define with "
                  "ImplicitGEMOp->DefineImplicit().");
-
-        // Initialize.
-        if (!this->m_initialized)
-        {
-            unsigned int n = (this->m_variant == "Midpoint") ? this->m_order / 2
-                                                             : this->m_order;
-
-            auto blockAttr = GetBlockAttributes<TData, FieldState::Phys>(
-                this->m_expansionList);
-            for (unsigned int m = 0; m < n; ++m)
-            {
-                this->m_T.push_back(Field<TData, FieldState::Phys>(
-                    blockAttr, this->m_components, inout.GetNumHomoModes()));
-
-                this->m_T0.push_back(Field<TData, FieldState::Phys>(
-                    blockAttr, this->m_components, inout.GetNumHomoModes()));
-            }
-
-            for (unsigned int m = 0; m < this->m_order; ++m)
-            {
-                this->m_solutions.push_back(Field<TData, FieldState::Phys>(
-                    blockAttr, this->m_components, inout.GetNumHomoModes()));
-            }
-
-            this->m_implicits.push_back(Field<TData, FieldState::Phys>(
-                blockAttr, this->m_components, inout.GetNumHomoModes()));
-
-            this->m_initialized = true;
-        }
 
         if (this->m_variant == "")
         {

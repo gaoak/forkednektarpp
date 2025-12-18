@@ -48,56 +48,55 @@ class IMEXGEMOpImpl : public IMEXGEMOp<TData>
 
 public:
     IMEXGEMOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
-                  const std::vector<std::string> &components)
-        : IMEXGEMOp<TData>(expansionList, components)
+                  const std::vector<std::string> &components,
+                  const unsigned int &order, const std::string &variant)
+        : IMEXGEMOp<TData>(expansionList, components, order, variant)
     {
+        const unsigned int npts =
+            (this->m_variant == "Midpoint") ? this->m_order / 2 : this->m_order;
+
+        auto blockAttr =
+            GetBlockAttributes<TData, FieldState::Phys>(this->m_expansionList);
+        for (unsigned int m = 0; m < npts; ++m)
+        {
+            this->m_T.push_back(Field<TData, FieldState::Phys>(
+                blockAttr, this->m_components, 1));
+
+            this->m_T0.push_back(Field<TData, FieldState::Phys>(
+                blockAttr, this->m_components, 1));
+        }
     }
 
     // className - for OperatorFactory
     static std::string className;
 
     // instantiation function for CreatorFunction in Operator Factory
-    static std::unique_ptr<Operator<TData>> Instantiate(
+    static std::unique_ptr<TimeOp<TData>> Instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList,
-        const std::vector<std::string> &components)
+        const std::vector<std::string> &components, const unsigned int &order,
+        const std::string &variant)
     {
-        return std::make_unique<IMEXGEMOpImpl<ExecSpace, TData>>(expansionList,
-                                                                 components);
+        return std::make_unique<IMEXGEMOpImpl<ExecSpace, TData>>(
+            expansionList, components, order, variant);
     }
 
 protected:
-    std::shared_ptr<TimeOp<TData>> m_stepper;
+    std::shared_ptr<TimeOp<TData>> m_stepper = nullptr;
 
     void v_Apply(Field<TData, FieldState::Phys> &inout) override
     {
-        // Initialize.
-        if (!this->m_initialized)
+        // Initialise IMEXdirk scheme.
+        if (!this->m_stepper)
         {
-            const unsigned int npts = (this->m_variant == "Midpoint")
-                                          ? this->m_order / 2
-                                          : this->m_order;
-
-            auto blockAttr = GetBlockAttributes<TData, FieldState::Phys>(
-                this->m_expansionList);
-            for (unsigned int m = 0; m < npts; ++m)
-            {
-                this->m_T.push_back(Field<TData, FieldState::Phys>(
-                    blockAttr, this->m_components, inout.GetNumHomoModes()));
-
-                this->m_T0.push_back(Field<TData, FieldState::Phys>(
-                    blockAttr, this->m_components, inout.GetNumHomoModes()));
-            }
-
-            // Initialise IMEXdirk scheme.
-            const std::string variant =
+            const std::string stepperVariant =
                 (this->m_variant == "Midpoint") ? "12" : "11";
-            const unsigned int order = (this->m_variant == "Midpoint") ? 2 : 1;
-            this->m_stepper          = TimeOp<TData>::Create(
-                this->m_expansionList, this->m_components, "IMEXdirk", order,
-                variant, std::vector<TData>{}, ExecSpace::name);
+            const unsigned int stepperOrder =
+                (this->m_variant == "Midpoint") ? 2 : 1;
+            this->m_stepper =
+                TimeOp<TData>::Create(this->m_expansionList, this->m_components,
+                                      "IMEXdirk", stepperOrder, stepperVariant,
+                                      std::vector<TData>{}, ExecSpace::name);
             this->m_stepper->CopyFunctorsFrom(*this);
-
-            this->m_initialized = true;
         }
 
         // Compute approximation.

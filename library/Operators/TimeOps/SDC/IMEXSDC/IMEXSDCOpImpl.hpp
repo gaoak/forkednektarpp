@@ -50,21 +50,50 @@ class IMEXSDCOpImpl : public IMEXSDCOp<TData>
 
 public:
     IMEXSDCOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
-                  const std::vector<std::string> &components)
-        : IMEXSDCOp<TData>(expansionList, components)
+                  const std::vector<std::string> &components,
+                  const unsigned int &order, const std::string &variant,
+                  const std::vector<TData> freeParams)
+        : IMEXSDCOp<TData>(expansionList, components, order, variant,
+                           freeParams)
     {
+        this->template Initialize<ExecSpace>();
+
+        auto blockAttr =
+            GetBlockAttributes<TData, FieldState::Phys>(this->m_expansionList);
+        for (unsigned int m = 0; m < this->m_nQuadPts; ++m)
+        {
+            this->m_SFint.push_back(Field<TData, FieldState::Phys>(
+                blockAttr, this->m_components, 1));
+
+            this->m_solutions.push_back(Field<TData, FieldState::Phys>(
+                blockAttr, this->m_components, 1));
+
+            this->m_explicits.push_back(Field<TData, FieldState::Phys>(
+                blockAttr, this->m_components, 1));
+
+            this->m_implicits.push_back(Field<TData, FieldState::Phys>(
+                blockAttr, this->m_components, 1));
+
+            this->m_residuals.push_back(Field<TData, FieldState::Phys>(
+                blockAttr, this->m_components, 1));
+        }
+
+        this->m_SFint[0].template Initialize<MemSpace>(0.0);
+        this->m_explicits[0].template Initialize<MemSpace>(0.0);
+        this->m_residuals[0].template Initialize<MemSpace>(0.0);
     }
 
     // className - for OperatorFactory
     static std::string className;
 
     // instantiation function for CreatorFunction in Operator Factory
-    static std::unique_ptr<Operator<TData>> Instantiate(
+    static std::unique_ptr<TimeOp<TData>> Instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList,
-        const std::vector<std::string> &components)
+        const std::vector<std::string> &components, const unsigned int &order,
+        const std::string &variant, const std::vector<TData> freeParams)
     {
-        return std::make_unique<IMEXSDCOpImpl<ExecSpace, TData>>(expansionList,
-                                                                 components);
+        return std::make_unique<IMEXSDCOpImpl<ExecSpace, TData>>(
+            expansionList, components, order, variant, freeParams);
     }
 
 protected:
@@ -77,38 +106,6 @@ protected:
         ASSERTL0(this->m_implicitFunctor,
                  "IMEXSDC schemes require a DoImplicit method. Define with "
                  "IMEXSDCOp->DefineImplicit().");
-
-        // Initialize.
-        if (!this->m_initialized)
-        {
-            this->template Initialize<ExecSpace>();
-
-            auto blockAttr = GetBlockAttributes<TData, FieldState::Phys>(
-                this->m_expansionList);
-            for (unsigned int m = 0; m < this->m_nQuadPts; ++m)
-            {
-                this->m_SFint.push_back(Field<TData, FieldState::Phys>(
-                    blockAttr, this->m_components, inout.GetNumHomoModes()));
-
-                this->m_solutions.push_back(Field<TData, FieldState::Phys>(
-                    blockAttr, this->m_components, inout.GetNumHomoModes()));
-
-                this->m_explicits.push_back(Field<TData, FieldState::Phys>(
-                    blockAttr, this->m_components, inout.GetNumHomoModes()));
-
-                this->m_implicits.push_back(Field<TData, FieldState::Phys>(
-                    blockAttr, this->m_components, inout.GetNumHomoModes()));
-
-                this->m_residuals.push_back(Field<TData, FieldState::Phys>(
-                    blockAttr, this->m_components, inout.GetNumHomoModes()));
-            }
-
-            this->m_SFint[0].template Initialize<MemSpace>(0.0);
-            this->m_explicits[0].template Initialize<MemSpace>(0.0);
-            this->m_residuals[0].template Initialize<MemSpace>(0.0);
-
-            this->m_initialized = true;
-        }
 
         // Store the initial values.
         this->m_solutions[0].template Copy<MemSpace>(inout);

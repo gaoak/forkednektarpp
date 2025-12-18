@@ -40,10 +40,37 @@
 namespace Nektar::Operators
 {
 
+template <typename TData> class TimeOp;
+
+// Typename alias for the factory
+template <typename TData>
+using TimeOpFactory =
+    Nektar::LibUtilities::NekFactory<std::string, TimeOp<TData>,
+                                     const MultiRegions::ExpListSharedPtr &,
+                                     const std::vector<std::string> &>;
+template <typename TData>
+using GEMOpFactory =
+    Nektar::LibUtilities::NekFactory<std::string, TimeOp<TData>,
+                                     const MultiRegions::ExpListSharedPtr &,
+                                     const std::vector<std::string> &,
+                                     const unsigned int &, const std::string &>;
+template <typename TData>
+using SDCOpFactory = Nektar::LibUtilities::NekFactory<
+    std::string, TimeOp<TData>, const MultiRegions::ExpListSharedPtr &,
+    const std::vector<std::string> &, const unsigned int &, const std::string &,
+    const std::vector<TData>>;
+
+// Operator factory singleton
+template <typename TData> TimeOpFactory<TData> &GetTimeOpFactory();
+template <typename TData> GEMOpFactory<TData> &GetGEMOpFactory();
+template <typename TData> SDCOpFactory<TData> &GetSDCOpFactory();
+
 // TimeIntegration base class
 template <typename TData> class TimeOp : public Operator<TData>
 {
 public:
+    ~TimeOp() override = default;
+
     static std::shared_ptr<TimeOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components,
@@ -75,53 +102,66 @@ public:
         {
             // Specialization for SDC
             requestedKey = method0 + execStr0;
+
+            // Get operator factory.
+            SDCOpFactory<TData> &factory = GetSDCOpFactory<TData>();
+
+            // No suitable operator was found.
+            if (!factory.ModuleExists(requestedKey))
+            {
+                std::stringstream msg;
+                msg << "No such operator: " << requestedKey << std::endl;
+                factory.PrintAvailableClasses(msg);
+                NEKERROR(ErrorUtil::efatal, msg.str());
+            }
+
+            return std::static_pointer_cast<TimeOp<TData>>(
+                factory.CreateInstance(requestedKey, expansionList, components,
+                                       order0, variant0, freeParams));
         }
         else if (method0 == "ExplicitGEM" || method0 == "ImplicitGEM" ||
                  method0 == "IMEXGEM")
         {
             // Specialization for GEM
             requestedKey = method0 + execStr0;
+
+            // Get operator factory.
+            GEMOpFactory<TData> &factory = GetGEMOpFactory<TData>();
+
+            // No suitable operator was found.
+            if (!factory.ModuleExists(requestedKey))
+            {
+                std::stringstream msg;
+                msg << "No such operator: " << requestedKey << std::endl;
+                factory.PrintAvailableClasses(msg);
+                NEKERROR(ErrorUtil::efatal, msg.str());
+            }
+
+            return std::static_pointer_cast<TimeOp<TData>>(
+                factory.CreateInstance(requestedKey, expansionList, components,
+                                       order0, variant0));
         }
         else
         {
             requestedKey =
                 method0 + variant0 + std::to_string(order0) + execStr0;
-        }
 
-        // Get operator factory.
-        OperatorFactory<TData> &factory = GetOperatorFactory<TData>();
+            // Get operator factory.
+            TimeOpFactory<TData> &factory = GetTimeOpFactory<TData>();
 
-        // No suitable operator was found.
-        if (!factory.ModuleExists(requestedKey))
-        {
-            std::stringstream msg;
-            msg << "No such operator: " << requestedKey << std::endl;
-            factory.PrintAvailableClasses(msg);
-            NEKERROR(ErrorUtil::efatal, msg.str());
-        }
-
-        auto op = std::static_pointer_cast<TimeOp<TData>>(
-            factory.CreateInstance(requestedKey, expansionList, components));
-
-        // Set operator meta data
-        op->m_timestep = session->GetParameter("TimeStep");
-        op->m_order    = order0;
-        op->m_variant  = variant0;
-        if (freeParams.size() == 0)
-        {
-            for (unsigned int i = 0;
-                 i < session->GetTimeIntScheme().freeParams.size(); i++)
+            // No suitable operator was found.
+            if (!factory.ModuleExists(requestedKey))
             {
-                op->m_freeParams.push_back(
-                    session->GetTimeIntScheme().freeParams[i]);
+                std::stringstream msg;
+                msg << "No such operator: " << requestedKey << std::endl;
+                factory.PrintAvailableClasses(msg);
+                NEKERROR(ErrorUtil::efatal, msg.str());
             }
-        }
-        else
-        {
-            op->m_freeParams = freeParams;
-        }
 
-        return op;
+            return std::static_pointer_cast<TimeOp<TData>>(
+                factory.CreateInstance(requestedKey, expansionList,
+                                       components));
+        }
     }
 
     void Apply(Field<TData, FieldState::Phys> &inout)
@@ -306,9 +346,6 @@ protected:
     unsigned int m_step = 0;
     TData m_time        = 0.0;
     TData m_timestep    = 0.0;
-    unsigned int m_order;
-    std::string m_variant;
-    std::vector<TData> m_freeParams;
 
     // Storage for previous solutions in Fields
     // and memory region for pointer access on device
@@ -329,12 +366,35 @@ protected:
     functorType2 m_implicitFunctor;
 
     TimeOp(const MultiRegions::ExpListSharedPtr &expansionList,
-           const std::vector<std::string> &components)
+           const std::vector<std::string> components)
         : Operator<TData>(expansionList, components)
     {
+        this->m_timestep =
+            expansionList->GetSession()->GetParameter("TimeStep");
     }
 
-    ~TimeOp() override = default;
+    // Use for GEM
+    TimeOp(const MultiRegions::ExpListSharedPtr &expansionList,
+           const std::vector<std::string> components,
+           [[maybe_unused]] const unsigned int &order,
+           [[maybe_unused]] const std::string &variant)
+        : Operator<TData>(expansionList, components)
+    {
+        this->m_timestep =
+            expansionList->GetSession()->GetParameter("TimeStep");
+    }
+
+    // Use for SDC
+    TimeOp(const MultiRegions::ExpListSharedPtr &expansionList,
+           const std::vector<std::string> components,
+           [[maybe_unused]] const unsigned int &order,
+           [[maybe_unused]] const std::string &variant,
+           [[maybe_unused]] const std::vector<TData> freeParams)
+        : Operator<TData>(expansionList, components)
+    {
+        this->m_timestep =
+            expansionList->GetSession()->GetParameter("TimeStep");
+    }
 
     virtual void v_Apply(Field<TData, FieldState::Phys> &inout) = 0;
 

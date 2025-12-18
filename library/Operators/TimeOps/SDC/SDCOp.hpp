@@ -48,10 +48,26 @@ namespace Nektar::Operators
 // Defines the apply operator to enforce apply parameter types
 template <typename TData> class SDCOp : public TimeOp<TData>
 {
+public:
+    static std::shared_ptr<SDCOp<TData>> Create(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
+        const std::string &method = "", const unsigned int &order = 0,
+        const std::string &variant          = "",
+        const std::vector<TData> freeParams = std::vector<TData>{},
+        const std::string &execStr          = "")
+    {
+        return std::dynamic_pointer_cast<SDCOp<TData>>(
+            TimeOp<TData>::Create(expansionList, components, method, order,
+                                  variant, freeParams, execStr));
+    }
+
 protected:
+    unsigned int m_order;
+    std::string m_variant;
+    std::vector<TData> m_freeParams;
     bool m_first_quadrature{true};
     bool m_last_quadrature{true};
-    bool m_initialized{false};
     unsigned int m_ordermin{0}; /// Minimum order of the integration scheme
     unsigned int m_ordermax{0}; /// Maximum order of the integration scheme
     unsigned int m_nQuadPts{0}; /// Number of quadrature points
@@ -68,9 +84,27 @@ protected:
         m_interp; /// Array containing the interpolation coefficients
 
     SDCOp(const MultiRegions::ExpListSharedPtr &expansionList,
-          const std::vector<std::string> &components)
-        : TimeOp<TData>(expansionList, components)
+          const std::vector<std::string> components, const unsigned int &order,
+          const std::string &variant, const std::vector<TData> freeParams)
+        : TimeOp<TData>(expansionList, components), m_order(order),
+          m_variant(variant)
     {
+        if (freeParams.size() == 0)
+        {
+            for (unsigned int i = 0; i < expansionList->GetSession()
+                                             ->GetTimeIntScheme()
+                                             .freeParams.size();
+                 i++)
+            {
+                this->m_freeParams.push_back(expansionList->GetSession()
+                                                 ->GetTimeIntScheme()
+                                                 .freeParams[i]);
+            }
+        }
+        else
+        {
+            this->m_freeParams = freeParams;
+        }
     }
 
     ~SDCOp() override = default;
