@@ -51,9 +51,6 @@ using namespace Nektar;
 int main(int argc, char *argv[])
 {
     typedef double TData;
-    int nIn   = 1;
-    int nOut  = 1;
-    int nComp = 1;
 
     // Initialise a session, graph and explist.
     auto session = LibUtilities::SessionReader::CreateInstance(argc, argv);
@@ -64,7 +61,6 @@ int main(int argc, char *argv[])
     session->LoadParameter("BP", BP, 1);
     session->LoadParameter("Ntest", nTest, 100);
     session->LoadParameter("order", order, 0);
-    session->LoadParameter("Ncomp", nComp, 1);
 
     // Set the order of the polynomial expansion if provided
     // we keep the point distribution the same and make
@@ -77,11 +73,9 @@ int main(int argc, char *argv[])
 
     // Create a ExpList from the graph(mesh).
     auto expList = MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(
-        session, graph, "DefaultVar", true, false, Collections::eNoCollection);
+        session, graph, "u", true, false, Collections::eNoCollection);
 
     expList->SetDataWarehouse();
-
-    auto nDim = expList->GetGraph()->GetSpaceDimension();
 
     // Initialize operators.
     std::shared_ptr<ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>> elmtOp;
@@ -93,6 +87,7 @@ int main(int argc, char *argv[])
     {
         elmtOp = HelmholtzOp<TData>::Create(expList, session->GetVariables());
     }
+
     auto assembOp =
         AssmbScatrOp<TData>::Create(expList, session->GetVariables());
     auto diagPreconOp =
@@ -110,14 +105,14 @@ int main(int argc, char *argv[])
     auto blockAttr = GetBlockAttributes<TData, FieldState::Coeff>(expList);
 
     // Create fields.
-    auto fIn =
-        Field<TData, FieldState::Coeff>("f_in", blockAttr, nIn * nComp, 1);
-    auto fOut =
-        Field<TData, FieldState::Coeff>("f_out", blockAttr, nOut * nComp, 1);
+    auto fIn         = Field<TData, FieldState::Coeff>("f_in", blockAttr,
+                                               session->GetVariables(), 1);
+    auto fOut        = Field<TData, FieldState::Coeff>("f_out", blockAttr,
+                                                session->GetVariables(), 1);
     auto fOutCorrect = Field<TData, FieldState::Coeff>(
-        "f_out_correct", blockAttr, nOut * nComp, 1);
+        "f_out_correct", blockAttr, session->GetVariables(), 1);
     auto fOutCorrectAssemb = Field<TData, FieldState::Coeff>(
-        "f_out_correct_assemb", blockAttr, nOut * nComp, 1);
+        "f_out_correct_assemb", blockAttr, session->GetVariables(), 1);
 
     // Set random output.
     srand(0);
@@ -126,7 +121,7 @@ int main(int argc, char *argv[])
     {
         auto outPtr =
             blockOut[i].template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-        for (unsigned int n = 0; n < nOut * nComp; n++)
+        for (unsigned int n = 0; n < session->GetVariables().size(); n++)
         {
             for (size_t j = 0; j < blockOut[i].size(); ++j)
             {
@@ -160,6 +155,7 @@ int main(int argc, char *argv[])
     timer.Stop();
 
     // Output results.
+    auto nDim = expList->GetGraph()->GetSpaceDimension();
     unsigned int expOrder =
         (*expList->GetExp())[0]->GetBase()[0]->GetNumModes();
     size_t numElmts    = expList->GetNumElmts();
