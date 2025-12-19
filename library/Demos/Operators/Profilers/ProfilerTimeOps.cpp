@@ -98,8 +98,6 @@ protected:
 int main(int argc, char *argv[])
 {
     typedef double TData;
-    int nIn   = 1;
-    int nComp = 1;
 
     // Initialise a session, graph and explist.
     auto session = LibUtilities::SessionReader::CreateInstance(argc, argv);
@@ -112,7 +110,6 @@ int main(int argc, char *argv[])
     session->LoadParameter("timeOrder", timeOrder, 1);
     session->LoadParameter("nTimeStep", nTimeStep, 100);
     session->LoadParameter("order", order, 0);
-    session->LoadParameter("Ncomp", nComp, 1);
 
     // Set the order of the polynomial expansion if provided
     // we keep the point distribution the same and make
@@ -125,7 +122,7 @@ int main(int argc, char *argv[])
 
     // Create a ExpList from the graph(mesh).
     auto expList = MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
-        session, graph, true, "DefaultVar", Collections::eNoCollection);
+        session, graph, true, "u", Collections::eNoCollection);
 
     expList->SetDataWarehouse();
 
@@ -136,8 +133,8 @@ int main(int argc, char *argv[])
     auto blockAttr = GetBlockAttributes<TData, FieldState::Phys>(expList);
 
     // Create fields.
-    auto fIn =
-        Field<TData, FieldState::Phys>("f_in", blockAttr, nIn * nComp, 1);
+    auto fIn = Field<TData, FieldState::Phys>("f_in", blockAttr,
+                                              session->GetVariables(), 1);
 
     // Set random output.
     srand(0);
@@ -146,7 +143,7 @@ int main(int argc, char *argv[])
     {
         auto inPtr =
             blockIn[i].template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-        for (unsigned int n = 0; n < nIn * nComp; n++)
+        for (unsigned int n = 0; n < session->GetVariables().size(); n++)
         {
             for (size_t j = 0; j < blockIn[i].CompSize(); ++j)
             {
