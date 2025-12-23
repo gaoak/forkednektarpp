@@ -38,15 +38,14 @@
 #include "Operators/Field/Field.hpp"
 
 #include <MultiRegions/ContField.h>
-#include <SpatialDomains/MeshGraphIO.h>
 
 namespace Nektar::Operators
 {
 
 void LocalToGlobalDataCreator::InitAssemblyMap(void)
 {
-    auto session = this->m_expansionList->GetSession();
-    auto graph   = SpatialDomains::MeshGraphIO::Read(session);
+    auto session                       = this->m_expansionList->GetSession();
+    auto graph                         = this->m_expansionList->GetGraph();
     std::vector<std::string> variables = session->GetVariables();
     if (variables.size() == 0)
     {
@@ -103,7 +102,7 @@ LocalToGlobalDataCreator::Create(
     // of the assembled data is assumed to be. Not sure what we shoudl do it
     // is float however but legacy code is not set up for this either
     auto blockAttr =
-        GetBlockAttributes<TPadding, FieldState::Coeff>(m_expansionList);
+        GetBlockAttributes<TPadding, FieldState::Coeff>(this->m_expansionList);
 
     auto nblks = blockAttr.size();
     std::map<unsigned, std::vector<std::pair<unsigned, unsigned>>> GloToLoc;
@@ -624,15 +623,17 @@ LocalToGlobalDataCreator::Create(
 {
     using value_type = typename DeviceBndLocalToGlobalKey<TPadding>::value_type;
 
+    if (this->m_init)
+    {
+        InitAssemblyMap();
+        this->m_init = false;
+    }
+
     // Get Local To Global Map.
+    auto loc2glo = this->m_assemblyMap[0];
     auto numComp = LocToGloKey.m_numComp;
 
-    auto contfield =
-        std::dynamic_pointer_cast<MultiRegions::ContField>(m_expansionList);
-    auto loc2glo = std::dynamic_pointer_cast<MultiRegions::AssemblyMapCG>(
-        contfield->GetLocalToGlobalMap());
-
-    unsigned myrank = contfield->GetSession()->GetComm()->GetRank();
+    unsigned myrank = loc2glo->GetComm()->GetRank();
 
     // local to global mapping from legacy code
     auto loc2glomap = loc2glo->GetLocalToGlobalMap();
@@ -642,7 +643,7 @@ LocalToGlobalDataCreator::Create(
                                             loc2glo->GetSREntries().end());
 
     auto blockAttr =
-        GetBlockAttributes<TPadding, FieldState::Coeff>(m_expansionList);
+        GetBlockAttributes<TPadding, FieldState::Coeff>(this->m_expansionList);
 
     auto nblks = blockAttr.size();
     std::map<unsigned, std::vector<std::pair<unsigned, unsigned>>> GloToLoc;
@@ -892,15 +893,17 @@ LocalToGlobalDataCreator::Create(
 {
     using value_type = typename LocalToGlobalMaskKey<TPadding>::value_type;
 
-    // Get Local To Global Map.
-    auto contfield =
-        std::dynamic_pointer_cast<MultiRegions::ContField>(m_expansionList);
-    auto loc2glo = std::dynamic_pointer_cast<MultiRegions::AssemblyMapCG>(
-        contfield->GetLocalToGlobalMap());
+    if (this->m_init)
+    {
+        InitAssemblyMap();
+        this->m_init = false;
+    }
 
+    // Get Local To Global Map.
+    auto loc2glo = this->m_assemblyMap[0];
     auto l2gmap0 = loc2glo->GetLocalToGlobalMap();
     auto blockAttr =
-        GetBlockAttributes<TPadding, FieldState::Coeff>(m_expansionList);
+        GetBlockAttributes<TPadding, FieldState::Coeff>(this->m_expansionList);
     unsigned ntot = 0;
     unsigned blk  = 0;
     for (blk = 0; blk < blockAttr.size(); ++blk)

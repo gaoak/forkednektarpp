@@ -138,8 +138,8 @@ public:
     {
         std::vector<std::string> variables = this->session->GetVariables();
         std::vector<std::shared_ptr<MultiRegions::ContField>> contfields;
-        auto graph = SpatialDomains::MeshGraphIO::Read(this->session);
-        unsigned int compSize = this->fixt_in->GetNumComponents();
+        auto graph           = SpatialDomains::MeshGraphIO::Read(this->session);
+        unsigned int numComp = this->fixt_in->GetNumComponents();
 
         for (auto &variable : variables)
         {
@@ -152,7 +152,7 @@ public:
         // Calculate expected result from Nektar++.
         size_t ncoeffs               = this->fixt_explist->GetNcoeffs();
         Array<OneD, double> incoeffs = this->fixt_in->ToArray();
-        Array<OneD, double> outcoeffs(compSize * ncoeffs);
+        Array<OneD, double> outcoeffs(numComp * ncoeffs);
 
         for (unsigned int i = 0; i < variables.size(); ++i)
         {

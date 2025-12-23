@@ -112,16 +112,16 @@ public:
     void ExpectedSolution()
     {
         // Calculate expected result from Nektar++
-        const size_t ncoeffs        = this->fixt_explist->GetNcoeffs();
-        const size_t nphys          = this->fixt_explist->GetTotPoints();
-        const unsigned int coordim  = this->fixt_explist->GetCoordim(0);
-        const unsigned int compSize = this->fixt_out->GetNumComponents();
+        const size_t ncoeffs       = this->fixt_explist->GetNcoeffs();
+        const size_t nphys         = this->fixt_explist->GetTotPoints();
+        const unsigned int coordim = this->fixt_explist->GetCoordim(0);
+        const unsigned int numComp = this->fixt_out->GetNumComponents();
 
         Array<OneD, TData> inphys = this->fixt_in->ToArray();
-        Array<OneD, TData> outcoeffs(ncoeffs * compSize, 0.0), tmp;
+        Array<OneD, TData> outcoeffs(ncoeffs * numComp, 0.0), tmp;
         Array<OneD, Array<OneD, TData>> inphysarray(coordim);
 
-        for (unsigned int i = 0; i < compSize; ++i)
+        for (unsigned int i = 0; i < numComp; ++i)
         {
             inphysarray[0] = inphys + i * nphys * coordim;
             for (unsigned int j = 1; j < coordim; ++j)
