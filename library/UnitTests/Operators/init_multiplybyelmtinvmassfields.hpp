@@ -86,13 +86,13 @@ public:
     void ExpectedSolution()
     {
         // Calculate expected result from Nektar++
-        unsigned int compSize = this->fixt_in->GetNumComponents();
-        size_t ncoeffs        = this->fixt_explist->GetNcoeffs();
+        unsigned int numComp = this->fixt_in->GetNumComponents();
+        size_t ncoeffs       = this->fixt_explist->GetNcoeffs();
 
         Array<OneD, TData> incoeffs = this->fixt_in->ToArray();
-        Array<OneD, TData> outcoeffs(ncoeffs * compSize), tmp;
+        Array<OneD, TData> outcoeffs(ncoeffs * numComp), tmp;
 
-        for (unsigned int i = 0; i < compSize; ++i)
+        for (unsigned int i = 0; i < numComp; ++i)
         {
             this->fixt_explist->MultiplyByElmtInvMass(
                 incoeffs + i * ncoeffs, tmp = outcoeffs + i * ncoeffs);

@@ -162,16 +162,16 @@ public:
 
     void ExpectedSolution()
     {
-        const unsigned int compSize = this->fixt_in->GetNumComponents();
-        const size_t nphys          = this->fixt_explist->GetTotPoints();
+        const unsigned int numComp = this->fixt_in->GetNumComponents();
+        const size_t nphys         = this->fixt_explist->GetTotPoints();
         const size_t nphys1D =
             this->fixt_explist->Get1DScaledTotPoints(this->scale);
 
         // Calculate expected result from Nektar++
         Array<OneD, TData> inphys = this->fixt_in->ToArray();
-        Array<OneD, TData> outphys(compSize * nphys1D), tmp;
+        Array<OneD, TData> outphys(numComp * nphys1D), tmp;
 
-        for (unsigned int i = 0; i < compSize; ++i)
+        for (unsigned int i = 0; i < numComp; ++i)
         {
             this->fixt_explist->PhysInterp1DScaled(
                 this->scale, inphys + i * nphys, tmp = outphys + i * nphys1D);

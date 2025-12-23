@@ -94,8 +94,8 @@ public:
     void ExpectedSolution()
     {
         // Calculate expected result from Nektar++.
-        const unsigned int compSize = this->fixt_in->GetNumComponents() *
-                                      this->fixt_in->GetNumHomoModes();
+        const unsigned int numComp = this->fixt_in->GetNumComponents() *
+                                     this->fixt_in->GetNumHomoModes();
         const size_t ncoeffs =
             this->fixt_explist->GetNcoeffs() / this->fixt_in->GetNumHomoModes();
 
@@ -103,10 +103,10 @@ public:
         factors[StdRegions::eFactorLambda] = m_lambda;
 
         Array<OneD, TData> incoeffs = this->fixt_in->ToArray();
-        Array<OneD, TData> outcoeffs(compSize * ncoeffs);
+        Array<OneD, TData> outcoeffs(numComp * ncoeffs);
         Array<OneD, TData> tmp;
 
-        for (unsigned int i = 0; i < compSize; ++i)
+        for (unsigned int i = 0; i < numComp; ++i)
         {
             size_t e      = 0;
             size_t offset = i * ncoeffs;

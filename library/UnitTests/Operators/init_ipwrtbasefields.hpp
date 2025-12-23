@@ -90,14 +90,14 @@ public:
     void ExpectedSolution()
     {
         // Calculate expected result from Nektar++
-        const unsigned int compSize = this->fixt_in->GetNumComponents();
-        const size_t ncoeffs        = this->fixt_explist->GetNcoeffs();
-        const size_t nphys          = this->fixt_explist->GetTotPoints();
+        const unsigned int numComp = this->fixt_in->GetNumComponents();
+        const size_t ncoeffs       = this->fixt_explist->GetNcoeffs();
+        const size_t nphys         = this->fixt_explist->GetTotPoints();
 
         Array<OneD, TData> inphys = this->fixt_in->ToArray();
-        Array<OneD, TData> outcoeffs(compSize * ncoeffs);
+        Array<OneD, TData> outcoeffs(numComp * ncoeffs);
         Array<OneD, TData> tmp;
-        for (unsigned int i = 0; i < compSize; ++i)
+        for (unsigned int i = 0; i < numComp; ++i)
         {
             this->fixt_explist->IProductWRTBase(inphys + i * nphys,
                                                 tmp = outcoeffs + i * ncoeffs);

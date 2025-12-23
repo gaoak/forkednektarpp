@@ -41,7 +41,6 @@
 
 #include <LibUtilities/BasicUtils/Timer.h>
 #include <MultiRegions/ContField.h>
-#include <MultiRegions/ExpList.h>
 #include <SpatialDomains/MeshGraphIO.h>
 
 using namespace Nektar::Operators;
