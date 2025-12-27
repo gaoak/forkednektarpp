@@ -111,4 +111,61 @@ inline
     }
 }
 
+template <typename ExecSpace, bool DEFORMED, typename TData, typename TScalar>
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                            void>::type
+    MultiplyByJacobian(const size_t nelmt, const unsigned int nqTot,
+                       const TData *jacptr, const TData *inptr, TData *outptr,
+                       const TScalar scale)
+{
+    if constexpr (DEFORMED)
+    {
+        for (size_t i = 0; i < nelmt * nqTot; ++i)
+        {
+            outptr[i] = scale * jacptr[i] * inptr[i];
+        }
+    }
+    else
+    {
+        for (size_t e = 0; e < nelmt; ++e)
+        {
+            for (unsigned int i = 0; i < nqTot; ++i)
+            {
+                outptr[e * nqTot + i] =
+                    scale * jacptr[e] * inptr[e * nqTot + i];
+            }
+        }
+    }
+}
+
+template <typename ExecSpace, bool DEFORMED, typename TData>
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                            void>::type
+    DivideByJacobian(const size_t nelmt, const unsigned int nqTot,
+                     const TData *jacptr, const TData *inptr, TData *outptr)
+{
+    if constexpr (DEFORMED)
+    {
+        for (size_t i = 0; i < nelmt * nqTot; ++i)
+        {
+            outptr[i] = inptr[i] / jacptr[i];
+        }
+    }
+    else
+    {
+        for (size_t e = 0; e < nelmt; ++e)
+        {
+            TData invjac = 1.0 / jacptr[e];
+            for (unsigned int i = 0; i < nqTot; ++i)
+            {
+                outptr[e * nqTot + i] = inptr[e * nqTot + i] * invjac;
+            }
+        }
+    }
+}
+
 } // namespace Nektar

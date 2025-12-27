@@ -117,6 +117,54 @@ NEK_DEVICE_INLINE static void MatVecQPKernel(const unsigned int nmTot,
     localBarrier(threadBlock);
 }
 
+template <bool DEFORMED, typename TthreadBlock, typename TData>
+NEK_DEVICE_KERNEL static void MultiplyByJacobianKernel(
+    const size_t nelmt, const unsigned int nqTot, const unsigned int nhomo,
+    const TData *jacptr, const TData *inptr, TData *outptr, const TData scale,
+    const TthreadBlock &threadBlock)
+{
+    const size_t idx0   = getGlobalIdx(threadBlock);
+    const size_t stride = getGlobalRange(threadBlock);
+
+    for (size_t idx = idx0; idx < nelmt * nqTot * nhomo; idx += stride)
+    {
+        if constexpr (DEFORMED)
+        {
+            size_t e    = idx % (nelmt * nqTot);
+            outptr[idx] = scale * jacptr[e] * inptr[idx];
+        }
+        else
+        {
+            size_t e    = (idx % (nelmt * nqTot)) / nqTot;
+            outptr[idx] = scale * jacptr[e] * inptr[idx];
+        }
+    }
+}
+
+template <bool DEFORMED, typename TthreadBlock, typename TData>
+NEK_DEVICE_KERNEL static void DivideByJacobianKernel(
+    const size_t nelmt, const unsigned int nqTot, const unsigned int nhomo,
+    const TData *jacptr, const TData *inptr, TData *outptr,
+    const TthreadBlock &threadBlock)
+{
+    const size_t idx0   = getGlobalIdx(threadBlock);
+    const size_t stride = getGlobalRange(threadBlock);
+
+    for (size_t idx = idx0; idx < nelmt * nqTot * nhomo; idx += stride)
+    {
+        if constexpr (DEFORMED)
+        {
+            size_t e    = idx % (nelmt * nqTot);
+            outptr[idx] = inptr[idx] / jacptr[e];
+        }
+        else
+        {
+            size_t e    = (idx % (nelmt * nqTot)) / nqTot;
+            outptr[idx] = inptr[idx] / jacptr[e];
+        }
+    }
+}
+
 template <typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL static void interleaveKernel(
     const unsigned int interleaveWidth, const size_t numElmtGroups,
@@ -220,6 +268,41 @@ deInterleave(const unsigned int interleaveWidth, size_t numElmtGroups,
                                           numElmtGroups, npts, buffer, inout);
     deviceFree(buffer, bufferSize);
 }
+
+template <typename ExecSpace, bool DEFORMED, typename TData>
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                            void>::type
+    MultiplyByJacobian(const size_t nelmt, const unsigned int nqTot,
+                       const unsigned int nhomo, const TData *jacptr,
+                       const TData *inptr, TData *outptr, const TData scale)
+{
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int gridSize =
+        (nelmt * nqTot * nhomo + blockSize - 1) / blockSize;
+
+    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM((MultiplyByJacobianKernel<DEFORMED>),
+                                          gridSize, blockSize, 0, nelmt, nqTot,
+                                          nhomo, jacptr, inptr, outptr, scale);
+}
+
+template <typename ExecSpace, bool DEFORMED, typename TData>
+NEK_FORCE_INLINE static
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                            void>::type
+    DivideByJacobian(const size_t nelmt, const unsigned int nqTot,
+                     const unsigned int nhomo, const TData *jacptr,
+                     const TData *inptr, TData *outptr)
+{
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int gridSize =
+        (nelmt * nqTot * nhomo + blockSize - 1) / blockSize;
+
+    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM((DivideByJacobianKernel<DEFORMED>),
+                                          gridSize, blockSize, 0, nelmt, nqTot,
+                                          nhomo, jacptr, inptr, outptr);
+}
+
 #endif
 
 } // namespace Nektar

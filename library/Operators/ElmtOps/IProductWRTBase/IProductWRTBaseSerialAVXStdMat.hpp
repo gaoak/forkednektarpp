@@ -40,8 +40,6 @@
 #include "Operators/NekBlas/NekBlas.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
-#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseSerialAVXStdMatKernels.hpp"
-
 namespace Nektar::Operators::detail
 {
 
@@ -165,7 +163,7 @@ protected:
                 // Multiply by jacobian.
                 if (m_isDeformed)
                 {
-                    MultiplyByJacobianKernel<ExecSpace, true>(
+                    MultiplyByJacobian<ExecSpace, true>(
                         1, m_nqTot, reinterpret_cast<const simd_t *>(jacptr),
                         reinterpret_cast<const simd_t *>(inptr),
                         reinterpret_cast<simd_t *>(wspptr), this->m_scale);
@@ -173,7 +171,7 @@ protected:
                 }
                 else
                 {
-                    MultiplyByJacobianKernel<ExecSpace, false>(
+                    MultiplyByJacobian<ExecSpace, false>(
                         1, m_nqTot, reinterpret_cast<const simd_t *>(jacptr),
                         reinterpret_cast<const simd_t *>(inptr),
                         reinterpret_cast<simd_t *>(wspptr), this->m_scale);

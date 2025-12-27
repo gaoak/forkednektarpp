@@ -39,7 +39,6 @@
 #include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/Helmholtz/HelmholtzDeviceStdMatKernels.hpp"
-#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseDeviceStdMatKernels.hpp"
 #include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseDeviceStdMatKernels.hpp"
 #include "Operators/ElmtOps/PhysDeriv/PhysDerivDeviceStdMatKernels.hpp"
 
@@ -175,7 +174,7 @@ protected:
         {
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
-                                      nelmt, inblock.GetNumData(),
+                                      nelmtTot, inblock.GetNumData(),
                                       (TData *)inptr);
 
             // Step 1: BwdTrans
@@ -212,15 +211,15 @@ protected:
             // Multiply by jacobian.
             if (m_isDeformed)
             {
-                MultiplyByJacobianKernel<ExecSpace, true>(
-                    nelmt, m_nqTot, nhomo, m_jacptr, bwdptr, bwdptr,
-                    this->m_lambda);
+                MultiplyByJacobian<ExecSpace, true>(nelmt, m_nqTot, nhomo,
+                                                    m_jacptr, bwdptr, bwdptr,
+                                                    this->m_lambda);
             }
             else
             {
-                MultiplyByJacobianKernel<ExecSpace, false>(
-                    nelmt, m_nqTot, nhomo, m_jacptr, bwdptr, bwdptr,
-                    this->m_lambda);
+                MultiplyByJacobian<ExecSpace, false>(nelmt, m_nqTot, nhomo,
+                                                     m_jacptr, bwdptr, bwdptr,
+                                                     this->m_lambda);
             }
 
             // Perform matrix-matrix multiply.
