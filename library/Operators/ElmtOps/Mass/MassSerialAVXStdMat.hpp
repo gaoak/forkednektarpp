@@ -40,8 +40,6 @@
 #include "Operators/NekBlas/NekBlas.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
-#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseSerialAVXStdMatKernels.hpp"
-
 namespace Nektar::Operators::detail
 {
 
@@ -188,7 +186,7 @@ protected:
                     bwd_kernel(inptr, m_bwdmat, wspptr);
 
                     // Multiply by jacobian.
-                    MultiplyByJacobianKernel<ExecSpace, true>(
+                    MultiplyByJacobian<ExecSpace, true>(
                         1, m_nqTot, reinterpret_cast<const simd_t *>(jacptr),
                         reinterpret_cast<const simd_t *>(wspptr),
                         reinterpret_cast<simd_t *>(wspptr), 1.0);
@@ -206,7 +204,7 @@ protected:
                     mass_kernel(inptr, m_massmat, outptr);
 
                     // Multiply by jacobian.
-                    MultiplyByJacobianKernel<ExecSpace, false>(
+                    MultiplyByJacobian<ExecSpace, false>(
                         1, m_nmTot, reinterpret_cast<const simd_t *>(jacptr),
                         reinterpret_cast<const simd_t *>(outptr),
                         reinterpret_cast<simd_t *>(outptr), 1.0);

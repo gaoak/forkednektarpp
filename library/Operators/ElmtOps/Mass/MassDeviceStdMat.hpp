@@ -38,8 +38,6 @@
 #include "Operators/NekBlas/NekBlas.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
-#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseDeviceStdMatKernels.hpp"
-
 namespace Nektar::Operators::detail
 {
 
@@ -170,9 +168,9 @@ protected:
                         (TData)0.0, wspptr, m_nqTot);
 
                 // Multiply by jacobian.
-                MultiplyByJacobianKernel<ExecSpace, true>(nelmt, m_nqTot, nhomo,
-                                                          m_jacptr, wspptr,
-                                                          wspptr, (TData)1.0);
+                MultiplyByJacobian<ExecSpace, true>(nelmt, m_nqTot, nhomo,
+                                                    m_jacptr, wspptr, wspptr,
+                                                    (TData)1.0);
 
                 // Step 2: IProduct
                 // Perform matrix-matrix multiply.
@@ -188,9 +186,9 @@ protected:
                         (TData)0.0, outptr, m_nmTot);
 
                 // Multiply by jacobian.
-                MultiplyByJacobianKernel<ExecSpace, false>(
-                    nelmt, m_nmTot, nhomo, m_jacptr, outptr, outptr,
-                    (TData)1.0);
+                MultiplyByJacobian<ExecSpace, false>(nelmt, m_nmTot, nhomo,
+                                                     m_jacptr, outptr, outptr,
+                                                     (TData)1.0);
             }
 
             // Reshape back, if necessary.

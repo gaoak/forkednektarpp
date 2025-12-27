@@ -34,33 +34,6 @@
 
 #pragma once
 
-template <typename ExecSpace, typename TData, typename TScalar>
-NEK_FORCE_INLINE static void MultiplyByDiffusionCoeff(
-    const size_t nelmt, const unsigned int nqTot, const unsigned int ncoord,
-    const size_t outsize, const TScalar *diffCoeff, TData *inout)
-{
-    const auto nsize = nelmt * nqTot;
-
-    // Multiply by diffusion coefficient.
-    for (size_t idx = 0; idx < nsize; idx++)
-    {
-        TData tmp[3];
-        for (unsigned int d = 0; d < ncoord; d++)
-        {
-            tmp[d] = diffCoeff[d * ncoord] * inout[idx];
-            for (unsigned int l = 1; l < ncoord; l++)
-            {
-                tmp[d].fma(diffCoeff[d * ncoord + l], inout[l * outsize + idx]);
-            }
-        }
-
-        for (unsigned int d = 0; d < ncoord; d++)
-        {
-            inout[d * outsize + idx] = tmp[d];
-        }
-    }
-}
-
 template <typename ExecSpace, bool DEFORMED, typename TData, typename TScalar>
 NEK_FORCE_INLINE static void ApplyMetricKernel(
     const unsigned int nqTot, const unsigned int ncoord,

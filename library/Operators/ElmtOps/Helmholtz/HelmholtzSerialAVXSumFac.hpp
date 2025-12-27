@@ -220,6 +220,7 @@ protected:
 #if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
         m_warnOnce = true;
 #endif
+
         switch (m_shapeType)
         {
             // Segment
@@ -380,14 +381,14 @@ protected:
                     nm0, nq0, m_B[0], reinterpret_cast<const simd_t *>(inptr),
                     bwd.data());
 
-                // Step 2: Inner product for mass matrix operation.
+                // Step 2: Take derivatives in collapsed coordinate space.
+                PhysDerivTensor1DKernel(nq0, bwd.data(), m_D[0], deriv0.data());
+
+                // Step 3: Inner product for mass matrix operation.
                 IProduct1DKernel<SHAPE_TYPE, true, false, DEFORMED>(
                     nm0, nq0, bwd.data(), m_B[0], m_W[0],
                     reinterpret_cast<const simd_t *>(jacptr),
                     reinterpret_cast<simd_t *>(outptr), this->m_lambda);
-
-                // Step 3: Take derivatives in collapsed coordinate space.
-                PhysDerivTensor1DKernel(nq0, bwd.data(), m_D[0], deriv0.data());
 
                 // Step 4: Apply diffusion coefficiets.
                 DiffusionCoeffSegKernel<DEFORMED, simd_t>(
@@ -485,14 +486,14 @@ protected:
                     nm0, nq0, m_B[0], reinterpret_cast<const simd_t *>(inptr),
                     bwd.data());
 
-                // Step 2: Inner product for mass matrix operation.
+                // Step 2: Take derivatives in collapsed coordinate space.
+                PhysDerivTensor1DKernel(nq0, bwd.data(), m_D[0], deriv0.data());
+
+                // Step 3: Inner product for mass matrix operation.
                 IProduct1DKernel<SHAPE_TYPE, true, false, DEFORMED>(
                     nm0, nq0, bwd.data(), m_B[0], m_W[0],
                     reinterpret_cast<const simd_t *>(jacptr),
                     reinterpret_cast<simd_t *>(outptr), this->m_lambda);
-
-                // Step 3: Take derivatives in collapsed coordinate space.
-                PhysDerivTensor1DKernel(nq0, bwd.data(), m_D[0], deriv0.data());
 
                 // Step 4: Apply diffusion coefficiets.
                 DiffusionCoeffSegKernel<DEFORMED, simd_t>(
@@ -851,7 +852,7 @@ protected:
                     nq0, nq1, nq2, bwd.data(), m_D[0], m_D[1], m_D[2],
                     deriv0.data(), deriv1.data(), deriv2.data());
 
-                // Step 2 + 3 : apply diffusion coeff and WJ
+                // Step 3 : apply diffusion coeff and WJ
                 DiffusionCoeffwithWJ3DKernel<SHAPE_TYPE, DEFORMED, true,
                                              simd_t>(
                     nq0, nq1, nq2, true, this->m_diffCoeff, false,
@@ -862,7 +863,7 @@ protected:
                     m_f[1], m_f[2], m_f[3], deriv0.data(), deriv1.data(),
                     deriv2.data(), bwd.data(), this->m_lambda);
 
-                // Step 4: apply WJ, derivative and sum up.
+                // Step 5: apply derivative and sum up.
                 SumDerivTensor3DKernel<simd_t>(
                     nq0, nq1, nq2, deriv0.data(), deriv1.data(), deriv2.data(),
                     m_D[0], m_D[1], m_D[2], bwd.data(), 1.0);
@@ -973,7 +974,7 @@ protected:
                     nq0, nq1, nq2, bwd.data(), m_D[0], m_D[1], m_D[2],
                     deriv0.data(), deriv1.data(), deriv2.data());
 
-                // Step 2 + 3 : apply diffusion coeff and WJ
+                // Step 3 : apply diffusion coeff and WJ
                 DiffusionCoeffwithWJ3DKernel<SHAPE_TYPE, DEFORMED, true,
                                              simd_t>(
                     nq0, nq1, nq2, true, this->m_diffCoeff, false,
@@ -984,7 +985,7 @@ protected:
                     m_f[1], m_f[2], m_f[3], deriv0.data(), deriv1.data(),
                     deriv2.data(), bwd.data(), this->m_lambda);
 
-                // Step 4: apply WJ, derivative and sum up.
+                // Step 4: apply derivative and sum up.
                 SumDerivTensor3DKernel<simd_t>(
                     nq0, nq1, nq2, deriv0.data(), deriv1.data(), deriv2.data(),
                     m_D[0], m_D[1], m_D[2], bwd.data(), 1.0);

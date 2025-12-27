@@ -41,7 +41,6 @@
 #include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/Helmholtz/HelmholtzSerialAVXStdMatKernels.hpp"
-#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseSerialAVXStdMatKernels.hpp"
 #include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseSerialAVXStdMatKernels.hpp"
 #include "Operators/ElmtOps/PhysDeriv/PhysDerivSerialAVXStdMatKernels.hpp"
 
@@ -238,14 +237,14 @@ protected:
                 // Multiply by jacobian.
                 if (m_isDeformed)
                 {
-                    MultiplyByJacobianKernel<ExecSpace, true>(
+                    MultiplyByJacobian<ExecSpace, true>(
                         1, m_nqTot, reinterpret_cast<const simd_t *>(jacptr),
                         reinterpret_cast<const simd_t *>(bwdptr),
                         reinterpret_cast<simd_t *>(bwdptr), this->m_lambda);
                 }
                 else
                 {
-                    MultiplyByJacobianKernel<ExecSpace, false>(
+                    MultiplyByJacobian<ExecSpace, false>(
                         1, m_nqTot, reinterpret_cast<const simd_t *>(jacptr),
                         reinterpret_cast<const simd_t *>(bwdptr),
                         reinterpret_cast<simd_t *>(bwdptr), this->m_lambda);

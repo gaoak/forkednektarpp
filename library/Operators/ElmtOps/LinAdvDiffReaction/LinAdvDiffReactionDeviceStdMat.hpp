@@ -39,7 +39,6 @@
 #include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/Helmholtz/HelmholtzDeviceStdMatKernels.hpp"
-#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseDeviceStdMatKernels.hpp"
 #include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseDeviceStdMatKernels.hpp"
 #include "Operators/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionDeviceStdMatKernels.hpp"
 #include "Operators/ElmtOps/PhysDeriv/PhysDerivDeviceStdMatKernels.hpp"
@@ -50,9 +49,6 @@ namespace Nektar::Operators::detail
 template <typename ExecSpace, typename Implementation, typename TData>
 class LinAdvDiffReactionBlockOpImpl : public LinAdvDiffReactionBlockOp<TData>
 {
-    using simd_t =
-        typename simd_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                              TData>::type;
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
@@ -226,15 +222,15 @@ protected:
             // Multiply by jacobian.
             if (m_isDeformed)
             {
-                MultiplyByJacobianKernel<ExecSpace, true>(nelmt, m_nqTot, nhomo,
-                                                          m_jacptr, bwdptr,
-                                                          bwdptr, (TData)1.0);
+                MultiplyByJacobian<ExecSpace, true>(nelmt, m_nqTot, nhomo,
+                                                    m_jacptr, bwdptr, bwdptr,
+                                                    (TData)1.0);
             }
             else
             {
-                MultiplyByJacobianKernel<ExecSpace, false>(
-                    nelmt, m_nqTot, nhomo, m_jacptr, bwdptr, bwdptr,
-                    (TData)1.0);
+                MultiplyByJacobian<ExecSpace, false>(nelmt, m_nqTot, nhomo,
+                                                     m_jacptr, bwdptr, bwdptr,
+                                                     (TData)1.0);
             }
 
             // Perform matrix-matrix multiply.

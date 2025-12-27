@@ -42,8 +42,6 @@
 #include "Operators/NekBlas/NekBlas.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
-#include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassSerialAVXGenericKernels.hpp"
-
 namespace Nektar::Operators::detail
 {
 
@@ -219,7 +217,7 @@ protected:
                     invmass_kernel(inptr, m_invmassptr, outptr);
 
                     // Divide by Jacobian.
-                    DivideByJacobianKernel<ExecSpace, false>(
+                    DivideByJacobian<ExecSpace, false>(
                         1, m_nmTot, reinterpret_cast<const simd_t *>(jacptr),
                         reinterpret_cast<const simd_t *>(outptr),
                         reinterpret_cast<simd_t *>(outptr));
