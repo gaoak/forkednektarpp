@@ -390,7 +390,7 @@ protected:
                     reinterpret_cast<const simd_t *>(jacptr),
                     reinterpret_cast<simd_t *>(outptr), this->m_lambda);
 
-                // Step 4: Apply diffusion coefficiets.
+                // Step 4: Apply diffusion coefficients.
                 DiffusionCoeffSegKernel<DEFORMED, simd_t>(
                     m_coordDim, nq0, true, this->m_diffCoeff, false,
                     NullTDataVector, NullTDataVector, NullTDataVector,
@@ -495,7 +495,7 @@ protected:
                     reinterpret_cast<const simd_t *>(jacptr),
                     reinterpret_cast<simd_t *>(outptr), this->m_lambda);
 
-                // Step 4: Apply diffusion coefficiets.
+                // Step 4: Apply diffusion coefficients.
                 DiffusionCoeffSegKernel<DEFORMED, simd_t>(
                     m_coordDim, nq0, true, this->m_diffCoeff, false,
                     NullTDataVector, NullTDataVector, NullTDataVector,
@@ -608,7 +608,7 @@ protected:
                                                 m_D[1], deriv0.data(),
                                                 deriv1.data());
 
-                // Step 3: apply diffusion coeff and WJ
+                // Step 3: Apply diffusion coeff and WJ
                 DiffusionCoeffwithWJ2DKernel<SHAPE_TYPE, DEFORMED, true,
                                              simd_t>(
                     m_coordDim, nq0, nq1, true, this->m_diffCoeff, false,
@@ -725,7 +725,7 @@ protected:
                                                 m_D[1], deriv0.data(),
                                                 deriv1.data());
 
-                // Step 3: apply diffusion coeff and WJ
+                // Step 3: Apply diffusion coeff and WJ
                 DiffusionCoeffwithWJ2DKernel<SHAPE_TYPE, DEFORMED, true,
                                              simd_t>(
                     m_coordDim, nq0, nq1, true, this->m_diffCoeff, false,
@@ -852,7 +852,7 @@ protected:
                     nq0, nq1, nq2, bwd.data(), m_D[0], m_D[1], m_D[2],
                     deriv0.data(), deriv1.data(), deriv2.data());
 
-                // Step 3 : apply diffusion coeff and WJ
+                // Step 3 : Apply diffusion coeff and WJ
                 DiffusionCoeffwithWJ3DKernel<SHAPE_TYPE, DEFORMED, true,
                                              simd_t>(
                     nq0, nq1, nq2, true, this->m_diffCoeff, false,
@@ -974,7 +974,7 @@ protected:
                     nq0, nq1, nq2, bwd.data(), m_D[0], m_D[1], m_D[2],
                     deriv0.data(), deriv1.data(), deriv2.data());
 
-                // Step 3 : apply diffusion coeff and WJ
+                // Step 3 : Apply diffusion coeff and WJ
                 DiffusionCoeffwithWJ3DKernel<SHAPE_TYPE, DEFORMED, true,
                                              simd_t>(
                     nq0, nq1, nq2, true, this->m_diffCoeff, false,
