@@ -39,8 +39,6 @@
 #include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/Helmholtz/HelmholtzDeviceStdMatKernels.hpp"
-#include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseDeviceStdMatKernels.hpp"
-#include "Operators/ElmtOps/PhysDeriv/PhysDerivDeviceStdMatKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -193,60 +191,30 @@ protected:
                         derivptr + d * m_nqTot * nelmtTot, m_nqTot);
             }
 
-            // Multiply by derivative factor.
+            // Step 3: Multiply by diffusion coefficient, derivative
+            // factor and Jacobian.
             if (m_isDeformed)
             {
-                MultiplyByDerivFactorKernel<ExecSpace, true>(
+                ApplyMetricKernel<ExecSpace, true>(
                     m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, derivoffset,
-                    derivoffset, m_dfptr, derivptr, derivptr);
+                    derivoffset, diffCoeffPtr, m_jacptr, m_dfptr, derivptr,
+                    derivptr, bwdptr, this->m_lambda);
             }
             else
             {
-                MultiplyByDerivFactorKernel<ExecSpace, false>(
+                ApplyMetricKernel<ExecSpace, false>(
                     m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, derivoffset,
-                    derivoffset, m_dfptr, derivptr, derivptr);
+                    derivoffset, diffCoeffPtr, m_jacptr, m_dfptr, derivptr,
+                    derivptr, bwdptr, this->m_lambda);
             }
 
-            // Step 3: IProduct
-            // Multiply by jacobian.
-            if (m_isDeformed)
-            {
-                MultiplyByJacobian<ExecSpace, true>(nelmt, m_nqTot, nhomo,
-                                                    m_jacptr, bwdptr, bwdptr,
-                                                    this->m_lambda);
-            }
-            else
-            {
-                MultiplyByJacobian<ExecSpace, false>(nelmt, m_nqTot, nhomo,
-                                                     m_jacptr, bwdptr, bwdptr,
-                                                     this->m_lambda);
-            }
-
+            // Step 4: IProduct
             // Perform matrix-matrix multiply.
             NekGemm(handle, "N", "N", m_nmTot, nelmtTot, m_nqTot, (TData)1.0,
                     m_ipbmat, m_nmTot, bwdptr, m_nqTot, (TData)0.0, outptr,
                     m_nmTot);
 
-            // Step 4: Multiply by diffusion coefficient
-            MultiplyByDiffusionCoeff<ExecSpace>(nelmtTot, m_nqTot, m_coordDim,
-                                                derivoffset, diffCoeffPtr,
-                                                derivptr);
-
             // Step 5: IProductWRTDerivBase
-            // Multiply by derivative factor and Jacobian.
-            if (m_isDeformed)
-            {
-                MultiplyByJacobianAndDerivFactorKernel<ExecSpace, true>(
-                    m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, derivoffset,
-                    derivoffset, m_jacptr, m_dfptr, derivptr, derivptr);
-            }
-            else
-            {
-                MultiplyByJacobianAndDerivFactorKernel<ExecSpace, false>(
-                    m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, derivoffset,
-                    derivoffset, m_jacptr, m_dfptr, derivptr, derivptr);
-            }
-
             // Perform matrix-matrix multiply.
             for (unsigned int d = 0; d < m_dimension; d++)
             {

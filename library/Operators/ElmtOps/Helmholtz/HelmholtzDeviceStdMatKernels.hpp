@@ -34,124 +34,124 @@
 
 #pragma once
 
-#include "Operators/LoopExecution/LoopExecution.hpp"
+#include "Operators/Common/Spaces.hpp"
 
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static void MultiplyByDiffusionCoeff(
-    const size_t nelmt, const unsigned int nqTot, const unsigned int ncoord,
-    const size_t outoffset, const TData *diffCoeff, TData *inout)
+namespace Nektar::Operators::detail
 {
-    const auto nsize = nelmt * nqTot;
 
-    // Multiply by diffusion coefficient.
-    Nektar::parallel_for<ExecSpace>(
-        0, nsize, NEKTAR_LAMBDA(const size_t idx) {
-            TData tmp[3];
-            for (unsigned int d = 0; d < ncoord; d++)
+#if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
+template <bool DEFORMED, typename TthreadBlock, typename TData>
+NEK_DEVICE_KERNEL static void ApplyMetricKernel(
+    const unsigned int nqTot, const unsigned int ncoord,
+    const unsigned int dimension, const size_t nelmt, const unsigned int nhomo,
+    const size_t inoffset, const size_t outoffset, const TData *diffCoeff,
+    const TData *jacptr, const TData *dfptr, const TData *inptr, TData *outptr,
+    TData *bwdptr, const TData scale, const TthreadBlock &threadBlock)
+{
+    const auto ndf   = ncoord * dimension;
+    const auto nsize = nqTot * nelmt * nhomo;
+
+    const size_t idx0   = getGlobalIdx(threadBlock);
+    const size_t stride = getGlobalRange(threadBlock);
+
+    for (size_t idx = idx0; idx < nsize; idx += stride)
+    {
+        if constexpr (DEFORMED)
+        {
+            size_t e     = (idx % (nelmt * nqTot)) / nqTot;
+            size_t i     = idx % nqTot;
+            TData tmp[3] = {0.0}, metric[3];
+
+            // Compute metric.
+            for (unsigned int d = 0; d < dimension; d++)
             {
-                tmp[d] = diffCoeff[d * ncoord] * inout[idx];
-                for (unsigned int l = 1; l < ncoord; l++)
+                for (unsigned int k = 0; k < ncoord; ++k)
                 {
-                    tmp[d] +=
-                        diffCoeff[d * ncoord + l] * inout[l * outoffset + idx];
+                    metric[k] =
+                        dfptr[ndf * nqTot * e + d * nqTot + i] * diffCoeff[k];
+                    for (unsigned int l = 1; l < ncoord; ++l)
+                    {
+                        metric[k] += dfptr[ndf * nqTot * e +
+                                           (l * dimension + d) * nqTot + i] *
+                                     diffCoeff[l * ncoord + k];
+                    }
+                }
+                for (unsigned int k = 0; k < dimension; ++k)
+                {
+                    TData sum = 0.0;
+                    for (unsigned int l = 0; l < ncoord; ++l)
+                    {
+                        sum +=
+                            metric[l] * dfptr[ndf * nqTot * e +
+                                              (l * dimension + k) * nqTot + i];
+                    }
+                    tmp[d] += sum * inptr[idx + k * inoffset];
                 }
             }
 
-            for (unsigned int d = 0; d < ncoord; d++)
+            // Write.
+            auto jac = jacptr[nqTot * e + i];
+            for (unsigned int d = 0; d < dimension; d++)
             {
-                inout[d * outoffset + idx] = tmp[d];
+                outptr[d * outoffset + idx] = tmp[d] * jac;
             }
-        });
+            bwdptr[idx] *= scale * jac;
+        }
+        else
+        {
+            size_t e     = (idx % (nelmt * nqTot)) / nqTot;
+            TData tmp[3] = {0.0}, metric[3];
+
+            // Compute metric.
+            for (unsigned int d = 0; d < dimension; d++)
+            {
+                for (unsigned int k = 0; k < ncoord; ++k)
+                {
+                    metric[k] = dfptr[(ndf * e + d)] * diffCoeff[k];
+                    for (unsigned int l = 1; l < ncoord; ++l)
+                    {
+                        metric[k] += dfptr[(ndf * e + l * dimension + d)] *
+                                     diffCoeff[l * ncoord + k];
+                    }
+                }
+                for (unsigned int k = 0; k < dimension; ++k)
+                {
+                    TData sum = 0.0;
+                    for (unsigned int l = 0; l < ncoord; ++l)
+                    {
+                        sum += metric[l] * dfptr[ndf * e + l * dimension + k];
+                    }
+                    tmp[d] += sum * inptr[idx + k * inoffset];
+                }
+            }
+
+            // Write.
+            auto jac = jacptr[e];
+            for (unsigned int d = 0; d < dimension; d++)
+            {
+                outptr[d * outoffset + idx] = tmp[d] * jac;
+            }
+            bwdptr[idx] *= scale * jac;
+        }
+    }
 }
 
 template <typename ExecSpace, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void ApplyMetricKernel(
     const unsigned int nqTot, const unsigned int ncoord,
-    const unsigned int dimension, const size_t nelmt, const size_t inoffset,
-    const size_t outoffset, const TData *diffCoeff, const TData *jacptr,
-    const TData *dfptr, const TData *inptr, TData *outptr)
+    const unsigned int dimension, const size_t nelmt, const unsigned int nhomo,
+    const size_t inoffset, const size_t outoffset, const TData *diffCoeff,
+    const TData *jacptr, const TData *dfptr, const TData *inptr, TData *outptr,
+    TData *bwdptr, const TData scale)
 {
-    const auto ndf   = ncoord * dimension;
-    const auto nsize = nqTot * nelmt;
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int gridSize =
+        (nelmt * nqTot * nhomo + blockSize - 1u) / blockSize;
 
-    if constexpr (DEFORMED)
-    {
-        Nektar::parallel_for<ExecSpace>(
-            0, nsize, NEKTAR_LAMBDA(const size_t idx) {
-                size_t e = idx / nqTot;
-                size_t i = idx % nqTot;
-                TData tmp[3], metric[9] = {0.0};
-
-                // Compute metric.
-                for (unsigned int d = 0; d < dimension; d++)
-                {
-                    for (unsigned int k = 0; k < ncoord; ++k)
-                    {
-                        for (unsigned int l = 0; l < ncoord; ++l)
-                        {
-                            metric[d * ncoord + k] +=
-                                dfptr[ndf * nqTot * e +
-                                      (l * dimension + d) * nqTot + i] *
-                                diffCoeff[l * ncoord + k];
-                        }
-                    }
-                }
-
-                // Apply metric.
-                for (unsigned int d = 0; d < dimension; d++)
-                {
-                    tmp[d] = metric[d * ncoord] * inptr[idx];
-                    for (unsigned int k = 1; k < ncoord; ++k)
-                    {
-                        tmp[d] +=
-                            metric[d * ncoord + k] * inptr[idx + k * inoffset];
-                    }
-                }
-
-                // Write.
-                for (unsigned int d = 0; d < dimension; d++)
-                {
-                    outptr[d * outoffset + idx] = tmp[d] * jacptr[idx];
-                }
-            });
-    }
-    else
-    {
-        Nektar::parallel_for<ExecSpace>(
-            0, nsize, NEKTAR_LAMBDA(const size_t idx) {
-                size_t e = idx / nqTot;
-                TData tmp[3], metric[9] = {0.0};
-
-                // Compute metric.
-                for (unsigned int d = 0; d < dimension; d++)
-                {
-                    for (unsigned int k = 0; k < ncoord; ++k)
-                    {
-                        for (unsigned int l = 0; l < ncoord; ++l)
-                        {
-                            metric[d * ncoord + k] +=
-                                dfptr[(ndf * e + l * dimension + d)] *
-                                diffCoeff[l * ncoord + k];
-                        }
-                    }
-                }
-
-                // Apply metric.
-                for (unsigned int d = 0; d < dimension; d++)
-                {
-                    tmp[d] = metric[d * ncoord] * inptr[idx];
-                    for (unsigned int k = 1; k < ncoord; ++k)
-                    {
-                        tmp[d] +=
-                            metric[d * ncoord + k] * inptr[idx + k * inoffset];
-                    }
-                }
-
-                // Write.
-                for (unsigned int d = 0; d < dimension; d++)
-                {
-                    outptr[d * outoffset + idx] = tmp[d] * jacptr[e];
-                }
-            });
-    }
+    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
+        (ApplyMetricKernel<DEFORMED>), gridSize, blockSize, 0, nqTot, ncoord,
+        dimension, nelmt, nhomo, inoffset, outoffset, diffCoeff, jacptr, dfptr,
+        inptr, outptr, bwdptr, scale);
 }
+#endif
+} // namespace Nektar::Operators::detail

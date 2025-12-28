@@ -39,14 +39,15 @@ NEK_FORCE_INLINE static void ApplyMetricKernel(
     const unsigned int nqTot, const unsigned int ncoord,
     const unsigned int dimension, const size_t nelmt, const size_t insize,
     const size_t outsize, const TScalar *diffCoeff, const TData *jacptr,
-    const TData *dfptr, const TData *inptr, TData *outptr)
+    const TData *dfptr, const TData *inptr, TData *outptr, TData *bwdptr,
+    const TScalar scale)
 {
     const auto ndf   = ncoord * dimension;
     const auto nsize = nqTot * nelmt;
 
-    TData tmp[3], metric[9];
     if constexpr (DEFORMED)
     {
+        TData tmp[3], metric[3];
         for (size_t idx = 0; idx < nsize; idx++)
         {
             // Compute metric.
@@ -54,36 +55,39 @@ NEK_FORCE_INLINE static void ApplyMetricKernel(
             {
                 for (unsigned int k = 0; k < ncoord; ++k)
                 {
-                    metric[d * ncoord + k] =
-                        dfptr[ndf * idx + d] * diffCoeff[k];
+                    metric[k] = dfptr[ndf * idx + d] * diffCoeff[k];
                     for (unsigned int l = 1; l < ncoord; ++l)
                     {
-                        metric[d * ncoord + k].fma(
-                            dfptr[ndf * idx + l * dimension + d],
-                            diffCoeff[l * ncoord + k]);
+                        metric[k].fma(dfptr[ndf * idx + l * dimension + d],
+                                      diffCoeff[l * ncoord + k]);
                     }
                 }
-            }
-
-            // Apply metric.
-            for (unsigned int d = 0; d < dimension; d++)
-            {
-                tmp[d] = metric[d * ncoord] * inptr[idx];
-                for (unsigned int k = 1; k < ncoord; ++k)
+                tmp[d] = 0.0;
+                for (unsigned int k = 0; k < dimension; ++k)
                 {
-                    tmp[d].fma(metric[d * ncoord + k], inptr[k * insize + idx]);
+                    TData sum;
+                    sum = metric[0] * dfptr[ndf * idx + k];
+                    for (unsigned int l = 1; l < ncoord; ++l)
+                    {
+                        sum.fma(metric[l],
+                                dfptr[ndf * idx + l * dimension + k]);
+                    }
+                    tmp[d].fma(sum, inptr[k * insize + idx]);
                 }
             }
 
             // Write.
+            auto jac = jacptr[idx];
             for (unsigned int d = 0; d < dimension; d++)
             {
-                outptr[d * outsize + idx] = tmp[d] * jacptr[idx];
+                outptr[d * outsize + idx] = tmp[d] * jac;
             }
+            bwdptr[idx] *= scale * jac;
         }
     }
     else
     {
+        TData tmp[3], sum[9], metric[3];
         for (size_t e = 0; e < nelmt; e++)
         {
             // Compute metric.
@@ -91,25 +95,33 @@ NEK_FORCE_INLINE static void ApplyMetricKernel(
             {
                 for (unsigned int k = 0; k < ncoord; ++k)
                 {
-                    metric[d * ncoord + k] = dfptr[ndf * e + d] * diffCoeff[k];
+                    metric[k] = dfptr[ndf * e + d] * diffCoeff[k];
                     for (unsigned int l = 1; l < ncoord; ++l)
                     {
-                        metric[d * ncoord + k].fma(
-                            dfptr[ndf * e + l * dimension + d],
-                            diffCoeff[l * ncoord + k]);
+                        metric[k].fma(dfptr[ndf * e + l * dimension + d],
+                                      diffCoeff[l * ncoord + k]);
+                    }
+                }
+                for (unsigned int k = 0; k < dimension; ++k)
+                {
+                    sum[d * ncoord + k] = metric[0] * dfptr[ndf * e + k];
+                    for (unsigned int l = 1; l < ncoord; ++l)
+                    {
+                        sum[d * ncoord + k].fma(
+                            metric[l], dfptr[ndf * e + l * dimension + k]);
                     }
                 }
             }
 
+            auto jac = jacptr[e];
             for (unsigned int i = 0; i < nqTot; i++)
             {
-                // Apply metric.
                 for (unsigned int d = 0; d < dimension; d++)
                 {
-                    tmp[d] = metric[d * ncoord] * inptr[nqTot * e + i];
-                    for (unsigned int k = 1; k < ncoord; ++k)
+                    tmp[d] = sum[d * dimension] * inptr[nqTot * e + i];
+                    for (unsigned int k = 1; k < dimension; k++)
                     {
-                        tmp[d].fma(metric[d * ncoord + k],
+                        tmp[d].fma(sum[d * dimension + k],
                                    inptr[nqTot * e + i + k * insize]);
                     }
                 }
@@ -117,8 +129,9 @@ NEK_FORCE_INLINE static void ApplyMetricKernel(
                 // Write.
                 for (unsigned int d = 0; d < dimension; d++)
                 {
-                    outptr[d * outsize + nqTot * e + i] = tmp[d] * jacptr[e];
+                    outptr[d * outsize + nqTot * e + i] = tmp[d] * jac;
                 }
+                bwdptr[nqTot * e + i] *= scale * jac;
             }
         }
     }
