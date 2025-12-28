@@ -34,8 +34,6 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/Helmholtz/HelmholtzSerialAVXStdMatKernels.hpp"
-
 template <typename ExecSpace, typename TData, typename TScalar>
 NEK_FORCE_INLINE static void AddAdvectionKernels(
     const size_t nelmt, const unsigned int nqTot, const unsigned int ncoord,
@@ -53,6 +51,94 @@ NEK_FORCE_INLINE static void AddAdvectionKernels(
         {
             out[idx].fma(advVel[d * advelsize + idx],
                          deriv[d * derivsize + idx]);
+        }
+    }
+}
+
+template <typename ExecSpace, bool DEFORMED, typename TData, typename TScalar>
+NEK_FORCE_INLINE static void ApplyMetricKernel(
+    const unsigned int nqTot, const unsigned int ncoord,
+    const unsigned int dimension, const size_t nelmt, const size_t insize,
+    const size_t outsize, const TScalar *diffCoeff, const TData *jacptr,
+    const TData *dfptr, const TData *inptr, TData *outptr, TData *bwdptr,
+    const TScalar scale)
+{
+    const auto ndf   = ncoord * dimension;
+    const auto nsize = nqTot * nelmt;
+
+    if constexpr (DEFORMED)
+    {
+        TData tmp[3], metric[3];
+        for (size_t idx = 0; idx < nsize; idx++)
+        {
+            // Compute metric.
+            for (unsigned int d = 0; d < dimension; d++)
+            {
+                for (unsigned int k = 0; k < ncoord; ++k)
+                {
+                    metric[k] = dfptr[ndf * idx + d] * diffCoeff[k];
+                    for (unsigned int l = 1; l < ncoord; ++l)
+                    {
+                        metric[k].fma(dfptr[ndf * idx + l * dimension + d],
+                                      diffCoeff[l * ncoord + k]);
+                    }
+                }
+                tmp[d] = metric[0] * inptr[idx];
+                for (unsigned int k = 1; k < ncoord; ++k)
+                {
+                    tmp[d].fma(metric[k], inptr[k * insize + idx]);
+                }
+            }
+
+            // Write.
+            auto jac = jacptr[idx];
+            for (unsigned int d = 0; d < dimension; d++)
+            {
+                outptr[d * outsize + idx] = tmp[d] * jac;
+            }
+            bwdptr[idx] *= scale * jac;
+        }
+    }
+    else
+    {
+        TData tmp[3], metric[9];
+        for (size_t e = 0; e < nelmt; e++)
+        {
+            // Compute metric.
+            for (unsigned int d = 0; d < dimension; d++)
+            {
+                for (unsigned int k = 0; k < ncoord; ++k)
+                {
+                    metric[d * ncoord + k] = dfptr[ndf * e + d] * diffCoeff[k];
+                    for (unsigned int l = 1; l < ncoord; ++l)
+                    {
+                        metric[d * ncoord + k].fma(
+                            dfptr[ndf * e + l * dimension + d],
+                            diffCoeff[l * ncoord + k]);
+                    }
+                }
+            }
+
+            auto jac = jacptr[e];
+            for (unsigned int i = 0; i < nqTot; i++)
+            {
+                for (unsigned int d = 0; d < dimension; d++)
+                {
+                    tmp[d] = metric[d * ncoord] * inptr[nqTot * e + i];
+                    for (unsigned int k = 1; k < ncoord; ++k)
+                    {
+                        tmp[d].fma(metric[d * ncoord + k],
+                                   inptr[nqTot * e + i + k * insize]);
+                    }
+                }
+
+                // Write.
+                for (unsigned int d = 0; d < dimension; d++)
+                {
+                    outptr[d * outsize + nqTot * e + i] = tmp[d] * jac;
+                }
+                bwdptr[nqTot * e + i] *= scale * jac;
+            }
         }
     }
 }

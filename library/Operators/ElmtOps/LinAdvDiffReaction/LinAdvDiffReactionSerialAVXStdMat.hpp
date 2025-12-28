@@ -38,8 +38,6 @@
 #include "Operators/NekBlas/NekBlas.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
-#include "Operators/ElmtOps/Helmholtz/HelmholtzSerialAVXStdMatKernels.hpp"
-#include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseSerialAVXStdMatKernels.hpp"
 #include "Operators/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionSerialAVXStdMatKernels.hpp"
 #include "Operators/ElmtOps/PhysDeriv/PhysDerivSerialAVXStdMatKernels.hpp"
 
@@ -244,27 +242,7 @@ protected:
                     reinterpret_cast<const simd_t *>(derivptr),
                     reinterpret_cast<simd_t *>(bwdptr), this->m_lambda);
 
-                // Step 4: IProduct
-                // Multiply by jacobian.
-                if (m_isDeformed)
-                {
-                    MultiplyByJacobian<ExecSpace, true>(
-                        1, m_nqTot, reinterpret_cast<const simd_t *>(jacptr),
-                        reinterpret_cast<const simd_t *>(bwdptr),
-                        reinterpret_cast<simd_t *>(bwdptr), 1.0);
-                }
-                else
-                {
-                    MultiplyByJacobian<ExecSpace, false>(
-                        1, m_nqTot, reinterpret_cast<const simd_t *>(jacptr),
-                        reinterpret_cast<const simd_t *>(bwdptr),
-                        reinterpret_cast<simd_t *>(bwdptr), 1.0);
-                }
-
-                // Perform matrix-matrix multiply.
-                ipb_kernel(bwdptr, m_ipbmat, outptr);
-
-                // Step 5: Multiply by diffusion coefficient, derivative
+                // Step 4: Multiply by diffusion coefficient, derivative
                 // factor and Jacobian.
                 if (m_isDeformed)
                 {
@@ -274,7 +252,8 @@ protected:
                         reinterpret_cast<const simd_t *>(jacptr),
                         reinterpret_cast<const simd_t *>(dfptr),
                         reinterpret_cast<const simd_t *>(derivptr),
-                        reinterpret_cast<simd_t *>(derivptr));
+                        reinterpret_cast<simd_t *>(derivptr),
+                        reinterpret_cast<simd_t *>(bwdptr), (TData)1.0);
                     jacptr += m_nqTot * simd_t::width;
                     dfptr += m_coordDim * m_dimension * m_nqTot * simd_t::width;
                 }
@@ -286,10 +265,15 @@ protected:
                         reinterpret_cast<const simd_t *>(jacptr),
                         reinterpret_cast<const simd_t *>(dfptr),
                         reinterpret_cast<const simd_t *>(derivptr),
-                        reinterpret_cast<simd_t *>(derivptr));
+                        reinterpret_cast<simd_t *>(derivptr),
+                        reinterpret_cast<simd_t *>(bwdptr), (TData)1.0);
                     jacptr += simd_t::width;
                     dfptr += m_coordDim * m_dimension * simd_t::width;
                 }
+
+                // Step 5: IProduct
+                // Perform matrix-matrix multiply.
+                ipb_kernel(bwdptr, m_ipbmat, outptr);
 
                 // Step 6: IProductWRTDerivBase
                 // Perform matrix-matrix multiply.

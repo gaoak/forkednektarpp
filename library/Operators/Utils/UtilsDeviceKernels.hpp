@@ -279,7 +279,7 @@ NEK_FORCE_INLINE static
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize =
-        (nelmt * nqTot * nhomo + blockSize - 1) / blockSize;
+        (nelmt * nqTot * nhomo + blockSize - 1u) / blockSize;
 
     DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM((MultiplyByJacobianKernel<DEFORMED>),
                                           gridSize, blockSize, 0, nelmt, nqTot,
@@ -296,7 +296,7 @@ NEK_FORCE_INLINE static
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize =
-        (nelmt * nqTot * nhomo + blockSize - 1) / blockSize;
+        (nelmt * nqTot * nhomo + blockSize - 1u) / blockSize;
 
     DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM((DivideByJacobianKernel<DEFORMED>),
                                           gridSize, blockSize, 0, nelmt, nqTot,
