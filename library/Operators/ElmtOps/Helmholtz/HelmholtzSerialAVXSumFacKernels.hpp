@@ -1224,6 +1224,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJTetKernel(
                     {
                         d00 = varD00[cnt];
                         d01 = varD01[cnt];
+                        d11 = varD11[cnt];
                         d02 = varD02[cnt];
                         d12 = varD12[cnt];
                         d22 = varD22[cnt];
@@ -1672,7 +1673,6 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJPyrKernel(
                         d11 = varD11[cnt];
                         d02 = varD02[cnt];
                         d12 = varD12[cnt];
-
                         d22 = varD22[cnt];
                     }
 
