@@ -39,38 +39,14 @@
 namespace Nektar::Operators::detail
 {
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
-template <typename TthreadBlock, typename TData>
-NEK_DEVICE_KERNEL static void AddAdvectionKernels(
-    const size_t nelmt, const unsigned int nhomo, const unsigned int nqTot,
-    const unsigned int ncoord, const size_t adveloffset,
-    const size_t derivoffset, const TData *advVel, const TData *deriv,
-    TData *out, const TData scale, const TthreadBlock &threadBlock)
-{
-    const auto nsize = nelmt * nqTot * nhomo;
-
-    const size_t idx0   = getGlobalIdx(threadBlock);
-    const size_t stride = getGlobalRange(threadBlock);
-
-    for (size_t idx = idx0; idx < nsize; idx += stride)
-    {
-        size_t idx0 = idx % (nelmt * nqTot);
-        TData tmp   = 0.0;
-        for (unsigned int d = 0; d < ncoord; d++)
-        {
-            tmp +=
-                advVel[d * adveloffset + idx0] * deriv[d * derivoffset + idx];
-        }
-        out[idx] = scale * out[idx] + tmp;
-    }
-}
-
 template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL static void ApplyMetricKernel(
     const unsigned int nqTot, const unsigned int ncoord,
     const unsigned int dimension, const size_t nelmt, const unsigned int nhomo,
-    const size_t inoffset, const size_t outoffset, const TData *diffCoeff,
-    const TData *jacptr, const TData *dfptr, const TData *inptr, TData *outptr,
-    TData *bwdptr, const TData scale, const TthreadBlock &threadBlock)
+    const size_t inoffset, const size_t outoffset, const size_t adveloffset,
+    const TData *diffCoeff, const TData *jacptr, const TData *dfptr,
+    const TData *advVel, const TData *inptr, TData *outptr, TData *bwdptr,
+    const TData scale, const TthreadBlock &threadBlock)
 {
     const auto ndf   = ncoord * dimension;
     const auto nsize = nqTot * nelmt * nhomo;
@@ -82,9 +58,28 @@ NEK_DEVICE_KERNEL static void ApplyMetricKernel(
     {
         if constexpr (DEFORMED)
         {
-            size_t e = (idx % (nelmt * nqTot)) / nqTot;
-            size_t i = idx % nqTot;
-            TData tmp[3], metric[3];
+            size_t e     = (idx % (nelmt * nqTot)) / nqTot;
+            size_t i     = idx % nqTot;
+            TData tmp[3] = {0.0}, tmp0 = 0.0, metric[3];
+
+            auto jac = jacptr[nqTot * e + i];
+
+            tmp0 = 0.0;
+            for (unsigned int k = 0; k < ncoord; ++k)
+            {
+                tmp[k] = dfptr[ndf * nqTot * e + (k * dimension) * nqTot + i] *
+                         inptr[idx];
+                for (unsigned int d = 1; d < dimension; d++)
+                {
+                    tmp[k] += dfptr[ndf * nqTot * e +
+                                    (k * dimension + d) * nqTot + i] *
+                              inptr[idx + d * inoffset];
+                }
+                tmp0 += advVel[k * adveloffset + nqTot * e + i] * tmp[k];
+            }
+
+            // Write.
+            bwdptr[idx] = (scale * bwdptr[idx] + tmp0) * jac;
 
             // Compute metric.
             for (unsigned int d = 0; d < dimension; d++)
@@ -100,81 +95,72 @@ NEK_DEVICE_KERNEL static void ApplyMetricKernel(
                                      diffCoeff[l * ncoord + k];
                     }
                 }
-
-                tmp[d] = metric[0] * inptr[idx];
-                for (unsigned int k = 1; k < ncoord; ++k)
+                tmp0 = metric[0] * tmp[0];
+                for (unsigned int k = 1; k < ncoord; k++)
                 {
-                    tmp[d] += metric[k] * inptr[idx + k * inoffset];
+                    tmp0 += metric[k] * tmp[k];
                 }
-            }
 
-            // Write.
-            auto jac = jacptr[nqTot * e + i];
-            for (unsigned int d = 0; d < dimension; d++)
-            {
-                outptr[d * outoffset + idx] = tmp[d] * jac;
+                // Write.
+                outptr[d * outoffset + idx] = tmp0 * jac;
             }
-            bwdptr[idx] *= scale * jac;
         }
         else
         {
-            size_t e = (idx % (nelmt * nqTot)) / nqTot;
-            TData tmp[3], metric[3];
+            size_t e     = (idx % (nelmt * nqTot)) / nqTot;
+            size_t i     = idx % nqTot;
+            TData tmp[3] = {0.0}, tmp0 = 0.0, metric[3];
+
+            auto jac = jacptr[e];
+
+            tmp0 = 0.0;
+            for (unsigned int k = 0; k < ncoord; ++k)
+            {
+                tmp[k] = dfptr[ndf * e + k * dimension] * inptr[idx];
+                for (unsigned int d = 1; d < dimension; d++)
+                {
+                    tmp[k] += dfptr[ndf * e + k * dimension + d] *
+                              inptr[idx + d * inoffset];
+                }
+                tmp0 += advVel[k * adveloffset + nqTot * e + i] * tmp[k];
+            }
+
+            // Write.
+            bwdptr[idx] = (scale * bwdptr[idx] + tmp0) * jac;
 
             // Compute metric.
             for (unsigned int d = 0; d < dimension; d++)
             {
                 for (unsigned int k = 0; k < ncoord; ++k)
                 {
-                    metric[k] = dfptr[(ndf * e + d)] * diffCoeff[k];
+                    metric[k] = dfptr[ndf * e + d] * diffCoeff[k];
                     for (unsigned int l = 1; l < ncoord; ++l)
                     {
-                        metric[k] += dfptr[(ndf * e + l * dimension + d)] *
+                        metric[k] += dfptr[ndf * e + (l * dimension + d)] *
                                      diffCoeff[l * ncoord + k];
                     }
                 }
-
-                tmp[d] = metric[0] * inptr[idx];
-                for (unsigned int k = 1; k < ncoord; ++k)
+                tmp0 = metric[0] * tmp[0];
+                for (unsigned int k = 1; k < ncoord; k++)
                 {
-                    tmp[d] += metric[k] * inptr[idx + k * inoffset];
+                    tmp0 += metric[k] * tmp[k];
                 }
-            }
 
-            // Write.
-            auto jac = jacptr[e];
-            for (unsigned int d = 0; d < dimension; d++)
-            {
-                outptr[d * outoffset + idx] = tmp[d] * jac;
+                // Write.
+                outptr[d * outoffset + idx] = tmp0 * jac;
             }
-            bwdptr[idx] *= scale * jac;
         }
     }
-}
-
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static void AddAdvectionKernels(
-    const size_t nelmt, const unsigned int nhomo, const unsigned int nqTot,
-    const unsigned int ncoord, const size_t adveloffset,
-    const size_t derivoffset, const TData *advVel, const TData *deriv,
-    TData *out, const TData scale)
-{
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize =
-        (nelmt * nqTot * nhomo + blockSize - 1u) / blockSize;
-
-    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-        (AddAdvectionKernels<>), gridSize, blockSize, 0, nelmt, nhomo, nqTot,
-        ncoord, adveloffset, derivoffset, advVel, deriv, out, scale);
 }
 
 template <typename ExecSpace, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void ApplyMetricKernel(
     const unsigned int nqTot, const unsigned int ncoord,
     const unsigned int dimension, const size_t nelmt, const unsigned int nhomo,
-    const size_t inoffset, const size_t outoffset, const TData *diffCoeff,
-    const TData *jacptr, const TData *dfptr, const TData *inptr, TData *outptr,
-    TData *bwdptr, const TData scale)
+    const size_t inoffset, const size_t outoffset, const size_t adveloffset,
+    const TData *diffCoeff, const TData *jacptr, const TData *dfptr,
+    const TData *advVel, const TData *inptr, TData *outptr, TData *bwdptr,
+    const TData scale)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize =
@@ -182,8 +168,8 @@ NEK_FORCE_INLINE static void ApplyMetricKernel(
 
     DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
         (ApplyMetricKernel<DEFORMED>), gridSize, blockSize, 0, nqTot, ncoord,
-        dimension, nelmt, nhomo, inoffset, outoffset, diffCoeff, jacptr, dfptr,
-        inptr, outptr, bwdptr, scale);
+        dimension, nelmt, nhomo, inoffset, outoffset, adveloffset, diffCoeff,
+        jacptr, dfptr, advVel, inptr, outptr, bwdptr, scale);
 }
 #endif
 } // namespace Nektar::Operators::detail

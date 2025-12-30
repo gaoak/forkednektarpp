@@ -47,9 +47,24 @@ NEK_FORCE_INLINE static void ApplyMetricKernel(
 
     if constexpr (DEFORMED)
     {
-        TData tmp[3], metric[3];
+        TData tmp[3], tmp0, metric[3];
         for (size_t idx = 0; idx < nsize; idx++)
         {
+            auto jac = jacptr[idx];
+
+            for (unsigned int k = 0; k < ncoord; ++k)
+            {
+                tmp[k] = dfptr[ndf * idx + k * dimension] * inptr[idx];
+                for (unsigned int d = 1; d < dimension; d++)
+                {
+                    tmp[k].fma(dfptr[ndf * idx + k * dimension + d],
+                               inptr[d * insize + idx]);
+                }
+            }
+
+            // Write.
+            bwdptr[idx] *= scale * jac;
+
             // Compute metric.
             for (unsigned int d = 0; d < dimension; d++)
             {
@@ -62,27 +77,15 @@ NEK_FORCE_INLINE static void ApplyMetricKernel(
                                       diffCoeff[l * ncoord + k]);
                     }
                 }
-                tmp[d] = 0.0;
-                for (unsigned int k = 0; k < dimension; ++k)
+                tmp0 = metric[0] * tmp[0];
+                for (unsigned int k = 1; k < ncoord; k++)
                 {
-                    TData sum;
-                    sum = metric[0] * dfptr[ndf * idx + k];
-                    for (unsigned int l = 1; l < ncoord; ++l)
-                    {
-                        sum.fma(metric[l],
-                                dfptr[ndf * idx + l * dimension + k]);
-                    }
-                    tmp[d].fma(sum, inptr[k * insize + idx]);
+                    tmp0.fma(metric[k], tmp[k]);
                 }
-            }
 
-            // Write.
-            auto jac = jacptr[idx];
-            for (unsigned int d = 0; d < dimension; d++)
-            {
-                outptr[d * outsize + idx] = tmp[d] * jac;
+                // Write.
+                outptr[d * outsize + idx] = tmp0 * jac;
             }
-            bwdptr[idx] *= scale * jac;
         }
     }
     else

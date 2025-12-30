@@ -60,7 +60,24 @@ NEK_DEVICE_KERNEL static void ApplyMetricKernel(
         {
             size_t e     = (idx % (nelmt * nqTot)) / nqTot;
             size_t i     = idx % nqTot;
-            TData tmp[3] = {0.0}, metric[3];
+            TData tmp[3] = {0.0}, tmp0 = 0.0, metric[3];
+
+            auto jac = jacptr[nqTot * e + i];
+
+            for (unsigned int k = 0; k < ncoord; ++k)
+            {
+                tmp[k] = dfptr[ndf * nqTot * e + (k * dimension) * nqTot + i] *
+                         inptr[idx];
+                for (unsigned int d = 1; d < dimension; d++)
+                {
+                    tmp[k] += dfptr[ndf * nqTot * e +
+                                    (k * dimension + d) * nqTot + i] *
+                              inptr[idx + d * inoffset];
+                }
+            }
+
+            // Write.
+            bwdptr[idx] *= scale * jac;
 
             // Compute metric.
             for (unsigned int d = 0; d < dimension; d++)
@@ -76,26 +93,15 @@ NEK_DEVICE_KERNEL static void ApplyMetricKernel(
                                      diffCoeff[l * ncoord + k];
                     }
                 }
-                for (unsigned int k = 0; k < dimension; ++k)
+                tmp0 = metric[0] * tmp[0];
+                for (unsigned int k = 1; k < ncoord; k++)
                 {
-                    TData sum = 0.0;
-                    for (unsigned int l = 0; l < ncoord; ++l)
-                    {
-                        sum +=
-                            metric[l] * dfptr[ndf * nqTot * e +
-                                              (l * dimension + k) * nqTot + i];
-                    }
-                    tmp[d] += sum * inptr[idx + k * inoffset];
+                    tmp0 += metric[k] * tmp[k];
                 }
-            }
 
-            // Write.
-            auto jac = jacptr[nqTot * e + i];
-            for (unsigned int d = 0; d < dimension; d++)
-            {
-                outptr[d * outoffset + idx] = tmp[d] * jac;
+                // Write.
+                outptr[d * outoffset + idx] = tmp0 * jac;
             }
-            bwdptr[idx] *= scale * jac;
         }
         else
         {

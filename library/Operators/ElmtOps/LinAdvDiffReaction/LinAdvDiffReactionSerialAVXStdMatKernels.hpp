@@ -34,43 +34,40 @@
 
 #pragma once
 
-template <typename ExecSpace, typename TData, typename TScalar>
-NEK_FORCE_INLINE static void AddAdvectionKernels(
-    const size_t nelmt, const unsigned int nqTot, const unsigned int ncoord,
-    const size_t advelsize, const size_t derivsize, const TData *advVel,
-    const TData *deriv, TData *out, const TScalar scale)
-{
-    const auto nsize = nelmt * nqTot;
-    for (size_t idx = 0; idx < nsize; idx++)
-    {
-        out[idx] *= scale;
-    }
-    for (unsigned int d = 0; d < ncoord; d++)
-    {
-        for (size_t idx = 0; idx < nsize; idx++)
-        {
-            out[idx].fma(advVel[d * advelsize + idx],
-                         deriv[d * derivsize + idx]);
-        }
-    }
-}
-
 template <typename ExecSpace, bool DEFORMED, typename TData, typename TScalar>
 NEK_FORCE_INLINE static void ApplyMetricKernel(
     const unsigned int nqTot, const unsigned int ncoord,
     const unsigned int dimension, const size_t nelmt, const size_t insize,
-    const size_t outsize, const TScalar *diffCoeff, const TData *jacptr,
-    const TData *dfptr, const TData *inptr, TData *outptr, TData *bwdptr,
-    const TScalar scale)
+    const size_t outsize, const size_t advelsize, const TScalar *diffCoeff,
+    const TData *jacptr, const TData *dfptr, const TData *advVel,
+    const TData *inptr, TData *outptr, TData *bwdptr, const TScalar scale)
 {
     const auto ndf   = ncoord * dimension;
     const auto nsize = nqTot * nelmt;
 
     if constexpr (DEFORMED)
     {
-        TData tmp[3], metric[3];
+        TData tmp[3], tmp0, metric[3];
         for (size_t idx = 0; idx < nsize; idx++)
         {
+            auto jac = jacptr[idx];
+
+            tmp0 = 0.0;
+            for (unsigned int k = 0; k < ncoord; ++k)
+            {
+                tmp[k] = dfptr[ndf * idx + k * dimension] * inptr[idx];
+                for (unsigned int d = 1; d < dimension; d++)
+                {
+                    tmp[k].fma(dfptr[ndf * idx + k * dimension + d],
+                               inptr[d * insize + idx]);
+                }
+                tmp0.fma(advVel[k * advelsize + idx], tmp[k]);
+            }
+
+            // Write.
+            bwdptr[idx] *= scale * jac;
+            bwdptr[idx].fma(tmp0, jac);
+
             // Compute metric.
             for (unsigned int d = 0; d < dimension; d++)
             {
@@ -83,61 +80,68 @@ NEK_FORCE_INLINE static void ApplyMetricKernel(
                                       diffCoeff[l * ncoord + k]);
                     }
                 }
-                tmp[d] = metric[0] * inptr[idx];
-                for (unsigned int k = 1; k < ncoord; ++k)
+                tmp0 = metric[0] * tmp[0];
+                for (unsigned int k = 1; k < ncoord; k++)
                 {
-                    tmp[d].fma(metric[k], inptr[k * insize + idx]);
+                    tmp0.fma(metric[k], tmp[k]);
                 }
-            }
 
-            // Write.
-            auto jac = jacptr[idx];
-            for (unsigned int d = 0; d < dimension; d++)
-            {
-                outptr[d * outsize + idx] = tmp[d] * jac;
+                // Write.
+                outptr[d * outsize + idx] = tmp0 * jac;
             }
-            bwdptr[idx] *= scale * jac;
         }
     }
     else
     {
-        TData tmp[3], metric[9];
+        TData tmp[3], tmp0, metric[9];
         for (size_t e = 0; e < nelmt; e++)
         {
-            // Compute metric.
-            for (unsigned int d = 0; d < dimension; d++)
-            {
-                for (unsigned int k = 0; k < ncoord; ++k)
-                {
-                    metric[d * ncoord + k] = dfptr[ndf * e + d] * diffCoeff[k];
-                    for (unsigned int l = 1; l < ncoord; ++l)
-                    {
-                        metric[d * ncoord + k].fma(
-                            dfptr[ndf * e + l * dimension + d],
-                            diffCoeff[l * ncoord + k]);
-                    }
-                }
-            }
-
             auto jac = jacptr[e];
             for (unsigned int i = 0; i < nqTot; i++)
             {
-                for (unsigned int d = 0; d < dimension; d++)
+                auto idx = nqTot * e + i;
+                tmp0     = 0.0;
+                for (unsigned int k = 0; k < ncoord; ++k)
                 {
-                    tmp[d] = metric[d * ncoord] * inptr[nqTot * e + i];
-                    for (unsigned int k = 1; k < ncoord; ++k)
+                    tmp[k] = dfptr[ndf * e + k * dimension] * inptr[idx];
+                    for (unsigned int d = 1; d < dimension; d++)
                     {
-                        tmp[d].fma(metric[d * ncoord + k],
-                                   inptr[nqTot * e + i + k * insize]);
+                        tmp[k].fma(dfptr[ndf * e + k * dimension + d],
+                                   inptr[d * insize + idx]);
                     }
+                    tmp0.fma(advVel[k * advelsize + nqTot * e + i], tmp[k]);
                 }
 
                 // Write.
+                bwdptr[idx] *= scale * jac;
+                bwdptr[idx].fma(tmp0, jac);
+
+                // Compute metric.
                 for (unsigned int d = 0; d < dimension; d++)
                 {
-                    outptr[d * outsize + nqTot * e + i] = tmp[d] * jac;
+                    if (i == 0)
+                    {
+                        for (unsigned int k = 0; k < ncoord; ++k)
+                        {
+                            metric[d * ncoord + k] =
+                                dfptr[ndf * e + d] * diffCoeff[k];
+                            for (unsigned int l = 1; l < ncoord; ++l)
+                            {
+                                metric[d * ncoord + k].fma(
+                                    dfptr[ndf * e + l * dimension + d],
+                                    diffCoeff[l * ncoord + k]);
+                            }
+                        }
+                    }
+                    tmp0 = metric[d * ncoord] * tmp[0];
+                    for (unsigned int k = 1; k < ncoord; k++)
+                    {
+                        tmp0.fma(metric[d * ncoord + k], tmp[k]);
+                    }
+
+                    // Write.
+                    outptr[d * outsize + idx] = tmp0 * jac;
                 }
-                bwdptr[nqTot * e + i] *= scale * jac;
             }
         }
     }

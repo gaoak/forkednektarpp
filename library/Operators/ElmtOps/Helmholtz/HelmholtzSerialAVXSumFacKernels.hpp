@@ -398,7 +398,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJTriKernel(
 
     for (unsigned int q = 0; q < nq1; ++q)
     {
-        simd_type h1j = hfac1[q];
+        simd_type h1  = hfac1[q];
         simd_type w1J = jac * w1[q];
         for (unsigned int p = 0; p < nq0; ++p)
         {
@@ -420,11 +420,11 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJTriKernel(
                 }
             }
 
-            simd_type h0i = hfac0[p];
+            simd_type h0 = hfac0[p];
 
             // M = [M_00, df1; M_10; df3]
-            metric00      = h1j * (df0 + h0i * df1); // M_00
-            simd_type tmp = h1j * (df2 + h0i * df3); // M_10
+            metric00      = h1 * (df0 + h0 * df1); // M_00
+            simd_type tmp = h1 * (df2 + h0 * df3); // M_10
 
             if (!isConstVarDiff && !isVarDiff)
             {
@@ -1061,10 +1061,10 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJHexKernel(
                 simd_type d2 = deriv2[cnt];
 
                 // 3. apply diffusion coeff to deriv and get output
-                simd_type tmp = metric00 * d0;
-                tmp.fma(metric01, d1);
-                tmp.fma(metric02, d2);
-                deriv0[cnt] = tmp * wJ;
+                simd_type tmp0 = metric00 * d0;
+                tmp0.fma(metric01, d1);
+                tmp0.fma(metric02, d2);
+                deriv0[cnt] = tmp0 * wJ;
 
                 simd_type tmp1 = metric01 * d0;
                 tmp1.fma(metric11, d1);
@@ -1178,41 +1178,41 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJTetKernel(
 
                 simd_type h0h2h3 = hfac0[p] * h2h3;
 
-                simd_type tmp1 = h0h2h3 * (df1 + df2);
-                tmp1.fma(df0, h2h3);
-                simd_type tmp2 = h0h2h3 * (df4 + df5);
-                tmp2.fma(df3, h2h3);
-                simd_type tmp3 = h0h2h3 * (df7 + df8);
-                tmp3.fma(df6, h2h3);
+                simd_type tmp0 = h0h2h3 * (df1 + df2);
+                tmp0.fma(df0, h2h3);
+                simd_type tmp1 = h0h2h3 * (df4 + df5);
+                tmp1.fma(df3, h2h3);
+                simd_type tmp2 = h0h2h3 * (df7 + df8);
+                tmp2.fma(df6, h2h3);
 
-                simd_type tmp4 = df1 * h3;
-                tmp4.fma(df2, h1h3);
-                simd_type tmp5 = df4 * h3;
-                tmp5.fma(df5, h1h3);
-                simd_type tmp6 = df7 * h3;
-                tmp6.fma(df8, h1h3);
+                simd_type tmp3 = df1 * h3;
+                tmp3.fma(df2, h1h3);
+                simd_type tmp4 = df4 * h3;
+                tmp4.fma(df5, h1h3);
+                simd_type tmp5 = df7 * h3;
+                tmp5.fma(df8, h1h3);
 
                 if (!isConstVarDiff && !isVarDiff)
                 {
-                    g0 = tmp1 * tmp1;
+                    g0 = tmp0 * tmp0;
+                    g0.fma(tmp1, tmp1);
                     g0.fma(tmp2, tmp2);
-                    g0.fma(tmp3, tmp3);
 
-                    g4 = df2 * tmp1;
-                    g4.fma(df5, tmp2);
-                    g4.fma(df8, tmp3);
+                    g4 = df2 * tmp0;
+                    g4.fma(df5, tmp1);
+                    g4.fma(df8, tmp2);
 
-                    g3 = tmp1 * tmp4;
+                    g3 = tmp0 * tmp3;
+                    g3.fma(tmp1, tmp4);
                     g3.fma(tmp2, tmp5);
-                    g3.fma(tmp3, tmp6);
 
-                    g1 = tmp4 * tmp4;
+                    g1 = tmp3 * tmp3;
+                    g1.fma(tmp4, tmp4);
                     g1.fma(tmp5, tmp5);
-                    g1.fma(tmp6, tmp6);
 
-                    g5 = df2 * tmp4;
-                    g5.fma(df5, tmp5);
-                    g5.fma(df8, tmp6);
+                    g5 = df2 * tmp3;
+                    g5.fma(df5, tmp4);
+                    g5.fma(df8, tmp5);
 
                     g2 = df2 * df2;
                     g2.fma(df5, df5);
@@ -1230,29 +1230,29 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJTetKernel(
                         d22 = varD22[cnt];
                     }
 
-                    td0 = tmp1 * d00;
-                    td0.fma(tmp2, d01);
-                    td0.fma(tmp3, d02);
+                    td0 = tmp0 * d00;
+                    td0.fma(tmp1, d01);
+                    td0.fma(tmp2, d02);
 
-                    td1 = tmp1 * d01;
-                    td1.fma(tmp2, d11);
-                    td1.fma(tmp3, d12);
+                    td1 = tmp0 * d01;
+                    td1.fma(tmp1, d11);
+                    td1.fma(tmp2, d12);
 
-                    td2 = tmp1 * d02;
-                    td2.fma(tmp2, d12);
-                    td2.fma(tmp3, d22);
+                    td2 = tmp0 * d02;
+                    td2.fma(tmp1, d12);
+                    td2.fma(tmp2, d22);
 
-                    td3 = tmp4 * d00;
-                    td3.fma(tmp5, d01);
-                    td3.fma(tmp6, d02);
+                    td3 = tmp3 * d00;
+                    td3.fma(tmp4, d01);
+                    td3.fma(tmp5, d02);
 
-                    td4 = tmp4 * d01;
-                    td4.fma(tmp5, d11);
-                    td4.fma(tmp6, d12);
+                    td4 = tmp3 * d01;
+                    td4.fma(tmp4, d11);
+                    td4.fma(tmp5, d12);
 
-                    td5 = tmp4 * d02;
-                    td5.fma(tmp5, d12);
-                    td5.fma(tmp6, d22);
+                    td5 = tmp3 * d02;
+                    td5.fma(tmp4, d12);
+                    td5.fma(tmp5, d22);
 
                     td6 = df2 * d00;
                     td6.fma(df5, d01);
@@ -1266,21 +1266,21 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJTetKernel(
                     td8.fma(df5, d12);
                     td8.fma(df8, d22);
 
-                    g0 = td0 * tmp1;
-                    g0.fma(td1, tmp2);
-                    g0.fma(td2, tmp3);
+                    g0 = td0 * tmp0;
+                    g0.fma(td1, tmp1);
+                    g0.fma(td2, tmp2);
 
-                    g3 = td0 * tmp4;
-                    g3.fma(td1, tmp5);
-                    g3.fma(td2, tmp6);
+                    g3 = td0 * tmp3;
+                    g3.fma(td1, tmp4);
+                    g3.fma(td2, tmp5);
 
                     g4 = td0 * df2;
                     g4.fma(td1, df5);
                     g4.fma(td2, df8);
 
-                    g1 = td3 * tmp4;
-                    g1.fma(td4, tmp5);
-                    g1.fma(td5, tmp6);
+                    g1 = td3 * tmp3;
+                    g1.fma(td4, tmp4);
+                    g1.fma(td5, tmp5);
 
                     g5 = td3 * df2;
                     g5.fma(td4, df5);
@@ -1295,20 +1295,20 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJTetKernel(
                 simd_type d1 = deriv1[cnt];
                 simd_type d2 = deriv2[cnt];
 
-                tmp1 = g0 * d0;
-                tmp1.fma(g3, d1);
-                tmp1.fma(g4, d2);
-                deriv0[cnt] = tmp1 * wJ;
+                tmp0 = g0 * d0;
+                tmp0.fma(g3, d1);
+                tmp0.fma(g4, d2);
+                deriv0[cnt] = tmp0 * wJ;
 
-                tmp2 = g3 * d0;
-                tmp2.fma(g1, d1);
-                tmp2.fma(g5, d2);
-                deriv1[cnt] = tmp2 * wJ;
+                tmp1 = g3 * d0;
+                tmp1.fma(g1, d1);
+                tmp1.fma(g5, d2);
+                deriv1[cnt] = tmp1 * wJ;
 
-                tmp3 = g4 * d0;
-                tmp3.fma(g5, d1);
-                tmp3.fma(g2, d2);
-                deriv2[cnt] = tmp3 * wJ;
+                tmp2 = g4 * d0;
+                tmp2.fma(g5, d1);
+                tmp2.fma(g2, d2);
+                deriv2[cnt] = tmp2 * wJ;
 
                 if constexpr (SCALE)
                 {
@@ -1333,7 +1333,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJPrismKernel(
     const std::vector<typename simd_type::scalarType> &varD22,
     const simd_type *jac_ptr, const simd_type *w0, const simd_type *w1,
     const simd_type *w2, const simd_type *df_ptr, const simd_type *hfac0,
-    const simd_type *hfac1, simd_type *deriv0, simd_type *deriv1,
+    const simd_type *hfac3, simd_type *deriv0, simd_type *deriv1,
     simd_type *deriv2, [[maybe_unused]] simd_type *phys,
     [[maybe_unused]] typename simd_type::scalarType lambda = 0.0)
 {
@@ -1377,7 +1377,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJPrismKernel(
 
     for (unsigned int r = 0; r < nq2; ++r)
     {
-        simd_type h1  = hfac1[r];
+        simd_type h3  = hfac3[r];
         simd_type w2J = jac * w2[r];
         for (unsigned int q = 0; q < nq1; ++q)
         {
@@ -1404,23 +1404,23 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJPrismKernel(
                     df7 = df_ptr[cnt * ndf + 7];
                     df8 = df_ptr[cnt * ndf + 8];
                 }
-                simd_type tmp1 = h1 * (h0 * df2 + df0);
-                simd_type tmp2 = h1 * (h0 * df5 + df3);
-                simd_type tmp3 = h1 * (h0 * df8 + df6);
+                simd_type tmp0 = h3 * (h0 * df2 + df0);
+                simd_type tmp1 = h3 * (h0 * df5 + df3);
+                simd_type tmp2 = h3 * (h0 * df8 + df6);
 
                 if (!isConstVarDiff && !isVarDiff)
                 {
-                    g0 = tmp1 * tmp1;
+                    g0 = tmp0 * tmp0;
+                    g0.fma(tmp1, tmp1);
                     g0.fma(tmp2, tmp2);
-                    g0.fma(tmp3, tmp3);
 
-                    g3 = df1 * tmp1;
-                    g3.fma(df4, tmp2);
-                    g3.fma(df7, tmp3);
+                    g3 = df1 * tmp0;
+                    g3.fma(df4, tmp1);
+                    g3.fma(df7, tmp2);
 
-                    g4 = df2 * tmp1;
-                    g4.fma(df5, tmp2);
-                    g4.fma(df8, tmp3);
+                    g4 = df2 * tmp0;
+                    g4.fma(df5, tmp1);
+                    g4.fma(df8, tmp2);
 
                     g1 = df1 * df1;
                     g1.fma(df4, df4);
@@ -1447,17 +1447,17 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJPrismKernel(
                         d22 = varD22[cnt];
                     }
 
-                    td0 = tmp1 * d00;
-                    td0.fma(tmp2, d01);
-                    td0.fma(tmp3, d02);
+                    td0 = tmp0 * d00;
+                    td0.fma(tmp1, d01);
+                    td0.fma(tmp2, d02);
 
-                    td1 = tmp1 * d01;
-                    td1.fma(tmp2, d11);
-                    td1.fma(tmp3, d12);
+                    td1 = tmp0 * d01;
+                    td1.fma(tmp1, d11);
+                    td1.fma(tmp2, d12);
 
-                    td2 = tmp1 * d02;
-                    td2.fma(tmp2, d12);
-                    td2.fma(tmp3, d22);
+                    td2 = tmp0 * d02;
+                    td2.fma(tmp1, d12);
+                    td2.fma(tmp2, d22);
 
                     td3 = df1 * d00;
                     td3.fma(df4, d01);
@@ -1483,9 +1483,9 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJPrismKernel(
                     td8.fma(df5, d12);
                     td8.fma(df8, d22);
 
-                    g0 = td0 * tmp1;
-                    g0.fma(td1, tmp2);
-                    g0.fma(td2, tmp3);
+                    g0 = td0 * tmp0;
+                    g0.fma(td1, tmp1);
+                    g0.fma(td2, tmp2);
 
                     g3 = td0 * df1;
                     g3.fma(td1, df4);
@@ -1512,20 +1512,20 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJPrismKernel(
                 simd_type d1 = deriv1[cnt];
                 simd_type d2 = deriv2[cnt];
 
-                tmp1 = g0 * d0;
-                tmp1.fma(g3, d1);
-                tmp1.fma(g4, d2);
-                deriv0[cnt] = tmp1 * wJ;
+                tmp0 = g0 * d0;
+                tmp0.fma(g3, d1);
+                tmp0.fma(g4, d2);
+                deriv0[cnt] = tmp0 * wJ;
 
-                tmp2 = g3 * d0;
-                tmp2.fma(g1, d1);
-                tmp2.fma(g5, d2);
-                deriv1[cnt] = tmp2 * wJ;
+                tmp1 = g3 * d0;
+                tmp1.fma(g1, d1);
+                tmp1.fma(g5, d2);
+                deriv1[cnt] = tmp1 * wJ;
 
-                tmp3 = g4 * d0;
-                tmp3.fma(g5, d1);
-                tmp3.fma(g2, d2);
-                deriv2[cnt] = tmp3 * wJ;
+                tmp2 = g4 * d0;
+                tmp2.fma(g5, d1);
+                tmp2.fma(g2, d2);
+                deriv2[cnt] = tmp2 * wJ;
 
                 if constexpr (SCALE)
                 {
@@ -1550,7 +1550,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJPyrKernel(
     const std::vector<typename simd_type::scalarType> &varD22,
     const simd_type *jac_ptr, const simd_type *w0, const simd_type *w1,
     const simd_type *w2, const simd_type *df_ptr, const simd_type *hfac0,
-    const simd_type *hfac1, const simd_type *hfac2, simd_type *deriv0,
+    const simd_type *hfac1, const simd_type *hfac3, simd_type *deriv0,
     simd_type *deriv1, simd_type *deriv2, [[maybe_unused]] simd_type *phys,
     [[maybe_unused]] typename simd_type::scalarType lambda = 0.0)
 {
@@ -1594,12 +1594,12 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJPyrKernel(
 
     for (unsigned int r = 0; r < nq2; ++r)
     {
-        simd_type h2  = hfac2[r];
+        simd_type h3  = hfac3[r];
         simd_type w2J = jac * w2[r];
         for (unsigned int q = 0; q < nq1; ++q)
         {
             simd_type h1        = hfac1[q];
-            simd_type h1h2      = h1 * h2;
+            simd_type h1h3      = h1 * h3;
             simd_type w21J      = w2J * w1[q];
             unsigned int cnt_qr = (r * nq1 + q);
             for (unsigned int p = 0; p < nq0; ++p)
@@ -1608,7 +1608,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJPyrKernel(
 
                 // 3. apply diffusion coeff to deriv and fill output
                 simd_type h0   = hfac0[p];
-                simd_type h0h2 = h0 * h2;
+                simd_type h0h3 = h0 * h3;
                 simd_type wJ   = w21J * w0[p];
 
                 if constexpr (DEFORMED)
@@ -1624,19 +1624,19 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJPyrKernel(
                     df7 = df_ptr[cnt * ndf + 7];
                     df8 = df_ptr[cnt * ndf + 8];
                 }
-                simd_type tmp0 = h2 * df0;
-                tmp0.fma(h0h2, df2);
-                simd_type tmp1 = h2 * df3;
-                tmp1.fma(h0h2, df5);
-                simd_type tmp2 = h2 * df6;
-                tmp2.fma(h0h2, df8);
+                simd_type tmp0 = h3 * df0;
+                tmp0.fma(h0h3, df2);
+                simd_type tmp1 = h3 * df3;
+                tmp1.fma(h0h3, df5);
+                simd_type tmp2 = h3 * df6;
+                tmp2.fma(h0h3, df8);
 
-                simd_type tmp3 = h2 * df1;
-                tmp3.fma(h1h2, df2);
-                simd_type tmp4 = h2 * df4;
-                tmp4.fma(h1h2, df5);
-                simd_type tmp5 = h2 * df7;
-                tmp5.fma(h1h2, df8);
+                simd_type tmp3 = h3 * df1;
+                tmp3.fma(h1h3, df2);
+                simd_type tmp4 = h3 * df4;
+                tmp4.fma(h1h3, df5);
+                simd_type tmp5 = h3 * df7;
+                tmp5.fma(h1h3, df8);
 
                 if (!isConstVarDiff && !isVarDiff)
                 {
@@ -1741,20 +1741,20 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJPyrKernel(
                 simd_type d1 = deriv1[cnt];
                 simd_type d2 = deriv2[cnt];
 
-                tmp1 = g0 * d0;
-                tmp1.fma(g3, d1);
-                tmp1.fma(g4, d2);
-                deriv0[cnt] = tmp1 * wJ;
+                tmp0 = g0 * d0;
+                tmp0.fma(g3, d1);
+                tmp0.fma(g4, d2);
+                deriv0[cnt] = tmp0 * wJ;
 
-                tmp2 = g3 * d0;
-                tmp2.fma(g1, d1);
-                tmp2.fma(g5, d2);
-                deriv1[cnt] = tmp2 * wJ;
+                tmp1 = g3 * d0;
+                tmp1.fma(g1, d1);
+                tmp1.fma(g5, d2);
+                deriv1[cnt] = tmp1 * wJ;
 
-                tmp3 = g4 * d0;
-                tmp3.fma(g5, d1);
-                tmp3.fma(g2, d2);
-                deriv2[cnt] = tmp3 * wJ;
+                tmp2 = g4 * d0;
+                tmp2.fma(g5, d1);
+                tmp2.fma(g2, d2);
+                deriv2[cnt] = tmp2 * wJ;
 
                 if constexpr (SCALE)
                 {
