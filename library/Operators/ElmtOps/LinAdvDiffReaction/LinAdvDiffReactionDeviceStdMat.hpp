@@ -39,7 +39,6 @@
 #include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionDeviceStdMatKernels.hpp"
-#include "Operators/ElmtOps/PhysDeriv/PhysDerivDeviceStdMatKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -197,49 +196,30 @@ protected:
                         derivptr + d * m_nqTot * nelmtTot, m_nqTot);
             }
 
-            // Multiply by derivative factor.
-            if (m_isDeformed)
-            {
-                MultiplyByDerivFactorKernel<ExecSpace, true>(
-                    m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, derivoffset,
-                    derivoffset, m_dfptr, derivptr, derivptr);
-            }
-            else
-            {
-                MultiplyByDerivFactorKernel<ExecSpace, false>(
-                    m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, derivoffset,
-                    derivoffset, m_dfptr, derivptr, derivptr);
-            }
-
-            // Step 3: Add advection.
-            AddAdvectionKernels<ExecSpace>(nelmt, nhomo, m_nqTot, m_coordDim,
-                                           adveloffset, derivoffset, advptr,
-                                           derivptr, bwdptr, this->m_lambda);
-
-            // Step 4: Multiply by diffusion coefficient, derivative
-            // factor and Jacobian.
+            // Step 3: Multiply by diffusion coefficient, derivative
+            // factor and Jacobian and add advection.
             if (m_isDeformed)
             {
                 ApplyMetricKernel<ExecSpace, true>(
                     m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, derivoffset,
-                    derivoffset, diffCoeffPtr, m_jacptr, m_dfptr, derivptr,
-                    derivptr, bwdptr, (TData)1.0);
+                    derivoffset, adveloffset, diffCoeffPtr, m_jacptr, m_dfptr,
+                    advptr, derivptr, derivptr, bwdptr, this->m_lambda);
             }
             else
             {
                 ApplyMetricKernel<ExecSpace, false>(
                     m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, derivoffset,
-                    derivoffset, diffCoeffPtr, m_jacptr, m_dfptr, derivptr,
-                    derivptr, bwdptr, (TData)1.0);
+                    derivoffset, adveloffset, diffCoeffPtr, m_jacptr, m_dfptr,
+                    advptr, derivptr, derivptr, bwdptr, this->m_lambda);
             }
 
-            // Step 5: IProduct
+            // Step 4: IProduct
             // Perform matrix-matrix multiply.
             NekGemm(handle, "N", "N", m_nmTot, nelmtTot, m_nqTot, (TData)1.0,
                     m_ipbmat, m_nmTot, bwdptr, m_nqTot, (TData)0.0, outptr,
                     m_nmTot);
 
-            // Step 6: IProductWRTDerivBase
+            // Step 5: IProductWRTDerivBase
             // Perform matrix-matrix multiply.
             for (unsigned int d = 0; d < m_dimension; d++)
             {

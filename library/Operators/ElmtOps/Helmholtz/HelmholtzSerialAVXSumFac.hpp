@@ -618,12 +618,12 @@ protected:
                     reinterpret_cast<const simd_t *>(dfptr), m_f[0], m_f[1],
                     deriv0.data(), deriv1.data(), bwd.data(), this->m_lambda);
 
-                // Step 4: apply derivative and sum up.
+                // Step 4: Apply derivative and sum up.
                 SumDerivTensor2DKernel<simd_t>(nq0, nq1, deriv0.data(),
                                                deriv1.data(), m_D[0], m_D[1],
                                                bwd.data(), 1.0);
 
-                // Step 5 : inner product without WJ.
+                // Step 5: Inner product without WJ.
                 IProduct2DKernel<SHAPE_TYPE, false, false, simd_t>(
                     nm0, nm1, nq0, nq1, m_isModified, bwd.data(), m_B[0],
                     m_B[1], m_nodToModTrans, wsp0.data(),
@@ -735,12 +735,12 @@ protected:
                     reinterpret_cast<const simd_t *>(dfptr), m_f[0], m_f[1],
                     deriv0.data(), deriv1.data(), bwd.data(), this->m_lambda);
 
-                // Step 4: apply derivative and sum up.
+                // Step 4: Apply derivative and sum up.
                 SumDerivTensor2DKernel<simd_t>(nq0, nq1, deriv0.data(),
                                                deriv1.data(), m_D[0], m_D[1],
                                                bwd.data(), 1.0);
 
-                // Step 5 : inner product without WJ.
+                // Step 5: Inner product without WJ.
                 IProduct2DKernel<SHAPE_TYPE, false, false, simd_t>(
                     nm0, nm1, nq0, nq1, m_isModified, bwd.data(), m_B[0],
                     m_B[1], m_nodToModTrans, wsp0.data(),
@@ -852,7 +852,7 @@ protected:
                     nq0, nq1, nq2, bwd.data(), m_D[0], m_D[1], m_D[2],
                     deriv0.data(), deriv1.data(), deriv2.data());
 
-                // Step 3 : Apply diffusion coeff and WJ
+                // Step 3: Apply diffusion coeff and WJ
                 DiffusionCoeffwithWJ3DKernel<SHAPE_TYPE, DEFORMED, true,
                                              simd_t>(
                     nq0, nq1, nq2, true, this->m_diffCoeff, false,
@@ -863,12 +863,12 @@ protected:
                     m_f[1], m_f[2], m_f[3], deriv0.data(), deriv1.data(),
                     deriv2.data(), bwd.data(), this->m_lambda);
 
-                // Step 5: apply derivative and sum up.
+                // Step 4: Apply derivative and sum up.
                 SumDerivTensor3DKernel<simd_t>(
                     nq0, nq1, nq2, deriv0.data(), deriv1.data(), deriv2.data(),
                     m_D[0], m_D[1], m_D[2], bwd.data(), 1.0);
 
-                // Step 5 : inner product without WJ.
+                // Step 5: Inner product without WJ.
                 IProduct3DKernel<SHAPE_TYPE, false, false, simd_t>(
                     nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, bwd.data(),
                     m_B[0], m_B[1], m_B[2], m_nodToModTrans, wsp0.data(),
@@ -974,7 +974,7 @@ protected:
                     nq0, nq1, nq2, bwd.data(), m_D[0], m_D[1], m_D[2],
                     deriv0.data(), deriv1.data(), deriv2.data());
 
-                // Step 3 : Apply diffusion coeff and WJ
+                // Step 3: Apply diffusion coeff and WJ
                 DiffusionCoeffwithWJ3DKernel<SHAPE_TYPE, DEFORMED, true,
                                              simd_t>(
                     nq0, nq1, nq2, true, this->m_diffCoeff, false,
@@ -985,12 +985,12 @@ protected:
                     m_f[1], m_f[2], m_f[3], deriv0.data(), deriv1.data(),
                     deriv2.data(), bwd.data(), this->m_lambda);
 
-                // Step 4: apply derivative and sum up.
+                // Step 4: Apply derivative and sum up.
                 SumDerivTensor3DKernel<simd_t>(
                     nq0, nq1, nq2, deriv0.data(), deriv1.data(), deriv2.data(),
                     m_D[0], m_D[1], m_D[2], bwd.data(), 1.0);
 
-                // Step 5 : inner product without WJ.
+                // Step 5: Inner product without WJ.
                 IProduct3DKernel<SHAPE_TYPE, false, false, simd_t>(
                     nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, bwd.data(),
                     m_B[0], m_B[1], m_B[2], m_nodToModTrans, wsp0.data(),

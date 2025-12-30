@@ -34,12 +34,13 @@
 
 #pragma once
 
+#include <LibUtilities/SimdLib/tinysimd.hpp>
+
 #include "Operators/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionBlockOp.hpp"
 #include "Operators/NekBlas/NekBlas.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionSerialAVXStdMatKernels.hpp"
-#include "Operators/ElmtOps/PhysDeriv/PhysDerivSerialAVXStdMatKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -217,43 +218,19 @@ protected:
                                  derivptr + d * m_nqTot * simd_t::width);
                 }
 
-                // Multiply by derivative factor.
-                if (m_isDeformed)
-                {
-                    MultiplyByDerivFactorKernel<ExecSpace, true>(
-                        m_nqTot, m_coordDim, m_dimension, 1, derivsize,
-                        derivsize, reinterpret_cast<const simd_t *>(dfptr),
-                        reinterpret_cast<const simd_t *>(derivptr),
-                        reinterpret_cast<simd_t *>(derivptr));
-                }
-                else
-                {
-                    MultiplyByDerivFactorKernel<ExecSpace, false>(
-                        m_nqTot, m_coordDim, m_dimension, 1, derivsize,
-                        derivsize, reinterpret_cast<const simd_t *>(dfptr),
-                        reinterpret_cast<const simd_t *>(derivptr),
-                        reinterpret_cast<simd_t *>(derivptr));
-                }
-
-                // Step 3: Add advection
-                AddAdvectionKernels<ExecSpace>(
-                    1, m_nqTot, m_coordDim, advelsize, derivsize,
-                    reinterpret_cast<const simd_t *>(advptr),
-                    reinterpret_cast<const simd_t *>(derivptr),
-                    reinterpret_cast<simd_t *>(bwdptr), this->m_lambda);
-
-                // Step 4: Multiply by diffusion coefficient, derivative
-                // factor and Jacobian.
+                // Step 3: Multiply by diffusion coefficient, derivative
+                // factor and Jacobian and add advection.
                 if (m_isDeformed)
                 {
                     ApplyMetricKernel<ExecSpace, true>(
                         m_nqTot, m_coordDim, m_dimension, 1, derivsize,
-                        derivsize, diffCoeffPtr,
+                        derivsize, advelsize, diffCoeffPtr,
                         reinterpret_cast<const simd_t *>(jacptr),
                         reinterpret_cast<const simd_t *>(dfptr),
+                        reinterpret_cast<const simd_t *>(advptr),
                         reinterpret_cast<const simd_t *>(derivptr),
                         reinterpret_cast<simd_t *>(derivptr),
-                        reinterpret_cast<simd_t *>(bwdptr), (TData)1.0);
+                        reinterpret_cast<simd_t *>(bwdptr), this->m_lambda);
                     jacptr += m_nqTot * simd_t::width;
                     dfptr += m_coordDim * m_dimension * m_nqTot * simd_t::width;
                 }
@@ -261,21 +238,22 @@ protected:
                 {
                     ApplyMetricKernel<ExecSpace, false>(
                         m_nqTot, m_coordDim, m_dimension, 1, derivsize,
-                        derivsize, diffCoeffPtr,
+                        derivsize, advelsize, diffCoeffPtr,
                         reinterpret_cast<const simd_t *>(jacptr),
                         reinterpret_cast<const simd_t *>(dfptr),
+                        reinterpret_cast<const simd_t *>(advptr),
                         reinterpret_cast<const simd_t *>(derivptr),
                         reinterpret_cast<simd_t *>(derivptr),
-                        reinterpret_cast<simd_t *>(bwdptr), (TData)1.0);
+                        reinterpret_cast<simd_t *>(bwdptr), this->m_lambda);
                     jacptr += simd_t::width;
                     dfptr += m_coordDim * m_dimension * simd_t::width;
                 }
 
-                // Step 5: IProduct
+                // Step 4: IProduct
                 // Perform matrix-matrix multiply.
                 ipb_kernel(bwdptr, m_ipbmat, outptr);
 
-                // Step 6: IProductWRTDerivBase
+                // Step 5: IProductWRTDerivBase
                 // Perform matrix-matrix multiply.
                 for (unsigned int d = 0; d < m_dimension; d++)
                 {
