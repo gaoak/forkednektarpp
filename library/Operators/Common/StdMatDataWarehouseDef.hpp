@@ -206,6 +206,48 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
             return MemoryRegion<TData>::template FromArray<MemSpace>(mat);
         }
         break;
+        case eDerivStdMat:
+        {
+            Array<OneD, NekDouble> tmp0(nmTot), t;
+            Array<OneD, NekDouble> tmp1(nqTot);
+            Array<OneD, NekDouble> mat(dimension * nqTot * nmTot);
+            for (unsigned int d = 0; d < dimension; ++d)
+            {
+                for (unsigned int i = 0; i < nmTot; ++i)
+                {
+                    Vmath::Zero(nmTot, tmp0, 1);
+                    tmp0[i] = 1.0;
+                    stdExp->BwdTrans(tmp0, tmp1);
+                    stdExp->PhysDeriv(d, tmp1,
+                                      t = mat + d * nqTot * nmTot + i * nqTot);
+                }
+            }
+
+            return MemoryRegion<TData>::template FromArray<MemSpace>(mat);
+        }
+        break;
+        case eDerivStdMatTranspose:
+        {
+            Array<OneD, NekDouble> tmp0(nmTot), t(nqTot);
+            Array<OneD, NekDouble> tmp1(nqTot);
+            Array<OneD, NekDouble> mat(dimension * nqTot * nmTot);
+            for (unsigned int d = 0; d < dimension; ++d)
+            {
+                for (unsigned int i = 0; i < nmTot; ++i)
+                {
+                    Vmath::Zero(nmTot, tmp0, 1);
+                    tmp0[i] = 1.0;
+                    stdExp->BwdTrans(tmp0, tmp1);
+                    stdExp->PhysDeriv(d, tmp1, t);
+                    // copy to mat with stride nqTot
+                    Vmath::Vcopy(nqTot, &t[0], 1, &mat[i + d * nqTot * nmTot],
+                                 nmTot);
+                }
+            }
+
+            return MemoryRegion<TData>::template FromArray<MemSpace>(mat);
+        }
+        break;
         case eIProductWRTBaseStdMat:
         {
             Array<OneD, NekDouble> tmp(nqTot), t;

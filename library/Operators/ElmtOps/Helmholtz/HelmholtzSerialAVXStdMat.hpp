@@ -89,7 +89,7 @@ public:
             StdMatKey<TData>(basisKeys, m_shapeType,
                              eIProductWRTBaseStdMatTranspose, nodalType));
         m_derivmat = dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
-            basisKeys, m_shapeType, ePhysDerivStdMatTranspose));
+            basisKeys, m_shapeType, eDerivStdMatTranspose, nodalType));
         m_ipdmat   = dataWarehouse->template GetData<MemSpace>(
             StdMatKey<TData>(basisKeys, m_shapeType,
                              eIProductWRTDerivBaseStdMatTranspose, nodalType));
@@ -146,12 +146,11 @@ protected:
     void v_Apply(BlockAccessor<TData, FieldState::Coeff> &inblock,
                  BlockAccessor<TData, FieldState::Coeff> &outblock) override
     {
-        auto diffCoeffPtr =
-            this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
-
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto diffCoeffPtr =
+            this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
 
         // Allocate storage.
         if (m_bwd.size() == 0)
@@ -177,7 +176,7 @@ protected:
         auto ipb_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
             simd_t::width, m_nmTot, m_nqTot, 1.0, 0.0);
         auto deriv_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
-            simd_t::width, m_nqTot, m_nqTot, 1.0, 0.0);
+            simd_t::width, m_nqTot, m_nmTot, 1.0, 0.0);
         auto ipd_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
             simd_t::width, m_nmTot, m_nqTot, 1.0, 1.0);
 
@@ -203,13 +202,16 @@ protected:
 
                 // Step 1: BwdTrans
                 // Perform matrix-matrix multiply.
-                bwd_kernel(inptr, m_bwdmat, bwdptr);
+                if (this->m_lambda != 0.0)
+                {
+                    bwd_kernel(inptr, m_bwdmat, bwdptr);
+                }
 
-                // Step 2: PhysDeriv
+                // Step 2: Deriv
                 // Perform matrix-matrix multiply.
                 for (unsigned int d = 0; d < m_dimension; d++)
                 {
-                    deriv_kernel(bwdptr, m_derivmat + d * m_nqTot * m_nqTot,
+                    deriv_kernel(inptr, m_derivmat + d * m_nqTot * m_nmTot,
                                  derivptr + d * m_nqTot * simd_t::width);
                 }
 
@@ -244,7 +246,10 @@ protected:
 
                 // Step 4: IProduct
                 // Perform matrix-matrix multiply.
-                ipb_kernel(bwdptr, m_ipbmat, outptr);
+                if (this->m_lambda != 0.0)
+                {
+                    ipb_kernel(bwdptr, m_ipbmat, outptr);
+                }
 
                 // Step 5: IProductWRTDerivBase
                 // Perform matrix-matrix multiply.
