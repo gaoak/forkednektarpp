@@ -627,7 +627,7 @@ protected:
                 IProduct2DKernel<SHAPE_TYPE, false, false, simd_t>(
                     nm0, nm1, nq0, nq1, m_isModified, bwd.data(), m_B[0],
                     m_B[1], m_nodToModTrans, wsp0.data(),
-                    reinterpret_cast<simd_t *>(outptr), 1.0);
+                    reinterpret_cast<simd_t *>(outptr));
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
@@ -744,7 +744,7 @@ protected:
                 IProduct2DKernel<SHAPE_TYPE, false, false, simd_t>(
                     nm0, nm1, nq0, nq1, m_isModified, bwd.data(), m_B[0],
                     m_B[1], m_nodToModTrans, wsp0.data(),
-                    reinterpret_cast<simd_t *>(outptr), 1.0);
+                    reinterpret_cast<simd_t *>(outptr));
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
@@ -873,7 +873,7 @@ protected:
                     nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, bwd.data(),
                     m_B[0], m_B[1], m_B[2], m_nodToModTrans, wsp0.data(),
                     wsp1.data(), wsp2.data(),
-                    reinterpret_cast<simd_t *>(outptr), 1.0);
+                    reinterpret_cast<simd_t *>(outptr));
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
@@ -995,7 +995,7 @@ protected:
                     nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, bwd.data(),
                     m_B[0], m_B[1], m_B[2], m_nodToModTrans, wsp0.data(),
                     wsp1.data(), wsp2.data(),
-                    reinterpret_cast<simd_t *>(outptr), 1.0);
+                    reinterpret_cast<simd_t *>(outptr));
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)

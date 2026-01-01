@@ -505,7 +505,7 @@ protected:
                     nm0, nm1, nq0, nq1, m_isModified, bwd.data(), m_B[0],
                     m_B[1], m_W[0], m_W[1], m_nodToModTrans,
                     reinterpret_cast<const simd_t *>(jacptr), wsp0.data(),
-                    reinterpret_cast<simd_t *>(outptr), 1.0);
+                    reinterpret_cast<simd_t *>(outptr));
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
@@ -598,7 +598,7 @@ protected:
                     nm0, nm1, nq0, nq1, m_isModified, bwd.data(), m_B[0],
                     m_B[1], m_W[0], m_W[1], m_nodToModTrans,
                     reinterpret_cast<const simd_t *>(jacptr), wsp0.data(),
-                    reinterpret_cast<simd_t *>(outptr), 1.0);
+                    reinterpret_cast<simd_t *>(outptr));
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
@@ -700,7 +700,7 @@ protected:
                     m_B[0], m_B[1], m_B[2], m_W[0], m_W[1], m_W[2],
                     m_nodToModTrans, reinterpret_cast<const simd_t *>(jacptr),
                     wsp0.data(), wsp1.data(), wsp2.data(),
-                    reinterpret_cast<simd_t *>(outptr), 1.0);
+                    reinterpret_cast<simd_t *>(outptr));
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
@@ -796,7 +796,7 @@ protected:
                     m_B[0], m_B[1], m_B[2], m_W[0], m_W[1], m_W[2],
                     m_nodToModTrans, reinterpret_cast<const simd_t *>(jacptr),
                     wsp0.data(), wsp1.data(), wsp2.data(),
-                    reinterpret_cast<simd_t *>(outptr), 1.0);
+                    reinterpret_cast<simd_t *>(outptr));
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
