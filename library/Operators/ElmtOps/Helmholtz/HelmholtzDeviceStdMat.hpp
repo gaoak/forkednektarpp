@@ -83,7 +83,7 @@ public:
         m_ipbmat   = dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
             basisKeys, m_shapeType, eIProductWRTBaseStdMat, nodalType));
         m_derivmat = dataWarehouse->template GetData<MemSpace>(
-            StdMatKey<TData>(basisKeys, m_shapeType, ePhysDerivStdMat));
+            StdMatKey<TData>(basisKeys, m_shapeType, eDerivStdMat, nodalType));
         m_ipdmat = dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
             basisKeys, m_shapeType, eIProductWRTDerivBaseStdMat, nodalType));
 
@@ -177,17 +177,20 @@ protected:
 
             // Step 1: BwdTrans
             // Perform matrix-matrix multiply.
-            NekGemm(handle, "N", "N", m_nqTot, nelmtTot, m_nmTot, (TData)1.0,
-                    m_bwdmat, m_nqTot, inptr, m_nmTot, (TData)0.0, bwdptr,
-                    m_nqTot);
+            if (this->m_lambda != 0.0)
+            {
+                NekGemm(handle, "N", "N", m_nqTot, nelmtTot, m_nmTot,
+                        (TData)1.0, m_bwdmat, m_nqTot, inptr, m_nmTot,
+                        (TData)0.0, bwdptr, m_nqTot);
+            }
 
             // Step 2: PhysDeriv
             // Perform matrix-matrix multiply.
             for (unsigned int d = 0; d < m_dimension; d++)
             {
-                NekGemm(handle, "N", "N", m_nqTot, nelmtTot, m_nqTot,
-                        (TData)1.0, m_derivmat + d * m_nqTot * m_nqTot, m_nqTot,
-                        bwdptr, m_nqTot, (TData)0.0,
+                NekGemm(handle, "N", "N", m_nqTot, nelmtTot, m_nmTot,
+                        (TData)1.0, m_derivmat + d * m_nqTot * m_nmTot, m_nqTot,
+                        inptr, m_nmTot, (TData)0.0,
                         derivptr + d * m_nqTot * nelmtTot, m_nqTot);
             }
 
@@ -210,9 +213,12 @@ protected:
 
             // Step 4: IProduct
             // Perform matrix-matrix multiply.
-            NekGemm(handle, "N", "N", m_nmTot, nelmtTot, m_nqTot, (TData)1.0,
-                    m_ipbmat, m_nmTot, bwdptr, m_nqTot, (TData)0.0, outptr,
-                    m_nmTot);
+            if (this->m_lambda != 0.0)
+            {
+                NekGemm(handle, "N", "N", m_nmTot, nelmtTot, m_nqTot,
+                        (TData)1.0, m_ipbmat, m_nmTot, bwdptr, m_nqTot,
+                        (TData)0.0, outptr, m_nmTot);
+            }
 
             // Step 5: IProductWRTDerivBase
             // Perform matrix-matrix multiply.
