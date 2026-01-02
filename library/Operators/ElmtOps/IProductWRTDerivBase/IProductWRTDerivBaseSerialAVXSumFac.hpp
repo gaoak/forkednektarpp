@@ -566,9 +566,9 @@ protected:
                     inoffset_vec, reinterpret_cast<const simd_t *>(inptr),
                     tmpPtr, m_f[0], m_f[1],
                     reinterpret_cast<const simd_t *>(jacptr), m_W[0], m_W[1]);
-                SumDerivTensor2DKernel<simd_t>(nq0, nq1, tmpPtr[0], tmpPtr[1],
-                                               m_D[0], m_D[1], tmp2.data());
-                IProduct2DKernel<SHAPE_TYPE, false, false, simd_t>(
+                SumDerivTensor2DKernel<false>(nq0, nq1, tmpPtr[0], tmpPtr[1],
+                                              m_D[0], m_D[1], tmp2.data());
+                IProduct2DKernel<SHAPE_TYPE, false, false>(
                     nm0, nm1, nq0, nq1, m_isModified, tmp2.data(), m_B[0],
                     m_B[1], m_nodToModTrans, wsp.data(),
                     reinterpret_cast<simd_t *>(outptr));
@@ -680,9 +680,9 @@ protected:
                     inoffset_vec, reinterpret_cast<const simd_t *>(inptr),
                     tmpPtr, m_f[0], m_f[1],
                     reinterpret_cast<const simd_t *>(jacptr), m_W[0], m_W[1]);
-                SumDerivTensor2DKernel<simd_t>(nq0, nq1, tmpPtr[0], tmpPtr[1],
-                                               m_D[0], m_D[1], tmp2.data());
-                IProduct2DKernel<SHAPE_TYPE, false, false, simd_t>(
+                SumDerivTensor2DKernel<false>(nq0, nq1, tmpPtr[0], tmpPtr[1],
+                                              m_D[0], m_D[1], tmp2.data());
+                IProduct2DKernel<SHAPE_TYPE, false, false>(
                     nm0, nm1, nq0, nq1, m_isModified, tmp2.data(), m_B[0],
                     m_B[1], m_nodToModTrans, wsp.data(),
                     reinterpret_cast<simd_t *>(outptr));
@@ -801,10 +801,10 @@ protected:
                     m_f[0], m_f[1], m_f[2], m_f[3],
                     reinterpret_cast<const simd_t *>(jacptr), m_W[0], m_W[1],
                     m_W[2], reinterpret_cast<const simd_t *>(inptr), tmpPtr);
-                SumDerivTensor3DKernel<simd_t>(nq0, nq1, nq2, tmpPtr[0],
-                                               tmpPtr[1], tmpPtr[2], m_D[0],
-                                               m_D[1], m_D[2], tmp3.data());
-                IProduct3DKernel<SHAPE_TYPE, false, false, simd_t>(
+                SumDerivTensor3DKernel<false>(nq0, nq1, nq2, tmpPtr[0],
+                                              tmpPtr[1], tmpPtr[2], m_D[0],
+                                              m_D[1], m_D[2], tmp3.data());
+                IProduct3DKernel<SHAPE_TYPE, false, false>(
                     nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, tmp3.data(),
                     m_B[0], m_B[1], m_B[2], m_nodToModTrans, wsp0.data(),
                     wsp1.data(), wsp2.data(),
@@ -915,10 +915,10 @@ protected:
                     m_f[0], m_f[1], m_f[2], m_f[3],
                     reinterpret_cast<const simd_t *>(jacptr), m_W[0], m_W[1],
                     m_W[2], reinterpret_cast<const simd_t *>(inptr), tmpPtr);
-                SumDerivTensor3DKernel<simd_t>(nq0, nq1, nq2, tmpPtr[0],
-                                               tmpPtr[1], tmpPtr[2], m_D[0],
-                                               m_D[1], m_D[2], tmp3.data());
-                IProduct3DKernel<SHAPE_TYPE, false, false, simd_t>(
+                SumDerivTensor3DKernel<false>(nq0, nq1, nq2, tmpPtr[0],
+                                              tmpPtr[1], tmpPtr[2], m_D[0],
+                                              m_D[1], m_D[2], tmp3.data());
+                IProduct3DKernel<SHAPE_TYPE, false, false>(
                     nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, tmp3.data(),
                     m_B[0], m_B[1], m_B[2], m_nodToModTrans, wsp0.data(),
                     wsp1.data(), wsp2.data(),

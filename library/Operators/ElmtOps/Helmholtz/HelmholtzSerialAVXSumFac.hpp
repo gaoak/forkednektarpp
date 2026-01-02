@@ -391,7 +391,7 @@ protected:
                     reinterpret_cast<simd_t *>(outptr), this->m_lambda);
 
                 // Step 4: Apply diffusion coefficients.
-                DiffusionCoeffSegKernel<DEFORMED, simd_t>(
+                DiffusionCoeffSegKernel<DEFORMED>(
                     m_coordDim, nq0, true, this->m_diffCoeff, false,
                     NullTDataVector, NullTDataVector, NullTDataVector,
                     NullTDataVector, NullTDataVector, NullTDataVector,
@@ -496,7 +496,7 @@ protected:
                     reinterpret_cast<simd_t *>(outptr), this->m_lambda);
 
                 // Step 4: Apply diffusion coefficients.
-                DiffusionCoeffSegKernel<DEFORMED, simd_t>(
+                DiffusionCoeffSegKernel<DEFORMED>(
                     m_coordDim, nq0, true, this->m_diffCoeff, false,
                     NullTDataVector, NullTDataVector, NullTDataVector,
                     NullTDataVector, NullTDataVector, NullTDataVector,
@@ -604,13 +604,11 @@ protected:
                     reinterpret_cast<const simd_t *>(inptr), bwd.data());
 
                 // Step 2: Get tensor derivatives
-                PhysDerivTensor2DKernel<simd_t>(nq0, nq1, bwd.data(), m_D[0],
-                                                m_D[1], deriv0.data(),
-                                                deriv1.data());
+                PhysDerivTensor2DKernel(nq0, nq1, bwd.data(), m_D[0], m_D[1],
+                                        deriv0.data(), deriv1.data());
 
                 // Step 3: Apply diffusion coeff and WJ
-                DiffusionCoeffwithWJ2DKernel<SHAPE_TYPE, DEFORMED, true,
-                                             simd_t>(
+                DiffusionCoeffwithWJ2DKernel<SHAPE_TYPE, DEFORMED, true>(
                     m_coordDim, nq0, nq1, true, this->m_diffCoeff, false,
                     NullTDataVector, NullTDataVector, NullTDataVector,
                     NullTDataVector, NullTDataVector, NullTDataVector,
@@ -619,12 +617,12 @@ protected:
                     deriv0.data(), deriv1.data(), bwd.data(), this->m_lambda);
 
                 // Step 4: Apply derivative and sum up.
-                SumDerivTensor2DKernel<simd_t>(nq0, nq1, deriv0.data(),
-                                               deriv1.data(), m_D[0], m_D[1],
-                                               bwd.data(), 1.0);
+                SumDerivTensor2DKernel<true>(nq0, nq1, deriv0.data(),
+                                             deriv1.data(), m_D[0], m_D[1],
+                                             bwd.data());
 
                 // Step 5: Inner product without WJ.
-                IProduct2DKernel<SHAPE_TYPE, false, false, simd_t>(
+                IProduct2DKernel<SHAPE_TYPE, false, false>(
                     nm0, nm1, nq0, nq1, m_isModified, bwd.data(), m_B[0],
                     m_B[1], m_nodToModTrans, wsp0.data(),
                     reinterpret_cast<simd_t *>(outptr));
@@ -721,13 +719,11 @@ protected:
                     reinterpret_cast<const simd_t *>(inptr), bwd.data());
 
                 // Step 2: Get tensor derivatives
-                PhysDerivTensor2DKernel<simd_t>(nq0, nq1, bwd.data(), m_D[0],
-                                                m_D[1], deriv0.data(),
-                                                deriv1.data());
+                PhysDerivTensor2DKernel(nq0, nq1, bwd.data(), m_D[0], m_D[1],
+                                        deriv0.data(), deriv1.data());
 
                 // Step 3: Apply diffusion coeff and WJ
-                DiffusionCoeffwithWJ2DKernel<SHAPE_TYPE, DEFORMED, true,
-                                             simd_t>(
+                DiffusionCoeffwithWJ2DKernel<SHAPE_TYPE, DEFORMED, true>(
                     m_coordDim, nq0, nq1, true, this->m_diffCoeff, false,
                     NullTDataVector, NullTDataVector, NullTDataVector,
                     NullTDataVector, NullTDataVector, NullTDataVector,
@@ -736,12 +732,12 @@ protected:
                     deriv0.data(), deriv1.data(), bwd.data(), this->m_lambda);
 
                 // Step 4: Apply derivative and sum up.
-                SumDerivTensor2DKernel<simd_t>(nq0, nq1, deriv0.data(),
-                                               deriv1.data(), m_D[0], m_D[1],
-                                               bwd.data(), 1.0);
+                SumDerivTensor2DKernel<true>(nq0, nq1, deriv0.data(),
+                                             deriv1.data(), m_D[0], m_D[1],
+                                             bwd.data());
 
                 // Step 5: Inner product without WJ.
-                IProduct2DKernel<SHAPE_TYPE, false, false, simd_t>(
+                IProduct2DKernel<SHAPE_TYPE, false, false>(
                     nm0, nm1, nq0, nq1, m_isModified, bwd.data(), m_B[0],
                     m_B[1], m_nodToModTrans, wsp0.data(),
                     reinterpret_cast<simd_t *>(outptr));
@@ -848,13 +844,12 @@ protected:
                     reinterpret_cast<const simd_t *>(inptr), bwd.data());
 
                 // Step 2: Get tensor derivatives
-                PhysDerivTensor3DKernel<simd_t>(
-                    nq0, nq1, nq2, bwd.data(), m_D[0], m_D[1], m_D[2],
-                    deriv0.data(), deriv1.data(), deriv2.data());
+                PhysDerivTensor3DKernel(nq0, nq1, nq2, bwd.data(), m_D[0],
+                                        m_D[1], m_D[2], deriv0.data(),
+                                        deriv1.data(), deriv2.data());
 
                 // Step 3: Apply diffusion coeff and WJ
-                DiffusionCoeffwithWJ3DKernel<SHAPE_TYPE, DEFORMED, true,
-                                             simd_t>(
+                DiffusionCoeffwithWJ3DKernel<SHAPE_TYPE, DEFORMED, true>(
                     nq0, nq1, nq2, true, this->m_diffCoeff, false,
                     NullTDataVector, NullTDataVector, NullTDataVector,
                     NullTDataVector, NullTDataVector, NullTDataVector,
@@ -864,12 +859,12 @@ protected:
                     deriv2.data(), bwd.data(), this->m_lambda);
 
                 // Step 4: Apply derivative and sum up.
-                SumDerivTensor3DKernel<simd_t>(
+                SumDerivTensor3DKernel<true>(
                     nq0, nq1, nq2, deriv0.data(), deriv1.data(), deriv2.data(),
-                    m_D[0], m_D[1], m_D[2], bwd.data(), 1.0);
+                    m_D[0], m_D[1], m_D[2], bwd.data());
 
                 // Step 5: Inner product without WJ.
-                IProduct3DKernel<SHAPE_TYPE, false, false, simd_t>(
+                IProduct3DKernel<SHAPE_TYPE, false, false>(
                     nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, bwd.data(),
                     m_B[0], m_B[1], m_B[2], m_nodToModTrans, wsp0.data(),
                     wsp1.data(), wsp2.data(),
@@ -970,13 +965,12 @@ protected:
                     reinterpret_cast<const simd_t *>(inptr), bwd.data());
 
                 // Step 2: Get tensor derivatives
-                PhysDerivTensor3DKernel<simd_t>(
-                    nq0, nq1, nq2, bwd.data(), m_D[0], m_D[1], m_D[2],
-                    deriv0.data(), deriv1.data(), deriv2.data());
+                PhysDerivTensor3DKernel(nq0, nq1, nq2, bwd.data(), m_D[0],
+                                        m_D[1], m_D[2], deriv0.data(),
+                                        deriv1.data(), deriv2.data());
 
                 // Step 3: Apply diffusion coeff and WJ
-                DiffusionCoeffwithWJ3DKernel<SHAPE_TYPE, DEFORMED, true,
-                                             simd_t>(
+                DiffusionCoeffwithWJ3DKernel<SHAPE_TYPE, DEFORMED, true>(
                     nq0, nq1, nq2, true, this->m_diffCoeff, false,
                     NullTDataVector, NullTDataVector, NullTDataVector,
                     NullTDataVector, NullTDataVector, NullTDataVector,
@@ -986,12 +980,12 @@ protected:
                     deriv2.data(), bwd.data(), this->m_lambda);
 
                 // Step 4: Apply derivative and sum up.
-                SumDerivTensor3DKernel<simd_t>(
+                SumDerivTensor3DKernel<true>(
                     nq0, nq1, nq2, deriv0.data(), deriv1.data(), deriv2.data(),
-                    m_D[0], m_D[1], m_D[2], bwd.data(), 1.0);
+                    m_D[0], m_D[1], m_D[2], bwd.data());
 
                 // Step 5: Inner product without WJ.
-                IProduct3DKernel<SHAPE_TYPE, false, false, simd_t>(
+                IProduct3DKernel<SHAPE_TYPE, false, false>(
                     nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, bwd.data(),
                     m_B[0], m_B[1], m_B[2], m_nodToModTrans, wsp0.data(),
                     wsp1.data(), wsp2.data(),
