@@ -114,12 +114,11 @@ NEK_FORCE_INLINE static void PhysDerivTensor2DKernel(
     }
 }
 
-template <typename simd_type>
+template <bool APPEND, typename simd_type>
 NEK_FORCE_INLINE static void SumDerivTensor2DKernel(
     const unsigned int nq0, const unsigned int nq1, const simd_type *in0,
     const simd_type *in1, const simd_type *D0, const simd_type *D1,
-    simd_type *out, const typename simd_type::scalarType scale = 0.0,
-    bool Deriv0 = true, bool Deriv1 = true)
+    simd_type *out, bool Deriv0 = true, bool Deriv1 = true)
 {
     // All matricies are column major ordered since operators used to
     // be computed via BLAS.
@@ -141,8 +140,14 @@ NEK_FORCE_INLINE static void SumDerivTensor2DKernel(
                     prod_sum.fma(v1, v2);
                 }
 
-                out[j * nq0 + i] *= simd_type(scale);
-                out[j * nq0 + i] += prod_sum; // Store 1x
+                if constexpr (APPEND)
+                {
+                    out[j * nq0 + i] += prod_sum; // Store 1x
+                }
+                else
+                {
+                    out[j * nq0 + i] = prod_sum; // Store 1x
+                }
             }
         }
     }
@@ -251,13 +256,12 @@ NEK_FORCE_INLINE static void PhysDerivTensor3DKernel(
     }
 }
 
-template <typename simd_type>
+template <bool APPEND, typename simd_type>
 NEK_FORCE_INLINE static void SumDerivTensor3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const simd_type *in0, const simd_type *in1, const simd_type *in2,
     const simd_type *D0, const simd_type *D1, const simd_type *D2,
-    simd_type *out, const typename simd_type::scalarType scale = 0.0,
-    bool Deriv0 = true, bool Deriv1 = true, bool Deriv2 = true)
+    simd_type *out, bool Deriv0 = true, bool Deriv1 = true, bool Deriv2 = true)
 {
     // All matricies are column major ordered since operators used to
     // be computed via BLAS.
@@ -283,8 +287,14 @@ NEK_FORCE_INLINE static void SumDerivTensor3DKernel(
 
                         prod_sum.fma(v1, v2);
                     }
-                    out[cnt_kj * nq0 + p] *= simd_type(scale);
-                    out[cnt_kj * nq0 + p] += prod_sum; // Store 1x
+                    if constexpr (APPEND)
+                    {
+                        out[cnt_kj * nq0 + p] += prod_sum; // Store 1x
+                    }
+                    else
+                    {
+                        out[cnt_kj * nq0 + p] = prod_sum; // Store 1x
+                    }
                 }
             }
         }
