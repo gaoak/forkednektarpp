@@ -38,7 +38,6 @@
 
 namespace Nektar::Operators::detail
 {
-
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL static void ApplyMetricKernel(

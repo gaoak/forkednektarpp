@@ -189,7 +189,7 @@ protected:
                         (TData)0.0, bwdptr, m_nqTot);
             }
 
-            // Step 2: PhysDeriv
+            // Step 2: Deriv
             // Perform matrix-matrix multiply.
             for (unsigned int d = 0; d < m_dimension; d++)
             {

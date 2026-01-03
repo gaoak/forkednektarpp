@@ -194,7 +194,7 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction1DKernel(
             AddAdvection1DKernel(ilane, nq0, advVel0, deriv, bwd, lambda);
             ApplyMetric1DSumFacKernel<DEFORMED>(ilane, ncoord, nq0, nelmt * nq0,
                                                 w0, dfptr, jacptr, coeff, deriv,
-                                                bwd, deriv, (TData)1.0);
+                                                deriv, bwd, (TData)1.0);
             SumDerivTensor1DKernel<true, DEFORMED>(ilane, nq0, D0, deriv, bwd);
             IProductWRTBaseSegSumFacKernel<false, false, DEFORMED>(
                 ilane, nm0, nq0, basis0, bwd, outptr, (TData)1.0);
@@ -221,7 +221,7 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction1DKernel(
             AddAdvection1DQPKernel(nq0, advVel0, deriv, bwd, lambda,
                                    threadBlock);
             ApplyMetric1DSumFacTOPKernel<DEFORMED>(
-                ncoord, nq0, nq0, w0, dfptr, jacptr, coeff, deriv, bwd, deriv,
+                ncoord, nq0, nq0, w0, dfptr, jacptr, coeff, deriv, deriv, bwd,
                 (TData)1.0, threadBlock);
             SumDerivTensor1DQPKernel<true, DEFORMED>(nq0, D0, deriv, bwd,
                                                      threadBlock);
@@ -334,7 +334,7 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction2DKernel(
                                  deriv1, bwd, lambda);
             ApplyMetric2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
                 ilane, ncoord, nq0, nq1, nelmt * nqTot, w0, w1, s_f0, s_f1,
-                dfptr, jacptr, coeff, deriv, bwd, deriv0, deriv1, (TData)1.0);
+                dfptr, jacptr, coeff, deriv, deriv0, deriv1, bwd, (TData)1.0);
             SumDerivTensor2DKernel<true, DEFORMED>(ilane, nq0, nq1, D0, D1,
                                                    deriv0, deriv1, bwd);
             if constexpr (SHAPE_TYPE == LibUtilities::Quad)
@@ -458,14 +458,14 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction2DKernel(
                 TData dmetric[6];
                 ApplyMetric2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
                     ncoord, nq0, nq1, nqTot, w0, w1, f0, f1, dfptr, jacptr,
-                    coeff, deriv, bwd, deriv0, deriv1, dmetric, (TData)1.0,
+                    coeff, deriv, deriv0, deriv1, dmetric, bwd, (TData)1.0,
                     threadBlock);
             }
             else
             {
                 ApplyMetric2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
                     ncoord, nq0, nq1, nqTot, w0, w1, f0, f1, dfptr, jacptr,
-                    coeff, deriv, bwd, deriv0, deriv1, metric, (TData)1.0,
+                    coeff, deriv, deriv0, deriv1, metric, bwd, (TData)1.0,
                     threadBlock);
             }
             SumDerivTensor2DQPKernel<true, DEFORMED>(nq0, nq1, D0, D1, deriv0,
@@ -703,8 +703,8 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction3DKernel(
                                  advVel2, deriv0, deriv1, deriv2, bwd, lambda);
             ApplyMetric3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
                 ilane, nq0, nq1, nq2, nelmt * nqTot, w0, w1, w2, s_f0, s_f1,
-                s_f1m, s_f2, dfptr, jacptr, coeff, deriv, bwd, deriv0, deriv1,
-                deriv2, (TData)1.0);
+                s_f1m, s_f2, dfptr, jacptr, coeff, deriv, deriv0, deriv1,
+                deriv2, bwd, (TData)1.0);
             SumDerivTensor3DKernel<true, DEFORMED>(
                 ilane, nq0, nq1, nq2, D0, D1, D2, deriv0, deriv1, deriv2, bwd);
             if constexpr (SHAPE_TYPE == LibUtilities::Hex)
@@ -921,14 +921,14 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction3DKernel(
                 TData dmetric[9];
                 ApplyMetric3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
                     nq0, nq1, nq2, nqTot, w0, w1, w2, f0, f1, f1m, f2, dfptr,
-                    jacptr, coeff, deriv, bwd, deriv0, deriv1, deriv2, dmetric,
+                    jacptr, coeff, deriv, deriv0, deriv1, deriv2, dmetric, bwd,
                     (TData)1.0, threadBlock);
             }
             else
             {
                 ApplyMetric3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
                     nq0, nq1, nq2, nqTot, w0, w1, w2, f0, f1, f1m, f2, dfptr,
-                    jacptr, coeff, deriv, bwd, deriv0, deriv1, deriv2, metric,
+                    jacptr, coeff, deriv, deriv0, deriv1, deriv2, metric, bwd,
                     (TData)1.0, threadBlock);
             }
             SumDerivTensor3DQPKernel<true, DEFORMED>(nq0, nq1, nq2, D0, D1, D2,

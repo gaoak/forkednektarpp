@@ -184,7 +184,7 @@ protected:
                         (TData)0.0, bwdptr, m_nqTot);
             }
 
-            // Step 2: PhysDeriv
+            // Step 2: Deriv
             // Perform matrix-matrix multiply.
             for (unsigned int d = 0; d < m_dimension; d++)
             {
@@ -224,9 +224,12 @@ protected:
             // Perform matrix-matrix multiply.
             for (unsigned int d = 0; d < m_dimension; d++)
             {
-                NekGemm(handle, "N", "N", m_nmTot, nelmtTot, m_nqTot,
-                        (TData)1.0, m_ipdmat + d * m_nqTot * m_nmTot, m_nmTot,
-                        derivptr + d * nelmtTot * m_nqTot, m_nqTot, (TData)1.0,
+                TData alpha = 1.0;
+                TData beta  = (this->m_lambda != 0.0) || (d != 0);
+
+                NekGemm(handle, "N", "N", m_nmTot, nelmtTot, m_nqTot, alpha,
+                        m_ipdmat + d * m_nqTot * m_nmTot, m_nmTot,
+                        derivptr + d * nelmtTot * m_nqTot, m_nqTot, beta,
                         outptr, m_nmTot);
             }
 

@@ -177,7 +177,7 @@ NEK_DEVICE_INLINE static void ApplyMetric1DSumFacKernel(
     const size_t inoffset, const TData *__restrict__ w0,
     const TData *__restrict__ df, const TData *__restrict__ jac,
     const TData *__restrict__ diffCoeff, const TData *__restrict__ in,
-    TData *__restrict__ bwd, TData *out, const TData lambda)
+    TData *out, TData *__restrict__ bwd, const TData lambda)
 {
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
@@ -281,8 +281,8 @@ NEK_DEVICE_INLINE static void ApplyMetric2DSumFacKernel(
     const TData *__restrict__ w1, [[maybe_unused]] const TData *__restrict__ f0,
     [[maybe_unused]] const TData *__restrict__ f1, const TData *__restrict__ df,
     const TData *__restrict__ jac, const TData *__restrict__ diffCoeff,
-    const TData *__restrict__ in, TData *__restrict__ bwd,
-    TData *__restrict__ out0, TData *__restrict__ out1, const TData lambda)
+    const TData *__restrict__ in, TData *__restrict__ out0,
+    TData *__restrict__ out1, TData *__restrict__ bwd, const TData lambda)
 {
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
@@ -445,9 +445,9 @@ NEK_DEVICE_INLINE static void ApplyMetric3DSumFacKernel(
     [[maybe_unused]] const TData *__restrict__ f1m,
     [[maybe_unused]] const TData *__restrict__ f2, const TData *__restrict__ df,
     const TData *__restrict__ jac, const TData *__restrict__ diffCoeff,
-    const TData *__restrict__ in, TData *__restrict__ bwd,
-    TData *__restrict__ out0, TData *__restrict__ out1,
-    TData *__restrict__ out2, const TData lambda)
+    const TData *__restrict__ in, TData *__restrict__ out0,
+    TData *__restrict__ out1, TData *__restrict__ out2, TData *__restrict__ bwd,
+    const TData lambda)
 {
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
@@ -615,7 +615,7 @@ NEK_DEVICE_INLINE static void ApplyMetric1DSumFacTOPKernel(
     const unsigned int inoffset, const TData *__restrict__ w0,
     const TData *__restrict__ df, const TData *__restrict__ jac,
     const TData *__restrict__ diffCoeff, const TData *__restrict__ in,
-    TData *__restrict__ bwd, TData *out, const TData lambda,
+    TData *out, TData *__restrict__ bwd, const TData lambda,
     const TthreadBlock &threadBlock)
 {
     const unsigned int dfsize = DEFORMED ? nq0 : 1u;
@@ -719,8 +719,8 @@ NEK_DEVICE_INLINE static void ApplyMetric2DSumFacTOPKernel(
     const TData *__restrict__ w1, const TData *__restrict__ f0,
     const TData *__restrict__ f1, const TData *__restrict__ df,
     const TData *__restrict__ jac, const TData *__restrict__ diffCoeff,
-    const TData *__restrict__ in, TData *__restrict__ bwd, TData *out0,
-    TData *out1, TData *metric, const TData lambda,
+    const TData *__restrict__ in, TData *out0, TData *out1, TData *metric,
+    TData *__restrict__ bwd, const TData lambda,
     const TthreadBlock &threadBlock)
 {
     const unsigned int nqTot  = nq0 * nq1;
@@ -873,8 +873,9 @@ NEK_DEVICE_INLINE static void ApplyMetric3DSumFacTOPKernel(
     const TData *__restrict__ f1m, const TData *__restrict__ f2,
     const TData *__restrict__ df, const TData *__restrict__ jac,
     const TData *__restrict__ diffCoeff, const TData *__restrict__ in,
-    TData *__restrict__ bwd, TData *out0, TData *out1, TData *out2,
-    TData *metric, const TData lambda, const TthreadBlock &threadBlock)
+    TData *out0, TData *out1, TData *out2, TData *metric,
+    TData *__restrict__ bwd, const TData lambda,
+    const TthreadBlock &threadBlock)
 {
     const unsigned int nqTot  = nq0 * nq1 * nq2;
     const unsigned int dfsize = DEFORMED ? nqTot : 1u;
@@ -1052,7 +1053,7 @@ NEK_DEVICE_INLINE static void Helmholtz1DKernel(
                                               D0, dfptr, bwd, deriv);
             ApplyMetric1DSumFacKernel<DEFORMED>(ilane, ncoord, nq0, nelmt * nq0,
                                                 w0, dfptr, jacptr, coeff, deriv,
-                                                bwd, deriv, lambda);
+                                                deriv, bwd, lambda);
             SumDerivTensor1DKernel<true, DEFORMED>(ilane, nq0, D0, deriv, bwd);
             IProductWRTBaseSegSumFacKernel<false, false, DEFORMED>(
                 ilane, nm0, nq0, basis0, bwd, outptr, (TData)1.0);
@@ -1077,8 +1078,8 @@ NEK_DEVICE_INLINE static void Helmholtz1DKernel(
             PhysDeriv1DSumFacTOPKernel<DEFORMED>(ncoord, nq0, nq0, D0, dfptr,
                                                  bwd, deriv, threadBlock);
             ApplyMetric1DSumFacTOPKernel<DEFORMED>(ncoord, nq0, nq0, w0, dfptr,
-                                                   jacptr, coeff, deriv, bwd,
-                                                   deriv, lambda, threadBlock);
+                                                   jacptr, coeff, deriv, deriv,
+                                                   bwd, lambda, threadBlock);
             SumDerivTensor1DQPKernel<true, DEFORMED>(nq0, D0, deriv, bwd,
                                                      threadBlock);
             IProductWRTBaseSegSumFacTOPKernel<false, false, DEFORMED>(
@@ -1187,7 +1188,7 @@ NEK_DEVICE_INLINE static void Helmholtz2DKernel(
                 dfptr, bwd, deriv);
             ApplyMetric2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
                 ilane, ncoord, nq0, nq1, nelmt * nqTot, w0, w1, s_f0, s_f1,
-                dfptr, jacptr, coeff, deriv, bwd, deriv0, deriv1, lambda);
+                dfptr, jacptr, coeff, deriv, deriv0, deriv1, bwd, lambda);
             SumDerivTensor2DKernel<true, DEFORMED>(ilane, nq0, nq1, D0, D1,
                                                    deriv0, deriv1, bwd);
             if constexpr (SHAPE_TYPE == LibUtilities::Quad)
@@ -1309,14 +1310,14 @@ NEK_DEVICE_INLINE static void Helmholtz2DKernel(
                 TData dmetric[6];
                 ApplyMetric2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
                     ncoord, nq0, nq1, nqTot, w0, w1, f0, f1, dfptr, jacptr,
-                    coeff, deriv, bwd, deriv0, deriv1, dmetric, lambda,
+                    coeff, deriv, deriv0, deriv1, dmetric, bwd, lambda,
                     threadBlock);
             }
             else
             {
                 ApplyMetric2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
                     ncoord, nq0, nq1, nqTot, w0, w1, f0, f1, dfptr, jacptr,
-                    coeff, deriv, bwd, deriv0, deriv1, metric, lambda,
+                    coeff, deriv, deriv0, deriv1, metric, bwd, lambda,
                     threadBlock);
             }
             SumDerivTensor2DQPKernel<true, DEFORMED>(nq0, nq1, D0, D1, deriv0,
@@ -1551,8 +1552,8 @@ NEK_DEVICE_INLINE static void Helmholtz3DKernel(
                 s_f1m, s_f2, dfptr, bwd, deriv);
             ApplyMetric3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
                 ilane, nq0, nq1, nq2, nelmt * nqTot, w0, w1, w2, s_f0, s_f1,
-                s_f1m, s_f2, dfptr, jacptr, coeff, deriv, bwd, deriv0, deriv1,
-                deriv2, lambda);
+                s_f1m, s_f2, dfptr, jacptr, coeff, deriv, deriv0, deriv1,
+                deriv2, bwd, lambda);
             SumDerivTensor3DKernel<true, DEFORMED>(
                 ilane, nq0, nq1, nq2, D0, D1, D2, deriv0, deriv1, deriv2, bwd);
             if constexpr (SHAPE_TYPE == LibUtilities::Hex)
@@ -1766,14 +1767,14 @@ NEK_DEVICE_INLINE static void Helmholtz3DKernel(
                 TData dmetric[9];
                 ApplyMetric3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
                     nq0, nq1, nq2, nqTot, w0, w1, w2, f0, f1, f1m, f2, dfptr,
-                    jacptr, coeff, deriv, bwd, deriv0, deriv1, deriv2, dmetric,
+                    jacptr, coeff, deriv, deriv0, deriv1, deriv2, dmetric, bwd,
                     lambda, threadBlock);
             }
             else
             {
                 ApplyMetric3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
                     nq0, nq1, nq2, nqTot, w0, w1, w2, f0, f1, f1m, f2, dfptr,
-                    jacptr, coeff, deriv, bwd, deriv0, deriv1, deriv2, metric,
+                    jacptr, coeff, deriv, deriv0, deriv1, deriv2, metric, bwd,
                     lambda, threadBlock);
             }
             SumDerivTensor3DQPKernel<true, DEFORMED>(nq0, nq1, nq2, D0, D1, D2,
