@@ -177,7 +177,9 @@ protected:
             simd_t::width, m_nmTot, m_nqTot, 1.0, 0.0);
         auto deriv_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
             simd_t::width, m_nqTot, m_nmTot, 1.0, 0.0);
-        auto ipd_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
+        auto ipd_kernel1 = LibxsmmDispatchWrapper<TData>::dispatch(
+            simd_t::width, m_nmTot, m_nqTot, 1.0, TData(this->m_lambda != 0.0));
+        auto ipd_kernel2 = LibxsmmDispatchWrapper<TData>::dispatch(
             simd_t::width, m_nmTot, m_nqTot, 1.0, 1.0);
 
         // Loop over components.
@@ -253,10 +255,11 @@ protected:
 
                 // Step 5: IProductWRTDerivBase
                 // Perform matrix-matrix multiply.
-                for (unsigned int d = 0; d < m_dimension; d++)
+                ipd_kernel1(derivptr, m_ipdmat, outptr);
+                for (unsigned int d = 1; d < m_dimension; d++)
                 {
-                    ipd_kernel(derivptr + d * simd_t::width * m_nqTot,
-                               m_ipdmat + d * m_nqTot * m_nmTot, outptr);
+                    ipd_kernel2(derivptr + d * simd_t::width * m_nqTot,
+                                m_ipdmat + d * m_nqTot * m_nmTot, outptr);
                 }
 
                 // Reshape back, if necessary.
