@@ -12,6 +12,7 @@ v5.10.0
 - Fix MatrixFree switch for Prism and Pyr (!2315)
 - Fix memory leak for Helmholtz matrices with time-dependent variable coeffficients (!2321)
 - Add support for pybind11 v3.0 (2332)
+- Tidy redundant use of orientation in FwdTransBndConstrained (!2361)
 
 
 v5.9.0

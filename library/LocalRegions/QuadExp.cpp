@@ -267,12 +267,10 @@ void QuadExp::v_FwdTransBndConstrained(
 
         Array<OneD, NekDouble> physEdge[4];
         Array<OneD, NekDouble> coeffEdge[4];
-        StdRegions::Orientation orient[4];
         for (i = 0; i < 4; i++)
         {
             physEdge[i]  = Array<OneD, NekDouble>(npoints[i % 2]);
             coeffEdge[i] = Array<OneD, NekDouble>(nmodes[i % 2]);
-            orient[i]    = GetTraceOrient(i);
         }
 
         for (i = 0; i < npoints[0]; i++)
@@ -285,15 +283,6 @@ void QuadExp::v_FwdTransBndConstrained(
         {
             physEdge[1][i] = inarray[npoints[0] - 1 + i * npoints[0]];
             physEdge[3][i] = inarray[i * npoints[0]];
-        }
-
-        for (i = 0; i < 4; i++)
-        {
-            if (orient[i] == StdRegions::eBackwards)
-            {
-                reverse((physEdge[i]).data(),
-                        (physEdge[i]).data() + npoints[i % 2]);
-            }
         }
 
         SegExpSharedPtr segexp[4];
@@ -311,7 +300,7 @@ void QuadExp::v_FwdTransBndConstrained(
         {
             segexp[i % 2]->FwdTransBndConstrained(physEdge[i], coeffEdge[i]);
 
-            GetTraceToElementMap(i, mapArray, signArray, orient[i]);
+            GetTraceToElementMap(i, mapArray, signArray);
             for (j = 0; j < nmodes[i % 2]; j++)
             {
                 sign                  = (NekDouble)signArray[j];

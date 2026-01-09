@@ -324,9 +324,6 @@ void TriExp::v_FwdTransBndConstrained(
     Array<OneD, unsigned int> mapArray;
     Array<OneD, int> signArray;
     NekDouble sign;
-    // define an orientation to get EdgeToElmtMapping from Cartesian data
-    StdRegions::Orientation orient[3] = {
-        StdRegions::eForwards, StdRegions::eForwards, StdRegions::eForwards};
 
     for (i = 0; i < 3; i++)
     {
@@ -334,7 +331,7 @@ void TriExp::v_FwdTransBndConstrained(
 
         // this orient goes with the one above and so could
         // probably set both to eForwards
-        GetTraceToElementMap(i, mapArray, signArray, orient[i]);
+        GetTraceToElementMap(i, mapArray, signArray);
         for (j = 0; j < nmodes[i != 0]; j++)
         {
             sign                  = (NekDouble)signArray[j];
