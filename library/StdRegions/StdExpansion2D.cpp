@@ -136,7 +136,7 @@ void StdExpansion2D::IProductWRTBaseKernel(
     const Array<OneD, const NekDouble> &base0,
     const Array<OneD, const NekDouble> &base1,
     const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &jac,
+    Array<OneD, NekDouble> &outarray, const Array<OneD, NekDouble> &jac,
     const bool Deformed, const bool CollDir0, const bool CollDir1)
 {
     v_IProductWRTBaseKernel(base0, base1, inarray, outarray, jac, Deformed,

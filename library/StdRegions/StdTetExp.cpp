@@ -505,26 +505,9 @@ void StdTetExp::v_IProductWRTBase(const Array<OneD, const NekDouble> &inarray,
              "Basis[2] is not a general tensor type");
 
     const Array<OneD, const NekDouble> one(1, 1.0);
-    IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetBdata(),
-                          m_base[2]->GetBdata(), inarray, outarray, one, false);
-}
-
-/** \brief Inner product of \a inarray over region with respect to the
- *  expansion basis (this)->m_base[0] and return in \a outarray
- *
- * This is a wrapper function around \a IProductWRTBaseKernel()
- */
-void StdTetExp::v_IProductWRTBaseKernel(
-    const Array<OneD, const NekDouble> &base0,
-    const Array<OneD, const NekDouble> &base1,
-    const Array<OneD, const NekDouble> &base2,
-    const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &jac,
-    const bool Deformed, [[maybe_unused]] bool CollDir0,
-    [[maybe_unused]] bool CollDir1, [[maybe_unused]] bool CollDir2)
-{
-    IProductWRTBaseKernel(base0, base1, base2, inarray, outarray, jac,
-                          Deformed);
+    v_IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetBdata(),
+                            m_base[2]->GetBdata(), inarray, outarray, one,
+                            false);
 }
 
 /** \brief Inner product of \a inarray over region with respect to the
@@ -547,13 +530,14 @@ void StdTetExp::v_IProductWRTBaseKernel(
  *  treated as a deformed or regular integration which just relates to
  *  how the \param jac array is treated
  */
-void StdTetExp::IProductWRTBaseKernel(
+void StdTetExp::v_IProductWRTBaseKernel(
     const Array<OneD, const NekDouble> &base0,
     const Array<OneD, const NekDouble> &base1,
     const Array<OneD, const NekDouble> &base2,
     const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray, const Array<OneD, const NekDouble> &jac,
-    const bool Deformed)
+    Array<OneD, NekDouble> &outarray, const Array<OneD, NekDouble> &jac,
+    const bool Deformed, [[maybe_unused]] bool CollDir0,
+    [[maybe_unused]] bool CollDir1, [[maybe_unused]] bool CollDir2)
 {
     int nquad0 = m_base[0]->GetNumPoints();
     int nquad1 = m_base[1]->GetNumPoints();
@@ -751,9 +735,9 @@ void StdTetExp::v_IProductWRTDerivBase(
     {
         case 0:
         {
-            IProductWRTBaseKernel(m_base[0]->GetDbdata(), m_base[1]->GetBdata(),
-                                  m_base[2]->GetBdata(), tmp0, outarray, one,
-                                  false);
+            v_IProductWRTBaseKernel(
+                m_base[0]->GetDbdata(), m_base[1]->GetBdata(),
+                m_base[2]->GetBdata(), tmp0, outarray, one, false);
         }
         break;
         case 1:
@@ -766,9 +750,9 @@ void StdTetExp::v_IProductWRTDerivBase(
                             &tmp0[0] + i * nquad0, 1);
             }
 
-            IProductWRTBaseKernel(m_base[0]->GetDbdata(), m_base[1]->GetBdata(),
-                                  m_base[2]->GetBdata(), tmp0, tmp3, one,
-                                  false);
+            v_IProductWRTBaseKernel(
+                m_base[0]->GetDbdata(), m_base[1]->GetBdata(),
+                m_base[2]->GetBdata(), tmp0, tmp3, one, false);
 
             for (i = 0; i < nquad2; ++i)
             {
@@ -777,9 +761,9 @@ void StdTetExp::v_IProductWRTDerivBase(
                             &tmp0[0] + i * nquad0 * nquad1, 1);
             }
 
-            IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetDbdata(),
-                                  m_base[2]->GetBdata(), tmp0, outarray, one,
-                                  false);
+            v_IProductWRTBaseKernel(
+                m_base[0]->GetBdata(), m_base[1]->GetDbdata(),
+                m_base[2]->GetBdata(), tmp0, outarray, one, false);
             Vmath::Vadd(m_ncoeffs, &tmp3[0], 1, &outarray[0], 1, &outarray[0],
                         1);
         }
@@ -796,9 +780,9 @@ void StdTetExp::v_IProductWRTDerivBase(
                 Vmath::Vmul(nquad0, &gfac0[0], 1, &tmp0[0] + i * nquad0, 1,
                             &tmp0[0] + i * nquad0, 1);
             }
-            IProductWRTBaseKernel(m_base[0]->GetDbdata(), m_base[1]->GetBdata(),
-                                  m_base[2]->GetBdata(), tmp0, tmp3, one,
-                                  false);
+            v_IProductWRTBaseKernel(
+                m_base[0]->GetDbdata(), m_base[1]->GetBdata(),
+                m_base[2]->GetBdata(), tmp0, tmp3, one, false);
 
             for (i = 0; i < nquad2; ++i)
             {
@@ -812,13 +796,13 @@ void StdTetExp::v_IProductWRTDerivBase(
                             &tmp0[0] + i * nquad0, 1);
             }
 
-            IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetDbdata(),
-                                  m_base[2]->GetBdata(), tmp0, tmp4, one,
-                                  false);
+            v_IProductWRTBaseKernel(
+                m_base[0]->GetBdata(), m_base[1]->GetDbdata(),
+                m_base[2]->GetBdata(), tmp0, tmp4, one, false);
 
-            IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetBdata(),
-                                  m_base[2]->GetDbdata(), inarray, outarray,
-                                  one, false);
+            v_IProductWRTBaseKernel(
+                m_base[0]->GetBdata(), m_base[1]->GetBdata(),
+                m_base[2]->GetDbdata(), inarray, outarray, one, false);
             Vmath::Vadd(m_ncoeffs, &tmp3[0], 1, &outarray[0], 1, &outarray[0],
                         1);
             Vmath::Vadd(m_ncoeffs, &tmp4[0], 1, &outarray[0], 1, &outarray[0],

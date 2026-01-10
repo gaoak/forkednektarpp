@@ -87,9 +87,9 @@ public:
         const Array<OneD, const NekDouble> &base0,
         const Array<OneD, const NekDouble> &base1,
         const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &jac,
-        const bool Deformed, [[maybe_unused]] bool CollDir0,
-        [[maybe_unused]] bool CollDir1);
+        Array<OneD, NekDouble> &outarray, const Array<OneD, NekDouble> &jac,
+        const bool Deformed, [[maybe_unused]] bool CollDir0 = false,
+        [[maybe_unused]] bool CollDir1 = false);
 
 protected:
     /** \brief This function evaluates the expansion at a single
@@ -126,9 +126,9 @@ protected:
         const Array<OneD, const NekDouble> &base0,
         const Array<OneD, const NekDouble> &base1,
         const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &jac,
-        const bool Deformed, [[maybe_unused]] bool CollDir0,
-        [[maybe_unused]] bool CollDir1) = 0;
+        Array<OneD, NekDouble> &outarray, const Array<OneD, NekDouble> &jac,
+        const bool Deformed, [[maybe_unused]] bool CollDir0 = false,
+        [[maybe_unused]] bool CollDir1 = false) = 0;
 
     STD_REGIONS_EXPORT void v_LaplacianMatrixOp_MatFree(
         const Array<OneD, const NekDouble> &inarray,

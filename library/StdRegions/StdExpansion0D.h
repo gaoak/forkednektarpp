@@ -50,10 +50,6 @@ public:
     STD_REGIONS_EXPORT StdExpansion0D(const StdExpansion0D &T) = default;
     STD_REGIONS_EXPORT ~StdExpansion0D() override              = default;
 
-    STD_REGIONS_EXPORT void PhysTensorDeriv(
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray);
-
 protected:
     STD_REGIONS_EXPORT NekDouble
     v_PhysEvaluate(const Array<OneD, const NekDouble> &coords,

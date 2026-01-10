@@ -132,17 +132,10 @@ protected:
         const Array<OneD, const NekDouble> &base1,
         const Array<OneD, const NekDouble> &base2,
         const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &jac,
-        const bool Deformed, [[maybe_unused]] bool CollDir0,
-        [[maybe_unused]] bool CollDir1,
-        [[maybe_unused]] bool CollDir2) override;
-    STD_REGIONS_EXPORT void IProductWRTBaseKernel(
-        const Array<OneD, const NekDouble> &base0,
-        const Array<OneD, const NekDouble> &base1,
-        const Array<OneD, const NekDouble> &base2,
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray,
-        const Array<OneD, const NekDouble> &jac, const bool Deformed);
+        Array<OneD, NekDouble> &outarray, const Array<OneD, NekDouble> &jac,
+        const bool Deformed, [[maybe_unused]] bool CollDir0 = false,
+        [[maybe_unused]] bool CollDir1 = false,
+        [[maybe_unused]] bool CollDir2 = false) override;
     STD_REGIONS_EXPORT void v_IProductWRTDerivBase(
         const int dir, const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray) override;

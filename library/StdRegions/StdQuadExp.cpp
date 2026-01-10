@@ -445,26 +445,10 @@ void StdQuadExp::v_IProductWRTBase(const Array<OneD, const NekDouble> &inarray,
     else
     {
         const Array<OneD, const NekDouble> one(1, 1.0);
-        IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetBdata(),
-                              inarray, outarray, one, false, CollDir0,
-                              CollDir1);
+        v_IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetBdata(),
+                                inarray, outarray, one, false, CollDir0,
+                                CollDir1);
     }
-}
-
-/** \brief Inner product of \a inarray over region with respect to the
- *  expansion basis (this)->m_base[0] and return in \a outarray
- *
- * This is a wrapper function around \a IProductWRTBaseKernel()
- */
-void StdQuadExp::v_IProductWRTBaseKernel(
-    const Array<OneD, const NekDouble> &base0,
-    const Array<OneD, const NekDouble> &base1,
-    const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &jac,
-    const bool Deformed, const bool CollDir0, const bool CollDir1)
-{
-    IProductWRTBaseKernel(base0, base1, inarray, outarray, jac, Deformed,
-                          CollDir0, CollDir1);
 }
 
 /** \brief Inner product of \a inarray over region with respect to the
@@ -489,11 +473,11 @@ void StdQuadExp::v_IProductWRTBaseKernel(
  *  @param CollDir1 - bool to identify if 1-direction basis is a
  *  collocated expansion
  */
-void StdQuadExp::IProductWRTBaseKernel(
+void StdQuadExp::v_IProductWRTBaseKernel(
     const Array<OneD, const NekDouble> &base0,
     const Array<OneD, const NekDouble> &base1,
     const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray, const Array<OneD, const NekDouble> &jac,
+    Array<OneD, NekDouble> &outarray, const Array<OneD, NekDouble> &jac,
     const bool Deformed, const bool CollDir0, const bool CollDir1)
 {
     int nquad0 = m_base[0]->GetNumPoints();
@@ -638,15 +622,15 @@ void StdQuadExp::v_IProductWRTDerivBase(
     Array<OneD, NekDouble> one(1, 1.0);
     if (dir) // dir == 1
     {
-        IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetDbdata(),
-                              inarray, outarray, one, false,
-                              m_base[0]->Collocation(), false);
+        v_IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetDbdata(),
+                                inarray, outarray, one, false,
+                                m_base[0]->Collocation(), false);
     }
     else // dir == 0
     {
-        IProductWRTBaseKernel(m_base[0]->GetDbdata(), m_base[1]->GetBdata(),
-                              inarray, outarray, one, false, false,
-                              m_base[1]->Collocation());
+        v_IProductWRTBaseKernel(m_base[0]->GetDbdata(), m_base[1]->GetBdata(),
+                                inarray, outarray, one, false, false,
+                                m_base[1]->Collocation());
     }
 }
 

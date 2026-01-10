@@ -37,6 +37,7 @@
 
 using namespace std;
 #include <LibUtilities/BasicUtils/NekInline.hpp>
+#include <StdRegions/Operators/SwitchLevel1.h>
 #include <StdRegions/Operators/SwitchLevel2.h>
 
 namespace Nektar::StdRegions
@@ -119,6 +120,48 @@ NekDouble StdSegExp::v_Integral(const Array<OneD, const NekDouble> &inarray)
 // Differentiation Methods
 //---------------------------------------------------------------------
 
+void StdSegExp::PhysTensorDeriv(const Array<OneD, const NekDouble> &inarray,
+                                Array<OneD, NekDouble> &outarray)
+{
+    int nquad    = GetTotPoints();
+    NekDouble *D = m_base[0]->GetD()->GetRawPtr();
+    Array<OneD, const NekDouble> intmp;
+
+    // copy inarray data if inarray and outarray are the same.
+    if (inarray.data() == outarray.data())
+    {
+        Array<OneD, NekDouble> wsp(nquad);
+        CopyArray(inarray, wsp);
+        intmp = wsp;
+    }
+    else
+    {
+        intmp = inarray;
+    }
+
+    // Switch statment using boost_pp and macros. This unfolls into a
+    // nested switch statement which runs from SMIN to SMAX for quadratrure
+    // order. If you want to see it unwrapped compile in verbose mode and add
+    // --preprocess to the c++ command. Default case
+#undef PHYSDERIV_Q
+#define PHYSDERIV_Q(r, i)                                                      \
+    case NQ1(i):                                                               \
+        PhysDerivTensor1DKernel(NQ1(i), (const vec_t *)intmp.data(),           \
+                                (const vec_t *)D, (vec_t *)outarray.data());   \
+        break;
+
+    // templated cases on  standard quadrature
+    // usage where quad order goes from SMIN to SMAX
+    switch (nquad)
+    {
+        BOOST_PP_FOR((SMIN, SMAX), STDLEV1TEST, STDLEV1UPDATE, PHYSDERIV_Q);
+        default:
+            PhysDerivTensor1DKernel(nquad, (const vec_t *)intmp.data(),
+                                    (const vec_t *)D, (vec_t *)outarray.data());
+            break;
+    }
+}
+
 /** \brief Evaluate the derivative \f$ d/d{\xi_1} \f$ at the physical
  *  quadrature points given by \a inarray and return in \a outarray.
  *
@@ -142,7 +185,6 @@ void StdSegExp::v_PhysDeriv([[maybe_unused]] const int dir,
 {
     ASSERTL1(dir == 0, "input dir is out of range");
     PhysTensorDeriv(inarray, outarray);
-    // PhysDeriv(inarray, outarray);
 }
 
 void StdSegExp::v_StdPhysDeriv(const Array<OneD, const NekDouble> &inarray,
@@ -412,8 +454,8 @@ void StdSegExp::v_IProductWRTBase(const Array<OneD, const NekDouble> &inarray,
     else
     {
         const Array<OneD, const NekDouble> one(1, 1.0);
-        IProductWRTBaseKernel(m_base[0]->GetBdata(), inarray, outarray, one,
-                              false);
+        v_IProductWRTBaseKernel(m_base[0]->GetBdata(), inarray, outarray, one,
+                                false);
     }
 }
 
@@ -433,7 +475,7 @@ void StdSegExp::v_IProductWRTBase(const Array<OneD, const NekDouble> &inarray,
  *  treated as a deformed or regular integration which just relates to
  *  how the \param jac array is treated
  */
-void StdSegExp::IProductWRTBaseKernel(
+void StdSegExp::v_IProductWRTBaseKernel(
     const Array<OneD, const NekDouble> &base0,
     const Array<OneD, const NekDouble> &inarray,
     Array<OneD, NekDouble> &outarray, const Array<OneD, const NekDouble> &jac,
@@ -548,8 +590,8 @@ void StdSegExp::v_IProductWRTDerivBase(
 {
     ASSERTL1(dir == 0, "input dir is out of range");
     const Array<OneD, const NekDouble> one(1, 1.0);
-    IProductWRTBaseKernel(m_base[0]->GetDbdata(), inarray, outarray, one,
-                          false);
+    v_IProductWRTBaseKernel(m_base[0]->GetDbdata(), inarray, outarray, one,
+                            false);
 }
 
 //----------------------------
@@ -643,8 +685,8 @@ void StdSegExp::v_HelmholtzMatrixOp(const Array<OneD, const NekDouble> &inarray,
     // Laplacian matrix operation
     const Array<OneD, const NekDouble> one(1, 1.0);
     v_PhysDeriv(physValues, dPhysValuesdx);
-    IProductWRTBaseKernel(m_base[0]->GetDbdata(), dPhysValuesdx, outarray, one,
-                          false);
+    v_IProductWRTBaseKernel(m_base[0]->GetDbdata(), dPhysValuesdx, outarray,
+                            one, false);
     Blas::Daxpy(m_ncoeffs, mkey.GetConstFactor(eFactorLambda), wsp.data(), 1,
                 outarray.data(), 1);
 }

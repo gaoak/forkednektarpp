@@ -50,20 +50,6 @@ public:
     STD_REGIONS_EXPORT StdExpansion1D(const StdExpansion1D &T) = default;
     STD_REGIONS_EXPORT ~StdExpansion1D() override              = default;
 
-    /** \brief Evaluate the derivative \f$ d/d{\xi_1} \f$ at the
-     *  physical quadrature points given by \a inarray and return in
-     *  \a outarray.
-     *
-     *  \param inarray array of a function evaluated at the quadrature
-     *  points
-     *  \param outarray the resulting array of the derivative \f$
-     *  du/d_{\xi_1}|_{\xi_{1i}} \f$ will be stored in the array
-     *  \a outarray as output of the function
-     */
-    STD_REGIONS_EXPORT void PhysTensorDeriv(
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray);
-
     // find derivative of u (inarray) at all coords points
     STD_REGIONS_EXPORT inline NekDouble BaryTensorDeriv(
         const Array<OneD, NekDouble> &coord,
@@ -85,10 +71,22 @@ public:
             coord[0], &inarray[0], firstOrderDerivs[0], secondOrderDerivs[0]);
     }
 
+    STD_REGIONS_EXPORT void IProductWRTBaseKernel(
+        const Array<OneD, const NekDouble> &base0,
+        const Array<OneD, const NekDouble> &inarray,
+        Array<OneD, NekDouble> &outarray,
+        const Array<OneD, const NekDouble> &jac, const bool Deformed);
+
 protected:
     STD_REGIONS_EXPORT NekDouble
     v_PhysEvaluate(const Array<OneD, const NekDouble> &coords,
                    const Array<OneD, const NekDouble> &physvals) override;
+
+    STD_REGIONS_EXPORT virtual void v_IProductWRTBaseKernel(
+        const Array<OneD, const NekDouble> &base0,
+        const Array<OneD, const NekDouble> &inarray,
+        Array<OneD, NekDouble> &outarray,
+        const Array<OneD, const NekDouble> &jac, const bool Deformed) = 0;
 
     STD_REGIONS_EXPORT void v_PhysInterp(
         std::shared_ptr<StdExpansion> fromExp,

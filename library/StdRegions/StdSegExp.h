@@ -58,6 +58,20 @@ protected:
     //-----------------------------
     // Differentiation Methods
     //-----------------------------
+    /** \brief Evaluate the derivative \f$ d/d{\xi_1} \f$ at the
+     *  physical quadrature points given by \a inarray and return in
+     *  \a outarray.
+     *
+     *  \param inarray array of a function evaluated at the quadrature
+     *  points
+     *  \param outarray the resulting array of the derivative \f$
+     *  du/d_{\xi_1}|_{\xi_{1i}} \f$ will be stored in the array
+     *  \a outarray as output of the function
+     */
+    STD_REGIONS_EXPORT void PhysTensorDeriv(
+        const Array<OneD, const NekDouble> &inarray,
+        Array<OneD, NekDouble> &outarray);
+
     STD_REGIONS_EXPORT void v_PhysDeriv(
         const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &out_d0,
@@ -91,11 +105,11 @@ protected:
     STD_REGIONS_EXPORT void v_IProductWRTBase(
         const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray) override;
-    STD_REGIONS_EXPORT void IProductWRTBaseKernel(
+    STD_REGIONS_EXPORT void v_IProductWRTBaseKernel(
         const Array<OneD, const NekDouble> &base0,
         const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray,
-        const Array<OneD, const NekDouble> &jac, const bool Deformed);
+        const Array<OneD, const NekDouble> &jac, const bool Deformed) override;
     STD_REGIONS_EXPORT void v_IProductWRTDerivBase(
         const int dir, const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray) override;

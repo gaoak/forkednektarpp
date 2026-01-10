@@ -350,9 +350,9 @@ void HexExp::v_IProductWRTBase(const Array<OneD, const NekDouble> &inarray,
     }
     else
     {
-        StdHexExp::IProductWRTBaseKernel(
-            m_base[0]->GetBdata(), m_base[1]->GetBdata(), m_base[2]->GetBdata(),
-            inarray, outarray, jac, Deformed, CollDir0, CollDir1, CollDir2);
+        v_IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetBdata(),
+                                m_base[2]->GetBdata(), inarray, outarray, jac,
+                                Deformed, CollDir0, CollDir1, CollDir2);
     }
 }
 
@@ -406,18 +406,18 @@ void HexExp::v_IProductWRTDerivBase(const int dir,
 
     HexExp::v_AlignVectorToCollapsedDir(dir, inarray, tmp2D);
 
-    IProductWRTBaseKernel(m_base[0]->GetDbdata(), m_base[1]->GetBdata(),
-                          m_base[2]->GetBdata(), tmp2, outarray, jac, Deformed,
-                          false, CollDir1, CollDir2);
+    v_IProductWRTBaseKernel(m_base[0]->GetDbdata(), m_base[1]->GetBdata(),
+                            m_base[2]->GetBdata(), tmp2, outarray, jac,
+                            Deformed, false, CollDir1, CollDir2);
 
-    IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetDbdata(),
-                          m_base[2]->GetBdata(), tmp3, tmp5, jac, Deformed,
-                          CollDir0, false, CollDir2);
+    v_IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetDbdata(),
+                            m_base[2]->GetBdata(), tmp3, tmp5, jac, Deformed,
+                            CollDir0, false, CollDir2);
     Vmath::Vadd(m_ncoeffs, tmp5, 1, outarray, 1, outarray, 1);
 
-    IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetBdata(),
-                          m_base[2]->GetDbdata(), tmp4, tmp5, jac, Deformed,
-                          CollDir0, CollDir1, false);
+    v_IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetBdata(),
+                            m_base[2]->GetDbdata(), tmp4, tmp5, jac, Deformed,
+                            CollDir0, CollDir1, false);
     Vmath::Vadd(m_ncoeffs, tmp5, 1, outarray, 1, outarray, 1);
 }
 
@@ -499,18 +499,18 @@ void HexExp::v_IProductWRTDirectionalDerivBase_SumFac(
     Vmath::Vmul(nq, &dfdir[1][0], 1, inarray.data(), 1, tmp3.data(), 1);
     Vmath::Vmul(nq, &dfdir[2][0], 1, inarray.data(), 1, tmp4.data(), 1);
 
-    IProductWRTBaseKernel(m_base[0]->GetDbdata(), m_base[1]->GetBdata(),
-                          m_base[2]->GetBdata(), tmp2, outarray, jac, Deformed,
-                          false, CollDir1, CollDir2);
+    v_IProductWRTBaseKernel(m_base[0]->GetDbdata(), m_base[1]->GetBdata(),
+                            m_base[2]->GetBdata(), tmp2, outarray, jac,
+                            Deformed, false, CollDir1, CollDir2);
 
-    IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetDbdata(),
-                          m_base[2]->GetBdata(), tmp3, tmp5, jac, Deformed,
-                          CollDir0, false, CollDir2);
+    v_IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetDbdata(),
+                            m_base[2]->GetBdata(), tmp3, tmp5, jac, Deformed,
+                            CollDir0, false, CollDir2);
     Vmath::Vadd(m_ncoeffs, tmp5, 1, outarray, 1, outarray, 1);
 
-    IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetBdata(),
-                          m_base[2]->GetDbdata(), tmp4, tmp5, jac, Deformed,
-                          CollDir0, CollDir1, false);
+    v_IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetBdata(),
+                            m_base[2]->GetDbdata(), tmp4, tmp5, jac, Deformed,
+                            CollDir0, CollDir1, false);
     Vmath::Vadd(m_ncoeffs, tmp5, 1, outarray, 1, outarray, 1);
 }
 
@@ -1373,14 +1373,14 @@ void HexExp::v_LaplacianMatrixOp_MatFree_Kernel(
 
     // outarray = m = (D_xi1 * B)^T * k
     // wsp1     = n = (D_xi2 * B)^T * l
-    IProductWRTBaseKernel(dbase0, base1, base2, wsp3, outarray, jac, Deformed,
-                          false, CollDir1, CollDir2);
-    IProductWRTBaseKernel(base0, dbase1, base2, wsp4, wsp2, jac, Deformed,
-                          CollDir0, false, CollDir2);
+    v_IProductWRTBaseKernel(dbase0, base1, base2, wsp3, outarray, jac, Deformed,
+                            false, CollDir1, CollDir2);
+    v_IProductWRTBaseKernel(base0, dbase1, base2, wsp4, wsp2, jac, Deformed,
+                            CollDir0, false, CollDir2);
     Vmath::Vadd(m_ncoeffs, wsp2.data(), 1, outarray.data(), 1, outarray.data(),
                 1);
-    IProductWRTBaseKernel(base0, base1, dbase2, wsp5, wsp2, jac, Deformed,
-                          CollDir0, CollDir1, false);
+    v_IProductWRTBaseKernel(base0, base1, dbase2, wsp5, wsp2, jac, Deformed,
+                            CollDir0, CollDir1, false);
     Vmath::Vadd(m_ncoeffs, wsp2.data(), 1, outarray.data(), 1, outarray.data(),
                 1);
 }

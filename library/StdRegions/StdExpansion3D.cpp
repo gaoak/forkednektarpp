@@ -57,7 +57,7 @@ void StdExpansion3D::IProductWRTBaseKernel(
     const Array<OneD, const NekDouble> &base1,
     const Array<OneD, const NekDouble> &base2,
     const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &jac,
+    Array<OneD, NekDouble> &outarray, const Array<OneD, NekDouble> &jac,
     const bool Deformed, [[maybe_unused]] bool CollDir0,
     [[maybe_unused]] bool CollDir1, [[maybe_unused]] bool CollDir2)
 {

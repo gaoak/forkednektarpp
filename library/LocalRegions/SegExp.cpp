@@ -149,7 +149,6 @@ void SegExp::v_PhysDeriv(const Array<OneD, const NekDouble> &inarray,
     Array<TwoD, const NekDouble> gmat = m_geomFactors->GetDerivFactors();
     Array<OneD, NekDouble> diff(nquad0);
 
-    // StdExpansion1D::PhysTensorDeriv(inarray,diff);
     PhysTensorDeriv(inarray, diff);
     if (m_geomFactors->GetGtype() == SpatialDomains::eDeformed)
     {
@@ -518,8 +517,8 @@ void SegExp::v_IProductWRTBase(const Array<OneD, const NekDouble> &inarray,
     }
     else
     {
-        StdSegExp::IProductWRTBaseKernel(m_base[0]->GetBdata(), inarray,
-                                         outarray, jac, Deformed);
+        v_IProductWRTBaseKernel(m_base[0]->GetBdata(), inarray, outarray, jac,
+                                Deformed);
     }
 }
 
@@ -548,8 +547,8 @@ void SegExp::v_IProductWRTDerivBase(const int dir,
     }
 
     const Array<OneD, const NekDouble> &jac = m_geomFactors->GetJac();
-    StdSegExp::IProductWRTBaseKernel(m_base[0]->GetDbdata(), tmp1, outarray,
-                                     jac, Deformed);
+    v_IProductWRTBaseKernel(m_base[0]->GetDbdata(), tmp1, outarray, jac,
+                            Deformed);
 }
 
 void SegExp::v_NormVectorIProductWRTBase(const Array<OneD, const NekDouble> &Fx,
@@ -962,8 +961,8 @@ void SegExp::v_LaplacianMatrixOp(
     const Array<OneD, const NekDouble> &jac = m_geomFactors->GetJac();
     const bool Deformed =
         m_geomFactors->GetGtype() == SpatialDomains::eDeformed;
-    StdSegExp::IProductWRTBaseKernel(m_base[0]->GetDbdata(), dPhysValuesdx,
-                                     outarray, jac, Deformed);
+    v_IProductWRTBaseKernel(m_base[0]->GetDbdata(), dPhysValuesdx, outarray,
+                            jac, Deformed);
 }
 
 void SegExp::v_LaplacianMatrixOp(const int k1, const int k2,
@@ -1067,8 +1066,8 @@ void SegExp::v_HelmholtzMatrixOp(const Array<OneD, const NekDouble> &inarray,
     const Array<OneD, const NekDouble> &jac = m_geomFactors->GetJac();
     const bool Deformed =
         m_geomFactors->GetGtype() == SpatialDomains::eDeformed;
-    StdSegExp::IProductWRTBaseKernel(m_base[0]->GetDbdata(), dPhysValuesdx,
-                                     outarray, jac, Deformed);
+    v_IProductWRTBaseKernel(m_base[0]->GetDbdata(), dPhysValuesdx, outarray,
+                            jac, Deformed);
     Blas::Daxpy(m_ncoeffs, lambda, wsp.data(), 1, outarray.data(), 1);
 }
 

@@ -387,9 +387,8 @@ void TriExp::v_IProductWRTBase(const Array<OneD, const NekDouble> &inarray,
 {
     const Array<OneD, const NekDouble> &jac = m_geomFactors->GetJac();
     bool Deformed = (m_geomFactors->GetGtype() == SpatialDomains::eDeformed);
-    StdTriExp::IProductWRTBaseKernel(m_base[0]->GetBdata(),
-                                     m_base[1]->GetBdata(), inarray, outarray,
-                                     jac, Deformed);
+    v_IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetBdata(),
+                            inarray, outarray, jac, Deformed);
 }
 
 void TriExp::v_IProductWRTDerivBase(const int dir,
@@ -413,13 +412,11 @@ void TriExp::v_IProductWRTDerivBase(const int dir,
 
     bool Deformed = (m_geomFactors->GetGtype() == SpatialDomains::eDeformed);
 
-    StdTriExp::IProductWRTBaseKernel(m_base[0]->GetDbdata(),
-                                     m_base[1]->GetBdata(), tmp1, tmp3, jac,
-                                     Deformed);
+    v_IProductWRTBaseKernel(m_base[0]->GetDbdata(), m_base[1]->GetBdata(), tmp1,
+                            tmp3, jac, Deformed);
 
-    StdTriExp::IProductWRTBaseKernel(m_base[0]->GetBdata(),
-                                     m_base[1]->GetDbdata(), tmp2, outarray,
-                                     jac, Deformed);
+    v_IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetDbdata(), tmp2,
+                            outarray, jac, Deformed);
 
     Vmath::Vadd(m_ncoeffs, tmp3, 1, outarray, 1, outarray, 1);
 }
@@ -535,13 +532,11 @@ void TriExp::v_IProductWRTDirectionalDerivBase(
     const Array<OneD, const NekDouble> &jac = m_geomFactors->GetJac();
     bool Deformed = (m_geomFactors->GetGtype() == SpatialDomains::eDeformed);
 
-    StdTriExp::IProductWRTBaseKernel(m_base[0]->GetDbdata(),
-                                     m_base[1]->GetBdata(), tmp1, tmp3, jac,
-                                     Deformed);
+    v_IProductWRTBaseKernel(m_base[0]->GetDbdata(), m_base[1]->GetBdata(), tmp1,
+                            tmp3, jac, Deformed);
 
-    StdTriExp::IProductWRTBaseKernel(m_base[0]->GetBdata(),
-                                     m_base[1]->GetDbdata(), tmp2, outarray,
-                                     jac, Deformed);
+    v_IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetDbdata(), tmp2,
+                            outarray, jac, Deformed);
 
     Vmath::Vadd(m_ncoeffs, tmp3, 1, outarray, 1, outarray, 1);
 }
@@ -1144,9 +1139,8 @@ void TriExp::v_LaplacianMatrixOp_MatFree_Kernel(
     const Array<OneD, const NekDouble> &jac = m_geomFactors->GetJac();
     bool Deformed = (m_geomFactors->GetGtype() == SpatialDomains::eDeformed);
 
-    StdTriExp::IProductWRTBaseKernel(dbase0, base1, wsp0, outarray, jac,
-                                     Deformed);
-    StdTriExp::IProductWRTBaseKernel(base0, dbase1, wsp2, wsp1, jac, Deformed);
+    v_IProductWRTBaseKernel(dbase0, base1, wsp0, outarray, jac, Deformed);
+    v_IProductWRTBaseKernel(base0, dbase1, wsp2, wsp1, jac, Deformed);
 
     // outarray = outarray + wsp1
     //          = L * u_hat

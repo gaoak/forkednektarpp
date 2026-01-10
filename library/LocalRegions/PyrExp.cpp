@@ -275,9 +275,9 @@ void PyrExp::v_IProductWRTBase(const Array<OneD, const NekDouble> &inarray,
 {
     const Array<OneD, const NekDouble> &jac = m_geomFactors->GetJac();
     bool Deformed = (m_geomFactors->GetGtype() == SpatialDomains::eDeformed);
-    StdPyrExp::IProductWRTBaseKernel(
-        m_base[0]->GetBdata(), m_base[1]->GetBdata(), m_base[2]->GetBdata(),
-        inarray, outarray, jac, Deformed);
+    v_IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetBdata(),
+                            m_base[2]->GetBdata(), inarray, outarray, jac,
+                            Deformed);
 }
 
 /**
@@ -335,18 +335,16 @@ void PyrExp::v_IProductWRTDerivBase(const int dir,
 
     PyrExp::v_AlignVectorToCollapsedDir(dir, inarray, tmp2D);
 
-    StdPyrExp::IProductWRTBaseKernel(
-        m_base[0]->GetDbdata(), m_base[1]->GetBdata(), m_base[2]->GetBdata(),
-        tmp2, outarray, jac, Deformed);
+    v_IProductWRTBaseKernel(m_base[0]->GetDbdata(), m_base[1]->GetBdata(),
+                            m_base[2]->GetBdata(), tmp2, outarray, jac,
+                            Deformed);
 
-    StdPyrExp::IProductWRTBaseKernel(
-        m_base[0]->GetBdata(), m_base[1]->GetDbdata(), m_base[2]->GetBdata(),
-        tmp3, tmp6, jac, Deformed);
+    v_IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetDbdata(),
+                            m_base[2]->GetBdata(), tmp3, tmp6, jac, Deformed);
     Vmath::Vadd(m_ncoeffs, tmp6, 1, outarray, 1, outarray, 1);
 
-    StdPyrExp::IProductWRTBaseKernel(
-        m_base[0]->GetBdata(), m_base[1]->GetBdata(), m_base[2]->GetDbdata(),
-        tmp4, tmp6, jac, Deformed);
+    v_IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetBdata(),
+                            m_base[2]->GetDbdata(), tmp4, tmp6, jac, Deformed);
     Vmath::Vadd(m_ncoeffs, tmp6, 1, outarray, 1, outarray, 1);
 }
 
@@ -1250,14 +1248,12 @@ void PyrExp::v_LaplacianMatrixOp_MatFree_Kernel(
     const Array<OneD, const NekDouble> &jac = m_geomFactors->GetJac();
     bool Deformed = (m_geomFactors->GetGtype() == SpatialDomains::eDeformed);
 
-    StdPyrExp::IProductWRTBaseKernel(dbase0, base1, base2, wsp3, outarray, jac,
-                                     Deformed);
-    StdPyrExp::IProductWRTBaseKernel(base0, dbase1, base2, wsp4, wsp2, jac,
-                                     Deformed);
+    v_IProductWRTBaseKernel(dbase0, base1, base2, wsp3, outarray, jac,
+                            Deformed);
+    v_IProductWRTBaseKernel(base0, dbase1, base2, wsp4, wsp2, jac, Deformed);
     Vmath::Vadd(m_ncoeffs, wsp2.data(), 1, outarray.data(), 1, outarray.data(),
                 1);
-    StdPyrExp::IProductWRTBaseKernel(base0, base1, dbase2, wsp5, wsp2, jac,
-                                     Deformed);
+    v_IProductWRTBaseKernel(base0, base1, dbase2, wsp5, wsp2, jac, Deformed);
     Vmath::Vadd(m_ncoeffs, wsp2.data(), 1, outarray.data(), 1, outarray.data(),
                 1);
 }
