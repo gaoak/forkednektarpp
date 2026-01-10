@@ -4,14 +4,17 @@ v5.10.0
 ------
 **Library**
 - Tidy check for nonsymmetric linear system (!2259)
--  Set default quadrature of Pyr to nq, nq nq-1 for modified basis (!2297)
+- Set default quadrature of Pyr to nq, nq nq-1 for modified basis (!2297)
 - Fix memory leaks when using aligned memory (!2299)
 - Fix docker 29 breaking API change (!2298)
 - Curves and GeomFactors as unique pointers (!2191)
 - Complete support for SSE2, fix SVE compilation, and update SIMD compilation flag (!2308)
 - Fix MatrixFree switch for Prism and Pyr (!2315)
 - Fix memory leak for Helmholtz matrices with time-dependent variable coeffficients (!2321)
-- Add support for pybind11 v3.0 (2332)
+- Add support for pybind11 v3.0 (!2332)
+- Add full support for nodal tri, prism, and tet (!2263)
+- Add size-templated Operator kernels to StdRegion (!2263)
+- Remove v_IProductWRTBase_SumFac and v_IProductWRTDerivBase_SumFac member functions from LocalRegion and StdRegion (!2263)
 - Tidy redundant use of orientation in FwdTransBndConstrained (!2361)
 
 
