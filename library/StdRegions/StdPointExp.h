@@ -60,6 +60,10 @@ protected:
     //---------------------------
     STD_REGIONS_EXPORT LibUtilities::ShapeType v_DetShapeType() const override;
 
+    STD_REGIONS_EXPORT void PhysTensorDeriv(
+        const Array<OneD, const NekDouble> &inarray,
+        Array<OneD, NekDouble> &outarray);
+
     //-----------------------------
     // Transforms
     //-----------------------------

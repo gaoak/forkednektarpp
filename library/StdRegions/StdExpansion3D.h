@@ -56,58 +56,15 @@ public:
     STD_REGIONS_EXPORT StdExpansion3D(const StdExpansion3D &T) = default;
     STD_REGIONS_EXPORT ~StdExpansion3D() override              = default;
 
-    // Differentiation
-
-    /** \brief Calculate the 3D derivative in the local
-     *  tensor/collapsed coordinate at the physical points
-     *
-     *    This function is independent of the expansion basis and can
-     *    therefore be defined for all tensor product distribution of
-     *    quadrature points in a generic manner.  The key operations are:
-     *
-     *    - \f$ \frac{d}{d\eta_1} \rightarrow {\bf D^T_0 u } \f$ \n
-     *    - \f$ \frac{d}{d\eta_2} \rightarrow {\bf D_1 u } \f$
-     *    - \f$ \frac{d}{d\eta_3} \rightarrow {\bf D_2 u } \f$
-     *
-     *  \param inarray array of physical points to be differentiated
-     *  \param  outarray_d1 the resulting array of derivative in the
-     *  \f$\eta_1\f$ direction will be stored in outarray_d1 as output
-     *  of the function
-     *  \param outarray_d2 the resulting array of derivative in the
-     *  \f$\eta_2\f$ direction will be stored in outarray_d2 as output
-     *  of the function
-     *  \param outarray_d3 the resulting array of derivative in the
-     *  \f$\eta_3\f$ direction will be stored in outarray_d3 as output
-     *  of the function
-     *
-     *  Recall that:
-     *  \f$
-     *  \hspace{1cm} \begin{array}{llll}
-     *  \mbox{Shape}    & \mbox{Cartesian coordinate range} &
-     *  \mbox{Collapsed coord.}      &
-     *  \mbox{Collapsed coordinate definition}\\
-     *  \mbox{Hexahedral}  & -1 \leq \xi_1,\xi_2, \xi_3 \leq  1
-     *  & -1 \leq \eta_1,\eta_2, \eta_3 \leq 1
-     *  & \eta_1 = \xi_1, \eta_2 = \xi_2, \eta_3 = \xi_3 \\
-     *  \mbox{Tetrahedral}  & -1 \leq \xi_1,\xi_2,\xi_3; \xi_1+\xi_2 +\xi_3 \leq
-     * -1 & -1 \leq \eta_1,\eta_2, \eta_3 \leq 1
-     *  & \eta_1 = \frac{2(1+\xi_1)}{-\xi_2 -\xi_3}-1, \eta_2 =
-     * \frac{2(1+\xi_2)}{1 - \xi_3}-1, \eta_3 = \xi_3 \\ \end{array} \f$
-     */
-    STD_REGIONS_EXPORT void PhysTensorDeriv(
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray_d1,
-        Array<OneD, NekDouble> &outarray_d2,
-        Array<OneD, NekDouble> &outarray_d3);
-
     STD_REGIONS_EXPORT void IProductWRTBaseKernel(
         const Array<OneD, const NekDouble> &base0,
         const Array<OneD, const NekDouble> &base1,
         const Array<OneD, const NekDouble> &base2,
         const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &jac,
-        const bool Deformed, [[maybe_unused]] bool CollDir0,
-        [[maybe_unused]] bool CollDir1, [[maybe_unused]] bool CollDir2);
+        Array<OneD, NekDouble> &outarray, const Array<OneD, NekDouble> &jac,
+        const bool Deformed, [[maybe_unused]] bool CollDir0 = false,
+        [[maybe_unused]] bool CollDir1 = false,
+        [[maybe_unused]] bool CollDir2 = false);
 
     /** \brief return the number of edges in 3D expansion
      */
@@ -173,9 +130,10 @@ protected:
         const Array<OneD, const NekDouble> &base1,
         const Array<OneD, const NekDouble> &base2,
         const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &jac,
-        const bool Deformed, [[maybe_unused]] bool CollDir0,
-        [[maybe_unused]] bool CollDir1, [[maybe_unused]] bool CollDir2) = 0;
+        Array<OneD, NekDouble> &outarray, const Array<OneD, NekDouble> &jac,
+        const bool Deformed, [[maybe_unused]] bool CollDir0 = false,
+        [[maybe_unused]] bool CollDir1 = false,
+        [[maybe_unused]] bool CollDir2 = false) = 0;
 
     STD_REGIONS_EXPORT void v_LaplacianMatrixOp_MatFree(
         const Array<OneD, const NekDouble> &inarray,

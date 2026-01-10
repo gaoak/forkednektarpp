@@ -376,9 +376,9 @@ void QuadExp::v_IProductWRTBase(const Array<OneD, const NekDouble> &inarray,
     }
     else
     {
-        StdQuadExp::IProductWRTBaseKernel(
-            m_base[0]->GetBdata(), m_base[1]->GetBdata(), inarray, outarray,
-            jac, Deformed, CollDir0, CollDir1);
+        v_IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetBdata(),
+                                inarray, outarray, jac, Deformed, CollDir0,
+                                CollDir1);
     }
 }
 
@@ -407,13 +407,13 @@ void QuadExp::v_IProductWRTDerivBase(
     const Array<OneD, const NekDouble> &jac = m_geomFactors->GetJac();
     bool Deformed = (m_geomFactors->GetGtype() == SpatialDomains::eDeformed);
 
-    StdQuadExp::IProductWRTBaseKernel(
-        m_base[0]->GetDbdata(), m_base[1]->GetBdata(), tmp1, tmp3, jac,
-        Deformed, false, m_base[1]->Collocation());
+    v_IProductWRTBaseKernel(m_base[0]->GetDbdata(), m_base[1]->GetBdata(), tmp1,
+                            tmp3, jac, Deformed, false,
+                            m_base[1]->Collocation());
 
-    StdQuadExp::IProductWRTBaseKernel(
-        m_base[0]->GetBdata(), m_base[1]->GetDbdata(), tmp2, outarray, jac,
-        Deformed, m_base[0]->Collocation(), false);
+    v_IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetDbdata(), tmp2,
+                            outarray, jac, Deformed, m_base[0]->Collocation(),
+                            false);
 
     Vmath::Vadd(m_ncoeffs, tmp3, 1, outarray, 1, outarray, 1);
 }
@@ -1504,11 +1504,10 @@ void QuadExp::v_LaplacianMatrixOp_MatFree_Kernel(
     const Array<OneD, const NekDouble> &jac = m_geomFactors->GetJac();
     bool Deformed = (m_geomFactors->GetGtype() == SpatialDomains::eDeformed);
 
-    StdQuadExp::IProductWRTBaseKernel(dbase0, base1, wsp0, outarray, jac,
-                                      Deformed, false,
-                                      m_base[1]->Collocation());
-    StdQuadExp::IProductWRTBaseKernel(base0, dbase1, wsp2, wsp1, jac, Deformed,
-                                      m_base[1]->Collocation(), false);
+    v_IProductWRTBaseKernel(dbase0, base1, wsp0, outarray, jac, Deformed, false,
+                            m_base[1]->Collocation());
+    v_IProductWRTBaseKernel(base0, dbase1, wsp2, wsp1, jac, Deformed,
+                            m_base[1]->Collocation(), false);
 
     // outarray = outarray + wsp1
     //          = L * u_hat
