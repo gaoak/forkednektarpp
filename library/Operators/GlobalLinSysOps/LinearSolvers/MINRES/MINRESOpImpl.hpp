@@ -145,7 +145,6 @@ protected:
         TData alpha1, alpha2, alpha3, delta;
         TData gamma0, gamma1, sigma0, sigma1, beta0, beta1;
 
-        // Iteration 0
         // Reset the fields to zero.
         out.template Initialize<MemSpace>(0);
         m_p1_A.template Initialize<MemSpace>(0);
@@ -157,6 +156,7 @@ protected:
         m_rowComm->AllReduce(rhsMagnitude, Nektar::LibUtilities::ReduceSum);
         rhsMagnitude = (rhsMagnitude > 1.0e-6) ? rhsMagnitude : 1.0;
 
+        // Iteration 0
         // Copy RHS into initial vector.
         m_v0_A.template Copy<MemSpace>(in);
 
