@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_poissonsolve_conjgrad.cpp
+// File: test_poissonsolve.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
