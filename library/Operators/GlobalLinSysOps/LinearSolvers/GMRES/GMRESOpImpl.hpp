@@ -94,6 +94,7 @@ public:
         m_robBndCondOp = RobBndCondOp<TData>::Create(
             this->m_expansionList, components, ExecSpace::name);
         m_rowComm = session->GetComm()->GetRowComm();
+        m_root    = m_rowComm->GetRank() == 0;
 
         // Allocate array storage.
         m_hes   = std::vector<std::vector<TData>>(m_LinSysMaxStorage);
@@ -133,6 +134,7 @@ protected:
     std::unique_ptr<AssmbScatrZeroDirOpImpl<ExecSpace, TData>>
         m_assmbScatrZeroDirOp;
     std::shared_ptr<RobBndCondOp<TData>> m_robBndCondOp;
+    bool m_root;
 
     Math m_math;
 
@@ -206,7 +208,7 @@ protected:
             eps1 = m_math.ddot(m_wk, m_r0);
             m_rowComm->AllReduce(eps1, LibUtilities::ReduceSum);
 
-            // if (m_root)
+            if (m_root)
             {
                 int nwidthcolm = 13;
 

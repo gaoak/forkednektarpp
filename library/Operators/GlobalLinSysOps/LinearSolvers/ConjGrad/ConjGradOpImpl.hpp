@@ -182,6 +182,7 @@ protected:
         TData alpha, beta, rho, rho_new;
         long double eps;
 
+        // Iteration 0
         // Reset device memory.
         auto exchange = m_vExchange.template GetPtr<MemSpace, WriteOnly>();
 
@@ -217,11 +218,12 @@ protected:
             return;
         }
 
-        // Reset device memory.
-        m_vExchange.template GetPtr<MemSpace, WriteOnly>();
-
         // Apply preconditioner - output is assembled
         this->m_precon->Apply(m_r_A, m_w_A);
+
+        // Iteration 1
+        // Reset device memory.
+        m_vExchange.template GetPtr<MemSpace, WriteOnly>();
 
         // <r_{1}, w_{1}>
         ddot<ExecSpace>(m_mask, m_r_A, m_w_A, exchange + 0);
@@ -247,6 +249,7 @@ protected:
         alpha           = rho / mu;
         totalIterations = 1;
 
+        // Iteration >= 2
         while (true)
         {
             if (totalIterations > m_maxIter)
@@ -307,7 +310,7 @@ protected:
                 if (m_root)
                 {
                     std::cout << "iterations: " << totalIterations
-                              << " eps: " << std::sqrt((double)eps)
+                              << " eps: " << std::sqrt(eps)
                               << " rhs_mag: " << rhsMagnitude << std::endl;
                 }
                 break;
