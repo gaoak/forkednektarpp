@@ -79,7 +79,7 @@ public:
               "ConjGrad mask",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
-          m_vExchange(MemoryRegion<TData>(3, ePinned))
+          m_vExchange(MemoryRegion<TData>(4, ePinned))
     {
         auto session = expansionList->GetSession();
 
@@ -97,6 +97,9 @@ public:
         // Set parameters.
         session->LoadParameter("NekLinSysMaxIterations", m_maxIter, 5000);
         session->LoadParameter("IterativeSolverTolerance", m_tol, 1.0E-09);
+        m_flexible = session->DefinesParameter("FlexibleConjugateGradient")
+                         ? session->GetParameter("FlexibleConjugateGradient")
+                         : false;
 
         // Fill mask.
         auto maskptr =
@@ -133,6 +136,7 @@ protected:
     std::unique_ptr<AssmbScatrZeroDirOpImpl<ExecSpace, TData>>
         m_assmbScatrZeroDirOp;
     bool m_root;
+    bool m_flexible;
 
     std::shared_ptr<RobBndCondOp<TData>> m_robBndCondOp;
 
@@ -179,7 +183,7 @@ protected:
         // Convergence parameters.
         unsigned int totalIterations = 0;
         TData rhsMagnitude, mu;
-        TData alpha = 1.0, beta, rho = 1.0, rho_new;
+        TData alpha = 1.0, beta, rho = 1.0, rho_new, rho_star = 0.0;
         TData eps;
 
         // Reset the fields to zero.
@@ -249,6 +253,13 @@ protected:
                 // <r_{k+1}, r_{k+1}>
                 ddot<ExecSpace>(m_mask, m_r_A, m_r_A, exchange + 0);
 
+                if (m_flexible)
+                {
+                    // <r_{k+1}, w_{k}>
+                    ddot<ExecSpace>(m_mask, m_r_A, m_w_A, exchange + 3);
+                }
+
+                // NOTE: preconditioner need updating for flexible ConjGrad.
                 // Apply preconditioner - output is assumeed holding global dof
                 this->m_precon->Apply(m_r_A, m_w_A);
             }
@@ -275,6 +286,10 @@ protected:
             eps     = exchangeHost[0];
             rho_new = exchangeHost[1];
             mu      = exchangeHost[2];
+            if (m_flexible)
+            {
+                rho_star = exchangeHost[3];
+            }
 
             ++totalIterations;
 
@@ -291,7 +306,7 @@ protected:
             }
 
             // Compute search direction and solution coefficients.
-            beta  = (totalIterations > 1) ? rho_new / rho : 0.0;
+            beta  = (totalIterations > 1) ? (rho_new - rho_star) / rho : 0.0;
             alpha = rho_new / (mu - rho_new * beta / alpha);
             rho   = rho_new;
         }
