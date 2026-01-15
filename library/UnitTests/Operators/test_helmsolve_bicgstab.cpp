@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_helmsolve_conjgrad.cpp
+// File: test_helmsolve_bicgstab.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestHelmSolveConjGrad
+#define BOOST_TEST_MODULE TestHelmSolveBICGSTAB
 
 #include "init_helmsolve_fields.hpp"
 
@@ -45,14 +45,14 @@
     {                                                                          \
         Configure();                                                           \
         SetTestCase();                                                         \
-        RunTestCase("ConjGrad");                                               \
+        RunTestCase("BICGSTAB");                                               \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
             BOOST_TEST(Compare(tol));                                          \
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestHelmSolveConjGrad)
+BOOST_AUTO_TEST_SUITE(TestHelmSolveBICGSTAB)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_HELMSOLVE(helmsolve_seg, Helmholtz1D_Seg, 1.0E-12)

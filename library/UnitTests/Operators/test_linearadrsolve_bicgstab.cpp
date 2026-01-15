@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_helmsolve_conjgrad.cpp
+// File: test_linearadrsolve_bicgstab.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,42 +32,42 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestHelmSolveConjGrad
+#define BOOST_TEST_MODULE TestLinearADRSolveBICGSTAB
 
-#include "init_helmsolve_fields.hpp"
+#include "init_linearadrsolve_fields.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
 #include <memory>
 
-#define TEST_HELMSOLVE(test_name, test, tol)                                   \
+#define TEST_LINEARADRSOLVE(test_name, test, tol)                              \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
         Configure();                                                           \
         SetTestCase();                                                         \
-        RunTestCase("ConjGrad");                                               \
+        RunTestCase("BICGSTAB");                                               \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
             BOOST_TEST(Compare(tol));                                          \
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestHelmSolveConjGrad)
+BOOST_AUTO_TEST_SUITE(TestLinearADRSolveBICGSTAB)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
-TEST_HELMSOLVE(helmsolve_seg, Helmholtz1D_Seg, 1.0E-12)
+TEST_LINEARADRSOLVE(linearadrsolve_seg, Helmholtz1D_Seg, 1.0E-12)
 
-TEST_HELMSOLVE(helmsolve_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-10)
+TEST_LINEARADRSOLVE(linearadrsolve_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-10)
 
-TEST_HELMSOLVE(helmsolve_all_bcs, Helmholtz2D_AllBCs, 1.0E-10)
+TEST_LINEARADRSOLVE(linearadrsolve_all_bcs, Helmholtz2D_AllBCs, 1.0E-10)
 
-TEST_HELMSOLVE(helmsolve_hex, Helmholtz3D_Hex, 1.0E-10)
+TEST_LINEARADRSOLVE(linearadrsolve_hex, Helmholtz3D_Hex, 1.0E-10)
 
-TEST_HELMSOLVE(helmsolve_prism, Helmholtz3D_Prism, 1.0E-10)
+TEST_LINEARADRSOLVE(linearadrsolve_prism, Helmholtz3D_Prism, 1.0E-10)
 
-TEST_HELMSOLVE(helmsolve_pyr, Helmholtz3D_Pyr, 1.0E-10)
+TEST_LINEARADRSOLVE(linearadrsolve_pyr, Helmholtz3D_Pyr, 3.0E-10)
 
-TEST_HELMSOLVE(helmsolve_tet, Helmholtz3D_Tet, 1.0E-10)
+TEST_LINEARADRSOLVE(linearadrsolve_tet, Helmholtz3D_Tet, 1.0E-10)
 #endif
 
 BOOST_AUTO_TEST_SUITE_END()
