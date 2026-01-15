@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: BICGSTABOpImpl.hpp
+// File: RichardsonOpImpl.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -35,7 +35,9 @@
 #pragma once
 
 #include "Operators/AssmbScatr/AssmbScatrOpImpl.hpp"
-#include "Operators/GlobalLinSysOps/LinearSolvers/BICGSTAB/BICGSTABOp.hpp"
+#include "Operators/GlobalLinSysOps/LinearSolvers/Richardson/RichardsonOp.hpp"
+
+#include "Operators/PreconOps/DiagPrecon/DiagPreconOp.hpp"
 
 #include <iomanip>
 
@@ -45,36 +47,20 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename TData>
-class BICGSTABOpImpl : public BICGSTABOp<TData>
+class RichardsonOpImpl : public RichardsonOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    BICGSTABOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
-                   const std::vector<std::string> &components)
-        : BICGSTABOp<TData>(expansionList, components),
-          m_p_A(Field<TData, FieldState::Coeff>(
-              "BICGSTABOp p_A",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
-              components, 1)),
-          m_v_A(Field<TData, FieldState::Coeff>(
-              "BICGSTABOp v_A",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
-              components, 1)),
+    RichardsonOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
+                     const std::vector<std::string> &components)
+        : RichardsonOp<TData>(expansionList, components),
           m_w_A(Field<TData, FieldState::Coeff>(
-              "BICGSTABOp h_A",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
-              components, 1)),
-          m_z_A(Field<TData, FieldState::Coeff>(
-              "BICGSTABOp z_A",
+              "RichardsonOp w_A",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
           m_r_A(Field<TData, FieldState::Coeff>(
-              "BICGSTABOp r_A",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
-              components, 1)),
-          m_rtilde_A(Field<TData, FieldState::Coeff>(
-              "BICGSTABOp rtilde_A",
+              "RichardsonOp r_A",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1))
     {
@@ -93,6 +79,7 @@ public:
         m_root    = m_rowComm->GetRank() == 0;
 
         // Set parameters.
+        session->LoadParameter("RichardsonRelaxation", m_scale, 0.25);
         session->LoadParameter("NekLinSysMaxIterations", m_maxIter, 5000);
         session->LoadParameter("IterativeSolverTolerance", m_tol, 1.0E-09);
     }
@@ -105,8 +92,8 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
     {
-        return std::make_unique<BICGSTABOpImpl<ExecSpace, TData>>(expansionList,
-                                                                  components);
+        return std::make_unique<RichardsonOpImpl<ExecSpace, TData>>(
+            expansionList, components);
     }
 
 protected:
@@ -120,14 +107,10 @@ protected:
 
     std::shared_ptr<RobBndCondOp<TData>> m_robBndCondOp;
 
-    Field<TData, FieldState::Coeff> m_p_A;
-    Field<TData, FieldState::Coeff> m_v_A;
     Field<TData, FieldState::Coeff> m_w_A;
-    Field<TData, FieldState::Coeff> m_z_A;
-    Field<TData, FieldState::Coeff> m_t_A;
     Field<TData, FieldState::Coeff> m_r_A;
-    Field<TData, FieldState::Coeff> m_rtilde_A;
 
+    TData m_scale          = 0.0;
     TData m_tol            = 0.0;
     unsigned int m_maxIter = 0;
 
@@ -136,8 +119,7 @@ protected:
     {
         // Convergence parameters.
         unsigned int totalIterations = 0;
-        TData rhsMagnitude, alpha, beta = 0.0, rho_new, rho, eps;
-        TData omega = 0.0, omega0, omega1;
+        TData rhsMagnitude, eps;
 
         // Reset the fields to zero.
         out.template Initialize<MemSpace>(0);
@@ -153,7 +135,6 @@ protected:
         // Copy RHS into initial residual and assemble with Zero Dirichlet BCs.
         m_r_A.template Copy<MemSpace>(in);
         m_assmbScatrZeroDirOp->Apply(m_r_A);
-        m_rtilde_A.template Copy<MemSpace>(m_r_A);
 
         eps = m_math.ddot(in, m_r_A);
         m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
@@ -164,10 +145,10 @@ protected:
             return;
         }
 
+        // Apply preconditioner - output is assembled
+        this->m_precon->Apply(m_r_A, m_w_A);
+
         // Iteration >= 1
-        rho_new = m_math.ddot(m_rtilde_A, m_r_A);
-        m_rowComm->AllReduce(rho_new, Nektar::LibUtilities::ReduceSum);
-        m_p_A.template Copy<MemSpace>(m_r_A);
         while (true)
         {
             if (totalIterations > m_maxIter)
@@ -179,65 +160,27 @@ protected:
                 return;
             }
 
-            if (totalIterations > 0)
-            {
-                daxpy<ExecSpace>(-omega, m_v_A, m_p_A, m_p_A);
-                daxpy<ExecSpace>(beta, m_p_A, m_r_A, m_p_A);
-            }
+            // Update solution.
+            daxpy<ExecSpace>(m_scale, m_w_A, out, out);
 
-            // Apply preconditioner.
-            this->m_precon->Apply(m_p_A, m_w_A);
+            // This is A*x
+            this->m_lhs->Apply(out, m_r_A);
+            m_robBndCondOp->Apply(out, m_r_A);
 
-            // Perform the method-specific matrix-vector multiply operation.
-            this->m_lhs->Apply(m_w_A, m_v_A);
-            m_robBndCondOp->Apply(m_w_A, m_v_A);
-            m_assmbScatrZeroDirOp->Apply(m_v_A);
+            // This is r = b-A*x
+            sub<ExecSpace>(in, m_r_A, m_r_A);
 
-            // <s_{k+1}, r_{k+1}>
-            alpha = m_math.ddot(m_v_A, m_rtilde_A);
-            m_rowComm->AllReduce(alpha, LibUtilities::ReduceSum);
-            alpha = rho_new / alpha;
+            // This is D^-1 * r
+            m_assmbScatrZeroDirOp->Apply(m_r_A);
+            this->m_precon->Apply(m_r_A, m_w_A);
 
-            daxpy<ExecSpace>(alpha, m_w_A, out, out);
-            daxpy<ExecSpace>(-alpha, m_v_A, m_r_A, m_r_A);
-
-            // Test if norm is within tolerance.
+            // <r_{k+1}, r_{k+1}>
             eps = m_math.ddot(m_r_A, m_r_A);
             m_rowComm->AllReduce(eps, LibUtilities::ReduceSum);
-            if (eps < m_tol * m_tol * rhsMagnitude)
-            {
-                if (m_root)
-                {
-                    std::cout << "iterations: " << totalIterations
-                              << " eps: " << std::sqrt(eps)
-                              << " rhs_mag: " << rhsMagnitude << std::endl;
-                }
-                break;
-            }
-
-            // Apply preconditioner.
-            this->m_precon->Apply(m_r_A, m_z_A);
-
-            // Perform the method-specific matrix-vector multiply operation.
-            this->m_lhs->Apply(m_z_A, m_w_A);
-            m_robBndCondOp->Apply(m_z_A, m_w_A);
-            m_assmbScatrZeroDirOp->Apply(m_w_A);
-
-            omega0 = m_math.ddot(m_r_A, m_w_A);
-            m_rowComm->AllReduce(omega0, LibUtilities::ReduceSum);
-            omega1 = m_math.ddot(m_w_A, m_w_A);
-            m_rowComm->AllReduce(omega1, LibUtilities::ReduceSum);
-
-            omega = omega0 / omega1;
-
-            daxpy<ExecSpace>(omega, m_z_A, out, out);
-            daxpy<ExecSpace>(-omega, m_w_A, m_r_A, m_r_A);
 
             ++totalIterations;
 
             // Test if norm is within tolerance.
-            eps = m_math.ddot(m_r_A, m_r_A);
-            m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
             if (eps < m_tol * m_tol * rhsMagnitude)
             {
                 if (m_root)
@@ -248,12 +191,6 @@ protected:
                 }
                 break;
             }
-
-            // Update coefficients.
-            rho     = rho_new;
-            rho_new = m_math.ddot(m_rtilde_A, m_r_A);
-            m_rowComm->AllReduce(rho_new, Nektar::LibUtilities::ReduceSum);
-            beta = rho_new / rho * (alpha / omega);
         }
     }
 };

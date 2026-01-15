@@ -83,6 +83,9 @@ public:
                                  m_NekLinSysRightPrecon, true);
         session->MatchSolverInfo("GMRESCentralDifference", "True",
                                  m_GMRESCentralDifference, false);
+        m_flexible = session->DefinesParameter("FlexibleGMRES")
+                         ? session->GetParameter("FlexibleGMRES")
+                         : false;
 
         // Set operators.
         m_math         = Math(ExecSpace::name);
@@ -103,15 +106,6 @@ public:
         {
             m_hes[nd]   = std::vector<TData>(m_LinSysMaxStorage + 1, 0.0);
             m_upper[nd] = std::vector<TData>(m_LinSysMaxStorage + 1, 0.0);
-        }
-
-        // Restarted Gmres(m) process.
-        if (m_NekLinSysRightPrecon)
-        {
-            m_V1 = Field<TData, FieldState::Coeff>(
-                GetBlockAttributes<TData, FieldState::Coeff>(
-                    this->m_expansionList),
-                this->m_components, 1);
         }
     }
 
@@ -135,6 +129,7 @@ protected:
         m_assmbScatrZeroDirOp;
     std::shared_ptr<RobBndCondOp<TData>> m_robBndCondOp;
     bool m_root;
+    bool m_flexible;
 
     Math m_math;
 
@@ -142,8 +137,8 @@ protected:
     Field<TData, FieldState::Coeff> m_wk;
     Field<TData, FieldState::Coeff> m_r0;
     Field<TData, FieldState::Coeff> m_solution;
-    Field<TData, FieldState::Coeff> m_V1;
     std::vector<Field<TData, FieldState::Coeff>> m_Vtotal;
+    std::vector<Field<TData, FieldState::Coeff>> m_Ztotal;
     std::vector<std::vector<TData>> m_hes;
     std::vector<std::vector<TData>> m_upper;
 
@@ -256,9 +251,6 @@ protected:
         std::vector<unsigned int> id_start(m_LinSysMaxStorage, 0);
         std::vector<unsigned int> id_end(m_LinSysMaxStorage, 0);
 
-        // Set the fields to zero.
-        out.template Initialize<MemSpace>(0);
-
         if (restarted)
         {
             // This is A*x
@@ -270,6 +262,9 @@ protected:
         }
         else
         {
+            // Set the fields to zero.
+            out.template Initialize<MemSpace>(0);
+
             // If not restarted, x0 should be zero
             m_r0.template Copy<MemSpace>(in);
         }
@@ -277,14 +272,13 @@ protected:
         // Apply preconditioner.
         if (m_NekLinSysLeftPrecon)
         {
-            m_assmbScatrZeroDirOp->Apply(m_r0, m_r0);
+            m_assmbScatrZeroDirOp->Apply(m_r0);
             this->m_precon->Apply(m_r0, m_r0);
         }
 
         // Norm of (r0)
-        TData eps;
         m_assmbScatrZeroDirOp->Apply(m_r0, m_wk);
-        eps = m_math.ddot(m_r0, m_wk);
+        TData eps = m_math.ddot(m_r0, m_wk);
         m_rowComm->AllReduce(eps, LibUtilities::ReduceSum);
 
         if (!restarted)
@@ -323,52 +317,74 @@ protected:
             }
         }
 
-        // Scalar multiplication.
+        // Allocate memory, if necessary.
         if (m_Vtotal.size() == 0)
         {
             m_Vtotal.push_back(Field<TData, FieldState::Coeff>(
                 GetBlockAttributes<TData, FieldState::Coeff>(
                     this->m_expansionList),
                 this->m_components, 1));
+            m_Ztotal.push_back(Field<TData, FieldState::Coeff>(
+                GetBlockAttributes<TData, FieldState::Coeff>(
+                    this->m_expansionList),
+                this->m_components, 1));
         }
+
+        // Initial search vector.
         mul<ExecSpace>((TData)1.0 / eta[0], m_r0, m_Vtotal[0]);
 
         // Restarted Gmres(m) process.
-        if (m_NekLinSysRightPrecon)
-        {
-            m_V1.template Initialize<MemSpace>(0.0);
-        }
-
         bool converged    = false;
         unsigned int nswp = 0;
         for (unsigned int nd = 0; nd < m_LinSysMaxStorage; ++nd)
         {
-            if (m_Vtotal.size() == nd + 1)
-            {
-                m_Vtotal.push_back(Field<TData, FieldState::Coeff>(
-                    GetBlockAttributes<TData, FieldState::Coeff>(
-                        this->m_expansionList),
-                    this->m_components, 1));
-            }
-            m_Vtotal[nd + 1].template Initialize<MemSpace>(0);
-            std::fill_n(m_hes[nd].data(), m_LinSysMaxStorage + 1, 0.0);
-            auto &V1 = m_NekLinSysRightPrecon ? m_V1 : m_Vtotal[nd];
-            auto &V2 = m_Vtotal[nd + 1];
+            unsigned int znd = m_flexible ? nd : 0;
+            auto &Z1 = m_NekLinSysRightPrecon ? m_Ztotal[znd] : m_Vtotal[nd];
+            auto &V1 = m_Vtotal[nd];
             auto &h1 = m_hes[nd];
             auto &h2 = m_upper[nd];
 
             // Apply preconditioner.
             if (m_NekLinSysRightPrecon)
             {
-                m_assmbScatrZeroDirOp->Apply(m_Vtotal[nd], V1);
-                this->m_precon->Apply(V1, V1);
+                // NOTE: preconditioner need updating for flexible GMRES.
+                m_assmbScatrZeroDirOp->Apply(V1, Z1);
+                this->m_precon->Apply(Z1, Z1);
             }
 
             auto idtem    = id[nd];
             auto starttem = id_start[idtem];
             auto endtem   = id_end[idtem];
 
-            DoArnoldi(starttem, endtem, m_w, m_wk, V1, V2, h1);
+            // -- Begin Arnoldi --
+            // Apply lhs.
+            this->m_lhs->Apply(Z1, m_w);
+            m_robBndCondOp->Apply(Z1, m_w);
+
+            // Apply preconditioner.
+            if (m_NekLinSysLeftPrecon)
+            {
+                m_assmbScatrZeroDirOp->Apply(m_w);
+                this->m_precon->Apply(m_w, m_w);
+            }
+
+            mul<ExecSpace>(std::sqrt(m_prec_factor), m_w, m_w);
+
+            // Modified Gram-Schmidt.
+            for (unsigned int i = starttem; i < endtem; ++i)
+            {
+                m_assmbScatrZeroDirOp->Apply(m_Vtotal[i], m_wk);
+                h1[i] = m_math.ddot(m_w, m_wk);
+                m_rowComm->AllReduce(h1[i], LibUtilities::ReduceSum);
+                daxpy<ExecSpace>(-h1[i], m_Vtotal[i], m_w, m_w);
+            }
+
+            // Calculate the L2 norm and normalize.
+            m_assmbScatrZeroDirOp->Apply(m_w, m_wk);
+            h1[endtem] = m_math.ddot(m_w, m_wk);
+            m_rowComm->AllReduce(h1[endtem], LibUtilities::ReduceSum);
+            h1[endtem] = std::sqrt(h1[endtem]);
+            // -- End Arnoldi --
 
             if (starttem > 0)
             {
@@ -394,66 +410,60 @@ protected:
                     break;
                 }
             }
+
+            // Allocate new storage, if necessary.
+            if (m_Vtotal.size() == nd + 1)
+            {
+                m_Vtotal.push_back(Field<TData, FieldState::Coeff>(
+                    GetBlockAttributes<TData, FieldState::Coeff>(
+                        this->m_expansionList),
+                    this->m_components, 1));
+                if (m_flexible)
+                {
+                    m_Ztotal.push_back(Field<TData, FieldState::Coeff>(
+                        GetBlockAttributes<TData, FieldState::Coeff>(
+                            this->m_expansionList),
+                        this->m_components, 1));
+                }
+            }
+
+            // Compute new search vector.
+            mul<ExecSpace>((TData)1.0 / h1[endtem], m_w, m_Vtotal[nd + 1]);
         }
 
         // Do backward substitution.
         DoBackward(nswp, m_upper, eta, y_total);
 
-        // Calculate output y_total*V_total.
-        m_solution.template Initialize<MemSpace>(0);
-        for (unsigned int i = 0; i < nswp; ++i)
+        if (m_flexible)
         {
-            daxpy<ExecSpace>(y_total[i], m_Vtotal[i], m_solution, m_solution);
+            // Calculate output y_total*Z_total.
+            for (unsigned int i = 0; i < nswp; ++i)
+            {
+                daxpy<ExecSpace>(y_total[i], m_Ztotal[i], out, out);
+            }
         }
-
-        // Apply preconditioner.
-        if (m_NekLinSysRightPrecon)
+        else
         {
-            m_assmbScatrZeroDirOp->Apply(m_solution, m_solution);
-            this->m_precon->Apply(m_solution, m_solution);
-        }
+            // Calculate output y_total*V_total.
+            mul<ExecSpace>(y_total[0], m_Vtotal[0], m_solution);
+            for (unsigned int i = 1; i < nswp; ++i)
+            {
+                daxpy<ExecSpace>(y_total[i], m_Vtotal[i], m_solution,
+                                 m_solution);
+            }
 
-        // Update output.
-        add<ExecSpace>(m_solution, out, out);
+            // Apply preconditioner.
+            if (m_NekLinSysRightPrecon)
+            {
+                m_assmbScatrZeroDirOp->Apply(m_solution);
+                this->m_precon->Apply(m_solution, m_solution);
+            }
+
+            // Update output.
+            add<ExecSpace>(m_solution, out, out);
+        }
 
         return {eps, converged};
-    }
-
-    // Arnoldi Subroutine
-    void DoArnoldi(const unsigned int starttem, const unsigned int endtem,
-                   Field<TData, FieldState::Coeff> &w,
-                   Field<TData, FieldState::Coeff> &wk,
-                   Field<TData, FieldState::Coeff> &V1,
-                   Field<TData, FieldState::Coeff> &V2, std::vector<TData> &h)
-    {
-        // Apply lhs.
-        this->m_lhs->Apply(V1, w);
-        m_robBndCondOp->Apply(V1, w);
-
-        // Apply preconditioner.
-        if (m_NekLinSysLeftPrecon)
-        {
-            m_assmbScatrZeroDirOp->Apply(w, w);
-            this->m_precon->Apply(w, w);
-        }
-
-        mul<ExecSpace>(std::sqrt(m_prec_factor), w, w);
-
-        // Modified Gram-Schmidt.
-        for (unsigned int i = starttem; i < endtem; ++i)
-        {
-            m_assmbScatrZeroDirOp->Apply(m_Vtotal[i], wk);
-            h[i] = m_math.ddot(w, wk);
-            m_rowComm->AllReduce(h[i], LibUtilities::ReduceSum);
-            daxpy<ExecSpace>(-h[i], m_Vtotal[i], w, w);
-        }
-
-        // Calculate the L2 norm and normalize.
-        m_assmbScatrZeroDirOp->Apply(w, wk);
-        h[endtem] = m_math.ddot(w, wk);
-        m_rowComm->AllReduce(h[endtem], LibUtilities::ReduceSum);
-        h[endtem] = std::sqrt(h[endtem]);
-        mul<ExecSpace>((TData)1.0 / h[endtem], w, V2);
     }
 
     // QR factorization through Givens rotation -> Put into a helper class
@@ -462,10 +472,11 @@ protected:
                           std::vector<TData> &s, std::vector<TData> &h,
                           std::vector<TData> &eta)
     {
-        TData temp_dbl;
+        TData dbl;
         TData dd;
         TData hh;
         unsigned int idtem = endtem - 1;
+
         // The starttem and endtem are beginning and ending order of Givens
         // rotation They usually equal to the beginning position and ending
         // position of Hessenburg matrix But sometimes starttem will change,
@@ -473,9 +484,9 @@ protected:
         // rotation See Yu Pan's User Guide
         for (unsigned int i = starttem; i < idtem; ++i)
         {
-            temp_dbl = c[i] * h[i] - s[i] * h[i + 1];
+            dbl      = c[i] * h[i] - s[i] * h[i + 1];
             h[i + 1] = s[i] * h[i] + c[i] * h[i + 1];
-            h[i]     = temp_dbl;
+            h[i]     = dbl;
         }
         dd = h[idtem];
         hh = h[endtem];
@@ -486,23 +497,23 @@ protected:
         }
         else if (std::abs(hh) > std::abs(dd))
         {
-            temp_dbl = -dd / hh;
-            s[idtem] = 1.0 / std::sqrt(1.0 + temp_dbl * temp_dbl);
-            c[idtem] = temp_dbl * s[idtem];
+            dbl      = -dd / hh;
+            s[idtem] = 1.0 / std::sqrt(1.0 + dbl * dbl);
+            c[idtem] = dbl * s[idtem];
         }
         else
         {
-            temp_dbl = -hh / dd;
-            c[idtem] = 1.0 / std::sqrt(1.0 + temp_dbl * temp_dbl);
-            s[idtem] = temp_dbl * c[idtem];
+            dbl      = -hh / dd;
+            c[idtem] = 1.0 / std::sqrt(1.0 + dbl * dbl);
+            s[idtem] = dbl * c[idtem];
         }
 
         h[idtem]  = c[idtem] * h[idtem] - s[idtem] * h[endtem];
         h[endtem] = 0.0;
 
-        temp_dbl    = c[idtem] * eta[idtem] - s[idtem] * eta[endtem];
+        dbl         = c[idtem] * eta[idtem] - s[idtem] * eta[endtem];
         eta[endtem] = s[idtem] * eta[idtem] + c[idtem] * eta[endtem];
-        eta[idtem]  = temp_dbl;
+        eta[idtem]  = dbl;
     }
 
     void DoBackward(const unsigned int n,
