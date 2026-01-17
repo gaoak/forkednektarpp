@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_helmsolve_tfqmr.cpp
+// File: test_helmsolve_conjres.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestHelmSolveTFQMR
+#define BOOST_TEST_MODULE TestHelmSolveConjRes
 
 #include "init_helmsolve_fields.hpp"
 
@@ -45,14 +45,14 @@
     {                                                                          \
         Configure();                                                           \
         SetTestCase();                                                         \
-        RunTestCase("TFQMR");                                                  \
+        RunTestCase("ConjRes");                                                \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
             BOOST_TEST(Compare(tol));                                          \
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestHelmSolveTFQMR)
+BOOST_AUTO_TEST_SUITE(TestHelmSolveConjRes)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_HELMSOLVE(helmsolve_seg, Helmholtz1D_Seg, 1.0E-12)
@@ -61,11 +61,11 @@ TEST_HELMSOLVE(helmsolve_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-10)
 
 TEST_HELMSOLVE(helmsolve_all_bcs, Helmholtz2D_AllBCs, 1.0E-10)
 
-TEST_HELMSOLVE(helmsolve_hex, Helmholtz3D_Hex, 2.0E-10)
+TEST_HELMSOLVE(helmsolve_hex, Helmholtz3D_Hex, 1.0E-10)
 
 TEST_HELMSOLVE(helmsolve_prism, Helmholtz3D_Prism, 1.0E-10)
 
-TEST_HELMSOLVE(helmsolve_pyr, Helmholtz3D_Pyr, 2.0E-09)
+TEST_HELMSOLVE(helmsolve_pyr, Helmholtz3D_Pyr, 1.0E-10)
 
 TEST_HELMSOLVE(helmsolve_tet, Helmholtz3D_Tet, 1.0E-10)
 #endif
