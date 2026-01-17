@@ -55,23 +55,23 @@ public:
     ConjGradOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
                    const std::vector<std::string> &components)
         : ConjGradOp<TData>(expansionList, components),
-          m_w_A(Field<TData, FieldState::Coeff>(
-              "ConjGrad w_A",
+          m_w(Field<TData, FieldState::Coeff>(
+              "ConjGrad w",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
-          m_s_A(Field<TData, FieldState::Coeff>(
-              "ConjGrad s_A",
+          m_s(Field<TData, FieldState::Coeff>(
+              "ConjGrad s",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
-          m_r_A(Field<TData, FieldState::Coeff>(
-              "ConjGrad r_A",
+          m_r(Field<TData, FieldState::Coeff>(
+              "ConjGrad r",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
-          m_q_A(Field<TData, FieldState::Coeff>(
+          m_q(Field<TData, FieldState::Coeff>(
               "ConjGrad wk",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
-          m_p_A(Field<TData, FieldState::Coeff>(
+          m_p(Field<TData, FieldState::Coeff>(
               "ConjGrad wk",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
@@ -140,11 +140,11 @@ protected:
 
     std::shared_ptr<RobBndCondOp<TData>> m_robBndCondOp;
 
-    Field<TData, FieldState::Coeff> m_w_A;
-    Field<TData, FieldState::Coeff> m_s_A;
-    Field<TData, FieldState::Coeff> m_r_A;
-    Field<TData, FieldState::Coeff> m_q_A;
-    Field<TData, FieldState::Coeff> m_p_A;
+    Field<TData, FieldState::Coeff> m_w;
+    Field<TData, FieldState::Coeff> m_s;
+    Field<TData, FieldState::Coeff> m_r;
+    Field<TData, FieldState::Coeff> m_q;
+    Field<TData, FieldState::Coeff> m_p;
     Field<std::uint8_t, FieldState::Coeff> m_mask;
 
     MemoryRegion<TData> m_vExchange;
@@ -188,22 +188,22 @@ protected:
 
         // Reset the fields to zero.
         out.template Initialize<MemSpace>(0);
-        m_p_A.template Initialize<MemSpace>(0);
-        m_q_A.template Initialize<MemSpace>(0);
+        m_p.template Initialize<MemSpace>(0);
+        m_q.template Initialize<MemSpace>(0);
 
         // Reset device memory.
         auto exchange = m_vExchange.template GetPtr<MemSpace, WriteOnly>();
 
         // Calculate inital rhs magnitude.
-        m_r_A.template Copy<MemSpace>(in);
-        m_assmbScatrOp->Apply(m_r_A);
-        ddot<ExecSpace>(in, m_r_A, exchange + 1);
+        m_r.template Copy<MemSpace>(in);
+        m_assmbScatrOp->Apply(m_r);
+        ddot<ExecSpace>(in, m_r, exchange + 1);
 
         // Iteration 0
         // Copy RHS into initial residual and assemble with Zero Dirichlet BCs.
-        m_r_A.template Copy<MemSpace>(in);
-        m_assmbScatrZeroDirOp->Apply(m_r_A);
-        ddot<ExecSpace>(in, m_r_A, exchange + 0);
+        m_r.template Copy<MemSpace>(in);
+        m_assmbScatrZeroDirOp->Apply(m_r);
+        ddot<ExecSpace>(in, m_r, exchange + 0);
 
         // Communication.
         m_rowComm->AllReduce<MemSpace>(m_vExchange,
@@ -223,7 +223,7 @@ protected:
         }
 
         // Apply preconditioner - output is assembled
-        this->m_precon->Apply(m_r_A, m_w_A);
+        this->m_precon->Apply(m_r, m_w);
 
         // Iteration >= 1
         while (true)
@@ -244,35 +244,35 @@ protected:
             {
                 // Assemble matrix output from previous matrix-vector multiply
                 // could be moved around loop if optimal elsewhere.
-                m_assmbScatrZeroDirOp->Apply(m_s_A);
+                m_assmbScatrZeroDirOp->Apply(m_s);
 
                 // Compute new search direction.
-                UpdateConjGradSearchDirection<ExecSpace>(
-                    alpha, beta, m_w_A, m_s_A, m_p_A, m_q_A, m_r_A, out);
+                UpdateConjGradSearchDirection<ExecSpace>(alpha, beta, m_w, m_s,
+                                                         m_p, m_q, m_r, out);
 
                 // <r_{k+1}, r_{k+1}>
-                ddot<ExecSpace>(m_mask, m_r_A, m_r_A, exchange + 0);
+                ddot<ExecSpace>(m_mask, m_r, m_r, exchange + 0);
 
                 if (m_flexible)
                 {
                     // <r_{k+1}, w_{k}>
-                    ddot<ExecSpace>(m_mask, m_r_A, m_w_A, exchange + 3);
+                    ddot<ExecSpace>(m_mask, m_r, m_w, exchange + 3);
                 }
 
                 // NOTE: preconditioner need updating for flexible ConjGrad.
                 // Apply preconditioner - output is assumeed holding global dof
-                this->m_precon->Apply(m_r_A, m_w_A);
+                this->m_precon->Apply(m_r, m_w);
             }
 
             // <r_{k+1}, w_{k+1}>
-            ddot<ExecSpace>(m_mask, m_r_A, m_w_A, exchange + 1);
+            ddot<ExecSpace>(m_mask, m_r, m_w, exchange + 1);
 
             // Perform the method-specific matrix-vector multiply operation.
-            this->m_lhs->Apply(m_w_A, m_s_A);
-            m_robBndCondOp->Apply(m_w_A, m_s_A);
+            this->m_lhs->Apply(m_w, m_s);
+            m_robBndCondOp->Apply(m_w, m_s);
 
             // <w_{k+1}, s_{k+1}>
-            ddot<ExecSpace>(m_w_A, m_s_A, exchange + 2);
+            ddot<ExecSpace>(m_w, m_s, exchange + 2);
 
             // Communication.
             m_rowComm->AllReduce<MemSpace>(m_vExchange,

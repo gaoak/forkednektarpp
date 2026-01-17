@@ -55,12 +55,12 @@ public:
     RichardsonOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
                      const std::vector<std::string> &components)
         : RichardsonOp<TData>(expansionList, components),
-          m_w_A(Field<TData, FieldState::Coeff>(
-              "RichardsonOp w_A",
+          m_w(Field<TData, FieldState::Coeff>(
+              "RichardsonOp w",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
-          m_r_A(Field<TData, FieldState::Coeff>(
-              "RichardsonOp r_A",
+          m_r(Field<TData, FieldState::Coeff>(
+              "RichardsonOp r",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1))
     {
@@ -107,8 +107,8 @@ protected:
 
     std::shared_ptr<RobBndCondOp<TData>> m_robBndCondOp;
 
-    Field<TData, FieldState::Coeff> m_w_A;
-    Field<TData, FieldState::Coeff> m_r_A;
+    Field<TData, FieldState::Coeff> m_w;
+    Field<TData, FieldState::Coeff> m_r;
 
     TData m_scale          = 0.0;
     TData m_tol            = 0.0;
@@ -125,18 +125,18 @@ protected:
         out.template Initialize<MemSpace>(0);
 
         // Calculate inital rhs magnitude.
-        m_r_A.template Copy<MemSpace>(in);
-        m_assmbScatrOp->Apply(m_r_A);
-        rhsMagnitude = m_math.ddot(in, m_r_A);
+        m_r.template Copy<MemSpace>(in);
+        m_assmbScatrOp->Apply(m_r);
+        rhsMagnitude = m_math.ddot(in, m_r);
         m_rowComm->AllReduce(rhsMagnitude, Nektar::LibUtilities::ReduceSum);
         rhsMagnitude = (rhsMagnitude > 1.0e-6) ? rhsMagnitude : 1.0;
 
         // Iteration 0
         // Copy RHS into initial residual and assemble with Zero Dirichlet BCs.
-        m_r_A.template Copy<MemSpace>(in);
-        m_assmbScatrZeroDirOp->Apply(m_r_A);
+        m_r.template Copy<MemSpace>(in);
+        m_assmbScatrZeroDirOp->Apply(m_r);
 
-        eps = m_math.ddot(in, m_r_A);
+        eps = m_math.ddot(in, m_r);
         m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
 
         // If the input residual is less than tolerance then skip solve.
@@ -146,7 +146,7 @@ protected:
         }
 
         // Apply preconditioner - output is assembled
-        this->m_precon->Apply(m_r_A, m_w_A);
+        this->m_precon->Apply(m_r, m_w);
 
         // Iteration >= 1
         while (true)
@@ -161,21 +161,21 @@ protected:
             }
 
             // Update solution.
-            daxpy<ExecSpace>(m_scale, m_w_A, out, out);
+            daxpy<ExecSpace>(m_scale, m_w, out, out);
 
             // This is A*x
-            this->m_lhs->Apply(out, m_r_A);
-            m_robBndCondOp->Apply(out, m_r_A);
+            this->m_lhs->Apply(out, m_r);
+            m_robBndCondOp->Apply(out, m_r);
 
             // This is r = b-A*x
-            sub<ExecSpace>(in, m_r_A, m_r_A);
+            sub<ExecSpace>(in, m_r, m_r);
 
             // This is D^-1 * r
-            m_assmbScatrZeroDirOp->Apply(m_r_A);
-            this->m_precon->Apply(m_r_A, m_w_A);
+            m_assmbScatrZeroDirOp->Apply(m_r);
+            this->m_precon->Apply(m_r, m_w);
 
             // <r_{k+1}, r_{k+1}>
-            eps = m_math.ddot(m_r_A, m_r_A);
+            eps = m_math.ddot(m_r, m_r);
             m_rowComm->AllReduce(eps, LibUtilities::ReduceSum);
 
             ++totalIterations;
