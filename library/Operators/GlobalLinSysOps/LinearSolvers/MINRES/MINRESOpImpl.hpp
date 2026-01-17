@@ -53,28 +53,28 @@ public:
     MINRESOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
                  const std::vector<std::string> &components)
         : MINRESOp<TData>(expansionList, components),
-          m_q_A(Field<TData, FieldState::Coeff>(
-              "MINRESOp q_A",
+          m_q(Field<TData, FieldState::Coeff>(
+              "MINRESOp q",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
-          m_w_A(Field<TData, FieldState::Coeff>(
-              "MINRESOp w_A",
+          m_w(Field<TData, FieldState::Coeff>(
+              "MINRESOp w",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
-          m_p0_A(Field<TData, FieldState::Coeff>(
-              "MINRESOp p0_A",
+          m_p0(Field<TData, FieldState::Coeff>(
+              "MINRESOp p0",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
-          m_p1_A(Field<TData, FieldState::Coeff>(
-              "MINRESOp p1_A",
+          m_p1(Field<TData, FieldState::Coeff>(
+              "MINRESOp p1",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
-          m_v0_A(Field<TData, FieldState::Coeff>(
-              "MINRESOp r0_A",
+          m_v0(Field<TData, FieldState::Coeff>(
+              "MINRESOp r0",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
-          m_v1_A(Field<TData, FieldState::Coeff>(
-              "MINRESOp r1_A",
+          m_v1(Field<TData, FieldState::Coeff>(
+              "MINRESOp r1",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1))
     {
@@ -120,12 +120,12 @@ protected:
 
     std::shared_ptr<RobBndCondOp<TData>> m_robBndCondOp;
 
-    Field<TData, FieldState::Coeff> m_q_A;
-    Field<TData, FieldState::Coeff> m_w_A;
-    Field<TData, FieldState::Coeff> m_p0_A;
-    Field<TData, FieldState::Coeff> m_p1_A;
-    Field<TData, FieldState::Coeff> m_v0_A;
-    Field<TData, FieldState::Coeff> m_v1_A;
+    Field<TData, FieldState::Coeff> m_q;
+    Field<TData, FieldState::Coeff> m_w;
+    Field<TData, FieldState::Coeff> m_p0;
+    Field<TData, FieldState::Coeff> m_p1;
+    Field<TData, FieldState::Coeff> m_v0;
+    Field<TData, FieldState::Coeff> m_v1;
 
     TData m_tol            = 0.0;
     unsigned int m_maxIter = 0;
@@ -147,23 +147,23 @@ protected:
 
         // Reset the fields to zero.
         out.template Initialize<MemSpace>(0);
-        m_p1_A.template Initialize<MemSpace>(0);
+        m_p1.template Initialize<MemSpace>(0);
 
         // Calculate inital rhs magnitude.
-        m_v0_A.template Copy<MemSpace>(in);
-        m_assmbScatrOp->Apply(m_v0_A);
-        rhsMagnitude = m_math.ddot(in, m_v0_A);
+        m_v0.template Copy<MemSpace>(in);
+        m_assmbScatrOp->Apply(m_v0);
+        rhsMagnitude = m_math.ddot(in, m_v0);
         m_rowComm->AllReduce(rhsMagnitude, Nektar::LibUtilities::ReduceSum);
         rhsMagnitude = (rhsMagnitude > 1.0e-6) ? rhsMagnitude : 1.0;
 
         // Iteration 0
         // Copy RHS into initial vector.
-        m_v0_A.template Copy<MemSpace>(in);
+        m_v0.template Copy<MemSpace>(in);
 
         // Apply preconditioner
-        m_assmbScatrZeroDirOp->Apply(m_v0_A, m_w_A);
-        this->m_precon->Apply(m_w_A, m_w_A);
-        beta1 = m_math.ddot(m_v0_A, m_w_A);
+        m_assmbScatrZeroDirOp->Apply(m_v0, m_w);
+        this->m_precon->Apply(m_w, m_w);
+        beta1 = m_math.ddot(m_v0, m_w);
         m_rowComm->AllReduce(beta1, Nektar::LibUtilities::ReduceSum);
         beta1 = std::sqrt(beta1);
 
@@ -188,36 +188,36 @@ protected:
                 return;
             }
 
-            mul<ExecSpace>(1.0 / beta1, m_v0_A, m_v0_A);
-            mul<ExecSpace>(1.0 / beta1, m_w_A, m_w_A);
+            mul<ExecSpace>(1.0 / beta1, m_v0, m_v0);
+            mul<ExecSpace>(1.0 / beta1, m_w, m_w);
 
             // Perform the method-specific matrix-vector multiply operation.
-            this->m_lhs->Apply(m_w_A, m_q_A);
-            m_robBndCondOp->Apply(m_w_A, m_q_A);
+            this->m_lhs->Apply(m_w, m_q);
+            m_robBndCondOp->Apply(m_w, m_q);
 
             // <w_{k+1}, q_{k+1}>
-            alpha = m_math.ddot(m_w_A, m_q_A);
+            alpha = m_math.ddot(m_w, m_q);
             m_rowComm->AllReduce(alpha, LibUtilities::ReduceSum);
 
             // Update search vector.
             if (totalIterations > 0)
             {
-                mul<ExecSpace>(-beta1, m_v1_A, m_v1_A);
-                daxpy<ExecSpace>(-alpha, m_v0_A, m_v1_A, m_v1_A);
+                mul<ExecSpace>(-beta1, m_v1, m_v1);
+                daxpy<ExecSpace>(-alpha, m_v0, m_v1, m_v1);
             }
             else
             {
-                mul<ExecSpace>(-alpha, m_v0_A, m_v1_A);
+                mul<ExecSpace>(-alpha, m_v0, m_v1);
             }
-            add<ExecSpace>(m_v1_A, m_q_A, m_v1_A);
+            add<ExecSpace>(m_v1, m_q, m_v1);
 
             // Apply preconditioner.
-            m_assmbScatrZeroDirOp->Apply(m_v1_A, m_q_A);
-            this->m_precon->Apply(m_q_A, m_q_A);
+            m_assmbScatrZeroDirOp->Apply(m_v1, m_q);
+            this->m_precon->Apply(m_q, m_q);
 
             // Update coefficients.
             beta0 = beta1;
-            beta1 = m_math.ddot(m_v1_A, m_q_A);
+            beta1 = m_math.ddot(m_v1, m_q);
             m_rowComm->AllReduce(beta1, LibUtilities::ReduceSum);
             beta1 = std::sqrt(beta1);
 
@@ -234,22 +234,22 @@ protected:
             // Update solution.
             if (totalIterations == 0)
             {
-                // m_p1_A, m_p0_A = 0
-                mul<ExecSpace>(1.0 / alpha1, m_w_A, m_p0_A);
+                // m_p1, m_p0 = 0
+                mul<ExecSpace>(1.0 / alpha1, m_w, m_p0);
             }
             else if (totalIterations == 1)
             {
-                // m_p0_A = 0
-                mul<ExecSpace>(1.0 / alpha1, m_w_A, m_p0_A);
-                daxpy<ExecSpace>(-alpha2 / alpha1, m_p1_A, m_p0_A, m_p0_A);
+                // m_p0 = 0
+                mul<ExecSpace>(1.0 / alpha1, m_w, m_p0);
+                daxpy<ExecSpace>(-alpha2 / alpha1, m_p1, m_p0, m_p0);
             }
             else
             {
-                mul<ExecSpace>(-alpha3 / alpha1, m_p0_A, m_p0_A);
-                daxpy<ExecSpace>(-alpha2 / alpha1, m_p1_A, m_p0_A, m_p0_A);
-                daxpy<ExecSpace>(1.0 / alpha1, m_w_A, m_p0_A, m_p0_A);
+                mul<ExecSpace>(-alpha3 / alpha1, m_p0, m_p0);
+                daxpy<ExecSpace>(-alpha2 / alpha1, m_p1, m_p0, m_p0);
+                daxpy<ExecSpace>(1.0 / alpha1, m_w, m_p0, m_p0);
             }
-            daxpy<ExecSpace>(gamma1 * eta, m_p0_A, out, out);
+            daxpy<ExecSpace>(gamma1 * eta, m_p0, out, out);
 
             eta *= -sigma1;
 
@@ -268,9 +268,9 @@ protected:
             }
 
             // Swap storage for next iteration.
-            std::swap(m_w_A, m_q_A);
-            std::swap(m_v1_A, m_v0_A);
-            std::swap(m_p0_A, m_p1_A);
+            std::swap(m_w, m_q);
+            std::swap(m_v1, m_v0);
+            std::swap(m_p0, m_p1);
         }
     }
 };

@@ -53,28 +53,28 @@ public:
     BICGSTABOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
                    const std::vector<std::string> &components)
         : BICGSTABOp<TData>(expansionList, components),
-          m_p_A(Field<TData, FieldState::Coeff>(
-              "BICGSTABOp p_A",
+          m_p(Field<TData, FieldState::Coeff>(
+              "BICGSTABOp p",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
-          m_v_A(Field<TData, FieldState::Coeff>(
-              "BICGSTABOp v_A",
+          m_v(Field<TData, FieldState::Coeff>(
+              "BICGSTABOp v",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
-          m_w_A(Field<TData, FieldState::Coeff>(
-              "BICGSTABOp h_A",
+          m_w(Field<TData, FieldState::Coeff>(
+              "BICGSTABOp h",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
-          m_z_A(Field<TData, FieldState::Coeff>(
-              "BICGSTABOp z_A",
+          m_z(Field<TData, FieldState::Coeff>(
+              "BICGSTABOp z",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
-          m_r_A(Field<TData, FieldState::Coeff>(
-              "BICGSTABOp r_A",
+          m_r(Field<TData, FieldState::Coeff>(
+              "BICGSTABOp r",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
-          m_rtilde_A(Field<TData, FieldState::Coeff>(
-              "BICGSTABOp rtilde_A",
+          m_rtilde(Field<TData, FieldState::Coeff>(
+              "BICGSTABOp rtilde",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1))
     {
@@ -120,13 +120,13 @@ protected:
 
     std::shared_ptr<RobBndCondOp<TData>> m_robBndCondOp;
 
-    Field<TData, FieldState::Coeff> m_p_A;
-    Field<TData, FieldState::Coeff> m_v_A;
-    Field<TData, FieldState::Coeff> m_w_A;
-    Field<TData, FieldState::Coeff> m_z_A;
-    Field<TData, FieldState::Coeff> m_t_A;
-    Field<TData, FieldState::Coeff> m_r_A;
-    Field<TData, FieldState::Coeff> m_rtilde_A;
+    Field<TData, FieldState::Coeff> m_p;
+    Field<TData, FieldState::Coeff> m_v;
+    Field<TData, FieldState::Coeff> m_w;
+    Field<TData, FieldState::Coeff> m_z;
+    Field<TData, FieldState::Coeff> m_t;
+    Field<TData, FieldState::Coeff> m_r;
+    Field<TData, FieldState::Coeff> m_rtilde;
 
     TData m_tol            = 0.0;
     unsigned int m_maxIter = 0;
@@ -143,19 +143,19 @@ protected:
         out.template Initialize<MemSpace>(0);
 
         // Calculate inital rhs magnitude.
-        m_r_A.template Copy<MemSpace>(in);
-        m_assmbScatrOp->Apply(m_r_A);
-        rhsMagnitude = m_math.ddot(in, m_r_A);
+        m_r.template Copy<MemSpace>(in);
+        m_assmbScatrOp->Apply(m_r);
+        rhsMagnitude = m_math.ddot(in, m_r);
         m_rowComm->AllReduce(rhsMagnitude, Nektar::LibUtilities::ReduceSum);
         rhsMagnitude = (rhsMagnitude > 1.0e-6) ? rhsMagnitude : 1.0;
 
         // Iteration 0
         // Copy RHS into initial residual and assemble with Zero Dirichlet BCs.
-        m_r_A.template Copy<MemSpace>(in);
-        m_assmbScatrZeroDirOp->Apply(m_r_A);
-        m_rtilde_A.template Copy<MemSpace>(m_r_A);
+        m_r.template Copy<MemSpace>(in);
+        m_assmbScatrZeroDirOp->Apply(m_r);
+        m_rtilde.template Copy<MemSpace>(m_r);
 
-        eps = m_math.ddot(in, m_r_A);
+        eps = m_math.ddot(in, m_r);
         m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
 
         // If the input residual is less than tolerance then skip solve.
@@ -165,9 +165,9 @@ protected:
         }
 
         // Iteration >= 1
-        rho_new = m_math.ddot(m_rtilde_A, m_r_A);
+        rho_new = m_math.ddot(m_rtilde, m_r);
         m_rowComm->AllReduce(rho_new, Nektar::LibUtilities::ReduceSum);
-        m_p_A.template Copy<MemSpace>(m_r_A);
+        m_p.template Copy<MemSpace>(m_r);
         while (true)
         {
             if (totalIterations > m_maxIter)
@@ -181,28 +181,28 @@ protected:
 
             if (totalIterations > 0)
             {
-                daxpy<ExecSpace>(-omega, m_v_A, m_p_A, m_p_A);
-                daxpy<ExecSpace>(beta, m_p_A, m_r_A, m_p_A);
+                daxpy<ExecSpace>(-omega, m_v, m_p, m_p);
+                daxpy<ExecSpace>(beta, m_p, m_r, m_p);
             }
 
             // Apply preconditioner.
-            this->m_precon->Apply(m_p_A, m_w_A);
+            this->m_precon->Apply(m_p, m_w);
 
             // Perform the method-specific matrix-vector multiply operation.
-            this->m_lhs->Apply(m_w_A, m_v_A);
-            m_robBndCondOp->Apply(m_w_A, m_v_A);
-            m_assmbScatrZeroDirOp->Apply(m_v_A);
+            this->m_lhs->Apply(m_w, m_v);
+            m_robBndCondOp->Apply(m_w, m_v);
+            m_assmbScatrZeroDirOp->Apply(m_v);
 
             // <s_{k+1}, r_{k+1}>
-            alpha = m_math.ddot(m_v_A, m_rtilde_A);
+            alpha = m_math.ddot(m_v, m_rtilde);
             m_rowComm->AllReduce(alpha, LibUtilities::ReduceSum);
             alpha = rho_new / alpha;
 
-            daxpy<ExecSpace>(alpha, m_w_A, out, out);
-            daxpy<ExecSpace>(-alpha, m_v_A, m_r_A, m_r_A);
+            daxpy<ExecSpace>(alpha, m_w, out, out);
+            daxpy<ExecSpace>(-alpha, m_v, m_r, m_r);
 
             // Test if norm is within tolerance.
-            eps = m_math.ddot(m_r_A, m_r_A);
+            eps = m_math.ddot(m_r, m_r);
             m_rowComm->AllReduce(eps, LibUtilities::ReduceSum);
             if (eps < m_tol * m_tol * rhsMagnitude)
             {
@@ -216,27 +216,27 @@ protected:
             }
 
             // Apply preconditioner.
-            this->m_precon->Apply(m_r_A, m_z_A);
+            this->m_precon->Apply(m_r, m_z);
 
             // Perform the method-specific matrix-vector multiply operation.
-            this->m_lhs->Apply(m_z_A, m_w_A);
-            m_robBndCondOp->Apply(m_z_A, m_w_A);
-            m_assmbScatrZeroDirOp->Apply(m_w_A);
+            this->m_lhs->Apply(m_z, m_w);
+            m_robBndCondOp->Apply(m_z, m_w);
+            m_assmbScatrZeroDirOp->Apply(m_w);
 
-            omega0 = m_math.ddot(m_r_A, m_w_A);
+            omega0 = m_math.ddot(m_r, m_w);
             m_rowComm->AllReduce(omega0, LibUtilities::ReduceSum);
-            omega1 = m_math.ddot(m_w_A, m_w_A);
+            omega1 = m_math.ddot(m_w, m_w);
             m_rowComm->AllReduce(omega1, LibUtilities::ReduceSum);
 
             omega = omega0 / omega1;
 
-            daxpy<ExecSpace>(omega, m_z_A, out, out);
-            daxpy<ExecSpace>(-omega, m_w_A, m_r_A, m_r_A);
+            daxpy<ExecSpace>(omega, m_z, out, out);
+            daxpy<ExecSpace>(-omega, m_w, m_r, m_r);
 
             ++totalIterations;
 
             // Test if norm is within tolerance.
-            eps = m_math.ddot(m_r_A, m_r_A);
+            eps = m_math.ddot(m_r, m_r);
             m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
             if (eps < m_tol * m_tol * rhsMagnitude)
             {
@@ -251,7 +251,7 @@ protected:
 
             // Update coefficients.
             rho     = rho_new;
-            rho_new = m_math.ddot(m_rtilde_A, m_r_A);
+            rho_new = m_math.ddot(m_rtilde, m_r);
             m_rowComm->AllReduce(rho_new, Nektar::LibUtilities::ReduceSum);
             beta = rho_new / rho * (alpha / omega);
         }
