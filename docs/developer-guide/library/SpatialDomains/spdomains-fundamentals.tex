@@ -2,13 +2,20 @@
 \section{The Fundamentals Behind SpatialDomains}
 \label{sec:spatialdomains-fundamentals}
 
-As mentioned in our discussions of the fundamentals of StdRegions (i.e. Section \ref{sec:stdregions-fundamentals}), one of the most
-fundamental tools from calculus that we regularly employ is the idea of mapping from general domains to canonical domains.  General
-domains are the regions in world space over which we want to solve engineering problems, and thus want to be able to take derivatives and
-compute integrals.  But as we learned in calculus, it is often non-trivial to accomplish differentiation or integration over these regions.  We resort
-to the mapping arbitrary domains back to canonical domains over which we can define various operations.  We introduced our canonical domains,
-which we call standard regions, in Chapter \ref{chap:stdregions}.  We refer to our world space regions as local regions, which we will present
-in Chapter \ref{chap:localregions}.  How these two are connected are via SpatialDomains.  
+As mentioned in our discussions of the fundamentals of StdRegions
+(i.e. Section \ref{sec:stdregions-fundamentals}), one of the most
+fundamental tools from calculus that we regularly employ is the idea
+of mapping from general domains to canonical domains.  General domains
+are the regions in world space over which we want to solve engineering
+problems, and thus want to be able to take derivatives and compute
+integrals.  But as we learned in calculus, it is often non-trivial to
+accomplish differentiation or integration over these regions.  We
+resort to the mapping arbitrary domains back to canonical domains over
+which we can define various operations.  We introduced our canonical
+domains, which we call standard regions, in Chapter
+\ref{chap:stdregions}.  We refer to our world space regions as local
+regions, which we will present in Chapter \ref{chap:localregions}.
+How these two are connected are via SpatialDomains.
 
 As will be further discussed in Section \ref{sec:spatialdomains-datastructures}, there are two fundamental purposes served by SpatialDomains:  (1) holding
 basic geometric information (e.g. vertex values and curvature information) and (2) holding geometric factors information.  The former information relates to 
@@ -29,15 +36,28 @@ unfamiliar with covariant and contravariant spaces, we encourage the reader to r
 
 \subsection{Vertex and Curvature Mapping Information}
 
-When we load in a mesh into {\nek}, elements are often described in world space based upon their vertex positions.  In traditional FEM formats, this can be as
-simple as a list of d-dimensional vertex coordinates, followed by a list of element definitions:  each row holding four integers (in the case of tetrahedra) denoting
-the four vertices in the vertex list that comprise an element.   {\nek} uses an HTML-based geometry file with a more rich definition of the basic geometric
-information that just described; we encourage developers and users to review our User Guide(s) for the organization and conventions used within our geometry 
-files.  For the purposes of this section, the important pieces of information are as follows.  Let us assume that for each element, we have through our MeshGraph
-data structure (described in the next section) access to the vertex positions of an element.   In general, each vertex $\vec{v}_j$ is a n-tuple of dimension $d$ denoting
-the dimension in which the points are specified in world space.  For example, when considering a quadrilateral on the 2D plane, our vertex points each contain
-two coordinates denotes the x-- and y--coordinates.  As shown in Figure \ref{spatialdomains:planarmap}, we can express the mapping between a world space
-quadrilateral and the standard region quadrilateral on $[-1,1]\times[-1,1]$ via a bi-linear mapping function $\chi(\vec{\xi})$.
+When we load in a mesh into {\nek}, elements are often described in
+world space based upon their vertex positions.  In traditional FEM
+formats, this can be as simple as a list of d-dimensional vertex
+coordinates, followed by a list of element definitions: each row
+holding four integers (in the case of tetrahedra) denoting the four
+vertices in the vertex list that comprise an element.  {\nek} uses an
+HTML-based geometry file with a more rich definition of the basic
+geometric information that just described; we encourage developers and
+users to review our User Guide(s) for the organization and conventions
+used within our geometry files.  For the purposes of this section, the
+important pieces of information are as follows.  Let us assume that
+for each element, we have through our MeshGraph data structure
+(described in the next section) access to the vertex positions of an
+element.  In general, each vertex $\vec{v}_j$ is a n-tuple of
+dimension $d$ denoting the dimension in which the points are specified
+in world space.  For example, when considering a quadrilateral on the
+2D plane, our vertex points each contain two coordinates denotes the
+x-- and y--coordinates.  As shown in Figure
+\ref{spatialdomains:planarmap}, we can express the mapping between a
+world space quadrilateral and the standard region quadrilateral on
+$[-1,1]\times[-1,1]$ via a bi-linear mapping function
+$\chi(\vec{\xi})$.
 
 \begin{figure}[htb]
 \centering

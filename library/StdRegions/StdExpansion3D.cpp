@@ -122,6 +122,41 @@ void StdExpansion3D::v_GenStdMatBwdDeriv(const int dir, DNekMatSharedPtr &mat)
     }
 }
 
+void StdExpansion3D::v_PhysDeriv(const int dir,
+                                 const Array<OneD, const NekDouble> &inarray,
+                                 Array<OneD, NekDouble> &outarray)
+{
+    switch (dir)
+    {
+        case 0:
+        {
+            v_PhysDeriv(inarray, outarray, NullNekDouble1DArray,
+                        NullNekDouble1DArray);
+            break;
+        }
+
+        case 1:
+        {
+            v_PhysDeriv(inarray, NullNekDouble1DArray, outarray,
+                        NullNekDouble1DArray);
+            break;
+        }
+
+        case 2:
+        {
+            v_PhysDeriv(inarray, NullNekDouble1DArray, NullNekDouble1DArray,
+                        outarray);
+            break;
+        }
+
+        default:
+        {
+            ASSERTL1(false, "input dir is out of range");
+        }
+        break;
+    }
+}
+
 NekDouble StdExpansion3D::v_PhysEvaluate(
     const Array<OneD, const NekDouble> &coords,
     const Array<OneD, const NekDouble> &physvals)
@@ -190,7 +225,7 @@ NekDouble StdExpansion3D::v_PhysEvaluateInterp(
 
     // Interpolate in third coordinate direction
     interpolatingNodes = &I[2]->GetPtr()[0];
-    value = Blas::Ddot(Qz, interpolatingNodes, 1, &sumFactorization_r[0], 1);
+    value = Vmath::Dot(Qz, interpolatingNodes, 1, &sumFactorization_r[0], 1);
 
     return value;
 }

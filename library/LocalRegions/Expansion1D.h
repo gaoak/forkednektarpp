@@ -75,6 +75,11 @@ public:
 protected:
     DNekMatSharedPtr v_GenMatrix(const StdRegions::StdMatrixKey &mkey) override;
 
+    LOCAL_REGIONS_EXPORT void v_PhysDeriv(
+        const int dir, const Array<OneD, const NekDouble> &inarray,
+        Array<OneD, NekDouble> &outarray) override;
+    using StdExpansion1D::v_PhysDeriv;
+
     void v_AddRobinMassMatrix(const int vert,
                               const Array<OneD, const NekDouble> &primCoeffs,
                               DNekMatSharedPtr &inoutmat) override;
@@ -94,7 +99,7 @@ protected:
 
     void v_ReOrientTracePhysMap(const StdRegions::Orientation orient,
                                 Array<OneD, int> &idmap, const int nq0,
-                                const int nq1) override;
+                                const int nq1, bool Forwards) override;
 
     void v_TraceNormLen(const int traceid, NekDouble &h, NekDouble &p) override;
 

@@ -54,6 +54,32 @@ StdExpansion2D::StdExpansion2D(
 //----------------------------
 // Differentiation Methods
 //----------------------------
+void StdExpansion2D::v_PhysDeriv(const int dir,
+                                 const Array<OneD, const NekDouble> &inarray,
+                                 Array<OneD, NekDouble> &outarray)
+{
+    switch (dir)
+    {
+        case 0:
+        {
+            v_PhysDeriv(inarray, outarray, NullNekDouble1DArray,
+                        NullNekDouble1DArray);
+            break;
+        }
+        case 1:
+        {
+            v_PhysDeriv(inarray, NullNekDouble1DArray, outarray,
+                        NullNekDouble1DArray);
+            break;
+        }
+        default:
+        {
+            ASSERTL1(false, "input dir is out of range");
+            break;
+        }
+    }
+}
+
 NekDouble StdExpansion2D::v_PhysEvaluate(
     const Array<OneD, const NekDouble> &coords,
     const Array<OneD, const NekDouble> &physvals)
@@ -92,11 +118,11 @@ NekDouble StdExpansion2D::v_PhysEvaluateInterp(
     for (i = 0; i < nq1; ++i)
     {
         wsp1[i] =
-            Blas::Ddot(nq0, &(I[0]->GetPtr())[0], 1, &physvals[i * nq0], 1);
+            Vmath::Dot(nq0, &(I[0]->GetPtr())[0], 1, &physvals[i * nq0], 1);
     }
 
     // interpolate in second coordinate direction
-    val = Blas::Ddot(nq1, I[1]->GetPtr(), 1, wsp1, 1);
+    val = Vmath::Dot(nq1, I[1]->GetPtr(), 1, wsp1, 1);
 
     return val;
 }

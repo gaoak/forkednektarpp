@@ -53,6 +53,13 @@ StdExpansion1D::StdExpansion1D(
 //----------------------------
 // Differentiation Methods
 //-----------------------------
+void StdExpansion1D::v_PhysDeriv([[maybe_unused]] const int dir,
+                                 const Array<OneD, const NekDouble> &inarray,
+                                 Array<OneD, NekDouble> &outarray)
+{
+    ASSERTL1(dir == 0, "input dir is out of range");
+    v_PhysDeriv(inarray, outarray, NullNekDouble1DArray, NullNekDouble1DArray);
+}
 
 NekDouble StdExpansion1D::v_PhysEvaluate(
     const Array<OneD, const NekDouble> &Lcoord,

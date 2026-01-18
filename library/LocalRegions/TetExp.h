@@ -68,6 +68,7 @@ protected:
     //-----------------------------
     // Differentiation Methods
     //-----------------------------
+    using StdTetExp::v_PhysDeriv;
     LOCAL_REGIONS_EXPORT void v_PhysDeriv(
         const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &out_d0, Array<OneD, NekDouble> &out_d1,

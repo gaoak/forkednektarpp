@@ -146,38 +146,6 @@ void TriExp::v_PhysDeriv(const Array<OneD, const NekDouble> &inarray,
     }
 }
 
-void TriExp::v_PhysDeriv(const int dir,
-                         const Array<OneD, const NekDouble> &inarray,
-                         Array<OneD, NekDouble> &outarray)
-{
-    switch (dir)
-    {
-        case 0:
-        {
-            PhysDeriv(inarray, outarray, NullNekDouble1DArray,
-                      NullNekDouble1DArray);
-        }
-        break;
-        case 1:
-        {
-            PhysDeriv(inarray, NullNekDouble1DArray, outarray,
-                      NullNekDouble1DArray);
-        }
-        break;
-        case 2:
-        {
-            PhysDeriv(inarray, NullNekDouble1DArray, NullNekDouble1DArray,
-                      outarray);
-        }
-        break;
-        default:
-        {
-            ASSERTL1(false, "input dir is out of range");
-        }
-        break;
-    }
-}
-
 void TriExp::v_PhysDirectionalDeriv(
     const Array<OneD, const NekDouble> &inarray,
     const Array<OneD, const NekDouble> &direction, Array<OneD, NekDouble> &out)

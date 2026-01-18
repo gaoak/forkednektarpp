@@ -485,10 +485,10 @@ enum Orientation
     eForwards,
     eBackwards,
     eDir1FwdDir1_Dir2FwdDir2, // These flags are interpreted as
-    eDir1FwdDir1_Dir2BwdDir2, // taking the second direction to the
-    eDir1BwdDir1_Dir2FwdDir2, // first direction. So Dir1FwdDir2 takes
-    eDir1BwdDir1_Dir2BwdDir2, // direction 2 and makes it backward
-    eDir1FwdDir2_Dir2FwdDir1, // to direction 1 in the mapped face.
+    eDir1FwdDir1_Dir2BwdDir2, // taking the first direction to the
+    eDir1BwdDir1_Dir2FwdDir2, // second direction. So Dir1FwdDir2 takes
+    eDir1BwdDir1_Dir2BwdDir2, // direction 1 in the original face and makes it
+    eDir1FwdDir2_Dir2FwdDir1, // backwards to direction 2 in the mapped face.
     eDir1FwdDir2_Dir2BwdDir1, // Note be careful not to flip this
     eDir1BwdDir2_Dir2FwdDir1, // convention especially when using
     eDir1BwdDir2_Dir2BwdDir1, // transposed mappings.

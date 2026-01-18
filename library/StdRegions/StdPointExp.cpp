@@ -54,8 +54,8 @@ void StdPointExp::v_GetCoords(Array<OneD, NekDouble> &coords_0,
                               [[maybe_unused]] Array<OneD, NekDouble> &coords_1,
                               [[maybe_unused]] Array<OneD, NekDouble> &coords_2)
 {
-    Blas::Dcopy(GetNumPoints(0), (m_base[0]->GetZ()).data(), 1, &coords_0[0],
-                1);
+    Vmath::Vcopy(GetNumPoints(0), (m_base[0]->GetZ()).data(), 1, &coords_0[0],
+                 1);
 }
 
 void StdPointExp::PhysTensorDeriv(const Array<OneD, const NekDouble> &inarray,

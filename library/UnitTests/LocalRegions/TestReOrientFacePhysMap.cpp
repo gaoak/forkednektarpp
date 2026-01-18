@@ -145,12 +145,13 @@ BOOST_AUTO_TEST_CASE(TestReOrientQuadFacePhysMap)
     int nq0 = 3;
     int nq1 = 3;
     Array<OneD, int> idmap(nq0 * nq1, -1);
+    Array<OneD, int> idmap1(nq0 * nq1, -1);
 
     // Test different orientations
     StdRegions::Orientation orient;
 
     orient = StdRegions::eDir1FwdDir1_Dir2FwdDir2;
-    exp3d->ReOrientTracePhysMap(orient, idmap, nq0, nq1);
+    exp3d->ReOrientTracePhysMap(orient, idmap, nq0, nq1, false);
     BOOST_CHECK_EQUAL(idmap[0], 0);
     BOOST_CHECK_EQUAL(idmap[1], 1);
     BOOST_CHECK_EQUAL(idmap[2], 2);
@@ -160,9 +161,22 @@ BOOST_AUTO_TEST_CASE(TestReOrientQuadFacePhysMap)
     BOOST_CHECK_EQUAL(idmap[6], 6);
     BOOST_CHECK_EQUAL(idmap[7], 7);
     BOOST_CHECK_EQUAL(idmap[8], 8);
+
+    orient = StdRegions::eDir1FwdDir1_Dir2FwdDir2;
+    exp3d->ReOrientTracePhysMap(orient, idmap, nq0, nq1, false);
+    exp3d->ReOrientTracePhysMap(orient, idmap1, nq0, nq1, true);
+    BOOST_CHECK_EQUAL(idmap[idmap1[0]], 0);
+    BOOST_CHECK_EQUAL(idmap[idmap1[1]], 1);
+    BOOST_CHECK_EQUAL(idmap[idmap1[2]], 2);
+    BOOST_CHECK_EQUAL(idmap[idmap1[3]], 3);
+    BOOST_CHECK_EQUAL(idmap[idmap1[4]], 4);
+    BOOST_CHECK_EQUAL(idmap[idmap1[5]], 5);
+    BOOST_CHECK_EQUAL(idmap[idmap1[6]], 6);
+    BOOST_CHECK_EQUAL(idmap[idmap1[7]], 7);
+    BOOST_CHECK_EQUAL(idmap[idmap1[8]], 8);
 
     orient = StdRegions::eDir1FwdDir1_Dir2BwdDir2;
-    exp3d->ReOrientTracePhysMap(orient, idmap, nq0, nq1);
+    exp3d->ReOrientTracePhysMap(orient, idmap, nq0, nq1, false);
     BOOST_CHECK_EQUAL(idmap[0], 6);
     BOOST_CHECK_EQUAL(idmap[1], 7);
     BOOST_CHECK_EQUAL(idmap[2], 8);
@@ -173,8 +187,21 @@ BOOST_AUTO_TEST_CASE(TestReOrientQuadFacePhysMap)
     BOOST_CHECK_EQUAL(idmap[7], 1);
     BOOST_CHECK_EQUAL(idmap[8], 2);
 
+    orient = StdRegions::eDir1FwdDir1_Dir2BwdDir2;
+    exp3d->ReOrientTracePhysMap(orient, idmap, nq0, nq1, false);
+    exp3d->ReOrientTracePhysMap(orient, idmap1, nq0, nq1, true);
+    BOOST_CHECK_EQUAL(idmap[idmap1[0]], 0);
+    BOOST_CHECK_EQUAL(idmap[idmap1[1]], 1);
+    BOOST_CHECK_EQUAL(idmap[idmap1[2]], 2);
+    BOOST_CHECK_EQUAL(idmap[idmap1[3]], 3);
+    BOOST_CHECK_EQUAL(idmap[idmap1[4]], 4);
+    BOOST_CHECK_EQUAL(idmap[idmap1[5]], 5);
+    BOOST_CHECK_EQUAL(idmap[idmap1[6]], 6);
+    BOOST_CHECK_EQUAL(idmap[idmap1[7]], 7);
+    BOOST_CHECK_EQUAL(idmap[idmap1[8]], 8);
+
     orient = StdRegions::eDir1BwdDir1_Dir2FwdDir2;
-    exp3d->ReOrientTracePhysMap(orient, idmap, nq0, nq1);
+    exp3d->ReOrientTracePhysMap(orient, idmap, nq0, nq1, false);
     BOOST_CHECK_EQUAL(idmap[0], 2);
     BOOST_CHECK_EQUAL(idmap[1], 1);
     BOOST_CHECK_EQUAL(idmap[2], 0);
@@ -185,8 +212,21 @@ BOOST_AUTO_TEST_CASE(TestReOrientQuadFacePhysMap)
     BOOST_CHECK_EQUAL(idmap[7], 7);
     BOOST_CHECK_EQUAL(idmap[8], 6);
 
+    orient = StdRegions::eDir1BwdDir1_Dir2FwdDir2;
+    exp3d->ReOrientTracePhysMap(orient, idmap, nq0, nq1, false);
+    exp3d->ReOrientTracePhysMap(orient, idmap1, nq0, nq1, true);
+    BOOST_CHECK_EQUAL(idmap[idmap1[0]], 0);
+    BOOST_CHECK_EQUAL(idmap[idmap1[1]], 1);
+    BOOST_CHECK_EQUAL(idmap[idmap1[2]], 2);
+    BOOST_CHECK_EQUAL(idmap[idmap1[3]], 3);
+    BOOST_CHECK_EQUAL(idmap[idmap1[4]], 4);
+    BOOST_CHECK_EQUAL(idmap[idmap1[5]], 5);
+    BOOST_CHECK_EQUAL(idmap[idmap1[6]], 6);
+    BOOST_CHECK_EQUAL(idmap[idmap1[7]], 7);
+    BOOST_CHECK_EQUAL(idmap[idmap1[8]], 8);
+
     orient = StdRegions::eDir1BwdDir1_Dir2BwdDir2;
-    exp3d->ReOrientTracePhysMap(orient, idmap, nq0, nq1);
+    exp3d->ReOrientTracePhysMap(orient, idmap, nq0, nq1, false);
     BOOST_CHECK_EQUAL(idmap[0], 8);
     BOOST_CHECK_EQUAL(idmap[1], 7);
     BOOST_CHECK_EQUAL(idmap[2], 6);
@@ -197,8 +237,21 @@ BOOST_AUTO_TEST_CASE(TestReOrientQuadFacePhysMap)
     BOOST_CHECK_EQUAL(idmap[7], 1);
     BOOST_CHECK_EQUAL(idmap[8], 0);
 
+    orient = StdRegions::eDir1BwdDir1_Dir2BwdDir2;
+    exp3d->ReOrientTracePhysMap(orient, idmap, nq0, nq1, false);
+    exp3d->ReOrientTracePhysMap(orient, idmap1, nq0, nq1, true);
+    BOOST_CHECK_EQUAL(idmap[idmap1[0]], 0);
+    BOOST_CHECK_EQUAL(idmap[idmap1[1]], 1);
+    BOOST_CHECK_EQUAL(idmap[idmap1[2]], 2);
+    BOOST_CHECK_EQUAL(idmap[idmap1[3]], 3);
+    BOOST_CHECK_EQUAL(idmap[idmap1[4]], 4);
+    BOOST_CHECK_EQUAL(idmap[idmap1[5]], 5);
+    BOOST_CHECK_EQUAL(idmap[idmap1[6]], 6);
+    BOOST_CHECK_EQUAL(idmap[idmap1[7]], 7);
+    BOOST_CHECK_EQUAL(idmap[idmap1[8]], 8);
+
     orient = StdRegions::eDir1FwdDir2_Dir2FwdDir1;
-    exp3d->ReOrientTracePhysMap(orient, idmap, nq0, nq1);
+    exp3d->ReOrientTracePhysMap(orient, idmap, nq0, nq1, false);
     BOOST_CHECK_EQUAL(idmap[0], 0);
     BOOST_CHECK_EQUAL(idmap[1], 3);
     BOOST_CHECK_EQUAL(idmap[2], 6);
@@ -209,8 +262,21 @@ BOOST_AUTO_TEST_CASE(TestReOrientQuadFacePhysMap)
     BOOST_CHECK_EQUAL(idmap[7], 5);
     BOOST_CHECK_EQUAL(idmap[8], 8);
 
+    orient = StdRegions::eDir1FwdDir2_Dir2FwdDir1;
+    exp3d->ReOrientTracePhysMap(orient, idmap, nq0, nq1, false);
+    exp3d->ReOrientTracePhysMap(orient, idmap1, nq0, nq1, true);
+    BOOST_CHECK_EQUAL(idmap[idmap1[0]], 0);
+    BOOST_CHECK_EQUAL(idmap[idmap1[1]], 1);
+    BOOST_CHECK_EQUAL(idmap[idmap1[2]], 2);
+    BOOST_CHECK_EQUAL(idmap[idmap1[3]], 3);
+    BOOST_CHECK_EQUAL(idmap[idmap1[4]], 4);
+    BOOST_CHECK_EQUAL(idmap[idmap1[5]], 5);
+    BOOST_CHECK_EQUAL(idmap[idmap1[6]], 6);
+    BOOST_CHECK_EQUAL(idmap[idmap1[7]], 7);
+    BOOST_CHECK_EQUAL(idmap[idmap1[8]], 8);
+
     orient = StdRegions::eDir1FwdDir2_Dir2BwdDir1;
-    exp3d->ReOrientTracePhysMap(orient, idmap, nq0, nq1);
+    exp3d->ReOrientTracePhysMap(orient, idmap, nq0, nq1, false);
     BOOST_CHECK_EQUAL(idmap[0], 2);
     BOOST_CHECK_EQUAL(idmap[1], 5);
     BOOST_CHECK_EQUAL(idmap[2], 8);
@@ -221,8 +287,21 @@ BOOST_AUTO_TEST_CASE(TestReOrientQuadFacePhysMap)
     BOOST_CHECK_EQUAL(idmap[7], 3);
     BOOST_CHECK_EQUAL(idmap[8], 6);
 
+    orient = StdRegions::eDir1FwdDir2_Dir2BwdDir1;
+    exp3d->ReOrientTracePhysMap(orient, idmap, nq0, nq1, false);
+    exp3d->ReOrientTracePhysMap(orient, idmap1, nq0, nq1, true);
+    BOOST_CHECK_EQUAL(idmap[idmap1[0]], 0);
+    BOOST_CHECK_EQUAL(idmap[idmap1[1]], 1);
+    BOOST_CHECK_EQUAL(idmap[idmap1[2]], 2);
+    BOOST_CHECK_EQUAL(idmap[idmap1[3]], 3);
+    BOOST_CHECK_EQUAL(idmap[idmap1[4]], 4);
+    BOOST_CHECK_EQUAL(idmap[idmap1[5]], 5);
+    BOOST_CHECK_EQUAL(idmap[idmap1[6]], 6);
+    BOOST_CHECK_EQUAL(idmap[idmap1[7]], 7);
+    BOOST_CHECK_EQUAL(idmap[idmap1[8]], 8);
+
     orient = StdRegions::eDir1BwdDir2_Dir2FwdDir1;
-    exp3d->ReOrientTracePhysMap(orient, idmap, nq0, nq1);
+    exp3d->ReOrientTracePhysMap(orient, idmap, nq0, nq1, false);
     BOOST_CHECK_EQUAL(idmap[0], 6);
     BOOST_CHECK_EQUAL(idmap[1], 3);
     BOOST_CHECK_EQUAL(idmap[2], 0);
@@ -233,8 +312,21 @@ BOOST_AUTO_TEST_CASE(TestReOrientQuadFacePhysMap)
     BOOST_CHECK_EQUAL(idmap[7], 5);
     BOOST_CHECK_EQUAL(idmap[8], 2);
 
+    orient = StdRegions::eDir1BwdDir2_Dir2FwdDir1;
+    exp3d->ReOrientTracePhysMap(orient, idmap, nq0, nq1, false);
+    exp3d->ReOrientTracePhysMap(orient, idmap1, nq0, nq1, true);
+    BOOST_CHECK_EQUAL(idmap[idmap1[0]], 0);
+    BOOST_CHECK_EQUAL(idmap[idmap1[1]], 1);
+    BOOST_CHECK_EQUAL(idmap[idmap1[2]], 2);
+    BOOST_CHECK_EQUAL(idmap[idmap1[3]], 3);
+    BOOST_CHECK_EQUAL(idmap[idmap1[4]], 4);
+    BOOST_CHECK_EQUAL(idmap[idmap1[5]], 5);
+    BOOST_CHECK_EQUAL(idmap[idmap1[6]], 6);
+    BOOST_CHECK_EQUAL(idmap[idmap1[7]], 7);
+    BOOST_CHECK_EQUAL(idmap[idmap1[8]], 8);
+
     orient = StdRegions::eDir1BwdDir2_Dir2BwdDir1;
-    exp3d->ReOrientTracePhysMap(orient, idmap, nq0, nq1);
+    exp3d->ReOrientTracePhysMap(orient, idmap, nq0, nq1, false);
     BOOST_CHECK_EQUAL(idmap[0], 8);
     BOOST_CHECK_EQUAL(idmap[1], 5);
     BOOST_CHECK_EQUAL(idmap[2], 2);
@@ -244,6 +336,19 @@ BOOST_AUTO_TEST_CASE(TestReOrientQuadFacePhysMap)
     BOOST_CHECK_EQUAL(idmap[6], 6);
     BOOST_CHECK_EQUAL(idmap[7], 3);
     BOOST_CHECK_EQUAL(idmap[8], 0);
+
+    orient = StdRegions::eDir1BwdDir2_Dir2BwdDir1;
+    exp3d->ReOrientTracePhysMap(orient, idmap, nq0, nq1, false);
+    exp3d->ReOrientTracePhysMap(orient, idmap1, nq0, nq1, true);
+    BOOST_CHECK_EQUAL(idmap[idmap1[0]], 0);
+    BOOST_CHECK_EQUAL(idmap[idmap1[1]], 1);
+    BOOST_CHECK_EQUAL(idmap[idmap1[2]], 2);
+    BOOST_CHECK_EQUAL(idmap[idmap1[3]], 3);
+    BOOST_CHECK_EQUAL(idmap[idmap1[4]], 4);
+    BOOST_CHECK_EQUAL(idmap[idmap1[5]], 5);
+    BOOST_CHECK_EQUAL(idmap[idmap1[6]], 6);
+    BOOST_CHECK_EQUAL(idmap[idmap1[7]], 7);
+    BOOST_CHECK_EQUAL(idmap[idmap1[8]], 8);
 }
 
 } // namespace Nektar::Expansion3DTests

@@ -213,9 +213,9 @@ public:
 
     inline void ReOrientTracePhysMap(const StdRegions::Orientation orient,
                                      Array<OneD, int> &idmap, const int nq0,
-                                     const int nq1)
+                                     const int nq1, bool Forwards = true)
     {
-        v_ReOrientTracePhysMap(orient, idmap, nq0, nq1);
+        v_ReOrientTracePhysMap(orient, idmap, nq0, nq1, Forwards);
     }
 
     LOCAL_REGIONS_EXPORT const NormalVector &GetTraceNormal(const int id);
@@ -394,7 +394,7 @@ protected:
 
     virtual void v_ReOrientTracePhysMap(const StdRegions::Orientation orient,
                                         Array<OneD, int> &idmap, const int nq0,
-                                        const int nq1 = -1);
+                                        const int nq1, bool Forwards);
 
     virtual void v_ComputeTraceNormal(const int id);
 

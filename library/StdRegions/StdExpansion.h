@@ -1558,7 +1558,6 @@ protected:
                                                 unusedValue);
     }
 
-private:
     // Virtual functions
     STD_REGIONS_EXPORT virtual int v_GetNverts() const  = 0;
     STD_REGIONS_EXPORT virtual int v_GetNtraces() const = 0;

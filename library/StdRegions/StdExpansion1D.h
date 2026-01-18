@@ -78,6 +78,11 @@ public:
         const Array<OneD, const NekDouble> &jac, const bool Deformed);
 
 protected:
+    STD_REGIONS_EXPORT void v_PhysDeriv(
+        const int dir, const Array<OneD, const NekDouble> &inarray,
+        Array<OneD, NekDouble> &outarray) override;
+    using StdExpansion::v_PhysDeriv;
+
     STD_REGIONS_EXPORT NekDouble
     v_PhysEvaluate(const Array<OneD, const NekDouble> &coords,
                    const Array<OneD, const NekDouble> &physvals) override;

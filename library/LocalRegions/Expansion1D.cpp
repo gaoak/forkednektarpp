@@ -283,6 +283,41 @@ DNekMatSharedPtr Expansion1D::v_GenMatrix(const StdRegions::StdMatrixKey &mkey)
     return returnval;
 }
 
+void Expansion1D::v_PhysDeriv(const int dir,
+                              const Array<OneD, const NekDouble> &inarray,
+                              Array<OneD, NekDouble> &outarray)
+{
+    switch (dir)
+    {
+        case 0:
+        {
+            v_PhysDeriv(inarray, outarray, NullNekDouble1DArray,
+                        NullNekDouble1DArray);
+            break;
+        }
+
+        case 1:
+        {
+            v_PhysDeriv(inarray, NullNekDouble1DArray, outarray,
+                        NullNekDouble1DArray);
+            break;
+        }
+
+        case 2:
+        {
+            v_PhysDeriv(inarray, NullNekDouble1DArray, NullNekDouble1DArray,
+                        outarray);
+            break;
+        }
+
+        default:
+        {
+            ASSERTL1(false, "input dir is out of range");
+        }
+        break;
+    }
+}
+
 void Expansion1D::AddNormTraceInt([[maybe_unused]] const int dir,
                                   Array<OneD, const NekDouble> &inarray,
                                   Array<OneD, NekDouble> &outarray)
@@ -501,7 +536,7 @@ void Expansion1D::v_NormalTraceDerivFactors(
 void Expansion1D::v_ReOrientTracePhysMap(
     [[maybe_unused]] const StdRegions::Orientation orient,
     Array<OneD, int> &idmap, [[maybe_unused]] const int nq0,
-    [[maybe_unused]] const int nq1)
+    [[maybe_unused]] const int nq1, [[maybe_unused]] bool Forwards)
 {
     if (idmap.size() != 1)
     {

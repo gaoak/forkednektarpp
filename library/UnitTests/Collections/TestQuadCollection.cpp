@@ -3163,14 +3163,9 @@ BOOST_AUTO_TEST_CASE(TestQuadHelmholtz_IterPerExp_UniformP_ConstVarDiff)
     Array<OneD, NekDouble> coeffsRef(nelmts * nm);
     Array<OneD, NekDouble> coeffs(nelmts * nm), tmp;
 
-    for (int i = 0; i < nm; ++i)
+    for (int i = 0; i < coeffsIn.size(); ++i)
     {
-        coeffsIn[i] = 1.0;
-    }
-
-    for (int i = 1; i < nelmts; ++i)
-    {
-        Vmath::Vcopy(nm, coeffsIn, 1, tmp = coeffsIn + i * nm, 1);
+        coeffsIn[i] = i + 1.0;
     }
 
     StdRegions::StdMatrixKey mkey(StdRegions::eHelmholtz, Exp->DetShapeType(),
@@ -3251,14 +3246,9 @@ BOOST_AUTO_TEST_CASE(TestQuadHelmholtz_MatrixFree_UniformP)
     Array<OneD, NekDouble> coeffsRef(nelmts * nm);
     Array<OneD, NekDouble> coeffs(nelmts * nm), tmp;
 
-    for (int i = 0; i < nm; ++i)
+    for (int i = 0; i < coeffsIn.size(); ++i)
     {
-        coeffsIn[i] = 1.0;
-    }
-
-    for (int i = 1; i < nelmts; ++i)
-    {
-        Vmath::Vcopy(nm, coeffsIn, 1, tmp = coeffsIn + i * nm, 1);
+        coeffsIn[i] = i + 1.0;
     }
 
     StdRegions::StdMatrixKey mkey(StdRegions::eHelmholtz, Exp->DetShapeType(),
@@ -3330,7 +3320,7 @@ BOOST_AUTO_TEST_CASE(TestQuadHelmholtz_MatrixFree_UniformP_Deformed)
     Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
-    factors[StdRegions::eFactorLambda] = 0.0;
+    factors[StdRegions::eFactorLambda] = 1.5;
 
     c.Initialise(Collections::eHelmholtz, factors);
 
@@ -3339,14 +3329,9 @@ BOOST_AUTO_TEST_CASE(TestQuadHelmholtz_MatrixFree_UniformP_Deformed)
     Array<OneD, NekDouble> coeffsRef(nelmts * nm);
     Array<OneD, NekDouble> coeffs(nelmts * nm), tmp;
 
-    for (int i = 0; i < nm; ++i)
+    for (int i = 0; i < coeffsIn.size(); ++i)
     {
-        coeffsIn[i] = 1.0;
-    }
-
-    for (int i = 1; i < nelmts; ++i)
-    {
-        Vmath::Vcopy(nm, coeffsIn, 1, tmp = coeffsIn + i * nm, 1);
+        coeffsIn[i] = i + 1.0;
     }
 
     StdRegions::StdMatrixKey mkey(StdRegions::eHelmholtz, Exp->DetShapeType(),
@@ -3430,14 +3415,9 @@ BOOST_AUTO_TEST_CASE(TestQuadHelmholtz_MatrixFree_UniformP_ConstVarDiff)
     Array<OneD, NekDouble> coeffsRef(nelmts * nm);
     Array<OneD, NekDouble> coeffs(nelmts * nm), tmp;
 
-    for (int i = 0; i < nm; ++i)
+    for (int i = 0; i < coeffsIn.size(); ++i)
     {
-        coeffsIn[i] = 1.0;
-    }
-
-    for (int i = 1; i < nelmts; ++i)
-    {
-        Vmath::Vcopy(nm, coeffsIn, 1, tmp = coeffsIn + i * nm, 1);
+        coeffsIn[i] = i + 1.0;
     }
 
     StdRegions::StdMatrixKey mkey(StdRegions::eHelmholtz, Exp->DetShapeType(),
@@ -3615,6 +3595,300 @@ BOOST_AUTO_TEST_CASE(TestQuadPhysInterp1D_MatrixFree_UniformP)
         phys1[i]        = (fabs(phys1[i]) < 1e-14) ? 0.0 : phys1[i];
         exact           = (fabs(exact) < 1e-14) ? 0.0 : exact;
         BOOST_CHECK_CLOSE(phys1[i], exact, epsilon);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(
+    TestQuadLinearAdvectionDiffusionReaction_IterPerExp_UniformP)
+{
+    SpatialDomains::PointGeomUniquePtr v0(
+        new SpatialDomains::PointGeom(2u, 0u, -1.0, -1.0, 0.0));
+    SpatialDomains::PointGeomUniquePtr v1(
+        new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
+    SpatialDomains::PointGeomUniquePtr v2(
+        new SpatialDomains::PointGeom(2u, 2u, 1.0, 1.0, 0.0));
+    SpatialDomains::PointGeomUniquePtr v3(
+        new SpatialDomains::PointGeom(2u, 3u, -1.0, 1.0, 0.0));
+
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
+
+    Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
+        Nektar::LibUtilities::eGaussLobattoLegendre;
+    Nektar::LibUtilities::BasisType basisTypeDir1 =
+        Nektar::LibUtilities::eModified_A;
+    unsigned int numQuadPoints = 6;
+    unsigned int numModes      = 5;
+    const Nektar::LibUtilities::PointsKey quadPointsKeyDir1(numQuadPoints,
+                                                            quadPointsTypeDir1);
+    const Nektar::LibUtilities::BasisKey basisKeyDir1(basisTypeDir1, numModes,
+                                                      quadPointsKeyDir1);
+
+    Nektar::LocalRegions::QuadExpSharedPtr Exp =
+        MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
+            basisKeyDir1, basisKeyDir1, quadGeom.get());
+
+    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
+        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
+            basisKeyDir1, basisKeyDir1);
+
+    int nelmts = 10;
+
+    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    for (int i = 0; i < nelmts; ++i)
+    {
+        CollExp.push_back(Exp);
+    }
+
+    LibUtilities::SessionReaderSharedPtr dummySession;
+    Collections::CollectionOptimisation colOpt(dummySession, 2,
+                                               Collections::eIterPerExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::Collection c(CollExp, impTypes);
+    StdRegions::ConstFactorMap factors;
+    factors[StdRegions::eFactorLambda] = 1.5;
+
+    c.Initialise(Collections::eLinearAdvectionDiffusionReaction, factors);
+
+    // Add advection velocities via varcoeffs
+    int npoints = Exp->GetTotPoints() * nelmts;
+    StdRegions::VarCoeffMap varcoeffs;
+    StdRegions::VarCoeffType varcoefftypes[] = {StdRegions::eVarCoeffVelX,
+                                                StdRegions::eVarCoeffVelY};
+    for (int i = 0; i < Exp->GetShapeDimension(); i++)
+    {
+        varcoeffs[varcoefftypes[i]] = Array<OneD, NekDouble>(npoints, 1.0);
+    }
+    c.UpdateVarcoeffs(Collections::eLinearAdvectionDiffusionReaction,
+                      varcoeffs);
+
+    const int nm = Exp->GetNcoeffs();
+    Array<OneD, NekDouble> coeffsIn(nelmts * nm);
+    Array<OneD, NekDouble> coeffsRef(nelmts * nm);
+    Array<OneD, NekDouble> coeffs(nelmts * nm), tmp;
+
+    for (int i = 0; i < coeffsIn.size(); ++i)
+    {
+        coeffsIn[i] = i + 1.0;
+    }
+
+    StdRegions::StdMatrixKey mkey(StdRegions::eLinearAdvectionDiffusionReaction,
+                                  Exp->DetShapeType(), *Exp, factors,
+                                  varcoeffs);
+
+    for (int i = 0; i < nelmts; ++i)
+    {
+        // Standard routines
+        Exp->GeneralMatrixOp(coeffsIn + i * nm, tmp = coeffsRef + i * nm, mkey);
+    }
+
+    c.ApplyOperator(Collections::eLinearAdvectionDiffusionReaction, coeffsIn,
+                    coeffs);
+
+    double epsilon = 1.0e-8;
+    for (int i = 0; i < coeffsRef.size(); ++i)
+    {
+        coeffsRef[i] = (std::abs(coeffsRef[i]) < 1e-14) ? 0.0 : coeffsRef[i];
+        coeffs[i]    = (std::abs(coeffs[i]) < 1e-14) ? 0.0 : coeffs[i];
+        BOOST_CHECK_CLOSE(coeffsRef[i], coeffs[i], epsilon);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(
+    TestQuadLinearAdvectionDiffusionReaction_MatrixFree_UniformP)
+{
+    SpatialDomains::PointGeomUniquePtr v0(
+        new SpatialDomains::PointGeom(2u, 0u, -1.0, -1.0, 0.0));
+    SpatialDomains::PointGeomUniquePtr v1(
+        new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
+    SpatialDomains::PointGeomUniquePtr v2(
+        new SpatialDomains::PointGeom(2u, 2u, 1.0, 1.0, 0.0));
+    SpatialDomains::PointGeomUniquePtr v3(
+        new SpatialDomains::PointGeom(2u, 3u, -1.0, 1.0, 0.0));
+
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
+
+    Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
+        Nektar::LibUtilities::eGaussLobattoLegendre;
+    Nektar::LibUtilities::BasisType basisTypeDir1 =
+        Nektar::LibUtilities::eModified_A;
+    unsigned int numQuadPoints = 6;
+    unsigned int numModes      = 5;
+    const Nektar::LibUtilities::PointsKey quadPointsKeyDir1(numQuadPoints,
+                                                            quadPointsTypeDir1);
+    const Nektar::LibUtilities::BasisKey basisKeyDir1(basisTypeDir1, numModes,
+                                                      quadPointsKeyDir1);
+
+    Nektar::LocalRegions::QuadExpSharedPtr Exp =
+        MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
+            basisKeyDir1, basisKeyDir1, quadGeom.get());
+
+    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
+        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
+            basisKeyDir1, basisKeyDir1);
+
+    int nelmts = 10;
+
+    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    for (int i = 0; i < nelmts; ++i)
+    {
+        CollExp.push_back(Exp);
+    }
+
+    LibUtilities::SessionReaderSharedPtr dummySession;
+    Collections::CollectionOptimisation colOpt(dummySession, 2,
+                                               Collections::eMatrixFree);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::Collection c(CollExp, impTypes);
+    StdRegions::ConstFactorMap factors;
+    factors[StdRegions::eFactorLambda] = 1.5;
+
+    c.Initialise(Collections::eLinearAdvectionDiffusionReaction, factors);
+
+    // Add advection velocities via varcoeffs
+    int npoints = Exp->GetTotPoints() * nelmts;
+    StdRegions::VarCoeffMap varcoeffs;
+    StdRegions::VarCoeffType varcoefftypes[] = {StdRegions::eVarCoeffVelX,
+                                                StdRegions::eVarCoeffVelY};
+    for (int i = 0; i < Exp->GetShapeDimension(); i++)
+    {
+        varcoeffs[varcoefftypes[i]] = Array<OneD, NekDouble>(npoints, 1.0);
+    }
+    c.UpdateVarcoeffs(Collections::eLinearAdvectionDiffusionReaction,
+                      varcoeffs);
+
+    const int nm = Exp->GetNcoeffs();
+    Array<OneD, NekDouble> coeffsIn(nelmts * nm);
+    Array<OneD, NekDouble> coeffsRef(nelmts * nm);
+    Array<OneD, NekDouble> coeffs(nelmts * nm), tmp;
+
+    for (int i = 0; i < coeffsIn.size(); ++i)
+    {
+        coeffsIn[i] = i + 1.0;
+    }
+
+    StdRegions::StdMatrixKey mkey(StdRegions::eLinearAdvectionDiffusionReaction,
+                                  Exp->DetShapeType(), *Exp, factors,
+                                  varcoeffs);
+
+    for (int i = 0; i < nelmts; ++i)
+    {
+        // Standard routines
+        Exp->GeneralMatrixOp(coeffsIn + i * nm, tmp = coeffsRef + i * nm, mkey);
+    }
+
+    c.ApplyOperator(Collections::eLinearAdvectionDiffusionReaction, coeffsIn,
+                    coeffs);
+
+    double epsilon = 1.0e-8;
+    for (int i = 0; i < coeffsRef.size(); ++i)
+    {
+        coeffsRef[i] = (std::abs(coeffsRef[i]) < 1e-14) ? 0.0 : coeffsRef[i];
+        coeffs[i]    = (std::abs(coeffs[i]) < 1e-14) ? 0.0 : coeffs[i];
+        BOOST_CHECK_CLOSE(coeffsRef[i], coeffs[i], epsilon);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(
+    TestQuadLinearAdvectionDiffusionReaction_MatrixFree_UniformP_Deformed)
+{
+    SpatialDomains::PointGeomUniquePtr v0(
+        new SpatialDomains::PointGeom(2u, 0u, -1.5, -1.5, 0.0));
+    SpatialDomains::PointGeomUniquePtr v1(
+        new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
+    SpatialDomains::PointGeomUniquePtr v2(
+        new SpatialDomains::PointGeom(2u, 2u, 1.0, 1.0, 0.0));
+    SpatialDomains::PointGeomUniquePtr v3(
+        new SpatialDomains::PointGeom(2u, 3u, -1.0, 1.0, 0.0));
+
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> segVec;
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    SpatialDomains::QuadGeomUniquePtr quadGeom   = CreateQuad(v, segVec);
+
+    Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
+        Nektar::LibUtilities::eGaussLobattoLegendre;
+    Nektar::LibUtilities::BasisType basisTypeDir1 =
+        Nektar::LibUtilities::eModified_A;
+    unsigned int numQuadPoints = 6;
+    unsigned int numModes      = 5;
+    const Nektar::LibUtilities::PointsKey quadPointsKeyDir1(numQuadPoints,
+                                                            quadPointsTypeDir1);
+    const Nektar::LibUtilities::BasisKey basisKeyDir1(basisTypeDir1, numModes,
+                                                      quadPointsKeyDir1);
+
+    Nektar::LocalRegions::QuadExpSharedPtr Exp =
+        MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
+            basisKeyDir1, basisKeyDir1, quadGeom.get());
+
+    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
+        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
+            basisKeyDir1, basisKeyDir1);
+
+    int nelmts = 10;
+
+    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    for (int i = 0; i < nelmts; ++i)
+    {
+        CollExp.push_back(Exp);
+    }
+
+    LibUtilities::SessionReaderSharedPtr dummySession;
+    Collections::CollectionOptimisation colOpt(dummySession, 2,
+                                               Collections::eMatrixFree);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::Collection c(CollExp, impTypes);
+    StdRegions::ConstFactorMap factors;
+    factors[StdRegions::eFactorLambda] = 1.5;
+
+    c.Initialise(Collections::eLinearAdvectionDiffusionReaction, factors);
+
+    // Add advection velocities via varcoeffs
+    int npoints = Exp->GetTotPoints() * nelmts;
+    StdRegions::VarCoeffMap varcoeffs;
+    StdRegions::VarCoeffType varcoefftypes[] = {StdRegions::eVarCoeffVelX,
+                                                StdRegions::eVarCoeffVelY};
+    for (int i = 0; i < Exp->GetShapeDimension(); i++)
+    {
+        varcoeffs[varcoefftypes[i]] = Array<OneD, NekDouble>(npoints, 1.0);
+    }
+    c.UpdateVarcoeffs(Collections::eLinearAdvectionDiffusionReaction,
+                      varcoeffs);
+
+    const int nm = Exp->GetNcoeffs();
+    Array<OneD, NekDouble> coeffsIn(nelmts * nm);
+    Array<OneD, NekDouble> coeffsRef(nelmts * nm);
+    Array<OneD, NekDouble> coeffs(nelmts * nm), tmp;
+
+    for (int i = 0; i < coeffsIn.size(); ++i)
+    {
+        coeffsIn[i] = i + 1.0;
+    }
+
+    StdRegions::StdMatrixKey mkey(StdRegions::eLinearAdvectionDiffusionReaction,
+                                  Exp->DetShapeType(), *Exp, factors,
+                                  varcoeffs);
+
+    for (int i = 0; i < nelmts; ++i)
+    {
+        // Standard routines
+        Exp->GeneralMatrixOp(coeffsIn + i * nm, tmp = coeffsRef + i * nm, mkey);
+    }
+
+    c.ApplyOperator(Collections::eLinearAdvectionDiffusionReaction, coeffsIn,
+                    coeffs);
+
+    double epsilon = 1.0e-8;
+    for (int i = 0; i < coeffsRef.size(); ++i)
+    {
+        coeffsRef[i] = (std::abs(coeffsRef[i]) < 1e-14) ? 0.0 : coeffsRef[i];
+        coeffs[i]    = (std::abs(coeffs[i]) < 1e-14) ? 0.0 : coeffs[i];
+        BOOST_CHECK_CLOSE(coeffsRef[i], coeffs[i], epsilon);
     }
 }
 

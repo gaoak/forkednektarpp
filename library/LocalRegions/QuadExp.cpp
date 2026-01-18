@@ -143,38 +143,6 @@ void QuadExp::v_PhysDeriv(const Array<OneD, const NekDouble> &inarray,
     }
 }
 
-void QuadExp::v_PhysDeriv(const int dir,
-                          const Array<OneD, const NekDouble> &inarray,
-                          Array<OneD, NekDouble> &outarray)
-{
-    switch (dir)
-    {
-        case 0:
-        {
-            v_PhysDeriv(inarray, outarray, NullNekDouble1DArray,
-                        NullNekDouble1DArray);
-        }
-        break;
-        case 1:
-        {
-            v_PhysDeriv(inarray, NullNekDouble1DArray, outarray,
-                        NullNekDouble1DArray);
-        }
-        break;
-        case 2:
-        {
-            v_PhysDeriv(inarray, NullNekDouble1DArray, NullNekDouble1DArray,
-                        outarray);
-        }
-        break;
-        default:
-        {
-            ASSERTL1(false, "input dir is out of range");
-        }
-        break;
-    }
-}
-
 void QuadExp::v_PhysDirectionalDeriv(
     const Array<OneD, const NekDouble> &inarray,
     const Array<OneD, const NekDouble> &direction, Array<OneD, NekDouble> &out)
@@ -642,7 +610,7 @@ void QuadExp::GetEdgeInterpVals(const int edge,
         {
             for (i = 0; i < nq0; i++)
             {
-                outarray[i] = Blas::Ddot(
+                outarray[i] = Vmath::Dot(
                     nq1, mat_gauss->GetOwnedMatrix()->GetPtr().data(), 1,
                     &inarray[i], nq0);
             }
@@ -652,7 +620,7 @@ void QuadExp::GetEdgeInterpVals(const int edge,
         {
             for (i = 0; i < nq1; i++)
             {
-                outarray[i] = Blas::Ddot(
+                outarray[i] = Vmath::Dot(
                     nq0, mat_gauss->GetOwnedMatrix()->GetPtr().data(), 1,
                     &inarray[i * nq0], 1);
             }
@@ -662,7 +630,7 @@ void QuadExp::GetEdgeInterpVals(const int edge,
         {
             for (i = 0; i < nq0; i++)
             {
-                outarray[i] = Blas::Ddot(
+                outarray[i] = Vmath::Dot(
                     nq1, mat_gauss->GetOwnedMatrix()->GetPtr().data(), 1,
                     &inarray[i], nq0);
             }
@@ -672,7 +640,7 @@ void QuadExp::GetEdgeInterpVals(const int edge,
         {
             for (i = 0; i < nq1; i++)
             {
-                outarray[i] = Blas::Ddot(
+                outarray[i] = Vmath::Dot(
                     nq0, mat_gauss->GetOwnedMatrix()->GetPtr().data(), 1,
                     &inarray[i * nq0], 1);
             }

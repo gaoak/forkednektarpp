@@ -71,13 +71,11 @@ protected:
     //----------------------------
     // Differentiation Methods
     //----------------------------
+    using StdTriExp::v_PhysDeriv;
     LOCAL_REGIONS_EXPORT void v_PhysDeriv(
         const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &out_d0, Array<OneD, NekDouble> &out_d1,
         Array<OneD, NekDouble> &out_d2 = NullNekDouble1DArray) override;
-    LOCAL_REGIONS_EXPORT void v_PhysDeriv(
-        const int dir, const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray) override;
     LOCAL_REGIONS_EXPORT void v_PhysDirectionalDeriv(
         const Array<OneD, const NekDouble> &inarray,
         const Array<OneD, const NekDouble> &direction,

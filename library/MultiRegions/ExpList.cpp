@@ -4902,7 +4902,7 @@ void ExpList::v_GetNormals(Array<OneD, Array<OneD, NekDouble>> &normals)
                 Array<OneD, NekDouble> traceNormals(faceNq0 * faceNq1);
                 for (j = 0; j < coordim; ++j)
                 {
-                    Vmath::Scatr(faceNq0 * faceNq1, locNormals[j], map,
+                    Vmath::Gathr(faceNq0 * faceNq1, locNormals[j], map,
                                  traceNormals);
 
                     LibUtilities::Interp2D(

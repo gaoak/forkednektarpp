@@ -91,7 +91,7 @@ public:
 
     LOCAL_REGIONS_EXPORT void v_ReOrientTracePhysMap(
         const StdRegions::Orientation orient, Array<OneD, int> &idmap,
-        const int nq0, const int nq1) override;
+        const int nq0, const int nq1, bool Forwards) override;
 
     LOCAL_REGIONS_EXPORT void v_NormVectorIProductWRTBase(
         const Array<OneD, const Array<OneD, NekDouble>> &Fvec,

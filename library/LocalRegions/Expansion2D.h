@@ -111,6 +111,11 @@ public:
 protected:
     std::vector<bool> m_requireNeg;
 
+    LOCAL_REGIONS_EXPORT void v_PhysDeriv(
+        const int dir, const Array<OneD, const NekDouble> &inarray,
+        Array<OneD, NekDouble> &outarray) override;
+    using StdExpansion2D::v_PhysDeriv;
+
     // Hybridized DG routines
     void v_DGDeriv(const int dir, const Array<OneD, const NekDouble> &incoeffs,
                    Array<OneD, ExpansionSharedPtr> &EdgeExp,
@@ -142,7 +147,7 @@ protected:
 
     void v_ReOrientTracePhysMap(const StdRegions::Orientation orient,
                                 Array<OneD, int> &idmap, const int nq0,
-                                const int nq1) override;
+                                const int nq1, bool Forwards) override;
 
     void v_SetUpPhysNormals(const int edge) override;
     NekDouble v_VectorFlux(

@@ -700,6 +700,41 @@ DNekScalMatSharedPtr Expansion2D::CreateMatrix(const MatrixKey &mkey)
     return returnval;
 }
 
+void Expansion2D::v_PhysDeriv(const int dir,
+                              const Array<OneD, const NekDouble> &inarray,
+                              Array<OneD, NekDouble> &outarray)
+{
+    switch (dir)
+    {
+        case 0:
+        {
+            v_PhysDeriv(inarray, outarray, NullNekDouble1DArray,
+                        NullNekDouble1DArray);
+            break;
+        }
+
+        case 1:
+        {
+            v_PhysDeriv(inarray, NullNekDouble1DArray, outarray,
+                        NullNekDouble1DArray);
+            break;
+        }
+
+        case 2:
+        {
+            v_PhysDeriv(inarray, NullNekDouble1DArray, NullNekDouble1DArray,
+                        outarray);
+            break;
+        }
+
+        default:
+        {
+            ASSERTL1(false, "input dir is out of range");
+        }
+        break;
+    }
+}
+
 void Expansion2D::v_AddEdgeNormBoundaryInt(
     const int edge, const ExpansionSharedPtr &EdgeExp,
     const Array<OneD, const NekDouble> &Fx,
@@ -2270,7 +2305,8 @@ void Expansion2D::v_SetUpPhysNormals(const int edge)
 
 void Expansion2D::v_ReOrientTracePhysMap(const StdRegions::Orientation orient,
                                          Array<OneD, int> &idmap, const int nq0,
-                                         [[maybe_unused]] const int nq1)
+                                         [[maybe_unused]] const int nq1,
+                                         [[maybe_unused]] bool Forwards)
 {
     if (idmap.size() != nq0)
     {

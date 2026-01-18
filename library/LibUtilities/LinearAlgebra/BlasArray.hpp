@@ -46,26 +46,8 @@ namespace Blas
 extern "C"
 {
     // -- BLAS Level 1:
-    void F77NAME(dcopy)(const int &n, const double *x, const int &incx,
-                        double *y, const int &incy);
     void F77NAME(daxpy)(const int &n, const double &alpha, const double *x,
                         const int &incx, const double *y, const int &incy);
-    double F77NAME(ddot)(const int &n, const double *x, const int &incx,
-                         const double *y, const int &incy);
-}
-
-static inline void Dcopy(const int &n,
-                         const Nektar::Array<Nektar::OneD, const double> &x,
-                         const int &incx,
-                         Nektar::Array<Nektar::OneD, double> &y,
-                         const int &incy)
-{
-    ASSERTL1(static_cast<unsigned int>(n * incx) <= x.size() + x.GetOffset(),
-             "Array out of bounds");
-    ASSERTL1(static_cast<unsigned int>(n * incy) <= y.size() + y.GetOffset(),
-             "Array out of bounds");
-
-    F77NAME(dcopy)(n, &x[0], incx, &y[0], incy);
 }
 
 /// \brief  BLAS level 1: y = alpha \a x plus \a y
@@ -83,14 +65,5 @@ static inline void Daxpy(const int &n, const double &alpha,
     F77NAME(daxpy)(n, alpha, &x[0], incx, &y[0], incy);
 }
 
-/// \brief BLAS level 1: output =   \f$ x^T  y \f$
-static inline double Ddot(const int &n,
-                          const Nektar::Array<Nektar::OneD, const double> &x,
-                          const int &incx,
-                          const Nektar::Array<Nektar::OneD, const double> &y,
-                          const int &incy)
-{
-    return F77NAME(ddot)(n, &x[0], incx, &y[0], incy);
-}
 } // namespace Blas
 #endif // NEKTAR_LIB_UTILITIES_LINEAR_ALGEBRA_BLASARRAY_HPP

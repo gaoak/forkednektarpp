@@ -237,41 +237,6 @@ void StdPyrExp::v_PhysDeriv(const Array<OneD, const NekDouble> &u_physical,
     }
 }
 
-void StdPyrExp::v_PhysDeriv(const int dir,
-                            const Array<OneD, const NekDouble> &inarray,
-                            Array<OneD, NekDouble> &outarray)
-{
-    switch (dir)
-    {
-        case 0:
-        {
-            v_PhysDeriv(inarray, outarray, NullNekDouble1DArray,
-                        NullNekDouble1DArray);
-            break;
-        }
-
-        case 1:
-        {
-            v_PhysDeriv(inarray, NullNekDouble1DArray, outarray,
-                        NullNekDouble1DArray);
-            break;
-        }
-
-        case 2:
-        {
-            v_PhysDeriv(inarray, NullNekDouble1DArray, NullNekDouble1DArray,
-                        outarray);
-            break;
-        }
-
-        default:
-        {
-            ASSERTL1(false, "input dir is out of range");
-        }
-        break;
-    }
-}
-
 void StdPyrExp::v_StdPhysDeriv(const Array<OneD, const NekDouble> &inarray,
                                Array<OneD, NekDouble> &out_d0,
                                Array<OneD, NekDouble> &out_d1,

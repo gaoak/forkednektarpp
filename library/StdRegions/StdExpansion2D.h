@@ -92,6 +92,11 @@ public:
         [[maybe_unused]] bool CollDir1 = false);
 
 protected:
+    STD_REGIONS_EXPORT void v_PhysDeriv(
+        const int dir, const Array<OneD, const NekDouble> &inarray,
+        Array<OneD, NekDouble> &outarray) override;
+    using StdExpansion::v_PhysDeriv;
+
     /** \brief This function evaluates the expansion at a single
      *  (arbitrary) point of the domain
      *

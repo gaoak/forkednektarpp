@@ -425,8 +425,8 @@ public:
 private:
     /// Expansion Dimension we have setup for trace mapping.
     int m_expdim;
-    /// The number of forward trace points. A local trace element is `forward'
-    /// if it is the side selected for the global trace.
+    /// The number of forward trace points. A local trace element is
+    /// `forward' if it is the side selected for the global trace.
     int m_nFwdLocTracePts;
     /// The number of local trace points.
     int m_nLocTracePts;
@@ -440,17 +440,17 @@ private:
     /// all forwards traces followed by backwards traces, to elemental
     /// storage.
     Array<OneD, Array<OneD, int>> m_locTraceToElmtTraceMap;
-    /// A mapping from local trace points to the global trace. Dimension 0 holds
-    /// forward traces, dimension 1 backward.
+    /// A mapping from local trace points to the global trace. Dimension 0
+    /// holds forward traces, dimension 1 backward.
     Array<OneD, Array<OneD, int>> m_locInterpTraceToTraceMap;
-    /// A mapping holding the type of interpolation needed for each local trace.
-    /// Dimension 0 holds forward traces, dimension 1 backward.
+    /// A mapping holding the type of interpolation needed for each local
+    /// trace. Dimension 0 holds forward traces, dimension 1 backward.
     Array<OneD, Array<OneD, InterpLocTraceToTrace>> m_interpTrace;
     /// Interpolation matrices for either 2D edges or first coordinate of 3D
     /// face.
     Array<OneD, Array<OneD, DNekMatSharedPtr>> m_interpTraceI0;
-    /// Interpolation matrices for the second coordinate of 3D face, not used in
-    /// 2D.
+    /// Interpolation matrices for the second coordinate of 3D face, not
+    /// used in 2D.
     Array<OneD, Array<OneD, DNekMatSharedPtr>> m_interpTraceI1;
     /// Interpolation matrices for either 2D edges or first coordinate
     /// of 3D face using going "from' to 'to' points (i.e. the reverse
@@ -460,11 +460,12 @@ private:
     /// of 3D face using going "from' to 'to' points (i.e. the reverse
     /// of other techniques)
     Array<OneD, Array<OneD, DNekMatSharedPtr>> m_interpFromTraceI1;
-    /// Interpolation points key distributions to each of the local to global
-    /// mappings.
+    /// Interpolation points key distributions to each of the local to
+    /// global mappings.
     Array<OneD, Array<OneD, TraceInterpPoints>> m_interpPoints;
-    /// Mapping to hold first coordinate direction endpoint interpolation, which
-    /// can be more optimal if using Gauss-Radau distribution for triangles
+    /// Mapping to hold first coordinate direction endpoint interpolation,
+    /// which can be more optimal if using Gauss-Radau distribution for
+    /// triangles
     Array<OneD, Array<OneD, Array<OneD, NekDouble>>> m_interpEndPtI0;
     /// Mapping to hold second coordinate direction endpoint interpolation,
     /// which can be more optimal if using Gauss-Radau distribution for
@@ -477,30 +478,31 @@ private:
     /// Mapping from forwards/backwards trace coefficients to elemental
     /// coefficient storage.
     Array<OneD, Array<OneD, int>> m_traceCoeffsToElmtMap;
-    /// Mapping from forwards/backwards trace coefficients to the position of
-    /// the trace element in global storage.
+    /// Mapping from forwards/backwards trace coefficients to the position
+    /// of the trace element in global storage.
     Array<OneD, Array<OneD, int>> m_traceCoeffsToElmtTrace;
     /// Sign array for mapping from forwards/backwards trace coefficients to
     /// local trace storage.
     Array<OneD, Array<OneD, int>> m_traceCoeffsToElmtSign;
-    /// Flag indicates whether the expansion that are the left & right adjacent
-    /// to current trace exists.
+    /// Flag indicates whether the expansion that are the left & right
+    /// adjacent to current trace exists.
     Array<OneD, Array<OneD, bool>> m_leftRightAdjacentExpFlag;
-    /// The expansion ID that are the left & right adjacent to current trace.
+    /// The expansion ID that are the left & right adjacent to current
+    /// trace.
     Array<OneD, Array<OneD, int>> m_leftRightAdjacentExpId;
-    /// The map of every coeff from current trace to the left & right adjacent
-    /// expasion coeffs.
+    /// The map of every coeff from current trace to the left & right
+    /// adjacent expasion coeffs.
     Array<OneD, Array<OneD, Array<OneD, int>>>
         m_traceCoeffToLeftRightExpCoeffMap;
-    /// The sign of every coeff from current trace to the left & right adjacent
-    /// expasion coeffs.
+    /// The sign of every coeff from current trace to the left & right
+    /// adjacent expasion coeffs.
     Array<OneD, Array<OneD, Array<OneD, int>>>
         m_traceCoeffToLeftRightExpCoeffSign;
-    /// The map of every phys from current trace to the left & right adjacent
-    /// expasion phys. This map is only used when no interpolation is needed in
-    /// getting GetFwdBwdTracePhys. If interpolation is needed, it should be
-    /// determined as the InnerProduct of m_locTraceToFieldMap matrix and
-    /// interpolation matrix.
+    /// The map of every phys from current trace to the left & right
+    /// adjacent expasion phys. This map is only used when no interpolation
+    /// is needed in getting GetFwdBwdTracePhys. If interpolation is needed,
+    /// it should be determined as the InnerProduct of m_locTraceToFieldMap
+    /// matrix and interpolation matrix.
     Array<OneD, Array<OneD, Array<OneD, int>>> m_tracePhysToLeftRightExpPhysMap;
 
     // store the number of neighbor elements for each element
@@ -513,17 +515,18 @@ private:
     void FindElmtNeighbors(const ExpList &locExp,
                            const ExpListSharedPtr &trace);
 
-    //------- Below is new members to support cell-based trace operations ------
-    /// start entry of each local trace in m_locTraceToFieldMap, referenced by
-    /// element and trace id
+    //------- Below is new members to support cell-based trace operations
+    //------
+    /// start entry of each local trace in m_locTraceToFieldMap, referenced
+    /// by element and trace id
     Array<OneD, Array<OneD, int>> m_locTracePtsEntry;
     /// start entry of each global trace in m_locInterpTraceToTraceMap,
     /// referenced by element and trace id
     Array<OneD, Array<OneD, int>> m_interpTracePtsEntry;
     /// subscript of m_interpTrace, referenced by element and trace id
     Array<OneD, Array<OneD, int>> m_interpTraceIndex;
-    /// start entry of each global trace in m_traceCoeffsToElmtMap, referenced
-    /// by element and trace id
+    /// start entry of each global trace in m_traceCoeffsToElmtMap,
+    /// referenced by element and trace id
     Array<OneD, Array<OneD, int>> m_traceCoeffsEntry;
 
     // stores start expid of each collection

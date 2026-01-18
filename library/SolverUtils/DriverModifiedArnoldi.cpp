@@ -183,7 +183,7 @@ void DriverModifiedArnoldi::v_Execute(std::ostream &out)
     {
         Vmath::Vmul(ntot, Kseq[0], 1, m_maskCoeffs, 1, Kseqcopy[0], 1);
     }
-    alpha[0] = Blas::Ddot(ntot, &Kseqcopy[0][0], 1, &Kseqcopy[0][0], 1);
+    alpha[0] = Vmath::Dot(ntot, &Kseqcopy[0][0], 1, &Kseqcopy[0][0], 1);
     m_comm->AllReduce(alpha[0], Nektar::LibUtilities::ReduceSum);
     alpha[0] = std::sqrt(alpha[0]);
     Vmath::Smul(ntot, 1.0 / alpha[0], Kseq[0], 1, Kseq[0], 1);
@@ -200,7 +200,7 @@ void DriverModifiedArnoldi::v_Execute(std::ostream &out)
         {
             Vmath::Vmul(ntot, Kseq[i], 1, m_maskCoeffs, 1, Kseqcopy[i], 1);
         }
-        alpha[i] = Blas::Ddot(ntot, &Kseqcopy[i][0], 1, &Kseqcopy[i][0], 1);
+        alpha[i] = Vmath::Dot(ntot, &Kseqcopy[i][0], 1, &Kseqcopy[i][0], 1);
         m_comm->AllReduce(alpha[i], Nektar::LibUtilities::ReduceSum);
         alpha[i] = std::sqrt(alpha[i]);
 
@@ -266,7 +266,7 @@ void DriverModifiedArnoldi::v_Execute(std::ostream &out)
                 Vmath::Vmul(ntot, Kseq[m_kdim], 1, m_maskCoeffs, 1,
                             Kseqcopy[m_kdim], 1);
             }
-            alpha[m_kdim] = Blas::Ddot(ntot, &Kseqcopy[m_kdim][0], 1,
+            alpha[m_kdim] = Vmath::Dot(ntot, &Kseqcopy[m_kdim][0], 1,
                                        &Kseqcopy[m_kdim][0], 1);
             m_comm->AllReduce(alpha[m_kdim], Nektar::LibUtilities::ReduceSum);
             alpha[m_kdim] = std::sqrt(alpha[m_kdim]);
@@ -395,7 +395,7 @@ void DriverModifiedArnoldi::EV_small(
     // Modified G-S orthonormalisation
     for (int i = 0; i < kdimp; ++i)
     {
-        NekDouble gsc = Blas::Ddot(ntot, &Kseq[i][0], 1, &Kseq[i][0], 1);
+        NekDouble gsc = Vmath::Dot(ntot, &Kseq[i][0], 1, &Kseq[i][0], 1);
         m_comm->AllReduce(gsc, Nektar::LibUtilities::ReduceSum);
         gsc = std::sqrt(gsc);
         ASSERTL0(gsc != 0.0, "Vectors are linearly independent.");
@@ -409,7 +409,7 @@ void DriverModifiedArnoldi::EV_small(
 
         for (int j = i + 1; j < kdimp; ++j)
         {
-            gsc = Blas::Ddot(ntot, &Kseq[i][0], 1, &Kseq[j][0], 1);
+            gsc = Vmath::Dot(ntot, &Kseq[i][0], 1, &Kseq[j][0], 1);
             m_comm->AllReduce(gsc, Nektar::LibUtilities::ReduceSum);
             Vmath::Svtvp(ntot, -gsc, Kseq[i], 1, Kseq[j], 1, Kseq[j], 1);
             if (m_useMask)
@@ -650,7 +650,7 @@ void DriverModifiedArnoldi::EV_big(Array<OneD, Array<OneD, NekDouble>> &bvecs,
             {
                 std::cout << "eigenvalue " << i << ": real mode" << std::endl;
             }
-            norm = Blas::Ddot(ntot, &btmp[i][0], 1, &btmp[i][0], 1);
+            norm = Vmath::Dot(ntot, &btmp[i][0], 1, &btmp[i][0], 1);
             m_comm->AllReduce(norm, Nektar::LibUtilities::ReduceSum);
             norm = std::sqrt(norm);
             if (m_useMask)
@@ -670,8 +670,8 @@ void DriverModifiedArnoldi::EV_big(Array<OneD, Array<OneD, NekDouble>> &bvecs,
                 std::cout << "eigenvalues " << i << ", " << i + 1
                           << ": complex modes" << std::endl;
             }
-            norm = Blas::Ddot(ntot, &btmp[i][0], 1, &btmp[i][0], 1);
-            norm += Blas::Ddot(ntot, &btmp[i + 1][0], 1, &btmp[i + 1][0], 1);
+            norm = Vmath::Dot(ntot, &btmp[i][0], 1, &btmp[i][0], 1);
+            norm += Vmath::Dot(ntot, &btmp[i + 1][0], 1, &btmp[i + 1][0], 1);
             m_comm->AllReduce(norm, Nektar::LibUtilities::ReduceSum);
             norm = std::sqrt(norm);
 

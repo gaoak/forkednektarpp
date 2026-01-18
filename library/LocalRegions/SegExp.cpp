@@ -281,37 +281,6 @@ void SegExp::v_PhysDeriv_n(const Array<OneD, const NekDouble> &inarray,
             }
     }
 }
-void SegExp::v_PhysDeriv(const int dir,
-                         const Array<OneD, const NekDouble> &inarray,
-                         Array<OneD, NekDouble> &outarray)
-{
-    switch (dir)
-    {
-        case 0:
-        {
-            PhysDeriv(inarray, outarray, NullNekDouble1DArray,
-                      NullNekDouble1DArray);
-        }
-        break;
-        case 1:
-        {
-            PhysDeriv(inarray, NullNekDouble1DArray, outarray,
-                      NullNekDouble1DArray);
-        }
-        break;
-        case 2:
-        {
-            PhysDeriv(inarray, NullNekDouble1DArray, NullNekDouble1DArray,
-                      outarray);
-        }
-        break;
-        default:
-        {
-            ASSERTL1(false, "input dir is out of range");
-        }
-        break;
-    }
-}
 
 //-----------------------------
 // Transforms
@@ -680,7 +649,7 @@ void SegExp::v_GetVertexPhysVals(const int vertex,
         DNekScalMatSharedPtr mat_gauss = m_matrixManager[key];
 
         outarray =
-            Blas::Ddot(nquad, mat_gauss->GetOwnedMatrix()->GetPtr().data(), 1,
+            Vmath::Dot(nquad, mat_gauss->GetOwnedMatrix()->GetPtr().data(), 1,
                        &inarray[0], 1);
     }
 }

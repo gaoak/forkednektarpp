@@ -2871,7 +2871,7 @@ BOOST_AUTO_TEST_CASE(TestTetIProductWRTDerivBase_SumFac_VariableP_MultiElmt)
     }
 }
 
-BOOST_AUTO_TEST_CASE(TestTetmHelmholtz_IterPerExp_UniformP_ConstVarDiff)
+BOOST_AUTO_TEST_CASE(TestTetHelmholtz_IterPerExp_UniformP_ConstVarDiff)
 {
     SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
@@ -2940,7 +2940,7 @@ BOOST_AUTO_TEST_CASE(TestTetmHelmholtz_IterPerExp_UniformP_ConstVarDiff)
     Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
-    factors[StdRegions::eFactorLambda]   = 0.0;
+    factors[StdRegions::eFactorLambda]   = 1.5;
     factors[StdRegions::eFactorCoeffD00] = 1.25;
     factors[StdRegions::eFactorCoeffD01] = 0.25;
     factors[StdRegions::eFactorCoeffD11] = 1.25;
@@ -2955,14 +2955,9 @@ BOOST_AUTO_TEST_CASE(TestTetmHelmholtz_IterPerExp_UniformP_ConstVarDiff)
     Array<OneD, NekDouble> coeffsRef(nelmts * nm);
     Array<OneD, NekDouble> coeffs(nelmts * nm), tmp;
 
-    for (int i = 0; i < nm; ++i)
+    for (int i = 0; i < coeffsIn.size(); ++i)
     {
-        coeffsIn[i] = 1.0 + i;
-    }
-
-    for (int i = 1; i < nelmts; ++i)
-    {
-        Vmath::Vcopy(nm, coeffsIn, 1, tmp = coeffsIn + i * nm, 1);
+        coeffsIn[i] = i + 1.0;
     }
 
     StdRegions::StdMatrixKey mkey(StdRegions::eHelmholtz, Exp->DetShapeType(),
@@ -2985,7 +2980,7 @@ BOOST_AUTO_TEST_CASE(TestTetmHelmholtz_IterPerExp_UniformP_ConstVarDiff)
     }
 }
 
-BOOST_AUTO_TEST_CASE(TestTetmHelmholtz_MatrixFree_UniformP)
+BOOST_AUTO_TEST_CASE(TestTetHelmholtz_MatrixFree_UniformP)
 {
     SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
@@ -3054,7 +3049,7 @@ BOOST_AUTO_TEST_CASE(TestTetmHelmholtz_MatrixFree_UniformP)
     Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
-    factors[StdRegions::eFactorLambda] = 0.0;
+    factors[StdRegions::eFactorLambda] = 1.5;
 
     c.Initialise(Collections::eHelmholtz, factors);
 
@@ -3063,14 +3058,9 @@ BOOST_AUTO_TEST_CASE(TestTetmHelmholtz_MatrixFree_UniformP)
     Array<OneD, NekDouble> coeffsRef(nelmts * nm);
     Array<OneD, NekDouble> coeffs(nelmts * nm), tmp;
 
-    for (int i = 0; i < nm; ++i)
+    for (int i = 0; i < coeffsIn.size(); ++i)
     {
-        coeffsIn[i] = 1.0 + i;
-    }
-
-    for (int i = 1; i < nelmts; ++i)
-    {
-        Vmath::Vcopy(nm, coeffsIn, 1, tmp = coeffsIn + i * nm, 1);
+        coeffsIn[i] = i + 1.0;
     }
 
     StdRegions::StdMatrixKey mkey(StdRegions::eHelmholtz, Exp->DetShapeType(),
@@ -3093,7 +3083,7 @@ BOOST_AUTO_TEST_CASE(TestTetmHelmholtz_MatrixFree_UniformP)
     }
 }
 
-BOOST_AUTO_TEST_CASE(TestTetmHelmholtz_MatrixFree_Deformed_OverInt)
+BOOST_AUTO_TEST_CASE(TestTetHelmholtz_MatrixFree_Deformed_OverInt)
 {
     SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -2.0, -3.0, -4.0));
@@ -3162,7 +3152,7 @@ BOOST_AUTO_TEST_CASE(TestTetmHelmholtz_MatrixFree_Deformed_OverInt)
     Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
-    factors[StdRegions::eFactorLambda] = 0.0;
+    factors[StdRegions::eFactorLambda] = 1.5;
 
     c.Initialise(Collections::eHelmholtz, factors);
 
@@ -3171,14 +3161,9 @@ BOOST_AUTO_TEST_CASE(TestTetmHelmholtz_MatrixFree_Deformed_OverInt)
     Array<OneD, NekDouble> coeffsRef(nelmts * nm);
     Array<OneD, NekDouble> coeffs(nelmts * nm), tmp;
 
-    for (int i = 0; i < nm; ++i)
+    for (int i = 0; i < coeffsIn.size(); ++i)
     {
-        coeffsIn[i] = 1.0 + i;
-    }
-
-    for (int i = 1; i < nelmts; ++i)
-    {
-        Vmath::Vcopy(nm, coeffsIn, 1, tmp = coeffsIn + i * nm, 1);
+        coeffsIn[i] = i + 1.0;
     }
 
     StdRegions::StdMatrixKey mkey(StdRegions::eHelmholtz, Exp->DetShapeType(),
@@ -3302,7 +3287,7 @@ BOOST_AUTO_TEST_CASE(TestTetIProductWRTDerivBase_MatrixFree_UniformP_Undeformed)
     }
 }
 
-BOOST_AUTO_TEST_CASE(TestTetmHelmholtz_MatrixFree_UniformP_ConstVarDiff)
+BOOST_AUTO_TEST_CASE(TestTetHelmholtz_MatrixFree_UniformP_ConstVarDiff)
 {
     SpatialDomains::PointGeomUniquePtr v0(
         new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
@@ -3371,7 +3356,7 @@ BOOST_AUTO_TEST_CASE(TestTetmHelmholtz_MatrixFree_UniformP_ConstVarDiff)
     Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
-    factors[StdRegions::eFactorLambda]   = 0.0;
+    factors[StdRegions::eFactorLambda]   = 1.5;
     factors[StdRegions::eFactorCoeffD00] = 1.25;
     factors[StdRegions::eFactorCoeffD01] = 0.25;
     factors[StdRegions::eFactorCoeffD11] = 1.25;
@@ -3386,14 +3371,9 @@ BOOST_AUTO_TEST_CASE(TestTetmHelmholtz_MatrixFree_UniformP_ConstVarDiff)
     Array<OneD, NekDouble> coeffsRef(nelmts * nm);
     Array<OneD, NekDouble> coeffs(nelmts * nm), tmp;
 
-    for (int i = 0; i < nm; ++i)
+    for (int i = 0; i < coeffsIn.size(); ++i)
     {
-        coeffsIn[i] = 1.0 + i;
-    }
-
-    for (int i = 1; i < nelmts; ++i)
-    {
-        Vmath::Vcopy(nm, coeffsIn, 1, tmp = coeffsIn + i * nm, 1);
+        coeffsIn[i] = i + 1.0;
     }
 
     StdRegions::StdMatrixKey mkey(StdRegions::eHelmholtz, Exp->DetShapeType(),
@@ -3613,4 +3593,364 @@ BOOST_AUTO_TEST_CASE(TestTetPhysInterp1D_MatrixFree_UniformP)
         BOOST_CHECK_CLOSE(phys1[i], exact, epsilon);
     }
 }
+
+BOOST_AUTO_TEST_CASE(
+    TestTetLinearAdvectionDiffusionReaction_IterPerExp_UniformP)
+{
+    SpatialDomains::PointGeomUniquePtr v0(
+        new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
+    SpatialDomains::PointGeomUniquePtr v1(
+        new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
+    SpatialDomains::PointGeomUniquePtr v2(
+        new SpatialDomains::PointGeom(3u, 2u, -1.0, 1.0, -1.0));
+    SpatialDomains::PointGeomUniquePtr v3(
+        new SpatialDomains::PointGeom(3u, 3u, -1.0, -1.0, 1.0));
+
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    std::array<SpatialDomains::SegGeomUniquePtr, 6> segVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> faceVec;
+    SpatialDomains::TetGeomUniquePtr tetGeom = CreateTet(v, segVec, faceVec);
+
+    unsigned int numQuadPoints = 5;
+    unsigned int numModes      = 4;
+
+    Nektar::LibUtilities::PointsType triPointsTypeDir1 =
+        Nektar::LibUtilities::eGaussLobattoLegendre;
+    const Nektar::LibUtilities::PointsKey triPointsKeyDir1(numQuadPoints,
+                                                           triPointsTypeDir1);
+    Nektar::LibUtilities::BasisType basisTypeDir1 =
+        Nektar::LibUtilities::eModified_A;
+    const Nektar::LibUtilities::BasisKey basisKeyDir1(basisTypeDir1, numModes,
+                                                      triPointsKeyDir1);
+
+    Nektar::LibUtilities::PointsType triPointsTypeDir2 =
+        Nektar::LibUtilities::eGaussRadauMAlpha1Beta0;
+    const Nektar::LibUtilities::PointsKey triPointsKeyDir2(numQuadPoints - 1,
+                                                           triPointsTypeDir2);
+    Nektar::LibUtilities::BasisType basisTypeDir2 =
+        Nektar::LibUtilities::eModified_B;
+    const Nektar::LibUtilities::BasisKey basisKeyDir2(basisTypeDir2, numModes,
+                                                      triPointsKeyDir2);
+
+    Nektar::LibUtilities::PointsType triPointsTypeDir3 =
+        Nektar::LibUtilities::eGaussRadauMAlpha2Beta0;
+    const Nektar::LibUtilities::PointsKey triPointsKeyDir3(numQuadPoints - 1,
+                                                           triPointsTypeDir3);
+    Nektar::LibUtilities::BasisType basisTypeDir3 =
+        Nektar::LibUtilities::eModified_C;
+    const Nektar::LibUtilities::BasisKey basisKeyDir3(basisTypeDir3, numModes,
+                                                      triPointsKeyDir3);
+
+    Nektar::LocalRegions::TetExpSharedPtr Exp =
+        MemoryManager<Nektar::LocalRegions::TetExp>::AllocateSharedPtr(
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, tetGeom.get());
+
+    Nektar::StdRegions::StdTetExpSharedPtr stdExp =
+        MemoryManager<Nektar::StdRegions::StdTetExp>::AllocateSharedPtr(
+            basisKeyDir1, basisKeyDir1, basisKeyDir1);
+
+    int nelmts = 10;
+
+    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    for (int i = 0; i < nelmts; ++i)
+    {
+        CollExp.push_back(Exp);
+    }
+
+    LibUtilities::SessionReaderSharedPtr dummySession;
+    Collections::CollectionOptimisation colOpt(dummySession, 2,
+                                               Collections::eIterPerExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::Collection c(CollExp, impTypes);
+    StdRegions::ConstFactorMap factors;
+    factors[StdRegions::eFactorLambda] = 1.5;
+
+    c.Initialise(Collections::eLinearAdvectionDiffusionReaction, factors);
+
+    // Add advection velocities via varcoeffs
+    int npoints = Exp->GetTotPoints() * nelmts;
+    StdRegions::VarCoeffMap varcoeffs;
+    StdRegions::VarCoeffType varcoefftypes[] = {StdRegions::eVarCoeffVelX,
+                                                StdRegions::eVarCoeffVelY,
+                                                StdRegions::eVarCoeffVelZ};
+    for (int i = 0; i < Exp->GetShapeDimension(); i++)
+    {
+        varcoeffs[varcoefftypes[i]] = Array<OneD, NekDouble>(npoints, 1.0);
+    }
+    c.UpdateVarcoeffs(Collections::eLinearAdvectionDiffusionReaction,
+                      varcoeffs);
+
+    const int nm = Exp->GetNcoeffs();
+    Array<OneD, NekDouble> coeffsIn(nelmts * nm);
+    Array<OneD, NekDouble> coeffsRef(nelmts * nm);
+    Array<OneD, NekDouble> coeffs(nelmts * nm), tmp;
+
+    for (int i = 0; i < coeffsIn.size(); ++i)
+    {
+        coeffsIn[i] = i + 1.0;
+    }
+
+    StdRegions::StdMatrixKey mkey(StdRegions::eLinearAdvectionDiffusionReaction,
+                                  Exp->DetShapeType(), *Exp, factors,
+                                  varcoeffs);
+
+    for (int i = 0; i < nelmts; ++i)
+    {
+        // Standard routines
+        Exp->GeneralMatrixOp(coeffsIn + i * nm, tmp = coeffsRef + i * nm, mkey);
+    }
+
+    c.ApplyOperator(Collections::eLinearAdvectionDiffusionReaction, coeffsIn,
+                    coeffs);
+
+    double epsilon = 1.0e-8;
+    for (int i = 0; i < coeffsRef.size(); ++i)
+    {
+        coeffsRef[i] = (std::abs(coeffsRef[i]) < 1e-14) ? 0.0 : coeffsRef[i];
+        coeffs[i]    = (std::abs(coeffs[i]) < 1e-14) ? 0.0 : coeffs[i];
+        BOOST_CHECK_CLOSE(coeffsRef[i], coeffs[i], epsilon);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(
+    TestTetLinearAdvectionDiffusionReaction_MatrixFree_UniformP)
+{
+    SpatialDomains::PointGeomUniquePtr v0(
+        new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
+    SpatialDomains::PointGeomUniquePtr v1(
+        new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
+    SpatialDomains::PointGeomUniquePtr v2(
+        new SpatialDomains::PointGeom(3u, 2u, -1.0, 1.0, -1.0));
+    SpatialDomains::PointGeomUniquePtr v3(
+        new SpatialDomains::PointGeom(3u, 3u, -1.0, -1.0, 1.0));
+
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    std::array<SpatialDomains::SegGeomUniquePtr, 6> segVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> faceVec;
+    SpatialDomains::TetGeomUniquePtr tetGeom = CreateTet(v, segVec, faceVec);
+
+    unsigned int numQuadPoints = 5;
+    unsigned int numModes      = 4;
+
+    Nektar::LibUtilities::PointsType triPointsTypeDir1 =
+        Nektar::LibUtilities::eGaussLobattoLegendre;
+    const Nektar::LibUtilities::PointsKey triPointsKeyDir1(numQuadPoints,
+                                                           triPointsTypeDir1);
+    Nektar::LibUtilities::BasisType basisTypeDir1 =
+        Nektar::LibUtilities::eModified_A;
+    const Nektar::LibUtilities::BasisKey basisKeyDir1(basisTypeDir1, numModes,
+                                                      triPointsKeyDir1);
+
+    Nektar::LibUtilities::PointsType triPointsTypeDir2 =
+        Nektar::LibUtilities::eGaussRadauMAlpha1Beta0;
+    const Nektar::LibUtilities::PointsKey triPointsKeyDir2(numQuadPoints - 1,
+                                                           triPointsTypeDir2);
+    Nektar::LibUtilities::BasisType basisTypeDir2 =
+        Nektar::LibUtilities::eModified_B;
+    const Nektar::LibUtilities::BasisKey basisKeyDir2(basisTypeDir2, numModes,
+                                                      triPointsKeyDir2);
+
+    Nektar::LibUtilities::PointsType triPointsTypeDir3 =
+        Nektar::LibUtilities::eGaussRadauMAlpha2Beta0;
+    const Nektar::LibUtilities::PointsKey triPointsKeyDir3(numQuadPoints - 1,
+                                                           triPointsTypeDir3);
+    Nektar::LibUtilities::BasisType basisTypeDir3 =
+        Nektar::LibUtilities::eModified_C;
+    const Nektar::LibUtilities::BasisKey basisKeyDir3(basisTypeDir3, numModes,
+                                                      triPointsKeyDir3);
+
+    Nektar::LocalRegions::TetExpSharedPtr Exp =
+        MemoryManager<Nektar::LocalRegions::TetExp>::AllocateSharedPtr(
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, tetGeom.get());
+
+    Nektar::StdRegions::StdTetExpSharedPtr stdExp =
+        MemoryManager<Nektar::StdRegions::StdTetExp>::AllocateSharedPtr(
+            basisKeyDir1, basisKeyDir1, basisKeyDir1);
+
+    int nelmts = 10;
+
+    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    for (int i = 0; i < nelmts; ++i)
+    {
+        CollExp.push_back(Exp);
+    }
+
+    LibUtilities::SessionReaderSharedPtr dummySession;
+    Collections::CollectionOptimisation colOpt(dummySession, 2,
+                                               Collections::eMatrixFree);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::Collection c(CollExp, impTypes);
+    StdRegions::ConstFactorMap factors;
+    factors[StdRegions::eFactorLambda] = 1.5;
+
+    c.Initialise(Collections::eLinearAdvectionDiffusionReaction, factors);
+
+    // Add advection velocities via varcoeffs
+    int npoints = Exp->GetTotPoints() * nelmts;
+    StdRegions::VarCoeffMap varcoeffs;
+    StdRegions::VarCoeffType varcoefftypes[] = {StdRegions::eVarCoeffVelX,
+                                                StdRegions::eVarCoeffVelY,
+                                                StdRegions::eVarCoeffVelZ};
+    for (int i = 0; i < Exp->GetShapeDimension(); i++)
+    {
+        varcoeffs[varcoefftypes[i]] = Array<OneD, NekDouble>(npoints, 1.0);
+    }
+    c.UpdateVarcoeffs(Collections::eLinearAdvectionDiffusionReaction,
+                      varcoeffs);
+
+    const int nm = Exp->GetNcoeffs();
+    Array<OneD, NekDouble> coeffsIn(nelmts * nm);
+    Array<OneD, NekDouble> coeffsRef(nelmts * nm);
+    Array<OneD, NekDouble> coeffs(nelmts * nm), tmp;
+
+    for (int i = 0; i < coeffsIn.size(); ++i)
+    {
+        coeffsIn[i] = i + 1.0;
+    }
+
+    StdRegions::StdMatrixKey mkey(StdRegions::eLinearAdvectionDiffusionReaction,
+                                  Exp->DetShapeType(), *Exp, factors,
+                                  varcoeffs);
+
+    for (int i = 0; i < nelmts; ++i)
+    {
+        // Standard routines
+        Exp->GeneralMatrixOp(coeffsIn + i * nm, tmp = coeffsRef + i * nm, mkey);
+    }
+
+    c.ApplyOperator(Collections::eLinearAdvectionDiffusionReaction, coeffsIn,
+                    coeffs);
+
+    double epsilon = 1.0e-8;
+    for (int i = 0; i < coeffsRef.size(); ++i)
+    {
+        coeffsRef[i] = (std::abs(coeffsRef[i]) < 1e-14) ? 0.0 : coeffsRef[i];
+        coeffs[i]    = (std::abs(coeffs[i]) < 1e-14) ? 0.0 : coeffs[i];
+        BOOST_CHECK_CLOSE(coeffsRef[i], coeffs[i], epsilon);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(
+    TestTetLinearAdvectionDiffusionReaction_MatrixFree_Deformed_OverInt)
+{
+    SpatialDomains::PointGeomUniquePtr v0(
+        new SpatialDomains::PointGeom(3u, 0u, -2.0, -3.0, -4.0));
+    SpatialDomains::PointGeomUniquePtr v1(
+        new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
+    SpatialDomains::PointGeomUniquePtr v2(
+        new SpatialDomains::PointGeom(3u, 2u, -1.0, 1.0, -1.0));
+    SpatialDomains::PointGeomUniquePtr v3(
+        new SpatialDomains::PointGeom(3u, 3u, -1.0, -1.0, 1.0));
+
+    std::array<SpatialDomains::PointGeom *, 4> v = {v0.get(), v1.get(),
+                                                    v2.get(), v3.get()};
+    std::array<SpatialDomains::SegGeomUniquePtr, 6> segVec;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> faceVec;
+    SpatialDomains::TetGeomUniquePtr tetGeom = CreateTet(v, segVec, faceVec);
+
+    unsigned int numQuadPoints = 8;
+    unsigned int numModes      = 4;
+
+    Nektar::LibUtilities::PointsType triPointsTypeDir1 =
+        Nektar::LibUtilities::eGaussLobattoLegendre;
+    const Nektar::LibUtilities::PointsKey triPointsKeyDir1(numQuadPoints,
+                                                           triPointsTypeDir1);
+    Nektar::LibUtilities::BasisType basisTypeDir1 =
+        Nektar::LibUtilities::eModified_A;
+    const Nektar::LibUtilities::BasisKey basisKeyDir1(basisTypeDir1, numModes,
+                                                      triPointsKeyDir1);
+
+    Nektar::LibUtilities::PointsType triPointsTypeDir2 =
+        Nektar::LibUtilities::eGaussRadauMAlpha1Beta0;
+    const Nektar::LibUtilities::PointsKey triPointsKeyDir2(numQuadPoints - 1,
+                                                           triPointsTypeDir2);
+    Nektar::LibUtilities::BasisType basisTypeDir2 =
+        Nektar::LibUtilities::eModified_B;
+    const Nektar::LibUtilities::BasisKey basisKeyDir2(basisTypeDir2, numModes,
+                                                      triPointsKeyDir2);
+
+    Nektar::LibUtilities::PointsType triPointsTypeDir3 =
+        Nektar::LibUtilities::eGaussRadauMAlpha2Beta0;
+    const Nektar::LibUtilities::PointsKey triPointsKeyDir3(numQuadPoints - 1,
+                                                           triPointsTypeDir3);
+    Nektar::LibUtilities::BasisType basisTypeDir3 =
+        Nektar::LibUtilities::eModified_C;
+    const Nektar::LibUtilities::BasisKey basisKeyDir3(basisTypeDir3, numModes,
+                                                      triPointsKeyDir3);
+
+    Nektar::LocalRegions::TetExpSharedPtr Exp =
+        MemoryManager<Nektar::LocalRegions::TetExp>::AllocateSharedPtr(
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, tetGeom.get());
+
+    Nektar::StdRegions::StdTetExpSharedPtr stdExp =
+        MemoryManager<Nektar::StdRegions::StdTetExp>::AllocateSharedPtr(
+            basisKeyDir1, basisKeyDir1, basisKeyDir1);
+
+    int nelmts = 10;
+
+    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    for (int i = 0; i < nelmts; ++i)
+    {
+        CollExp.push_back(Exp);
+    }
+
+    LibUtilities::SessionReaderSharedPtr dummySession;
+    Collections::CollectionOptimisation colOpt(dummySession, 2,
+                                               Collections::eMatrixFree);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::Collection c(CollExp, impTypes);
+    StdRegions::ConstFactorMap factors;
+    factors[StdRegions::eFactorLambda] = 1.5;
+
+    c.Initialise(Collections::eLinearAdvectionDiffusionReaction, factors);
+
+    // Add advection velocities via varcoeffs
+    int npoints = Exp->GetTotPoints() * nelmts;
+    StdRegions::VarCoeffMap varcoeffs;
+    StdRegions::VarCoeffType varcoefftypes[] = {StdRegions::eVarCoeffVelX,
+                                                StdRegions::eVarCoeffVelY,
+                                                StdRegions::eVarCoeffVelZ};
+    for (int i = 0; i < Exp->GetShapeDimension(); i++)
+    {
+        varcoeffs[varcoefftypes[i]] = Array<OneD, NekDouble>(npoints, 1.0);
+    }
+    c.UpdateVarcoeffs(Collections::eLinearAdvectionDiffusionReaction,
+                      varcoeffs);
+
+    const int nm = Exp->GetNcoeffs();
+    Array<OneD, NekDouble> coeffsIn(nelmts * nm);
+    Array<OneD, NekDouble> coeffsRef(nelmts * nm);
+    Array<OneD, NekDouble> coeffs(nelmts * nm), tmp;
+
+    for (int i = 0; i < coeffsIn.size(); ++i)
+    {
+        coeffsIn[i] = i + 1.0;
+    }
+
+    StdRegions::StdMatrixKey mkey(StdRegions::eLinearAdvectionDiffusionReaction,
+                                  Exp->DetShapeType(), *Exp, factors,
+                                  varcoeffs);
+
+    for (int i = 0; i < nelmts; ++i)
+    {
+        // Standard routines
+        Exp->GeneralMatrixOp(coeffsIn + i * nm, tmp = coeffsRef + i * nm, mkey);
+    }
+
+    c.ApplyOperator(Collections::eLinearAdvectionDiffusionReaction, coeffsIn,
+                    coeffs);
+
+    double epsilon = 1.0e-8;
+    for (int i = 0; i < coeffsRef.size(); ++i)
+    {
+        coeffsRef[i] = (std::abs(coeffsRef[i]) < 1e-14) ? 0.0 : coeffsRef[i];
+        coeffs[i]    = (std::abs(coeffs[i]) < 1e-14) ? 0.0 : coeffs[i];
+        BOOST_CHECK_CLOSE(coeffsRef[i], coeffs[i], epsilon);
+        std::cout << "i = " << i << "\tdiff = " << coeffsRef[i] - coeffs[i]
+                  << std::endl;
+    }
+}
+
 } // namespace Nektar::TetCollectionTests

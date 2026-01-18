@@ -44,21 +44,10 @@ namespace Blas
 extern "C"
 {
     // -- BLAS Level 1:
-    void F77NAME(dcopy)(const int &n, const double *x, const int &incx,
-                        double *y, const int &incy);
     void F77NAME(daxpy)(const int &n, const double &alpha, const double *x,
                         const int &incx, const double *y, const int &incy);
-    void F77NAME(dswap)(const int &n, double *x, const int &incx, double *y,
-                        const int &incy);
     void F77NAME(dscal)(const int &n, const double &alpha, double *x,
                         const int &incx);
-    void F77NAME(drot)(const int &n, double *x, const int &incx, double *y,
-                       const int &incy, const double &c, const double &s);
-    double F77NAME(ddot)(const int &n, const double *x, const int &incx,
-                         const double *y, const int &incy);
-    double F77NAME(dnrm2)(const int &n, const double *x, const int &incx);
-    double F77NAME(dasum)(const int &n, const double *x, const int &incx);
-    int F77NAME(idamax)(const int &n, const double *x, const int &incx);
 
     // -- BLAS level 2
     void F77NAME(dgemv)(const char &trans, const int &m, const int &n,
@@ -124,13 +113,6 @@ extern "C"
                         const int &ldc);
 }
 
-/// \brief BLAS level 1: Copy \a x to \a y
-static inline void Dcopy(const int &n, const double *x, const int &incx,
-                         double *y, const int &incy)
-{
-    F77NAME(dcopy)(n, x, incx, y, incy);
-}
-
 /// \brief  BLAS level 1: y = alpha \a x plus \a y
 static inline void Daxpy(const int &n, const double &alpha, const double *x,
                          const int &incx, const double *y, const int &incy)
@@ -138,52 +120,11 @@ static inline void Daxpy(const int &n, const double &alpha, const double *x,
     F77NAME(daxpy)(n, alpha, x, incx, y, incy);
 }
 
-/// \brief BLAS level 1: Swap \a x with  \a y
-static inline void Dswap(const int &n, double *x, const int &incx, double *y,
-                         const int &incy)
-{
-    F77NAME(dswap)(n, x, incx, y, incy);
-}
-
 /// \brief  BLAS level 1: x = alpha \a x
 static inline void Dscal(const int &n, const double &alpha, double *x,
                          const int &incx)
 {
     F77NAME(dscal)(n, alpha, x, incx);
-}
-
-/// \brief BLAS level 1: Plane rotation by c = cos(theta), s = sin(theta)
-static inline void Drot(const int &n, double *x, const int &incx, double *y,
-                        const int &incy, const double &c, const double &s)
-{
-    F77NAME(drot)(n, x, incx, y, incy, c, s);
-}
-
-/// \brief BLAS level 1: output = \f$ x^T  y \f$
-static inline double Ddot(const int &n, const double *x, const int &incx,
-                          const double *y, const int &incy)
-{
-    return F77NAME(ddot)(n, x, incx, y, incy);
-}
-
-// \brief  BLAS level 1: output = \f$ ||x||_2 \f$
-static inline double Dnrm2(const int &n, const double *x, const int &incx)
-{
-    return F77NAME(dnrm2)(n, x, incx);
-}
-
-/// \brief  BLAS level 1: output = \f$ ||x||_1 \f$
-static inline double Dasum(const int &n, const double *x, const int &incx)
-{
-    return F77NAME(dasum)(n, x, incx);
-}
-
-/// \brief BLAS level 1: output = 1st value where \f$ |x[i]| = max |x|_1 \f$
-/// Note it is modified to return a value between (0,n-1) as per
-/// the standard C convention
-static inline int Idamax(const int &n, const double *x, const int &incx)
-{
-    return F77NAME(idamax)(n, x, incx) - 1;
 }
 
 /// \brief BLAS level 2: Matrix vector multiply y = alpha A \e x plus beta \a y

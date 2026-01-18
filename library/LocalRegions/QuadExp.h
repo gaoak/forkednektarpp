@@ -74,13 +74,11 @@ protected:
     LOCAL_REGIONS_EXPORT NekDouble
     v_StdPhysEvaluate(const Array<OneD, const NekDouble> &Lcoord,
                       const Array<OneD, const NekDouble> &physvals) override;
+    using StdQuadExp::v_PhysDeriv;
     LOCAL_REGIONS_EXPORT void v_PhysDeriv(
         const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &out_d0, Array<OneD, NekDouble> &out_d1,
         Array<OneD, NekDouble> &out_d2 = NullNekDouble1DArray) override;
-    LOCAL_REGIONS_EXPORT void v_PhysDeriv(
-        const int dir, const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray) override;
     LOCAL_REGIONS_EXPORT void v_PhysDirectionalDeriv(
         const Array<OneD, const NekDouble> &inarray,
         const Array<OneD, const NekDouble> &direction,

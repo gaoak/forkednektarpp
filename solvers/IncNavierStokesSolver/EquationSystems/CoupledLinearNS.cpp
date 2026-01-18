@@ -618,19 +618,19 @@ void CoupledLinearNS::SetUpCoupledMatrix(
 
                         m_pressure->GetExp(n)->IProductWRTBase(deriv, pcoeffs);
 
-                        Blas::Dcopy(psize, &(pcoeffs)[0], 1,
-                                    Dbnd->GetRawPtr() +
-                                        ((nz_loc * j + 1) * bmap.size() + i) *
-                                            nsize_p[n],
-                                    1);
+                        Vmath::Vcopy(psize, &(pcoeffs)[0], 1,
+                                     Dbnd->GetRawPtr() +
+                                         ((nz_loc * j + 1) * bmap.size() + i) *
+                                             nsize_p[n],
+                                     1);
 
                         Vmath::Neg(psize, pcoeffs, 1);
-                        Blas::Dcopy(psize, &(pcoeffs)[0], 1,
-                                    Dbnd->GetRawPtr() +
-                                        ((nz_loc * j) * bmap.size() + i) *
-                                            nsize_p[n] +
-                                        psize,
-                                    1);
+                        Vmath::Vcopy(psize, &(pcoeffs)[0], 1,
+                                     Dbnd->GetRawPtr() +
+                                         ((nz_loc * j) * bmap.size() + i) *
+                                             nsize_p[n] +
+                                         psize,
+                                     1);
                     }
                     else
                     {
@@ -644,7 +644,7 @@ void CoupledLinearNS::SetUpCoupledMatrix(
                             // copy into column major storage.
                             for (k = 0; k < nz_loc; ++k)
                             {
-                                Blas::Dcopy(
+                                Vmath::Vcopy(
                                     psize, &(pcoeffs)[0], 1,
                                     Dbnd->GetRawPtr() +
                                         ((nz_loc * j + k) * bmap.size() + i) *
@@ -677,19 +677,19 @@ void CoupledLinearNS::SetUpCoupledMatrix(
 
                         m_pressure->GetExp(n)->IProductWRTBase(deriv, pcoeffs);
 
-                        Blas::Dcopy(psize, &(pcoeffs)[0], 1,
-                                    Dint->GetRawPtr() +
-                                        ((nz_loc * j + 1) * imap.size() + i) *
-                                            nsize_p[n],
-                                    1);
+                        Vmath::Vcopy(psize, &(pcoeffs)[0], 1,
+                                     Dint->GetRawPtr() +
+                                         ((nz_loc * j + 1) * imap.size() + i) *
+                                             nsize_p[n],
+                                     1);
 
                         Vmath::Neg(psize, pcoeffs, 1);
-                        Blas::Dcopy(psize, &(pcoeffs)[0], 1,
-                                    Dint->GetRawPtr() +
-                                        ((nz_loc * j) * imap.size() + i) *
-                                            nsize_p[n] +
-                                        psize,
-                                    1);
+                        Vmath::Vcopy(psize, &(pcoeffs)[0], 1,
+                                     Dint->GetRawPtr() +
+                                         ((nz_loc * j) * imap.size() + i) *
+                                             nsize_p[n] +
+                                         psize,
+                                     1);
                     }
                     else
                     {
@@ -707,7 +707,7 @@ void CoupledLinearNS::SetUpCoupledMatrix(
                             // copy into column major storage.
                             for (k = 0; k < nz_loc; ++k)
                             {
-                                Blas::Dcopy(
+                                Vmath::Vcopy(
                                     psize, &(pcoeffs)[0], 1,
                                     Dint->GetRawPtr() +
                                         ((nz_loc * j + k) * imap.size() + i) *
@@ -856,20 +856,20 @@ void CoupledLinearNS::SetUpCoupledMatrix(
                         Vmath::Smul(npoints, beta, phys, 1, deriv, 1);
 
                         m_pressure->GetExp(n)->IProductWRTBase(deriv, pcoeffs);
-                        Blas::Dcopy(psize, &(pcoeffs)[0], 1,
-                                    Dbnd->GetRawPtr() +
-                                        ((nz_loc * k + 1) * bmap.size() + i) *
-                                            nsize_p[n],
-                                    1);
+                        Vmath::Vcopy(psize, &(pcoeffs)[0], 1,
+                                     Dbnd->GetRawPtr() +
+                                         ((nz_loc * k + 1) * bmap.size() + i) *
+                                             nsize_p[n],
+                                     1);
 
                         // Imaginary Component
                         Vmath::Neg(psize, pcoeffs, 1);
-                        Blas::Dcopy(psize, &(pcoeffs)[0], 1,
-                                    Dbnd->GetRawPtr() +
-                                        ((nz_loc * k) * bmap.size() + i) *
-                                            nsize_p[n] +
-                                        psize,
-                                    1);
+                        Vmath::Vcopy(psize, &(pcoeffs)[0], 1,
+                                     Dbnd->GetRawPtr() +
+                                         ((nz_loc * k) * bmap.size() + i) *
+                                             nsize_p[n] +
+                                         psize,
+                                     1);
 
                         // now do advection terms
                         Vmath::Vmul(npoints, Advtmp = Advfield[k] + phys_offset,
@@ -947,7 +947,7 @@ void CoupledLinearNS::SetUpCoupledMatrix(
                                                                    pcoeffs);
                             for (j = 0; j < nz_loc; ++j)
                             {
-                                Blas::Dcopy(
+                                Vmath::Vcopy(
                                     psize, &(pcoeffs)[0], 1,
                                     Dbnd->GetRawPtr() +
                                         ((nz_loc * k + j) * bmap.size() + i) *
@@ -1056,19 +1056,19 @@ void CoupledLinearNS::SetUpCoupledMatrix(
                         // Real Component
                         Vmath::Smul(npoints, beta, phys, 1, deriv, 1);
                         m_pressure->GetExp(n)->IProductWRTBase(deriv, pcoeffs);
-                        Blas::Dcopy(psize, &(pcoeffs)[0], 1,
-                                    Dint->GetRawPtr() +
-                                        ((nz_loc * k + 1) * imap.size() + i) *
-                                            nsize_p[n],
-                                    1);
+                        Vmath::Vcopy(psize, &(pcoeffs)[0], 1,
+                                     Dint->GetRawPtr() +
+                                         ((nz_loc * k + 1) * imap.size() + i) *
+                                             nsize_p[n],
+                                     1);
                         // Imaginary Component
                         Vmath::Neg(psize, pcoeffs, 1);
-                        Blas::Dcopy(psize, &(pcoeffs)[0], 1,
-                                    Dint->GetRawPtr() +
-                                        ((nz_loc * k) * imap.size() + i) *
-                                            nsize_p[n] +
-                                        psize,
-                                    1);
+                        Vmath::Vcopy(psize, &(pcoeffs)[0], 1,
+                                     Dint->GetRawPtr() +
+                                         ((nz_loc * k) * imap.size() + i) *
+                                             nsize_p[n] +
+                                         psize,
+                                     1);
 
                         // Advfield[k] *d/dx_k to all velocity
                         // components on diagonal
@@ -1146,7 +1146,7 @@ void CoupledLinearNS::SetUpCoupledMatrix(
                                                                    pcoeffs);
                             for (j = 0; j < nz_loc; ++j)
                             {
-                                Blas::Dcopy(
+                                Vmath::Vcopy(
                                     psize, &(pcoeffs)[0], 1,
                                     Dint->GetRawPtr() +
                                         ((nz_loc * k + j) * imap.size() + i) *

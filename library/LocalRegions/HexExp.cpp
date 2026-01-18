@@ -208,47 +208,6 @@ void HexExp::v_PhysDeriv(const Array<OneD, const NekDouble> &inarray,
     }
 }
 
-/**
- * \brief Calculate the derivative of the physical points in a single
- * direction.
- *
- * @param   dir         Direction in which to compute derivative.
- *                      Valid values are 0, 1, 2.
- * @param   inarray     Input array.
- * @param   outarray    Output array.
- */
-void HexExp::v_PhysDeriv(const int dir,
-                         const Array<OneD, const NekDouble> &inarray,
-                         Array<OneD, NekDouble> &outarray)
-{
-    switch (dir)
-    {
-        case 0:
-        {
-            PhysDeriv(inarray, outarray, NullNekDouble1DArray,
-                      NullNekDouble1DArray);
-        }
-        break;
-        case 1:
-        {
-            PhysDeriv(inarray, NullNekDouble1DArray, outarray,
-                      NullNekDouble1DArray);
-        }
-        break;
-        case 2:
-        {
-            PhysDeriv(inarray, NullNekDouble1DArray, NullNekDouble1DArray,
-                      outarray);
-        }
-        break;
-        default:
-        {
-            ASSERTL1(false, "input dir is out of range");
-        }
-        break;
-    }
-}
-
 void HexExp::v_PhysDirectionalDeriv(
     const Array<OneD, const NekDouble> &inarray,
     const Array<OneD, const NekDouble> &direction,
