@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_helmsolve_cgs.cpp
+// File: IDRSOp.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,42 +32,38 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestHelmSolveCGS
+#pragma once
 
-#include "init_helmsolve_fields.hpp"
+#include "Operators/GlobalLinSysOps/LinearSolvers/LinearSolverOp.hpp"
 
-#include <boost/test/tools/output_test_stream.hpp>
-#include <iostream>
-#include <memory>
+namespace Nektar::Operators
+{
 
-#define TEST_HELMSOLVE(test_name, test, tol)                                   \
-    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
-    {                                                                          \
-        Configure();                                                           \
-        SetTestCase();                                                         \
-        RunTestCase("CGS");                                                    \
-        boost::test_tools::output_test_stream output;                          \
-        {                                                                      \
-            BOOST_TEST(Compare(tol));                                          \
-        }                                                                      \
+// IDRSOp base class
+// Defines the apply operator to enforce apply parameter types
+template <typename TData> class IDRSOp : public LinearSolverOp<TData>
+{
+public:
+    static std::shared_ptr<IDRSOp<TData>> Create(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
+        const std::string &execStr = "")
+    {
+        return std::dynamic_pointer_cast<IDRSOp<TData>>(
+            LinearSolverOp<TData>::Create(expansionList, components, name,
+                                          execStr));
     }
 
-BOOST_AUTO_TEST_SUITE(TestHelmSolveCGS)
+    static inline const std::string name = "IDRS";
 
-#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
-TEST_HELMSOLVE(helmsolve_seg, Helmholtz1D_Seg, 1.0E-12)
+protected:
+    IDRSOp(const MultiRegions::ExpListSharedPtr &expansionList,
+           const std::vector<std::string> &components)
+        : LinearSolverOp<TData>(expansionList, components)
+    {
+    }
 
-TEST_HELMSOLVE(helmsolve_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-10)
+    ~IDRSOp() override = default;
+};
 
-TEST_HELMSOLVE(helmsolve_all_bcs, Helmholtz2D_AllBCs, 1.0E-10)
-
-TEST_HELMSOLVE(helmsolve_hex, Helmholtz3D_Hex, 1.0E-10)
-
-TEST_HELMSOLVE(helmsolve_prism, Helmholtz3D_Prism, 1.0E-10)
-
-TEST_HELMSOLVE(helmsolve_pyr, Helmholtz3D_Pyr, 2.0E-09)
-
-TEST_HELMSOLVE(helmsolve_tet, Helmholtz3D_Tet, 1.0E-10)
-#endif
-
-BOOST_AUTO_TEST_SUITE_END()
+} // namespace Nektar::Operators

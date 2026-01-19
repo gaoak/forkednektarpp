@@ -188,8 +188,6 @@ protected:
 
         // Reset the fields to zero.
         out.template Initialize<MemSpace>(0);
-        m_p.template Initialize<MemSpace>(0);
-        m_q.template Initialize<MemSpace>(0);
 
         // Reset device memory.
         auto exchange = m_vExchange.template GetPtr<MemSpace, WriteOnly>();
@@ -240,7 +238,12 @@ protected:
             // Reset device memory.
             m_vExchange.template GetPtr<MemSpace, WriteOnly>();
 
-            if (totalIterations > 0)
+            if (totalIterations == 0)
+            {
+                m_p.template Initialize<MemSpace>(0);
+                m_q.template Initialize<MemSpace>(0);
+            }
+            else
             {
                 // Assemble matrix output from previous matrix-vector multiply
                 // could be moved around loop if optimal elsewhere.
@@ -259,7 +262,6 @@ protected:
                     ddot<ExecSpace>(m_mask, m_r, m_w, exchange + 3);
                 }
 
-                // NOTE: preconditioner need updating for flexible ConjGrad.
                 // Apply preconditioner - output is assumeed holding global dof
                 this->m_precon->Apply(m_r, m_w);
             }

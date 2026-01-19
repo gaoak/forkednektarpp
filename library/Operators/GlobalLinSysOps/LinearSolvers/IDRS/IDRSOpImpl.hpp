@@ -1,0 +1,457 @@
+///////////////////////////////////////////////////////////////////////////////
+//
+// File: IDRSOpImpl.hpp
+//
+// For more information, please see: http://www.nektar.info
+//
+// The MIT License
+//
+// Copyright (c) 2006 Division of Applied Mathematics, Brown University (USA),
+// Department of Aeronautics, Imperial College London (UK), and Scientific
+// Computing and Imaging Institute, University of Utah (USA).
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the "Software"),
+// to deal in the Software without restriction, including without limitation
+// the rights to use, copy, modify, merge, publish, distribute, sublicense,
+// and/or sell copies of the Software, and to permit persons to whom the
+// Software is furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+// THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+// DEALINGS IN THE SOFTWARE.
+//
+// Description:
+//
+///////////////////////////////////////////////////////////////////////////////
+
+#pragma once
+
+#include "Operators/AssmbScatr/AssmbScatrOpImpl.hpp"
+#include "Operators/GlobalLinSysOps/LinearSolvers/IDRS/IDRSOp.hpp"
+
+#include <iomanip>
+#include <random>
+
+using namespace Nektar;
+
+namespace Nektar::Operators::detail
+{
+
+template <typename ExecSpace, typename TData>
+class IDRSOpImpl : public IDRSOp<TData>
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+public:
+    IDRSOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
+               const std::vector<std::string> &components)
+        : IDRSOp<TData>(expansionList, components),
+          m_v(Field<TData, FieldState::Coeff>(
+              "IDRSOp v",
+              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              components, 1)),
+          m_w(Field<TData, FieldState::Coeff>(
+              "IDRSOp t",
+              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              components, 1)),
+          m_r(Field<TData, FieldState::Coeff>(
+              "IDRSOp r",
+              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              components, 1))
+    {
+        auto session = expansionList->GetSession();
+
+        // Set operators.
+        m_math         = Math(ExecSpace::name);
+        m_assmbScatrOp = std::make_unique<AssmbScatrOpImpl<ExecSpace, TData>>(
+            this->m_expansionList, components);
+        m_assmbScatrZeroDirOp =
+            std::make_unique<AssmbScatrZeroDirOpImpl<ExecSpace, TData>>(
+                this->m_expansionList, components);
+        m_robBndCondOp = RobBndCondOp<TData>::Create(
+            this->m_expansionList, components, ExecSpace::name);
+        m_rowComm = session->GetComm()->GetRowComm();
+        m_root    = m_rowComm->GetRank() == 0;
+
+        // Set parameters.
+        session->LoadParameter("NekLinSysMaxIterations", m_maxIter, 5000);
+        session->LoadParameter("IterativeSolverTolerance", m_tol, 1.0E-09);
+        session->LoadParameter("IDRstage", m_stage, 4);
+
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_real_distribution<> dis(0.0, 1.0);
+        for (unsigned int stage = 0; stage < m_stage; stage++)
+        {
+            m_U.push_back(Field<TData, FieldState::Coeff>(
+                "IDRSOp U" + std::to_string(stage),
+                GetBlockAttributes<TData, FieldState::Coeff>(
+                    this->m_expansionList),
+                this->m_components, 1));
+            m_G.push_back(Field<TData, FieldState::Coeff>(
+                "IDRSOp G" + std::to_string(stage),
+                GetBlockAttributes<TData, FieldState::Coeff>(
+                    this->m_expansionList),
+                this->m_components, 1));
+            m_P.push_back(Field<TData, FieldState::Coeff>(
+                "IDRSOp P" + std::to_string(stage),
+                GetBlockAttributes<TData, FieldState::Coeff>(
+                    this->m_expansionList),
+                this->m_components, 1));
+
+            // Initialzie m_P with normalized random number.
+            for (unsigned blk = 0; blk < m_P.back().GetBlocks().size(); ++blk)
+            {
+                auto &block = m_P.back().GetBlocks()[blk];
+                auto ptr =
+                    block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+                std::generate(ptr,
+                              ptr + block.GetNumComponents() * block.CompSize(),
+                              [&]() { return dis(gen); });
+            }
+        }
+    }
+
+    // className - for OperatorFactory
+    static std::string className;
+
+    // instantiation function for CreatorFunction in Operator Factory
+    static std::unique_ptr<Operator<TData>> Instantiate(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
+    {
+        return std::make_unique<IDRSOpImpl<ExecSpace, TData>>(expansionList,
+                                                              components);
+    }
+
+protected:
+    LibUtilities::CommSharedPtr m_rowComm = nullptr;
+    std::unique_ptr<AssmbScatrOpImpl<ExecSpace, TData>> m_assmbScatrOp;
+    std::unique_ptr<AssmbScatrZeroDirOpImpl<ExecSpace, TData>>
+        m_assmbScatrZeroDirOp;
+    bool m_root;
+
+    Math m_math;
+
+    std::shared_ptr<RobBndCondOp<TData>> m_robBndCondOp;
+
+    std::vector<Field<TData, FieldState::Coeff>> m_P;
+    std::vector<Field<TData, FieldState::Coeff>> m_U;
+    std::vector<Field<TData, FieldState::Coeff>> m_G;
+    Field<TData, FieldState::Coeff> m_v;
+    Field<TData, FieldState::Coeff> m_w;
+    Field<TData, FieldState::Coeff> m_r;
+
+    TData m_tol            = 0.0;
+    unsigned int m_maxIter = 0;
+    unsigned int m_stage   = 0;
+
+    void v_Apply(Field<TData, FieldState::Coeff> &in,
+                 Field<TData, FieldState::Coeff> &out) override
+    {
+        // Implement IDR(s) iterative method as described in:
+        //
+        // Reference:
+        // Van Gijzen, Martin B., and Peter Sonneveld. "Algorithm 913: An
+        // elegant IDR (s) variant that efficiently exploits biorthogonality
+        // properties." ACM Transactions on Mathematical Software (TOMS) 38, no.
+        // 1 (2011): 1-19.
+
+        // Convergence parameters.
+        unsigned int totalIterations = 0;
+        TData rhsMagnitude, omega, omega0, omega1, eps, rho, alpha, beta,
+            kappa = 0.7;
+        std::vector<TData> Phi(m_stage), gamma(m_stage);
+        std::vector<std::vector<TData>> Mu(m_stage);
+
+        // Reset the fields to zero.
+        out.template Initialize<MemSpace>(0);
+
+        // Calculate inital rhs magnitude.
+        m_r.template Copy<MemSpace>(in);
+        m_assmbScatrOp->Apply(m_r);
+        rhsMagnitude = m_math.ddot(in, m_r);
+        m_rowComm->AllReduce(rhsMagnitude, Nektar::LibUtilities::ReduceSum);
+        rhsMagnitude = (rhsMagnitude > 1.0e-6) ? rhsMagnitude : 1.0;
+
+        // Iteration 0
+        // Copy RHS into initial residual and assemble with Zero Dirichlet BCs.
+        m_r.template Copy<MemSpace>(in);
+        m_assmbScatrZeroDirOp->Apply(m_r);
+
+        eps = m_math.ddot(in, m_r);
+        m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
+
+        // If the input residual is less than tolerance then skip solve.
+        if (eps < m_tol * m_tol * rhsMagnitude)
+        {
+            return;
+        }
+
+        // Initialize value.
+        omega = 1.0;
+        for (unsigned int k = 0; k < m_stage; k++)
+        {
+            Mu[k]    = std::vector<TData>(m_stage);
+            Mu[k][k] = 1.0;
+            m_G[k].template Initialize<MemSpace>(0.0);
+            m_U[k].template Initialize<MemSpace>(0.0);
+        }
+
+        // Use initial residual forthe first P vector.
+        // m_P[0].template Copy<MemSpace>(m_r);
+
+        while (true)
+        {
+            // Compute Phi.
+            for (unsigned int k = 0; k < m_stage; k++)
+            {
+                Phi[k] = m_math.ddot(m_P[k], m_r);
+            }
+            m_rowComm->AllReduce(Phi, Nektar::LibUtilities::ReduceSum);
+
+            // Inner iteration.
+            for (unsigned int k = 0; k < m_stage; k++)
+            {
+                if (totalIterations > m_maxIter)
+                {
+                    std::stringstream msg;
+                    msg << "Exceeded max iterations: " << totalIterations;
+                    WARNINGL0(false, msg.str());
+
+                    return;
+                }
+
+                // Directly solve the small linear system.
+                if (m_stage - k == 1)
+                {
+                    gamma[k] = Phi[k] / Mu[k][k];
+                }
+                else
+                {
+                    std::vector<std::vector<TData>> Mu_k(m_stage - k);
+                    std::vector<TData> Phi_k(m_stage - k);
+                    for (unsigned int i = 0; i < m_stage - k; i++)
+                    {
+                        Mu_k[i] = std::vector<TData>(m_stage - k);
+                        std::copy(Mu[i + k].begin() + k, Mu[i + k].end(),
+                                  Mu_k[i].data());
+                    }
+                    std::copy(Phi.begin() + k, Phi.end(), Phi_k.begin());
+                    DirectSolve(Mu_k, Phi_k);
+                    std::copy(Phi_k.begin(), Phi_k.end(), gamma.begin() + k);
+                }
+
+                // Compute m_v.
+                if (totalIterations == 0)
+                {
+                    m_v.template Copy<MemSpace>(m_r);
+                }
+                else
+                {
+                    daxpy<ExecSpace>(-gamma[k], m_G[k], m_r, m_v);
+                    for (unsigned int i = k + 1; i < m_stage; i++)
+                    {
+                        daxpy<ExecSpace>(-gamma[i], m_G[i], m_v, m_v);
+                    }
+                }
+
+                // Apply preconditioner.
+                this->m_precon->Apply(m_v, m_v);
+
+                // Compute new U.
+                if (totalIterations == 0)
+                {
+                    mul<ExecSpace>(omega, m_v, m_U[k]);
+                }
+                else
+                {
+                    mul<ExecSpace>(gamma[k], m_U[k], m_U[k]);
+                    for (unsigned int i = k + 1; i < m_stage; i++)
+                    {
+                        daxpy<ExecSpace>(gamma[i], m_U[i], m_U[k], m_U[k]);
+                    }
+                    daxpy<ExecSpace>(omega, m_v, m_U[k], m_U[k]);
+                }
+
+                // Perform the method-specific matrix-vector multiply operation.
+                this->m_lhs->Apply(m_U[k], m_G[k]);
+                m_robBndCondOp->Apply(m_U[k], m_G[k]);
+                m_assmbScatrZeroDirOp->Apply(m_G[k]);
+
+                // Bi-Orthogonalize the basis vectors:
+                for (unsigned int i = 0; i < k; i++)
+                {
+                    alpha = m_math.ddot(m_P[i], m_G[k]);
+                    m_rowComm->AllReduce(alpha,
+                                         Nektar::LibUtilities::ReduceSum);
+                    alpha /= Mu[i][i];
+                    daxpy<ExecSpace>(-alpha, m_G[i], m_G[k], m_G[k]);
+                    daxpy<ExecSpace>(-alpha, m_U[i], m_U[k], m_U[k]);
+                }
+
+                // Update Mu.
+                for (unsigned int i = k; i < m_stage; i++)
+                {
+                    TData mu = m_math.ddot(m_P[i], m_G[k]);
+                    m_rowComm->AllReduce(mu, Nektar::LibUtilities::ReduceSum);
+                    Mu[i][k] = mu;
+                }
+
+                if (Mu[k][k] == 0.0)
+                {
+                    std::stringstream msg;
+                    msg << "Convergence breakdown: ";
+                    WARNINGL0(false, msg.str());
+
+                    return;
+                }
+
+                // Make m_r orthogonal to m_G.
+                beta = Phi[k] / Mu[k][k];
+                daxpy<ExecSpace>(-beta, m_G[k], m_r, m_r);
+                daxpy<ExecSpace>(beta, m_U[k], out, out);
+
+                eps = m_math.ddot(m_r, m_r);
+                m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
+
+                ++totalIterations;
+
+                // Test if norm is within tolerance.
+                if (eps < m_tol * m_tol * rhsMagnitude)
+                {
+                    if (m_root)
+                    {
+                        std::cout << "iterations: " << totalIterations
+                                  << " eps: " << std::sqrt(eps)
+                                  << " rhs_mag: " << rhsMagnitude << std::endl;
+                    }
+                    return;
+                }
+
+                // Update Phi.
+                if (k < m_stage - 1)
+                {
+                    for (unsigned int i = 0; i < k + 1; i++)
+                    {
+                        Phi[i] = 0.0;
+                    }
+                    for (unsigned int i = k + 1; i < m_stage; i++)
+                    {
+                        Phi[i] -= beta * Mu[i][k];
+                    }
+                }
+            }
+
+            ++totalIterations;
+
+            // Test if norm is within tolerance.
+            if (eps < m_tol * m_tol * rhsMagnitude)
+            {
+                if (m_root)
+                {
+                    std::cout << "iterations: " << totalIterations
+                              << " eps: " << std::sqrt(eps)
+                              << " rhs_mag: " << rhsMagnitude << std::endl;
+                }
+                return;
+            }
+
+            if (totalIterations > m_maxIter)
+            {
+                std::stringstream msg;
+                msg << "Exceeded max iterations: " << totalIterations;
+                WARNINGL0(false, msg.str());
+
+                return;
+            }
+
+            // Apply preconditioner.
+            this->m_precon->Apply(m_r, m_v);
+
+            // Perform the method-specific matrix-vector multiply operation.
+            this->m_lhs->Apply(m_v, m_w);
+            m_robBndCondOp->Apply(m_v, m_w);
+            m_assmbScatrZeroDirOp->Apply(m_w);
+
+            // Update coefficients.
+            omega0 = m_math.ddot(m_w, m_r);
+            m_rowComm->AllReduce(omega0, LibUtilities::ReduceSum);
+            omega1 = m_math.ddot(m_w, m_w);
+            m_rowComm->AllReduce(omega1, LibUtilities::ReduceSum);
+            omega = omega0 / omega1;
+
+            // Check rho (potentially optional).
+            rho = m_math.ddot(m_r, m_r);
+            m_rowComm->AllReduce(rho, LibUtilities::ReduceSum);
+            rho = std::abs(omega0 / (std::sqrt(omega1) * std::sqrt(rho)));
+            if (rho < kappa)
+            {
+                omega *= kappa / rho;
+            }
+
+            // Update solution.
+            daxpy<ExecSpace>(-omega, m_w, m_r, m_r);
+            daxpy<ExecSpace>(omega, m_v, out, out);
+
+            // Update residual norm.
+            eps = m_math.ddot(m_r, m_r);
+            m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
+        }
+    }
+
+    void DirectSolve(std::vector<std::vector<TData>> &A, std::vector<TData> &b)
+    {
+        unsigned int n = A.size();
+
+        // Forward Elimination with Partial Pivoting.
+        for (unsigned int k = 0; k < n; ++k)
+        {
+            // --- Partial Pivoting ---
+            unsigned int maxRow = k;
+            TData maxVal        = std::abs(A[k][k]);
+            for (unsigned int i = k + 1; i < n; ++i)
+            {
+                if (std::abs(A[i][k]) > maxVal)
+                {
+                    maxVal = std::abs(A[i][k]);
+                    maxRow = i;
+                }
+            }
+
+            std::swap(A[k], A[maxRow]);
+            std::swap(b[k], b[maxRow]);
+
+            // --- Elimination Stage ---
+            for (unsigned int i = k + 1; i < n; ++i)
+            {
+                TData factor = A[i][k] / A[k][k];
+                b[i] -= factor * b[k];
+                for (unsigned int j = k; j < n; ++j)
+                {
+                    A[i][j] -= factor * A[k][j];
+                }
+            }
+        }
+
+        // Backward Substitution.
+        for (int i = n - 1; i >= 0; --i)
+        {
+            TData sum = 0;
+            for (unsigned int j = i + 1; j < n; ++j)
+            {
+                sum += A[i][j] * b[j];
+            }
+            b[i] = (b[i] - sum) / A[i][i];
+        }
+    }
+};
+} // namespace Nektar::Operators::detail
