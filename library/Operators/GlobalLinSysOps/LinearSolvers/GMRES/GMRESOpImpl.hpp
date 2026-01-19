@@ -187,8 +187,8 @@ protected:
         // Calculate rhs magnitude.
         if (m_rhs_magnitude == NekConstants::kNekUnsetDouble)
         {
-            m_assmbScatrOp->Apply(in, m_wk);
-            m_rhs_magnitude = m_math.ddot(in, m_wk);
+            m_assmbScatrOp->Apply(in, m_w);
+            m_rhs_magnitude = m_math.ddot(in, m_w);
             m_rowComm->AllReduce(m_rhs_magnitude,
                                  Nektar::LibUtilities::ReduceSum);
             m_rhs_magnitude =
@@ -198,8 +198,8 @@ protected:
         // Calculate prefactor.
         if (m_NekLinSysLeftPrecon)
         {
-            m_assmbScatrZeroDirOp->Apply(in, m_wk);
-            prec_factor = m_math.ddot(in, m_wk);
+            m_assmbScatrZeroDirOp->Apply(in, m_w);
+            prec_factor = m_math.ddot(in, m_w);
             m_rowComm->AllReduce(prec_factor, LibUtilities::ReduceSum);
         }
 
@@ -254,7 +254,7 @@ protected:
             m_assmbScatrZeroDirOp->Apply(m_r0, m_wk);
             eps = m_math.ddot(m_r0, m_wk);
             m_rowComm->AllReduce(eps, LibUtilities::ReduceSum);
-            if (outerIterations == 0)
+            if (m_NekLinSysLeftPrecon && outerIterations == 0)
             {
                 eps0 = eps;
             }
@@ -394,21 +394,21 @@ protected:
             else
             {
                 // Calculate output yn*m_V.
-                mul<ExecSpace>(yn[0], m_V[0], m_wk);
+                mul<ExecSpace>(yn[0], m_V[0], m_w);
                 for (unsigned int i = 1; i < innerIterations; ++i)
                 {
-                    daxpy<ExecSpace>(yn[i], m_V[i], m_wk, m_wk);
+                    daxpy<ExecSpace>(yn[i], m_V[i], m_w, m_w);
                 }
 
                 // Apply preconditioner.
                 if (m_NekLinSysRightPrecon)
                 {
-                    m_assmbScatrZeroDirOp->Apply(m_wk);
-                    this->m_precon->Apply(m_wk, m_wk);
+                    m_assmbScatrZeroDirOp->Apply(m_w);
+                    this->m_precon->Apply(m_w, m_w);
                 }
 
                 // Update output.
-                add<ExecSpace>(m_wk, out, out);
+                add<ExecSpace>(m_w, out, out);
             }
 
             innerIterations = 0;
@@ -429,8 +429,8 @@ protected:
             this->m_lhs->Apply(out, m_r0);
             m_robBndCondOp->Apply(out, m_r0);
             sub<ExecSpace>(in, m_r0, m_r0);
-            m_assmbScatrZeroDirOp->Apply(m_r0, m_wk);
-            eps1 = m_math.ddot(m_wk, m_r0);
+            m_assmbScatrZeroDirOp->Apply(m_r0, m_w);
+            eps1 = m_math.ddot(m_w, m_r0);
             m_rowComm->AllReduce(eps1, LibUtilities::ReduceSum);
 
             if (m_root)
