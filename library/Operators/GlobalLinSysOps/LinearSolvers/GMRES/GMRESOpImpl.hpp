@@ -63,9 +63,6 @@ public:
               components, 1)),
           m_r0(Field<TData, FieldState::Coeff>(
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
-              components, 1)),
-          m_solution(Field<TData, FieldState::Coeff>(
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1))
     {
         auto session = expansionList->GetSession();
@@ -73,7 +70,7 @@ public:
         // Set parameters.
         session->LoadParameter("NekLinSysMaxIterations",
                                m_NekLinSysMaxIterations, 5000);
-        session->LoadParameter("LinSysMaxStorage", m_LinSysMaxStorage, 5000);
+        session->LoadParameter("LinSysMaxStorage", m_LinSysMaxStorage, 50);
         session->LoadParameter("IterativeSolverTolerance", m_tol, 1.0E-09);
         session->LoadParameter("GMRESMaxHessMatBand", m_KrylovMaxHessMatBand,
                                m_LinSysMaxStorage + 1);
@@ -136,19 +133,16 @@ protected:
     Field<TData, FieldState::Coeff> m_w;
     Field<TData, FieldState::Coeff> m_wk;
     Field<TData, FieldState::Coeff> m_r0;
-    Field<TData, FieldState::Coeff> m_solution;
-    std::vector<Field<TData, FieldState::Coeff>> m_Vtotal;
-    std::vector<Field<TData, FieldState::Coeff>> m_Ztotal;
+    std::vector<Field<TData, FieldState::Coeff>> m_V;
+    std::vector<Field<TData, FieldState::Coeff>> m_Z;
     std::vector<std::vector<TData>> m_hes;
     std::vector<std::vector<TData>> m_upper;
 
     TData m_rhs_magnitude = NekConstants::kNekUnsetDouble;
-    TData m_prec_factor;
     TData m_tol;
     bool m_NekLinSysLeftPrecon;
     bool m_NekLinSysRightPrecon;
     bool m_GMRESCentralDifference;
-    unsigned int m_totalIterations;
     unsigned int m_NekLinSysMaxIterations;
     unsigned int m_LinSysMaxStorage;
     unsigned int m_KrylovMaxHessMatBand;
@@ -156,8 +150,39 @@ protected:
     void v_Apply(Field<TData, FieldState::Coeff> &in,
                  Field<TData, FieldState::Coeff> &out) override
     {
-        // Initialize precond factor.
-        m_prec_factor = NekConstants::kNekUnsetDouble;
+        // Allocate array storage.
+        // Residual
+        std::vector<TData> eta(m_LinSysMaxStorage + 1);
+        // Givens rotation c
+        std::vector<TData> cs(m_LinSysMaxStorage);
+        // Givens rotation s
+        std::vector<TData> sn(m_LinSysMaxStorage);
+        // Total coefficients
+        std::vector<TData> yn(m_LinSysMaxStorage);
+        // Search direction order
+        std::vector<unsigned int> id(m_LinSysMaxStorage);
+        std::vector<unsigned int> id_start(m_LinSysMaxStorage);
+        std::vector<unsigned int> id_end(m_LinSysMaxStorage);
+        const bool truncted          = (m_KrylovMaxHessMatBand > 0);
+        unsigned int totalIterations = 0, innerIterations = 0,
+                     outerIterations = 0;
+        bool converged               = false;
+        TData prec_factor = 1.0, eps, eps0 = 1.0;
+
+        // Give an order for the entries in Hessenburg matrix.
+        for (unsigned int nd = 0; nd < m_LinSysMaxStorage; ++nd)
+        {
+            id[nd]     = nd;
+            id_end[nd] = nd + 1;
+            if (truncted && id_end[nd] > m_KrylovMaxHessMatBand)
+            {
+                id_start[nd] = id_end[nd] - m_KrylovMaxHessMatBand;
+            }
+            else
+            {
+                id_start[nd] = 0;
+            }
+        }
 
         // Calculate rhs magnitude.
         if (m_rhs_magnitude == NekConstants::kNekUnsetDouble)
@@ -170,19 +195,224 @@ protected:
                 (m_rhs_magnitude > 1.0e-6) ? m_rhs_magnitude : 1.0;
         }
 
-        // GMRES with restart.
-        m_totalIterations   = 0;
-        bool converged      = false;
-        TData eps           = 0.0;
-        const bool truncted = (m_KrylovMaxHessMatBand > 0);
-        const unsigned int maxrestart =
-            m_NekLinSysMaxIterations / m_LinSysMaxStorage;
-        for (unsigned int nrestart = 0; nrestart < maxrestart; ++nrestart)
+        // Calculate prefactor.
+        if (m_NekLinSysLeftPrecon)
         {
-            const bool restart = (nrestart > 0);
-            auto conv          = DoGmresRestart(restart, truncted, in, out);
-            eps                = conv.first;
-            converged          = conv.second;
+            m_assmbScatrZeroDirOp->Apply(in, m_wk);
+            prec_factor = m_math.ddot(in, m_wk);
+            m_rowComm->AllReduce(prec_factor, LibUtilities::ReduceSum);
+        }
+
+        // Allocate memory, if necessary.
+        if (m_V.size() == 0)
+        {
+            m_V.push_back(Field<TData, FieldState::Coeff>(
+                GetBlockAttributes<TData, FieldState::Coeff>(
+                    this->m_expansionList),
+                this->m_components, 1));
+            m_Z.push_back(Field<TData, FieldState::Coeff>(
+                GetBlockAttributes<TData, FieldState::Coeff>(
+                    this->m_expansionList),
+                this->m_components, 1));
+        }
+
+        // GMRES with restart.
+        while (true)
+        {
+            if (totalIterations == m_NekLinSysMaxIterations)
+            {
+                break;
+            }
+
+            std::fill_n(eta.begin(), m_LinSysMaxStorage + 1, 0.0);
+            if (outerIterations == 0)
+            {
+                // Set the fields to zero.
+                out.template Initialize<MemSpace>(0);
+
+                // If not restarted, x0 should be zero
+                m_r0.template Copy<MemSpace>(in);
+            }
+            else
+            {
+                // This is A*x
+                this->m_lhs->Apply(out, m_r0);
+                m_robBndCondOp->Apply(out, m_r0);
+
+                // This is r0 = b-A*x
+                sub<ExecSpace>(in, m_r0, m_r0);
+            }
+
+            // Apply preconditioner.
+            if (m_NekLinSysLeftPrecon)
+            {
+                m_assmbScatrZeroDirOp->Apply(m_r0);
+                this->m_precon->Apply(m_r0, m_r0);
+            }
+
+            // Norm of (r0)
+            m_assmbScatrZeroDirOp->Apply(m_r0, m_wk);
+            eps = m_math.ddot(m_r0, m_wk);
+            m_rowComm->AllReduce(eps, LibUtilities::ReduceSum);
+            if (outerIterations == 0)
+            {
+                eps0 = eps;
+            }
+
+            // If the input residual is less than tolerance then skip solve.
+            if (eps < m_tol * m_tol * m_rhs_magnitude)
+            {
+                return;
+            }
+
+            if (m_NekLinSysLeftPrecon)
+            {
+                mul<ExecSpace>(std::sqrt(prec_factor / eps0), m_r0, m_r0);
+                eta[0] = std::sqrt(prec_factor * eps / eps0);
+            }
+            else
+            {
+                eta[0] = std::sqrt(eps);
+            }
+
+            // Initial search vector.
+            mul<ExecSpace>((TData)1.0 / eta[0], m_r0, m_V[0]);
+
+            // Inner loop.
+            while (true)
+            {
+                if ((innerIterations == m_LinSysMaxStorage) ||
+                    (totalIterations == m_NekLinSysMaxIterations))
+                {
+                    break;
+                }
+
+                unsigned int znd = m_flexible ? innerIterations : 0;
+                auto &Z1 =
+                    m_NekLinSysRightPrecon ? m_Z[znd] : m_V[innerIterations];
+                auto &V1 = m_V[innerIterations];
+                auto &h1 = m_hes[innerIterations];
+                auto &h2 = m_upper[innerIterations];
+
+                // Apply preconditioner.
+                if (m_NekLinSysRightPrecon)
+                {
+                    m_assmbScatrZeroDirOp->Apply(V1, Z1);
+                    this->m_precon->Apply(Z1, Z1);
+                }
+
+                auto idtem    = id[innerIterations];
+                auto starttem = id_start[idtem];
+                auto endtem   = id_end[idtem];
+
+                // -- Begin Arnoldi --
+                // Apply lhs.
+                this->m_lhs->Apply(Z1, m_w);
+                m_robBndCondOp->Apply(Z1, m_w);
+
+                // Apply preconditioner.
+                if (m_NekLinSysLeftPrecon)
+                {
+                    m_assmbScatrZeroDirOp->Apply(m_w);
+                    this->m_precon->Apply(m_w, m_w);
+                    mul<ExecSpace>(std::sqrt(prec_factor / eps0), m_w, m_w);
+                }
+
+                // Modified Gram-Schmidt.
+                for (unsigned int i = starttem; i < endtem; ++i)
+                {
+                    m_assmbScatrZeroDirOp->Apply(m_V[i], m_wk);
+                    h1[i] = m_math.ddot(m_w, m_wk);
+                    m_rowComm->AllReduce(h1[i], LibUtilities::ReduceSum);
+                    daxpy<ExecSpace>(-h1[i], m_V[i], m_w, m_w);
+                }
+
+                // Calculate the L2 norm and normalize.
+                m_assmbScatrZeroDirOp->Apply(m_w, m_wk);
+                h1[endtem] = m_math.ddot(m_w, m_wk);
+                m_rowComm->AllReduce(h1[endtem], LibUtilities::ReduceSum);
+                h1[endtem] = std::sqrt(h1[endtem]);
+                // -- End Arnoldi --
+
+                if (starttem > 0)
+                {
+                    starttem = starttem - 1;
+                }
+
+                std::copy_n(h1.data(), m_LinSysMaxStorage + 1, h2.data());
+                DoGivensRotation(starttem, endtem, cs, sn, h2, eta);
+
+                eps = eta[innerIterations + 1] * eta[innerIterations + 1];
+
+                innerIterations++;
+                totalIterations++;
+
+                // This Gmres merge truncted Gmres to accelerate.
+                // If truncted, cannot jump out because
+                // the last term of eta is not residual
+                if ((!truncted) || (innerIterations <= m_KrylovMaxHessMatBand))
+                {
+                    if (eps < m_tol * m_tol * m_rhs_magnitude)
+                    {
+                        converged = true;
+                        break;
+                    }
+                }
+
+                // Allocate new storage, if necessary.
+                if (m_V.size() == innerIterations)
+                {
+                    m_V.push_back(Field<TData, FieldState::Coeff>(
+                        GetBlockAttributes<TData, FieldState::Coeff>(
+                            this->m_expansionList),
+                        this->m_components, 1));
+                    if (m_flexible)
+                    {
+                        m_Z.push_back(Field<TData, FieldState::Coeff>(
+                            GetBlockAttributes<TData, FieldState::Coeff>(
+                                this->m_expansionList),
+                            this->m_components, 1));
+                    }
+                }
+
+                // Compute new search vector.
+                mul<ExecSpace>((TData)1.0 / h1[endtem], m_w,
+                               m_V[innerIterations]);
+            }
+
+            // Do backward substitution.
+            DoBackward(innerIterations, m_upper, eta, yn);
+
+            if (m_flexible)
+            {
+                // Calculate output yn*m_Z.
+                for (unsigned int i = 0; i < innerIterations; ++i)
+                {
+                    daxpy<ExecSpace>(yn[i], m_Z[i], out, out);
+                }
+            }
+            else
+            {
+                // Calculate output yn*m_V.
+                mul<ExecSpace>(yn[0], m_V[0], m_wk);
+                for (unsigned int i = 1; i < innerIterations; ++i)
+                {
+                    daxpy<ExecSpace>(yn[i], m_V[i], m_wk, m_wk);
+                }
+
+                // Apply preconditioner.
+                if (m_NekLinSysRightPrecon)
+                {
+                    m_assmbScatrZeroDirOp->Apply(m_wk);
+                    this->m_precon->Apply(m_wk, m_wk);
+                }
+
+                // Update output.
+                add<ExecSpace>(m_wk, out, out);
+            }
+
+            innerIterations = 0;
+            outerIterations++;
 
             if (converged)
             {
@@ -210,9 +440,10 @@ protected:
                 std::cout << std::scientific << std::setw(nwidthcolm)
                           << std::setprecision(nwidthcolm - 8)
                           << "       GMRES iterations made = "
-                          << m_totalIterations << " using tolerance of "
-                          << m_tol << " (error = "
-                          << std::sqrt(eps * m_prec_factor / m_rhs_magnitude)
+                          << totalIterations << " using tolerance of " << m_tol
+                          << " (error = "
+                          << std::sqrt(eps / eps0 * prec_factor /
+                                       m_rhs_magnitude)
                           << ")";
 
                 std::cout << " WITH (GMRES eps = " << eps
@@ -230,240 +461,6 @@ protected:
         }
 
         WARNINGL1(converged, "GMRES did not converge.");
-    }
-
-    std::pair<TData, bool> DoGmresRestart(const bool restarted,
-                                          const bool truncted,
-                                          Field<TData, FieldState::Coeff> &in,
-                                          Field<TData, FieldState::Coeff> &out)
-    {
-        // Allocate array storage.
-        // Residual
-        std::vector<TData> eta(m_LinSysMaxStorage + 1, 0.0);
-        // Givens rotation c
-        std::vector<TData> cs(m_LinSysMaxStorage, 0.0);
-        // Givens rotation s
-        std::vector<TData> sn(m_LinSysMaxStorage, 0.0);
-        // Total coefficients, just for check
-        std::vector<TData> y_total(m_LinSysMaxStorage, 0.0);
-        // Search direction order
-        std::vector<unsigned int> id(m_LinSysMaxStorage, 0);
-        std::vector<unsigned int> id_start(m_LinSysMaxStorage, 0);
-        std::vector<unsigned int> id_end(m_LinSysMaxStorage, 0);
-
-        if (restarted)
-        {
-            // This is A*x
-            this->m_lhs->Apply(out, m_r0);
-            m_robBndCondOp->Apply(out, m_r0);
-
-            // This is r0 = b-A*x
-            sub<ExecSpace>(in, m_r0, m_r0);
-        }
-        else
-        {
-            // Set the fields to zero.
-            out.template Initialize<MemSpace>(0);
-
-            // If not restarted, x0 should be zero
-            m_r0.template Copy<MemSpace>(in);
-        }
-
-        // Apply preconditioner.
-        if (m_NekLinSysLeftPrecon)
-        {
-            m_assmbScatrZeroDirOp->Apply(m_r0);
-            this->m_precon->Apply(m_r0, m_r0);
-        }
-
-        // Norm of (r0)
-        m_assmbScatrZeroDirOp->Apply(m_r0, m_wk);
-        TData eps = m_math.ddot(m_r0, m_wk);
-        m_rowComm->AllReduce(eps, LibUtilities::ReduceSum);
-
-        if (!restarted)
-        {
-            if (m_prec_factor == NekConstants::kNekUnsetDouble)
-            {
-                if (m_NekLinSysLeftPrecon)
-                {
-                    m_assmbScatrZeroDirOp->Apply(in, m_wk);
-                    m_prec_factor = m_math.ddot(in, m_wk);
-                    m_rowComm->AllReduce(m_prec_factor,
-                                         LibUtilities::ReduceSum);
-                }
-
-                m_prec_factor =
-                    m_NekLinSysLeftPrecon ? m_prec_factor / eps : 1.0;
-            }
-        }
-
-        mul<ExecSpace>(std::sqrt(m_prec_factor), m_r0, m_r0);
-        eps *= m_prec_factor;
-        eta[0] = std::sqrt(eps);
-
-        // Give an order for the entries in Hessenburg matrix.
-        for (unsigned int nd = 0; nd < m_LinSysMaxStorage; ++nd)
-        {
-            id[nd]     = nd;
-            id_end[nd] = nd + 1;
-            if (truncted && id_end[nd] > m_KrylovMaxHessMatBand)
-            {
-                id_start[nd] = id_end[nd] - m_KrylovMaxHessMatBand;
-            }
-            else
-            {
-                id_start[nd] = 0;
-            }
-        }
-
-        // Allocate memory, if necessary.
-        if (m_Vtotal.size() == 0)
-        {
-            m_Vtotal.push_back(Field<TData, FieldState::Coeff>(
-                GetBlockAttributes<TData, FieldState::Coeff>(
-                    this->m_expansionList),
-                this->m_components, 1));
-            m_Ztotal.push_back(Field<TData, FieldState::Coeff>(
-                GetBlockAttributes<TData, FieldState::Coeff>(
-                    this->m_expansionList),
-                this->m_components, 1));
-        }
-
-        // Initial search vector.
-        mul<ExecSpace>((TData)1.0 / eta[0], m_r0, m_Vtotal[0]);
-
-        // Restarted Gmres(m) process.
-        bool converged    = false;
-        unsigned int nswp = 0;
-        for (unsigned int nd = 0; nd < m_LinSysMaxStorage; ++nd)
-        {
-            unsigned int znd = m_flexible ? nd : 0;
-            auto &Z1 = m_NekLinSysRightPrecon ? m_Ztotal[znd] : m_Vtotal[nd];
-            auto &V1 = m_Vtotal[nd];
-            auto &h1 = m_hes[nd];
-            auto &h2 = m_upper[nd];
-
-            // Apply preconditioner.
-            if (m_NekLinSysRightPrecon)
-            {
-                // NOTE: preconditioner need updating for flexible GMRES.
-                m_assmbScatrZeroDirOp->Apply(V1, Z1);
-                this->m_precon->Apply(Z1, Z1);
-            }
-
-            auto idtem    = id[nd];
-            auto starttem = id_start[idtem];
-            auto endtem   = id_end[idtem];
-
-            // -- Begin Arnoldi --
-            // Apply lhs.
-            this->m_lhs->Apply(Z1, m_w);
-            m_robBndCondOp->Apply(Z1, m_w);
-
-            // Apply preconditioner.
-            if (m_NekLinSysLeftPrecon)
-            {
-                m_assmbScatrZeroDirOp->Apply(m_w);
-                this->m_precon->Apply(m_w, m_w);
-            }
-
-            mul<ExecSpace>(std::sqrt(m_prec_factor), m_w, m_w);
-
-            // Modified Gram-Schmidt.
-            for (unsigned int i = starttem; i < endtem; ++i)
-            {
-                m_assmbScatrZeroDirOp->Apply(m_Vtotal[i], m_wk);
-                h1[i] = m_math.ddot(m_w, m_wk);
-                m_rowComm->AllReduce(h1[i], LibUtilities::ReduceSum);
-                daxpy<ExecSpace>(-h1[i], m_Vtotal[i], m_w, m_w);
-            }
-
-            // Calculate the L2 norm and normalize.
-            m_assmbScatrZeroDirOp->Apply(m_w, m_wk);
-            h1[endtem] = m_math.ddot(m_w, m_wk);
-            m_rowComm->AllReduce(h1[endtem], LibUtilities::ReduceSum);
-            h1[endtem] = std::sqrt(h1[endtem]);
-            // -- End Arnoldi --
-
-            if (starttem > 0)
-            {
-                starttem = starttem - 1;
-            }
-
-            std::copy_n(h1.data(), m_LinSysMaxStorage + 1, h2.data());
-            DoGivensRotation(starttem, endtem, cs, sn, h2, eta);
-
-            eps = eta[nd + 1] * eta[nd + 1];
-
-            nswp++;
-            m_totalIterations++;
-
-            // This Gmres merge truncted Gmres to accelerate.
-            // If truncted, cannot jump out because
-            // the last term of eta is not residual
-            if ((!truncted) || (nd < m_KrylovMaxHessMatBand))
-            {
-                if (eps < m_tol * m_tol * m_rhs_magnitude) //&& nd > 0)
-                {
-                    converged = true;
-                    break;
-                }
-            }
-
-            // Allocate new storage, if necessary.
-            if (m_Vtotal.size() == nd + 1)
-            {
-                m_Vtotal.push_back(Field<TData, FieldState::Coeff>(
-                    GetBlockAttributes<TData, FieldState::Coeff>(
-                        this->m_expansionList),
-                    this->m_components, 1));
-                if (m_flexible)
-                {
-                    m_Ztotal.push_back(Field<TData, FieldState::Coeff>(
-                        GetBlockAttributes<TData, FieldState::Coeff>(
-                            this->m_expansionList),
-                        this->m_components, 1));
-                }
-            }
-
-            // Compute new search vector.
-            mul<ExecSpace>((TData)1.0 / h1[endtem], m_w, m_Vtotal[nd + 1]);
-        }
-
-        // Do backward substitution.
-        DoBackward(nswp, m_upper, eta, y_total);
-
-        if (m_flexible)
-        {
-            // Calculate output y_total*Z_total.
-            for (unsigned int i = 0; i < nswp; ++i)
-            {
-                daxpy<ExecSpace>(y_total[i], m_Ztotal[i], out, out);
-            }
-        }
-        else
-        {
-            // Calculate output y_total*V_total.
-            mul<ExecSpace>(y_total[0], m_Vtotal[0], m_solution);
-            for (unsigned int i = 1; i < nswp; ++i)
-            {
-                daxpy<ExecSpace>(y_total[i], m_Vtotal[i], m_solution,
-                                 m_solution);
-            }
-
-            // Apply preconditioner.
-            if (m_NekLinSysRightPrecon)
-            {
-                m_assmbScatrZeroDirOp->Apply(m_solution);
-                this->m_precon->Apply(m_solution, m_solution);
-            }
-
-            // Update output.
-            add<ExecSpace>(m_solution, out, out);
-        }
-
-        return {eps, converged};
     }
 
     // QR factorization through Givens rotation -> Put into a helper class
