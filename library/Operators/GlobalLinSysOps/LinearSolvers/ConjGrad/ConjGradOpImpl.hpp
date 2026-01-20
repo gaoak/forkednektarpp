@@ -183,7 +183,7 @@ protected:
         // Convergence parameters.
         unsigned int totalIterations = 0;
         TData rhsMagnitude, mu;
-        TData alpha = 1.0, beta, rho = 1.0, rho_new, rho_star = 0.0;
+        TData alpha = 1.0, beta = 0.0, rho = 1.0, rho_new, rho_star = 0.0;
         TData eps;
 
         // Reset the fields to zero.
