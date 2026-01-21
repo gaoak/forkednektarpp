@@ -51,8 +51,7 @@ template <typename TData, FieldState TState> class Field
     friend void AllocateFieldStorage(Field<TDataField, TStateField> *field);
 
 public:
-    Field()              = default;
-    Field(const Field &) = delete;
+    Field() = default;
     ~Field()
     {
         if (m_host)
@@ -72,9 +71,10 @@ public:
             deviceFree(m_device, this->size());
         }
 
-        m_host      = nullptr;
-        m_device    = nullptr;
-        m_alignment = NektarSpaces::host_memory_alignment;
+        m_instantiated = false;
+        m_host         = nullptr;
+        m_device       = nullptr;
+        m_alignment    = NektarSpaces::host_memory_alignment;
     }
 
     /**
@@ -92,7 +92,7 @@ public:
           const unsigned int num_components, const unsigned int num_homo_modes,
           const MemAllocType &memAllocType = ePageable,
           const size_t alignment = NektarSpaces::host_memory_alignment)
-        : m_name(name), m_component_names(num_components),
+        : m_instantiated(true), m_name(name), m_component_names(num_components),
           m_num_homo_modes(num_homo_modes), m_memAllocType(memAllocType),
           m_alignment(alignment)
     {
@@ -142,7 +142,7 @@ public:
           const unsigned int num_homo_modes,
           const MemAllocType &memAllocType = ePageable,
           const size_t alignment = NektarSpaces::host_memory_alignment)
-        : m_name(name), m_component_names(components),
+        : m_instantiated(true), m_name(name), m_component_names(components),
           m_num_homo_modes(num_homo_modes), m_memAllocType(memAllocType),
           m_alignment(alignment)
     {
@@ -184,7 +184,8 @@ public:
      * @param rhs
      */
     Field(Field &&rhs)
-        : m_name(std::move(rhs.m_name)),
+        : m_instantiated(std::move(rhs.m_instantiated)),
+          m_name(std::move(rhs.m_name)),
           m_component_names(std::move(rhs.m_component_names)),
           m_num_homo_modes(std::move(rhs.m_num_homo_modes)),
           m_host(std::move(rhs.m_host)), m_device(std::move(rhs.m_device)),
@@ -196,7 +197,8 @@ public:
         {
             blocks.m_field = this;
         }
-        rhs.m_name = "";
+        rhs.m_instantiated = false;
+        rhs.m_name         = "";
         rhs.m_component_names.clear();
         rhs.m_num_homo_modes = 1;
         rhs.m_host           = nullptr;
@@ -207,6 +209,13 @@ public:
     }
 
     /**
+     * @brief Constructor methods - No copy methods
+     *
+     */
+    Field(const Field &)            = delete;
+    Field &operator=(const Field &) = delete;
+
+    /**
      * @brief Move assignment operator.
      *
      * @param rhs
@@ -215,6 +224,7 @@ public:
      */
     Field &operator=(Field &&rhs)
     {
+        m_instantiated    = std::move(rhs.m_instantiated);
         m_name            = std::move(rhs.m_name);
         m_component_names = std::move(rhs.m_component_names);
         m_num_homo_modes  = std::move(rhs.m_num_homo_modes);
@@ -228,7 +238,8 @@ public:
             blocks.m_field = this;
         }
 
-        rhs.m_name = "";
+        rhs.m_instantiated = false;
+        rhs.m_name         = "";
         rhs.m_component_names.clear();
         rhs.m_num_homo_modes = 1;
         rhs.m_host           = nullptr;
@@ -245,6 +256,13 @@ public:
      */
     template <typename MemSpace> void Initialize(const TData val)
     {
+        if (!m_instantiated)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal,
+                     "Field::Initialize - Object has not been "
+                     "instantiated by custom constructor.");
+        }
+
         // If not yet allocated, allocate contiguous host OR device memory
         // across all MemoryRegion objects within current Field object before
         // data initialization.
@@ -265,6 +283,13 @@ public:
     template <typename TDataOut = TData, class Alloc = std::allocator<TDataOut>>
     std::vector<TDataOut, Alloc> ToVector()
     {
+        if (!m_instantiated)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal,
+                     "Field::ToVector - Object has not been "
+                     "instantiated by custom constructor.");
+        }
+
         // If not yet allocated, allocate contiguous host memory across all
         // MemoryRegion objects within current Field objects before data copy to
         // vector.
@@ -310,6 +335,13 @@ public:
     template <typename TDataOut = TData>
     Nektar::Array<Nektar::OneD, TDataOut> ToArray()
     {
+        if (!m_instantiated)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal,
+                     "Field::ToArray - Object has not been "
+                     "instantiated by custom constructor.");
+        }
+
         // If not yet allocated, allocate contiguous host memory across all
         // MemoryRegion objects within current Field objects before data copy to
         // NekArray.
@@ -356,6 +388,13 @@ public:
      */
     template <typename MemSpace> void Copy(Field &field)
     {
+        if (!m_instantiated)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal,
+                     "Field::Copy - Object has not been "
+                     "instantiated by custom constructor.");
+        }
+
         // If not yet allocated, allocate contiguous host OR device memory
         // across all MemoryRegion objects within the input argument field
         // object before data copy.
@@ -409,6 +448,13 @@ public:
               class Alloc = std::allocator<TDataIn>>
     void CopyVector(const std::vector<TDataIn, Alloc> &array)
     {
+        if (!m_instantiated)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal,
+                     "Field::CopyVector - Object has not been "
+                     "instantiated by custom constructor.");
+        }
+
         // If not yet allocated, allocate contiguous host memory across all
         // MemoryRegion objects within current Field object before data copy
         // from vector.
@@ -461,6 +507,13 @@ public:
     template <typename MemSpace, typename TDataIn>
     void CopyArray(const Nektar::Array<Nektar::OneD, TDataIn> &array)
     {
+        if (!m_instantiated)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal,
+                     "Field::CopyArray - Object has not been "
+                     "instantiated by custom constructor.");
+        }
+
         // If not yet allocated, allocate contiguous host memory across all
         // MemoryRegion objects within current Field object before data copy
         // from NekArray.
@@ -510,6 +563,13 @@ public:
      */
     std::vector<BlockAccessor<TData, TState>> &GetBlocks()
     {
+        if (!m_instantiated)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal,
+                     "Field::GetBlocks - Object has not been "
+                     "instantiated by custom constructor.");
+        }
+
         return m_block_accessors;
     }
 
@@ -520,6 +580,13 @@ public:
      */
     size_t size() const
     {
+        if (!m_instantiated)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal,
+                     "Field::size - Object has not been "
+                     "instantiated by custom constructor.");
+        }
+
         size_t nSize = 0;
         for (unsigned int blk = 0; blk < m_block_accessors.size(); ++blk)
         {
@@ -535,6 +602,13 @@ public:
      */
     std::string GetName(void) const
     {
+        if (!m_instantiated)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal,
+                     "Field::GetName - Object has not been "
+                     "instantiated by custom constructor.");
+        }
+
         return m_name;
     }
 
@@ -545,6 +619,13 @@ public:
      */
     unsigned int GetNumComponents() const
     {
+        if (!m_instantiated)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal,
+                     "Field::GetNumComponents - Object has not been "
+                     "instantiated by custom constructor.");
+        }
+
         return m_component_names.size();
     }
 
@@ -555,6 +636,13 @@ public:
      */
     unsigned int GetNumHomoModes() const
     {
+        if (!m_instantiated)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal,
+                     "Field::GetNumHomoModes - Object has not been "
+                     "instantiated by custom constructor.");
+        }
+
         return m_num_homo_modes;
     }
 
@@ -562,6 +650,8 @@ public:
 
 protected:
     // Member variables:
+    bool m_instantiated = false; ///< Flag indicating if the current object has
+                                 ///< been instantiated.
     std::string m_name;
     std::vector<std::string> m_component_names;
     unsigned int m_num_homo_modes = 1;

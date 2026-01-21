@@ -111,7 +111,7 @@ public:
                  const MemAllocType &memAllocType = ePageable,
                  const size_t alignment = NektarSpaces::host_memory_alignment)
     {
-        m_allocated    = true;
+        m_instantiated = true;
         m_host_owned   = true;
         m_device_owned = true;
         m_host_valid   = false;
@@ -146,14 +146,14 @@ public:
      * @param rhs - MemoryRegion to move from
      */
     MemoryRegion(MemoryRegion &&rhs)
-        : m_allocated(rhs.m_allocated), m_host_owned(rhs.m_host_owned),
+        : m_instantiated(rhs.m_instantiated), m_host_owned(rhs.m_host_owned),
           m_device_owned(rhs.m_device_owned), m_host_valid(rhs.m_host_valid),
           m_device_valid(rhs.m_device_valid), m_host(rhs.m_host),
           m_host_aligned(rhs.m_host_aligned), m_device(rhs.m_device),
           m_size(rhs.m_size), m_alignment(rhs.m_alignment), m_name(rhs.m_name),
           m_memAllocType(rhs.m_memAllocType)
     {
-        rhs.m_allocated    = false;
+        rhs.m_instantiated = false;
         rhs.m_host_owned   = true;
         rhs.m_device_owned = true;
         rhs.m_host_valid   = false;
@@ -190,7 +190,7 @@ public:
             }
         }
 
-        m_allocated    = false;
+        m_instantiated = false;
         m_host_owned   = true;
         m_device_owned = true;
         m_host_valid   = false;
@@ -220,7 +220,7 @@ public:
      */
     MemoryRegion &operator=(MemoryRegion &&rhs)
     {
-        m_allocated    = rhs.m_allocated;
+        m_instantiated = rhs.m_instantiated;
         m_host_owned   = rhs.m_host_owned;
         m_device_owned = rhs.m_device_owned;
         m_host_valid   = rhs.m_host_valid;
@@ -233,7 +233,7 @@ public:
         m_name         = rhs.m_name;
         m_memAllocType = rhs.m_memAllocType;
 
-        rhs.m_allocated    = false;
+        rhs.m_instantiated = false;
         rhs.m_host_owned   = true;
         rhs.m_device_owned = true;
         rhs.m_host_valid   = false;
@@ -257,10 +257,11 @@ public:
     template <typename MemSpace, typename MemAccess>
     typename const_if<std::is_same_v<MemAccess, ReadOnly>, TData>::type *GetPtr()
     {
-        if (!m_allocated)
+        if (!m_instantiated)
         {
             NEKERROR(Nektar::ErrorUtil::efatal,
-                     "MemoryRegion::GetPtr - Storage is not allocated.");
+                     "MemoryRegion::GetPtr - Object has not been "
+                     "instantiated by custom constructor.");
         }
 
         if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
@@ -569,10 +570,11 @@ public:
     void Initialize(const TData val, const size_t count = 0,
                     const size_t offset = 0)
     {
-        if (!m_allocated)
+        if (!m_instantiated)
         {
             NEKERROR(Nektar::ErrorUtil::efatal,
-                     "MemoryRegion::Initialize - Storage is not allocated.");
+                     "MemoryRegion::Initialize - Object has not been "
+                     "instantiated by custom constructor.");
         }
 
         if (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
@@ -761,10 +763,11 @@ public:
     template <typename TDataOut = TData, class Alloc = std::allocator<TDataOut>>
     std::vector<TDataOut, Alloc> ToVector()
     {
-        if (!m_allocated)
+        if (!m_instantiated)
         {
             NEKERROR(Nektar::ErrorUtil::efatal,
-                     "MemoryRegion::ToVector - Storage is not allocated.");
+                     "MemoryRegion::ToVector - Object has not been "
+                     "instantiated by custom constructor.");
         }
 
         if constexpr (std::is_same_v<TDataOut, TData>)
@@ -796,10 +799,11 @@ public:
     template <typename TDataOut = TData>
     Nektar::Array<Nektar::OneD, TDataOut> ToArray()
     {
-        if (!m_allocated)
+        if (!m_instantiated)
         {
             NEKERROR(Nektar::ErrorUtil::efatal,
-                     "MemoryRegion::ToArray - Storage is not allocated.");
+                     "MemoryRegion::ToArray - Object has not been instantiated "
+                     "by custom constructor.");
         }
 
         if constexpr (std::is_same_v<TDataOut, TData>)
@@ -830,10 +834,11 @@ public:
      */
     size_t GetAlignment() const
     {
-        if (!m_allocated)
+        if (!m_instantiated)
         {
             NEKERROR(Nektar::ErrorUtil::efatal,
-                     "MemoryRegion::GetAlignment - Storage is not allocated.");
+                     "MemoryRegion::GetAlignment - Object has not been "
+                     "instantiated by custom constructor.");
         }
 
         return m_alignment;
@@ -855,10 +860,11 @@ public:
      */
     std::string GetName() const
     {
-        if (!m_allocated)
+        if (!m_instantiated)
         {
             NEKERROR(Nektar::ErrorUtil::efatal,
-                     "MemoryRegion::GetName - Storage is not allocated.");
+                     "MemoryRegion::GetName - Object has not been instantiated "
+                     "by custom constructor.");
         }
 
         return m_name;
@@ -1118,8 +1124,8 @@ private:
     }
 
     // Member variables:
-    bool m_allocated = false; ///< Flag indicating if the current object has
-                              ///< been allocated.
+    bool m_instantiated = false; ///< Flag indicating if the current object has
+                                 ///< been instantiated.
     bool m_host_owned = true; ///< Flag indicating if the host pointer is owned
                               ///< by the current object.
     bool m_device_owned = true;  ///< Flag indicating if the device pointer is
