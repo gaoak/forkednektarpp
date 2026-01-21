@@ -67,6 +67,7 @@ void AllocateFieldStorage(Field<TData, TState> *field);
 template <FieldState TState> class BlockAttributes
 {
 public:
+    BlockAttributes() = delete;
     BlockAttributes(const size_t num_elements,
                     const size_t num_elements_with_padding,
                     const unsigned int num_data,
@@ -169,6 +170,7 @@ class BlockAccessor : public BlockAttributes<TState>
     friend void AllocateFieldStorage(Field<TDataField, TStateField> *field);
 
 public:
+    BlockAccessor() = delete;
     BlockAccessor(const BlockAttributes<TState> blockAttr,
                   MemoryRegion<TData> &&memory_region,
                   Field<TData, TState> *field,
@@ -194,6 +196,51 @@ public:
     {
     }
 
+    /**
+     * @brief Constructor methods - move from another BlockAccessor
+     *
+     * @param rhs - BlockAccessor to move from
+     */
+    BlockAccessor(BlockAccessor &&rhs)
+        : BlockAttributes<TState>(std::move(rhs)),
+          m_memory_region(std::move(rhs.m_memory_region)),
+          m_field(std::move(rhs.m_field)),
+          m_num_components(std::move(rhs.m_num_components)),
+          m_num_homo_modes(std::move(rhs.m_num_homo_modes))
+    {
+        rhs.m_field          = nullptr;
+        rhs.m_num_components = 0;
+        rhs.m_num_homo_modes = 1;
+    }
+
+    /**
+     * @brief Constructor methods - No copy methods
+     *
+     */
+    BlockAccessor(const BlockAccessor &)            = delete;
+    BlockAccessor &operator=(const BlockAccessor &) = delete;
+
+    /**
+     * @brief Move assignment operator.
+     *
+     * @param rhs - BlockAccessor to move from
+     *
+     * @return    - BlockAccessor&
+     */
+    BlockAccessor &operator=(BlockAccessor &&rhs)
+    {
+        BlockAttributes<TState>::operator=(std::move(rhs));
+        m_memory_region  = std::move(rhs.m_memory_region);
+        m_field          = std::move(rhs.m_field);
+        m_num_components = std::move(rhs.m_num_components);
+        m_num_homo_modes = std::move(rhs.m_num_homo_modes);
+
+        rhs.m_field          = nullptr;
+        rhs.m_num_components = 0;
+        rhs.m_num_homo_modes = 1;
+
+        return *this;
+    }
     /**
      * @brief Get the pointer to the host/device memory.
      *
