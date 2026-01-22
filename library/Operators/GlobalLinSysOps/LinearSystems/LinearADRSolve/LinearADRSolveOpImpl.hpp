@@ -103,25 +103,27 @@ protected:
     void v_Apply(Field<TData, FieldState::Phys> &in,
                  Field<TData, FieldState::Coeff> &out) override
     {
-        // IProductWRT of RHS
+        // IProductWRT of RHS.
         m_IProdOp->Apply(in, m_rhs);
         neg<ExecSpace>(m_rhs, m_rhs);
 
-        // Handle Neumann BCs on RHS
+        // Handle Neumann BCs on RHS.
         m_NeuBCOp->Apply(m_rhs);
 
-        // Handle Dirichlet BCs
+        // Handle Dirichlet BCs.
         m_DirBCOp->Apply(out);
+
+        // Apply ADR operator.
         m_ADROp->Apply(out, m_tmp);
+
+        // Handle Robin BCs.
+        m_RobBCOp->Apply(out, m_tmp);
+
+        // Solve linear system.
         sub<ExecSpace>(m_rhs, m_tmp, m_rhs);
-
-        // Handle Robin BCs
-        m_RobBCOp->Apply(out, m_rhs, true);
-
-        // Solve using Conjugate Gradient
         m_LinSolverOp->Apply(m_rhs, m_tmp);
 
-        // Add Dirichlet BCs
+        // Add Dirichlet BCs.
         add<ExecSpace>(out, m_tmp, out);
     }
 

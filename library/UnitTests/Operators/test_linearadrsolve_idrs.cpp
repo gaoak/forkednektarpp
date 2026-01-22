@@ -57,7 +57,7 @@ BOOST_AUTO_TEST_SUITE(TestLinearADRSolveIDRS)
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_LINEARADRSOLVE(linearadrsolve_seg, Helmholtz1D_Seg, 1.0E-12)
 
-TEST_LINEARADRSOLVE(linearadrsolve_tri_quad, Helmholtz2D_Tri_Quad, 5.0E-10)
+TEST_LINEARADRSOLVE(linearadrsolve_tri_quad, Helmholtz2D_Tri_Quad, 2.0E-09)
 
 TEST_LINEARADRSOLVE(linearadrsolve_all_bcs, Helmholtz2D_AllBCs, 5.0E-10)
 

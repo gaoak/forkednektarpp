@@ -275,8 +275,7 @@ protected:
     size_t m_nBndEdge        = 0;
 
     void v_Apply(Field<TData, FieldState::Coeff> &in,
-                 Field<TData, FieldState::Coeff> &out,
-                 const bool &negflag) override
+                 Field<TData, FieldState::Coeff> &out) override
     {
         // Return if no Robin boundary condition.
         if (m_nBndEdge == 0)
@@ -329,31 +328,14 @@ protected:
         auto dimension = this->m_expansionList->GetExp(0)->GetShapeDimension();
         if (dimension == 1)
         {
-            if (negflag)
-            {
-                RobBndCond1DKernel<ExecSpace, true>(
-                    m_nBndEdge, offsetPtr, matPtr, mapPtr, inPtr, outPtr);
-            }
-            else
-            {
-                RobBndCond1DKernel<ExecSpace, false>(
-                    m_nBndEdge, offsetPtr, matPtr, mapPtr, inPtr, outPtr);
-            }
+            RobBndCond1DKernel<ExecSpace>(m_nBndEdge, offsetPtr, matPtr, mapPtr,
+                                          inPtr, outPtr);
         }
         else if (dimension == 2)
         {
-            if (negflag)
-            {
-                RobBndCond2DKernel<ExecSpace, true>(
-                    m_nmaxcoeff, m_nBndEdge, ncoeffPtr, offsetPtr, matOffsetPtr,
-                    mapOffsetPtr, matPtr, mapPtr, signPtr, inPtr, outPtr);
-            }
-            else
-            {
-                RobBndCond2DKernel<ExecSpace, false>(
-                    m_nmaxcoeff, m_nBndEdge, ncoeffPtr, offsetPtr, matOffsetPtr,
-                    mapOffsetPtr, matPtr, mapPtr, signPtr, inPtr, outPtr);
-            }
+            RobBndCond2DKernel<ExecSpace>(
+                m_nmaxcoeff, m_nBndEdge, ncoeffPtr, offsetPtr, matOffsetPtr,
+                mapOffsetPtr, matPtr, mapPtr, signPtr, inPtr, outPtr);
         }
     }
 };
