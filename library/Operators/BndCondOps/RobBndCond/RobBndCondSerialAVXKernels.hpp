@@ -37,7 +37,7 @@
 namespace Nektar::Operators::detail
 {
 
-template <typename ExecSpace, bool negflag, typename TData>
+template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
@@ -46,27 +46,15 @@ NEK_FORCE_INLINE static
                        const TData *matPtr, const size_t *mapPtr,
                        const TData *incoeffPtr, TData *coeffPtr)
 {
-    if constexpr (negflag)
+    for (size_t i = 0; i < nsize; i++)
     {
-        for (size_t i = 0; i < nsize; i++)
-        {
-            size_t offset = offsetPtr[i];
-            size_t map    = mapPtr[i];
-            coeffPtr[offset + map] -= matPtr[i] * incoeffPtr[offset + map];
-        }
-    }
-    else
-    {
-        for (size_t i = 0; i < nsize; i++)
-        {
-            size_t offset = offsetPtr[i];
-            size_t map    = mapPtr[i];
-            coeffPtr[offset + map] += matPtr[i] * incoeffPtr[offset + map];
-        }
+        size_t offset = offsetPtr[i];
+        size_t map    = mapPtr[i];
+        coeffPtr[offset + map] += matPtr[i] * incoeffPtr[offset + map];
     }
 }
 
-template <typename ExecSpace, bool negflag, typename TData>
+template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
@@ -102,14 +90,7 @@ NEK_FORCE_INLINE static
             }
 
             const size_t index = mapOffset + i;
-            if constexpr (negflag)
-            {
-                coeffPtr[offset + mapPtr[index]] -= tmp * signPtr[index];
-            }
-            else
-            {
-                coeffPtr[offset + mapPtr[index]] += tmp * signPtr[index];
-            }
+            coeffPtr[offset + mapPtr[index]] += tmp * signPtr[index];
         }
     }
 }

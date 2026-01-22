@@ -40,7 +40,7 @@ namespace Nektar::Operators::detail
 {
 
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
-template <bool negflag, typename TthreadBlock, typename TData>
+template <typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL static void RobBndCond1DKernel(
     const size_t nsize, const size_t *__restrict__ offsetPtr,
     const TData *__restrict__ matPtr, const size_t *__restrict__ mapPtr,
@@ -57,18 +57,11 @@ NEK_DEVICE_KERNEL static void RobBndCond1DKernel(
 
         TData *const ptr = coeffPtr + offset + map;
         const TData val  = matPtr[i] * incoeffPtr[offset + map];
-        if constexpr (negflag)
-        {
-            Nektar::atomic_sub<NektarSpaces::GlobalScope>(ptr, val);
-        }
-        else
-        {
-            Nektar::atomic_add<NektarSpaces::GlobalScope>(ptr, val);
-        }
+        Nektar::atomic_add<NektarSpaces::GlobalScope>(ptr, val);
     }
 }
 
-template <bool negflag, typename TthreadBlock, typename TData>
+template <typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL static void RobBndCond2DKernel(
     const size_t nsize, const unsigned int *__restrict__ ncoeffPtr,
     const size_t *__restrict__ offsetPtr,
@@ -114,14 +107,7 @@ NEK_DEVICE_KERNEL static void RobBndCond2DKernel(
             const size_t index = mapOffset + i;
             TData *const ptr   = coeffPtr + offset + mapPtr[index];
             const TData val    = tmp * signPtr[index];
-            if constexpr (negflag)
-            {
-                Nektar::atomic_sub<NektarSpaces::GlobalScope>(ptr, val);
-            }
-            else
-            {
-                Nektar::atomic_add<NektarSpaces::GlobalScope>(ptr, val);
-            }
+            Nektar::atomic_add<NektarSpaces::GlobalScope>(ptr, val);
         }
 
         Nektar::localBarrier(threadBlock);
@@ -130,7 +116,7 @@ NEK_DEVICE_KERNEL static void RobBndCond2DKernel(
     }
 }
 
-template <typename ExecSpace, bool negflag, typename TData>
+template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                             void>::type
@@ -141,12 +127,12 @@ NEK_FORCE_INLINE static
     const unsigned int blockSize = NektarSpaces::Device::warpSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
-    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(RobBndCond1DKernel<negflag>, gridSize,
+    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(RobBndCond1DKernel, gridSize,
                                           blockSize, 0, nsize, offsetPtr,
                                           matPtr, mapPtr, incoeffPtr, coeffPtr);
 }
 
-template <typename ExecSpace, bool negflag, typename TData>
+template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                             void>::type
@@ -161,10 +147,10 @@ NEK_FORCE_INLINE static
     const unsigned int blockSize = NektarSpaces::Device::warpSize;
     const unsigned int gridSize  = nsize;
 
-    DEVICE_1DGRID_KERNEL_LAUNCHER(RobBndCond2DKernel<negflag>, gridSize,
-                                  blockSize, shmemsize, 0, nsize, ncoeffPtr,
-                                  offsetPtr, matOffsetPtr, mapOffsetPtr, matPtr,
-                                  mapPtr, signPtr, incoeffPtr, coeffPtr);
+    DEVICE_1DGRID_KERNEL_LAUNCHER(RobBndCond2DKernel, gridSize, blockSize,
+                                  shmemsize, 0, nsize, ncoeffPtr, offsetPtr,
+                                  matOffsetPtr, mapOffsetPtr, matPtr, mapPtr,
+                                  signPtr, incoeffPtr, coeffPtr);
 }
 #endif
 
