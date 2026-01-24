@@ -66,11 +66,11 @@ public:
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
           m_q(Field<TData, FieldState::Coeff>(
-              "ConjRes wk",
+              "ConjRes q",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
           m_p(Field<TData, FieldState::Coeff>(
-              "ConjRes wk",
+              "ConjRes p",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1))
     {
