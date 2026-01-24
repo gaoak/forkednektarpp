@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: ConjGradOpImpl.hpp
+// File: ConjResV2OpImpl.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -35,9 +35,7 @@
 #pragma once
 
 #include "Operators/AssmbScatr/AssmbScatrOpImpl.hpp"
-#include "Operators/GlobalLinSysOps/LinearSolvers/ConjGrad/ConjGradOp.hpp"
-
-#include "Operators/GlobalLinSysOps/LinearSolvers/ConjGrad/ConjGradKernels.hpp"
+#include "Operators/GlobalLinSysOps/LinearSolvers/ConjResV2/ConjResV2Op.hpp"
 
 #include <iomanip>
 
@@ -47,39 +45,43 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename TData>
-class ConjGradOpImpl : public ConjGradOp<TData>
+class ConjResV2OpImpl : public ConjResV2Op<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    ConjGradOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
-                   const std::vector<std::string> &components)
-        : ConjGradOp<TData>(expansionList, components),
+    ConjResV2OpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
+                    const std::vector<std::string> &components)
+        : ConjResV2Op<TData>(expansionList, components),
           m_w(Field<TData, FieldState::Coeff>(
-              "ConjGrad w",
+              "ConjResV2 w",
+              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              components, 1)),
+          m_wk(Field<TData, FieldState::Coeff>(
+              "ConjResV2 wk",
+              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              components, 1)),
+          m_z(Field<TData, FieldState::Coeff>(
+              "ConjResV2 v",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
           m_s(Field<TData, FieldState::Coeff>(
-              "ConjGrad s",
+              "ConjResV2 s",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
           m_r(Field<TData, FieldState::Coeff>(
-              "ConjGrad r",
+              "ConjResV2 r",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
           m_q(Field<TData, FieldState::Coeff>(
-              "ConjGrad q",
+              "ConjResV2 q",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
           m_p(Field<TData, FieldState::Coeff>(
-              "ConjGrad p",
+              "ConjResV2 p",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
-          m_mask(Field<std::uint8_t, FieldState::Coeff>(
-              "ConjGrad mask",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
-              components, 1)),
-          m_vExchange(MemoryRegion<TData>(4, ePinned))
+          m_vExchange(MemoryRegion<TData>(3, ePinned))
     {
         auto session = expansionList->GetSession();
 
@@ -97,25 +99,6 @@ public:
         // Set parameters.
         session->LoadParameter("NekLinSysMaxIterations", m_maxIter, 5000);
         session->LoadParameter("IterativeSolverTolerance", m_tol, 1.0E-09);
-        m_flexible = session->DefinesParameter("FlexibleConjugateGradient")
-                         ? session->GetParameter("FlexibleConjugateGradient")
-                         : false;
-
-        // Fill mask.
-        auto maskptr =
-            this->m_dataWarehouse->template GetData<NektarSpaces::HostSpace>(
-                LocalToGlobalMaskKey<TData>());
-        unsigned cnt = 0;
-        for (unsigned blk = 0; blk < m_mask.GetBlocks().size(); ++blk)
-        {
-            auto &block = m_mask.GetBlocks()[blk];
-            auto ptr =
-                block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-            for (unsigned i = 0; i < block.CompSize(); ++i)
-            {
-                ptr[i] = maskptr[cnt++];
-            }
-        }
     }
 
     // className - for OperatorFactory
@@ -126,8 +109,8 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
     {
-        return std::make_unique<ConjGradOpImpl<ExecSpace, TData>>(expansionList,
-                                                                  components);
+        return std::make_unique<ConjResV2OpImpl<ExecSpace, TData>>(
+            expansionList, components);
     }
 
 protected:
@@ -136,16 +119,16 @@ protected:
     std::unique_ptr<AssmbScatrZeroDirOpImpl<ExecSpace, TData>>
         m_assmbScatrZeroDirOp;
     bool m_root;
-    bool m_flexible;
 
     std::shared_ptr<RobBndCondOp<TData>> m_robBndCondOp;
 
     Field<TData, FieldState::Coeff> m_w;
+    Field<TData, FieldState::Coeff> m_wk;
+    Field<TData, FieldState::Coeff> m_z;
     Field<TData, FieldState::Coeff> m_s;
     Field<TData, FieldState::Coeff> m_r;
     Field<TData, FieldState::Coeff> m_q;
     Field<TData, FieldState::Coeff> m_p;
-    Field<std::uint8_t, FieldState::Coeff> m_mask;
 
     MemoryRegion<TData> m_vExchange;
 
@@ -155,35 +138,17 @@ protected:
     void v_Apply(Field<TData, FieldState::Coeff> &in,
                  Field<TData, FieldState::Coeff> &out) override
     {
-        // Reshape mask if required.
-        for (unsigned blk = 0; blk < in.GetBlocks().size(); ++blk)
-        {
-            auto &inblk   = in.GetBlocks()[blk];
-            auto &maskblk = m_mask.GetBlocks()[blk];
-
-            if (inblk.GetInterleaveWidth() != maskblk.GetInterleaveWidth())
-            {
-                auto maskPtr = maskblk.template GetPtr<MemSpace, ReadWrite>();
-                auto numComp = maskblk.GetNumComponents();
-
-                for (unsigned nc = 0; nc < numComp; ++nc)
-                {
-                    ReshapeStorage<ExecSpace>(
-                        inblk.GetInterleaveWidth(),
-                        maskblk.GetInterleaveWidth(),
-                        maskblk.GetNumElementsWithPadding(),
-                        maskblk.GetNumData(),
-                        maskPtr + nc * maskblk.CompSize());
-                }
-                maskblk.template SetInterleaveWidth<TData>(
-                    inblk.GetInterleaveWidth());
-            }
-        }
+        // Based on the pipelined conjugate residual method
+        //
+        // Reference:
+        // Ghysels, Pieter, and Wim Vanroose. "Hiding global synchronization
+        // latency in the preconditioned conjugate gradient algorithm." Parallel
+        // Computing 40, no. 7 (2014): 224-238.
 
         // Convergence parameters.
-        unsigned int totalIterations = 0;
-        TData rhsMagnitude, eps, mu;
-        TData alpha = 1.0, beta = 0.0, rho = 1.0, rho_new, rho_star = 0.0;
+        unsigned int totalIterations = 0, residualReplacementFreq = 50;
+        TData rhsMagnitude, eps, mu, scale;
+        TData alpha = 1.0, beta, rho = 1.0, rho_new = 1.0;
 
         // Reset the fields to zero.
         out.template Initialize<MemSpace>(0);
@@ -202,6 +167,10 @@ protected:
         m_assmbScatrZeroDirOp->Apply(m_r);
         ddot<ExecSpace>(in, m_r, exchange + 0);
 
+        // Apply preconditioner
+        this->m_precon->Apply(m_r, m_r);
+        ddot<ExecSpace>(m_r, m_r, exchange + 2);
+
         // Communication.
         m_rowComm->AllReduce<MemSpace>(m_vExchange,
                                        Nektar::LibUtilities::ReduceSum);
@@ -212,6 +181,7 @@ protected:
 
         rhsMagnitude = (exchangeHost[1] > 1.0e-6) ? exchangeHost[1] : 1.0;
         eps          = exchangeHost[0];
+        scale        = exchangeHost[2] / eps;
 
         // If the input residual is less than tolerance then skip solve.
         if (eps < m_tol * m_tol * rhsMagnitude)
@@ -219,10 +189,9 @@ protected:
             return;
         }
 
-        // Apply preconditioner - output is assembled
-        this->m_precon->Apply(m_r, m_w);
-
         // Iteration >= 1
+        this->m_lhs->Apply(m_r, m_w);
+        m_robBndCondOp->Apply(m_r, m_w);
         while (true)
         {
             if (totalIterations > m_maxIter)
@@ -237,47 +206,35 @@ protected:
             // Reset device memory.
             m_vExchange.template GetPtr<MemSpace, WriteOnly>();
 
-            if (totalIterations == 0)
+            // Residual replacement strategy.
+            if (totalIterations > 0 &&
+                totalIterations % residualReplacementFreq == 0)
             {
-                m_p.template Initialize<MemSpace>(0);
-                m_q.template Initialize<MemSpace>(0);
+                this->m_lhs->Apply(out, m_r);
+                m_robBndCondOp->Apply(out, m_r);
+                sub<ExecSpace>(in, m_r, m_r);
+                m_assmbScatrZeroDirOp->Apply(m_r);
+                this->m_precon->Apply(m_r, m_r);
+                this->m_lhs->Apply(m_r, m_w);
+                m_robBndCondOp->Apply(m_r, m_w);
             }
-            else
-            {
-                // Assemble matrix output from previous matrix-vector multiply
-                // could be moved around loop if optimal elsewhere.
-                m_assmbScatrZeroDirOp->Apply(m_s);
 
-                // Compute new search direction.
-                // daxpy<ExecSpace>(beta, m_p_A, m_w_A, m_p_A);
-                // daxpy<ExecSpace>(beta, m_q_A, m_s_A, m_q_A);
-                // daxpy<ExecSpace>(alpha, m_p_A, out, out);
-                // daxpy<ExecSpace>(-alpha, m_q_A, m_r_A, m_r_A);
-                UpdateConjGradSearchDirection<ExecSpace>(alpha, beta, m_w, m_s,
-                                                         m_p, m_q, m_r, out);
-
-                // <r_{k+1}, r_{k+1}>
-                ddot<ExecSpace>(m_mask, m_r, m_r, exchange + 0);
-
-                if (m_flexible)
-                {
-                    // <r_{k+1}, w_{k}>
-                    ddot<ExecSpace>(m_mask, m_r, m_w, exchange + 3);
-                }
-
-                // Apply preconditioner - output is assumeed holding global dof
-                this->m_precon->Apply(m_r, m_w);
-            }
+            // <r_{k+1}, r_{k+1}>
+            ddot<ExecSpace>(m_r, m_r, exchange + 0);
 
             // <r_{k+1}, w_{k+1}>
-            ddot<ExecSpace>(m_mask, m_r, m_w, exchange + 1);
+            ddot<ExecSpace>(m_r, m_w, exchange + 1);
+
+            // Apply preconditioner.
+            m_assmbScatrZeroDirOp->Apply(m_w, m_wk);
+            this->m_precon->Apply(m_wk, m_wk);
+
+            // <w_{k+1}, wk_{k+1}>
+            ddot<ExecSpace>(m_w, m_wk, exchange + 2);
 
             // Perform the method-specific matrix-vector multiply operation.
-            this->m_lhs->Apply(m_w, m_s);
-            m_robBndCondOp->Apply(m_w, m_s);
-
-            // <w_{k+1}, s_{k+1}>
-            ddot<ExecSpace>(m_w, m_s, exchange + 2);
+            this->m_lhs->Apply(m_wk, m_s);
+            m_robBndCondOp->Apply(m_wk, m_s);
 
             // Communication.
             m_rowComm->AllReduce<MemSpace>(m_vExchange,
@@ -291,15 +248,11 @@ protected:
             eps     = exchangeHost[0];
             rho_new = exchangeHost[1];
             mu      = exchangeHost[2];
-            if (m_flexible)
-            {
-                rho_star = exchangeHost[3];
-            }
 
             ++totalIterations;
 
             // Test if norm is within tolerance.
-            if (eps < m_tol * m_tol * rhsMagnitude)
+            if (eps < 100 * scale * m_tol * m_tol * rhsMagnitude)
             {
                 if (m_root)
                 {
@@ -310,10 +263,27 @@ protected:
                 break;
             }
 
-            // Compute search direction and solution coefficients.
-            beta  = (totalIterations > 1) ? (rho_new - rho_star) / rho : 0.0;
+            // Update search coefficients.
+            beta  = (totalIterations > 1) ? rho_new / rho : 0.0;
             alpha = rho_new / (mu - rho_new * beta / alpha);
             rho   = rho_new;
+
+            // Update search vectors.
+            if (totalIterations == 1)
+            {
+                m_z.template Copy<MemSpace>(m_s);
+                m_q.template Copy<MemSpace>(m_wk);
+                m_p.template Copy<MemSpace>(m_r);
+            }
+            else
+            {
+                daxpy<ExecSpace>(beta, m_z, m_s, m_z);
+                daxpy<ExecSpace>(beta, m_q, m_wk, m_q);
+                daxpy<ExecSpace>(beta, m_p, m_r, m_p);
+            }
+            daxpy<ExecSpace>(alpha, m_p, out, out);
+            daxpy<ExecSpace>(-alpha, m_q, m_r, m_r);
+            daxpy<ExecSpace>(-alpha, m_z, m_w, m_w);
         }
     }
 };

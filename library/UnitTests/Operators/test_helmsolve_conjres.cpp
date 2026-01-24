@@ -52,6 +52,18 @@
         }                                                                      \
     }
 
+#define TEST_HELMSOLVE2(test_name, test, tol)                                  \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        Configure();                                                           \
+        SetTestCase();                                                         \
+        RunTestCase("ConjResV2");                                              \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            BOOST_TEST(Compare(tol));                                          \
+        }                                                                      \
+    }
+
 BOOST_AUTO_TEST_SUITE(TestHelmSolveConjRes)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
@@ -68,6 +80,20 @@ TEST_HELMSOLVE(helmsolve_prism, Helmholtz3D_Prism, 1.0E-10)
 TEST_HELMSOLVE(helmsolve_pyr, Helmholtz3D_Pyr, 1.0E-10)
 
 TEST_HELMSOLVE(helmsolve_tet, Helmholtz3D_Tet, 1.0E-10)
+
+TEST_HELMSOLVE2(helmsolve2_seg, Helmholtz1D_Seg, 1.0E-12)
+
+TEST_HELMSOLVE2(helmsolve2_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-10)
+
+TEST_HELMSOLVE2(helmsolve2_all_bcs, Helmholtz2D_AllBCs, 1.0E-10)
+
+TEST_HELMSOLVE2(helmsolve2_hex, Helmholtz3D_Hex, 1.0E-10)
+
+TEST_HELMSOLVE2(helmsolve2_prism, Helmholtz3D_Prism, 1.0E-10)
+
+TEST_HELMSOLVE2(helmsolve2_pyr, Helmholtz3D_Pyr, 1.0E-10)
+
+TEST_HELMSOLVE2(helmsolve2_tet, Helmholtz3D_Tet, 1.0E-10)
 #endif
 
 BOOST_AUTO_TEST_SUITE_END()
