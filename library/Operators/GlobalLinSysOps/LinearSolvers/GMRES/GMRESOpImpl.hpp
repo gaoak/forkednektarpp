@@ -164,9 +164,8 @@ protected:
         std::vector<unsigned int> id_start(m_LinSysMaxStorage);
         std::vector<unsigned int> id_end(m_LinSysMaxStorage);
         const bool truncted          = (m_KrylovMaxHessMatBand > 0);
-        unsigned int totalIterations = 0, innerIterations = 0,
-                     outerIterations = 0;
-        bool converged               = false;
+        unsigned int totalIterations = 0, ii = 0, outerIterations = 0;
+        bool converged    = false;
         TData prec_factor = 1.0, eps, eps0 = 1.0;
 
         // Give an order for the entries in Hessenburg matrix.
@@ -281,18 +280,17 @@ protected:
             // Inner loop.
             while (true)
             {
-                if ((innerIterations == m_LinSysMaxStorage) ||
+                if ((ii == m_LinSysMaxStorage) ||
                     (totalIterations == m_NekLinSysMaxIterations))
                 {
                     break;
                 }
 
-                unsigned int znd = m_flexible ? innerIterations : 0;
-                auto &Z1 =
-                    m_NekLinSysRightPrecon ? m_Z[znd] : m_V[innerIterations];
-                auto &V1 = m_V[innerIterations];
-                auto &h1 = m_hes[innerIterations];
-                auto &h2 = m_upper[innerIterations];
+                unsigned int znd = m_flexible ? ii : 0;
+                auto &Z1         = m_NekLinSysRightPrecon ? m_Z[znd] : m_V[ii];
+                auto &V1         = m_V[ii];
+                auto &h1         = m_hes[ii];
+                auto &h2         = m_upper[ii];
 
                 // Apply preconditioner.
                 if (m_NekLinSysRightPrecon)
@@ -301,7 +299,7 @@ protected:
                     this->m_precon->Apply(Z1, Z1);
                 }
 
-                auto idtem    = id[innerIterations];
+                auto idtem    = id[ii];
                 auto starttem = id_start[idtem];
                 auto endtem   = id_end[idtem];
 
@@ -342,15 +340,15 @@ protected:
                 std::copy_n(h1.data(), m_LinSysMaxStorage + 1, h2.data());
                 DoGivensRotation(starttem, endtem, cs, sn, h2, eta);
 
-                eps = eta[innerIterations + 1] * eta[innerIterations + 1];
+                eps = eta[ii + 1] * eta[ii + 1];
 
-                innerIterations++;
+                ii++;
                 totalIterations++;
 
                 // This Gmres merge truncted Gmres to accelerate.
                 // If truncted, cannot jump out because
                 // the last term of eta is not residual
-                if ((!truncted) || (innerIterations <= m_KrylovMaxHessMatBand))
+                if ((!truncted) || (ii <= m_KrylovMaxHessMatBand))
                 {
                     if (eps < m_tol * m_tol * m_rhs_magnitude)
                     {
@@ -360,7 +358,7 @@ protected:
                 }
 
                 // Allocate new storage, if necessary.
-                if (m_V.size() == innerIterations)
+                if (m_V.size() == ii)
                 {
                     m_V.push_back(Field<TData, FieldState::Coeff>(
                         GetBlockAttributes<TData, FieldState::Coeff>(
@@ -376,17 +374,16 @@ protected:
                 }
 
                 // Compute new search vector.
-                mul<ExecSpace>((TData)1.0 / h1[endtem], m_w,
-                               m_V[innerIterations]);
+                mul<ExecSpace>((TData)1.0 / h1[endtem], m_w, m_V[ii]);
             }
 
             // Do backward substitution.
-            DoBackward(innerIterations, m_upper, eta, yn);
+            DoBackward(ii, m_upper, eta, yn);
 
             if (m_flexible)
             {
                 // Calculate output yn*m_Z.
-                for (unsigned int i = 0; i < innerIterations; ++i)
+                for (unsigned int i = 0; i < ii; ++i)
                 {
                     daxpy<ExecSpace>(yn[i], m_Z[i], out, out);
                 }
@@ -395,7 +392,7 @@ protected:
             {
                 // Calculate output yn*m_V.
                 mul<ExecSpace>(yn[0], m_V[0], m_w);
-                for (unsigned int i = 1; i < innerIterations; ++i)
+                for (unsigned int i = 1; i < ii; ++i)
                 {
                     daxpy<ExecSpace>(yn[i], m_V[i], m_w, m_w);
                 }
@@ -411,7 +408,7 @@ protected:
                 add<ExecSpace>(m_w, out, out);
             }
 
-            innerIterations = 0;
+            ii = 0;
             outerIterations++;
 
             if (converged)
