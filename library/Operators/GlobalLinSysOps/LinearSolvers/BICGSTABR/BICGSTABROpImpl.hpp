@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: BICGSTABOpImpl.hpp
+// File: BICGSTABROpImpl.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -35,7 +35,7 @@
 #pragma once
 
 #include "Operators/AssmbScatr/AssmbScatrOpImpl.hpp"
-#include "Operators/GlobalLinSysOps/LinearSolvers/BICGSTAB/BICGSTABOp.hpp"
+#include "Operators/GlobalLinSysOps/LinearSolvers/BICGSTABR/BICGSTABROp.hpp"
 
 #include <iomanip>
 
@@ -45,38 +45,43 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename TData>
-class BICGSTABOpImpl : public BICGSTABOp<TData>
+class BICGSTABROpImpl : public BICGSTABROp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    BICGSTABOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
-                   const std::vector<std::string> &components)
-        : BICGSTABOp<TData>(expansionList, components),
+    BICGSTABROpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
+                    const std::vector<std::string> &components)
+        : BICGSTABROp<TData>(expansionList, components),
           m_p(Field<TData, FieldState::Coeff>(
-              "BICGSTABOp p",
+              "BICGSTABROp p",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
           m_v(Field<TData, FieldState::Coeff>(
-              "BICGSTABOp v",
+              "BICGSTABROp v",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
           m_w(Field<TData, FieldState::Coeff>(
-              "BICGSTABOp h",
+              "BICGSTABROp h",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
           m_z(Field<TData, FieldState::Coeff>(
-              "BICGSTABOp z",
+              "BICGSTABROp z",
+              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              components, 1)),
+          m_s(Field<TData, FieldState::Coeff>(
+              "BICGSTABROp s",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
           m_r(Field<TData, FieldState::Coeff>(
-              "BICGSTABOp r",
+              "BICGSTABROp r",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
           m_rtilde(Field<TData, FieldState::Coeff>(
-              "BICGSTABOp rtilde",
+              "BICGSTABROp rtilde",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
-              components, 1))
+              components, 1)),
+          m_vExchange(MemoryRegion<TData>(4, ePinned))
     {
         auto session = expansionList->GetSession();
 
@@ -105,8 +110,8 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
     {
-        return std::make_unique<BICGSTABOpImpl<ExecSpace, TData>>(expansionList,
-                                                                  components);
+        return std::make_unique<BICGSTABROpImpl<ExecSpace, TData>>(
+            expansionList, components);
     }
 
 protected:
@@ -124,8 +129,11 @@ protected:
     Field<TData, FieldState::Coeff> m_v;
     Field<TData, FieldState::Coeff> m_w;
     Field<TData, FieldState::Coeff> m_z;
+    Field<TData, FieldState::Coeff> m_s;
     Field<TData, FieldState::Coeff> m_r;
     Field<TData, FieldState::Coeff> m_rtilde;
+
+    MemoryRegion<TData> m_vExchange;
 
     TData m_tol            = 0.0;
     unsigned int m_maxIter = 0;
@@ -133,28 +141,45 @@ protected:
     void v_Apply(Field<TData, FieldState::Coeff> &in,
                  Field<TData, FieldState::Coeff> &out) override
     {
+        // BICGSTAB implementation adpated from  FBiCGStab-R PETSC
+        // implementation. This version has only 2 MPI calls per iterations
+        // (comparatively to 3 MPI calls).
+
+        // Reference:
+        // https://github.com/petsc/petsc/blob/main/src/ksp/ksp/impls/bcgs/fbcgsr/fbcgsr.c
+
         // Convergence parameters.
         unsigned int totalIterations = 0;
-        TData rhsMagnitude, alpha, beta = 0.0, rho_new, rho, eps;
+        TData rhsMagnitude, alpha, beta = 0.0, sigma, tau, eps;
         TData omega = 0.0, omega0, omega1;
 
         // Reset the fields to zero.
         out.template Initialize<MemSpace>(0);
 
+        // Reset device memory.
+        auto exchange = m_vExchange.template GetPtr<MemSpace, WriteOnly>();
+
         // Calculate inital rhs magnitude.
         m_r.template Copy<MemSpace>(in);
         m_assmbScatrOp->Apply(m_r);
-        rhsMagnitude = m_math.ddot(in, m_r);
-        m_rowComm->AllReduce(rhsMagnitude, Nektar::LibUtilities::ReduceSum);
-        rhsMagnitude = (rhsMagnitude > 1.0e-6) ? rhsMagnitude : 1.0;
+        ddot<ExecSpace>(in, m_r, exchange + 1);
 
         // Iteration 0
         // Copy RHS into initial residual and assemble with Zero Dirichlet BCs.
         m_r.template Copy<MemSpace>(in);
         m_assmbScatrZeroDirOp->Apply(m_r);
+        ddot<ExecSpace>(m_r, m_r, exchange + 0);
 
-        eps = m_math.ddot(in, m_r);
-        m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
+        // Communication.
+        m_rowComm->AllReduce<MemSpace>(m_vExchange,
+                                       Nektar::LibUtilities::ReduceSum);
+
+        // Device-to-host copy.
+        auto exchangeHost =
+            m_vExchange.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+
+        rhsMagnitude = (exchangeHost[1] > 1.0e-6) ? exchangeHost[1] : 1.0;
+        eps          = exchangeHost[0];
 
         // If the input residual is less than tolerance then skip solve.
         if (eps < m_tol * m_tol * rhsMagnitude)
@@ -165,8 +190,6 @@ protected:
         // Iteration >= 1
         m_rtilde.template Copy<MemSpace>(m_r);
         m_p.template Copy<MemSpace>(m_r);
-        rho_new = m_math.ddot(m_rtilde, m_r);
-        m_rowComm->AllReduce(rho_new, Nektar::LibUtilities::ReduceSum);
         while (true)
         {
             if (totalIterations > m_maxIter)
@@ -193,18 +216,34 @@ protected:
             m_robBndCondOp->Apply(m_w, m_v);
             m_assmbScatrZeroDirOp->Apply(m_v);
 
+            // Reset device memory.
+            m_vExchange.template GetPtr<MemSpace, WriteOnly>();
+
+            // Reduction.
+            ddot<ExecSpace>(m_r, m_rtilde, exchange + 0);
+            ddot<ExecSpace>(m_v, m_rtilde, exchange + 1);
+            // ddot<ExecSpace>(m_r, m_r, exchange + 2);
+
+            // Communication.
+            m_rowComm->AllReduce<MemSpace>(m_vExchange,
+                                           Nektar::LibUtilities::ReduceSum);
+
+            // Device-to-host copy.
+            exchangeHost =
+                m_vExchange
+                    .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+
             // Update coefficients.
-            alpha = m_math.ddot(m_v, m_rtilde);
-            m_rowComm->AllReduce(alpha, LibUtilities::ReduceSum);
-            alpha = rho_new / alpha;
+            tau   = exchangeHost[0];
+            sigma = exchangeHost[1];
+            // eps = exchangeHost[2];
+            alpha = tau / sigma;
 
             // Update solution.
             daxpy<ExecSpace>(alpha, m_w, out, out);
-            daxpy<ExecSpace>(-alpha, m_v, m_r, m_r);
+            daxpy<ExecSpace>(-alpha, m_v, m_r, m_s);
 
-            // Test if norm is within tolerance.
-            eps = m_math.ddot(m_r, m_r);
-            m_rowComm->AllReduce(eps, LibUtilities::ReduceSum);
+            /*// Test if norm is within tolerance.
             if (eps < m_tol * m_tol * rhsMagnitude)
             {
                 if (m_root)
@@ -214,33 +253,48 @@ protected:
                               << " rhs_mag: " << rhsMagnitude << std::endl;
                 }
                 break;
-            }
+            }*/
 
             // Apply preconditioner.
-            this->m_precon->Apply(m_r, m_w);
+            this->m_precon->Apply(m_s, m_w);
 
             // Perform the method-specific matrix-vector multiply operation.
             this->m_lhs->Apply(m_w, m_z);
             m_robBndCondOp->Apply(m_w, m_z);
             m_assmbScatrZeroDirOp->Apply(m_z);
 
-            // Update coefficients.
-            omega0 = m_math.ddot(m_r, m_z);
-            omega1 = m_math.ddot(m_z, m_z);
-            m_rowComm->AllReduce(omega0, LibUtilities::ReduceSum);
-            m_rowComm->AllReduce(omega1, LibUtilities::ReduceSum);
+            // Reset device memory.
+            m_vExchange.template GetPtr<MemSpace, WriteOnly>();
 
-            omega = omega0 / omega1;
+            // Reduction.
+            ddot<ExecSpace>(m_s, m_s, exchange + 0);
+            ddot<ExecSpace>(m_z, m_s, exchange + 1);
+            ddot<ExecSpace>(m_z, m_z, exchange + 2);
+            ddot<ExecSpace>(m_z, m_rtilde, exchange + 3);
+
+            // Communication.
+            m_rowComm->AllReduce<MemSpace>(m_vExchange,
+                                           Nektar::LibUtilities::ReduceSum);
+
+            // Device-to-host copy.
+            exchangeHost =
+                m_vExchange
+                    .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+
+            // Update coefficients.
+            omega0 = exchangeHost[1];
+            omega1 = exchangeHost[2];
+            omega  = omega0 / omega1;
+            beta   = -exchangeHost[3] / sigma;
+            eps    = std::abs(exchangeHost[0] - omega0 * omega0 / omega1);
 
             // Update solution.
             daxpy<ExecSpace>(omega, m_w, out, out);
-            daxpy<ExecSpace>(-omega, m_z, m_r, m_r);
+            daxpy<ExecSpace>(-omega, m_z, m_s, m_r);
 
             ++totalIterations;
 
             // Test if norm is within tolerance.
-            eps = m_math.ddot(m_r, m_r);
-            m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
             if (eps < m_tol * m_tol * rhsMagnitude)
             {
                 if (m_root)
@@ -251,12 +305,6 @@ protected:
                 }
                 break;
             }
-
-            // Update coefficients.
-            rho     = rho_new;
-            rho_new = m_math.ddot(m_rtilde, m_r);
-            m_rowComm->AllReduce(rho_new, Nektar::LibUtilities::ReduceSum);
-            beta = rho_new / rho * (alpha / omega);
         }
     }
 };

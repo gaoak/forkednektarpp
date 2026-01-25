@@ -64,6 +64,30 @@
         }                                                                      \
     }
 
+#define TEST_LINEARADRSOLVE_BICGSTAB(test_name, test, tol)                     \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        Configure();                                                           \
+        SetTestCase();                                                         \
+        RunTestCase("BICGSTAB");                                               \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            BOOST_TEST(Compare(tol));                                          \
+        }                                                                      \
+    }
+
+#define TEST_LINEARADRSOLVE_BICGSTABR(test_name, test, tol)                    \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        Configure();                                                           \
+        SetTestCase();                                                         \
+        RunTestCase("BICGSTABR");                                              \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            BOOST_TEST(Compare(tol));                                          \
+        }                                                                      \
+    }
+
 #define TEST_LINEARADRSOLVE_GMRES(test_name, test, tol)                        \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
@@ -170,6 +194,36 @@ TEST_LINEARADRSOLVE_GCR(linearadrsolve_gcr_all_bcs, Helmholtz2D_AllBCs, 1.0E-10)
 // TEST_LINEARADRSOLVE_GCR(linearadrsolve_gcr_hex, Helmholtz3D_Hex, 1.0E-10)
 
 TEST_LINEARADRSOLVE_GCR(linearadrsolve_gcr_tet, Helmholtz3D_Tet, 1.0E-10)
+
+TEST_LINEARADRSOLVE_BICGSTAB(linearadrsolve_bicgstab_seg, Helmholtz1D_Seg,
+                             4.0E-12)
+
+TEST_LINEARADRSOLVE_BICGSTAB(linearadrsolve_bicgstab_tri_quad,
+                             Helmholtz2D_Tri_Quad, 2.0E-09)
+
+TEST_LINEARADRSOLVE_BICGSTAB(linearadrsolve_bicgstab_all_bcs,
+                             Helmholtz2D_AllBCs, 4.0E-10)
+
+TEST_LINEARADRSOLVE_BICGSTAB(linearadrsolve_bicgstab_hex, Helmholtz3D_Hex,
+                             1.0E-10)
+
+TEST_LINEARADRSOLVE_BICGSTAB(linearadrsolve_bicgstab_tet, Helmholtz3D_Tet,
+                             1.0E-10)
+
+TEST_LINEARADRSOLVE_BICGSTABR(linearadrsolve_bicgstabr_seg, Helmholtz1D_Seg,
+                              4.0E-12)
+
+TEST_LINEARADRSOLVE_BICGSTABR(linearadrsolve_bicgstabr_tri_quad,
+                              Helmholtz2D_Tri_Quad, 2.0E-09)
+
+TEST_LINEARADRSOLVE_BICGSTABR(linearadrsolve_bicgstabr_all_bcs,
+                              Helmholtz2D_AllBCs, 4.0E-10)
+
+TEST_LINEARADRSOLVE_BICGSTABR(linearadrsolve_bicgstabr_hex, Helmholtz3D_Hex,
+                              1.0E-10)
+
+TEST_LINEARADRSOLVE_BICGSTABR(linearadrsolve_bicgstabr_tet, Helmholtz3D_Tet,
+                              1.0E-10)
 
 TEST_LINEARADRSOLVE_GMRES(linearadrsolve_gmres_seg, Helmholtz1D_Seg, 1.0E-12)
 
