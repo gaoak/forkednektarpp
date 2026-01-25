@@ -83,6 +83,10 @@ public:
         m_flexible = session->DefinesParameter("FlexibleGMRES")
                          ? session->GetParameter("FlexibleGMRES")
                          : false;
+        m_isModifiedGramSchmidt =
+            session->DefinesParameter("ModifiedGramSchmidt")
+                ? session->GetParameter("ModifiedGramSchmidt")
+                : true;
 
         // Set operators.
         m_math         = Math(ExecSpace::name);
@@ -97,6 +101,10 @@ public:
         m_root    = m_rowComm->GetRank() == 0;
 
         // Allocate array storage.
+        if (!m_isModifiedGramSchmidt)
+        {
+            m_vExchange = MemoryRegion<TData>(m_LinSysMaxStorage, ePinned);
+        }
         m_hes   = std::vector<std::vector<TData>>(m_LinSysMaxStorage);
         m_upper = std::vector<std::vector<TData>>(m_LinSysMaxStorage);
         for (unsigned int nd = 0; nd < m_LinSysMaxStorage; nd++)
@@ -127,6 +135,7 @@ protected:
     std::shared_ptr<RobBndCondOp<TData>> m_robBndCondOp;
     bool m_root;
     bool m_flexible;
+    bool m_isModifiedGramSchmidt = true;
 
     Math m_math;
 
@@ -137,6 +146,8 @@ protected:
     std::vector<Field<TData, FieldState::Coeff>> m_Z;
     std::vector<std::vector<TData>> m_hes;
     std::vector<std::vector<TData>> m_upper;
+
+    MemoryRegion<TData> m_vExchange;
 
     TData m_rhs_magnitude = NekConstants::kNekUnsetDouble;
     TData m_tol;
@@ -250,8 +261,16 @@ protected:
             }
 
             // Norm of (r0)
-            m_assmbScatrZeroDirOp->Apply(m_r0, m_wk);
-            eps = m_math.ddot(m_r0, m_wk);
+            if (m_isModifiedGramSchmidt)
+            {
+                m_assmbScatrZeroDirOp->Apply(m_r0, m_wk);
+                eps = m_math.ddot(m_r0, m_wk);
+            }
+            else
+            {
+                m_assmbScatrZeroDirOp->Apply(m_r0);
+                eps = m_math.ddot(m_r0, m_r0);
+            }
             m_rowComm->AllReduce(eps, LibUtilities::ReduceSum);
             if (m_NekLinSysLeftPrecon && outerIterations == 0)
             {
@@ -307,6 +326,10 @@ protected:
                 // Apply lhs.
                 this->m_lhs->Apply(Z1, m_w);
                 m_robBndCondOp->Apply(Z1, m_w);
+                if (!m_isModifiedGramSchmidt)
+                {
+                    m_assmbScatrZeroDirOp->Apply(m_w);
+                }
 
                 // Apply preconditioner.
                 if (m_NekLinSysLeftPrecon)
@@ -316,20 +339,52 @@ protected:
                     mul<ExecSpace>(std::sqrt(prec_factor / eps0), m_w, m_w);
                 }
 
-                // Modified Gram-Schmidt.
-                for (unsigned int i = starttem; i < endtem; ++i)
+                if (m_isModifiedGramSchmidt)
                 {
-                    m_assmbScatrZeroDirOp->Apply(m_V[i], m_wk);
-                    h1[i] = m_math.ddot(m_w, m_wk);
-                    m_rowComm->AllReduce(h1[i], LibUtilities::ReduceSum);
-                    daxpy<ExecSpace>(-h1[i], m_V[i], m_w, m_w);
-                }
+                    // Modified Gram-Schmidt.
+                    for (unsigned int i = starttem; i < endtem; ++i)
+                    {
+                        m_assmbScatrZeroDirOp->Apply(m_V[i], m_wk);
+                        h1[i] = m_math.ddot(m_w, m_wk);
+                        m_rowComm->AllReduce(h1[i], LibUtilities::ReduceSum);
+                        daxpy<ExecSpace>(-h1[i], m_V[i], m_w, m_w);
+                    }
 
-                // Calculate the L2 norm and normalize.
-                m_assmbScatrZeroDirOp->Apply(m_w, m_wk);
-                h1[endtem] = m_math.ddot(m_w, m_wk);
-                m_rowComm->AllReduce(h1[endtem], LibUtilities::ReduceSum);
-                h1[endtem] = std::sqrt(h1[endtem]);
+                    // Calculate the L2 norm and normalize.
+                    m_assmbScatrZeroDirOp->Apply(m_w, m_wk);
+                    h1[endtem] = m_math.ddot(m_w, m_wk);
+                    m_rowComm->AllReduce(h1[endtem], LibUtilities::ReduceSum);
+                    h1[endtem] = std::sqrt(h1[endtem]);
+                }
+                else
+                {
+                    // Reset device memory.
+                    auto exchange =
+                        m_vExchange.template GetPtr<MemSpace, WriteOnly>();
+
+                    // Classical Gram-Schmidt.
+                    for (unsigned int i = starttem; i < endtem; ++i)
+                    {
+                        ddot<ExecSpace>(m_w, m_V[i], exchange + i);
+                    }
+                    m_rowComm->AllReduce<MemSpace>(m_vExchange,
+                                                   LibUtilities::ReduceSum);
+
+                    // Device-to-host copy.
+                    auto exchangeHost =
+                        m_vExchange.template GetPtr<NektarSpaces::HostSpace,
+                                                    ReadOnly>();
+                    for (unsigned int i = starttem; i < endtem; ++i)
+                    {
+                        h1[i] = exchangeHost[i];
+                        daxpy<ExecSpace>(-h1[i], m_V[i], m_w, m_w);
+                    }
+
+                    // Calculate the L2 norm and normalize.
+                    h1[endtem] = m_math.ddot(m_w, m_w);
+                    m_rowComm->AllReduce(h1[endtem], LibUtilities::ReduceSum);
+                    h1[endtem] = std::sqrt(h1[endtem]);
+                }
                 // -- End Arnoldi --
 
                 if (starttem > 0)
