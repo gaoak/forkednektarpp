@@ -47,8 +47,8 @@ namespace Nektar::Operators
  */
 template <typename TData, FieldState TState> class Field
 {
-    template <typename MemSpace, typename TDataField, FieldState TStateField>
-    friend void AllocateFieldStorage(Field<TDataField, TStateField> *field);
+    template <typename TDataField, FieldState TStateField>
+    friend class BlockAccessor;
 
 public:
     Field() = default;
@@ -649,6 +649,76 @@ public:
     typedef TData value_type;
 
 protected:
+    /**
+     * @brief Allocate contiguous host OR device memory accross all MemoryRegion
+     * objects belonging to a Field object pointer.
+     *
+     * @param field  - Field object pointer.
+     */
+    template <typename MemSpace>
+    static void AllocateFieldStorage(Field<TData, TState> *field)
+    {
+        if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
+        {
+            size_t alignment_offset = 0;
+
+            // Allocate contiguous host memory accross all MemoryRegions of the
+            // field object.
+            if (!field->m_host)
+            {
+                if (field->m_memAllocType == ePageable)
+                {
+                    hostMalloc(&field->m_host, field->size() * sizeof(TData),
+                               field->m_alignment);
+                }
+                else if (field->m_memAllocType == ePinned)
+                {
+                    // Add extra bytes for alignment provision
+                    size_t aligned_bytes_size =
+                        field->size() * sizeof(TData) + field->m_alignment;
+                    hostMallocPinned(&field->m_host, aligned_bytes_size);
+                    // Compute offset in bytes for non-aligned memory.
+                    if ((size_t)field->m_host % field->m_alignment)
+                    {
+                        alignment_offset =
+                            field->m_alignment -
+                            (size_t)field->m_host % field->m_alignment;
+                    }
+                }
+                // Get aligned memory pointer.
+                auto src = (TData *)((size_t)field->m_host + alignment_offset);
+                std::memset((void *)src, 0, field->size() * sizeof(TData));
+
+                for (unsigned int blk = 0;
+                     blk < field->m_block_accessors.size(); ++blk)
+                {
+                    field->m_block_accessors[blk]
+                        .m_memory_region.SetHostStorage(src);
+                    src += field->m_block_accessors[blk].m_memory_region.size();
+                }
+            }
+        }
+        else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
+        {
+            // Allocate contiguous device memory accross all MemoryRegions of
+            // the field object.
+            if (!field->m_device)
+            {
+                deviceMalloc(&field->m_device, field->size() * sizeof(TData));
+                deviceMemset(field->m_device, 0, field->size() * sizeof(TData));
+
+                auto src = field->m_device;
+                for (unsigned int blk = 0;
+                     blk < field->m_block_accessors.size(); ++blk)
+                {
+                    field->m_block_accessors[blk]
+                        .m_memory_region.SetDeviceStorage(src);
+                    src += field->m_block_accessors[blk].m_memory_region.size();
+                }
+            }
+        }
+    }
+
     // Member variables:
     bool m_instantiated = false; ///< Flag indicating if the current object has
                                  ///< been instantiated.
@@ -661,75 +731,5 @@ protected:
     MemAllocType m_memAllocType;
     size_t m_alignment = NektarSpaces::host_memory_alignment;
 };
-
-/**
- * @brief Allocate contiguous host OR device memory accross all MemoryRegion
- * objects belonging to a Field object pointer.
- *
- * @param field  - Field object pointer.
- */
-template <typename MemSpace, typename TData, FieldState TState>
-void AllocateFieldStorage(Field<TData, TState> *field)
-{
-    if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
-    {
-        size_t alignment_offset = 0;
-
-        // Allocate contiguous host memory accross all MemoryRegions of the
-        // field object.
-        if (!field->m_host)
-        {
-            if (field->m_memAllocType == ePageable)
-            {
-                hostMalloc(&field->m_host, field->size() * sizeof(TData),
-                           field->m_alignment);
-            }
-            else if (field->m_memAllocType == ePinned)
-            {
-                // Add extra bytes for alignment provision
-                size_t aligned_bytes_size =
-                    field->size() * sizeof(TData) + field->m_alignment;
-                hostMallocPinned(&field->m_host, aligned_bytes_size);
-                // Compute offset in bytes for non-aligned memory.
-                if ((size_t)field->m_host % field->m_alignment)
-                {
-                    alignment_offset =
-                        field->m_alignment -
-                        (size_t)field->m_host % field->m_alignment;
-                }
-            }
-            // Get aligned memory pointer.
-            auto src = (TData *)((size_t)field->m_host + alignment_offset);
-            std::memset((void *)src, 0, field->size() * sizeof(TData));
-
-            for (unsigned int blk = 0; blk < field->m_block_accessors.size();
-                 ++blk)
-            {
-                field->m_block_accessors[blk].m_memory_region.SetHostStorage(
-                    src);
-                src += field->m_block_accessors[blk].m_memory_region.size();
-            }
-        }
-    }
-    else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
-    {
-        // Allocate contiguous device memory accross all MemoryRegions of the
-        // field object.
-        if (!field->m_device)
-        {
-            deviceMalloc(&field->m_device, field->size() * sizeof(TData));
-            deviceMemset(field->m_device, 0, field->size() * sizeof(TData));
-
-            auto src = field->m_device;
-            for (unsigned int blk = 0; blk < field->m_block_accessors.size();
-                 ++blk)
-            {
-                field->m_block_accessors[blk].m_memory_region.SetDeviceStorage(
-                    src);
-                src += field->m_block_accessors[blk].m_memory_region.size();
-            }
-        }
-    }
-}
 
 } // namespace Nektar::Operators

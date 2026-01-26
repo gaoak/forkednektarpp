@@ -39,6 +39,7 @@
 
 #include "Operators/Common/NekDataWarehouse.hpp"
 #include "Operators/Field/Block.hpp"
+#include "Operators/Field/Field.hpp"
 
 namespace Nektar::Operators
 {

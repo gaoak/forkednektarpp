@@ -36,6 +36,7 @@
 
 #include <Operators/Common/GeometricDataWarehouse.hpp>
 #include <Operators/Field/Block.hpp>
+#include <Operators/Field/Field.hpp>
 
 #include <MultiRegions/ExpList.h>
 

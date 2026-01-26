@@ -593,7 +593,6 @@ SET(OPERATORS_HEADERS
     Common/ModeIndexDataWarehouse.hpp
     Common/StdMatDataWarehouse.hpp
     Field/Block.hpp
-    Field/Field.hpp
     ElmtOps/ElmtBlockOp.hpp
     Math/Math.hpp
     NekBlas/NekBlas.hpp
