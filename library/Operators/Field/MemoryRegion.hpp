@@ -93,8 +93,6 @@ class MemoryRegionBase
 template <typename TData> class MemoryRegion : public MemoryRegionBase
 {
     template <typename TDataField, FieldState TState> friend class Field;
-    template <typename MemSpace, typename TDataField, FieldState TState>
-    friend void AllocateFieldStorage(Field<TDataField, TState> *field);
 
 public:
     MemoryRegion() = default;

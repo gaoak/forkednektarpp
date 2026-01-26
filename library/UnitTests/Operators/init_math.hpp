@@ -32,13 +32,94 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "init_fields.hpp"
+#include <MultiRegions/ExpList.h>
+#include <SpatialDomains/MeshGraphIO.h>
 
 #include "Operators/Math/Math.hpp"
+#include <Operators/Field/Field.hpp>
+
+// Currently the BOOST_TEST_DYN_LINK is local only to this unit
+// test. It is undefined at the bottom of the file.
+#if defined(OPERATORS_BOOST_TEST_DYN_LINK)
+#if !defined(BOOST_TEST_DYN_LINK)
+#define LOCALLY_DEFINED_BOOST_TEST_DYN_LINK
+#define BOOST_TEST_DYN_LINK
+#endif
+#endif
+
+// Currently the BOOST_TEST_NO_MAIN is local only to this unit
+// test. It is undefined at the bottom of the file.
+#if defined(OPERATORS_BOOST_TEST_NO_MAIN)
+#if !defined(BOOST_TEST_NO_MAIN)
+#define LOCALLY_DEFINED_BOOST_TEST_NO_MAIN
+#define BOOST_TEST_NO_MAIN
+#endif
+#endif
+
+#if defined(BOOST_TEST_DYN_LINK) || defined(BOOST_TEST_NO_MAIN)
+#define BOOST_TEST_ALTERNATIVE_INIT_API
+#endif
+
+#if defined(BOOST_TEST_DYN_LINK)
+#include <boost/test/unit_test.hpp>
+#else
+#include <boost/test/included/unit_test.hpp>
+#endif
+
+#include <boost/test/unit_test_log.hpp>
+
+#include <string>
+#include <type_traits>
+#include <vector>
+
+#if defined(_MSC_VER)
+#undef max
+#undef min
+#endif
 
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
+
+struct GlobalConfiguration
+{
+    GlobalConfiguration()
+    {
+        [[maybe_unused]] int argc =
+            boost::unit_test::framework::master_test_suite().argc;
+        [[maybe_unused]] char **argv =
+            boost::unit_test::framework::master_test_suite().argv;
+
+#ifdef NEKTAR_USE_MPI
+        MPI_Init(&argc, &argv);
+#endif
+    }
+
+    ~GlobalConfiguration()
+    {
+#ifdef NEKTAR_USE_MPI
+        MPI_Finalize();
+#endif
+    }
+};
+
+#if defined(BOOST_TEST_NO_MAIN)
+
+bool init_function()
+{
+    return true;
+}
+
+int main(int argc, char *argv[])
+{
+    GlobalConfiguration gc;
+
+    return boost::unit_test::unit_test_main(&init_function, argc, argv);
+}
+
+#else
+BOOST_TEST_GLOBAL_CONFIGURATION(GlobalConfiguration);
+#endif
 
 template <typename TData> class MathField
 {

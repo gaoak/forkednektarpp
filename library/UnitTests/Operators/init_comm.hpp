@@ -35,6 +35,7 @@
 #pragma once
 
 #include <LibUtilities/Communication/Comm.h>
+#include <Operators/Field/Field.hpp>
 
 // Currently the BOOST_TEST_DYN_LINK is local only to this unit
 // test. It is undefined at the bottom of the file.

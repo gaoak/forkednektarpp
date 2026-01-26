@@ -56,9 +56,6 @@ namespace Nektar::Operators
 Collections::Collection GetCollection(
     MultiRegions::ExpListSharedPtr expansionList, unsigned int block_idx);
 
-template <typename MemSpace, typename TData, FieldState TState>
-void AllocateFieldStorage(Field<TData, TState> *field);
-
 /**
  * @brief A block means a group of elements of identical shape,
  * basis and order. BlockAttributes stores the most basic
@@ -166,8 +163,6 @@ template <typename TData, FieldState TState>
 class BlockAccessor : public BlockAttributes<TState>
 {
     template <typename TDataField, FieldState TStateField> friend class Field;
-    template <typename MemSpace, typename TDataField, FieldState TStateField>
-    friend void AllocateFieldStorage(Field<TDataField, TStateField> *field);
 
 public:
     BlockAccessor() = delete;
@@ -253,7 +248,7 @@ public:
         // accross all MemoryRegion objects from m_field. Note: m_field is a
         // pointer to a Field object from which the current BlockAccessor object
         // belong to.
-        AllocateFieldStorage<MemSpace>(m_field);
+        Field<TData, TState>::template AllocateFieldStorage<MemSpace>(m_field);
 
         return m_memory_region.template GetPtr<MemSpace, MemAccess>();
     }
